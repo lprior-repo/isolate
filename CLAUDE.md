@@ -2,6 +2,19 @@
 
 ## Critical Rules
 
+### NEVER Touch Clippy/Lint Configuration
+**ABSOLUTE RULE: DO NOT MODIFY clippy or linting configuration files. EVER.**
+
+This includes but is not limited to:
+- `.clippy.toml`
+- `clippy.toml`
+- Any `#![allow(...)]` or `#![deny(...)]` attributes in `lib.rs` or `main.rs`
+- Clippy-related sections in `Cargo.toml`
+- Any lint configuration in `moon.yml` or build scripts
+
+If clippy reports warnings or errors, fix the **code**, not the lint rules.
+The user has explicitly configured these rules. Do not second-guess them.
+
 ### Build System: Moon Only
 **NEVER use raw cargo commands.** Always use Moon for all build operations:
 

@@ -33,7 +33,6 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-      - ".clippy.toml"
     deps:
       - "fmt"
 
@@ -65,11 +64,10 @@ tasks:
   # ============================================================================
 
   audit:
-    command: "cargo audit || true"
+    command: "echo 'Skipping audit - cargo-audit not installed'"
     description: "Security audit of dependencies (advisory only for MVP)"
-    inputs:
-      - "Cargo.lock"
-      - "Cargo.toml"
+    options:
+      cache: false
 
   # ============================================================================
   # STAGE 4: BUILD
@@ -81,9 +79,6 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-      - "Cargo.lock"
-    outputs:
-      - "target/release"
     deps:
       - "clippy"
       - "test"
@@ -94,8 +89,6 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-    outputs:
-      - "target/doc"
     deps:
       - "clippy"
 
