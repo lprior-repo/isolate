@@ -20,11 +20,13 @@ pub fn run(name: &str) -> Result<()> {
     let root = jj_root()?;
     let workspace_path = format!("{root}/.jjz/workspaces/{name}");
 
+    // Create the session record first (validates the name)
+    let session = Session::new(name, &workspace_path)?;
+
     // Create the JJ workspace (works outside Zellij too)
     create_jj_workspace(&root, name, &workspace_path)?;
 
-    // Create the session record
-    let session = Session::new(name, &workspace_path)?;
+    // Insert into database after workspace is created successfully
     db.insert(&session)?;
 
     if is_inside_zellij() {

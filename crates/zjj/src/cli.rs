@@ -88,7 +88,6 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
     let zellij_path = which::which("zellij").context("Failed to find zellij in PATH")?;
 
     let mut cmd = std::process::Command::new(zellij_path);
-    cmd.args(["attach", "-c", &session_name]);
 
     // If layout content provided, write it to a temp file and use it
     if let Some(layout) = layout_content {
@@ -101,7 +100,12 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
             layout_path
                 .to_str()
                 .ok_or_else(|| anyhow::anyhow!("Invalid layout path"))?,
+            "attach",
+            "-c",
+            &session_name,
         ]);
+    } else {
+        cmd.args(["attach", "-c", &session_name]);
     }
 
     // Exec into Zellij
@@ -132,7 +136,7 @@ pub fn init_jj_repo() -> Result<()> {
     if is_git_repo() {
         run_command("jj", &["git", "init", "--colocate"])?;
     } else {
-        run_command("jj", &["init"])?;
+        run_command("jj", &["git", "init"])?;
     }
     Ok(())
 }
