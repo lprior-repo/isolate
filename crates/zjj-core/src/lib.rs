@@ -17,10 +17,14 @@
 //! - `map`, `and_then` combinators for transformation
 //! - `unwrap_or_default()`, `unwrap_or_else()` for defaults
 
+pub mod config;
 mod error;
 pub mod functional;
+pub mod hooks;
 pub mod jj;
 mod result;
+pub mod watcher;
+pub mod zellij;
 
 pub use error::Error;
 pub use result::{Result, ResultExt};

@@ -28,6 +28,7 @@ which = "7.0"
 tempfile = "3"
 assert_cmd = "2"
 predicates = "3"
+toml = "0.8"
 
 [lints]
 workspace = true

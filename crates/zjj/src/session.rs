@@ -110,10 +110,6 @@ impl Session {
 }
 
 /// Fields that can be updated on an existing session
-///
-/// NOTE: This is currently only used in tests. When implementing session
-/// update functionality in production, this struct will be promoted.
-#[cfg(test)]
 #[derive(Debug, Clone, Default)]
 pub struct SessionUpdate {
     /// Update the session status
@@ -128,10 +124,12 @@ pub struct SessionUpdate {
 
 /// Validate a session name
 ///
-/// NOTE: Currently only used in tests. When we add session creation commands,
-/// this will be called from production code.
-#[cfg(test)]
-fn validate_session_name(name: &str) -> Result<()> {
+/// Session names must:
+/// - Not be empty
+/// - Not exceed 64 characters
+/// - Only contain alphanumeric characters, dashes, and underscores
+/// - Not start with a dash or underscore
+pub fn validate_session_name(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::ValidationError(
             "Session name cannot be empty".into(),
@@ -166,9 +164,13 @@ fn validate_session_name(name: &str) -> Result<()> {
 
 /// Validate a status transition
 ///
-/// NOTE: Currently only used in tests. When implementing session lifecycle
-/// commands, this will enforce valid state transitions.
-#[cfg(test)]
+/// Enforces valid state transitions in the session lifecycle:
+/// - Creating -> Active, Failed
+/// - Active -> Paused, Completed, Failed
+/// - Paused -> Active, Failed
+/// - Failed -> Creating (retry)
+/// - Completed -> Active (reopen)
+#[allow(dead_code)]
 pub fn validate_status_transition(from: SessionStatus, to: SessionStatus) -> Result<()> {
     use SessionStatus::*;
 

@@ -215,8 +215,8 @@ mod tests {
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "jjz:test".to_string(),
             branch: Some("feature".to_string()),
-            created_at: 1234567890,
-            updated_at: 1234567890,
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_890,
             last_synced: None,
             metadata: None,
         };
@@ -253,8 +253,8 @@ mod tests {
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "jjz:test-session".to_string(),
             branch: Some("main".to_string()),
-            created_at: 1234567890,
-            updated_at: 1234567890,
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_890,
             last_synced: None,
             metadata: None,
         };
@@ -281,8 +281,8 @@ mod tests {
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "jjz:test-session".to_string(),
             branch: Some("main".to_string()),
-            created_at: 1234567890,
-            updated_at: 1234567890,
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_890,
             last_synced: None,
             metadata: None,
         };
@@ -406,8 +406,8 @@ mod tests {
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "jjz:test".to_string(),
             branch: None,
-            created_at: 1234567890,
-            updated_at: 1234567890,
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_890,
             last_synced: None,
             metadata: None,
         };

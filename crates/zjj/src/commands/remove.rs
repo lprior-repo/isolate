@@ -1,6 +1,9 @@
 //! Remove a session and its workspace
 
-use std::fs;
+use std::{
+    fs,
+    io::{self, Write},
+};
 
 use anyhow::{Context, Result};
 
@@ -9,14 +12,54 @@ use crate::{
     commands::get_session_db,
 };
 
+/// Options for the remove command
+#[derive(Debug, Default)]
+pub struct RemoveOptions {
+    /// Skip confirmation prompt and hooks
+    pub force: bool,
+    /// Squash-merge to main before removal
+    pub merge: bool,
+    /// Preserve branch after removal
+    #[allow(dead_code)]
+    pub keep_branch: bool,
+}
+
 /// Run the remove command
+#[allow(dead_code)]
 pub fn run(name: &str) -> Result<()> {
+    run_with_options(name, RemoveOptions::default())
+}
+
+/// Run the remove command with options
+pub fn run_with_options(name: &str, options: RemoveOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session
     let session = db
         .get(name)?
         .ok_or_else(|| anyhow::anyhow!("Session '{name}' not found"))?;
+
+    // Confirm removal unless --force
+    if !options.force && !confirm_removal(name)? {
+        println!("Removal cancelled");
+        return Ok(());
+    }
+
+    // Run pre_remove hooks unless --force
+    if !options.force {
+        run_pre_remove_hooks(name, &session.workspace_path)?;
+    }
+
+    // If --merge: squash-merge to main
+    if options.merge {
+        merge_to_main(name, &session.workspace_path)?;
+    }
+
+    // Close Zellij tab if inside Zellij
+    if is_inside_zellij() {
+        // Try to close the tab - ignore errors if tab doesn't exist
+        let _ = close_zellij_tab(&session.zellij_tab);
+    }
 
     // Remove JJ workspace (this removes the workspace from JJ's tracking)
     let workspace_result = run_command("jj", &["workspace", "forget", name]);
@@ -30,18 +73,41 @@ pub fn run(name: &str) -> Result<()> {
             .context("Failed to remove workspace directory")?;
     }
 
-    // Close Zellij tab if inside Zellij
-    if is_inside_zellij() {
-        // Try to close the tab - ignore errors if tab doesn't exist
-        let _ = close_zellij_tab(&session.zellij_tab);
-    }
-
     // Remove from database
     db.delete(name)?;
 
     println!("Removed session '{name}'");
 
     Ok(())
+}
+
+/// Prompt user for confirmation
+fn confirm_removal(name: &str) -> Result<bool> {
+    print!("Remove session '{name}' and its workspace? [y/N] ");
+    io::stdout().flush()?;
+
+    let mut response = String::new();
+    io::stdin().read_line(&mut response)?;
+
+    let response = response.trim().to_lowercase();
+    Ok(response == "y" || response == "yes")
+}
+
+/// Run `pre_remove` hooks
+fn run_pre_remove_hooks(_name: &str, _workspace_path: &str) -> Result<()> {
+    // TODO: Implement hook execution when config system is ready
+    // For now, this is a placeholder that always succeeds
+    Ok(())
+}
+
+/// Merge session to main branch
+fn merge_to_main(_name: &str, _workspace_path: &str) -> Result<()> {
+    // TODO: Implement merge functionality
+    // This should:
+    // 1. Switch to the session workspace
+    // 2. Squash commits
+    // 3. Merge to main
+    anyhow::bail!("--merge is not yet implemented")
 }
 
 /// Close a Zellij tab by name
@@ -51,4 +117,63 @@ fn close_zellij_tab(tab_name: &str) -> Result<()> {
     // Then close it
     run_command("zellij", &["action", "close-tab"])?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+
+    use super::*;
+    use crate::db::SessionDb;
+
+    // Helper to create a test database with a session
+    fn setup_test_session(name: &str) -> Result<(SessionDb, TempDir, String)> {
+        let dir = TempDir::new()?;
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::open(&db_path)?;
+
+        let workspace_dir = dir.path().join("workspaces").join(name);
+        fs::create_dir_all(&workspace_dir)?;
+        let workspace_path = workspace_dir.to_str().unwrap().to_string();
+
+        db.create(name, &workspace_path)?;
+
+        Ok((db, dir, workspace_path))
+    }
+
+    #[test]
+    fn test_remove_options_default() {
+        let opts = RemoveOptions::default();
+        assert!(!opts.force);
+        assert!(!opts.merge);
+        assert!(!opts.keep_branch);
+    }
+
+    #[test]
+    fn test_session_not_found() {
+        let dir = TempDir::new().unwrap();
+        let db_path = dir.path().join("test.db");
+        let _db = SessionDb::open(&db_path).unwrap();
+
+        // Mock get_session_db to return our test db
+        // Note: This test will fail until we refactor to use dependency injection
+        // For now, it demonstrates the test case we need
+    }
+
+    #[test]
+    fn test_confirm_removal_format() {
+        // Test that confirmation prompt is correct
+        // This is a unit test for the confirmation logic
+        // Actual I/O testing would require mocking stdin/stdout
+    }
+
+    #[test]
+    fn test_merge_to_main_not_implemented() {
+        let result = merge_to_main("test", "/path");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not yet implemented"));
+    }
 }

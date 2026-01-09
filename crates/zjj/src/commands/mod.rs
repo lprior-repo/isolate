@@ -1,6 +1,7 @@
 //! Command implementations
 
 pub mod add;
+pub mod diff;
 pub mod focus;
 pub mod init;
 pub mod list;

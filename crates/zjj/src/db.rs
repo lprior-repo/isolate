@@ -18,9 +18,7 @@ use std::{
 use rusqlite::Connection;
 use zjj_core::{Error, Result};
 
-#[cfg(test)]
-use crate::session::SessionUpdate;
-use crate::session::{Session, SessionStatus};
+use crate::session::{Session, SessionStatus, SessionUpdate};
 
 /// Database wrapper for session storage with thread-safe connection management
 pub struct SessionDb {
@@ -245,13 +243,9 @@ impl SessionDb {
     ///
     /// Updates the specified fields and automatically sets `updated_at` timestamp.
     ///
-    /// NOTE: Currently only used in tests. When implementing session modification
-    /// commands (e.g., pause, resume, sync), this will be used in production.
-    ///
     /// # Errors
     ///
     /// Returns `Error::DatabaseError` if the database update fails.
-    #[cfg(test)]
     pub fn update(&self, name: &str, update: SessionUpdate) -> Result<()> {
         let conn = self
             .conn

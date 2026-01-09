@@ -10,7 +10,7 @@ mod commands;
 mod db;
 mod session;
 
-use commands::{add, focus, init, list, remove, status, sync};
+use commands::{add, diff, focus, init, list, remove, status, sync};
 
 fn build_cli() -> ClapCommand {
     ClapCommand::new("jjz")
@@ -28,6 +28,25 @@ fn build_cli() -> ClapCommand {
                     Arg::new("name")
                         .required(true)
                         .help("Name for the new session"),
+                )
+                .arg(
+                    Arg::new("no-hooks")
+                        .long("no-hooks")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip executing post_create hooks"),
+                )
+                .arg(
+                    Arg::new("template")
+                        .short('t')
+                        .long("template")
+                        .value_name("TEMPLATE")
+                        .help("Zellij layout template to use (minimal, standard, full)"),
+                )
+                .arg(
+                    Arg::new("no-open")
+                        .long("no-open")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Create workspace without opening Zellij tab"),
                 ),
         )
         .subcommand(
@@ -53,6 +72,27 @@ fn build_cli() -> ClapCommand {
                     Arg::new("name")
                         .required(true)
                         .help("Name of the session to remove"),
+                )
+                .arg(
+                    Arg::new("force")
+                        .short('f')
+                        .long("force")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip confirmation prompt and hooks"),
+                )
+                .arg(
+                    Arg::new("merge")
+                        .short('m')
+                        .long("merge")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Squash-merge to main before removal"),
+                )
+                .arg(
+                    Arg::new("keep-branch")
+                        .short('k')
+                        .long("keep-branch")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Preserve branch after removal"),
                 ),
         )
         .subcommand(
@@ -64,7 +104,27 @@ fn build_cli() -> ClapCommand {
                         .help("Name of the session to focus"),
                 ),
         )
-        .subcommand(ClapCommand::new("status").about("Show current ZJJ status and context"))
+        .subcommand(
+            ClapCommand::new("status")
+                .about("Show detailed session status")
+                .arg(
+                    Arg::new("name")
+                        .required(false)
+                        .help("Session name to show status for (shows all if omitted)"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                )
+                .arg(
+                    Arg::new("watch")
+                        .long("watch")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Continuously update status (1s refresh)"),
+                ),
+        )
         .subcommand(
             ClapCommand::new("sync")
                 .about("Sync a session's workspace with main (rebase)")
@@ -72,6 +132,21 @@ fn build_cli() -> ClapCommand {
                     Arg::new("name")
                         .required(false)
                         .help("Session name to sync (syncs current workspace if omitted)"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("diff")
+                .about("Show diff between session and main branch")
+                .arg(
+                    Arg::new("name")
+                        .required(true)
+                        .help("Session name to show diff for"),
+                )
+                .arg(
+                    Arg::new("stat")
+                        .long("stat")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Show diffstat only (summary of changes)"),
                 ),
         )
 }
@@ -94,7 +169,19 @@ fn main() -> Result<()> {
             let name = sub_m
                 .get_one::<String>("name")
                 .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
-            add::run(name)
+
+            let no_hooks = sub_m.get_flag("no-hooks");
+            let template = sub_m.get_one::<String>("template").cloned();
+            let no_open = sub_m.get_flag("no-open");
+
+            let options = add::AddOptions {
+                name: name.clone(),
+                no_hooks,
+                template,
+                no_open,
+            };
+
+            add::run_with_options(options)
         }
         Some(("list", sub_m)) => {
             let all = sub_m.get_flag("all");
@@ -105,7 +192,12 @@ fn main() -> Result<()> {
             let name = sub_m
                 .get_one::<String>("name")
                 .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
-            remove::run(name)
+            let options = remove::RemoveOptions {
+                force: sub_m.get_flag("force"),
+                merge: sub_m.get_flag("merge"),
+                keep_branch: sub_m.get_flag("keep-branch"),
+            };
+            remove::run_with_options(name, options)
         }
         Some(("focus", sub_m)) => {
             let name = sub_m
@@ -113,10 +205,22 @@ fn main() -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
             focus::run(name)
         }
-        Some(("status", _)) => status::run(),
+        Some(("status", sub_m)) => {
+            let name = sub_m.get_one::<String>("name").map(String::as_str);
+            let json = sub_m.get_flag("json");
+            let watch = sub_m.get_flag("watch");
+            status::run(name, json, watch)
+        }
         Some(("sync", sub_m)) => {
             let name = sub_m.get_one::<String>("name").map(String::as_str);
             sync::run(name)
+        }
+        Some(("diff", sub_m)) => {
+            let name = sub_m
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+            let stat = sub_m.get_flag("stat");
+            diff::run(name, stat)
         }
         _ => {
             build_cli().print_help()?;
