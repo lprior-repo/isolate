@@ -13,8 +13,9 @@ use common::TestHarness;
 
 #[test]
 fn test_init_creates_jjz_directory() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     // Run init
@@ -26,8 +27,9 @@ fn test_init_creates_jjz_directory() {
 
 #[test]
 fn test_init_creates_config_toml() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     harness.assert_success(&["init"]);
@@ -49,8 +51,9 @@ fn test_init_creates_config_toml() {
 
 #[test]
 fn test_init_creates_state_db() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     harness.assert_success(&["init"]);
@@ -74,8 +77,9 @@ fn test_init_creates_state_db() {
 
 #[test]
 fn test_init_creates_layouts_directory() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     harness.assert_success(&["init"]);
@@ -88,8 +92,9 @@ fn test_init_creates_layouts_directory() {
 
 #[test]
 fn test_init_twice_succeeds_idempotently() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     // First init
@@ -103,8 +108,9 @@ fn test_init_twice_succeeds_idempotently() {
 
 #[test]
 fn test_init_creates_valid_toml_config() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     harness.assert_success(&["init"]);
@@ -134,8 +140,9 @@ fn test_init_creates_valid_toml_config() {
 
 #[test]
 fn test_init_config_has_correct_defaults() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     harness.assert_success(&["init"]);
@@ -173,8 +180,9 @@ fn test_init_config_has_correct_defaults() {
 
 #[test]
 fn test_init_sets_up_complete_directory_structure() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     harness.assert_success(&["init"]);
@@ -193,8 +201,9 @@ fn test_init_sets_up_complete_directory_structure() {
 
 #[test]
 fn test_init_output_is_informative() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     let result = harness.jjz(&["init"]);
@@ -206,8 +215,9 @@ fn test_init_output_is_informative() {
 
 #[test]
 fn test_init_creates_workspaces_directory() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     harness.assert_success(&["init"]);
@@ -222,8 +232,9 @@ fn test_init_creates_workspaces_directory() {
 
 #[test]
 fn test_init_preserves_existing_config() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     // First init
@@ -252,8 +263,9 @@ main_branch = "main"
 
 #[test]
 fn test_init_state_db_has_correct_schema() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     harness.assert_success(&["init"]);
@@ -284,8 +296,9 @@ fn test_init_state_db_has_correct_schema() {
 
 #[test]
 fn test_init_creates_indexes() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     harness.assert_success(&["init"]);

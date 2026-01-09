@@ -178,12 +178,27 @@ fn ensure_jj_repo() -> Result<()> {
 mod tests {
     use std::process::Command;
 
+    use serial_test::serial;
     use tempfile::TempDir;
 
     use super::*;
 
+    /// Check if jj is available in PATH
+    fn jj_is_available() -> bool {
+        Command::new("jj")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+
     /// Helper to setup a test JJ repository
-    fn setup_test_jj_repo() -> Result<TempDir> {
+    /// Returns None if jj is not available
+    fn setup_test_jj_repo() -> Result<Option<TempDir>> {
+        if !jj_is_available() {
+            return Ok(None);
+        }
+
         let temp_dir = TempDir::new().context("Failed to create temp dir")?;
 
         // Initialize a JJ repo in the temp directory
@@ -200,12 +215,16 @@ mod tests {
             );
         }
 
-        Ok(temp_dir)
+        Ok(Some(temp_dir))
     }
 
     #[test]
+    #[serial]
     fn test_init_creates_jjz_directory() -> Result<()> {
-        let temp_dir = setup_test_jj_repo()?;
+        let Some(temp_dir) = setup_test_jj_repo()? else {
+            eprintln!("Skipping test: jj not available");
+            return Ok(());
+        };
 
         // Change to temp dir BEFORE running init
         let original_dir = std::env::current_dir()?;
@@ -229,8 +248,12 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_init_creates_config_toml() -> Result<()> {
-        let temp_dir = setup_test_jj_repo()?;
+        let Some(temp_dir) = setup_test_jj_repo()? else {
+            eprintln!("Skipping test: jj not available");
+            return Ok(());
+        };
 
         let original_dir = std::env::current_dir()?;
         std::env::set_current_dir(temp_dir.path())?;
@@ -254,8 +277,12 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_init_creates_state_db() -> Result<()> {
-        let temp_dir = setup_test_jj_repo()?;
+        let Some(temp_dir) = setup_test_jj_repo()? else {
+            eprintln!("Skipping test: jj not available");
+            return Ok(());
+        };
 
         let original_dir = std::env::current_dir()?;
         std::env::set_current_dir(temp_dir.path())?;
@@ -277,8 +304,12 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_init_creates_layouts_directory() -> Result<()> {
-        let temp_dir = setup_test_jj_repo()?;
+        let Some(temp_dir) = setup_test_jj_repo()? else {
+            eprintln!("Skipping test: jj not available");
+            return Ok(());
+        };
 
         let original_dir = std::env::current_dir()?;
         std::env::set_current_dir(temp_dir.path())?;
@@ -295,8 +326,12 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_init_handles_already_initialized() -> Result<()> {
-        let temp_dir = setup_test_jj_repo()?;
+        let Some(temp_dir) = setup_test_jj_repo()? else {
+            eprintln!("Skipping test: jj not available");
+            return Ok(());
+        };
         let original_dir = std::env::current_dir()?;
 
         std::env::set_current_dir(temp_dir.path())?;
@@ -315,11 +350,15 @@ mod tests {
     }
 
     #[test]
-    fn test_init_fails_without_jj_when_not_in_repo() -> Result<()> {
-        // This test verifies that if we're not in a JJ repo and can't initialize one,
-        // the init command properly reports an error.
-        // Since we can't easily simulate this without mocking, we'll test that
-        // is_jj_repo() works correctly instead
+    #[serial]
+    fn test_init_auto_creates_jj_repo() -> Result<()> {
+        // This test verifies that if we're not in a JJ repo,
+        // the init command will create one automatically
+        if !jj_is_available() {
+            eprintln!("Skipping test: jj not available");
+            return Ok(());
+        }
+
         let temp_dir = TempDir::new()?;
         let original_dir = std::env::current_dir()?;
 
@@ -327,13 +366,18 @@ mod tests {
 
         // Before JJ init, should not be a repo
         // After our init command runs, it will create a JJ repo automatically
-        // So we just verify the automatic initialization works
         let result = run();
 
         std::env::set_current_dir(original_dir)?;
 
         // Should succeed because init_jj_repo is called automatically
         assert!(result.is_ok());
+
+        // Verify JJ repo was created
+        assert!(
+            temp_dir.path().join(".jj").exists(),
+            "JJ repo should be auto-created"
+        );
 
         Ok(())
     }

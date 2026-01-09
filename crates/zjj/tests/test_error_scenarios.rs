@@ -12,8 +12,9 @@ use common::TestHarness;
 
 #[test]
 fn test_init_succeeds_with_jj_and_zellij_installed() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     // This test assumes jj and zellij are installed
@@ -32,8 +33,9 @@ fn test_init_succeeds_with_jj_and_zellij_installed() {
 
 #[test]
 fn test_add_empty_session_name() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -43,8 +45,9 @@ fn test_add_empty_session_name() {
 
 #[test]
 fn test_add_session_name_too_long() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -55,8 +58,9 @@ fn test_add_session_name_too_long() {
 
 #[test]
 fn test_add_session_name_starts_with_dash() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -65,8 +69,9 @@ fn test_add_session_name_starts_with_dash() {
 
 #[test]
 fn test_add_session_name_starts_with_underscore() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -75,8 +80,9 @@ fn test_add_session_name_starts_with_underscore() {
 
 #[test]
 fn test_add_session_name_with_slash() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -88,8 +94,9 @@ fn test_add_session_name_with_slash() {
 
 #[test]
 fn test_add_session_name_with_dots() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -102,8 +109,9 @@ fn test_add_session_name_with_dots() {
 
 #[test]
 fn test_add_without_init() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     // Try to add without running init first
@@ -113,8 +121,9 @@ fn test_add_without_init() {
 
 #[test]
 fn test_list_without_init() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     // Try to list without running init first
@@ -124,8 +133,9 @@ fn test_list_without_init() {
 
 #[test]
 fn test_remove_without_init() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     let result = harness.jjz(&["remove", "test", "--force"]);
@@ -134,8 +144,9 @@ fn test_remove_without_init() {
 
 #[test]
 fn test_status_without_init() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     let result = harness.jjz(&["status", "test"]);
@@ -148,8 +159,9 @@ fn test_status_without_init() {
 
 #[test]
 fn test_remove_nonexistent_session() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -158,8 +170,9 @@ fn test_remove_nonexistent_session() {
 
 #[test]
 fn test_status_nonexistent_session() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -169,8 +182,9 @@ fn test_status_nonexistent_session() {
 
 #[test]
 fn test_focus_nonexistent_session() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -180,8 +194,9 @@ fn test_focus_nonexistent_session() {
 
 #[test]
 fn test_sync_nonexistent_session() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -191,8 +206,9 @@ fn test_sync_nonexistent_session() {
 
 #[test]
 fn test_diff_nonexistent_session() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -206,8 +222,9 @@ fn test_diff_nonexistent_session() {
 
 #[test]
 fn test_cannot_add_same_session_twice() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -217,8 +234,9 @@ fn test_cannot_add_same_session_twice() {
 
 #[test]
 fn test_remove_already_removed_session() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -235,8 +253,9 @@ fn test_remove_already_removed_session() {
 
 #[test]
 fn test_corrupted_database_recovery() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -254,8 +273,9 @@ fn test_corrupted_database_recovery() {
 
 #[test]
 fn test_missing_database() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -276,8 +296,9 @@ fn test_missing_database() {
 
 #[test]
 fn test_workspace_directory_creation_failure() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -296,8 +317,9 @@ fn test_workspace_directory_creation_failure() {
 fn test_readonly_jjz_directory() {
     use std::{fs, os::unix::fs::PermissionsExt};
 
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -329,8 +351,9 @@ fn test_readonly_jjz_directory() {
 
 #[test]
 fn test_init_with_extra_arguments() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     // init doesn't take arguments
@@ -340,8 +363,9 @@ fn test_init_with_extra_arguments() {
 
 #[test]
 fn test_add_missing_name_argument() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -351,8 +375,9 @@ fn test_add_missing_name_argument() {
 
 #[test]
 fn test_remove_missing_name_argument() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -362,8 +387,9 @@ fn test_remove_missing_name_argument() {
 
 #[test]
 fn test_diff_missing_name_argument() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -373,8 +399,9 @@ fn test_diff_missing_name_argument() {
 
 #[test]
 fn test_unknown_subcommand() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     let result = harness.jjz(&["unknown-command"]);
@@ -383,8 +410,9 @@ fn test_unknown_subcommand() {
 
 #[test]
 fn test_invalid_flag() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
 
     let result = harness.jjz(&["init", "--invalid-flag"]);
@@ -397,8 +425,9 @@ fn test_invalid_flag() {
 
 #[test]
 fn test_invalid_toml_config() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -412,8 +441,9 @@ fn test_invalid_toml_config() {
 
 #[test]
 fn test_missing_config_file() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -432,8 +462,9 @@ fn test_missing_config_file() {
 
 #[test]
 fn test_corrupted_jj_workspace() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
@@ -453,8 +484,9 @@ fn test_corrupted_jj_workspace() {
 
 #[test]
 fn test_session_name_exactly_64_chars() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -466,8 +498,9 @@ fn test_session_name_exactly_64_chars() {
 
 #[test]
 fn test_session_name_with_numbers_only() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -479,8 +512,9 @@ fn test_session_name_with_numbers_only() {
 
 #[test]
 fn test_rapid_add_remove_cycles() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 
@@ -497,8 +531,9 @@ fn test_rapid_add_remove_cycles() {
 
 #[test]
 fn test_list_with_no_sessions_after_remove_all() {
-    let Ok(harness) = TestHarness::new() else {
-        std::process::abort()
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
     };
     harness.assert_success(&["init"]);
 

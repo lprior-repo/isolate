@@ -28,7 +28,7 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
     }
 
     // Determine the main branch
-    let main_branch = determine_main_branch(workspace_path)?;
+    let main_branch = determine_main_branch(workspace_path);
 
     // Build the diff command
     let mut args = vec!["diff"];
@@ -89,24 +89,27 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
 }
 
 /// Determine the main branch for diffing
-fn determine_main_branch(workspace_path: &Path) -> Result<String> {
+fn determine_main_branch(workspace_path: &Path) -> String {
     // Try to find the trunk/main branch using jj
+    // If jj is not available or fails, fall back to "main"
     let output = Command::new("jj")
         .args(["log", "-r", "trunk()", "--no-graph", "-T", "commit_id"])
         .current_dir(workspace_path)
-        .output()
-        .context("Failed to detect main branch")?;
+        .output();
 
-    if output.status.success() {
-        let commit_id = String::from_utf8_lossy(&output.stdout);
-        let trimmed = commit_id.trim();
-        if !trimmed.is_empty() {
-            return Ok(trimmed.to_string());
+    // Handle case where jj is not installed or command fails
+    if let Ok(output) = output {
+        if output.status.success() {
+            let commit_id = String::from_utf8_lossy(&output.stdout);
+            let trimmed = commit_id.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
         }
     }
 
-    // Fallback: try "main" branch
-    Ok("main".to_string())
+    // Fallback: use "main" branch
+    "main".to_string()
 }
 
 /// Get the pager command from environment or defaults
@@ -131,6 +134,7 @@ fn get_pager() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
     use tempfile::TempDir;
 
     use super::*;
@@ -145,16 +149,17 @@ mod tests {
 
     #[test]
     fn test_determine_main_branch_not_in_repo() -> Result<()> {
-        // When not in a JJ repo, should fall back to "main"
+        // When not in a JJ repo (or jj not installed), should fall back to "main"
         let temp = TempDir::new().context("Failed to create temp dir")?;
-        let result = determine_main_branch(temp.path())?;
+        let result = determine_main_branch(temp.path());
 
-        // Should return Ok with fallback "main"
+        // Should return fallback "main"
         assert_eq!(result, "main");
         Ok(())
     }
 
     #[test]
+    #[serial]
     fn test_get_pager_from_env() {
         // Set PAGER environment variable
         std::env::set_var("PAGER", "custom-pager");
@@ -166,6 +171,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_get_pager_defaults() {
         // Unset PAGER
         std::env::remove_var("PAGER");
@@ -178,6 +184,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_get_pager_empty_env() {
         // Set PAGER to empty string
         std::env::set_var("PAGER", "");
