@@ -12,6 +12,15 @@ use std::{path::PathBuf, process::Command};
 use anyhow::{Context, Result};
 use tempfile::TempDir;
 
+/// Check if jj is available in PATH
+pub fn jj_is_available() -> bool {
+    Command::new("jj")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 /// Test harness for integration tests
 ///
 /// Provides a clean temporary environment with a JJ repository
@@ -27,7 +36,13 @@ pub struct TestHarness {
 
 impl TestHarness {
     /// Create a new test harness with a fresh JJ repository
+    /// Returns None if jj is not available
     pub fn new() -> Result<Self> {
+        // Check if jj is available first
+        if !jj_is_available() {
+            anyhow::bail!("jj is not installed - skipping test");
+        }
+
         let temp_dir = TempDir::new().context("Failed to create temp directory")?;
         let repo_path = temp_dir.path().join("test-repo");
 
@@ -73,6 +88,12 @@ impl TestHarness {
             repo_path,
             jjz_bin,
         })
+    }
+
+    /// Try to create a new test harness, returning None if jj is not available
+    /// This is useful for tests that should be skipped rather than fail
+    pub fn try_new() -> Option<Self> {
+        Self::new().ok()
     }
 
     /// Run a jjz command and return the result
@@ -285,14 +306,20 @@ mod tests {
 
     #[test]
     fn test_harness_creation() {
-        let harness = TestHarness::new().expect("Failed to create test harness");
+        let Some(harness) = TestHarness::try_new() else {
+            eprintln!("Skipping test: jj not available");
+            return;
+        };
         assert!(harness.repo_path.exists());
         assert!(harness.jjz_bin.exists());
     }
 
     #[test]
     fn test_harness_has_jj_repo() {
-        let harness = TestHarness::new().expect("Failed to create test harness");
+        let Some(harness) = TestHarness::try_new() else {
+            eprintln!("Skipping test: jj not available");
+            return;
+        };
         let result = harness.jj(&["root"]);
         assert!(result.success);
     }

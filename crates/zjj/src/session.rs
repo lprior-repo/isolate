@@ -127,12 +127,19 @@ pub struct SessionUpdate {
 /// Session names must:
 /// - Not be empty
 /// - Not exceed 64 characters
-/// - Only contain alphanumeric characters, dashes, and underscores
-/// - Not start with a dash or underscore
+/// - Only contain ASCII alphanumeric characters, dashes, and underscores
+/// - Start with a letter (a-z, A-Z)
 pub fn validate_session_name(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::ValidationError(
             "Session name cannot be empty".into(),
+        ));
+    }
+
+    // Check for non-ASCII characters first (prevents unicode bypasses)
+    if !name.is_ascii() {
+        return Err(Error::ValidationError(
+            "Session name must contain only ASCII characters (a-z, A-Z, 0-9, -, _)".into(),
         ));
     }
 
@@ -142,21 +149,24 @@ pub fn validate_session_name(name: &str) -> Result<()> {
         ));
     }
 
-    // Only allow alphanumeric, dash, and underscore
+    // Only allow ASCII alphanumeric, dash, and underscore
+    // Using is_ascii_alphanumeric() instead of is_alphanumeric() to reject unicode
     if !name
         .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return Err(Error::ValidationError(
-            "Session name can only contain alphanumeric characters, dashes, and underscores".into(),
+            "Session name can only contain ASCII alphanumeric characters, dashes, and underscores".into(),
         ));
     }
 
-    // Cannot start with dash or underscore
-    if name.starts_with('-') || name.starts_with('_') {
-        return Err(Error::ValidationError(
-            "Session name cannot start with a dash or underscore".into(),
-        ));
+    // Must start with a letter (not dash, underscore, or digit)
+    if let Some(first) = name.chars().next() {
+        if !first.is_ascii_alphabetic() {
+            return Err(Error::ValidationError(
+                "Session name must start with a letter (a-z, A-Z)".into(),
+            ));
+        }
     }
 
     Ok(())
@@ -236,6 +246,57 @@ mod tests {
     fn test_session_name_valid_with_underscore() {
         let result = validate_session_name("my_session");
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_session_name_starts_with_underscore_rejected() {
+        let result = validate_session_name("_session");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_session_name_starts_with_digit_rejected() {
+        let result = validate_session_name("123session");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_session_name_rejects_unicode() {
+        // Unicode characters should be rejected
+        let unicode_cases = vec![
+            "中文名字",      // Chinese
+            "日本語",        // Japanese
+            "café",          // Accented Latin
+            "Ñoño",          // Spanish
+            "🚀rocket",      // Emoji
+            "naïve",         // Diaeresis
+            "résumé",        // Accents
+        ];
+
+        for name in unicode_cases {
+            let result = validate_session_name(name);
+            assert!(result.is_err(), "Should reject unicode name: {name}");
+        }
+    }
+
+    #[test]
+    fn test_session_name_accepts_valid_names() {
+        let valid_cases = vec![
+            "name",
+            "my-name",
+            "myName",
+            "MyName123",
+            "name123",
+            "n-a-m-e",
+            "feature-branch-123",
+            "UPPERCASE",
+            "a", // Single letter
+        ];
+
+        for name in valid_cases {
+            let result = validate_session_name(name);
+            assert!(result.is_ok(), "Should accept valid name: {name}");
+        }
     }
 
     #[test]
