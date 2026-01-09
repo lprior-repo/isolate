@@ -8,9 +8,13 @@ use clap::{Arg, Command as ClapCommand};
 mod cli;
 mod commands;
 mod db;
+mod json_output;
 mod session;
 
-use commands::{add, diff, focus, init, list, remove, status, sync};
+use commands::{
+    add, config, dashboard, diff, doctor, focus, init, introspect, list, query, remove, status,
+    sync,
+};
 
 fn build_cli() -> ClapCommand {
     ClapCommand::new("jjz")
@@ -19,7 +23,14 @@ fn build_cli() -> ClapCommand {
         .about("ZJJ - Manage JJ workspaces with Zellij sessions")
         .subcommand_required(true)
         .subcommand(
-            ClapCommand::new("init").about("Initialize jjz in a JJ repository (or create one)"),
+            ClapCommand::new("init")
+                .about("Initialize jjz in a JJ repository (or create one)")
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
         )
         .subcommand(
             ClapCommand::new("add")
@@ -47,6 +58,12 @@ fn build_cli() -> ClapCommand {
                         .long("no-open")
                         .action(clap::ArgAction::SetTrue)
                         .help("Create workspace without opening Zellij tab"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
                 ),
         )
         .subcommand(
@@ -93,6 +110,12 @@ fn build_cli() -> ClapCommand {
                         .long("keep-branch")
                         .action(clap::ArgAction::SetTrue)
                         .help("Preserve branch after removal"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
                 ),
         )
         .subcommand(
@@ -102,6 +125,12 @@ fn build_cli() -> ClapCommand {
                     Arg::new("name")
                         .required(true)
                         .help("Name of the session to focus"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
                 ),
         )
         .subcommand(
@@ -132,6 +161,12 @@ fn build_cli() -> ClapCommand {
                     Arg::new("name")
                         .required(false)
                         .help("Session name to sync (syncs current workspace if omitted)"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
                 ),
         )
         .subcommand(
@@ -147,6 +182,80 @@ fn build_cli() -> ClapCommand {
                         .long("stat")
                         .action(clap::ArgAction::SetTrue)
                         .help("Show diffstat only (summary of changes)"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("config")
+                .alias("cfg")
+                .about("View or modify configuration")
+                .arg(
+                    Arg::new("key")
+                        .help("Config key to view/set (dot notation: 'zellij.use_tabs')"),
+                )
+                .arg(Arg::new("value").help("Value to set (omit to view)"))
+                .arg(
+                    Arg::new("global")
+                        .long("global")
+                        .short('g')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Operate on global config instead of project"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("dashboard")
+                .about("Launch interactive TUI dashboard with kanban view")
+                .alias("dash"),
+        )
+        .subcommand(
+            ClapCommand::new("introspect")
+                .about("Discover jjz capabilities and command details")
+                .arg(
+                    Arg::new("command")
+                        .required(false)
+                        .help("Command to introspect (shows all if omitted)"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("doctor")
+                .about("Run system health checks")
+                .alias("check")
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                )
+                .arg(
+                    Arg::new("fix")
+                        .long("fix")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Auto-fix issues where possible"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("query")
+                .about("Query system state programmatically")
+                .arg(
+                    Arg::new("query_type").required(true).help(
+                        "Type of query (session-exists, session-count, can-run, suggest-name)",
+                    ),
+                )
+                .arg(
+                    Arg::new("args")
+                        .required(false)
+                        .help("Query-specific arguments"),
                 ),
         )
 }
@@ -221,6 +330,35 @@ fn main() -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
             let stat = sub_m.get_flag("stat");
             diff::run(name, stat)
+        }
+        Some(("config", sub_m)) => {
+            let key = sub_m.get_one::<String>("key").cloned();
+            let value = sub_m.get_one::<String>("value").cloned();
+            let global = sub_m.get_flag("global");
+            let options = config::ConfigOptions { key, value, global };
+            config::run(options)
+        }
+        Some(("dashboard" | "dash", _)) => dashboard::run(),
+        Some(("introspect", sub_m)) => {
+            let command = sub_m.get_one::<String>("command").map(String::as_str);
+            let json = sub_m.get_flag("json");
+            if let Some(cmd) = command {
+                introspect::run_command_introspect(cmd, json)
+            } else {
+                introspect::run(json)
+            }
+        }
+        Some(("doctor" | "check", sub_m)) => {
+            let json = sub_m.get_flag("json");
+            let fix = sub_m.get_flag("fix");
+            doctor::run(json, fix)
+        }
+        Some(("query", sub_m)) => {
+            let query_type = sub_m
+                .get_one::<String>("query_type")
+                .ok_or_else(|| anyhow::anyhow!("Query type is required"))?;
+            let args = sub_m.get_one::<String>("args").map(String::as_str);
+            query::run(query_type, args)
         }
         _ => {
             build_cli().print_help()?;

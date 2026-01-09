@@ -227,13 +227,14 @@ mod tests {
 
         let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        match result {
-            HookResult::Success(results) => {
-                assert_eq!(results.len(), 1);
-                assert!(results[0].success);
-                assert!(results[0].stdout.contains("Hello"));
-            }
-            HookResult::NoHooks => panic!("Expected Success, got NoHooks"),
+        if let HookResult::Success(results) = result {
+            assert_eq!(results.len(), 1);
+            assert!(results[0].success);
+            assert!(results[0].stdout.contains("Hello"));
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected Success, got NoHooks".to_string(),
+            ));
         }
         Ok(())
     }
@@ -251,51 +252,55 @@ mod tests {
 
         let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        match result {
-            HookResult::Success(results) => {
-                assert_eq!(results.len(), 2);
-                assert!(results[0].success);
-                assert!(results[0].stdout.contains("A"));
-                assert!(results[1].success);
-                assert!(results[1].stdout.contains("B"));
-            }
-            HookResult::NoHooks => panic!("Expected Success, got NoHooks"),
+        if let HookResult::Success(results) = result {
+            assert_eq!(results.len(), 2);
+            assert!(results[0].success);
+            assert!(results[0].stdout.contains('A'));
+            assert!(results[1].success);
+            assert!(results[1].stdout.contains('B'));
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected Success, got NoHooks".to_string(),
+            ));
         }
         Ok(())
     }
 
     // Test 4: Hook failure returns error
     #[test]
-    fn test_hook_failure() {
+    fn test_hook_failure() -> Result<()> {
         let config = HooksConfig {
             post_create: vec!["exit 1".to_string()],
             pre_remove: Vec::new(),
             post_merge: Vec::new(),
         };
         let runner = HookRunner::new(config);
-        let workspace = create_test_workspace().unwrap();
+        let workspace = create_test_workspace()?;
 
         let result = runner.run(HookType::PostCreate, workspace.path());
 
         assert!(result.is_err());
-        match result {
-            Err(Error::HookFailed {
-                hook_type,
-                command,
-                exit_code,
-                ..
-            }) => {
-                assert_eq!(hook_type, "post_create");
-                assert_eq!(command, "exit 1");
-                assert_eq!(exit_code, Some(1));
-            }
-            _ => panic!("Expected HookFailed error"),
+        if let Err(Error::HookFailed {
+            hook_type,
+            command,
+            exit_code,
+            ..
+        }) = result
+        {
+            assert_eq!(hook_type, "post_create");
+            assert_eq!(command, "exit 1");
+            assert_eq!(exit_code, Some(1));
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected HookFailed error".to_string(),
+            ));
         }
+        Ok(())
     }
 
     // Test 5: Partial hook failure - second hook fails, third never runs
     #[test]
-    fn test_partial_hook_failure() {
+    fn test_partial_hook_failure() -> Result<()> {
         let config = HooksConfig {
             post_create: vec![
                 "echo 'A'".to_string(),
@@ -306,18 +311,20 @@ mod tests {
             post_merge: Vec::new(),
         };
         let runner = HookRunner::new(config);
-        let workspace = create_test_workspace().unwrap();
+        let workspace = create_test_workspace()?;
 
         let result = runner.run(HookType::PostCreate, workspace.path());
 
         assert!(result.is_err());
         // The third hook should never execute
-        match result {
-            Err(Error::HookFailed { command, .. }) => {
-                assert_eq!(command, "exit 1");
-            }
-            _ => panic!("Expected HookFailed error"),
+        if let Err(Error::HookFailed { command, .. }) = result {
+            assert_eq!(command, "exit 1");
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected HookFailed error".to_string(),
+            ));
         }
+        Ok(())
     }
 
     // Test 6: Hook with workspace as cwd
@@ -333,15 +340,16 @@ mod tests {
 
         let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        match result {
-            HookResult::Success(results) => {
-                assert_eq!(results.len(), 1);
-                assert!(results[0].success);
-                let output = results[0].stdout.trim();
-                let expected = workspace.path().to_string_lossy();
-                assert_eq!(output, expected.as_ref());
-            }
-            HookResult::NoHooks => panic!("Expected Success, got NoHooks"),
+        if let HookResult::Success(results) = result {
+            assert_eq!(results.len(), 1);
+            assert!(results[0].success);
+            let output = results[0].stdout.trim();
+            let expected = workspace.path().to_string_lossy();
+            assert_eq!(output, expected.as_ref());
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected Success, got NoHooks".to_string(),
+            ));
         }
         Ok(())
     }
@@ -359,13 +367,14 @@ mod tests {
 
         let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        match result {
-            HookResult::Success(results) => {
-                assert_eq!(results.len(), 1);
-                assert!(results[0].success);
-                assert!(results[0].stderr.contains("error"));
-            }
-            HookResult::NoHooks => panic!("Expected Success, got NoHooks"),
+        if let HookResult::Success(results) = result {
+            assert_eq!(results.len(), 1);
+            assert!(results[0].success);
+            assert!(results[0].stderr.contains("error"));
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected Success, got NoHooks".to_string(),
+            ));
         }
         Ok(())
     }
@@ -388,14 +397,15 @@ mod tests {
 
         let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        match result {
-            HookResult::Success(results) => {
-                assert_eq!(results.len(), 1);
-                assert!(results[0].success);
-                let output = results[0].stdout.trim();
-                assert!(output.ends_with("subdir"));
-            }
-            HookResult::NoHooks => panic!("Expected Success, got NoHooks"),
+        if let HookResult::Success(results) = result {
+            assert_eq!(results.len(), 1);
+            assert!(results[0].success);
+            let output = results[0].stdout.trim();
+            assert!(output.ends_with("subdir"));
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected Success, got NoHooks".to_string(),
+            ));
         }
         Ok(())
     }
@@ -413,29 +423,32 @@ mod tests {
 
         // Test post_create
         let result = runner.run(HookType::PostCreate, workspace.path())?;
-        match result {
-            HookResult::Success(results) => {
-                assert!(results[0].stdout.contains("post_create"));
-            }
-            HookResult::NoHooks => panic!("Expected Success for post_create"),
+        if let HookResult::Success(results) = result {
+            assert!(results[0].stdout.contains("post_create"));
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected Success for post_create".to_string(),
+            ));
         }
 
         // Test pre_remove
         let result = runner.run(HookType::PreRemove, workspace.path())?;
-        match result {
-            HookResult::Success(results) => {
-                assert!(results[0].stdout.contains("pre_remove"));
-            }
-            HookResult::NoHooks => panic!("Expected Success for pre_remove"),
+        if let HookResult::Success(results) = result {
+            assert!(results[0].stdout.contains("pre_remove"));
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected Success for pre_remove".to_string(),
+            ));
         }
 
         // Test post_merge
         let result = runner.run(HookType::PostMerge, workspace.path())?;
-        match result {
-            HookResult::Success(results) => {
-                assert!(results[0].stdout.contains("post_merge"));
-            }
-            HookResult::NoHooks => panic!("Expected Success for post_merge"),
+        if let HookResult::Success(results) = result {
+            assert!(results[0].stdout.contains("post_merge"));
+        } else {
+            return Err(Error::InvalidConfig(
+                "Expected Success for post_merge".to_string(),
+            ));
         }
 
         Ok(())
@@ -443,14 +456,14 @@ mod tests {
 
     // Test 10: Shell detection uses SHELL env var
     #[test]
-    fn test_get_user_shell_from_env() {
+    fn test_get_user_shell_from_env() -> Result<()> {
         // Save current SHELL value
         let original_shell = std::env::var("SHELL").ok();
 
         // Set SHELL to a test value
         std::env::set_var("SHELL", "/bin/test_shell");
 
-        let shell = get_user_shell().unwrap();
+        let shell = get_user_shell()?;
         assert_eq!(shell, "/bin/test_shell");
 
         // Restore original SHELL
@@ -458,18 +471,19 @@ mod tests {
             Some(shell) => std::env::set_var("SHELL", shell),
             None => std::env::remove_var("SHELL"),
         }
+        Ok(())
     }
 
     // Test 11: Shell detection falls back to /bin/sh
     #[test]
-    fn test_get_user_shell_fallback() {
+    fn test_get_user_shell_fallback() -> Result<()> {
         // Save current SHELL value
         let original_shell = std::env::var("SHELL").ok();
 
         // Remove SHELL env var
         std::env::remove_var("SHELL");
 
-        let shell = get_user_shell().unwrap();
+        let shell = get_user_shell()?;
         assert_eq!(shell, "/bin/sh");
 
         // Restore original SHELL
@@ -477,6 +491,7 @@ mod tests {
             Some(shell) => std::env::set_var("SHELL", shell),
             None => std::env::remove_var("SHELL"),
         }
+        Ok(())
     }
 
     // Test 12: HookType event names
@@ -489,14 +504,14 @@ mod tests {
 
     // Test 13: Hook execution failed error (invalid command)
     #[test]
-    fn test_hook_execution_failed() {
+    fn test_hook_execution_failed() -> Result<()> {
         let config = HooksConfig {
             post_create: vec!["nonexistent_command_that_does_not_exist".to_string()],
             pre_remove: Vec::new(),
             post_merge: Vec::new(),
         };
         let runner = HookRunner::new(config);
-        let workspace = create_test_workspace().unwrap();
+        let workspace = create_test_workspace()?;
 
         let result = runner.run(HookType::PostCreate, workspace.path());
 
@@ -504,5 +519,6 @@ mod tests {
         // could succeed with error code, depending on shell behavior
         // Most shells will exit with 127 for command not found
         assert!(result.is_err() || matches!(result, Ok(HookResult::Success(_))));
+        Ok(())
     }
 }

@@ -18,11 +18,16 @@
 //! - `unwrap_or_default()`, `unwrap_or_else()` for defaults
 
 pub mod config;
+pub mod contracts;
 mod error;
 pub mod functional;
+pub mod hints;
 pub mod hooks;
+pub mod introspection;
 pub mod jj;
+pub mod json;
 mod result;
+pub mod types;
 pub mod watcher;
 pub mod zellij;
 

@@ -279,9 +279,8 @@ mod tests {
 
     #[test]
     fn test_query_beads_status_no_beads() {
-        let temp_dir = match TempDir::new() {
-            Ok(d) => d,
-            Err(_) => return,
+        let Ok(temp_dir) = TempDir::new() else {
+            return;
         };
         let result = query_beads_status(temp_dir.path());
 
@@ -296,53 +295,51 @@ mod tests {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     #[test]
-    fn test_query_beads_status_with_database() {
-        let temp_dir = match TempDir::new() {
-            Ok(d) => d,
-            Err(_) => return,
-        };
+    fn test_query_beads_status_with_database() -> Result<()> {
+        let temp_dir = TempDir::new()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
         let beads_dir = temp_dir.path().join(".beads");
-        if fs::create_dir(&beads_dir).is_err() {
-            return;
-        }
+        fs::create_dir(&beads_dir)
+            .map_err(|e| Error::IoError(format!("Failed to create beads dir: {e}")))?;
 
         let db_path = beads_dir.join("beads.db");
-        let conn = match rusqlite::Connection::open(&db_path) {
-            Ok(c) => c,
-            Err(_) => return,
-        };
+        let conn = rusqlite::Connection::open(&db_path)
+            .map_err(|e| Error::DatabaseError(format!("Failed to open DB: {e}")))?;
 
         // Create schema
-        if conn
-            .execute(
-                "CREATE TABLE issues (
+        conn.execute(
+            "CREATE TABLE issues (
                 id TEXT PRIMARY KEY,
                 status TEXT NOT NULL
             )",
-                [],
-            )
-            .is_err()
-        {
-            return;
-        }
+            [],
+        )
+        .map_err(|e| Error::DatabaseError(format!("Failed to create table: {e}")))?;
 
         // Insert test data
-        let _ = conn.execute("INSERT INTO issues (id, status) VALUES ('1', 'open')", []);
-        let _ = conn.execute(
+        conn.execute("INSERT INTO issues (id, status) VALUES ('1', 'open')", [])
+            .ok();
+        conn.execute(
             "INSERT INTO issues (id, status) VALUES ('2', 'in_progress')",
             [],
-        );
-        let _ = conn.execute(
+        )
+        .ok();
+        conn.execute(
             "INSERT INTO issues (id, status) VALUES ('3', 'in_progress')",
             [],
-        );
-        let _ = conn.execute(
+        )
+        .ok();
+        conn.execute(
             "INSERT INTO issues (id, status) VALUES ('4', 'blocked')",
             [],
-        );
-        let _ = conn.execute("INSERT INTO issues (id, status) VALUES ('5', 'closed')", []);
-        let _ = conn.execute("INSERT INTO issues (id, status) VALUES ('6', 'closed')", []);
-        let _ = conn.execute("INSERT INTO issues (id, status) VALUES ('7', 'closed')", []);
+        )
+        .ok();
+        conn.execute("INSERT INTO issues (id, status) VALUES ('5', 'closed')", [])
+            .ok();
+        conn.execute("INSERT INTO issues (id, status) VALUES ('6', 'closed')", [])
+            .ok();
+        conn.execute("INSERT INTO issues (id, status) VALUES ('7', 'closed')", [])
+            .ok();
 
         drop(conn);
 
@@ -350,23 +347,24 @@ mod tests {
         assert!(result.is_ok());
 
         if let Ok(status) = result {
-            match status {
-                BeadsStatus::Counts {
-                    open,
-                    in_progress,
-                    blocked,
-                    closed,
-                } => {
-                    assert_eq!(open, 1);
-                    assert_eq!(in_progress, 2);
-                    assert_eq!(blocked, 1);
-                    assert_eq!(closed, 3);
-                }
-                BeadsStatus::NoBeads => {
-                    assert!(false, "Expected Counts, got NoBeads");
-                }
+            if let BeadsStatus::Counts {
+                open,
+                in_progress,
+                blocked,
+                closed,
+            } = status
+            {
+                assert_eq!(open, 1);
+                assert_eq!(in_progress, 2);
+                assert_eq!(blocked, 1);
+                assert_eq!(closed, 3);
+            } else {
+                return Err(Error::ValidationError(
+                    "Expected Counts, got NoBeads".to_string(),
+                ));
             }
         }
+        Ok(())
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

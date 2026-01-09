@@ -1,10 +1,15 @@
 //! Command implementations
 
 pub mod add;
+pub mod config;
+pub mod dashboard;
 pub mod diff;
+pub mod doctor;
 pub mod focus;
 pub mod init;
+pub mod introspect;
 pub mod list;
+pub mod query;
 pub mod remove;
 pub mod status;
 pub mod sync;

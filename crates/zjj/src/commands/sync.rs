@@ -138,19 +138,17 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used, clippy::expect_used)]
-    fn test_sync_session_not_found() {
-        let (db, _dir) = setup_test_db().expect("Failed to setup test db");
+    fn test_sync_session_not_found() -> anyhow::Result<()> {
+        let (db, _dir) = setup_test_db()?;
 
         // Try to sync a non-existent session
         // We can't actually run this without a real JJ repo, but we can test the lookup
-        let result = db.get("nonexistent");
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
+        let result = db.get("nonexistent")?;
+        assert!(result.is_none());
+        Ok(())
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn test_sync_session_exists() -> anyhow::Result<()> {
         let (db, _dir) = setup_test_db()?;
 
@@ -161,13 +159,14 @@ mod tests {
         // Verify we can get it
         let retrieved = db.get("test-session")?;
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().name, "test-session");
+        if let Some(session) = retrieved {
+            assert_eq!(session.name, "test-session");
+        }
 
         Ok(())
     }
 
     #[test]
-    #[allow(clippy::expect_used)]
     fn test_update_last_synced_timestamp() -> anyhow::Result<()> {
         let (db, _dir) = setup_test_db()?;
 
@@ -183,8 +182,11 @@ mod tests {
         db.update("test-session", update)?;
 
         // Verify it was updated
-        let session = db.get("test-session")?.expect("Session not found");
-        assert_eq!(session.last_synced, Some(now));
+        let session = db.get("test-session")?;
+        assert!(session.is_some(), "Session not found");
+        if let Some(session) = session {
+            assert_eq!(session.last_synced, Some(now));
+        }
 
         Ok(())
     }
@@ -206,7 +208,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn test_sync_updates_timestamp_on_success() -> anyhow::Result<()> {
         let (db, _dir) = setup_test_db()?;
 
@@ -224,15 +225,17 @@ mod tests {
         // Verify timestamp was set
         let session = db.get("test-session")?;
         assert!(session.is_some(), "Session not found");
-        let session = session.unwrap();
-        assert!(session.last_synced.is_some(), "last_synced should be set");
-        assert!(session.last_synced.unwrap() >= before);
+        if let Some(session) = session {
+            assert!(session.last_synced.is_some(), "last_synced should be set");
+            if let Some(last_synced) = session.last_synced {
+                assert!(last_synced >= before);
+            }
+        }
 
         Ok(())
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn test_multiple_syncs_update_timestamp() -> anyhow::Result<()> {
         let (db, _dir) = setup_test_db()?;
 
@@ -265,9 +268,12 @@ mod tests {
         // Verify second timestamp is newer
         let session = db.get("test-session")?;
         assert!(session.is_some(), "Session not found");
-        let session = session.unwrap();
-        assert!(session.last_synced.is_some(), "last_synced should be set");
-        assert!(session.last_synced.unwrap() >= second_sync);
+        if let Some(session) = session {
+            assert!(session.last_synced.is_some(), "last_synced should be set");
+            if let Some(last_synced) = session.last_synced {
+                assert!(last_synced >= second_sync);
+            }
+        }
 
         Ok(())
     }
