@@ -12,7 +12,9 @@ use common::TestHarness;
 
 #[test]
 fn test_help_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     let result = harness.jjz(&["--help"]);
     // Help may exit with 0 or display help text
@@ -21,7 +23,9 @@ fn test_help_flag() {
 
 #[test]
 fn test_version_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     let _result = harness.jjz(&["--version"]);
     // Version should show version number
@@ -29,7 +33,9 @@ fn test_version_flag() {
 
 #[test]
 fn test_init_help() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     let result = harness.jjz(&["init", "--help"]);
     result.assert_output_contains("init");
@@ -37,7 +43,9 @@ fn test_init_help() {
 
 #[test]
 fn test_add_help() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     let result = harness.jjz(&["add", "--help"]);
     result.assert_output_contains("add");
@@ -49,7 +57,9 @@ fn test_add_help() {
 
 #[test]
 fn test_add_with_no_open_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "test", "--no-open"]);
@@ -60,7 +70,9 @@ fn test_add_with_no_open_flag() {
 
 #[test]
 fn test_add_with_no_hooks_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "test", "--no-hooks", "--no-open"]);
@@ -71,7 +83,9 @@ fn test_add_with_no_hooks_flag() {
 
 #[test]
 fn test_add_with_template_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Test various templates
@@ -87,7 +101,9 @@ fn test_add_with_template_flag() {
 
 #[test]
 fn test_add_with_short_template_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "test", "-t", "minimal", "--no-open"]);
@@ -98,7 +114,9 @@ fn test_add_with_short_template_flag() {
 
 #[test]
 fn test_add_combined_flags() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "test", "--no-open", "--no-hooks", "-t", "minimal"]);
@@ -113,7 +131,9 @@ fn test_add_combined_flags() {
 
 #[test]
 fn test_list_with_all_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -124,7 +144,9 @@ fn test_list_with_all_flag() {
 
 #[test]
 fn test_list_with_json_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -142,7 +164,9 @@ fn test_list_with_json_flag() {
 
 #[test]
 fn test_remove_with_force_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -154,7 +178,9 @@ fn test_remove_with_force_flag() {
 
 #[test]
 fn test_remove_with_short_force_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -166,7 +192,9 @@ fn test_remove_with_short_force_flag() {
 
 #[test]
 fn test_remove_with_merge_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -177,7 +205,9 @@ fn test_remove_with_merge_flag() {
 
 #[test]
 fn test_remove_with_keep_branch_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -193,7 +223,9 @@ fn test_remove_with_keep_branch_flag() {
 
 #[test]
 fn test_status_with_json_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -207,7 +239,9 @@ fn test_status_with_json_flag() {
 
 #[test]
 fn test_status_without_name_shows_all() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test1", "--no-open"]);
     harness.assert_success(&["add", "test2", "--no-open"]);
@@ -219,7 +253,9 @@ fn test_status_without_name_shows_all() {
 
 #[test]
 fn test_status_with_watch_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -236,7 +272,9 @@ fn test_status_with_watch_flag() {
 
 #[test]
 fn test_diff_with_stat_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -246,7 +284,9 @@ fn test_diff_with_stat_flag() {
 
 #[test]
 fn test_diff_without_stat() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -260,7 +300,9 @@ fn test_diff_without_stat() {
 
 #[test]
 fn test_sync_with_explicit_session() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -270,7 +312,9 @@ fn test_sync_with_explicit_session() {
 
 #[test]
 fn test_sync_without_session_name() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Sync without name should sync current workspace
@@ -284,7 +328,9 @@ fn test_sync_without_session_name() {
 
 #[test]
 fn test_mutually_exclusive_flags() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Some flag combinations might not make sense
@@ -297,7 +343,9 @@ fn test_mutually_exclusive_flags() {
 
 #[test]
 fn test_flags_before_positional_args() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Flags before name
@@ -309,7 +357,9 @@ fn test_flags_before_positional_args() {
 
 #[test]
 fn test_flags_after_positional_args() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Flags after name
@@ -325,7 +375,9 @@ fn test_flags_after_positional_args() {
 
 #[test]
 fn test_session_name_with_hyphens() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "feature-with-hyphens", "--no-open"]);
@@ -336,7 +388,9 @@ fn test_session_name_with_hyphens() {
 
 #[test]
 fn test_session_name_with_underscores() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "feature_with_underscores", "--no-open"]);
@@ -347,7 +401,9 @@ fn test_session_name_with_underscores() {
 
 #[test]
 fn test_session_name_with_numbers() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "feature123", "--no-open"]);
@@ -362,7 +418,9 @@ fn test_session_name_with_numbers() {
 
 #[test]
 fn test_session_name_with_leading_whitespace() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Leading whitespace should be rejected or trimmed
@@ -372,7 +430,9 @@ fn test_session_name_with_leading_whitespace() {
 
 #[test]
 fn test_session_name_with_trailing_whitespace() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Trailing whitespace should be rejected or trimmed
@@ -386,7 +446,9 @@ fn test_session_name_with_trailing_whitespace() {
 
 #[test]
 fn test_session_names_are_case_sensitive() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "Test", "--no-open"]);
@@ -404,7 +466,9 @@ fn test_session_names_are_case_sensitive() {
 
 #[test]
 fn test_long_flag_names() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // All flags should work with long names
@@ -420,7 +484,9 @@ fn test_long_flag_names() {
 
 #[test]
 fn test_template_with_equals_sign() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // --template=minimal syntax

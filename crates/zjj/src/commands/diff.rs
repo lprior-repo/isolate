@@ -41,7 +41,7 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
 
     // Show diff from main branch to current workspace (@)
     args.push("-r");
-    let revset = format!("{}..@", main_branch);
+    let revset = format!("{main_branch}..@");
     args.push(&revset);
 
     // Execute the diff command
@@ -53,14 +53,14 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("jj diff failed: {}", stderr);
+        anyhow::bail!("jj diff failed: {stderr}");
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // For stat output, just print directly
     if stat {
-        print!("{}", stdout);
+        print!("{stdout}");
         return Ok(());
     }
 
@@ -77,12 +77,12 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
             }
             Err(_) => {
                 // If pager fails, just print directly
-                print!("{}", stdout);
+                print!("{stdout}");
             }
         }
     } else {
         // No pager available, print directly
-        print!("{}", stdout);
+        print!("{stdout}");
     }
 
     Ok(())
@@ -236,11 +236,11 @@ mod tests {
     #[test]
     fn test_revset_format() {
         let main_branch = "main";
-        let revset = format!("{}..@", main_branch);
+        let revset = format!("{main_branch}..@");
         assert_eq!(revset, "main..@");
 
         let commit_id = "abc123";
-        let revset2 = format!("{}..@", commit_id);
+        let revset2 = format!("{commit_id}..@");
         assert_eq!(revset2, "abc123..@");
     }
 }

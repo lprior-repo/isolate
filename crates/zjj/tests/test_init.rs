@@ -13,7 +13,9 @@ use common::TestHarness;
 
 #[test]
 fn test_init_creates_jjz_directory() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     // Run init
     harness.assert_success(&["init"]);
@@ -24,7 +26,9 @@ fn test_init_creates_jjz_directory() {
 
 #[test]
 fn test_init_creates_config_toml() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     harness.assert_success(&["init"]);
 
@@ -33,7 +37,9 @@ fn test_init_creates_config_toml() {
     harness.assert_file_exists(&config_path);
 
     // Verify it contains expected sections
-    let content = std::fs::read_to_string(&config_path).expect("Failed to read config");
+    let Ok(content) = std::fs::read_to_string(&config_path) else {
+        std::process::abort()
+    };
     assert!(content.contains("workspace_dir"));
     assert!(content.contains("[watch]"));
     assert!(content.contains("[zellij]"));
@@ -43,7 +49,9 @@ fn test_init_creates_config_toml() {
 
 #[test]
 fn test_init_creates_state_db() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     harness.assert_success(&["init"]);
 
@@ -52,16 +60,23 @@ fn test_init_creates_state_db() {
     harness.assert_file_exists(&db_path);
 
     // Verify it's a valid SQLite database
-    let conn = rusqlite::Connection::open(&db_path).expect("Failed to open database");
+    let Ok(conn) = rusqlite::Connection::open(&db_path) else {
+        std::process::abort()
+    };
     let result: Result<i32, _> =
         conn.query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0));
     assert!(result.is_ok(), "Database should have sessions table");
-    assert_eq!(result.unwrap(), 0, "Database should be empty after init");
+    let Ok(count) = result else {
+        std::process::abort()
+    };
+    assert_eq!(count, 0, "Database should be empty after init");
 }
 
 #[test]
 fn test_init_creates_layouts_directory() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     harness.assert_success(&["init"]);
 
@@ -73,7 +88,9 @@ fn test_init_creates_layouts_directory() {
 
 #[test]
 fn test_init_twice_succeeds_idempotently() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     // First init
     harness.assert_success(&["init"]);
@@ -86,13 +103,19 @@ fn test_init_twice_succeeds_idempotently() {
 
 #[test]
 fn test_init_creates_valid_toml_config() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     harness.assert_success(&["init"]);
 
     // Verify config can be parsed as TOML
-    let config = harness.read_config().expect("Failed to read config");
-    let parsed: toml::Value = toml::from_str(&config).expect("Config should be valid TOML");
+    let Ok(config) = harness.read_config() else {
+        std::process::abort()
+    };
+    let Ok(parsed) = toml::from_str::<toml::Value>(&config) else {
+        std::process::abort()
+    };
 
     // Check key sections exist
     assert!(
@@ -111,12 +134,18 @@ fn test_init_creates_valid_toml_config() {
 
 #[test]
 fn test_init_config_has_correct_defaults() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     harness.assert_success(&["init"]);
 
-    let config = harness.read_config().expect("Failed to read config");
-    let parsed: toml::Value = toml::from_str(&config).expect("Config should be valid TOML");
+    let Ok(config) = harness.read_config() else {
+        std::process::abort()
+    };
+    let Ok(parsed) = toml::from_str::<toml::Value>(&config) else {
+        std::process::abort()
+    };
 
     // Verify default values
     assert_eq!(
@@ -129,10 +158,9 @@ fn test_init_config_has_correct_defaults() {
     );
 
     // Verify watch section
-    let watch = parsed
-        .get("watch")
-        .and_then(|v| v.as_table())
-        .expect("watch section should exist");
+    let Some(watch) = parsed.get("watch").and_then(|v| v.as_table()) else {
+        std::process::abort()
+    };
     assert_eq!(
         watch.get("enabled").and_then(toml::Value::as_bool),
         Some(true)
@@ -145,7 +173,9 @@ fn test_init_config_has_correct_defaults() {
 
 #[test]
 fn test_init_sets_up_complete_directory_structure() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     harness.assert_success(&["init"]);
 
@@ -163,7 +193,9 @@ fn test_init_sets_up_complete_directory_structure() {
 
 #[test]
 fn test_init_output_is_informative() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     let result = harness.jjz(&["init"]);
 
@@ -174,7 +206,9 @@ fn test_init_output_is_informative() {
 
 #[test]
 fn test_init_creates_workspaces_directory() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     harness.assert_success(&["init"]);
 
@@ -188,7 +222,9 @@ fn test_init_creates_workspaces_directory() {
 
 #[test]
 fn test_init_preserves_existing_config() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     // First init
     harness.assert_success(&["init"]);
@@ -198,14 +234,16 @@ fn test_init_preserves_existing_config() {
 workspace_dir = "../custom_workspaces"
 main_branch = "main"
 "#;
-    harness
-        .write_config(custom_config)
-        .expect("Failed to write custom config");
+    if harness.write_config(custom_config).is_err() {
+        std::process::abort()
+    }
 
     // Second init should not overwrite
     harness.assert_success(&["init"]);
 
-    let config = harness.read_config().expect("Failed to read config");
+    let Ok(config) = harness.read_config() else {
+        std::process::abort()
+    };
     assert!(
         config.contains("custom_workspaces"),
         "Custom config should be preserved"
@@ -214,23 +252,27 @@ main_branch = "main"
 
 #[test]
 fn test_init_state_db_has_correct_schema() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     harness.assert_success(&["init"]);
 
     let db_path = harness.state_db_path();
-    let conn = rusqlite::Connection::open(&db_path).expect("Failed to open database");
+    let Ok(conn) = rusqlite::Connection::open(&db_path) else {
+        std::process::abort()
+    };
 
     // Check that sessions table has all required columns
-    let mut stmt = conn
-        .prepare("PRAGMA table_info(sessions)")
-        .expect("Failed to prepare statement");
-    let columns: Result<Vec<String>, _> = stmt
-        .query_map([], |row| row.get::<_, String>(1))
-        .expect("Failed to query columns")
-        .collect();
-
-    let columns = columns.expect("Failed to collect columns");
+    let Ok(mut stmt) = conn.prepare("PRAGMA table_info(sessions)") else {
+        std::process::abort()
+    };
+    let Ok(column_iter) = stmt.query_map([], |row| row.get::<_, String>(1)) else {
+        std::process::abort()
+    };
+    let Ok(columns) = column_iter.collect::<Result<Vec<String>, _>>() else {
+        std::process::abort()
+    };
 
     assert!(columns.contains(&"id".to_string()));
     assert!(columns.contains(&"name".to_string()));
@@ -242,24 +284,31 @@ fn test_init_state_db_has_correct_schema() {
 
 #[test]
 fn test_init_creates_indexes() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     harness.assert_success(&["init"]);
 
     let db_path = harness.state_db_path();
-    let conn = rusqlite::Connection::open(&db_path).expect("Failed to open database");
+    let Ok(conn) = rusqlite::Connection::open(&db_path) else {
+        std::process::abort()
+    };
 
     // Check that indexes exist
-    let mut stmt = conn
-        .prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sessions'")
-        .expect("Failed to prepare statement");
+    let Ok(mut stmt) =
+        conn.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sessions'")
+    else {
+        std::process::abort()
+    };
 
-    let indexes: Result<Vec<String>, _> = stmt
-        .query_map([], |row| row.get(0))
-        .expect("Failed to query indexes")
-        .collect();
+    let Ok(index_iter) = stmt.query_map([], |row| row.get(0)) else {
+        std::process::abort()
+    };
 
-    let indexes = indexes.expect("Failed to collect indexes");
+    let Ok(indexes) = index_iter.collect::<Result<Vec<String>, _>>() else {
+        std::process::abort()
+    };
 
     // Should have at least status and name indexes
     assert!(indexes.iter().any(|name| name.contains("status")));

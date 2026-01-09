@@ -4,6 +4,7 @@ use serde::Serialize;
 
 /// Init command JSON output
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct InitOutput {
     pub success: bool,
     pub message: String,
@@ -15,6 +16,7 @@ pub struct InitOutput {
 
 /// Add command JSON output
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct AddOutput {
     pub success: bool,
     pub session_name: String,
@@ -25,6 +27,7 @@ pub struct AddOutput {
 
 /// Remove command JSON output
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct RemoveOutput {
     pub success: bool,
     pub session_name: String,
@@ -33,6 +36,7 @@ pub struct RemoveOutput {
 
 /// Focus command JSON output
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct FocusOutput {
     pub success: bool,
     pub session_name: String,
@@ -42,6 +46,7 @@ pub struct FocusOutput {
 
 /// Sync command JSON output
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct SyncOutput {
     pub success: bool,
     pub session_name: Option<String>,
@@ -51,6 +56,7 @@ pub struct SyncOutput {
 }
 
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct SyncError {
     pub session_name: String,
     pub error: String,
@@ -58,6 +64,7 @@ pub struct SyncError {
 
 /// Diff command JSON output
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct DiffOutput {
     pub session_name: String,
     pub base: String,

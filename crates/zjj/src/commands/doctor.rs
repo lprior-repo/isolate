@@ -52,7 +52,7 @@ fn check_jj_installed() -> DoctorCheck {
             CheckStatus::Fail
         },
         message: if installed {
-            format!("JJ is installed")
+            "JJ is installed".to_string()
         } else {
             "JJ is not installed".to_string()
         },
@@ -130,7 +130,7 @@ fn check_jj_repo() -> DoctorCheck {
             CheckStatus::Fail
         },
         message: if is_repo {
-            format!("Current directory is a JJ repository")
+            "Current directory is a JJ repository".to_string()
         } else {
             "Current directory is not a JJ repository".to_string()
         },
@@ -172,8 +172,16 @@ fn check_initialized() -> DoctorCheck {
 
 /// Check state database health
 fn check_state_db() -> DoctorCheck {
-    match get_session_db() {
-        Ok(db) => match db.list(None) {
+    get_session_db().map_or_else(
+        |_| DoctorCheck {
+            name: "State Database".to_string(),
+            status: CheckStatus::Warn,
+            message: "State database not accessible".to_string(),
+            suggestion: Some("Initialize jjz: jjz init".to_string()),
+            auto_fixable: false,
+            details: None,
+        },
+        |db| match db.list(None) {
             Ok(sessions) => DoctorCheck {
                 name: "State Database".to_string(),
                 status: CheckStatus::Pass,
@@ -191,22 +199,15 @@ fn check_state_db() -> DoctorCheck {
                 details: None,
             },
         },
-        Err(_) => DoctorCheck {
-            name: "State Database".to_string(),
-            status: CheckStatus::Warn,
-            message: "State database not accessible".to_string(),
-            suggestion: Some("Initialize jjz: jjz init".to_string()),
-            auto_fixable: false,
-            details: None,
-        },
-    }
+    )
 }
 
 /// Check for orphaned workspaces
 fn check_orphaned_workspaces() -> DoctorCheck {
     // Get list of JJ workspaces
-    let jj_workspaces = match jj_root() {
-        Ok(root) => {
+    let jj_workspaces = jj_root().map_or_else(
+        |_| vec![],
+        |root| {
             let output = Command::new("jj")
                 .args(["workspace", "list"])
                 .current_dir(&root)
@@ -218,15 +219,14 @@ fn check_orphaned_workspaces() -> DoctorCheck {
                         .lines()
                         .filter_map(|line| {
                             // Parse workspace list output
-                            line.split_whitespace().next().map(|s| s.to_string())
+                            line.split_whitespace().next().map(str::to_string)
                         })
                         .collect::<Vec<_>>()
                 }
                 _ => vec![],
             }
-        }
-        Err(_) => vec![],
-    };
+        },
+    );
 
     // Get list of sessions from DB
     let session_names = get_session_db()

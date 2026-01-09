@@ -55,19 +55,15 @@ fn query_session_count(filter: Option<&str>) -> Result<()> {
     let db = get_session_db()?;
     let sessions = db.list(None)?;
 
-    let count = if let Some(status_filter) = filter {
-        // Parse filter like "--status=active"
-        if let Some(status) = status_filter.strip_prefix("--status=") {
+    let count = filter
+        .and_then(|f| f.strip_prefix("--status="))
+        .map(|status| {
             sessions
                 .iter()
                 .filter(|s| s.status.to_string() == status)
                 .count()
-        } else {
-            sessions.len()
-        }
-    } else {
-        sessions.len()
-    };
+        })
+        .unwrap_or_else(|| sessions.len());
 
     let result = SessionCountQuery {
         count,

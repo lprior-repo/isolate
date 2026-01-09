@@ -41,14 +41,8 @@ pub fn run(all: bool, json: bool) -> Result<()> {
     let db = get_session_db()?;
 
     // Filter sessions: exclude completed/failed unless --all is used
-    let status_filter = if all {
-        None
-    } else {
-        // We'll get all and filter manually since we need multiple exclusions
-        None
-    };
-
-    let mut sessions = db.list(status_filter)?;
+    // We always get all and filter manually since we need multiple exclusions
+    let mut sessions = db.list(None)?;
 
     // Filter out completed and failed unless --all flag is set
     if !all {
@@ -70,7 +64,7 @@ pub fn run(all: bool, json: bool) -> Result<()> {
     let items: Vec<SessionListItem> = sessions
         .into_iter()
         .map(|session| {
-            let changes = get_session_changes(&session.workspace_path).unwrap_or_else(|_| None);
+            let changes = get_session_changes(&session.workspace_path);
             let beads = get_beads_count().unwrap_or_default();
 
             SessionListItem {
@@ -94,23 +88,24 @@ pub fn run(all: bool, json: bool) -> Result<()> {
 }
 
 /// Get the number of changes in a workspace
-fn get_session_changes(workspace_path: &str) -> Result<Option<usize>> {
+fn get_session_changes(workspace_path: &str) -> Option<usize> {
     let path = Path::new(workspace_path);
 
     // Check if workspace exists
     if !path.exists() {
-        return Ok(None);
+        return None;
     }
 
     // Try to get status from JJ
-    match zjj_core::jj::workspace_status(path) {
-        Ok(status) => Ok(Some(status.change_count())),
-        Err(_) => Ok(None), // Non-critical failure
-    }
+    zjj_core::jj::workspace_status(path)
+        .ok()
+        .map(|status| status.change_count())
 }
 
 /// Get beads count from the repository's beads database
 fn get_beads_count() -> Result<BeadCounts> {
+    use rusqlite::Connection;
+
     // Find repository root
     let repo_root = zjj_core::jj::check_in_jj_repo().ok();
 
@@ -125,10 +120,8 @@ fn get_beads_count() -> Result<BeadCounts> {
     }
 
     // Query beads database
-    use rusqlite::Connection;
-
     let conn = Connection::open(&beads_db_path)
-        .map_err(|e| anyhow::anyhow!("Failed to open beads database: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to open beads database: {e}"))?;
 
     // Count open issues
     let open: usize = conn
@@ -167,7 +160,7 @@ fn output_table(items: &[SessionListItem]) {
 /// Output sessions as JSON
 fn output_json(items: &[SessionListItem]) -> Result<()> {
     let json = serde_json::to_string_pretty(items)?;
-    println!("{}", json);
+    println!("{json}");
     Ok(())
 }
 
@@ -227,7 +220,7 @@ mod tests {
             branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
             changes: "5".to_string(),
             beads: "3/2/1".to_string(),
-            session: session.clone(),
+            session,
         };
 
         let json = serde_json::to_string(&item)?;
@@ -238,10 +231,9 @@ mod tests {
     }
 
     #[test]
-    fn test_get_session_changes_missing_workspace() -> Result<()> {
-        let result = get_session_changes("/nonexistent/path")?;
+    fn test_get_session_changes_missing_workspace() {
+        let result = get_session_changes("/nonexistent/path");
         assert!(result.is_none());
-        Ok(())
     }
 
     #[test]
@@ -273,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    fn test_output_json_format() -> Result<()> {
+    fn test_output_json_format() {
         let session = Session {
             id: Some(1),
             name: "test-session".to_string(),
@@ -298,7 +290,6 @@ mod tests {
 
         let result = output_json(&items);
         assert!(result.is_ok());
-        Ok(())
     }
 
     #[test]
@@ -426,12 +417,11 @@ mod tests {
     }
 
     #[test]
-    fn test_get_beads_count_no_repo() -> Result<()> {
+    fn test_get_beads_count_no_repo() {
         // When not in a repo or no beads db, should return default
         let counts = BeadCounts::default();
         assert_eq!(counts.open, 0);
         assert_eq!(counts.in_progress, 0);
         assert_eq!(counts.blocked, 0);
-        Ok(())
     }
 }

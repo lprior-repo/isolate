@@ -313,7 +313,7 @@ fn main() -> Result<()> {
                 no_open,
             };
 
-            add::run_with_options(options)
+            add::run_with_options(&options)
         }
         Some(("list", sub_m)) => {
             let all = sub_m.get_flag("all");

@@ -453,7 +453,7 @@ fn format_session_item(session_data: &SessionData, is_selected: bool) -> ListIte
             in_progress,
             blocked,
             ..
-        } => format!("{}/{}/{}", open, in_progress, blocked),
+        } => format!("{open}/{in_progress}/{blocked}"),
     };
 
     let branch = session.branch.as_deref().unwrap_or("-");
@@ -469,12 +469,12 @@ fn format_session_item(session_data: &SessionData, is_selected: bool) -> ListIte
                 Style::default()
             },
         ),
-        Span::raw(format!(" {} ", branch)),
+        Span::raw(format!(" {branch} ")),
         Span::styled(
-            format!("Δ{} ", changes_str),
+            format!("Δ{changes_str} "),
             Style::default().fg(Color::Green),
         ),
-        Span::styled(format!("B{}", beads_str), Style::default().fg(Color::Blue)),
+        Span::styled(format!("B{beads_str}"), Style::default().fg(Color::Blue)),
     ]);
 
     ListItem::new(line)
@@ -666,7 +666,7 @@ impl DashboardApp {
     }
 
     /// Move selection up
-    fn move_up(&mut self) {
+    const fn move_up(&mut self) {
         if self.selected_row > 0 {
             self.selected_row -= 1;
         }
@@ -704,7 +704,7 @@ impl DashboardApp {
     /// Show dialog to confirm session removal
     fn show_remove_dialog(&mut self, name: String) {
         self.confirm_dialog = Some(ConfirmDialog {
-            message: format!("Remove session '{}'?", name),
+            message: format!("Remove session '{name}'?"),
             action: ConfirmAction::RemoveSession(name),
         });
     }
@@ -810,7 +810,7 @@ mod tests {
                 in_progress,
                 blocked,
                 ..
-            } => format!("{}/{}/{}", open, in_progress, blocked),
+            } => format!("{open}/{in_progress}/{blocked}"),
             BeadsStatus::NoBeads => "-".to_string(),
         };
 
@@ -854,7 +854,7 @@ mod tests {
 
     #[test]
     fn test_row_navigation_bounds() {
-        let sessions_in_column = 5;
+        let sessions_in_column: usize = 5;
         let mut selected_row = 0;
 
         // Move down
@@ -872,9 +872,7 @@ mod tests {
         assert_eq!(selected_row, 4); // Should not exceed max_row
 
         // Move up
-        if selected_row > 0 {
-            selected_row -= 1;
-        }
+        selected_row = selected_row.saturating_sub(1);
         assert_eq!(selected_row, 3);
     }
 

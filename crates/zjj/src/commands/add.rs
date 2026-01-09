@@ -40,11 +40,11 @@ impl AddOptions {
 #[allow(dead_code)]
 pub fn run(name: &str) -> Result<()> {
     let options = AddOptions::new(name.to_string());
-    run_with_options(options)
+    run_with_options(&options)
 }
 
 /// Run the add command with options
-pub fn run_with_options(options: AddOptions) -> Result<()> {
+pub fn run_with_options(options: &AddOptions) -> Result<()> {
     // Validate session name (REQ-CLI-015)
     validate_session_name(&options.name)
         .map_err(|e| anyhow::anyhow!("Invalid session name: {e}"))?;
@@ -98,8 +98,8 @@ pub fn run_with_options(options: AddOptions) -> Result<()> {
     // Open Zellij tab unless --no-open (REQ-CLI-003)
     if options.no_open {
         println!(
-            "Created session '{}' (workspace at {})",
-            options.name, workspace_path
+            "Created session '{}' (workspace at {workspace_path})",
+            options.name
         );
     } else if is_inside_zellij() {
         // Inside Zellij: Create tab and switch to it
@@ -117,7 +117,11 @@ pub fn run_with_options(options: AddOptions) -> Result<()> {
         println!("Created session '{}'", options.name);
         println!("Launching Zellij with new tab...");
 
-        let layout = create_session_layout(&session.zellij_tab, &workspace_path, options.template);
+        let layout = create_session_layout(
+            &session.zellij_tab,
+            &workspace_path,
+            options.template.as_deref(),
+        );
         attach_to_zellij_session(Some(&layout))?;
         // Note: This never returns - we exec into Zellij
     }
@@ -142,7 +146,7 @@ fn execute_post_create_hooks(_workspace_path: &str) -> Result<()> {
     let hooks: Vec<String> = Vec::new();
 
     for hook in hooks {
-        run_command("sh", &["-c", &hook]).with_context(|| format!("Hook '{}' failed", hook))?;
+        run_command("sh", &["-c", &hook]).with_context(|| format!("Hook '{hook}' failed"))?;
     }
 
     Ok(())
@@ -165,10 +169,10 @@ fn create_zellij_tab(tab_name: &str, workspace_path: &str, _template: Option<&st
 
 /// Create a Zellij layout for the session
 /// This layout creates a tab with the session name and cwd set to workspace
-fn create_session_layout(tab_name: &str, workspace_path: &str, template: Option<String>) -> String {
+fn create_session_layout(tab_name: &str, workspace_path: &str, template: Option<&str>) -> String {
     // TODO: Load template from config when zjj-65r is complete
     // For now, use built-in templates
-    match template.as_deref() {
+    match template {
         Some("minimal") => create_minimal_layout(tab_name, workspace_path),
         Some("full") => create_full_layout(tab_name, workspace_path),
         _ => create_standard_layout(tab_name, workspace_path),
@@ -309,14 +313,14 @@ mod tests {
 
     #[test]
     fn test_create_session_layout_minimal() {
-        let layout = create_session_layout("test", "/path", Some("minimal".to_string()));
+        let layout = create_session_layout("test", "/path", Some("minimal"));
         assert!(layout.contains("tab name=\"test\""));
         assert!(!layout.contains("70%"));
     }
 
     #[test]
     fn test_create_session_layout_full() {
-        let layout = create_session_layout("test", "/path", Some("full".to_string()));
+        let layout = create_session_layout("test", "/path", Some("full"));
         assert!(layout.contains("floating_panes"));
     }
 }

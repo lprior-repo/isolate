@@ -50,10 +50,10 @@ pub fn run(options: ConfigOptions) -> Result<()> {
             };
             set_config_value(&config_path, &key, &value)?;
             println!("✓ Set {key} = {value}");
-            if !options.global {
-                println!("  (in project config)");
-            } else {
+            if options.global {
                 println!("  (in global config)");
+            } else {
+                println!("  (in project config)");
             }
         }
 
@@ -225,7 +225,7 @@ fn parse_value(value: &str) -> Result<toml_edit::Item> {
             .split(',')
             .map(|s| s.trim().trim_matches('"'))
             .collect();
-        let array = toml_edit::Array::from_iter(items.iter().map(|s| toml_edit::Value::from(*s)));
+        let array = items.iter().map(|s| toml_edit::Value::from(*s)).collect();
         Ok(toml_edit::Item::Value(toml_edit::Value::Array(array)))
     } else {
         // Default to string
@@ -303,11 +303,10 @@ mod tests {
     fn test_get_nested_value_not_found() {
         let config = setup_test_config();
         let result = get_nested_value(&config, "invalid.key");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Config key 'invalid.key' not found"));
+        assert!(result.is_err(), "Expected an error but got Ok: {result:?}");
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Config key 'invalid.key' not found"));
+        }
     }
 
     #[test]
@@ -350,9 +349,9 @@ mod tests {
     fn test_parse_value_array() -> Result<()> {
         let item = parse_value(r#"["a", "b", "c"]"#)?;
         let result = item.to_string();
-        assert!(result.contains("a"));
-        assert!(result.contains("b"));
-        assert!(result.contains("c"));
+        assert!(result.contains('a'));
+        assert!(result.contains('b'));
+        assert!(result.contains('c'));
         Ok(())
     }
 
@@ -418,8 +417,11 @@ mod tests {
     fn test_set_nested_value_empty_parts() {
         let mut doc = toml_edit::DocumentMut::new();
         let result = set_nested_value(&mut doc, &[], "value");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Empty config key"));
+        let has_error = result
+            .as_ref()
+            .map(|()| false)
+            .unwrap_or_else(|e| e.to_string().contains("Empty config key"));
+        assert!(has_error);
     }
 
     #[test]

@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Options for the remove command
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct RemoveOptions {
     /// Skip confirmation prompt and hooks
     pub force: bool,
@@ -47,7 +47,7 @@ pub fn run_with_options(name: &str, options: RemoveOptions) -> Result<()> {
 
     // Run pre_remove hooks unless --force
     if !options.force {
-        run_pre_remove_hooks(name, &session.workspace_path)?;
+        run_pre_remove_hooks(name, &session.workspace_path);
     }
 
     // If --merge: squash-merge to main
@@ -94,10 +94,9 @@ fn confirm_removal(name: &str) -> Result<bool> {
 }
 
 /// Run `pre_remove` hooks
-fn run_pre_remove_hooks(_name: &str, _workspace_path: &str) -> Result<()> {
+const fn run_pre_remove_hooks(_name: &str, _workspace_path: &str) {
     // TODO: Implement hook execution when config system is ready
     // For now, this is a placeholder that always succeeds
-    Ok(())
 }
 
 /// Merge session to main branch
@@ -127,6 +126,7 @@ mod tests {
     use crate::db::SessionDb;
 
     // Helper to create a test database with a session
+    #[allow(dead_code)]
     fn setup_test_session(name: &str) -> Result<(SessionDb, TempDir, String)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
@@ -174,10 +174,10 @@ mod tests {
     #[test]
     fn test_merge_to_main_not_implemented() {
         let result = merge_to_main("test", "/path");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("not yet implemented"));
+        let is_not_impl = result
+            .as_ref()
+            .map(|()| false)
+            .unwrap_or_else(|e| e.to_string().contains("not yet implemented"));
+        assert!(is_not_impl);
     }
 }

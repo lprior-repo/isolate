@@ -12,7 +12,9 @@ use common::TestHarness;
 
 #[test]
 fn test_init_succeeds_with_jj_and_zellij_installed() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     // This test assumes jj and zellij are installed
     // If they're not, init should fail with helpful error
@@ -30,7 +32,9 @@ fn test_init_succeeds_with_jj_and_zellij_installed() {
 
 #[test]
 fn test_add_empty_session_name() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Empty name should fail
@@ -39,7 +43,9 @@ fn test_add_empty_session_name() {
 
 #[test]
 fn test_add_session_name_too_long() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Name longer than 64 characters
@@ -49,7 +55,9 @@ fn test_add_session_name_too_long() {
 
 #[test]
 fn test_add_session_name_starts_with_dash() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_failure(&["add", "-session", "--no-open"], "Invalid session name");
@@ -57,7 +65,9 @@ fn test_add_session_name_starts_with_dash() {
 
 #[test]
 fn test_add_session_name_starts_with_underscore() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_failure(&["add", "_session", "--no-open"], "Invalid session name");
@@ -65,7 +75,9 @@ fn test_add_session_name_starts_with_underscore() {
 
 #[test]
 fn test_add_session_name_with_slash() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_failure(
@@ -76,7 +88,9 @@ fn test_add_session_name_with_slash() {
 
 #[test]
 fn test_add_session_name_with_dots() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_failure(&["add", "test..name", "--no-open"], "Invalid session name");
@@ -88,7 +102,9 @@ fn test_add_session_name_with_dots() {
 
 #[test]
 fn test_add_without_init() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     // Try to add without running init first
     let result = harness.jjz(&["add", "test", "--no-open"]);
@@ -97,7 +113,9 @@ fn test_add_without_init() {
 
 #[test]
 fn test_list_without_init() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     // Try to list without running init first
     let result = harness.jjz(&["list"]);
@@ -106,7 +124,9 @@ fn test_list_without_init() {
 
 #[test]
 fn test_remove_without_init() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     let result = harness.jjz(&["remove", "test", "--force"]);
     assert!(!result.success, "remove should fail without init");
@@ -114,7 +134,9 @@ fn test_remove_without_init() {
 
 #[test]
 fn test_status_without_init() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     let result = harness.jjz(&["status", "test"]);
     assert!(!result.success, "status should fail without init");
@@ -126,7 +148,9 @@ fn test_status_without_init() {
 
 #[test]
 fn test_remove_nonexistent_session() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_failure(&["remove", "nonexistent", "--force"], "");
@@ -134,7 +158,9 @@ fn test_remove_nonexistent_session() {
 
 #[test]
 fn test_status_nonexistent_session() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     let _result = harness.jjz(&["status", "nonexistent"]);
@@ -143,7 +169,9 @@ fn test_status_nonexistent_session() {
 
 #[test]
 fn test_focus_nonexistent_session() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     let result = harness.jjz(&["focus", "nonexistent"]);
@@ -152,7 +180,9 @@ fn test_focus_nonexistent_session() {
 
 #[test]
 fn test_sync_nonexistent_session() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     let _result = harness.jjz(&["sync", "nonexistent"]);
@@ -161,7 +191,9 @@ fn test_sync_nonexistent_session() {
 
 #[test]
 fn test_diff_nonexistent_session() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     let result = harness.jjz(&["diff", "nonexistent"]);
@@ -174,7 +206,9 @@ fn test_diff_nonexistent_session() {
 
 #[test]
 fn test_cannot_add_same_session_twice() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "test", "--no-open"]);
@@ -183,7 +217,9 @@ fn test_cannot_add_same_session_twice() {
 
 #[test]
 fn test_remove_already_removed_session() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "test", "--no-open"]);
@@ -199,12 +235,16 @@ fn test_remove_already_removed_session() {
 
 #[test]
 fn test_corrupted_database_recovery() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Corrupt the database by writing garbage
     let db_path = harness.state_db_path();
-    std::fs::write(&db_path, "garbage data").expect("Failed to corrupt database");
+    if std::fs::write(&db_path, "garbage data").is_err() {
+        std::process::abort()
+    }
 
     // Operations should fail gracefully
     let result = harness.jjz(&["list"]);
@@ -214,12 +254,16 @@ fn test_corrupted_database_recovery() {
 
 #[test]
 fn test_missing_database() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Delete the database
     let db_path = harness.state_db_path();
-    std::fs::remove_file(&db_path).expect("Failed to remove database");
+    if std::fs::remove_file(&db_path).is_err() {
+        std::process::abort()
+    }
 
     // Operations should fail
     let result = harness.jjz(&["list"]);
@@ -232,7 +276,9 @@ fn test_missing_database() {
 
 #[test]
 fn test_workspace_directory_creation_failure() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Create a file where workspace directory should be
@@ -250,12 +296,17 @@ fn test_workspace_directory_creation_failure() {
 fn test_readonly_jjz_directory() {
     use std::{fs, os::unix::fs::PermissionsExt};
 
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Make .jjz directory readonly
     let jjz_dir = harness.jjz_dir();
-    let mut perms = fs::metadata(&jjz_dir).unwrap().permissions();
+    let Ok(metadata) = fs::metadata(&jjz_dir) else {
+        std::process::abort()
+    };
+    let mut perms = metadata.permissions();
     perms.set_mode(0o444); // Readonly
     fs::set_permissions(&jjz_dir, perms).ok();
 
@@ -264,7 +315,10 @@ fn test_readonly_jjz_directory() {
     // Should fail with permission error
 
     // Restore permissions for cleanup
-    let mut perms = fs::metadata(&jjz_dir).unwrap().permissions();
+    let Ok(metadata) = fs::metadata(&jjz_dir) else {
+        std::process::abort()
+    };
+    let mut perms = metadata.permissions();
     perms.set_mode(0o755);
     fs::set_permissions(&jjz_dir, perms).ok();
 }
@@ -275,7 +329,9 @@ fn test_readonly_jjz_directory() {
 
 #[test]
 fn test_init_with_extra_arguments() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     // init doesn't take arguments
     let _result = harness.jjz(&["init", "extra"]);
@@ -284,7 +340,9 @@ fn test_init_with_extra_arguments() {
 
 #[test]
 fn test_add_missing_name_argument() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     let result = harness.jjz(&["add"]);
@@ -293,7 +351,9 @@ fn test_add_missing_name_argument() {
 
 #[test]
 fn test_remove_missing_name_argument() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     let result = harness.jjz(&["remove"]);
@@ -302,7 +362,9 @@ fn test_remove_missing_name_argument() {
 
 #[test]
 fn test_diff_missing_name_argument() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     let result = harness.jjz(&["diff"]);
@@ -311,7 +373,9 @@ fn test_diff_missing_name_argument() {
 
 #[test]
 fn test_unknown_subcommand() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     let result = harness.jjz(&["unknown-command"]);
     assert!(!result.success, "Unknown subcommand should fail");
@@ -319,7 +383,9 @@ fn test_unknown_subcommand() {
 
 #[test]
 fn test_invalid_flag() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
 
     let result = harness.jjz(&["init", "--invalid-flag"]);
     assert!(!result.success, "Invalid flag should fail");
@@ -331,7 +397,9 @@ fn test_invalid_flag() {
 
 #[test]
 fn test_invalid_toml_config() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Write invalid TOML
@@ -344,7 +412,9 @@ fn test_invalid_toml_config() {
 
 #[test]
 fn test_missing_config_file() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Delete config file
@@ -362,7 +432,9 @@ fn test_missing_config_file() {
 
 #[test]
 fn test_corrupted_jj_workspace() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
@@ -381,7 +453,9 @@ fn test_corrupted_jj_workspace() {
 
 #[test]
 fn test_session_name_exactly_64_chars() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Exactly 64 characters should be valid
@@ -392,7 +466,9 @@ fn test_session_name_exactly_64_chars() {
 
 #[test]
 fn test_session_name_with_numbers_only() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     harness.assert_success(&["add", "12345", "--no-open"]);
@@ -403,7 +479,9 @@ fn test_session_name_with_numbers_only() {
 
 #[test]
 fn test_rapid_add_remove_cycles() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Add and remove multiple times
@@ -419,7 +497,9 @@ fn test_rapid_add_remove_cycles() {
 
 #[test]
 fn test_list_with_no_sessions_after_remove_all() {
-    let harness = TestHarness::new().expect("Failed to create test harness");
+    let Ok(harness) = TestHarness::new() else {
+        std::process::abort()
+    };
     harness.assert_success(&["init"]);
 
     // Add multiple sessions

@@ -104,7 +104,7 @@ fn run_once(name: Option<&str>, json: bool) -> Result<()> {
         // Get single session
         let session = db
             .get(session_name)?
-            .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", session_name))?;
+            .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
         vec![session]
     } else {
         // Get all sessions
@@ -150,7 +150,7 @@ fn run_watch_mode(name: Option<&str>, json: bool) -> Result<()> {
         // Run status once
         if let Err(e) = run_once(name, json) {
             if !json {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {e}");
             }
         }
 
@@ -164,10 +164,10 @@ fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
     let workspace_path = Path::new(&session.workspace_path);
 
     // Get file changes
-    let changes = get_file_changes(workspace_path)?;
+    let changes = get_file_changes(workspace_path);
 
     // Get diff stats
-    let diff_stats = get_diff_stats(workspace_path)?;
+    let diff_stats = get_diff_stats(workspace_path);
 
     // Get beads stats
     let beads = get_beads_stats()?;
@@ -185,40 +185,41 @@ fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
 }
 
 /// Get file changes from JJ status
-fn get_file_changes(workspace_path: &Path) -> Result<FileChanges> {
+fn get_file_changes(workspace_path: &Path) -> FileChanges {
     if !workspace_path.exists() {
-        return Ok(FileChanges::default());
+        return FileChanges::default();
     }
 
     match zjj_core::jj::workspace_status(workspace_path) {
-        Ok(status) => Ok(FileChanges {
+        Ok(status) => FileChanges {
             modified: status.modified.len(),
             added: status.added.len(),
             deleted: status.deleted.len(),
             renamed: status.renamed.len(),
             unknown: status.unknown.len(),
-        }),
-        Err(_) => Ok(FileChanges::default()),
+        },
+        Err(_) => FileChanges::default(),
     }
 }
 
 /// Get diff statistics from JJ diff
-fn get_diff_stats(workspace_path: &Path) -> Result<DiffStats> {
+fn get_diff_stats(workspace_path: &Path) -> DiffStats {
     if !workspace_path.exists() {
-        return Ok(DiffStats::default());
+        return DiffStats::default();
     }
 
-    match zjj_core::jj::workspace_diff(workspace_path) {
-        Ok(summary) => Ok(DiffStats {
+    zjj_core::jj::workspace_diff(workspace_path)
+        .map(|summary| DiffStats {
             insertions: summary.insertions,
             deletions: summary.deletions,
-        }),
-        Err(_) => Ok(DiffStats::default()),
-    }
+        })
+        .unwrap_or_default()
 }
 
 /// Get beads statistics from the repository's beads database
 fn get_beads_stats() -> Result<BeadStats> {
+    use rusqlite::Connection;
+
     // Find repository root
     let repo_root = zjj_core::jj::check_in_jj_repo().ok();
 
@@ -233,8 +234,6 @@ fn get_beads_stats() -> Result<BeadStats> {
     }
 
     // Query beads database
-    use rusqlite::Connection;
-
     let conn = Connection::open(&beads_db_path)
         .map_err(|e| anyhow::anyhow!("Failed to open beads database: {e}"))?;
 
@@ -423,7 +422,7 @@ mod tests {
                 blocked: 0,
                 closed: 5,
             },
-            session: session.clone(),
+            session,
         };
 
         let json = serde_json::to_string(&info)?;
@@ -436,21 +435,19 @@ mod tests {
     }
 
     #[test]
-    fn test_get_file_changes_missing_workspace() -> Result<()> {
-        let result = get_file_changes(Path::new("/nonexistent/path"))?;
+    fn test_get_file_changes_missing_workspace() {
+        let result = get_file_changes(Path::new("/nonexistent/path"));
         assert_eq!(result.modified, 0);
         assert_eq!(result.added, 0);
         assert_eq!(result.deleted, 0);
         assert_eq!(result.renamed, 0);
-        Ok(())
     }
 
     #[test]
-    fn test_get_diff_stats_missing_workspace() -> Result<()> {
-        let result = get_diff_stats(Path::new("/nonexistent/path"))?;
+    fn test_get_diff_stats_missing_workspace() {
+        let result = get_diff_stats(Path::new("/nonexistent/path"));
         assert_eq!(result.insertions, 0);
         assert_eq!(result.deletions, 0);
-        Ok(())
     }
 
     #[test]
@@ -498,7 +495,7 @@ mod tests {
     }
 
     #[test]
-    fn test_output_json_format() -> Result<()> {
+    fn test_output_json_format() {
         let session = Session {
             id: Some(1),
             name: "test".to_string(),
@@ -525,7 +522,6 @@ mod tests {
 
         let result = output_json(&items);
         assert!(result.is_ok());
-        Ok(())
     }
 
     #[test]
