@@ -30,7 +30,22 @@ fn build_cli() -> ClapCommand {
                         .help("Name for the new session"),
                 ),
         )
-        .subcommand(ClapCommand::new("list").about("List all sessions"))
+        .subcommand(
+            ClapCommand::new("list")
+                .about("List all sessions")
+                .arg(
+                    Arg::new("all")
+                        .long("all")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Include completed and failed sessions"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
         .subcommand(
             ClapCommand::new("remove")
                 .about("Remove a session and its workspace")
@@ -81,7 +96,11 @@ fn main() -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
             add::run(name)
         }
-        Some(("list", _)) => list::run(),
+        Some(("list", sub_m)) => {
+            let all = sub_m.get_flag("all");
+            let json = sub_m.get_flag("json");
+            list::run(all, json)
+        }
         Some(("remove", sub_m)) => {
             let name = sub_m
                 .get_one::<String>("name")
