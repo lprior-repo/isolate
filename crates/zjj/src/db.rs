@@ -18,7 +18,9 @@ use std::{
 use rusqlite::Connection;
 use zjj_core::{Error, Result};
 
-use crate::session::{Session, SessionStatus, SessionUpdate};
+#[cfg(test)]
+use crate::session::SessionUpdate;
+use crate::session::{Session, SessionStatus};
 
 /// Database wrapper for session storage with thread-safe connection management
 pub struct SessionDb {
@@ -96,6 +98,7 @@ impl SessionDb {
         )
         .map_err(|e| Error::DatabaseError(format!("Failed to create update trigger: {e}")))?;
 
+        drop(conn);
         Ok(())
     }
 
@@ -135,6 +138,7 @@ impl SessionDb {
         })?;
 
         let id = conn.last_insert_rowid();
+        drop(conn);
 
         Ok(Session {
             id: Some(id),
@@ -172,62 +176,68 @@ impl SessionDb {
             .query([name])
             .map_err(|e| Error::DatabaseError(format!("Failed to execute query: {e}")))?;
 
-        match rows
+        if let Some(row) = rows
             .next()
             .map_err(|e| Error::DatabaseError(format!("Failed to read row: {e}")))?
         {
-            Some(row) => {
-                let id: i64 = row
-                    .get(0)
-                    .map_err(|e| Error::DatabaseError(format!("Failed to read id: {e}")))?;
-                let name: String = row
-                    .get(1)
-                    .map_err(|e| Error::DatabaseError(format!("Failed to read name: {e}")))?;
-                let status_str: String = row
-                    .get(2)
-                    .map_err(|e| Error::DatabaseError(format!("Failed to read status: {e}")))?;
-                let status = SessionStatus::from_str(&status_str)?;
-                let workspace_path: String = row.get(3).map_err(|e| {
-                    Error::DatabaseError(format!("Failed to read workspace_path: {e}"))
-                })?;
-                let branch: Option<String> = row
-                    .get(4)
-                    .map_err(|e| Error::DatabaseError(format!("Failed to read branch: {e}")))?;
-                let created_at: u64 = row
-                    .get(5)
-                    .map_err(|e| Error::DatabaseError(format!("Failed to read created_at: {e}")))?;
-                let updated_at: u64 = row
-                    .get(6)
-                    .map_err(|e| Error::DatabaseError(format!("Failed to read updated_at: {e}")))?;
-                let last_synced: Option<u64> = row.get(7).map_err(|e| {
-                    Error::DatabaseError(format!("Failed to read last_synced: {e}"))
-                })?;
-                let metadata_str: Option<String> = row
-                    .get(8)
-                    .map_err(|e| Error::DatabaseError(format!("Failed to read metadata: {e}")))?;
+            let id: i64 = row
+                .get(0)
+                .map_err(|e| Error::DatabaseError(format!("Failed to read id: {e}")))?;
+            let name: String = row
+                .get(1)
+                .map_err(|e| Error::DatabaseError(format!("Failed to read name: {e}")))?;
+            let status_str: String = row
+                .get(2)
+                .map_err(|e| Error::DatabaseError(format!("Failed to read status: {e}")))?;
+            let status = SessionStatus::from_str(&status_str)?;
+            let workspace_path: String = row
+                .get(3)
+                .map_err(|e| Error::DatabaseError(format!("Failed to read workspace_path: {e}")))?;
+            let branch: Option<String> = row
+                .get(4)
+                .map_err(|e| Error::DatabaseError(format!("Failed to read branch: {e}")))?;
+            let created_at: u64 = row
+                .get(5)
+                .map_err(|e| Error::DatabaseError(format!("Failed to read created_at: {e}")))?;
+            let updated_at: u64 = row
+                .get(6)
+                .map_err(|e| Error::DatabaseError(format!("Failed to read updated_at: {e}")))?;
+            let last_synced: Option<u64> = row
+                .get(7)
+                .map_err(|e| Error::DatabaseError(format!("Failed to read last_synced: {e}")))?;
+            let metadata_str: Option<String> = row
+                .get(8)
+                .map_err(|e| Error::DatabaseError(format!("Failed to read metadata: {e}")))?;
 
-                let metadata =
-                    match metadata_str {
-                        Some(s) => Some(serde_json::from_str(&s).map_err(|e| {
-                            Error::ParseError(format!("Invalid metadata JSON: {e}"))
-                        })?),
-                        None => None,
-                    };
+            let metadata = match metadata_str {
+                Some(s) => Some(
+                    serde_json::from_str(&s)
+                        .map_err(|e| Error::ParseError(format!("Invalid metadata JSON: {e}")))?,
+                ),
+                None => None,
+            };
 
-                Ok(Some(Session {
-                    id: Some(id),
-                    name: name.clone(),
-                    status,
-                    workspace_path,
-                    zellij_tab: format!("jjz:{name}"),
-                    branch,
-                    created_at,
-                    updated_at,
-                    last_synced,
-                    metadata,
-                }))
-            }
-            None => Ok(None),
+            let session = Session {
+                id: Some(id),
+                name: name.clone(),
+                status,
+                workspace_path,
+                zellij_tab: format!("jjz:{name}"),
+                branch,
+                created_at,
+                updated_at,
+                last_synced,
+                metadata,
+            };
+            drop(rows);
+            drop(stmt);
+            drop(conn);
+            Ok(Some(session))
+        } else {
+            drop(rows);
+            drop(stmt);
+            drop(conn);
+            Ok(None)
         }
     }
 
@@ -235,9 +245,13 @@ impl SessionDb {
     ///
     /// Updates the specified fields and automatically sets `updated_at` timestamp.
     ///
+    /// NOTE: Currently only used in tests. When implementing session modification
+    /// commands (e.g., pause, resume, sync), this will be used in production.
+    ///
     /// # Errors
     ///
     /// Returns `Error::DatabaseError` if the database update fails.
+    #[cfg(test)]
     pub fn update(&self, name: &str, update: SessionUpdate) -> Result<()> {
         let conn = self
             .conn
@@ -276,11 +290,13 @@ impl SessionDb {
         let sql = format!("UPDATE sessions SET {} WHERE name = ?", updates.join(", "));
         params.push(Box::new(name.to_string()));
 
-        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+        let param_refs: Vec<&dyn rusqlite::ToSql> =
+            params.iter().map(std::convert::AsRef::as_ref).collect();
 
         conn.execute(&sql, param_refs.as_slice())
             .map_err(|e| Error::DatabaseError(format!("Failed to update session: {e}")))?;
 
+        drop(conn);
         Ok(())
     }
 
@@ -301,6 +317,7 @@ impl SessionDb {
             .execute("DELETE FROM sessions WHERE name = ?1", [name])
             .map_err(|e| Error::DatabaseError(format!("Failed to delete session: {e}")))?;
 
+        drop(conn);
         Ok(changes > 0)
     }
 
@@ -317,20 +334,24 @@ impl SessionDb {
             .lock()
             .map_err(|e| Error::DatabaseError(format!("Lock error: {e}")))?;
 
-        let (sql, params): (String, Vec<String>) = match status_filter {
-            Some(status) => (
-                "SELECT id, name, status, workspace_path, branch, created_at, updated_at, last_synced, metadata
-                 FROM sessions WHERE status = ?1 ORDER BY created_at"
-                    .to_string(),
-                vec![status.to_string()],
-            ),
-            None => (
-                "SELECT id, name, status, workspace_path, branch, created_at, updated_at, last_synced, metadata
+        let (sql, params): (String, Vec<String>) = status_filter.map_or_else(
+            || {
+                (
+                    "SELECT id, name, status, workspace_path, branch, created_at, updated_at, last_synced, metadata
                  FROM sessions ORDER BY created_at"
-                    .to_string(),
-                vec![],
-            ),
-        };
+                        .to_string(),
+                    vec![],
+                )
+            },
+            |status| {
+                (
+                    "SELECT id, name, status, workspace_path, branch, created_at, updated_at, last_synced, metadata
+                 FROM sessions WHERE status = ?1 ORDER BY created_at"
+                        .to_string(),
+                    vec![status.to_string()],
+                )
+            },
+        );
 
         let mut stmt = conn
             .prepare(&sql)
@@ -403,6 +424,8 @@ impl SessionDb {
             });
         }
 
+        drop(stmt);
+        drop(conn);
         Ok(sessions)
     }
 
@@ -411,9 +434,13 @@ impl SessionDb {
     /// Drops existing data and recreates the schema, then inserts all provided sessions.
     /// Used for recovery from database corruption.
     ///
+    /// NOTE: Currently only used in tests. When implementing corruption recovery
+    /// features, this will be promoted to production.
+    ///
     /// # Errors
     ///
     /// Returns `Error::DatabaseError` if the rebuild process fails.
+    #[cfg(test)]
     pub fn rebuild_from_sessions(&self, sessions: Vec<Session>) -> Result<()> {
         let conn = self
             .conn
@@ -464,6 +491,7 @@ impl SessionDb {
             .map_err(|e| Error::DatabaseError(format!("Failed to insert session during rebuild: {e}")))?;
         }
 
+        drop(conn);
         Ok(())
     }
 }
@@ -491,7 +519,6 @@ mod tests {
             .conn
             .lock()
             .map_err(|e| Error::DatabaseError(e.to_string()))?;
-
         let mut stmt = conn
             .prepare("PRAGMA table_info(sessions)")
             .map_err(|e| Error::DatabaseError(e.to_string()))?;
@@ -502,6 +529,8 @@ mod tests {
             .collect();
 
         let columns = columns.map_err(|e| Error::DatabaseError(e.to_string()))?;
+        drop(stmt);
+        drop(conn);
 
         assert!(columns.contains(&"id".to_string()));
         assert!(columns.contains(&"name".to_string()));
@@ -522,7 +551,6 @@ mod tests {
             .conn
             .lock()
             .map_err(|e| Error::DatabaseError(e.to_string()))?;
-
         let mut stmt = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sessions'")
             .map_err(|e| Error::DatabaseError(e.to_string()))?;
@@ -533,6 +561,8 @@ mod tests {
             .collect();
 
         let indexes = indexes.map_err(|e| Error::DatabaseError(e.to_string()))?;
+        drop(stmt);
+        drop(conn);
 
         // Should have idx_status, idx_name, and the auto-generated UNIQUE index
         assert!(indexes.iter().any(|name| name.contains("idx_status")));
@@ -552,11 +582,12 @@ mod tests {
         assert!(result.is_err());
 
         // Verify it's a database error about unique constraint
-        match result {
-            Err(Error::DatabaseError(msg)) => {
-                assert!(msg.to_lowercase().contains("unique") || msg.contains("already exists"));
-            }
-            _ => panic!("Expected DatabaseError with UNIQUE constraint violation"),
+        if let Err(Error::DatabaseError(msg)) = result {
+            assert!(msg.to_lowercase().contains("unique") || msg.contains("already exists"));
+        } else {
+            return Err(Error::Unknown(
+                "Expected DatabaseError with UNIQUE constraint violation".to_string(),
+            ));
         }
         Ok(())
     }
@@ -580,7 +611,7 @@ mod tests {
         let session = db.create("test", "/path")?;
 
         assert!(session.id.is_some());
-        assert!(session.id.map_or(false, |id| id > 0));
+        assert!(session.id.is_some_and(|id| id > 0));
         Ok(())
     }
 
@@ -868,7 +899,7 @@ mod tests {
 
         let mut created = 0;
         for handle in handles {
-            if handle.join().map_or(false, |r| r.is_ok()) {
+            if handle.join().is_ok_and(|r| r.is_ok()) {
                 created += 1;
             }
         }
@@ -894,10 +925,7 @@ mod tests {
 
         let mut successful_reads = 0;
         for handle in handles {
-            if handle
-                .join()
-                .map_or(false, |r| r.map_or(false, |s| s.is_some()))
-            {
+            if handle.join().is_ok_and(|r| r.is_ok_and(|s| s.is_some())) {
                 successful_reads += 1;
             }
         }
@@ -923,7 +951,7 @@ mod tests {
         // One should succeed, one should fail with UNIQUE constraint
         let success_count = [r1, r2]
             .iter()
-            .filter(|r| r.as_ref().map_or(false, |res| res.is_ok()))
+            .filter(|r| r.as_ref().is_ok_and(std::result::Result::is_ok))
             .count();
 
         assert_eq!(success_count, 1);

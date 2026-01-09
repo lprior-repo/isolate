@@ -1,15 +1,18 @@
 //! Session data structures and utilities
 
-use std::{fmt, str::FromStr, time::SystemTime};
+#[cfg(test)]
+use std::time::SystemTime;
+use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use zjj_core::{Error, Result};
 
 /// Session status representing the lifecycle state
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SessionStatus {
     /// Session is being created
+    #[default]
     Creating,
     /// Session is active and ready for use
     Active,
@@ -48,14 +51,8 @@ impl FromStr for SessionStatus {
     }
 }
 
-impl Default for SessionStatus {
-    fn default() -> Self {
-        Self::Creating
-    }
-}
-
 /// A ZJJ session representing a JJ workspace + Zellij tab pair
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Session {
     /// Auto-generated database ID (None for new sessions not yet persisted)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -83,25 +80,12 @@ pub struct Session {
     pub metadata: Option<serde_json::Value>,
 }
 
-impl Default for Session {
-    fn default() -> Self {
-        Self {
-            id: None,
-            name: String::new(),
-            status: SessionStatus::default(),
-            workspace_path: String::new(),
-            zellij_tab: String::new(),
-            branch: None,
-            created_at: 0,
-            updated_at: 0,
-            last_synced: None,
-            metadata: None,
-        }
-    }
-}
-
 impl Session {
     /// Create a new session with the given name and workspace path
+    ///
+    /// NOTE: This is primarily for testing. Production code should use
+    /// `SessionDb::create` which handles persistence.
+    #[cfg(test)]
     pub fn new(name: &str, workspace_path: &str) -> Result<Self> {
         validate_session_name(name)?;
 
@@ -126,6 +110,10 @@ impl Session {
 }
 
 /// Fields that can be updated on an existing session
+///
+/// NOTE: This is currently only used in tests. When implementing session
+/// update functionality in production, this struct will be promoted.
+#[cfg(test)]
 #[derive(Debug, Clone, Default)]
 pub struct SessionUpdate {
     /// Update the session status
@@ -139,6 +127,10 @@ pub struct SessionUpdate {
 }
 
 /// Validate a session name
+///
+/// NOTE: Currently only used in tests. When we add session creation commands,
+/// this will be called from production code.
+#[cfg(test)]
 fn validate_session_name(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::ValidationError(
@@ -173,19 +165,18 @@ fn validate_session_name(name: &str) -> Result<()> {
 }
 
 /// Validate a status transition
+///
+/// NOTE: Currently only used in tests. When implementing session lifecycle
+/// commands, this will enforce valid state transitions.
+#[cfg(test)]
 pub fn validate_status_transition(from: SessionStatus, to: SessionStatus) -> Result<()> {
     use SessionStatus::*;
 
     let valid = matches!(
         (from, to),
-        (Creating, Active)
-            | (Creating, Failed)
-            | (Active, Paused)
-            | (Active, Completed)
-            | (Active, Failed)
-            | (Paused, Active)
-            | (Paused, Failed)
-            | (Completed, Active) // Can reactivate completed session
+        (Creating | Paused | Completed, Active)
+            | (Creating | Active | Paused, Failed)
+            | (Active, Paused | Completed)
             | (Failed, Creating) // Can retry failed session
     );
 
