@@ -7,7 +7,7 @@ use crate::commands::get_session_db;
 /// Run the list command
 pub fn run() -> Result<()> {
     let db = get_session_db()?;
-    let sessions = db.list()?;
+    let sessions = db.list(None)?;
 
     if sessions.is_empty() {
         println!("No sessions found.");

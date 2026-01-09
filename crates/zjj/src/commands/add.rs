@@ -1,11 +1,13 @@
 //! Create a new session with JJ workspace + Zellij tab
 
+use std::path::PathBuf;
+
 use anyhow::{bail, Context, Result};
+use zjj_core::jj;
 
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, jj_root, run_command},
     commands::get_session_db,
-    session::Session,
 };
 
 /// Run the add command
@@ -20,14 +22,11 @@ pub fn run(name: &str) -> Result<()> {
     let root = jj_root()?;
     let workspace_path = format!("{root}/.jjz/workspaces/{name}");
 
-    // Create the session record first (validates the name)
-    let session = Session::new(name, &workspace_path)?;
-
     // Create the JJ workspace (works outside Zellij too)
     create_jj_workspace(&root, name, &workspace_path)?;
 
     // Insert into database after workspace is created successfully
-    db.insert(&session)?;
+    let session = db.create(name, &workspace_path)?;
 
     if is_inside_zellij() {
         // Inside Zellij: Create tab and switch to it
@@ -50,15 +49,11 @@ pub fn run(name: &str) -> Result<()> {
 }
 
 /// Create a JJ workspace for the session
-fn create_jj_workspace(repo_root: &str, name: &str, workspace_path: &str) -> Result<()> {
-    // Create the workspaces directory if needed
-    let workspaces_dir = format!("{repo_root}/.jjz/workspaces");
-    std::fs::create_dir_all(&workspaces_dir).context("Failed to create workspaces directory")?;
-
-    // Create the JJ workspace
-    // jj workspace add --name <name> <path>
-    run_command("jj", &["workspace", "add", "--name", name, workspace_path])
-        .context("Failed to create JJ workspace")?;
+fn create_jj_workspace(_repo_root: &str, name: &str, workspace_path: &str) -> Result<()> {
+    // Use the JJ workspace manager from core
+    let path = PathBuf::from(workspace_path);
+    jj::workspace_create(name, &path)
+        .map_err(|e| anyhow::anyhow!("Failed to create JJ workspace: {e}"))?;
 
     Ok(())
 }

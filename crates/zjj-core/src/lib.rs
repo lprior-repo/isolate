@@ -19,6 +19,7 @@
 
 mod error;
 pub mod functional;
+pub mod jj;
 mod result;
 
 pub use error::Error;

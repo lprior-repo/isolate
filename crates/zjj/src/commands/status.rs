@@ -35,7 +35,7 @@ pub fn run() -> Result<()> {
     if in_jj_repo {
         match get_session_db() {
             Ok(db) => {
-                let sessions = db.list().unwrap_or_default();
+                let sessions = db.list(None).unwrap_or_default();
                 println!("ZJJ Initialized: Yes");
                 println!("Sessions: {}", sessions.len());
 

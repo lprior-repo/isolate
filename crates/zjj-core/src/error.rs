@@ -8,6 +8,7 @@ pub enum Error {
     ValidationError(String),
     NotFound(String),
     DatabaseError(String),
+    Command(String),
     Unknown(String),
 }
 
@@ -20,6 +21,7 @@ impl fmt::Display for Error {
             Self::ValidationError(msg) => write!(f, "Validation error: {msg}"),
             Self::NotFound(msg) => write!(f, "Not found: {msg}"),
             Self::DatabaseError(msg) => write!(f, "Database error: {msg}"),
+            Self::Command(msg) => write!(f, "Command error: {msg}"),
             Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
         }
     }

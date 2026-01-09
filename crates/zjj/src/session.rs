@@ -1,8 +1,6 @@
 //! Session data structures and utilities
 
-use std::fmt;
-use std::str::FromStr;
-use std::time::SystemTime;
+use std::{fmt, str::FromStr, time::SystemTime};
 
 use serde::{Deserialize, Serialize};
 use zjj_core::{Error, Result};
@@ -143,11 +141,15 @@ pub struct SessionUpdate {
 /// Validate a session name
 fn validate_session_name(name: &str) -> Result<()> {
     if name.is_empty() {
-        bail!("Session name cannot be empty");
+        return Err(Error::ValidationError(
+            "Session name cannot be empty".into(),
+        ));
     }
 
     if name.len() > 64 {
-        bail!("Session name cannot exceed 64 characters");
+        return Err(Error::ValidationError(
+            "Session name cannot exceed 64 characters".into(),
+        ));
     }
 
     // Only allow alphanumeric, dash, and underscore
@@ -155,15 +157,45 @@ fn validate_session_name(name: &str) -> Result<()> {
         .chars()
         .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
     {
-        bail!("Session name can only contain alphanumeric characters, dashes, and underscores");
+        return Err(Error::ValidationError(
+            "Session name can only contain alphanumeric characters, dashes, and underscores".into(),
+        ));
     }
 
     // Cannot start with dash or underscore
     if name.starts_with('-') || name.starts_with('_') {
-        bail!("Session name cannot start with a dash or underscore");
+        return Err(Error::ValidationError(
+            "Session name cannot start with a dash or underscore".into(),
+        ));
     }
 
     Ok(())
+}
+
+/// Validate a status transition
+pub fn validate_status_transition(from: SessionStatus, to: SessionStatus) -> Result<()> {
+    use SessionStatus::*;
+
+    let valid = matches!(
+        (from, to),
+        (Creating, Active)
+            | (Creating, Failed)
+            | (Active, Paused)
+            | (Active, Completed)
+            | (Active, Failed)
+            | (Paused, Active)
+            | (Paused, Failed)
+            | (Completed, Active) // Can reactivate completed session
+            | (Failed, Creating) // Can retry failed session
+    );
+
+    if valid {
+        Ok(())
+    } else {
+        Err(Error::ValidationError(format!(
+            "Invalid status transition from {from} to {to}"
+        )))
+    }
 }
 
 #[cfg(test)]
@@ -171,12 +203,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_session_new_valid() {
-        let session = Session::new("my-session", "/path/to/workspace");
-        assert!(session.is_ok());
-        let s = session.unwrap_or_default();
-        assert_eq!(s.name, "my-session");
-        assert_eq!(s.zellij_tab, "jjz:my-session");
+    fn test_session_new_valid() -> Result<()> {
+        let session = Session::new("my-session", "/path/to/workspace")?;
+        assert_eq!(session.name, "my-session");
+        assert_eq!(session.zellij_tab, "jjz:my-session");
+        assert_eq!(session.status, SessionStatus::Creating);
+        assert!(session.id.is_none());
+        assert!(session.created_at > 0);
+        assert_eq!(session.created_at, session.updated_at);
+        Ok(())
     }
 
     #[test]
@@ -208,5 +243,60 @@ mod tests {
     fn test_session_name_valid_with_underscore() {
         let result = validate_session_name("my_session");
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_status_display() {
+        assert_eq!(SessionStatus::Creating.to_string(), "creating");
+        assert_eq!(SessionStatus::Active.to_string(), "active");
+        assert_eq!(SessionStatus::Paused.to_string(), "paused");
+        assert_eq!(SessionStatus::Completed.to_string(), "completed");
+        assert_eq!(SessionStatus::Failed.to_string(), "failed");
+    }
+
+    #[test]
+    fn test_status_from_str() -> Result<()> {
+        assert_eq!(
+            SessionStatus::from_str("creating")?,
+            SessionStatus::Creating
+        );
+        assert_eq!(SessionStatus::from_str("active")?, SessionStatus::Active);
+        assert_eq!(SessionStatus::from_str("paused")?, SessionStatus::Paused);
+        assert_eq!(
+            SessionStatus::from_str("completed")?,
+            SessionStatus::Completed
+        );
+        assert_eq!(SessionStatus::from_str("failed")?, SessionStatus::Failed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_status_from_str_invalid() {
+        let result = SessionStatus::from_str("invalid");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_transition_creating_to_active() {
+        let result = validate_status_transition(SessionStatus::Creating, SessionStatus::Active);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_transition_creating_to_failed() {
+        let result = validate_status_transition(SessionStatus::Creating, SessionStatus::Failed);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_transition_active_to_paused() {
+        let result = validate_status_transition(SessionStatus::Active, SessionStatus::Paused);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_transition_invalid() {
+        let result = validate_status_transition(SessionStatus::Completed, SessionStatus::Paused);
+        assert!(result.is_err());
     }
 }
