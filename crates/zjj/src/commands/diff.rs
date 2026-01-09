@@ -144,14 +144,14 @@ mod tests {
     }
 
     #[test]
-    fn test_determine_main_branch_not_in_repo() {
+    fn test_determine_main_branch_not_in_repo() -> Result<()> {
         // When not in a JJ repo, should fall back to "main"
-        let temp = TempDir::new().unwrap();
-        let result = determine_main_branch(temp.path());
+        let temp = TempDir::new().context("Failed to create temp dir")?;
+        let result = determine_main_branch(temp.path())?;
 
         // Should return Ok with fallback "main"
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "main");
+        assert_eq!(result, "main");
+        Ok(())
     }
 
     #[test]

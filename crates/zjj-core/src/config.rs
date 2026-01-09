@@ -622,8 +622,10 @@ mod tests {
     fn test_global_only_merges_with_defaults() {
         // For this test, we're testing the merge logic directly, not the file loading
         let mut base = Config::default();
-        let mut override_config = Config::default();
-        override_config.workspace_dir = "../custom".to_string();
+        let override_config = Config {
+            workspace_dir: "../custom".to_string(),
+            ..Default::default()
+        };
 
         base.merge(override_config);
 
@@ -635,8 +637,10 @@ mod tests {
     #[test]
     fn test_project_only_merges_with_defaults() {
         let mut base = Config::default();
-        let mut override_config = Config::default();
-        override_config.main_branch = "develop".to_string();
+        let override_config = Config {
+            main_branch: "develop".to_string(),
+            ..Default::default()
+        };
 
         base.merge(override_config);
 
@@ -650,14 +654,18 @@ mod tests {
         let mut base = Config::default();
 
         // First merge global
-        let mut global_config = Config::default();
-        global_config.workspace_dir = "../global".to_string();
+        let global_config = Config {
+            workspace_dir: "../global".to_string(),
+            ..Default::default()
+        };
         base.merge(global_config);
         assert_eq!(base.workspace_dir, "../global");
 
         // Then merge project (should override)
-        let mut project_config = Config::default();
-        project_config.workspace_dir = "../project".to_string();
+        let project_config = Config {
+            workspace_dir: "../project".to_string(),
+            ..Default::default()
+        };
         base.merge(project_config);
 
         assert_eq!(base.workspace_dir, "../project");
@@ -669,8 +677,10 @@ mod tests {
         // Set env var
         std::env::set_var("JJZ_WORKSPACE_DIR", "../env");
 
-        let mut config = Config::default();
-        config.workspace_dir = "../original".to_string();
+        let mut config = Config {
+            workspace_dir: "../original".to_string(),
+            ..Default::default()
+        };
 
         let result = config.apply_env_vars();
         assert!(result.is_ok());

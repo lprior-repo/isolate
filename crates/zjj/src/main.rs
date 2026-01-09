@@ -16,248 +16,271 @@ use commands::{
     sync,
 };
 
+fn cmd_init() -> ClapCommand {
+    ClapCommand::new("init")
+        .about("Initialize jjz in a JJ repository (or create one)")
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_add() -> ClapCommand {
+    ClapCommand::new("add")
+        .about("Create a new session with JJ workspace + Zellij tab")
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Name for the new session"),
+        )
+        .arg(
+            Arg::new("no-hooks")
+                .long("no-hooks")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip executing post_create hooks"),
+        )
+        .arg(
+            Arg::new("template")
+                .short('t')
+                .long("template")
+                .value_name("TEMPLATE")
+                .help("Zellij layout template to use (minimal, standard, full)"),
+        )
+        .arg(
+            Arg::new("no-open")
+                .long("no-open")
+                .action(clap::ArgAction::SetTrue)
+                .help("Create workspace without opening Zellij tab"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_list() -> ClapCommand {
+    ClapCommand::new("list")
+        .about("List all sessions")
+        .arg(
+            Arg::new("all")
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .help("Include completed and failed sessions"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_remove() -> ClapCommand {
+    ClapCommand::new("remove")
+        .about("Remove a session and its workspace")
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Name of the session to remove"),
+        )
+        .arg(
+            Arg::new("force")
+                .short('f')
+                .long("force")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip confirmation prompt and hooks"),
+        )
+        .arg(
+            Arg::new("merge")
+                .short('m')
+                .long("merge")
+                .action(clap::ArgAction::SetTrue)
+                .help("Squash-merge to main before removal"),
+        )
+        .arg(
+            Arg::new("keep-branch")
+                .short('k')
+                .long("keep-branch")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preserve branch after removal"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_focus() -> ClapCommand {
+    ClapCommand::new("focus")
+        .about("Switch to a session's Zellij tab")
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Name of the session to focus"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_status() -> ClapCommand {
+    ClapCommand::new("status")
+        .about("Show detailed session status")
+        .arg(
+            Arg::new("name")
+                .required(false)
+                .help("Session name to show status for (shows all if omitted)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("watch")
+                .long("watch")
+                .action(clap::ArgAction::SetTrue)
+                .help("Continuously update status (1s refresh)"),
+        )
+}
+
+fn cmd_sync() -> ClapCommand {
+    ClapCommand::new("sync")
+        .about("Sync a session's workspace with main (rebase)")
+        .arg(
+            Arg::new("name")
+                .required(false)
+                .help("Session name to sync (syncs current workspace if omitted)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_diff() -> ClapCommand {
+    ClapCommand::new("diff")
+        .about("Show diff between session and main branch")
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Session name to show diff for"),
+        )
+        .arg(
+            Arg::new("stat")
+                .long("stat")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show diffstat only (summary of changes)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_config() -> ClapCommand {
+    ClapCommand::new("config")
+        .alias("cfg")
+        .about("View or modify configuration")
+        .arg(Arg::new("key").help("Config key to view/set (dot notation: 'zellij.use_tabs')"))
+        .arg(Arg::new("value").help("Value to set (omit to view)"))
+        .arg(
+            Arg::new("global")
+                .long("global")
+                .short('g')
+                .action(clap::ArgAction::SetTrue)
+                .help("Operate on global config instead of project"),
+        )
+}
+
+fn cmd_dashboard() -> ClapCommand {
+    ClapCommand::new("dashboard")
+        .about("Launch interactive TUI dashboard with kanban view")
+        .alias("dash")
+}
+
+fn cmd_introspect() -> ClapCommand {
+    ClapCommand::new("introspect")
+        .about("Discover jjz capabilities and command details")
+        .arg(
+            Arg::new("command")
+                .required(false)
+                .help("Command to introspect (shows all if omitted)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_doctor() -> ClapCommand {
+    ClapCommand::new("doctor")
+        .about("Run system health checks")
+        .alias("check")
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("fix")
+                .long("fix")
+                .action(clap::ArgAction::SetTrue)
+                .help("Auto-fix issues where possible"),
+        )
+}
+
+fn cmd_query() -> ClapCommand {
+    ClapCommand::new("query")
+        .about("Query system state programmatically")
+        .arg(
+            Arg::new("query_type")
+                .required(true)
+                .help("Type of query (session-exists, session-count, can-run, suggest-name)"),
+        )
+        .arg(
+            Arg::new("args")
+                .required(false)
+                .help("Query-specific arguments"),
+        )
+}
+
 fn build_cli() -> ClapCommand {
     ClapCommand::new("jjz")
         .version(env!("CARGO_PKG_VERSION"))
         .author("ZJJ Contributors")
         .about("ZJJ - Manage JJ workspaces with Zellij sessions")
         .subcommand_required(true)
-        .subcommand(
-            ClapCommand::new("init")
-                .about("Initialize jjz in a JJ repository (or create one)")
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("add")
-                .about("Create a new session with JJ workspace + Zellij tab")
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("Name for the new session"),
-                )
-                .arg(
-                    Arg::new("no-hooks")
-                        .long("no-hooks")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Skip executing post_create hooks"),
-                )
-                .arg(
-                    Arg::new("template")
-                        .short('t')
-                        .long("template")
-                        .value_name("TEMPLATE")
-                        .help("Zellij layout template to use (minimal, standard, full)"),
-                )
-                .arg(
-                    Arg::new("no-open")
-                        .long("no-open")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Create workspace without opening Zellij tab"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List all sessions")
-                .arg(
-                    Arg::new("all")
-                        .long("all")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Include completed and failed sessions"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("remove")
-                .about("Remove a session and its workspace")
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("Name of the session to remove"),
-                )
-                .arg(
-                    Arg::new("force")
-                        .short('f')
-                        .long("force")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Skip confirmation prompt and hooks"),
-                )
-                .arg(
-                    Arg::new("merge")
-                        .short('m')
-                        .long("merge")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Squash-merge to main before removal"),
-                )
-                .arg(
-                    Arg::new("keep-branch")
-                        .short('k')
-                        .long("keep-branch")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Preserve branch after removal"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("focus")
-                .about("Switch to a session's Zellij tab")
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("Name of the session to focus"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("status")
-                .about("Show detailed session status")
-                .arg(
-                    Arg::new("name")
-                        .required(false)
-                        .help("Session name to show status for (shows all if omitted)"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                )
-                .arg(
-                    Arg::new("watch")
-                        .long("watch")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Continuously update status (1s refresh)"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("sync")
-                .about("Sync a session's workspace with main (rebase)")
-                .arg(
-                    Arg::new("name")
-                        .required(false)
-                        .help("Session name to sync (syncs current workspace if omitted)"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("diff")
-                .about("Show diff between session and main branch")
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("Session name to show diff for"),
-                )
-                .arg(
-                    Arg::new("stat")
-                        .long("stat")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Show diffstat only (summary of changes)"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("config")
-                .alias("cfg")
-                .about("View or modify configuration")
-                .arg(
-                    Arg::new("key")
-                        .help("Config key to view/set (dot notation: 'zellij.use_tabs')"),
-                )
-                .arg(Arg::new("value").help("Value to set (omit to view)"))
-                .arg(
-                    Arg::new("global")
-                        .long("global")
-                        .short('g')
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Operate on global config instead of project"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("dashboard")
-                .about("Launch interactive TUI dashboard with kanban view")
-                .alias("dash"),
-        )
-        .subcommand(
-            ClapCommand::new("introspect")
-                .about("Discover jjz capabilities and command details")
-                .arg(
-                    Arg::new("command")
-                        .required(false)
-                        .help("Command to introspect (shows all if omitted)"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("doctor")
-                .about("Run system health checks")
-                .alias("check")
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                )
-                .arg(
-                    Arg::new("fix")
-                        .long("fix")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Auto-fix issues where possible"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("query")
-                .about("Query system state programmatically")
-                .arg(
-                    Arg::new("query_type").required(true).help(
-                        "Type of query (session-exists, session-count, can-run, suggest-name)",
-                    ),
-                )
-                .arg(
-                    Arg::new("args")
-                        .required(false)
-                        .help("Query-specific arguments"),
-                ),
-        )
+        .subcommand(cmd_init())
+        .subcommand(cmd_add())
+        .subcommand(cmd_list())
+        .subcommand(cmd_remove())
+        .subcommand(cmd_focus())
+        .subcommand(cmd_status())
+        .subcommand(cmd_sync())
+        .subcommand(cmd_diff())
+        .subcommand(cmd_config())
+        .subcommand(cmd_dashboard())
+        .subcommand(cmd_introspect())
+        .subcommand(cmd_doctor())
+        .subcommand(cmd_query())
 }
 
 fn main() -> Result<()> {
@@ -342,11 +365,10 @@ fn main() -> Result<()> {
         Some(("introspect", sub_m)) => {
             let command = sub_m.get_one::<String>("command").map(String::as_str);
             let json = sub_m.get_flag("json");
-            if let Some(cmd) = command {
-                introspect::run_command_introspect(cmd, json)
-            } else {
-                introspect::run(json)
-            }
+            command.map_or_else(
+                || introspect::run(json),
+                |cmd| introspect::run_command_introspect(cmd, json),
+            )
         }
         Some(("doctor" | "check", sub_m)) => {
             let json = sub_m.get_flag("json");

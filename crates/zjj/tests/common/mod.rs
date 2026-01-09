@@ -3,10 +3,11 @@
 //! This module provides utilities for setting up test environments,
 //! running jjz commands, and making assertions about the results.
 
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+#![allow(dead_code)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::unused_self)]
+
+use std::{path::PathBuf, process::Command};
 
 use anyhow::{Context, Result};
 use tempfile::TempDir;
@@ -16,8 +17,8 @@ use tempfile::TempDir;
 /// Provides a clean temporary environment with a JJ repository
 /// and utilities to execute jjz commands.
 pub struct TestHarness {
-    /// Temporary directory for the test
-    pub temp_dir: TempDir,
+    /// Temporary directory for the test (kept for automatic cleanup on drop)
+    _temp_dir: TempDir,
     /// Path to the JJ repository root
     pub repo_path: PathBuf,
     /// Path to the jjz binary
@@ -68,7 +69,7 @@ impl TestHarness {
         let jjz_bin = PathBuf::from(env!("CARGO_BIN_EXE_jjz"));
 
         Ok(Self {
-            temp_dir,
+            _temp_dir: temp_dir,
             repo_path,
             jjz_bin,
         })
@@ -99,24 +100,6 @@ impl TestHarness {
             result.success,
             "Command failed: jjz {}\nStderr: {}\nStdout: {}",
             args.join(" "),
-            result.stderr,
-            result.stdout
-        );
-    }
-
-    /// Run a jjz command and assert it fails with expected error
-    pub fn assert_failure(&self, args: &[&str], expected_error: &str) {
-        let result = self.jjz(args);
-        assert!(
-            !result.success,
-            "Command should have failed: jjz {}\nStdout: {}",
-            args.join(" "),
-            result.stdout
-        );
-        assert!(
-            result.stderr.contains(expected_error) || result.stdout.contains(expected_error),
-            "Expected error '{}' not found.\nStderr: {}\nStdout: {}",
-            expected_error,
             result.stderr,
             result.stdout
         );
@@ -159,13 +142,31 @@ impl TestHarness {
     }
 
     /// Assert that a file exists
-    pub fn assert_file_exists(&self, path: &Path) {
+    pub fn assert_file_exists(&self, path: &std::path::Path) {
         assert!(path.exists(), "File should exist: {}", path.display());
     }
 
     /// Assert that a file does not exist
-    pub fn assert_file_not_exists(&self, path: &Path) {
+    pub fn assert_file_not_exists(&self, path: &std::path::Path) {
         assert!(!path.exists(), "File should not exist: {}", path.display());
+    }
+
+    /// Run a jjz command and assert it fails with expected error
+    pub fn assert_failure(&self, args: &[&str], expected_error: &str) {
+        let result = self.jjz(args);
+        assert!(
+            !result.success,
+            "Command should have failed: jjz {}\nStdout: {}",
+            args.join(" "),
+            result.stdout
+        );
+        assert!(
+            result.stderr.contains(expected_error) || result.stdout.contains(expected_error),
+            "Expected error '{}' not found.\nStderr: {}\nStdout: {}",
+            expected_error,
+            result.stderr,
+            result.stdout
+        );
     }
 
     /// Write a custom config file

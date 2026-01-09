@@ -322,13 +322,13 @@ fn handle_confirm_dialog(
     key: KeyEvent,
 ) -> Result<()> {
     match key.code {
-        KeyCode::Char('y') | KeyCode::Char('Y') => match dialog.action {
+        KeyCode::Char('y' | 'Y') => match dialog.action {
             ConfirmAction::RemoveSession(name) => {
                 remove_session(&name)?;
                 app.refresh_sessions()?;
             }
         },
-        KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+        KeyCode::Char('n' | 'N') | KeyCode::Esc => {
             // Dialog already taken, just return
         }
         _ => {
@@ -440,7 +440,7 @@ fn render_column(f: &mut Frame, app: &DashboardApp, area: Rect, column_idx: usiz
 }
 
 /// Format a session as a list item
-fn format_session_item(session_data: &SessionData, is_selected: bool) -> ListItem {
+fn format_session_item(session_data: &SessionData, is_selected: bool) -> ListItem<'_> {
     let session = &session_data.session;
     let changes_str = session_data
         .changes

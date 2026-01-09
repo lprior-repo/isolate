@@ -236,7 +236,7 @@ fn get_beads_stats() -> Result<BeadStats> {
     use rusqlite::Connection;
 
     let conn = Connection::open(&beads_db_path)
-        .map_err(|e| anyhow::anyhow!("Failed to open beads database: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to open beads database: {e}"))?;
 
     // Count issues by status
     let open: usize = conn
@@ -298,7 +298,7 @@ fn output_table(items: &[SessionStatusInfo]) {
 /// Output sessions as JSON
 fn output_json(items: &[SessionStatusInfo]) -> Result<()> {
     let json = serde_json::to_string_pretty(items)?;
-    println!("{}", json);
+    println!("{json}");
     Ok(())
 }
 

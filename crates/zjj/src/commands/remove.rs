@@ -134,7 +134,10 @@ mod tests {
 
         let workspace_dir = dir.path().join("workspaces").join(name);
         fs::create_dir_all(&workspace_dir)?;
-        let workspace_path = workspace_dir.to_str().unwrap().to_string();
+        let workspace_path = workspace_dir
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Invalid workspace path"))?
+            .to_string();
 
         db.create(name, &workspace_path)?;
 
@@ -150,14 +153,15 @@ mod tests {
     }
 
     #[test]
-    fn test_session_not_found() {
-        let dir = TempDir::new().unwrap();
+    fn test_session_not_found() -> Result<()> {
+        let dir = TempDir::new().context("Failed to create temp dir")?;
         let db_path = dir.path().join("test.db");
-        let _db = SessionDb::open(&db_path).unwrap();
+        let _db = SessionDb::open(&db_path)?;
 
         // Mock get_session_db to return our test db
         // Note: This test will fail until we refactor to use dependency injection
         // For now, it demonstrates the test case we need
+        Ok(())
     }
 
     #[test]

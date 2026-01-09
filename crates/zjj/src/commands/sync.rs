@@ -11,10 +11,7 @@ use crate::{cli::run_command, commands::get_session_db, session::SessionUpdate};
 /// If a session name is provided, syncs that session's workspace.
 /// Otherwise, syncs all sessions.
 pub fn run(name: Option<&str>) -> Result<()> {
-    match name {
-        Some(n) => sync_session(n),
-        None => sync_all(),
-    }
+    name.map_or_else(sync_all, sync_session)
 }
 
 /// Sync a specific session's workspace

@@ -172,7 +172,7 @@ pub fn validate_session_name(name: &str) -> Result<()> {
 /// - Completed -> Active (reopen)
 #[allow(dead_code)]
 pub fn validate_status_transition(from: SessionStatus, to: SessionStatus) -> Result<()> {
-    use SessionStatus::*;
+    use SessionStatus::{Active, Completed, Creating, Failed, Paused};
 
     let valid = matches!(
         (from, to),
