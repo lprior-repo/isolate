@@ -1,0 +1,53 @@
+[package]
+name = "zjj-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Core functionality for ZJJ - zero unwrap, idiomatic Rust"
+
+[lib]
+name = "zjj_core"
+path = "src/lib.rs"
+
+[dependencies]
+# Error handling - idiomatic, zero unwrap approach
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async runtime - with full feature set for functional programming
+tokio = { version = "1", features = ["full"] }
+
+# Logging and diagnostics
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Functional programming libraries
+itertools = "0.13"        # Iterator combinators and utilities
+either = "1.13"           # Left/Right sum type for bifunctors
+nonempty = "0.7"          # Non-empty collection types
+static_assertions = "1.1" # Compile-time checks
+
+# Immutable data structures - functional style
+im = "15.1"               # Persistent/structural sharing collections
+im-rc = "15.1"            # Reference-counted variants
+
+# More combinator patterns
+futures = "0.3"           # Future and stream combinators
+
+# Optional: Pattern matching and destructuring
+darling = "0.20"          # Attribute macro helper library
+
+[dev-dependencies]
+tokio-test = "0.4"
+proptest = "1.0"
+
+[lints]
+workspace = true
