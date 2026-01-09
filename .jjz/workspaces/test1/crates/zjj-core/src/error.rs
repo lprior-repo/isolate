@@ -7,7 +7,6 @@ pub enum Error {
     ParseError(String),
     ValidationError(String),
     NotFound(String),
-    DatabaseError(String),
     Unknown(String),
 }
 
@@ -19,7 +18,6 @@ impl fmt::Display for Error {
             Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
             Self::ValidationError(msg) => write!(f, "Validation error: {msg}"),
             Self::NotFound(msg) => write!(f, "Not found: {msg}"),
-            Self::DatabaseError(msg) => write!(f, "Database error: {msg}"),
             Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
         }
     }
@@ -47,12 +45,6 @@ mod tests {
     fn test_error_display_invalid_config() {
         let err = Error::InvalidConfig("test error".into());
         assert_eq!(err.to_string(), "Invalid configuration: test error");
-    }
-
-    #[test]
-    fn test_error_display_database_error() {
-        let err = Error::DatabaseError("connection failed".into());
-        assert_eq!(err.to_string(), "Database error: connection failed");
     }
 
     #[test]
