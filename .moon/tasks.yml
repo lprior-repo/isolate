@@ -122,6 +122,23 @@ tasks:
   # CONVENIENCE
   # ============================================================================
 
+  install:
+    command: "cp target/release/jjz ~/.local/bin/jjz && chmod +x ~/.local/bin/jjz && echo 'Installed jjz to ~/.local/bin/jjz'"
+    description: "Install jjz binary to ~/.local/bin (after build)"
+    deps:
+      - "build"
+    options:
+      cache: false
+
+  dev:
+    command: "true"
+    description: "Quick development workflow: build + install"
+    deps:
+      - "build"
+      - "install"
+    options:
+      cache: false
+
   clean:
     command: "cargo clean"
     description: "Clean build artifacts"
