@@ -107,7 +107,7 @@ mod tests {
     fn test_result_inspect_error() {
         let result: Result<i32> = Err(Error::Unknown("test".into()));
         let mut called = false;
-        result.inspect_error(|_| {
+        let _ = result.inspect_error(|_| {
             called = true;
         });
         assert!(called);

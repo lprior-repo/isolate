@@ -1,41 +1,24 @@
-//! Custom error types with comprehensive error information.
-
 use std::fmt;
 
-/// The result type for ZJJ operations.
-pub type ZJJResult<T> = std::result::Result<T, Error>;
-
-/// Errors that can occur in ZJJ operations.
 #[derive(Debug, Clone)]
 pub enum Error {
-    /// Invalid configuration.
     InvalidConfig(String),
-
-    /// IO error description.
     IoError(String),
-
-    /// Parsing error.
     ParseError(String),
-
-    /// Validation error.
     ValidationError(String),
-
-    /// Resource not found.
     NotFound(String),
-
-    /// Unknown error.
     Unknown(String),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidConfig(msg) => write!(f, "Invalid configuration: {}", msg),
-            Self::IoError(msg) => write!(f, "IO error: {}", msg),
-            Self::ParseError(msg) => write!(f, "Parse error: {}", msg),
-            Self::ValidationError(msg) => write!(f, "Validation error: {}", msg),
-            Self::NotFound(msg) => write!(f, "Not found: {}", msg),
-            Self::Unknown(msg) => write!(f, "Unknown error: {}", msg),
+            Self::InvalidConfig(msg) => write!(f, "Invalid configuration: {msg}"),
+            Self::IoError(msg) => write!(f, "IO error: {msg}"),
+            Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
+            Self::ValidationError(msg) => write!(f, "Validation error: {msg}"),
+            Self::NotFound(msg) => write!(f, "Not found: {msg}"),
+            Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
         }
     }
 }
@@ -74,7 +57,7 @@ mod tests {
     #[test]
     fn test_error_debug() {
         let err = Error::InvalidConfig("test".into());
-        let debug_str = format!("{:?}", err);
+        let debug_str = format!("{err:?}");
         assert!(debug_str.contains("InvalidConfig"));
     }
 }
