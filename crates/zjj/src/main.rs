@@ -33,7 +33,8 @@ fn cmd_add() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required(true)
-                .help("Name for the new session"),
+                .allow_hyphen_values(true) // Allow -name to be passed through for validation
+                .help("Name for the new session (must start with a letter)"),
         )
         .arg(
             Arg::new("no-hooks")
@@ -85,6 +86,7 @@ fn cmd_remove() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required(true)
+                .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Name of the session to remove"),
         )
         .arg(
@@ -122,6 +124,7 @@ fn cmd_focus() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required(true)
+                .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Name of the session to focus"),
         )
         .arg(
@@ -176,6 +179,7 @@ fn cmd_diff() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required(true)
+                .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Session name to show diff for"),
         )
         .arg(
