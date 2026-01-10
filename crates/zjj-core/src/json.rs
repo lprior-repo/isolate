@@ -9,14 +9,40 @@ use serde::{Deserialize, Serialize};
 /// Standard JSON success response wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonSuccess<T> {
+    pub success: bool,
     #[serde(flatten)]
     pub data: T,
+}
+
+impl<T> JsonSuccess<T> {
+    /// Create a new success response
+    pub const fn new(data: T) -> Self {
+        Self {
+            success: true,
+            data,
+        }
+    }
 }
 
 /// Standard JSON error response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonError {
+    pub success: bool,
     pub error: ErrorDetail,
+}
+
+impl Default for JsonError {
+    fn default() -> Self {
+        Self {
+            success: false,
+            error: ErrorDetail {
+                code: "UNKNOWN".to_string(),
+                message: "An unknown error occurred".to_string(),
+                details: None,
+                suggestion: None,
+            },
+        }
+    }
 }
 
 /// Detailed error information
@@ -38,6 +64,7 @@ impl JsonError {
     /// Create a new JSON error with just a code and message
     pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
+            success: false,
             error: ErrorDetail {
                 code: code.into(),
                 message: message.into(),
@@ -140,6 +167,107 @@ impl From<ErrorCode> for String {
         code.as_str().to_string()
     }
 }
+
+impl From<&crate::Error> for JsonError {
+    fn from(err: &crate::Error) -> Self {
+        use crate::Error;
+
+        let (code, message, suggestion) = match err {
+            Error::InvalidConfig(msg) => (
+                ErrorCode::ConfigParseError,
+                format!("Invalid configuration: {msg}"),
+                Some("Check your configuration file for errors".to_string()),
+            ),
+            Error::IoError(msg) => (
+                ErrorCode::Unknown,
+                format!("IO error: {msg}"),
+                None,
+            ),
+            Error::ParseError(msg) => (
+                ErrorCode::ConfigParseError,
+                format!("Parse error: {msg}"),
+                None,
+            ),
+            Error::ValidationError(msg) => (
+                ErrorCode::InvalidArgument,
+                format!("Validation error: {msg}"),
+                None,
+            ),
+            Error::NotFound(msg) => (
+                ErrorCode::SessionNotFound,
+                format!("Not found: {msg}"),
+                Some("Use 'jjz list' to see available sessions".to_string()),
+            ),
+            Error::DatabaseError(msg) => (
+                ErrorCode::StateDbCorrupted,
+                format!("Database error: {msg}"),
+                Some("Try running 'jjz doctor --fix' to repair the database".to_string()),
+            ),
+            Error::Command(msg) => (
+                ErrorCode::Unknown,
+                format!("Command error: {msg}"),
+                None,
+            ),
+            Error::HookFailed {
+                hook_type,
+                command,
+                exit_code,
+                stdout: _,
+                stderr,
+            } => (
+                ErrorCode::HookFailed,
+                format!(
+                    "Hook '{hook_type}' failed: {command}\nExit code: {exit_code:?}\nStderr: {stderr}"
+                ),
+                Some("Check your hook configuration and ensure the command is correct".to_string()),
+            ),
+            Error::HookExecutionFailed { command, source } => (
+                ErrorCode::HookExecutionError,
+                format!("Failed to execute hook '{command}': {source}"),
+                Some("Ensure the hook command exists and is executable".to_string()),
+            ),
+            Error::JjCommandError {
+                operation,
+                source,
+                is_not_found,
+            } => {
+                if *is_not_found {
+                    (
+                        ErrorCode::JjNotInstalled,
+                        format!("Failed to {operation}: JJ is not installed or not in PATH"),
+                        Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
+                    )
+                } else {
+                    (
+                        ErrorCode::JjCommandFailed,
+                        format!("Failed to {operation}: {source}"),
+                        None,
+                    )
+                }
+            }
+            Error::Unknown(msg) => (
+                ErrorCode::Unknown,
+                format!("Unknown error: {msg}"),
+                None,
+            ),
+        };
+
+        let mut json_error = Self::new(code, message);
+        if let Some(sugg) = suggestion {
+            json_error = json_error.with_suggestion(sugg);
+        }
+        json_error
+    }
+}
+
+impl From<crate::Error> for JsonError {
+    fn from(err: crate::Error) -> Self {
+        Self::from(&err)
+    }
+}
+
+// Note: from_anyhow method removed as zjj-core doesn't depend on anyhow
+// If needed, implement this in the zjj crate instead
 
 /// Trait for types that can be serialized to JSON
 pub trait JsonSerializable: Serialize {
@@ -276,7 +404,10 @@ mod tests {
             count: 42,
         };
 
-        let success = JsonSuccess { data };
+        let success = JsonSuccess {
+            success: true,
+            data,
+        };
         let json = success.to_json()?;
 
         assert!(json.contains("\"name\""));

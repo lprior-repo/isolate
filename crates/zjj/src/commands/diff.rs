@@ -5,7 +5,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crate::commands::get_session_db;
 
@@ -49,7 +49,21 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
         .args(&args)
         .current_dir(workspace_path)
         .output()
-        .context("Failed to execute jj diff")?;
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                anyhow::anyhow!(
+                    "Failed to execute jj diff: JJ is not installed or not in PATH.\n\n\
+                    Install JJ:\n\
+                      cargo install jj-cli\n\
+                    or:\n\
+                      brew install jj\n\
+                    or visit: https://github.com/martinvonz/jj#installation\n\n\
+                    Error: {e}"
+                )
+            } else {
+                anyhow::anyhow!("Failed to execute jj diff: {e}")
+            }
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

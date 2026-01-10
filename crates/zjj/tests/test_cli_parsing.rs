@@ -528,3 +528,145 @@ fn test_template_with_equals_sign() {
     let result = harness.jjz(&["list"]);
     result.assert_stdout_contains("test");
 }
+
+// ============================================================================
+// Session Names with Leading Dashes (zjj-hv7)
+// ============================================================================
+
+#[test]
+fn test_session_name_starting_with_single_dash() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Names starting with a single dash should be rejected
+    let result = harness.jjz(&["add", "-foo", "--no-open"]);
+    assert!(!result.success, "Should reject name starting with dash");
+    result.assert_output_contains("must start with a letter");
+}
+
+#[test]
+fn test_session_name_starting_with_double_dash() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Names starting with double dash should be rejected
+    let result = harness.jjz(&["add", "--bar", "--no-open"]);
+    assert!(!result.success, "Should reject name starting with --");
+    // Will likely be interpreted as unknown flag or show validation error
+}
+
+#[test]
+fn test_session_name_starting_with_triple_dash() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Names starting with triple dash should be rejected
+    let result = harness.jjz(&["add", "---baz", "--no-open"]);
+    assert!(!result.success, "Should reject name starting with ---");
+    result.assert_output_contains("must start with a letter");
+}
+
+#[test]
+fn test_session_name_just_dash() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // A single dash should be rejected
+    let result = harness.jjz(&["add", "-", "--no-open"]);
+    assert!(!result.success, "Should reject single dash as name");
+    result.assert_output_contains("must start with a letter");
+}
+
+#[test]
+fn test_session_name_starting_with_underscore() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Names starting with underscore should be rejected
+    let result = harness.jjz(&["add", "_private", "--no-open"]);
+    assert!(
+        !result.success,
+        "Should reject name starting with underscore"
+    );
+    result.assert_output_contains("must start with a letter");
+}
+
+#[test]
+fn test_session_name_starting_with_number() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Names starting with number should be rejected
+    let result = harness.jjz(&["add", "123session", "--no-open"]);
+    assert!(!result.success, "Should reject name starting with number");
+    result.assert_output_contains("must start with a letter");
+}
+
+#[test]
+fn test_remove_session_name_starting_with_dash() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Try to remove a session with dash-prefixed name
+    let result = harness.jjz(&["remove", "-session", "--force"]);
+    assert!(
+        !result.success,
+        "Should reject remove with dash-prefixed name"
+    );
+    // May show validation error or "session not found"
+}
+
+#[test]
+fn test_focus_session_name_starting_with_dash() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Try to focus a session with dash-prefixed name
+    let result = harness.jjz(&["focus", "-session"]);
+    assert!(
+        !result.success,
+        "Should reject focus with dash-prefixed name"
+    );
+    // May show validation error or "session not found"
+}
+
+#[test]
+fn test_diff_session_name_starting_with_dash() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Try to diff a session with dash-prefixed name
+    let result = harness.jjz(&["diff", "-session"]);
+    assert!(
+        !result.success,
+        "Should reject diff with dash-prefixed name"
+    );
+    // May show validation error or "session not found"
+}
