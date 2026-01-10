@@ -167,13 +167,13 @@ fn query_session_exists(name: &str) -> Result<()> {
                 }),
             },
         },
-        Err(e) => SessionExistsQuery {
-            exists: None,
-            session: None,
-            error: Some(QueryError {
-                code: "DATABASE_INIT_ERROR".to_string(),
-                message: format!("Failed to initialize database: {}", e),
-            }),
+        Err(e) => {
+            let (code, message) = categorize_db_error(&e);
+            SessionExistsQuery {
+                exists: None,
+                session: None,
+                error: Some(QueryError { code, message }),
+            }
         }
     };
 
@@ -211,13 +211,13 @@ fn query_session_count(filter: Option<&str>) -> Result<()> {
                 }),
             },
         },
-        Err(e) => SessionCountQuery {
-            count: None,
-            filter: filter.map(|f| serde_json::json!({"raw": f})),
-            error: Some(QueryError {
-                code: "DATABASE_INIT_ERROR".to_string(),
-                message: format!("Failed to initialize database: {}", e),
-            }),
+        Err(e) => {
+            let (code, message) = categorize_db_error(&e);
+            SessionCountQuery {
+                count: None,
+                filter: filter.map(|f| serde_json::json!({"raw": f})),
+                error: Some(QueryError { code, message }),
+            }
         }
     };
 
