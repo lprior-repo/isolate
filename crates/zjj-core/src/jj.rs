@@ -4,11 +4,22 @@
 //! All operations return `Result` and never panic.
 
 use std::{
+    io::ErrorKind,
     path::{Path, PathBuf},
     process::Command,
 };
 
 use crate::{Error, Result};
+
+/// Helper to create a JJ command error with appropriate context
+fn jj_command_error(operation: &str, error: &std::io::Error) -> Error {
+    let is_not_found = error.kind() == ErrorKind::NotFound;
+    Error::JjCommandError {
+        operation: operation.to_string(),
+        source: error.to_string(),
+        is_not_found,
+    }
+}
 
 /// Information about a JJ workspace
 #[derive(Debug, Clone)]
@@ -91,11 +102,15 @@ pub fn workspace_create(name: &str, path: &Path) -> Result<()> {
         .args(["workspace", "add", "--name", name])
         .arg(path)
         .output()
-        .map_err(|e| Error::IoError(format!("Failed to execute jj: {e}")))?;
+        .map_err(|e| jj_command_error("create workspace", &e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Unknown(format!("jj failed: {stderr}")));
+        return Err(Error::JjCommandError {
+            operation: "create workspace".to_string(),
+            source: stderr.to_string(),
+            is_not_found: false,
+        });
     }
 
     Ok(())
@@ -121,11 +136,15 @@ pub fn workspace_forget(name: &str) -> Result<()> {
     let output = Command::new("jj")
         .args(["workspace", "forget", name])
         .output()
-        .map_err(|e| Error::Unknown(format!("Failed to execute jj: {e}")))?;
+        .map_err(|e| jj_command_error("forget workspace", &e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Unknown(format!("jj failed: {stderr}")));
+        return Err(Error::JjCommandError {
+            operation: "forget workspace".to_string(),
+            source: stderr.to_string(),
+            is_not_found: false,
+        });
     }
 
     Ok(())
@@ -144,11 +163,15 @@ pub fn workspace_list() -> Result<Vec<WorkspaceInfo>> {
     let output = Command::new("jj")
         .args(["workspace", "list"])
         .output()
-        .map_err(|e| Error::Unknown(format!("Failed to execute jj: {e}")))?;
+        .map_err(|e| jj_command_error("list workspaces", &e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Unknown(format!("jj failed: {stderr}")));
+        return Err(Error::JjCommandError {
+            operation: "list workspaces".to_string(),
+            source: stderr.to_string(),
+            is_not_found: false,
+        });
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -200,11 +223,15 @@ pub fn workspace_status(path: &Path) -> Result<Status> {
         .args(["status"])
         .current_dir(path)
         .output()
-        .map_err(|e| Error::Unknown(format!("Failed to execute jj: {e}")))?;
+        .map_err(|e| jj_command_error("get workspace status", &e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Unknown(format!("jj failed: {stderr}")));
+        return Err(Error::JjCommandError {
+            operation: "get workspace status".to_string(),
+            source: stderr.to_string(),
+            is_not_found: false,
+        });
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -263,11 +290,15 @@ pub fn workspace_diff(path: &Path) -> Result<DiffSummary> {
         .args(["diff", "--stat"])
         .current_dir(path)
         .output()
-        .map_err(|e| Error::Unknown(format!("Failed to execute jj: {e}")))?;
+        .map_err(|e| jj_command_error("get workspace diff", &e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Unknown(format!("jj failed: {stderr}")));
+        return Err(Error::JjCommandError {
+            operation: "get workspace diff".to_string(),
+            source: stderr.to_string(),
+            is_not_found: false,
+        });
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -318,12 +349,16 @@ pub fn check_jj_installed() -> Result<()> {
     Command::new("jj")
         .arg("--version")
         .output()
-        .map_err(|_| Error::Unknown("JJ not found in PATH. Please install JJ first.".into()))
+        .map_err(|e| jj_command_error("check JJ installation", &e))
         .and_then(|output| {
             if output.status.success() {
                 Ok(())
             } else {
-                Err(Error::Unknown("JJ command failed".into()))
+                Err(Error::JjCommandError {
+                    operation: "check JJ installation".to_string(),
+                    source: "JJ command returned non-zero exit code".to_string(),
+                    is_not_found: false,
+                })
             }
         })
 }
@@ -337,19 +372,26 @@ pub fn check_in_jj_repo() -> Result<PathBuf> {
     let output = Command::new("jj")
         .args(["root"])
         .output()
-        .map_err(|e| Error::Unknown(format!("Failed to execute jj: {e}")))?;
+        .map_err(|e| jj_command_error("find JJ repository root", &e))?;
 
     if !output.status.success() {
-        return Err(Error::Unknown("Not in a JJ repository".into()));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(Error::JjCommandError {
+            operation: "find JJ repository root".to_string(),
+            source: format!("Not in a JJ repository. {stderr}"),
+            is_not_found: false,
+        });
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let root = stdout.trim();
 
     if root.is_empty() {
-        Err(Error::Unknown(
-            "Could not determine JJ repository root".into(),
-        ))
+        Err(Error::JjCommandError {
+            operation: "find JJ repository root".to_string(),
+            source: "Could not determine JJ repository root".to_string(),
+            is_not_found: false,
+        })
     } else {
         Ok(PathBuf::from(root))
     }

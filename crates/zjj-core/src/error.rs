@@ -20,6 +20,11 @@ pub enum Error {
         command: String,
         source: String,
     },
+    JjCommandError {
+        operation: String,
+        source: String,
+        is_not_found: bool,
+    },
     Unknown(String),
 }
 
@@ -47,6 +52,26 @@ impl fmt::Display for Error {
             }
             Self::HookExecutionFailed { command, source } => {
                 write!(f, "Failed to execute hook '{command}': {source}")
+            }
+            Self::JjCommandError {
+                operation,
+                source,
+                is_not_found,
+            } => {
+                if *is_not_found {
+                    write!(
+                        f,
+                        "Failed to {operation}: JJ is not installed or not in PATH.\n\n\
+                        Install JJ:\n\
+                          cargo install jj-cli\n\
+                        or:\n\
+                          brew install jj\n\
+                        or visit: https://github.com/martinvonz/jj#installation\n\n\
+                        Error: {source}"
+                    )
+                } else {
+                    write!(f, "Failed to {operation}: {source}")
+                }
             }
             Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
         }
@@ -129,5 +154,32 @@ mod tests {
         assert!(display.contains("Failed to execute hook"));
         assert!(display.contains("invalid-shell"));
         assert!(display.contains("No such file or directory"));
+    }
+
+    #[test]
+    fn test_error_display_jj_command_not_found() {
+        let err = Error::JjCommandError {
+            operation: "create workspace".to_string(),
+            source: "No such file or directory (os error 2)".to_string(),
+            is_not_found: true,
+        };
+        let display = err.to_string();
+        assert!(display.contains("Failed to create workspace"));
+        assert!(display.contains("JJ is not installed"));
+        assert!(display.contains("cargo install jj-cli"));
+        assert!(display.contains("brew install jj"));
+    }
+
+    #[test]
+    fn test_error_display_jj_command_other_error() {
+        let err = Error::JjCommandError {
+            operation: "list workspaces".to_string(),
+            source: "Permission denied".to_string(),
+            is_not_found: false,
+        };
+        let display = err.to_string();
+        assert!(display.contains("Failed to list workspaces"));
+        assert!(display.contains("Permission denied"));
+        assert!(!display.contains("JJ is not installed"));
     }
 }

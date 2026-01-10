@@ -6,8 +6,8 @@ use anyhow::{bail, Context, Result};
 use zjj_core::jj;
 
 use crate::{
-    cli::{attach_to_zellij_session, is_inside_zellij, jj_root, run_command},
-    commands::get_session_db,
+    cli::{attach_to_zellij_session, is_inside_zellij, run_command},
+    commands::{check_prerequisites, get_session_db},
     session::{validate_session_name, SessionStatus, SessionUpdate},
 };
 
@@ -56,11 +56,11 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
         bail!("Session '{}' already exists", options.name);
     }
 
-    let root = jj_root()?;
-    let workspace_path = format!("{}/.jjz/workspaces/{}", root, options.name);
+    let root = check_prerequisites()?;
+    let workspace_path = format!("{}/.jjz/workspaces/{}", root.display(), options.name);
 
     // Create the JJ workspace (REQ-JJ-003, REQ-JJ-007)
-    create_jj_workspace(&root, &options.name, &workspace_path).with_context(|| {
+    create_jj_workspace(&options.name, &workspace_path).with_context(|| {
         format!(
             "Failed to create JJ workspace for session '{}'",
             options.name
@@ -130,7 +130,7 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 }
 
 /// Create a JJ workspace for the session
-fn create_jj_workspace(_repo_root: &str, name: &str, workspace_path: &str) -> Result<()> {
+fn create_jj_workspace(name: &str, workspace_path: &str) -> Result<()> {
     // Use the JJ workspace manager from core
     let path = PathBuf::from(workspace_path);
     jj::workspace_create(name, &path)
