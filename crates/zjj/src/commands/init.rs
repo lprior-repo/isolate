@@ -239,7 +239,6 @@ fn init_jj_repo_with_cwd(cwd: &Path) -> Result<()> {
 mod tests {
     use std::process::Command;
 
-    use serial_test::serial;
     use tempfile::TempDir;
 
     use super::*;
@@ -326,7 +325,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_init_creates_state_db() -> Result<()> {
         let Some(temp_dir) = setup_test_jj_repo()? else {
             eprintln!("Skipping test: jj not available");
@@ -350,7 +348,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_init_creates_layouts_directory() -> Result<()> {
         let Some(temp_dir) = setup_test_jj_repo()? else {
             eprintln!("Skipping test: jj not available");
@@ -387,7 +384,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_init_auto_creates_jj_repo() -> Result<()> {
         // This test verifies that if we're not in a JJ repo,
         // the init command will create one automatically
