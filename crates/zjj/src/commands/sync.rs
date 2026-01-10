@@ -4,18 +4,38 @@ use std::time::SystemTime;
 
 use anyhow::{Context, Result};
 
-use crate::{cli::run_command, commands::get_session_db, session::SessionUpdate};
+use crate::{
+    cli::run_command,
+    commands::get_session_db,
+    json_output::{SyncError, SyncOutput},
+    session::SessionUpdate,
+};
+
+/// Options for the sync command
+#[derive(Debug, Clone, Default)]
+pub struct SyncOptions {
+    /// Output as JSON
+    pub json: bool,
+}
 
 /// Run the sync command
 ///
 /// If a session name is provided, syncs that session's workspace.
 /// Otherwise, syncs all sessions.
 pub fn run(name: Option<&str>) -> Result<()> {
-    name.map_or_else(sync_all, sync_session)
+    run_with_options(name, SyncOptions::default())
+}
+
+/// Run the sync command with options
+pub fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
+    match name {
+        Some(n) => sync_session_with_options(n, options),
+        None => sync_all_with_options(options),
+    }
 }
 
 /// Sync a specific session's workspace
-fn sync_session(name: &str) -> Result<()> {
+fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session
@@ -24,14 +44,43 @@ fn sync_session(name: &str) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Session '{name}' not found"))?;
 
     // Use internal sync function
-    sync_session_internal(&db, &session.name, &session.workspace_path)?;
-
-    println!("Synced session '{name}' with main");
-    Ok(())
+    match sync_session_internal(&db, &session.name, &session.workspace_path) {
+        Ok(()) => {
+            if options.json {
+                let output = SyncOutput {
+                    success: true,
+                    session_name: Some(name.to_string()),
+                    synced_count: 1,
+                    failed_count: 0,
+                    errors: Vec::new(),
+                };
+                println!("{}", serde_json::to_string(&output)?);
+            } else {
+                println!("Synced session '{name}' with main");
+            }
+            Ok(())
+        }
+        Err(e) => {
+            if options.json {
+                let output = SyncOutput {
+                    success: false,
+                    session_name: Some(name.to_string()),
+                    synced_count: 0,
+                    failed_count: 1,
+                    errors: vec![SyncError {
+                        session_name: name.to_string(),
+                        error: e.to_string(),
+                    }],
+                };
+                println!("{}", serde_json::to_string(&output)?);
+            }
+            Err(e)
+        }
+    }
 }
 
 /// Sync all sessions
-fn sync_all() -> Result<()> {
+fn sync_all_with_options(options: SyncOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get all sessions
@@ -40,43 +89,87 @@ fn sync_all() -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to list sessions: {e}"))?;
 
     if sessions.is_empty() {
-        println!("No sessions to sync");
+        if options.json {
+            let output = SyncOutput {
+                success: true,
+                session_name: None,
+                synced_count: 0,
+                failed_count: 0,
+                errors: Vec::new(),
+            };
+            println!("{}", serde_json::to_string(&output)?);
+        } else {
+            println!("No sessions to sync");
+        }
         return Ok(());
     }
 
-    println!("Syncing {} session(s)...", sessions.len());
+    if options.json {
+        // For JSON output, collect results and output once at the end
+        let mut success_count = 0;
+        let mut failure_count = 0;
+        let mut errors = Vec::new();
 
-    let mut success_count = 0;
-    let mut failure_count = 0;
-    let mut errors = Vec::new();
-
-    for session in &sessions {
-        print!("Syncing '{}' ... ", session.name);
-
-        match sync_session_internal(&db, &session.name, &session.workspace_path) {
-            Ok(()) => {
-                println!("OK");
-                success_count += 1;
-            }
-            Err(e) => {
-                println!("FAILED: {e}");
-                errors.push((session.name.clone(), e));
-                failure_count += 1;
+        for session in &sessions {
+            match sync_session_internal(&db, &session.name, &session.workspace_path) {
+                Ok(()) => {
+                    success_count += 1;
+                }
+                Err(e) => {
+                    errors.push(SyncError {
+                        session_name: session.name.clone(),
+                        error: e.to_string(),
+                    });
+                    failure_count += 1;
+                }
             }
         }
-    }
 
-    println!();
-    println!("Summary: {success_count} succeeded, {failure_count} failed");
+        let output = SyncOutput {
+            success: failure_count == 0,
+            session_name: None,
+            synced_count: success_count,
+            failed_count: failure_count,
+            errors,
+        };
+        println!("{}", serde_json::to_string(&output)?);
+        Ok(())
+    } else {
+        // Original text output
+        println!("Syncing {} session(s)...", sessions.len());
 
-    if !errors.is_empty() {
-        println!("\nErrors:");
-        for (name, error) in errors {
-            println!("  {name}: {error}");
+        let mut success_count = 0;
+        let mut failure_count = 0;
+        let mut errors = Vec::new();
+
+        for session in &sessions {
+            print!("Syncing '{}' ... ", session.name);
+
+            match sync_session_internal(&db, &session.name, &session.workspace_path) {
+                Ok(()) => {
+                    println!("OK");
+                    success_count += 1;
+                }
+                Err(e) => {
+                    println!("FAILED: {e}");
+                    errors.push((session.name.clone(), e));
+                    failure_count += 1;
+                }
+            }
         }
-    }
 
-    Ok(())
+        println!();
+        println!("Summary: {success_count} succeeded, {failure_count} failed");
+
+        if !errors.is_empty() {
+            println!("\nErrors:");
+            for (name, error) in errors {
+                println!("  {name}: {error}");
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Internal function to sync a session's workspace

@@ -123,24 +123,6 @@ pub fn attach_to_zellij_session(_layout_content: Option<&str>) -> Result<()> {
 }
 
 /// Check if current directory is a Git repository
-pub fn is_git_repo() -> bool {
-    Command::new("git")
-        .args(["rev-parse", "--git-dir"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-/// Initialize JJ in current directory (colocated with git if present)
-pub fn init_jj_repo() -> Result<()> {
-    if is_git_repo() {
-        run_command("jj", &["git", "init", "--colocate"])?;
-    } else {
-        run_command("jj", &["git", "init"])?;
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

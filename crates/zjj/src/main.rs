@@ -332,6 +332,7 @@ fn main() -> Result<()> {
                 force: sub_m.get_flag("force"),
                 merge: sub_m.get_flag("merge"),
                 keep_branch: sub_m.get_flag("keep-branch"),
+                json: sub_m.get_flag("json"),
             };
             remove::run_with_options(name, options)
         }
@@ -339,7 +340,10 @@ fn main() -> Result<()> {
             let name = sub_m
                 .get_one::<String>("name")
                 .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
-            focus::run(name)
+            let options = focus::FocusOptions {
+                json: sub_m.get_flag("json"),
+            };
+            focus::run_with_options(name, options)
         }
         Some(("status", sub_m)) => {
             let name = sub_m.get_one::<String>("name").map(String::as_str);
@@ -349,7 +353,10 @@ fn main() -> Result<()> {
         }
         Some(("sync", sub_m)) => {
             let name = sub_m.get_one::<String>("name").map(String::as_str);
-            sync::run(name)
+            let options = sync::SyncOptions {
+                json: sub_m.get_flag("json"),
+            };
+            sync::run_with_options(name, options)
         }
         Some(("diff", sub_m)) => {
             let name = sub_m

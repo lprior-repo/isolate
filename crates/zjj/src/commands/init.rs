@@ -1,11 +1,15 @@
 //! Initialize ZJJ - sets up everything needed
 
-use std::{fmt::Write, fs, path::Path};
+use std::{
+    fmt::Write,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{bail, Context, Result};
 
 use crate::{
-    cli::{init_jj_repo, is_jj_installed, is_jj_repo, is_zellij_installed, jj_root},
+    cli::{is_jj_installed, is_zellij_installed},
     db::SessionDb,
 };
 
@@ -80,18 +84,31 @@ commit_prefix = "wip:"
 ///    - .jjz/state.db (sessions database)
 ///    - .jjz/layouts/ (Zellij layouts directory)
 pub fn run() -> Result<()> {
+    run_with_cwd(None)
+}
+
+/// Run the init command with an optional working directory
+///
+/// If `cwd` is Some, operations will be performed relative to that directory.
+/// If `cwd` is None, operations will use the current working directory.
+pub fn run_with_cwd(cwd: Option<&Path>) -> Result<()> {
+    let cwd = match cwd {
+        Some(p) => PathBuf::from(p),
+        None => std::env::current_dir().context("Failed to get current directory")?,
+    };
+
     // Check required dependencies
     check_dependencies()?;
 
     // Initialize JJ repo if needed
-    ensure_jj_repo()?;
+    ensure_jj_repo_with_cwd(&cwd)?;
 
-    // Get the repo root
-    let root = jj_root()?;
-    let zjj_dir = format!("{root}/.jjz");
+    // Get the repo root using the provided cwd
+    let root = jj_root_with_cwd(&cwd)?;
+    let zjj_dir = root.join(".jjz");
 
     // Check if already initialized
-    if fs::metadata(&zjj_dir).is_ok() {
+    if zjj_dir.exists() {
         println!("ZJZ already initialized in this repository.");
         return Ok(());
     }
@@ -100,24 +117,40 @@ pub fn run() -> Result<()> {
     fs::create_dir_all(&zjj_dir).context("Failed to create .jjz directory")?;
 
     // Create config.toml with defaults
-    let config_path = format!("{zjj_dir}/config.toml");
+    let config_path = zjj_dir.join("config.toml");
     fs::write(&config_path, DEFAULT_CONFIG).context("Failed to create config.toml")?;
 
     // Create layouts directory
-    let layouts_dir = format!("{zjj_dir}/layouts");
+    let layouts_dir = zjj_dir.join("layouts");
     fs::create_dir_all(&layouts_dir).context("Failed to create layouts directory")?;
 
     // Initialize the database
-    let db_path = format!("{zjj_dir}/state.db");
-    let _db = SessionDb::open(Path::new(&db_path))?;
+    let db_path = zjj_dir.join("state.db");
+    let _db = SessionDb::open(&db_path)?;
 
-    println!("Initialized ZJZ in {root}");
+    println!("Initialized ZJZ in {}", root.display());
     println!("  Data directory: .jjz/");
     println!("  Configuration: .jjz/config.toml");
     println!("  State database: .jjz/state.db");
     println!("  Layouts: .jjz/layouts/");
 
     Ok(())
+}
+
+/// Get the JJ root using a specific working directory
+fn jj_root_with_cwd(cwd: &Path) -> Result<PathBuf> {
+    let output = std::process::Command::new("jj")
+        .args(["root"])
+        .current_dir(cwd)
+        .output()
+        .context("Failed to run jj root")?;
+
+    if !output.status.success() {
+        bail!("jj failed: {}", String::from_utf8_lossy(&output.stderr));
+    }
+
+    let root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(PathBuf::from(root))
 }
 
 /// Check that required dependencies are installed
@@ -161,15 +194,43 @@ fn check_dependencies() -> Result<()> {
     bail!("{msg}")
 }
 
-/// Ensure we're in a JJ repository, initializing one if needed
-fn ensure_jj_repo() -> Result<()> {
-    if is_jj_repo()? {
+/// Ensure we're in a JJ repository, initializing one if needed with a specific cwd
+fn ensure_jj_repo_with_cwd(cwd: &Path) -> Result<()> {
+    if is_jj_repo_with_cwd(cwd)? {
         return Ok(());
     }
 
     println!("No JJ repository found. Initializing one...");
-    init_jj_repo()?;
+    init_jj_repo_with_cwd(cwd)?;
     println!("Initialized JJ repository.");
+
+    Ok(())
+}
+
+/// Check if we're in a JJ repo using a specific cwd
+fn is_jj_repo_with_cwd(cwd: &Path) -> Result<bool> {
+    let output = std::process::Command::new("jj")
+        .args(["status"])
+        .current_dir(cwd)
+        .output()?;
+
+    Ok(output.status.success())
+}
+
+/// Initialize a JJ repo using a specific cwd
+fn init_jj_repo_with_cwd(cwd: &Path) -> Result<()> {
+    let output = std::process::Command::new("jj")
+        .args(["git", "init"])
+        .current_dir(cwd)
+        .output()
+        .context("Failed to run jj git init")?;
+
+    if !output.status.success() {
+        bail!(
+            "jj git init failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
     Ok(())
 }
@@ -226,20 +287,13 @@ mod tests {
             return Ok(());
         };
 
-        // Change to temp dir BEFORE running init
-        let original_dir = std::env::current_dir()?;
-        std::env::set_current_dir(temp_dir.path())?;
+        // Run init with the temp directory as cwd
+        let result = run_with_cwd(Some(temp_dir.path()));
 
-        // Run init
-        let result = run();
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir)?;
-
-        // Check result after restoring dir
+        // Check result
         result?;
 
-        // Verify .jjz directory was created
+        // Verify .jjz directory was created (use absolute path)
         let jjz_path = temp_dir.path().join(".jjz");
         assert!(jjz_path.exists(), ".jjz directory was not created");
         assert!(jjz_path.is_dir(), ".jjz is not a directory");
@@ -255,10 +309,7 @@ mod tests {
             return Ok(());
         };
 
-        let original_dir = std::env::current_dir()?;
-        std::env::set_current_dir(temp_dir.path())?;
-        let result = run();
-        std::env::set_current_dir(original_dir)?;
+        let result = run_with_cwd(Some(temp_dir.path()));
         result?;
 
         // Verify config.toml was created
@@ -284,10 +335,7 @@ mod tests {
             return Ok(());
         };
 
-        let original_dir = std::env::current_dir()?;
-        std::env::set_current_dir(temp_dir.path())?;
-        let result = run();
-        std::env::set_current_dir(original_dir)?;
+        let result = run_with_cwd(Some(temp_dir.path()));
         result?;
 
         // Verify state.db was created
@@ -311,10 +359,7 @@ mod tests {
             return Ok(());
         };
 
-        let original_dir = std::env::current_dir()?;
-        std::env::set_current_dir(temp_dir.path())?;
-        let result = run();
-        std::env::set_current_dir(original_dir)?;
+        let result = run_with_cwd(Some(temp_dir.path()));
         result?;
 
         // Verify layouts directory was created
@@ -326,25 +371,19 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_init_handles_already_initialized() -> Result<()> {
         let Some(temp_dir) = setup_test_jj_repo()? else {
             eprintln!("Skipping test: jj not available");
             return Ok(());
         };
-        let original_dir = std::env::current_dir()?;
-
-        std::env::set_current_dir(temp_dir.path())?;
 
         // First init should succeed
-        let result1 = run();
+        let result1 = run_with_cwd(Some(temp_dir.path()));
         assert!(result1.is_ok());
 
         // Second init should not fail, just inform user
-        let result2 = run();
+        let result2 = run_with_cwd(Some(temp_dir.path()));
         assert!(result2.is_ok());
-
-        std::env::set_current_dir(original_dir)?;
 
         Ok(())
     }
@@ -360,15 +399,11 @@ mod tests {
         }
 
         let temp_dir = TempDir::new()?;
-        let original_dir = std::env::current_dir()?;
-
-        std::env::set_current_dir(temp_dir.path())?;
 
         // Before JJ init, should not be a repo
         // After our init command runs, it will create a JJ repo automatically
-        let result = run();
-
-        std::env::set_current_dir(original_dir)?;
+        // So we just verify the automatic initialization works
+        let result = run_with_cwd(Some(temp_dir.path()));
 
         // Should succeed because init_jj_repo is called automatically
         assert!(result.is_ok());

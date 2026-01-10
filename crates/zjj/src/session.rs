@@ -156,7 +156,8 @@ pub fn validate_session_name(name: &str) -> Result<()> {
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return Err(Error::ValidationError(
-            "Session name can only contain ASCII alphanumeric characters, dashes, and underscores".into(),
+            "Session name can only contain ASCII alphanumeric characters, dashes, and underscores"
+                .into(),
         ));
     }
 
@@ -264,13 +265,13 @@ mod tests {
     fn test_session_name_rejects_unicode() {
         // Unicode characters should be rejected
         let unicode_cases = vec![
-            "中文名字",      // Chinese
-            "日本語",        // Japanese
-            "café",          // Accented Latin
-            "Ñoño",          // Spanish
-            "🚀rocket",      // Emoji
-            "naïve",         // Diaeresis
-            "résumé",        // Accents
+            "中文名字", // Chinese
+            "日本語",   // Japanese
+            "café",     // Accented Latin
+            "Ñoño",     // Spanish
+            "🚀rocket", // Emoji
+            "naïve",    // Diaeresis
+            "résumé",   // Accents
         ];
 
         for name in unicode_cases {
