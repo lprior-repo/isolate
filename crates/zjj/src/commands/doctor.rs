@@ -2,6 +2,18 @@
 //!
 //! This command checks the health of the jjz system and can
 //! automatically fix common issues.
+//!
+//! # Exit Codes
+//!
+//! The doctor command follows standard Unix conventions for exit codes:
+//!
+//! - **Exit 0**: System is healthy (all checks passed), or all critical issues were successfully
+//!   fixed
+//! - **Exit 1**: System has errors (one or more checks failed), or critical issues remain after
+//!   auto-fix
+//!
+//! Warnings (CheckStatus::Warn) do not cause non-zero exit codes - only failures
+//! (CheckStatus::Fail) do.
 
 use std::process::Command;
 
@@ -12,7 +24,7 @@ use zjj_core::introspection::{
 
 use crate::{
     cli::{is_command_available, is_inside_zellij, is_jj_repo, jj_root},
-    commands::{get_session_db, zjj_data_dir},
+    commands::get_session_db,
 };
 
 /// Run health checks
@@ -146,7 +158,10 @@ fn check_jj_repo() -> DoctorCheck {
 
 /// Check if jjz is initialized
 fn check_initialized() -> DoctorCheck {
-    let initialized = zjj_data_dir().is_ok();
+    // Check for .jjz directory existence directly, without depending on JJ installation
+    let jjz_dir = std::path::Path::new(".jjz");
+    let config_file = jjz_dir.join("config.toml");
+    let initialized = jjz_dir.exists() && config_file.exists();
 
     DoctorCheck {
         name: "jjz Initialized".to_string(),
@@ -313,6 +328,10 @@ fn check_beads() -> DoctorCheck {
 }
 
 /// Show health report
+///
+/// # Exit Codes
+/// - 0: All checks passed (healthy system)
+/// - 1: One or more checks failed (unhealthy system)
 fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
     let output = DoctorOutput::from_checks(checks.to_vec());
 
@@ -350,10 +369,19 @@ fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
         }
     }
 
+    // Return error if system is unhealthy (has failures)
+    if !output.healthy {
+        anyhow::bail!("Health check failed: {} error(s) detected", output.errors);
+    }
+
     Ok(())
 }
 
 /// Run auto-fixes
+///
+/// # Exit Codes
+/// - 0: All critical issues were fixed or none existed
+/// - 1: Critical issues remain unfixed
 fn run_fixes(checks: &[DoctorCheck], json: bool) -> Result<()> {
     let mut fixed = vec![];
     let mut unable_to_fix = vec![];
@@ -424,6 +452,21 @@ fn run_fixes(checks: &[DoctorCheck], json: bool) -> Result<()> {
         }
     }
 
+    // Count critical (Fail status) issues that couldn't be fixed
+    let critical_unfixed = checks
+        .iter()
+        .filter(|c| {
+            c.status == CheckStatus::Fail && !output.fixed.iter().any(|f| f.issue == c.name)
+        })
+        .count();
+
+    if critical_unfixed > 0 {
+        anyhow::bail!(
+            "Auto-fix completed but {} critical issue(s) remain unfixed",
+            critical_unfixed
+        );
+    }
+
     Ok(())
 }
 
@@ -455,4 +498,108 @@ fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
     }
 
     Ok(format!("Removed {} orphaned workspace(s)", removed.len()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use tempfile::TempDir;
+
+    use super::*;
+
+    #[test]
+    fn test_check_initialized_detects_jjz_directory() {
+        // Create a temporary directory
+        let temp_dir = TempDir::new().ok().filter(|_| true);
+        let Some(temp_dir) = temp_dir else {
+            return;
+        };
+
+        // Change to temp directory
+        let original_dir = std::env::current_dir().ok().filter(|_| true);
+        let Some(original_dir) = original_dir else {
+            return;
+        };
+        if std::env::set_current_dir(temp_dir.path()).is_err() {
+            return;
+        }
+
+        // Test 1: No .jjz directory - should fail
+        let result = check_initialized();
+        assert_eq!(result.status, CheckStatus::Fail);
+        assert_eq!(result.name, "jjz Initialized");
+        assert!(result.message.contains("not initialized"));
+
+        // Test 2: .jjz directory exists but no config.toml - should fail
+        if fs::create_dir(".jjz").is_err() {
+            let _ = std::env::set_current_dir(original_dir);
+            return;
+        }
+        let result = check_initialized();
+        assert_eq!(result.status, CheckStatus::Fail);
+
+        // Test 3: .jjz directory with config.toml - should pass
+        if fs::write(".jjz/config.toml", "workspace_dir = \"test\"").is_err() {
+            let _ = std::env::set_current_dir(original_dir);
+            return;
+        }
+        let result = check_initialized();
+        assert_eq!(result.status, CheckStatus::Pass);
+        assert!(result.message.contains(".jjz directory exists"));
+
+        // Cleanup: restore original directory
+        let _ = std::env::set_current_dir(original_dir);
+    }
+
+    #[test]
+    fn test_check_initialized_independent_of_jj() {
+        // This test verifies that check_initialized doesn't call jj commands
+        // We test this by checking it works even without a JJ repo
+
+        let temp_dir = TempDir::new().ok().filter(|_| true);
+        let Some(temp_dir) = temp_dir else {
+            return;
+        };
+
+        let original_dir = std::env::current_dir().ok().filter(|_| true);
+        let Some(original_dir) = original_dir else {
+            return;
+        };
+        if std::env::set_current_dir(temp_dir.path()).is_err() {
+            return;
+        }
+
+        // Create .jjz structure WITHOUT initializing a JJ repo
+        if fs::create_dir(".jjz").is_err() {
+            let _ = std::env::set_current_dir(original_dir);
+            return;
+        }
+        if fs::write(".jjz/config.toml", "workspace_dir = \"test\"").is_err() {
+            let _ = std::env::set_current_dir(original_dir);
+            return;
+        }
+
+        // Even without JJ installed/initialized, should detect .jjz
+        let result = check_initialized();
+        assert_eq!(result.status, CheckStatus::Pass);
+
+        // Cleanup
+        let _ = std::env::set_current_dir(original_dir);
+    }
+
+    #[test]
+    fn test_check_jj_installed_vs_check_initialized() {
+        // Verify that JJ installation check and initialization check are separate concerns
+        let jj_check = check_jj_installed();
+        let init_check = check_initialized();
+
+        // These should be independent checks
+        assert_eq!(jj_check.name, "JJ Installation");
+        assert_eq!(init_check.name, "jjz Initialized");
+
+        // They should have different purposes
+        assert!(jj_check.message.contains("JJ") || jj_check.message.contains("installed"));
+        assert!(init_check.message.contains("jjz") || init_check.message.contains("initialized"));
+    }
 }
