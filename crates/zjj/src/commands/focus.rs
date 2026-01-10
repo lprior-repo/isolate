@@ -15,11 +15,6 @@ pub struct FocusOptions {
     pub json: bool,
 }
 
-/// Run the focus command
-pub fn run(name: &str) -> Result<()> {
-    run_with_options(name, FocusOptions::default())
-}
-
 /// Run the focus command with options
 pub fn run_with_options(name: &str, options: FocusOptions) -> Result<()> {
     let db = get_session_db()?;

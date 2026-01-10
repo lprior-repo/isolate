@@ -258,14 +258,27 @@ pub struct UnfixableIssue {
     pub suggestion: String,
 }
 
+/// Error information for failed queries
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryError {
+    /// Error code
+    pub code: String,
+    /// Human-readable error message
+    pub message: String,
+}
+
 /// Query result for session existence
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionExistsQuery {
-    /// Whether the session exists
-    pub exists: bool,
+    /// Whether the session exists (null if query failed)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exists: Option<bool>,
     /// Session details if it exists
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<SessionInfo>,
+    /// Error information if query failed
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<QueryError>,
 }
 
 /// Basic session information for queries
@@ -280,11 +293,15 @@ pub struct SessionInfo {
 /// Query result for session count
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCountQuery {
-    /// Number of sessions matching filter
-    pub count: usize,
+    /// Number of sessions matching filter (null if query failed)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<usize>,
     /// Filter that was applied
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filter: Option<serde_json::Value>,
+    /// Error information if query failed
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<QueryError>,
 }
 
 /// Query result for "can run" check

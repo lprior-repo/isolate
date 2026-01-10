@@ -18,15 +18,10 @@ pub struct SyncOptions {
     pub json: bool,
 }
 
-/// Run the sync command
+/// Run the sync command with options
 ///
 /// If a session name is provided, syncs that session's workspace.
 /// Otherwise, syncs all sessions.
-pub fn run(name: Option<&str>) -> Result<()> {
-    run_with_options(name, SyncOptions::default())
-}
-
-/// Run the sync command with options
 pub fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
     match name {
         Some(n) => sync_session_with_options(n, options),
