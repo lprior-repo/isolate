@@ -167,14 +167,13 @@ fn query_session_exists(name: &str) -> Result<()> {
                 }),
             },
         },
-        Err(e) => {
-            // Determine error code based on error message
-            let (code, message) = categorize_db_error(&e);
-            SessionExistsQuery {
-                exists: None,
-                session: None,
-                error: Some(QueryError { code, message }),
-            }
+        Err(e) => SessionExistsQuery {
+            exists: None,
+            session: None,
+            error: Some(QueryError {
+                code: "DATABASE_INIT_ERROR".to_string(),
+                message: format!("Failed to initialize database: {}", e),
+            }),
         }
     };
 
@@ -212,13 +211,13 @@ fn query_session_count(filter: Option<&str>) -> Result<()> {
                 }),
             },
         },
-        Err(e) => {
-            let (code, message) = categorize_db_error(&e);
-            SessionCountQuery {
-                count: None,
-                filter: filter.map(|f| serde_json::json!({"raw": f})),
-                error: Some(QueryError { code, message }),
-            }
+        Err(e) => SessionCountQuery {
+            count: None,
+            filter: filter.map(|f| serde_json::json!({"raw": f})),
+            error: Some(QueryError {
+                code: "DATABASE_INIT_ERROR".to_string(),
+                message: format!("Failed to initialize database: {}", e),
+            }),
         }
     };
 
@@ -333,4 +332,39 @@ fn requires_jj_repo(command: &str) -> bool {
 /// Check if command requires Zellij to be running
 fn requires_zellij(command: &str) -> bool {
     matches!(command, "add" | "focus")
+}
+
+/// Categorize database errors into error codes and messages
+fn categorize_db_error(error: &anyhow::Error) -> (String, String) {
+    let error_msg = error.to_string();
+
+    // Check for JJ not installed
+    if error_msg.contains("JJ not installed") || error_msg.contains("jj: not found") {
+        return (
+            "JJ_NOT_INSTALLED".to_string(),
+            "Cannot check session - JJ not installed".to_string(),
+        );
+    }
+
+    // Check for not in JJ repo
+    if error_msg.contains("Not in a JJ repository") || error_msg.contains("not a jj repo") {
+        return (
+            "NOT_JJ_REPO".to_string(),
+            "Cannot check session - not in a JJ repository".to_string(),
+        );
+    }
+
+    // Check for not initialized
+    if error_msg.contains("not initialized") || error_msg.contains("Run 'jjz init'") {
+        return (
+            "NOT_INITIALIZED".to_string(),
+            "Cannot check session - jjz not initialized".to_string(),
+        );
+    }
+
+    // Generic database error
+    (
+        "DATABASE_ERROR".to_string(),
+        format!("Cannot check session - {}", error_msg),
+    )
 }
