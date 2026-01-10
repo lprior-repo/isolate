@@ -5,7 +5,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::commands::get_session_db;
 

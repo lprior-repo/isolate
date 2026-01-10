@@ -280,7 +280,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_init_creates_jjz_directory() -> Result<()> {
         let Some(temp_dir) = setup_test_jj_repo()? else {
             eprintln!("Skipping test: jj not available");
@@ -302,7 +301,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_init_creates_config_toml() -> Result<()> {
         let Some(temp_dir) = setup_test_jj_repo()? else {
             eprintln!("Skipping test: jj not available");
