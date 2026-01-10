@@ -5,10 +5,23 @@ use anyhow::Result;
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, run_command},
     commands::get_session_db,
+    json_output::FocusOutput,
 };
+
+/// Options for the focus command
+#[derive(Debug, Clone, Default)]
+pub struct FocusOptions {
+    /// Output as JSON
+    pub json: bool,
+}
 
 /// Run the focus command
 pub fn run(name: &str) -> Result<()> {
+    run_with_options(name, FocusOptions::default())
+}
+
+/// Run the focus command with options
+pub fn run_with_options(name: &str, options: FocusOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session
@@ -16,15 +29,41 @@ pub fn run(name: &str) -> Result<()> {
         .get(name)?
         .ok_or_else(|| anyhow::anyhow!("Session '{name}' not found"))?;
 
+    let zellij_tab = session.zellij_tab.clone();
+
     if is_inside_zellij() {
         // Inside Zellij: Switch to the tab
-        run_command("zellij", &["action", "go-to-tab-name", &session.zellij_tab])?;
-        println!("Switched to session '{name}'");
+        run_command("zellij", &["action", "go-to-tab-name", &zellij_tab])?;
+
+        if options.json {
+            let output = FocusOutput {
+                success: true,
+                session_name: name.to_string(),
+                zellij_tab: zellij_tab.clone(),
+                message: format!("Switched to session '{name}'"),
+            };
+            println!("{}", serde_json::to_string(&output)?);
+        } else {
+            println!("Switched to session '{name}'");
+        }
     } else {
         // Outside Zellij: Attach to the Zellij session
         // User will land in session and can navigate to desired tab
-        println!("Session '{name}' is in tab '{}'", session.zellij_tab);
-        println!("Attaching to Zellij session...");
+        if options.json {
+            let output = FocusOutput {
+                success: true,
+                session_name: name.to_string(),
+                zellij_tab: zellij_tab.clone(),
+                message: format!(
+                    "Session '{name}' is in tab '{}'. Attaching to Zellij session...",
+                    zellij_tab
+                ),
+            };
+            println!("{}", serde_json::to_string(&output)?);
+        } else {
+            println!("Session '{name}' is in tab '{}'", zellij_tab);
+            println!("Attaching to Zellij session...");
+        }
         attach_to_zellij_session(None)?;
         // Note: This never returns - we exec into Zellij
     }

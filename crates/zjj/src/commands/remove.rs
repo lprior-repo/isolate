@@ -10,10 +10,11 @@ use anyhow::{Context, Result};
 use crate::{
     cli::{is_inside_zellij, run_command},
     commands::get_session_db,
+    json_output::RemoveOutput,
 };
 
 /// Options for the remove command
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct RemoveOptions {
     /// Skip confirmation prompt and hooks
     pub force: bool,
@@ -22,6 +23,8 @@ pub struct RemoveOptions {
     /// Preserve branch after removal
     #[allow(dead_code)]
     pub keep_branch: bool,
+    /// Output as JSON
+    pub json: bool,
 }
 
 /// Run the remove command
@@ -41,7 +44,16 @@ pub fn run_with_options(name: &str, options: RemoveOptions) -> Result<()> {
 
     // Confirm removal unless --force
     if !options.force && !confirm_removal(name)? {
-        println!("Removal cancelled");
+        if options.json {
+            let output = RemoveOutput {
+                success: false,
+                session_name: name.to_string(),
+                message: "Removal cancelled".to_string(),
+            };
+            println!("{}", serde_json::to_string(&output)?);
+        } else {
+            println!("Removal cancelled");
+        }
         return Ok(());
     }
 
@@ -76,7 +88,16 @@ pub fn run_with_options(name: &str, options: RemoveOptions) -> Result<()> {
     // Remove from database
     db.delete(name)?;
 
-    println!("Removed session '{name}'");
+    if options.json {
+        let output = RemoveOutput {
+            success: true,
+            session_name: name.to_string(),
+            message: format!("Removed session '{name}'"),
+        };
+        println!("{}", serde_json::to_string(&output)?);
+    } else {
+        println!("Removed session '{name}'");
+    }
 
     Ok(())
 }

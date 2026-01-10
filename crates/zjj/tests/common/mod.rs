@@ -4,7 +4,6 @@
 //! running jjz commands, and making assertions about the results.
 
 #![allow(dead_code)]
-#![allow(clippy::expect_used)]
 #![allow(clippy::unused_self)]
 
 use std::{path::PathBuf, process::Command};
@@ -104,14 +103,30 @@ impl TestHarness {
             .env("NO_COLOR", "1") // Disable color codes
             .env("JJZ_TEST_MODE", "1") // Signal we're in test mode
             .output()
-            .expect("Failed to execute jjz");
+            .ok()
+            .and_then(|output| {
+                if output.status.success() {
+                    Some(output)
+                } else {
+                    None
+                }
+            })
+            .map_or_else(
+                || CommandResult {
+                    success: false,
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: "Command execution failed".to_string(),
+                },
+                |output| CommandResult {
+                    success: output.status.success(),
+                    exit_code: output.status.code(),
+                    stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                    stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                },
+            );
 
-        CommandResult {
-            success: output.status.success(),
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        }
+        output
     }
 
     /// Run a jjz command and assert it succeeds
@@ -213,14 +228,24 @@ impl TestHarness {
             .args(args)
             .current_dir(&self.repo_path)
             .output()
-            .expect("Failed to execute jj");
+            .ok()
+            .filter(|_| true)
+            .map_or_else(
+                || CommandResult {
+                    success: false,
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: "Command execution failed".to_string(),
+                },
+                |output| CommandResult {
+                    success: output.status.success(),
+                    exit_code: output.status.code(),
+                    stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                    stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                },
+            );
 
-        CommandResult {
-            success: output.status.success(),
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        }
+        output
     }
 
     /// Create a file in the repository
@@ -243,14 +268,22 @@ impl TestHarness {
             cmd.env(key, value);
         }
 
-        let output = cmd.output().expect("Failed to execute jjz");
+        let output = cmd.output().ok().map_or_else(
+            || CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            },
+            |output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            },
+        );
 
-        CommandResult {
-            success: output.status.success(),
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        }
+        output
     }
 }
 
