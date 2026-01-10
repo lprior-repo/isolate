@@ -5,7 +5,7 @@
 
 use anyhow::Result;
 use zjj_core::introspection::{
-    Blocker, CanRunQuery, SessionCountQuery, SessionExistsQuery, SessionInfo,
+    Blocker, CanRunQuery, QueryError, SessionCountQuery, SessionExistsQuery, SessionInfo,
 };
 
 use crate::{
@@ -148,15 +148,34 @@ pub fn run(query_type: &str, args: Option<&str>) -> Result<()> {
 
 /// Query if a session exists
 fn query_session_exists(name: &str) -> Result<()> {
-    let db = get_session_db()?;
-    let session = db.get(name)?;
-
-    let result = SessionExistsQuery {
-        exists: session.is_some(),
-        session: session.map(|s| SessionInfo {
-            name: s.name,
-            status: s.status.to_string(),
-        }),
+    let result = match get_session_db() {
+        Ok(db) => match db.get(name) {
+            Ok(session) => SessionExistsQuery {
+                exists: Some(session.is_some()),
+                session: session.map(|s| SessionInfo {
+                    name: s.name,
+                    status: s.status.to_string(),
+                }),
+                error: None,
+            },
+            Err(e) => SessionExistsQuery {
+                exists: None,
+                session: None,
+                error: Some(QueryError {
+                    code: "DATABASE_ERROR".to_string(),
+                    message: format!("Failed to query session: {}", e),
+                }),
+            },
+        },
+        Err(e) => {
+            // Determine error code based on error message
+            let (code, message) = categorize_db_error(&e);
+            SessionExistsQuery {
+                exists: None,
+                session: None,
+                error: Some(QueryError { code, message }),
+            }
+        }
     };
 
     println!("{}", serde_json::to_string_pretty(&result)?);
@@ -165,22 +184,42 @@ fn query_session_exists(name: &str) -> Result<()> {
 
 /// Query session count
 fn query_session_count(filter: Option<&str>) -> Result<()> {
-    let db = get_session_db()?;
-    let sessions = db.list(None)?;
+    let result = match get_session_db() {
+        Ok(db) => match db.list(None) {
+            Ok(sessions) => {
+                let count = filter
+                    .and_then(|f| f.strip_prefix("--status="))
+                    .map(|status| {
+                        sessions
+                            .iter()
+                            .filter(|s| s.status.to_string() == status)
+                            .count()
+                    })
+                    .unwrap_or_else(|| sessions.len());
 
-    let count = filter
-        .and_then(|f| f.strip_prefix("--status="))
-        .map(|status| {
-            sessions
-                .iter()
-                .filter(|s| s.status.to_string() == status)
-                .count()
-        })
-        .unwrap_or_else(|| sessions.len());
-
-    let result = SessionCountQuery {
-        count,
-        filter: filter.map(|f| serde_json::json!({"raw": f})),
+                SessionCountQuery {
+                    count: Some(count),
+                    filter: filter.map(|f| serde_json::json!({"raw": f})),
+                    error: None,
+                }
+            }
+            Err(e) => SessionCountQuery {
+                count: None,
+                filter: filter.map(|f| serde_json::json!({"raw": f})),
+                error: Some(QueryError {
+                    code: "DATABASE_ERROR".to_string(),
+                    message: format!("Failed to list sessions: {}", e),
+                }),
+            },
+        },
+        Err(e) => {
+            let (code, message) = categorize_db_error(&e);
+            SessionCountQuery {
+                count: None,
+                filter: filter.map(|f| serde_json::json!({"raw": f})),
+                error: Some(QueryError { code, message }),
+            }
+        }
     };
 
     println!("{}", serde_json::to_string_pretty(&result)?);
@@ -255,9 +294,14 @@ fn query_can_run(command: &str) -> Result<()> {
 
 /// Query for suggested name based on pattern
 fn query_suggest_name(pattern: &str) -> Result<()> {
-    let db = get_session_db()?;
-    let sessions = db.list(None)?;
-    let existing_names: Vec<String> = sessions.into_iter().map(|s| s.name).collect();
+    // suggest_name can work without database access if we can't get sessions
+    let existing_names = match get_session_db() {
+        Ok(db) => match db.list(None) {
+            Ok(sessions) => sessions.into_iter().map(|s| s.name).collect(),
+            Err(_) => Vec::new(), // Fallback to empty list
+        },
+        Err(_) => Vec::new(), // Fallback to empty list if prerequisites not met
+    };
 
     let result = zjj_core::introspection::suggest_name(pattern, &existing_names)?;
 
