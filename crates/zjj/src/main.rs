@@ -2,6 +2,8 @@
 //!
 //! Binary name: `jjz`
 
+use std::process;
+
 use anyhow::Result;
 use clap::{Arg, Command as ClapCommand};
 
@@ -287,16 +289,25 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_query())
 }
 
-fn main() -> Result<()> {
-    // Initialize tracing subscriber for logging
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
-        )
-        .with_writer(std::io::stderr)
-        .init();
+/// Format an error for user display (no stack traces)
+fn format_error(err: &anyhow::Error) -> String {
+    // Get the root cause message
+    let mut msg = err.to_string();
 
+    // If the error chain has more context, include it
+    if let Some(source) = err.source() {
+        let source_msg = source.to_string();
+        // Only add source if it's different and adds value
+        if !msg.contains(&source_msg) && !source_msg.is_empty() {
+            msg = format!("{msg}\nCause: {source_msg}");
+        }
+    }
+
+    msg
+}
+
+/// Execute the CLI and return a Result
+fn run_cli() -> Result<()> {
     let matches = build_cli().get_matches();
 
     match matches.subcommand() {
@@ -397,5 +408,22 @@ fn main() -> Result<()> {
             build_cli().print_help()?;
             Ok(())
         }
+    }
+}
+
+fn main() {
+    // Initialize tracing subscriber for logging
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into()),
+        )
+        .with_writer(std::io::stderr)
+        .init();
+
+    // Run the CLI and handle errors gracefully
+    if let Err(err) = run_cli() {
+        eprintln!("Error: {}", format_error(&err));
+        process::exit(1);
     }
 }

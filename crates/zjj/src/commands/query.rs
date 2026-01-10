@@ -13,23 +13,136 @@ use crate::{
     commands::{get_session_db, zjj_data_dir},
 };
 
+/// Query type metadata for help generation
+struct QueryTypeInfo {
+    name: &'static str,
+    description: &'static str,
+    requires_arg: bool,
+    arg_name: &'static str,
+    usage_example: &'static str,
+    returns_description: &'static str,
+}
+
+impl QueryTypeInfo {
+    const fn all() -> &'static [Self] {
+        &[
+            Self {
+                name: "session-exists",
+                description: "Check if a session exists by name",
+                requires_arg: true,
+                arg_name: "session_name",
+                usage_example: "jjz query session-exists my-session",
+                returns_description: r#"{"exists": true, "session": {"name": "my-session", "status": "active"}}"#,
+            },
+            Self {
+                name: "session-count",
+                description: "Count total sessions or filter by status",
+                requires_arg: false,
+                arg_name: "--status=active",
+                usage_example: "jjz query session-count --status=active",
+                returns_description: r#"{"count": 5, "filter": {"raw": "--status=active"}}"#,
+            },
+            Self {
+                name: "can-run",
+                description: "Check if a command can run and show blockers",
+                requires_arg: true,
+                arg_name: "command_name",
+                usage_example: "jjz query can-run add",
+                returns_description: r#"{"can_run": true, "command": "add", "blockers": [], "prerequisites_met": 4, "prerequisites_total": 4}"#,
+            },
+            Self {
+                name: "suggest-name",
+                description: "Suggest next available name based on pattern",
+                requires_arg: true,
+                arg_name: "pattern",
+                usage_example: r#"jjz query suggest-name "feature-{n}""#,
+                returns_description: r#"{"pattern": "feature-{n}", "suggested": "feature-3", "next_available_n": 3, "existing_matches": ["feature-1", "feature-2"]}"#,
+            },
+        ]
+    }
+
+    fn find(name: &str) -> Option<&'static Self> {
+        Self::all().iter().find(|q| q.name == name)
+    }
+
+    fn format_error_message(&self) -> String {
+        format!(
+            "Error: '{}' query requires {} argument\n\n\
+             Description:\n  {}\n\n\
+             Usage:\n  {} <{}>\n\n\
+             Example:\n  {}\n\n\
+             Returns:\n  {}",
+            self.name,
+            if self.requires_arg {
+                "a"
+            } else {
+                "an optional"
+            },
+            self.description,
+            self.name,
+            self.arg_name,
+            self.usage_example,
+            self.returns_description
+        )
+    }
+
+    fn list_all_queries() -> String {
+        let mut output = String::from("Available query types:\n\n");
+        for query in Self::all() {
+            output.push_str(&format!(
+                "  {} - {}\n    Example: {}\n\n",
+                query.name, query.description, query.usage_example
+            ));
+        }
+        output.push_str(
+            "For detailed help on a specific query type, try running it without arguments.\n",
+        );
+        output
+    }
+}
+
 /// Run a query
 pub fn run(query_type: &str, args: Option<&str>) -> Result<()> {
+    // Handle special help queries
+    if query_type == "--help" || query_type == "help" || query_type == "--list" {
+        println!("{}", QueryTypeInfo::list_all_queries());
+        return Ok(());
+    }
+
     match query_type {
         "session-exists" => {
-            let name = args.ok_or_else(|| anyhow::anyhow!("Session name required"))?;
+            let name = args.ok_or_else(|| {
+                QueryTypeInfo::find("session-exists")
+                    .map(|info| anyhow::anyhow!(info.format_error_message()))
+                    .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
+            })?;
             query_session_exists(name)
         }
         "session-count" => query_session_count(args),
         "can-run" => {
-            let command = args.ok_or_else(|| anyhow::anyhow!("Command name required"))?;
+            let command = args.ok_or_else(|| {
+                QueryTypeInfo::find("can-run")
+                    .map(|info| anyhow::anyhow!(info.format_error_message()))
+                    .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
+            })?;
             query_can_run(command)
         }
         "suggest-name" => {
-            let pattern = args.ok_or_else(|| anyhow::anyhow!("Pattern required"))?;
+            let pattern = args.ok_or_else(|| {
+                QueryTypeInfo::find("suggest-name")
+                    .map(|info| anyhow::anyhow!(info.format_error_message()))
+                    .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
+            })?;
             query_suggest_name(pattern)
         }
-        _ => Err(anyhow::anyhow!("Unknown query type: {query_type}")),
+        _ => {
+            let error_msg = format!(
+                "Error: Unknown query type '{}'\n\n{}",
+                query_type,
+                QueryTypeInfo::list_all_queries()
+            );
+            Err(anyhow::anyhow!(error_msg))
+        }
     }
 }
 
