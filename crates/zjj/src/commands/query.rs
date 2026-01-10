@@ -146,6 +146,27 @@ pub fn run(query_type: &str, args: Option<&str>) -> Result<()> {
     }
 }
 
+/// Categorize database errors for better error reporting
+fn categorize_db_error(err: &anyhow::Error) -> (String, String) {
+    let err_str = err.to_string();
+    if err_str.contains("no such table") || err_str.contains("database schema") {
+        (
+            "DATABASE_NOT_INITIALIZED".to_string(),
+            "Database not initialized. Run 'jjz init' first.".to_string(),
+        )
+    } else if err_str.contains("locked") {
+        (
+            "DATABASE_LOCKED".to_string(),
+            "Database is locked by another process".to_string(),
+        )
+    } else {
+        (
+            "DATABASE_INIT_ERROR".to_string(),
+            format!("Failed to access database: {}", err),
+        )
+    }
+}
+
 /// Query if a session exists
 fn query_session_exists(name: &str) -> Result<()> {
     let result = match get_session_db() {
