@@ -3,9 +3,8 @@
 //! This command enables AI agents to understand available commands,
 //! system state, and dependencies.
 
-use std::collections::HashMap;
-
 use anyhow::Result;
+use im::HashMap;
 use zjj_core::introspection::{
     ArgumentSpec, CommandExample, CommandIntrospection, DependencyInfo, ErrorCondition, FlagSpec,
     IntrospectOutput, Prerequisites, SystemState,
@@ -25,73 +24,63 @@ fn get_command_version(command: &str) -> Option<String> {
 
 /// Check dependencies and their status
 fn check_dependencies() -> HashMap<String, DependencyInfo> {
-    let mut deps = HashMap::new();
-
     // JJ (required)
     let jj_installed = is_command_available("jj");
-    deps.insert(
-        "jj".to_string(),
-        DependencyInfo {
-            required: true,
-            installed: jj_installed,
-            version: if jj_installed {
-                get_command_version("jj")
-            } else {
-                None
-            },
-            command: "jj".to_string(),
+    let jj_info = DependencyInfo {
+        required: true,
+        installed: jj_installed,
+        version: if jj_installed {
+            get_command_version("jj")
+        } else {
+            None
         },
-    );
+        command: "jj".to_string(),
+    };
 
     // Zellij (required)
     let zellij_installed = is_command_available("zellij");
-    deps.insert(
-        "zellij".to_string(),
-        DependencyInfo {
-            required: true,
-            installed: zellij_installed,
-            version: if zellij_installed {
-                get_command_version("zellij")
-            } else {
-                None
-            },
-            command: "zellij".to_string(),
+    let zellij_info = DependencyInfo {
+        required: true,
+        installed: zellij_installed,
+        version: if zellij_installed {
+            get_command_version("zellij")
+        } else {
+            None
         },
-    );
+        command: "zellij".to_string(),
+    };
 
     // Claude (optional)
     let claude_installed = is_command_available("claude");
-    deps.insert(
-        "claude".to_string(),
-        DependencyInfo {
-            required: false,
-            installed: claude_installed,
-            version: if claude_installed {
-                get_command_version("claude")
-            } else {
-                None
-            },
-            command: "claude".to_string(),
+    let claude_info = DependencyInfo {
+        required: false,
+        installed: claude_installed,
+        version: if claude_installed {
+            get_command_version("claude")
+        } else {
+            None
         },
-    );
+        command: "claude".to_string(),
+    };
 
     // Beads (optional)
     let beads_installed = is_command_available("bd");
-    deps.insert(
-        "beads".to_string(),
-        DependencyInfo {
-            required: false,
-            installed: beads_installed,
-            version: if beads_installed {
-                get_command_version("bd")
-            } else {
-                None
-            },
-            command: "bd".to_string(),
+    let beads_info = DependencyInfo {
+        required: false,
+        installed: beads_installed,
+        version: if beads_installed {
+            get_command_version("bd")
+        } else {
+            None
         },
-    );
+        command: "bd".to_string(),
+    };
 
-    deps
+    HashMap::new()
+        .update("jj".to_string(), jj_info)
+        .update("zellij".to_string(), zellij_info)
+        .update("claude".to_string(), claude_info)
+        .update("beads".to_string(), beads_info)
 }
 
 /// Get current system state

@@ -2,8 +2,6 @@
 //!
 //! This module provides consistent JSON output formats across all commands.
 
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 /// Standard JSON success response wrapper
@@ -288,18 +286,13 @@ pub fn error_with_available_sessions(
     session_name: impl Into<String>,
     available: &[String],
 ) -> JsonError {
-    let mut details = HashMap::new();
-    details.insert(
-        "session_name".to_string(),
-        serde_json::json!(session_name.into()),
-    );
-    details.insert(
-        "available_sessions".to_string(),
-        serde_json::json!(available),
-    );
+    let details = serde_json::json!({
+        "session_name": session_name.into(),
+        "available_sessions": available,
+    });
 
     JsonError::new(code, message)
-        .with_details(serde_json::json!(details))
+        .with_details(details)
         .with_suggestion("Use 'jjz list' to see available sessions")
 }
 

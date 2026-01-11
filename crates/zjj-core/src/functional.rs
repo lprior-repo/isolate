@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::Result;
 
 pub type FallibleTransform<T, U> = fn(T) -> Result<U>;
@@ -31,14 +29,17 @@ where
         .try_fold(item, |acc, transform| transform(acc))
 }
 
-pub fn group_by<T, K, F>(items: Vec<T>, key_fn: F) -> HashMap<K, Vec<T>>
+pub fn group_by<T, K, F>(items: Vec<T>, key_fn: F) -> im::HashMap<K, Vec<T>>
 where
-    K: std::hash::Hash + Eq,
+    K: std::hash::Hash + Eq + Clone,
+    T: Clone,
     F: Fn(&T) -> K,
 {
-    items.into_iter().fold(HashMap::new(), |mut map, item| {
+    items.into_iter().fold(im::HashMap::new(), |mut map, item| {
         let key = key_fn(&item);
-        map.entry(key).or_default().push(item);
+        let mut group = map.get(&key).cloned().unwrap_or_default();
+        group.push(item);
+        map.insert(key, group);
         map
     })
 }

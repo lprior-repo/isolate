@@ -99,30 +99,36 @@ impl HookRunner {
         }
 
         let shell = get_user_shell()?;
-        let mut results = Vec::new();
+        let num_hooks = hooks.len();
 
-        for (index, hook_cmd) in hooks.iter().enumerate() {
-            eprintln!(
-                "Running {} hook {}/{}: {}",
-                hook_type.event_name(),
-                index + 1,
-                hooks.len(),
-                hook_cmd
-            );
+        let results =
+            hooks
+                .iter()
+                .enumerate()
+                .try_fold(Vec::new(), |mut acc, (index, hook_cmd)| {
+                    eprintln!(
+                        "Running {} hook {}/{}: {}",
+                        hook_type.event_name(),
+                        index + 1,
+                        num_hooks,
+                        hook_cmd
+                    );
 
-            let result = Self::execute_hook(&shell, hook_cmd, workspace_path)?;
-            results.push(result.clone());
+                    let result = Self::execute_hook(&shell, hook_cmd, workspace_path)?;
 
-            if !result.success {
-                return Err(Error::HookFailed {
-                    hook_type: hook_type.event_name().to_string(),
-                    command: hook_cmd.clone(),
-                    exit_code: result.exit_code,
-                    stdout: result.stdout,
-                    stderr: result.stderr,
-                });
-            }
-        }
+                    if !result.success {
+                        return Err(Error::HookFailed {
+                            hook_type: hook_type.event_name().to_string(),
+                            command: hook_cmd.clone(),
+                            exit_code: result.exit_code,
+                            stdout: result.stdout,
+                            stderr: result.stderr,
+                        });
+                    }
+
+                    acc.push(result);
+                    Ok(acc)
+                })?;
 
         Ok(HookResult::Success(results))
     }

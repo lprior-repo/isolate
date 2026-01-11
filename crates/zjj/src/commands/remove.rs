@@ -15,6 +15,7 @@ use crate::{
 
 /// Options for the remove command
 #[derive(Debug, Clone, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct RemoveOptions {
     /// Skip confirmation prompt and hooks
     pub force: bool,
@@ -30,11 +31,11 @@ pub struct RemoveOptions {
 /// Run the remove command
 #[allow(dead_code)]
 pub fn run(name: &str) -> Result<()> {
-    run_with_options(name, RemoveOptions::default())
+    run_with_options(name, &RemoveOptions::default())
 }
 
 /// Run the remove command with options
-pub fn run_with_options(name: &str, options: RemoveOptions) -> Result<()> {
+pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session

@@ -342,7 +342,7 @@ fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!();
 
-        for check in &output.checks {
+        output.checks.iter().for_each(|check| {
             let symbol = match check.status {
                 CheckStatus::Pass => "✓",
                 CheckStatus::Warn => "⚠",
@@ -354,7 +354,7 @@ fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
             if let Some(ref suggestion) = check.suggestion {
                 println!("  → {suggestion}");
             }
-        }
+        });
 
         println!();
         println!(
@@ -436,19 +436,19 @@ fn run_fixes(checks: &[DoctorCheck], json: bool) -> Result<()> {
     } else {
         if !output.fixed.is_empty() {
             println!("Fixed Issues:");
-            for fix in &output.fixed {
+            output.fixed.iter().for_each(|fix| {
                 let symbol = if fix.success { "✓" } else { "✗" };
                 println!("{symbol} {}: {}", fix.issue, fix.action);
-            }
+            });
             println!();
         }
 
         if !output.unable_to_fix.is_empty() {
             println!("Unable to Fix:");
-            for issue in &output.unable_to_fix {
+            output.unable_to_fix.iter().for_each(|issue| {
                 println!("✗ {}: {}", issue.issue, issue.reason);
                 println!("  → {}", issue.suggestion);
-            }
+            });
         }
     }
 
@@ -480,24 +480,27 @@ fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
         .ok_or_else(|| anyhow::anyhow!("No orphaned workspaces data"))?;
 
     let root = jj_root()?;
-    let mut removed = vec![];
 
-    for workspace in orphaned {
-        let name = workspace
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid workspace name"))?;
+    let removed_count = orphaned
+        .iter()
+        .filter_map(|workspace| {
+            let name = workspace.as_str()?;
 
-        let result = Command::new("jj")
-            .args(["workspace", "forget", name])
-            .current_dir(&root)
-            .output()?;
+            let result = Command::new("jj")
+                .args(["workspace", "forget", name])
+                .current_dir(&root)
+                .output()
+                .ok()?;
 
-        if result.status.success() {
-            removed.push(name);
-        }
-    }
+            if result.status.success() {
+                Some(name)
+            } else {
+                None
+            }
+        })
+        .count();
 
-    Ok(format!("Removed {} orphaned workspace(s)", removed.len()))
+    Ok(format!("Removed {removed_count} orphaned workspace(s)"))
 }
 
 #[cfg(test)]

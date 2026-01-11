@@ -6,7 +6,7 @@
 //! - Dependencies between fields
 //! - Machine-readable schemas
 
-use std::collections::HashMap;
+use im::HashMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -214,7 +214,7 @@ impl TypeContract {
             constraints: Vec::new(),
             hints: Vec::new(),
             examples: Vec::new(),
-            fields: HashMap::new(),
+            fields: im::HashMap::new(),
         }
     }
 }
@@ -439,7 +439,7 @@ impl TypeContractBuilder {
     }
 
     pub fn field(mut self, name: impl Into<String>, field: FieldContract) -> Self {
-        self.fields.insert(name.into(), field);
+        self.fields = self.fields.update(name.into(), field);
         self
     }
 

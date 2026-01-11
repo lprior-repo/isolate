@@ -116,13 +116,13 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
         serde_json::to_value(config).context("Failed to serialize config for value lookup")?;
 
     let parts: Vec<&str> = key.split('.').collect();
-    let mut current = &json;
 
-    for part in parts {
-        current = current.get(part).ok_or_else(|| {
+    // Navigate through nested keys using functional fold pattern
+    let current = parts.iter().try_fold(&json, |current_value, &part| {
+        current_value.get(part).ok_or_else(|| {
             anyhow::anyhow!("Config key '{key}' not found. Use 'jjz config' to see all keys.")
-        })?;
-    }
+        })
+    })?;
 
     // Format value based on type
     Ok(match current {
@@ -187,24 +187,27 @@ fn set_nested_value(doc: &mut toml_edit::DocumentMut, parts: &[&str], value: &st
         anyhow::bail!("Empty config key");
     }
 
-    // Navigate to parent table
-    let mut current = doc.as_table_mut();
-    for &part in &parts[..parts.len() - 1] {
-        // Ensure table exists
-        if !current.contains_key(part) {
-            current[part] = toml_edit::table();
-        }
-        current = current[part]
-            .as_table_mut()
-            .ok_or_else(|| anyhow::anyhow!("{part} is not a table"))?;
-    }
+    // Navigate to parent table and ensure all intermediate tables exist
+    // Using fold to navigate through the path while maintaining table references
+    let final_table =
+        parts[..parts.len() - 1]
+            .iter()
+            .try_fold(doc.as_table_mut(), |current_table, &part| {
+                // Ensure table exists
+                if !current_table.contains_key(part) {
+                    current_table[part] = toml_edit::table();
+                }
+                current_table[part]
+                    .as_table_mut()
+                    .ok_or_else(|| anyhow::anyhow!("{part} is not a table"))
+            })?;
 
     // Set the value
     let key = parts
         .last()
         .ok_or_else(|| anyhow::anyhow!("Invalid key path"))?;
     let toml_value = parse_value(value)?;
-    current[key] = toml_value;
+    final_table[key] = toml_value;
 
     Ok(())
 }
