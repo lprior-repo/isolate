@@ -18,6 +18,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use itertools::Itertools;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -393,9 +394,10 @@ fn render_kanban_horizontal(f: &mut Frame, app: &DashboardApp, area: Rect) {
 
     let column_titles = ["Creating", "Active", "Paused", "Completed", "Failed"];
 
-    for (idx, title) in column_titles.iter().enumerate() {
-        render_column(f, app, columns[idx], idx, title);
-    }
+    column_titles
+        .iter()
+        .enumerate()
+        .for_each(|(idx, title)| render_column(f, app, columns[idx], idx, title));
 }
 
 /// Render kanban board vertically (narrow screens)
@@ -602,37 +604,46 @@ impl DashboardApp {
         let db = get_session_db()?;
         let sessions = db.list(None)?;
 
-        // Group sessions by status
+        // Group sessions by status using itertools
         let mut grouped: Vec<Vec<SessionData>> = vec![vec![], vec![], vec![], vec![], vec![]];
 
-        for session in sessions {
-            let workspace_path = Path::new(&session.workspace_path);
+        // Build session data with status grouping
+        let session_data_map = sessions
+            .into_iter()
+            .map(|session| {
+                let workspace_path = Path::new(&session.workspace_path);
 
-            let changes = if workspace_path.exists() {
-                zjj_core::jj::workspace_status(workspace_path)
-                    .ok()
-                    .map(|status| status.change_count())
-            } else {
-                None
-            };
+                let changes = if workspace_path.exists() {
+                    zjj_core::jj::workspace_status(workspace_path)
+                        .ok()
+                        .map(|status| status.change_count())
+                } else {
+                    None
+                };
 
-            let beads = query_beads_status(workspace_path).unwrap_or(BeadsStatus::NoBeads);
+                let beads = query_beads_status(workspace_path).unwrap_or(BeadsStatus::NoBeads);
 
-            let session_data = SessionData {
-                session: session.clone(),
-                changes,
-                beads,
-            };
+                let column_idx = match session.status {
+                    SessionStatus::Creating => 0,
+                    SessionStatus::Active => 1,
+                    SessionStatus::Paused => 2,
+                    SessionStatus::Completed => 3,
+                    SessionStatus::Failed => 4,
+                };
 
-            let column_idx = match session.status {
-                SessionStatus::Creating => 0,
-                SessionStatus::Active => 1,
-                SessionStatus::Paused => 2,
-                SessionStatus::Completed => 3,
-                SessionStatus::Failed => 4,
-            };
+                let session_data = SessionData {
+                    session,
+                    changes,
+                    beads,
+                };
 
-            grouped[column_idx].push(session_data);
+                (column_idx, session_data)
+            })
+            .into_group_map();
+
+        // Populate grouped vec, preserving order
+        for (column_idx, sessions_in_group) in session_data_map {
+            grouped[column_idx] = sessions_in_group;
         }
 
         self.sessions_by_status = grouped;

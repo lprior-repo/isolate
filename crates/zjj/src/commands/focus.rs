@@ -16,7 +16,7 @@ pub struct FocusOptions {
 }
 
 /// Run the focus command with options
-pub fn run_with_options(name: &str, options: FocusOptions) -> Result<()> {
+pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session
@@ -24,7 +24,7 @@ pub fn run_with_options(name: &str, options: FocusOptions) -> Result<()> {
         .get(name)?
         .ok_or_else(|| anyhow::anyhow!("Session '{name}' not found"))?;
 
-    let zellij_tab = session.zellij_tab.clone();
+    let zellij_tab = session.zellij_tab;
 
     if is_inside_zellij() {
         // Inside Zellij: Switch to the tab
@@ -34,7 +34,7 @@ pub fn run_with_options(name: &str, options: FocusOptions) -> Result<()> {
             let output = FocusOutput {
                 success: true,
                 session_name: name.to_string(),
-                zellij_tab: zellij_tab.clone(),
+                zellij_tab,
                 message: format!("Switched to session '{name}'"),
             };
             println!("{}", serde_json::to_string(&output)?);
@@ -50,13 +50,12 @@ pub fn run_with_options(name: &str, options: FocusOptions) -> Result<()> {
                 session_name: name.to_string(),
                 zellij_tab: zellij_tab.clone(),
                 message: format!(
-                    "Session '{name}' is in tab '{}'. Attaching to Zellij session...",
-                    zellij_tab
+                    "Session '{name}' is in tab '{zellij_tab}'. Attaching to Zellij session..."
                 ),
             };
             println!("{}", serde_json::to_string(&output)?);
         } else {
-            println!("Session '{name}' is in tab '{}'", zellij_tab);
+            println!("Session '{name}' is in tab '{zellij_tab}'");
             println!("Attaching to Zellij session...");
         }
         attach_to_zellij_session(None)?;

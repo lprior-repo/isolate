@@ -3,7 +3,7 @@
 //! This module provides structured metadata about jjz capabilities,
 //! enabling AI agents to discover features and understand system state.
 
-use std::collections::HashMap;
+use im::HashMap;
 
 use serde::{Deserialize, Serialize};
 
