@@ -1,0 +1,33 @@
+# Rust
+/target/
+
+# Moon
+.moon/cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
+
+# Reports
+.llm-*.json
+.llm-*.md
+.cd-gates-*
+.mutations-report/
+
+# Codanna (local index)
+.codanna/
+.fastembed_cache
+crates/zjj/.jjz/
+*.bak
+*.backup

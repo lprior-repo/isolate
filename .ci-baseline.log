@@ -1,0 +1,1944 @@
+▪▪▪▪ zjj-core:fmt
+▪▪▪▪ zjj:fmt
+▪▪▪▪ zjj-core:fmt (985ms)
+▪▪▪▪ zjj-core:clippy (cached, f29aa211)
+▪▪▪▪ zjj:fmt (1s 11ms)
+zjj-core:test | running 97 tests
+zjj-core:test | test session::tests::test_edge_arabic_text ... ok
+zjj-core:test | test session::tests::test_edge_control_characters_carriage_return ... ok
+zjj-core:test | test session::tests::test_edge_control_characters_tab ... ok
+zjj-core:test | test session::tests::test_edge_emoji_fire ... ok
+zjj-core:test | test session::tests::test_edge_emoji_multiple ... ok
+zjj-core:test | test session::tests::test_edge_control_characters_newline ... ok
+zjj-core:test | test session::tests::test_edge_combining_diacritical_marks ... ok
+zjj-core:test | test session::tests::test_edge_emoji_check_mark ... ok
+zjj-core:test | test session::tests::test_edge_mostly_valid_with_one_space ... ok
+zjj-core:test | test session::tests::test_edge_ltr_override ... ok
+zjj-core:test | test session::tests::test_edge_hebrew_text ... ok
+zjj-core:test | test session::tests::test_edge_name_100_chars ... ok
+zjj-core:test | test session::tests::test_edge_name_64_chars_with_dashes ... ok
+zjj-core:test | test session::tests::test_edge_name_65_chars ... ok
+zjj-core:test | test session::tests::test_edge_name_empty_string ... ok
+zjj-core:test | test session::tests::test_edge_name_exactly_64_chars ... ok
+zjj-core:test | test session::tests::test_edge_name_single_letter ... ok
+zjj-core:test | test session::tests::test_edge_name_starts_with_dash ... ok
+zjj-core:test | test session::tests::test_edge_name_starts_with_number ... ok
+zjj-core:test | test session::tests::test_edge_mostly_valid_with_one_special_char ... ok
+zjj-core:test | test session::tests::test_edge_name_1000_chars ... ok
+zjj-core:test | test session::tests::test_edge_name_starts_with_underscore ... ok
+zjj-core:test | test session::tests::test_edge_name_two_letters ... ok
+zjj-core:test | test session::tests::test_edge_null_byte_at_end ... ok
+zjj-core:test | test session::tests::test_edge_null_byte_embedded ... ok
+zjj-core:test | test session::tests::test_edge_path_traversal_absolute_path ... ok
+zjj-core:test | test session::tests::test_edge_path_traversal_backslash ... ok
+zjj-core:test | test session::tests::test_edge_path_traversal_parent_directory ... ok
+zjj-core:test | test session::tests::test_edge_null_byte_at_start ... ok
+zjj-core:test | test session::tests::test_edge_control_characters_bell ... ok
+zjj-core:test | test session::tests::test_edge_emoji_rocket ... ok
+zjj-core:test | test session::tests::test_edge_emoji_with_text_modifier ... ok
+zjj-core:test | test session::tests::test_edge_path_traversal_relative_path ... ok
+zjj-core:test | test session::tests::test_edge_rtl_override ... ok
+zjj-core:test | test session::tests::test_edge_shell_pipe ... ok
+zjj-core:test | test session::tests::test_edge_shell_backtick ... ok
+zjj-core:test | test session::tests::test_edge_shell_semicolon ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_ampersand ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_brackets ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_at_sign ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_braces ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_caret ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_dollar ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_exclamation ... ok
+zjj-core:test | test session::tests::test_edge_shell_dollar_expansion ... ok
+zjj-core:test | test session::tests::test_edge_sql_injection_double_quote ... ok
+zjj-core:test | test session::tests::test_edge_sql_injection_quote ... ok
+zjj-core:test | test session::tests::test_edge_unicode_homoglyph_cyrillic_a ... ok
+zjj-core:test | test session::tests::test_edge_unicode_homoglyph_cyrillic_e ... ok
+zjj-core:test | test session::tests::test_edge_url_encoded_slash ... ok
+zjj-core:test | test session::tests::test_edge_valid_all_uppercase ... ok
+zjj-core:test | test session::tests::test_edge_valid_all_lowercase ... ok
+zjj-core:test | test session::tests::test_edge_valid_ending_with_dash ... ok
+zjj-core:test | test session::tests::test_edge_valid_ending_with_number ... ok
+zjj-core:test | test session::tests::test_edge_unicode_homoglyph_greek_alpha ... ok
+zjj-core:test | test session::tests::test_edge_valid_mixed_separators ... ok
+zjj-core:test | test session::tests::test_edge_valid_prefix_invalid_suffix ... ok
+zjj-core:test | test session::tests::test_edge_valid_with_dashes ... ok
+zjj-core:test | test session::tests::test_edge_valid_with_numbers ... ok
+zjj-core:test | test session::tests::test_edge_valid_with_underscores ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_embedded_space ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_leading_space ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_non_breaking_space ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_only_spaces ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_trailing_space ... ok
+zjj-core:test | test session::tests::test_edge_valid_ending_with_underscore ... ok
+zjj-core:test | test session::tests::test_edge_zero_width_no_break_space ... ok
+zjj-core:test | test session::tests::test_edge_valid_mixed_case ... ok
+zjj-core:test | test session::tests::test_edge_zero_width_space ... ok
+zjj-core:test | test session::tests::test_session_name_accepts_valid_names ... ok
+zjj-core:test | test session::tests::test_session_name_empty ... ok
+zjj-core:test | test session::tests::test_session_name_invalid_chars ... ok
+zjj-core:test | test session::tests::test_session_name_rejects_unicode ... ok
+zjj-core:test | test session::tests::test_session_name_starts_with_dash ... ok
+zjj-core:test | test session::tests::test_session_name_starts_with_digit_rejected ... ok
+zjj-core:test | test session::tests::test_session_name_starts_with_underscore_rejected ... ok
+zjj-core:test | test session::tests::test_session_name_too_long ... ok
+zjj-core:test | test session::tests::test_edge_url_encoded_space ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_asterisk ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_hash ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_parentheses ... ok
+zjj-core:test | test session::tests::test_session_new_valid ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_percent ... ok
+zjj-core:test | test session::tests::test_status_from_str_invalid ... ok
+zjj-core:test | test session::tests::test_status_from_str ... ok
+zjj-core:test | test session::tests::test_validate_transition_creating_to_active ... ok
+zjj-core:test | test session::tests::test_edge_zero_width_joiner ... ok
+zjj-core:test | test session::tests::test_status_display ... ok
+zjj-core:test | test session::tests::test_validate_transition_active_to_paused ... ok
+zjj-core:test | test session::tests::test_validate_transition_invalid ... ok
+zjj-core:test | test session::tests::test_validate_transition_creating_to_failed ... ok
+zjj-core:test | test session::tests::test_edge_zero_width_non_joiner ... ok
+zjj-core:test | test session::tests::test_session_name_valid_with_underscore ... ok
+zjj-core:test | test db::tests::test_create_session_success ... ok
+zjj-core:test | test db::tests::test_get_session_exists ... ok
+zjj-core:test | test db::tests::test_unique_constraint_enforced ... ok
+zjj-core:test | test db::tests::test_backup_restore_roundtrip ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 97 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 256 tests
+zjj-core:test | test commands::add::tests::test_create_full_layout ... ok
+zjj-core:test | test commands::add::tests::test_escape_kdl_string_with_both ... ok
+zjj-core:test | test commands::add::tests::test_escape_kdl_string_no_special_chars ... ok
+zjj-core:test | test commands::add::tests::test_escape_kdl_string_with_backslashes ... ok
+zjj-core:test | test commands::add::tests::test_escape_kdl_string_with_quotes ... ok
+zjj-core:test | test commands::add::tests::test_validate_no_symlinks_accepts_nonexistent_path ... ok
+zjj-core:test | test commands::add::tests::test_validate_no_symlinks_accepts_regular_directory ... ok
+zjj-core:test | test commands::add::tests::test_create_session_layout_full ... ok
+zjj-core:test | test commands::completions::tests::test_all_shells ... ok
+zjj-core:test | test commands::add::tests::test_validate_no_symlinks_rejects_symlink_in_parent ... ok
+zjj-core:test | test commands::completions::tests::test_shell_as_str ... ok
+zjj-core:test | test commands::completions::tests::test_shell_from_str_case_insensitive ... ok
+zjj-core:test | test commands::completions::tests::test_shell_from_str_invalid ... ok
+zjj-core:test | test commands::completions::tests::test_shell_from_str_valid ... ok
+zjj-core:test | test commands::completions::tests::test_to_clap_shell ... ok
+zjj-core:test | test commands::config::tests::test_config_options_with_validate ... ok
+zjj-core:test | test commands::config::tests::test_get_nested_value_array ... ok
+zjj-core:test | test commands::config::tests::test_get_nested_value_deep ... ok
+zjj-core:test | test commands::add::tests::test_validate_no_symlinks_rejects_direct_symlink ... ok
+zjj-core:test | test commands::add::tests::test_add_options_new ... ok
+zjj-core:test | test commands::add::tests::test_create_session_layout_default ... ok
+zjj-core:test | test commands::config::tests::test_get_nested_value_not_found ... ok
+zjj-core:test | test commands::add::tests::test_create_session_layout_escapes_special_chars ... ok
+zjj-core:test | test commands::completions::tests::test_installation_instructions_not_empty ... ok
+zjj-core:test | test commands::config::tests::test_get_nested_value_nested ... ok
+zjj-core:test | test commands::config::tests::test_parse_value_array ... ok
+zjj-core:test | test commands::config::tests::test_parse_value_int ... ok
+zjj-core:test | test commands::config::tests::test_parse_value_string ... ok
+zjj-core:test | test commands::config::tests::test_parse_value_bool_false ... ok
+zjj-core:test | test commands::config::tests::test_get_nested_value_simple ... ok
+zjj-core:test | test commands::config::tests::test_is_readable_nonexistent ... ok
+zjj-core:test | test commands::add::tests::test_create_session_layout_minimal ... ok
+zjj-core:test | test commands::config::tests::test_parse_value_bool_true ... ok
+zjj-core:test | test commands::config::tests::test_global_config_path_opt ... ok
+zjj-core:test | test commands::add::tests::test_create_standard_layout ... ok
+zjj-core:test | test commands::config::tests::test_set_config_value_deep_nested ... ok
+zjj-core:test | test commands::config::tests::test_set_config_value_simple ... ok
+zjj-core:test | test commands::add::tests::test_create_minimal_layout ... ok
+zjj-core:test | test commands::config::tests::test_project_config_path ... ok
+zjj-core:test | test commands::config::tests::test_set_config_value_creates_parent_dir ... ok
+zjj-core:test | test commands::config::tests::test_set_nested_value_empty_parts ... ok
+zjj-core:test | test commands::config::tests::test_show_config_value ... ok
+zjj-core:test | test commands::config::tests::test_set_config_value_nested ... ok
+zjj-core:test | test commands::config::tests::test_validate_size_percentage ... ok
+zjj-core:test | test commands::config::tests::test_validate_size_invalid ... ok
+zjj-core:test | test commands::config::tests::test_show_all_config ... ok
+zjj-core:test | test commands::config::tests::test_validate_size_pixel ... ok
+zjj-core:test | test commands::config::tests::test_show_config_value_json ... ok
+zjj-core:test | test commands::dashboard::tests::test_beads_status_formatting ... ok
+zjj-core:test | test commands::config::tests::test_validation_issue_structure ... ok
+zjj-core:test | test commands::config::tests::test_validate_size_percentage_over_100 ... ok
+zjj-core:test | test commands::config::tests::test_validation_result_serialization ... ok
+zjj-core:test | test cli::tests::test_run_command_failure ... ok
+zjj-core:test | test commands::config::tests::test_validate_config_default ... ok
+zjj-core:test | test commands::config::tests::test_set_config_value_overwrite_existing ... ok
+zjj-core:test | test commands::config::tests::test_show_all_config_json ... ok
+zjj-core:test | test cli::tests::test_run_command_success ... ok
+zjj-core:test | test commands::config::tests::test_validate_size_empty ... ok
+zjj-core:test | test commands::dashboard::tests::test_column_navigation ... ok
+zjj-core:test | test commands::diff::tests::test_parse_diff_stat_additions ... ok
+zjj-core:test | test commands::diff::tests::test_get_pager_defaults ... ok
+zjj-core:test | test commands::diff::tests::test_diff_options_default ... ok
+zjj-core:test | test commands::diff::tests::test_parse_diff_stat_deletions ... ok
+zjj-core:test | test commands::diff::tests::test_get_pager_from_env ... ok
+zjj-core:test | test commands::diff::tests::test_diff_command_args_full ... ok
+zjj-core:test | test commands::diff::tests::test_diff_command_args_stat ... ok
+zjj-core:test | test commands::diff::tests::test_parse_diff_stat_multiple_files ... ok
+zjj-core:test | test commands::diff::tests::test_parse_diff_stat_modifications ... ok
+zjj-core:test | test commands::diff::tests::test_revset_format ... ok
+zjj-core:test | test commands::diff::tests::test_parse_diff_stat_empty ... ok
+zjj-core:test | test commands::dashboard::tests::test_layout_mode_selection ... ok
+zjj-core:test | test commands::dashboard::tests::test_row_navigation_bounds ... ok
+zjj-core:test | test commands::dashboard::tests::test_session_data_grouping_by_status ... ok
+zjj-core:test | test commands::dashboard::tests::test_centered_rect ... ok
+zjj-core:test | test commands::doctor::tests::test_check_initialized_independent_of_jj ... ok
+zjj-core:test | test commands::diff::tests::test_run_session_not_found ... ok
+zjj-core:test | test commands::doctor::tests::test_check_jj_installed_vs_check_initialized ... ok
+zjj-core:test | test commands::diff::tests::test_get_pager_empty_env ... ok
+zjj-core:test | test commands::focus::tests::test_is_inside_zellij_detection ... ok
+zjj-core:test | test commands::diff::tests::test_run_workspace_not_found ... ok
+zjj-core:test | test commands::doctor::tests::test_check_initialized_detects_jjz_directory ... ok
+zjj-core:test | test commands::init::tests::test_check_database_health_empty ... ok
+zjj-core:test | test commands::init::tests::test_check_database_health_missing ... ok
+zjj-core:test | test commands::init::tests::test_check_database_health_corrupted ... ok
+zjj-core:test | test commands::focus::tests::test_focus_session_with_mixed_special_chars ... ok
+zjj-core:test | test commands::focus::tests::test_focus_session_with_underscores ... ok
+zjj-core:test | test commands::init::tests::test_default_config_is_valid_toml ... ok
+zjj-core:test | test commands::focus::tests::test_focus_session_not_found ... ok
+zjj-core:test | test commands::init::tests::test_default_config_has_correct_values ... ok
+zjj-core:test | test commands::init::tests::test_check_database_health_healthy ... ok
+zjj-core:test | test commands::focus::tests::test_focus_session_exists ... ok
+zjj-core:test | test commands::focus::tests::test_focus_session_with_hyphens ... ok
+zjj-core:test | test commands::focus::tests::test_zellij_tab_format ... ok
+zjj-core:test | test commands::init::tests::test_check_database_health_wrong_schema ... ok
+zjj-core:test | test commands::diff::tests::test_determine_main_branch_not_in_repo ... ok
+zjj-core:test | test commands::doctor::tests::test_orphaned_workspace_detection_normalizes_names ... ok
+zjj-core:test | test commands::init::tests::test_repair_database_corrupted_creates_backup ... ok
+zjj-core:test | test commands::init::tests::test_repair_database_healthy_no_op ... ok
+zjj-core:test | test commands::init::tests::test_repair_database_missing_creates_new ... ok
+zjj-core:test | test commands::init::tests::test_repair_database_recovers_sessions ... ok
+zjj-core:test | test commands::list::tests::test_all_flag_includes_all_sessions ... ok
+zjj-core:test | test commands::list::tests::test_bead_counts_default ... ok
+zjj-core:test | test commands::list::tests::test_bead_counts_display ... ok
+zjj-core:test | test commands::init::tests::test_force_reinitialize_creates_backup ... ok
+zjj-core:test | test commands::init::tests::test_init_creates_config_toml ... ok
+zjj-core:test | test commands::list::tests::test_empty_list_handling ... ok
+zjj-core:test | test commands::list::tests::test_get_beads_count_no_repo ... ok
+zjj-core:test | test commands::list::tests::test_get_session_changes_missing_workspace ... ok
+zjj-core:test | test commands::list::tests::test_output_json_format ... ok
+zjj-core:test | test commands::list::tests::test_output_table_format ... ok
+zjj-core:test | test commands::list::tests::test_session_list_item_serialization ... ok
+zjj-core:test | test commands::list::tests::test_session_list_item_with_none_branch ... ok
+zjj-core:test | test commands::remove::tests::test_confirm_removal_format ... ok
+zjj-core:test | test commands::remove::tests::test_remove_options_default ... ok
+zjj-core:test | test commands::remove::tests::test_merge_requires_valid_workspace ... ok
+zjj-core:test | test commands::status::tests::test_bead_stats_default ... ok
+zjj-core:test | test commands::status::tests::test_bead_stats_display ... ok
+zjj-core:test | test commands::status::tests::test_diff_stats_default ... ok
+zjj-core:test | test commands::status::tests::test_diff_stats_display ... ok
+zjj-core:test | test commands::remove::tests::test_session_not_found ... ok
+zjj-core:test | test commands::status::tests::test_file_changes_display_clean ... ok
+zjj-core:test | test commands::status::tests::test_file_changes_display_dirty ... ok
+zjj-core:test | test commands::status::tests::test_file_changes_is_clean ... ok
+zjj-core:test | test commands::status::tests::test_file_changes_total ... ok
+zjj-core:test | test commands::status::tests::test_file_changes_with_unknown_files ... ok
+zjj-core:test | test commands::list::tests::test_filter_completed_and_failed_sessions ... ok
+zjj-core:test | test commands::status::tests::test_get_file_changes_missing_workspace ... ok
+zjj-core:test | test commands::status::tests::test_output_table_format ... ok
+zjj-core:test | test commands::status::tests::test_output_json_format ... ok
+zjj-core:test | test commands::status::tests::test_get_diff_stats_missing_workspace ... ok
+zjj-core:test | test commands::status::tests::test_session_status_info_serialization ... ok
+zjj-core:test | test commands::sync::tests::test_parse_rebase_output_case_insensitive_conflicts ... ok
+zjj-core:test | test commands::sync::tests::test_parse_rebase_output_empty ... ok
+zjj-core:test | test commands::sync::tests::test_parse_rebase_output_jj_v09_format ... ok
+zjj-core:test | test commands::sync::tests::test_parse_rebase_output_multiple_number_words ... ok
+zjj-core:test | test commands::sync::tests::test_parse_rebase_output_no_commits ... ok
+zjj-core:test | test commands::sync::tests::test_parse_rebase_output_with_commits ... ok
+zjj-core:test | test commands::sync::tests::test_parse_rebase_output_with_conflicts ... ok
+zjj-core:test | test commands::sync::tests::test_sync_session_exists ... ok
+zjj-core:test | test commands::sync::tests::test_list_all_sessions ... ok
+zjj-core:test | test commands::sync::tests::test_multiple_syncs_update_timestamp ... ok
+zjj-core:test | test commands::sync::tests::test_sync_session_not_found ... ok
+zjj-core:test | test commands::sync::tests::test_sync_updates_timestamp_on_success ... ok
+zjj-core:test | test commands::init::tests::test_init_creates_jjz_directory ... ok
+zjj-core:test | test commands::sync::tests::test_update_last_synced_timestamp ... ok
+zjj-core:test | test commands::tests::test_get_session_db_requires_init ... ok
+zjj-core:test | test commands::init::tests::test_init_auto_creates_jj_repo ... ok
+zjj-core:test | test commands::tests::test_zjj_data_dir_without_jj ... ok
+zjj-core:test | test commands::init::tests::test_force_reinitialize_preserves_backup ... ok
+zjj-core:test | test db::tests::test_create_session_success ... ok
+zjj-core:test | test commands::init::tests::test_init_creates_state_db ... ok
+zjj-core:test | test commands::tests::test_check_in_jj_repo_error_message ... ok
+zjj-core:test | test session::tests::test_edge_arabic_text ... ok
+zjj-core:test | test session::tests::test_edge_combining_diacritical_marks ... ok
+zjj-core:test | test session::tests::test_edge_control_characters_bell ... ok
+zjj-core:test | test session::tests::test_edge_control_characters_carriage_return ... ok
+zjj-core:test | test session::tests::test_edge_control_characters_newline ... ok
+zjj-core:test | test session::tests::test_edge_control_characters_tab ... ok
+zjj-core:test | test session::tests::test_edge_emoji_check_mark ... ok
+zjj-core:test | test session::tests::test_edge_emoji_fire ... ok
+zjj-core:test | test session::tests::test_edge_emoji_multiple ... ok
+zjj-core:test | test session::tests::test_edge_emoji_rocket ... ok
+zjj-core:test | test session::tests::test_edge_emoji_with_text_modifier ... ok
+zjj-core:test | test session::tests::test_edge_hebrew_text ... ok
+zjj-core:test | test session::tests::test_edge_ltr_override ... ok
+zjj-core:test | test db::tests::test_get_session_exists ... ok
+zjj-core:test | test session::tests::test_edge_mostly_valid_with_one_space ... ok
+zjj-core:test | test session::tests::test_edge_mostly_valid_with_one_special_char ... ok
+zjj-core:test | test session::tests::test_edge_name_1000_chars ... ok
+zjj-core:test | test session::tests::test_edge_name_100_chars ... ok
+zjj-core:test | test session::tests::test_edge_name_64_chars_with_dashes ... ok
+zjj-core:test | test session::tests::test_edge_name_65_chars ... ok
+zjj-core:test | test session::tests::test_edge_name_empty_string ... ok
+zjj-core:test | test session::tests::test_edge_name_exactly_64_chars ... ok
+zjj-core:test | test session::tests::test_edge_name_single_letter ... ok
+zjj-core:test | test commands::tests::test_check_jj_installed_error_message ... ok
+zjj-core:test | test session::tests::test_edge_name_starts_with_dash ... ok
+zjj-core:test | test session::tests::test_edge_name_starts_with_number ... ok
+zjj-core:test | test session::tests::test_edge_name_starts_with_underscore ... ok
+zjj-core:test | test session::tests::test_edge_name_two_letters ... ok
+zjj-core:test | test session::tests::test_edge_null_byte_at_end ... ok
+zjj-core:test | test session::tests::test_edge_null_byte_at_start ... ok
+zjj-core:test | test session::tests::test_edge_null_byte_embedded ... ok
+zjj-core:test | test session::tests::test_edge_path_traversal_absolute_path ... ok
+zjj-core:test | test session::tests::test_edge_path_traversal_backslash ... ok
+zjj-core:test | test db::tests::test_backup_restore_roundtrip ... ok
+zjj-core:test | test session::tests::test_edge_rtl_override ... ok
+zjj-core:test | test session::tests::test_edge_path_traversal_parent_directory ... ok
+zjj-core:test | test session::tests::test_edge_path_traversal_relative_path ... ok
+zjj-core:test | test session::tests::test_edge_shell_dollar_expansion ... ok
+zjj-core:test | test session::tests::test_edge_shell_semicolon ... ok
+zjj-core:test | test db::tests::test_unique_constraint_enforced ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_ampersand ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_asterisk ... ok
+zjj-core:test | test session::tests::test_edge_shell_backtick ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_at_sign ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_brackets ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_exclamation ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_dollar ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_hash ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_parentheses ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_percent ... ok
+zjj-core:test | test session::tests::test_edge_sql_injection_double_quote ... ok
+zjj-core:test | test session::tests::test_edge_sql_injection_quote ... ok
+zjj-core:test | test session::tests::test_edge_unicode_homoglyph_cyrillic_a ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_braces ... ok
+zjj-core:test | test session::tests::test_edge_special_characters_caret ... ok
+zjj-core:test | test session::tests::test_edge_shell_pipe ... ok
+zjj-core:test | test session::tests::test_edge_unicode_homoglyph_cyrillic_e ... ok
+zjj-core:test | test session::tests::test_edge_url_encoded_space ... ok
+zjj-core:test | test session::tests::test_edge_valid_all_lowercase ... ok
+zjj-core:test | test session::tests::test_edge_valid_ending_with_dash ... ok
+zjj-core:test | test session::tests::test_edge_valid_ending_with_number ... ok
+zjj-core:test | test session::tests::test_edge_valid_ending_with_underscore ... ok
+zjj-core:test | test session::tests::test_edge_valid_mixed_case ... ok
+zjj-core:test | test session::tests::test_edge_valid_mixed_separators ... ok
+zjj-core:test | test session::tests::test_edge_valid_prefix_invalid_suffix ... ok
+zjj-core:test | test session::tests::test_edge_valid_with_dashes ... ok
+zjj-core:test | test session::tests::test_edge_valid_with_numbers ... ok
+zjj-core:test | test session::tests::test_edge_unicode_homoglyph_greek_alpha ... ok
+zjj-core:test | test session::tests::test_edge_url_encoded_slash ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_leading_space ... ok
+zjj-core:test | test session::tests::test_edge_valid_all_uppercase ... ok
+zjj-core:test | test session::tests::test_edge_valid_with_underscores ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_non_breaking_space ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_trailing_space ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_embedded_space ... ok
+zjj-core:test | test session::tests::test_edge_zero_width_no_break_space ... ok
+zjj-core:test | test session::tests::test_edge_zero_width_non_joiner ... ok
+zjj-core:test | test session::tests::test_edge_zero_width_space ... ok
+zjj-core:test | test session::tests::test_session_name_accepts_valid_names ... ok
+zjj-core:test | test commands::init::tests::test_init_creates_layouts_directory ... ok
+zjj-core:test | test session::tests::test_session_name_invalid_chars ... ok
+zjj-core:test | test session::tests::test_session_name_rejects_unicode ... ok
+zjj-core:test | test session::tests::test_session_name_starts_with_dash ... ok
+zjj-core:test | test session::tests::test_session_name_starts_with_underscore_rejected ... ok
+zjj-core:test | test session::tests::test_session_name_valid_with_underscore ... ok
+zjj-core:test | test session::tests::test_session_name_empty ... ok
+zjj-core:test | test session::tests::test_status_display ... ok
+zjj-core:test | test session::tests::test_session_new_valid ... ok
+zjj-core:test | test session::tests::test_session_name_starts_with_digit_rejected ... ok
+zjj-core:test | test session::tests::test_edge_whitespace_only_spaces ... ok
+zjj-core:test | test session::tests::test_edge_zero_width_joiner ... ok
+zjj-core:test | test session::tests::test_session_name_too_long ... ok
+zjj-core:test | test session::tests::test_status_from_str_invalid ... ok
+zjj-core:test | test session::tests::test_status_from_str ... ok
+zjj-core:test | test session::tests::test_validate_transition_active_to_paused ... ok
+zjj-core:test | test session::tests::test_validate_transition_creating_to_active ... ok
+zjj-core:test | test session::tests::test_validate_transition_creating_to_failed ... ok
+zjj-core:test | test session::tests::test_validate_transition_invalid ... ok
+zjj-core:test | test commands::tests::test_prerequisite_error_messages_are_actionable ... ok
+zjj-core:test | test commands::tests::test_check_prerequisites_validates_jj_first ... ok
+zjj-core:test | test commands::init::tests::test_init_handles_already_initialized ... ok
+zjj-core:test | test commands::init::tests::test_init_repair_flag ... ok
+zjj-core:test | test commands::init::tests::test_init_force_flag ... ok
+zjj-core:test | test commands::init::tests::test_init_detects_corruption_without_flags ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 256 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 29 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_add_with_missing_hook_executable ... ok
+zjj-core:test | test test_add_with_failing_hook ... ok
+zjj-core:test | test test_focus_on_empty_database ... ok
+zjj-core:test | test test_add_with_no_hooks_flag ... ok
+zjj-core:test | test test_add_duplicate_immediately_after_creation ... ok
+zjj-core:test | test test_list_on_empty_database ... ok
+zjj-core:test | test test_add_after_remove_same_name ... ok
+zjj-core:test | test test_corrupted_database_recovery ... ok
+zjj-core:test | test test_list_with_missing_workspace_directories ... ok
+zjj-core:test | test test_add_case_sensitive_duplicates ... ok
+zjj-core:test | test test_remove_from_empty_database ... ok
+zjj-core:test | test test_operations_with_readonly_database ... ok
+zjj-core:test | test test_status_on_empty_database ... ok
+zjj-core:test | test test_remove_with_no_hooks_flag ... ok
+zjj-core:test | test test_remove_orphaned_session ... ok
+zjj-core:test | test test_session_name_at_max_length ... ok
+zjj-core:test | test test_workspace_exists_without_db_entry ... ok
+zjj-core:test | test test_status_with_missing_workspace ... ok
+zjj-core:test | test test_workspace_directory_without_jj_metadata ... ok
+zjj-core:test | test test_rapid_add_remove_cycles ... ok
+zjj-core:test | test test_concurrent_read_write ... ok
+zjj-core:test | test test_multiple_concurrent_reads ... ok
+zjj-core:test | test test_concurrent_remove_same_session ... ok
+zjj-core:test | test test_max_sessions_stress_test ... ok
+zjj-core:test | test test_concurrent_add_different_names ... ok
+zjj-core:test | test test_concurrent_add_same_name_race_condition ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.95s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 22 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_e2e_complete_mvp_workflow ... ok
+zjj-core:test | test test_e2e_config_persistence ... ok
+zjj-core:test | test test_e2e_json_output_format ... ok
+zjj-core:test | test test_e2e_error_handling_no_init ... ok
+zjj-core:test | test test_e2e_jj_workspace_cleanup ... ok
+zjj-core:test | test test_e2e_multiple_jj_workspaces ... ok
+zjj-core:test | test test_e2e_sequential_operations ... ok
+zjj-core:test | test test_e2e_custom_workspace_directory ... ok
+zjj-core:test | test test_e2e_session_name_validation ... ok
+zjj-core:test | test test_e2e_workspace_structure ... ok
+zjj-core:test | test test_e2e_remove_missing_workspace ... ok
+zjj-core:test | test test_e2e_duplicate_session_names ... ok
+zjj-core:test | test test_e2e_database_integrity ... ok
+zjj-core:test | test test_e2e_error_handling_nonexistent_session ... ok
+zjj-core:test | test test_e2e_focus_nonexistent_session ... ok
+zjj-core:test | test test_e2e_idempotent_init ... ok
+zjj-core:test | test test_e2e_focus_outside_zellij ... ok
+zjj-core:test | test test_e2e_jj_workspace_creation ... ok
+zjj-core:test | test test_e2e_many_sessions ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.84s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 48 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_concurrent_database_access_during_corruption ... ok
+zjj-core:test | test test_config_file_permissions_unreadable ... ok
+zjj-core:test | test test_config_with_invalid_field_types ... ok
+zjj-core:test | test test_config_as_directory_instead_of_file ... ok
+zjj-core:test | test test_config_with_syntax_error ... ok
+zjj-core:test | test test_config_with_out_of_range_values ... ok
+zjj-core:test | test test_cleanup_after_failed_session_creation ... ok
+zjj-core:test | test test_corrupted_database_provides_helpful_error ... ok
+zjj-core:test | test test_config_with_missing_required_fields ... ok
+zjj-core:test | test test_error_messages_include_suggestions_for_common_issues ... ok
+zjj-core:test | test test_jj_not_installed_error_has_install_instructions ... ok
+zjj-core:test | test test_database_error_suggests_corruption_recovery ... ok
+zjj-core:test | test test_continues_operation_after_transient_failure ... ok
+zjj-core:test | test test_corrupted_jjz_directory_structure ... ok
+zjj-core:test | test test_database_with_wrong_schema ... ok
+zjj-core:test | test test_empty_database_file ... ok
+zjj-core:test | test test_database_locked_by_another_process ... ok
+zjj-core:test | test test_missing_jjz_directory ... ok
+zjj-core:test | test test_database_entry_exists_but_workspace_missing ... ok
+zjj-core:test | test test_missing_database_file ... ok
+zjj-core:test | test test_large_metadata_json_causes_no_issues ... ok
+zjj-core:test | test test_file_deleted_during_read ... ok
+zjj-core:test | test test_multiple_failures_cascading ... ok
+zjj-core:test | test test_null_bytes_in_input ... ok
+zjj-core:test | test test_readonly_jjz_directory_prevents_operations ... ok
+zjj-core:test | test test_special_characters_in_error_messages ... ok
+zjj-core:test | test test_error_recovery_maintains_consistency ... ok
+zjj-core:test | test test_symlink_to_system_directory_rejected ... ok
+zjj-core:test | test test_rollback_maintains_database_filesystem_consistency ... ok
+zjj-core:test | test test_partial_session_creation_jj_workspace_fails ... ok
+zjj-core:test | test test_unicode_in_paths_error_handling ... ok
+zjj-core:test | test test_readonly_database_file ... ok
+zjj-core:test | test test_transaction_rollback_on_failure ... ok
+zjj-core:test | test test_very_long_error_messages ... ok
+zjj-core:test | test test_validation_errors_explain_constraints ... ok
+zjj-core:test | test test_system_recovers_after_permission_error ... ok
+zjj-core:test | test test_system_recovers_after_config_fix ... ok
+zjj-core:test | test test_workspace_directory_not_writable ... ok
+zjj-core:test | test test_workspace_path_with_symlink ... ok
+zjj-core:test | test test_workspace_exists_but_not_in_database ... ok
+zjj-core:test | test test_workspace_creation_fails_no_orphaned_db_entry ... ok
+zjj-core:test | test test_workspace_parent_contains_symlink ... ok
+zjj-core:test | test test_concurrent_session_creation_same_name ... ok
+zjj-core:test | test test_concurrent_session_creation_different_names ... ok
+zjj-core:test | test test_write_fails_database_full_simulation ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 48 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.36s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 13 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_error_message_quality ... ok
+zjj-core:test | test test_canonicalization_resolves_symlinks ... ok
+zjj-core:test | test test_boundary_check_prevents_toctou ... ok
+zjj-core:test | test test_reject_parent_directory_in_session_name ... ok
+zjj-core:test | test test_reject_workspace_dir_path_traversal ... ok
+zjj-core:test | test test_deeply_nested_traversal_blocked ... ok
+zjj-core:test | test test_reject_absolute_path_injection ... ok
+zjj-core:test | test test_valid_relative_paths_allowed ... ok
+zjj-core:test | test test_single_parent_escape_in_bounds_allowed ... ok
+zjj-core:test | test test_workspace_dir_at_repo_root_allowed ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 45 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test test_add_help ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_diff_session_name_starting_with_dash ... ok
+zjj-core:test | test test_help_flag ... ok
+zjj-core:test | test test_init_help ... ok
+zjj-core:test | test test_focus_session_name_starting_with_dash ... ok
+zjj-core:test | test test_add_combined_flags ... ok
+zjj-core:test | test test_add_with_short_template_flag ... ok
+zjj-core:test | test test_diff_with_stat_flag ... ok
+zjj-core:test | test test_flags_after_positional_args ... ok
+zjj-core:test | test test_add_with_no_open_flag ... ok
+zjj-core:test | test test_add_with_no_hooks_flag ... ok
+zjj-core:test | test test_diff_without_stat ... ok
+zjj-core:test | test test_mutually_exclusive_flags ... ok
+zjj-core:test | test test_flags_before_positional_args ... ok
+zjj-core:test | test test_remove_session_name_starting_with_dash ... ok
+zjj-core:test | test test_long_flag_names ... ok
+zjj-core:test | test test_add_with_template_flag ... ok
+zjj-core:test | test test_list_with_all_flag ... ok
+zjj-core:test | test test_session_name_starting_with_double_dash ... ok
+zjj-core:test | test test_list_with_json_flag ... ok
+zjj-core:test | test test_session_name_just_dash ... ok
+zjj-core:test | test test_session_name_starting_with_single_dash ... ok
+zjj-core:test | test test_session_name_starting_with_number ... ok
+zjj-core:test | test test_remove_with_keep_branch_flag ... ok
+zjj-core:test | test test_remove_with_force_flag ... ok
+zjj-core:test | test test_status_with_watch_flag ... ignored, Watch mode runs continuously - not suitable for automated tests
+zjj-core:test | test test_session_name_starting_with_underscore ... ok
+zjj-core:test | test test_remove_with_short_force_flag ... ok
+zjj-core:test | test test_session_name_starting_with_triple_dash ... ok
+zjj-core:test | test test_session_name_with_leading_whitespace ... ok
+zjj-core:test | test test_remove_with_merge_flag ... ok
+zjj-core:test | test test_session_name_with_trailing_whitespace ... ok
+zjj-core:test | test test_version_flag ... ok
+zjj-core:test | test test_session_name_with_hyphens ... ok
+zjj-core:test | test test_sync_without_session_name ... ok
+zjj-core:test | test test_session_name_with_numbers ... ok
+zjj-core:test | test test_status_with_json_flag ... ok
+zjj-core:test | test test_session_name_with_underscores ... ok
+zjj-core:test | test test_sync_with_explicit_session ... ok
+zjj-core:test | test test_template_with_equals_sign ... ok
+zjj-core:test | test test_session_names_are_case_sensitive ... ok
+zjj-core:test | test test_status_without_name_shows_all ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 44 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.41s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 8 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test test_error_no_stack_trace ... ok
+zjj-core:test | test test_error_exit_code ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_error_format_for_invalid_session_name ... ok
+zjj-core:test | test test_database_error_display ... ok
+zjj-core:test | test test_error_format_for_missing_session ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 38 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test test_add_without_init ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_add_session_name_too_long ... ok
+zjj-core:test | test test_add_session_name_starts_with_dash ... ok
+zjj-core:test | test test_corrupted_database_fails_gracefully ... ok
+zjj-core:test | test test_add_missing_name_argument ... ok
+zjj-core:test | test test_add_empty_session_name ... ok
+zjj-core:test | test test_add_session_name_with_dots ... ok
+zjj-core:test | test test_add_session_name_with_slash ... ok
+zjj-core:test | test test_add_session_name_starts_with_underscore ... ok
+zjj-core:test | test test_cannot_add_same_session_twice ... ok
+zjj-core:test | test test_init_with_extra_arguments ... ok
+zjj-core:test | test test_diff_nonexistent_session ... ok
+zjj-core:test | test test_invalid_flag ... ok
+zjj-core:test | test test_list_without_init ... ok
+zjj-core:test | test test_diff_missing_name_argument ... ok
+zjj-core:test | test test_init_succeeds_with_jj_and_zellij_installed ... ok
+zjj-core:test | test test_invalid_toml_config ... ok
+zjj-core:test | test test_remove_without_init ... ok
+zjj-core:test | test test_focus_nonexistent_session ... ok
+zjj-core:test | test test_missing_database ... ok
+zjj-core:test | test test_readonly_jjz_directory ... ok
+zjj-core:test | test test_corrupted_jj_workspace ... ok
+zjj-core:test | test test_missing_config_file ... ok
+zjj-core:test | test test_remove_nonexistent_session ... ok
+zjj-core:test | test test_remove_missing_name_argument ... ok
+zjj-core:test | test test_status_without_init ... ok
+zjj-core:test | test test_status_nonexistent_session ... ok
+zjj-core:test | test test_unknown_subcommand ... ok
+zjj-core:test | test test_remove_already_removed_session ... ok
+zjj-core:test | test test_sync_nonexistent_session ... ok
+zjj-core:test | test test_session_name_exactly_64_chars ... ok
+zjj-core:test | test test_list_with_no_sessions_after_remove_all ... ok
+zjj-core:test | test test_session_name_with_numbers_only ... ok
+zjj-core:test | test test_workspace_directory_creation_failure ... ok
+zjj-core:test | test test_rapid_add_remove_cycles ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.70s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 16 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_init_creates_state_db ... ok
+zjj-core:test | test test_init_config_has_correct_defaults ... ok
+zjj-core:test | test test_init_creates_workspaces_directory ... ok
+zjj-core:test | test test_init_creates_jjz_directory ... ok
+zjj-core:test | test test_init_creates_indexes ... ok
+zjj-core:test | test test_init_creates_layouts_directory ... ok
+zjj-core:test | test test_init_output_is_informative ... ok
+zjj-core:test | test test_init_creates_valid_toml_config ... ok
+zjj-core:test | test test_init_creates_config_toml ... ok
+zjj-core:test | test test_init_sets_up_complete_directory_structure ... ok
+zjj-core:test | test test_init_state_db_has_correct_schema ... ok
+zjj-core:test | test test_init_preserves_existing_config ... ok
+zjj-core:test | test test_init_twice_succeeds_idempotently ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 14 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test test_status_json_error_without_init ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_list_json_error_without_init ... ok
+zjj-core:test | test test_diff_json_error_nonexistent_session ... ok
+zjj-core:test | test test_remove_json_error_nonexistent_session ... ok
+zjj-core:test | test test_sync_json_error_without_init ... ok
+zjj-core:test | test test_focus_json_error_nonexistent_session ... ok
+zjj-core:test | test test_add_json_error_invalid_name ... ok
+zjj-core:test | test test_doctor_json_error_format ... ok
+zjj-core:test | test test_init_json_error_when_already_initialized ... ok
+zjj-core:test | test test_add_json_error_duplicate_session ... ok
+zjj-core:test | test test_introspect_json_error_format ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.41s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 9 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test test_suggest_name_without_db ... ok
+zjj-core:test | test test_session_count_not_initialized ... ok
+zjj-core:test | test test_session_exists_not_initialized ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_session_exists_not_found ... ok
+zjj-core:test | test test_session_exists_success ... ok
+zjj-core:test | test test_session_count_success ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 26 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test test_add_without_init_fails ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_add_invalid_session_name_with_spaces ... ok
+zjj-core:test | test test_add_invalid_session_name_with_special_chars ... ok
+zjj-core:test | test test_add_creates_session ... ok
+zjj-core:test | test test_add_duplicate_session_fails ... ok
+zjj-core:test | test test_list_empty_shows_no_sessions ... ok
+zjj-core:test | test test_add_session_creates_workspace_directory ... ok
+zjj-core:test | test test_add_creates_jj_workspace ... ok
+zjj-core:test | test test_add_session_with_no_hooks_flag ... ok
+zjj-core:test | test test_add_session_appears_in_list ... ok
+zjj-core:test | test test_list_json_format ... ok
+zjj-core:test | test test_remove_nonexistent_session_fails ... ok
+zjj-core:test | test test_status_nonexistent_session ... ok
+zjj-core:test | test test_add_valid_session_names ... ok
+zjj-core:test | test test_list_shows_session_status ... ok
+zjj-core:test | test test_remove_without_force_requires_confirmation ... ok
+zjj-core:test | test test_complete_session_lifecycle ... ok
+zjj-core:test | test test_status_json_format ... ok
+zjj-core:test | test test_remove_deletes_session ... ok
+zjj-core:test | test test_session_persists_across_list_calls ... ok
+zjj-core:test | test test_status_shows_session_details ... ok
+zjj-core:test | test test_list_shows_multiple_sessions ... ok
+zjj-core:test | test test_multiple_sessions_lifecycle ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.12s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 14 tests
+zjj-core:test | test common::tests::test_command_result_assertions ... ok
+zjj-core:test | test common::tests::test_harness_creation ... ok
+zjj-core:test | test common::tests::test_harness_has_jj_repo ... ok
+zjj-core:test | test test_init_succeeds_in_non_tty ... ok
+zjj-core:test | test test_add_non_tty_error_message_suggests_flag ... ok
+zjj-core:test | test test_add_without_no_open_fails_gracefully_in_non_tty ... ok
+zjj-core:test | test test_add_with_no_open_succeeds_in_non_tty ... ok
+zjj-core:test | test test_add_no_open_json_output ... ok
+zjj-core:test | test test_add_no_open_can_be_removed ... ok
+zjj-core:test | test test_add_no_open_flag_prevents_zellij_in_tty ... ok
+zjj-core:test | test test_add_no_open_with_other_flags ... ok
+zjj-core:test | test test_complete_workflow_in_non_tty ... ok
+zjj-core:test | test test_add_no_open_session_persists ... ok
+zjj-core:test | test test_add_with_no_open_multiple_sessions_in_non_tty ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.41s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 217 tests
+zjj-core:test | test beads::tests::test_all_match ... ok
+zjj-core:test | test beads::tests::test_bead_filter_chaining ... ok
+zjj-core:test | test beads::tests::test_bead_filter_new ... ok
+zjj-core:test | test beads::tests::test_any_match ... ok
+zjj-core:test | test beads::tests::test_apply_query ... ok
+zjj-core:test | test beads::tests::test_bead_issue_is_open ... ok
+zjj-core:test | test beads::tests::test_bead_query_chaining ... ok
+zjj-core:test | test beads::tests::test_bead_query_default ... ok
+zjj-core:test | test beads::tests::test_bead_issue_is_blocked ... ok
+zjj-core:test | test beads::tests::test_beads_summary_from_issues ... ok
+zjj-core:test | test beads::tests::test_count_by_status ... ok
+zjj-core:test | test beads::tests::test_filter_issues_by_status ... ok
+zjj-core:test | test beads::tests::test_extract_labels ... ok
+zjj-core:test | test beads::tests::test_find_blockers ... ok
+zjj-core:test | test beads::tests::test_find_ready ... ok
+zjj-core:test | test beads::tests::test_find_stale ... ok
+zjj-core:test | test beads::tests::test_find_blocked ... ok
+zjj-core:test | test beads::tests::test_get_issue ... ok
+zjj-core:test | test beads::tests::test_get_dependency_graph ... ok
+zjj-core:test | test beads::tests::test_get_issues_by_id ... ok
+zjj-core:test | test beads::tests::test_group_by_status ... ok
+zjj-core:test | test beads::tests::test_query_beads_empty_path ... ignored, TODO: Fix test to work with forbid(clippy::unwrap_used)
+zjj-core:test | test beads::tests::test_priority_from_u32 ... ok
+zjj-core:test | test beads::tests::test_priority_to_u32 ... ok
+zjj-core:test | test beads::tests::test_paginate ... ok
+zjj-core:test | test beads::tests::test_to_ids ... ok
+zjj-core:test | test config::tests::test_deep_merge_replaces_not_appends ... ok
+zjj-core:test | test config::tests::test_default_config_values ... ok
+zjj-core:test | test config::tests::test_env_var_overrides_config ... ok
+zjj-core:test | test beads::tests::test_sort_issues_by_priority ... ok
+zjj-core:test | test config::tests::test_env_var_parsing_bool ... ok
+zjj-core:test | test config::tests::test_env_var_parsing_int ... ok
+zjj-core:test | test config::tests::test_global_config_path ... ok
+zjj-core:test | test config::tests::test_global_only_merges_with_defaults ... ok
+zjj-core:test | test config::tests::test_invalid_debounce_ms_too_low ... ok
+zjj-core:test | test config::tests::test_invalid_refresh_ms_too_high ... ok
+zjj-core:test | test config::tests::test_missing_global_config_no_error ... ok
+zjj-core:test | test config::tests::test_no_config_files_returns_defaults ... ok
+zjj-core:test | test config::tests::test_partial_config_uses_defaults ... ok
+zjj-core:test | test config::tests::test_project_config_path ... ok
+zjj-core:test | test config::tests::test_project_only_merges_with_defaults ... ok
+zjj-core:test | test config::tests::test_placeholder_substitution ... ok
+zjj-core:test | test config::tests::test_validation_debounce_ms_max ... ok
+zjj-core:test | test config::tests::test_project_overrides_global ... ok
+zjj-core:test | test config::tests::test_validation_debounce_ms_min ... ok
+zjj-core:test | test config::tests::test_malformed_toml_returns_parse_error ... ok
+zjj-core:test | test config::tests::test_validation_debounce_ms_valid ... ok
+zjj-core:test | test config::tests::test_validation_refresh_ms_max ... ok
+zjj-core:test | test config::tests::test_validation_refresh_ms_min ... ok
+zjj-core:test | test config::tests::test_validation_refresh_ms_valid ... ok
+zjj-core:test | test contracts::tests::test_contract_builder ... ok
+zjj-core:test | test contracts::tests::test_enum_constraint_invalid ... ok
+zjj-core:test | test contracts::tests::test_enum_constraint_valid ... ok
+zjj-core:test | test contracts::tests::test_field_contract_builder ... ok
+zjj-core:test | test contracts::tests::test_length_constraint_too_long ... ok
+zjj-core:test | test contracts::tests::test_length_constraint_too_short ... ok
+zjj-core:test | test contracts::tests::test_json_schema_generation ... ok
+zjj-core:test | test contracts::tests::test_length_constraint_valid ... ok
+zjj-core:test | test contracts::tests::test_path_absolute_constraint ... ok
+zjj-core:test | test contracts::tests::test_range_constraint_too_high ... ok
+zjj-core:test | test contracts::tests::test_range_constraint_too_low ... ok
+zjj-core:test | test contracts::tests::test_range_constraint_valid ... ok
+zjj-core:test | test error::tests::test_error_debug ... ok
+zjj-core:test | test error::tests::test_error_display_database_error ... ok
+zjj-core:test | test error::tests::test_error_display_hook_execution_failed ... ok
+zjj-core:test | test error::tests::test_error_display_hook_failed ... ok
+zjj-core:test | test error::tests::test_error_display_invalid_config ... ok
+zjj-core:test | test error::tests::test_error_display_jj_command_not_found ... ok
+zjj-core:test | test error::tests::test_error_display_jj_command_other_error ... ok
+zjj-core:test | test error::tests::test_error_from_io_error ... ok
+zjj-core:test | test error::tests::test_exit_code_invalid_state ... ok
+zjj-core:test | test error::tests::test_exit_code_not_found ... ok
+zjj-core:test | test error_codes::tests::test_all_error_codes_have_descriptions ... ok
+zjj-core:test | test error_codes::tests::test_deserialization ... ok
+zjj-core:test | test error::tests::test_exit_code_system_errors ... ok
+zjj-core:test | test error_codes::tests::test_error_code_as_str ... ok
+zjj-core:test | test error_codes::tests::test_error_code_description ... ok
+zjj-core:test | test error_codes::tests::test_error_code_display ... ok
+zjj-core:test | test error::tests::test_exit_code_user_errors ... ok
+zjj-core:test | test error_codes::tests::test_error_code_to_string ... ok
+zjj-core:test | test error_codes::tests::test_error_code_suggestion ... ok
+zjj-core:test | test error_codes::tests::test_error_code_http_status ... ok
+zjj-core:test | test error_codes::tests::test_serialization ... ok
+zjj-core:test | test functional::tests::test_filter_result ... ok
+zjj-core:test | test functional::tests::test_fold_result ... ok
+zjj-core:test | test functional::tests::test_group_by ... ok
+zjj-core:test | test functional::tests::test_validate_all_success ... ok
+zjj-core:test | test hints::tests::test_extract_session_name ... ok
+zjj-core:test | test hints::tests::test_generate_hints_failed_session ... ok
+zjj-core:test | test hints::tests::test_generate_hints_completed_session ... ok
+zjj-core:test | test functional::tests::test_compose_result ... ok
+zjj-core:test | test functional::tests::test_map_result ... ok
+zjj-core:test | test functional::tests::test_partition ... ok
+zjj-core:test | test functional::tests::test_validate_all_failure ... ok
+zjj-core:test | test hints::tests::test_generate_hints_multiple_active ... ok
+zjj-core:test | test hints::tests::test_generate_hints_no_sessions ... ok
+zjj-core:test | test hints::tests::test_hint_builders ... ok
+zjj-core:test | test hints::tests::test_hints_for_beads_blockers ... ok
+zjj-core:test | test hints::tests::test_hints_for_beads_too_many_active ... ok
+zjj-core:test | test hints::tests::test_hints_for_error_zellij_not_running ... ok
+zjj-core:test | test hints::tests::test_suggest_next_actions_has_completed ... ok
+zjj-core:test | test hints::tests::test_hints_for_error_not_initialized ... ok
+zjj-core:test | test contracts::tests::test_regex_constraint_invalid ... ok
+zjj-core:test | test hints::tests::test_hints_for_beads_none ... ok
+zjj-core:test | test contracts::tests::test_regex_constraint_valid ... ok
+zjj-core:test | test hints::tests::test_hints_for_error_session_exists ... ok
+zjj-core:test | test hints::tests::test_suggest_next_actions_not_initialized ... ok
+zjj-core:test | test hints::tests::test_suggest_next_actions_no_sessions ... ok
+zjj-core:test | test hooks::tests::test_hook_type_event_names ... ok
+zjj-core:test | test hooks::tests::test_get_user_shell_fallback ... ok
+zjj-core:test | test hooks::tests::test_get_user_shell_from_env ... ok
+zjj-core:test | test hooks::tests::test_no_hooks_configured ... ok
+zjj-core:test | test introspection::tests::test_capabilities_default ... ok
+zjj-core:test | test introspection::tests::test_introspect_output_new ... ok
+zjj-core:test | test introspection::tests::test_doctor_output_from_checks ... ok
+zjj-core:test | test introspection::tests::test_prerequisites_all_met ... ok
+zjj-core:test | test introspection::tests::test_prerequisites_count ... ok
+zjj-core:test | test introspection::tests::test_prerequisites_not_met ... ok
+zjj-core:test | test introspection::tests::test_suggest_name_gap ... ok
+zjj-core:test | test introspection::tests::test_suggest_name_basic ... ok
+zjj-core:test | test hooks::tests::test_complex_hook_script ... ok
+zjj-core:test | test hooks::tests::test_hook_failure ... ok
+zjj-core:test | test introspection::tests::test_suggest_name_invalid_pattern ... ok
+zjj-core:test | test introspection::tests::test_suggest_name_multiple_placeholders ... ok
+zjj-core:test | test introspection::tests::test_suggest_name_no_existing ... ok
+zjj-core:test | test jj::tests::test_jj_version_comparison ... ok
+zjj-core:test | test hooks::tests::test_hook_execution_failed ... ok
+zjj-core:test | test hooks::tests::test_hook_stderr_captured ... ok
+zjj-core:test | test jj::tests::test_jj_version_compatibility_above_minimum ... ok
+zjj-core:test | test hooks::tests::test_single_successful_hook ... ok
+zjj-core:test | test jj::tests::test_jj_version_compatibility_below_minimum ... ok
+zjj-core:test | test jj::tests::test_jj_version_parse_invalid_format ... ok
+zjj-core:test | test jj::tests::test_jj_version_parse_invalid_prefix ... ok
+zjj-core:test | test jj::tests::test_jj_version_parse_non_numeric ... ok
+zjj-core:test | test jj::tests::test_jj_version_parse_standard_format ... ok
+zjj-core:test | test jj::tests::test_parse_diff_stat ... ok
+zjj-core:test | test jj::tests::test_jj_version_parse_without_hash ... ok
+zjj-core:test | test jj::tests::test_parse_status ... ok
+zjj-core:test | test jj::tests::test_parse_workspace_list ... ok
+zjj-core:test | test jj::tests::test_status_is_clean ... ok
+zjj-core:test | test jj::tests::test_jj_version_compatibility_at_minimum ... ok
+zjj-core:test | test json::tests::test_error_detail_skip_none ... ok
+zjj-core:test | test json::tests::test_error_with_available_sessions ... ok
+zjj-core:test | test json::tests::test_error_code_as_str ... ok
+zjj-core:test | test hooks::tests::test_partial_hook_failure ... ok
+zjj-core:test | test json::tests::test_json_error_basic ... ok
+zjj-core:test | test json::tests::test_json_error_serialization ... ok
+zjj-core:test | test json::tests::test_json_error_with_suggestion ... ok
+zjj-core:test | test hooks::tests::test_hook_with_workspace_cwd ... ok
+zjj-core:test | test json::tests::test_error_code_to_string ... ok
+zjj-core:test | test json_schema::tests::test_property_example ... ok
+zjj-core:test | test json_schema::tests::test_json_schema_creation ... ok
+zjj-core:test | test json::tests::test_json_serializable_trait ... ok
+zjj-core:test | test json_schema::tests::test_list_output_schema ... ok
+zjj-core:test | test hooks::tests::test_different_hook_types ... ok
+zjj-core:test | test json_schema::tests::test_property_format ... ok
+zjj-core:test | test json_schema::tests::test_property_schema_array ... ok
+zjj-core:test | test json_schema::tests::test_property_schema_string ... ok
+zjj-core:test | test json_schema::tests::test_status_output_schema ... ok
+zjj-core:test | test json_schema::tests::test_schema_serialization ... ok
+zjj-core:test | test result::tests::test_result_into_option_ok ... ok
+zjj-core:test | test result::tests::test_result_or_default_logged_err ... ok
+zjj-core:test | test hooks::tests::test_multiple_successful_hooks ... ok
+zjj-core:test | test json::tests::test_json_error_with_details ... ok
+zjj-core:test | test json_schema::tests::test_property_schema_enum ... ok
+zjj-core:test | test result::tests::test_result_inspect_error ... ok
+zjj-core:test | test json::tests::test_json_success_wrapper ... ok
+zjj-core:test | test tests::test_config_builder_empty_name ... ok
+zjj-core:test | test result::tests::test_result_into_option_err ... ok
+zjj-core:test | test result::tests::test_result_or_default_logged_ok ... ok
+zjj-core:test | test tests::test_config_builder_missing_name ... ok
+zjj-core:test | test tests::test_config_builder_success ... ok
+zjj-core:test | test tests::test_validate_name_empty ... ok
+zjj-core:test | test tests::test_validate_name_too_long ... ok
+zjj-core:test | test tests::test_validate_name_valid ... ok
+zjj-core:test | test types::tests::test_beads_summary_active ... ok
+zjj-core:test | test types::tests::test_beads_summary_no_blockers ... ok
+zjj-core:test | test types::tests::test_changes_summary_no_changes ... ok
+zjj-core:test | test types::tests::test_changes_summary_total ... ok
+zjj-core:test | test types::tests::test_diff_summary_mismatch ... ok
+zjj-core:test | test types::tests::test_file_change_renamed_validation ... ok
+zjj-core:test | test types::tests::test_session_status_allowed_operations ... ok
+zjj-core:test | test types::tests::test_session_status_transitions ... ok
+zjj-core:test | test watcher::tests::test_beads_status_equality ... ok
+zjj-core:test | test types::tests::test_diff_summary_validation ... ok
+zjj-core:test | test types::tests::test_file_change_renamed_valid ... ok
+zjj-core:test | test types::tests::test_session_validate_timestamps ... ok
+zjj-core:test | test watcher::tests::test_query_beads_status_no_beads ... ignored, TODO: Fix test to work with forbid(clippy::unwrap_used)
+zjj-core:test | test watcher::tests::test_extract_workspace_path ... ok
+zjj-core:test | test watcher::tests::test_watch_event_equality ... ok
+zjj-core:test | test watcher::tests::test_watcher_invalid_debounce_too_low ... ok
+zjj-core:test | test types::tests::test_session_contract ... ok
+zjj-core:test | test watcher::tests::test_watcher_disabled ... ok
+zjj-core:test | test watcher::tests::test_watcher_invalid_debounce_too_high ... ok
+zjj-core:test | test zellij::tests::test_generate_minimal_valid_kdl ... ok
+zjj-core:test | test types::tests::test_session_validate_name_regex ... ok
+zjj-core:test | test types::tests::test_session_json_schema ... ok
+zjj-core:test | test zellij::tests::test_generate_split_template ... ok
+zjj-core:test | test zellij::tests::test_generate_review_template ... ok
+zjj-core:test | test zellij::tests::test_check_zellij_not_running ... ok
+zjj-core:test | test zellij::tests::test_custom_commands_in_config ... ok
+zjj-core:test | test zellij::tests::test_generate_standard_valid_kdl ... ok
+zjj-core:test | test zellij::tests::test_tab_close_requires_zellij ... ok
+zjj-core:test | test zellij::tests::test_tab_focus_requires_zellij ... ok
+zjj-core:test | test zellij::tests::test_generate_full_valid_kdl_with_floating ... ok
+zjj-core:test | test types::tests::test_session_validate_path_not_absolute ... ok
+zjj-core:test | test zellij::tests::test_tab_open_missing_layout_file ... ok
+zjj-core:test | test zellij::tests::test_tab_open_requires_zellij ... ok
+zjj-core:test | test zellij::tests::test_layout_generate_creates_file ... ok
+zjj-core:test | test zellij::tests::test_validate_kdl_missing_layout ... ok
+zjj-core:test | test zellij::tests::test_validate_kdl_missing_pane ... ok
+zjj-core:test | test zellij::tests::test_validate_kdl_unbalanced_braces ... ok
+zjj-core:test | test zellij::tests::test_variable_substitution_in_config ... ok
+zjj-core:test | test jj::tests::test_check_jj_version_compatible_integration ... ok
+zjj-core:test | test jj::tests::test_get_jj_version_integration ... ok
+zjj-core:test | test jj::tests::test_has_uncommitted_changes_clean_repo ... ok
+zjj-core:test | test hints::tests::test_generate_hints_response ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 215 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.17s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 0 tests
+zjj-core:test | 
+zjj-core:test | test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+zjj-core:test | 
+zjj-core:test | 
+zjj-core:test | running 2 tests
+zjj-core:test | test crates/zjj-core/src/result.rs - result::Result (line 12) ... ignored
+zjj-core:test | test crates/zjj-core/src/watcher.rs - watcher (line 9) - compile ... ok
+zjj-core:test | 
+zjj-core:test | test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.08s
+zjj-core:clippy | [1m[92m    Blocking[0m waiting for file lock on package cache
+zjj-core:clippy | [1m[92m    Blocking[0m waiting for file lock on package cache
+zjj-core:clippy | [1m[92m    Blocking[0m waiting for file lock on package cache
+zjj-core:clippy | [1m[92m    Blocking[0m waiting for file lock on package cache
+zjj-core:clippy | [1m[92m    Blocking[0m waiting for file lock on build directory
+zjj-core:clippy | [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 9.49s
+zjj-core:test | [1m[92m    Blocking[0m waiting for file lock on package cache
+zjj-core:test | [1m[92m    Blocking[0m waiting for file lock on package cache
+zjj-core:test | [1m[92m    Blocking[0m waiting for file lock on package cache
+zjj-core:test | [1m[92m    Blocking[0m waiting for file lock on artifact directory
+zjj-core:test | [1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 22.22s
+zjj-core:test | [1m[92m     Running[0m unittests src/lib.rs (/home/lewis/src/zjj/target/debug/deps/zjj-c74f7f2625640799)
+zjj-core:test | [1m[92m     Running[0m unittests src/main.rs (/home/lewis/src/zjj/target/debug/deps/jjz-c842d90652a65969)
+zjj-core:test | [1m[92m     Running[0m tests/command_edge_cases.rs (/home/lewis/src/zjj/target/debug/deps/command_edge_cases-aedbb8911783d34c)
+zjj-core:test | [1m[92m     Running[0m tests/e2e_mvp_commands.rs (/home/lewis/src/zjj/target/debug/deps/e2e_mvp_commands-3e424b10db5a020a)
+zjj-core:test | [1m[92m     Running[0m tests/error_recovery.rs (/home/lewis/src/zjj/target/debug/deps/error_recovery-77799d5f541a2661)
+zjj-core:test | [1m[92m     Running[0m tests/security_path_validation.rs (/home/lewis/src/zjj/target/debug/deps/security_path_validation-b20b80bdaed50d9a)
+zjj-core:test | [1m[92m     Running[0m tests/test_cli_parsing.rs (/home/lewis/src/zjj/target/debug/deps/test_cli_parsing-fea6a19cee9306b4)
+zjj-core:test | [1m[92m     Running[0m tests/test_error_display.rs (/home/lewis/src/zjj/target/debug/deps/test_error_display-212ef02cfe0d775d)
+zjj-core:test | [1m[92m     Running[0m tests/test_error_scenarios.rs (/home/lewis/src/zjj/target/debug/deps/test_error_scenarios-06b4a0a1fb98f615)
+zjj-core:test | [1m[92m     Running[0m tests/test_init.rs (/home/lewis/src/zjj/target/debug/deps/test_init-216f2d1b5d8d8194)
+zjj-core:test | [1m[92m     Running[0m tests/test_json_error_output.rs (/home/lewis/src/zjj/target/debug/deps/test_json_error_output-0ca095bb13cd83e3)
+zjj-core:test | [1m[92m     Running[0m tests/test_query_error_handling.rs (/home/lewis/src/zjj/target/debug/deps/test_query_error_handling-ecb70fb929544101)
+zjj-core:test | [1m[92m     Running[0m tests/test_session_lifecycle.rs (/home/lewis/src/zjj/target/debug/deps/test_session_lifecycle-fd73577f95cd4e02)
+zjj-core:test | [1m[92m     Running[0m tests/test_tty_detection.rs (/home/lewis/src/zjj/target/debug/deps/test_tty_detection-f09fbafa5a5d4da4)
+zjj-core:test | [1m[92m     Running[0m unittests src/lib.rs (/home/lewis/src/zjj/target/debug/deps/zjj_core-cbfcc39a9a4b3c26)
+zjj-core:test | [1m[92m   Doc-tests[0m zjj
+zjj-core:test | [1m[92m   Doc-tests[0m zjj_core
+▪▪▪▪ zjj-core:test (cached, 9ms, 86c38caf)
+▪▪▪▪ zjj:clippy (cached, 106ca997)
+     zjj:test | running 97 tests
+     zjj:test | test session::tests::test_edge_arabic_text ... ok
+     zjj:test | test session::tests::test_edge_control_characters_carriage_return ... ok
+     zjj:test | test session::tests::test_edge_control_characters_newline ... ok
+     zjj:test | test session::tests::test_edge_control_characters_tab ... ok
+     zjj:test | test session::tests::test_edge_combining_diacritical_marks ... ok
+     zjj:test | test session::tests::test_edge_control_characters_bell ... ok
+     zjj:test | test session::tests::test_edge_emoji_check_mark ... ok
+     zjj:test | test session::tests::test_edge_emoji_fire ... ok
+     zjj:test | test session::tests::test_edge_emoji_rocket ... ok
+     zjj:test | test session::tests::test_edge_emoji_multiple ... ok
+     zjj:test | test session::tests::test_edge_ltr_override ... ok
+     zjj:test | test session::tests::test_edge_emoji_with_text_modifier ... ok
+     zjj:test | test session::tests::test_edge_hebrew_text ... ok
+     zjj:test | test session::tests::test_edge_mostly_valid_with_one_special_char ... ok
+     zjj:test | test session::tests::test_edge_mostly_valid_with_one_space ... ok
+     zjj:test | test session::tests::test_edge_name_empty_string ... ok
+     zjj:test | test session::tests::test_edge_name_1000_chars ... ok
+     zjj:test | test session::tests::test_edge_name_65_chars ... ok
+     zjj:test | test session::tests::test_edge_name_starts_with_dash ... ok
+     zjj:test | test session::tests::test_edge_name_starts_with_number ... ok
+     zjj:test | test session::tests::test_edge_name_100_chars ... ok
+     zjj:test | test session::tests::test_edge_name_single_letter ... ok
+     zjj:test | test session::tests::test_edge_name_starts_with_underscore ... ok
+     zjj:test | test session::tests::test_edge_name_64_chars_with_dashes ... ok
+     zjj:test | test session::tests::test_edge_name_exactly_64_chars ... ok
+     zjj:test | test session::tests::test_edge_name_two_letters ... ok
+     zjj:test | test session::tests::test_edge_null_byte_at_end ... ok
+     zjj:test | test session::tests::test_edge_null_byte_at_start ... ok
+     zjj:test | test session::tests::test_edge_null_byte_embedded ... ok
+     zjj:test | test session::tests::test_edge_path_traversal_absolute_path ... ok
+     zjj:test | test session::tests::test_edge_path_traversal_backslash ... ok
+     zjj:test | test session::tests::test_edge_path_traversal_parent_directory ... ok
+     zjj:test | test session::tests::test_edge_path_traversal_relative_path ... ok
+     zjj:test | test session::tests::test_edge_rtl_override ... ok
+     zjj:test | test session::tests::test_edge_shell_backtick ... ok
+     zjj:test | test session::tests::test_edge_shell_dollar_expansion ... ok
+     zjj:test | test session::tests::test_edge_shell_pipe ... ok
+     zjj:test | test session::tests::test_edge_shell_semicolon ... ok
+     zjj:test | test session::tests::test_edge_special_characters_ampersand ... ok
+     zjj:test | test session::tests::test_edge_special_characters_asterisk ... ok
+     zjj:test | test session::tests::test_edge_special_characters_at_sign ... ok
+     zjj:test | test session::tests::test_edge_special_characters_braces ... ok
+     zjj:test | test session::tests::test_edge_special_characters_brackets ... ok
+     zjj:test | test session::tests::test_edge_special_characters_caret ... ok
+     zjj:test | test session::tests::test_edge_special_characters_exclamation ... ok
+     zjj:test | test session::tests::test_edge_special_characters_dollar ... ok
+     zjj:test | test session::tests::test_edge_special_characters_hash ... ok
+     zjj:test | test session::tests::test_edge_special_characters_parentheses ... ok
+     zjj:test | test session::tests::test_edge_special_characters_percent ... ok
+     zjj:test | test session::tests::test_edge_sql_injection_quote ... ok
+     zjj:test | test session::tests::test_edge_sql_injection_double_quote ... ok
+     zjj:test | test session::tests::test_edge_unicode_homoglyph_greek_alpha ... ok
+     zjj:test | test session::tests::test_edge_unicode_homoglyph_cyrillic_a ... ok
+     zjj:test | test session::tests::test_edge_url_encoded_space ... ok
+     zjj:test | test session::tests::test_edge_unicode_homoglyph_cyrillic_e ... ok
+     zjj:test | test session::tests::test_edge_valid_all_uppercase ... ok
+     zjj:test | test session::tests::test_edge_url_encoded_slash ... ok
+     zjj:test | test session::tests::test_edge_valid_ending_with_number ... ok
+     zjj:test | test session::tests::test_edge_valid_ending_with_underscore ... ok
+     zjj:test | test session::tests::test_edge_valid_all_lowercase ... ok
+     zjj:test | test session::tests::test_edge_valid_mixed_separators ... ok
+     zjj:test | test session::tests::test_edge_valid_ending_with_dash ... ok
+     zjj:test | test session::tests::test_edge_valid_with_numbers ... ok
+     zjj:test | test session::tests::test_edge_valid_with_underscores ... ok
+     zjj:test | test session::tests::test_edge_valid_prefix_invalid_suffix ... ok
+     zjj:test | test session::tests::test_edge_valid_mixed_case ... ok
+     zjj:test | test session::tests::test_edge_valid_with_dashes ... ok
+     zjj:test | test session::tests::test_edge_whitespace_trailing_space ... ok
+     zjj:test | test session::tests::test_edge_whitespace_embedded_space ... ok
+     zjj:test | test session::tests::test_edge_zero_width_joiner ... ok
+     zjj:test | test session::tests::test_edge_whitespace_leading_space ... ok
+     zjj:test | test session::tests::test_edge_whitespace_non_breaking_space ... ok
+     zjj:test | test session::tests::test_session_name_accepts_valid_names ... ok
+     zjj:test | test session::tests::test_session_name_empty ... ok
+     zjj:test | test session::tests::test_session_name_invalid_chars ... ok
+     zjj:test | test session::tests::test_edge_whitespace_only_spaces ... ok
+     zjj:test | test session::tests::test_session_name_rejects_unicode ... ok
+     zjj:test | test session::tests::test_edge_zero_width_no_break_space ... ok
+     zjj:test | test session::tests::test_edge_zero_width_non_joiner ... ok
+     zjj:test | test session::tests::test_session_name_starts_with_underscore_rejected ... ok
+     zjj:test | test session::tests::test_edge_zero_width_space ... ok
+     zjj:test | test session::tests::test_session_name_valid_with_underscore ... ok
+     zjj:test | test session::tests::test_session_name_starts_with_dash ... ok
+     zjj:test | test session::tests::test_status_display ... ok
+     zjj:test | test session::tests::test_session_name_starts_with_digit_rejected ... ok
+     zjj:test | test session::tests::test_status_from_str_invalid ... ok
+     zjj:test | test session::tests::test_session_name_too_long ... ok
+     zjj:test | test session::tests::test_session_new_valid ... ok
+     zjj:test | test session::tests::test_validate_transition_creating_to_failed ... ok
+     zjj:test | test session::tests::test_validate_transition_active_to_paused ... ok
+     zjj:test | test session::tests::test_status_from_str ... ok
+     zjj:test | test session::tests::test_validate_transition_creating_to_active ... ok
+     zjj:test | test session::tests::test_validate_transition_invalid ... ok
+     zjj:test | test db::tests::test_create_session_success ... ok
+     zjj:test | test db::tests::test_unique_constraint_enforced ... ok
+     zjj:test | test db::tests::test_get_session_exists ... ok
+     zjj:test | test db::tests::test_backup_restore_roundtrip ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 97 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 256 tests
+     zjj:test | test commands::add::tests::test_add_options_new ... ok
+     zjj:test | test commands::add::tests::test_create_full_layout ... ok
+     zjj:test | test commands::add::tests::test_create_minimal_layout ... ok
+     zjj:test | test commands::add::tests::test_create_standard_layout ... ok
+     zjj:test | test commands::add::tests::test_escape_kdl_string_with_both ... ok
+     zjj:test | test commands::add::tests::test_create_session_layout_default ... ok
+     zjj:test | test commands::add::tests::test_create_session_layout_escapes_special_chars ... ok
+     zjj:test | test commands::add::tests::test_create_session_layout_full ... ok
+     zjj:test | test commands::add::tests::test_create_session_layout_minimal ... ok
+     zjj:test | test commands::completions::tests::test_all_shells ... ok
+     zjj:test | test commands::completions::tests::test_installation_instructions_not_empty ... ok
+     zjj:test | test commands::add::tests::test_validate_no_symlinks_accepts_regular_directory ... ok
+     zjj:test | test commands::add::tests::test_validate_no_symlinks_rejects_symlink_in_parent ... ok
+     zjj:test | test commands::add::tests::test_escape_kdl_string_with_backslashes ... ok
+     zjj:test | test commands::add::tests::test_escape_kdl_string_with_quotes ... ok
+     zjj:test | test commands::completions::tests::test_shell_as_str ... ok
+     zjj:test | test commands::completions::tests::test_shell_from_str_case_insensitive ... ok
+     zjj:test | test commands::add::tests::test_escape_kdl_string_no_special_chars ... ok
+     zjj:test | test commands::add::tests::test_validate_no_symlinks_rejects_direct_symlink ... ok
+     zjj:test | test commands::completions::tests::test_shell_from_str_valid ... ok
+     zjj:test | test commands::completions::tests::test_to_clap_shell ... ok
+     zjj:test | test commands::config::tests::test_config_options_with_validate ... ok
+     zjj:test | test commands::add::tests::test_validate_no_symlinks_accepts_nonexistent_path ... ok
+     zjj:test | test commands::completions::tests::test_shell_from_str_invalid ... ok
+     zjj:test | test commands::config::tests::test_global_config_path_opt ... ok
+     zjj:test | test commands::config::tests::test_get_nested_value_nested ... ok
+     zjj:test | test commands::config::tests::test_get_nested_value_array ... ok
+     zjj:test | test commands::config::tests::test_get_nested_value_deep ... ok
+     zjj:test | test commands::config::tests::test_get_nested_value_not_found ... ok
+     zjj:test | test commands::config::tests::test_get_nested_value_simple ... ok
+     zjj:test | test commands::config::tests::test_parse_value_bool_true ... ok
+     zjj:test | test commands::config::tests::test_parse_value_bool_false ... ok
+     zjj:test | test commands::config::tests::test_parse_value_array ... ok
+     zjj:test | test commands::config::tests::test_parse_value_string ... ok
+     zjj:test | test commands::config::tests::test_is_readable_nonexistent ... ok
+     zjj:test | test commands::config::tests::test_parse_value_int ... ok
+     zjj:test | test commands::config::tests::test_project_config_path ... ok
+     zjj:test | test commands::config::tests::test_set_nested_value_empty_parts ... ok
+     zjj:test | test commands::config::tests::test_set_config_value_deep_nested ... ok
+     zjj:test | test commands::config::tests::test_set_config_value_creates_parent_dir ... ok
+     zjj:test | test commands::config::tests::test_set_config_value_simple ... ok
+     zjj:test | test commands::config::tests::test_set_config_value_overwrite_existing ... ok
+     zjj:test | test commands::config::tests::test_show_config_value ... ok
+     zjj:test | test commands::config::tests::test_set_config_value_nested ... ok
+     zjj:test | test commands::config::tests::test_validate_size_empty ... ok
+     zjj:test | test commands::config::tests::test_show_all_config_json ... ok
+     zjj:test | test commands::config::tests::test_validate_size_invalid ... ok
+     zjj:test | test commands::config::tests::test_validate_size_percentage ... ok
+     zjj:test | test commands::config::tests::test_validate_size_percentage_over_100 ... ok
+     zjj:test | test commands::config::tests::test_show_config_value_json ... ok
+     zjj:test | test commands::config::tests::test_validation_issue_structure ... ok
+     zjj:test | test commands::config::tests::test_validation_result_serialization ... ok
+     zjj:test | test commands::dashboard::tests::test_beads_status_formatting ... ok
+     zjj:test | test commands::dashboard::tests::test_layout_mode_selection ... ok
+     zjj:test | test commands::dashboard::tests::test_row_navigation_bounds ... ok
+     zjj:test | test commands::dashboard::tests::test_column_navigation ... ok
+     zjj:test | test commands::dashboard::tests::test_session_data_grouping_by_status ... ok
+     zjj:test | test commands::config::tests::test_show_all_config ... ok
+     zjj:test | test commands::config::tests::test_validate_size_pixel ... ok
+     zjj:test | test commands::diff::tests::test_diff_command_args_full ... ok
+     zjj:test | test commands::diff::tests::test_diff_command_args_stat ... ok
+     zjj:test | test commands::diff::tests::test_parse_diff_stat_additions ... ok
+     zjj:test | test commands::config::tests::test_validate_config_default ... ok
+     zjj:test | test commands::diff::tests::test_diff_options_default ... ok
+     zjj:test | test commands::diff::tests::test_parse_diff_stat_empty ... ok
+     zjj:test | test commands::diff::tests::test_get_pager_empty_env ... ok
+     zjj:test | test commands::diff::tests::test_get_pager_from_env ... ok
+     zjj:test | test commands::diff::tests::test_parse_diff_stat_deletions ... ok
+     zjj:test | test commands::diff::tests::test_get_pager_defaults ... ok
+     zjj:test | test commands::diff::tests::test_parse_diff_stat_modifications ... ok
+     zjj:test | test commands::diff::tests::test_parse_diff_stat_multiple_files ... ok
+     zjj:test | test commands::diff::tests::test_revset_format ... ok
+     zjj:test | test commands::doctor::tests::test_check_initialized_detects_jjz_directory ... ok
+     zjj:test | test commands::doctor::tests::test_check_initialized_independent_of_jj ... ok
+     zjj:test | test cli::tests::test_run_command_success ... ok
+     zjj:test | test cli::tests::test_run_command_failure ... ok
+     zjj:test | test commands::focus::tests::test_is_inside_zellij_detection ... ok
+     zjj:test | test commands::dashboard::tests::test_centered_rect ... ok
+     zjj:test | test commands::doctor::tests::test_check_jj_installed_vs_check_initialized ... ok
+     zjj:test | test commands::init::tests::test_check_database_health_empty ... ok
+     zjj:test | test commands::diff::tests::test_run_session_not_found ... ok
+     zjj:test | test commands::init::tests::test_check_database_health_missing ... ok
+     zjj:test | test commands::init::tests::test_check_database_health_corrupted ... ok
+     zjj:test | test commands::init::tests::test_default_config_has_correct_values ... ok
+     zjj:test | test commands::focus::tests::test_focus_session_with_hyphens ... ok
+     zjj:test | test commands::init::tests::test_default_config_is_valid_toml ... ok
+     zjj:test | test commands::diff::tests::test_run_workspace_not_found ... ok
+     zjj:test | test commands::init::tests::test_check_database_health_wrong_schema ... ok
+     zjj:test | test commands::focus::tests::test_focus_session_with_mixed_special_chars ... ok
+     zjj:test | test commands::focus::tests::test_focus_session_with_underscores ... ok
+     zjj:test | test commands::focus::tests::test_focus_session_not_found ... ok
+     zjj:test | test commands::init::tests::test_check_database_health_healthy ... ok
+     zjj:test | test commands::focus::tests::test_zellij_tab_format ... ok
+     zjj:test | test commands::focus::tests::test_focus_session_exists ... ok
+     zjj:test | test commands::diff::tests::test_determine_main_branch_not_in_repo ... ok
+     zjj:test | test commands::init::tests::test_init_auto_creates_jj_repo ... ok
+     zjj:test | test commands::init::tests::test_init_creates_jjz_directory ... ok
+     zjj:test | test commands::init::tests::test_repair_database_corrupted_creates_backup ... ok
+     zjj:test | test commands::init::tests::test_repair_database_healthy_no_op ... ok
+     zjj:test | test commands::init::tests::test_repair_database_missing_creates_new ... ok
+     zjj:test | test commands::doctor::tests::test_orphaned_workspace_detection_normalizes_names ... ok
+     zjj:test | test commands::list::tests::test_bead_counts_default ... ok
+     zjj:test | test commands::list::tests::test_bead_counts_display ... ok
+     zjj:test | test commands::list::tests::test_empty_list_handling ... ok
+     zjj:test | test commands::list::tests::test_all_flag_includes_all_sessions ... ok
+     zjj:test | test commands::list::tests::test_get_beads_count_no_repo ... ok
+     zjj:test | test commands::list::tests::test_get_session_changes_missing_workspace ... ok
+     zjj:test | test commands::list::tests::test_output_json_format ... ok
+     zjj:test | test commands::list::tests::test_output_table_format ... ok
+     zjj:test | test commands::list::tests::test_session_list_item_serialization ... ok
+     zjj:test | test commands::list::tests::test_session_list_item_with_none_branch ... ok
+     zjj:test | test commands::remove::tests::test_confirm_removal_format ... ok
+     zjj:test | test commands::remove::tests::test_merge_requires_valid_workspace ... ok
+     zjj:test | test commands::remove::tests::test_remove_options_default ... ok
+     zjj:test | test commands::init::tests::test_repair_database_recovers_sessions ... ok
+     zjj:test | test commands::status::tests::test_bead_stats_default ... ok
+     zjj:test | test commands::status::tests::test_bead_stats_display ... ok
+     zjj:test | test commands::status::tests::test_diff_stats_default ... ok
+     zjj:test | test commands::status::tests::test_diff_stats_display ... ok
+     zjj:test | test commands::status::tests::test_file_changes_display_clean ... ok
+     zjj:test | test commands::status::tests::test_file_changes_display_dirty ... ok
+     zjj:test | test commands::status::tests::test_file_changes_is_clean ... ok
+     zjj:test | test commands::remove::tests::test_session_not_found ... ok
+     zjj:test | test commands::status::tests::test_file_changes_total ... ok
+     zjj:test | test commands::init::tests::test_init_creates_state_db ... ok
+     zjj:test | test commands::status::tests::test_get_file_changes_missing_workspace ... ok
+     zjj:test | test commands::status::tests::test_get_diff_stats_missing_workspace ... ok
+     zjj:test | test commands::status::tests::test_file_changes_with_unknown_files ... ok
+     zjj:test | test commands::status::tests::test_output_table_format ... ok
+     zjj:test | test commands::status::tests::test_output_json_format ... ok
+     zjj:test | test commands::status::tests::test_session_status_info_serialization ... ok
+     zjj:test | test commands::sync::tests::test_parse_rebase_output_case_insensitive_conflicts ... ok
+     zjj:test | test commands::list::tests::test_filter_completed_and_failed_sessions ... ok
+     zjj:test | test commands::init::tests::test_init_creates_config_toml ... ok
+     zjj:test | test commands::sync::tests::test_parse_rebase_output_multiple_number_words ... ok
+     zjj:test | test commands::sync::tests::test_parse_rebase_output_empty ... ok
+     zjj:test | test commands::sync::tests::test_parse_rebase_output_with_commits ... ok
+     zjj:test | test commands::sync::tests::test_parse_rebase_output_with_conflicts ... ok
+     zjj:test | test commands::sync::tests::test_parse_rebase_output_jj_v09_format ... ok
+     zjj:test | test commands::sync::tests::test_parse_rebase_output_no_commits ... ok
+     zjj:test | test commands::sync::tests::test_sync_session_exists ... ok
+     zjj:test | test commands::sync::tests::test_list_all_sessions ... ok
+     zjj:test | test commands::sync::tests::test_sync_session_not_found ... ok
+     zjj:test | test commands::init::tests::test_init_creates_layouts_directory ... ok
+     zjj:test | test commands::init::tests::test_force_reinitialize_preserves_backup ... ok
+     zjj:test | test commands::sync::tests::test_multiple_syncs_update_timestamp ... ok
+     zjj:test | test commands::sync::tests::test_sync_updates_timestamp_on_success ... ok
+     zjj:test | test commands::tests::test_get_session_db_requires_init ... ok
+     zjj:test | test commands::tests::test_zjj_data_dir_without_jj ... ok
+     zjj:test | test commands::sync::tests::test_update_last_synced_timestamp ... ok
+     zjj:test | test db::tests::test_create_session_success ... ok
+     zjj:test | test db::tests::test_get_session_exists ... ok
+     zjj:test | test session::tests::test_edge_arabic_text ... ok
+     zjj:test | test session::tests::test_edge_combining_diacritical_marks ... ok
+     zjj:test | test session::tests::test_edge_control_characters_bell ... ok
+     zjj:test | test session::tests::test_edge_control_characters_carriage_return ... ok
+     zjj:test | test session::tests::test_edge_control_characters_newline ... ok
+     zjj:test | test session::tests::test_edge_control_characters_tab ... ok
+     zjj:test | test session::tests::test_edge_emoji_check_mark ... ok
+     zjj:test | test session::tests::test_edge_emoji_fire ... ok
+     zjj:test | test session::tests::test_edge_emoji_multiple ... ok
+     zjj:test | test session::tests::test_edge_emoji_rocket ... ok
+     zjj:test | test session::tests::test_edge_emoji_with_text_modifier ... ok
+     zjj:test | test session::tests::test_edge_hebrew_text ... ok
+     zjj:test | test session::tests::test_edge_ltr_override ... ok
+     zjj:test | test session::tests::test_edge_mostly_valid_with_one_space ... ok
+     zjj:test | test session::tests::test_edge_mostly_valid_with_one_special_char ... ok
+     zjj:test | test session::tests::test_edge_name_1000_chars ... ok
+     zjj:test | test session::tests::test_edge_name_100_chars ... ok
+     zjj:test | test session::tests::test_edge_name_64_chars_with_dashes ... ok
+     zjj:test | test session::tests::test_edge_name_65_chars ... ok
+     zjj:test | test session::tests::test_edge_name_empty_string ... ok
+     zjj:test | test session::tests::test_edge_name_exactly_64_chars ... ok
+     zjj:test | test session::tests::test_edge_name_single_letter ... ok
+     zjj:test | test session::tests::test_edge_name_starts_with_dash ... ok
+     zjj:test | test session::tests::test_edge_name_starts_with_number ... ok
+     zjj:test | test session::tests::test_edge_name_starts_with_underscore ... ok
+     zjj:test | test session::tests::test_edge_name_two_letters ... ok
+     zjj:test | test session::tests::test_edge_null_byte_at_end ... ok
+     zjj:test | test session::tests::test_edge_null_byte_at_start ... ok
+     zjj:test | test session::tests::test_edge_null_byte_embedded ... ok
+     zjj:test | test commands::init::tests::test_force_reinitialize_creates_backup ... ok
+     zjj:test | test session::tests::test_edge_path_traversal_backslash ... ok
+     zjj:test | test session::tests::test_edge_path_traversal_absolute_path ... ok
+     zjj:test | test session::tests::test_edge_path_traversal_parent_directory ... ok
+     zjj:test | test session::tests::test_edge_path_traversal_relative_path ... ok
+     zjj:test | test session::tests::test_edge_rtl_override ... ok
+     zjj:test | test session::tests::test_edge_shell_backtick ... ok
+     zjj:test | test session::tests::test_edge_shell_dollar_expansion ... ok
+     zjj:test | test session::tests::test_edge_shell_pipe ... ok
+     zjj:test | test session::tests::test_edge_shell_semicolon ... ok
+     zjj:test | test db::tests::test_backup_restore_roundtrip ... ok
+     zjj:test | test session::tests::test_edge_special_characters_ampersand ... ok
+     zjj:test | test session::tests::test_edge_special_characters_asterisk ... ok
+     zjj:test | test session::tests::test_edge_special_characters_at_sign ... ok
+     zjj:test | test session::tests::test_edge_special_characters_braces ... ok
+     zjj:test | test session::tests::test_edge_special_characters_brackets ... ok
+     zjj:test | test db::tests::test_unique_constraint_enforced ... ok
+     zjj:test | test session::tests::test_edge_special_characters_caret ... ok
+     zjj:test | test session::tests::test_edge_special_characters_dollar ... ok
+     zjj:test | test session::tests::test_edge_special_characters_exclamation ... ok
+     zjj:test | test session::tests::test_edge_special_characters_parentheses ... ok
+     zjj:test | test session::tests::test_edge_special_characters_hash ... ok
+     zjj:test | test session::tests::test_edge_special_characters_percent ... ok
+     zjj:test | test session::tests::test_edge_unicode_homoglyph_cyrillic_a ... ok
+     zjj:test | test session::tests::test_edge_unicode_homoglyph_greek_alpha ... ok
+     zjj:test | test session::tests::test_edge_sql_injection_double_quote ... ok
+     zjj:test | test session::tests::test_edge_sql_injection_quote ... ok
+     zjj:test | test session::tests::test_edge_unicode_homoglyph_cyrillic_e ... ok
+     zjj:test | test session::tests::test_edge_url_encoded_slash ... ok
+     zjj:test | test session::tests::test_edge_url_encoded_space ... ok
+     zjj:test | test session::tests::test_edge_valid_ending_with_dash ... ok
+     zjj:test | test session::tests::test_edge_valid_ending_with_number ... ok
+     zjj:test | test session::tests::test_edge_valid_all_lowercase ... ok
+     zjj:test | test session::tests::test_edge_valid_all_uppercase ... ok
+     zjj:test | test session::tests::test_edge_valid_ending_with_underscore ... ok
+     zjj:test | test session::tests::test_edge_valid_mixed_separators ... ok
+     zjj:test | test session::tests::test_edge_valid_mixed_case ... ok
+     zjj:test | test session::tests::test_edge_valid_prefix_invalid_suffix ... ok
+     zjj:test | test session::tests::test_edge_valid_with_numbers ... ok
+     zjj:test | test session::tests::test_edge_valid_with_underscores ... ok
+     zjj:test | test session::tests::test_edge_valid_with_dashes ... ok
+     zjj:test | test session::tests::test_edge_whitespace_embedded_space ... ok
+     zjj:test | test session::tests::test_edge_whitespace_non_breaking_space ... ok
+     zjj:test | test session::tests::test_edge_whitespace_only_spaces ... ok
+     zjj:test | test session::tests::test_edge_whitespace_trailing_space ... ok
+     zjj:test | test session::tests::test_edge_zero_width_joiner ... ok
+     zjj:test | test session::tests::test_edge_zero_width_space ... ok
+     zjj:test | test commands::tests::test_check_in_jj_repo_error_message ... ok
+     zjj:test | test session::tests::test_session_name_accepts_valid_names ... ok
+     zjj:test | test session::tests::test_edge_zero_width_no_break_space ... ok
+     zjj:test | test session::tests::test_edge_zero_width_non_joiner ... ok
+     zjj:test | test session::tests::test_session_name_rejects_unicode ... ok
+     zjj:test | test session::tests::test_session_name_invalid_chars ... ok
+     zjj:test | test session::tests::test_session_name_starts_with_dash ... ok
+     zjj:test | test session::tests::test_session_name_starts_with_digit_rejected ... ok
+     zjj:test | test session::tests::test_session_name_too_long ... ok
+     zjj:test | test session::tests::test_session_new_valid ... ok
+     zjj:test | test session::tests::test_session_name_valid_with_underscore ... ok
+     zjj:test | test session::tests::test_session_name_starts_with_underscore_rejected ... ok
+     zjj:test | test session::tests::test_status_display ... ok
+     zjj:test | test session::tests::test_status_from_str ... ok
+     zjj:test | test session::tests::test_validate_transition_active_to_paused ... ok
+     zjj:test | test session::tests::test_validate_transition_creating_to_active ... ok
+     zjj:test | test session::tests::test_status_from_str_invalid ... ok
+     zjj:test | test session::tests::test_session_name_empty ... ok
+     zjj:test | test session::tests::test_validate_transition_invalid ... ok
+     zjj:test | test session::tests::test_edge_whitespace_leading_space ... ok
+     zjj:test | test session::tests::test_validate_transition_creating_to_failed ... ok
+     zjj:test | test commands::tests::test_check_jj_installed_error_message ... ok
+     zjj:test | test commands::tests::test_check_prerequisites_validates_jj_first ... ok
+     zjj:test | test commands::tests::test_prerequisite_error_messages_are_actionable ... ok
+     zjj:test | test commands::init::tests::test_init_repair_flag ... ok
+     zjj:test | test commands::init::tests::test_init_force_flag ... ok
+     zjj:test | test commands::init::tests::test_init_detects_corruption_without_flags ... ok
+     zjj:test | test commands::init::tests::test_init_handles_already_initialized ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 256 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.79s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 29 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_add_with_missing_hook_executable ... ok
+     zjj:test | test test_focus_on_empty_database ... ok
+     zjj:test | test test_add_with_no_hooks_flag ... ok
+     zjj:test | test test_add_duplicate_immediately_after_creation ... ok
+     zjj:test | test test_add_with_failing_hook ... ok
+     zjj:test | test test_concurrent_remove_same_session ... ok
+     zjj:test | test test_list_on_empty_database ... ok
+     zjj:test | test test_corrupted_database_recovery ... ok
+     zjj:test | test test_add_after_remove_same_name ... ok
+     zjj:test | test test_add_case_sensitive_duplicates ... ok
+     zjj:test | test test_list_with_missing_workspace_directories ... ok
+     zjj:test | test test_remove_from_empty_database ... ok
+     zjj:test | test test_operations_with_readonly_database ... ok
+     zjj:test | test test_remove_with_no_hooks_flag ... ok
+     zjj:test | test test_status_on_empty_database ... ok
+     zjj:test | test test_remove_orphaned_session ... ok
+     zjj:test | test test_workspace_exists_without_db_entry ... ok
+     zjj:test | test test_status_with_missing_workspace ... ok
+     zjj:test | test test_session_name_at_max_length ... ok
+     zjj:test | test test_workspace_directory_without_jj_metadata ... ok
+     zjj:test | test test_rapid_add_remove_cycles ... ok
+     zjj:test | test test_concurrent_add_same_name_race_condition ... ok
+     zjj:test | test test_multiple_concurrent_reads ... ok
+     zjj:test | test test_max_sessions_stress_test ... ok
+     zjj:test | test test_concurrent_add_different_names ... ok
+     zjj:test | test test_concurrent_read_write ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.20s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 22 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_e2e_config_persistence ... ok
+     zjj:test | test test_e2e_complete_mvp_workflow ... ok
+     zjj:test | test test_e2e_json_output_format ... ok
+     zjj:test | test test_e2e_duplicate_session_names ... ok
+     zjj:test | test test_e2e_multiple_jj_workspaces ... ok
+     zjj:test | test test_e2e_many_sessions ... ok
+     zjj:test | test test_e2e_database_integrity ... ok
+     zjj:test | test test_e2e_session_name_validation ... ok
+     zjj:test | test test_e2e_custom_workspace_directory ... ok
+     zjj:test | test test_e2e_jj_workspace_cleanup ... ok
+     zjj:test | test test_e2e_error_handling_no_init ... ok
+     zjj:test | test test_e2e_error_handling_nonexistent_session ... ok
+     zjj:test | test test_e2e_idempotent_init ... ok
+     zjj:test | test test_e2e_remove_missing_workspace ... ok
+     zjj:test | test test_e2e_focus_outside_zellij ... ok
+     zjj:test | test test_e2e_sequential_operations ... ok
+     zjj:test | test test_e2e_focus_nonexistent_session ... ok
+     zjj:test | test test_e2e_jj_workspace_creation ... ok
+     zjj:test | test test_e2e_workspace_structure ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.06s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 48 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_config_with_syntax_error ... ok
+     zjj:test | test test_config_file_permissions_unreadable ... ok
+     zjj:test | test test_cleanup_after_failed_session_creation ... ok
+     zjj:test | test test_concurrent_database_access_during_corruption ... ok
+     zjj:test | test test_config_with_out_of_range_values ... ok
+     zjj:test | test test_config_as_directory_instead_of_file ... ok
+     zjj:test | test test_config_with_invalid_field_types ... ok
+     zjj:test | test test_error_messages_include_suggestions_for_common_issues ... ok
+     zjj:test | test test_config_with_missing_required_fields ... ok
+     zjj:test | test test_database_locked_by_another_process ... ok
+     zjj:test | test test_jj_not_installed_error_has_install_instructions ... ok
+     zjj:test | test test_database_error_suggests_corruption_recovery ... ok
+     zjj:test | test test_database_with_wrong_schema ... ok
+     zjj:test | test test_corrupted_database_provides_helpful_error ... ok
+     zjj:test | test test_empty_database_file ... ok
+     zjj:test | test test_corrupted_jjz_directory_structure ... ok
+     zjj:test | test test_continues_operation_after_transient_failure ... ok
+     zjj:test | test test_missing_jjz_directory ... ok
+     zjj:test | test test_null_bytes_in_input ... ok
+     zjj:test | test test_multiple_failures_cascading ... ok
+     zjj:test | test test_large_metadata_json_causes_no_issues ... ok
+     zjj:test | test test_database_entry_exists_but_workspace_missing ... ok
+     zjj:test | test test_missing_database_file ... ok
+     zjj:test | test test_file_deleted_during_read ... ok
+     zjj:test | test test_partial_session_creation_jj_workspace_fails ... ok
+     zjj:test | test test_readonly_jjz_directory_prevents_operations ... ok
+     zjj:test | test test_error_recovery_maintains_consistency ... ok
+     zjj:test | test test_rollback_maintains_database_filesystem_consistency ... ok
+     zjj:test | test test_special_characters_in_error_messages ... ok
+     zjj:test | test test_symlink_to_system_directory_rejected ... ok
+     zjj:test | test test_transaction_rollback_on_failure ... ok
+     zjj:test | test test_unicode_in_paths_error_handling ... ok
+     zjj:test | test test_system_recovers_after_permission_error ... ok
+     zjj:test | test test_system_recovers_after_config_fix ... ok
+     zjj:test | test test_readonly_database_file ... ok
+     zjj:test | test test_validation_errors_explain_constraints ... ok
+     zjj:test | test test_very_long_error_messages ... ok
+     zjj:test | test test_workspace_directory_not_writable ... ok
+     zjj:test | test test_workspace_creation_fails_no_orphaned_db_entry ... ok
+     zjj:test | test test_workspace_parent_contains_symlink ... ok
+     zjj:test | test test_workspace_exists_but_not_in_database ... ok
+     zjj:test | test test_workspace_path_with_symlink ... ok
+     zjj:test | test test_concurrent_session_creation_different_names ... ok
+     zjj:test | test test_concurrent_session_creation_same_name ... ok
+     zjj:test | test test_write_fails_database_full_simulation ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 48 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.33s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 13 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test test_reject_parent_directory_in_session_name ... ok
+     zjj:test | test test_deeply_nested_traversal_blocked ... ok
+     zjj:test | test test_reject_workspace_dir_path_traversal ... ok
+     zjj:test | test test_boundary_check_prevents_toctou ... ok
+     zjj:test | test test_canonicalization_resolves_symlinks ... ok
+     zjj:test | test test_error_message_quality ... ok
+     zjj:test | test test_single_parent_escape_in_bounds_allowed ... ok
+     zjj:test | test test_reject_absolute_path_injection ... ok
+     zjj:test | test test_workspace_dir_at_repo_root_allowed ... ok
+     zjj:test | test test_valid_relative_paths_allowed ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 45 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test test_add_help ... ok
+     zjj:test | test test_diff_session_name_starting_with_dash ... ok
+     zjj:test | test test_help_flag ... ok
+     zjj:test | test test_init_help ... ok
+     zjj:test | test test_focus_session_name_starting_with_dash ... ok
+     zjj:test | test test_add_combined_flags ... ok
+     zjj:test | test test_flags_after_positional_args ... ok
+     zjj:test | test test_add_with_no_hooks_flag ... ok
+     zjj:test | test test_add_with_short_template_flag ... ok
+     zjj:test | test test_diff_without_stat ... ok
+     zjj:test | test test_flags_before_positional_args ... ok
+     zjj:test | test test_diff_with_stat_flag ... ok
+     zjj:test | test test_add_with_no_open_flag ... ok
+     zjj:test | test test_remove_session_name_starting_with_dash ... ok
+     zjj:test | test test_mutually_exclusive_flags ... ok
+     zjj:test | test test_session_name_starting_with_double_dash ... ok
+     zjj:test | test test_list_with_all_flag ... ok
+     zjj:test | test test_session_name_just_dash ... ok
+     zjj:test | test test_add_with_template_flag ... ok
+     zjj:test | test test_long_flag_names ... ok
+     zjj:test | test test_list_with_json_flag ... ok
+     zjj:test | test test_session_name_starting_with_number ... ok
+     zjj:test | test test_remove_with_force_flag ... ok
+     zjj:test | test test_remove_with_keep_branch_flag ... ok
+     zjj:test | test test_session_name_starting_with_single_dash ... ok
+     zjj:test | test test_status_with_watch_flag ... ignored, Watch mode runs continuously - not suitable for automated tests
+     zjj:test | test test_session_name_starting_with_underscore ... ok
+     zjj:test | test test_remove_with_merge_flag ... ok
+     zjj:test | test test_session_name_starting_with_triple_dash ... ok
+     zjj:test | test test_session_name_with_leading_whitespace ... ok
+     zjj:test | test test_remove_with_short_force_flag ... ok
+     zjj:test | test test_session_name_with_trailing_whitespace ... ok
+     zjj:test | test test_version_flag ... ok
+     zjj:test | test test_session_name_with_numbers ... ok
+     zjj:test | test test_sync_without_session_name ... ok
+     zjj:test | test test_session_name_with_hyphens ... ok
+     zjj:test | test test_session_name_with_underscores ... ok
+     zjj:test | test test_status_with_json_flag ... ok
+     zjj:test | test test_template_with_equals_sign ... ok
+     zjj:test | test test_sync_with_explicit_session ... ok
+     zjj:test | test test_session_names_are_case_sensitive ... ok
+     zjj:test | test test_status_without_name_shows_all ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 44 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.26s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 8 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_error_exit_code ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test test_error_no_stack_trace ... ok
+     zjj:test | test test_error_format_for_invalid_session_name ... ok
+     zjj:test | test test_error_format_for_missing_session ... ok
+     zjj:test | test test_database_error_display ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 38 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_add_without_init ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test test_add_session_name_with_dots ... ok
+     zjj:test | test test_add_session_name_too_long ... ok
+     zjj:test | test test_add_session_name_starts_with_underscore ... ok
+     zjj:test | test test_corrupted_database_fails_gracefully ... ok
+     zjj:test | test test_add_session_name_with_slash ... ok
+     zjj:test | test test_add_empty_session_name ... ok
+     zjj:test | test test_add_missing_name_argument ... ok
+     zjj:test | test test_cannot_add_same_session_twice ... ok
+     zjj:test | test test_add_session_name_starts_with_dash ... ok
+     zjj:test | test test_init_with_extra_arguments ... ok
+     zjj:test | test test_diff_missing_name_argument ... ok
+     zjj:test | test test_invalid_flag ... ok
+     zjj:test | test test_init_succeeds_with_jj_and_zellij_installed ... ok
+     zjj:test | test test_diff_nonexistent_session ... ok
+     zjj:test | test test_list_without_init ... ok
+     zjj:test | test test_focus_nonexistent_session ... ok
+     zjj:test | test test_missing_database ... ok
+     zjj:test | test test_invalid_toml_config ... ok
+     zjj:test | test test_corrupted_jj_workspace ... ok
+     zjj:test | test test_remove_without_init ... ok
+     zjj:test | test test_status_without_init ... ok
+     zjj:test | test test_remove_nonexistent_session ... ok
+     zjj:test | test test_missing_config_file ... ok
+     zjj:test | test test_readonly_jjz_directory ... ok
+     zjj:test | test test_remove_missing_name_argument ... ok
+     zjj:test | test test_unknown_subcommand ... ok
+     zjj:test | test test_session_name_exactly_64_chars ... ok
+     zjj:test | test test_status_nonexistent_session ... ok
+     zjj:test | test test_sync_nonexistent_session ... ok
+     zjj:test | test test_remove_already_removed_session ... ok
+     zjj:test | test test_list_with_no_sessions_after_remove_all ... ok
+     zjj:test | test test_session_name_with_numbers_only ... ok
+     zjj:test | test test_workspace_directory_creation_failure ... ok
+     zjj:test | test test_rapid_add_remove_cycles ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.61s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 16 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_init_creates_config_toml ... ok
+     zjj:test | test test_init_creates_workspaces_directory ... ok
+     zjj:test | test test_init_creates_jjz_directory ... ok
+     zjj:test | test test_init_creates_state_db ... ok
+     zjj:test | test test_init_creates_valid_toml_config ... ok
+     zjj:test | test test_init_config_has_correct_defaults ... ok
+     zjj:test | test test_init_creates_indexes ... ok
+     zjj:test | test test_init_creates_layouts_directory ... ok
+     zjj:test | test test_init_output_is_informative ... ok
+     zjj:test | test test_init_preserves_existing_config ... ok
+     zjj:test | test test_init_sets_up_complete_directory_structure ... ok
+     zjj:test | test test_init_state_db_has_correct_schema ... ok
+     zjj:test | test test_init_twice_succeeds_idempotently ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 14 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_status_json_error_without_init ... ok
+     zjj:test | test test_list_json_error_without_init ... ok
+     zjj:test | test test_sync_json_error_without_init ... ok
+     zjj:test | test test_focus_json_error_nonexistent_session ... ok
+     zjj:test | test test_diff_json_error_nonexistent_session ... ok
+     zjj:test | test test_remove_json_error_nonexistent_session ... ok
+     zjj:test | test test_doctor_json_error_format ... ok
+     zjj:test | test test_add_json_error_invalid_name ... ok
+     zjj:test | test test_init_json_error_when_already_initialized ... ok
+     zjj:test | test test_add_json_error_duplicate_session ... ok
+     zjj:test | test test_introspect_json_error_format ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 9 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test test_session_count_not_initialized ... ok
+     zjj:test | test test_suggest_name_without_db ... ok
+     zjj:test | test test_session_exists_not_initialized ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_session_exists_not_found ... ok
+     zjj:test | test test_session_exists_success ... ok
+     zjj:test | test test_session_count_success ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 26 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test test_add_without_init_fails ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_add_invalid_session_name_with_spaces ... ok
+     zjj:test | test test_add_invalid_session_name_with_special_chars ... ok
+     zjj:test | test test_list_empty_shows_no_sessions ... ok
+     zjj:test | test test_add_duplicate_session_fails ... ok
+     zjj:test | test test_add_session_creates_workspace_directory ... ok
+     zjj:test | test test_add_creates_session ... ok
+     zjj:test | test test_add_creates_jj_workspace ... ok
+     zjj:test | test test_add_session_appears_in_list ... ok
+     zjj:test | test test_add_session_with_no_hooks_flag ... ok
+     zjj:test | test test_list_json_format ... ok
+     zjj:test | test test_complete_session_lifecycle ... ok
+     zjj:test | test test_remove_nonexistent_session_fails ... ok
+     zjj:test | test test_list_shows_session_status ... ok
+     zjj:test | test test_add_valid_session_names ... ok
+     zjj:test | test test_status_nonexistent_session ... ok
+     zjj:test | test test_remove_deletes_session ... ok
+     zjj:test | test test_remove_without_force_requires_confirmation ... ok
+     zjj:test | test test_status_json_format ... ok
+     zjj:test | test test_status_shows_session_details ... ok
+     zjj:test | test test_list_shows_multiple_sessions ... ok
+     zjj:test | test test_session_persists_across_list_calls ... ok
+     zjj:test | test test_multiple_sessions_lifecycle ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.16s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 14 tests
+     zjj:test | test common::tests::test_command_result_assertions ... ok
+     zjj:test | test common::tests::test_harness_creation ... ok
+     zjj:test | test common::tests::test_harness_has_jj_repo ... ok
+     zjj:test | test test_add_without_no_open_fails_gracefully_in_non_tty ... ok
+     zjj:test | test test_init_succeeds_in_non_tty ... ok
+     zjj:test | test test_add_non_tty_error_message_suggests_flag ... ok
+     zjj:test | test test_add_no_open_json_output ... ok
+     zjj:test | test test_add_no_open_flag_prevents_zellij_in_tty ... ok
+     zjj:test | test test_add_with_no_open_succeeds_in_non_tty ... ok
+     zjj:test | test test_add_no_open_can_be_removed ... ok
+     zjj:test | test test_complete_workflow_in_non_tty ... ok
+     zjj:test | test test_add_no_open_with_other_flags ... ok
+     zjj:test | test test_add_no_open_session_persists ... ok
+     zjj:test | test test_add_with_no_open_multiple_sessions_in_non_tty ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.32s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 217 tests
+     zjj:test | test beads::tests::test_all_match ... ok
+     zjj:test | test beads::tests::test_any_match ... ok
+     zjj:test | test beads::tests::test_bead_filter_new ... ok
+     zjj:test | test beads::tests::test_bead_issue_is_blocked ... ok
+     zjj:test | test beads::tests::test_bead_query_chaining ... ok
+     zjj:test | test beads::tests::test_bead_filter_chaining ... ok
+     zjj:test | test beads::tests::test_apply_query ... ok
+     zjj:test | test beads::tests::test_bead_issue_is_open ... ok
+     zjj:test | test beads::tests::test_bead_query_default ... ok
+     zjj:test | test beads::tests::test_beads_summary_from_issues ... ok
+     zjj:test | test beads::tests::test_count_by_status ... ok
+     zjj:test | test beads::tests::test_filter_issues_by_status ... ok
+     zjj:test | test beads::tests::test_extract_labels ... ok
+     zjj:test | test beads::tests::test_find_blocked ... ok
+     zjj:test | test beads::tests::test_find_blockers ... ok
+     zjj:test | test beads::tests::test_find_ready ... ok
+     zjj:test | test beads::tests::test_find_stale ... ok
+     zjj:test | test beads::tests::test_get_dependency_graph ... ok
+     zjj:test | test beads::tests::test_get_issue ... ok
+     zjj:test | test beads::tests::test_get_issues_by_id ... ok
+     zjj:test | test beads::tests::test_group_by_status ... ok
+     zjj:test | test beads::tests::test_paginate ... ok
+     zjj:test | test beads::tests::test_priority_from_u32 ... ok
+     zjj:test | test beads::tests::test_query_beads_empty_path ... ignored, TODO: Fix test to work with forbid(clippy::unwrap_used)
+     zjj:test | test beads::tests::test_priority_to_u32 ... ok
+     zjj:test | test beads::tests::test_sort_issues_by_priority ... ok
+     zjj:test | test beads::tests::test_to_ids ... ok
+     zjj:test | test config::tests::test_default_config_values ... ok
+     zjj:test | test config::tests::test_deep_merge_replaces_not_appends ... ok
+     zjj:test | test config::tests::test_env_var_overrides_config ... ok
+     zjj:test | test config::tests::test_env_var_parsing_bool ... ok
+     zjj:test | test config::tests::test_env_var_parsing_int ... ok
+     zjj:test | test config::tests::test_global_config_path ... ok
+     zjj:test | test config::tests::test_global_only_merges_with_defaults ... ok
+     zjj:test | test config::tests::test_invalid_refresh_ms_too_high ... ok
+     zjj:test | test config::tests::test_invalid_debounce_ms_too_low ... ok
+     zjj:test | test config::tests::test_missing_global_config_no_error ... ok
+     zjj:test | test config::tests::test_partial_config_uses_defaults ... ok
+     zjj:test | test config::tests::test_no_config_files_returns_defaults ... ok
+     zjj:test | test config::tests::test_placeholder_substitution ... ok
+     zjj:test | test config::tests::test_project_overrides_global ... ok
+     zjj:test | test config::tests::test_project_config_path ... ok
+     zjj:test | test config::tests::test_validation_debounce_ms_min ... ok
+     zjj:test | test config::tests::test_validation_debounce_ms_max ... ok
+     zjj:test | test config::tests::test_validation_debounce_ms_valid ... ok
+     zjj:test | test config::tests::test_malformed_toml_returns_parse_error ... ok
+     zjj:test | test config::tests::test_validation_refresh_ms_max ... ok
+     zjj:test | test config::tests::test_project_only_merges_with_defaults ... ok
+     zjj:test | test config::tests::test_validation_refresh_ms_valid ... ok
+     zjj:test | test contracts::tests::test_contract_builder ... ok
+     zjj:test | test contracts::tests::test_enum_constraint_invalid ... ok
+     zjj:test | test contracts::tests::test_enum_constraint_valid ... ok
+     zjj:test | test config::tests::test_validation_refresh_ms_min ... ok
+     zjj:test | test contracts::tests::test_field_contract_builder ... ok
+     zjj:test | test contracts::tests::test_length_constraint_too_long ... ok
+     zjj:test | test contracts::tests::test_length_constraint_too_short ... ok
+     zjj:test | test contracts::tests::test_length_constraint_valid ... ok
+     zjj:test | test contracts::tests::test_json_schema_generation ... ok
+     zjj:test | test contracts::tests::test_path_absolute_constraint ... ok
+     zjj:test | test contracts::tests::test_range_constraint_too_high ... ok
+     zjj:test | test contracts::tests::test_range_constraint_too_low ... ok
+     zjj:test | test contracts::tests::test_range_constraint_valid ... ok
+     zjj:test | test error::tests::test_error_debug ... ok
+     zjj:test | test error::tests::test_error_display_database_error ... ok
+     zjj:test | test error::tests::test_error_display_hook_execution_failed ... ok
+     zjj:test | test error::tests::test_error_display_hook_failed ... ok
+     zjj:test | test error::tests::test_error_display_invalid_config ... ok
+     zjj:test | test error::tests::test_error_display_jj_command_not_found ... ok
+     zjj:test | test error::tests::test_error_display_jj_command_other_error ... ok
+     zjj:test | test error::tests::test_error_from_io_error ... ok
+     zjj:test | test error::tests::test_exit_code_invalid_state ... ok
+     zjj:test | test error::tests::test_exit_code_not_found ... ok
+     zjj:test | test error::tests::test_exit_code_system_errors ... ok
+     zjj:test | test error::tests::test_exit_code_user_errors ... ok
+     zjj:test | test error_codes::tests::test_all_error_codes_have_descriptions ... ok
+     zjj:test | test error_codes::tests::test_deserialization ... ok
+     zjj:test | test error_codes::tests::test_error_code_as_str ... ok
+     zjj:test | test error_codes::tests::test_error_code_description ... ok
+     zjj:test | test error_codes::tests::test_error_code_display ... ok
+     zjj:test | test error_codes::tests::test_error_code_http_status ... ok
+     zjj:test | test error_codes::tests::test_error_code_suggestion ... ok
+     zjj:test | test error_codes::tests::test_error_code_to_string ... ok
+     zjj:test | test error_codes::tests::test_serialization ... ok
+     zjj:test | test functional::tests::test_compose_result ... ok
+     zjj:test | test functional::tests::test_filter_result ... ok
+     zjj:test | test functional::tests::test_fold_result ... ok
+     zjj:test | test functional::tests::test_validate_all_failure ... ok
+     zjj:test | test functional::tests::test_group_by ... ok
+     zjj:test | test functional::tests::test_map_result ... ok
+     zjj:test | test hints::tests::test_extract_session_name ... ok
+     zjj:test | test functional::tests::test_validate_all_success ... ok
+     zjj:test | test functional::tests::test_partition ... ok
+     zjj:test | test hints::tests::test_generate_hints_completed_session ... ok
+     zjj:test | test hints::tests::test_generate_hints_multiple_active ... ok
+     zjj:test | test hints::tests::test_generate_hints_failed_session ... ok
+     zjj:test | test hints::tests::test_generate_hints_no_sessions ... ok
+     zjj:test | test hints::tests::test_hint_builders ... ok
+     zjj:test | test hints::tests::test_hints_for_beads_none ... ok
+     zjj:test | test hints::tests::test_hints_for_beads_blockers ... ok
+     zjj:test | test hints::tests::test_hints_for_error_not_initialized ... ok
+     zjj:test | test hints::tests::test_hints_for_beads_too_many_active ... ok
+     zjj:test | test hints::tests::test_hints_for_error_zellij_not_running ... ok
+     zjj:test | test hints::tests::test_suggest_next_actions_not_initialized ... ok
+     zjj:test | test hints::tests::test_suggest_next_actions_no_sessions ... ok
+     zjj:test | test hints::tests::test_hints_for_error_session_exists ... ok
+     zjj:test | test hooks::tests::test_get_user_shell_fallback ... ok
+     zjj:test | test hooks::tests::test_get_user_shell_from_env ... ok
+     zjj:test | test hints::tests::test_suggest_next_actions_has_completed ... ok
+     zjj:test | test contracts::tests::test_regex_constraint_valid ... ok
+     zjj:test | test hooks::tests::test_no_hooks_configured ... ok
+     zjj:test | test contracts::tests::test_regex_constraint_invalid ... ok
+     zjj:test | test hooks::tests::test_hook_type_event_names ... ok
+     zjj:test | test introspection::tests::test_capabilities_default ... ok
+     zjj:test | test introspection::tests::test_doctor_output_from_checks ... ok
+     zjj:test | test introspection::tests::test_introspect_output_new ... ok
+     zjj:test | test introspection::tests::test_prerequisites_all_met ... ok
+     zjj:test | test introspection::tests::test_prerequisites_count ... ok
+     zjj:test | test introspection::tests::test_prerequisites_not_met ... ok
+     zjj:test | test introspection::tests::test_suggest_name_gap ... ok
+     zjj:test | test introspection::tests::test_suggest_name_basic ... ok
+     zjj:test | test introspection::tests::test_suggest_name_multiple_placeholders ... ok
+     zjj:test | test introspection::tests::test_suggest_name_no_existing ... ok
+     zjj:test | test hooks::tests::test_hook_failure ... ok
+     zjj:test | test hooks::tests::test_complex_hook_script ... ok
+     zjj:test | test introspection::tests::test_suggest_name_invalid_pattern ... ok
+     zjj:test | test hooks::tests::test_hook_execution_failed ... ok
+     zjj:test | test jj::tests::test_jj_version_comparison ... ok
+     zjj:test | test jj::tests::test_jj_version_compatibility_above_minimum ... ok
+     zjj:test | test jj::tests::test_jj_version_compatibility_at_minimum ... ok
+     zjj:test | test jj::tests::test_jj_version_compatibility_below_minimum ... ok
+     zjj:test | test jj::tests::test_jj_version_parse_invalid_format ... ok
+     zjj:test | test hooks::tests::test_hook_with_workspace_cwd ... ok
+     zjj:test | test hooks::tests::test_hook_stderr_captured ... ok
+     zjj:test | test hooks::tests::test_single_successful_hook ... ok
+     zjj:test | test jj::tests::test_jj_version_parse_invalid_prefix ... ok
+     zjj:test | test jj::tests::test_jj_version_parse_without_hash ... ok
+     zjj:test | test hooks::tests::test_multiple_successful_hooks ... ok
+     zjj:test | test jj::tests::test_jj_version_parse_standard_format ... ok
+     zjj:test | test jj::tests::test_parse_diff_stat ... ok
+     zjj:test | test jj::tests::test_parse_status ... ok
+     zjj:test | test jj::tests::test_jj_version_parse_non_numeric ... ok
+     zjj:test | test jj::tests::test_parse_workspace_list ... ok
+     zjj:test | test json::tests::test_error_code_as_str ... ok
+     zjj:test | test json::tests::test_error_code_to_string ... ok
+     zjj:test | test json::tests::test_json_error_basic ... ok
+     zjj:test | test jj::tests::test_status_is_clean ... ok
+     zjj:test | test hooks::tests::test_partial_hook_failure ... ok
+     zjj:test | test json::tests::test_json_error_serialization ... ok
+     zjj:test | test json::tests::test_error_with_available_sessions ... ok
+     zjj:test | test json::tests::test_error_detail_skip_none ... ok
+     zjj:test | test json::tests::test_json_error_with_details ... ok
+     zjj:test | test json::tests::test_json_serializable_trait ... ok
+     zjj:test | test json::tests::test_json_success_wrapper ... ok
+     zjj:test | test json_schema::tests::test_json_schema_creation ... ok
+     zjj:test | test json::tests::test_json_error_with_suggestion ... ok
+     zjj:test | test json_schema::tests::test_property_example ... ok
+     zjj:test | test json_schema::tests::test_property_format ... ok
+     zjj:test | test json_schema::tests::test_list_output_schema ... ok
+     zjj:test | test json_schema::tests::test_property_schema_enum ... ok
+     zjj:test | test json_schema::tests::test_property_schema_array ... ok
+     zjj:test | test json_schema::tests::test_property_schema_string ... ok
+     zjj:test | test result::tests::test_result_into_option_err ... ok
+     zjj:test | test json_schema::tests::test_status_output_schema ... ok
+     zjj:test | test json_schema::tests::test_schema_serialization ... ok
+     zjj:test | test result::tests::test_result_into_option_ok ... ok
+     zjj:test | test result::tests::test_result_inspect_error ... ok
+     zjj:test | test result::tests::test_result_or_default_logged_err ... ok
+     zjj:test | test tests::test_config_builder_empty_name ... ok
+     zjj:test | test result::tests::test_result_or_default_logged_ok ... ok
+     zjj:test | test types::tests::test_beads_summary_no_blockers ... ok
+     zjj:test | test tests::test_config_builder_success ... ok
+     zjj:test | test types::tests::test_changes_summary_no_changes ... ok
+     zjj:test | test tests::test_config_builder_missing_name ... ok
+     zjj:test | test types::tests::test_changes_summary_total ... ok
+     zjj:test | test types::tests::test_diff_summary_mismatch ... ok
+     zjj:test | test tests::test_validate_name_empty ... ok
+     zjj:test | test types::tests::test_diff_summary_validation ... ok
+     zjj:test | test tests::test_validate_name_too_long ... ok
+     zjj:test | test tests::test_validate_name_valid ... ok
+     zjj:test | test types::tests::test_file_change_renamed_valid ... ok
+     zjj:test | test types::tests::test_file_change_renamed_validation ... ok
+     zjj:test | test types::tests::test_session_status_allowed_operations ... ok
+     zjj:test | test types::tests::test_session_json_schema ... ok
+     zjj:test | test types::tests::test_session_contract ... ok
+     zjj:test | test types::tests::test_beads_summary_active ... ok
+     zjj:test | test hooks::tests::test_different_hook_types ... ok
+     zjj:test | test watcher::tests::test_query_beads_status_no_beads ... ignored, TODO: Fix test to work with forbid(clippy::unwrap_used)
+     zjj:test | test watcher::tests::test_extract_workspace_path ... ok
+     zjj:test | test types::tests::test_session_status_transitions ... ok
+     zjj:test | test watcher::tests::test_watch_event_equality ... ok
+     zjj:test | test watcher::tests::test_watcher_disabled ... ok
+     zjj:test | test watcher::tests::test_watcher_invalid_debounce_too_high ... ok
+     zjj:test | test watcher::tests::test_watcher_invalid_debounce_too_low ... ok
+     zjj:test | test zellij::tests::test_check_zellij_not_running ... ok
+     zjj:test | test zellij::tests::test_custom_commands_in_config ... ok
+     zjj:test | test zellij::tests::test_generate_full_valid_kdl_with_floating ... ok
+     zjj:test | test zellij::tests::test_generate_minimal_valid_kdl ... ok
+     zjj:test | test zellij::tests::test_generate_review_template ... ok
+     zjj:test | test zellij::tests::test_generate_split_template ... ok
+     zjj:test | test watcher::tests::test_beads_status_equality ... ok
+     zjj:test | test zellij::tests::test_tab_close_requires_zellij ... ok
+     zjj:test | test zellij::tests::test_generate_standard_valid_kdl ... ok
+     zjj:test | test zellij::tests::test_tab_focus_requires_zellij ... ok
+     zjj:test | test zellij::tests::test_layout_generate_creates_file ... ok
+     zjj:test | test zellij::tests::test_tab_open_missing_layout_file ... ok
+     zjj:test | test zellij::tests::test_tab_open_requires_zellij ... ok
+     zjj:test | test types::tests::test_session_validate_name_regex ... ok
+     zjj:test | test zellij::tests::test_validate_kdl_missing_layout ... ok
+     zjj:test | test zellij::tests::test_validate_kdl_missing_pane ... ok
+     zjj:test | test zellij::tests::test_validate_kdl_unbalanced_braces ... ok
+     zjj:test | test zellij::tests::test_variable_substitution_in_config ... ok
+     zjj:test | test types::tests::test_session_validate_path_not_absolute ... ok
+     zjj:test | test types::tests::test_session_validate_timestamps ... ok
+     zjj:test | test jj::tests::test_check_jj_version_compatible_integration ... ok
+     zjj:test | test jj::tests::test_get_jj_version_integration ... ok
+     zjj:test | test jj::tests::test_has_uncommitted_changes_clean_repo ... ok
+     zjj:test | test hints::tests::test_generate_hints_response ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 215 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.13s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 0 tests
+     zjj:test | 
+     zjj:test | test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     zjj:test | 
+     zjj:test | 
+     zjj:test | running 2 tests
+     zjj:test | test crates/zjj-core/src/result.rs - result::Result (line 12) ... ignored
+     zjj:test | test crates/zjj-core/src/watcher.rs - watcher (line 9) - compile ... ok
+     zjj:test | 
+     zjj:test | test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.09s
+   zjj:clippy | [1m[92m    Blocking[0m waiting for file lock on package cache
+   zjj:clippy | [1m[92m    Blocking[0m waiting for file lock on package cache
+   zjj:clippy | [1m[92m    Blocking[0m waiting for file lock on package cache
+   zjj:clippy | [1m[92m    Checking[0m zjj-core v0.1.0 (/home/lewis/src/zjj/crates/zjj-core)
+   zjj:clippy | [1m[92m    Checking[0m zjj v0.1.0 (/home/lewis/src/zjj/crates/zjj)
+   zjj:clippy | [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 9.37s
+     zjj:test | [1m[92m    Blocking[0m waiting for file lock on package cache
+     zjj:test | [1m[92m    Blocking[0m waiting for file lock on package cache
+     zjj:test | [1m[92m    Blocking[0m waiting for file lock on package cache
+     zjj:test | [1m[92m    Blocking[0m waiting for file lock on artifact directory
+     zjj:test | [1m[92m   Compiling[0m zjj v0.1.0 (/home/lewis/src/zjj/crates/zjj)
+     zjj:test | [1m[92m   Compiling[0m zjj-core v0.1.0 (/home/lewis/src/zjj/crates/zjj-core)
+     zjj:test | [1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 22.24s
+     zjj:test | [1m[92m     Running[0m unittests src/lib.rs (/home/lewis/src/zjj/target/debug/deps/zjj-c74f7f2625640799)
+     zjj:test | [1m[92m     Running[0m unittests src/main.rs (/home/lewis/src/zjj/target/debug/deps/jjz-c842d90652a65969)
+     zjj:test | [1m[92m     Running[0m tests/command_edge_cases.rs (/home/lewis/src/zjj/target/debug/deps/command_edge_cases-aedbb8911783d34c)
+     zjj:test | [1m[92m     Running[0m tests/e2e_mvp_commands.rs (/home/lewis/src/zjj/target/debug/deps/e2e_mvp_commands-3e424b10db5a020a)
+     zjj:test | [1m[92m     Running[0m tests/error_recovery.rs (/home/lewis/src/zjj/target/debug/deps/error_recovery-77799d5f541a2661)
+     zjj:test | [1m[92m     Running[0m tests/security_path_validation.rs (/home/lewis/src/zjj/target/debug/deps/security_path_validation-b20b80bdaed50d9a)
+     zjj:test | [1m[92m     Running[0m tests/test_cli_parsing.rs (/home/lewis/src/zjj/target/debug/deps/test_cli_parsing-fea6a19cee9306b4)
+     zjj:test | [1m[92m     Running[0m tests/test_error_display.rs (/home/lewis/src/zjj/target/debug/deps/test_error_display-212ef02cfe0d775d)
+     zjj:test | [1m[92m     Running[0m tests/test_error_scenarios.rs (/home/lewis/src/zjj/target/debug/deps/test_error_scenarios-06b4a0a1fb98f615)
+     zjj:test | [1m[92m     Running[0m tests/test_init.rs (/home/lewis/src/zjj/target/debug/deps/test_init-216f2d1b5d8d8194)
+     zjj:test | [1m[92m     Running[0m tests/test_json_error_output.rs (/home/lewis/src/zjj/target/debug/deps/test_json_error_output-0ca095bb13cd83e3)
+     zjj:test | [1m[92m     Running[0m tests/test_query_error_handling.rs (/home/lewis/src/zjj/target/debug/deps/test_query_error_handling-ecb70fb929544101)
+     zjj:test | [1m[92m     Running[0m tests/test_session_lifecycle.rs (/home/lewis/src/zjj/target/debug/deps/test_session_lifecycle-fd73577f95cd4e02)
+     zjj:test | [1m[92m     Running[0m tests/test_tty_detection.rs (/home/lewis/src/zjj/target/debug/deps/test_tty_detection-f09fbafa5a5d4da4)
+     zjj:test | [1m[92m     Running[0m unittests src/lib.rs (/home/lewis/src/zjj/target/debug/deps/zjj_core-cbfcc39a9a4b3c26)
+     zjj:test | [1m[92m   Doc-tests[0m zjj
+     zjj:test | [1m[92m   Doc-tests[0m zjj_core
+▪▪▪▪ zjj:test (cached, 4c60f7ca)
+
+Tasks: 6 completed (4 cached)
+ Time: 1s 45ms
+

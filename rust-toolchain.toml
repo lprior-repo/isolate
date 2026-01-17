@@ -1,0 +1,21 @@
+# ZJJ Rust Toolchain Configuration
+#
+# ZJJ REQUIRES Rust nightly due to:
+# - Dynamic log levels in tracing macros (telemetry.rs)
+# - Advanced type system features for error handling
+#
+# See docs/16_RUST_NIGHTLY.md for complete rationale and migration considerations.
+#
+# This file ensures consistent nightly usage across all environments.
+# When you run cargo/rustc in this directory, rustup automatically activates nightly.
+
+[toolchain]
+channel = "nightly-2025-12-15"
+# Pinned to a known-working nightly version (2025-12-15)
+# Latest nightly (2026-01-08+) broke dynamic log levels in tracing macros
+
+# Components
+components = ["rustfmt", "clippy", "rust-analyzer"]
+
+# Target support - add platforms as needed
+targets = ["x86_64-unknown-linux-gnu"]

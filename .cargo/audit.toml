@@ -1,0 +1,22 @@
+# Cargo Audit Configuration
+#
+# This file documents security advisories that have been reviewed and explicitly
+# accepted for this project.
+
+[advisories]
+# RUSTSEC-2023-0071: Marvin Attack in rsa crate
+#
+# Status: Accepted Risk
+# Reason: This vulnerability affects RSA PKCS#1 v1.5 decryption timing side-channels.
+#         - We only use SQLite (not MySQL) in jjz
+#         - The rsa crate is a transitive dependency via sqlx-mysql -> sqlx-macros-core
+#         - sqlx-macros unnecessarily pulls in MySQL dependencies even when unused
+#         - We perform no RSA operations in our codebase
+#         - No fixed version available as of 2026-01-16
+#
+# Mitigation: Monitor for updates to sqlx that remove this dependency from macros
+# Review Date: 2026-01-16
+# Next Review: When sqlx 0.9 is released
+ignore = [
+    "RUSTSEC-2023-0071",
+]

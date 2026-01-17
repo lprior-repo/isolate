@@ -1,0 +1,60 @@
+[package]
+name = "zjj"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ZJJ - JJ workspace + Zellij session manager"
+
+[lib]
+name = "zjj"
+path = "src/lib.rs"
+
+[[bin]]
+name = "jjz"
+path = "src/main.rs"
+
+[dependencies]
+zjj-core = { path = "../zjj-core" }
+clap = { version = "4.5", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions"] }
+clap_complete = "4.5"
+anyhow = { version = "1.0", default-features = false, features = ["std"] }
+im = "15.1"
+futures = "0.3"
+serde = { version = "1.0", features = ["derive"], default-features = false }
+serde_json = { version = "1.0", default-features = false }
+tokio = { version = "1", default-features = false, features = ["sync", "time", "rt", "rt-multi-thread", "macros"] }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "ansi"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "sqlite", "macros", "migrate"] }
+directories = "6"
+which = "7.0"
+ratatui = "0.30"
+crossterm = "0.27"
+toml = { version = "0.8", default-features = false, features = ["parse"] }
+toml_edit = { version = "0.22", default-features = false, features = ["parse"] }
+itertools = { version = "0.13", default-features = false, features = ["use_std"] }
+thiserror = "2.0.17"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+fs2 = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+toml = "0.8"
+serial_test = "3.2"
+criterion = { version = "0.5", features = ["html_reports"] }
+tokio-test = "0.4"
+
+[[bench]]
+name = "config_operations"
+harness = false
+
+[[bench]]
+name = "validation"
+harness = false
+
+[lints]
+workspace = true

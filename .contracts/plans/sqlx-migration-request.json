@@ -1,0 +1,20 @@
+{
+  "objective": "Migrate zjj-core beads module from rusqlite to sqlx with async/await patterns",
+  "context": {
+    "codebase": "Rust project zjj-core with existing beads.rs module (read-only query interface for .beads/beads.db SQLite database). Current implementation uses rusqlite (synchronous blocking). Already has db.rs using sqlx async for session management. Strict functional Rust enforced: zero unwraps, zero panics, forbid(unwrap_used, expect_used, panic). Moon build system required.",
+    "constraints": [
+      "Must maintain exact same API surface for pure functions (filter_issues, sort_issues, etc)",
+      "Cannot break existing call sites in watcher.rs, dashboard.rs, commands",
+      "Must pass moon run :quick (format + clippy)",
+      "Must pass moon run :test (all tests)",
+      "Zero unwraps/panics enforced by compiler lints",
+      "Read-only access to external .beads/beads.db (do not modify Beads system itself)"
+    ],
+    "existing_beads": []
+  },
+  "preferences": {
+    "max_bead_complexity": 3,
+    "preferred_strategy": "dependency_ordered",
+    "parallelization_priority": "high"
+  }
+}
