@@ -35,6 +35,9 @@ pub struct RemoveOutput {
     pub session: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operations: Option<Vec<RemoveOperation>>,
+    /// Bead ID that was closed via --close-bead flag
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub closed_bead: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
