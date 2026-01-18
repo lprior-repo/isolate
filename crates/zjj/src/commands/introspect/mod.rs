@@ -17,6 +17,7 @@ mod system_state;
 
 use anyhow::Result;
 use zjj_core::introspection::IntrospectOutput;
+use zjj_core::json::{SchemaEnvelope, SchemaType};
 
 use crate::commands::introspect::{
     command_specs::get_command_spec,
@@ -40,7 +41,8 @@ pub async fn run(json: bool) -> Result<()> {
     output.system_state = get_system_state().await;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        let envelope = SchemaEnvelope::new(SchemaType::Introspect, &output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         print_full_output(&output);
     }
@@ -63,7 +65,8 @@ pub async fn run_command_introspect(command: &str, json: bool) -> Result<()> {
     let introspection = get_command_spec(command).map_err(anyhow::Error::msg)?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&introspection)?);
+        let envelope = SchemaEnvelope::new(SchemaType::CommandSpec, &introspection);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         print_command_spec(&introspection);
     }
