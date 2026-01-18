@@ -53,7 +53,6 @@ pub fn extract_status_filter(filter: Option<&str>) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -107,5 +106,4 @@ mod tests {
         let result = extract_status_filter(None);
         assert_eq!(result, None);
     }
-
 }

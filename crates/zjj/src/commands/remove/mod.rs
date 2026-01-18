@@ -146,6 +146,7 @@ fn handle_cancellation(name: &str, json: bool) -> Result<()> {
             success: false,
             session: name.to_string(),
             operations: None,
+            closed_bead: None,
             message: Some("Removal cancelled".to_string()),
             error: None,
         };
@@ -163,6 +164,7 @@ fn output_success(name: &str, operations: Vec<RemoveOperation>, json: bool) -> R
             success: true,
             session: name.to_string(),
             operations: Some(operations),
+            closed_bead: None,
             message: None,
             error: None,
         };
@@ -179,6 +181,7 @@ fn output_json_error(name: &str, e: &anyhow::Error) -> ! {
         success: false,
         session: name.to_string(),
         operations: None,
+        closed_bead: None,
         message: None,
         error: Some(e.to_string()),
     };
