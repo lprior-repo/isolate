@@ -3,7 +3,7 @@
 ## Critical Rules
 
 ### Code Searching: Codanna Only
-**ABSOLUTE RULE: Use Codanna for ALL code and documentation searching. NEVER use bash grep, find, or native Claude search tools.**
+**ABSOLUTE RULE: Use Codanna for ALL code and documentation searching. FORBIDDEN: bash grep, find, Glob, Grep, and Read tools for code exploration.**
 
 Use only:
 - `mcp__codanna__semantic_search_with_context` - Find and understand symbols with full context
@@ -12,7 +12,19 @@ Use only:
 - `mcp__codanna__search_symbols` - Search symbols with filters
 - `mcp__codanna__analyze_impact` - Understand symbol dependencies
 
-No bash grep, no Glob, no Grep tool. Codanna is the source of truth.
+**FORBIDDEN TOOLS FOR CODE WORK:**
+- ❌ bash grep, find, awk, sed
+- ❌ Glob tool
+- ❌ Grep tool
+- ❌ Read tool for code exploration
+
+**Read tool may ONLY be used for:**
+- Reading CLAUDE.md or project documentation files
+- Reading configuration files (Cargo.toml, moon.yml, etc.)
+- Reading test data or examples
+- NOT for code file exploration or analysis
+
+Codanna is the authoritative source of truth for all code intelligence.
 
 ### NEVER Touch Clippy/Lint Configuration
 **ABSOLUTE RULE: DO NOT MODIFY clippy or linting configuration files. EVER.**
