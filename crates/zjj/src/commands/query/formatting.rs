@@ -1,17 +1,28 @@
 //! Result formatting and serialization for queries
 //!
 //! This module handles the formatting and output of query results to JSON,
-//! using serde for serialization.
+//! using serde for serialization. All query outputs include schema metadata.
 
 use anyhow::Result;
 use serde::Serialize;
+use zjj_core::json::{SchemaEnvelope, SchemaType};
 
-/// Format and output a serializable result as JSON
+/// Format and output a serializable result as JSON with schema metadata
 ///
 /// Converts any serializable value to pretty-printed JSON and outputs to stdout.
-/// This is a pure function that handles the formatting side effect.
+/// Wraps the result with schema metadata for validation support.
 pub fn output_json<T: Serialize>(result: &T) -> Result<()> {
-    println!("{}", serde_json::to_string_pretty(result)?);
+    let envelope = SchemaEnvelope::new(SchemaType::Query, result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
+    Ok(())
+}
+
+/// Output with a specific schema type
+///
+/// Used for query responses that have dedicated schema definitions.
+pub fn output_json_with_schema<T: Serialize>(result: &T, schema_type: SchemaType) -> Result<()> {
+    let envelope = SchemaEnvelope::new(schema_type, result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
     Ok(())
 }
 
