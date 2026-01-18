@@ -42,7 +42,9 @@ pub async fn run() -> anyhow::Result<()> {
 ///
 /// With --repair: Attempts to repair a corrupted database
 /// With --force: Forces reinitialization (creates backup first)
-pub async fn run_with_flags(repair: bool, force: bool) -> anyhow::Result<()> {
+pub async fn run_with_flags(repair: bool, force: bool, _json: bool) -> anyhow::Result<()> {
+    // Note: json flag accepted for API compatibility but currently unused
+    // TODO: Wire json output through init command pipeline
     run_with_cwd_and_flags(None, repair, force).await
 }
 

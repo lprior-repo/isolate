@@ -3,7 +3,7 @@
 use super::{
     command_specs::Prerequisites,
     doctor_types::{CheckStatus, DoctorCheck, DoctorOutput},
-    output_types::{Capabilities, CapabilityCategory, IntrospectOutput},
+    output_types::{Capabilities, CapabilityCategory, IntrospectOutput, SystemState},
     query_types::SuggestNameQuery,
 };
 use crate::{Error, Result};
@@ -18,7 +18,14 @@ impl IntrospectOutput {
             zjj_version: version_string,
             capabilities: Capabilities::default(),
             dependencies: HashMap::new(),
-            system_state: Default::default(),
+            system_state: SystemState {
+                initialized: false,
+                jj_repo: false,
+                config_path: None,
+                state_db: None,
+                sessions_count: 0,
+                active_sessions: 0,
+            },
         }
     }
 }

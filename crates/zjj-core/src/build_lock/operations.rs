@@ -179,6 +179,7 @@ impl BuildCoordinator {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(lock_path)
             .map_err(|e| {
                 LockContention::IoError(BuildLockError::LockFileOpenFailed {

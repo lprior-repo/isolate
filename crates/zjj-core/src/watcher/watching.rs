@@ -4,13 +4,10 @@
 //! events when changes are detected. Events are debounced to prevent
 //! excessive updates during bulk changes.
 
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{path::PathBuf, time::Duration};
 
 use notify::RecursiveMode;
-use notify_debouncer_mini::{new_debouncer, DebouncedEvent};
+use notify_debouncer_mini::new_debouncer;
 use tokio::sync::mpsc;
 
 use crate::{config::WatchConfig, Error, Result};

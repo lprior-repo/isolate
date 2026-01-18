@@ -3,7 +3,7 @@
 //! Pure functions for generating helpful hints based on error codes,
 //! providing context-aware solutions and next steps.
 
-use crate::hints::{Hint, HintType};
+use crate::hints::Hint;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ERROR CODE HINTS
@@ -18,7 +18,7 @@ fn extract_session_name(error_msg: &str, default: &str) -> String {
     error_msg
         .split('\'')
         .nth(1)
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
         .unwrap_or_else(|| default.to_string())
 }
 
@@ -126,6 +126,7 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hints::HintType;
 
     #[test]
     fn test_extract_session_name_with_quotes() {

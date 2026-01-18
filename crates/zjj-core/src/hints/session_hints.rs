@@ -6,7 +6,7 @@
 use chrono::Utc;
 
 use crate::{
-    hints::{Hint, HintType, SystemState},
+    hints::{Hint, SystemState},
     types::{BeadsSummary, SessionStatus},
     Result,
 };
@@ -65,6 +65,7 @@ pub(crate) fn hint_for_multiple_active_sessions() -> Hint {
 ///
 /// # Errors
 /// Returns error if unable to process sessions
+#[allow(clippy::unnecessary_wraps)]
 pub fn generate_session_hints(state: &SystemState) -> Result<Vec<Hint>> {
     // No sessions - encourage creation
     if state.sessions.is_empty() {
@@ -221,7 +222,7 @@ pub fn suggest_session_actions(state: &SystemState) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Session;
+    use crate::{hints::HintType, types::Session};
     use std::path::PathBuf;
 
     fn create_test_session(name: &str, status: SessionStatus) -> Session {

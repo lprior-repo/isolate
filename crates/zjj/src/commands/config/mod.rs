@@ -143,9 +143,11 @@ fn run_validate_internal(json: bool) -> Result<()> {
     }
 
     if json {
+        // Wrap in standard JSON response with success field
+        let response = zjj_core::json_response::JsonResponse::success(validation.clone());
         println!(
             "{}",
-            serde_json::to_string_pretty(&validation)
+            serde_json::to_string_pretty(&response)
                 .context("Failed to serialize validation result")?
         );
     } else {

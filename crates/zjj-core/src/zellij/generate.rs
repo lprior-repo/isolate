@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use super::config::LayoutConfig;
 use super::kdl;
-use crate::{Error, Result};
+use crate::Result;
 
 /// Generated layout information
 #[derive(Debug, Clone)]

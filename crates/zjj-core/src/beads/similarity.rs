@@ -64,7 +64,6 @@ pub fn find_potential_duplicates(
 #[allow(clippy::arithmetic_side_effects, clippy::redundant_clone)]
 mod tests {
     use chrono::Utc;
-    use im::vector;
 
     use super::*;
 

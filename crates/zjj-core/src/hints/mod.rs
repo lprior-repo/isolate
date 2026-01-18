@@ -127,15 +127,6 @@ pub struct SystemContext {
     pub has_changes: bool,
 }
 
-/// Error hint container for structured error suggestions
-#[derive(Debug, Clone)]
-pub(crate) struct ErrorHintParams {
-    /// Error code for classification
-    pub error_code: String,
-    /// Error message with context
-    pub error_msg: String,
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // HINT BUILDERS
 // ═══════════════════════════════════════════════════════════════════════════

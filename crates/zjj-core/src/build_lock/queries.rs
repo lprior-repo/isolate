@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use super::types::{BuildLockError, IoErrorKind};
+use super::types::BuildLockError;
 
 /// Validate timeout is non-zero.
 pub(super) fn validate_timeout(timeout: Duration) -> Result<(), BuildLockError> {

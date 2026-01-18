@@ -4,8 +4,7 @@
 
 #[cfg(test)]
 mod validation_tests {
-    use crate::config::{load_config, Config};
-    use crate::{Error, Result};
+    use crate::config::Config;
 
     // Test 6: Placeholder substitution
     #[test]

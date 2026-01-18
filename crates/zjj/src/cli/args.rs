@@ -1454,11 +1454,9 @@ pub fn cmd_query() -> Command {
              • zjj status     - Get detailed session status\n  \
              • zjj context    - Full environment context for AI",
         )
-        .arg(
-            Arg::new("query_type")
-                .required(true)
-                .help("Type of query: session-exists, session-count, can-run, suggest-name, validate-name"),
-        )
+        .arg(Arg::new("query_type").required(true).help(
+            "Type of query: session-exists, session-count, can-run, suggest-name, validate-name",
+        ))
         .arg(
             Arg::new("args")
                 .required(false)

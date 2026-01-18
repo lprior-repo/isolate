@@ -53,9 +53,6 @@ pub use builders::{FieldContractBuilder, TypeContractBuilder};
 pub use traits::HasContract;
 pub use types::{Constraint, ContextualHint, FieldContract, HintType, TypeContract};
 
-// Impl blocks re-exported via serialization module
-pub use serialization::*;
-
 /// Convenience method to create a TypeContract builder
 impl TypeContract {
     /// Create a builder for constructing contracts

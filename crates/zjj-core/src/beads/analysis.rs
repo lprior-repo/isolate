@@ -16,7 +16,7 @@
 use im::{HashMap, Vector};
 use itertools::Itertools;
 
-use super::types::{BeadIssue, IssueStatus};
+use super::types::BeadIssue;
 
 /// Find all issues that are blocking other issues
 ///
@@ -132,6 +132,8 @@ pub fn calculate_critical_path(issues: &[BeadIssue]) -> Vector<BeadIssue> {
         .collect()
 }
 
+#[cfg(test)]
+use super::types::IssueStatus;
 #[cfg(test)]
 use im::vector;
 

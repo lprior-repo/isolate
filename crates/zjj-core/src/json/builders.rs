@@ -78,10 +78,7 @@ impl From<ErrorCode> for JsonError {
 impl From<&crate::Error> for JsonError {
     #[allow(clippy::too_many_lines)]
     fn from(err: &crate::Error) -> Self {
-        use crate::{
-            error::execution::ExecutionError, error::system::SystemError,
-            error::validation::ValidationError, Error,
-        };
+        use crate::Error;
 
         let (code, message, suggestion) = match err {
             Error::Validation(v_err) => {

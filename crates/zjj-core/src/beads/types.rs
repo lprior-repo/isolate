@@ -138,7 +138,7 @@ impl<'de> Deserialize<'de> for Priority {
     {
         struct PriorityVisitor;
 
-        impl<'de> serde::de::Visitor<'de> for PriorityVisitor {
+        impl serde::de::Visitor<'_> for PriorityVisitor {
             type Value = Priority;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -278,17 +278,17 @@ impl BeadIssue {
     }
 
     #[must_use]
-    pub fn has_priority(&self) -> bool {
+    pub const fn has_priority(&self) -> bool {
         self.priority.is_some()
     }
 
     #[must_use]
-    pub fn has_description(&self) -> bool {
+    pub const fn has_description(&self) -> bool {
         self.description.is_some()
     }
 
     #[must_use]
-    pub fn has_assignee(&self) -> bool {
+    pub const fn has_assignee(&self) -> bool {
         self.assignee.is_some()
     }
 
