@@ -57,7 +57,7 @@ mod tests {
     use std::path::Path;
     use std::process::Command;
 
-    use anyhow::{Context, Result};
+    use anyhow::{bail, Context, Result};
     use tempfile::TempDir;
 
     use super::health::{check_database_health, DatabaseHealth};
