@@ -68,15 +68,18 @@ pub enum HookResult {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Executes lifecycle hooks based on configuration
-#[derive(Debug, Clone)]
-pub struct HookRunner {
-    config: HooksConfig,
+///
+/// Takes a reference to `HooksConfig` to avoid unnecessary cloning.
+/// The lifetime `'a` ties the runner to its configuration source.
+#[derive(Debug, Clone, Copy)]
+pub struct HookRunner<'a> {
+    config: &'a HooksConfig,
 }
 
-impl HookRunner {
-    /// Create a new hook runner with the given configuration
+impl<'a> HookRunner<'a> {
+    /// Create a new hook runner with a reference to the configuration
     #[must_use]
-    pub const fn new(config: HooksConfig) -> Self {
+    pub const fn new(config: &'a HooksConfig) -> Self {
         Self { config }
     }
 
@@ -221,7 +224,7 @@ mod tests {
     #[test]
     fn test_no_hooks_configured() -> Result<()> {
         let config = HooksConfig::default();
-        let runner = HookRunner::new(config);
+        let runner = HookRunner::new(&config);
         let workspace = create_test_workspace()?;
 
         let result = runner.run(HookType::PostCreate, workspace.path())?;
@@ -239,7 +242,7 @@ mod tests {
                 pre_remove: Vec::new(),
                 post_merge: Vec::new(),
             };
-            let runner = HookRunner::new(config);
+            let runner = HookRunner::new(&config);
             let workspace = create_test_workspace()?;
 
             let result = runner.run(HookType::PostCreate, workspace.path())?;
@@ -264,7 +267,7 @@ mod tests {
                 pre_remove: Vec::new(),
                 post_merge: Vec::new(),
             };
-            let runner = HookRunner::new(config);
+            let runner = HookRunner::new(&config);
             let workspace = create_test_workspace()?;
 
             let result = runner.run(HookType::PostCreate, workspace.path())?;
@@ -291,7 +294,7 @@ mod tests {
                 pre_remove: Vec::new(),
                 post_merge: Vec::new(),
             };
-            let runner = HookRunner::new(config);
+            let runner = HookRunner::new(&config);
             let workspace = create_test_workspace()?;
 
             let result = runner.run(HookType::PostCreate, workspace.path());
@@ -327,7 +330,7 @@ mod tests {
                 pre_remove: Vec::new(),
                 post_merge: Vec::new(),
             };
-            let runner = HookRunner::new(config);
+            let runner = HookRunner::new(&config);
             let workspace = create_test_workspace()?;
 
             let result = runner.run(HookType::PostCreate, workspace.path());
@@ -356,7 +359,7 @@ mod tests {
                 pre_remove: Vec::new(),
                 post_merge: Vec::new(),
             };
-            let runner = HookRunner::new(config);
+            let runner = HookRunner::new(&config);
             let workspace = create_test_workspace()?;
 
             let result = runner.run(HookType::PostCreate, workspace.path())?;
@@ -383,7 +386,7 @@ mod tests {
                 pre_remove: Vec::new(),
                 post_merge: Vec::new(),
             };
-            let runner = HookRunner::new(config);
+            let runner = HookRunner::new(&config);
             let workspace = create_test_workspace()?;
 
             let result = runner.run(HookType::PostCreate, workspace.path())?;
@@ -414,7 +417,7 @@ mod tests {
                 pre_remove: Vec::new(),
                 post_merge: Vec::new(),
             };
-            let runner = HookRunner::new(config);
+            let runner = HookRunner::new(&config);
 
             let result = runner.run(HookType::PostCreate, workspace.path())?;
 
@@ -439,7 +442,7 @@ mod tests {
                 pre_remove: vec!["echo 'pre_remove'".to_string()],
                 post_merge: vec!["echo 'post_merge'".to_string()],
             };
-            let runner = HookRunner::new(config);
+            let runner = HookRunner::new(&config);
             let workspace = create_test_workspace()?;
 
             // Test post_create
@@ -532,7 +535,7 @@ mod tests {
             pre_remove: Vec::new(),
             post_merge: Vec::new(),
         };
-        let runner = HookRunner::new(config);
+        let runner = HookRunner::new(&config);
         let workspace = create_test_workspace()?;
 
         let result = runner.run(HookType::PostCreate, workspace.path());

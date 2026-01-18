@@ -1,6 +1,39 @@
 //! Type definitions for list command data module
 
 use serde::Serialize;
+use zjj_core::json::{SchemaEnvelope, SchemaType};
+
+/// JSON response wrapper for list command
+///
+/// Provides metadata alongside the sessions array for AI parsing and tooling.
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionListResponse {
+    /// Number of sessions in the response
+    pub count: usize,
+    /// Applied filter description (null if no filter)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter: Option<String>,
+    /// The sessions matching the query
+    pub sessions: Vec<SessionListItem>,
+}
+
+impl SessionListResponse {
+    /// Create a new response from sessions and optional filter
+    #[must_use]
+    pub fn new(sessions: Vec<SessionListItem>, filter: Option<String>) -> Self {
+        Self {
+            count: sessions.len(),
+            filter,
+            sessions,
+        }
+    }
+
+    /// Wrap this response with schema metadata for JSON output
+    #[must_use]
+    pub fn with_schema(self) -> SchemaEnvelope<Self> {
+        SchemaEnvelope::new(SchemaType::List, self)
+    }
+}
 
 /// Enhanced session information for list output
 #[derive(Debug, Clone, Serialize)]
@@ -59,6 +92,33 @@ pub struct ListFilter {
     pub with_beads: bool,
     /// Show only sessions with agents
     pub with_agents: bool,
+}
+
+impl ListFilter {
+    /// Returns a description of the applied filters, or None if no filters are set
+    #[must_use]
+    pub fn description(&self) -> Option<String> {
+        let mut parts = Vec::new();
+
+        if let Some(ref id) = self.bead_id {
+            parts.push(format!("bead_id={id}"));
+        }
+        if let Some(ref id) = self.agent_id {
+            parts.push(format!("agent_id={id}"));
+        }
+        if self.with_beads {
+            parts.push("with_beads".to_string());
+        }
+        if self.with_agents {
+            parts.push("with_agents".to_string());
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join(", "))
+        }
+    }
 }
 
 /// Beads issue counts

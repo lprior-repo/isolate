@@ -69,7 +69,7 @@ pub async fn create_session(
 
     // Step 5: Run post_create hooks (unless --no-hooks)
     if !options.no_hooks {
-        let hook_runner = HookRunner::new(config.hooks.clone());
+        let hook_runner = HookRunner::new(&config.hooks);
         hook_runner.run(HookType::PostCreate, workspace_path).ok(); // Hooks are optional, don't
                                                                     // fail on hook errors
     }
