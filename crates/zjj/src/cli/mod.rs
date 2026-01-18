@@ -13,7 +13,7 @@ use std::{io::IsTerminal, process::Command};
 
 use anyhow::{Context, Result};
 // Re-export error formatting functions for backward compatibility
-pub use error::{format_error, get_exit_code, output_json_error};
+pub use error::{classify_error_code, format_error, get_exit_code, output_json_error};
 // Re-export output formatting functions
 pub use output::output_help_json;
 

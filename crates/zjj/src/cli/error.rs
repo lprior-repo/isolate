@@ -69,6 +69,79 @@ pub fn get_exit_code(err: &anyhow::Error) -> i32 {
     2
 }
 
+/// Classify an error into a semantic error code string
+///
+/// Maps errors to specific semantic codes for AI parsing and tooling.
+/// Tries to downcast to `zjj_core::Error` for precise classification,
+/// falls back to exit-code-based classification.
+///
+/// # Error Codes
+/// * `VALIDATION_ERROR` - User input validation failures
+/// * `NOT_FOUND` - Resource not found (session, file, etc.)
+/// * `DATABASE_ERROR` - Database access or query failures
+/// * `IO_ERROR` - File system or I/O errors
+/// * `PERMISSION_ERROR` - Permission denied errors
+/// * `COMMAND_ERROR` - External command failures
+/// * `HOOK_FAILED` - Hook execution failures
+/// * `DEPENDENCY_ERROR` - Missing dependency (jj, zellij)
+/// * `INVALID_STATE` - Invalid state transitions
+/// * `SYSTEM_ERROR` - Generic system errors (fallback)
+#[must_use]
+pub fn classify_error_code(err: &anyhow::Error) -> &'static str {
+    // Try to downcast to zjj_core::Error for precise classification
+    if let Some(core_err) = err.downcast_ref::<zjj_core::Error>() {
+        return match core_err {
+            zjj_core::Error::Validation(_) => "VALIDATION_ERROR",
+            zjj_core::Error::System(sys_err) => classify_system_error(sys_err),
+            zjj_core::Error::Execution(exec_err) => classify_execution_error(exec_err),
+            zjj_core::Error::Unknown(_) => "SYSTEM_ERROR",
+        };
+    }
+
+    // Check for IO errors
+    if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
+        return classify_io_error(io_err);
+    }
+
+    // Fallback based on exit code
+    match get_exit_code(err) {
+        1 => "VALIDATION_ERROR",
+        3 => "NOT_FOUND",
+        4 => "DATABASE_ERROR",
+        _ => "SYSTEM_ERROR",
+    }
+}
+
+/// Classify system errors
+fn classify_system_error(err: &zjj_core::error::SystemError) -> &'static str {
+    match err {
+        zjj_core::error::SystemError::Io(_) => "IO_ERROR",
+        zjj_core::error::SystemError::Command(_) => "COMMAND_ERROR",
+        zjj_core::error::SystemError::HookFailed { .. } => "HOOK_FAILED",
+        zjj_core::error::SystemError::HookExecution(_) => "HOOK_FAILED",
+        zjj_core::error::SystemError::JjNotInstalled => "DEPENDENCY_ERROR",
+        zjj_core::error::SystemError::JjCommandFailed(_) => "COMMAND_ERROR",
+    }
+}
+
+/// Classify execution errors
+fn classify_execution_error(err: &zjj_core::error::ExecutionError) -> &'static str {
+    match err {
+        zjj_core::error::ExecutionError::Database(_) => "DATABASE_ERROR",
+        zjj_core::error::ExecutionError::NotFound(_) => "NOT_FOUND",
+        zjj_core::error::ExecutionError::InvalidState(_) => "INVALID_STATE",
+    }
+}
+
+/// Classify IO errors
+fn classify_io_error(err: &std::io::Error) -> &'static str {
+    match err.kind() {
+        std::io::ErrorKind::NotFound => "NOT_FOUND",
+        std::io::ErrorKind::PermissionDenied => "PERMISSION_ERROR",
+        _ => "IO_ERROR",
+    }
+}
+
 /// Output error in JSON format
 ///
 /// Serializes the error to JSON and outputs it to stdout.

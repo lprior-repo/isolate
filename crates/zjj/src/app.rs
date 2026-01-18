@@ -155,7 +155,8 @@ pub fn run(config: &setup::SetupConfig) -> ! {
             let error_msg = crate::cli::format_error(&err);
             let exit_code = crate::cli::get_exit_code(&err);
             if config.json_mode {
-                crate::cli::output_json_error("ERROR", &error_msg, None);
+                let error_code = crate::cli::classify_error_code(&err);
+                crate::cli::output_json_error(error_code, &error_msg, None);
             } else {
                 eprintln!("Error: {error_msg}");
             }
