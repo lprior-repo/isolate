@@ -112,9 +112,10 @@ async fn run_remove_impl(name: &str, options: &RemoveOptions) -> Result<()> {
 ///
 /// Operation order matters for atomicity (zjj-gmk):
 /// 1. Close Zellij tab (optional, can fail gracefully)
-/// 2. Remove workspace directory (fail fast if filesystem issues)
-/// 3. Forget JJ workspace (only after directory is gone)
-/// 4. Delete database entry (final step after all resources cleaned)
+/// 2. Remove layout file (optional, can fail gracefully)
+/// 3. Remove workspace directory (fail fast if filesystem issues)
+/// 4. Forget JJ workspace (only after directory is gone)
+/// 5. Delete database entry (final step after all resources cleaned)
 ///
 /// This function uses Railway-Oriented Programming: each fallible step returns
 /// `Result`, and the entire pipeline short-circuits on first error using `?`.
@@ -126,17 +127,24 @@ async fn execute_removal_operations(
     // Step 1: Close Zellij tab if inside Zellij (optional)
     let zellij_op = operations::close_zellij_tab_if_present(&session.zellij_tab);
 
-    // Steps 2-4: Execute required operations, collecting into Result<Vec<_>>
+    // Step 2: Remove layout file (optional - doesn't fail if missing)
+    let layout_op = operations::remove_layout_file(session)?;
+
+    // Steps 3-5: Execute required operations, collecting into Result<Vec<_>>
     // Each operation returns Result<RemoveOperation>, so we chain with `?`
     let required_ops = [
-        operations::remove_workspace_directory(session)?, // Step 2
-        operations::forget_jj_workspace(name)?,           // Step 3
-        operations::delete_database_entry(db, name, session.id).await?, // Step 4
+        operations::remove_workspace_directory(session)?, // Step 3
+        operations::forget_jj_workspace(name)?,           // Step 4
+        operations::delete_database_entry(db, name, session.id).await?, // Step 5
     ];
 
-    // Combine optional Zellij operation with required operations
-    // Filter + chain pattern: include Zellij op only if Some, then chain required ops
-    Ok(zellij_op.into_iter().chain(required_ops).collect())
+    // Combine optional operations with required operations
+    // Filter + chain pattern: include optional ops only if Some, then chain required ops
+    Ok(zellij_op
+        .into_iter()
+        .chain(layout_op)
+        .chain(required_ops)
+        .collect())
 }
 
 /// Handle user cancellation

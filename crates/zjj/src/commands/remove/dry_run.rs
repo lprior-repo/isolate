@@ -63,17 +63,35 @@ pub fn build_plan(
         builder
     };
 
-    // Step 4: Remove workspace directory
+    // Step 4: Remove layout file (derived from workspace path)
+    let layout_path = Path::new(&session.workspace_path)
+        .parent()
+        .map(|p| p.join("layouts").join(format!("{name}.kdl")));
+    let builder = if let Some(ref path) = layout_path {
+        if path.exists() {
+            builder.add_operation(
+                "remove_layout_file".to_string(),
+                format!("Remove Zellij layout file '{}'", path.display()),
+                Some(path.display().to_string()),
+            )
+        } else {
+            builder
+        }
+    } else {
+        builder
+    };
+
+    // Step 5: Remove workspace directory
     let builder = add_workspace_removal(builder, workspace_exists, &session.workspace_path);
 
-    // Step 5: Forget JJ workspace
+    // Step 6: Forget JJ workspace
     let builder = builder.add_operation(
         "forget_jj_workspace".to_string(),
         format!("Remove JJ workspace registration for '{name}'"),
         Some(name.to_string()),
     );
 
-    // Step 6: Delete database entry
+    // Step 7: Delete database entry
     let builder = builder.add_operation(
         "delete_db_entry".to_string(),
         format!("Remove session '{name}' from database (id: {session_id})"),

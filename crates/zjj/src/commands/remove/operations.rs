@@ -1,6 +1,6 @@
 //! Core removal operations for cleanup
 
-use std::fs;
+use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
 
@@ -104,4 +104,48 @@ fn close_zellij_tab(tab_name: &str) -> Result<()> {
     // Then close it
     run_command("zellij", &["action", "close-tab"])?;
     Ok(())
+}
+
+/// Remove session layout file from the layouts directory
+///
+/// Layout files are stored at `{workspace_dir}/layouts/{session_name}.kdl`.
+/// This function computes the path from the session's workspace_path and removes the file.
+///
+/// # Railway Pattern
+/// - Returns `Ok(Some(RemoveOperation))` if file was removed
+/// - Returns `Ok(None)` if file didn't exist (not an error)
+/// - Returns `Err` only on actual filesystem errors (permissions, etc.)
+pub fn remove_layout_file(session: &Session) -> Result<Option<RemoveOperation>> {
+    // Derive layout path from workspace path: {workspace_dir}/{session_name} -> {workspace_dir}/layouts/{session_name}.kdl
+    let workspace_path = Path::new(&session.workspace_path);
+    let layout_path = workspace_path
+        .parent()
+        .map(|parent| parent.join("layouts").join(format!("{}.kdl", session.name)));
+
+    // Use Option combinators to handle the path derivation
+    let Some(layout_file) = layout_path else {
+        // Couldn't derive parent directory - no layout to remove
+        return Ok(None);
+    };
+
+    // Remove layout file if it exists
+    match fs::remove_file(&layout_file) {
+        Ok(()) => Ok(Some(RemoveOperation {
+            action: "removed_layout_file".to_string(),
+            path: Some(layout_file.display().to_string()),
+            id: None,
+            tab: None,
+        })),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // File already gone - that's fine, not an error
+            Ok(None)
+        }
+        Err(e) => Err(e).with_context(|| {
+            format!(
+                "Failed to remove layout file: {}\n\
+                 This is non-critical - the session was removed but the layout file remains.",
+                layout_file.display()
+            )
+        }),
+    }
 }
