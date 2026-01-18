@@ -9,7 +9,7 @@
 //! - **State Transitions**: Navigation methods that modify selection state
 //! - **Event Handling**: Dialog show/hide methods
 
-use std::{path::Path, time::Instant};
+use std::{path::Path, sync::Arc, time::Instant};
 
 use anyhow::{Context, Result};
 use zjj_core::watcher::{query_beads_status, BeadsStatus};
@@ -220,7 +220,7 @@ async fn enrich_session_with_metadata(session: crate::session::Session) -> Sessi
         .unwrap_or(BeadsStatus::NoBeads);
 
     SessionData {
-        session,
+        session: Arc::new(session),
         changes,
         beads,
     }

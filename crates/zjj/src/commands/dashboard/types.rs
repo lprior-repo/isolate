@@ -3,6 +3,7 @@
 //! Contains all core types used throughout the dashboard module,
 //! including session data, app state, and dialog types.
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use zjj_core::watcher::BeadsStatus;
@@ -10,9 +11,14 @@ use zjj_core::watcher::BeadsStatus;
 use crate::session::Session;
 
 /// Session data enriched with JJ changes and beads counts
+///
+/// Uses `Arc<Session>` for cheap cloning during dashboard operations.
+/// The dashboard frequently passes session data around for rendering
+/// and event handling, making Arc-based sharing more efficient than
+/// deep cloning the entire Session struct.
 #[derive(Debug, Clone)]
 pub struct SessionData {
-    pub session: Session,
+    pub session: Arc<Session>,
     pub changes: Option<usize>,
     pub beads: BeadsStatus,
 }
