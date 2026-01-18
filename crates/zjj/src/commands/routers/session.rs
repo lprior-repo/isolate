@@ -41,6 +41,7 @@ async fn handle_add_cmd(sub_m: &clap::ArgMatches) -> Result<()> {
         json: sub_m.get_flag("json"),
         dry_run: sub_m.get_flag("dry-run"),
         bead: sub_m.get_one::<String>("bead").cloned(),
+        revision: sub_m.get_one::<String>("revision").cloned(),
     };
     add::run_with_options(&options).await
 }

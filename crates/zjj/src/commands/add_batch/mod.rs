@@ -131,6 +131,7 @@ async fn create_sessions_batch(
             json: true,               // Always get structured output
             dry_run: false,
             bead: Some(bead.id.clone()),
+            revision: None, // Batch creation uses default revision
         };
 
         match create_single_session(&add_options).await {

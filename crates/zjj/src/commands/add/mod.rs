@@ -32,6 +32,8 @@ pub struct AddOptions {
     pub json: bool,
     pub dry_run: bool,
     pub bead: Option<String>,
+    /// Starting revision for the workspace (for parallel agent isolation)
+    pub revision: Option<String>,
 }
 
 /// Run add command with default options (called by dashboard)
@@ -47,6 +49,7 @@ pub async fn run(name: &str) -> Result<()> {
         json: false,
         dry_run: false,
         bead: None,
+        revision: None,
     })
     .await
 }

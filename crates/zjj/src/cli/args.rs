@@ -195,6 +195,13 @@ pub fn cmd_add() -> Command {
                 .value_name("BEAD_ID")
                 .help("Create session from bead ID (auto-pulls spec and updates status)"),
         )
+        .arg(
+            Arg::new("revision")
+                .short('r')
+                .long("revision")
+                .value_name("REVISION")
+                .help("Start workspace at specific revision (for parallel agent isolation)"),
+        )
         .after_help(
             "EXAMPLES:\n  \
              # Standard workflow - create and open session\n  \

@@ -47,13 +47,20 @@ pub async fn create_session(
     // Step 2: Acquire workspace lock for safety
     let _lock = security::acquire_workspace_lock(workspace_path_str)?;
 
-    // Step 3: Create JJ workspace
-    jj::workspace_create(name, workspace_path)
+    // Step 3: Create JJ workspace (optionally at a specific revision for agent isolation)
+    let workspace_result = options
+        .revision
+        .as_ref()
+        .map_or_else(
+            || jj::workspace_create(name, workspace_path),
+            |rev| jj::workspace_create_at_revision(name, workspace_path, rev),
+        )
         .context("Failed to create JJ workspace")
         .inspect_err(|_e| {
             // Cleanup database entry on failure
             let _ = futures::executor::block_on(db.delete(name));
-        })?;
+        });
+    workspace_result?;
 
     // Step 4: Generate Zellij layout
     let layout_dir = repo_root.join(&config.workspace_dir).join("layouts");
