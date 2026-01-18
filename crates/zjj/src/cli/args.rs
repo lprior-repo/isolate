@@ -22,7 +22,7 @@ pub fn cmd_init() -> Command {
              \n\
              WHEN TO USE:\n\
              • First time using zjj in a repository (REQUIRED)\n  \
-             • After cloning a repository that uses jjz\n  \
+             • After cloning a repository that uses zjj\n  \
              • When database is corrupted (with --repair)\n  \
              • To reset all session data (with --force)\n\
              \n\
@@ -632,7 +632,7 @@ pub fn cmd_focus() -> Command {
              zjj focus feature-x --json\n\
              \n  \
              # Full workflow: Find and switch to a session\n  \
-             SESSION=$(jjz list --json | jq -r '.[] | select(.name | contains(\"auth\")) | .name' | head -1)\n  \
+             SESSION=$(zjj list --json | jq -r '.[] | select(.name | contains(\"auth\")) | .name' | head -1)\n  \
              zjj focus \"$SESSION\" --json\n\
              \n\
              WORKFLOW CONTEXT FOR AI:\n  \
@@ -726,7 +726,7 @@ pub fn cmd_status() -> Command {
              zjj status feature-x --json | jq '.sync_status'\n\
              \n  \
              # Get workspace path for direct operations\n  \
-             WORKSPACE=$(jjz status feature-x --json | jq -r '.workspace_path')\n  \
+             WORKSPACE=$(zjj status feature-x --json | jq -r '.workspace_path')\n  \
              cd \"$WORKSPACE\" && jj log\n\
              \n\
              WORKFLOW CONTEXT FOR AI:\n  \
@@ -824,7 +824,7 @@ pub fn cmd_sync() -> Command {
              zjj sync feature-x --json\n\
              \n  \
              # Full workflow: Conditional sync based on status\n  \
-             NEEDS_SYNC=$(jjz status feature-x --json | jq -r '.sync_status.needs_sync')\n  \
+             NEEDS_SYNC=$(zjj status feature-x --json | jq -r '.sync_status.needs_sync')\n  \
              if [ \"$NEEDS_SYNC\" = \"true\" ]; then\n    \
                zjj sync feature-x --json\n  \
              fi\n\
@@ -918,7 +918,7 @@ pub fn cmd_diff() -> Command {
              zjj diff feature-x --stat --json | jq '{files: .files_changed, insertions, deletions}'\n\
              \n  \
              # Check if session has changes\n  \
-             CHANGES=$(jjz diff feature-x --stat --json | jq '.files_changed')\n  \
+             CHANGES=$(zjj diff feature-x --stat --json | jq '.files_changed')\n  \
              if [ \"$CHANGES\" -gt 0 ]; then\n    \
                echo \"Session has $CHANGES file(s) changed\"\n  \
              fi\n\
@@ -953,7 +953,7 @@ pub fn cmd_config() -> Command {
              \n\
              CONFIGURATION SCOPES:\n\
              • Project: .zjj/config.toml (default)\n  \
-             • Global: ~/.config/jjz/config.toml (with --global)\n\
+             • Global: ~/.config/zjj/config.toml (with --global)\n\
              \n\
              COMMON SETTINGS:\n\
              • workspace_dir: Where JJ workspaces are created\n  \
@@ -1114,7 +1114,7 @@ pub fn cmd_context() -> Command {
              zjj context --json > environment.json\n\
              \n  \
              # Check if inside a session workspace\n  \
-             CURRENT_SESSION=$(jjz context --json | jq -r '.current_session.name // \"none\"')\n  \
+             CURRENT_SESSION=$(zjj context --json | jq -r '.current_session.name // \"none\"')\n  \
              if [ \"$CURRENT_SESSION\" != \"none\" ]; then\n    \
                echo \"Working in session: $CURRENT_SESSION\"\n  \
              fi\n\
@@ -1127,7 +1127,7 @@ pub fn cmd_context() -> Command {
              zjj context --json | jq '{session_count: (.sessions | length), healthy: .system_health.healthy}'\n\
              \n  \
              # Check prerequisites before operation\n  \
-             INSIDE_ZELLIJ=$(jjz context --json | jq '.environment.inside_zellij')\n  \
+             INSIDE_ZELLIJ=$(zjj context --json | jq '.environment.inside_zellij')\n  \
              if [ \"$INSIDE_ZELLIJ\" = \"false\" ]; then\n    \
                echo \"Not inside Zellij - cannot create sessions with UI\"\n  \
              fi\n\
@@ -1288,7 +1288,7 @@ pub fn cmd_introspect() -> Command {
              zjj introspect --json | jq '.commands[] | select(.category == \"Session Lifecycle\")'\n\
              \n  \
              # Build dynamic help system\n  \
-             for cmd in $(jjz introspect --json | jq -r '.commands[].name'); do\n    \
+             for cmd in $(zjj introspect --json | jq -r '.commands[].name'); do\n    \
                echo \"Command: $cmd\"\n    \
                zjj introspect \"$cmd\" --json | jq -r '.description'\n  \
              done\n\
@@ -1364,11 +1364,11 @@ pub fn cmd_completions() -> Command {
         .after_help(
             "Examples:\n  \
              # Generate bash completions\n  \
-             zjj completions bash > ~/.local/share/bash-completion/completions/jjz\n\n  \
+             zjj completions bash > ~/.local/share/bash-completion/completions/zjj\n\n  \
              # Generate with installation instructions\n  \
              zjj completions zsh --instructions\n\n  \
              # Fish completions\n  \
-             zjj completions fish > ~/.config/fish/completions/jjz.fish",
+             zjj completions fish > ~/.config/fish/completions/zjj.fish",
         )
 }
 
@@ -1377,7 +1377,7 @@ pub fn cmd_backup() -> Command {
         .about("Create a backup of the session database")
         .arg(
             Arg::new("path")
-                .help("Backup file path (default: .zjj/backups/jjz-backup-<timestamp>.json)"),
+                .help("Backup file path (default: .zjj/backups/zjj-backup-<timestamp>.json)"),
         )
         .arg(
             Arg::new("json")
@@ -1390,7 +1390,7 @@ pub fn cmd_backup() -> Command {
              # Create backup with auto-generated filename\n  \
              zjj backup\n\n  \
              # Create backup at specific path\n  \
-             zjj backup ~/backups/jjz-sessions.json\n\n  \
+             zjj backup ~/backups/zjj-sessions.json\n\n  \
              # JSON output for scripting\n  \
              zjj backup --json",
         )
@@ -1420,7 +1420,7 @@ pub fn cmd_restore() -> Command {
         .after_help(
             "Examples:\n  \
              # Restore from backup (with confirmation)\n  \
-             zjj restore ~/backups/jjz-sessions.json\n\n  \
+             zjj restore ~/backups/zjj-sessions.json\n\n  \
              # Restore without confirmation (DANGEROUS)\n  \
              zjj restore backup.json --force\n\n\
              WARNING: This command will REPLACE ALL existing session data!",
@@ -1497,7 +1497,7 @@ pub fn cmd_essentials() -> Command {
              zjj essentials --json\n\
              \n\
              TYPICAL USE CASE:\n  \
-             New to jjz? Run this first to see the core workflow.\n  \
+             New to zjj? Run this first to see the core workflow.\n  \
              Forgot a command? Run this for a quick reminder.\n\
              \n\
              FOR AI AGENTS:\n  \
