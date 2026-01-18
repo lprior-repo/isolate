@@ -194,8 +194,8 @@ fn output_json_error(name: &str, e: &anyhow::Error) -> ! {
         error: Some(zjj_core::json::ErrorDetail {
             code: "COMMAND_ERROR".to_string(),
             message: e.to_string(),
-            field: None,
             details: None,
+            suggestion: None,
         }),
     };
     if let Ok(json_str) = serde_json::to_string(&output) {
