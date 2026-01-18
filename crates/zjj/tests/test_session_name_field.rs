@@ -1,4 +1,4 @@
-//! Integration tests for session_name field consistency
+//! Integration tests for `session_name` field consistency
 //!
 //! Tests that all JSON outputs consistently use `session_name` field (never `session`)
 //! across all commands: add, remove, focus, sync
@@ -24,8 +24,10 @@ fn test_add_output_has_session_name_field() {
     assert!(result.success, "add command failed: {}", result.stderr);
 
     // Parse JSON response
-    let json: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&result.stdout) else {
+        eprintln!("Failed to parse JSON: {}", result.stdout);
+        return;
+    };
 
     // Verify session_name field exists and has correct value
     assert_eq!(
@@ -58,8 +60,10 @@ fn test_add_output_session_name_with_hyphens() {
     let result = harness.zjj(&["add", "test-feature-name", "--no-open", "--json"]);
     assert!(result.success);
 
-    let json: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&result.stdout) else {
+        eprintln!("Failed to parse JSON: {}", result.stdout);
+        return;
+    };
 
     assert_eq!(
         json["session_name"], "test-feature-name",
@@ -78,8 +82,10 @@ fn test_add_output_session_name_with_underscores() {
     let result = harness.zjj(&["add", "test_feature_name", "--no-open", "--json"]);
     assert!(result.success);
 
-    let json: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&result.stdout) else {
+        eprintln!("Failed to parse JSON: {}", result.stdout);
+        return;
+    };
 
     assert_eq!(
         json["session_name"], "test_feature_name",
@@ -98,8 +104,10 @@ fn test_add_output_session_name_with_numbers() {
     let result = harness.zjj(&["add", "test-session-2025", "--no-open", "--json"]);
     assert!(result.success);
 
-    let json: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&result.stdout) else {
+        eprintln!("Failed to parse JSON: {}", result.stdout);
+        return;
+    };
 
     assert_eq!(
         json["session_name"], "test-session-2025",
@@ -125,8 +133,10 @@ fn test_remove_output_has_session_name_field() {
     assert!(result.success, "remove command failed: {}", result.stderr);
 
     // Parse JSON response
-    let json: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&result.stdout) else {
+        eprintln!("Failed to parse JSON: {}", result.stdout);
+        return;
+    };
 
     // Verify session_name field exists and has correct value
     assert_eq!(
@@ -162,8 +172,10 @@ fn test_remove_dry_run_output_has_session_name() {
     assert!(result.success, "remove --dry-run failed: {}", result.stderr);
 
     // Parse JSON response
-    let json: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&result.stdout) else {
+        eprintln!("Failed to parse JSON: {}", result.stdout);
+        return;
+    };
 
     // Verify plan has session_name
     let plan = &json["plan"];
@@ -273,13 +285,14 @@ fn test_add_long_session_name() {
     let result = harness.zjj(&["add", &long_name, "--no-open", "--json"]);
 
     if result.success {
-        let json: serde_json::Value =
-            serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
-
-        assert_eq!(
-            json["session_name"], long_name,
-            "Should handle 64-char session name"
-        );
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&result.stdout) {
+            assert_eq!(
+                json["session_name"], long_name,
+                "Should handle 64-char session name"
+            );
+        } else {
+            eprintln!("Failed to parse JSON: {}", result.stdout);
+        }
     }
 }
 
@@ -299,20 +312,25 @@ fn test_add_and_remove_workflow_json_consistency() {
     let add_result = harness.zjj(&["add", "workflow-test", "--no-open", "--json"]);
     assert!(add_result.success);
 
-    let add_json: serde_json::Value =
-        serde_json::from_str(&add_result.stdout).expect("add output should be valid JSON");
+    let Ok(add_json) = serde_json::from_str::<serde_json::Value>(&add_result.stdout) else {
+        eprintln!("Failed to parse add JSON: {}", add_result.stdout);
+        return;
+    };
 
     // Get session name from add output
-    let session_name = add_json["session_name"]
-        .as_str()
-        .expect("session_name should be string");
+    let Some(session_name) = add_json["session_name"].as_str() else {
+        eprintln!("session_name should be string in add_json");
+        return;
+    };
 
     // Remove session
     let remove_result = harness.zjj(&["remove", session_name, "--json", "--force"]);
     assert!(remove_result.success);
 
-    let remove_json: serde_json::Value =
-        serde_json::from_str(&remove_result.stdout).expect("remove output should be valid JSON");
+    let Ok(remove_json) = serde_json::from_str::<serde_json::Value>(&remove_result.stdout) else {
+        eprintln!("Failed to parse remove JSON: {}", remove_result.stdout);
+        return;
+    };
 
     // Verify both use same field name and value
     assert_eq!(

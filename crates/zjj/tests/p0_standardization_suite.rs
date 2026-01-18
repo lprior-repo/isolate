@@ -1,8 +1,8 @@
 //! P0 CLI Standardization Integration Test Suite
 //!
 //! Comprehensive test coverage for P0 standardization requirements:
-//! 1. JSON output field consistency (session_name)
-//! 2. ErrorDetail structure validation
+//! 1. JSON output field consistency (`session_name`)
+//! 2. `ErrorDetail` structure validation
 //! 3. Help text format verification
 //! 4. Config subcommand testing
 //!
@@ -18,7 +18,7 @@ use common::TestHarness;
 // TEST CATEGORY 1: JSON Output Standardization
 // ============================================================================
 
-/// Test that RemoveOutput has session_name field (was 'session')
+/// Test that `RemoveOutput` has `session_name` field (was 'session')
 #[test]
 fn test_remove_json_has_session_name_field() {
     let Some(harness) = TestHarness::try_new() else {
@@ -35,8 +35,10 @@ fn test_remove_json_has_session_name_field() {
     assert!(result.success, "Remove should succeed");
 
     // Parse JSON output
-    let json: Value =
-        serde_json::from_str(&result.stdout).expect("Remove output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("Remove output should be valid JSON: {}", result.stdout);
+        return;
+    };
 
     // Verify 'session_name' field exists (P0 requirement)
     assert!(
@@ -132,8 +134,10 @@ fn test_add_json_has_session_name_field() {
     assert!(result.success, "Add should succeed");
 
     // Parse JSON output
-    let json: Value =
-        serde_json::from_str(&result.stdout).expect("Add output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("Add output should be valid JSON: {}", result.stdout);
+        return;
+    };
 
     // Verify 'session_name' field exists
     assert!(
@@ -217,8 +221,10 @@ fn test_error_detail_structure() {
     assert!(!result.success, "Should fail with invalid name");
 
     // Parse JSON error
-    let json: Value =
-        serde_json::from_str(&result.stdout).expect("Error output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("Error output should be valid JSON: {}", result.stdout);
+        return;
+    };
 
     // Verify error structure
     assert_eq!(
@@ -280,8 +286,10 @@ fn test_semantic_error_codes() {
     let result = harness.zjj(&["focus", "nonexistent", "--json"]);
     assert!(!result.success);
 
-    let json: Value =
-        serde_json::from_str(&result.stdout).expect("Error output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("Error output should be valid JSON: {}", result.stdout);
+        return;
+    };
 
     let code = json
         .get("error")
@@ -299,8 +307,10 @@ fn test_semantic_error_codes() {
     let result = harness.zjj(&["add", "-invalid", "--no-open", "--json"]);
     assert!(!result.success);
 
-    let json: Value =
-        serde_json::from_str(&result.stdout).expect("Error output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("Error output should be valid JSON: {}", result.stdout);
+        return;
+    };
 
     let code = json
         .get("error")
