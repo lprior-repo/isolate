@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_parse_workspace_list() {
-        let output = "default: /home/user/repo\nfeature: /home/user/repo/.jjz/workspaces/feature\nstale-ws: /home/user/old (stale)";
+        let output = "default: /home/user/repo\nfeature: /home/user/repo/.zjj/workspaces/feature\nstale-ws: /home/user/old (stale)";
         let result = parse_workspace_list(output);
         assert!(result.is_ok());
 

@@ -12,7 +12,7 @@ mod loading_tests {
     // Test 1: No config files - Returns default config
     #[test]
     fn test_no_config_files_returns_defaults() {
-        // This test works in the normal repo context where no .jjz/config.toml exists
+        // This test works in the normal repo context where no .zjj/config.toml exists
         // and global config likely doesn't exist either
         let result = load_config();
         assert!(
@@ -24,7 +24,7 @@ mod loading_tests {
         // Check that we got defaults (with {repo} replaced by actual repo name)
         assert!(config.workspace_dir.contains("__workspaces"));
         assert_eq!(config.default_template, "standard");
-        assert_eq!(config.state_db, ".jjz/state.db");
+        assert_eq!(config.state_db, ".zjj/state.db");
     }
 
     // Test 9: Missing global config - No error, uses defaults

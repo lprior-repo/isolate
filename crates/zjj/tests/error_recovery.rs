@@ -31,7 +31,7 @@ fn test_corrupted_database_provides_helpful_error() {
     fs::write(&db_path, "NOT A VALID SQLITE DATABASE FILE").ok();
 
     // Try to list sessions - should fail with database error
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success, "Should fail with corrupted database");
     result.assert_output_contains("database");
 }
@@ -49,7 +49,7 @@ fn test_empty_database_file() {
     fs::write(&db_path, "").ok();
 
     // Operations should fail with helpful error
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success, "Should fail with empty database");
 }
 
@@ -81,7 +81,7 @@ fn test_database_with_wrong_schema() {
         // Operations should detect schema mismatch
         // Note: SQLx may handle some schema mismatches gracefully by creating missing tables,
         // so this test accepts both failure and success
-        let _result = harness.jjz(&["list"]);
+        let _result = harness.zjj(&["list"]);
         // Test passes as long as the command doesn't panic
     });
 }
@@ -99,7 +99,7 @@ fn test_missing_database_file() {
     fs::remove_file(&db_path).ok();
 
     // Operations should fail with clear error about missing database
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success, "Should fail with missing database");
 }
 
@@ -123,7 +123,7 @@ fn test_database_locked_by_another_process() {
         // This test documents the expected behavior if locking occurs
 
         // Try to perform operation while locked
-        let _result = harness.jjz(&["list"]);
+        let _result = harness.zjj(&["list"]);
         // May succeed or fail depending on SQLite's WAL mode and timing
     });
 }
@@ -145,12 +145,12 @@ fn test_workspace_exists_but_not_in_database() {
     fs::create_dir_all(&workspace_path).ok();
 
     // List should work without showing orphaned workspace
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     assert!(!result.stdout.contains("orphaned"));
 
     // Trying to add with same name should fail (directory exists)
-    let _add_result = harness.jjz(&["add", "orphaned", "--no-open"]);
+    let _add_result = harness.zjj(&["add", "orphaned", "--no-open"]);
     // May fail due to existing directory
 }
 
@@ -170,12 +170,12 @@ fn test_database_entry_exists_but_workspace_missing() {
     fs::remove_dir_all(&workspace_path).ok();
 
     // List should still show session
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     result.assert_stdout_contains("test-session");
 
     // Status might report missing workspace
-    let _status_result = harness.jjz(&["status", "test-session"]);
+    let _status_result = harness.zjj(&["status", "test-session"]);
     // Implementation-defined behavior
 }
 
@@ -188,7 +188,7 @@ fn test_partial_session_creation_jj_workspace_fails() {
     harness.assert_success(&["init"]);
 
     // Make workspaces directory read-only to prevent workspace creation
-    let workspaces_dir = harness.jjz_dir().join("workspaces");
+    let workspaces_dir = harness.zjj_dir().join("workspaces");
     fs::create_dir_all(&workspaces_dir).ok();
 
     let metadata = fs::metadata(&workspaces_dir).ok();
@@ -199,7 +199,7 @@ fn test_partial_session_creation_jj_workspace_fails() {
     }
 
     // Try to create session - should fail gracefully
-    let _result = harness.jjz(&["add", "failing-session", "--no-open"]);
+    let _result = harness.zjj(&["add", "failing-session", "--no-open"]);
     // Should fail and not leave partial state
 
     // Restore permissions for cleanup
@@ -220,11 +220,11 @@ fn test_cleanup_after_failed_session_creation() {
     harness.assert_success(&["init"]);
 
     // Attempt to create session with invalid name
-    let _result = harness.jjz(&["add", "-invalid-name", "--no-open"]);
+    let _result = harness.zjj(&["add", "-invalid-name", "--no-open"]);
     // Should fail validation
 
     // Verify no partial artifacts left behind
-    let list_result = harness.jjz(&["list"]);
+    let list_result = harness.zjj(&["list"]);
     assert!(list_result.success);
     assert!(!list_result.stdout.contains("invalid-name"));
 }
@@ -240,9 +240,9 @@ fn test_missing_jjz_directory() {
         return;
     };
 
-    // Don't run init - .jjz directory should not exist
-    let result = harness.jjz(&["list"]);
-    assert!(!result.success, "Should fail without .jjz directory");
+    // Don't run init - .zjj directory should not exist
+    let result = harness.zjj(&["list"]);
+    assert!(!result.success, "Should fail without .zjj directory");
     result.assert_output_contains("init");
 }
 
@@ -254,18 +254,18 @@ fn test_corrupted_jjz_directory_structure() {
     };
     harness.assert_success(&["init"]);
 
-    // Configure workspace_dir to use .jjz/workspaces for this test
+    // Configure workspace_dir to use .zjj/workspaces for this test
     harness
-        .write_config(r#"workspace_dir = ".jjz/workspaces""#)
+        .write_config(r#"workspace_dir = ".zjj/workspaces""#)
         .ok();
 
     // Replace workspaces directory with a file
-    let workspaces_dir = harness.jjz_dir().join("workspaces");
+    let workspaces_dir = harness.zjj_dir().join("workspaces");
     fs::remove_dir_all(&workspaces_dir).ok();
     fs::write(&workspaces_dir, "I am a file, not a directory").ok();
 
     // Try to add session - should fail
-    let result = harness.jjz(&["add", "test", "--no-open"]);
+    let result = harness.zjj(&["add", "test", "--no-open"]);
     assert!(!result.success, "Should fail with corrupted directory");
 }
 
@@ -277,13 +277,13 @@ fn test_workspace_path_with_symlink() {
     };
     harness.assert_success(&["init"]);
 
-    // Configure workspace_dir to use .jjz/workspaces for this test
+    // Configure workspace_dir to use .zjj/workspaces for this test
     harness
-        .write_config(r#"workspace_dir = ".jjz/workspaces""#)
+        .write_config(r#"workspace_dir = ".zjj/workspaces""#)
         .ok();
 
     // Create a symlink in workspaces directory
-    let workspaces_dir = harness.jjz_dir().join("workspaces");
+    let workspaces_dir = harness.zjj_dir().join("workspaces");
     fs::create_dir_all(&workspaces_dir).ok();
 
     let target = harness.repo_path.join("some_target");
@@ -296,7 +296,7 @@ fn test_workspace_path_with_symlink() {
     // NOTE: May be caught by either:
     // 1. validate_workspace_path (DEBT-04) - canonical path escapes bounds
     // 2. validate_no_symlinks (zjj-zgs) - symlink detected
-    let result = harness.jjz(&["add", "symlink-session", "--no-open"]);
+    let result = harness.zjj(&["add", "symlink-session", "--no-open"]);
     assert!(
         !result.success,
         "Should fail when workspace path is a symlink"
@@ -323,18 +323,18 @@ fn test_workspace_parent_contains_symlink() {
     let real_workspaces = harness.repo_path.join("real_workspaces");
     fs::create_dir_all(&real_workspaces).ok();
 
-    // Create symlink at .jjz/workspaces pointing to real_workspaces
-    let workspaces_link = harness.jjz_dir().join("workspaces");
+    // Create symlink at .zjj/workspaces pointing to real_workspaces
+    let workspaces_link = harness.zjj_dir().join("workspaces");
     fs::remove_dir_all(&workspaces_link).ok(); // Remove if exists
     std::os::unix::fs::symlink(&real_workspaces, &workspaces_link).ok();
 
     // Configure to use the symlinked workspaces directory
     harness
-        .write_config(r#"workspace_dir = ".jjz/workspaces""#)
+        .write_config(r#"workspace_dir = ".zjj/workspaces""#)
         .ok();
 
     // Try to create session - should fail because parent path contains symlink (zjj-zgs)
-    let result = harness.jjz(&["add", "test-session", "--no-open"]);
+    let result = harness.zjj(&["add", "test-session", "--no-open"]);
     assert!(
         !result.success,
         "Should fail when workspace parent contains symlink"
@@ -350,13 +350,13 @@ fn test_symlink_to_system_directory_rejected() {
     };
     harness.assert_success(&["init"]);
 
-    // Configure workspace_dir to use .jjz/workspaces for this test
+    // Configure workspace_dir to use .zjj/workspaces for this test
     harness
-        .write_config(r#"workspace_dir = ".jjz/workspaces""#)
+        .write_config(r#"workspace_dir = ".zjj/workspaces""#)
         .ok();
 
     // Create symlink to /tmp (a potentially dangerous location)
-    let workspaces_dir = harness.jjz_dir().join("workspaces");
+    let workspaces_dir = harness.zjj_dir().join("workspaces");
     fs::create_dir_all(&workspaces_dir).ok();
 
     let link = workspaces_dir.join("dangerous-session");
@@ -366,7 +366,7 @@ fn test_symlink_to_system_directory_rejected() {
     // NOTE: May be caught by either:
     // 1. validate_workspace_path (DEBT-04) - canonical path escapes bounds
     // 2. validate_no_symlinks (zjj-zgs) - symlink detected
-    let result = harness.jjz(&["add", "dangerous-session", "--no-open"]);
+    let result = harness.zjj(&["add", "dangerous-session", "--no-open"]);
     assert!(!result.success, "Should reject symlink to system directory");
     // Accept either error message (both are valid security rejections)
     let output = format!("{}{}", result.stdout, result.stderr);
@@ -402,7 +402,7 @@ fn test_config_with_syntax_error() {
         .ok();
 
     // Commands should fail with parse error
-    let result = harness.jjz(&["add", "test", "--no-open"]);
+    let result = harness.zjj(&["add", "test", "--no-open"]);
     assert!(!result.success, "Should fail with invalid TOML");
     result.assert_output_contains("parse");
 }
@@ -425,7 +425,7 @@ fn test_config_with_invalid_field_types() {
         )
         .ok();
 
-    let result = harness.jjz(&["add", "test", "--no-open"]);
+    let result = harness.zjj(&["add", "test", "--no-open"]);
     assert!(!result.success, "Should fail with type mismatch");
 }
 
@@ -444,7 +444,7 @@ fn test_config_with_out_of_range_values() {
 workspace_dir = "../{repo}__workspaces"
 # main_branch is auto-detected when not set
 default_template = "standard"
-state_db = ".jjz/state.db"
+state_db = ".zjj/state.db"
 
 [watch]
 enabled = true
@@ -459,7 +459,7 @@ post_merge = []
 [zellij]
 session_prefix = "jjz"
 use_tabs = true
-layout_dir = ".jjz/layouts"
+layout_dir = ".zjj/layouts"
 
 [zellij.panes.main]
 command = "claude"
@@ -500,7 +500,7 @@ commit_prefix = "wip:"
         )
         .ok();
 
-    let result = harness.jjz(&["add", "test", "--no-open"]);
+    let result = harness.zjj(&["add", "test", "--no-open"]);
     assert!(!result.success, "Should fail with out-of-range value");
     result.assert_output_contains("10-5000");
 }
@@ -523,7 +523,7 @@ fn test_config_with_missing_required_fields() {
         .ok();
 
     // Should work with defaults
-    let result = harness.jjz(&["add", "test", "--no-open"]);
+    let result = harness.zjj(&["add", "test", "--no-open"]);
     // May succeed using default values
     let _ = result;
 }
@@ -537,7 +537,7 @@ fn test_config_file_permissions_unreadable() {
     harness.assert_success(&["init"]);
 
     // Make config file unreadable
-    let config_path = harness.jjz_dir().join("config.toml");
+    let config_path = harness.zjj_dir().join("config.toml");
     let metadata = fs::metadata(&config_path).ok();
     if let Some(metadata) = metadata {
         let mut perms = metadata.permissions();
@@ -545,7 +545,7 @@ fn test_config_file_permissions_unreadable() {
         fs::set_permissions(&config_path, perms.clone()).ok();
 
         // Try to run command
-        let result = harness.jjz(&["add", "test", "--no-open"]);
+        let result = harness.zjj(&["add", "test", "--no-open"]);
         // Should fail or use defaults
 
         // Restore permissions for cleanup
@@ -565,11 +565,11 @@ fn test_config_as_directory_instead_of_file() {
     harness.assert_success(&["init"]);
 
     // Replace config.toml with a directory
-    let config_path = harness.jjz_dir().join("config.toml");
+    let config_path = harness.zjj_dir().join("config.toml");
     fs::remove_file(&config_path).ok();
     fs::create_dir(&config_path).ok();
 
-    let result = harness.jjz(&["add", "test", "--no-open"]);
+    let result = harness.zjj(&["add", "test", "--no-open"]);
     assert!(!result.success, "Should fail when config is a directory");
 }
 
@@ -585,7 +585,7 @@ fn test_readonly_jjz_directory_prevents_operations() {
     };
     harness.assert_success(&["init"]);
 
-    let jjz_dir = harness.jjz_dir();
+    let jjz_dir = harness.zjj_dir();
     let metadata = fs::metadata(&jjz_dir).ok();
     if let Some(metadata) = metadata {
         let mut perms = metadata.permissions();
@@ -594,7 +594,7 @@ fn test_readonly_jjz_directory_prevents_operations() {
 
         // Try to add session - should fail with permission error or "does not exist" (readonly
         // prevents creation)
-        let result = harness.jjz(&["add", "test", "--no-open"]);
+        let result = harness.zjj(&["add", "test", "--no-open"]);
         assert!(!result.success, "Should fail with read-only directory");
         // Accept either explicit permission error or "does not exist" (which happens when readonly
         // prevents file creation)
@@ -632,11 +632,11 @@ fn test_readonly_database_file() {
         fs::set_permissions(&db_path, perms.clone()).ok();
 
         // Read operations should still work
-        let list_result = harness.jjz(&["list"]);
+        let list_result = harness.zjj(&["list"]);
         assert!(list_result.success, "List should work with read-only DB");
 
         // Write operations should fail
-        let add_result = harness.jjz(&["add", "test2", "--no-open"]);
+        let add_result = harness.zjj(&["add", "test2", "--no-open"]);
         assert!(!add_result.success, "Add should fail with read-only DB");
 
         // Restore permissions for cleanup
@@ -653,13 +653,13 @@ fn test_workspace_directory_not_writable() {
     };
     harness.assert_success(&["init"]);
 
-    // Configure workspace_dir to use .jjz/workspaces for this test
+    // Configure workspace_dir to use .zjj/workspaces for this test
     harness
-        .write_config(r#"workspace_dir = ".jjz/workspaces""#)
+        .write_config(r#"workspace_dir = ".zjj/workspaces""#)
         .ok();
 
     // Make workspaces directory not writable
-    let workspaces_dir = harness.jjz_dir().join("workspaces");
+    let workspaces_dir = harness.zjj_dir().join("workspaces");
     fs::create_dir_all(&workspaces_dir).ok();
 
     let metadata = fs::metadata(&workspaces_dir).ok();
@@ -669,7 +669,7 @@ fn test_workspace_directory_not_writable() {
         fs::set_permissions(&workspaces_dir, perms.clone()).ok();
 
         // Try to add session
-        let result = harness.jjz(&["add", "test", "--no-open"]);
+        let result = harness.zjj(&["add", "test", "--no-open"]);
         assert!(
             !result.success,
             "Should fail when workspace dir not writable"
@@ -699,7 +699,7 @@ fn test_write_fails_database_full_simulation() {
     // Create many sessions to potentially fill disk (unlikely but documents behavior)
     for i in 0..100 {
         let name = format!("session{i:03}");
-        let _result = harness.jjz(&["add", &name, "--no-open"]);
+        let _result = harness.zjj(&["add", &name, "--no-open"]);
         // Should either succeed or fail gracefully with disk full error
     }
 }
@@ -729,7 +729,7 @@ fn test_error_messages_include_suggestions_for_common_issues() {
     };
 
     // Trying to use without init
-    let result = harness.jjz(&["add", "test", "--no-open"]);
+    let result = harness.zjj(&["add", "test", "--no-open"]);
     assert!(!result.success);
     // Should suggest running init
     result.assert_output_contains("init");
@@ -750,7 +750,7 @@ fn test_validation_errors_explain_constraints() {
     harness.assert_success(&["init"]);
 
     // Invalid session name
-    let result = harness.jjz(&["add", "-invalid", "--no-open"]);
+    let result = harness.zjj(&["add", "-invalid", "--no-open"]);
     assert!(!result.success);
     // Should explain what makes a valid session name
     result.assert_output_contains("must start with a letter");
@@ -768,7 +768,7 @@ fn test_database_error_suggests_corruption_recovery() {
     let db_path = harness.state_db_path();
     fs::write(&db_path, "CORRUPTED").ok();
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success);
     // Should suggest recovery steps
     result.assert_output_contains("database");
@@ -792,7 +792,7 @@ fn test_multiple_failures_cascading() {
     fs::write(&db_path, "CORRUPTED").ok();
 
     // Should report first critical error encountered
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success);
 }
 
@@ -816,7 +816,7 @@ fn test_error_recovery_maintains_consistency() {
         fs::set_permissions(&db_path, perms.clone()).ok();
 
         // Try to add another session - should fail
-        let _result = harness.jjz(&["add", "test2", "--no-open"]);
+        let _result = harness.zjj(&["add", "test2", "--no-open"]);
 
         // Restore permissions
         perms.set_mode(0o644);
@@ -824,7 +824,7 @@ fn test_error_recovery_maintains_consistency() {
     }
 
     // Verify original session still intact
-    let list_result = harness.jjz(&["list"]);
+    let list_result = harness.zjj(&["list"]);
     assert!(list_result.success);
     list_result.assert_stdout_contains("test1");
     assert!(!list_result.stdout.contains("test2"));
@@ -840,11 +840,11 @@ fn test_transaction_rollback_on_failure() {
     harness.assert_success(&["init"]);
 
     // Attempt operation that will fail
-    let result = harness.jjz(&["add", "", "--no-open"]);
+    let result = harness.zjj(&["add", "", "--no-open"]);
     assert!(!result.success);
 
     // Verify no partial session created
-    let list_result = harness.jjz(&["list"]);
+    let list_result = harness.zjj(&["list"]);
     assert!(list_result.success);
     // Should be empty (no partial sessions)
 }
@@ -884,9 +884,9 @@ fn test_concurrent_session_creation_same_name() {
     let name1 = session_name.clone();
     let name2 = session_name.clone();
 
-    let handle1 = thread::spawn(move || harness1.jjz(&["add", &name1, "--no-open"]));
+    let handle1 = thread::spawn(move || harness1.zjj(&["add", &name1, "--no-open"]));
 
-    let handle2 = thread::spawn(move || harness2.jjz(&["add", &name2, "--no-open"]));
+    let handle2 = thread::spawn(move || harness2.zjj(&["add", &name2, "--no-open"]));
 
     let result1 = handle1.join().ok();
     let result2 = handle2.join().ok();
@@ -903,7 +903,7 @@ fn test_concurrent_session_creation_same_name() {
     );
 
     // Verify only one session exists in database
-    let list_result = harness.jjz(&["list"]);
+    let list_result = harness.zjj(&["list"]);
     assert!(list_result.success);
     let session_count = list_result.stdout.matches(&session_name).count();
     assert_eq!(
@@ -954,7 +954,7 @@ fn test_concurrent_session_creation_different_names() {
         let session_name = format!("concurrent-diff-{timestamp}-{i}");
         let session_name_clone = session_name.clone();
         let handle =
-            thread::spawn(move || harness_clone.jjz(&["add", &session_name_clone, "--no-open"]));
+            thread::spawn(move || harness_clone.zjj(&["add", &session_name_clone, "--no-open"]));
         handles.push((handle, session_name));
 
         // Small delay to stagger thread start times
@@ -1012,7 +1012,7 @@ fn test_concurrent_session_creation_different_names() {
     );
 
     // Verify that the successful sessions exist in database
-    let list_result = harness.jjz(&["list"]);
+    let list_result = harness.zjj(&["list"]);
     assert!(list_result.success, "List command should succeed");
 
     // Count how many of our test sessions are actually in the database
@@ -1036,7 +1036,7 @@ fn test_concurrent_session_creation_different_names() {
     // Cleanup test sessions
     for i in 0..session_count {
         let session_name = format!("concurrent-diff-{timestamp}-{i}");
-        let _ = harness.jjz(&["remove", &session_name, "--force"]);
+        let _ = harness.zjj(&["remove", &session_name, "--force"]);
     }
 }
 
@@ -1054,12 +1054,12 @@ fn test_workspace_creation_fails_no_orphaned_db_entry() {
     fs::create_dir_all(&workspace_path).ok();
 
     // Try to create session - should fail because workspace already exists
-    let result = harness.jjz(&["add", "will-fail", "--no-open"]);
+    let result = harness.zjj(&["add", "will-fail", "--no-open"]);
     // May succeed or fail depending on JJ's behavior with existing directories
 
     // If it failed, verify no database entry exists
     if !result.success {
-        let list_result = harness.jjz(&["list"]);
+        let list_result = harness.zjj(&["list"]);
         assert!(list_result.success);
         assert!(
             !list_result.stdout.contains("will-fail"),
@@ -1079,13 +1079,13 @@ fn test_rollback_maintains_database_filesystem_consistency() {
     };
     harness.assert_success(&["init"]);
 
-    // Configure workspace_dir to be inside .jjz so we can make it read-only
+    // Configure workspace_dir to be inside .zjj so we can make it read-only
     harness
-        .write_config(r#"workspace_dir = ".jjz/workspaces""#)
+        .write_config(r#"workspace_dir = ".zjj/workspaces""#)
         .ok();
 
     // Create the workspaces directory
-    let workspaces_dir = harness.jjz_dir().join("workspaces");
+    let workspaces_dir = harness.zjj_dir().join("workspaces");
     fs::create_dir_all(&workspaces_dir).ok();
 
     // Use timestamp for unique session name
@@ -1102,7 +1102,7 @@ fn test_rollback_maintains_database_filesystem_consistency() {
         fs::set_permissions(&workspaces_dir, perms.clone()).ok();
 
         // Try to create session - should fail because workspace parent is read-only
-        let result = harness.jjz(&["add", &session_name, "--no-open"]);
+        let result = harness.zjj(&["add", &session_name, "--no-open"]);
 
         // Restore permissions before assertions
         perms.set_mode(0o755);
@@ -1117,7 +1117,7 @@ fn test_rollback_maintains_database_filesystem_consistency() {
         );
 
         // Verify no database entry exists
-        let list_result = harness.jjz(&["list"]);
+        let list_result = harness.zjj(&["list"]);
         assert!(list_result.success);
         assert!(
             !list_result.stdout.contains(&session_name),
@@ -1165,7 +1165,7 @@ fn test_file_deleted_during_read() {
     fs::remove_dir_all(&workspace_path).ok();
 
     // Status should handle gracefully
-    let _result = harness.jjz(&["status", "test"]);
+    let _result = harness.zjj(&["status", "test"]);
     // Should either report missing workspace or error gracefully
 }
 
@@ -1183,7 +1183,7 @@ fn test_very_long_error_messages() {
 
     // Create session name that's too long
     let long_name = "a".repeat(1000);
-    let result = harness.jjz(&["add", &long_name, "--no-open"]);
+    let result = harness.zjj(&["add", &long_name, "--no-open"]);
     assert!(!result.success);
     // Error message should be clear despite long input
 }
@@ -1198,7 +1198,7 @@ fn test_special_characters_in_error_messages() {
 
     // Try session name with special characters
     let special_name = "test\n\r\t\"'\\session";
-    let result = harness.jjz(&["add", special_name, "--no-open"]);
+    let result = harness.zjj(&["add", special_name, "--no-open"]);
     assert!(!result.success);
     // Error should handle special characters safely
 }
@@ -1213,7 +1213,7 @@ fn test_unicode_in_paths_error_handling() {
 
     // Session names reject unicode (tested in validation)
     let unicode_name = "café";
-    let result = harness.jjz(&["add", unicode_name, "--no-open"]);
+    let result = harness.zjj(&["add", unicode_name, "--no-open"]);
     assert!(!result.success);
     result.assert_output_contains("ASCII");
 }
@@ -1228,7 +1228,7 @@ fn test_null_bytes_in_input() {
 
     // Try session name with null byte (will be rejected by shell/OS first)
     let name_with_null = "test\0name";
-    let result = harness.jjz(&["add", name_with_null, "--no-open"]);
+    let result = harness.zjj(&["add", name_with_null, "--no-open"]);
     assert!(!result.success);
 }
 
@@ -1244,7 +1244,7 @@ fn test_system_recovers_after_permission_error() {
     };
     harness.assert_success(&["init"]);
 
-    let jjz_dir = harness.jjz_dir();
+    let jjz_dir = harness.zjj_dir();
     let metadata = fs::metadata(&jjz_dir).ok();
     if let Some(metadata) = metadata {
         let mut perms = metadata.permissions();
@@ -1254,7 +1254,7 @@ fn test_system_recovers_after_permission_error() {
         fs::set_permissions(&jjz_dir, perms.clone()).ok();
 
         // Operation should fail
-        let result1 = harness.jjz(&["add", "test", "--no-open"]);
+        let result1 = harness.zjj(&["add", "test", "--no-open"]);
         assert!(!result1.success);
 
         // Restore permissions
@@ -1262,7 +1262,7 @@ fn test_system_recovers_after_permission_error() {
         fs::set_permissions(&jjz_dir, perms).ok();
 
         // Now operation should succeed
-        let result2 = harness.jjz(&["add", "test", "--no-open"]);
+        let result2 = harness.zjj(&["add", "test", "--no-open"]);
         assert!(result2.success, "Should recover after permissions fixed");
     }
 }
@@ -1279,7 +1279,7 @@ fn test_system_recovers_after_config_fix() {
     harness.write_config("invalid [[[").ok();
 
     // Should fail
-    let result1 = harness.jjz(&["add", "test1", "--no-open"]);
+    let result1 = harness.zjj(&["add", "test1", "--no-open"]);
     assert!(!result1.success);
 
     // Fix config
@@ -1288,7 +1288,7 @@ fn test_system_recovers_after_config_fix() {
         .ok();
 
     // Should now work
-    let result2 = harness.jjz(&["add", "test1", "--no-open"]);
+    let result2 = harness.zjj(&["add", "test1", "--no-open"]);
     // May succeed after config is fixed
     let _ = result2;
 }
@@ -1302,9 +1302,9 @@ fn test_continues_operation_after_transient_failure() {
     harness.assert_success(&["init"]);
 
     // Try invalid operation
-    let _result1 = harness.jjz(&["add", "-invalid", "--no-open"]);
+    let _result1 = harness.zjj(&["add", "-invalid", "--no-open"]);
 
     // Subsequent valid operation should work
-    let result2 = harness.jjz(&["add", "valid-session", "--no-open"]);
+    let result2 = harness.zjj(&["add", "valid-session", "--no-open"]);
     assert!(result2.success, "Should continue after validation error");
 }

@@ -31,7 +31,7 @@ pub fn acquire_workspace_lock(workspace_path: &str) -> Result<WorkspaceLockGuard
         fs::create_dir_all(parent)?;
     }
 
-    let lock_path = parent.join(".jjz.workspace.lock");
+    let lock_path = parent.join(".zjj.workspace.lock");
     let lock_file = File::create(&lock_path)?;
 
     let lock_result = lock_file.try_lock_exclusive().or_else(|_| {
@@ -75,7 +75,7 @@ pub fn validate_workspace_path(
         bail!(
             "Security: workspace_dir uses excessive parent directory references (..) for directory traversal (DEBT-04)\n\
              \nSuggestions:\n\
-             - Review your workspace_dir configuration in .jjz/config.toml\n\
+             - Review your workspace_dir configuration in .zjj/config.toml\n\
              - Use at most one level of parent directory reference (../)\n\
              - Consider using an absolute path or a relative path within the repository"
         );
@@ -115,13 +115,13 @@ pub fn validate_no_symlinks(path: &str, repo_root: &std::path::Path) -> Result<(
         }
     }
 
-    let jjz_dir = repo_root.join(".jjz");
+    let jjz_dir = repo_root.join(".zjj");
     if jjz_dir.exists() {
         let canonical_jjz = jjz_dir.canonicalize()?;
         let canonical_repo = repo_root.canonicalize()?;
 
         if !canonical_jjz.starts_with(&canonical_repo) {
-            bail!("Security: .jjz directory escapes repository bounds");
+            bail!("Security: .zjj directory escapes repository bounds");
         }
     }
 
@@ -173,7 +173,7 @@ pub fn check_workspace_writable(workspace_path: &str) -> Result<()> {
         bail!("Workspace directory is not writable");
     }
 
-    let test_file = parent.join(format!(".jjz_write_test_{}", std::process::id()));
+    let test_file = parent.join(format!(".zjj_write_test_{}", std::process::id()));
     match fs::write(&test_file, b"test") {
         Ok(()) => {
             fs::remove_file(&test_file).ok();

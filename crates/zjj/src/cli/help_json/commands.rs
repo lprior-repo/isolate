@@ -20,7 +20,7 @@ pub fn generate_command_docs() -> HashMap<String, CommandDocumentation> {
         aliases: vec![],
         category: "System".to_string(),
         description: "Initialize jjz in a JJ repository (or create one)".to_string(),
-        long_description: "Sets up ZJJ infrastructure by: (1) Checking for JJ repository (creates one if needed), (2) Creating .jjz/ directory for state and layouts, (3) Initializing SQLite database, (4) Creating default configuration, (5) Setting up workspace directory structure, (6) Running health checks on dependencies".to_string(),
+        long_description: "Sets up ZJJ infrastructure by: (1) Checking for JJ repository (creates one if needed), (2) Creating .zjj/ directory for state and layouts, (3) Initializing SQLite database, (4) Creating default configuration, (5) Setting up workspace directory structure, (6) Running health checks on dependencies".to_string(),
         usage: "jjz init [OPTIONS]".to_string(),
         arguments: vec![],
         options: vec![
@@ -89,22 +89,22 @@ pub fn generate_command_docs() -> HashMap<String, CommandDocumentation> {
         ai_guidance: "Run this ONCE per repository. Check exit code: 0 = success, 1 = user error, 2 = system error. Run 'jjz doctor' after init to verify setup.".to_string(),
         state_changes: vec![
             StateChange {
-                what: "Creates .jjz directory".to_string(),
-                how: "mkdir .jjz".to_string(),
+                what: "Creates .zjj directory".to_string(),
+                how: "mkdir .zjj".to_string(),
                 reversible: true,
-                reverse_command: Some("rm -rf .jjz".to_string()),
+                reverse_command: Some("rm -rf .zjj".to_string()),
             },
             StateChange {
                 what: "Creates SQLite database".to_string(),
-                how: "Initialize .jjz/state.db".to_string(),
+                how: "Initialize .zjj/state.db".to_string(),
                 reversible: true,
                 reverse_command: Some("jjz init --force".to_string()),
             },
             StateChange {
                 what: "Creates config file".to_string(),
-                how: "Write .jjz/config.toml".to_string(),
+                how: "Write .zjj/config.toml".to_string(),
                 reversible: true,
-                reverse_command: Some("rm .jjz/config.toml".to_string()),
+                reverse_command: Some("rm .zjj/config.toml".to_string()),
             },
         ],
     });
@@ -254,7 +254,7 @@ pub fn generate_command_docs() -> HashMap<String, CommandDocumentation> {
             },
             StateChange {
                 what: "Creates Zellij layout file".to_string(),
-                how: "Write to .jjz/layouts/<name>.kdl".to_string(),
+                how: "Write to .zjj/layouts/<name>.kdl".to_string(),
                 reversible: true,
                 reverse_command: Some("jjz remove <name>".to_string()),
             },
@@ -720,7 +720,7 @@ pub fn generate_command_docs() -> HashMap<String, CommandDocumentation> {
         aliases: vec!["cfg".to_string()],
         category: "System".to_string(),
         description: "View or modify configuration".to_string(),
-        long_description: "Manage jjz configuration. Can view entire config, get specific values, or set values. Supports both project-local (.jjz/config.toml) and global (~/.config/jjz/config.toml) configuration.".to_string(),
+        long_description: "Manage jjz configuration. Can view entire config, get specific values, or set values. Supports both project-local (.zjj/config.toml) and global (~/.config/jjz/config.toml) configuration.".to_string(),
         usage: "jjz config [OPTIONS] [key] [value]".to_string(),
         arguments: vec![
             ArgumentDoc {
@@ -801,7 +801,7 @@ pub fn generate_command_docs() -> HashMap<String, CommandDocumentation> {
         state_changes: vec![
             StateChange {
                 what: "Modifies configuration file".to_string(),
-                how: "Update .jjz/config.toml or ~/.config/jjz/config.toml".to_string(),
+                how: "Update .zjj/config.toml or ~/.config/jjz/config.toml".to_string(),
                 reversible: true,
                 reverse_command: Some("jjz config <key> <old_value>".to_string()),
             },
@@ -1132,13 +1132,13 @@ pub fn generate_command_docs() -> HashMap<String, CommandDocumentation> {
         aliases: vec![],
         category: "Utilities".to_string(),
         description: "Create a backup of the session database".to_string(),
-        long_description: "Creates a JSON backup of the session database including all session metadata, configuration, and state. Backups are timestamped and stored in .jjz/backups/ by default.".to_string(),
+        long_description: "Creates a JSON backup of the session database including all session metadata, configuration, and state. Backups are timestamped and stored in .zjj/backups/ by default.".to_string(),
         usage: "jjz backup [OPTIONS] [path]".to_string(),
         arguments: vec![
             ArgumentDoc {
                 name: "path".to_string(),
                 required: false,
-                description: "Backup file path (default: .jjz/backups/jjz-backup-<timestamp>.json)".to_string(),
+                description: "Backup file path (default: .zjj/backups/jjz-backup-<timestamp>.json)".to_string(),
                 validation_rules: vec![],
                 examples: vec!["~/backups/jjz-sessions.json".to_string()],
             },
@@ -1181,7 +1181,7 @@ pub fn generate_command_docs() -> HashMap<String, CommandDocumentation> {
         state_changes: vec![
             StateChange {
                 what: "Creates backup file".to_string(),
-                how: "Write JSON to .jjz/backups/".to_string(),
+                how: "Write JSON to .zjj/backups/".to_string(),
                 reversible: true,
                 reverse_command: Some("rm <backup-file>".to_string()),
             },

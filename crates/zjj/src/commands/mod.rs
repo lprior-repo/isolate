@@ -89,31 +89,31 @@ pub fn check_prerequisites() -> Result<PathBuf> {
     check_in_jj_repo()
 }
 
-/// Find the .jjz root directory by walking up the filesystem tree
+/// Find the .zjj root directory by walking up the filesystem tree
 ///
-/// This function searches for a .jjz directory starting from the current directory
+/// This function searches for a .zjj directory starting from the current directory
 /// and walking up through parent directories, similar to how git finds .git
 ///
 /// # Errors
 ///
 /// Returns an error if:
 /// - Unable to determine current directory
-/// - No .jjz directory found in any parent directory
-/// - .jjz exists but is not a directory
+/// - No .zjj directory found in any parent directory
+/// - .zjj exists but is not a directory
 fn find_jjz_root() -> Result<PathBuf> {
     let current_dir = std::env::current_dir().context("Failed to determine current directory")?;
 
     let mut current = current_dir.as_path();
 
     loop {
-        let jjz_dir = current.join(".jjz");
+        let jjz_dir = current.join(".zjj");
 
         if jjz_dir.exists() {
             if jjz_dir.is_dir() {
                 return Ok(current.to_path_buf());
             }
             anyhow::bail!(
-                ".jjz exists at '{}' but is not a directory. \
+                ".zjj exists at '{}' but is not a directory. \
                 Remove it or initialize in a different location.",
                 jjz_dir.display()
             );
@@ -123,7 +123,7 @@ fn find_jjz_root() -> Result<PathBuf> {
             Some(parent) => parent,
             None => {
                 anyhow::bail!(
-                    "Not in a jjz repository (no .jjz directory found).\n\n\
+                    "Not in a jjz repository (no .zjj directory found).\n\n\
                     Run 'jjz init' to initialize ZJJ in this directory."
                 );
             }
@@ -133,26 +133,26 @@ fn find_jjz_root() -> Result<PathBuf> {
 
 /// Get the ZJZ data directory for the current repository
 ///
-/// This function finds the .jjz directory WITHOUT requiring jj to be installed.
-/// It walks up the filesystem tree looking for a .jjz directory.
+/// This function finds the .zjj directory WITHOUT requiring jj to be installed.
+/// It walks up the filesystem tree looking for a .zjj directory.
 ///
 /// # Errors
 ///
-/// Returns an error if no .jjz directory is found in any parent directory
+/// Returns an error if no .zjj directory is found in any parent directory
 pub fn zjj_data_dir() -> Result<PathBuf> {
     let root = find_jjz_root()?;
-    Ok(root.join(".jjz"))
+    Ok(root.join(".zjj"))
 }
 
 /// Get the session database for the current repository
 ///
 /// This function accesses the database WITHOUT requiring jj to be installed.
-/// It only requires that .jjz directory exists.
+/// It only requires that .zjj directory exists.
 ///
 /// # Errors
 ///
 /// Returns an error if:
-/// - No .jjz directory found (not initialized)
+/// - No .zjj directory found (not initialized)
 /// - Unable to open the database
 pub async fn get_session_db() -> Result<SessionDb> {
     let data_dir = zjj_data_dir()?;
@@ -235,21 +235,21 @@ mod tests {
     #[test]
     fn test_zjj_data_dir_without_jj() {
         // zjj_data_dir should NOT require jj to be installed
-        // It should only look for .jjz directory via filesystem walk
+        // It should only look for .zjj directory via filesystem walk
         let result = zjj_data_dir();
 
         // If this fails, it should NOT be due to jj not being installed
-        // It should only fail if .jjz directory is not found
+        // It should only fail if .zjj directory is not found
         if let Err(e) = result {
             let msg = e.to_string();
-            // Error should be about .jjz not found, NOT about jj
+            // Error should be about .zjj not found, NOT about jj
             // Note: May also fail with "Failed to determine current directory" in some test
             // environments
             assert!(
                 msg.contains("Not in a jjz repository")
-                    || msg.contains(".jjz")
+                    || msg.contains(".zjj")
                     || msg.contains("Failed to determine current directory"),
-                "zjj_data_dir should fail with .jjz not found error, got: {msg}"
+                "zjj_data_dir should fail with .zjj not found error, got: {msg}"
             );
             assert!(
                 !msg.contains("JJ is not installed"),
@@ -264,8 +264,8 @@ mod tests {
             );
             if let Some(p) = path {
                 assert!(
-                    p.to_string_lossy().ends_with(".jjz"),
-                    "Path should end with .jjz"
+                    p.to_string_lossy().ends_with(".zjj"),
+                    "Path should end with .zjj"
                 );
             }
         }
@@ -275,7 +275,7 @@ mod tests {
     fn test_get_session_db_requires_init() {
         tokio_test::block_on(async {
             // get_session_db should fail if zjj is not initialized
-            // Even if we're in a JJ repo, if .jjz doesn't exist, it should fail
+            // Even if we're in a JJ repo, if .zjj doesn't exist, it should fail
             let result = get_session_db().await;
 
             if let Err(e) = result {

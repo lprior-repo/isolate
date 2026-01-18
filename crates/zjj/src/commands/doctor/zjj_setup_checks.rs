@@ -18,9 +18,9 @@ pub fn check_initialized() -> DoctorCheck {
 ///
 /// This is the implementation that allows testing without changing current directory.
 pub fn check_initialized_at(base_path: impl AsRef<std::path::Path>) -> DoctorCheck {
-    // Check for .jjz directory existence directly, without depending on JJ installation
+    // Check for .zjj directory existence directly, without depending on JJ installation
     let base = base_path.as_ref();
-    let jjz_dir = base.join(".jjz");
+    let jjz_dir = base.join(".zjj");
     let config_file = jjz_dir.join("config.toml");
     let initialized = jjz_dir.exists() && config_file.exists();
 
@@ -32,7 +32,7 @@ pub fn check_initialized_at(base_path: impl AsRef<std::path::Path>) -> DoctorChe
             CheckStatus::Fail
         },
         message: if initialized {
-            ".jjz directory exists with valid config".to_string()
+            ".zjj directory exists with valid config".to_string()
         } else {
             "jjz not initialized".to_string()
         },
@@ -102,24 +102,24 @@ mod tests {
         // Create a temporary directory - no need to change current directory
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
-        // Test 1: No .jjz directory - should fail
+        // Test 1: No .zjj directory - should fail
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Fail);
         assert_eq!(result.name, "jjz Initialized");
         assert!(result.message.contains("not initialized"));
 
-        // Test 2: .jjz directory exists but no config.toml - should fail
-        let jjz_dir = temp_dir.path().join(".jjz");
-        fs::create_dir(&jjz_dir).expect("Failed to create .jjz dir");
+        // Test 2: .zjj directory exists but no config.toml - should fail
+        let jjz_dir = temp_dir.path().join(".zjj");
+        fs::create_dir(&jjz_dir).expect("Failed to create .zjj dir");
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Fail);
 
-        // Test 3: .jjz directory with config.toml - should pass
+        // Test 3: .zjj directory with config.toml - should pass
         fs::write(jjz_dir.join("config.toml"), "workspace_dir = \"test\"")
             .expect("Failed to write config.toml");
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Pass);
-        assert!(result.message.contains(".jjz directory exists"));
+        assert!(result.message.contains(".zjj directory exists"));
     }
 
     #[test]
@@ -129,13 +129,13 @@ mod tests {
 
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
-        // Create .jjz structure WITHOUT initializing a JJ repo
-        let jjz_dir = temp_dir.path().join(".jjz");
-        fs::create_dir(&jjz_dir).expect("Failed to create .jjz dir");
+        // Create .zjj structure WITHOUT initializing a JJ repo
+        let jjz_dir = temp_dir.path().join(".zjj");
+        fs::create_dir(&jjz_dir).expect("Failed to create .zjj dir");
         fs::write(jjz_dir.join("config.toml"), "workspace_dir = \"test\"")
             .expect("Failed to write config.toml");
 
-        // Even without JJ installed/initialized, should detect .jjz
+        // Even without JJ installed/initialized, should detect .zjj
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Pass);
     }

@@ -58,7 +58,7 @@ impl fmt::Display for ExecutionError {
                       2. Or set it to an existing revision:\n\
                          jj --repository {workspace_path} bookmark create {bookmark_name} -r <revision>\n\
                       3. Then retry: zjj sync\n\n\
-                    Alternatively, configure a different main branch in .jjz/config.toml:\n\
+                    Alternatively, configure a different main branch in .zjj/config.toml:\n\
                       main_branch = \"trunk()\"  # or another revset/bookmark\n\n\
                     Current repository state:\n\
                       - JJ repo: initialized\n\

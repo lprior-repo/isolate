@@ -2,7 +2,7 @@
 //!
 //! This module handles directory creation, removal, and fresh initialization.
 //! It coordinates with config setup and file operations to establish the
-//! .jjz directory structure.
+//! .zjj directory structure.
 //!
 //! # Design
 //!
@@ -19,14 +19,14 @@ use anyhow::{Context, Result};
 use super::config_setup;
 use crate::database::SessionDb;
 
-/// Create a fresh .jjz directory structure
+/// Create a fresh .zjj directory structure
 ///
 /// This function creates the basic directory structure needed for ZJJ,
 /// including config and layouts directories.
 ///
 /// # Arguments
 ///
-/// * `zjj_dir` - Path where .jjz directory should be created
+/// * `zjj_dir` - Path where .zjj directory should be created
 ///
 /// # Errors
 ///
@@ -34,8 +34,8 @@ use crate::database::SessionDb;
 /// - Cannot create directory (permissions, disk full)
 /// - Cannot setup configuration files
 pub async fn create_fresh_structure(zjj_dir: &Path) -> Result<()> {
-    println!("Creating new .jjz directory...");
-    fs::create_dir_all(zjj_dir).context("Failed to create new .jjz directory")?;
+    println!("Creating new .zjj directory...");
+    fs::create_dir_all(zjj_dir).context("Failed to create new .zjj directory")?;
 
     // Setup configuration files
     config_setup::setup_config(zjj_dir)?;
@@ -47,14 +47,14 @@ pub async fn create_fresh_structure(zjj_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Remove the old .jjz directory
+/// Remove the old .zjj directory
 ///
-/// Safely removes the existing .jjz directory structure.
+/// Safely removes the existing .zjj directory structure.
 /// Should only be called after a backup has been created.
 ///
 /// # Arguments
 ///
-/// * `zjj_dir` - Path to the .jjz directory to remove
+/// * `zjj_dir` - Path to the .zjj directory to remove
 ///
 /// # Errors
 ///
@@ -63,8 +63,8 @@ pub async fn create_fresh_structure(zjj_dir: &Path) -> Result<()> {
 /// - Insufficient permissions
 /// - I/O error during removal
 pub fn remove_old_directory(zjj_dir: &Path) -> Result<()> {
-    println!("\nRemoving old .jjz directory...");
-    fs::remove_dir_all(zjj_dir).context("Failed to remove old .jjz directory")?;
+    println!("\nRemoving old .zjj directory...");
+    fs::remove_dir_all(zjj_dir).context("Failed to remove old .zjj directory")?;
     Ok(())
 }
 
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn test_create_fresh_structure_creates_config() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let zjj_dir = temp_dir.path().join(".jjz");
+        let zjj_dir = temp_dir.path().join(".zjj");
 
         tokio::runtime::Runtime::new()?.block_on(create_fresh_structure(&zjj_dir))?;
 
@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn test_create_fresh_structure_creates_database() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let zjj_dir = temp_dir.path().join(".jjz");
+        let zjj_dir = temp_dir.path().join(".zjj");
 
         tokio::runtime::Runtime::new()?.block_on(create_fresh_structure(&zjj_dir))?;
 
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn test_remove_old_directory_removes_structure() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let zjj_dir = temp_dir.path().join(".jjz");
+        let zjj_dir = temp_dir.path().join(".zjj");
 
         // Create directory first
         fs::create_dir_all(&zjj_dir)?;
@@ -135,7 +135,7 @@ mod tests {
     #[test]
     fn test_remove_old_directory_with_subdirs() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let zjj_dir = temp_dir.path().join(".jjz");
+        let zjj_dir = temp_dir.path().join(".zjj");
 
         // Create nested structure
         fs::create_dir_all(zjj_dir.join("subdir1/subdir2"))?;

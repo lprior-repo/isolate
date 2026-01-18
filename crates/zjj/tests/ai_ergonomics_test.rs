@@ -50,7 +50,7 @@ fn test_ai_agent_complete_onboarding_flow() {
     };
 
     // Step 1: AI discovers commands via --help-json
-    let result = harness.jjz(&["--help-json"]);
+    let result = harness.zjj(&["--help-json"]);
     assert!(
         result.success,
         "help-json should succeed: {}",
@@ -83,7 +83,7 @@ fn test_ai_agent_complete_onboarding_flow() {
     harness.assert_success(&["init"]);
 
     // Step 3: Run doctor to check system health and get AI guidance
-    let result = harness.jjz(&["doctor", "--json"]);
+    let result = harness.zjj(&["doctor", "--json"]);
     // Doctor may fail if system is unhealthy, but should still produce JSON
     let doctor_json: Result<JsonValue, _> = serde_json::from_str(&result.stdout);
     assert!(
@@ -115,7 +115,7 @@ fn test_ai_agent_complete_onboarding_flow() {
     }
 
     // Step 4: Get workflow context via introspect
-    let result = harness.jjz(&["introspect", "--json"]);
+    let result = harness.zjj(&["introspect", "--json"]);
     assert!(
         result.success,
         "introspect --json should succeed: {}",
@@ -144,7 +144,7 @@ fn test_ai_agent_complete_onboarding_flow() {
     }
 
     // Step 5: Get current context
-    let result = harness.jjz(&["context", "--json"]);
+    let result = harness.zjj(&["context", "--json"]);
     assert!(
         result.success,
         "context --json should succeed: {}",
@@ -159,7 +159,7 @@ fn test_ai_agent_complete_onboarding_flow() {
     );
 
     // Step 6: Execute actual command (add session) with --json
-    let result = harness.jjz(&["add", "test-session", "--no-open", "--json"]);
+    let result = harness.zjj(&["add", "test-session", "--no-open", "--json"]);
     assert!(
         result.success,
         "add --json should succeed: {}",
@@ -202,7 +202,7 @@ fn test_all_ai_commands_support_json() {
     ];
 
     for cmd in json_commands {
-        let result = harness.jjz(&cmd);
+        let result = harness.zjj(&cmd);
 
         // Command should succeed or fail gracefully
         if !result.stdout.is_empty() {
@@ -229,7 +229,7 @@ fn test_json_outputs_include_required_fields() {
     harness.assert_success(&["init"]);
 
     // Test introspect JSON structure
-    let result = harness.jjz(&["introspect", "--json"]);
+    let result = harness.zjj(&["introspect", "--json"]);
     assert!(result.success, "introspect should succeed");
     let json: JsonValue = serde_json::from_str(&result.stdout)
         .ok()
@@ -250,7 +250,7 @@ fn test_json_outputs_include_required_fields() {
     );
 
     // Test doctor JSON structure
-    let result = harness.jjz(&["doctor", "--json"]);
+    let result = harness.zjj(&["doctor", "--json"]);
     let json: JsonValue = serde_json::from_str(&result.stdout)
         .ok()
         .filter(|_| true)
@@ -267,7 +267,7 @@ fn test_json_outputs_include_required_fields() {
     );
 
     // Test list JSON structure (empty list is fine)
-    let result = harness.jjz(&["list", "--json"]);
+    let result = harness.zjj(&["list", "--json"]);
     assert!(result.success, "list should succeed");
     let json: JsonValue = serde_json::from_str(&result.stdout)
         .ok()
@@ -301,7 +301,7 @@ fn test_semantic_exit_codes() {
     };
 
     // Test success: exit code 0
-    let result = harness.jjz(&["init"]);
+    let result = harness.zjj(&["init"]);
     assert_eq!(
         result.exit_code,
         Some(0),
@@ -315,7 +315,7 @@ fn test_semantic_exit_codes() {
         return;
     };
 
-    let result = harness2.jjz(&["list"]);
+    let result = harness2.zjj(&["list"]);
     if !result.success {
         // Should fail with non-zero exit code when not initialized
         assert!(
@@ -326,7 +326,7 @@ fn test_semantic_exit_codes() {
 
     // Test user error: invalid session name
     harness.assert_success(&["init"]);
-    let result = harness.jjz(&["add", "invalid name with spaces", "--no-open"]);
+    let result = harness.zjj(&["add", "invalid name with spaces", "--no-open"]);
     assert!(!result.success, "Invalid session name should fail");
     if let Some(code) = result.exit_code {
         assert!(
@@ -336,7 +336,7 @@ fn test_semantic_exit_codes() {
     }
 
     // Test not found: remove nonexistent session
-    let result = harness.jjz(&["remove", "nonexistent-session", "--force"]);
+    let result = harness.zjj(&["remove", "nonexistent-session", "--force"]);
     assert!(!result.success, "Removing nonexistent session should fail");
 }
 
@@ -356,7 +356,7 @@ fn test_command_discovery_via_introspect() {
     harness.assert_success(&["init"]);
 
     // Test general introspect
-    let result = harness.jjz(&["introspect", "--json"]);
+    let result = harness.zjj(&["introspect", "--json"]);
     assert!(result.success, "introspect should succeed");
 
     let json: JsonValue = serde_json::from_str(&result.stdout)
@@ -393,10 +393,10 @@ fn test_help_json_provides_complete_docs() {
                     stdout: String::new(),
                     stderr: "jj not available".to_string(),
                 },
-                |h| h.jjz(&["--help-json"]),
+                |h| h.zjj(&["--help-json"]),
             )
         },
-        |h| h.jjz(&["--help-json"]),
+        |h| h.zjj(&["--help-json"]),
     );
 
     if result.success {
@@ -433,7 +433,7 @@ fn test_doctor_includes_ai_guidance() {
     harness.assert_success(&["init"]);
 
     // Test JSON output
-    let result = harness.jjz(&["doctor", "--json"]);
+    let result = harness.zjj(&["doctor", "--json"]);
     let json: Result<JsonValue, _> = serde_json::from_str(&result.stdout);
 
     if let Ok(json_val) = json {
@@ -465,7 +465,7 @@ fn test_doctor_includes_ai_guidance() {
     }
 
     // Test human-readable output also includes AI guidance
-    let _result = harness.jjz(&["doctor"]);
+    let _result = harness.zjj(&["doctor"]);
     // Human output may not always include AI section, but if healthy, should show it
     // This is more lenient since human output format may vary
 }
@@ -481,7 +481,7 @@ fn test_introspect_shows_dependencies() {
 
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["introspect", "--json"]);
+    let result = harness.zjj(&["introspect", "--json"]);
     assert!(result.success, "introspect should succeed");
 
     let json: Result<JsonValue, _> = serde_json::from_str(&result.stdout);
@@ -518,7 +518,7 @@ fn test_context_provides_workflow_state() {
 
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["context", "--json"]);
+    let result = harness.zjj(&["context", "--json"]);
     assert!(result.success, "context should succeed");
 
     let json: Result<JsonValue, _> = serde_json::from_str(&result.stdout);
@@ -549,7 +549,7 @@ fn test_json_errors_are_well_formed() {
     harness.assert_success(&["init"]);
 
     // Try to remove nonexistent session with --json
-    let result = harness.jjz(&["remove", "nonexistent", "--force", "--json"]);
+    let result = harness.zjj(&["remove", "nonexistent", "--force", "--json"]);
     assert!(!result.success, "Should fail for nonexistent session");
 
     // Even on failure, should produce valid JSON if --json was requested
@@ -584,7 +584,7 @@ fn test_graceful_failure_without_prerequisites() {
     };
 
     // Try to run commands without init
-    let result = harness.jjz(&["add", "test", "--no-open", "--json"]);
+    let result = harness.zjj(&["add", "test", "--no-open", "--json"]);
     assert!(!result.success, "Should fail without init");
 
     // Should still produce helpful output
@@ -608,26 +608,26 @@ fn test_complete_ai_workflow_cycle() {
     };
 
     // Phase 1: Discovery
-    let result = harness.jjz(&["--help-json"]);
+    let result = harness.zjj(&["--help-json"]);
     assert!(result.success, "Discovery phase should succeed");
 
     // Phase 2: Health check
     harness.assert_success(&["init"]);
-    let result = harness.jjz(&["doctor", "--json"]);
+    let result = harness.zjj(&["doctor", "--json"]);
     let _ = serde_json::from_str::<JsonValue>(&result.stdout);
 
     // Phase 3: Context gathering
-    let result = harness.jjz(&["introspect", "--json"]);
+    let result = harness.zjj(&["introspect", "--json"]);
     assert!(result.success, "Context gathering should succeed");
 
-    let result = harness.jjz(&["context", "--json"]);
+    let result = harness.zjj(&["context", "--json"]);
     assert!(result.success, "Workflow context should be available");
 
     // Phase 4: Execute workflow
     harness.assert_success(&["add", "workflow-test", "--no-open"]);
 
     // Phase 5: Verify state
-    let result = harness.jjz(&["list", "--json"]);
+    let result = harness.zjj(&["list", "--json"]);
     assert!(result.success, "Should be able to verify state");
 
     let list_json: Result<JsonValue, _> = serde_json::from_str(&result.stdout);
@@ -637,6 +637,6 @@ fn test_complete_ai_workflow_cycle() {
     harness.assert_success(&["remove", "workflow-test", "--force"]);
 
     // Phase 7: Verify cleanup
-    let result = harness.jjz(&["list", "--json"]);
+    let result = harness.zjj(&["list", "--json"]);
     assert!(result.success, "Should verify cleanup succeeded");
 }

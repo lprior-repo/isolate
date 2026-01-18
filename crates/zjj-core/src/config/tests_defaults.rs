@@ -101,10 +101,10 @@ mod defaults_tests {
         assert_eq!(config.workspace_dir, "../{repo}__workspaces");
         assert_eq!(config.main_branch, None);
         assert_eq!(config.default_template, "standard");
-        assert_eq!(config.state_db, ".jjz/state.db");
+        assert_eq!(config.state_db, ".zjj/state.db");
         assert!(config.watch.enabled);
         assert_eq!(config.watch.debounce_ms, 100);
         assert_eq!(config.dashboard.refresh_ms, 1000);
-        assert_eq!(config.zellij.session_prefix, "jjz");
+        assert_eq!(config.zellij.session_prefix, "zjj");
     }
 }

@@ -14,7 +14,7 @@ fn test_error_no_stack_trace() {
     };
 
     // Try to run a command that will fail (list without init)
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
 
     // Should fail
     assert!(!result.success, "Command should fail without init");
@@ -56,7 +56,7 @@ fn test_error_format_for_missing_session() {
     harness.assert_success(&["init"]);
 
     // Try to focus a nonexistent session
-    let result = harness.jjz(&["focus", "nonexistent"]);
+    let result = harness.zjj(&["focus", "nonexistent"]);
 
     assert!(!result.success, "Should fail for nonexistent session");
 
@@ -82,7 +82,7 @@ fn test_error_format_for_invalid_session_name() {
     harness.assert_success(&["init"]);
 
     // Try to add session with invalid name
-    let result = harness.jjz(&["add", "-invalid", "--no-open"]);
+    let result = harness.zjj(&["add", "-invalid", "--no-open"]);
 
     assert!(!result.success, "Should fail for invalid name");
 
@@ -113,7 +113,7 @@ fn test_error_exit_code() {
     };
 
     // Try to run command that will fail
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
 
     // Should exit with non-zero code
     assert!(
@@ -137,7 +137,7 @@ fn test_database_error_display() {
     }
 
     // Try to list sessions
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
 
     assert!(!result.success, "Should fail with corrupted database");
 

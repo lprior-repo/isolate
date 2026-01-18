@@ -19,7 +19,7 @@ impl Default for Config {
             workspace_dir: "../{repo}__workspaces".to_string(),
             main_branch: None,
             default_template: "standard".to_string(),
-            state_db: ".jjz/state.db".to_string(),
+            state_db: ".zjj/state.db".to_string(),
             watch: WatchConfig::default(),
             hooks: HooksConfig::default(),
             zellij: ZellijConfig::default(),
@@ -54,9 +54,9 @@ impl Default for HooksConfig {
 impl Default for ZellijConfig {
     fn default() -> Self {
         Self {
-            session_prefix: "jjz".to_string(),
+            session_prefix: "zjj".to_string(),
             use_tabs: true,
-            layout_dir: ".jjz/layouts".to_string(),
+            layout_dir: ".zjj/layouts".to_string(),
             panes: PanesConfig::default(),
         }
     }
@@ -76,7 +76,7 @@ impl Default for PanesConfig {
                 size: "50%".to_string(),
             },
             status: PaneConfig {
-                command: "jjz".to_string(),
+                command: "zjj".to_string(),
                 args: vec!["status".to_string(), "--watch".to_string()],
                 size: "50%".to_string(),
             },

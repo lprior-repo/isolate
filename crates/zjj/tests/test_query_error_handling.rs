@@ -16,7 +16,7 @@ fn test_session_exists_not_initialized() {
     };
 
     // Run query without initializing jjz
-    let result = harness.jjz(&["query", "session-exists", "test"]);
+    let result = harness.zjj(&["query", "session-exists", "test"]);
 
     // Should output valid JSON (not crash)
     let parsed = serde_json::from_str::<serde_json::Value>(&result.stdout);
@@ -67,7 +67,7 @@ fn test_session_count_not_initialized() {
     };
 
     // Run query without initializing jjz
-    let result = harness.jjz(&["query", "session-count"]);
+    let result = harness.zjj(&["query", "session-count"]);
 
     // Should output valid JSON (not crash)
     let parsed = serde_json::from_str::<serde_json::Value>(&result.stdout);
@@ -107,7 +107,7 @@ fn test_session_exists_success() {
     harness.assert_success(&["add", "test", "--no-open"]);
 
     // Query for existing session
-    let result = harness.jjz(&["query", "session-exists", "test"]);
+    let result = harness.zjj(&["query", "session-exists", "test"]);
 
     let parsed = serde_json::from_str::<serde_json::Value>(&result.stdout);
     assert!(parsed.is_ok(), "Output should be valid JSON");
@@ -139,7 +139,7 @@ fn test_session_exists_not_found() {
     harness.assert_success(&["init"]);
 
     // Query for non-existent session
-    let result = harness.jjz(&["query", "session-exists", "nonexistent"]);
+    let result = harness.zjj(&["query", "session-exists", "nonexistent"]);
 
     let parsed = serde_json::from_str::<serde_json::Value>(&result.stdout);
     assert!(parsed.is_ok(), "Output should be valid JSON");
@@ -170,7 +170,7 @@ fn test_session_count_success() {
     harness.assert_success(&["add", "test2", "--no-open"]);
 
     // Query count
-    let result = harness.jjz(&["query", "session-count"]);
+    let result = harness.zjj(&["query", "session-count"]);
 
     let parsed = serde_json::from_str::<serde_json::Value>(&result.stdout);
     assert!(parsed.is_ok(), "Output should be valid JSON");
@@ -197,7 +197,7 @@ fn test_suggest_name_without_db() {
     };
 
     // Run suggest-name without initializing (should still work with empty list)
-    let result = harness.jjz(&["query", "suggest-name", "feature-{n}"]);
+    let result = harness.zjj(&["query", "suggest-name", "feature-{n}"]);
 
     let parsed = serde_json::from_str::<serde_json::Value>(&result.stdout);
     assert!(

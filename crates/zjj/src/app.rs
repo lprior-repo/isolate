@@ -14,7 +14,12 @@ pub async fn run_cli() -> Result<()> {
 
     match matches.subcommand() {
         Some(("init", sub_m)) => {
-            init::run_with_flags(sub_m.get_flag("repair"), sub_m.get_flag("force")).await
+            init::run_with_flags(
+                sub_m.get_flag("repair"),
+                sub_m.get_flag("force"),
+                sub_m.get_flag("migrate"),
+            )
+            .await
         }
         Some(("add" | "add-batch" | "list" | "remove" | "focus" | "status", sub_m)) => {
             let cmd = matches

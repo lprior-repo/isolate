@@ -162,7 +162,7 @@ mod tests {
 
     fn create_test_config() -> Config {
         Config {
-            workspace_dir: ".jjz".to_string(),
+            workspace_dir: ".zjj".to_string(),
             default_template: "default".to_string(),
             hooks: zjj_core::config::HooksConfig {
                 post_create: vec!["echo 'created'".to_string()],
@@ -179,7 +179,7 @@ mod tests {
 
         let params = DryRunParams {
             session_name: "test-session",
-            workspace_path: "/test/root/.jjz/test-session",
+            workspace_path: "/test/root/.zjj/test-session",
             root: &root,
             config: &config,
             template: None,
@@ -190,7 +190,7 @@ mod tests {
 
         let plan = generate_plan(&params);
         assert_eq!(plan.session_name, "test-session");
-        assert_eq!(plan.workspace_path, "/test/root/.jjz/test-session");
+        assert_eq!(plan.workspace_path, "/test/root/.zjj/test-session");
         assert_eq!(plan.branch, "test-session");
         assert_eq!(plan.layout_template, "default");
         assert_eq!(plan.zellij_tab_name, "jjz:test-session");
@@ -207,7 +207,7 @@ mod tests {
 
         let params = DryRunParams {
             session_name: "test-session",
-            workspace_path: "/test/root/.jjz/test-session",
+            workspace_path: "/test/root/.zjj/test-session",
             root: &root,
             config: &config,
             template: Some("custom"),
@@ -227,7 +227,7 @@ mod tests {
 
         let params = DryRunParams {
             session_name: "test-session",
-            workspace_path: "/test/root/.jjz/test-session",
+            workspace_path: "/test/root/.zjj/test-session",
             root: &root,
             config: &config,
             template: None,
@@ -254,7 +254,7 @@ mod tests {
 
         let params = DryRunParams {
             session_name: "test-session",
-            workspace_path: "/test/root/.jjz/test-session",
+            workspace_path: "/test/root/.zjj/test-session",
             root: &root,
             config: &config,
             template: None,
@@ -278,7 +278,7 @@ mod tests {
 
         let params = DryRunParams {
             session_name: "test-session",
-            workspace_path: "/test/root/.jjz/test-session",
+            workspace_path: "/test/root/.zjj/test-session",
             root: &root,
             config: &config,
             template: None,

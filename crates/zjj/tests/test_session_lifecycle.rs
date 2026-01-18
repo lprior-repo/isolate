@@ -36,7 +36,7 @@ fn test_add_session_appears_in_list() {
     harness.assert_success(&["add", "my-feature", "--no-open"]);
 
     // List sessions
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     result.assert_stdout_contains("my-feature");
 }
@@ -90,7 +90,7 @@ fn test_add_valid_session_names() {
     harness.assert_success(&["add", "bug_fix_456", "--no-open"]);
     harness.assert_success(&["add", "task789", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("feature-123");
     result.assert_stdout_contains("bug_fix_456");
     result.assert_stdout_contains("task789");
@@ -139,7 +139,7 @@ fn test_add_session_with_no_hooks_flag() {
     harness.assert_success(&["add", "test", "--no-open", "--no-hooks"]);
 
     // Session should be created
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("test");
 }
 
@@ -155,7 +155,7 @@ fn test_list_empty_shows_no_sessions() {
     };
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     // Empty list - implementation may show "No sessions" or empty output
 }
@@ -172,7 +172,7 @@ fn test_list_shows_multiple_sessions() {
     harness.assert_success(&["add", "session2", "--no-open"]);
     harness.assert_success(&["add", "session3", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     result.assert_stdout_contains("session1");
     result.assert_stdout_contains("session2");
@@ -189,7 +189,7 @@ fn test_list_json_format() {
 
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["list", "--json"]);
+    let result = harness.zjj(&["list", "--json"]);
     assert!(result.success);
 
     // Verify it's valid JSON
@@ -207,7 +207,7 @@ fn test_list_shows_session_status() {
 
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     // Should show status (active, creating, etc.)
     result.assert_output_contains("test");
@@ -227,7 +227,7 @@ fn test_status_shows_session_details() {
 
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["status", "test"]);
+    let result = harness.zjj(&["status", "test"]);
     assert!(result.success);
     result.assert_output_contains("test");
 }
@@ -241,7 +241,7 @@ fn test_status_nonexistent_session() {
     harness.assert_success(&["init"]);
 
     // Status for nonexistent session may fail or show "not found"
-    let _result = harness.jjz(&["status", "nonexistent"]);
+    let _result = harness.zjj(&["status", "nonexistent"]);
     // Implementation may vary - either fails or shows empty
 }
 
@@ -255,7 +255,7 @@ fn test_status_json_format() {
 
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["status", "test", "--json"]);
+    let result = harness.zjj(&["status", "test", "--json"]);
     assert!(result.success);
 
     // Verify it's valid JSON
@@ -285,7 +285,7 @@ fn test_remove_deletes_session() {
     harness.assert_workspace_not_exists("test");
 
     // Verify not in list
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.stdout.contains("test"));
 }
 
@@ -312,7 +312,7 @@ fn test_remove_without_force_requires_confirmation() {
 
     // Without --force, command may prompt or fail
     // In non-interactive mode, it should fail
-    let _result = harness.jjz(&["remove", "test"]);
+    let _result = harness.zjj(&["remove", "test"]);
     // Implementation may vary - either prompts (fails in CI) or requires --force
 }
 
@@ -335,11 +335,11 @@ fn test_complete_session_lifecycle() {
     harness.assert_workspace_exists("feature-test");
 
     // 3. Verify it appears in list
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("feature-test");
 
     // 4. Check status
-    let result = harness.jjz(&["status", "feature-test"]);
+    let result = harness.zjj(&["status", "feature-test"]);
     assert!(result.success);
 
     // 5. Remove session
@@ -347,7 +347,7 @@ fn test_complete_session_lifecycle() {
     harness.assert_workspace_not_exists("feature-test");
 
     // 6. Verify not in list
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.stdout.contains("feature-test"));
 }
 
@@ -365,7 +365,7 @@ fn test_multiple_sessions_lifecycle() {
     harness.assert_success(&["add", "session-c", "--no-open"]);
 
     // Verify all exist
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("session-a");
     result.assert_stdout_contains("session-b");
     result.assert_stdout_contains("session-c");
@@ -374,7 +374,7 @@ fn test_multiple_sessions_lifecycle() {
     harness.assert_success(&["remove", "session-b", "--force"]);
 
     // Verify others still exist
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("session-a");
     assert!(!result.stdout.contains("session-b"));
     result.assert_stdout_contains("session-c");
@@ -396,7 +396,7 @@ fn test_session_persists_across_list_calls() {
 
     // List multiple times - session should appear each time
     for _ in 0..3 {
-        let result = harness.jjz(&["list"]);
+        let result = harness.zjj(&["list"]);
         result.assert_stdout_contains("persistent");
     }
 }

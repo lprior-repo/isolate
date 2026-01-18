@@ -3,7 +3,7 @@
 //! This module handles loading configuration from:
 //! 1. Built-in defaults
 //! 2. Global config: ~/.config/jjz/config.toml
-//! 3. Project config: .jjz/config.toml
+//! 3. Project config: .zjj/config.toml
 //! 4. Environment variables: JJZ_*
 //!
 //! All operations return new instances rather than mutating in place.
@@ -77,7 +77,7 @@ pub fn global_config_path() -> Option<PathBuf> {
 /// Returns error if current directory cannot be determined
 pub fn project_config_path() -> Result<PathBuf> {
     std::env::current_dir()
-        .map(|dir| dir.join(".jjz/config.toml"))
+        .map(|dir| dir.join(".zjj/config.toml"))
         .map_err(|e| Error::io_error(format!("Failed to get current directory: {e}")))
 }
 
@@ -96,7 +96,7 @@ pub fn load_toml_file(path: &std::path::Path) -> Result<Config> {
             "Config path is a directory, not a file: {}\n\
              \n\
              The config file path should point to a TOML file, not a directory.\n\
-             Expected: .jjz/config.toml (file)\n\
+             Expected: .zjj/config.toml (file)\n\
              Found: {} (directory)",
             path.display(),
             path.display()

@@ -15,9 +15,9 @@
 //! The force reinitialization process follows this sequence:
 //! 1. Calculate unique timestamp for backup naming
 //! 2. Create timestamped backup directory
-//! 3. Copy entire .jjz directory to backup (safety point)
-//! 4. Remove old .jjz directory
-//! 5. Create fresh .jjz directory structure
+//! 3. Copy entire .zjj directory to backup (safety point)
+//! 4. Remove old .zjj directory
+//! 5. Create fresh .zjj directory structure
 //! 6. Provide restoration instructions to user
 
 use std::{path::Path, time::SystemTime};
@@ -41,21 +41,21 @@ fn generate_backup_timestamp() -> Result<u64> {
         .map(|d| d.as_secs())
 }
 
-/// Create a timestamped backup of the .jjz directory
+/// Create a timestamped backup of the .zjj directory
 ///
-/// Creates a complete copy of the existing .jjz directory with a
+/// Creates a complete copy of the existing .zjj directory with a
 /// timestamp-based suffix to prevent name collisions.
 ///
 /// # Arguments
 ///
-/// * `zjj_dir` - Path to the .jjz directory to backup
+/// * `zjj_dir` - Path to the .zjj directory to backup
 /// * `backup_dir` - Path where the backup should be created
 ///
 /// # Errors
 ///
 /// Returns error if backup creation fails
 fn create_backup(zjj_dir: &Path, backup_dir: &Path) -> Result<()> {
-    println!("\nCreating backup of .jjz directory...");
+    println!("\nCreating backup of .zjj directory...");
     println!("  Backup location: {}", backup_dir.display());
 
     // SAFETY CRITICAL: Create backup BEFORE any destructive operations
@@ -73,19 +73,19 @@ fn create_backup(zjj_dir: &Path, backup_dir: &Path) -> Result<()> {
 /// # Arguments
 ///
 /// * `backup_dir` - Path to the backup directory
-/// * `zjj_dir` - Path to the newly initialized .jjz directory
+/// * `zjj_dir` - Path to the newly initialized .zjj directory
 fn print_restoration_instructions(backup_dir: &Path, zjj_dir: &Path) {
     println!("\nReinitialization completed successfully!");
     println!("  Backup directory: {}", backup_dir.display());
-    println!("  New .jjz directory: {}", zjj_dir.display());
+    println!("  New .zjj directory: {}", zjj_dir.display());
     println!("\nTo restore from backup:");
-    println!("  rm -rf .jjz");
-    println!("  mv {} .jjz", backup_dir.display());
+    println!("  rm -rf .zjj");
+    println!("  mv {} .zjj", backup_dir.display());
 }
 
 /// Force reinitialize ZJJ with backup of existing data
 ///
-/// Performs a complete reinitialization of the .jjz directory
+/// Performs a complete reinitialization of the .zjj directory
 /// while preserving the original data in a timestamped backup.
 ///
 /// # Safety
@@ -96,15 +96,15 @@ fn print_restoration_instructions(backup_dir: &Path, zjj_dir: &Path) {
 ///
 /// # Process
 ///
-/// 1. Create timestamped backup of .jjz directory
-/// 2. Remove old .jjz directory
-/// 3. Create fresh .jjz directory
+/// 1. Create timestamped backup of .zjj directory
+/// 2. Remove old .zjj directory
+/// 3. Create fresh .zjj directory
 /// 4. Setup configuration files
 /// 5. Initialize new database
 ///
 /// # Arguments
 ///
-/// * `zjj_dir` - Path to .jjz directory to reinitialize
+/// * `zjj_dir` - Path to .zjj directory to reinitialize
 /// * `_db_path` - Database path (unused, kept for API compatibility)
 ///
 /// # Examples
@@ -113,7 +113,7 @@ fn print_restoration_instructions(backup_dir: &Path, zjj_dir: &Path) {
 /// # use std::path::Path;
 /// # use zjj::commands::init::workspace_operations::force_reinitialize;
 /// # async fn example() -> anyhow::Result<()> {
-/// let zjj_dir = Path::new(".jjz");
+/// let zjj_dir = Path::new(".zjj");
 /// let db_path = zjj_dir.join("state.db");
 /// force_reinitialize(zjj_dir, &db_path).await?;
 /// # Ok(())
@@ -133,7 +133,7 @@ fn print_restoration_instructions(backup_dir: &Path, zjj_dir: &Path) {
 /// # Recovery
 ///
 /// If this function returns an error, check for backup directories
-/// named `.jjz.backup.<timestamp>` for manual recovery.
+/// named `.zjj.backup.<timestamp>` for manual recovery.
 pub async fn force_reinitialize(zjj_dir: &Path, _db_path: &Path) -> Result<()> {
     println!("WARNING: Force reinitialize will destroy all session data!");
 
@@ -182,7 +182,7 @@ mod tests {
     #[test]
     fn test_backup_timestamp_uniqueness() -> Result<()> {
         // Test that timestamps create unique backup names
-        let base_path = PathBuf::from(".jjz");
+        let base_path = PathBuf::from(".zjj");
 
         let time1 = generate_backup_timestamp()?;
         let backup1 = base_path.with_extension(format!("backup.{time1}"));
@@ -209,9 +209,9 @@ mod tests {
     #[test]
     fn test_force_reinitialize_creates_backup() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let zjj_dir = temp_dir.path().join(".jjz");
+        let zjj_dir = temp_dir.path().join(".zjj");
 
-        // Create existing .jjz structure
+        // Create existing .zjj structure
         std::fs::create_dir_all(&zjj_dir)?;
         std::fs::write(zjj_dir.join("test_file.txt"), "original content")?;
 
@@ -224,7 +224,7 @@ mod tests {
         // Verify backup was created
         let backup_dirs: Vec<_> = std::fs::read_dir(temp_dir.path())?
             .filter_map(std::result::Result::ok)
-            .filter(|e| e.file_name().to_string_lossy().starts_with(".jjz.backup."))
+            .filter(|e| e.file_name().to_string_lossy().starts_with(".zjj.backup."))
             .collect();
 
         assert!(!backup_dirs.is_empty(), "Backup directory should exist");
@@ -239,11 +239,11 @@ mod tests {
             "Backup should preserve content"
         );
 
-        // Verify new .jjz exists and is fresh
-        assert!(zjj_dir.exists(), "New .jjz directory should exist");
+        // Verify new .zjj exists and is fresh
+        assert!(zjj_dir.exists(), "New .zjj directory should exist");
         assert!(
             !zjj_dir.join("test_file.txt").exists(),
-            "New .jjz should not contain old files"
+            "New .zjj should not contain old files"
         );
 
         Ok(())
@@ -252,9 +252,9 @@ mod tests {
     #[test]
     fn test_force_reinitialize_creates_config() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let zjj_dir = temp_dir.path().join(".jjz");
+        let zjj_dir = temp_dir.path().join(".zjj");
 
-        // Create existing .jjz
+        // Create existing .zjj
         std::fs::create_dir_all(&zjj_dir)?;
         let db_path = zjj_dir.join("state.db");
 
@@ -275,9 +275,9 @@ mod tests {
     #[test]
     fn test_force_reinitialize_creates_database() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let zjj_dir = temp_dir.path().join(".jjz");
+        let zjj_dir = temp_dir.path().join(".zjj");
 
-        // Create existing .jjz
+        // Create existing .zjj
         std::fs::create_dir_all(&zjj_dir)?;
         let db_path = zjj_dir.join("state.db");
 
@@ -302,9 +302,9 @@ mod tests {
     #[test]
     fn test_force_reinitialize_preserves_backup() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let zjj_dir = temp_dir.path().join(".jjz");
+        let zjj_dir = temp_dir.path().join(".zjj");
 
-        // Create existing .jjz with a session
+        // Create existing .zjj with a session
         std::fs::create_dir_all(&zjj_dir)?;
         let db_path = zjj_dir.join("state.db");
 

@@ -45,10 +45,10 @@ fn test_e2e_complete_mvp_workflow() {
 
     // Step 1: Initialize jjz
     harness.assert_success(&["init"]);
-    harness.assert_jjz_dir_exists();
+    harness.assert_zjj_dir_exists();
 
     // Verify initialization created all required files
-    let jjz_dir = harness.jjz_dir();
+    let jjz_dir = harness.zjj_dir();
     assert!(
         jjz_dir.join("config.toml").exists(),
         "config.toml should exist"
@@ -68,12 +68,12 @@ fn test_e2e_complete_mvp_workflow() {
     result.assert_stdout_contains("feature-mvp");
 
     // Step 3: List sessions
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success, "list command should succeed");
     result.assert_stdout_contains("feature-mvp");
 
     // Step 4: Check status
-    let result = harness.jjz(&["status", "feature-mvp"]);
+    let result = harness.zjj(&["status", "feature-mvp"]);
     assert!(result.success, "status command should succeed");
     result.assert_output_contains("feature-mvp");
 
@@ -84,7 +84,7 @@ fn test_e2e_complete_mvp_workflow() {
     harness.assert_workspace_not_exists("feature-mvp");
 
     // Verify session removed from list
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(
         !result.stdout.contains("feature-mvp"),
         "Session should not appear in list"
@@ -226,7 +226,7 @@ fn test_e2e_session_name_validation() {
     }
 
     // Verify all appear in list
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     for name in &valid_names {
         result.assert_stdout_contains(name);
     }
@@ -284,15 +284,15 @@ fn test_e2e_error_handling_no_init() {
     };
 
     // Try to add without init
-    let result = harness.jjz(&["add", "test", "--no-open"]);
+    let result = harness.zjj(&["add", "test", "--no-open"]);
     assert!(!result.success, "add should fail without init");
 
     // Try to list without init
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success, "list should fail without init");
 
     // Try to remove without init
-    let result = harness.jjz(&["remove", "test", "--force"]);
+    let result = harness.zjj(&["remove", "test", "--force"]);
     assert!(!result.success, "remove should fail without init");
 }
 
@@ -311,7 +311,7 @@ fn test_e2e_error_handling_nonexistent_session() {
     harness.assert_failure(&["remove", "nonexistent", "--force"], "");
 
     // Try to focus nonexistent session
-    let result = harness.jjz(&["focus", "nonexistent", "--json"]);
+    let result = harness.zjj(&["focus", "nonexistent", "--json"]);
     assert!(!result.success, "focus should fail for nonexistent session");
 }
 
@@ -328,12 +328,12 @@ fn test_e2e_idempotent_init() {
     harness.assert_success(&["init"]);
 
     // Second init should succeed but indicate already initialized
-    let result = harness.jjz(&["init"]);
+    let result = harness.zjj(&["init"]);
     assert!(result.success, "Second init should succeed");
     result.assert_output_contains("already initialized");
 
     // Third init should also succeed
-    let result = harness.jjz(&["init"]);
+    let result = harness.zjj(&["init"]);
     assert!(result.success, "Third init should succeed");
 }
 
@@ -354,14 +354,14 @@ fn test_e2e_json_output_format() {
     harness.assert_success(&["add", "json-test", "--no-open"]);
 
     // Test list --json
-    let result = harness.jjz(&["list", "--json"]);
+    let result = harness.zjj(&["list", "--json"]);
     assert!(result.success, "list --json should succeed");
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
     let stdout = &result.stdout;
     assert!(parsed.is_ok(), "list output should be valid JSON: {stdout}");
 
     // Test status --json
-    let result = harness.jjz(&["status", "json-test", "--json"]);
+    let result = harness.zjj(&["status", "json-test", "--json"]);
     assert!(result.success, "status --json should succeed");
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
     let stdout = &result.stdout;
@@ -371,7 +371,7 @@ fn test_e2e_json_output_format() {
     );
 
     // Test focus --json (will fail without TTY, but should produce valid JSON)
-    let result = harness.jjz(&["focus", "json-test", "--json"]);
+    let result = harness.zjj(&["focus", "json-test", "--json"]);
     // May succeed or fail depending on environment, but output should be JSON
     if !result.stdout.is_empty() {
         let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
@@ -563,7 +563,7 @@ fn test_e2e_workspace_structure() {
     );
 
     // Verify workspace is isolated (has its own working copy)
-    let result = harness.jjz_with_env(&["list"], &[]);
+    let result = harness.zjj_with_env(&["list"], &[]);
     assert!(result.success, "Commands should work with workspace");
 
     // Cleanup
@@ -593,7 +593,7 @@ fn test_e2e_remove_missing_workspace() {
     let _ = std::fs::remove_dir_all(&workspace_path);
 
     // Remove should still succeed
-    let result = harness.jjz(&["remove", "missing-test", "--force"]);
+    let result = harness.zjj(&["remove", "missing-test", "--force"]);
     // May succeed or warn, but should not crash
     assert!(
         result.success || result.stderr.contains("workspace"),
@@ -627,7 +627,7 @@ fn test_e2e_many_sessions() {
     }
 
     // Verify all appear in list
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success, "list should handle many sessions");
 
     for session in &sessions {
@@ -640,7 +640,7 @@ fn test_e2e_many_sessions() {
     }
 
     // Verify empty
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(
         result.success,
         "list should work after removing all sessions"
@@ -664,7 +664,7 @@ fn test_e2e_focus_outside_zellij() {
     harness.assert_success(&["add", "focus-test", "--no-open"]);
 
     // Focus when not in Zellij (and no TTY in tests)
-    let result = harness.jjz(&["focus", "focus-test", "--json"]);
+    let result = harness.zjj(&["focus", "focus-test", "--json"]);
 
     // Should produce JSON output (may succeed or fail based on environment)
     if !result.stdout.is_empty() {
@@ -688,7 +688,7 @@ fn test_e2e_focus_nonexistent_session() {
     harness.assert_success(&["init"]);
 
     // Try to focus nonexistent session
-    let result = harness.jjz(&["focus", "nonexistent", "--json"]);
+    let result = harness.zjj(&["focus", "nonexistent", "--json"]);
     assert!(!result.success, "focus should fail for nonexistent session");
 
     // Should produce JSON error
@@ -726,7 +726,7 @@ fn test_e2e_sequential_operations() {
     for i in 0..5 {
         let name = format!("rapid-{i}");
         harness.assert_success(&["add", &name, "--no-open"]);
-        let result = harness.jjz(&["list"]);
+        let result = harness.zjj(&["list"]);
         assert!(result.success);
         harness.assert_success(&["remove", &name, "--force"]);
     }

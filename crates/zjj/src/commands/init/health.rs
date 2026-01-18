@@ -208,21 +208,21 @@ pub async fn force_reinitialize(zjj_dir: &Path, _db_path: &Path) -> Result<()> {
     let timestamp = generate_backup_timestamp()?;
     let backup_dir = zjj_dir.with_extension(format!("backup.{timestamp}"));
 
-    println!("\nCreating backup of .jjz directory...");
+    println!("\nCreating backup of .zjj directory...");
     println!("  Backup location: {}", backup_dir.display());
 
-    // Create backup by copying entire .jjz directory
+    // Create backup by copying entire .zjj directory
     copy_dir_recursive(zjj_dir, &backup_dir).context("Failed to create backup")?;
 
     println!("Backup created successfully.");
 
-    // Remove old .jjz directory
-    println!("\nRemoving old .jjz directory...");
-    fs::remove_dir_all(zjj_dir).context("Failed to remove old .jjz directory")?;
+    // Remove old .zjj directory
+    println!("\nRemoving old .zjj directory...");
+    fs::remove_dir_all(zjj_dir).context("Failed to remove old .zjj directory")?;
 
-    // Recreate .jjz directory
-    println!("Creating new .jjz directory...");
-    fs::create_dir_all(zjj_dir).context("Failed to create new .jjz directory")?;
+    // Recreate .zjj directory
+    println!("Creating new .zjj directory...");
+    fs::create_dir_all(zjj_dir).context("Failed to create new .zjj directory")?;
 
     // Setup configuration files
     super::config_setup::setup_config(zjj_dir)?;
@@ -233,10 +233,10 @@ pub async fn force_reinitialize(zjj_dir: &Path, _db_path: &Path) -> Result<()> {
 
     println!("\nReinitialization completed successfully!");
     println!("  Backup directory: {}", backup_dir.display());
-    println!("  New .jjz directory: {}", zjj_dir.display());
+    println!("  New .zjj directory: {}", zjj_dir.display());
     println!("\nTo restore from backup:");
-    println!("  rm -rf .jjz");
-    println!("  mv {} .jjz", backup_dir.display());
+    println!("  rm -rf .zjj");
+    println!("  mv {} .zjj", backup_dir.display());
 
     Ok(())
 }

@@ -116,7 +116,7 @@ fn bench_load_config(c: &mut Criterion) {
                 (config_path, dir)
             },
             |(_config_path, _dir)| {
-                // Note: load_config() uses current directory's .jjz/config.toml
+                // Note: load_config() uses current directory's .zjj/config.toml
                 // The benchmark doesn't actually use the temp config created above
                 // This is intentional - it benchmarks the real-world usage pattern
                 black_box(zjj_core::config::load_config().ok())

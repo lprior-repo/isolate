@@ -49,7 +49,7 @@ fn test_concurrent_add_same_name_race_condition() {
             b.wait();
 
             // All threads try to create at the same time
-            let result = std::process::Command::new(env!("CARGO_BIN_EXE_jjz"))
+            let result = std::process::Command::new(env!("CARGO_BIN_EXE_zjj"))
                 .args(["add", "race-session", "--no-open"])
                 .current_dir(&repo_path)
                 .env("NO_COLOR", "1")
@@ -96,7 +96,7 @@ fn test_concurrent_add_same_name_race_condition() {
     assert_eq!(failure_count, 2, "Expected 2 failures, got {failure_count}");
 
     // Verify only one session exists in the database
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
 
     // Count occurrences of "race-session" in output
@@ -129,7 +129,7 @@ fn test_concurrent_add_different_names() {
             b.wait();
 
             let name = format!("concurrent-{i}");
-            std::process::Command::new(env!("CARGO_BIN_EXE_jjz"))
+            std::process::Command::new(env!("CARGO_BIN_EXE_zjj"))
                 .args(["add", &name, "--no-open"])
                 .current_dir(&repo_path)
                 .env("NO_COLOR", "1")
@@ -158,7 +158,7 @@ fn test_concurrent_add_different_names() {
     );
 
     // Verify successful sessions exist in the database
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     // At least verify that we got some sessions created
     assert!(
@@ -187,7 +187,7 @@ fn test_concurrent_remove_same_session() {
         let handle = thread::spawn(move || {
             b.wait();
 
-            let result = std::process::Command::new(env!("CARGO_BIN_EXE_jjz"))
+            let result = std::process::Command::new(env!("CARGO_BIN_EXE_zjj"))
                 .args(["remove", "to-remove", "--force"])
                 .current_dir(&repo_path)
                 .env("NO_COLOR", "1")
@@ -215,7 +215,7 @@ fn test_concurrent_remove_same_session() {
     );
 
     // Verify session no longer exists
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     assert!(!result.stdout.contains("to-remove"));
 }
@@ -233,7 +233,7 @@ fn test_list_on_empty_database() {
     harness.assert_success(&["init"]);
 
     // List should work on empty database
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success, "List should succeed on empty database");
 
     // Output should indicate no sessions or be empty
@@ -249,7 +249,7 @@ fn test_status_on_empty_database() {
     harness.assert_success(&["init"]);
 
     // Status for nonexistent session in empty database
-    let result = harness.jjz(&["status", "nonexistent"]);
+    let result = harness.zjj(&["status", "nonexistent"]);
     // Should either fail or show "not found"
     if result.success {
         result.assert_output_contains("not found");
@@ -265,7 +265,7 @@ fn test_remove_from_empty_database() {
     harness.assert_success(&["init"]);
 
     // Remove should fail gracefully on empty database
-    let result = harness.jjz(&["remove", "nonexistent", "--force"]);
+    let result = harness.zjj(&["remove", "nonexistent", "--force"]);
     assert!(
         !result.success,
         "Remove should fail for nonexistent session"
@@ -281,7 +281,7 @@ fn test_focus_on_empty_database() {
     harness.assert_success(&["init"]);
 
     // Focus should fail gracefully
-    let result = harness.jjz(&["focus", "nonexistent"]);
+    let result = harness.zjj(&["focus", "nonexistent"]);
     assert!(!result.success, "Focus should fail for nonexistent session");
 }
 
@@ -301,7 +301,7 @@ fn test_add_duplicate_immediately_after_creation() {
     harness.assert_success(&["add", "session1", "--no-open"]);
 
     // Try to create duplicate immediately - should fail
-    let result = harness.jjz(&["add", "session1", "--no-open"]);
+    let result = harness.zjj(&["add", "session1", "--no-open"]);
     assert!(
         !result.success,
         "Duplicate session creation should fail. Stdout: {}, Stderr: {}",
@@ -322,7 +322,7 @@ fn test_add_case_sensitive_duplicates() {
     harness.assert_success(&["add", "session", "--no-open"]);
     harness.assert_success(&["add", "SESSION", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("Session");
     result.assert_stdout_contains("session");
     result.assert_stdout_contains("SESSION");
@@ -343,7 +343,7 @@ fn test_add_after_remove_same_name() {
     // Should be able to create again with same name
     harness.assert_success(&["add", "reusable", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("reusable");
 }
 
@@ -367,7 +367,7 @@ fn test_list_with_missing_workspace_directories() {
     fs::remove_dir_all(&workspace_path).ok();
 
     // List should still work (database entry exists, workspace doesn't)
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success, "List should work with missing workspace");
 
     // Session should still appear in list (it's in DB)
@@ -389,7 +389,7 @@ fn test_status_with_missing_workspace() {
     fs::remove_dir_all(&workspace_path).ok();
 
     // Status should either succeed with warning or fail gracefully
-    let result = harness.jjz(&["status", "orphaned"]);
+    let result = harness.zjj(&["status", "orphaned"]);
     // Implementation may vary - either shows status with warning or fails
     if !result.success {
         result.assert_output_contains("orphaned");
@@ -414,7 +414,7 @@ fn test_remove_orphaned_session() {
     harness.assert_success(&["remove", "orphaned", "--force"]);
 
     // Verify it's gone from database
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.stdout.contains("orphaned"));
 }
 
@@ -432,7 +432,7 @@ fn test_workspace_exists_without_db_entry() {
     fs::create_dir_all(&workspace_path).ok();
 
     // List should not show the manual workspace (only DB entries)
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     assert!(
         !result.stdout.contains("manual-workspace"),
@@ -464,7 +464,7 @@ fn test_multiple_concurrent_reads() {
         let handle = thread::spawn(move || {
             b.wait();
 
-            std::process::Command::new(env!("CARGO_BIN_EXE_jjz"))
+            std::process::Command::new(env!("CARGO_BIN_EXE_zjj"))
                 .args(["list"])
                 .current_dir(&repo_path)
                 .env("NO_COLOR", "1")
@@ -509,7 +509,7 @@ fn test_concurrent_read_write() {
 
             (
                 format!("read-{i}"),
-                std::process::Command::new(env!("CARGO_BIN_EXE_jjz"))
+                std::process::Command::new(env!("CARGO_BIN_EXE_zjj"))
                     .args(["list"])
                     .current_dir(&repo_path)
                     .env("NO_COLOR", "1")
@@ -530,7 +530,7 @@ fn test_concurrent_read_write() {
             let name = format!("write-session-{i}");
             (
                 name.clone(),
-                std::process::Command::new(env!("CARGO_BIN_EXE_jjz"))
+                std::process::Command::new(env!("CARGO_BIN_EXE_zjj"))
                     .args(["add", &name, "--no-open"])
                     .current_dir(&repo_path)
                     .env("NO_COLOR", "1")
@@ -582,7 +582,7 @@ fn test_corrupted_database_recovery() {
     // SQLite is very resilient and will treat corrupted files as new databases.
     // The application will successfully recreate the schema in most cases.
     // The key is that it handles corruption gracefully without crashing.
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
 
     // If the command succeeds, it has successfully recreated the database
     // If it fails, error should mention database issue
@@ -613,7 +613,7 @@ fn test_add_with_no_hooks_flag() {
 
     harness.assert_success(&["add", "no-hooks-session", "--no-open", "--no-hooks"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("no-hooks-session");
 }
 
@@ -627,7 +627,7 @@ fn test_add_with_failing_hook() {
     harness.assert_success(&["init"]);
 
     // Create a hook directory
-    let hooks_dir = harness.jjz_dir().join("hooks");
+    let hooks_dir = harness.zjj_dir().join("hooks");
     fs::create_dir_all(&hooks_dir).ok();
 
     // Create a failing pre-add hook
@@ -649,7 +649,7 @@ fn test_add_with_failing_hook() {
     }
 
     // Try to add session - hook should fail
-    let result = harness.jjz(&["add", "hooked-session", "--no-open"]);
+    let result = harness.zjj(&["add", "hooked-session", "--no-open"]);
 
     // Implementation may vary: either fails with hook error or succeeds anyway
     // If it fails, error should mention hook
@@ -668,7 +668,7 @@ fn test_add_with_missing_hook_executable() {
     harness.assert_success(&["init"]);
 
     // Create hooks directory with non-executable file
-    let hooks_dir = harness.jjz_dir().join("hooks");
+    let hooks_dir = harness.zjj_dir().join("hooks");
     fs::create_dir_all(&hooks_dir).ok();
 
     let hook_path = hooks_dir.join("pre-add");
@@ -676,7 +676,7 @@ fn test_add_with_missing_hook_executable() {
     // Don't set executable permission
 
     // Should either skip the hook or fail gracefully
-    let result = harness.jjz(&["add", "session", "--no-open"]);
+    let result = harness.zjj(&["add", "session", "--no-open"]);
 
     // Should succeed (non-executable hooks are typically skipped)
     if !result.success {
@@ -695,7 +695,7 @@ fn test_remove_with_no_hooks_flag() {
     harness.assert_success(&["add", "test", "--no-open"]);
 
     // Remove with --no-hooks (if implemented)
-    let result = harness.jjz(&["remove", "test", "--force", "--no-hooks"]);
+    let result = harness.zjj(&["remove", "test", "--force", "--no-hooks"]);
 
     // Should succeed (or fail gracefully if --no-hooks not implemented for remove)
     if !result.success {
@@ -728,7 +728,7 @@ fn test_rapid_add_remove_cycles() {
     }
 
     // Database should be in consistent state
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success, "List should work after rapid cycles");
 }
 
@@ -749,7 +749,7 @@ fn test_max_sessions_stress_test() {
     }
 
     // List should show all sessions
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
 
     for i in 0..session_count {
@@ -779,7 +779,7 @@ fn test_session_name_at_max_length() {
 
     harness.assert_success(&["add", &name, "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains(&name);
 
     harness.assert_success(&["remove", &name, "--force"]);
@@ -803,12 +803,12 @@ fn test_operations_with_readonly_database() {
     }
 
     // Read operations should still work
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success, "List should work with readonly database");
 
     // Write operations should fail gracefully (or may succeed if SQLite can write)
     // This test verifies the system handles readonly gracefully
-    let _result = harness.jjz(&["add", "should-fail", "--no-open"]);
+    let _result = harness.zjj(&["add", "should-fail", "--no-open"]);
     // We don't assert failure because SQLite behavior with readonly files is complex
 
     // Restore write permissions for cleanup
@@ -835,7 +835,7 @@ fn test_workspace_directory_without_jj_metadata() {
     fs::remove_dir_all(&jj_dir).ok();
 
     // Status should detect the corruption
-    let _result = harness.jjz(&["status", "broken-workspace"]);
+    let _result = harness.zjj(&["status", "broken-workspace"]);
     // May succeed with warning or fail - both are acceptable
 
     // Remove should still work (clean up what we can)

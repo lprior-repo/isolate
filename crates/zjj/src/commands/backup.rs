@@ -39,7 +39,7 @@ pub async fn run_backup(backup_path: Option<&str>, json: bool) -> Result<()> {
     let path = if let Some(p) = backup_path {
         PathBuf::from(p)
     } else {
-        // Default: .jjz/backups/jjz-backup-<timestamp>.json
+        // Default: .zjj/backups/jjz-backup-<timestamp>.json
         let data_dir = crate::commands::zjj_data_dir()?;
         let backup_dir = data_dir.join("backups");
 

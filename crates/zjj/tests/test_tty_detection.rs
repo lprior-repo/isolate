@@ -35,7 +35,7 @@ fn test_add_with_no_open_succeeds_in_non_tty() {
     harness.assert_workspace_exists("ci-session");
 
     // Verify it appears in list
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     result.assert_stdout_contains("ci-session");
 }
@@ -63,7 +63,7 @@ fn test_add_with_no_open_multiple_sessions_in_non_tty() {
     harness.assert_workspace_exists("session-3");
 
     // All should appear in list
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("session-1");
     result.assert_stdout_contains("session-2");
     result.assert_stdout_contains("session-3");
@@ -93,7 +93,7 @@ fn test_add_without_no_open_fails_gracefully_in_non_tty() {
     // Note: This test assumes we're actually in a non-TTY environment
     // In local terminal testing, this may succeed. The test is primarily
     // meant to run in CI where TTY is not available.
-    let result = harness.jjz(&["add", "should-fail"]);
+    let result = harness.zjj(&["add", "should-fail"]);
 
     // If we're in non-TTY, it should fail
     if result.success {
@@ -130,7 +130,7 @@ fn test_add_non_tty_error_message_suggests_flag() {
     };
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["add", "test-error-msg"]);
+    let result = harness.zjj(&["add", "test-error-msg"]);
 
     if !result.success {
         let stdout = &result.stdout;
@@ -206,7 +206,7 @@ fn test_add_no_open_flag_prevents_zellij_in_tty() {
     harness.assert_workspace_exists("no-zellij");
 
     // Verify it's in the list (DB was updated)
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("no-zellij");
 }
 
@@ -226,7 +226,7 @@ fn test_add_no_open_json_output() {
     };
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["add", "json-test", "--no-open", "--json"]);
+    let result = harness.zjj(&["add", "json-test", "--no-open", "--json"]);
     assert!(
         result.success,
         "add with --no-open --json should succeed.\nStderr: {}\nStdout: {}",
@@ -264,7 +264,7 @@ fn test_add_no_open_session_persists() {
 
     // Check status multiple times - should be consistent
     for _ in 0..3 {
-        let result = harness.jjz(&["status", "persistent"]);
+        let result = harness.zjj(&["status", "persistent"]);
         assert!(result.success, "Status check should succeed");
         result.assert_output_contains("persistent");
     }
@@ -290,7 +290,7 @@ fn test_add_no_open_can_be_removed() {
     harness.assert_workspace_not_exists("removable");
 
     // Verify not in list
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.stdout.contains("removable"));
 }
 
@@ -320,12 +320,12 @@ fn test_complete_workflow_in_non_tty() {
     harness.assert_workspace_exists("ci-workflow");
 
     // 3. List sessions
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
     result.assert_stdout_contains("ci-workflow");
 
     // 4. Check status
-    let result = harness.jjz(&["status", "ci-workflow"]);
+    let result = harness.zjj(&["status", "ci-workflow"]);
     assert!(result.success);
 
     // 5. Remove session
@@ -333,14 +333,14 @@ fn test_complete_workflow_in_non_tty() {
     harness.assert_workspace_not_exists("ci-workflow");
 
     // 6. Verify cleaned up
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.stdout.contains("ci-workflow"));
 }
 
 /// Test that jjz init works in non-TTY
 ///
 /// Precondition: Non-TTY environment
-/// Expected: Init succeeds and creates .jjz directory
+/// Expected: Init succeeds and creates .zjj directory
 #[test]
 fn test_init_succeeds_in_non_tty() {
     let Some(harness) = TestHarness::try_new() else {
@@ -349,5 +349,5 @@ fn test_init_succeeds_in_non_tty() {
     };
 
     harness.assert_success(&["init"]);
-    harness.assert_jjz_dir_exists();
+    harness.assert_zjj_dir_exists();
 }

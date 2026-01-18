@@ -111,7 +111,7 @@ pub fn generate_completions(shell: CompletionShell) {
     let mut cmd = crate::cli::args::build_cli();
     let shell_type = shell.to_clap_shell();
 
-    generate(shell_type, &mut cmd, "jjz", &mut io::stdout());
+    generate(shell_type, &mut cmd, "zjj", &mut io::stdout());
 }
 
 /// Run completions command

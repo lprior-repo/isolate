@@ -39,8 +39,8 @@ use anyhow::{Context, Result};
 /// # use std::path::Path;
 /// # use zjj::commands::init::file_operations::copy_dir_recursive;
 /// # fn example() -> anyhow::Result<()> {
-/// let src = Path::new(".jjz");
-/// let dst = Path::new(".jjz.backup.12345");
+/// let src = Path::new(".zjj");
+/// let dst = Path::new(".zjj.backup.12345");
 /// copy_dir_recursive(src, dst)?;
 /// # Ok(())
 /// # }

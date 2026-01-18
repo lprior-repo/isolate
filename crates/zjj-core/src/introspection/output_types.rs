@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 pub struct IntrospectOutput {
     /// Version (top-level for AI compatibility)
     pub version: String,
-    /// JJZ version (kept for backwards compatibility)
+    /// ZJJ version (kept for backwards compatibility with jjz_version)
     pub jjz_version: String,
     /// Categorized capabilities
     pub capabilities: Capabilities,

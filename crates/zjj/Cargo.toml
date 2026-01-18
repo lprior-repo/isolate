@@ -12,7 +12,7 @@ name = "zjj"
 path = "src/lib.rs"
 
 [[bin]]
-name = "jjz"
+name = "zjj"
 path = "src/main.rs"
 
 [dependencies]

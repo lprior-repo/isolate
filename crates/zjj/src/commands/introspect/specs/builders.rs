@@ -241,14 +241,14 @@ pub fn init() -> CommandIntrospection {
             custom: vec![],
         },
         side_effects: vec![
-            "Creates .jjz directory".to_string(),
+            "Creates .zjj directory".to_string(),
             "Creates config.toml".to_string(),
             "Creates sessions.db".to_string(),
         ],
         error_conditions: vec![ErrorCondition {
             code: "ALREADY_INITIALIZED".to_string(),
             description: "JJZ already initialized".to_string(),
-            resolution: "Remove .jjz directory to reinitialize".to_string(),
+            resolution: "Remove .zjj directory to reinitialize".to_string(),
         }],
     }
 }

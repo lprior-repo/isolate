@@ -34,7 +34,7 @@ impl Config {
             } else {
                 other.default_template
             },
-            state_db: if other.state_db == ".jjz/state.db" {
+            state_db: if other.state_db == ".zjj/state.db" {
                 self.state_db
             } else {
                 other.state_db
@@ -98,7 +98,7 @@ impl ZellijConfig {
                 other.session_prefix
             },
             use_tabs: other.use_tabs,
-            layout_dir: if other.layout_dir == ".jjz/layouts" {
+            layout_dir: if other.layout_dir == ".zjj/layouts" {
                 self.layout_dir
             } else {
                 other.layout_dir

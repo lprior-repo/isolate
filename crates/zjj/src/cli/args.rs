@@ -14,9 +14,9 @@ pub fn cmd_init() -> Command {
              WHAT IT DOES:\n\
              Sets up ZJJ infrastructure:\n  \
              1. Checks for JJ repository (creates one if needed)\n  \
-             2. Creates .jjz/ directory for state and layouts\n  \
+             2. Creates .zjj/ directory for state and layouts\n  \
              3. Initializes SQLite database (state.db)\n  \
-             4. Creates default configuration (.jjz/config.toml)\n  \
+             4. Creates default configuration (.zjj/config.toml)\n  \
              5. Sets up workspace directory structure\n  \
              6. Runs health checks on dependencies (jj, zellij)\n\
              \n\
@@ -33,9 +33,9 @@ pub fn cmd_init() -> Command {
              Use --force to completely reset (creates backup first).\n\
              \n\
              CREATES:\n  \
-             • .jjz/state.db          - Session database\n  \
-             • .jjz/config.toml       - Project configuration\n  \
-             • .jjz/layouts/          - Zellij layout files\n  \
+             • .zjj/state.db          - Session database\n  \
+             • .zjj/config.toml       - Project configuration\n  \
+             • .zjj/layouts/          - Zellij layout files\n  \
              • <workspace_dir>/       - Session workspaces (default: ../<repo>__workspaces)\n\
              \n\
              PREREQUISITES:\n  \
@@ -71,6 +71,12 @@ pub fn cmd_init() -> Command {
                 .short('f')
                 .action(clap::ArgAction::SetTrue)
                 .help("Force reinitialize - destroys ALL session data (creates backup first)"),
+        )
+        .arg(
+            Arg::new("migrate")
+                .long("migrate")
+                .action(clap::ArgAction::SetTrue)
+                .help("Migrate from legacy .jjz installation to new .zjj naming"),
         )
         .after_help(
             "EXAMPLES:\n  \
@@ -952,7 +958,7 @@ pub fn cmd_config() -> Command {
             "View or Modify Configuration\n\
              \n\
              CONFIGURATION SCOPES:\n\
-             • Project: .jjz/config.toml (default)\n  \
+             • Project: .zjj/config.toml (default)\n  \
              • Global: ~/.config/jjz/config.toml (with --global)\n\
              \n\
              COMMON SETTINGS:\n\
@@ -1377,7 +1383,7 @@ pub fn cmd_backup() -> Command {
         .about("Create a backup of the session database")
         .arg(
             Arg::new("path")
-                .help("Backup file path (default: .jjz/backups/jjz-backup-<timestamp>.json)"),
+                .help("Backup file path (default: .zjj/backups/jjz-backup-<timestamp>.json)"),
         )
         .arg(
             Arg::new("json")
@@ -1710,7 +1716,7 @@ pub fn cmd_agent() -> Command {
 /// Build the root CLI command with all subcommands
 #[allow(clippy::too_many_lines)]
 pub fn build_cli() -> Command {
-    Command::new("jjz")
+    Command::new("zjj")
         .version(env!("CARGO_PKG_VERSION"))
         .author("ZJJ Contributors")
         .about("ZJJ - Manage JJ workspaces with Zellij sessions")

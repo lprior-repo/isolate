@@ -82,7 +82,7 @@ fn determine_target_branch_internal(
             )
         }
         None => detect_main_branch(workspace_path)
-            .context("Failed to detect main branch. Set 'main_branch' in .jjz/config.toml"),
+            .context("Failed to detect main branch. Set 'main_branch' in .zjj/config.toml"),
     }
 }
 

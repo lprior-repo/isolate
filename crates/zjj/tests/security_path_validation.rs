@@ -31,7 +31,7 @@ fn test_reject_parent_directory_in_session_name() {
     harness.assert_success(&["init"]);
 
     // Attempt 1: Session name with ../ (rejected by session name validator)
-    let result = harness.jjz(&["add", "../../etc", "--no-open"]);
+    let result = harness.zjj(&["add", "../../etc", "--no-open"]);
     assert!(
         !result.success,
         "Should reject session name with ../ components"
@@ -44,7 +44,7 @@ fn test_reject_parent_directory_in_session_name() {
     );
 
     // Attempt 2: Session name with single .. (rejected by session name validator)
-    let result = harness.jjz(&["add", "..", "--no-open"]);
+    let result = harness.zjj(&["add", "..", "--no-open"]);
     assert!(
         !result.success,
         "Should reject session name with .. components"
@@ -57,7 +57,7 @@ fn test_reject_parent_directory_in_session_name() {
     );
 
     // Attempt 3: Session name with / (rejected by session name validator)
-    let result = harness.jjz(&["add", "../evil", "--no-open"]);
+    let result = harness.zjj(&["add", "../evil", "--no-open"]);
     assert!(
         !result.success,
         "Should reject session name with / separator"
@@ -98,7 +98,7 @@ default_template = "standard"
     harness.write_config(malicious_config)?;
 
     // Attempt to create session - should be blocked by validate_workspace_path
-    let result = harness.jjz(&["add", "test-session", "--no-open"]);
+    let result = harness.zjj(&["add", "test-session", "--no-open"]);
     assert!(
         !result.success,
         "Should reject workspace_dir with excessive path traversal"
@@ -149,7 +149,7 @@ default_template = "standard"
     harness.write_config(malicious_config)?;
 
     // Attempt to create session - should be blocked
-    let result = harness.jjz(&["add", "test-session", "--no-open"]);
+    let result = harness.zjj(&["add", "test-session", "--no-open"]);
     assert!(
         !result.success,
         "Should reject absolute path in workspace_dir"
@@ -182,7 +182,7 @@ fn test_canonicalization_resolves_symlinks() -> Result<(), Box<dyn std::error::E
     harness.assert_success(&["init"]);
 
     // Create a directory structure with symlink
-    let jjz_dir = harness.jjz_dir();
+    let jjz_dir = harness.zjj_dir();
     let real_dir = jjz_dir.join("real_workspaces");
     fs::create_dir_all(&real_dir)?;
 
@@ -191,7 +191,7 @@ fn test_canonicalization_resolves_symlinks() -> Result<(), Box<dyn std::error::E
 
     // Create config pointing to symlinked directory
     let config_with_symlink = r#"
-workspace_dir = ".jjz/link_workspaces"
+workspace_dir = ".zjj/link_workspaces"
 
 [hooks]
 post_create = []
@@ -204,7 +204,7 @@ default_template = "standard"
     harness.write_config(config_with_symlink)?;
 
     // Attempt to create session - should be blocked by validate_no_symlinks
-    let result = harness.jjz(&["add", "test-session", "--no-open"]);
+    let result = harness.zjj(&["add", "test-session", "--no-open"]);
     assert!(
         !result.success,
         "Should reject workspace path containing symlinks"
@@ -233,7 +233,7 @@ fn test_valid_relative_paths_allowed() {
     // This should be ALLOWED because it doesn't escape the parent directory bounds
 
     // Create a session - should succeed with default config
-    let result = harness.jjz(&["add", "valid-session", "--no-open"]);
+    let result = harness.zjj(&["add", "valid-session", "--no-open"]);
     assert!(
         result.success,
         "Should allow default config with controlled .. usage. Stderr: {}",
@@ -270,7 +270,7 @@ default_template = "standard"
     harness.write_config(deep_traversal_config)?;
 
     // Attempt to create session - should be blocked
-    let result = harness.jjz(&["add", "test-session", "--no-open"]);
+    let result = harness.zjj(&["add", "test-session", "--no-open"]);
     assert!(
         !result.success,
         "Should reject deeply nested path traversal"
@@ -302,11 +302,11 @@ fn test_boundary_check_prevents_toctou() -> Result<(), Box<dyn std::error::Error
     // Initialize jjz
     harness.assert_success(&["init"]);
 
-    // Configure to use .jjz/workspaces
-    harness.write_config(r#"workspace_dir = ".jjz/workspaces""#)?;
+    // Configure to use .zjj/workspaces
+    harness.write_config(r#"workspace_dir = ".zjj/workspaces""#)?;
 
     // Create workspace_dir as a regular directory first
-    let jjz_dir = harness.jjz_dir();
+    let jjz_dir = harness.zjj_dir();
     let workspace_dir = jjz_dir.join("workspaces");
     fs::create_dir_all(&workspace_dir)?;
 
@@ -321,7 +321,7 @@ fn test_boundary_check_prevents_toctou() -> Result<(), Box<dyn std::error::Error
 
     // Attempt to create session - should be blocked by validate_no_symlinks
     // The locking + validation order prevents TOCTOU
-    let result = harness.jjz(&["add", "test-session", "--no-open"]);
+    let result = harness.zjj(&["add", "test-session", "--no-open"]);
     assert!(
         !result.success,
         "Should detect symlink replacement (TOCTOU attack)"
@@ -367,7 +367,7 @@ default_template = "standard"
     harness.write_config(root_config)?;
 
     // Create session - should succeed
-    let result = harness.jjz(&["add", "root-session", "--no-open"]);
+    let result = harness.zjj(&["add", "root-session", "--no-open"]);
     assert!(
         result.success,
         "Should allow workspace_dir at repo root. Stderr: {}",
@@ -418,7 +418,7 @@ default_template = "standard"
     harness.write_config(&parent_config)?;
 
     // Create session - should succeed (this is the default behavior)
-    let result = harness.jjz(&["add", "parent-session", "--no-open"]);
+    let result = harness.zjj(&["add", "parent-session", "--no-open"]);
     assert!(
         result.success,
         "Should allow single parent escape within bounds. Stderr: {}",
@@ -456,7 +456,7 @@ default_template = "standard"
     harness.write_config(malicious_config)?;
 
     // Attempt to create session
-    let result = harness.jjz(&["add", "test-session", "--no-open"]);
+    let result = harness.zjj(&["add", "test-session", "--no-open"]);
     assert!(!result.success, "Should reject malicious config");
 
     // Verify error message quality

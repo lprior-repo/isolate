@@ -7,6 +7,7 @@
 //! - directory_setup: Directory creation operations
 //! - file_operations: File I/O operations
 //! - health: Database health checking
+//! - migration: Legacy installation migration support
 //! - operations: Database-specific operations
 //! - workspace_operations: Force reinitialization with backup
 
@@ -15,6 +16,7 @@ mod dependencies;
 pub mod directory_setup;
 pub mod file_operations;
 pub mod health;
+pub mod migration;
 mod operations;
 pub mod repo;
 mod state_management;
@@ -30,25 +32,26 @@ pub use state_management::run_with_cwd_and_flags;
 /// This command:
 /// 1. Checks that required dependencies (jj, zellij) are installed
 /// 2. Initializes a JJ repository if not already present
-/// 3. Creates the .jjz directory structure:
-///    - .jjz/config.toml (default configuration)
-///    - .jjz/state.db (sessions database)
-///    - .jjz/layouts/ (Zellij layouts directory)
+/// 3. Creates the .zjj directory structure:
+///    - .zjj/config.toml (default configuration)
+///    - .zjj/state.db (sessions database)
+///    - .zjj/layouts/ (Zellij layouts directory)
 pub async fn run() -> anyhow::Result<()> {
-    run_with_cwd_and_flags(None, false, false).await
+    run_with_cwd_and_flags(None, false, false, false).await
 }
 
 /// Run the init command with flags
 ///
 /// With --repair: Attempts to repair a corrupted database
 /// With --force: Forces reinitialization (creates backup first)
-pub async fn run_with_flags(repair: bool, force: bool) -> anyhow::Result<()> {
-    run_with_cwd_and_flags(None, repair, force).await
+/// With --migrate: Migrates from legacy .jjz installation
+pub async fn run_with_flags(repair: bool, force: bool, migrate: bool) -> anyhow::Result<()> {
+    run_with_cwd_and_flags(None, repair, force, migrate).await
 }
 
 /// Run the init command with an optional working directory (for tests)
 pub async fn run_with_cwd(cwd: Option<&Path>) -> anyhow::Result<()> {
-    run_with_cwd_and_flags(cwd, false, false).await
+    run_with_cwd_and_flags(cwd, false, false, false).await
 }
 
 #[cfg(test)]
@@ -109,16 +112,16 @@ mod tests {
                 return Ok::<(), anyhow::Error>(());
             };
 
-            // Run init with the temp directory as cwd
+            // Run init with the temp directory as cwd (no migration, repair, or force flags)
             let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
 
             // Check result
             result?;
 
-            // Verify .jjz directory was created (use absolute path)
-            let jjz_path = temp_dir.path().join(".jjz");
-            assert!(jjz_path.exists(), ".jjz directory was not created");
-            assert!(jjz_path.is_dir(), ".jjz is not a directory");
+            // Verify .zjj directory was created (use absolute path)
+            let jjz_path = temp_dir.path().join(".zjj");
+            assert!(jjz_path.exists(), ".zjj directory was not created");
+            assert!(jjz_path.is_dir(), ".zjj is not a directory");
 
             Ok(())
         })
@@ -134,7 +137,7 @@ mod tests {
             let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             result?;
             // Verify config.toml was created
-            let config_path = temp_dir.path().join(".jjz/config.toml");
+            let config_path = temp_dir.path().join(".zjj/config.toml");
             assert!(config_path.exists(), "config.toml was not created");
             assert!(config_path.is_file(), "config.toml is not a file");
             // Verify it contains expected content
@@ -157,7 +160,7 @@ mod tests {
             let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             result?;
             // Verify state.db was created
-            let db_path = temp_dir.path().join(".jjz/state.db");
+            let db_path = temp_dir.path().join(".zjj/state.db");
             assert!(db_path.exists(), "state.db was not created");
             assert!(db_path.is_file(), "state.db is not a file");
             // Verify it's a valid SQLite database with correct schema
@@ -178,7 +181,7 @@ mod tests {
             let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             result?;
             // Verify layouts directory was created
-            let layouts_path = temp_dir.path().join(".jjz/layouts");
+            let layouts_path = temp_dir.path().join(".zjj/layouts");
             assert!(layouts_path.exists(), "layouts directory was not created");
             assert!(layouts_path.is_dir(), "layouts is not a directory");
             Ok(())
@@ -301,7 +304,7 @@ mod tests {
             };
             // Initialize first
             run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
-            let db_path = temp_dir.path().join(".jjz/state.db");
+            let db_path = temp_dir.path().join(".zjj/state.db");
             // Corrupt the database
             fs::write(&db_path, "CORRUPTED")?;
             // Run init with --repair flag
@@ -322,7 +325,7 @@ mod tests {
             };
             // Initialize and create session
             run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
-            let db_path = temp_dir.path().join(".jjz/state.db");
+            let db_path = temp_dir.path().join(".zjj/state.db");
             let db = SessionDb::open(&db_path).await?;
             db.create("old-session", "/old/path").await?;
             drop(db);
@@ -350,7 +353,7 @@ mod tests {
             };
             // Initialize first
             run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
-            let db_path = temp_dir.path().join(".jjz/state.db");
+            let db_path = temp_dir.path().join(".zjj/state.db");
             // Corrupt the database
             fs::write(&db_path, "CORRUPTED")?;
             // Run init without flags - should detect corruption and suggest repair
@@ -369,7 +372,7 @@ mod tests {
             };
             // Initialize first
             run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
-            let zjj_dir = temp_dir.path().join(".jjz");
+            let zjj_dir = temp_dir.path().join(".zjj");
             let db_path = zjj_dir.join("state.db");
             // Add some data
             let db: SessionDb = SessionDb::open(&db_path).await?;
@@ -386,7 +389,7 @@ mod tests {
                 !backup_dirs.is_empty(),
                 "Backup directory should be created"
             );
-            // Verify new .jjz directory is clean
+            // Verify new .zjj directory is clean
             let new_db: SessionDb = SessionDb::open(&db_path).await?;
             let sessions: Vec<Session> = new_db.list(None).await?;
             assert_eq!(sessions.len(), 0, "New database should be empty");
@@ -403,7 +406,7 @@ mod tests {
             };
             // Initialize and create session
             run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
-            let zjj_dir = temp_dir.path().join(".jjz");
+            let zjj_dir = temp_dir.path().join(".zjj");
             let db_path = zjj_dir.join("state.db");
             let db: SessionDb = SessionDb::open(&db_path).await?;
             db.create("important-session", "/important/path").await?;

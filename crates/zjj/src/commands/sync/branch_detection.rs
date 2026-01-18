@@ -21,7 +21,7 @@ pub fn detect_main_branch(workspace_path: &str) -> Result<String> {
         .ok_or_else(|| {
             anyhow::anyhow!(
                 "Could not detect main branch. Tried: {}. \
-                Please set 'main_branch' in .jjz/config.toml",
+                Please set 'main_branch' in .zjj/config.toml",
                 candidates.join(", ")
             )
         })
