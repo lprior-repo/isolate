@@ -46,7 +46,7 @@ pub mod types;
 pub mod watcher;
 pub mod zellij;
 
-pub use error::Error;
+pub use error::{Error, ExecutionError, SystemError, ValidationError};
 pub use error_codes::ErrorCode;
 pub use result::{Result, ResultExt};
 
