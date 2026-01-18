@@ -1,13 +1,13 @@
 //! CLI argument definitions and command builders
 //!
-//! This module contains all clap command builders for the jjz CLI.
+//! This module contains all clap command builders for the zjj CLI.
 //! Each function returns a configured `clap::Command` for a subcommand.
 
 use clap::{Arg, ArgAction, Command};
 
 pub fn cmd_init() -> Command {
     Command::new("init")
-        .about("Initialize jjz in a JJ repository (or create one)")
+        .about("Initialize zjj in a JJ repository (or create one)")
         .long_about(
             "Initialize ZJJ in a Repository\n\
              \n\
@@ -21,7 +21,7 @@ pub fn cmd_init() -> Command {
              6. Runs health checks on dependencies (jj, zellij)\n\
              \n\
              WHEN TO USE:\n\
-             • First time using jjz in a repository (REQUIRED)\n  \
+             • First time using zjj in a repository (REQUIRED)\n  \
              • After cloning a repository that uses jjz\n  \
              • When database is corrupted (with --repair)\n  \
              • To reset all session data (with --force)\n\
@@ -45,13 +45,13 @@ pub fn cmd_init() -> Command {
              \n\
              WORKFLOW POSITION:\n\
              This is the FIRST command you run:\n  \
-             jjz init → jjz add → [work] → jjz sync → jjz remove\n\
+             zjj init → zjj add → [work] → zjj sync → zjj remove\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz doctor       - Check system health\n  \
-             • jjz config       - View/modify configuration\n  \
-             • jjz backup       - Backup session database\n  \
-             • jjz restore      - Restore from backup",
+             • zjj doctor       - Check system health\n  \
+             • zjj config       - View/modify configuration\n  \
+             • zjj backup       - Backup session database\n  \
+             • zjj restore      - Restore from backup",
         )
         .arg(
             Arg::new("json")
@@ -75,22 +75,22 @@ pub fn cmd_init() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # First-time setup\n  \
-             jjz init\n\
+             zjj init\n\
              \n  \
              # Fix database corruption\n  \
-             jjz init --repair\n\
+             zjj init --repair\n\
              \n  \
              # Complete reset (creates backup)\n  \
-             jjz init --force\n\
+             zjj init --force\n\
              \n  \
              # Silent initialization for scripts\n  \
-             jjz init --json\n\
+             zjj init --json\n\
              \n\
              COMMON USE CASES:\n  \
-             New project setup:        jjz init\n  \
-             After git clone:          cd repo && jjz init\n  \
-             Database corrupted:       jjz init --repair\n  \
-             Start fresh:              jjz init --force\n\
+             New project setup:        zjj init\n  \
+             After git clone:          cd repo && zjj init\n  \
+             Database corrupted:       zjj init --repair\n  \
+             Start fresh:              zjj init --force\n\
              \n\
              WHAT IF IT FAILS:\n  \
              • JJ not found: Install from https://github.com/martinvonz/jj\n  \
@@ -102,7 +102,7 @@ pub fn cmd_init() -> Command {
              Run this ONCE per repository.\n  \
              Check exit code: 0 = success, 1 = user error, 2 = system error.\n  \
              Use --json for structured output.\n  \
-             Run 'jjz doctor' after init to verify setup.",
+             Run 'zjj doctor' after init to verify setup.",
         )
 }
 
@@ -135,21 +135,21 @@ pub fn cmd_add() -> Command {
              • review:   Diff viewer + beads + Claude (for PR review)\n\
              \n\
              PREREQUISITES:\n  \
-             • Must be in a JJ repository (run 'jjz init' first)\n  \
+             • Must be in a JJ repository (run 'zjj init' first)\n  \
              • Must be inside Zellij session (unless using --no-open)\n  \
              • jj and zellij must be installed\n  \
              • Session name must not already exist\n\
              \n\
              WORKFLOW POSITION:\n\
              This is typically the FIRST command in a development workflow:\n  \
-             jjz add → [work] → jjz sync → jjz remove\n\
+             zjj add → [work] → zjj sync → zjj remove\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz list         - See all sessions\n  \
-             • jjz status       - Check session details\n  \
-             • jjz remove       - Delete session when done\n  \
-             • jjz sync         - Rebase on main branch\n  \
-             • jjz focus        - Switch to existing session",
+             • zjj list         - See all sessions\n  \
+             • zjj status       - Check session details\n  \
+             • zjj remove       - Delete session when done\n  \
+             • zjj sync         - Rebase on main branch\n  \
+             • zjj focus        - Switch to existing session",
         )
         .arg(
             Arg::new("name")
@@ -198,33 +198,33 @@ pub fn cmd_add() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Standard workflow - create and open session\n  \
-             jjz add feature-auth\n\
+             zjj add feature-auth\n\
              \n  \
              # Background session (no tab opened)\n  \
-             jjz add bugfix-123 --no-open\n\
+             zjj add bugfix-123 --no-open\n\
              \n  \
              # Minimal layout (single Claude pane)\n  \
-             jjz add experiment -t minimal\n\
+             zjj add experiment -t minimal\n\
              \n  \
              # Preview mode - see what will be created\n  \
-             jjz add feature-test --dry-run\n\
+             zjj add feature-test --dry-run\n\
              \n  \
              # Skip hooks for quick testing\n  \
-             jjz add quick-test --no-hooks\n\
+             zjj add quick-test --no-hooks\n\
              \n  \
              # For scripting/automation\n  \
-             jjz add api-work --json --no-open\n\
+             zjj add api-work --json --no-open\n\
              \n\
              COMMON USE CASES:\n  \
-             Start new feature:    jjz add feature-name\n  \
-             Quick experiment:     jjz add test -t minimal --no-hooks\n  \
-             PR review:            jjz add review-pr-123 -t review\n  \
-             Parallel work:        jjz add hotfix --no-open\n\
+             Start new feature:    zjj add feature-name\n  \
+             Quick experiment:     zjj add test -t minimal --no-hooks\n  \
+             PR review:            zjj add review-pr-123 -t review\n  \
+             Parallel work:        zjj add hotfix --no-open\n\
              \n\
              AI AGENTS:\n  \
              Use --dry-run first to preview operations.\n  \
              Use --json for structured output.\n  \
-             Check 'jjz context --json' for environment state before adding.",
+             Check 'zjj context --json' for environment state before adding.",
         )
 }
 
@@ -275,12 +275,12 @@ pub fn cmd_add_batch() -> Command {
              }\n\
              \n\
              PREREQUISITES:\n  \
-             • Must be in a JJ repository (run 'jjz init' first)\n  \
+             • Must be in a JJ repository (run 'zjj init' first)\n  \
              • Beads must exist in .beads/beads.db\n  \
              • Session names (= bead IDs) must not already exist\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz add       - Create single session\n  \
+             • zjj add       - Create single session\n  \
              • bd ready      - List beads ready to work\n  \
              • bd list       - List all beads\n\
              \n\
@@ -368,10 +368,10 @@ pub fn cmd_list() -> Command {
              • Filter sessions by bead or agent\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz add         - Create new session\n  \
-             • jjz status      - Detailed info about one session\n  \
-             • jjz focus       - Switch to a session\n  \
-             • jjz dashboard   - Interactive view of all sessions",
+             • zjj add         - Create new session\n  \
+             • zjj status      - Detailed info about one session\n  \
+             • zjj focus       - Switch to a session\n  \
+             • zjj dashboard   - Interactive view of all sessions",
         )
         .arg(
             Arg::new("all")
@@ -418,32 +418,32 @@ pub fn cmd_list() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # List active sessions\n  \
-             jjz list\n\
+             zjj list\n\
              \n  \
              # List everything (including completed/failed)\n  \
-             jjz list --all\n\
+             zjj list --all\n\
              \n  \
              # Filter by specific bead\n  \
-             jjz list --filter-by-bead zjj-1234\n\
+             zjj list --filter-by-bead zjj-1234\n\
              \n  \
              # Show only sessions with beads\n  \
-             jjz list --with-beads\n\
+             zjj list --with-beads\n\
              \n  \
              # Show only sessions with agents\n  \
-             jjz list --with-agents\n\
+             zjj list --with-agents\n\
              \n  \
              # JSON for scripting/parsing\n  \
-             jjz list --json | jq '.[] | select(.status == \"active\")'\n\
+             zjj list --json | jq '.[] | select(.status == \"active\")'\n\
              \n  \
              # Silent mode for scripts\n  \
-             jjz list --silent | wc -l\n\
+             zjj list --silent | wc -l\n\
              \n\
              COMMON USE CASES:\n  \
-             Check what's running:     jjz list\n  \
-             Get session names:        jjz list --json | jq '.[].name'\n  \
-             Count active sessions:    jjz list --json | jq 'length'\n  \
-             Find bead sessions:       jjz list --with-beads\n  \
-             Find old sessions:        jjz list --all\n\
+             Check what's running:     zjj list\n  \
+             Get session names:        zjj list --json | jq '.[].name'\n  \
+             Count active sessions:    zjj list --json | jq 'length'\n  \
+             Find bead sessions:       zjj list --with-beads\n  \
+             Find old sessions:        zjj list --all\n\
              \n\
              AI AGENTS:\n  \
              Always use --json for programmatic access.\n  \
@@ -476,13 +476,13 @@ pub fn cmd_remove() -> Command {
              \n\
              WORKFLOW POSITION:\n\
              This is typically the LAST command in a development workflow:\n  \
-             jjz add → [work] → jjz sync → jjz remove\n\
+             zjj add → [work] → zjj sync → zjj remove\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz list      - See all sessions before deciding what to remove\n  \
-             • jjz status    - Check session state before removal\n  \
-             • jjz sync      - Sync with main before removing\n  \
-             • jjz backup    - Backup database before bulk removals",
+             • zjj list      - See all sessions before deciding what to remove\n  \
+             • zjj status    - Check session state before removal\n  \
+             • zjj sync      - Sync with main before removing\n  \
+             • zjj backup    - Backup database before bulk removals",
         )
         .arg(
             Arg::new("name")
@@ -526,49 +526,49 @@ pub fn cmd_remove() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Standard removal (with confirmation)\n  \
-             jjz remove feature-auth\n\
+             zjj remove feature-auth\n\
              \n  \
              # Preview what will be removed\n  \
-             jjz remove feature-test --dry-run\n\
+             zjj remove feature-test --dry-run\n\
              \n  \
              # Merge to main and remove\n  \
-             jjz remove feature-done --merge\n\
+             zjj remove feature-done --merge\n\
              \n  \
              # Quick removal without confirmation\n  \
-             jjz remove temp-work --force\n\
+             zjj remove temp-work --force\n\
              \n  \
              # Remove workspace but keep branch\n  \
-             jjz remove experiment --keep-branch\n\
+             zjj remove experiment --keep-branch\n\
              \n  \
              # For scripting/automation\n  \
-             jjz remove old-session --force --json\n\
+             zjj remove old-session --force --json\n\
              \n\
              COMMON USE CASES:\n  \
-             Finished feature:         jjz remove feature-name --merge\n  \
-             Abandoned experiment:     jjz remove test --force\n  \
-             Keep branch for later:    jjz remove work --keep-branch\n  \
-             Preview first:            jjz remove session --dry-run\n\
+             Finished feature:         zjj remove feature-name --merge\n  \
+             Abandoned experiment:     zjj remove test --force\n  \
+             Keep branch for later:    zjj remove work --keep-branch\n  \
+             Preview first:            zjj remove session --dry-run\n\
              \n\
              AI AGENT EXAMPLES:\n  \
              # Step 1: Verify session exists\n  \
-             jjz list --json | jq '.[] | select(.name == \"feature-x\")'\n\
+             zjj list --json | jq '.[] | select(.name == \"feature-x\")'\n\
              \n  \
              # Step 2: Preview removal to see what will be affected\n  \
-             jjz remove feature-x --dry-run --json\n\
+             zjj remove feature-x --dry-run --json\n\
              \n  \
              # Step 3: Merge work and remove (automated workflow)\n  \
-             jjz remove feature-x --merge --force --json\n\
+             zjj remove feature-x --merge --force --json\n\
              \n  \
              # Alternative: Verify work is synced before removing\n  \
-             jjz status feature-x --json  # Check for uncommitted changes\n  \
-             jjz sync feature-x           # Sync if needed\n  \
-             jjz remove feature-x --merge --force --json\n\
+             zjj status feature-x --json  # Check for uncommitted changes\n  \
+             zjj sync feature-x           # Sync if needed\n  \
+             zjj remove feature-x --merge --force --json\n\
              \n\
              WORKFLOW CONTEXT FOR AI:\n  \
              AI agents should:\n  \
-             • Always verify session exists with 'jjz list --json' first\n  \
+             • Always verify session exists with 'zjj list --json' first\n  \
              • Use --dry-run to preview destructive operations\n  \
-             • Check 'jjz status <name> --json' for uncommitted changes\n  \
+             • Check 'zjj status <name> --json' for uncommitted changes\n  \
              • Use --merge when work should be integrated to main\n  \
              • Use --force in automated workflows to skip prompts\n  \
              • Parse JSON output to verify removal success (exit code 0)",
@@ -592,12 +592,12 @@ pub fn cmd_focus() -> Command {
              \n\
              WORKFLOW POSITION:\n\
              Use this to switch between parallel work sessions:\n  \
-             jjz add feature-a → [work] → jjz focus feature-b → [work] → jjz focus feature-a\n\
+             zjj add feature-a → [work] → zjj focus feature-b → [work] → zjj focus feature-a\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz list      - See all available sessions to focus\n  \
-             • jjz add       - Create new session to switch to\n  \
-             • jjz status    - Check session details before focusing",
+             • zjj list      - See all available sessions to focus\n  \
+             • zjj add       - Create new session to switch to\n  \
+             • zjj status    - Check session details before focusing",
         )
         .arg(
             Arg::new("name")
@@ -614,30 +614,30 @@ pub fn cmd_focus() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Switch to a session\n  \
-             jjz focus feature-auth\n\
+             zjj focus feature-auth\n\
              \n  \
              # JSON output for scripting\n  \
-             jjz focus api-work --json\n\
+             zjj focus api-work --json\n\
              \n\
              COMMON USE CASES:\n  \
-             Switch contexts:          jjz focus other-feature\n  \
-             Return to main work:      jjz focus main-task\n  \
-             Jump to review:           jjz focus review-pr-123\n\
+             Switch contexts:          zjj focus other-feature\n  \
+             Return to main work:      zjj focus main-task\n  \
+             Jump to review:           zjj focus review-pr-123\n\
              \n\
              AI AGENT EXAMPLES:\n  \
              # Step 1: List available sessions to focus\n  \
-             jjz list --json | jq '.[] | select(.status == \"active\") | .name'\n\
+             zjj list --json | jq '.[] | select(.status == \"active\") | .name'\n\
              \n  \
              # Step 2: Focus on specific session\n  \
-             jjz focus feature-x --json\n\
+             zjj focus feature-x --json\n\
              \n  \
              # Full workflow: Find and switch to a session\n  \
              SESSION=$(jjz list --json | jq -r '.[] | select(.name | contains(\"auth\")) | .name' | head -1)\n  \
-             jjz focus \"$SESSION\" --json\n\
+             zjj focus \"$SESSION\" --json\n\
              \n\
              WORKFLOW CONTEXT FOR AI:\n  \
              AI agents should:\n  \
-             • Verify session exists with 'jjz list --json' before focusing\n  \
+             • Verify session exists with 'zjj list --json' before focusing\n  \
              • Check session status is \"active\" (not \"creating\" or \"failed\")\n  \
              • Use --json for programmatic output parsing\n  \
              • Check exit code: 0 = success, 3 = session not found\n  \
@@ -673,10 +673,10 @@ pub fn cmd_status() -> Command {
              • Debug issues with session setup\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz list      - Quick overview of all sessions\n  \
-             • jjz diff      - See actual code changes\n  \
-             • jjz sync      - Update session after checking status\n  \
-             • jjz doctor    - Check system health if status shows issues",
+             • zjj list      - Quick overview of all sessions\n  \
+             • zjj diff      - See actual code changes\n  \
+             • zjj sync      - Update session after checking status\n  \
+             • zjj doctor    - Check system health if status shows issues",
         )
         .arg(
             Arg::new("name")
@@ -698,32 +698,32 @@ pub fn cmd_status() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Show status of specific session\n  \
-             jjz status feature-auth\n\
+             zjj status feature-auth\n\
              \n  \
              # Show status of all sessions\n  \
-             jjz status\n\
+             zjj status\n\
              \n  \
              # Watch mode for live updates\n  \
-             jjz status feature-x --watch\n\
+             zjj status feature-x --watch\n\
              \n  \
              # JSON output for scripting\n  \
-             jjz status api-work --json\n\
+             zjj status api-work --json\n\
              \n\
              COMMON USE CASES:\n  \
-             Check before sync:        jjz status feature-name\n  \
-             Monitor all work:         jjz status --json | jq '.'\n  \
-             Watch long operation:     jjz status build --watch\n  \
-             Verify session health:    jjz status session-name --json\n\
+             Check before sync:        zjj status feature-name\n  \
+             Monitor all work:         zjj status --json | jq '.'\n  \
+             Watch long operation:     zjj status build --watch\n  \
+             Verify session health:    zjj status session-name --json\n\
              \n\
              AI AGENT EXAMPLES:\n  \
              # Check if session has uncommitted changes\n  \
-             jjz status feature-x --json | jq '.uncommitted_changes'\n\
+             zjj status feature-x --json | jq '.uncommitted_changes'\n\
              \n  \
              # Verify session is ready for work\n  \
-             jjz status feature-x --json | jq 'select(.status == \"active\")'\n\
+             zjj status feature-x --json | jq 'select(.status == \"active\")'\n\
              \n  \
              # Check sync status before merging\n  \
-             jjz status feature-x --json | jq '.sync_status'\n\
+             zjj status feature-x --json | jq '.sync_status'\n\
              \n  \
              # Get workspace path for direct operations\n  \
              WORKSPACE=$(jjz status feature-x --json | jq -r '.workspace_path')\n  \
@@ -769,12 +769,12 @@ pub fn cmd_sync() -> Command {
              \n\
              WORKFLOW POSITION:\n\
              Regular sync during development:\n  \
-             jjz add → [work] → jjz sync → [more work] → jjz sync → jjz remove --merge\n\
+             zjj add → [work] → zjj sync → [more work] → zjj sync → zjj remove --merge\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz status    - Check if sync is needed\n  \
-             • jjz diff      - Preview changes before sync\n  \
-             • jjz remove    - Remove after final sync",
+             • zjj status    - Check if sync is needed\n  \
+             • zjj diff      - Preview changes before sync\n  \
+             • zjj remove    - Remove after final sync",
         )
         .arg(
             Arg::new("name")
@@ -796,41 +796,41 @@ pub fn cmd_sync() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Sync specific session\n  \
-             jjz sync feature-auth\n\
+             zjj sync feature-auth\n\
              \n  \
              # Sync current workspace (auto-detect)\n  \
-             jjz sync\n\
+             zjj sync\n\
              \n  \
              # Preview sync operation\n  \
-             jjz sync feature-x --dry-run\n\
+             zjj sync feature-x --dry-run\n\
              \n  \
              # JSON output for scripting\n  \
-             jjz sync api-work --json\n\
+             zjj sync api-work --json\n\
              \n\
              COMMON USE CASES:\n  \
-             Daily sync:               jjz sync\n  \
-             Before PR:                jjz sync feature-name\n  \
-             Check conflicts:          jjz sync --dry-run\n  \
-             Automated workflow:       jjz sync session --json\n\
+             Daily sync:               zjj sync\n  \
+             Before PR:                zjj sync feature-name\n  \
+             Check conflicts:          zjj sync --dry-run\n  \
+             Automated workflow:       zjj sync session --json\n\
              \n\
              AI AGENT EXAMPLES:\n  \
              # Step 1: Check if sync is needed\n  \
-             jjz status feature-x --json | jq '.sync_status'\n\
+             zjj status feature-x --json | jq '.sync_status'\n\
              \n  \
              # Step 2: Preview sync to check for potential conflicts\n  \
-             jjz sync feature-x --dry-run --json\n\
+             zjj sync feature-x --dry-run --json\n\
              \n  \
              # Step 3: Perform actual sync\n  \
-             jjz sync feature-x --json\n\
+             zjj sync feature-x --json\n\
              \n  \
              # Full workflow: Conditional sync based on status\n  \
              NEEDS_SYNC=$(jjz status feature-x --json | jq -r '.sync_status.needs_sync')\n  \
              if [ \"$NEEDS_SYNC\" = \"true\" ]; then\n    \
-               jjz sync feature-x --json\n  \
+               zjj sync feature-x --json\n  \
              fi\n\
              \n  \
              # Handle potential conflicts\n  \
-             jjz sync feature-x --json > sync_result.json\n  \
+             zjj sync feature-x --json > sync_result.json\n  \
              if jq -e '.conflicts' sync_result.json > /dev/null; then\n    \
                echo \"Conflicts detected - manual resolution required\"\n    \
                jq '.conflicts[]' sync_result.json\n  \
@@ -838,7 +838,7 @@ pub fn cmd_sync() -> Command {
              \n\
              WORKFLOW CONTEXT FOR AI:\n  \
              AI agents should:\n  \
-             • Check 'jjz status <name> --json' for sync_status before syncing\n  \
+             • Check 'zjj status <name> --json' for sync_status before syncing\n  \
              • Use --dry-run first to detect potential conflicts\n  \
              • Parse JSON output for conflict information\n  \
              • Sync regularly to keep sessions up-to-date\n  \
@@ -871,9 +871,9 @@ pub fn cmd_diff() -> Command {
              • Generate diff reports\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz status    - Check session metadata\n  \
-             • jjz sync      - Sync before checking final diff\n  \
-             • jjz remove    - Remove after reviewing diff",
+             • zjj status    - Check session metadata\n  \
+             • zjj sync      - Sync before checking final diff\n  \
+             • zjj remove    - Remove after reviewing diff",
         )
         .arg(
             Arg::new("name")
@@ -896,26 +896,26 @@ pub fn cmd_diff() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Show full diff\n  \
-             jjz diff feature-auth\n\
+             zjj diff feature-auth\n\
              \n  \
              # Show summary only\n  \
-             jjz diff feature-x --stat\n\
+             zjj diff feature-x --stat\n\
              \n  \
              # JSON output for parsing\n  \
-             jjz diff api-work --json\n\
+             zjj diff api-work --json\n\
              \n  \
              # Pipe to pager for large diffs\n  \
-             jjz diff feature-name | less\n\
+             zjj diff feature-name | less\n\
              \n\
              COMMON USE CASES:\n  \
-             Review before PR:         jjz diff feature-name | less\n  \
-             Quick summary:            jjz diff feature --stat\n  \
-             Count changes:            jjz diff work --json | jq '.stats'\n  \
-             Compare to main:          jjz diff session-name\n\
+             Review before PR:         zjj diff feature-name | less\n  \
+             Quick summary:            zjj diff feature --stat\n  \
+             Count changes:            zjj diff work --json | jq '.stats'\n  \
+             Compare to main:          zjj diff session-name\n\
              \n\
              AI AGENT EXAMPLES:\n  \
              # Get diff statistics\n  \
-             jjz diff feature-x --stat --json | jq '{files: .files_changed, insertions, deletions}'\n\
+             zjj diff feature-x --stat --json | jq '{files: .files_changed, insertions, deletions}'\n\
              \n  \
              # Check if session has changes\n  \
              CHANGES=$(jjz diff feature-x --stat --json | jq '.files_changed')\n  \
@@ -924,10 +924,10 @@ pub fn cmd_diff() -> Command {
              fi\n\
              \n  \
              # Extract changed file list\n  \
-             jjz diff feature-x --json | jq -r '.files[].path'\n\
+             zjj diff feature-x --json | jq -r '.files[].path'\n\
              \n  \
              # Verify changes before automated merge\n  \
-             jjz diff feature-x --stat --json > diff_summary.json\n  \
+             zjj diff feature-x --stat --json > diff_summary.json\n  \
              INSERTIONS=$(jq '.insertions' diff_summary.json)\n  \
              DELETIONS=$(jq '.deletions' diff_summary.json)\n  \
              echo \"Changes: +$INSERTIONS -$DELETIONS\"\n\
@@ -969,8 +969,8 @@ pub fn cmd_config() -> Command {
              • 'zellij.use_tabs' - nested boolean\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz init      - Initialize with default config\n  \
-             • jjz doctor    - Validate system configuration",
+             • zjj init      - Initialize with default config\n  \
+             • zjj doctor    - Validate system configuration",
         )
         .arg(Arg::new("key").help("Config key to view/set (dot notation: 'zellij.use_tabs')"))
         .arg(Arg::new("value").help("Value to set (omit to view)"))
@@ -996,47 +996,47 @@ pub fn cmd_config() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # View all config\n  \
-             jjz config\n\
+             zjj config\n\
              \n  \
              # Get specific value\n  \
-             jjz config workspace_dir\n\
+             zjj config workspace_dir\n\
              \n  \
              # Set value\n  \
-             jjz config workspace_dir /custom/path\n\
+             zjj config workspace_dir /custom/path\n\
              \n  \
              # Set nested value\n  \
-             jjz config hooks.post_create 'npm install'\n\
+             zjj config hooks.post_create 'npm install'\n\
              \n  \
              # Validate config\n  \
-             jjz config --validate\n\
+             zjj config --validate\n\
              \n  \
              # JSON output\n  \
-             jjz config --json\n\
+             zjj config --json\n\
              \n  \
              # Global configuration\n  \
-             jjz config --global default_template standard\n\
+             zjj config --global default_template standard\n\
              \n\
              COMMON USE CASES:\n  \
-             View all settings:        jjz config --json\n  \
-             Change workspace dir:     jjz config workspace_dir ~/workspaces\n  \
-             Set default template:     jjz config default_template minimal\n  \
-             Add post-create hook:     jjz config hooks.post_create 'make setup'\n\
+             View all settings:        zjj config --json\n  \
+             Change workspace dir:     zjj config workspace_dir ~/workspaces\n  \
+             Set default template:     zjj config default_template minimal\n  \
+             Add post-create hook:     zjj config hooks.post_create 'make setup'\n\
              \n\
              AI AGENT EXAMPLES:\n  \
              # Get all configuration as JSON\n  \
-             jjz config --json\n\
+             zjj config --json\n\
              \n  \
              # Extract specific setting\n  \
-             jjz config workspace_dir --json | jq -r '.workspace_dir'\n\
+             zjj config workspace_dir --json | jq -r '.workspace_dir'\n\
              \n  \
              # Validate before modifying\n  \
-             jjz config --validate --json\n\
+             zjj config --validate --json\n\
              \n  \
              # Set configuration programmatically\n  \
-             jjz config workspace_dir /custom/path --json\n\
+             zjj config workspace_dir /custom/path --json\n\
              \n  \
              # Check if hooks are configured\n  \
-             jjz config --json | jq 'has(\"hooks\")'\n\
+             zjj config --json | jq 'has(\"hooks\")'\n\
              \n\
              WORKFLOW CONTEXT FOR AI:\n  \
              AI agents should:\n  \
@@ -1085,9 +1085,9 @@ pub fn cmd_context() -> Command {
              • Generating status reports\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz introspect    - Discover command capabilities\n  \
-             • jjz doctor        - Check system health\n  \
-             • jjz query         - Query specific state information",
+             • zjj introspect    - Discover command capabilities\n  \
+             • zjj doctor        - Check system health\n  \
+             • zjj query         - Query specific state information",
         )
         .arg(
             Arg::new("json")
@@ -1098,20 +1098,20 @@ pub fn cmd_context() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Show context in human-readable format\n  \
-             jjz context\n\
+             zjj context\n\
              \n  \
              # JSON output for AI agents\n  \
-             jjz context --json\n\
+             zjj context --json\n\
              \n\
              COMMON USE CASES:\n  \
-             Understand environment:   jjz context --json\n  \
-             Check current session:    jjz context --json | jq '.current_session'\n  \
-             List active sessions:     jjz context --json | jq '.sessions[]'\n  \
-             Verify capabilities:      jjz context --json | jq '.capabilities'\n\
+             Understand environment:   zjj context --json\n  \
+             Check current session:    zjj context --json | jq '.current_session'\n  \
+             List active sessions:     zjj context --json | jq '.sessions[]'\n  \
+             Verify capabilities:      zjj context --json | jq '.capabilities'\n\
              \n\
              AI AGENT EXAMPLES:\n  \
              # Get complete environment state\n  \
-             jjz context --json > environment.json\n\
+             zjj context --json > environment.json\n\
              \n  \
              # Check if inside a session workspace\n  \
              CURRENT_SESSION=$(jjz context --json | jq -r '.current_session.name // \"none\"')\n  \
@@ -1120,11 +1120,11 @@ pub fn cmd_context() -> Command {
              fi\n\
              \n  \
              # Determine what operations are valid\n  \
-             jjz context --json | jq '.capabilities.can_create_session'\n  \
-             jjz context --json | jq '.capabilities.can_focus_session'\n\
+             zjj context --json | jq '.capabilities.can_create_session'\n  \
+             zjj context --json | jq '.capabilities.can_focus_session'\n\
              \n  \
              # Get session count and health\n  \
-             jjz context --json | jq '{session_count: (.sessions | length), healthy: .system_health.healthy}'\n\
+             zjj context --json | jq '{session_count: (.sessions | length), healthy: .system_health.healthy}'\n\
              \n  \
              # Check prerequisites before operation\n  \
              INSIDE_ZELLIJ=$(jjz context --json | jq '.environment.inside_zellij')\n  \
@@ -1134,7 +1134,7 @@ pub fn cmd_context() -> Command {
              \n\
              WORKFLOW CONTEXT FOR AI:\n  \
              AI agents should:\n  \
-             • Run 'jjz context --json' at the start of workflows for full state\n  \
+             • Run 'zjj context --json' at the start of workflows for full state\n  \
              • Check 'current_session' to understand working context\n  \
              • Verify 'capabilities' before attempting operations\n  \
              • Monitor 'system_health' for issues\n  \
@@ -1173,7 +1173,7 @@ pub fn cmd_prime() -> Command {
              \n\
              HOOK INTEGRATION:\n\
              This command is automatically called by startup hooks to inject\n  \
-             workflow context into AI agent sessions. See 'jjz hooks install'.",
+             workflow context into AI agent sessions. See 'zjj hooks install'.",
         )
         .arg(
             Arg::new("json")
@@ -1191,16 +1191,16 @@ pub fn cmd_prime() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Human-readable markdown context\n  \
-             jjz prime\n\
+             zjj prime\n\
              \n  \
              # JSON output for parsing\n  \
-             jjz prime --json\n\
+             zjj prime --json\n\
              \n  \
              # Silent mode for hooks\n  \
-             jjz prime --quiet\n\
+             zjj prime --quiet\n\
              \n\
              TYPICAL WORKFLOW:\n  \
-             After context loss, run 'jjz prime' to recover:\n  \
+             After context loss, run 'zjj prime' to recover:\n  \
              • What repository you're in\n  \
              • What sessions exist\n  \
              • What commands are available\n  \
@@ -1215,7 +1215,7 @@ pub fn cmd_prime() -> Command {
 
 pub fn cmd_introspect() -> Command {
     Command::new("introspect")
-        .about("Discover jjz capabilities and command details")
+        .about("Discover zjj capabilities and command details")
         .long_about(
             "Discover Command Capabilities\n\
              \n\
@@ -1239,9 +1239,9 @@ pub fn cmd_introspect() -> Command {
              • Expected JSON schemas for input/output\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz context       - Get current environment state\n  \
-             • jjz query         - Query specific state info\n  \
-             • jjz --help-json   - Get complete CLI schema",
+             • zjj context       - Get current environment state\n  \
+             • zjj query         - Query specific state info\n  \
+             • zjj --help-json   - Get complete CLI schema",
         )
         .arg(
             Arg::new("command")
@@ -1257,45 +1257,45 @@ pub fn cmd_introspect() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # List all commands\n  \
-             jjz introspect\n\
+             zjj introspect\n\
              \n  \
              # Get details about specific command\n  \
-             jjz introspect add\n\
+             zjj introspect add\n\
              \n  \
              # JSON schema for all commands\n  \
-             jjz introspect --json\n\
+             zjj introspect --json\n\
              \n  \
              # JSON schema for specific command\n  \
-             jjz introspect sync --json\n\
+             zjj introspect sync --json\n\
              \n\
              COMMON USE CASES:\n  \
-             Discover commands:        jjz introspect --json\n  \
-             Learn command args:       jjz introspect add --json\n  \
-             Generate docs:            jjz introspect --json > api.json\n  \
-             Validate schemas:         jjz introspect <cmd> --json | jq '.'\n\
+             Discover commands:        zjj introspect --json\n  \
+             Learn command args:       zjj introspect add --json\n  \
+             Generate docs:            zjj introspect --json > api.json\n  \
+             Validate schemas:         zjj introspect <cmd> --json | jq '.'\n\
              \n\
              AI AGENT EXAMPLES:\n  \
              # Get list of all available commands\n  \
-             jjz introspect --json | jq '.commands[].name'\n\
+             zjj introspect --json | jq '.commands[].name'\n\
              \n  \
              # Find commands that support --json flag\n  \
-             jjz introspect --json | jq '.commands[] | select(.flags[] | contains(\"--json\")) | .name'\n\
+             zjj introspect --json | jq '.commands[] | select(.flags[] | contains(\"--json\")) | .name'\n\
              \n  \
              # Get command signature for validation\n  \
-             jjz introspect add --json | jq '{name, args: .arguments, flags: .flags}'\n\
+             zjj introspect add --json | jq '{name, args: .arguments, flags: .flags}'\n\
              \n  \
              # Discover session management commands\n  \
-             jjz introspect --json | jq '.commands[] | select(.category == \"Session Lifecycle\")'\n\
+             zjj introspect --json | jq '.commands[] | select(.category == \"Session Lifecycle\")'\n\
              \n  \
              # Build dynamic help system\n  \
              for cmd in $(jjz introspect --json | jq -r '.commands[].name'); do\n    \
                echo \"Command: $cmd\"\n    \
-               jjz introspect \"$cmd\" --json | jq -r '.description'\n  \
+               zjj introspect \"$cmd\" --json | jq -r '.description'\n  \
              done\n\
              \n\
              WORKFLOW CONTEXT FOR AI:\n  \
              AI agents should:\n  \
-             • Run 'jjz introspect --json' to discover available commands\n  \
+             • Run 'zjj introspect --json' to discover available commands\n  \
              • Use command schemas to validate inputs before execution\n  \
              • Check 'flags' array to see what options are supported\n  \
              • Parse 'arguments' to understand required vs optional params\n  \
@@ -1323,11 +1323,11 @@ pub fn cmd_doctor() -> Command {
         .after_help(
             "Examples:\n  \
              # Check system health\n  \
-             jjz doctor\n\n  \
+             zjj doctor\n\n  \
              # Auto-fix issues\n  \
-             jjz doctor --fix\n\n  \
+             zjj doctor --fix\n\n  \
              # JSON output for monitoring\n  \
-             jjz doctor --json",
+             zjj doctor --json",
         )
 }
 
@@ -1364,11 +1364,11 @@ pub fn cmd_completions() -> Command {
         .after_help(
             "Examples:\n  \
              # Generate bash completions\n  \
-             jjz completions bash > ~/.local/share/bash-completion/completions/jjz\n\n  \
+             zjj completions bash > ~/.local/share/bash-completion/completions/jjz\n\n  \
              # Generate with installation instructions\n  \
-             jjz completions zsh --instructions\n\n  \
+             zjj completions zsh --instructions\n\n  \
              # Fish completions\n  \
-             jjz completions fish > ~/.config/fish/completions/jjz.fish",
+             zjj completions fish > ~/.config/fish/completions/jjz.fish",
         )
 }
 
@@ -1388,11 +1388,11 @@ pub fn cmd_backup() -> Command {
         .after_help(
             "Examples:\n  \
              # Create backup with auto-generated filename\n  \
-             jjz backup\n\n  \
+             zjj backup\n\n  \
              # Create backup at specific path\n  \
-             jjz backup ~/backups/jjz-sessions.json\n\n  \
+             zjj backup ~/backups/jjz-sessions.json\n\n  \
              # JSON output for scripting\n  \
-             jjz backup --json",
+             zjj backup --json",
         )
 }
 
@@ -1420,9 +1420,9 @@ pub fn cmd_restore() -> Command {
         .after_help(
             "Examples:\n  \
              # Restore from backup (with confirmation)\n  \
-             jjz restore ~/backups/jjz-sessions.json\n\n  \
+             zjj restore ~/backups/jjz-sessions.json\n\n  \
              # Restore without confirmation (DANGEROUS)\n  \
-             jjz restore backup.json --force\n\n\
+             zjj restore backup.json --force\n\n\
              WARNING: This command will REPLACE ALL existing session data!",
         )
 }
@@ -1444,9 +1444,9 @@ pub fn cmd_verify_backup() -> Command {
         .after_help(
             "Examples:\n  \
              # Verify backup file\n  \
-             jjz verify-backup backup.json\n\n  \
+             zjj verify-backup backup.json\n\n  \
              # JSON output for scripting\n  \
-             jjz verify-backup backup.json --json",
+             zjj verify-backup backup.json --json",
         )
 }
 
@@ -1457,17 +1457,17 @@ pub fn cmd_essentials() -> Command {
             "Essential Commands Quick Reference\n\
              \n\
              WHAT IT SHOWS:\n\
-             A curated subset of the most important jjz commands for daily use.\n  \
+             A curated subset of the most important zjj commands for daily use.\n  \
              This is designed to be human-friendly and help you get started quickly.\n\
              \n\
              COMPARED TO OTHER HELP:\n  \
-             • jjz essentials    - Human-friendly quick reference (you are here)\n  \
-             • jjz --help        - Complete command list with details\n  \
-             • jjz context       - AI agent context (environment state)\n  \
-             • jjz introspect    - AI agent introspection (command metadata)\n\
+             • zjj essentials    - Human-friendly quick reference (you are here)\n  \
+             • zjj --help        - Complete command list with details\n  \
+             • zjj context       - AI agent context (environment state)\n  \
+             • zjj introspect    - AI agent introspection (command metadata)\n\
              \n\
              WHEN TO USE:\n  \
-             • Learning jjz for the first time\n  \
+             • Learning zjj for the first time\n  \
              • Quick reminder of common commands\n  \
              • Share with team members getting started\n  \
              • Forget the exact command name\n\
@@ -1491,10 +1491,10 @@ pub fn cmd_essentials() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Show essential commands\n  \
-             jjz essentials\n\
+             zjj essentials\n\
              \n  \
              # JSON output for scripts\n  \
-             jjz essentials --json\n\
+             zjj essentials --json\n\
              \n\
              TYPICAL USE CASE:\n  \
              New to jjz? Run this first to see the core workflow.\n  \
@@ -1502,9 +1502,9 @@ pub fn cmd_essentials() -> Command {
              \n\
              FOR AI AGENTS:\n  \
              This is optimized for humans. AI agents should use:\n  \
-             • jjz context --json       - Environment state\n  \
-             • jjz introspect --json    - Command metadata\n  \
-             • jjz --help-json          - Complete documentation",
+             • zjj context --json       - Environment state\n  \
+             • zjj introspect --json    - Command metadata\n  \
+             • zjj --help-json          - Complete documentation",
         )
 }
 
@@ -1520,9 +1520,9 @@ pub fn cmd_version() -> Command {
         .after_help(
             "Examples:\n  \
              # Show version\n  \
-             jjz version\n\n  \
+             zjj version\n\n  \
              # JSON output for AI agents\n  \
-             jjz version --json",
+             zjj version --json",
         )
 }
 
@@ -1551,12 +1551,12 @@ pub fn cmd_onboard() -> Command {
              \n\
              WORKFLOW POSITION:\n\
              Run this ONCE during project setup or when updating AI docs:\n  \
-             jjz onboard >> AGENTS.md\n\
+             zjj onboard >> AGENTS.md\n\
              \n\
              RELATED COMMANDS:\n  \
-             • jjz context      - Get current environment state\n  \
-             • jjz introspect   - Explore all CLI commands\n  \
-             • jjz doctor       - Check system health",
+             • zjj context      - Get current environment state\n  \
+             • zjj introspect   - Explore all CLI commands\n  \
+             • zjj doctor       - Check system health",
         )
         .arg(
             Arg::new("json")
@@ -1567,22 +1567,22 @@ pub fn cmd_onboard() -> Command {
         .after_help(
             "EXAMPLES:\n  \
              # Output snippet to terminal\n  \
-             jjz onboard\n\
+             zjj onboard\n\
              \n  \
              # Append to AGENTS.md\n  \
-             jjz onboard >> AGENTS.md\n\
+             zjj onboard >> AGENTS.md\n\
              \n  \
              # JSON format for programmatic use\n  \
-             jjz onboard --json\n\
+             zjj onboard --json\n\
              \n  \
              # Create new AGENTS.md with header\n  \
              echo '# AI Agent Guide' > AGENTS.md\n  \
-             jjz onboard >> AGENTS.md\n\
+             zjj onboard >> AGENTS.md\n\
              \n\
              COMMON USE CASES:\n  \
-             First-time setup:     jjz onboard >> AGENTS.md\n  \
-             Update docs:          jjz onboard > /tmp/snippet.md\n  \
-             JSON for tooling:     jjz onboard --json | jq '.snippet'\n\
+             First-time setup:     zjj onboard >> AGENTS.md\n  \
+             Update docs:          zjj onboard > /tmp/snippet.md\n  \
+             JSON for tooling:     zjj onboard --json | jq '.snippet'\n\
              \n\
              AI AGENTS:\n  \
              This command is specifically designed for you.\n  \
@@ -1729,11 +1729,11 @@ pub fn build_cli() -> Command {
              • Layout: Zellij tab configuration (templates: minimal, standard, full, split, review)\n\
              \n\
              TYPICAL WORKFLOW:\n  \
-             1. jjz init              # Initialize in JJ repository (once)\n  \
-             2. jjz add feature-x     # Create session with workspace + Zellij tab\n  \
+             1. zjj init              # Initialize in JJ repository (once)\n  \
+             2. zjj add feature-x     # Create session with workspace + Zellij tab\n  \
              3. [work in session]     # Develop in isolated environment\n  \
-             4. jjz sync feature-x    # Rebase on main branch\n  \
-             5. jjz remove feature-x  # Cleanup when done\n\
+             4. zjj sync feature-x    # Rebase on main branch\n  \
+             5. zjj remove feature-x  # Cleanup when done\n\
              \n\
              COMMAND CATEGORIES:\n  \
              Session Lifecycle:  add, remove, list, status, focus\n  \
@@ -1745,27 +1745,27 @@ pub fn build_cli() -> Command {
              PREREQUISITES:\n  \
              • jj (Jujutsu VCS) - https://github.com/martinvonz/jj\n  \
              • zellij (terminal multiplexer) - https://zellij.dev\n  \
-             • Must be in a JJ repository (or use 'jjz init' to create one)\n  \
+             • Must be in a JJ repository (or use 'zjj init' to create one)\n  \
              • Must be inside Zellij session (for commands that open tabs)\n\
              \n\
              AI AGENT FEATURES:\n  \
              • All commands support --json for structured output\n  \
              • Semantic exit codes (0=success, 1=user error, 2=system, 3=not found, 4=invalid state)\n  \
-             • Use 'jjz context --json' for complete environment information\n  \
-             • Use 'jjz introspect --json' for machine-readable command documentation\n  \
-             • Use 'jjz query <type>' for programmatic state queries\n\
+             • Use 'zjj context --json' for complete environment information\n  \
+             • Use 'zjj introspect --json' for machine-readable command documentation\n  \
+             • Use 'zjj query <type>' for programmatic state queries\n\
              \n\
              COMMON PATTERNS:\n  \
-             Create session:          jjz add feature-name\n  \
-             Create background:       jjz add task --no-open\n  \
-             Preview operation:       jjz add test --dry-run\n  \
-             Sync with main:          jjz sync\n  \
-             Check what changed:      jjz diff feature-name\n  \
-             List all sessions:       jjz list --json\n  \
-             Interactive dashboard:   jjz dashboard\n  \
-             System health:           jjz doctor\n\
+             Create session:          zjj add feature-name\n  \
+             Create background:       zjj add task --no-open\n  \
+             Preview operation:       zjj add test --dry-run\n  \
+             Sync with main:          zjj sync\n  \
+             Check what changed:      zjj diff feature-name\n  \
+             List all sessions:       zjj list --json\n  \
+             Interactive dashboard:   zjj dashboard\n  \
+             System health:           zjj doctor\n\
              \n\
-             For detailed command help: jjz <command> --help",
+             For detailed command help: zjj <command> --help",
         )
         .after_help(
             "EXIT CODES:\n  \
@@ -1776,16 +1776,16 @@ pub fn build_cli() -> Command {
              4   Invalid state (database corruption, unhealthy system)\n\
              \n\
              QUICK START:\n  \
-             jjz init                    # Setup (first time)\n  \
-             jjz add my-feature          # Create session\n  \
-             jjz list                    # See all sessions\n  \
-             jjz sync my-feature         # Sync with main\n  \
-             jjz remove my-feature       # Cleanup\n\
+             zjj init                    # Setup (first time)\n  \
+             zjj add my-feature          # Create session\n  \
+             zjj list                    # See all sessions\n  \
+             zjj sync my-feature         # Sync with main\n  \
+             zjj remove my-feature       # Cleanup\n\
              \n\
              AI AGENTS:\n  \
              All commands support --json for structured output with semantic exit codes.\n  \
-             Use 'jjz context --json' for complete environment state.\n  \
-             Use 'jjz introspect --json' for machine-readable docs.",
+             Use 'zjj context --json' for complete environment state.\n  \
+             Use 'zjj introspect --json' for machine-readable docs.",
         )
         .arg(
             Arg::new("help-json")
