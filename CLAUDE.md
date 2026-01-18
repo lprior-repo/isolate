@@ -89,3 +89,72 @@ crates/
 - Zellij for terminal multiplexing
 - Beads for issue tracking integration
 - SQLite for session state persistence
+
+## JJ (Jujutsu) Mastery - No Git Commands
+
+**ABSOLUTE RULE: Use JJ exclusively. Never use git commands directly.**
+
+### Revset Mastery
+Use flexible revsets for selection:
+- `@` - Current working copy
+- `root()` - Start of history
+- `x::y` - Ancestors of y that are descendants of x
+- `x-` - Parents of x
+- `x+` - Children of x
+- `x|y` - Union
+- `x&y` - Intersection
+- `::` - All visible commits
+
+**Examples:**
+```bash
+jj log -r 'main..@'    # See your stack (not just recent commits)
+jj diff -r @-          # Changes against parent
+```
+
+### Workspaces for Multitasking
+**Never use 'git stash' or create temporary WIP commits to switch contexts.**
+
+Use JJ workspaces for parallel work streams:
+```bash
+jj workspace add ../fix-bug main    # New working copy at main
+jj workspace list                   # See all workspaces
+```
+
+This allows parallel work without disturbing your current state (`@`).
+
+### Conflicts as Data
+Conflicts are not errors - they are valid, committable states.
+- You can still `jj git push` with conflicts
+- To resolve: edit the file (standard conflict markers), then `jj squash` or `jj new`
+- Never need to 'abort' a rebase - just `jj undo` if unwanted
+
+### Bookmark Management
+Bookmarks = Git Branches. Anonymous heads are fine for local work.
+
+**Workflow:**
+```bash
+# Work on anonymous revisions first
+jj new main
+# ... make changes ...
+
+# Only assign bookmark when ready to push
+jj bookmark set feature-x -r @
+jj git push
+
+# Move a bookmark
+jj bookmark set feature-x -r <new-revision>
+
+# Delete remote bookmark
+jj bookmark delete feature-x
+jj git push
+```
+
+### Safety Net: Operation Log
+Every action creates an operation entry - infinite undo buffer.
+
+```bash
+jj op log                    # View all operations
+jj op restore <op-id>        # Revert entire repo state instantly
+```
+
+If you destroy history or make a bad rebase, recover with `jj op restore`.
