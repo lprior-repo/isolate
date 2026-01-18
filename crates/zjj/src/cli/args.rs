@@ -72,12 +72,6 @@ pub fn cmd_init() -> Command {
                 .action(clap::ArgAction::SetTrue)
                 .help("Force reinitialize - destroys ALL session data (creates backup first)"),
         )
-        .arg(
-            Arg::new("migrate")
-                .long("migrate")
-                .action(clap::ArgAction::SetTrue)
-                .help("Migrate from legacy .jjz installation to new .zjj naming"),
-        )
         .after_help(
             "EXAMPLES:\n  \
              # First-time setup\n  \

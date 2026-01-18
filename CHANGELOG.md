@@ -37,6 +37,59 @@ ZJJ is currently in **alpha** stage (0.x series). Per [SemVer 2.0 Section 4](htt
 
 ---
 
+## [0.2.0] - 2026-01-18
+
+### ⚠️ BREAKING CHANGES
+
+**Binary and Directory Rename: `jjz` → `zjj`**
+
+Complete rename for consistency:
+- **Binary**: `jjz` → `zjj`
+- **Configuration Directory**: `.jjz/` → `.zjj/`
+- **Session Prefix**: `jjz:` → `zjj:` (configurable)
+- **Database Location**: `.jjz/state.db` → `.zjj/state.db`
+- **Layouts Directory**: `.jjz/layouts/` → `.zjj/layouts/`
+
+**Impact**: All users must update scripts and shell configurations to use the new binary name.
+
+### Migration
+
+For existing installations:
+```bash
+# Manual rename (no backward compatibility layer)
+mv .jjz .zjj
+```
+
+See [MIGRATION.md](MIGRATION.md) for detailed upgrade instructions.
+
+### Changed
+
+- **All commands now use `zjj` binary instead of `jjz`**
+  - `jjz init` → `zjj init`
+  - `jjz add` → `zjj add`
+  - All other commands follow the same pattern
+
+- **Configuration and state directory**: `.jjz/` → `.zjj/`
+  - Default config: `.jjz/config.toml` → `.zjj/config.toml`
+  - Session database: `.jjz/state.db` → `.zjj/state.db`
+  - Layouts: `.jjz/layouts/` → `.zjj/layouts/`
+
+- **Default session prefix**: `jjz:` → `zjj:` in Zellij tabs
+  - Configurable via `.zjj/config.toml`
+
+### Added
+
+- **New MIGRATION.md guide** for version upgrade instructions
+
+### Notes
+
+- No production users existed, so clean rename without deprecation period
+- All tests updated for new naming conventions
+- Binary compilation produces `zjj` executable
+- Shell completions generate for `zjj` command
+
+---
+
 ## [Unreleased]
 
 ### Added

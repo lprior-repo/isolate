@@ -7,7 +7,6 @@
 //! - directory_setup: Directory creation operations
 //! - file_operations: File I/O operations
 //! - health: Database health checking
-//! - migration: Legacy installation migration support
 //! - operations: Database-specific operations
 //! - workspace_operations: Force reinitialization with backup
 
@@ -16,7 +15,6 @@ mod dependencies;
 pub mod directory_setup;
 pub mod file_operations;
 pub mod health;
-pub mod migration;
 mod operations;
 pub mod repo;
 mod state_management;
@@ -37,21 +35,20 @@ pub use state_management::run_with_cwd_and_flags;
 ///    - .zjj/state.db (sessions database)
 ///    - .zjj/layouts/ (Zellij layouts directory)
 pub async fn run() -> anyhow::Result<()> {
-    run_with_cwd_and_flags(None, false, false, false).await
+    run_with_cwd_and_flags(None, false, false).await
 }
 
 /// Run the init command with flags
 ///
 /// With --repair: Attempts to repair a corrupted database
 /// With --force: Forces reinitialization (creates backup first)
-/// With --migrate: Migrates from legacy .jjz installation
-pub async fn run_with_flags(repair: bool, force: bool, migrate: bool) -> anyhow::Result<()> {
-    run_with_cwd_and_flags(None, repair, force, migrate).await
+pub async fn run_with_flags(repair: bool, force: bool) -> anyhow::Result<()> {
+    run_with_cwd_and_flags(None, repair, force).await
 }
 
 /// Run the init command with an optional working directory (for tests)
 pub async fn run_with_cwd(cwd: Option<&Path>) -> anyhow::Result<()> {
-    run_with_cwd_and_flags(cwd, false, false, false).await
+    run_with_cwd_and_flags(cwd, false, false).await
 }
 
 #[cfg(test)]
