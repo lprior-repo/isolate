@@ -164,5 +164,4 @@ gh release create $VERSION \
 ## See Also
 
 - [Full Release Documentation](docs/RELEASE.md)
-- [CI/CD Pipeline](schemas/cicd.cue)
 - [GitHub Actions Workflows](.github/workflows/)

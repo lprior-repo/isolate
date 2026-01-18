@@ -399,7 +399,6 @@ git push origin :refs/tags/v0.0.1-test
 - [Quick Release Guide](RELEASING.md)
 - [CI Workflow](.github/workflows/ci.yml)
 - [Release Workflow](.github/workflows/release.yml)
-- [CI/CD Schema](schemas/cicd.cue)
 - [Documentation Index](docs/INDEX.md)
 
 ---

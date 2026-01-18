@@ -122,7 +122,6 @@ zjj/
 │       │   └── main.rs        # Entry point
 │       └── Cargo.toml
 ├── docs/               # Documentation
-├── schemas/            # CUE schemas for validation
 ├── .github/            # CI/CD workflows
 ├── .clippy.toml        # Clippy configuration (DO NOT MODIFY)
 ├── moon.yml            # Moon task definitions

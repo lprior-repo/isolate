@@ -250,7 +250,6 @@ zjj/
 │   ├── zjj-core/       # Core library (JJ/Zellij/Beads integrations)
 │   └── zjj/            # CLI binary (commands + persistence)
 ├── docs/               # Documentation (architecture, patterns, guides)
-├── schemas/            # CUE schemas for validation
 └── README.md           # This file
 ```
 

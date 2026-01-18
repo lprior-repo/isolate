@@ -236,7 +236,7 @@ mod tests {
     fn test_default_config_has_correct_values() -> Result<()> {
         let parsed: toml::Value = toml::from_str(config_setup::default_config())?;
 
-        // Check some key default values from config.cue
+        // Check some key default values from embedded config
         assert_eq!(
             parsed.get("workspace_dir").and_then(|v| v.as_str()),
             Some("../{repo}__workspaces")

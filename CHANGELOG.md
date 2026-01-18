@@ -186,8 +186,6 @@ See [MIGRATION.md](MIGRATION.md) for detailed upgrade instructions.
   - Added RELEASING.md with release workflow documentation
   - Created docs/11_ARCHITECTURE.md with system design documentation
   - Created docs/12_AI_GUIDE.md for AI agent integration patterns
-  - Added schemas/README.md documenting CUE schema structure
-  - Organized schemas into dedicated schemas/ directory
 
 ### Fixed
 
