@@ -80,22 +80,61 @@ fn resolve_cwd(cwd: Option<&Path>) -> Result<PathBuf> {
     }
 }
 
+/// Result of checking and potentially restoring config.toml
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConfigStatus {
+    /// Config exists and is valid
+    Present,
+    /// Config was missing and has been restored
+    Restored,
+}
+
+/// Ensure config.toml exists, restoring it if missing.
+///
+/// # Railway Pattern
+/// Returns `Ok(ConfigStatus)` indicating whether config was present or restored.
+/// Returns `Err` only if restoration fails.
+fn ensure_config_exists(zjj_dir: &Path) -> Result<ConfigStatus> {
+    let config_path = zjj_dir.join("config.toml");
+
+    if config_path.exists() {
+        Ok(ConfigStatus::Present)
+    } else {
+        super::config_setup::setup_config(zjj_dir)
+            .map(|()| ConfigStatus::Restored)
+            .context("Failed to restore missing config.toml")
+    }
+}
+
 /// Handle initialization of an existing .jjz directory
-async fn handle_existing_directory(_zjj_dir: &Path, db_path: &Path) -> Result<()> {
+async fn handle_existing_directory(zjj_dir: &Path, db_path: &Path) -> Result<()> {
     match health::check_database_health(db_path).await {
         health::DatabaseHealth::Healthy => {
-            println!("ZJZ already initialized in this repository.");
+            // Ensure config.toml exists using Railway pattern
+            let config_status = ensure_config_exists(zjj_dir)?;
+
+            // Report status based on what happened
+            match config_status {
+                ConfigStatus::Restored => {
+                    println!("Config file was missing. Restored config.toml.");
+                }
+                ConfigStatus::Present => {
+                    println!("ZJZ already initialized in this repository.");
+                }
+            }
+
             print_initialization_hints();
             Ok(())
         }
         health::DatabaseHealth::Missing => {
             println!("Database file is missing but .jjz directory exists.");
             println!("Recreating database...");
-            let _db = SessionDb::create_or_open(db_path).await?;
-            Ok(())
+            SessionDb::create_or_open(db_path)
+                .await
+                .map(|_db| ())
+                .context("Failed to recreate database")
         }
         health::DatabaseHealth::Empty => {
-            println!("Database file is empty or corrupted.");
             print_repair_hints();
             bail!("Database is empty. Use --repair or --force to fix.");
         }
@@ -105,7 +144,6 @@ async fn handle_existing_directory(_zjj_dir: &Path, db_path: &Path) -> Result<()
             bail!("Database is corrupted. Use --repair or --force to fix.");
         }
         health::DatabaseHealth::WrongSchema => {
-            println!("Database has wrong schema or is corrupted.");
             print_repair_hints();
             bail!("Database has wrong schema. Use --repair or --force to fix.");
         }
