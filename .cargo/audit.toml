@@ -8,7 +8,7 @@
 #
 # Status: Accepted Risk
 # Reason: This vulnerability affects RSA PKCS#1 v1.5 decryption timing side-channels.
-#         - We only use SQLite (not MySQL) in jjz
+#         - We only use SQLite (not MySQL) in zjj
 #         - The rsa crate is a transitive dependency via sqlx-mysql -> sqlx-macros-core
 #         - sqlx-macros unnecessarily pulls in MySQL dependencies even when unused
 #         - We perform no RSA operations in our codebase

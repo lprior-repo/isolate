@@ -152,7 +152,7 @@ fn handle_cancellation(name: &str, json: bool) -> Result<()> {
     if json {
         let output = RemoveOutput {
             success: false,
-            session: name.to_string(),
+            session_name: name.to_string(),
             operations: None,
             closed_bead: None,
             message: Some("Removal cancelled".to_string()),
@@ -170,7 +170,7 @@ fn output_success(name: &str, operations: Vec<RemoveOperation>, json: bool) -> R
     if json {
         let output = RemoveOutput {
             success: true,
-            session: name.to_string(),
+            session_name: name.to_string(),
             operations: Some(operations),
             closed_bead: None,
             message: None,
@@ -187,11 +187,16 @@ fn output_success(name: &str, operations: Vec<RemoveOperation>, json: bool) -> R
 fn output_json_error(name: &str, e: &anyhow::Error) -> ! {
     let output = RemoveOutput {
         success: false,
-        session: name.to_string(),
+        session_name: name.to_string(),
         operations: None,
         closed_bead: None,
         message: None,
-        error: Some(e.to_string()),
+        error: Some(zjj_core::json::ErrorDetail {
+            code: "COMMAND_ERROR".to_string(),
+            message: e.to_string(),
+            field: None,
+            details: None,
+        }),
     };
     if let Ok(json_str) = serde_json::to_string(&output) {
         println!("{json_str}");

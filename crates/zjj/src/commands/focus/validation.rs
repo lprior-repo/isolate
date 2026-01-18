@@ -59,7 +59,7 @@ pub fn validate_tty_environment() -> Result<()> {
              • Piped input/output\n\
              • Background process execution\n\
              \n\
-             The 'jjz focus' command requires a terminal to interact with Zellij."
+             The 'zjj focus' command requires a terminal to interact with Zellij."
         ));
     }
     Ok(())

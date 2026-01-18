@@ -125,7 +125,7 @@ fn test_focus_json_error_nonexistent_session() {
             "Error should have 'message' field"
         );
 
-        // Should suggest using 'jjz list'
+        // Should suggest using 'zjj list'
         if let Some(suggestion) = error.get("suggestion") {
             let sugg_str = suggestion.as_str().unwrap_or("");
             assert!(

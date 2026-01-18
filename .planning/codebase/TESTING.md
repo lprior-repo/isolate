@@ -119,7 +119,7 @@ mod tests {
 **Patterns:**
 - Integration tests use real JJ repository via `TestHarness`
 - Tests create temporary directories with `TempDir`
-- Environment variables set via `Command::env()` or `jjz_with_env()`
+- Environment variables set via `Command::env()` or `zjj_with_env()`
 - No mocking of internal functions - tests exercise real code paths
 - Skip tests that require unavailable external dependencies
 
@@ -128,7 +128,7 @@ mod tests {
 pub struct TestHarness {
     _temp_dir: TempDir,              // Auto-cleanup on drop
     pub repo_path: PathBuf,
-    jjz_bin: PathBuf,
+    zjj_bin: PathBuf,
 }
 
 impl TestHarness {
@@ -362,7 +362,7 @@ fn test_that_cannot_run_parallel() {
 
 **Core Methods:**
 - `TestHarness::try_new()` - Create test environment, returns `None` if JJ unavailable
-- `harness.zjj(&[args])` - Execute jjz command, returns `CommandResult`
+- `harness.zjj(&[args])` - Execute zjj command, returns `CommandResult`
 - `harness.jj(&[args])` - Execute jj command directly
 - `harness.assert_success(&[args])` - Assert command succeeds
 - `harness.assert_failure(&[args], "error text")` - Assert command fails with error
@@ -379,7 +379,7 @@ fn test_that_cannot_run_parallel() {
 **Assertions:**
 - `harness.assert_workspace_exists("session")` - Assert workspace directory exists
 - `harness.assert_workspace_not_exists("session")` - Assert workspace deleted
-- `harness.assert_jjz_dir_exists()` - Assert `.zjj` initialized
+- `harness.assert_zjj_dir_exists()` - Assert `.zjj` initialized
 - `harness.assert_file_exists(path)` - Assert file exists
 - `harness.assert_file_not_exists(path)` - Assert file deleted
 

@@ -137,13 +137,13 @@ impl From<&crate::Error> for JsonError {
                     (
                         ErrorCode::SessionNotFound,
                         display_msg,
-                        Some("Use 'jjz list' to see available sessions".to_string()),
+                        Some("Use 'zjj list' to see available sessions".to_string()),
                     )
                 } else if display_msg.contains("Database error:") {
                     (
                         ErrorCode::StateDbCorrupted,
                         display_msg,
-                        Some("Try running 'jjz doctor --fix' to repair the database".to_string()),
+                        Some("Try running 'zjj doctor --fix' to repair the database".to_string()),
                     )
                 } else if display_msg.contains("No commits") {
                     (
@@ -200,7 +200,7 @@ pub fn error_with_available_sessions(
 
     JsonError::new(code, message)
         .with_details(details)
-        .with_suggestion("Use 'jjz list' to see available sessions")
+        .with_suggestion("Use 'zjj list' to see available sessions")
 }
 
 #[cfg(test)]

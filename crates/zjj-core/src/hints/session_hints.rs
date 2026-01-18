@@ -19,7 +19,7 @@ use crate::{
 #[must_use]
 pub(crate) fn hint_for_active_session(session_name: &str) -> Hint {
     Hint::info(format!("Session '{session_name}' is active"))
-        .with_command(format!("jjz status {session_name}"))
+        .with_command(format!("zjj status {session_name}"))
         .with_rationale("Review session status regularly")
 }
 
@@ -29,7 +29,7 @@ pub(crate) fn hint_for_completed_session(session_name: &str, age_days: i64) -> H
     Hint::suggestion(format!(
         "Session '{session_name}' completed {age_days} day(s) ago, consider removing"
     ))
-    .with_command(format!("jjz remove {session_name} --merge"))
+    .with_command(format!("zjj remove {session_name} --merge"))
     .with_rationale("Clean up completed work")
     .with_context(serde_json::json!({
         "session": session_name,
@@ -41,7 +41,7 @@ pub(crate) fn hint_for_completed_session(session_name: &str, age_days: i64) -> H
 #[must_use]
 pub(crate) fn hint_for_failed_session(session_name: &str) -> Hint {
     Hint::warning(format!("Session '{session_name}' failed during creation"))
-        .with_command(format!("jjz remove {session_name}"))
+        .with_command(format!("zjj remove {session_name}"))
         .with_rationale("Clean up failed session and retry")
 }
 
@@ -49,7 +49,7 @@ pub(crate) fn hint_for_failed_session(session_name: &str) -> Hint {
 #[must_use]
 pub(crate) fn hint_for_no_sessions() -> Hint {
     Hint::suggestion("No sessions yet. Create your first parallel workspace!")
-        .with_command("jjz add <name>")
+        .with_command("zjj add <name>")
         .with_rationale("Sessions enable parallel work on multiple features")
 }
 
@@ -57,7 +57,7 @@ pub(crate) fn hint_for_no_sessions() -> Hint {
 #[must_use]
 pub(crate) fn hint_for_multiple_active_sessions() -> Hint {
     Hint::tip("You have multiple active sessions. Use the dashboard for an overview")
-        .with_command("jjz dashboard")
+        .with_command("zjj dashboard")
         .with_rationale("Visual overview helps manage multiple sessions")
 }
 

@@ -1,14 +1,14 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking and **jjz** for development session management.
+This project uses **bd** (beads) for issue tracking and **zjj** for development session management.
 
 ## Quick Start
 
 ### First Time Setup
 ```bash
 bd onboard            # Get started with beads
-jjz doctor            # Check system health
-jjz context --json    # Get complete environment state
+zjj doctor            # Check system health
+zjj context --json    # Get complete environment state
 ```
 
 ### Discovery Commands
@@ -17,19 +17,19 @@ AI agents have powerful introspection capabilities:
 
 ```bash
 # Environment Discovery
-jjz context --json       # Complete environment state (repo, sessions, dependencies)
-jjz introspect --json    # CLI structure and capabilities metadata
-jjz doctor --json        # System health checks with suggestions
+zjj context --json       # Complete environment state (repo, sessions, dependencies)
+zjj introspect --json    # CLI structure and capabilities metadata
+zjj doctor --json        # System health checks with suggestions
 
 # State Queries
-jjz query session-exists <name>     # Check if session exists
-jjz query session-count             # Count sessions (with optional filters)
-jjz query can-run <command>         # Check if command can run (prerequisites)
-jjz query suggest-name <pattern>    # Get next available name (pattern: "feature-{n}")
+zjj query session-exists <name>     # Check if session exists
+zjj query session-count             # Count sessions (with optional filters)
+zjj query can-run <command>         # Check if command can run (prerequisites)
+zjj query suggest-name <pattern>    # Get next available name (pattern: "feature-{n}")
 
 # Session Management
-jjz list --json          # All sessions with metadata
-jjz status <name> --json # Detailed session status
+zjj list --json          # All sessions with metadata
+zjj status <name> --json # Detailed session status
 ```
 
 ### Beads (Issue Tracking)
@@ -50,13 +50,13 @@ When starting work or encountering issues, get complete context:
 
 ```bash
 # Step 1: Check system health
-jjz doctor --json
+zjj doctor --json
 
 # Step 2: Get environment context
-jjz context --json
+zjj context --json
 
 # Step 3: Understand available capabilities
-jjz introspect --json
+zjj introspect --json
 ```
 
 **What you'll learn:**
@@ -74,16 +74,16 @@ Before creating or modifying sessions:
 
 ```bash
 # List all sessions
-jjz list --json
+zjj list --json
 
 # Check if specific session exists
-jjz query session-exists <name>
+zjj query session-exists <name>
 
 # Get suggested name following pattern
-jjz query suggest-name "feature-{n}"
+zjj query suggest-name "feature-{n}"
 
 # Count sessions
-jjz query session-count
+zjj query session-count
 ```
 
 **Use case:**
@@ -98,9 +98,9 @@ Before running commands, check prerequisites:
 
 ```bash
 # Check if command can run
-jjz query can-run add
-jjz query can-run sync
-jjz query can-run focus
+zjj query can-run add
+zjj query can-run sync
+zjj query can-run focus
 
 # Example response (can-run):
 {
@@ -129,22 +129,22 @@ All commands support `--json` for machine-readable output:
 
 ```bash
 # Session operations
-jjz add feature-x --json
-jjz list --json
-jjz status feature-x --json
-jjz remove feature-x --json
+zjj add feature-x --json
+zjj list --json
+zjj status feature-x --json
+zjj remove feature-x --json
 
 # Diagnostics
-jjz doctor --json
-jjz context --json
-jjz introspect --json
+zjj doctor --json
+zjj context --json
+zjj introspect --json
 
 # Version control
-jjz diff feature-x --json
+zjj diff feature-x --json
 
 # Queries
-jjz query session-exists feature-x
-jjz query can-run add
+zjj query session-exists feature-x
+zjj query can-run add
 ```
 
 **JSON output structure:**
@@ -168,7 +168,7 @@ All commands use semantic exit codes:
 
 **Usage pattern:**
 ```bash
-jjz add feature-x --json
+zjj add feature-x --json
 EXIT_CODE=$?
 
 case $EXIT_CODE in
@@ -176,20 +176,20 @@ case $EXIT_CODE in
   1) echo "User error - check input" ;;
   2) echo "System error - check logs" ;;
   3) echo "Not found - resource missing" ;;
-  4) echo "Invalid state - run jjz doctor" ;;
+  4) echo "Invalid state - run zjj doctor" ;;
 esac
 ```
 
 ### Pattern 6: Health Check and Auto-Fix
 
-Use `jjz doctor` to diagnose and fix issues:
+Use `zjj doctor` to diagnose and fix issues:
 
 ```bash
 # Check system health
-jjz doctor --json
+zjj doctor --json
 
 # Auto-fix fixable issues
-jjz doctor --fix --json
+zjj doctor --fix --json
 
 # Example doctor output:
 {
@@ -199,7 +199,7 @@ jjz doctor --fix --json
       "name": "Orphaned Workspaces",
       "status": "warn",
       "message": "Found 2 workspace(s) without session records",
-      "suggestion": "Run 'jjz doctor --fix' to clean up",
+      "suggestion": "Run 'zjj doctor --fix' to clean up",
       "auto_fixable": true,
       "details": {
         "orphaned_workspaces": ["old-feature", "abandoned-work"]
@@ -218,27 +218,27 @@ Complete session lifecycle with discovery at each step:
 
 ```bash
 # 1. Check prerequisites
-jjz query can-run add
+zjj query can-run add
 
 # 2. Get suggested name
-jjz query suggest-name "feature-{n}"
+zjj query suggest-name "feature-{n}"
 
 # 3. Create session
-jjz add feature-3 --json
+zjj add feature-3 --json
 
 # 4. Work in session...
 
 # 5. Check session status
-jjz status feature-3 --json
+zjj status feature-3 --json
 
 # 6. Sync with main
-jjz sync feature-3 --json
+zjj sync feature-3 --json
 
 # 7. Check diff
-jjz diff feature-3 --json
+zjj diff feature-3 --json
 
 # 8. Remove when done
-jjz remove feature-3 --json
+zjj remove feature-3 --json
 ```
 
 ### Pattern 8: Introspection for New Features
@@ -247,22 +247,22 @@ When encountering unfamiliar commands:
 
 ```bash
 # Get all command metadata
-jjz introspect --json
+zjj introspect --json
 
 # Get command-specific help
-jjz <command> --help
+zjj <command> --help
 
 # Get JSON schema for help
-jjz --help-json
+zjj --help-json
 
 # Query what you can do
-jjz query can-run <command>
+zjj query can-run <command>
 ```
 
 **Introspect output structure:**
 ```json
 {
-  "jjz_version": "0.1.0",
+  "zjj_version": "0.1.0",
   "capabilities": {
     "session_management": {
       "commands": ["init", "add", "remove", "list", "status", "focus", "sync"],

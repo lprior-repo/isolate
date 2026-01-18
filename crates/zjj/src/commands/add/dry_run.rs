@@ -70,7 +70,7 @@ pub fn generate_plan(params: &DryRunParams<'_>) -> AddDryRunPlan {
         .map(ToString::to_string)
         .unwrap_or_else(|| params.config.default_template.clone());
 
-    let tab_name = format!("jjz:{}", params.session_name);
+    let tab_name = format!("zjj:{}", params.session_name);
 
     let builder = OperationBuilder::new(
         params.session_name,
@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(plan.workspace_path, "/test/root/.zjj/test-session");
         assert_eq!(plan.branch, "test-session");
         assert_eq!(plan.layout_template, "default");
-        assert_eq!(plan.zellij_tab_name, "jjz:test-session");
+        assert_eq!(plan.zellij_tab_name, "zjj:test-session");
         assert!(plan.will_open_zellij);
         assert!(plan.will_run_hooks);
         assert_eq!(plan.operations.len(), 6); // create_db, create_workspace, generate_layout,

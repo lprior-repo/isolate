@@ -315,7 +315,7 @@ fn test_workspace_directory_creation_failure() {
 }
 
 #[test]
-fn test_readonly_jjz_directory() {
+fn test_readonly_zjj_directory() {
     use std::{fs, os::unix::fs::PermissionsExt};
 
     let Some(harness) = TestHarness::try_new() else {
@@ -325,25 +325,25 @@ fn test_readonly_jjz_directory() {
     harness.assert_success(&["init"]);
 
     // Make .zjj directory readonly
-    let jjz_dir = harness.zjj_dir();
-    let Ok(metadata) = fs::metadata(&jjz_dir) else {
+    let zjj_dir = harness.zjj_dir();
+    let Ok(metadata) = fs::metadata(&zjj_dir) else {
         std::process::abort()
     };
     let mut perms = metadata.permissions();
     perms.set_mode(0o444); // Readonly
-    fs::set_permissions(&jjz_dir, perms).ok();
+    fs::set_permissions(&zjj_dir, perms).ok();
 
     // Operations that need write access should fail
     let _result = harness.zjj(&["add", "test", "--no-open"]);
     // Should fail with permission error
 
     // Restore permissions for cleanup
-    let Ok(metadata) = fs::metadata(&jjz_dir) else {
+    let Ok(metadata) = fs::metadata(&zjj_dir) else {
         std::process::abort()
     };
     let mut perms = metadata.permissions();
     perms.set_mode(0o755);
-    fs::set_permissions(&jjz_dir, perms).ok();
+    fs::set_permissions(&zjj_dir, perms).ok();
 }
 
 // ============================================================================

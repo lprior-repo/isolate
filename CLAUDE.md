@@ -60,17 +60,17 @@ crates/
 ```
 
 ### MVP Commands
-1. `jjz init` - Initialize jjz in a JJ repository
-2. `jjz add <name>` - Create session with JJ workspace + Zellij tab
-3. `jjz list` - Show all sessions
-4. `jjz remove <name>` - Cleanup session and workspace
-5. `jjz focus <name>` - Switch to session's Zellij tab
+1. `zjj init` - Initialize zjj in a JJ repository
+2. `zjj add <name>` - Create session with JJ workspace + Zellij tab
+3. `zjj list` - Show all sessions
+4. `zjj remove <name>` - Cleanup session and workspace
+5. `zjj focus <name>` - Switch to session's Zellij tab
 
 ### Key Decisions
 - **Sync strategy**: Rebase (`jj rebase -d main`)
-- **Zellij tab naming**: `jjz:<session-name>`
+- **Zellij tab naming**: `zjj:<session-name>`
 - **Beads**: Hard requirement, always integrate with `.beads/beads.db`
-- **jjz runs inside Zellij**: Tab switching via `zellij action go-to-tab-name`
+- **zjj runs inside Zellij**: Tab switching via `zellij action go-to-tab-name`
 
 ### Dependencies
 - JJ (Jujutsu) for workspace management

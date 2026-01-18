@@ -33,7 +33,7 @@ Must return Result<T> and use ? operator or combinators.
 
 ### New Command
 ```markdown
-Add `jjz <command>` following pattern in crates/zjj/src/commands/add.rs:
+Add `zjj <command>` following pattern in crates/zjj/src/commands/add.rs:
 
 1. Return Result<()>
 2. Add to main.rs (command definition + match arm)
@@ -85,7 +85,7 @@ pub struct Session {
     pub name: String,              // [a-zA-Z][a-zA-Z0-9_-]{0,63}
     pub status: SessionStatus,     // Creating|Active|Paused|Completed|Failed
     pub workspace_path: String,
-    pub zellij_tab: String,        // "jjz:<name>"
+    pub zellij_tab: String,        // "zjj:<name>"
     // ...
 }
 ```

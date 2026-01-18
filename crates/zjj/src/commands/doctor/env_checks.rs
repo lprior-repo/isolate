@@ -1,7 +1,7 @@
 //! Environment-level health checks
 //!
 //! This module contains checks for the current runtime environment.
-//! Checks whether the environment is properly configured for jjz.
+//! Checks whether the environment is properly configured for zjj.
 
 use zjj_core::introspection::{CheckStatus, DoctorCheck};
 

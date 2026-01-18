@@ -36,7 +36,7 @@ use serial_test::serial;
 
 /// Test the complete AI onboarding flow from discovery to execution
 ///
-/// This simulates an AI agent encountering jjz for the first time:
+/// This simulates an AI agent encountering zjj for the first time:
 /// 1. Discover commands via --help-json
 /// 2. Check system health with doctor
 /// 3. Get workflow context
@@ -79,7 +79,7 @@ fn test_ai_agent_complete_onboarding_flow() {
         );
     }
 
-    // Step 2: Initialize jjz
+    // Step 2: Initialize zjj
     harness.assert_success(&["init"]);
 
     // Step 3: Run doctor to check system health and get AI guidance

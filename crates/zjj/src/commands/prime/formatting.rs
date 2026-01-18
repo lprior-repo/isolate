@@ -11,7 +11,7 @@ use super::output_types::PrimeOutput;
 pub fn print_markdown_context(output: &PrimeOutput) {
     println!("# ZJJ Workflow Context");
     println!();
-    println!("> **Context Recovery**: Run `jjz prime` after compaction or new session");
+    println!("> **Context Recovery**: Run `zjj prime` after compaction or new session");
     println!("> AI agents: This provides essential workflow context for ZJJ");
     println!();
 
@@ -40,7 +40,7 @@ pub fn print_markdown_context(output: &PrimeOutput) {
     } else {
         println!("⚠️  Not in a JJ repository");
         println!();
-        println!("Run `jj init` or `jjz init` to initialize.");
+        println!("Run `jj init` or `zjj init` to initialize.");
     }
     println!();
 
@@ -59,7 +59,7 @@ pub fn print_markdown_context(output: &PrimeOutput) {
     } else {
         println!("⚠️  ZJJ not initialized");
         println!();
-        println!("Run `jjz init` to initialize ZJJ in this repository.");
+        println!("Run `zjj init` to initialize ZJJ in this repository.");
     }
     println!();
 
@@ -151,8 +151,8 @@ pub fn print_markdown_context(output: &PrimeOutput) {
     // AI Agent Notes
     println!("## AI Agent Notes");
     println!();
-    println!("- Use `jjz context --json` for complete environment snapshot");
-    println!("- Use `jjz introspect --json` for CLI metadata");
+    println!("- Use `zjj context --json` for complete environment snapshot");
+    println!("- Use `zjj introspect --json` for CLI metadata");
     println!("- All operations support `--dry-run` for preview");
     println!("- Check CLAUDE.md and docs/12_AI_GUIDE.md for detailed patterns");
     println!();

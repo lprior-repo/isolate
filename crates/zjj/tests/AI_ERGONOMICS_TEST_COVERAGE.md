@@ -174,7 +174,7 @@ Tests run automatically in CI via `moon run :ci` which includes:
 
 Tests require:
 - **jj** installed and in PATH
-- **jjz** built (via `moon run :build`)
+- **zjj** built (via `moon run :build`)
 - Write permissions in test directory
 - Sufficient disk space for temporary repos
 

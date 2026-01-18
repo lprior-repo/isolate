@@ -203,10 +203,10 @@ Apply similar pattern to:
 ### Step 5: Testing Strategy
 Test scenarios:
 1. **TTY mode:** Decorated output as expected
-2. **Pipe mode:** `jjz list | grep feature` - minimal output
-3. **Silent flag:** `jjz list --silent` - minimal output in terminal
-4. **JSON mode:** `jjz list --json | jq` - unchanged
-5. **Redirect:** `jjz list > output.txt` - minimal output
+2. **Pipe mode:** `zjj list | grep feature` - minimal output
+3. **Silent flag:** `zjj list --silent` - minimal output in terminal
+4. **JSON mode:** `zjj list --json | jq` - unchanged
+5. **Redirect:** `zjj list > output.txt` - minimal output
 
 ---
 

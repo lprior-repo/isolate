@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 pub struct IntrospectOutput {
     /// Version (top-level for AI compatibility)
     pub version: String,
-    /// ZJJ version (kept for backwards compatibility with jjz_version)
-    pub jjz_version: String,
+    /// ZJJ version (kept for backwards compatibility with zjj_version)
+    pub zjj_version: String,
     /// Categorized capabilities
     pub capabilities: Capabilities,
     /// External dependency status
@@ -57,7 +57,7 @@ pub struct DependencyInfo {
 /// Current system state
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SystemState {
-    /// Whether jjz has been initialized in this repo
+    /// Whether zjj has been initialized in this repo
     pub initialized: bool,
     /// Whether current directory is a JJ repository
     pub jj_repo: bool,

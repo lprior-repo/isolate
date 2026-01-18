@@ -12,7 +12,7 @@ use crate::session::{
 fn test_session_new_valid() -> Result<()> {
     let session = Session::new("my-session", "/path/to/workspace")?;
     assert_eq!(session.name, "my-session");
-    assert_eq!(session.zellij_tab, "jjz:my-session");
+    assert_eq!(session.zellij_tab, "zjj:my-session");
     assert_eq!(session.status, SessionStatus::Creating);
     assert!(session.id.is_none());
     assert!(session.created_at > 0);
@@ -343,7 +343,7 @@ fn test_session_deserialization() -> Result<()> {
         "name": "test",
         "status": "active",
         "workspace_path": "/path",
-        "zellij_tab": "jjz:test",
+        "zellij_tab": "zjj:test",
         "created_at": 1000,
         "updated_at": 1000
     }"#;

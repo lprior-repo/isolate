@@ -140,7 +140,7 @@ pub async fn repair_database(db_path: &Path) -> Result<()> {
 
     if sessions_count > 0 {
         println!("\nNote: Recovered sessions may have lost some metadata.");
-        println!("Run 'jjz list' to verify the recovered sessions.");
+        println!("Run 'zjj list' to verify the recovered sessions.");
     }
 
     Ok(())

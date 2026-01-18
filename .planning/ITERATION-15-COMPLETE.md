@@ -46,7 +46,7 @@ Created comprehensive help output structures in `crates/zjj/src/json_output.rs`:
 ### 2. Implementation in main.rs
 Created `output_help_json()` function with:
 
-- Command metadata (jjz, version 0.1.0, description, author)
+- Command metadata (zjj, version 0.1.0, description, author)
 - 5 subcommands documented:
   - init (with --json, --repair flags)
   - add (with name arg, --json, --no-open, --template, --no-hooks, --dry-run)
@@ -97,8 +97,8 @@ moon run zjj:test
 
 **Manual verification:** ✅ Success
 ```bash
-./target/release/jjz --help-json | jq '.command'
-# Output: "jjz"
+./target/release/zjj --help-json | jq '.command'
+# Output: "zjj"
 ```
 
 ---
@@ -165,13 +165,13 @@ AI agents and automation tools can now:
 ### Example Output Structure
 ```json
 {
-  "command": "jjz",
+  "command": "zjj",
   "version": "0.1.0",
   "description": "ZJJ - Manage JJ workspaces with Zellij sessions",
   "subcommands": [
     {
       "name": "init",
-      "description": "Initialize jjz in a JJ repository (or create one)",
+      "description": "Initialize zjj in a JJ repository (or create one)",
       "parameters": [
         {
           "name": "--json",
@@ -183,8 +183,8 @@ AI agents and automation tools can now:
       ],
       "examples": [
         {
-          "command": "jjz init",
-          "description": "Initialize jjz in current JJ repository"
+          "command": "zjj init",
+          "description": "Initialize zjj in current JJ repository"
         }
       ]
     }

@@ -33,7 +33,7 @@ pub fn check_jj_repo() -> DoctorCheck {
         suggestion: if is_repo {
             None
         } else {
-            Some("Initialize JJ: jjz init or jj git init".to_string())
+            Some("Initialize JJ: zjj init or jj git init".to_string())
         },
         auto_fixable: false,
         details: None,
@@ -47,7 +47,7 @@ pub async fn check_state_db() -> DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
             message: "State database not accessible".to_string(),
-            suggestion: Some("Initialize jjz: jjz init".to_string()),
+            suggestion: Some("Initialize zjj: zjj init".to_string()),
             auto_fixable: false,
             details: None,
         },
@@ -103,7 +103,7 @@ pub async fn check_orphaned_workspaces() -> DoctorCheck {
                 "Found {} workspace(s) without session records",
                 orphaned.len()
             ),
-            suggestion: Some("Run 'jjz doctor --fix' to clean up".to_string()),
+            suggestion: Some("Run 'zjj doctor --fix' to clean up".to_string()),
             auto_fixable: true,
             details: Some(serde_json::json!({
                 "orphaned_workspaces": orphaned,

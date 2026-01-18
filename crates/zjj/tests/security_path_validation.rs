@@ -27,7 +27,7 @@ fn test_reject_parent_directory_in_session_name() {
         return;
     };
 
-    // Initialize jjz
+    // Initialize zjj
     harness.assert_success(&["init"]);
 
     // Attempt 1: Session name with ../ (rejected by session name validator)
@@ -79,7 +79,7 @@ fn test_reject_workspace_dir_path_traversal() -> Result<(), Box<dyn std::error::
         return Ok(());
     };
 
-    // Initialize jjz
+    // Initialize zjj
     harness.assert_success(&["init"]);
 
     // Create malicious config with workspace_dir escaping repo bounds
@@ -131,7 +131,7 @@ fn test_reject_absolute_path_injection() -> Result<(), Box<dyn std::error::Error
         return Ok(());
     };
 
-    // Initialize jjz
+    // Initialize zjj
     harness.assert_success(&["init"]);
 
     // Create malicious config with absolute workspace_dir
@@ -178,15 +178,15 @@ fn test_canonicalization_resolves_symlinks() -> Result<(), Box<dyn std::error::E
         return Ok(());
     };
 
-    // Initialize jjz
+    // Initialize zjj
     harness.assert_success(&["init"]);
 
     // Create a directory structure with symlink
-    let jjz_dir = harness.zjj_dir();
-    let real_dir = jjz_dir.join("real_workspaces");
+    let zjj_dir = harness.zjj_dir();
+    let real_dir = zjj_dir.join("real_workspaces");
     fs::create_dir_all(&real_dir)?;
 
-    let link_dir = jjz_dir.join("link_workspaces");
+    let link_dir = zjj_dir.join("link_workspaces");
     unix_fs::symlink(&real_dir, &link_dir)?;
 
     // Create config pointing to symlinked directory
@@ -225,7 +225,7 @@ fn test_valid_relative_paths_allowed() {
         return;
     };
 
-    // Initialize jjz (uses default config with `../{repo}__workspaces`)
+    // Initialize zjj (uses default config with `../{repo}__workspaces`)
     harness.assert_success(&["init"]);
 
     // The default config intentionally places workspaces outside the repo
@@ -252,7 +252,7 @@ fn test_deeply_nested_traversal_blocked() -> Result<(), Box<dyn std::error::Erro
         return Ok(());
     };
 
-    // Initialize jjz
+    // Initialize zjj
     harness.assert_success(&["init"]);
 
     // Create config with many ../../../ to try to escape far up the tree
@@ -299,15 +299,15 @@ fn test_boundary_check_prevents_toctou() -> Result<(), Box<dyn std::error::Error
         return Ok(());
     };
 
-    // Initialize jjz
+    // Initialize zjj
     harness.assert_success(&["init"]);
 
     // Configure to use .zjj/workspaces
     harness.write_config(r#"workspace_dir = ".zjj/workspaces""#)?;
 
     // Create workspace_dir as a regular directory first
-    let jjz_dir = harness.zjj_dir();
-    let workspace_dir = jjz_dir.join("workspaces");
+    let zjj_dir = harness.zjj_dir();
+    let workspace_dir = zjj_dir.join("workspaces");
     fs::create_dir_all(&workspace_dir)?;
 
     // Create a target directory outside repo
@@ -349,7 +349,7 @@ fn test_workspace_dir_at_repo_root_allowed() -> Result<(), Box<dyn std::error::E
         return Ok(());
     };
 
-    // Initialize jjz
+    // Initialize zjj
     harness.assert_success(&["init"]);
 
     // Create config with workspace_dir at repo root (no escaping)
@@ -392,7 +392,7 @@ fn test_single_parent_escape_in_bounds_allowed() -> Result<(), Box<dyn std::erro
         return Ok(());
     };
 
-    // Initialize jjz
+    // Initialize zjj
     harness.assert_success(&["init"]);
 
     // Create config with one level up (this is the default pattern)
@@ -438,7 +438,7 @@ fn test_error_message_quality() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     };
 
-    // Initialize jjz
+    // Initialize zjj
     harness.assert_success(&["init"]);
 
     // Create malicious config

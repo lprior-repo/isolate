@@ -1,11 +1,11 @@
 //! End-to-end integration tests for all MVP commands
 //!
 //! Tests the complete workflow with real JJ and Zellij integration:
-//! 1. `jjz init` - Initialize jjz in a JJ repository
-//! 2. `jjz add <name>` - Create session with JJ workspace + Zellij tab
-//! 3. `jjz list` - Show all sessions
-//! 4. `jjz remove <name>` - Cleanup session and workspace
-//! 5. `jjz focus <name>` - Switch to session's Zellij tab
+//! 1. `zjj init` - Initialize zjj in a JJ repository
+//! 2. `zjj add <name>` - Create session with JJ workspace + Zellij tab
+//! 3. `zjj list` - Show all sessions
+//! 4. `zjj remove <name>` - Cleanup session and workspace
+//! 5. `zjj focus <name>` - Switch to session's Zellij tab
 //!
 //! # Design Principles
 //!
@@ -43,18 +43,18 @@ fn test_e2e_complete_mvp_workflow() {
         return;
     };
 
-    // Step 1: Initialize jjz
+    // Step 1: Initialize zjj
     harness.assert_success(&["init"]);
     harness.assert_zjj_dir_exists();
 
     // Verify initialization created all required files
-    let jjz_dir = harness.zjj_dir();
+    let zjj_dir = harness.zjj_dir();
     assert!(
-        jjz_dir.join("config.toml").exists(),
+        zjj_dir.join("config.toml").exists(),
         "config.toml should exist"
     );
-    assert!(jjz_dir.join("state.db").exists(), "state.db should exist");
-    assert!(jjz_dir.join("layouts").exists(), "layouts dir should exist");
+    assert!(zjj_dir.join("state.db").exists(), "state.db should exist");
+    assert!(zjj_dir.join("layouts").exists(), "layouts dir should exist");
 
     // Step 2: Add a session
     harness.assert_success(&["add", "feature-mvp", "--no-open"]);
@@ -102,7 +102,7 @@ fn test_e2e_complete_mvp_workflow() {
 // JJ Workspace Integration Tests
 // ============================================================================
 
-/// Test that `jjz add` creates a valid JJ workspace
+/// Test that `zjj add` creates a valid JJ workspace
 #[test]
 #[serial]
 fn test_e2e_jj_workspace_creation() {
@@ -133,7 +133,7 @@ fn test_e2e_jj_workspace_creation() {
     result.assert_stdout_contains("test-workspace");
 }
 
-/// Test that `jjz remove` properly cleans up JJ workspace
+/// Test that `zjj remove` properly cleans up JJ workspace
 #[test]
 #[serial]
 fn test_e2e_jj_workspace_cleanup() {
@@ -274,7 +274,7 @@ fn test_e2e_duplicate_session_names() {
 // Error Recovery Tests
 // ============================================================================
 
-/// Test that jjz gracefully handles missing prerequisites
+/// Test that zjj gracefully handles missing prerequisites
 #[test]
 #[serial]
 fn test_e2e_error_handling_no_init() {
@@ -605,7 +605,7 @@ fn test_e2e_remove_missing_workspace() {
 // Performance and Stress Tests
 // ============================================================================
 
-/// Test that jjz handles many sessions efficiently
+/// Test that zjj handles many sessions efficiently
 #[test]
 #[serial]
 fn test_e2e_many_sessions() {

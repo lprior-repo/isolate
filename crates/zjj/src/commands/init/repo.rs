@@ -23,7 +23,7 @@ pub fn jj_root_with_cwd(cwd: &Path) -> Result<PathBuf> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         bail!(
-            "jj root failed: {stderr}\n\nSuggestions:\n  - Ensure you're in a JJ repository or let jjz initialize one\n  - Check if .jj directory exists: ls -la .jj\n  - Try initializing manually: jj git init"
+            "jj root failed: {stderr}\n\nSuggestions:\n  - Ensure you're in a JJ repository or let zjj initialize one\n  - Check if .jj directory exists: ls -la .jj\n  - Try initializing manually: jj git init"
         );
     }
 

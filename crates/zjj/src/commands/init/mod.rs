@@ -102,7 +102,7 @@ mod tests {
     }
 
     #[test]
-    fn test_init_creates_jjz_directory() -> Result<()> {
+    fn test_init_creates_zjj_directory() -> Result<()> {
         tokio_test::block_on(async {
             let Some(temp_dir) = setup_test_jj_repo()? else {
                 eprintln!("Skipping test: jj not available");
@@ -116,9 +116,9 @@ mod tests {
             result?;
 
             // Verify .zjj directory was created (use absolute path)
-            let jjz_path = temp_dir.path().join(".zjj");
-            assert!(jjz_path.exists(), ".zjj directory was not created");
-            assert!(jjz_path.is_dir(), ".zjj is not a directory");
+            let zjj_path = temp_dir.path().join(".zjj");
+            assert!(zjj_path.exists(), ".zjj directory was not created");
+            assert!(zjj_path.is_dir(), ".zjj is not a directory");
 
             Ok(())
         })

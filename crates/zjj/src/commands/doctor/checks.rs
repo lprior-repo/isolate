@@ -1,7 +1,7 @@
 //! Health check implementations
 //!
 //! This module orchestrates all individual health checks that validate
-//! the jjz system state. Checks are organized by category:
+//! the zjj system state. Checks are organized by category:
 //! - System checks: External tool availability
 //! - Environment checks: Runtime environment state
 //! - Repository checks: JJ repository and database health
@@ -74,7 +74,7 @@ mod tests {
             assert!(names.contains(&"State Database".to_string()));
             assert!(names.contains(&"Orphaned Workspaces".to_string()));
             // JJZ setup checks
-            assert!(names.contains(&"jjz Initialized".to_string()));
+            assert!(names.contains(&"zjj Initialized".to_string()));
             assert!(names.contains(&"Beads Integration".to_string()));
         });
     }

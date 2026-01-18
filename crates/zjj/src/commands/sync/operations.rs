@@ -50,9 +50,9 @@ fn validate_workspace_exists(workspace_path: &str, name: &str) -> Result<()> {
              The workspace may have been deleted manually.\n\
              \n\
              Suggestions:\n\
-             • Run 'jjz doctor' to detect and fix orphaned sessions\n\
-             • Remove the session: jjz remove {name} --force\n\
-             • Recreate the session: jjz add {name}"
+             • Run 'zjj doctor' to detect and fix orphaned sessions\n\
+             • Remove the session: zjj remove {name} --force\n\
+             • Recreate the session: zjj add {name}"
         );
     }
 

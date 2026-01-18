@@ -1,6 +1,6 @@
 //! Doctor command - system health checks and auto-fix
 //!
-//! This command checks the health of the jjz system and can
+//! This command checks the health of the zjj system and can
 //! automatically fix common issues.
 //!
 //! # Architecture

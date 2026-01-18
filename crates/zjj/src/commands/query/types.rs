@@ -29,7 +29,7 @@ impl QueryTypeInfo {
                 description: "Check if a session exists by name",
                 requires_arg: true,
                 arg_name: "session_name",
-                usage_example: "jjz query session-exists my-session",
+                usage_example: "zjj query session-exists my-session",
                 returns_description: r#"{"exists": true, "session": {"name": "my-session", "status": "active"}}"#,
             },
             Self {
@@ -37,7 +37,7 @@ impl QueryTypeInfo {
                 description: "Count total sessions or filter by status",
                 requires_arg: false,
                 arg_name: "--status=active",
-                usage_example: "jjz query session-count --status=active",
+                usage_example: "zjj query session-count --status=active",
                 returns_description: r#"{"count": 5, "filter": {"raw": "--status=active"}}"#,
             },
             Self {
@@ -45,7 +45,7 @@ impl QueryTypeInfo {
                 description: "Check if a command can run and show blockers",
                 requires_arg: true,
                 arg_name: "command_name",
-                usage_example: "jjz query can-run add",
+                usage_example: "zjj query can-run add",
                 returns_description: r#"{"can_run": true, "command": "add", "blockers": [], "prerequisites_met": 4, "prerequisites_total": 4}"#,
             },
             Self {
@@ -53,7 +53,7 @@ impl QueryTypeInfo {
                 description: "Suggest next available name based on pattern",
                 requires_arg: true,
                 arg_name: "pattern",
-                usage_example: r#"jjz query suggest-name "feature-{n}""#,
+                usage_example: r#"zjj query suggest-name "feature-{n}""#,
                 returns_description: r#"{"pattern": "feature-{n}", "suggested": "feature-3", "next_available_n": 3, "existing_matches": ["feature-1", "feature-2"]}"#,
             },
         ]

@@ -47,26 +47,26 @@ git push origin $VERSION
 open https://github.com/lprior-repo/zjj/releases/latest
 
 # Verify artifacts present:
-# - jjz-x86_64-unknown-linux-gnu.tar.gz + .sha256
-# - jjz-aarch64-unknown-linux-gnu.tar.gz + .sha256
-# - jjz-x86_64-apple-darwin.tar.gz + .sha256
-# - jjz-aarch64-apple-darwin.tar.gz + .sha256
+# - zjj-x86_64-unknown-linux-gnu.tar.gz + .sha256
+# - zjj-aarch64-unknown-linux-gnu.tar.gz + .sha256
+# - zjj-x86_64-apple-darwin.tar.gz + .sha256
+# - zjj-aarch64-apple-darwin.tar.gz + .sha256
 ```
 
 ### 5. Test Installation
 
 ```bash
 # Download for your platform
-curl -L https://github.com/lprior-repo/zjj/releases/download/$VERSION/jjz-x86_64-unknown-linux-gnu.tar.gz -o jjz.tar.gz
+curl -L https://github.com/lprior-repo/zjj/releases/download/$VERSION/zjj-x86_64-unknown-linux-gnu.tar.gz -o zjj.tar.gz
 
 # Verify checksum
-curl -L https://github.com/lprior-repo/zjj/releases/download/$VERSION/jjz-x86_64-unknown-linux-gnu.tar.gz.sha256 -o jjz.tar.gz.sha256
-sha256sum -c jjz.tar.gz.sha256
+curl -L https://github.com/lprior-repo/zjj/releases/download/$VERSION/zjj-x86_64-unknown-linux-gnu.tar.gz.sha256 -o zjj.tar.gz.sha256
+sha256sum -c zjj.tar.gz.sha256
 
 # Extract and test
-tar xzf jjz.tar.gz
-./jjz --version
-./jjz --help
+tar xzf zjj.tar.gz
+./zjj --version
+./zjj --help
 ```
 
 ### 6. Post-Release
@@ -147,18 +147,18 @@ If automated release fails:
 cargo build --release --package zjj
 
 # Create archive
-tar czf jjz-$(rustc -vV | grep host | cut -d' ' -f2).tar.gz \
-  -C target/release jjz
+tar czf zjj-$(rustc -vV | grep host | cut -d' ' -f2).tar.gz \
+  -C target/release zjj
 
 # Generate checksum
-sha256sum jjz-*.tar.gz > jjz-*.tar.gz.sha256
+sha256sum zjj-*.tar.gz > zjj-*.tar.gz.sha256
 
 # Create GitHub release manually
 gh release create $VERSION \
   --title "Release $VERSION" \
   --notes "Manual emergency release" \
-  jjz-*.tar.gz \
-  jjz-*.tar.gz.sha256
+  zjj-*.tar.gz \
+  zjj-*.tar.gz.sha256
 ```
 
 ## See Also

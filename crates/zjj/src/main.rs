@@ -1,6 +1,6 @@
 //! ZJJ CLI - JJ workspace + Zellij session manager
 //!
-//! Binary name: `jjz`
+//! Binary name: `zjj`
 //!
 //! ## Functional Rust Compiler Enforcements
 //!
@@ -20,7 +20,7 @@ mod database;
 mod json_output;
 mod session;
 
-/// Main entry point for the jjz CLI
+/// Main entry point for the zjj CLI
 ///
 /// This is a minimal entry point that:
 /// 1. Parses early flags

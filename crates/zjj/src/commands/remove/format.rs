@@ -48,8 +48,8 @@ fn output_human_readable(plan: &RemoveDryRunPlan) {
 
     println!("\nTo execute, run without --dry-run flag:");
     if plan.would_merge {
-        println!("  jjz remove {} --merge", plan.session_name);
+        println!("  zjj remove {} --merge", plan.session_name);
     } else {
-        println!("  jjz remove {}", plan.session_name);
+        println!("  zjj remove {}", plan.session_name);
     }
 }

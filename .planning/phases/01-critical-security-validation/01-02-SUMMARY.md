@@ -230,7 +230,7 @@ moon run :quick
 ```bash
 # Unix absolute path blocked
 $ echo 'workspace_dir = "/tmp/evil"' > .zjj/config.toml
-$ jjz add test --no-open
+$ zjj add test --no-open
 Error: Security: workspace_dir must be a relative path (DEBT-04)
 ...
 NOT allowed:
@@ -239,12 +239,12 @@ NOT allowed:
 
 # Windows absolute path blocked (would be blocked on Windows)
 $ echo 'workspace_dir = "C:\\workspaces"' > .zjj/config.toml
-$ jjz add test --no-open
+$ zjj add test --no-open
 Error: Security: workspace_dir must be a relative path (DEBT-04)
 
 # Relative path with parent dir still works
 $ echo 'workspace_dir = "../test__workspaces"' > .zjj/config.toml
-$ jjz add test --no-open
+$ zjj add test --no-open
 ✓ Created session 'test'
 ```
 

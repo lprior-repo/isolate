@@ -15,7 +15,7 @@ zjj/
 ├── schemas/             # JSON schemas for configuration
 ├── scripts/             # Build/release automation
 ├── .beads/              # Beads issue tracking database
-├── .zjj/                # Session state (created by jjz init)
+├── .zjj/                # Session state (created by zjj init)
 ├── Cargo.toml           # Workspace manifest
 ├── moon.yml             # Moon build configuration (REQUIRED - use moon, not cargo)
 ├── .clippy.toml         # Clippy lint rules (DO NOT MODIFY)
@@ -58,7 +58,7 @@ zjj/
 **.zjj/**
 - Purpose: Session state storage
 - Contains: sessions.db (SQLite), backups/, config.toml
-- Generated: Yes (by `jjz init`)
+- Generated: Yes (by `zjj init`)
 - Committed: No (added to .gitignore)
 
 ## Key File Locations
@@ -94,7 +94,7 @@ zjj/
 
 **Files:**
 - Rust source: snake_case (e.g., `session.rs`, `json_output.rs`)
-- Binary name: `jjz` (defined in Cargo.toml, not zjj)
+- Binary name: `zjj` (defined in Cargo.toml, not zjj)
 - Config files: lowercase with dots (e.g., `.clippy.toml`, `moon.yml`)
 
 **Directories:**

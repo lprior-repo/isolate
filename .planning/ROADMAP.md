@@ -62,11 +62,11 @@ Plans:
 **Depends on**: Phase 2
 **Requirements**: CMD-01, CMD-02, CMD-03, CMD-04, CMD-05
 **Success Criteria** (what must be TRUE):
-  1. ✅ `jjz init` initializes project with all required components (15 tests)
-  2. ✅ `jjz add` creates session with JJ workspace and Zellij tab (20+ tests)
-  3. ✅ `jjz list` displays all sessions with correct formatting (11+ tests)
-  4. ✅ `jjz remove` cleanly removes session and all artifacts (10+ tests, atomic)
-  5. ✅ `jjz focus` switches to correct Zellij tab (13+ tests)
+  1. ✅ `zjj init` initializes project with all required components (15 tests)
+  2. ✅ `zjj add` creates session with JJ workspace and Zellij tab (20+ tests)
+  3. ✅ `zjj list` displays all sessions with correct formatting (11+ tests)
+  4. ✅ `zjj remove` cleanly removes session and all artifacts (10+ tests, atomic)
+  5. ✅ `zjj focus` switches to correct Zellij tab (13+ tests)
 **Research**: Unlikely (verification of existing code)
 **Status**: COMPLETE (2026-01-16) - All commands verified functional with comprehensive test coverage
 

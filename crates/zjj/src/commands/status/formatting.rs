@@ -33,7 +33,7 @@ pub fn output_empty(json: bool) {
         println!("[]");
     } else {
         println!("No sessions found.");
-        println!("Use 'jjz add <name>' to create a session.");
+        println!("Use 'zjj add <name>' to create a session.");
     }
 }
 
@@ -52,7 +52,7 @@ mod tests {
             name: "test".to_string(),
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "jjz:test".to_string(),
+            zellij_tab: "zjj:test".to_string(),
             branch: Some("main".to_string()),
             created_at: 1_234_567_890,
             updated_at: 1_234_567_890,
@@ -96,7 +96,7 @@ mod tests {
             name: "test".to_string(),
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "jjz:test".to_string(),
+            zellij_tab: "zjj:test".to_string(),
             branch: Some("main".to_string()),
             created_at: 1_234_567_890,
             updated_at: 1_234_567_890,

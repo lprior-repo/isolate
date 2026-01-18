@@ -64,7 +64,7 @@ cargo build --release
 cargo install --path crates/zjj
 
 # Verify installation
-jjz --version
+zjj --version
 ```
 
 ### 5-Minute Tutorial
@@ -72,27 +72,27 @@ jjz --version
 ```bash
 # 1. Initialize ZJJ in your JJ repository
 cd /path/to/your/jj/repo
-jjz init
+zjj init
 
 # 2. Create your first session (creates JJ workspace + Zellij tab)
-jjz add feature-auth
+zjj add feature-auth
 
 # 3. Work on your feature (JJ tracks changes automatically)
-# ZJJ switches to a dedicated Zellij tab named "jjz:feature-auth"
+# ZJJ switches to a dedicated Zellij tab named "zjj:feature-auth"
 vim src/auth.rs
 jj describe -m "feat: add authentication"
 
 # 4. List all sessions
-jjz list
+zjj list
 
 # 5. Switch between sessions
-jjz focus another-session
+zjj focus another-session
 
 # 6. Sync with main branch
-jjz sync feature-auth
+zjj sync feature-auth
 
 # 7. When done, cleanup the session
-jjz remove feature-auth
+zjj remove feature-auth
 ```
 
 ## Core Concepts
@@ -102,13 +102,13 @@ jjz remove feature-auth
 A **session** is a unified development context consisting of:
 
 - **JJ Workspace**: Isolated working directory for your changes
-- **Zellij Tab**: Dedicated terminal tab (named `jjz:<session-name>`)
+- **Zellij Tab**: Dedicated terminal tab (named `zjj:<session-name>`)
 - **Database Record**: Session metadata stored in `.zjj/sessions.db`
 
 ```
 Session "feature-auth"
 ├── JJ workspace: /workspaces/feature-auth/
-├── Zellij tab: jjz:feature-auth
+├── Zellij tab: zjj:feature-auth
 └── Database: .zjj/sessions.db
 ```
 
@@ -125,11 +125,11 @@ Session "feature-auth"
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `init` | Initialize ZJJ in a JJ repository | `jjz init` |
-| `add <name>` | Create a new session | `jjz add feature-auth` |
-| `list` | Show all sessions | `jjz list` |
-| `focus <name>` | Switch to session's Zellij tab | `jjz focus feature-auth` |
-| `remove <name>` | Delete session and cleanup | `jjz remove feature-auth` |
+| `init` | Initialize ZJJ in a JJ repository | `zjj init` |
+| `add <name>` | Create a new session | `zjj add feature-auth` |
+| `list` | Show all sessions | `zjj list` |
+| `focus <name>` | Switch to session's Zellij tab | `zjj focus feature-auth` |
+| `remove <name>` | Delete session and cleanup | `zjj remove feature-auth` |
 
 ### Additional Commands
 
@@ -146,28 +146,28 @@ Session "feature-auth"
 
 ```bash
 # Create session and link to Beads issue
-jjz add feature-oauth --issue BD-456
+zjj add feature-oauth --issue BD-456
 
 # List only active sessions
-jjz list --status active
+zjj list --status active
 
 # Remove session and merge changes
-jjz remove feature-auth --merge
+zjj remove feature-auth --merge
 
 # Show diff between session and main
-jjz diff feature-auth
+zjj diff feature-auth
 
 # View configuration
-jjz config
+zjj config
 
 # Set workspace directory
-jjz config workspace_dir /custom/path
+zjj config workspace_dir /custom/path
 
 # Launch interactive dashboard (TUI)
-jjz dashboard
+zjj dashboard
 
 # Check system dependencies
-jjz doctor
+zjj doctor
 ```
 
 ## Typical Workflow
@@ -177,7 +177,7 @@ jjz doctor
 bd claim BD-789
 
 # 2. Create session for the work
-jjz add fix-validation
+zjj add fix-validation
 
 # 3. Make changes (JJ automatically tracks)
 vim src/validator.rs
@@ -189,15 +189,15 @@ Closes BD-789"
 moon run :test
 
 # 5. Keep in sync with main
-jjz sync fix-validation
+zjj sync fix-validation
 
 # 6. Need to switch tasks? Create another session
-jjz add urgent-hotfix
+zjj add urgent-hotfix
 # Work on hotfix...
-jjz focus fix-validation  # Back to original work
+zjj focus fix-validation  # Back to original work
 
 # 7. Done? Cleanup
-jjz remove fix-validation --merge
+zjj remove fix-validation --merge
 
 # 8. Close issue
 bd complete BD-789
@@ -237,10 +237,10 @@ pre_remove = "./scripts/backup-session.sh $SESSION_NAME"
 
 | Hook | Triggered | Environment Variables |
 |------|-----------|----------------------|
-| `post_create` | After `jjz add` | `$SESSION_NAME`, `$WORKSPACE_PATH` |
-| `pre_remove` | Before `jjz remove` | `$SESSION_NAME` |
-| `post_sync` | After `jjz sync` | `$SESSION_NAME` |
-| `on_focus` | After `jjz focus` | `$SESSION_NAME` |
+| `post_create` | After `zjj add` | `$SESSION_NAME`, `$WORKSPACE_PATH` |
+| `pre_remove` | Before `zjj remove` | `$SESSION_NAME` |
+| `post_sync` | After `zjj sync` | `$SESSION_NAME` |
+| `on_focus` | After `zjj focus` | `$SESSION_NAME` |
 
 ## Project Structure
 
@@ -333,7 +333,7 @@ ZJJ is designed for JJ, but JJ has Git interop. You can use `jj git push/fetch` 
 
 ### What if I delete a session by accident?
 
-Session removal is intentional and requires confirmation. Use `jjz status <name>` before removing.
+Session removal is intentional and requires confirmation. Use `zjj status <name>` before removing.
 
 ### How do I integrate with CI/CD?
 
@@ -343,16 +343,16 @@ ZJJ sessions are local development tools. For CI, use standard JJ/Git workflows.
 
 ```bash
 # Check system dependencies and configuration
-jjz doctor
+zjj doctor
 
 # View session details
-jjz status <session-name>
+zjj status <session-name>
 
 # Check ZJJ database location
-jjz config
+zjj config
 
 # Enable debug logging
-RUST_LOG=debug jjz <command>
+RUST_LOG=debug zjj <command>
 ```
 
 ### Common Issues
@@ -360,21 +360,21 @@ RUST_LOG=debug jjz <command>
 **Error: Database file does not exist**
 ```bash
 # Solution: Initialize ZJJ first
-jjz init
+zjj init
 ```
 
 **Error: Not running in Zellij**
 ```bash
 # Solution: Start Zellij first
 zellij
-jjz <command>
+zjj <command>
 ```
 
 **Error: JJ repository not found**
 ```bash
 # Solution: Initialize JJ repository
 jj init --git
-jjz init
+zjj init
 ```
 
 ## Contributing
@@ -400,4 +400,4 @@ Copyright (c) 2026 ZJJ Contributors
 
 ---
 
-**Get Started**: `jjz init && jjz add my-first-session`
+**Get Started**: `zjj init && zjj add my-first-session`

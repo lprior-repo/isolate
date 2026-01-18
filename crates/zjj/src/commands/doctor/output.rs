@@ -69,7 +69,7 @@ pub fn show_fix_results(
 
 /// Display human-readable health report
 fn display_human_readable(output: &DoctorOutput) {
-    println!("jjz System Health Check");
+    println!("zjj System Health Check");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!();
 
@@ -99,7 +99,7 @@ fn display_human_readable(output: &DoctorOutput) {
     );
 
     if output.auto_fixable_issues > 0 {
-        println!("Some issues can be auto-fixed: jjz doctor --fix");
+        println!("Some issues can be auto-fixed: zjj doctor --fix");
     }
 
     // AI Agent guidance section

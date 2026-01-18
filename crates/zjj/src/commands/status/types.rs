@@ -178,7 +178,7 @@ mod tests {
             name: "test-session".to_string(),
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
-            zellij_tab: "jjz:test-session".to_string(),
+            zellij_tab: "zjj:test-session".to_string(),
             branch: Some("feature".to_string()),
             created_at: 1_234_567_890,
             updated_at: 1_234_567_890,

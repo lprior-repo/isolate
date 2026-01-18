@@ -425,7 +425,7 @@ ls ~/.cargo/.crates.toml | grep zjj
 
 ```bash
 # Use find to locate all ZJJ-related files
-find ~ -name "*jjz*" -o -name "*zjj*" 2>/dev/null
+find ~ -name "*zjj*" -o -name "*zjj*" 2>/dev/null
 
 # Review and remove manually
 rm /path/to/remaining/file

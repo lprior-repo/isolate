@@ -92,7 +92,7 @@ impl HooksConfig {
 impl ZellijConfig {
     fn merge(self, other: Self) -> Self {
         Self {
-            session_prefix: if other.session_prefix == "jjz" {
+            session_prefix: if other.session_prefix == "zjj" {
                 self.session_prefix
             } else {
                 other.session_prefix

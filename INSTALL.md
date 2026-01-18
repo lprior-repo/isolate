@@ -125,7 +125,7 @@ cargo install zjj
 
 **Step 3**: Verify installation
 ```bash
-jjz --version
+zjj --version
 ```
 
 **Advantages**:
@@ -145,29 +145,29 @@ Download pre-compiled binaries from GitHub releases.
 
 ```bash
 # Linux x86_64
-wget https://github.com/lprior-repo/zjj/releases/latest/download/jjz-linux-x86_64
-chmod +x jjz-linux-x86_64
-sudo mv jjz-linux-x86_64 /usr/local/bin/jjz
+wget https://github.com/lprior-repo/zjj/releases/latest/download/zjj-linux-x86_64
+chmod +x zjj-linux-x86_64
+sudo mv zjj-linux-x86_64 /usr/local/bin/zjj
 
 # Linux aarch64
-wget https://github.com/lprior-repo/zjj/releases/latest/download/jjz-linux-aarch64
-chmod +x jjz-linux-aarch64
-sudo mv jjz-linux-aarch64 /usr/local/bin/jjz
+wget https://github.com/lprior-repo/zjj/releases/latest/download/zjj-linux-aarch64
+chmod +x zjj-linux-aarch64
+sudo mv zjj-linux-aarch64 /usr/local/bin/zjj
 
 # macOS x86_64 (Intel)
-wget https://github.com/lprior-repo/zjj/releases/latest/download/jjz-macos-x86_64
-chmod +x jjz-macos-x86_64
-sudo mv jjz-macos-x86_64 /usr/local/bin/jjz
+wget https://github.com/lprior-repo/zjj/releases/latest/download/zjj-macos-x86_64
+chmod +x zjj-macos-x86_64
+sudo mv zjj-macos-x86_64 /usr/local/bin/zjj
 
 # macOS aarch64 (Apple Silicon)
-wget https://github.com/lprior-repo/zjj/releases/latest/download/jjz-macos-aarch64
-chmod +x jjz-macos-aarch64
-sudo mv jjz-macos-aarch64 /usr/local/bin/jjz
+wget https://github.com/lprior-repo/zjj/releases/latest/download/zjj-macos-aarch64
+chmod +x zjj-macos-aarch64
+sudo mv zjj-macos-aarch64 /usr/local/bin/zjj
 ```
 
 **Step 2**: Verify installation
 ```bash
-jjz --version
+zjj --version
 ```
 
 **Advantages**:
@@ -216,12 +216,12 @@ moon run :build-release
 cargo install --path crates/zjj
 
 # Or copy manually
-sudo cp target/release/jjz /usr/local/bin/
+sudo cp target/release/zjj /usr/local/bin/
 ```
 
 **Step 5**: Verify installation
 ```bash
-jjz --version
+zjj --version
 ```
 
 **Advantages**:
@@ -240,7 +240,7 @@ After installation, verify ZJJ and all prerequisites are working:
 
 ```bash
 # 1. Check ZJJ binary
-jjz --version
+zjj --version
 
 # 2. Check prerequisites
 jj --version
@@ -248,17 +248,17 @@ zellij --version
 bd --version
 
 # 3. Check help output
-jjz --help
+zjj --help
 ```
 
-Expected output from `jjz --help`:
+Expected output from `zjj --help`:
 ```
 ZJJ - JJ workspace + Zellij session manager
 
-Usage: jjz <COMMAND>
+Usage: zjj <COMMAND>
 
 Commands:
-  init    Initialize jjz in a JJ repository
+  init    Initialize zjj in a JJ repository
   add     Create session with JJ workspace + Zellij tab
   list    Show all sessions
   remove  Cleanup session and workspace
@@ -278,7 +278,7 @@ Navigate to a JJ repository and initialize ZJJ:
 
 ```bash
 cd /path/to/your/jj/repo
-jjz init
+zjj init
 ```
 
 This creates:
@@ -295,7 +295,7 @@ Edit `.zjj/config.toml` to customize behavior:
 sync_strategy = "rebase"  # Options: "rebase", "merge", "none"
 
 # Zellij tab prefix
-tab_prefix = "jjz:"
+tab_prefix = "zjj:"
 
 [beads]
 # Beads integration settings
@@ -307,11 +307,11 @@ auto_link = true
 
 ```bash
 # Create a session named "feature-x"
-jjz add feature-x
+zjj add feature-x
 
 # This creates:
 # - JJ workspace: workspace_feature-x
-# - Zellij tab: jjz:feature-x
+# - Zellij tab: zjj:feature-x
 # - Session entry in database
 ```
 
@@ -319,7 +319,7 @@ jjz add feature-x
 
 ```bash
 # List all sessions
-jjz list
+zjj list
 
 # Check JJ workspaces
 jj workspace list
@@ -330,7 +330,7 @@ jj workspace list
 
 ## Troubleshooting
 
-### Issue: `jjz: command not found`
+### Issue: `zjj: command not found`
 
 **Cause**: Binary not in PATH.
 
@@ -347,13 +347,13 @@ jj workspace list
    ```bash
    # Ensure binary is in /usr/local/bin or another PATH directory
    echo $PATH
-   which jjz
+   which zjj
    ```
 
 3. **Verify installation location**:
    ```bash
    # Find the binary
-   find ~ -name jjz 2>/dev/null
+   find ~ -name zjj 2>/dev/null
    ```
 
 ### Issue: `jj: command not found`
@@ -395,9 +395,9 @@ cargo install beads
 bd --version
 ```
 
-### Issue: `error: failed to initialize jjz: not a jj repository`
+### Issue: `error: failed to initialize zjj: not a jj repository`
 
-**Cause**: Running `jjz init` outside a JJ repository.
+**Cause**: Running `zjj init` outside a JJ repository.
 
 **Solution**:
 ```bash
@@ -407,7 +407,7 @@ jj git init
 jj git clone <repo-url>
 
 # Then initialize ZJJ
-jjz init
+zjj init
 ```
 
 ### Issue: `error: workspace already exists`
@@ -420,7 +420,7 @@ jjz init
 jj workspace list
 
 # Choose a different session name
-jjz add different-name
+zjj add different-name
 
 # Or remove the conflicting workspace
 jj workspace forget workspace_old-name
@@ -436,7 +436,7 @@ jj workspace forget workspace_old-name
 zellij
 
 # Then run ZJJ commands inside Zellij
-jjz focus feature-x
+zjj focus feature-x
 ```
 
 ### Issue: Build fails with `error: linker 'cc' not found`
@@ -482,10 +482,10 @@ cargo install zjj
 ```bash
 # Wait for other processes to complete
 # Or check for hung processes
-ps aux | grep jjz
+ps aux | grep zjj
 
 # If necessary, kill hung processes
-pkill jjz
+pkill zjj
 
 # Database will unlock automatically
 ```
@@ -499,11 +499,11 @@ pkill jjz
 # 1. Ensure you're inside Zellij
 zellij
 
-# 2. Use jjz focus inside Zellij
-jjz focus session-name
+# 2. Use zjj focus inside Zellij
+zjj focus session-name
 
 # 3. Manually switch using Zellij keybindings
-# Press: Ctrl+T, then type tab name: jjz:session-name
+# Press: Ctrl+T, then type tab name: zjj:session-name
 ```
 
 ### Issue: Permission denied when creating session
@@ -528,11 +528,11 @@ If you encounter issues not covered here:
 1. **Check logs**:
    ```bash
    # Enable debug logging
-   RUST_LOG=debug jjz <command>
+   RUST_LOG=debug zjj <command>
    ```
 
 2. **File an issue**: https://github.com/lprior-repo/zjj/issues
-   - Include `jjz --version`
+   - Include `zjj --version`
    - Include `jj --version`, `zellij --version`, `bd --version`
    - Include full error message
    - Include OS and architecture
@@ -557,7 +557,7 @@ Remove the binary only (preserves data):
 cargo uninstall zjj
 
 # If installed manually
-sudo rm /usr/local/bin/jjz
+sudo rm /usr/local/bin/zjj
 ```
 
 For complete cleanup including:
@@ -576,7 +576,7 @@ After successful installation:
 1. **Read the quick start**: `docs/00_START_HERE.md`
 2. **Understand the architecture**: `docs/11_ARCHITECTURE.md`
 3. **Learn the workflow**: `docs/03_WORKFLOW.md`
-4. **Create your first session**: `jjz add my-feature`
+4. **Create your first session**: `zjj add my-feature`
 5. **Integrate with your workflow**: See `docs/08_BEADS.md` for Beads integration
 
 ## Version Information

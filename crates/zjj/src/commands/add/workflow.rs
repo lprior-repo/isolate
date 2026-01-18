@@ -76,7 +76,7 @@ pub async fn create_session(
 
     // Step 6: Open Zellij tab (unless --no-open)
     if !options.no_open {
-        let tab_name = format!("jjz:{name}");
+        let tab_name = format!("zjj:{name}");
         zellij::tab_open(&layout.file_path, &tab_name).context("Failed to open Zellij tab")?;
     }
 

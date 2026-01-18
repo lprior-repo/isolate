@@ -61,13 +61,13 @@ impl CompletionShell {
             Self::Bash => concat!(
                 "# Bash completion installation:\n",
                 "# Linux:\n",
-                "jjz completions bash > ~/.local/share/bash-completion/completions/jjz\n",
+                "zjj completions bash > ~/.local/share/bash-completion/completions/zjj\n",
                 "\n",
                 "# macOS (with Homebrew):\n",
-                "jjz completions bash > $(brew --prefix)/etc/bash_completion.d/jjz\n",
+                "zjj completions bash > $(brew --prefix)/etc/bash_completion.d/zjj\n",
                 "\n",
                 "# Or add to ~/.bashrc:\n",
-                "source <(jjz completions bash)"
+                "source <(zjj completions bash)"
             ),
             Self::Zsh => concat!(
                 "# Zsh completion installation:\n",
@@ -75,7 +75,7 @@ impl CompletionShell {
                 "mkdir -p ~/.zsh/completions\n",
                 "\n",
                 "# Generate completion file:\n",
-                "jjz completions zsh > ~/.zsh/completions/_jjz\n",
+                "zjj completions zsh > ~/.zsh/completions/_zjj\n",
                 "\n",
                 "# Add to ~/.zshrc (if not already present):\n",
                 "fpath=(~/.zsh/completions $fpath)\n",
@@ -84,7 +84,7 @@ impl CompletionShell {
             Self::Fish => concat!(
                 "# Fish completion installation:\n",
                 "# Generate completion file:\n",
-                "jjz completions fish > ~/.config/fish/completions/jjz.fish\n",
+                "zjj completions fish > ~/.config/fish/completions/zjj.fish\n",
                 "\n",
                 "# Completions are automatically loaded by fish"
             ),
@@ -224,8 +224,8 @@ mod tests {
                 shell.as_str()
             );
             assert!(
-                instructions.contains("jjz completions"),
-                "{} instructions should mention 'jjz completions'",
+                instructions.contains("zjj completions"),
+                "{} instructions should mention 'zjj completions'",
                 shell.as_str()
             );
         }

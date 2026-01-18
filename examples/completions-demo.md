@@ -1,29 +1,29 @@
 # Shell Completions Demo
 
-This document demonstrates the shell completions feature for `jjz`.
+This document demonstrates the shell completions feature for `zjj`.
 
 ## Quick Start
 
 ### Generate Bash Completions
 
 ```bash
-$ jjz completions bash
+$ zjj completions bash
 # Output: Full bash completion script (stdout)
 ```
 
 ### Generate with Instructions
 
 ```bash
-$ jjz completions bash --instructions
+$ zjj completions bash --instructions
 # Bash completion installation:
 # Linux:
-# jjz completions bash > ~/.local/share/bash-completion/completions/jjz
+# zjj completions bash > ~/.local/share/bash-completion/completions/zjj
 #
 # macOS (with Homebrew):
-# jjz completions bash > $(brew --prefix)/etc/bash_completion.d/jjz
+# zjj completions bash > $(brew --prefix)/etc/bash_completion.d/zjj
 #
 # Or add to ~/.bashrc:
-# source <(jjz completions bash)
+# source <(zjj completions bash)
 
 Generating bash completions...
 
@@ -36,13 +36,13 @@ Generating bash completions...
 
 ```bash
 # Linux installation
-jjz completions bash > ~/.local/share/bash-completion/completions/jjz
+zjj completions bash > ~/.local/share/bash-completion/completions/zjj
 
 # macOS installation
-jjz completions bash > $(brew --prefix)/etc/bash_completion.d/jjz
+zjj completions bash > $(brew --prefix)/etc/bash_completion.d/zjj
 
 # Direct sourcing
-echo 'source <(jjz completions bash)' >> ~/.bashrc
+echo 'source <(zjj completions bash)' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -53,7 +53,7 @@ source ~/.bashrc
 mkdir -p ~/.zsh/completions
 
 # Generate completion
-jjz completions zsh > ~/.zsh/completions/_jjz
+zjj completions zsh > ~/.zsh/completions/_zjj
 
 # Add to ~/.zshrc
 echo 'fpath=(~/.zsh/completions $fpath)' >> ~/.zshrc
@@ -65,7 +65,7 @@ source ~/.zshrc
 
 ```bash
 # Fish auto-loads from this directory
-jjz completions fish > ~/.config/fish/completions/jjz.fish
+zjj completions fish > ~/.config/fish/completions/zjj.fish
 
 # Completions active immediately in new shells
 ```
@@ -76,29 +76,29 @@ Once installed, you can use tab completion:
 
 ```bash
 # List all commands
-$ jjz <TAB>
+$ zjj <TAB>
 add          config       diff         init         query        sync
 completions  dashboard    doctor       list         remove
 
 # Complete subcommand options
-$ jjz add --<TAB>
+$ zjj add --<TAB>
 --help       --json       --no-hooks   --no-open    --template
 
 # Complete shell names
-$ jjz completions <TAB>
+$ zjj completions <TAB>
 bash    fish    zsh
 
 # Command help
-$ jjz completions --<TAB>
+$ zjj completions --<TAB>
 --help         --instructions
 
 # Specific shell completion
-$ jjz add -<TAB>
+$ zjj add -<TAB>
 -h (show help)
 -t (template)
 
 # Show template options
-$ jjz add feature-auth --template <TAB>
+$ zjj add feature-auth --template <TAB>
 minimal    standard    full
 ```
 
@@ -107,7 +107,7 @@ minimal    standard    full
 ### Invalid Shell
 
 ```bash
-$ jjz completions powershell
+$ zjj completions powershell
 Error: Unsupported shell: powershell
 Supported shells: bash, zsh, fish
 ```
@@ -115,9 +115,9 @@ Supported shells: bash, zsh, fish
 ### Case Insensitive
 
 ```bash
-$ jjz completions BASH    # Works!
-$ jjz completions Zsh     # Works!
-$ jjz completions FiSh    # Works!
+$ zjj completions BASH    # Works!
+$ zjj completions Zsh     # Works!
+$ zjj completions FiSh    # Works!
 ```
 
 ## Advanced Usage
@@ -129,14 +129,14 @@ $ jjz completions FiSh    # Works!
 for shell in bash zsh fish; do
     case $shell in
         bash)
-            jjz completions bash > ~/.local/share/bash-completion/completions/jjz
+            zjj completions bash > ~/.local/share/bash-completion/completions/zjj
             ;;
         zsh)
             mkdir -p ~/.zsh/completions
-            jjz completions zsh > ~/.zsh/completions/_jjz
+            zjj completions zsh > ~/.zsh/completions/_zjj
             ;;
         fish)
-            jjz completions fish > ~/.config/fish/completions/jjz.fish
+            zjj completions fish > ~/.config/fish/completions/zjj.fish
             ;;
     esac
 done
@@ -147,17 +147,17 @@ done
 ```bash
 # Generate completions for packaging
 mkdir -p dist/completions
-jjz completions bash > dist/completions/jjz.bash
-jjz completions zsh > dist/completions/_jjz
-jjz completions fish > dist/completions/jjz.fish
+zjj completions bash > dist/completions/zjj.bash
+zjj completions zsh > dist/completions/_zjj
+zjj completions fish > dist/completions/zjj.fish
 
 # Package structure:
 # dist/
-#   bin/jjz
+#   bin/zjj
 #   completions/
-#     jjz.bash
-#     _jjz
-#     jjz.fish
+#     zjj.bash
+#     _zjj
+#     zjj.fish
 ```
 
 ### CI/CD Integration
@@ -167,9 +167,9 @@ jjz completions fish > dist/completions/jjz.fish
 - name: Generate completions
   run: |
     mkdir -p artifacts/completions
-    ./target/release/jjz completions bash > artifacts/completions/jjz.bash
-    ./target/release/jjz completions zsh > artifacts/completions/_jjz
-    ./target/release/jjz completions fish > artifacts/completions/jjz.fish
+    ./target/release/zjj completions bash > artifacts/completions/zjj.bash
+    ./target/release/zjj completions zsh > artifacts/completions/_zjj
+    ./target/release/zjj completions fish > artifacts/completions/zjj.fish
 
 - name: Upload completions
   uses: actions/upload-artifact@v3
@@ -184,26 +184,26 @@ jjz completions fish > dist/completions/jjz.fish
 
 ```bash
 # Bash
-complete -p jjz
+complete -p zjj
 
 # Zsh
-which _jjz
+which _zjj
 
 # Fish
-complete -c jjz
+complete -c zjj
 ```
 
 ### Manual Testing
 
 ```bash
 # Create test session
-jjz init
-jjz add test-session
+zjj init
+zjj add test-session
 
 # Test completions
-jjz <TAB>           # Should show commands
-jjz add <TAB>       # Should show options
-jjz list --<TAB>    # Should show flags
+zjj <TAB>           # Should show commands
+zjj add <TAB>       # Should show options
+zjj list --<TAB>    # Should show flags
 ```
 
 ## Completion Coverage
@@ -226,11 +226,11 @@ See [COMPLETIONS.md](/home/lewis/src/zjj/docs/COMPLETIONS.md) for detailed troub
 ### Quick Checks
 
 ```bash
-# Verify jjz is in PATH
-which jjz
+# Verify zjj is in PATH
+which zjj
 
 # Test completion generation
-jjz completions bash | head -5
+zjj completions bash | head -5
 
 # Check shell-specific configs
 echo $BASH_VERSION  # Bash

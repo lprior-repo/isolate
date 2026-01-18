@@ -42,7 +42,7 @@ fn get_data_paths() -> (Option<String>, Option<String>) {
 /// Get current system state
 ///
 /// Gathers information about:
-/// - Whether jjz is initialized
+/// - Whether zjj is initialized
 /// - Whether we're in a JJ repository
 /// - Config and database file paths
 /// - Session statistics (total and active counts)

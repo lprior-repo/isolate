@@ -57,7 +57,7 @@ impl Session {
             name: name.to_string(),
             status: SessionStatus::Creating,
             workspace_path: workspace_path.to_string(),
-            zellij_tab: format!("jjz:{name}"),
+            zellij_tab: format!("zjj:{name}"),
             branch: None,
             created_at: now,
             updated_at: now,

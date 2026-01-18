@@ -28,13 +28,13 @@ pub(crate) fn hints_for_session_exists(error_msg: &str) -> Vec<Hint> {
     let session_name = extract_session_name(error_msg, "session");
     vec![
         Hint::suggestion("Use a different name for the new session")
-            .with_command(format!("jjz add {session_name}-v2"))
+            .with_command(format!("zjj add {session_name}-v2"))
             .with_rationale("Append version or date to differentiate"),
         Hint::suggestion("Switch to the existing session")
-            .with_command(format!("jjz focus {session_name}"))
+            .with_command(format!("zjj focus {session_name}"))
             .with_rationale("Continue work in existing session"),
         Hint::suggestion("Remove the existing session first")
-            .with_command(format!("jjz remove {session_name}"))
+            .with_command(format!("zjj remove {session_name}"))
             .with_rationale("Clean up old session before creating new one"),
     ]
 }
@@ -45,7 +45,7 @@ pub(crate) fn hints_for_zellij_not_running() -> Vec<Hint> {
     vec![
         Hint::suggestion("Start Zellij first")
             .with_command("zellij")
-            .with_rationale("jjz requires Zellij to be running"),
+            .with_rationale("zjj requires Zellij to be running"),
         Hint::tip("You can attach to existing Zellij session")
             .with_command("zellij attach")
             .with_rationale("Reuse existing session instead of creating new one"),
@@ -56,10 +56,10 @@ pub(crate) fn hints_for_zellij_not_running() -> Vec<Hint> {
 #[must_use]
 pub(crate) fn hints_for_not_initialized() -> Vec<Hint> {
     vec![
-        Hint::suggestion("Initialize jjz in this repository")
-            .with_command("jjz init")
+        Hint::suggestion("Initialize zjj in this repository")
+            .with_command("zjj init")
             .with_rationale("Creates .zjj directory with configuration"),
-        Hint::tip("After init, you can configure jjz in .zjj/config.toml")
+        Hint::tip("After init, you can configure zjj in .zjj/config.toml")
             .with_rationale("Customize workspace paths, hooks, and layouts"),
     ]
 }
@@ -69,7 +69,7 @@ pub(crate) fn hints_for_not_initialized() -> Vec<Hint> {
 pub(crate) fn hints_for_jj_not_found() -> Vec<Hint> {
     vec![
         Hint::warning("JJ (Jujutsu) is not installed or not in PATH")
-            .with_rationale("jjz requires JJ for workspace management"),
+            .with_rationale("zjj requires JJ for workspace management"),
         Hint::suggestion("Install JJ from https://github.com/martinvonz/jj")
             .with_rationale("Follow installation instructions for your platform"),
     ]
@@ -80,7 +80,7 @@ pub(crate) fn hints_for_jj_not_found() -> Vec<Hint> {
 pub(crate) fn hints_for_session_not_found() -> Vec<Hint> {
     vec![
         Hint::suggestion("List all sessions to see available ones")
-            .with_command("jjz list")
+            .with_command("zjj list")
             .with_rationale("Check session names and status"),
         Hint::tip("Session names are case-sensitive")
             .with_rationale("Ensure exact match when referencing sessions"),
@@ -91,7 +91,7 @@ pub(crate) fn hints_for_session_not_found() -> Vec<Hint> {
 #[must_use]
 pub(crate) fn hints_for_generic_error() -> Vec<Hint> {
     vec![Hint::info("Check error details for more information")
-        .with_command("jjz status")
+        .with_command("zjj status")
         .with_rationale("Verify system state and configuration")]
 }
 
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_hints_for_error_public_api() {
-        let hints = hints_for_error("NOT_INITIALIZED", "jjz not initialized");
+        let hints = hints_for_error("NOT_INITIALIZED", "zjj not initialized");
         assert!(!hints.is_empty());
     }
 }

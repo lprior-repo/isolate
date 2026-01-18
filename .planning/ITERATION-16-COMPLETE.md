@@ -77,7 +77,7 @@ if sessions.is_empty() {
         // Silent mode or pipe: output nothing
     } else {
         println!("No sessions found.");
-        println!("Use 'jjz add <name>' to create a session.");
+        println!("Use 'zjj add <name>' to create a session.");
     }
     return Ok(());
 }
@@ -107,20 +107,20 @@ bugfix-123           active       main            -          3 open
 
 ### Pipe Mode (Automatic)
 ```bash
-$ jjz list | grep feature
+$ zjj list | grep feature
 feature-auth	active	my-branch	2 files	3 open
 ```
 
 ### Silent Mode (Explicit)
 ```bash
-$ jjz list --silent
+$ zjj list --silent
 feature-auth	active	my-branch	2 files	3 open
 bugfix-123	active	main	-	3 open
 ```
 
 ### JSON Mode (Unchanged)
 ```bash
-$ jjz list --json | jq -r '.[].name'
+$ zjj list --json | jq -r '.[].name'
 feature-auth
 bugfix-123
 ```
@@ -217,22 +217,22 @@ Commands now follow "programs that work together" principle:
 ### Use Cases Enabled
 ```bash
 # Extract session names
-jjz list | cut -f1
+zjj list | cut -f1
 
 # Filter active sessions
-jjz list | grep active
+zjj list | grep active
 
 # Count sessions
-jjz list | wc -l
+zjj list | wc -l
 
 # Process with awk
-jjz list | awk -F'\t' '{print $1, $4}'
+zjj list | awk -F'\t' '{print $1, $4}'
 
 # Save to file
-jjz list > sessions.txt
+zjj list > sessions.txt
 
 # Chain with other commands
-jjz list | grep feature | cut -f1 | xargs -I {} jjz focus {}
+zjj list | grep feature | cut -f1 | xargs -I {} zjj focus {}
 ```
 
 ---

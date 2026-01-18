@@ -63,7 +63,7 @@ EOF
    ```rust
    // TODO: Implement merge functionality
    ```
-   - `jjz remove -m` flag documented but **not implemented**
+   - `zjj remove -m` flag documented but **not implemented**
    - Silent failure or incorrect behavior
 
 2. **Hooks system incomplete** (`add.rs:164, remove.rs:66`)
@@ -439,7 +439,7 @@ codegen-units = 1
 **Impact**: Feature expectations
 
 **Issue**:
-- `jjz dashboard` command exists
+- `zjj dashboard` command exists
 - Ratatui dependency for TUI
 - But no docs on what dashboard shows
 - No screenshots
@@ -454,7 +454,7 @@ codegen-units = 1
 **Impact**: API clarity
 
 **Issue**:
-- `jjz introspect` and `jjz query` exist
+- `zjj introspect` and `zjj query` exist
 - Machine-readable output
 - But who is the audience?
 - When would users use these?
@@ -470,7 +470,7 @@ codegen-units = 1
 
 **Questions**:
 - How does it handle 100 sessions?
-- How fast is `jjz list`?
+- How fast is `zjj list`?
 - Database query performance?
 - Memory usage?
 
@@ -486,7 +486,7 @@ codegen-units = 1
 - TOML config parsing exists
 - But no schema validation
 - Bad config may be ignored silently
-- No `jjz config validate` command
+- No `zjj config validate` command
 
 **Priority**: P2 - User experience
 
@@ -545,7 +545,7 @@ pub fn attach_to_zellij_session(_layout_content: Option<&str>) -> Result<()> {
 **Impact**: Data consistency
 
 **Questions**:
-- What happens if `jjz add` crashes mid-operation?
+- What happens if `zjj add` crashes mid-operation?
 - Is database consistent?
 - Are workspaces cleaned up?
 - Rollback strategy?

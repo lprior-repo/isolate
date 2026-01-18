@@ -15,79 +15,79 @@ pub fn build_command_categories() -> CommandCategories {
     CommandCategories {
         session_lifecycle: vec![
             CommandRef {
-                name: "jjz add <name>".to_string(),
+                name: "zjj add <name>".to_string(),
                 description: "Create new session (workspace + Zellij tab)".to_string(),
             },
             CommandRef {
-                name: "jjz list".to_string(),
+                name: "zjj list".to_string(),
                 description: "Show all sessions".to_string(),
             },
             CommandRef {
-                name: "jjz status <name>".to_string(),
+                name: "zjj status <name>".to_string(),
                 description: "Show session details".to_string(),
             },
             CommandRef {
-                name: "jjz focus <name>".to_string(),
+                name: "zjj focus <name>".to_string(),
                 description: "Switch to session's Zellij tab".to_string(),
             },
             CommandRef {
-                name: "jjz remove <name>".to_string(),
+                name: "zjj remove <name>".to_string(),
                 description: "Cleanup session and workspace".to_string(),
             },
         ],
         workspace_sync: vec![
             CommandRef {
-                name: "jjz sync".to_string(),
+                name: "zjj sync".to_string(),
                 description: "Rebase current workspace on main".to_string(),
             },
             CommandRef {
-                name: "jjz diff".to_string(),
+                name: "zjj diff".to_string(),
                 description: "Show changes in current workspace".to_string(),
             },
         ],
         system: vec![
             CommandRef {
-                name: "jjz init".to_string(),
-                description: "Initialize jjz in a JJ repository".to_string(),
+                name: "zjj init".to_string(),
+                description: "Initialize zjj in a JJ repository".to_string(),
             },
             CommandRef {
-                name: "jjz config".to_string(),
+                name: "zjj config".to_string(),
                 description: "View or modify configuration".to_string(),
             },
             CommandRef {
-                name: "jjz doctor".to_string(),
+                name: "zjj doctor".to_string(),
                 description: "Run health checks".to_string(),
             },
         ],
         introspection: vec![
             CommandRef {
-                name: "jjz context --json".to_string(),
+                name: "zjj context --json".to_string(),
                 description: "Get complete environment state".to_string(),
             },
             CommandRef {
-                name: "jjz introspect --json".to_string(),
+                name: "zjj introspect --json".to_string(),
                 description: "Get CLI metadata and command docs".to_string(),
             },
             CommandRef {
-                name: "jjz dashboard".to_string(),
+                name: "zjj dashboard".to_string(),
                 description: "Interactive session dashboard".to_string(),
             },
             CommandRef {
-                name: "jjz query <type>".to_string(),
+                name: "zjj query <type>".to_string(),
                 description: "Programmatic state queries".to_string(),
             },
         ],
         utilities: vec![
             CommandRef {
-                name: "jjz backup".to_string(),
+                name: "zjj backup".to_string(),
                 description: "Backup session database".to_string(),
             },
             CommandRef {
-                name: "jjz restore <file>".to_string(),
+                name: "zjj restore <file>".to_string(),
                 description: "Restore from backup".to_string(),
             },
             CommandRef {
-                name: "jjz completions <shell>".to_string(),
+                name: "zjj completions <shell>".to_string(),
                 description: "Generate shell completions".to_string(),
             },
         ],

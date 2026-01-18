@@ -57,15 +57,15 @@ pub fn add() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz add feature-auth".to_string(),
+                command: "zjj add feature-auth".to_string(),
                 description: "Create session with default template".to_string(),
             },
             CommandExample {
-                command: "jjz add bugfix-123 --no-hooks".to_string(),
+                command: "zjj add bugfix-123 --no-hooks".to_string(),
                 description: "Create without running hooks".to_string(),
             },
             CommandExample {
-                command: "jjz add experiment -t minimal".to_string(),
+                command: "zjj add experiment -t minimal".to_string(),
                 description: "Create with minimal layout".to_string(),
             },
         ],
@@ -144,15 +144,15 @@ pub fn remove() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz remove my-session".to_string(),
+                command: "zjj remove my-session".to_string(),
                 description: "Remove session with confirmation".to_string(),
             },
             CommandExample {
-                command: "jjz remove my-session -f".to_string(),
+                command: "zjj remove my-session -f".to_string(),
                 description: "Remove without confirmation".to_string(),
             },
             CommandExample {
-                command: "jjz remove my-session -m".to_string(),
+                command: "zjj remove my-session -m".to_string(),
                 description: "Merge changes before removing".to_string(),
             },
         ],
@@ -171,7 +171,7 @@ pub fn remove() -> CommandIntrospection {
         error_conditions: vec![ErrorCondition {
             code: "SESSION_NOT_FOUND".to_string(),
             description: "Session does not exist".to_string(),
-            resolution: "Check session name with 'jjz list'".to_string(),
+            resolution: "Check session name with 'zjj list'".to_string(),
         }],
     }
 }
@@ -203,11 +203,11 @@ pub fn list() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz list".to_string(),
+                command: "zjj list".to_string(),
                 description: "List active sessions".to_string(),
             },
             CommandExample {
-                command: "jjz list --all".to_string(),
+                command: "zjj list --all".to_string(),
                 description: "List all sessions including completed".to_string(),
             },
         ],
@@ -226,13 +226,13 @@ pub fn list() -> CommandIntrospection {
 pub fn init() -> CommandIntrospection {
     CommandIntrospection {
         command: "init".to_string(),
-        description: "Initialize jjz in a JJ repository".to_string(),
+        description: "Initialize zjj in a JJ repository".to_string(),
         aliases: vec![],
         arguments: vec![],
         flags: vec![],
         examples: vec![CommandExample {
-            command: "jjz init".to_string(),
-            description: "Initialize jjz in current directory".to_string(),
+            command: "zjj init".to_string(),
+            description: "Initialize zjj in current directory".to_string(),
         }],
         prerequisites: Prerequisites {
             initialized: false,
@@ -269,7 +269,7 @@ pub fn focus() -> CommandIntrospection {
         }],
         flags: vec![],
         examples: vec![CommandExample {
-            command: "jjz focus my-session".to_string(),
+            command: "zjj focus my-session".to_string(),
             description: "Switch to my-session tab".to_string(),
         }],
         prerequisites: Prerequisites {
@@ -282,7 +282,7 @@ pub fn focus() -> CommandIntrospection {
         error_conditions: vec![ErrorCondition {
             code: "SESSION_NOT_FOUND".to_string(),
             description: "Session does not exist".to_string(),
-            resolution: "Check session name with 'jjz list'".to_string(),
+            resolution: "Check session name with 'zjj list'".to_string(),
         }],
     }
 }
@@ -321,11 +321,11 @@ pub fn status() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz status".to_string(),
+                command: "zjj status".to_string(),
                 description: "Show status of all sessions".to_string(),
             },
             CommandExample {
-                command: "jjz status my-session".to_string(),
+                command: "zjj status my-session".to_string(),
                 description: "Show status of specific session".to_string(),
             },
         ],
@@ -356,7 +356,7 @@ pub fn sync() -> CommandIntrospection {
         }],
         flags: vec![],
         examples: vec![CommandExample {
-            command: "jjz sync my-session".to_string(),
+            command: "zjj sync my-session".to_string(),
             description: "Sync session with main branch".to_string(),
         }],
         prerequisites: Prerequisites {
@@ -401,11 +401,11 @@ pub fn diff() -> CommandIntrospection {
         }],
         examples: vec![
             CommandExample {
-                command: "jjz diff my-session".to_string(),
+                command: "zjj diff my-session".to_string(),
                 description: "Show full diff".to_string(),
             },
             CommandExample {
-                command: "jjz diff my-session --stat".to_string(),
+                command: "zjj diff my-session --stat".to_string(),
                 description: "Show diffstat summary".to_string(),
             },
         ],
@@ -424,7 +424,7 @@ pub fn diff() -> CommandIntrospection {
 pub fn introspect() -> CommandIntrospection {
     CommandIntrospection {
         command: "introspect".to_string(),
-        description: "Discover jjz capabilities".to_string(),
+        description: "Discover zjj capabilities".to_string(),
         aliases: vec![],
         arguments: vec![ArgumentSpec {
             name: "command".to_string(),
@@ -444,11 +444,11 @@ pub fn introspect() -> CommandIntrospection {
         }],
         examples: vec![
             CommandExample {
-                command: "jjz introspect".to_string(),
+                command: "zjj introspect".to_string(),
                 description: "Show all capabilities".to_string(),
             },
             CommandExample {
-                command: "jjz introspect add --json".to_string(),
+                command: "zjj introspect add --json".to_string(),
                 description: "Get add command schema as JSON".to_string(),
             },
         ],
@@ -490,11 +490,11 @@ pub fn doctor() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz doctor".to_string(),
+                command: "zjj doctor".to_string(),
                 description: "Check system health".to_string(),
             },
             CommandExample {
-                command: "jjz doctor --fix".to_string(),
+                command: "zjj doctor --fix".to_string(),
                 description: "Auto-fix issues".to_string(),
             },
         ],
@@ -548,15 +548,15 @@ pub fn query() -> CommandIntrospection {
         }],
         examples: vec![
             CommandExample {
-                command: "jjz query session-exists my-session".to_string(),
+                command: "zjj query session-exists my-session".to_string(),
                 description: "Check if session exists".to_string(),
             },
             CommandExample {
-                command: "jjz query can-run add".to_string(),
+                command: "zjj query can-run add".to_string(),
                 description: "Check if add command can run".to_string(),
             },
             CommandExample {
-                command: "jjz query suggest-name feature-{n}".to_string(),
+                command: "zjj query suggest-name feature-{n}".to_string(),
                 description: "Suggest next available name".to_string(),
             },
         ],

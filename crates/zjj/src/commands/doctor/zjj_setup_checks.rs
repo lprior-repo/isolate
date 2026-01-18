@@ -1,6 +1,6 @@
 //! JJZ setup and integration checks
 //!
-//! This module contains checks for jjz initialization status and integration
+//! This module contains checks for zjj initialization status and integration
 //! with external tools like Beads.
 
 use std::process::Command;
@@ -9,23 +9,23 @@ use zjj_core::introspection::{CheckStatus, DoctorCheck};
 
 use crate::cli::is_command_available;
 
-/// Check if jjz is initialized in the current directory
+/// Check if zjj is initialized in the current directory
 pub fn check_initialized() -> DoctorCheck {
     check_initialized_at(".")
 }
 
-/// Check if jjz is initialized at a specific path
+/// Check if zjj is initialized at a specific path
 ///
 /// This is the implementation that allows testing without changing current directory.
 pub fn check_initialized_at(base_path: impl AsRef<std::path::Path>) -> DoctorCheck {
     // Check for .zjj directory existence directly, without depending on JJ installation
     let base = base_path.as_ref();
-    let jjz_dir = base.join(".zjj");
-    let config_file = jjz_dir.join("config.toml");
-    let initialized = jjz_dir.exists() && config_file.exists();
+    let zjj_dir = base.join(".zjj");
+    let config_file = zjj_dir.join("config.toml");
+    let initialized = zjj_dir.exists() && config_file.exists();
 
     DoctorCheck {
-        name: "jjz Initialized".to_string(),
+        name: "zjj Initialized".to_string(),
         status: if initialized {
             CheckStatus::Pass
         } else {
@@ -34,12 +34,12 @@ pub fn check_initialized_at(base_path: impl AsRef<std::path::Path>) -> DoctorChe
         message: if initialized {
             ".zjj directory exists with valid config".to_string()
         } else {
-            "jjz not initialized".to_string()
+            "zjj not initialized".to_string()
         },
         suggestion: if initialized {
             None
         } else {
-            Some("Initialize jjz: jjz init".to_string())
+            Some("Initialize zjj: zjj init".to_string())
         },
         auto_fixable: false,
         details: None,
@@ -98,24 +98,24 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn test_check_initialized_detects_jjz_directory() {
+    fn test_check_initialized_detects_zjj_directory() {
         // Create a temporary directory - no need to change current directory
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
         // Test 1: No .zjj directory - should fail
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Fail);
-        assert_eq!(result.name, "jjz Initialized");
+        assert_eq!(result.name, "zjj Initialized");
         assert!(result.message.contains("not initialized"));
 
         // Test 2: .zjj directory exists but no config.toml - should fail
-        let jjz_dir = temp_dir.path().join(".zjj");
-        fs::create_dir(&jjz_dir).expect("Failed to create .zjj dir");
+        let zjj_dir = temp_dir.path().join(".zjj");
+        fs::create_dir(&zjj_dir).expect("Failed to create .zjj dir");
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Fail);
 
         // Test 3: .zjj directory with config.toml - should pass
-        fs::write(jjz_dir.join("config.toml"), "workspace_dir = \"test\"")
+        fs::write(zjj_dir.join("config.toml"), "workspace_dir = \"test\"")
             .expect("Failed to write config.toml");
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Pass);
@@ -130,9 +130,9 @@ mod tests {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
         // Create .zjj structure WITHOUT initializing a JJ repo
-        let jjz_dir = temp_dir.path().join(".zjj");
-        fs::create_dir(&jjz_dir).expect("Failed to create .zjj dir");
-        fs::write(jjz_dir.join("config.toml"), "workspace_dir = \"test\"")
+        let zjj_dir = temp_dir.path().join(".zjj");
+        fs::create_dir(&zjj_dir).expect("Failed to create .zjj dir");
+        fs::write(zjj_dir.join("config.toml"), "workspace_dir = \"test\"")
             .expect("Failed to write config.toml");
 
         // Even without JJ installed/initialized, should detect .zjj
@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn test_check_initialized_returns_valid_check() {
         let check = check_initialized();
-        assert_eq!(check.name, "jjz Initialized");
+        assert_eq!(check.name, "zjj Initialized");
         assert!(check.status == CheckStatus::Pass || check.status == CheckStatus::Fail);
         assert!(!check.message.is_empty());
     }

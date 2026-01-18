@@ -24,7 +24,7 @@ pub fn confirm_removal(name: &str) -> Result<bool> {
              • Running as a background process\n\
              \n\
              To remove without confirmation, use --force flag:\n\
-             jjz remove {name} --force"
+             zjj remove {name} --force"
         );
     }
 

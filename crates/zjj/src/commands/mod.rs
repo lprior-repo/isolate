@@ -106,16 +106,16 @@ fn find_zjj_root() -> Result<PathBuf> {
     let mut current = current_dir.as_path();
 
     loop {
-        let jjz_dir = current.join(".zjj");
+        let zjj_dir = current.join(".zjj");
 
-        if jjz_dir.exists() {
-            if jjz_dir.is_dir() {
+        if zjj_dir.exists() {
+            if zjj_dir.is_dir() {
                 return Ok(current.to_path_buf());
             }
             anyhow::bail!(
                 ".zjj exists at '{}' but is not a directory. \
                 Remove it or initialize in a different location.",
-                jjz_dir.display()
+                zjj_dir.display()
             );
         }
 
@@ -246,7 +246,7 @@ mod tests {
             // Note: May also fail with "Failed to determine current directory" in some test
             // environments
             assert!(
-                msg.contains("Not in a jjz repository")
+                msg.contains("Not in a zjj repository")
                     || msg.contains(".zjj")
                     || msg.contains("Failed to determine current directory"),
                 "zjj_data_dir should fail with .zjj not found error, got: {msg}"

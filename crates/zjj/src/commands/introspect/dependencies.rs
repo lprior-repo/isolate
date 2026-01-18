@@ -21,7 +21,7 @@ fn get_command_version(command: &str) -> Option<String> {
 ///
 /// # Arguments
 /// * `command` - Command name to check
-/// * `required` - Whether this dependency is required for jjz to function
+/// * `required` - Whether this dependency is required for zjj to function
 fn build_dependency_info(command: &str, required: bool) -> DependencyInfo {
     let installed = is_command_available(command);
     DependencyInfo {

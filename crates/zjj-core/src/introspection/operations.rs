@@ -15,7 +15,7 @@ impl IntrospectOutput {
         let version_string = version.to_string();
         Self {
             version: version_string.clone(),
-            jjz_version: version_string,
+            zjj_version: version_string,
             capabilities: Capabilities::default(),
             dependencies: HashMap::new(),
             system_state: Default::default(),
@@ -116,9 +116,9 @@ impl DoctorOutput {
 
         // AI-specific guidance based on system state
         let ai_guidance = vec![
-            "Run 'jjz context --json' for complete environment state".to_string(),
-            "Run 'jjz introspect --json' to discover all available commands".to_string(),
-            "Run 'jjz query can-run <command>' to check prerequisites before executing".to_string(),
+            "Run 'zjj context --json' for complete environment state".to_string(),
+            "Run 'zjj introspect --json' to discover all available commands".to_string(),
+            "Run 'zjj query can-run <command>' to check prerequisites before executing".to_string(),
             "Use '--json' flag with any command for machine-readable output".to_string(),
         ];
 

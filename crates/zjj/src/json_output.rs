@@ -8,7 +8,7 @@ use serde::Serialize;
 pub struct InitOutput {
     pub success: bool,
     pub message: String,
-    pub jjz_dir: String,
+    pub zjj_dir: String,
     pub config_file: String,
     pub state_db: String,
     pub layouts_dir: String,
@@ -32,7 +32,7 @@ pub struct AddOutput {
 #[allow(dead_code)]
 pub struct RemoveOutput {
     pub success: bool,
-    pub session: String,
+    pub session_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operations: Option<Vec<RemoveOperation>>,
     /// Bead ID that was closed via --close-bead flag
@@ -41,7 +41,7 @@ pub struct RemoveOutput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+    pub error: Option<ErrorDetail>,
 }
 
 /// Individual operation performed during removal
@@ -98,9 +98,11 @@ pub struct PlannedRemoveOperation {
 #[allow(dead_code)]
 pub struct FocusOutput {
     pub success: bool,
-    pub session: String,
+    pub session_name: String,
     pub tab: String,
     pub switched: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<ErrorDetail>,
 }
 
 /// Sync command JSON output
@@ -240,7 +242,7 @@ pub use zjj_core::json::{ErrorDetail, JsonError as ErrorOutput};
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
 pub struct HelpOutput {
-    /// Command name (e.g., "jjz")
+    /// Command name (e.g., "zjj")
     pub command: String,
     /// Version string
     pub version: String,

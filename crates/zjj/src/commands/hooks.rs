@@ -1,13 +1,13 @@
 //! Git hooks installation for AI workflow integration
 //!
-//! This module provides the `jjz hooks install` command to set up git hooks
+//! This module provides the `zjj hooks install` command to set up git hooks
 //! that enable automatic context injection for AI agents.
 //!
 //! Installed hooks:
 //! - `post-checkout`: Triggered when switching branches
 //! - `post-merge`: Triggered after merging branches
 //!
-//! Both hooks call `jjz prime` (or `jjz context`) to provide workflow context.
+//! Both hooks call `zjj prime` (or `zjj context`) to provide workflow context.
 
 #![allow(dead_code)]
 
@@ -29,18 +29,18 @@ const HOOK_TEMPLATE: &str = r"#!/bin/sh
 # This hook provides context for AI workflow integration
 
 # Check if zjj is available
-if ! command -v jjz >/dev/null 2>&1; then
+if ! command -v zjj >/dev/null 2>&1; then
     # zjj not in PATH - skip hook silently
     exit 0
 fi
 
 # Call zjj prime for AI context (or context --ai-optimized as fallback)
 # Note: This will be implemented in zjj-9l09 (zjj prime command)
-if jjz prime --quiet 2>/dev/null; then
+if zjj prime --quiet 2>/dev/null; then
     exit 0
-elif jjz context --json >/dev/null 2>&1; then
+elif zjj context --json >/dev/null 2>&1; then
     # Fallback to context command
-    jjz context --json >/dev/null
+    zjj context --json >/dev/null
     exit 0
 else
     # zjj not initialized or context unavailable - skip silently
@@ -286,7 +286,7 @@ fn output_summary(installed: &[(&str, &str)], skipped: &[(&str, String)]) {
         eprintln!("Skipped {} hook(s)", skipped.len());
     }
 
-    eprintln!("\nInstalled hooks will call 'jjz prime' for AI context injection.");
+    eprintln!("\nInstalled hooks will call 'zjj prime' for AI context injection.");
     eprintln!("Hooks execute silently if zjj is not available.");
 }
 
@@ -384,8 +384,8 @@ mod tests {
     fn test_hook_template_structure() {
         // Verify hook template has expected structure
         assert!(HOOK_TEMPLATE.starts_with("#!/bin/sh"));
-        assert!(HOOK_TEMPLATE.contains("jjz prime"));
-        assert!(HOOK_TEMPLATE.contains("jjz context --json"));
+        assert!(HOOK_TEMPLATE.contains("zjj prime"));
+        assert!(HOOK_TEMPLATE.contains("zjj context --json"));
     }
 
     #[test]

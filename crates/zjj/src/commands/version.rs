@@ -115,7 +115,7 @@ fn get_target_triple() -> String {
 
 /// Print human-readable version
 fn print_human_readable(info: &VersionInfo) {
-    println!("jjz {}", info.semver);
+    println!("zjj {}", info.semver);
 
     if let Some(ref commit) = info.git_commit {
         let dirty = info

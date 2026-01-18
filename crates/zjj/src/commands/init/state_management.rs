@@ -51,7 +51,7 @@ pub async fn run_with_cwd_and_flags(cwd: Option<&Path>, repair: bool, force: boo
             bail!(
                 "Cannot repair: .zjj directory does not exist.\n\
                  \n\
-                 Run 'jjz init' first to initialize."
+                 Run 'zjj init' first to initialize."
             );
         }
         return health::repair_database(&db_path).await;
@@ -76,7 +76,7 @@ fn resolve_cwd(cwd: Option<&Path>) -> Result<PathBuf> {
             .context("Failed to get current directory")
             .context("Suggestions:")
             .context("  - Check if you have permission to access the current directory")
-            .context("  - Try running from a different directory: cd /path/to/repo && jjz init"),
+            .context("  - Try running from a different directory: cd /path/to/repo && zjj init"),
     }
 }
 
@@ -169,15 +169,15 @@ async fn create_new_initialization(zjj_dir: &Path, root: &Path, _db_path: &Path)
 fn print_initialization_hints() {
     println!("\nSuggestions:");
     println!("  - View configuration: cat .zjj/config.toml");
-    println!("  - Check status: jjz status");
-    println!("  - List sessions: jjz list");
-    println!("  - To repair database: jjz init --repair");
-    println!("  - To force reinitialize: jjz init --force");
+    println!("  - Check status: zjj status");
+    println!("  - List sessions: zjj list");
+    println!("  - To repair database: zjj init --repair");
+    println!("  - To force reinitialize: zjj init --force");
 }
 
 /// Print hints for database repair
 fn print_repair_hints() {
     println!("\nTo fix this issue:");
-    println!("  - Run 'jjz init --repair' to attempt repair");
-    println!("  - Run 'jjz init --force' to reinitialize (creates backup)");
+    println!("  - Run 'zjj init --repair' to attempt repair");
+    println!("  - Run 'zjj init --force' to reinitialize (creates backup)");
 }

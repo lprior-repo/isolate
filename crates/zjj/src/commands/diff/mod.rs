@@ -1,6 +1,6 @@
 //! Show diff between session and main branch
 //!
-//! This module provides diff functionality for jjz sessions,
+//! This module provides diff functionality for zjj sessions,
 //! showing changes between the session workspace and the main branch.
 
 mod execution;

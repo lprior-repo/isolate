@@ -147,7 +147,7 @@ ZJZ already initialized in this repository.
 
 Suggestions:
   - View configuration: cat .zjj/config.toml
-  - Check status: jjz status
+  - Check status: zjj status
   ...
 ```
 

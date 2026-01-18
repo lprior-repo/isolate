@@ -115,12 +115,12 @@ pub fn validate_no_symlinks(path: &str, repo_root: &std::path::Path) -> Result<(
         }
     }
 
-    let jjz_dir = repo_root.join(".zjj");
-    if jjz_dir.exists() {
-        let canonical_jjz = jjz_dir.canonicalize()?;
+    let zjj_dir = repo_root.join(".zjj");
+    if zjj_dir.exists() {
+        let canonical_zjj = zjj_dir.canonicalize()?;
         let canonical_repo = repo_root.canonicalize()?;
 
-        if !canonical_jjz.starts_with(&canonical_repo) {
+        if !canonical_zjj.starts_with(&canonical_repo) {
             bail!("Security: .zjj directory escapes repository bounds");
         }
     }

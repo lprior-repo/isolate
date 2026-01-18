@@ -213,7 +213,7 @@ Both are valid security rejections.
 ```bash
 # Attack blocked
 $ echo 'workspace_dir = "../../../../../../../tmp/evil"' > .zjj/config.toml
-$ jjz add test --no-open
+$ zjj add test --no-open
 Error: Security: workspace_dir uses excessive parent directory references (DEBT-04)
 
 Configured workspace_dir: ../../../../../../../tmp/evil
@@ -222,7 +222,7 @@ Parent directory levels: 7 (maximum allowed: 1)
 
 # Valid pattern works
 $ echo 'workspace_dir = "../test-repo__workspaces"' > .zjj/config.toml
-$ jjz add test --no-open
+$ zjj add test --no-open
 ✓ Created workspace test
 ```
 

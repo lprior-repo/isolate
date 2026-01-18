@@ -17,11 +17,11 @@
 
 ### MVP Commands (CMD)
 
-- [x] **CMD-01**: `jjz init` command fully implemented, tested, and verified functional
-- [x] **CMD-02**: `jjz add <name>` command fully implemented, tested, and verified functional
-- [x] **CMD-03**: `jjz list` command fully implemented, tested, and verified functional
-- [x] **CMD-04**: `jjz remove <name>` command fully implemented, tested, and verified functional
-- [x] **CMD-05**: `jjz focus <name>` command fully implemented, tested, and verified functional
+- [x] **CMD-01**: `zjj init` command fully implemented, tested, and verified functional
+- [x] **CMD-02**: `zjj add <name>` command fully implemented, tested, and verified functional
+- [x] **CMD-03**: `zjj list` command fully implemented, tested, and verified functional
+- [x] **CMD-04**: `zjj remove <name>` command fully implemented, tested, and verified functional
+- [x] **CMD-05**: `zjj focus <name>` command fully implemented, tested, and verified functional
 
 ### Test Coverage (TEST)
 

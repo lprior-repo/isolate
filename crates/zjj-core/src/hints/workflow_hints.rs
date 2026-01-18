@@ -16,8 +16,8 @@ use crate::{
 #[must_use]
 pub(crate) fn action_initialize() -> NextAction {
     NextAction {
-        action: "Initialize jjz".to_string(),
-        commands: vec!["jjz init".to_string()],
+        action: "Initialize zjj".to_string(),
+        commands: vec!["zjj init".to_string()],
     }
 }
 
@@ -26,7 +26,7 @@ pub(crate) fn action_initialize() -> NextAction {
 pub(crate) fn action_create_first_session() -> NextAction {
     NextAction {
         action: "Create first session".to_string(),
-        commands: vec!["jjz add <name>".to_string()],
+        commands: vec!["zjj add <name>".to_string()],
     }
 }
 
@@ -35,7 +35,7 @@ pub(crate) fn action_create_first_session() -> NextAction {
 pub(crate) fn action_review_status() -> NextAction {
     NextAction {
         action: "Review session status".to_string(),
-        commands: vec!["jjz status".to_string(), "jjz dashboard".to_string()],
+        commands: vec!["zjj status".to_string(), "zjj dashboard".to_string()],
     }
 }
 
@@ -44,7 +44,7 @@ pub(crate) fn action_review_status() -> NextAction {
 pub(crate) fn action_cleanup_completed(session_name: &str) -> NextAction {
     NextAction {
         action: "Clean up completed sessions".to_string(),
-        commands: vec![format!("jjz remove {session_name} --merge")],
+        commands: vec![format!("zjj remove {session_name} --merge")],
     }
 }
 
@@ -53,7 +53,7 @@ pub(crate) fn action_cleanup_completed(session_name: &str) -> NextAction {
 pub(crate) fn action_create_new_session() -> NextAction {
     NextAction {
         action: "Create new session".to_string(),
-        commands: vec!["jjz add <name>".to_string()],
+        commands: vec!["zjj add <name>".to_string()],
     }
 }
 
@@ -70,9 +70,9 @@ pub fn suggest_workflow_hints(state: &SystemState) -> Vec<String> {
     let mut hints = Vec::new();
 
     if !state.initialized {
-        hints.push("System not initialized - run `jjz init` to get started".to_string());
+        hints.push("System not initialized - run `zjj init` to get started".to_string());
     } else if state.sessions.is_empty() {
-        hints.push("No active sessions - create one with `jjz add <name>`".to_string());
+        hints.push("No active sessions - create one with `zjj add <name>`".to_string());
     } else {
         let active_count = state
             .sessions
@@ -159,8 +159,8 @@ mod tests {
     #[test]
     fn test_action_initialize() {
         let action = action_initialize();
-        assert_eq!(action.action, "Initialize jjz");
-        assert_eq!(action.commands[0], "jjz init");
+        assert_eq!(action.action, "Initialize zjj");
+        assert_eq!(action.commands[0], "zjj init");
     }
 
     #[test]
@@ -187,7 +187,7 @@ mod tests {
 
         let actions = suggest_next_actions(&state);
         assert_eq!(actions.len(), 1);
-        assert_eq!(actions[0].action, "Initialize jjz");
+        assert_eq!(actions[0].action, "Initialize zjj");
     }
 
     #[test]

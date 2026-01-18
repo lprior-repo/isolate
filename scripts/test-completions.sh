@@ -12,25 +12,25 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo "Testing jjz shell completions..."
+echo "Testing zjj shell completions..."
 echo
 
-# Check if jjz is built
-if ! command -v jjz &> /dev/null; then
-    echo -e "${YELLOW}jjz not found in PATH. Building...${NC}"
+# Check if zjj is built
+if ! command -v zjj &> /dev/null; then
+    echo -e "${YELLOW}zjj not found in PATH. Building...${NC}"
     moon run :build
 
     # Try to find the built binary
-    if [ -f "target/release/jjz" ]; then
-        JJZ_CMD="./target/release/jjz"
-    elif [ -f "target/debug/jjz" ]; then
-        JJZ_CMD="./target/debug/jjz"
+    if [ -f "target/release/zjj" ]; then
+        JJZ_CMD="./target/release/zjj"
+    elif [ -f "target/debug/zjj" ]; then
+        JJZ_CMD="./target/debug/zjj"
     else
-        echo -e "${RED}Failed to build jjz${NC}"
+        echo -e "${RED}Failed to build zjj${NC}"
         exit 1
     fi
 else
-    JJZ_CMD="jjz"
+    JJZ_CMD="zjj"
 fi
 
 echo "Using: $JJZ_CMD"

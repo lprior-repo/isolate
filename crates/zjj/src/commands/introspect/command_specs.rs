@@ -1,6 +1,6 @@
 //! Command introspection specifications
 //!
-//! This module provides detailed introspection data for all jjz commands,
+//! This module provides detailed introspection data for all zjj commands,
 //! including arguments, flags, examples, prerequisites, and error conditions.
 //!
 //! The implementation is split into the `specs` submodule to maintain clarity:

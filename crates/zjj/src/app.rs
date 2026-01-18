@@ -107,12 +107,12 @@ pub async fn run_cli() -> Result<()> {
         //         hooks::install_hooks(install_m.get_flag("dry-run"), install_m.get_flag("json"))
         //     }
         //     _ => {
-        //         anyhow::bail!("Unknown hooks subcommand. Try 'jjz hooks install'")
+        //         anyhow::bail!("Unknown hooks subcommand. Try 'zjj hooks install'")
         //     }
         // },
         None => {
             // No subcommand provided - show helpful overview
-            println!("jjz - JJ workspace manager with Zellij sessions\n");
+            println!("zjj - JJ workspace manager with Zellij sessions\n");
             println!("📋 Your sessions:\n");
 
             // Try to show session list, fall back to help if not initialized
@@ -121,17 +121,17 @@ pub async fn run_cli() -> Result<()> {
                 Ok(())
             ) {
                 println!("\n💡 Quick commands:");
-                println!("   jjz add <name>      Create new session");
-                println!("   jjz list            Show all sessions");
-                println!("   jjz dashboard       Interactive dashboard");
-                println!("   jjz --help          Full help");
+                println!("   zjj add <name>      Create new session");
+                println!("   zjj list            Show all sessions");
+                println!("   zjj dashboard       Interactive dashboard");
+                println!("   zjj --help          Full help");
             } else {
                 // Not initialized yet
-                println!("⚠️  jjz not initialized in this repository\n");
+                println!("⚠️  zjj not initialized in this repository\n");
                 println!("Get started:");
-                println!("   jjz init            Initialize jjz (first time setup)");
-                println!("   jjz --help          See all commands");
-                println!("   jjz --help-json     Machine-readable docs (for AI)");
+                println!("   zjj init            Initialize zjj (first time setup)");
+                println!("   zjj --help          See all commands");
+                println!("   zjj --help-json     Machine-readable docs (for AI)");
             }
             Ok(())
         }

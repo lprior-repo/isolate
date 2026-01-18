@@ -139,7 +139,7 @@ if parent_dir_count > 1 {
 **Level 3: Wired** ✓
 - Test discovery: `cargo test --test security_path_validation` finds 13 tests
 - Test execution: All 13/13 pass (runtime: 1.04s)
-- Integration: Tests invoke actual CLI with `jjz add` command
+- Integration: Tests invoke actual CLI with `zjj add` command
 - Coverage: All attack vectors from DEBT-04 covered
 
 **Test list:**
@@ -162,7 +162,7 @@ if parent_dir_count > 1 {
 | validate_workspace_path() | Component::RootDir\|Prefix check | Lines 177-179 | ✓ WIRED | First validation stage. Detects Unix (/tmp) and Windows (C:\) absolute paths. Added in 01-02 to close gap. |
 | validate_workspace_path() | Component::ParentDir counting | Lines 215-217 | ✓ WIRED | Second validation stage. Counts parent dir references, rejects >1. Prevents ../../attacks. Added in 01-01. |
 | validate_no_symlinks() | Path::canonicalize() | Lines 351, 358 | ✓ WIRED | Canonicalizes .zjj and repo_root, verifies .zjj stays within repo bounds. Defense in depth against symlink escapes. |
-| security_path_validation.rs | jjz add command | All tests | ✓ WIRED | Tests use TestHarness.zjj() to invoke actual CLI. Integration tests verify end-to-end security. |
+| security_path_validation.rs | zjj add command | All tests | ✓ WIRED | Tests use TestHarness.zjj() to invoke actual CLI. Integration tests verify end-to-end security. |
 
 ### Attack Vector Coverage
 

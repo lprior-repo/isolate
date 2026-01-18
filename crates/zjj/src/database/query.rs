@@ -28,7 +28,7 @@ pub(crate) fn build_session(
         name: name.to_string(),
         status,
         workspace_path: workspace_path.to_string(),
-        zellij_tab: format!("jjz:{name}"),
+        zellij_tab: format!("zjj:{name}"),
         branch: None,
         created_at: timestamp,
         updated_at: timestamp,
@@ -78,7 +78,7 @@ pub(crate) fn parse_session_row(row: &sqlx::sqlite::SqliteRow) -> Result<Session
         .transpose()?;
 
     // Construct zellij_tab before moving name (avoids clone)
-    let zellij_tab = format!("jjz:{name}");
+    let zellij_tab = format!("zjj:{name}");
 
     Ok(Session {
         id: Some(id),

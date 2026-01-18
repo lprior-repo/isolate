@@ -41,12 +41,12 @@ ZJJ is currently in **alpha** stage (0.x series). Per [SemVer 2.0 Section 4](htt
 
 ### ⚠️ BREAKING CHANGES
 
-**Binary and Directory Rename: `jjz` → `zjj`**
+**Binary and Directory Rename: `zjj` → `zjj`**
 
 Complete rename for consistency:
-- **Binary**: `jjz` → `zjj`
+- **Binary**: `zjj` → `zjj`
 - **Configuration Directory**: `.zjj/` → `.zjj/`
-- **Session Prefix**: `jjz:` → `zjj:` (configurable)
+- **Session Prefix**: `zjj:` → `zjj:` (configurable)
 - **Database Location**: `.zjj/state.db` → `.zjj/state.db`
 - **Layouts Directory**: `.zjj/layouts/` → `.zjj/layouts/`
 
@@ -64,9 +64,9 @@ See [MIGRATION.md](MIGRATION.md) for detailed upgrade instructions.
 
 ### Changed
 
-- **All commands now use `zjj` binary instead of `jjz`**
-  - `jjz init` → `zjj init`
-  - `jjz add` → `zjj add`
+- **All commands now use `zjj` binary instead of `zjj`**
+  - `zjj init` → `zjj init`
+  - `zjj add` → `zjj add`
   - All other commands follow the same pattern
 
 - **Configuration and state directory**: `.zjj/` → `.zjj/`
@@ -74,7 +74,7 @@ See [MIGRATION.md](MIGRATION.md) for detailed upgrade instructions.
   - Session database: `.zjj/state.db` → `.zjj/state.db`
   - Layouts: `.zjj/layouts/` → `.zjj/layouts/`
 
-- **Default session prefix**: `jjz:` → `zjj:` in Zellij tabs
+- **Default session prefix**: `zjj:` → `zjj:` in Zellij tabs
   - Configurable via `.zjj/config.toml`
 
 ### Added

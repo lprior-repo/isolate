@@ -10,7 +10,7 @@ pub(crate) fn validate_database_path(path: &Path, allow_create: bool) -> Result<
 
     if !exists && !allow_create {
         return Err(Error::database_error(format!(
-            "Database file does not exist: {}\n\nRun 'jjz init' to initialize ZJZ.",
+            "Database file does not exist: {}\n\nRun 'zjj init' to initialize ZJZ.",
             path.display()
         )));
     }
@@ -29,7 +29,7 @@ fn validate_existing_file(path: &Path) -> Result<()> {
         .and_then(|metadata| {
             if metadata.len() == 0 {
                 Err(Error::database_error(format!(
-                    "Database file is empty or corrupted: {}\n\nRun 'jjz init' to reinitialize.",
+                    "Database file is empty or corrupted: {}\n\nRun 'zjj init' to reinitialize.",
                     path.display()
                 )))
             } else {

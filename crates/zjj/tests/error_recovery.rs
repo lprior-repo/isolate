@@ -234,7 +234,7 @@ fn test_cleanup_after_failed_session_creation() {
 // ============================================================================
 
 #[test]
-fn test_missing_jjz_directory() {
+fn test_missing_zjj_directory() {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
@@ -247,7 +247,7 @@ fn test_missing_jjz_directory() {
 }
 
 #[test]
-fn test_corrupted_jjz_directory_structure() {
+fn test_corrupted_zjj_directory_structure() {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
@@ -457,7 +457,7 @@ pre_remove = []
 post_merge = []
 
 [zellij]
-session_prefix = "jjz"
+session_prefix = "zjj"
 use_tabs = true
 layout_dir = ".zjj/layouts"
 
@@ -472,7 +472,7 @@ args = []
 size = "50%"
 
 [zellij.panes.status]
-command = "jjz"
+command = "zjj"
 args = ["status", "--watch"]
 size = "50%"
 
@@ -578,19 +578,19 @@ fn test_config_as_directory_instead_of_file() {
 // ============================================================================
 
 #[test]
-fn test_readonly_jjz_directory_prevents_operations() {
+fn test_readonly_zjj_directory_prevents_operations() {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
     };
     harness.assert_success(&["init"]);
 
-    let jjz_dir = harness.zjj_dir();
-    let metadata = fs::metadata(&jjz_dir).ok();
+    let zjj_dir = harness.zjj_dir();
+    let metadata = fs::metadata(&zjj_dir).ok();
     if let Some(metadata) = metadata {
         let mut perms = metadata.permissions();
         perms.set_mode(0o444); // Read-only
-        fs::set_permissions(&jjz_dir, perms.clone()).ok();
+        fs::set_permissions(&zjj_dir, perms.clone()).ok();
 
         // Try to add session - should fail with permission error or "does not exist" (readonly
         // prevents creation)
@@ -608,7 +608,7 @@ fn test_readonly_jjz_directory_prevents_operations() {
 
         // Restore permissions for cleanup
         perms.set_mode(0o755);
-        fs::set_permissions(&jjz_dir, perms).ok();
+        fs::set_permissions(&zjj_dir, perms).ok();
     }
 }
 
@@ -1244,14 +1244,14 @@ fn test_system_recovers_after_permission_error() {
     };
     harness.assert_success(&["init"]);
 
-    let jjz_dir = harness.zjj_dir();
-    let metadata = fs::metadata(&jjz_dir).ok();
+    let zjj_dir = harness.zjj_dir();
+    let metadata = fs::metadata(&zjj_dir).ok();
     if let Some(metadata) = metadata {
         let mut perms = metadata.permissions();
 
         // Make read-only
         perms.set_mode(0o444);
-        fs::set_permissions(&jjz_dir, perms.clone()).ok();
+        fs::set_permissions(&zjj_dir, perms.clone()).ok();
 
         // Operation should fail
         let result1 = harness.zjj(&["add", "test", "--no-open"]);
@@ -1259,7 +1259,7 @@ fn test_system_recovers_after_permission_error() {
 
         // Restore permissions
         perms.set_mode(0o755);
-        fs::set_permissions(&jjz_dir, perms).ok();
+        fs::set_permissions(&zjj_dir, perms).ok();
 
         // Now operation should succeed
         let result2 = harness.zjj(&["add", "test", "--no-open"]);

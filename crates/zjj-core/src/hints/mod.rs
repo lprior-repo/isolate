@@ -34,7 +34,7 @@ pub use workflow_hints::suggest_workflow_hints;
 // HINT TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// A contextual hint from jjz
+/// A contextual hint from zjj
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Hint {
     /// Hint type
@@ -111,7 +111,7 @@ pub struct HintsResponse {
 /// System context summary
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SystemContext {
-    /// Is jjz initialized?
+    /// Is zjj initialized?
     pub initialized: bool,
 
     /// Is this a JJ repository?
@@ -320,12 +320,12 @@ mod tests {
     #[test]
     fn test_hint_builders() {
         let hint = Hint::info("Test message")
-            .with_command("jjz test")
+            .with_command("zjj test")
             .with_rationale("Testing");
 
         assert_eq!(hint.hint_type, HintType::Info);
         assert_eq!(hint.message, "Test message");
-        assert_eq!(hint.suggested_command, Some("jjz test".to_string()));
+        assert_eq!(hint.suggested_command, Some("zjj test".to_string()));
         assert_eq!(hint.rationale, Some("Testing".to_string()));
     }
 

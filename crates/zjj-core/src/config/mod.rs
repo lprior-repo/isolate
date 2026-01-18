@@ -4,7 +4,7 @@
 //!
 //! Configuration is loaded in this order (later overrides earlier):
 //! 1. Built-in defaults
-//! 2. Global config: ~/.config/jjz/config.toml
+//! 2. Global config: ~/.config/zjj/config.toml
 //! 3. Project config: .zjj/config.toml
 //! 4. Environment variables: JJZ_*
 //! 5. CLI flags (command-specific)

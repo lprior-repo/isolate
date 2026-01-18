@@ -210,19 +210,19 @@ for (version, description, timestamp) in history {
 
 ```bash
 # Show current schema version
-jjz migrate status
+zjj migrate status
 
 # Migrate to latest version
-jjz migrate up
+zjj migrate up
 
 # Migrate to specific version
-jjz migrate to 3
+zjj migrate to 3
 
 # Downgrade by one version
-jjz migrate down
+zjj migrate down
 
 # Show migration history
-jjz migrate history
+zjj migrate history
 ```
 
 ## Safety Guarantees
@@ -480,7 +480,7 @@ Migration::new(
 **Solution**:
 1. Check `schema_version` table: `SELECT * FROM schema_version`
 2. Restore from backup if available
-3. Manually fix version table or reinitialize with `jjz init --force`
+3. Manually fix version table or reinitialize with `zjj init --force`
 
 ### Problem: Migration fails midway
 
@@ -570,7 +570,7 @@ sqlite3 .zjj/sessions.db "SELECT * FROM schema_version"
 
 ### Planned Features
 
-1. **CLI Commands**: `jjz migrate` subcommands for manual control
+1. **CLI Commands**: `zjj migrate` subcommands for manual control
 2. **Migration Dry-Run**: Preview migration without applying
 3. **Migration Squashing**: Combine old migrations for performance
 4. **Migration Checksums**: Verify migration integrity

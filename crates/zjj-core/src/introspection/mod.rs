@@ -1,6 +1,6 @@
 //! AI-first introspection capabilities
 //!
-//! This module provides structured metadata about jjz capabilities,
+//! This module provides structured metadata about zjj capabilities,
 //! enabling AI agents to discover features and understand system state.
 
 mod command_specs;

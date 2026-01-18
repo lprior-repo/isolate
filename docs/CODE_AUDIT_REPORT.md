@@ -82,8 +82,8 @@ The codebase demonstrates **excellent** adherence to functional programming prin
 #### Forbidden Patterns Search
 
 1. **`.unwrap()` occurrences:**
-   - ❌ `crates/zjj/tests/test_error_scenarios.rs:258`: `fs::metadata(&jjz_dir).unwrap()`
-   - ❌ `crates/zjj/tests/test_error_scenarios.rs:267`: `fs::metadata(&jjz_dir).unwrap()`
+   - ❌ `crates/zjj/tests/test_error_scenarios.rs:258`: `fs::metadata(&zjj_dir).unwrap()`
+   - ❌ `crates/zjj/tests/test_error_scenarios.rs:267`: `fs::metadata(&zjj_dir).unwrap()`
    - ❌ `crates/zjj/tests/test_init.rs:59`: `result.unwrap()`
    - ❌ `crates/zjj/src/commands/diff.rs:149`: `TempDir::new().unwrap()`
    - ❌ `crates/zjj/src/commands/diff.rs:154`: `result.unwrap()`
@@ -132,7 +132,7 @@ deletions = num_str.parse().unwrap_or(0);
 
 1. **`test_error_scenarios.rs:258, 267`** - File permissions manipulation
    ```rust
-   let mut perms = fs::metadata(&jjz_dir).unwrap().permissions();
+   let mut perms = fs::metadata(&zjj_dir).unwrap().permissions();
    ```
    - ❌ Violates zero-unwrap rule even in tests
    - 📋 **Recommendation**: Replace with `?` operator in test functions returning `Result<()>`

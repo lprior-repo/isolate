@@ -43,7 +43,7 @@ use zjj_core::config::load_config;
 /// - Terminal cleanup fails
 pub async fn run() -> Result<()> {
     // Check if we're in a JJ repo
-    let _root = crate::cli::jj_root().context("Not in a JJ repository. Run 'jjz init' first.")?;
+    let _root = crate::cli::jj_root().context("Not in a JJ repository. Run 'zjj init' first.")?;
 
     // Setup terminal
     let mut terminal = setup_terminal()?;

@@ -214,7 +214,7 @@ impl ErrorCode {
             Self::ConfigWriteFailed => "Failed to write configuration file",
             Self::StateDbCorrupted => "State database is corrupted",
             Self::StateDbLocked => "State database is locked by another process",
-            Self::StateDbNotInitialized => "State database not initialized - run 'jjz init'",
+            Self::StateDbNotInitialized => "State database not initialized - run 'zjj init'",
             Self::BeadsDbNotFound => "Beads database not found in repository",
             Self::BeadsIssueNotFound => "Beads issue not found",
             Self::FileNotFound => "File or directory not found",
@@ -236,7 +236,7 @@ impl ErrorCode {
                 "Use only letters, numbers, hyphens, and underscores. Must start with a letter",
             ),
             Self::SessionInvalidTransition => {
-                Some("Check session status with 'jjz status' before attempting operation")
+                Some("Check session status with 'zjj status' before attempting operation")
             }
             Self::ConfigParseError => {
                 Some("Check configuration file syntax. Refer to documentation for format")
@@ -244,7 +244,7 @@ impl ErrorCode {
             Self::ConfigInvalidValue => {
                 Some("Check configuration value type matches expected format")
             }
-            Self::InvalidArgument => Some("Check command syntax with 'jjz --help'"),
+            Self::InvalidArgument => Some("Check command syntax with 'zjj --help'"),
 
             // Execution Errors
             Self::JjCommandFailed => Some("Check JJ repository status with 'jj status'"),
@@ -257,21 +257,21 @@ impl ErrorCode {
             Self::WorkspaceDeletionFailed => {
                 Some("Check permissions and ensure no processes are using the workspace")
             }
-            Self::StateDbMigrationFailed => Some("Backup your data and try 'jjz init --force'"),
+            Self::StateDbMigrationFailed => Some("Backup your data and try 'zjj init --force'"),
 
             // System Errors
-            Self::SessionNotFound => Some("Use 'jjz list' to see available sessions"),
+            Self::SessionNotFound => Some("Use 'zjj list' to see available sessions"),
             Self::SessionAlreadyExists => {
                 Some("Choose a different name or remove the existing session")
             }
-            Self::SessionDbError => Some("Try running 'jjz doctor --fix' to repair the database"),
+            Self::SessionDbError => Some("Try running 'zjj doctor --fix' to repair the database"),
             Self::WorkspaceNotFound => {
-                Some("The workspace may have been deleted. Use 'jjz remove' to clean up")
+                Some("The workspace may have been deleted. Use 'zjj remove' to clean up")
             }
             Self::WorkspaceCorrupted => Some("Try removing and recreating the session"),
             Self::JjNotInstalled => Some("Install JJ: 'cargo install jj-cli' or 'brew install jj'"),
             Self::NotJjRepository => {
-                Some("Initialize a JJ repository with 'jj init' or 'jjz init'")
+                Some("Initialize a JJ repository with 'jj init' or 'zjj init'")
             }
             Self::JjRepositoryCorrupted => {
                 Some("Repository may be corrupted. Check with 'jj doctor'")
@@ -279,24 +279,24 @@ impl ErrorCode {
             Self::JjWorkspaceError => Some("Check workspace with 'jj workspace list'"),
             Self::ZellijNotRunning => Some("Start Zellij first with 'zellij'"),
             Self::ZellijTabNotFound => {
-                Some("Tab may have been closed. Use 'jjz list' to see active sessions")
+                Some("Tab may have been closed. Use 'zjj list' to see active sessions")
             }
             Self::ZellijSessionCreationFailed => {
                 Some("Check Zellij installation and configuration")
             }
             Self::ConfigNotFound => {
-                Some("Create config with 'jjz init' or manually create ~/.config/jjz/config.toml")
+                Some("Create config with 'zjj init' or manually create ~/.config/zjj/config.toml")
             }
             Self::ConfigKeyNotFound => {
-                Some("Use 'jjz config' to see all available configuration keys")
+                Some("Use 'zjj config' to see all available configuration keys")
             }
             Self::ConfigWriteFailed => Some("Check file permissions on configuration directory"),
-            Self::StateDbCorrupted => Some("Run 'jjz doctor --fix' to attempt repair"),
+            Self::StateDbCorrupted => Some("Run 'zjj doctor --fix' to attempt repair"),
             Self::StateDbLocked => {
-                Some("Another jjz process may be running. Wait or kill stuck processes")
+                Some("Another zjj process may be running. Wait or kill stuck processes")
             }
             Self::StateDbNotInitialized => {
-                Some("Run 'jjz init' to initialize jjz in this repository")
+                Some("Run 'zjj init' to initialize zjj in this repository")
             }
             Self::BeadsDbNotFound => Some("Initialize beads with 'beads init' first"),
             Self::BeadsIssueNotFound => Some("Use 'beads list' to see available issues"),

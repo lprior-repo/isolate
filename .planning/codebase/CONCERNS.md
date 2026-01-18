@@ -203,7 +203,7 @@
 - Priority: Low - SQLite is robust and handles most corruption internally; error recovery tests exist but don't cover all scenarios
 
 **Concurrent Session Operations:**
-- What's not tested: Two `jjz` processes modifying same session simultaneously; race conditions in database access
+- What's not tested: Two `zjj` processes modifying same session simultaneously; race conditions in database access
 - Files: `crates/zjj/src/db.rs`, `crates/zjj/src/session.rs`
 - Risk: Data corruption or inconsistent state
 - Priority: Low - SQLite provides transaction isolation; connection pooling should prevent most issues; CLI tool rarely used concurrently

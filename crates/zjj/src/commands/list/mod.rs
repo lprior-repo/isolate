@@ -41,7 +41,7 @@ pub async fn run(all: bool, json: bool, silent: bool, filter: ListFilter) -> Res
             // Silent mode or pipe: output nothing
         } else {
             println!("No sessions found.");
-            println!("Use 'jjz add <name>' to create a session.");
+            println!("Use 'zjj add <name>' to create a session.");
         }
         return Ok(());
     }

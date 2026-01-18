@@ -114,7 +114,7 @@ pub fn check_zellij_running() -> Result<()> {
     // Check if ZELLIJ environment variable is set
     if std::env::var("ZELLIJ").is_err() {
         return Err(Error::command_error(
-            "Zellij not running. Run jjz inside a Zellij session.".to_string(),
+            "Zellij not running. Run zjj inside a Zellij session.".to_string(),
         ));
     }
 

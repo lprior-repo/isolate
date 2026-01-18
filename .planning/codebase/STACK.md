@@ -114,7 +114,7 @@
 - Beads (bd) - Issue tracking tool (external dependency)
 
 **Production:**
-- Single binary deployment (`jjz`)
+- Single binary deployment (`zjj`)
 - No runtime dependencies (static linking via rustls)
 - Target platforms: Linux (primary), macOS (tested in CI)
 - Release optimization: LTO enabled, size-optimized, symbols stripped

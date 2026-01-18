@@ -1,4 +1,4 @@
-//! Introspect command - discover jjz capabilities
+//! Introspect command - discover zjj capabilities
 //!
 //! This command enables AI agents to understand available commands,
 //! system state, and dependencies. The module is organized into:

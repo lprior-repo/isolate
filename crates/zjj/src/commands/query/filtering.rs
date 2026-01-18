@@ -29,10 +29,10 @@ pub fn categorize_db_error(error: &anyhow::Error) -> (String, String) {
     }
 
     // Check for not initialized
-    if error_msg.contains("not initialized") || error_msg.contains("Run 'jjz init'") {
+    if error_msg.contains("not initialized") || error_msg.contains("Run 'zjj init'") {
         return (
             "NOT_INITIALIZED".to_string(),
-            "Cannot check session - jjz not initialized".to_string(),
+            "Cannot check session - zjj not initialized".to_string(),
         );
     }
 
@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn test_categorize_not_initialized() {
-        let err = anyhow::anyhow!("jjz not initialized, Run 'jjz init'");
+        let err = anyhow::anyhow!("zjj not initialized, Run 'zjj init'");
         let (code, msg) = categorize_db_error(&err);
         assert_eq!(code, "NOT_INITIALIZED");
         assert!(msg.contains("not initialized"));

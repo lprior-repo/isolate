@@ -56,7 +56,7 @@ moon run :build
 cargo install --path crates/zjj
 
 # Verify
-jjz --version
+zjj --version
 ```
 
 ---
@@ -103,7 +103,7 @@ moon run :build
 cargo install --path crates/zjj
 
 # Verify
-jjz --version
+zjj --version
 ```
 
 **Testing Needed**:
@@ -126,9 +126,9 @@ jjz --version
 - ✅ SQLite database
 - ✅ Configuration system
 - ✅ Commands that don't require Zellij:
-  - `jjz config` - View/edit configuration
-  - `jjz doctor` - Check dependencies (will report Zellij missing)
-  - `jjz introspect` - View internal state
+  - `zjj config` - View/edit configuration
+  - `zjj doctor` - Check dependencies (will report Zellij missing)
+  - `zjj introspect` - View internal state
 
 **What Doesn't Work**:
 - ❌ Auto-spawn Zellij - Unix `exec()` not available
@@ -136,9 +136,9 @@ jjz --version
   - Error: "Auto-spawning Zellij is only supported on Unix systems"
 
 - ❌ Zellij tab management - Zellij not available
-  - `jjz add` - Creates workspace but fails on tab creation
-  - `jjz focus` - Cannot switch tabs
-  - `jjz remove` - Cannot close tabs
+  - `zjj add` - Creates workspace but fails on tab creation
+  - `zjj focus` - Cannot switch tabs
+  - `zjj remove` - Cannot close tabs
 
 - ⚠️ Permission checking - Degraded
   - Code location: `crates/zjj/src/commands/add.rs:343-348`

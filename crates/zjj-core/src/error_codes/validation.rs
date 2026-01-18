@@ -53,7 +53,7 @@ impl ValidationError {
                 "Use only letters, numbers, hyphens, and underscores. Must start with a letter",
             ),
             Self::SessionInvalidTransition => {
-                Some("Check session status with 'jjz status' before attempting operation")
+                Some("Check session status with 'zjj status' before attempting operation")
             }
             Self::ConfigParseError => {
                 Some("Check configuration file syntax. Refer to documentation for format")
@@ -61,7 +61,7 @@ impl ValidationError {
             Self::ConfigInvalidValue => {
                 Some("Check configuration value type matches expected format")
             }
-            Self::InvalidArgument => Some("Check command syntax with 'jjz --help'"),
+            Self::InvalidArgument => Some("Check command syntax with 'zjj --help'"),
         }
     }
 

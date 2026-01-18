@@ -124,7 +124,7 @@ mod tests {
         get_command_spec("add")
             .map(|spec| {
                 assert!(!spec.examples.is_empty());
-                assert!(spec.examples[0].command.contains("jjz add feature-auth"));
+                assert!(spec.examples[0].command.contains("zjj add feature-auth"));
             })
             .ok();
     }

@@ -7,7 +7,7 @@ mod common;
 
 use common::TestHarness;
 
-/// Test that session-exists returns JSON error when jjz not initialized
+/// Test that session-exists returns JSON error when zjj not initialized
 #[test]
 fn test_session_exists_not_initialized() {
     let Some(harness) = TestHarness::try_new() else {
@@ -15,7 +15,7 @@ fn test_session_exists_not_initialized() {
         return;
     };
 
-    // Run query without initializing jjz
+    // Run query without initializing zjj
     let result = harness.zjj(&["query", "session-exists", "test"]);
 
     // Should output valid JSON (not crash)
@@ -58,7 +58,7 @@ fn test_session_exists_not_initialized() {
     }
 }
 
-/// Test that session-count returns JSON error when jjz not initialized
+/// Test that session-count returns JSON error when zjj not initialized
 #[test]
 fn test_session_count_not_initialized() {
     let Some(harness) = TestHarness::try_new() else {
@@ -66,7 +66,7 @@ fn test_session_count_not_initialized() {
         return;
     };
 
-    // Run query without initializing jjz
+    // Run query without initializing zjj
     let result = harness.zjj(&["query", "session-count"]);
 
     // Should output valid JSON (not crash)

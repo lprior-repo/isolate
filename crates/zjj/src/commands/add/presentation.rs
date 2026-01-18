@@ -19,7 +19,7 @@ pub fn output_success(name: &str, workspace_path: &str, json: bool) -> Result<()
             success: true,
             session_name: name.to_string(),
             workspace_path: workspace_path.to_string(),
-            zellij_tab: format!("jjz:{name}"),
+            zellij_tab: format!("zjj:{name}"),
             status: "active".to_string(),
             error: None,
         };

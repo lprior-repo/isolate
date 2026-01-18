@@ -2,9 +2,9 @@
 //!
 //! This module handles loading configuration from:
 //! 1. Built-in defaults
-//! 2. Global config: ~/.config/jjz/config.toml
+//! 2. Global config: ~/.config/zjj/config.toml
 //! 3. Project config: .zjj/config.toml
-//! 4. Environment variables: JJZ_*
+//! 4. Environment variables: ZJJ_*
 //!
 //! All operations return new instances rather than mutating in place.
 
@@ -66,7 +66,7 @@ pub fn load_config() -> Result<Config> {
 
 /// Get path to global config file
 pub fn global_config_path() -> Option<PathBuf> {
-    directories::ProjectDirs::from("", "", "jjz")
+    directories::ProjectDirs::from("", "", "zjj")
         .map(|proj_dirs| proj_dirs.config_dir().join("config.toml"))
 }
 

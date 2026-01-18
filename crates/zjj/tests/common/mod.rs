@@ -30,7 +30,7 @@ pub struct TestHarness {
     /// Path to the JJ repository root
     pub repo_path: PathBuf,
     /// Path to the zjj binary
-    jjz_bin: PathBuf,
+    zjj_bin: PathBuf,
 }
 
 impl TestHarness {
@@ -80,12 +80,12 @@ impl TestHarness {
         }
 
         // Get the zjj binary path from the build
-        let jjz_bin = PathBuf::from(env!("CARGO_BIN_EXE_zjj"));
+        let zjj_bin = PathBuf::from(env!("CARGO_BIN_EXE_zjj"));
 
         Ok(Self {
             _temp_dir: temp_dir,
             repo_path,
-            jjz_bin,
+            zjj_bin,
         })
     }
 
@@ -211,11 +211,11 @@ impl TestHarness {
 
     /// Assert that the .zjj directory exists
     pub fn assert_zjj_dir_exists(&self) {
-        let jjz_dir = self.zjj_dir();
+        let zjj_dir = self.zjj_dir();
         assert!(
-            jjz_dir.exists(),
+            zjj_dir.exists(),
             ".zjj directory should exist: {}",
-            jjz_dir.display()
+            zjj_dir.display()
         );
     }
 
@@ -300,7 +300,7 @@ impl TestHarness {
     }
 
     /// Set an environment variable for the next zjj command
-    pub fn jjz_with_env(&self, args: &[&str], env_vars: &[(&str, &str)]) -> CommandResult {
+    pub fn zjj_with_env(&self, args: &[&str], env_vars: &[(&str, &str)]) -> CommandResult {
         let mut cmd = Command::new(&self.zjj_bin);
         cmd.args(args)
             .current_dir(&self.repo_path)

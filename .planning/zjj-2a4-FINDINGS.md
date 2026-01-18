@@ -101,7 +101,7 @@ pub(crate) fn build_session(
     Session {
         name: name.to_string(),           // Allocation 1
         workspace_path: workspace_path.to_string(), // Allocation 2
-        zellij_tab: format!("jjz:{name}"), // Allocation 3
+        zellij_tab: format!("zjj:{name}"), // Allocation 3
         // ...
     }
 }

@@ -324,7 +324,7 @@ moon run :test -- migrations
 
 Documented in `/home/lewis/src/zjj/docs/13_DATABASE_MIGRATIONS.md`:
 
-1. **CLI Commands**: `jjz migrate status`, `up`, `down`, `history`
+1. **CLI Commands**: `zjj migrate status`, `up`, `down`, `history`
 2. **Dry Run Mode**: Preview migrations without applying
 3. **Migration Squashing**: Combine old migrations for performance
 4. **Checksums**: Verify migration integrity

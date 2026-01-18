@@ -58,11 +58,11 @@
 - ✅ DEBT-04: Path validation security
 
 **MVP Commands (CMD):** 5/5 complete
-- ✅ CMD-01: jjz init
-- ✅ CMD-02: jjz add
-- ✅ CMD-03: jjz list
-- ✅ CMD-04: jjz remove
-- ✅ CMD-05: jjz focus
+- ✅ CMD-01: zjj init
+- ✅ CMD-02: zjj add
+- ✅ CMD-03: zjj list
+- ✅ CMD-04: zjj remove
+- ✅ CMD-05: zjj focus
 
 **Test Coverage (TEST):** 6/6 complete
 - ✅ TEST-01: Hook execution robustness
@@ -309,11 +309,11 @@
 ### MVP Status: PRODUCTION READY ✅
 
 **All Core Functionality Complete:**
-- ✅ jjz init - Initialize project
-- ✅ jjz add - Create sessions with JJ workspace + Zellij tab
-- ✅ jjz list - Display sessions
-- ✅ jjz remove - Clean up sessions atomically
-- ✅ jjz focus - Switch to session tab
+- ✅ zjj init - Initialize project
+- ✅ zjj add - Create sessions with JJ workspace + Zellij tab
+- ✅ zjj list - Display sessions
+- ✅ zjj remove - Clean up sessions atomically
+- ✅ zjj focus - Switch to session tab
 
 **Quality Assurance:**
 - ✅ Security hardened (13 tests)

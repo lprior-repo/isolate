@@ -35,8 +35,8 @@ fn test_remove_json_has_session_name_field() {
     assert!(result.success, "Remove should succeed");
 
     // Parse JSON output
-    let json: Value = serde_json::from_str(&result.stdout)
-        .expect("Remove output should be valid JSON");
+    let json: Value =
+        serde_json::from_str(&result.stdout).expect("Remove output should be valid JSON");
 
     // Verify 'session_name' field exists (P0 requirement)
     assert!(
@@ -74,8 +74,12 @@ fn test_focus_json_has_session_name_field() {
     let result = harness.zjj(&["focus", "test-session", "--json"]);
 
     // Parse JSON output (even on failure)
-    let json: Value = serde_json::from_str(&result.stdout)
-        .unwrap_or_else(|e| panic!("Focus output should be valid JSON: {}\nError: {}", result.stdout, e));
+    let json: Value = serde_json::from_str(&result.stdout).unwrap_or_else(|e| {
+        panic!(
+            "Focus output should be valid JSON: {}\nError: {}",
+            result.stdout, e
+        )
+    });
 
     if result.success {
         // If focus succeeded (running in Zellij), verify structure
@@ -105,7 +109,10 @@ fn test_focus_json_has_session_name_field() {
         );
 
         // Error should have proper structure (tested below)
-        assert!(json.get("error").is_some(), "Failed focus should have error field");
+        assert!(
+            json.get("error").is_some(),
+            "Failed focus should have error field"
+        );
     }
 }
 
@@ -125,8 +132,8 @@ fn test_add_json_has_session_name_field() {
     assert!(result.success, "Add should succeed");
 
     // Parse JSON output
-    let json: Value = serde_json::from_str(&result.stdout)
-        .expect("Add output should be valid JSON");
+    let json: Value =
+        serde_json::from_str(&result.stdout).expect("Add output should be valid JSON");
 
     // Verify 'session_name' field exists
     assert!(
@@ -210,8 +217,8 @@ fn test_error_detail_structure() {
     assert!(!result.success, "Should fail with invalid name");
 
     // Parse JSON error
-    let json: Value = serde_json::from_str(&result.stdout)
-        .expect("Error output should be valid JSON");
+    let json: Value =
+        serde_json::from_str(&result.stdout).expect("Error output should be valid JSON");
 
     // Verify error structure
     assert_eq!(
@@ -220,7 +227,8 @@ fn test_error_detail_structure() {
         "Error response should have success=false"
     );
 
-    let error = json.get("error")
+    let error = json
+        .get("error")
         .expect("Error response should have 'error' field");
 
     // Required fields in ErrorDetail
@@ -235,18 +243,23 @@ fn test_error_detail_structure() {
     );
 
     // Verify code is a string
-    let code = error.get("code")
+    let code = error
+        .get("code")
         .and_then(|v| v.as_str())
         .expect("ErrorDetail.code should be a string");
 
     assert!(!code.is_empty(), "ErrorDetail.code should not be empty");
 
     // Verify message is a string
-    let message = error.get("message")
+    let message = error
+        .get("message")
         .and_then(|v| v.as_str())
         .expect("ErrorDetail.message should be a string");
 
-    assert!(!message.is_empty(), "ErrorDetail.message should not be empty");
+    assert!(
+        !message.is_empty(),
+        "ErrorDetail.message should not be empty"
+    );
 
     // Optional fields (should be present when applicable)
     // 'details' field is optional (serde skip_serializing_if = "Option::is_none")
@@ -267,10 +280,11 @@ fn test_semantic_error_codes() {
     let result = harness.zjj(&["focus", "nonexistent", "--json"]);
     assert!(!result.success);
 
-    let json: Value = serde_json::from_str(&result.stdout)
-        .expect("Error output should be valid JSON");
+    let json: Value =
+        serde_json::from_str(&result.stdout).expect("Error output should be valid JSON");
 
-    let code = json.get("error")
+    let code = json
+        .get("error")
         .and_then(|e| e.get("code"))
         .and_then(|c| c.as_str())
         .expect("Should have error.code");
@@ -285,10 +299,11 @@ fn test_semantic_error_codes() {
     let result = harness.zjj(&["add", "-invalid", "--no-open", "--json"]);
     assert!(!result.success);
 
-    let json: Value = serde_json::from_str(&result.stdout)
-        .expect("Error output should be valid JSON");
+    let json: Value =
+        serde_json::from_str(&result.stdout).expect("Error output should be valid JSON");
 
-    let code = json.get("error")
+    let code = json
+        .get("error")
         .and_then(|e| e.get("code"))
         .and_then(|c| c.as_str())
         .expect("Should have error.code");
@@ -320,8 +335,12 @@ fn test_error_json_serialization() {
         let result = harness.zjj(&cmd);
 
         if !result.success {
-            let json: Value = serde_json::from_str(&result.stdout)
-                .unwrap_or_else(|e| panic!("Error output for {} should be valid JSON: {}\nError: {}", desc, result.stdout, e));
+            let json: Value = serde_json::from_str(&result.stdout).unwrap_or_else(|e| {
+                panic!(
+                    "Error output for {} should be valid JSON: {}\nError: {}",
+                    desc, result.stdout, e
+                )
+            });
 
             // All errors should have consistent structure
             assert_eq!(
@@ -366,18 +385,25 @@ fn test_all_commands_have_help() {
     };
 
     let commands = vec![
-        "init", "add", "list", "remove", "focus", "status", "sync", "diff",
-        "config", "doctor", "context", "introspect", "dashboard",
+        "init",
+        "add",
+        "list",
+        "remove",
+        "focus",
+        "status",
+        "sync",
+        "diff",
+        "config",
+        "doctor",
+        "context",
+        "introspect",
+        "dashboard",
     ];
 
     for cmd in commands {
         let result = harness.zjj(&[cmd, "--help"]);
 
-        assert!(
-            result.success,
-            "Command {} --help should succeed",
-            cmd
-        );
+        assert!(result.success, "Command {} --help should succeed", cmd);
 
         assert!(
             !result.stdout.is_empty(),
@@ -532,8 +558,8 @@ fn test_config_view_json() {
     );
 
     // Parse JSON output
-    let json: Value = serde_json::from_str(&result.stdout)
-        .expect("config --json output should be valid JSON");
+    let json: Value =
+        serde_json::from_str(&result.stdout).expect("config --json output should be valid JSON");
 
     // Should have success field
     assert_eq!(
@@ -569,10 +595,7 @@ fn test_config_get_key() {
     );
 
     // Should output the value
-    assert!(
-        !result.stdout.is_empty(),
-        "config get should output value"
-    );
+    assert!(!result.stdout.is_empty(), "config get should output value");
 }
 
 /// Test zjj config get KEY --json
@@ -778,7 +801,10 @@ fn test_complete_workflow_json() {
     assert!(result.success);
     let json: Value = serde_json::from_str(&result.stdout).expect("add JSON");
     assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
-    assert_eq!(json.get("session_name").and_then(|v| v.as_str()), Some("test"));
+    assert_eq!(
+        json.get("session_name").and_then(|v| v.as_str()),
+        Some("test")
+    );
 
     // 3. List sessions
     let result = harness.zjj(&["list", "--json"]);
@@ -797,7 +823,10 @@ fn test_complete_workflow_json() {
     assert!(result.success);
     let json: Value = serde_json::from_str(&result.stdout).expect("remove JSON");
     assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
-    assert_eq!(json.get("session_name").and_then(|v| v.as_str()), Some("test"));
+    assert_eq!(
+        json.get("session_name").and_then(|v| v.as_str()),
+        Some("test")
+    );
 }
 
 /// Test error handling across all commands is consistent
@@ -813,7 +842,10 @@ fn test_error_handling_consistency() {
     // All these should fail with proper error structure
     let error_cases = vec![
         (vec!["focus", "nonexistent", "--json"], "NOT_FOUND"),
-        (vec!["remove", "nonexistent", "--force", "--json"], "NOT_FOUND"),
+        (
+            vec!["remove", "nonexistent", "--force", "--json"],
+            "NOT_FOUND",
+        ),
         (vec!["status", "nonexistent", "--json"], "NOT_FOUND"),
         (vec!["add", "-invalid", "--no-open", "--json"], "VALIDATION"),
     ];
@@ -822,14 +854,19 @@ fn test_error_handling_consistency() {
         let result = harness.zjj(&cmd);
         assert!(!result.success, "Command {:?} should fail", cmd);
 
-        let json: Value = serde_json::from_str(&result.stdout)
-            .unwrap_or_else(|e| panic!("Command {:?} should output valid JSON: {}\nError: {}", cmd, result.stdout, e));
+        let json: Value = serde_json::from_str(&result.stdout).unwrap_or_else(|e| {
+            panic!(
+                "Command {:?} should output valid JSON: {}\nError: {}",
+                cmd, result.stdout, e
+            )
+        });
 
         // Check error structure
         assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(false));
 
         let error = json.get("error").expect("Should have error field");
-        let code = error.get("code")
+        let code = error
+            .get("code")
             .and_then(|v| v.as_str())
             .expect("Should have error.code");
 

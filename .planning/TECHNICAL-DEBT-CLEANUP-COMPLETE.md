@@ -68,11 +68,11 @@
 **Status:** COMPLETE
 
 **Verified:**
-- ✅ CMD-01: `jjz init` (15 tests)
-- ✅ CMD-02: `jjz add` (20+ tests)
-- ✅ CMD-03: `jjz list` (11+ tests)
-- ✅ CMD-04: `jjz remove` (10+ tests)
-- ✅ CMD-05: `jjz focus` (13+ tests)
+- ✅ CMD-01: `zjj init` (15 tests)
+- ✅ CMD-02: `zjj add` (20+ tests)
+- ✅ CMD-03: `zjj list` (11+ tests)
+- ✅ CMD-04: `zjj remove` (10+ tests)
+- ✅ CMD-05: `zjj focus` (13+ tests)
 
 **Total MVP Tests:** 69+ comprehensive tests
 
@@ -143,11 +143,11 @@
 
 | ID | Command | Status | Tests |
 |----|---------|--------|-------|
-| CMD-01 | jjz init | ✅ Complete | 15 |
-| CMD-02 | jjz add | ✅ Complete | 20+ |
-| CMD-03 | jjz list | ✅ Complete | 11+ |
-| CMD-04 | jjz remove | ✅ Complete | 10+ |
-| CMD-05 | jjz focus | ✅ Complete | 13+ |
+| CMD-01 | zjj init | ✅ Complete | 15 |
+| CMD-02 | zjj add | ✅ Complete | 20+ |
+| CMD-03 | zjj list | ✅ Complete | 11+ |
+| CMD-04 | zjj remove | ✅ Complete | 10+ |
+| CMD-05 | zjj focus | ✅ Complete | 13+ |
 
 **Total:** 5/5 complete (100%)
 

@@ -16,7 +16,7 @@ pub fn validate_session_status(status: &SessionStatus, name: &str) -> Result<()>
                  \n\
                  Suggestions:\n\
                  • Wait for creation to complete\n\
-                 • Cancel with: jjz remove {name}"
+                 • Cancel with: zjj remove {name}"
             );
         }
         SessionStatus::Failed => {
@@ -26,8 +26,8 @@ pub fn validate_session_status(status: &SessionStatus, name: &str) -> Result<()>
                  This session is in a failed state and cannot be synced.\n\
                  \n\
                  Suggestions:\n\
-                 • Remove the failed session: jjz remove {name}\n\
-                 • Recreate the session: jjz add {name}"
+                 • Remove the failed session: zjj remove {name}\n\
+                 • Recreate the session: zjj add {name}"
             );
         }
         SessionStatus::Completed => {
@@ -37,7 +37,7 @@ pub fn validate_session_status(status: &SessionStatus, name: &str) -> Result<()>
                  Completed sessions cannot be synced.\n\
                  \n\
                  If you want to work on this session again:\n\
-                 • Create a new session: jjz add {name}-v2\n\
+                 • Create a new session: zjj add {name}-v2\n\
                  • Or reopen this session by updating its status"
             );
         }
@@ -55,9 +55,9 @@ pub fn validate_workspace(workspace_path: &str, name: &str) -> anyhow::Result<()
              The workspace may have been deleted manually.\n\
              \n\
              Suggestions:\n\
-             • Run 'jjz doctor' to detect and fix orphaned sessions\n\
-             • Remove the session: jjz remove {name} --force\n\
-             • Recreate the session: jjz add {name}"
+             • Run 'zjj doctor' to detect and fix orphaned sessions\n\
+             • Remove the session: zjj remove {name} --force\n\
+             • Recreate the session: zjj add {name}"
         );
     }
 

@@ -52,7 +52,7 @@ pub async fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> 
         Ok((db, tab)) => (db, tab),
         Err(e) => {
             if options.json {
-                let suggestion = Some("Use 'jjz list' to see available sessions".to_string());
+                let suggestion = Some("Use 'zjj list' to see available sessions".to_string());
                 error_handler::output_error_json_and_exit(
                     FocusError::NotFound,
                     &e.to_string(),
@@ -78,9 +78,10 @@ pub async fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> 
     if options.json {
         let output = FocusOutput {
             success: true,
-            session: name.to_string(),
+            session_name: name.to_string(),
             tab: zellij_tab,
             switched: switch_result.did_switch(),
+            error: None,
         };
         println!("{}", serde_json::to_string(&output)?);
     } else {

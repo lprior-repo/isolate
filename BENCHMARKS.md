@@ -338,7 +338,7 @@ cargo bench --bench session_operations -- --profile-time=60
 
 ### Planned Benchmarks
 
-- [ ] End-to-end command benchmarks (`jjz add`, `jjz list`, etc.)
+- [ ] End-to-end command benchmarks (`zjj add`, `zjj list`, etc.)
 - [ ] Zellij integration benchmarks
 - [ ] JJ workspace operation benchmarks
 - [ ] Large-scale stress tests (10k+ sessions)

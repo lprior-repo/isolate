@@ -63,7 +63,7 @@ mod loading_tests {
     #[test]
     fn test_global_config_path() {
         let path = global_config_path();
-        // Should return Some path to ~/.config/jjz/config.toml
+        // Should return Some path to ~/.config/zjj/config.toml
         // or None on systems without home directory
         assert!(path.is_some() || path.is_none());
     }

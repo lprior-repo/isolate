@@ -139,7 +139,7 @@ Once ZJJ reaches 1.0.0, the following guarantees apply:
 **Focus:** Complete documented MVP features
 
 **Blockers:**
-- [ ] Implement merge functionality (`jjz remove -m`)
+- [ ] Implement merge functionality (`zjj remove -m`)
 - [ ] Implement hooks system (post_create, pre_remove, etc.)
 - [ ] Implement template loading from config
 - [ ] Implement change detection in status

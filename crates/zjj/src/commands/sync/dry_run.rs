@@ -209,7 +209,7 @@ fn format_single_session_text(name: &str, session: &Session, plan: &SyncDryRunPl
     output.push_str("  2. Update last_synced timestamp in database\n");
     output.push_str("\n");
     output.push_str("To execute, run without --dry-run flag:\n");
-    output.push_str(&format!("  jjz sync {name}\n"));
+    output.push_str(&format!("  zjj sync {name}\n"));
 
     output
 }
@@ -241,7 +241,7 @@ fn format_all_sessions_text(sessions: &[Session], plan: &SyncDryRunPlan) -> Stri
     output.push_str("  2. Update last_synced timestamp\n");
     output.push_str("\n");
     output.push_str("To execute, run without --dry-run flag:\n");
-    output.push_str("  jjz sync\n");
+    output.push_str("  zjj sync\n");
 
     output
 }

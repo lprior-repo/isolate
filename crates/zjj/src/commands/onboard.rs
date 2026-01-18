@@ -70,27 +70,27 @@ This project uses ZJJ for JJ workspace + Zellij session management.
 
 Initialize once per repository:
 ```bash
-jjz init
+zjj init
 ```
 
 ### Essential Commands
 
-- `jjz context --json` - Get full environment state (AI agents: run this first)
-- `jjz add <name>` - Create new session (workspace + Zellij tab)
-- `jjz list --json` - Show all sessions
-- `jjz status [name]` - Check session details
-- `jjz sync [name]` - Rebase current session on main
-- `jjz remove <name>` - Cleanup session when done
-- `jjz doctor` - Check system health
-- `jjz introspect --json` - Discover all commands (machine-readable)
+- `zjj context --json` - Get full environment state (AI agents: run this first)
+- `zjj add <name>` - Create new session (workspace + Zellij tab)
+- `zjj list --json` - Show all sessions
+- `zjj status [name]` - Check session details
+- `zjj sync [name]` - Rebase current session on main
+- `zjj remove <name>` - Cleanup session when done
+- `zjj doctor` - Check system health
+- `zjj introspect --json` - Discover all commands (machine-readable)
 
 ### Workflow Pattern
 
 ```bash
-jjz add feature-auth      # Create isolated session
+zjj add feature-auth      # Create isolated session
 # [work in session]
-jjz sync                  # Rebase on main
-jjz remove feature-auth   # Cleanup when done
+zjj sync                  # Rebase on main
+zjj remove feature-auth   # Cleanup when done
 ```
 
 ### AI Agent Integration
@@ -102,7 +102,7 @@ All commands support `--json` for structured output with semantic exit codes:
 - 3 = not found
 - 4 = invalid state
 
-**Context Discovery**: Run `jjz context --json` to get complete environment state.
+**Context Discovery**: Run `zjj context --json` to get complete environment state.
 
 **Full Documentation**: See `docs/12_AI_GUIDE.md`
 
@@ -111,7 +111,7 @@ All commands support `--json` for structured output with semantic exit codes:
 - **Session**: Named development task with JJ workspace + Zellij tab + DB record
 - **Workspace**: Isolated JJ working directory (like git worktree)
 - **Sync Strategy**: Rebase (`jj rebase -d main`)
-- **Tab Naming**: `jjz:<session-name>`
+- **Tab Naming**: `zjj:<session-name>`
 "
     .to_string()
 }
@@ -120,35 +120,35 @@ All commands support `--json` for structured output with semantic exit codes:
 fn get_essential_commands() -> Vec<CommandInfo> {
     vec![
         CommandInfo {
-            command: "jjz context --json".to_string(),
+            command: "zjj context --json".to_string(),
             description: "Get full environment state (AI agents: run this first)".to_string(),
         },
         CommandInfo {
-            command: "jjz add <name>".to_string(),
+            command: "zjj add <name>".to_string(),
             description: "Create new session with workspace and Zellij tab".to_string(),
         },
         CommandInfo {
-            command: "jjz list --json".to_string(),
+            command: "zjj list --json".to_string(),
             description: "Show all sessions with status".to_string(),
         },
         CommandInfo {
-            command: "jjz status [name]".to_string(),
+            command: "zjj status [name]".to_string(),
             description: "Check detailed session information".to_string(),
         },
         CommandInfo {
-            command: "jjz sync [name]".to_string(),
+            command: "zjj sync [name]".to_string(),
             description: "Rebase session on main branch".to_string(),
         },
         CommandInfo {
-            command: "jjz remove <name>".to_string(),
+            command: "zjj remove <name>".to_string(),
             description: "Cleanup session and workspace".to_string(),
         },
         CommandInfo {
-            command: "jjz doctor".to_string(),
+            command: "zjj doctor".to_string(),
             description: "Check system health and dependencies".to_string(),
         },
         CommandInfo {
-            command: "jjz introspect --json".to_string(),
+            command: "zjj introspect --json".to_string(),
             description: "Discover all commands (machine-readable)".to_string(),
         },
     ]
@@ -204,10 +204,10 @@ mod tests {
 
         // Verify key commands are present
         let command_names: Vec<_> = commands.iter().map(|c| c.command.as_str()).collect();
-        assert!(command_names.contains(&"jjz context --json"));
-        assert!(command_names.contains(&"jjz add <name>"));
-        assert!(command_names.contains(&"jjz list --json"));
-        assert!(command_names.contains(&"jjz introspect --json"));
+        assert!(command_names.contains(&"zjj context --json"));
+        assert!(command_names.contains(&"zjj add <name>"));
+        assert!(command_names.contains(&"zjj list --json"));
+        assert!(command_names.contains(&"zjj introspect --json"));
 
         // All commands should have descriptions
         for cmd in commands {
@@ -232,6 +232,6 @@ mod tests {
         assert!(snippet.contains("```bash"));
 
         // Should have bullet lists
-        assert!(snippet.contains("- `jjz"));
+        assert!(snippet.contains("- `zjj"));
     }
 }

@@ -6,7 +6,7 @@ use super::types::{CoreConcept, Prerequisite, ToolMetadata, Workflow, WorkflowSt
 
 pub fn generate_tool_metadata() -> ToolMetadata {
     ToolMetadata {
-        name: "jjz".to_string(),
+        name: "zjj".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         description: "Manage JJ workspaces with Zellij sessions".to_string(),
         purpose: "A workflow tool that manages isolated development sessions by combining JJ (Jujutsu) workspaces for parallel Git branches, Zellij terminal multiplexer for organized UI layouts, and SQLite database for session state tracking.".to_string(),
@@ -82,13 +82,13 @@ pub fn generate_workflows() -> Vec<Workflow> {
         steps: vec![
             WorkflowStep {
                 order: 1,
-                command: "jjz init".to_string(),
-                description: "Initialize jjz (once per repository)".to_string(),
+                command: "zjj init".to_string(),
+                description: "Initialize zjj (once per repository)".to_string(),
                 optional: false,
             },
             WorkflowStep {
                 order: 2,
-                command: "jjz add feature-name".to_string(),
+                command: "zjj add feature-name".to_string(),
                 description: "Create session with workspace and Zellij tab".to_string(),
                 optional: false,
             },
@@ -100,13 +100,13 @@ pub fn generate_workflows() -> Vec<Workflow> {
             },
             WorkflowStep {
                 order: 4,
-                command: "jjz sync feature-name".to_string(),
+                command: "zjj sync feature-name".to_string(),
                 description: "Rebase on main branch".to_string(),
                 optional: true,
             },
             WorkflowStep {
                 order: 5,
-                command: "jjz remove feature-name".to_string(),
+                command: "zjj remove feature-name".to_string(),
                 description: "Cleanup when done".to_string(),
                 optional: false,
             },
@@ -154,7 +154,7 @@ pub fn generate_prerequisites() -> Vec<Prerequisite> {
         },
         Prerequisite {
             name: "JJ repository".to_string(),
-            description: "Must be inside a JJ repository or use 'jjz init' to create one"
+            description: "Must be inside a JJ repository or use 'zjj init' to create one"
                 .to_string(),
             install_url: None,
             check_command: Some("jj status".to_string()),

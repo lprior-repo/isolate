@@ -36,11 +36,11 @@ A comprehensive technical excellence initiative for zjj (JJ+Zellij session manag
 
 **MVP Command Verification:**
 
-- [ ] Verify `jjz init` fully implemented and tested
-- [ ] Verify `jjz add <name>` fully implemented and tested
-- [ ] Verify `jjz list` fully implemented and tested
-- [ ] Verify `jjz remove <name>` fully implemented and tested
-- [ ] Verify `jjz focus <name>` fully implemented and tested
+- [ ] Verify `zjj init` fully implemented and tested
+- [ ] Verify `zjj add <name>` fully implemented and tested
+- [ ] Verify `zjj list` fully implemented and tested
+- [ ] Verify `zjj remove <name>` fully implemented and tested
+- [ ] Verify `zjj focus <name>` fully implemented and tested
 
 **Test Coverage:**
 

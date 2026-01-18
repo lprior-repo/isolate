@@ -79,8 +79,8 @@ fn build_session_not_found_error(name: &str, all_sessions: &[Session]) -> anyhow
          {active_list}\n\
          \n\
          Suggestions:\n\
-         • Use 'jjz list' to see all active sessions\n\
-         • Use 'jjz list --all' to include completed/failed sessions\n\
+         • Use 'zjj list' to see all active sessions\n\
+         • Use 'zjj list --all' to include completed/failed sessions\n\
          • Check the spelling of the session name{suggestion_text}"
     )
 }

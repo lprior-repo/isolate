@@ -27,7 +27,7 @@
 - Location: `crates/zjj/src/`
 - Contains: CLI parsing, command handlers, session DB, JSON output formatting
 - Depends on: zjj-core, clap, ratatui, crossterm
-- Used by: End users via `jjz` binary
+- Used by: End users via `zjj` binary
 
 **Commands Layer:**
 - Purpose: Individual command implementations (add, remove, focus, sync, etc.)
@@ -47,7 +47,7 @@
 
 **Session Creation (add command):**
 
-1. User runs `jjz add <name>` → main.rs parses CLI args via clap
+1. User runs `zjj add <name>` → main.rs parses CLI args via clap
 2. Dispatcher routes to `commands::add::run_with_options()`
 3. Validation: name checked via `validate_session_name()` (pure function)
 4. DB transaction: `SessionDb::create()` inserts record with status=Creating
@@ -94,7 +94,7 @@
 
 **Main Binary:**
 - Location: `crates/zjj/src/main.rs`
-- Triggers: User runs `jjz <command>`
+- Triggers: User runs `zjj <command>`
 - Responsibilities: CLI parsing, error formatting, tokio runtime setup, command dispatch
 
 **CLI Builder:**

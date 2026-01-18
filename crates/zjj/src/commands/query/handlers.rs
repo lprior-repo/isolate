@@ -158,7 +158,7 @@ fn query_can_run(command: &str) -> Result<()> {
         (
             "initialized",
             zjj_data_dir().is_ok(),
-            "jjz not initialized",
+            "zjj not initialized",
             requires_init(command),
         ),
         (

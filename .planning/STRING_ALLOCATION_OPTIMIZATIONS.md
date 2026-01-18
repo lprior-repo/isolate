@@ -49,7 +49,7 @@ pub async fn run(name: &str) -> Result<()> {
 #### Pattern 3: Repeated format!() for zellij_tab
 **Location:** Multiple files
 ```rust
-zellij_tab: format!("jjz:{name}")  // Happens in multiple places
+zellij_tab: format!("zjj:{name}")  // Happens in multiple places
 ```
 
 **Issue:** Same pattern repeated in database/query.rs, session construction, etc.
@@ -139,7 +139,7 @@ name.to_owned()  // More idiomatic, marginally clearer intent
 ```rust
 // New helper in zjj-core
 pub fn zellij_tab_name(session_name: &str) -> String {
-    format!("jjz:{session_name}")
+    format!("zjj:{session_name}")
 }
 ```
 

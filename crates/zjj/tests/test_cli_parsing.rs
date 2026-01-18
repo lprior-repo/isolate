@@ -19,7 +19,7 @@ fn test_help_flag() {
 
     let result = harness.zjj(&["--help"]);
     // Help may exit with 0 or display help text
-    result.assert_output_contains("jjz");
+    result.assert_output_contains("zjj");
 }
 
 #[test]

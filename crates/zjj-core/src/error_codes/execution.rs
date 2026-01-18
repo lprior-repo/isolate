@@ -75,7 +75,7 @@ impl ExecutionError {
             Self::WorkspaceDeletionFailed => {
                 Some("Check permissions and ensure no processes are using the workspace")
             }
-            Self::StateDbMigrationFailed => Some("Backup your data and try 'jjz init --force'"),
+            Self::StateDbMigrationFailed => Some("Backup your data and try 'zjj init --force'"),
         }
     }
 

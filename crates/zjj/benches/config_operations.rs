@@ -41,7 +41,7 @@ pre_remove = ["git stash"]
 post_merge = ["cargo check"]
 
 [zellij]
-session_prefix = "jjz"
+session_prefix = "zjj"
 use_tabs = true
 layout_dir = "layouts"
 
@@ -219,7 +219,7 @@ debounce_ms = 500
 post_create = ["bd sync"]
 
 [zellij]
-session_prefix = "jjz"
+session_prefix = "zjj"
 "#;
 
     // Large config (from create_config_files)

@@ -304,7 +304,7 @@ fn test_add_no_open_can_be_removed() {
 /// Expected: All operations succeed without Zellij interaction
 ///
 /// This is the primary use case for CI/CD pipelines where no terminal
-/// is available but jjz automation is needed.
+/// is available but zjj automation is needed.
 #[test]
 fn test_complete_workflow_in_non_tty() {
     let Some(harness) = TestHarness::try_new() else {
@@ -337,7 +337,7 @@ fn test_complete_workflow_in_non_tty() {
     assert!(!result.stdout.contains("ci-workflow"));
 }
 
-/// Test that jjz init works in non-TTY
+/// Test that zjj init works in non-TTY
 ///
 /// Precondition: Non-TTY environment
 /// Expected: Init succeeds and creates .zjj directory
