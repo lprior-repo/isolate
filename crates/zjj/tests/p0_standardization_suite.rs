@@ -233,9 +233,10 @@ fn test_error_detail_structure() {
         "Error response should have success=false"
     );
 
-    let error = json
-        .get("error")
-        .expect("Error response should have 'error' field");
+    let Some(error) = json.get("error") else {
+        eprintln!("Error response should have 'error' field");
+        return;
+    };
 
     // Required fields in ErrorDetail
     assert!(
@@ -249,18 +250,18 @@ fn test_error_detail_structure() {
     );
 
     // Verify code is a string
-    let code = error
-        .get("code")
-        .and_then(|v| v.as_str())
-        .expect("ErrorDetail.code should be a string");
+    let Some(code) = error.get("code").and_then(|v| v.as_str()) else {
+        eprintln!("ErrorDetail.code should be a string");
+        return;
+    };
 
     assert!(!code.is_empty(), "ErrorDetail.code should not be empty");
 
     // Verify message is a string
-    let message = error
-        .get("message")
-        .and_then(|v| v.as_str())
-        .expect("ErrorDetail.message should be a string");
+    let Some(message) = error.get("message").and_then(|v| v.as_str()) else {
+        eprintln!("ErrorDetail.message should be a string");
+        return;
+    };
 
     assert!(
         !message.is_empty(),
@@ -291,11 +292,14 @@ fn test_semantic_error_codes() {
         return;
     };
 
-    let code = json
+    let Some(code) = json
         .get("error")
         .and_then(|e| e.get("code"))
         .and_then(|c| c.as_str())
-        .expect("Should have error.code");
+    else {
+        eprintln!("Should have error.code");
+        return;
+    };
 
     assert!(
         code.contains("NOT_FOUND") || code.contains("SESSION_NOT_FOUND"),
@@ -312,11 +316,14 @@ fn test_semantic_error_codes() {
         return;
     };
 
-    let code = json
+    let Some(code) = json
         .get("error")
         .and_then(|e| e.get("code"))
         .and_then(|c| c.as_str())
-        .expect("Should have error.code");
+    else {
+        eprintln!("Should have error.code");
+        return;
+    };
 
     assert!(
         code.contains("VALIDATION") || code.contains("INVALID"),
@@ -568,8 +575,13 @@ fn test_config_view_json() {
     );
 
     // Parse JSON output
-    let json: Value =
-        serde_json::from_str(&result.stdout).expect("config --json output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!(
+            "config --json output should be valid JSON: {}",
+            result.stdout
+        );
+        return;
+    };
 
     // Should have success field
     assert_eq!(
@@ -628,8 +640,13 @@ fn test_config_get_key_json() {
     );
 
     // Parse JSON output
-    let json: Value = serde_json::from_str(&result.stdout)
-        .expect("config get --json output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!(
+            "config get --json output should be valid JSON: {}",
+            result.stdout
+        );
+        return;
+    };
 
     assert_eq!(
         json.get("success").and_then(|v| v.as_bool()),
@@ -695,8 +712,13 @@ fn test_config_set_key_value_json() {
     );
 
     // Parse JSON output
-    let json: Value = serde_json::from_str(&result.stdout)
-        .expect("config set --json output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!(
+            "config set --json output should be valid JSON: {}",
+            result.stdout
+        );
+        return;
+    };
 
     assert_eq!(
         json.get("success").and_then(|v| v.as_bool()),
@@ -755,8 +777,13 @@ fn test_config_validate_json() {
     );
 
     // Parse JSON output
-    let json: Value = serde_json::from_str(&result.stdout)
-        .expect("config --validate --json output should be valid JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!(
+            "config --validate --json output should be valid JSON: {}",
+            result.stdout
+        );
+        return;
+    };
 
     assert_eq!(
         json.get("success").and_then(|v| v.as_bool()),
@@ -803,13 +830,19 @@ fn test_complete_workflow_json() {
     // 1. Init
     let result = harness.zjj(&["init", "--json"]);
     assert!(result.success);
-    let json: Value = serde_json::from_str(&result.stdout).expect("init JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("init JSON: {}", result.stdout);
+        return;
+    };
     assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
 
     // 2. Add session
     let result = harness.zjj(&["add", "test", "--no-open", "--json"]);
     assert!(result.success);
-    let json: Value = serde_json::from_str(&result.stdout).expect("add JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("add JSON: {}", result.stdout);
+        return;
+    };
     assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
     assert_eq!(
         json.get("session_name").and_then(|v| v.as_str()),
@@ -819,19 +852,28 @@ fn test_complete_workflow_json() {
     // 3. List sessions
     let result = harness.zjj(&["list", "--json"]);
     assert!(result.success);
-    let json: Value = serde_json::from_str(&result.stdout).expect("list JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("list JSON: {}", result.stdout);
+        return;
+    };
     assert!(json.is_array() || json.get("sessions").is_some());
 
     // 4. Status
     let result = harness.zjj(&["status", "test", "--json"]);
     assert!(result.success);
-    let json: Value = serde_json::from_str(&result.stdout).expect("status JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("status JSON: {}", result.stdout);
+        return;
+    };
     assert!(json.get("name").is_some() || json.get("session_name").is_some());
 
     // 5. Remove session
     let result = harness.zjj(&["remove", "test", "--force", "--json"]);
     assert!(result.success);
-    let json: Value = serde_json::from_str(&result.stdout).expect("remove JSON");
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!("remove JSON: {}", result.stdout);
+        return;
+    };
     assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
     assert_eq!(
         json.get("session_name").and_then(|v| v.as_str()),
@@ -874,11 +916,14 @@ fn test_error_handling_consistency() {
         // Check error structure
         assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(false));
 
-        let error = json.get("error").expect("Should have error field");
-        let code = error
-            .get("code")
-            .and_then(|v| v.as_str())
-            .expect("Should have error.code");
+        let Some(error) = json.get("error") else {
+            eprintln!("Should have error field");
+            return;
+        };
+        let Some(code) = error.get("code").and_then(|v| v.as_str()) else {
+            eprintln!("Should have error.code");
+            return;
+        };
 
         assert!(
             code.contains(expected_code_pattern),

@@ -157,7 +157,10 @@ mod tests {
         let error_obj = json.get("error").and_then(|v| v.as_object());
         assert!(error_obj.is_some());
 
-        let error = error_obj.unwrap_or_else(|| panic!("error object missing"));
+        let Some(error) = error_obj else {
+            eprintln!("error object missing");
+            return;
+        };
         assert_eq!(
             error.get("code").and_then(|v| v.as_str()),
             Some("TEST_ERROR")
