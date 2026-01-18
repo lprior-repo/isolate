@@ -951,6 +951,12 @@ pub fn cmd_config() -> Command {
         .long_about(
             "Configuration Management\n\
              \n\
+             USAGE PATTERNS:\n\
+             • zjj config                        - View all configuration\n\
+             • zjj config KEY                    - Get specific value\n\
+             • zjj config KEY VALUE              - Set configuration value\n\
+             • zjj config --validate             - Validate configuration\n\
+             \n\
              CONFIGURATION SCOPES:\n\
              • Project: .zjj/config.toml (default)\n\
              • Global: ~/.config/zjj/config.toml (with --global)\n\
@@ -968,130 +974,79 @@ pub fn cmd_config() -> Command {
              • 'hooks.post_create' - nested key\n\
              • 'zellij.use_tabs' - nested boolean",
         )
-        .subcommand(
-            Command::new("view")
-                .about("View all configuration settings")
-                .long_about(
-                    "View All Configuration Settings\n\
-                     \n\
-                     Shows all configuration values from both project and global config.\n\
-                     Use --json for machine-readable output.",
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
+        .arg(
+            Arg::new("key")
+                .required(false)
+                .index(1)
+                .help("Configuration key (dot notation: 'workspace.dir')"),
         )
-        .subcommand(
-            Command::new("get")
-                .about("Get specific configuration value")
-                .long_about(
-                    "Get Specific Configuration Value\n\
-                     \n\
-                     Retrieves a single configuration value by key.\n\
-                     Use dot notation for nested keys (e.g., 'hooks.post_create').",
-                )
-                .arg(
-                    Arg::new("key")
-                        .required(true)
-                        .help("Configuration key to retrieve (dot notation: 'zellij.use_tabs')"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
+        .arg(
+            Arg::new("value")
+                .required(false)
+                .index(2)
+                .help("Value to set (only when KEY is provided)"),
         )
-        .subcommand(
-            Command::new("set")
-                .about("Set configuration value")
-                .long_about(
-                    "Set Configuration Value\n\
-                     \n\
-                     Updates a configuration value, either in project or global config.\n\
-                     Use --global to modify the global config instead of project config.",
-                )
-                .arg(
-                    Arg::new("key")
-                        .required(true)
-                        .help("Configuration key to set (dot notation: 'hooks.post_create')"),
-                )
-                .arg(Arg::new("value").required(true).help("Value to set"))
-                .arg(
-                    Arg::new("global")
-                        .long("global")
-                        .short('g')
-                        .action(ArgAction::SetTrue)
-                        .help("Set in global config instead of project config"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(ArgAction::SetTrue)
-                        .help("Output result as JSON"),
-                ),
+        .arg(
+            Arg::new("global")
+                .long("global")
+                .short('g')
+                .action(ArgAction::SetTrue)
+                .help("Use global config instead of project config"),
         )
-        .subcommand(
-            Command::new("validate")
-                .about("Validate configuration integrity")
-                .long_about(
-                    "Validate Configuration Integrity\n\
-                     \n\
-                     Checks configuration for errors and potential issues.\n\
-                     Reports validation errors and warnings.",
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(ArgAction::SetTrue)
-                        .help("Output validation results as JSON"),
-                ),
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("validate")
+                .long("validate")
+                .action(ArgAction::SetTrue)
+                .help("Validate configuration integrity"),
         )
         .after_help(
             "EXAMPLES:\n\
              \n\
              # View all settings\n\
-             zjj config view\n\
-             zjj config view --json\n\
+             zjj config\n\
+             zjj config --json\n\
              \n\
              # Get specific setting\n\
-             zjj config get workspace_dir\n\
-             zjj config get sync_strategy --json\n\
+             zjj config workspace_dir\n\
+             zjj config sync_strategy --json\n\
              \n\
              # Set a value\n\
-             zjj config set workspace_dir /custom/path\n\
-             zjj config set default_template standard --global\n\
+             zjj config workspace_dir /custom/path\n\
+             zjj config default_template standard --global\n\
              \n\
              # Validate configuration\n\
-             zjj config validate\n\
-             zjj config validate --json\n\
+             zjj config --validate\n\
+             zjj config --validate --json\n\
              \n\
              COMMON USE CASES:\n\
-             View all settings:        zjj config view --json\n\
-             Change workspace dir:     zjj config set workspace_dir ~/workspaces\n\
-             Set default template:     zjj config set default_template minimal\n\
-             Add post-create hook:     zjj config set hooks.post_create 'make setup'\n\
+             View all settings:        zjj config --json\n\
+             Change workspace dir:     zjj config workspace_dir ~/workspaces\n\
+             Set default template:     zjj config default_template minimal\n\
+             Add post-create hook:     zjj config hooks.post_create 'make setup'\n\
              \n\
              AI AGENT USAGE:\n\
              # Get all configuration as JSON\n\
-             zjj config view --json\n\
+             zjj config --json\n\
              \n\
              # Extract specific setting\n\
-             zjj config get workspace_dir --json\n\
+             zjj config workspace_dir --json\n\
              \n\
              # Validate before modifying\n\
-             zjj config validate --json\n\
+             zjj config --validate --json\n\
              \n\
              # Set configuration programmatically\n\
-             zjj config set workspace_dir /custom/path --json\n\
+             zjj config workspace_dir /custom/path --json\n\
              \n\
              WORKFLOW CONTEXT FOR AI:\n\
              AI agents should:\n\
              • Use --json to parse configuration programmatically\n\
-             • Validate config before making changes (validate subcommand)\n\
+             • Validate config before making changes (--validate flag)\n\
              • Check workspace_dir to understand session locations\n\
              • Respect user's default_template for session creation\n\
              • Be aware of hooks that may affect operations\n\
@@ -1459,41 +1414,234 @@ pub fn cmd_doctor() -> Command {
 pub fn cmd_query() -> Command {
     Command::new("query")
         .about("Query system state programmatically")
+        .long_about(
+            "Query ZJJ System State Programmatically\n\
+             \n\
+             WHAT IT DOES:\n\
+             Executes system state queries for script and AI agent integration:\n  \
+             • Check if session exists\n  \
+             • Get total session count\n  \
+             • Check if operations are allowed\n  \
+             • Get suggested session name\n  \
+             • Validate session names\n\
+             \n\
+             QUERY TYPES:\n\
+             • session-exists <name>      - Check if named session exists\n  \
+             • session-count              - Get total number of sessions\n  \
+             • can-run <operation>        - Check if operation is allowed (add, remove, sync)\n  \
+             • suggest-name [prefix]      - Generate unique session name\n  \
+             • validate-name <name>       - Validate session name format\n\
+             \n\
+             OUTPUT:\n\
+             Machine-readable responses for conditional shell logic:\n  \
+             • Success: \"true\" or \"<value>\"\n  \
+             • Failure: \"false\" or error message\n  \
+             • JSON: Structured output with --json flag\n\
+             \n\
+             PREREQUISITES:\n\
+             • zjj must be initialized (zjj init)\n  \
+             • Database must be accessible\n  \
+             • Jujutsu and Zellij installations (for some queries)\n\
+             \n\
+             USE CASES:\n\
+             • Shell scripts: Conditional logic based on session state\n  \
+             • CI/CD pipelines: Check before automation\n  \
+             • AI agents: Validate names before session creation\n  \
+             • Bash completions: Generate dynamic suggestions\n\
+             \n\
+             RELATED COMMANDS:\n\
+             • zjj list       - List all sessions\n  \
+             • zjj status     - Get detailed session status\n  \
+             • zjj context    - Full environment context for AI",
+        )
         .arg(
             Arg::new("query_type")
                 .required(true)
-                .help("Type of query (session-exists, session-count, can-run, suggest-name)"),
+                .help("Type of query: session-exists, session-count, can-run, suggest-name, validate-name"),
         )
         .arg(
             Arg::new("args")
                 .required(false)
-                .help("Query-specific arguments"),
+                .help("Query-specific arguments (e.g., session name for session-exists)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON for machine parsing"),
+        )
+        .after_help(
+            "EXAMPLES:\n\
+             \n\
+             # Check if session exists\n\
+             zjj query session-exists my-session && echo \"Found\" || echo \"Not found\"\n\
+             \n\
+             # Get current session count\n\
+             count=$(zjj query session-count)\n\
+             echo \"$count sessions active\"\n\
+             \n\
+             # Check if you can add sessions\n\
+             zjj query can-run add && zjj add my-session\n\
+             \n\
+             # Get unique session name suggestion\n\
+             name=$(zjj query suggest-name feature-)\n\
+             zjj add \"$name\"\n\
+             \n\
+             # Validate session name format\n\
+             zjj query validate-name \"my_session-123\"\n\
+             \n\
+             # JSON output for scripts\n\
+             zjj query session-count --json | jq .count\n\
+             \n\
+             COMMON USE CASES:\n\
+             \n\
+             1. Conditional Session Creation (Bash Script):\n\
+                if zjj query session-exists dev; then\n  \
+                  echo \"Using existing dev session\"\n\
+                else\n  \
+                  zjj add dev\n\
+                fi\n\
+             \n\
+             2. Bash Completion (Generate Suggestions):\n\
+                # Suggest names matching prefix\n\
+                if [[ \"$word\" == feature-* ]]; then\n  \
+                  zjj query suggest-name \"${word%-*}-\" --json\n  \
+                fi\n\
+             \n\
+             3. CI/CD Gate Check:\n\
+                if ! zjj query can-run add; then\n  \
+                  echo \"Cannot create session (database locked)\"\n  \
+                  exit 1\n  \
+                fi\n\
+             \n\
+             AI AGENT EXAMPLES:\n\
+             \n\
+             # Before creating session, validate name format\n\
+             zjj query validate-name suggested_name --json\n\
+             \n\
+             # Get current session count before operations\n\
+             current=$(zjj query session-count --json | jq .count)\n\
+             \n\
+             # Check if agent can run cleanup operations\n\
+             zjj query can-run remove --json\n\
+             \n\
+             WORKFLOW CONTEXT FOR AI:\n\
+             \n\
+             Query provides programmatic gating:\n  \
+             • Prevent invalid session names before creation\n  \
+             • Gate operations on system state\n  \
+             • Check resource availability\n  \
+             • Make informed decisions about session management",
         )
 }
 
 pub fn cmd_completions() -> Command {
     Command::new("completions")
         .about("Generate shell completion scripts")
+        .long_about(
+            "Generate Shell Completion Scripts\n\
+             \n\
+             WHAT IT DOES:\n\
+             Generates shell-specific completion scripts that enable:\n  \
+             • Command name autocompletion (zjj <TAB>)\n  \
+             • Subcommand autocompletion (zjj add <TAB>)\n  \
+             • Session name completion (zjj remove my-s<TAB> → my-session)\n  \
+             • Flag autocompletion (zjj add --<TAB>)\n  \
+             • Smart suggestions based on system state\n\
+             \n\
+             SUPPORTED SHELLS:\n\
+             • bash      - Bash 3.2+, with completion package\n  \
+             • zsh       - Zsh 4.3.11+, with completion support\n  \
+             • fish      - Fish 2.3+\n  \
+             • elvish    - Elvish 0.13+\n  \
+             • powershell - PowerShell 7.0+\n\
+             \n\
+             WHAT GETS COMPLETED:\n  \
+             • All subcommands (add, remove, focus, sync, list, etc.)\n  \
+             • All flags (--json, --dry-run, --force, --merge, etc.)\n  \
+             • Session names from current database\n  \
+             • Shell-specific syntax and options\n\
+             \n\
+             HOW IT WORKS:\n\
+             This command generates completion scripts in the shell's native format.\n  \
+             Install the output to your shell's completion directory.\n  \
+             Some shells cache completions, requiring shell restart after install.\n\
+             \n\
+             PREREQUISITES:\n\
+             • Shell installed and in PATH\n  \
+             • Write permissions to shell completion directory\n  \
+             • Shell support for completion scripts\n\
+             \n\
+             RELATED COMMANDS:\n\
+             • zjj help      - View command help\n  \
+             • zjj --version - Show version info",
+        )
         .arg(
             Arg::new("shell")
                 .required(true)
-                .help("Shell type (bash, zsh, fish)"),
+                .help("Shell type: bash, zsh, fish, elvish, powershell"),
         )
         .arg(
             Arg::new("instructions")
                 .long("instructions")
                 .short('i')
                 .action(clap::ArgAction::SetTrue)
-                .help("Print installation instructions"),
+                .help("Print installation instructions for the specified shell"),
         )
         .after_help(
-            "Examples:\n  \
-             # Generate bash completions\n  \
-             zjj completions bash > ~/.local/share/bash-completion/completions/zjj\n\n  \
-             # Generate with installation instructions\n  \
-             zjj completions zsh --instructions\n\n  \
-             # Fish completions\n  \
-             zjj completions fish > ~/.config/fish/completions/zjj.fish",
+            "EXAMPLES:\n\
+             \n\
+             # Generate bash completions\n\
+             zjj completions bash > ~/.local/share/bash-completion/completions/zjj\n\
+             source ~/.bashrc  # Reload shell\n\
+             \n\
+             # Generate with installation instructions\n\
+             zjj completions zsh --instructions\n\
+             \n\
+             # Fish completions (auto-installs to correct location)\n\
+             zjj completions fish > ~/.config/fish/completions/zjj.fish\n\
+             \n\
+             # PowerShell completions\n\
+             zjj completions powershell | Out-File $PROFILE\n\
+             \n\
+             COMMON USE CASES:\n\
+             \n\
+             1. Bash User First-Time Setup:\n\
+                zjj completions bash --instructions\n\
+                # Follow the printed instructions\n\
+                source ~/.bashrc  # Apply completions\n\
+             \n\
+             2. Enable Completions in Zsh:\n\
+                mkdir -p $HOME/.zsh/completions\n\
+                zjj completions zsh > $HOME/.zsh/completions/_zjj\n\
+                # Add to .zshrc: fpath=($HOME/.zsh/completions $fpath)\n\
+             \n\
+             3. Update Completions After Upgrade:\n\
+                # Regenerate if new commands added\n\
+                zjj completions fish > ~/.config/fish/completions/zjj.fish\n\
+             \n\
+             SHELL-SPECIFIC TIPS:\n\
+             \n\
+             Bash:\n  \
+             • Install to: ~/.local/share/bash-completion/completions/\n  \
+             • Or system-wide: /etc/bash_completion.d/\n  \
+             • Requires 'bash-completion' package\n\
+             \n\
+             Zsh:\n  \
+             • Add $fpath to .zshrc before calling compinit\n  \
+             • May require 'autoload -Uz compinit && compinit'\n\
+             \n\
+             Fish:\n  \
+             • Completions auto-load from ~/.config/fish/completions/\n  \
+             • Most compatible shell for dynamic completion\n\
+             \n\
+             WORKFLOW CONTEXT FOR AI:\n\
+             \n\
+             Completions enable human shell productivity:\n  \
+             • Reduce typos in session names\n  \
+             • Discover available subcommands\n  \
+             • Avoid remembering all flags\n  \
+             • AI agents don't need completions (use --json for parsing)",
         )
 }
 
@@ -1555,6 +1703,48 @@ pub fn cmd_restore() -> Command {
 pub fn cmd_verify_backup() -> Command {
     Command::new("verify-backup")
         .about("Verify integrity of a backup file")
+        .long_about(
+            "Verify Backup File Integrity\n\
+             \n\
+             WHAT IT DOES:\n\
+             Performs comprehensive checks on a backup file to ensure it's:\n  \
+             • Well-formed JSON (valid structure)\n  \
+             • Contains all required fields\n  \
+             • Has correct schema version\n  \
+             • Has valid session data\n  \
+             • Not corrupted or truncated\n\
+             \n\
+             INTEGRITY CHECKS PERFORMED:\n\
+             • JSON syntax validation\n  \
+             • Schema version compatibility\n  \
+             • Required fields presence\n  \
+             • Session data structure\n  \
+             • Session count accuracy\n  \
+             • File not corrupted/truncated\n  \
+             • Permissions readable\n\
+             \n\
+             WHAT FAILURES MEAN:\n  \
+             • \"Invalid JSON\" - File is corrupted, not valid JSON\n  \
+             • \"Schema mismatch\" - Backup from incompatible version\n  \
+             • \"Missing fields\" - Backup file incomplete or damaged\n  \
+             • \"File truncated\" - Backup copy incomplete\n  \
+             • \"Permission denied\" - Cannot read backup file\n  \
+             • \"File not found\" - Backup path invalid\n\
+             \n\
+             TYPICAL USAGE:\n\
+             Run before restore to ensure backup is safe to restore from.\n  \
+             Regular verification catches corruption early.\n\
+             \n\
+             EXIT CODES:\n\
+             • 0 - Verification successful (backup is valid)\n  \
+             • 1 - Verification failed (backup is invalid)\n  \
+             • 2 - System error (permission denied, file not found)\n\
+             \n\
+             RELATED COMMANDS:\n\
+             • zjj backup         - Create a backup\n  \
+             • zjj restore        - Restore from backup\n  \
+             • zjj backup-list    - List all backups",
+        )
         .arg(
             Arg::new("path")
                 .required(true)
@@ -1564,14 +1754,54 @@ pub fn cmd_verify_backup() -> Command {
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
+                .help("Output as JSON for machine parsing"),
         )
         .after_help(
-            "Examples:\n  \
-             # Verify backup file\n  \
-             zjj verify-backup backup.json\n\n  \
-             # JSON output for scripting\n  \
-             zjj verify-backup backup.json --json",
+            "EXAMPLES:\n\
+             \n\
+             # Verify backup file\n\
+             zjj verify-backup backup.json\n\
+             \n\
+             # Verify and get JSON output\n\
+             zjj verify-backup backup.json --json\n\
+             \n\
+             # Check exit code for scripting\n\
+             if zjj verify-backup backup.json; then\n  \
+               echo \"Backup is valid\"\n  \
+               zjj restore backup.json\n\
+             else\n  \
+               echo \"Backup verification failed\"\n  \
+               exit 1\n\
+             fi\n\
+             \n\
+             COMMON USE CASES:\n\
+             \n\
+             1. Before Critical Restore (Recommended):\n\
+                # Always verify before restore\n  \
+                zjj verify-backup ~/.backups/sessions-2025.json\n  \
+                # If successful, proceed with restore\n  \
+                zjj restore ~/.backups/sessions-2025.json\n\
+             \n\
+             2. Regular Backup Maintenance:\n\
+                # Verify all backups monthly\n  \
+                for backup in ~/.zjj/backups/*.json; do\n  \
+                  echo \"Checking $backup...\"\n  \
+                  zjj verify-backup \"$backup\" && echo \"OK\" || echo \"FAILED\"\n  \
+                done\n\
+             \n\
+             3. After Copying Backup to New Machine:\n\
+                # Ensure backup transferred correctly\n  \
+                scp user@oldmachine:backup.json .\n  \
+                zjj verify-backup backup.json\n  \
+                # If valid, safe to restore\n\
+             \n\
+             WORKFLOW CONTEXT FOR AI:\n\
+             \n\
+             • Always verify before restore operations\n  \
+             • Check exit code: 0 = valid, non-zero = invalid\n  \
+             • Invalid backups should not be restored\n  \
+             • Use --json for programmatic validation\n  \
+             • Report verification failures before attempting restore",
         )
 }
 
