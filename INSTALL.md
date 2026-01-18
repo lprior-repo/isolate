@@ -282,12 +282,12 @@ jjz init
 ```
 
 This creates:
-- `.jjz/config.toml` - ZJJ configuration
-- `.jjz/sessions.db` - SQLite database for session state
+- `.zjj/config.toml` - ZJJ configuration
+- `.zjj/sessions.db` - SQLite database for session state
 
 ### 2. Configure ZJJ (Optional)
 
-Edit `.jjz/config.toml` to customize behavior:
+Edit `.zjj/config.toml` to customize behavior:
 
 ```toml
 [core]
@@ -476,7 +476,7 @@ cargo install zjj
 
 ### Issue: `error: database is locked`
 
-**Cause**: Multiple ZJJ processes accessing `.jjz/sessions.db` simultaneously.
+**Cause**: Multiple ZJJ processes accessing `.zjj/sessions.db` simultaneously.
 
 **Solution**:
 ```bash
@@ -513,12 +513,12 @@ jjz focus session-name
 **Solution**:
 ```bash
 # Check directory permissions
-ls -la .jjz/
+ls -la .zjj/
 
 # Fix permissions
-chmod 755 .jjz/
-chmod 644 .jjz/config.toml
-chmod 644 .jjz/sessions.db
+chmod 755 .zjj/
+chmod 644 .zjj/config.toml
+chmod 644 .zjj/sessions.db
 ```
 
 ### Getting Help

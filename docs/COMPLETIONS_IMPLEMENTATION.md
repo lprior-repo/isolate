@@ -7,7 +7,7 @@
 
 ## Overview
 
-Implemented shell completions for the `jjz` CLI using clap's built-in completion generation via `clap_complete`. The implementation follows functional Rust patterns with zero panics, zero unwraps, and proper error handling.
+Implemented shell completions for the `zjj` CLI using clap's built-in completion generation via `clap_complete`. The implementation follows functional Rust patterns with zero panics, zero unwraps, and proper error handling.
 
 ## Implementation Details
 
@@ -61,14 +61,14 @@ Implemented shell completions for the `jjz` CLI using clap's built-in completion
 
 ```bash
 # Generate completions
-jjz completions bash > ~/.local/share/bash-completion/completions/jjz
-jjz completions zsh > ~/.zsh/completions/_jjz
-jjz completions fish > ~/.config/fish/completions/jjz.fish
+zjj completions bash > ~/.local/share/bash-completion/completions/zjj
+zjj completions zsh > ~/.zsh/completions/_zjj
+zjj completions fish > ~/.config/fish/completions/zjj.fish
 
 # Show installation instructions
-jjz completions bash --instructions
-jjz completions zsh -i
-jjz completions fish --instructions
+zjj completions bash --instructions
+zjj completions zsh -i
+zjj completions fish --instructions
 ```
 
 ### Error Handling

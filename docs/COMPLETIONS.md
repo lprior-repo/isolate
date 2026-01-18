@@ -1,13 +1,13 @@
-# Shell Completions for jjz
+# Shell Completions for zjj
 
-The `jjz` CLI supports shell completions for Bash, Zsh, and Fish shells. Completions provide tab-completion for commands, subcommands, and options.
+The `zjj` CLI supports shell completions for Bash, Zsh, and Fish shells. Completions provide tab-completion for commands, subcommands, and options.
 
 ## Generating Completions
 
-Use the `jjz completions` command to generate completion scripts:
+Use the `zjj completions` command to generate completion scripts:
 
 ```bash
-jjz completions <shell>
+zjj completions <shell>
 ```
 
 Supported shells:
@@ -20,7 +20,7 @@ Supported shells:
 To see installation instructions along with the generated completions:
 
 ```bash
-jjz completions <shell> --instructions
+zjj completions <shell> --instructions
 ```
 
 ## Installation
@@ -34,14 +34,14 @@ jjz completions <shell> --instructions
 mkdir -p ~/.local/share/bash-completion/completions
 
 # Generate and install completions
-jjz completions bash > ~/.local/share/bash-completion/completions/jjz
+zjj completions bash > ~/.local/share/bash-completion/completions/zjj
 ```
 
 #### macOS (with Homebrew)
 
 ```bash
 # Generate and install completions
-jjz completions bash > $(brew --prefix)/etc/bash_completion.d/jjz
+zjj completions bash > $(brew --prefix)/etc/bash_completion.d/zjj
 ```
 
 #### Alternative: Source in .bashrc
@@ -49,7 +49,7 @@ jjz completions bash > $(brew --prefix)/etc/bash_completion.d/jjz
 Add to your `~/.bashrc`:
 
 ```bash
-source <(jjz completions bash)
+source <(zjj completions bash)
 ```
 
 Then reload your shell:
@@ -70,7 +70,7 @@ mkdir -p ~/.zsh/completions
 #### Generate Completion File
 
 ```bash
-jjz completions zsh > ~/.zsh/completions/_jjz
+zjj completions zsh > ~/.zsh/completions/_zjj
 ```
 
 #### Configure Zsh
@@ -94,7 +94,7 @@ Fish automatically loads completions from `~/.config/fish/completions/`:
 
 ```bash
 # Generate and install completions
-jjz completions fish > ~/.config/fish/completions/jjz.fish
+zjj completions fish > ~/.config/fish/completions/zjj.fish
 ```
 
 Completions will be available immediately in new Fish shells.
@@ -104,15 +104,15 @@ Completions will be available immediately in new Fish shells.
 After installation, test completions by typing:
 
 ```bash
-jjz <TAB>
+zjj <TAB>
 ```
 
 You should see available subcommands. Try:
 
 ```bash
-jjz add <TAB>           # Shows options for the add command
-jjz config <TAB>        # Shows config options
-jjz completions <TAB>   # Shows available shells
+zjj add <TAB>           # Shows options for the add command
+zjj config <TAB>        # Shows config options
+zjj completions <TAB>   # Shows available shells
 ```
 
 ## Troubleshooting
@@ -139,7 +139,7 @@ jjz completions <TAB>   # Shows available shells
 
 3. Verify the completion file exists:
    ```bash
-   ls -la ~/.local/share/bash-completion/completions/jjz
+   ls -la ~/.local/share/bash-completion/completions/zjj
    ```
 
 4. Reload your shell:
@@ -153,7 +153,7 @@ jjz completions <TAB>   # Shows available shells
 
 1. Verify the completion file exists:
    ```bash
-   ls -la ~/.zsh/completions/_jjz
+   ls -la ~/.zsh/completions/_zjj
    ```
 
 2. Check that `fpath` includes your completions directory:
@@ -180,13 +180,13 @@ jjz completions <TAB>   # Shows available shells
 
 1. Verify the completion file exists:
    ```bash
-   ls -la ~/.config/fish/completions/jjz.fish
+   ls -la ~/.config/fish/completions/zjj.fish
    ```
 
 2. Fish automatically loads completions, but you can force a reload:
    ```fish
-   complete -e jjz
-   source ~/.config/fish/completions/jjz.fish
+   complete -e zjj
+   source ~/.config/fish/completions/zjj.fish
    ```
 
 3. Open a new Fish shell to ensure completions are loaded
@@ -197,9 +197,9 @@ For automated testing and distribution, you can generate completions as part of 
 
 ```bash
 # Generate all completions
-jjz completions bash > completions/jjz.bash
-jjz completions zsh > completions/_jjz
-jjz completions fish > completions/jjz.fish
+zjj completions bash > completions/zjj.bash
+zjj completions zsh > completions/_zjj
+zjj completions fish > completions/zjj.fish
 ```
 
 These can then be packaged with your distribution or installer.

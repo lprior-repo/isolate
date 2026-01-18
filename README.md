@@ -103,13 +103,13 @@ A **session** is a unified development context consisting of:
 
 - **JJ Workspace**: Isolated working directory for your changes
 - **Zellij Tab**: Dedicated terminal tab (named `jjz:<session-name>`)
-- **Database Record**: Session metadata stored in `.jjz/sessions.db`
+- **Database Record**: Session metadata stored in `.zjj/sessions.db`
 
 ```
 Session "feature-auth"
 ├── JJ workspace: /workspaces/feature-auth/
 ├── Zellij tab: jjz:feature-auth
-└── Database: .jjz/sessions.db
+└── Database: .zjj/sessions.db
 ```
 
 ### Why Use Sessions?
@@ -209,13 +209,13 @@ ZJJ uses a layered configuration system (higher priority first):
 
 1. Command-line flags
 2. Environment variables (`ZJJ_*`)
-3. Project config (`.jjz/config.toml`)
+3. Project config (`.zjj/config.toml`)
 4. Global config (`~/.config/zjj/config.toml`)
 5. Defaults
 
 ### Example Configuration
 
-Create `.jjz/config.toml`:
+Create `.zjj/config.toml`:
 
 ```toml
 # Custom workspace directory

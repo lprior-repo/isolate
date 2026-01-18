@@ -189,7 +189,7 @@ harness.create_file("README.md", "# Test")?;
 harness.write_config("workspace_dir = '/tmp'")?;
 
 // Run commands
-let result = harness.jjz(&["add", "test"]);
+let result = harness.zjj(&["add", "test"]);
 let result = harness.jj(&["workspace", "list"]);
 
 // Assertions
@@ -304,7 +304,7 @@ fn test_error_no_stack_trace() {
         return;
     };
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success, "Command should fail without init");
 
     // Error output should NOT contain stack trace indicators
@@ -326,7 +326,7 @@ fn test_list_json_format() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["list", "--json"]);
+    let result = harness.zjj(&["list", "--json"]);
     assert!(result.success);
 
     // Verify it's valid JSON
@@ -362,14 +362,14 @@ fn test_that_cannot_run_parallel() {
 
 **Core Methods:**
 - `TestHarness::try_new()` - Create test environment, returns `None` if JJ unavailable
-- `harness.jjz(&[args])` - Execute jjz command, returns `CommandResult`
+- `harness.zjj(&[args])` - Execute jjz command, returns `CommandResult`
 - `harness.jj(&[args])` - Execute jj command directly
 - `harness.assert_success(&[args])` - Assert command succeeds
 - `harness.assert_failure(&[args], "error text")` - Assert command fails with error
 
 **File Operations:**
 - `harness.repo_path` - Path to test JJ repository
-- `harness.jjz_dir()` - Path to `.jjz` directory
+- `harness.zjj_dir()` - Path to `.zjj` directory
 - `harness.workspace_path("session")` - Path to session workspace
 - `harness.state_db_path()` - Path to state database
 - `harness.create_file("path", "content")` - Create file in repo
@@ -379,7 +379,7 @@ fn test_that_cannot_run_parallel() {
 **Assertions:**
 - `harness.assert_workspace_exists("session")` - Assert workspace directory exists
 - `harness.assert_workspace_not_exists("session")` - Assert workspace deleted
-- `harness.assert_jjz_dir_exists()` - Assert `.jjz` initialized
+- `harness.assert_jjz_dir_exists()` - Assert `.zjj` initialized
 - `harness.assert_file_exists(path)` - Assert file exists
 - `harness.assert_file_not_exists(path)` - Assert file deleted
 

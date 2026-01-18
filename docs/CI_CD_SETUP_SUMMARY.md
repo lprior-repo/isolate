@@ -41,10 +41,10 @@ Multi-platform builds with matrix strategy:
 
 | Platform | Target Triple | Binary |
 |----------|--------------|--------|
-| Linux x86_64 | x86_64-unknown-linux-gnu | jjz-x86_64-unknown-linux-gnu.tar.gz |
-| Linux ARM64 | aarch64-unknown-linux-gnu | jjz-aarch64-unknown-linux-gnu.tar.gz |
-| macOS Intel | x86_64-apple-darwin | jjz-x86_64-apple-darwin.tar.gz |
-| macOS Apple Silicon | aarch64-apple-darwin | jjz-aarch64-apple-darwin.tar.gz |
+| Linux x86_64 | x86_64-unknown-linux-gnu | zjj-x86_64-unknown-linux-gnu.tar.gz |
+| Linux ARM64 | aarch64-unknown-linux-gnu | zjj-aarch64-unknown-linux-gnu.tar.gz |
+| macOS Intel | x86_64-apple-darwin | zjj-x86_64-apple-darwin.tar.gz |
+| macOS Apple Silicon | aarch64-apple-darwin | zjj-aarch64-apple-darwin.tar.gz |
 
 **For each platform:**
 - Native or cross-compilation build
@@ -160,26 +160,26 @@ git push origin v0.1.0
 
 **Linux x86_64:**
 ```bash
-curl -L https://github.com/lprior-repo/zjj/releases/latest/download/jjz-x86_64-unknown-linux-gnu.tar.gz | tar xz
-sudo mv jjz /usr/local/bin/
+curl -L https://github.com/lprior-repo/zjj/releases/latest/download/zjj-x86_64-unknown-linux-gnu.tar.gz | tar xz
+sudo mv zjj /usr/local/bin/
 ```
 
 **Linux ARM64:**
 ```bash
-curl -L https://github.com/lprior-repo/zjj/releases/latest/download/jjz-aarch64-unknown-linux-gnu.tar.gz | tar xz
-sudo mv jjz /usr/local/bin/
+curl -L https://github.com/lprior-repo/zjj/releases/latest/download/zjj-aarch64-unknown-linux-gnu.tar.gz | tar xz
+sudo mv zjj /usr/local/bin/
 ```
 
 **macOS Intel:**
 ```bash
-curl -L https://github.com/lprior-repo/zjj/releases/latest/download/jjz-x86_64-apple-darwin.tar.gz | tar xz
-sudo mv jjz /usr/local/bin/
+curl -L https://github.com/lprior-repo/zjj/releases/latest/download/zjj-x86_64-apple-darwin.tar.gz | tar xz
+sudo mv zjj /usr/local/bin/
 ```
 
 **macOS Apple Silicon:**
 ```bash
-curl -L https://github.com/lprior-repo/zjj/releases/latest/download/jjz-aarch64-apple-darwin.tar.gz | tar xz
-sudo mv jjz /usr/local/bin/
+curl -L https://github.com/lprior-repo/zjj/releases/latest/download/zjj-aarch64-apple-darwin.tar.gz | tar xz
+sudo mv zjj /usr/local/bin/
 ```
 
 ## CI/CD Pipeline Integration

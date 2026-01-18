@@ -949,103 +949,157 @@ pub fn cmd_config() -> Command {
         .alias("cfg")
         .about("View or modify configuration")
         .long_about(
-            "View or Modify Configuration\n\
+            "Configuration Management\n\
              \n\
              CONFIGURATION SCOPES:\n\
-             • Project: .zjj/config.toml (default)\n  \
+             • Project: .zjj/config.toml (default)\n\
              • Global: ~/.config/zjj/config.toml (with --global)\n\
              \n\
              COMMON SETTINGS:\n\
-             • workspace_dir: Where JJ workspaces are created\n  \
-             • default_template: Default Zellij layout (minimal/standard/full/split/review)\n  \
-             • hooks.post_create: Commands to run after session creation\n  \
-             • hooks.pre_remove: Commands to run before session removal\n  \
+             • workspace_dir: Where JJ workspaces are created\n\
+             • default_template: Default Zellij layout (minimal/standard/full/split/review)\n\
+             • hooks.post_create: Commands to run after session creation\n\
+             • hooks.pre_remove: Commands to run before session removal\n\
              • zellij.use_tabs: Whether to use tabs or panes\n\
              \n\
              KEY FORMAT:\n\
-             Use dot notation to access nested values:\n  \
-             • 'workspace_dir' - top-level key\n  \
-             • 'hooks.post_create' - nested key\n  \
-             • 'zellij.use_tabs' - nested boolean\n\
-             \n\
-             RELATED COMMANDS:\n  \
-             • zjj init      - Initialize with default config\n  \
-             • zjj doctor    - Validate system configuration",
+             Use dot notation to access nested values:\n\
+             • 'workspace_dir' - top-level key\n\
+             • 'hooks.post_create' - nested key\n\
+             • 'zellij.use_tabs' - nested boolean",
         )
-        .arg(Arg::new("key").help("Config key to view/set (dot notation: 'zellij.use_tabs')"))
-        .arg(Arg::new("value").help("Value to set (omit to view)"))
-        .arg(
-            Arg::new("global")
-                .long("global")
-                .short('g')
-                .action(clap::ArgAction::SetTrue)
-                .help("Operate on global config instead of project"),
+        .subcommand(
+            Command::new("view")
+                .about("View all configuration settings")
+                .long_about(
+                    "View All Configuration Settings\n\
+                     \n\
+                     Shows all configuration values from both project and global config.\n\
+                     Use --json for machine-readable output.",
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
         )
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
+        .subcommand(
+            Command::new("get")
+                .about("Get specific configuration value")
+                .long_about(
+                    "Get Specific Configuration Value\n\
+                     \n\
+                     Retrieves a single configuration value by key.\n\
+                     Use dot notation for nested keys (e.g., 'hooks.post_create').",
+                )
+                .arg(
+                    Arg::new("key")
+                        .required(true)
+                        .help("Configuration key to retrieve (dot notation: 'zellij.use_tabs')"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
         )
-        .arg(
-            Arg::new("validate")
-                .long("validate")
-                .action(clap::ArgAction::SetTrue)
-                .help("Validate configuration without modifying"),
+        .subcommand(
+            Command::new("set")
+                .about("Set configuration value")
+                .long_about(
+                    "Set Configuration Value\n\
+                     \n\
+                     Updates a configuration value, either in project or global config.\n\
+                     Use --global to modify the global config instead of project config.",
+                )
+                .arg(
+                    Arg::new("key")
+                        .required(true)
+                        .help("Configuration key to set (dot notation: 'hooks.post_create')"),
+                )
+                .arg(Arg::new("value").required(true).help("Value to set"))
+                .arg(
+                    Arg::new("global")
+                        .long("global")
+                        .short('g')
+                        .action(ArgAction::SetTrue)
+                        .help("Set in global config instead of project config"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(ArgAction::SetTrue)
+                        .help("Output result as JSON"),
+                ),
+        )
+        .subcommand(
+            Command::new("validate")
+                .about("Validate configuration integrity")
+                .long_about(
+                    "Validate Configuration Integrity\n\
+                     \n\
+                     Checks configuration for errors and potential issues.\n\
+                     Reports validation errors and warnings.",
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(ArgAction::SetTrue)
+                        .help("Output validation results as JSON"),
+                ),
         )
         .after_help(
-            "EXAMPLES:\n  \
-             # View all config\n  \
-             zjj config\n\
-             \n  \
-             # Get specific value\n  \
-             zjj config workspace_dir\n\
-             \n  \
-             # Set value\n  \
-             zjj config workspace_dir /custom/path\n\
-             \n  \
-             # Set nested value\n  \
-             zjj config hooks.post_create 'npm install'\n\
-             \n  \
-             # Validate config\n  \
-             zjj config --validate\n\
-             \n  \
-             # JSON output\n  \
-             zjj config --json\n\
-             \n  \
-             # Global configuration\n  \
-             zjj config --global default_template standard\n\
+            "EXAMPLES:\n\
              \n\
-             COMMON USE CASES:\n  \
-             View all settings:        zjj config --json\n  \
-             Change workspace dir:     zjj config workspace_dir ~/workspaces\n  \
-             Set default template:     zjj config default_template minimal\n  \
-             Add post-create hook:     zjj config hooks.post_create 'make setup'\n\
+             # View all settings\n\
+             zjj config view\n\
+             zjj config view --json\n\
              \n\
-             AI AGENT EXAMPLES:\n  \
-             # Get all configuration as JSON\n  \
-             zjj config --json\n\
-             \n  \
-             # Extract specific setting\n  \
-             zjj config workspace_dir --json | jq -r '.workspace_dir'\n\
-             \n  \
-             # Validate before modifying\n  \
-             zjj config --validate --json\n\
-             \n  \
-             # Set configuration programmatically\n  \
-             zjj config workspace_dir /custom/path --json\n\
-             \n  \
-             # Check if hooks are configured\n  \
-             zjj config --json | jq 'has(\"hooks\")'\n\
+             # Get specific setting\n\
+             zjj config get workspace_dir\n\
+             zjj config get sync_strategy --json\n\
              \n\
-             WORKFLOW CONTEXT FOR AI:\n  \
-             AI agents should:\n  \
-             • Use --json to parse configuration programmatically\n  \
-             • Validate config before making changes (--validate)\n  \
-             • Check workspace_dir to understand session locations\n  \
-             • Respect user's default_template for session creation\n  \
-             • Be aware of hooks that may affect operations\n  \
-             • Use --global for user-wide defaults vs project-specific settings",
+             # Set a value\n\
+             zjj config set workspace_dir /custom/path\n\
+             zjj config set default_template standard --global\n\
+             \n\
+             # Validate configuration\n\
+             zjj config validate\n\
+             zjj config validate --json\n\
+             \n\
+             COMMON USE CASES:\n\
+             View all settings:        zjj config view --json\n\
+             Change workspace dir:     zjj config set workspace_dir ~/workspaces\n\
+             Set default template:     zjj config set default_template minimal\n\
+             Add post-create hook:     zjj config set hooks.post_create 'make setup'\n\
+             \n\
+             AI AGENT USAGE:\n\
+             # Get all configuration as JSON\n\
+             zjj config view --json\n\
+             \n\
+             # Extract specific setting\n\
+             zjj config get workspace_dir --json\n\
+             \n\
+             # Validate before modifying\n\
+             zjj config validate --json\n\
+             \n\
+             # Set configuration programmatically\n\
+             zjj config set workspace_dir /custom/path --json\n\
+             \n\
+             WORKFLOW CONTEXT FOR AI:\n\
+             AI agents should:\n\
+             • Use --json to parse configuration programmatically\n\
+             • Validate config before making changes (validate subcommand)\n\
+             • Check workspace_dir to understand session locations\n\
+             • Respect user's default_template for session creation\n\
+             • Be aware of hooks that may affect operations\n\
+             • Use --global for user-wide defaults vs project-specific settings\n\
+             \n\
+             RELATED COMMANDS:\n\
+             • zjj init      - Initialize with default config\n\
+             • zjj doctor    - Validate system configuration",
         )
 }
 
@@ -1053,6 +1107,77 @@ pub fn cmd_dashboard() -> Command {
     Command::new("dashboard")
         .about("Launch interactive TUI dashboard with kanban view")
         .alias("dash")
+        .long_about(
+            "Launch Interactive TUI Dashboard\n\
+             \n\
+             WHAT IT DOES:\n\
+             • Displays all sessions in kanban board layout\n\
+             • Shows session status, current branches, and workspace health\n\
+             • Provides interactive navigation and actions\n\
+             • Real-time updates of session states\n\
+             \n\
+             PREREQUISITES:\n\
+             • Must be inside Zellij session\n\
+             • zjj must be initialized (zjj init)\n\
+             • Terminal must support TUI rendering\n\
+             \n\
+             PURPOSE:\n\
+             Visual overview of all development sessions with:\n\
+             • Quick status assessment across sessions\n\
+             • Interactive session management\n\
+             • Workspace health monitoring\n\
+             • Branch and sync status visualization\n\
+             \n\
+             USE CASES:\n\
+             • Daily standup preparation - see all active work\n\
+             • Context switching - find session to focus on\n\
+             • Session health monitoring\n\
+             • Project status overview\n\
+             \n\
+             RELATED COMMANDS:\n\
+             • zjj list       - Text-based session list\n\
+             • zjj status     - Detailed single session status\n\
+             • zjj context    - Full environment context for AI",
+        )
+        .after_help(
+            "EXAMPLES:\n\
+             \n\
+             # Launch dashboard (most common usage)\n\
+             zjj dashboard\n\
+             zjj dash  # Using alias\n\
+             \n\
+             COMMON USE CASES:\n\
+             \n\
+             1. Morning Standup:\n\
+                zjj dashboard\n\
+                # Visual overview of all active sessions and their states\n\
+             \n\
+             2. Find Session to Resume:\n\
+                zjj dashboard\n\
+                # Navigate with arrow keys, press 'f' to focus on session\n\
+             \n\
+             3. Monitor Multiple Feature Branches:\n\
+                zjj dashboard\n\
+                # See sync status and commit counts across sessions\n\
+             \n\
+             AI AGENT EXAMPLES:\n\
+             \n\
+             # AI agents should use programmatic alternatives:\n\
+             zjj list --json          # Get session data programmatically\n\
+             zjj context --json       # Get full context as JSON\n\
+             \n\
+             WORKFLOW CONTEXT FOR AI:\n\
+             \n\
+             Dashboard is for human visual interface. AI agents should:\n\
+             • Use 'zjj list --json' for session enumeration\n\
+             • Use 'zjj context --json' for comprehensive state\n\
+             • Use 'zjj status <session> --json' for specific session details\n\
+             \n\
+             Dashboard provides visual kanban board that humans use for:\n\
+             • Quick visual scanning of session health\n\
+             • Interactive keyboard-driven session management\n\
+             • Context switching with visual confirmation",
+        )
 }
 
 pub fn cmd_context() -> Command {

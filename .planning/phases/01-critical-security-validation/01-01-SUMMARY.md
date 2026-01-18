@@ -85,7 +85,7 @@ Implemented `validate_workspace_path` function that prevents directory traversal
 
 ### Patterns Allowed
 
-- `.jjz/workspaces` (inside repo) → **ALLOWED**
+- `.zjj/workspaces` (inside repo) → **ALLOWED**
 - `workspaces` (inside repo) → **ALLOWED**
 - `../{repo}__workspaces` (1 `..` component) → **ALLOWED** (default pattern)
 - `../custom_workspaces/{repo}` (1 `..` component) → **ALLOWED**
@@ -212,7 +212,7 @@ Both are valid security rejections.
 
 ```bash
 # Attack blocked
-$ echo 'workspace_dir = "../../../../../../../tmp/evil"' > .jjz/config.toml
+$ echo 'workspace_dir = "../../../../../../../tmp/evil"' > .zjj/config.toml
 $ jjz add test --no-open
 Error: Security: workspace_dir uses excessive parent directory references (DEBT-04)
 
@@ -221,7 +221,7 @@ Parent directory levels: 7 (maximum allowed: 1)
 ...
 
 # Valid pattern works
-$ echo 'workspace_dir = "../test-repo__workspaces"' > .jjz/config.toml
+$ echo 'workspace_dir = "../test-repo__workspaces"' > .zjj/config.toml
 $ jjz add test --no-open
 ✓ Created workspace test
 ```

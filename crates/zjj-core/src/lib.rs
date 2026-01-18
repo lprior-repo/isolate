@@ -27,6 +27,7 @@
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+#![allow(clippy::doc_markdown)]
 
 pub mod beads;
 pub mod build_lock;

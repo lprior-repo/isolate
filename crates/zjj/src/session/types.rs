@@ -19,7 +19,7 @@ pub struct Session {
     pub status: SessionStatus,
     /// Path to the JJ workspace directory
     pub workspace_path: String,
-    /// Zellij tab name (format: `jjz:NAME`)
+    /// Zellij tab name (format: `zjj:NAME`)
     pub zellij_tab: String,
     /// Git branch associated with this session
     #[serde(skip_serializing_if = "Option::is_none")]

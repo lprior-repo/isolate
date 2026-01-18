@@ -37,7 +37,7 @@ mod tests {
     #[test]
     fn test_introspect_output_new() {
         let output = IntrospectOutput::new("0.1.0");
-        assert_eq!(output.jjz_version, "0.1.0");
+        assert_eq!(output.zjj_version, "0.1.0");
         assert!(!output.capabilities.session_management.commands.is_empty());
     }
 

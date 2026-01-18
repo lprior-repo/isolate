@@ -25,16 +25,51 @@ pub async fn run_cli() -> Result<()> {
         Some(("sync", sub_m)) => crate::cli::dispatch::handle_sync_cmd(sub_m).await,
         Some(("diff", sub_m)) => crate::cli::dispatch::handle_diff_cmd(sub_m).await,
         Some(("agent", sub_m)) => crate::cli::dispatch::handle_agent_cmd(sub_m).await,
-        Some(("config", sub_m)) => {
-            config::run(config::ConfigOptions {
-                key: sub_m.get_one::<String>("key").cloned(),
-                value: sub_m.get_one::<String>("value").cloned(),
-                global: sub_m.get_flag("global"),
-                json: sub_m.get_flag("json"),
-                validate: sub_m.get_flag("validate"),
-            })
-            .await
-        }
+        Some(("config", sub_m)) => match sub_m.subcommand() {
+            Some(("view", view_m)) => {
+                config::run(config::ConfigOptions {
+                    key: None,
+                    value: None,
+                    global: false,
+                    json: view_m.get_flag("json"),
+                    validate: false,
+                })
+                .await
+            }
+            Some(("get", get_m)) => {
+                config::run(config::ConfigOptions {
+                    key: get_m.get_one::<String>("key").cloned(),
+                    value: None,
+                    global: false,
+                    json: get_m.get_flag("json"),
+                    validate: false,
+                })
+                .await
+            }
+            Some(("set", set_m)) => {
+                config::run(config::ConfigOptions {
+                    key: set_m.get_one::<String>("key").cloned(),
+                    value: set_m.get_one::<String>("value").cloned(),
+                    global: set_m.get_flag("global"),
+                    json: set_m.get_flag("json"),
+                    validate: false,
+                })
+                .await
+            }
+            Some(("validate", validate_m)) => {
+                config::run(config::ConfigOptions {
+                    key: None,
+                    value: None,
+                    global: false,
+                    json: validate_m.get_flag("json"),
+                    validate: true,
+                })
+                .await
+            }
+            _ => {
+                anyhow::bail!("Unknown config subcommand. Try 'zjj config --help'")
+            }
+        },
         Some(("context" | "ctx", sub_m)) => {
             let cmd = matches
                 .subcommand_name()

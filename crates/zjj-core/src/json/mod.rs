@@ -3,7 +3,7 @@
 //! This module provides consistent JSON output formats across all commands,
 //! organized into logical layers:
 //!
-//! - **types**: Core data structures (JsonSuccess, JsonError, ErrorDetail, ErrorCode)
+//! - **types**: Core data structures (`JsonSuccess`, `JsonError`, `ErrorDetail`, `ErrorCode`)
 //! - **builders**: Error construction and conversion utilities
 //! - **serialization**: Generic JSON serialization trait and helpers
 //! - **schema**: Schema versioning for API outputs

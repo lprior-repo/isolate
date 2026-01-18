@@ -2,6 +2,18 @@
 
 ## Critical Rules
 
+### Code Searching: Codanna Only
+**ABSOLUTE RULE: Use Codanna for ALL code and documentation searching. NEVER use bash grep, find, or native Claude search tools.**
+
+Use only:
+- `mcp__codanna__semantic_search_with_context` - Find and understand symbols with full context
+- `mcp__codanna__semantic_search_docs` - Search project documentation
+- `mcp__codanna__find_symbol` - Locate exact symbols by name
+- `mcp__codanna__search_symbols` - Search symbols with filters
+- `mcp__codanna__analyze_impact` - Understand symbol dependencies
+
+No bash grep, no Glob, no Grep tool. Codanna is the source of truth.
+
 ### NEVER Touch Clippy/Lint Configuration
 **ABSOLUTE RULE: DO NOT MODIFY clippy or linting configuration files. EVER.**
 

@@ -66,7 +66,7 @@ pub fn check_in_jj_repo() -> Result<PathBuf> {
     zjj_core::jj::check_in_jj_repo().map_err(|_| {
         anyhow::anyhow!(
             "Not in a JJ repository.\n\n\
-            Run 'jjz init' to initialize JJ and ZJJ in this directory."
+            Run 'zjj init' to initialize JJ and ZJJ in this directory."
         )
     })
 }
@@ -100,7 +100,7 @@ pub fn check_prerequisites() -> Result<PathBuf> {
 /// - Unable to determine current directory
 /// - No .zjj directory found in any parent directory
 /// - .zjj exists but is not a directory
-fn find_jjz_root() -> Result<PathBuf> {
+fn find_zjj_root() -> Result<PathBuf> {
     let current_dir = std::env::current_dir().context("Failed to determine current directory")?;
 
     let mut current = current_dir.as_path();
@@ -123,15 +123,15 @@ fn find_jjz_root() -> Result<PathBuf> {
             Some(parent) => parent,
             None => {
                 anyhow::bail!(
-                    "Not in a jjz repository (no .zjj directory found).\n\n\
-                    Run 'jjz init' to initialize ZJJ in this directory."
+                    "Not in a zjj repository (no .zjj directory found).\n\n\
+                    Run 'zjj init' to initialize ZJJ in this directory."
                 );
             }
         };
     }
 }
 
-/// Get the ZJZ data directory for the current repository
+/// Get the ZJJ data directory for the current repository
 ///
 /// This function finds the .zjj directory WITHOUT requiring jj to be installed.
 /// It walks up the filesystem tree looking for a .zjj directory.
@@ -140,7 +140,7 @@ fn find_jjz_root() -> Result<PathBuf> {
 ///
 /// Returns an error if no .zjj directory is found in any parent directory
 pub fn zjj_data_dir() -> Result<PathBuf> {
-    let root = find_jjz_root()?;
+    let root = find_zjj_root()?;
     Ok(root.join(".zjj"))
 }
 
@@ -159,7 +159,7 @@ pub async fn get_session_db() -> Result<SessionDb> {
 
     anyhow::ensure!(
         data_dir.exists(),
-        "ZJJ not initialized. Run 'jjz init' first."
+        "ZJJ not initialized. Run 'zjj init' first."
     );
 
     let db_path = data_dir.join("state.db");
@@ -284,6 +284,7 @@ mod tests {
                 assert!(
                     msg.contains("JJ is not installed")
                         || msg.contains("Not in a JJ repository")
+                        || msg.contains("Not in a zjj repository")
                         || msg.contains("ZJJ not initialized")
                         || msg.contains("Failed to execute jj")
                         || msg.contains("Failed to open session database")
@@ -312,11 +313,11 @@ mod tests {
         let repo_err = check_in_jj_repo();
         if let Err(e) = repo_err {
             let msg = e.to_string();
-            // If we get the "not in repo" error, it should mention jjz init
+            // If we get the "not in repo" error, it should mention zjj init
             if msg.contains("Not in a JJ repository") {
                 assert!(
-                    msg.contains("jjz init"),
-                    "Repository error should mention 'jjz init'"
+                    msg.contains("zjj init"),
+                    "Repository error should mention 'zjj init'"
                 );
             }
         }

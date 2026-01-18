@@ -1,7 +1,7 @@
 //! Common test helpers and fixtures for integration tests
 //!
 //! This module provides utilities for setting up test environments,
-//! running jjz commands, and making assertions about the results.
+//! running zjj commands, and making assertions about the results.
 
 #![allow(dead_code)]
 #![allow(clippy::unused_self)]
@@ -23,13 +23,13 @@ pub fn jj_is_available() -> bool {
 /// Test harness for integration tests
 ///
 /// Provides a clean temporary environment with a JJ repository
-/// and utilities to execute jjz commands.
+/// and utilities to execute zjj commands.
 pub struct TestHarness {
     /// Temporary directory for the test (kept for automatic cleanup on drop)
     _temp_dir: TempDir,
     /// Path to the JJ repository root
     pub repo_path: PathBuf,
-    /// Path to the jjz binary
+    /// Path to the zjj binary
     jjz_bin: PathBuf,
 }
 
@@ -95,7 +95,7 @@ impl TestHarness {
         Self::new().ok()
     }
 
-    /// Run a jjz command and return the result
+    /// Run a zjj command and return the result
     pub fn zjj(&self, args: &[&str]) -> CommandResult {
         Command::new(&self.zjj_bin)
             .args(args)
@@ -119,12 +119,12 @@ impl TestHarness {
             )
     }
 
-    /// Run a jjz command and assert it succeeds
+    /// Run a zjj command and assert it succeeds
     pub fn assert_success(&self, args: &[&str]) {
         let result = self.zjj(args);
         assert!(
             result.success,
-            "Command failed: jjz {}\nStderr: {}\nStdout: {}",
+            "Command failed: zjj {}\nStderr: {}\nStdout: {}",
             args.join(" "),
             result.stderr,
             result.stdout
@@ -229,12 +229,12 @@ impl TestHarness {
         assert!(!path.exists(), "File should not exist: {}", path.display());
     }
 
-    /// Run a jjz command and assert it fails with expected error
+    /// Run a zjj command and assert it fails with expected error
     pub fn assert_failure(&self, args: &[&str], expected_error: &str) {
         let result = self.zjj(args);
         assert!(
             !result.success,
-            "Command should have failed: jjz {}\nStdout: {}",
+            "Command should have failed: zjj {}\nStdout: {}",
             args.join(" "),
             result.stdout
         );
@@ -299,7 +299,7 @@ impl TestHarness {
         std::fs::write(file_path, content).context("Failed to create file")
     }
 
-    /// Set an environment variable for the next command
+    /// Set an environment variable for the next zjj command
     pub fn jjz_with_env(&self, args: &[&str], env_vars: &[(&str, &str)]) -> CommandResult {
         let mut cmd = Command::new(&self.zjj_bin);
         cmd.args(args)

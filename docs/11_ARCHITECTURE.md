@@ -9,8 +9,8 @@ A **session** = JJ workspace + Zellij tab + SQLite record
 ```
 Session "feature-auth"
 ├── JJ workspace: /workspaces/feature-auth/
-├── Zellij tab: jjz:feature-auth
-└── Database record: .jjz/sessions.db
+├── Zellij tab: zjj:feature-auth
+└── Database record: .zjj/sessions.db
 ```
 
 ## Project Structure
@@ -43,7 +43,7 @@ pub struct Session {
     pub name: String,              // [a-zA-Z][a-zA-Z0-9_-]{0,63}
     pub status: SessionStatus,     // Creating|Active|Paused|Completed|Failed
     pub workspace_path: String,
-    pub zellij_tab: String,        // "jjz:<name>"
+    pub zellij_tab: String,        // "zjj:<name>"
     pub branch: Option<String>,
     pub created_at: u64,
     pub updated_at: u64,
@@ -84,7 +84,7 @@ CREATE INDEX idx_name ON sessions(name);
 
 | Command | Purpose |
 |---------|---------|
-| `init` | Initialize `.jjz/sessions.db` |
+| `init` | Initialize `.zjj/sessions.db` |
 | `add <name>` | Create session (workspace + tab + record) |
 | `list` | List sessions |
 | `remove <name>` | Cleanup session |
@@ -106,9 +106,9 @@ CREATE INDEX idx_name ON sessions(name);
 - `jj status`, `jj diff`: Status reporting
 
 ### Zellij
-- `zellij action go-to-tab-name jjz:<name>`: Tab switching
-- `zellij action new-tab --name jjz:<name>`: Create tab
-- Tab naming: `jjz:<session-name>` for isolation
+- `zellij action go-to-tab-name zjj:<name>`: Tab switching
+- `zellij action new-tab --name zjj:<name>`: Create tab
+- Tab naming: `zjj:<session-name>` for isolation
 
 ### Beads
 - Session metadata stores Beads issue ID
@@ -145,9 +145,9 @@ pub enum Error {
 
 **User messages** include context, cause, and solution:
 ```
-Error: Database file does not exist: /path/to/.jjz/sessions.db
+Error: Database file does not exist: /path/to/.zjj/sessions.db
 
-Run 'jjz init' to initialize ZJJ in this repository.
+Run 'zjj init' to initialize ZJJ in this repository.
 ```
 
 ## Configuration
@@ -155,11 +155,11 @@ Run 'jjz init' to initialize ZJJ in this repository.
 **Hierarchy** (highest to lowest priority):
 1. Command-line flags
 2. Environment variables (`ZJJ_*`)
-3. Project config (`.jjz/config.toml`)
+3. Project config (`.zjj/config.toml`)
 4. Global config (`~/.config/zjj/config.toml`)
 5. Defaults
 
-**Example** (`.jjz/config.toml`):
+**Example** (`.zjj/config.toml`):
 ```toml
 workspace_dir = "/path/to/workspaces"
 
@@ -174,10 +174,10 @@ post_create = "echo 'Session created'"
 
 | Hook | When | Environment Variables |
 |------|------|----------------------|
-| `post_create` | After `jjz add` | `$SESSION_NAME`, `$WORKSPACE_PATH` |
-| `pre_remove` | Before `jjz remove` | `$SESSION_NAME` |
-| `post_sync` | After `jjz sync` | `$SESSION_NAME` |
-| `on_focus` | After `jjz focus` | `$SESSION_NAME` |
+| `post_create` | After `zjj add` | `$SESSION_NAME`, `$WORKSPACE_PATH` |
+| `pre_remove` | Before `zjj remove` | `$SESSION_NAME` |
+| `post_sync` | After `zjj sync` | `$SESSION_NAME` |
+| `on_focus` | After `zjj focus` | `$SESSION_NAME` |
 
 ## Example Workflow
 
@@ -186,7 +186,7 @@ post_create = "echo 'Session created'"
 bd claim BD-456
 
 # 2. Create session
-jjz add feature-new-api
+zjj add feature-new-api
 
 # 3. Work (JJ tracks changes automatically)
 vim src/api.rs
@@ -198,10 +198,10 @@ Closes BD-456"
 moon run :test
 
 # 5. Sync with main
-jjz sync feature-new-api
+zjj sync feature-new-api
 
 # 6. Merge and cleanup
-jjz remove feature-new-api -m
+zjj remove feature-new-api -m
 
 # 7. Close issue
 bd complete BD-456

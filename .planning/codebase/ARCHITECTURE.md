@@ -58,7 +58,7 @@
 9. Response: JSON or human-readable output via json_output.rs
 
 **State Management:**
-- All session state persists in SQLite (`~/.jjz/sessions.db`)
+- All session state persists in SQLite (`~/.zjj/sessions.db`)
 - No in-memory cache (database is source of truth)
 - Connection pooling prevents lock contention (min 1, max 5 connections)
 - Timestamps auto-updated via SQLite trigger

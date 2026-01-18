@@ -136,7 +136,7 @@ Create a local development configuration:
 ```bash
 # Set environment variables (optional)
 export RUST_LOG=debug          # Enable debug logging
-export ZJJ_DB_PATH=".jjz/sessions.db"  # Custom database path
+export ZJJ_DB_PATH=".zjj/sessions.db"  # Custom database path
 export RUST_BACKTRACE=1        # Full backtraces
 ```
 

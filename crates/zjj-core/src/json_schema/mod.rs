@@ -9,7 +9,7 @@
 //!
 //! ## Module Organization
 //!
-//! - **types**: Core JSON schema data structures (JsonSchema, PropertySchema)
+//! - **types**: Core JSON schema data structures (`JsonSchema`, `PropertySchema`)
 //! - **builders**: Builder methods for fluent API construction
 //! - **generators**: Schema generators for specific command outputs
 

@@ -15,7 +15,7 @@ zjj/
 ├── schemas/             # JSON schemas for configuration
 ├── scripts/             # Build/release automation
 ├── .beads/              # Beads issue tracking database
-├── .jjz/                # Session state (created by jjz init)
+├── .zjj/                # Session state (created by jjz init)
 ├── Cargo.toml           # Workspace manifest
 ├── moon.yml             # Moon build configuration (REQUIRED - use moon, not cargo)
 ├── .clippy.toml         # Clippy lint rules (DO NOT MODIFY)
@@ -55,7 +55,7 @@ zjj/
 - Generated: Yes (by Beads CLI)
 - Committed: Yes (SQLite file is version controlled)
 
-**.jjz/**
+**.zjj/**
 - Purpose: Session state storage
 - Contains: sessions.db (SQLite), backups/, config.toml
 - Generated: Yes (by `jjz init`)

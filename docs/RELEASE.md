@@ -1,6 +1,6 @@
 # Release Process
 
-This document describes the release process for ZJJ (jjz).
+This document describes the release process for ZJJ (zjj).
 
 ## Overview
 
@@ -80,10 +80,10 @@ ZJJ follows [Semantic Versioning 2.0.0](https://semver.org/):
 Each release includes:
 
 ### Binaries
-- `jjz-x86_64-unknown-linux-gnu.tar.gz` - Linux x86_64
-- `jjz-aarch64-unknown-linux-gnu.tar.gz` - Linux ARM64
-- `jjz-x86_64-apple-darwin.tar.gz` - macOS Intel
-- `jjz-aarch64-apple-darwin.tar.gz` - macOS Apple Silicon
+- `zjj-x86_64-unknown-linux-gnu.tar.gz` - Linux x86_64
+- `zjj-aarch64-unknown-linux-gnu.tar.gz` - Linux ARM64
+- `zjj-x86_64-apple-darwin.tar.gz` - macOS Intel
+- `zjj-aarch64-apple-darwin.tar.gz` - macOS Apple Silicon
 
 ### Checksums
 - `*.tar.gz.sha256` - SHA256 checksums for verification
@@ -99,26 +99,26 @@ Installation instructions are automatically included in each release. Users can 
 
 ### Linux (x86_64)
 ```bash
-curl -L https://github.com/lprior-repo/zjj/releases/latest/download/jjz-x86_64-unknown-linux-gnu.tar.gz | tar xz
-sudo mv jjz /usr/local/bin/
+curl -L https://github.com/lprior-repo/zjj/releases/latest/download/zjj-x86_64-unknown-linux-gnu.tar.gz | tar xz
+sudo mv zjj /usr/local/bin/
 ```
 
 ### Linux (ARM64)
 ```bash
-curl -L https://github.com/lprior-repo/zjj/releases/latest/download/jjz-aarch64-unknown-linux-gnu.tar.gz | tar xz
-sudo mv jjz /usr/local/bin/
+curl -L https://github.com/lprior-repo/zjj/releases/latest/download/zjj-aarch64-unknown-linux-gnu.tar.gz | tar xz
+sudo mv zjj /usr/local/bin/
 ```
 
 ### macOS (Intel)
 ```bash
-curl -L https://github.com/lprior-repo/zjj/releases/latest/download/jjz-x86_64-apple-darwin.tar.gz | tar xz
-sudo mv jjz /usr/local/bin/
+curl -L https://github.com/lprior-repo/zjj/releases/latest/download/zjj-x86_64-apple-darwin.tar.gz | tar xz
+sudo mv zjj /usr/local/bin/
 ```
 
 ### macOS (Apple Silicon)
 ```bash
-curl -L https://github.com/lprior-repo/zjj/releases/latest/download/jjz-aarch64-apple-darwin.tar.gz | tar xz
-sudo mv jjz /usr/local/bin/
+curl -L https://github.com/lprior-repo/zjj/releases/latest/download/zjj-aarch64-apple-darwin.tar.gz | tar xz
+sudo mv zjj /usr/local/bin/
 ```
 
 ## Verifying Downloads
@@ -127,11 +127,11 @@ Users should verify checksums after downloading:
 
 ```bash
 # Download checksum file
-curl -L -o jjz.tar.gz.sha256 \
-  https://github.com/lprior-repo/zjj/releases/latest/download/jjz-x86_64-unknown-linux-gnu.tar.gz.sha256
+curl -L -o zjj.tar.gz.sha256 \
+  https://github.com/lprior-repo/zjj/releases/latest/download/zjj-x86_64-unknown-linux-gnu.tar.gz.sha256
 
 # Verify checksum
-sha256sum -c jjz.tar.gz.sha256
+sha256sum -c zjj.tar.gz.sha256
 ```
 
 ## Build Configuration

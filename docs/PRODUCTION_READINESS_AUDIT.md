@@ -326,7 +326,7 @@ check_zellij_version(">=0.YY.0")?;
 **Impact**: Data loss if database corrupts
 
 **Current State**:
-- `.jjz/sessions.db` is single point of failure
+- `.zjj/sessions.db` is single point of failure
 - No automatic backups
 - `--repair` flag exists but unclear what it does
 - `--force` destroys all data

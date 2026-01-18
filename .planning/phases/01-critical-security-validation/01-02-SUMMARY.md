@@ -91,7 +91,7 @@ let has_root = Path::new(config_workspace_dir)
 
 ### Patterns Still Allowed
 
-- `.jjz/workspaces` → **ALLOWED** (relative, no root)
+- `.zjj/workspaces` → **ALLOWED** (relative, no root)
 - `workspaces` → **ALLOWED** (relative, no root)
 - `../{repo}__workspaces` → **ALLOWED** (1 parent dir)
 
@@ -135,8 +135,8 @@ Security implications:
 
 Suggestions:
 • Reset workspace_dir to default: ../{}__workspaces
-• Or use a path within the repository: .jjz/workspaces
-• Check .jjz/config.toml for tampering
+• Or use a path within the repository: .zjj/workspaces
+• Check .zjj/config.toml for tampering
 ```
 
 ## Performance
@@ -229,7 +229,7 @@ moon run :quick
 
 ```bash
 # Unix absolute path blocked
-$ echo 'workspace_dir = "/tmp/evil"' > .jjz/config.toml
+$ echo 'workspace_dir = "/tmp/evil"' > .zjj/config.toml
 $ jjz add test --no-open
 Error: Security: workspace_dir must be a relative path (DEBT-04)
 ...
@@ -238,12 +238,12 @@ NOT allowed:
 • Absolute Windows paths: C:\workspaces, D:\evil
 
 # Windows absolute path blocked (would be blocked on Windows)
-$ echo 'workspace_dir = "C:\\workspaces"' > .jjz/config.toml
+$ echo 'workspace_dir = "C:\\workspaces"' > .zjj/config.toml
 $ jjz add test --no-open
 Error: Security: workspace_dir must be a relative path (DEBT-04)
 
 # Relative path with parent dir still works
-$ echo 'workspace_dir = "../test__workspaces"' > .jjz/config.toml
+$ echo 'workspace_dir = "../test__workspaces"' > .zjj/config.toml
 $ jjz add test --no-open
 ✓ Created session 'test'
 ```

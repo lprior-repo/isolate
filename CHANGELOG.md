@@ -45,10 +45,10 @@ ZJJ is currently in **alpha** stage (0.x series). Per [SemVer 2.0 Section 4](htt
 
 Complete rename for consistency:
 - **Binary**: `jjz` → `zjj`
-- **Configuration Directory**: `.jjz/` → `.zjj/`
+- **Configuration Directory**: `.zjj/` → `.zjj/`
 - **Session Prefix**: `jjz:` → `zjj:` (configurable)
-- **Database Location**: `.jjz/state.db` → `.zjj/state.db`
-- **Layouts Directory**: `.jjz/layouts/` → `.zjj/layouts/`
+- **Database Location**: `.zjj/state.db` → `.zjj/state.db`
+- **Layouts Directory**: `.zjj/layouts/` → `.zjj/layouts/`
 
 **Impact**: All users must update scripts and shell configurations to use the new binary name.
 
@@ -57,7 +57,7 @@ Complete rename for consistency:
 For existing installations:
 ```bash
 # Manual rename (no backward compatibility layer)
-mv .jjz .zjj
+mv .zjj .zjj
 ```
 
 See [MIGRATION.md](MIGRATION.md) for detailed upgrade instructions.
@@ -69,10 +69,10 @@ See [MIGRATION.md](MIGRATION.md) for detailed upgrade instructions.
   - `jjz add` → `zjj add`
   - All other commands follow the same pattern
 
-- **Configuration and state directory**: `.jjz/` → `.zjj/`
-  - Default config: `.jjz/config.toml` → `.zjj/config.toml`
-  - Session database: `.jjz/state.db` → `.zjj/state.db`
-  - Layouts: `.jjz/layouts/` → `.zjj/layouts/`
+- **Configuration and state directory**: `.zjj/` → `.zjj/`
+  - Default config: `.zjj/config.toml` → `.zjj/config.toml`
+  - Session database: `.zjj/state.db` → `.zjj/state.db`
+  - Layouts: `.zjj/layouts/` → `.zjj/layouts/`
 
 - **Default session prefix**: `jjz:` → `zjj:` in Zellij tabs
   - Configurable via `.zjj/config.toml`
@@ -232,7 +232,7 @@ See [MIGRATION.md](MIGRATION.md) for detailed upgrade instructions.
 
 - **Hardcoded main branch in sync command** (663c730)
   - Use configured main branch instead of hardcoded 'main'
-  - Respects user's `.jjz/config.toml` settings
+  - Respects user's `.zjj/config.toml` settings
   - Auto-detection fallback when config not set
 
 - **COUNT query performance** (zjj-1wq)

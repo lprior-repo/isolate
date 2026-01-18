@@ -280,7 +280,7 @@ mod tests {
             zellij
                 .and_then(|z| z.get("session_prefix"))
                 .and_then(|v| v.as_str()),
-            Some("jjz")
+            Some("zjj")
         );
         assert_eq!(
             zellij

@@ -26,10 +26,10 @@ For a fast uninstall (removes binary only, preserves data):
 cargo uninstall zjj
 
 # If installed manually
-sudo rm /usr/local/bin/jjz
+sudo rm /usr/local/bin/zjj
 
 # Verify removal
-which jjz  # Should return nothing
+which zjj  # Should return nothing
 ```
 
 **Note**: This leaves repository data intact. See [Complete Cleanup](#complete-cleanup) for full removal.
@@ -42,14 +42,14 @@ Before uninstalling, clean up active sessions to prevent orphaned resources.
 
 ```bash
 # List all sessions
-jjz list
+zjj list
 
 # Remove each session individually (preserves branches)
-jjz remove <session-name>
+zjj remove <session-name>
 
 # Or remove all sessions with cleanup
-for session in $(jjz list --json | jq -r '.[].name'); do
-    jjz remove "$session" --force
+for session in $(zjj list --json | jq -r '.[].name'); do
+    zjj remove "$session" --force
 done
 ```
 
@@ -62,7 +62,7 @@ done
 
 ### 2. Remove ZJJ Binary
 
-Remove the `jjz` executable from your system.
+Remove the `zjj` executable from your system.
 
 **If installed via cargo**:
 ```bash
@@ -72,13 +72,13 @@ cargo uninstall zjj
 **If installed via pre-built binary**:
 ```bash
 # Find the binary
-which jjz
+which zjj
 
 # Remove it (typically in /usr/local/bin)
-sudo rm /usr/local/bin/jjz
+sudo rm /usr/local/bin/zjj
 
 # Or if in ~/.cargo/bin
-rm ~/.cargo/bin/jjz
+rm ~/.cargo/bin/zjj
 ```
 
 **If installed from source**:
@@ -90,7 +90,7 @@ cd /path/to/zjj
 cargo uninstall --path crates/zjj
 
 # Or manually remove
-sudo rm /usr/local/bin/jjz
+sudo rm /usr/local/bin/zjj
 ```
 
 ### 3. Remove Repository Data
@@ -104,27 +104,27 @@ Clean up ZJJ-specific files from your repositories.
 cd /path/to/your/repo
 
 # Remove ZJJ directory and all contents
-rm -rf .jjz/
+rm -rf .zjj/
 
 # Verify removal
-ls -la .jjz  # Should show "No such file or directory"
+ls -la .zjj  # Should show "No such file or directory"
 ```
 
 **What gets removed**:
-- `.jjz/sessions.db` - SQLite database with session state
-- `.jjz/state.db` - Additional state database (if using custom config)
-- `.jjz/config.toml` - Repository-specific configuration
-- `.jjz/layouts/` - Custom Zellij layouts (if created)
-- `.jjz/hooks/` - Custom hook scripts (if created)
-- `.jjz/workspaces/` - Workspace directory (if configured to be inside `.jjz/`)
+- `.zjj/sessions.db` - SQLite database with session state
+- `.zjj/state.db` - Additional state database (if using custom config)
+- `.zjj/config.toml` - Repository-specific configuration
+- `.zjj/layouts/` - Custom Zellij layouts (if created)
+- `.zjj/hooks/` - Custom hook scripts (if created)
+- `.zjj/workspaces/` - Workspace directory (if configured to be inside `.zjj/`)
 
 **Automated cleanup for multiple repositories**:
 ```bash
 # Find all repositories with ZJJ initialized
-find ~ -type d -name ".jjz" 2>/dev/null
+find ~ -type d -name ".zjj" 2>/dev/null
 
 # Remove all (use with caution!)
-find ~ -type d -name ".jjz" -exec rm -rf {} + 2>/dev/null
+find ~ -type d -name ".zjj" -exec rm -rf {} + 2>/dev/null
 ```
 
 ### 4. Remove JJ Workspaces
@@ -165,7 +165,7 @@ rm -rf ./workspaces/
 
 # If custom workspace_dir was configured, find and remove
 # Check config first to see where workspaces were stored
-cat .jjz/config.toml | grep workspace_dir
+cat .zjj/config.toml | grep workspace_dir
 
 # Then remove that directory
 rm -rf /path/to/custom/workspace_dir/
@@ -194,11 +194,11 @@ Remove Zellij tabs created by ZJJ.
 **Manual cleanup** (if Zellij is running):
 ```bash
 # Inside Zellij, press: Ctrl+T
-# Navigate to tabs named "jjz:*"
+# Navigate to tabs named "zjj:*"
 # Press: 'x' to close each tab
 
 # Or use Zellij actions to list and close
-zellij action list-tabs | grep 'jjz:' | while read -r tab; do
+zellij action list-tabs | grep 'zjj:' | while read -r tab; do
     zellij action close-tab --tab-name "$tab"
 done
 ```
@@ -268,11 +268,11 @@ Verify complete removal:
 
 ```bash
 # 1. Binary removed
-which jjz
-# Expected: nothing (or "jjz not found")
+which zjj
+# Expected: nothing (or "zjj not found")
 
 # 2. Repository data removed
-ls -la .jjz
+ls -la .zjj
 # Expected: "No such file or directory"
 
 # 3. Global config removed
@@ -297,7 +297,7 @@ which bd zellij jj
 cargo uninstall zjj
 
 # Keeps:
-# - .jjz/ directories (can reinstall and resume)
+# - .zjj/ directories (can reinstall and resume)
 # - JJ workspaces (can manage manually)
 # - Global configuration (will be used if you reinstall)
 ```
@@ -311,7 +311,7 @@ cargo uninstall zjj
 cargo uninstall zjj
 
 # Remove repository data
-find ~ -type d -name ".jjz" -exec rm -rf {} + 2>/dev/null
+find ~ -type d -name ".zjj" -exec rm -rf {} + 2>/dev/null
 
 # Remove global config
 rm -rf ~/.config/zjj/
@@ -326,13 +326,13 @@ rm -rf ~/.config/zjj/
 ```bash
 # Create backup archive
 cd /path/to/repo
-tar -czf zjj-backup-$(date +%Y%m%d).tar.gz .jjz/
+tar -czf zjj-backup-$(date +%Y%m%d).tar.gz .zjj/
 
 # Move backup to safe location
 mv zjj-backup-*.tar.gz ~/backups/
 
 # Then remove
-rm -rf .jjz/
+rm -rf .zjj/
 ```
 
 **Use case**: Want to preserve session history before cleanup.
@@ -348,7 +348,7 @@ cd /path/to/repo
 tar -xzf ~/backups/zjj-backup-YYYYMMDD.tar.gz
 
 # Verify restoration
-jjz list
+zjj list
 ```
 
 ## Troubleshooting
@@ -357,29 +357,29 @@ jjz list
 
 ```bash
 # Check ownership
-ls -la .jjz/
+ls -la .zjj/
 
 # Fix permissions if needed
-chmod -R u+w .jjz/
+chmod -R u+w .zjj/
 
 # Then remove
-rm -rf .jjz/
+rm -rf .zjj/
 ```
 
 ### Issue: Database locked during cleanup
 
 ```bash
 # Find processes using the database
-lsof .jjz/sessions.db
+lsof .zjj/sessions.db
 
 # Or
-fuser .jjz/sessions.db
+fuser .zjj/sessions.db
 
 # Kill hung processes
-pkill jjz
+pkill zjj
 
 # Then remove
-rm -rf .jjz/
+rm -rf .zjj/
 ```
 
 ### Issue: Cannot remove JJ workspace
@@ -414,8 +414,8 @@ zellij attach  # Will start fresh without old tabs
 ```bash
 # Binary was likely installed manually
 # Find and remove manually
-which jjz
-sudo rm $(which jjz)
+which zjj
+sudo rm $(which zjj)
 
 # Or check cargo installation records
 ls ~/.cargo/.crates.toml | grep zjj
@@ -435,11 +435,11 @@ rm /path/to/remaining/file
 
 ```bash
 # List failed sessions
-jjz list --json | jq -r '.[] | select(.status == "failed") | .name'
+zjj list --json | jq -r '.[] | select(.status == "failed") | .name'
 
 # Remove each
-jjz list --json | jq -r '.[] | select(.status == "failed") | .name' | while read -r name; do
-    jjz remove "$name" --force
+zjj list --json | jq -r '.[] | select(.status == "failed") | .name' | while read -r name; do
+    zjj remove "$name" --force
 done
 ```
 
@@ -449,7 +449,7 @@ ZJJ stores data in SQLite databases. Understanding the schema helps with manual 
 
 ### Session Database Schema
 
-**Location**: `.jjz/sessions.db`
+**Location**: `.zjj/sessions.db`
 
 **Tables**:
 ```sql
@@ -482,7 +482,7 @@ CREATE TABLE migrations (
 # Arch Linux: sudo pacman -S sqlite
 
 # Inspect database
-sqlite3 .jjz/sessions.db
+sqlite3 .zjj/sessions.db
 
 # Run queries
 sqlite> .tables
@@ -492,17 +492,17 @@ sqlite> .quit
 
 ### Manual Database Cleanup
 
-**WARNING**: Only do this if `jjz remove` fails and you understand the risks.
+**WARNING**: Only do this if `zjj remove` fails and you understand the risks.
 
 ```bash
 # Remove specific session from database
-sqlite3 .jjz/sessions.db "DELETE FROM sessions WHERE name='session-name';"
+sqlite3 .zjj/sessions.db "DELETE FROM sessions WHERE name='session-name';"
 
 # Remove all sessions
-sqlite3 .jjz/sessions.db "DELETE FROM sessions;"
+sqlite3 .zjj/sessions.db "DELETE FROM sessions;"
 
 # Vacuum to reclaim space
-sqlite3 .jjz/sessions.db "VACUUM;"
+sqlite3 .zjj/sessions.db "VACUUM;"
 ```
 
 ## Files Created by ZJJ
@@ -511,7 +511,7 @@ Complete list of files and directories created by ZJJ:
 
 ### Per-Repository Files
 ```
-.jjz/
+.zjj/
 ├── sessions.db          # Primary session database (always created)
 ├── config.toml          # Repository configuration (optional)
 ├── state.db             # Additional state database (if configured)
@@ -525,7 +525,7 @@ Complete list of files and directories created by ZJJ:
 └── workspaces/          # Workspace directory (if configured here)
     └── <session-name>/  # Per-session workspace
 
-workspaces/              # Default workspace location (outside .jjz/)
+workspaces/              # Default workspace location (outside .zjj/)
 └── <session-name>/      # Per-session workspace directories
 ```
 
@@ -535,21 +535,21 @@ workspaces/              # Default workspace location (outside .jjz/)
 └── config.toml          # Global configuration
 
 ~/.cargo/bin/
-└── jjz                  # Binary (if installed via cargo)
+└── zjj                  # Binary (if installed via cargo)
 
 /usr/local/bin/
-└── jjz                  # Binary (if installed manually)
+└── zjj                  # Binary (if installed manually)
 ```
 
 ### Temporary/Ephemeral Resources
-- **Zellij tabs**: Named `jjz:<session-name>` (removed on Zellij restart)
+- **Zellij tabs**: Named `zjj:<session-name>` (removed on Zellij restart)
 - **JJ workspaces**: Metadata in `.jj/` (forgotten via `jj workspace forget`)
 
 ## Post-Uninstall
 
 After complete uninstall, your system will be restored to:
-- No `jjz` binary
-- No `.jjz/` directories in repositories
+- No `zjj` binary
+- No `.zjj/` directories in repositories
 - No global ZJJ configuration
 - JJ, Zellij, and Beads remain (if not explicitly removed)
 - JJ repositories remain functional (without ZJJ sessions)
@@ -577,7 +577,7 @@ cargo install zjj
 
 # Re-initialize in repository
 cd /path/to/repo
-jjz init
+zjj init
 
 # Sessions are gone, but JJ workspaces may still exist
 jj workspace list

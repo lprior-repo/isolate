@@ -562,7 +562,7 @@ let db = SessionDb::create_or_open(&db_path)?;
 **Step 5: Verify**
 
 ```bash
-sqlite3 .jjz/sessions.db "SELECT * FROM schema_version"
+sqlite3 .zjj/sessions.db "SELECT * FROM schema_version"
 # Should show version 2 with timestamp
 ```
 

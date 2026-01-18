@@ -58,7 +58,7 @@ Phase 01 **ACHIEVED** its goal. All directory traversal attack vectors are now b
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
 | 1 | Workspace paths reject `..` components with clear error | ✓ VERIFIED | Parent dir count validation (add.rs:212-261) rejects >1 parent dir. Error message cites DEBT-04 with examples. Tests: test_reject_workspace_dir_path_traversal, test_deeply_nested_traversal_blocked pass. |
-| 2 | Path canonicalization prevents symlink escapes outside repo | ✓ VERIFIED | validate_no_symlinks (add.rs:264-395) uses canonicalize() to verify .jjz directory stays within repo bounds. Checks all parent components. Test: test_canonicalization_resolves_symlinks passes. |
+| 2 | Path canonicalization prevents symlink escapes outside repo | ✓ VERIFIED | validate_no_symlinks (add.rs:264-395) uses canonicalize() to verify .zjj directory stays within repo bounds. Checks all parent components. Test: test_canonicalization_resolves_symlinks passes. |
 | 3 | Security tests verify boundary enforcement | ✓ VERIFIED | 13/13 security tests passing (was 12/13). test_reject_absolute_path_injection now passes after Component::RootDir|Prefix check added. Full suite runtime: 1.04s. |
 
 **Score:** 3/3 truths verified
@@ -161,8 +161,8 @@ if parent_dir_count > 1 {
 | add.rs run_with_options | validate_workspace_path() | Line 702 | ✓ WIRED | Called before workspace creation. Passes workspace_path, repo_root, config.workspace_dir. Security gate before filesystem modifications. |
 | validate_workspace_path() | Component::RootDir\|Prefix check | Lines 177-179 | ✓ WIRED | First validation stage. Detects Unix (/tmp) and Windows (C:\) absolute paths. Added in 01-02 to close gap. |
 | validate_workspace_path() | Component::ParentDir counting | Lines 215-217 | ✓ WIRED | Second validation stage. Counts parent dir references, rejects >1. Prevents ../../attacks. Added in 01-01. |
-| validate_no_symlinks() | Path::canonicalize() | Lines 351, 358 | ✓ WIRED | Canonicalizes .jjz and repo_root, verifies .jjz stays within repo bounds. Defense in depth against symlink escapes. |
-| security_path_validation.rs | jjz add command | All tests | ✓ WIRED | Tests use TestHarness.jjz() to invoke actual CLI. Integration tests verify end-to-end security. |
+| validate_no_symlinks() | Path::canonicalize() | Lines 351, 358 | ✓ WIRED | Canonicalizes .zjj and repo_root, verifies .zjj stays within repo bounds. Defense in depth against symlink escapes. |
+| security_path_validation.rs | jjz add command | All tests | ✓ WIRED | Tests use TestHarness.zjj() to invoke actual CLI. Integration tests verify end-to-end security. |
 
 ### Attack Vector Coverage
 
@@ -171,7 +171,7 @@ if parent_dir_count > 1 {
 | Parent directory traversal: `../../tmp` | ✓ BLOCKED | Parent dir count > 1 rejected. Test: test_deeply_nested_traversal_blocked passes. |
 | Absolute Unix paths: `/tmp/evil` | ✓ BLOCKED | Component::RootDir detected. Test: test_reject_absolute_path_injection passes. |
 | Absolute Windows paths: `C:\evil` | ✓ BLOCKED | Component::Prefix detected. Test coverage includes Windows path patterns. |
-| Symlink escapes: `.jjz -> /tmp` | ✓ BLOCKED | validate_no_symlinks canonicalizes and checks bounds. Test: test_canonicalization_resolves_symlinks passes. |
+| Symlink escapes: `.zjj -> /tmp` | ✓ BLOCKED | validate_no_symlinks canonicalizes and checks bounds. Test: test_canonicalization_resolves_symlinks passes. |
 | Deep nesting: `../../../../etc/passwd` | ✓ BLOCKED | Parent dir count = 4, rejected (>1). Test: test_deeply_nested_traversal_blocked passes. |
 | TOCTOU race: modify path after check | ✓ BLOCKED | Boundary check at runtime prevents race. Test: test_boundary_check_prevents_toctou passes. |
 
@@ -322,7 +322,7 @@ From ROADMAP Phase 1:
 
 - [x] **Path canonicalization prevents symlink escapes outside repo**
   - validate_no_symlinks uses canonicalize() to verify bounds
-  - Checks .jjz directory stays within repository
+  - Checks .zjj directory stays within repository
   - Test: test_canonicalization_resolves_symlinks
 
 - [x] **Security tests verify boundary enforcement**

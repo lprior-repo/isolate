@@ -23,11 +23,7 @@ use crate::database::SessionDb;
 /// 4. Handle --force or --repair flags if specified
 /// 5. Check if already initialized
 /// 6. Create .zjj directory and initialize database
-pub async fn run_with_cwd_and_flags(
-    cwd: Option<&Path>,
-    repair: bool,
-    force: bool,
-) -> Result<()> {
+pub async fn run_with_cwd_and_flags(cwd: Option<&Path>, repair: bool, force: bool) -> Result<()> {
     // Resolve working directory
     let cwd = resolve_cwd(cwd)?;
 

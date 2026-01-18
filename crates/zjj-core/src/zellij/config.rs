@@ -31,7 +31,7 @@ pub struct LayoutConfig {
     pub claude_command: String,
     /// Command to run in beads pane (default: "bv")
     pub beads_command: String,
-    /// Tab name prefix (default: "jjz")
+    /// Tab name prefix (default: "zjj")
     pub tab_prefix: String,
 }
 
@@ -44,7 +44,7 @@ impl LayoutConfig {
             workspace_path,
             claude_command: "claude".to_string(),
             beads_command: "bv".to_string(),
-            tab_prefix: "jjz".to_string(),
+            tab_prefix: "zjj".to_string(),
         }
     }
 
@@ -92,7 +92,7 @@ mod tests {
         let config = LayoutConfig::new("my-feature".to_string(), PathBuf::from("/workspace"));
 
         assert_eq!(config.session_name, "my-feature");
-        assert_eq!(config.tab_name(), "jjz:my-feature");
+        assert_eq!(config.tab_name(), "zjj:my-feature");
     }
 
     #[test]
