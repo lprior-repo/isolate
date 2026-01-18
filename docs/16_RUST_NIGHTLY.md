@@ -140,7 +140,7 @@ channel = "stable"  # Change from nightly
 
 ### 3. CI/CD Updates
 
-Update `.github/workflows/ci.yml` to use stable toolchain.
+If switching to stable, verify with `moon run :ci` and `moon run :check` to ensure all tests pass.
 
 ## Decision: Nightly Required
 

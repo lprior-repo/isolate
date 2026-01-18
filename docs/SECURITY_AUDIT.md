@@ -71,20 +71,11 @@ audit:
     cache: false
 ```
 
-#### GitHub Actions (`.github/workflows/ci.yml`)
-```yaml
-security:
-  name: Security Audit
-  runs-on: ubuntu-latest
-  steps:
-    - name: Run security audit
-      run: cargo audit --deny vulnerabilities
-```
-
 **Configuration:**
 - Changed from `--deny warnings` to `--deny vulnerabilities` to focus on actual security issues
 - Allows informational advisories (unmaintained, unsound) without failing the build
 - Fails CI on any known security vulnerabilities
+- Integrated into Moon CI pipeline via `moon run :ci`
 
 ## Ongoing Security Practices
 
@@ -177,8 +168,7 @@ The ZJJ project has successfully passed security audit with zero vulnerabilities
 2. ✅ Run initial security scan
 3. ✅ Resolve identified issues (ratatui update)
 4. ✅ Update Moon tasks configuration
-5. ✅ Update GitHub Actions CI workflow
-6. ✅ Document findings and procedures
+5. ✅ Document findings and procedures
 
 **Security Posture:** EXCELLENT
 **Recommendation:** Maintain current practices and monitor for new advisories

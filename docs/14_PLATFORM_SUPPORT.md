@@ -258,29 +258,32 @@ All dependencies are cross-platform compatible:
 **To improve macOS support**:
 1. Test on macOS 10.15+
 2. Document any macOS-specific issues
-3. Add macOS CI pipeline (GitHub Actions)
+3. Verify with `moon run :ci` locally
 4. Update this document with findings
 
 **To add Windows support** (future):
 1. Abstract Zellij operations behind trait
 2. Implement Windows Terminal backend
 3. Add Windows permission checking
-4. Add Windows CI pipeline
+4. Extend Moon CI/CD support
 5. Update platform matrix
 
 ## CI/CD Platform Coverage
 
-**Current CI** (from `.github/workflows/ci.yml`):
-- ✅ Linux (ubuntu-latest) - Primary
-- ❓ macOS - Not configured
-- ❓ Windows - Not configured
+**Current CI** (Moon-based):
+- ✅ Linux - Primary
+- ✅ macOS - Expected (test locally with `moon run :ci`)
+- ❌ Windows - Zellij dependency blocks support
 
-**Recommended CI Matrix**:
-```yaml
-strategy:
-  matrix:
-    os: [ubuntu-latest, macos-latest]
-    # Exclude Windows until Zellij alternative exists
+**Run CI Locally**:
+```bash
+# Run full Moon CI pipeline
+moon run :ci
+
+# Run specific platform tests (if on that platform)
+moon run :test
+moon run :check
+moon run :clippy
 ```
 
 ## External Dependencies Platform Support
@@ -323,7 +326,6 @@ strategy:
 
 - [ ] Test on macOS 10.15+
 - [ ] Test on macOS with case-sensitive APFS
-- [ ] Add macOS to CI pipeline
 - [ ] Document Windows Terminal API research
 - [ ] Evaluate Windows support effort (likely 2-3 weeks)
 - [ ] Consider platform abstraction layer design

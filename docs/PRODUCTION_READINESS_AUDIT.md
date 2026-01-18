@@ -272,7 +272,7 @@ rg '\bunwrap\(\)|\bexpect\(' crates/ --type rust | grep -v test
 - Release binary exists (5.3MB) but not distributed
 
 **Commercial Software Needs**:
-- Automated releases (GitHub Actions)
+- Automated releases (via Moon CI/CD)
 - Pre-built binaries (Linux, macOS, Windows)
 - Package managers (Homebrew, cargo install)
 - Checksums and signatures
