@@ -3,7 +3,6 @@
 //! This module handles filtering operations and error categorization
 //! for query operations, using pure functional transformations.
 
-use anyhow::Result;
 use zjj_core::introspection::QueryError;
 
 /// Categorize database errors into error codes and messages
@@ -58,7 +57,7 @@ pub fn extract_status_filter(filter: Option<&str>) -> Option<String> {
 ///
 /// Functional approach that filters sessions based on their status string.
 /// Returns the filtered sessions as a filtered iterator.
-pub fn filter_sessions_by_status<'a, S: AsRef<str>>(
+pub fn filter_sessions_by_status<'a>(
     sessions: &'a [(String, &'a str)],
     status: &'a str,
 ) -> impl Iterator<Item = &'a (String, &'a str)> {

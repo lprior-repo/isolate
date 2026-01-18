@@ -127,9 +127,7 @@ pub fn install_hooks(dry_run: bool, json: bool) -> Result<()> {
     Ok(())
 }
 
-/// Find the git directory (.git)
-///
-/// Walks up the filesystem tree from current directory looking for .git
+/// Find the git directory (.git) starting from current directory
 ///
 /// # Errors
 ///
@@ -138,8 +136,18 @@ pub fn install_hooks(dry_run: bool, json: bool) -> Result<()> {
 /// - No .git directory found in any parent
 fn find_git_directory() -> Result<PathBuf> {
     let current_dir = std::env::current_dir().context("Failed to determine current directory")?;
+    find_git_directory_from(&current_dir)
+}
 
-    let mut current = current_dir.as_path();
+/// Find the git directory (.git) starting from a specific path
+///
+/// Walks up the filesystem tree from the given path looking for .git
+///
+/// # Errors
+///
+/// Returns error if no .git directory found in any parent
+fn find_git_directory_from(start_path: &Path) -> Result<PathBuf> {
+    let mut current = start_path;
 
     loop {
         let git_dir = current.join(".git");
@@ -288,23 +296,19 @@ mod tests {
 
     use super::*;
 
-    // Helper to create a temporary git repository
+    // Helper to create a temporary git repository (does not change current directory)
     fn create_temp_git_repo() -> Result<TempDir> {
         let temp_dir = TempDir::new()?;
         let git_dir = temp_dir.path().join(".git");
         fs::create_dir(&git_dir)?;
         fs::create_dir(git_dir.join("hooks"))?;
-
-        // Change to temp directory so find_git_directory works
-        std::env::set_current_dir(temp_dir.path())?;
-
         Ok(temp_dir)
     }
 
     #[test]
     fn test_find_git_directory_success() -> Result<()> {
-        let _temp = create_temp_git_repo()?;
-        let git_dir = find_git_directory()?;
+        let temp = create_temp_git_repo()?;
+        let git_dir = find_git_directory_from(temp.path())?;
 
         assert!(git_dir.exists());
         assert!(git_dir.ends_with(".git"));
@@ -315,21 +319,14 @@ mod tests {
     #[test]
     fn test_find_git_directory_not_found() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let original_dir = std::env::current_dir()?;
 
-        // Change to temp directory that shouldn't have a .git parent
-        std::env::set_current_dir(temp_dir.path())?;
+        // Search from temp directory that has no .git parent
+        let result = find_git_directory_from(temp_dir.path());
 
-        let result = find_git_directory();
-
-        // Restore original directory before assertions (best effort)
-        let _ = std::env::set_current_dir(&original_dir);
-
-        // The test might pass if temp_dir is not within a git repo
-        // This can happen in CI or isolated environments
-        // If we're in a git repo (like during development), skip this assertion
+        // Temp directories are typically in /tmp which has no .git parent
+        // But in some environments (CI containers), /tmp might be inside a git repo
         if result.is_ok() {
-            // Skip test - we're likely inside zjj project's git repo
+            // Skip test - temp dir is inside some git repo
             return Ok(());
         }
 

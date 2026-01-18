@@ -17,16 +17,8 @@ mod types;
 pub use handlers::run;
 
 use anyhow::Result;
-use zjj_core::introspection::{
-    Blocker, CanRunQuery, QueryError, SessionCountQuery, SessionExistsQuery, SessionInfo,
-};
 
-use crate::{
-    cli::{is_command_available, is_inside_zellij, is_jj_repo},
-    commands::{get_session_db, zjj_data_dir},
-};
 
-pub use types::QueryTypeInfo;
 
 /// Run a query
 ///

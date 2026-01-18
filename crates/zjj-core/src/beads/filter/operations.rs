@@ -16,7 +16,7 @@ use im::Vector;
 use itertools::Itertools;
 use tap::Pipe;
 
-use crate::beads::types::BeadIssue;
+use crate::beads::types::{BeadIssue, IssueStatus};
 
 use super::predicates::matches_filter;
 use super::{BeadFilter, BeadQuery, BeadSort, SortDirection};
@@ -143,7 +143,7 @@ pub fn all_match(issues: &Vector<BeadIssue>, filter: &BeadFilter) -> bool {
 #[allow(clippy::arithmetic_side_effects, clippy::redundant_clone)]
 mod tests {
     use super::*;
-    use crate::beads::types::IssueType;
+    use crate::beads::types::{IssueType, Priority};
     use chrono::Utc;
     use im::vector;
 

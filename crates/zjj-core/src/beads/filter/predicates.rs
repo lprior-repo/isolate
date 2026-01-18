@@ -121,6 +121,7 @@ pub(super) fn search_matches_description(text_lower: &str, issue: &BeadIssue) ->
 #[allow(clippy::arithmetic_side_effects, clippy::redundant_clone)]
 mod tests {
     use super::*;
+    use crate::beads::IssueStatus;
     use chrono::Utc;
 
     #[test]
@@ -170,8 +171,9 @@ mod tests {
             closed_at: None,
         };
 
+        // Function expects lowercase input (as per parameter name text_lower)
         assert!(search_matches_title("bug", &issue));
-        assert!(search_matches_title("BUG", &issue));
+        assert!(search_matches_title("fix", &issue));
         assert!(!search_matches_title("feature", &issue));
     }
 }

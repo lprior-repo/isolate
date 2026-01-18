@@ -23,11 +23,7 @@ use crate::database::SessionDb;
 /// 4. Handle --force or --repair flags if specified
 /// 5. Check if already initialized
 /// 6. Create .jjz directory and initialize database
-pub async fn run_with_cwd_and_flags(
-    cwd: Option<&Path>,
-    repair: bool,
-    force: bool,
-) -> Result<()> {
+pub async fn run_with_cwd_and_flags(cwd: Option<&Path>, repair: bool, force: bool) -> Result<()> {
     // Resolve working directory
     let cwd = resolve_cwd(cwd)?;
 
@@ -85,7 +81,7 @@ fn resolve_cwd(cwd: Option<&Path>) -> Result<PathBuf> {
 }
 
 /// Handle initialization of an existing .jjz directory
-async fn handle_existing_directory(zjj_dir: &Path, db_path: &Path) -> Result<()> {
+async fn handle_existing_directory(_zjj_dir: &Path, db_path: &Path) -> Result<()> {
     match health::check_database_health(db_path).await {
         health::DatabaseHealth::Healthy => {
             println!("ZJZ already initialized in this repository.");
@@ -117,11 +113,7 @@ async fn handle_existing_directory(zjj_dir: &Path, db_path: &Path) -> Result<()>
 }
 
 /// Create a fresh .jjz directory with all necessary files
-async fn create_new_initialization(
-    zjj_dir: &Path,
-    root: &Path,
-    _db_path: &Path,
-) -> Result<()> {
+async fn create_new_initialization(zjj_dir: &Path, root: &Path, _db_path: &Path) -> Result<()> {
     // Create fresh directory structure (includes config setup and database creation)
     directory_setup::create_fresh_structure(zjj_dir).await?;
 

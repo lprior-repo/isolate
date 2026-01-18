@@ -23,8 +23,12 @@
 //! (`CheckStatus::Fail`) do.
 
 mod checks;
+mod env_checks;
 mod fixes;
 mod output;
+mod repo_checks;
+mod system_checks;
+mod zjj_setup_checks;
 
 use anyhow::Result;
 

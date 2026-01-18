@@ -52,20 +52,20 @@ fn diagnose_sync_failure(
         Ok(state) => {
             if !state.has_commits {
                 // No commits in repository
-                return Err(anyhow::Error::from(zjj_core::Error::NoCommitsYet {
-                    workspace_path: workspace_path.to_string(),
-                }));
+                return Err(anyhow::Error::from(zjj_core::Error::no_commits_yet(
+                    workspace_path,
+                )));
             }
 
             // Check if the target bookmark exists
             match repo_diagnostics::bookmark_exists(workspace_path, target_branch) {
                 Ok(exists) if !exists => {
                     // Bookmark doesn't exist
-                    Err(anyhow::Error::from(zjj_core::Error::MainBookmarkMissing {
-                        workspace_path: workspace_path.to_string(),
-                        bookmark_name: target_branch.to_string(),
-                        commit_count: state.commit_count,
-                    }))
+                    Err(anyhow::Error::from(zjj_core::Error::main_bookmark_missing(
+                        workspace_path,
+                        target_branch,
+                        state.commit_count,
+                    )))
                 }
                 _ => {
                     // Bookmark exists or check failed, return original error

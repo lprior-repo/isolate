@@ -32,21 +32,21 @@ pub fn validate_session_name(name: &str) -> Result<()> {
     let trimmed = name.trim();
 
     if trimmed.is_empty() {
-        return Err(Error::ValidationError(
-            "Session name cannot be empty or whitespace-only\n\nSession names must:\n  - Contain only letters, numbers, dash, underscore, period\n  - Be between 1 and 255 characters\n  - Not consist entirely of whitespace\n\nExamples:\n  - feature-123\n  - bug_fix_auth\n  - refactor.2024".into(),
+        return Err(Error::validation_error(
+            "Session name cannot be empty or whitespace-only\n\nSession names must:\n  - Contain only letters, numbers, dash, underscore, period\n  - Be between 1 and 255 characters\n  - Not consist entirely of whitespace\n\nExamples:\n  - feature-123\n  - bug_fix_auth\n  - refactor.2024",
         ));
     }
 
     // Reject if original name has leading/trailing whitespace
     if trimmed != name {
-        return Err(Error::ValidationError(
-            "Session name cannot have leading or trailing whitespace".into(),
+        return Err(Error::validation_error(
+            "Session name cannot have leading or trailing whitespace",
         ));
     }
 
     // Check maximum length (255 characters as per security spec)
     if name.len() > 255 {
-        return Err(Error::ValidationError(format!(
+        return Err(Error::validation_error(format!(
             "Session name too long (max 255 characters, got {})",
             name.len()
         )));
@@ -54,8 +54,8 @@ pub fn validate_session_name(name: &str) -> Result<()> {
 
     // Check for non-ASCII characters first (prevents unicode bypasses)
     if !name.is_ascii() {
-        return Err(Error::ValidationError(
-            "Session name must contain only ASCII characters (a-z, A-Z, 0-9, -, _, .)".into(),
+        return Err(Error::validation_error(
+            "Session name must contain only ASCII characters (a-z, A-Z, 0-9, -, _, .)",
         ));
     }
 
@@ -79,7 +79,7 @@ pub fn validate_session_name(name: &str) -> Result<()> {
             .collect::<Vec<_>>()
             .join(", ");
 
-        return Err(Error::ValidationError(
+        return Err(Error::validation_error(
             format!(
                 "Invalid session name: contains invalid characters: {invalid_list}\n\
                  Session names can only contain letters, numbers, dash, underscore, and period (a-z, A-Z, 0-9, -, _, .)"
@@ -90,8 +90,8 @@ pub fn validate_session_name(name: &str) -> Result<()> {
     // Must start with a letter (not dash, underscore, period, or digit)
     if let Some(first) = name.chars().next() {
         if !first.is_ascii_alphabetic() {
-            return Err(Error::ValidationError(
-                "Invalid session name: must start with a letter (a-z, A-Z)".into(),
+            return Err(Error::validation_error(
+                "Invalid session name: must start with a letter (a-z, A-Z)",
             ));
         }
     }
@@ -113,7 +113,7 @@ fn validate_not_reserved(name: &str) -> Result<()> {
     let name_lower = name.to_lowercase();
     for reserved in RESERVED_NAMES {
         if name_lower == *reserved {
-            return Err(Error::ValidationError(format!(
+            return Err(Error::validation_error(format!(
                 "Session name '{reserved}' is reserved by JJ and cannot be used"
             )));
         }
@@ -124,8 +124,8 @@ fn validate_not_reserved(name: &str) -> Result<()> {
 /// Validate that the session name doesn't contain path traversal sequences
 fn validate_no_path_traversal(name: &str) -> Result<()> {
     if name.contains("..") {
-        return Err(Error::ValidationError(
-            "Session name cannot contain path traversal sequences (..)".into(),
+        return Err(Error::validation_error(
+            "Session name cannot contain path traversal sequences (..)",
         ));
     }
     Ok(())
@@ -142,7 +142,7 @@ fn validate_no_dangerous_patterns(name: &str) -> Result<()> {
 
     for ch in dangerous_chars {
         if name.contains(ch) {
-            return Err(Error::ValidationError(format!(
+            return Err(Error::validation_error(format!(
                 "Session name cannot contain dangerous character: '{ch}'"
             )));
         }
@@ -150,8 +150,8 @@ fn validate_no_dangerous_patterns(name: &str) -> Result<()> {
 
     // Check for control characters and null bytes
     if name.chars().any(|c| c.is_control() || c == '\0') {
-        return Err(Error::ValidationError(
-            "Session name cannot contain control characters or null bytes".into(),
+        return Err(Error::validation_error(
+            "Session name cannot contain control characters or null bytes",
         ));
     }
 
@@ -181,7 +181,7 @@ pub fn validate_status_transition(from: SessionStatus, to: SessionStatus) -> Res
     if valid {
         Ok(())
     } else {
-        Err(Error::ValidationError(format!(
+        Err(Error::validation_error(format!(
             "Invalid status transition from {from} to {to}"
         )))
     }

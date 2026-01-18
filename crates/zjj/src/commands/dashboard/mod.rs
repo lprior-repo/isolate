@@ -18,10 +18,13 @@
 
 mod actions;
 mod events;
+mod formatting;
+mod layout;
 mod rendering;
 mod state;
 mod terminal;
 mod types;
+mod widgets;
 
 use std::time::Duration;
 

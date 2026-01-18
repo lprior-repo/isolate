@@ -10,13 +10,14 @@
 
 pub mod bead;
 pub mod dry_run;
+mod error_messages;
 pub mod presentation;
 pub mod security;
 pub mod validation;
+pub mod validators;
 pub mod workflow;
 
 use anyhow::{Context, Result};
-use zjj_core::config::Config;
 
 use crate::commands::get_session_db;
 

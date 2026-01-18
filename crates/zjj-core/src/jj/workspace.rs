@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::process::Command;
 
-use crate::{Error, Result};
+use crate::{error::system::SystemError, Error, Result};
 
 use super::parse::{parse_diff_stat, parse_status, parse_workspace_list};
 use super::types::{DiffSummary, Status};
@@ -21,9 +21,7 @@ use super::types::{DiffSummary, Status};
 pub fn workspace_create(name: &str, path: &Path) -> Result<()> {
     // Validate inputs
     if name.is_empty() {
-        return Err(Error::invalid_config(
-            "workspace name cannot be empty".into(),
-        ));
+        return Err(Error::invalid_config("workspace name cannot be empty"));
     }
 
     // Create parent directory if needed
@@ -45,7 +43,7 @@ pub fn workspace_create(name: &str, path: &Path) -> Result<()> {
             operation: "create workspace".to_string(),
             source: stderr.to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     Ok(())
@@ -62,9 +60,7 @@ pub fn workspace_create(name: &str, path: &Path) -> Result<()> {
 /// - JJ command fails
 pub fn workspace_forget(name: &str) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::invalid_config(
-            "workspace name cannot be empty".into(),
-        ));
+        return Err(Error::invalid_config("workspace name cannot be empty"));
     }
 
     // Execute: jj workspace forget <name>
@@ -79,7 +75,7 @@ pub fn workspace_forget(name: &str) -> Result<()> {
             operation: "forget workspace".to_string(),
             source: stderr.to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     Ok(())
@@ -106,7 +102,7 @@ pub fn workspace_list() -> Result<Vec<super::types::WorkspaceInfo>> {
             operation: "list workspaces".to_string(),
             source: stderr.to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -135,7 +131,7 @@ pub fn workspace_status(path: &Path) -> Result<Status> {
             operation: "get workspace status".to_string(),
             source: stderr.to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -164,7 +160,7 @@ pub fn workspace_diff(path: &Path) -> Result<DiffSummary> {
             operation: "get workspace diff".to_string(),
             source: stderr.to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -194,7 +190,7 @@ pub fn workspace_squash(workspace_path: &Path) -> Result<()> {
             operation: "squash commits".to_string(),
             source: stderr.to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     Ok(())
@@ -212,9 +208,7 @@ pub fn workspace_squash(workspace_path: &Path) -> Result<()> {
 /// - JJ command fails
 pub fn workspace_rebase_onto_main(workspace_path: &Path, main_branch: &str) -> Result<()> {
     if main_branch.is_empty() {
-        return Err(Error::invalid_config(
-            "main branch name cannot be empty".into(),
-        ));
+        return Err(Error::invalid_config("main branch name cannot be empty"));
     }
 
     // Execute: jj rebase -d <main_branch> (in the workspace directory)
@@ -230,7 +224,7 @@ pub fn workspace_rebase_onto_main(workspace_path: &Path, main_branch: &str) -> R
             operation: format!("rebase onto {main_branch}"),
             source: stderr.to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     Ok(())
@@ -260,7 +254,7 @@ pub fn workspace_git_push(workspace_path: &Path) -> Result<()> {
             operation: "git push".to_string(),
             source: stderr.to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     Ok(())

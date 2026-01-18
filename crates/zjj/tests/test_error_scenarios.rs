@@ -51,9 +51,9 @@ fn test_add_session_name_too_long() {
     };
     harness.assert_success(&["init"]);
 
-    // Name longer than 64 characters
-    let long_name = "a".repeat(65);
-    harness.assert_failure(&["add", &long_name, "--no-open"], "");
+    // Name longer than 255 characters
+    let long_name = "a".repeat(256);
+    harness.assert_failure(&["add", &long_name, "--no-open"], "Session name too long");
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn test_add_session_name_with_dots() {
     };
     harness.assert_success(&["init"]);
 
-    harness.assert_failure(&["add", "test..name", "--no-open"], "Invalid session name");
+    harness.assert_failure(&["add", "test..name", "--no-open"], "path traversal");
 }
 
 // ============================================================================

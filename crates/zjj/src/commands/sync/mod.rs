@@ -12,10 +12,8 @@ mod repo_diagnostics;
 mod validation;
 
 use anyhow::Result;
-pub use branch_detection::detect_main_branch;
 pub use dry_run::{output_all_sessions_dry_run, output_single_session_dry_run};
-pub use rebase::RebaseStats;
-pub use validation::{validate_session_status, validate_workspace};
+pub use validation::validate_session_status;
 
 use crate::commands::get_session_db;
 

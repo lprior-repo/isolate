@@ -15,7 +15,7 @@ pub mod query;
 pub mod types;
 
 // Re-export the public API from submodules
-pub use enrichment::{extract_agent_info, extract_bead_info, get_beads_count, get_session_changes};
+pub use enrichment::get_beads_count;
 pub use output::format_sessions;
 pub use query::apply_filters;
 pub use types::{BeadCounts, ListFilter, SessionAgentInfo, SessionBeadInfo, SessionListItem};

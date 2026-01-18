@@ -35,7 +35,7 @@ pub(crate) async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
         .min_connections(1)
         .connect(db_url)
         .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to connect to database: {e}")))
+        .map_err(|e| Error::database_error(format!("Failed to connect to database: {e}")))
 }
 
 /// Initialize database schema
@@ -44,7 +44,7 @@ pub(crate) async fn init_schema(pool: &SqlitePool) -> Result<()> {
         .execute(pool)
         .await
         .map(|_| ())
-        .map_err(|e| Error::DatabaseError(format!("Failed to initialize schema: {e}")))
+        .map_err(|e| Error::database_error(format!("Failed to initialize schema: {e}")))
 }
 
 /// Initialize database schema (transaction version)
@@ -53,7 +53,7 @@ pub(crate) async fn init_schema_tx(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>)
         .execute(&mut **tx)
         .await
         .map(|_| ())
-        .map_err(|e| Error::DatabaseError(format!("Failed to initialize schema: {e}")))
+        .map_err(|e| Error::database_error(format!("Failed to initialize schema: {e}")))
 }
 
 /// Drop existing database schema (transaction version)
@@ -63,11 +63,11 @@ pub(crate) async fn drop_existing_schema_tx(
     sqlx::query("DROP TABLE IF EXISTS sessions")
         .execute(&mut **tx)
         .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to drop sessions table: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to drop sessions table: {e}")))?;
 
     sqlx::query("DROP TRIGGER IF EXISTS update_timestamp")
         .execute(&mut **tx)
         .await
         .map(|_| ())
-        .map_err(|e| Error::DatabaseError(format!("Failed to drop update trigger: {e}")))
+        .map_err(|e| Error::database_error(format!("Failed to drop update trigger: {e}")))
 }

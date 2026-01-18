@@ -2,7 +2,7 @@
 
 use std::process::Command;
 
-use crate::{Error, Result};
+use crate::{error::system::SystemError, Error, Result};
 
 /// Semantic version for JJ compatibility checking
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -90,7 +90,7 @@ pub fn get_jj_version() -> Result<JjVersion> {
             operation: "get JJ version".to_string(),
             source: "JJ command returned non-zero exit code".to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     let version_str = String::from_utf8_lossy(&output.stdout);

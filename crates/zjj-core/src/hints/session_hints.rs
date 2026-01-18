@@ -167,7 +167,7 @@ pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vec<Hint> {
     let wip_hint =
         (beads.active() > 5).then(|| hint_for_excessive_wip(session_name, beads.active()));
 
-    let empty_hint = (beads.total == 0).then(|| hint_for_no_beads_issues(session_name));
+    let empty_hint = (beads.total() == 0).then(|| hint_for_no_beads_issues(session_name));
 
     blocker_hint
         .into_iter()
@@ -304,11 +304,9 @@ mod tests {
     #[test]
     fn test_hints_for_beads_blockers() {
         let beads = BeadsSummary {
-            total: 11,
             open: 2,
             in_progress: 1,
             blocked: 3,
-            deferred: 0,
             closed: 5,
         };
 
@@ -320,11 +318,9 @@ mod tests {
     #[test]
     fn test_hints_for_beads_excessive_wip() {
         let beads = BeadsSummary {
-            total: 12,
             open: 7,
             in_progress: 5,
             blocked: 0,
-            deferred: 0,
             closed: 0,
         };
 

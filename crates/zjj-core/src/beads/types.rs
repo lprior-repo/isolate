@@ -70,7 +70,7 @@ pub enum IssueStatus {
     Open,
 
     #[strum(to_string = "in_progress")]
-    #[serde(alias = "in_progress")]
+    #[serde(rename = "in_progress", alias = "inprogress")]
     InProgress,
 
     #[strum(to_string = "blocked")]
@@ -382,25 +382,24 @@ mod tests {
     }
 
     #[test]
-    fn test_priority_serialization_roundtrip() {
+    fn test_priority_serialization_roundtrip() -> Result<(), serde_json::Error> {
         let original = Priority::P1;
-        let serialized = serde_json::to_value(&original).expect("serialize failed");
-        let deserialized: Priority =
-            serde_json::from_value(serialized).expect("deserialize failed");
+        let serialized = serde_json::to_value(&original)?;
+        let deserialized: Priority = serde_json::from_value(serialized)?;
         assert_eq!(original, deserialized);
+        Ok(())
     }
 
     #[test]
-    fn test_priority_deserialization_from_string() {
+    fn test_priority_deserialization_from_string() -> Result<(), serde_json::Error> {
         let p0_str = serde_json::json!("p0");
-        let p0: Priority =
-            serde_json::from_value(p0_str).expect("deserialize p0 from string failed");
+        let p0: Priority = serde_json::from_value(p0_str)?;
         assert_eq!(p0, Priority::P0);
 
         let p1_str = serde_json::json!("P1");
-        let p1: Priority =
-            serde_json::from_value(p1_str).expect("deserialize P1 from string failed");
+        let p1: Priority = serde_json::from_value(p1_str)?;
         assert_eq!(p1, Priority::P1);
+        Ok(())
     }
 
     #[test]
@@ -418,26 +417,28 @@ mod tests {
     }
 
     #[test]
-    fn test_issue_status_serialization() {
+    fn test_issue_status_serialization() -> Result<(), serde_json::Error> {
         assert_eq!(
-            serde_json::to_value(IssueStatus::Open).unwrap(),
+            serde_json::to_value(IssueStatus::Open)?,
             serde_json::json!("open")
         );
         assert_eq!(
-            serde_json::to_value(IssueStatus::InProgress).unwrap(),
+            serde_json::to_value(IssueStatus::InProgress)?,
             serde_json::json!("in_progress")
         );
+        Ok(())
     }
 
     #[test]
-    fn test_issue_type_serialization() {
+    fn test_issue_type_serialization() -> Result<(), serde_json::Error> {
         assert_eq!(
-            serde_json::to_value(IssueType::Bug).unwrap(),
+            serde_json::to_value(IssueType::Bug)?,
             serde_json::json!("bug")
         );
         assert_eq!(
-            serde_json::to_value(IssueType::Feature).unwrap(),
+            serde_json::to_value(IssueType::Feature)?,
             serde_json::json!("feature")
         );
+        Ok(())
     }
 }

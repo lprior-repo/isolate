@@ -76,10 +76,10 @@ impl ConfigBuilder {
     /// Build the configuration, returning an error if validation fails.
     pub fn build(self) -> Result<Config> {
         self.name
-            .ok_or_else(|| Error::invalid_config("name is required".into()))
+            .ok_or_else(|| Error::invalid_config("name is required".to_string()))
             .and_then(|name| {
                 if name.is_empty() {
-                    Err(Error::invalid_config("name cannot be empty".into()))
+                    Err(Error::invalid_config("name cannot be empty".to_string()))
                 } else {
                     Ok(Config { name })
                 }
@@ -104,12 +104,12 @@ impl Config {
     /// Validate a name, returning an error if invalid.
     pub fn validate_name(name: &str) -> Result<()> {
         if name.is_empty() {
-            return Err(Error::invalid_config("name cannot be empty".into()));
+            return Err(Error::invalid_config("name cannot be empty".to_string()));
         }
 
         if name.len() > 255 {
             return Err(Error::invalid_config(
-                "name cannot exceed 255 characters".into(),
+                "name cannot exceed 255 characters".to_string(),
             ));
         }
 

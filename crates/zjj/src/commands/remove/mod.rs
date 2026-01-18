@@ -11,9 +11,11 @@
 mod bead;
 mod confirmation;
 mod dry_run;
+mod format;
 mod hooks;
 mod merge;
 mod operations;
+mod simulation;
 mod validation;
 
 use std::process;

@@ -41,6 +41,9 @@ mod tests {
     #[test]
     fn test_error_message_zellij_not_set() {
         assert!(!error_messages::ZELLIJ_NOT_SET.is_empty());
-        assert!(error_messages::ZELLIJ_NOT_SET.contains("ZELLIJ"));
+        // Message should mention Zellij and suggest --no-open flag
+        let msg_lower = error_messages::ZELLIJ_NOT_SET.to_lowercase();
+        assert!(msg_lower.contains("zellij"));
+        assert!(error_messages::ZELLIJ_NOT_SET.contains("--no-open"));
     }
 }

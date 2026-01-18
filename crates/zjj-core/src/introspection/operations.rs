@@ -141,7 +141,7 @@ pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestN
     // Find {n} placeholder
     if !pattern.contains("{n}") {
         return Err(Error::validation_error(
-            "Pattern must contain {n} placeholder".into(),
+            "Pattern must contain {n} placeholder",
         ));
     }
 
@@ -149,7 +149,7 @@ pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestN
     let parts: Vec<&str> = pattern.split("{n}").collect();
     if parts.len() != 2 {
         return Err(Error::validation_error(
-            "Pattern must contain exactly one {n} placeholder".into(),
+            "Pattern must contain exactly one {n} placeholder",
         ));
     }
 

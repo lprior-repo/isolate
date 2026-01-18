@@ -143,8 +143,8 @@ mod tests {
         // Should fail if not in Zellij
         if env::var("ZELLIJ").is_err() {
             assert!(result.is_err());
-            if let Err(Error::command_error(msg)) = result {
-                assert!(msg.contains("Zellij not running"));
+            if let Err(e) = result {
+                assert!(e.to_string().contains("Zellij not running"));
             }
         }
 
@@ -160,8 +160,8 @@ mod tests {
         // Should fail if not in Zellij
         if env::var("ZELLIJ").is_err() {
             assert!(result.is_err());
-            if let Err(Error::command_error(msg)) = result {
-                assert!(msg.contains("Zellij not running"));
+            if let Err(e) = result {
+                assert!(e.to_string().contains("Zellij not running"));
             }
         }
     }
@@ -174,8 +174,8 @@ mod tests {
         // Should fail if not in Zellij
         if env::var("ZELLIJ").is_err() {
             assert!(result.is_err());
-            if let Err(Error::command_error(msg)) = result {
-                assert!(msg.contains("Zellij not running"));
+            if let Err(e) = result {
+                assert!(e.to_string().contains("Zellij not running"));
             }
         }
     }
@@ -192,8 +192,8 @@ mod tests {
         let result = check_zellij_running();
         assert!(result.is_err());
 
-        if let Err(Error::command_error(msg)) = result {
-            assert!(msg.contains("Zellij not running"));
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Zellij not running"));
         }
 
         // Restore ZELLIJ var if it existed
@@ -205,12 +205,26 @@ mod tests {
     // Additional test: tab_open with missing file
     #[test]
     fn test_tab_open_missing_layout_file() {
+        // Save and set ZELLIJ var to pass the zellij running check
+        let zellij_var = env::var("ZELLIJ");
+        env::set_var("ZELLIJ", "test");
+
         let missing_path = Path::new("/nonexistent/layout.kdl");
         let result = tab_open(missing_path, "test");
 
+        // Restore ZELLIJ var
+        if let Ok(val) = zellij_var {
+            env::set_var("ZELLIJ", val);
+        } else {
+            env::remove_var("ZELLIJ");
+        }
+
         assert!(result.is_err());
-        if let Err(Error::not_found(msg)) = result {
-            assert!(msg.contains("Layout file not found"));
+        if let Err(e) = result {
+            assert!(
+                e.to_string().contains("Layout file not found"),
+                "Expected 'Layout file not found' error, got: {e}"
+            );
         }
     }
 }

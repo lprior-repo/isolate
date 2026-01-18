@@ -54,25 +54,25 @@ pub fn verify_backup(backup_path: &Path) -> Result<usize> {
 /// Serialize sessions to JSON
 fn serialize_sessions(sessions: &[Session]) -> Result<String> {
     serde_json::to_string_pretty(sessions)
-        .map_err(|e| Error::ParseError(format!("Failed to serialize sessions: {e}")))
+        .map_err(|e| Error::parse_error(format!("Failed to serialize sessions: {e}")))
 }
 
 /// Deserialize sessions from JSON
 fn deserialize_sessions(json: &str) -> Result<Vec<Session>> {
     serde_json::from_str(json)
-        .map_err(|e| Error::ParseError(format!("Failed to parse backup file: {e}")))
+        .map_err(|e| Error::parse_error(format!("Failed to parse backup file: {e}")))
 }
 
 /// Write backup to file
 fn write_backup(path: &Path, content: &str) -> Result<()> {
     std::fs::write(path, content)
-        .map_err(|e| Error::IoError(format!("Failed to write backup file: {e}")))
+        .map_err(|e| Error::io_error(format!("Failed to write backup file: {e}")))
 }
 
 /// Read backup from file
 fn read_backup(path: &Path) -> Result<String> {
     std::fs::read_to_string(path)
-        .map_err(|e| Error::IoError(format!("Failed to read backup file: {e}")))
+        .map_err(|e| Error::io_error(format!("Failed to read backup file: {e}")))
 }
 
 // === IMPERATIVE SHELL (Database Side Effects) ===
@@ -87,7 +87,7 @@ async fn rebuild_database(pool: &SqlitePool, sessions: Vec<Session>) -> Result<(
     let mut tx = pool
         .begin()
         .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to begin rebuild transaction: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to begin rebuild transaction: {e}")))?;
 
     // Step 1: Drop existing schema
     schema::drop_existing_schema_tx(&mut tx).await?;
@@ -101,7 +101,7 @@ async fn rebuild_database(pool: &SqlitePool, sessions: Vec<Session>) -> Result<(
     // Commit transaction - all or nothing
     tx.commit()
         .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to commit rebuild transaction: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to commit rebuild transaction: {e}")))?;
 
     Ok(())
 }
@@ -129,7 +129,7 @@ async fn insert_session_from_backup_tx(
         .as_ref()
         .map(|m| {
             serde_json::to_string(m)
-                .map_err(|e| Error::ParseError(format!("Failed to serialize metadata: {e}")))
+                .map_err(|e| Error::parse_error(format!("Failed to serialize metadata: {e}")))
         })
         .transpose()?;
 
@@ -148,5 +148,5 @@ async fn insert_session_from_backup_tx(
     .execute(&mut **tx)
     .await
     .map(|_| ())
-    .map_err(|e| Error::DatabaseError(format!("Failed to insert session during rebuild: {e}")))
+    .map_err(|e| Error::database_error(format!("Failed to insert session during rebuild: {e}")))
 }

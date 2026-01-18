@@ -112,13 +112,15 @@ mod tests {
 
     #[test]
     fn test_find_stale_boundary() {
-        let just_stale = create_issue_with_update("just_stale", "Just Stale", 7);
-        let not_stale = create_issue_with_update("not_stale", "Not Stale", 6);
+        // Use clear boundaries to avoid timing issues
+        // Threshold: 7 days, so 8+ days ago is stale, 5 days ago is not
+        let stale = create_issue_with_update("stale", "Stale Issue", 8);
+        let not_stale = create_issue_with_update("not_stale", "Not Stale", 5);
 
-        let issues = vec![just_stale.clone(), not_stale.clone()];
-        let stale_issues = find_stale(&issues, 6);
+        let issues = vec![stale.clone(), not_stale.clone()];
+        let stale_issues = find_stale(&issues, 7);
 
         assert_eq!(stale_issues.len(), 1);
-        assert_eq!(stale_issues[0].id, "just_stale");
+        assert_eq!(stale_issues[0].id, "stale");
     }
 }

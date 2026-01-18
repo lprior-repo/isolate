@@ -15,13 +15,6 @@ pub fn output_json<T: Serialize>(result: &T) -> Result<()> {
     Ok(())
 }
 
-/// Format JSON value for output
-///
-/// Simple helper to format a pre-serialized JSON value.
-pub fn format_json_output(value: serde_json::Value) -> Result<String> {
-    Ok(serde_json::to_string_pretty(&value)?)
-}
-
 /// Create a JSON filter object from a filter string
 pub fn create_filter_json(filter: Option<&str>) -> Option<serde_json::Value> {
     filter.map(|f| serde_json::json!({"raw": f}))
@@ -41,8 +34,9 @@ mod tests {
     fn test_format_json_output() {
         let json = serde_json::json!({"key": "value"});
         let result = format_json_output(json);
-        assert!(result.is_ok());
-        let output = result.unwrap();
+        let Ok(output) = result else {
+            panic!("Expected format_json_output to succeed");
+        };
         assert!(output.contains("key"));
         assert!(output.contains("value"));
     }
@@ -50,8 +44,9 @@ mod tests {
     #[test]
     fn test_create_filter_json_some() {
         let json = create_filter_json(Some("--status=active"));
-        assert!(json.is_some());
-        let value = json.unwrap();
+        let Some(value) = json else {
+            panic!("Expected create_filter_json to return Some");
+        };
         assert_eq!(
             value.get("raw").and_then(|v| v.as_str()),
             Some("--status=active")

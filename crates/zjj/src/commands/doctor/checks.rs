@@ -7,10 +7,10 @@
 //! - Repository checks: JJ repository and database health
 //! - JJZ setup checks: JJZ initialization and integration status
 
-mod env_checks;
-mod repo_checks;
-mod system_checks;
-mod zjj_setup_checks;
+use super::env_checks;
+use super::repo_checks;
+use super::system_checks;
+use super::zjj_setup_checks;
 
 use im;
 use zjj_core::introspection::DoctorCheck;

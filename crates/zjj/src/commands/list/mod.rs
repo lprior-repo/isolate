@@ -9,7 +9,6 @@ pub mod types;
 
 // Re-export public API
 use anyhow::Result;
-pub use data::SessionListItem;
 pub use types::ListFilter;
 
 use crate::{cli::is_tty, commands::get_session_db, session::SessionStatus};

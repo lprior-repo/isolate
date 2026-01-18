@@ -25,10 +25,10 @@ use crate::{
     Result,
 };
 
-// Re-export hint generators for public API
-pub use error_hints::{hints_for_error, hints_for_error_code};
-pub use session_hints::{hints_for_beads, suggest_session_actions};
-pub use workflow_hints::{suggest_next_actions, suggest_workflow_hints};
+// Re-export hint generators for public API (some are re-defined below as wrappers)
+pub use error_hints::hints_for_error_code;
+pub use session_hints::suggest_session_actions;
+pub use workflow_hints::suggest_workflow_hints;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HINT TYPES

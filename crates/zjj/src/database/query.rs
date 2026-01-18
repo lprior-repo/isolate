@@ -41,39 +41,39 @@ pub(crate) fn build_session(
 pub(crate) fn parse_session_row(row: &sqlx::sqlite::SqliteRow) -> Result<Session> {
     let id: i64 = row
         .try_get("id")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read id: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to read id: {e}")))?;
     let name: String = row
         .try_get("name")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read name: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to read name: {e}")))?;
     let status_str: String = row
         .try_get("status")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read status: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to read status: {e}")))?;
     let status = SessionStatus::from_str(&status_str)?;
     let workspace_path: String = row
         .try_get("workspace_path")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read workspace_path: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to read workspace_path: {e}")))?;
     let branch: Option<String> = row
         .try_get("branch")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read branch: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to read branch: {e}")))?;
     let created_at: u64 = row
         .try_get::<i64, _>("created_at")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read created_at: {e}")))?
+        .map_err(|e| Error::database_error(format!("Failed to read created_at: {e}")))?
         .cast_unsigned();
     let updated_at: u64 = row
         .try_get::<i64, _>("updated_at")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read updated_at: {e}")))?
+        .map_err(|e| Error::database_error(format!("Failed to read updated_at: {e}")))?
         .cast_unsigned();
     let last_synced: Option<i64> = row
         .try_get("last_synced")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read last_synced: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to read last_synced: {e}")))?;
     let metadata_str: Option<String> = row
         .try_get("metadata")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read metadata: {e}")))?;
+        .map_err(|e| Error::database_error(format!("Failed to read metadata: {e}")))?;
 
     let metadata = metadata_str
         .map(|s| {
             serde_json::from_str(&s)
-                .map_err(|e| Error::ParseError(format!("Invalid metadata JSON: {e}")))
+                .map_err(|e| Error::parse_error(format!("Invalid metadata JSON: {e}")))
         })
         .transpose()?;
 
@@ -106,7 +106,7 @@ pub(crate) async fn query_session_by_name(
     .bind(name)
     .fetch_optional(pool)
     .await
-    .map_err(|e| Error::DatabaseError(format!("Failed to query session: {e}")))
+    .map_err(|e| Error::database_error(format!("Failed to query session: {e}")))
     .and_then(|opt_row| opt_row.map_or(Ok(None), |row| parse_session_row(&row).map(Some)))
 }
 
@@ -133,7 +133,7 @@ pub(crate) async fn query_sessions(
             .fetch_all(pool)
             .await
         }
-    }.map_err(|e| Error::DatabaseError(format!("Failed to query sessions: {e}")))?;
+    }.map_err(|e| Error::database_error(format!("Failed to query sessions: {e}")))?;
 
     rows.iter().map(parse_session_row).collect()
 }

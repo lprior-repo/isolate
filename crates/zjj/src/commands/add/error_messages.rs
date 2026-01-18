@@ -14,11 +14,11 @@ pub fn workspace_already_exists(name: &str) -> String {
 }
 
 /// Error message for when ZELLIJ environment variable is not set
-pub const ZELLIJ_NOT_SET: &str = "ZELLIJ environment variable not set";
+pub const ZELLIJ_NOT_SET: &str = "Not running inside Zellij. Use --no-open flag to create session without opening a tab, or start a Zellij session first.";
 
 /// Error message when ZELLIJ is not available
 pub const ZELLIJ_NOT_RUNNING: &str =
-    "Zellij is not running. Start a Zellij session first with: zellij";
+    "Zellij is not running. Use --no-open flag to create session without opening a tab, or start a Zellij session first with: zellij";
 
 /// Error message for jj not found
 pub const JJ_NOT_FOUND: &str = "jj command not found in PATH. Please install Jujutsu (jj)";

@@ -12,6 +12,6 @@ mod serialization;
 mod types;
 
 // Re-export public API
-pub use builders::{error_with_available_sessions, JsonError};
+pub use builders::error_with_available_sessions;
 pub use serialization::JsonSerializable;
-pub use types::{ErrorCode, ErrorDetail, JsonSuccess};
+pub use types::{ErrorCode, ErrorDetail, JsonError, JsonSuccess};

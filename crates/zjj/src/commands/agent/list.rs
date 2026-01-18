@@ -3,9 +3,9 @@
 //! This module implements the `zjj agent list` command, which shows
 //! AI agents currently working in sessions along with their metadata.
 
-pub mod formatting;
-pub mod output;
-pub mod queries;
+use super::formatting;
+use super::output;
+use super::queries;
 
 use anyhow::Result;
 

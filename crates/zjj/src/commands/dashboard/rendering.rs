@@ -8,9 +8,8 @@
 //! - `widgets`: Ratatui widget builders for kanban, dialogs, status bar
 //! - `formatting`: Text formatting and styling for domain data
 
-pub mod formatting;
-pub mod layout;
-pub mod widgets;
+use super::layout;
+use super::widgets;
 
 use ratatui::{
     layout::{Constraint, Direction, Layout},

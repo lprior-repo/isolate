@@ -184,6 +184,7 @@ async fn create_single_session(options: &add::AddOptions) -> Result<AddOutput> {
         workspace_path: workspace_path_str.to_string(),
         zellij_tab: format!("jjz:{}", options.name),
         status: "active".to_string(),
+        error: None,
     })
 }
 

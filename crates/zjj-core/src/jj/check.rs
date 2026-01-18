@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use crate::{Error, Result, error::system::SystemError};
+use crate::{error::system::SystemError, Error, Result};
 
 /// Check if JJ is installed and available
 ///
@@ -23,7 +23,7 @@ pub fn check_jj_installed() -> Result<()> {
                     operation: "check JJ installation".to_string(),
                     source: "JJ command returned non-zero exit code".to_string(),
                     is_not_found: false,
-                })
+                }))
             }
         })
 }
@@ -45,7 +45,7 @@ pub fn check_in_jj_repo() -> Result<PathBuf> {
             operation: "find JJ repository root".to_string(),
             source: format!("Not in a JJ repository. {stderr}"),
             is_not_found: false,
-        });
+        }));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -56,7 +56,7 @@ pub fn check_in_jj_repo() -> Result<PathBuf> {
             operation: "find JJ repository root".to_string(),
             source: "Could not determine JJ repository root".to_string(),
             is_not_found: false,
-        })
+        }))
     } else {
         Ok(PathBuf::from(root))
     }
@@ -86,7 +86,7 @@ pub fn has_uncommitted_changes(repo_path: &std::path::Path) -> Result<bool> {
             operation: "check uncommitted changes".to_string(),
             source: stderr.to_string(),
             is_not_found: false,
-        });
+        }));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);

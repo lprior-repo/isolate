@@ -94,13 +94,13 @@ mod tests {
 
     #[test]
     fn test_io_error_display() {
-        let err = SystemError::io_error("file not found".into());
+        let err = SystemError::IoError("file not found".to_string());
         assert_eq!(err.to_string(), "IO error: file not found");
     }
 
     #[test]
     fn test_command_error_display() {
-        let err = SystemError::command_error("command failed".into());
+        let err = SystemError::Command("command failed".to_string());
         assert_eq!(err.to_string(), "Command error: command failed");
     }
 
@@ -160,8 +160,8 @@ mod tests {
 
     #[test]
     fn test_exit_code_system_errors() {
-        assert_eq!(SystemError::IoError("test".into()).exit_code(), 2);
-        assert_eq!(SystemError::Command("test".into()).exit_code(), 2);
+        assert_eq!(SystemError::IoError("test".to_string()).exit_code(), 2);
+        assert_eq!(SystemError::Command("test".to_string()).exit_code(), 2);
         assert_eq!(
             SystemError::HookFailed {
                 hook_type: "post".to_string(),

@@ -87,10 +87,7 @@ mod tests {
         assert!(spec.is_ok());
         if let Ok(spec) = spec {
             assert_eq!(spec.command, "remove");
-            assert_eq!(
-                spec.description,
-                "Remove a session and its workspace"
-            );
+            assert_eq!(spec.description, "Remove a session and its workspace");
         }
     }
 
@@ -114,25 +111,31 @@ mod tests {
 
     #[test]
     fn test_spec_has_prerequisites() {
-        get_command_spec("add").map(|spec| {
-            assert!(spec.prerequisites.initialized);
-            assert!(spec.prerequisites.jj_installed);
-        }).ok();
+        get_command_spec("add")
+            .map(|spec| {
+                assert!(spec.prerequisites.initialized);
+                assert!(spec.prerequisites.jj_installed);
+            })
+            .ok();
     }
 
     #[test]
     fn test_spec_has_examples() {
-        get_command_spec("add").map(|spec| {
-            assert!(!spec.examples.is_empty());
-            assert!(spec.examples[0].command.contains("jjz add feature-auth"));
-        }).ok();
+        get_command_spec("add")
+            .map(|spec| {
+                assert!(!spec.examples.is_empty());
+                assert!(spec.examples[0].command.contains("jjz add feature-auth"));
+            })
+            .ok();
     }
 
     #[test]
     fn test_spec_has_error_conditions() {
-        get_command_spec("add").map(|spec| {
-            assert!(!spec.error_conditions.is_empty());
-            assert_eq!(spec.error_conditions[0].code, "SESSION_ALREADY_EXISTS");
-        }).ok();
+        get_command_spec("add")
+            .map(|spec| {
+                assert!(!spec.error_conditions.is_empty());
+                assert_eq!(spec.error_conditions[0].code, "SESSION_ALREADY_EXISTS");
+            })
+            .ok();
     }
 }

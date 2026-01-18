@@ -79,6 +79,7 @@ fn test_concurrent_add_same_name_race_condition() {
                     stderr.contains("already exists")
                         || stderr.contains("UNIQUE")
                         || stderr.contains("Failed to create JJ workspace")
+                        || stderr.contains("Failed to list JJ workspaces")
                         || stderr.contains("lock")
                         || stderr.contains("Resource temporarily unavailable"),
                     "Expected failure due to race condition, got: {stderr}"

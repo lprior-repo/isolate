@@ -22,12 +22,9 @@ pub mod workspace_operations;
 
 use std::path::Path;
 
-use anyhow::{bail, Context};
 
 // Re-export key functions for backward compatibility
-pub use health::{check_database_health, repair_database, DatabaseHealth};
 pub use state_management::run_with_cwd_and_flags;
-pub use workspace_operations::force_reinitialize;
 
 /// Run the init command
 ///
@@ -57,11 +54,16 @@ pub async fn run_with_cwd(cwd: Option<&Path>) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::Path;
     use std::process::Command;
 
+    use anyhow::Result;
     use tempfile::TempDir;
 
     use super::*;
+    use crate::database::SessionDb;
+    use crate::session::Session;
 
     /// Check if jj is available in PATH
     fn jj_is_available() -> bool {
@@ -107,7 +109,7 @@ mod tests {
             };
 
             // Run init with the temp directory as cwd
-            let result = run_with_cwd(Some(temp_dir.path())).await;
+            let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
 
             // Check result
             result?;
@@ -128,7 +130,7 @@ mod tests {
                 eprintln!("Skipping test: jj not available");
                 return Ok::<(), anyhow::Error>(());
             };
-            let result = run_with_cwd(Some(temp_dir.path())).await;
+            let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             result?;
             // Verify config.toml was created
             let config_path = temp_dir.path().join(".jjz/config.toml");
@@ -151,7 +153,7 @@ mod tests {
                 eprintln!("Skipping test: jj not available");
                 return Ok::<(), anyhow::Error>(());
             };
-            let result = run_with_cwd(Some(temp_dir.path())).await;
+            let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             result?;
             // Verify state.db was created
             let db_path = temp_dir.path().join(".jjz/state.db");
@@ -172,7 +174,7 @@ mod tests {
                 eprintln!("Skipping test: jj not available");
                 return Ok::<(), anyhow::Error>(());
             };
-            let result = run_with_cwd(Some(temp_dir.path())).await;
+            let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             result?;
             // Verify layouts directory was created
             let layouts_path = temp_dir.path().join(".jjz/layouts");
@@ -190,10 +192,10 @@ mod tests {
                 return Ok(());
             };
             // First init should succeed
-            let result1 = run_with_cwd(Some(temp_dir.path())).await;
+            let result1 = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             assert!(result1.is_ok());
             // Second init should not fail, just inform user
-            let result2 = run_with_cwd(Some(temp_dir.path())).await;
+            let result2 = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             assert!(result2.is_ok());
             Ok(())
         })
@@ -212,7 +214,7 @@ mod tests {
             // Before JJ init, should not be a repo
             // After our init command runs, it will create a JJ repo automatically
             // So we just verify the automatic initialization works
-            let result = run_with_cwd(Some(temp_dir.path())).await;
+            let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             // Should succeed because init_jj_repo is called automatically
             assert!(result.is_ok());
             // Verify JJ repo was created
@@ -297,7 +299,7 @@ mod tests {
                 return Ok(());
             };
             // Initialize first
-            run_with_cwd(Some(temp_dir.path())).await?;
+            run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
             let db_path = temp_dir.path().join(".jjz/state.db");
             // Corrupt the database
             fs::write(&db_path, "CORRUPTED")?;
@@ -318,7 +320,7 @@ mod tests {
                 return Ok(());
             };
             // Initialize and create session
-            run_with_cwd(Some(temp_dir.path())).await?;
+            run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
             let db_path = temp_dir.path().join(".jjz/state.db");
             let db = SessionDb::open(&db_path).await?;
             db.create("old-session", "/old/path").await?;
@@ -332,7 +334,7 @@ mod tests {
             // Verify backup exists
             let has_backup = fs::read_dir(temp_dir.path())?
                 .filter_map(std::result::Result::ok)
-                .any(|e| e.file_name().to_string_lossy().contains("backup"));
+                .any(|e: std::fs::DirEntry| e.file_name().to_string_lossy().contains("backup"));
             assert!(has_backup, "Force init should create backup");
             Ok(())
         })
@@ -346,12 +348,12 @@ mod tests {
                 return Ok(());
             };
             // Initialize first
-            run_with_cwd(Some(temp_dir.path())).await?;
+            run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
             let db_path = temp_dir.path().join(".jjz/state.db");
             // Corrupt the database
             fs::write(&db_path, "CORRUPTED")?;
             // Run init without flags - should detect corruption and suggest repair
-            let result = run_with_cwd(Some(temp_dir.path())).await;
+            let result = run_with_cwd(Some::<&Path>(temp_dir.path())).await;
             assert!(result.is_err(), "Should detect corruption");
             Ok(())
         })
@@ -365,27 +367,27 @@ mod tests {
                 return Ok(());
             };
             // Initialize first
-            run_with_cwd(Some(temp_dir.path())).await?;
+            run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
             let zjj_dir = temp_dir.path().join(".jjz");
             let db_path = zjj_dir.join("state.db");
             // Add some data
-            let db = SessionDb::open(&db_path).await?;
+            let db: SessionDb = SessionDb::open(&db_path).await?;
             db.create("session1", "/path1").await?;
             drop(db);
             // Force reinitialize
             force_reinitialize(&zjj_dir, &db_path).await?;
             // Verify backup directory was created
-            let backup_dirs: Vec<_> = fs::read_dir(temp_dir.path())?
+            let backup_dirs: Vec<std::fs::DirEntry> = fs::read_dir(temp_dir.path())?
                 .filter_map(std::result::Result::ok)
-                .filter(|e| e.file_name().to_string_lossy().contains("backup"))
+                .filter(|e: &std::fs::DirEntry| e.file_name().to_string_lossy().contains("backup"))
                 .collect();
             assert!(
                 !backup_dirs.is_empty(),
                 "Backup directory should be created"
             );
             // Verify new .jjz directory is clean
-            let new_db = SessionDb::open(&db_path).await?;
-            let sessions = new_db.list(None).await?;
+            let new_db: SessionDb = SessionDb::open(&db_path).await?;
+            let sessions: Vec<Session> = new_db.list(None).await?;
             assert_eq!(sessions.len(), 0, "New database should be empty");
             Ok(())
         })
@@ -399,10 +401,10 @@ mod tests {
                 return Ok(());
             };
             // Initialize and create session
-            run_with_cwd(Some(temp_dir.path())).await?;
+            run_with_cwd(Some::<&Path>(temp_dir.path())).await?;
             let zjj_dir = temp_dir.path().join(".jjz");
             let db_path = zjj_dir.join("state.db");
-            let db = SessionDb::open(&db_path).await?;
+            let db: SessionDb = SessionDb::open(&db_path).await?;
             db.create("important-session", "/important/path").await?;
             drop(db);
             // Force reinitialize
@@ -410,14 +412,14 @@ mod tests {
             // Find backup directory
             let backup_dir = fs::read_dir(temp_dir.path())?
                 .filter_map(std::result::Result::ok)
-                .find(|e| e.file_name().to_string_lossy().contains("backup"))
+                .find(|e: &std::fs::DirEntry| e.file_name().to_string_lossy().contains("backup"))
                 .context("Backup directory should exist")?
                 .path();
             // Verify backup contains the session
             let backup_db_path = backup_dir.join("state.db");
             assert!(backup_db_path.exists(), "Backup should contain state.db");
-            let backup_db = SessionDb::open(&backup_db_path).await?;
-            let sessions = backup_db.list(None).await?;
+            let backup_db: SessionDb = SessionDb::open(&backup_db_path).await?;
+            let sessions: Vec<Session> = backup_db.list(None).await?;
             assert_eq!(sessions.len(), 1, "Backup should contain the session");
             assert_eq!(sessions[0].name, "important-session");
             Ok(())

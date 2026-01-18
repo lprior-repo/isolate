@@ -15,8 +15,7 @@ use std::path::Path;
 
 use anyhow::Result;
 
-pub mod error_messages;
-pub mod validators;
+use super::validators;
 
 pub use validators::{
     validate_dependencies, validate_not_exists, validate_session_name,

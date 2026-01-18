@@ -14,7 +14,7 @@ pub mod types;
 
 use anyhow::Result;
 
-pub use types::{ContextOutput, EnvironmentContext};
+pub use types::ContextOutput;
 
 /// Run the context command
 ///

@@ -47,7 +47,7 @@ pub fn get_session_changes(workspace_path: &str) -> Option<usize> {
 /// Returns error only if database exists but cannot be opened/queried.
 /// Returns Ok with default counts for missing/inaccessible database.
 pub async fn get_beads_count() -> Result<BeadCounts> {
-    use sqlx::SqliteConnection;
+    use sqlx::{Connection, SqliteConnection};
 
     // Find repository root
     let repo_root = zjj_core::jj::check_in_jj_repo().ok();
@@ -220,8 +220,9 @@ mod tests {
         });
 
         let result = extract_bead_info(&metadata);
-        assert!(result.is_some());
-        let bead = result.as_ref().unwrap();
+        let Some(bead) = result else {
+            panic!("Expected bead info to be present");
+        };
         assert_eq!(bead.id, "zjj-1234");
         assert_eq!(bead.title, Some("Fix authentication bug".to_string()));
         assert_eq!(bead.status, Some("open".to_string()));
@@ -248,8 +249,9 @@ mod tests {
         });
 
         let result = extract_agent_info(&metadata);
-        assert!(result.is_some());
-        let agent = result.as_ref().unwrap();
+        let Some(ref agent) = result else {
+            panic!("Expected agent info to be present");
+        };
         assert_eq!(agent.agent_id, "claude-code-1234");
         assert_eq!(agent.task_id, Some("zjj-5678".to_string()));
         assert_eq!(agent.spawned_at, Some(1_000_000_000));
@@ -266,8 +268,9 @@ mod tests {
         });
 
         let result = extract_agent_info(&metadata);
-        assert!(result.is_some());
-        let agent = result.as_ref().unwrap();
+        let Some(ref agent) = result else {
+            panic!("Expected agent info to be present");
+        };
         assert_eq!(agent.agent_id, "claude-code-5678");
         assert_eq!(agent.task_id, Some("zjj-9012".to_string()));
     }

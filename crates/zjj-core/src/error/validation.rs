@@ -39,31 +39,34 @@ mod tests {
 
     #[test]
     fn test_invalid_config_display() {
-        let err = ValidationError::InvalidConfig("test error".into());
+        let err = ValidationError::InvalidConfig("test error".to_string());
         assert_eq!(err.to_string(), "Invalid configuration: test error");
     }
 
     #[test]
     fn test_parse_error_display() {
-        let err = ValidationError::ParseError("invalid json".into());
+        let err = ValidationError::ParseError("invalid json".to_string());
         assert_eq!(err.to_string(), "Parse error: invalid json");
     }
 
     #[test]
     fn test_validation_error_display() {
-        let err = ValidationError::ValidationError("invalid input".into());
+        let err = ValidationError::ValidationError("invalid input".to_string());
         assert_eq!(err.to_string(), "Validation error: invalid input");
     }
 
     #[test]
     fn test_validation_exit_code() {
         assert_eq!(
-            ValidationError::InvalidConfig("test".into()).exit_code(),
+            ValidationError::InvalidConfig("test".to_string()).exit_code(),
             1
         );
-        assert_eq!(ValidationError::ParseError("test".into()).exit_code(), 1);
         assert_eq!(
-            ValidationError::ValidationError("test".into()).exit_code(),
+            ValidationError::ParseError("test".to_string()).exit_code(),
+            1
+        );
+        assert_eq!(
+            ValidationError::ValidationError("test".to_string()).exit_code(),
             1
         );
     }

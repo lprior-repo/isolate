@@ -4,11 +4,10 @@ use std::path::Path;
 
 use anyhow::Result;
 
+use super::format;
+use super::simulation;
 use super::RemoveOptions;
 use crate::{cli::is_inside_zellij, json_output::RemoveDryRunPlan, session::Session};
-
-mod format;
-mod simulation;
 
 use format::output_plan as format_output_plan;
 use simulation::{add_workspace_removal, build_merge_operations, OperationBuilder};

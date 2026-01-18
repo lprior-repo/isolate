@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_error_detail_skip_none() -> crate::Result<()> {
-        use super::super::builders::JsonError;
+        use crate::json::JsonError;
 
         let err = JsonError::new("TEST", "message");
         let json = err.to_json()?;

@@ -165,6 +165,7 @@ mod tests {
     use tempfile::TempDir;
 
     use crate::database::SessionDb;
+    use crate::session::Session;
 
     use super::*;
 
@@ -329,7 +330,7 @@ mod tests {
         assert!(backup_db_path.exists(), "Backup should contain state.db");
         tokio::runtime::Runtime::new()?.block_on(async {
             let backup_db = SessionDb::open(&backup_db_path).await?;
-            let sessions = backup_db.list(None).await?;
+            let sessions: Vec<Session> = backup_db.list(None).await?;
             assert_eq!(sessions.len(), 1, "Backup should contain the session");
             assert_eq!(sessions[0].name, "important-session");
             Ok::<(), anyhow::Error>(())

@@ -23,6 +23,8 @@ pub struct AddOutput {
     pub workspace_path: String,
     pub zellij_tab: String,
     pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<ErrorDetail>,
 }
 
 /// Remove command JSON output

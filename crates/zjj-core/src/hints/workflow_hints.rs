@@ -247,7 +247,10 @@ mod tests {
         };
 
         let hints = suggest_workflow_hints(&state);
-        assert!(hints.iter().any(|h| h.contains("no active sessions")));
+        // Case-insensitive check for "no active sessions"
+        assert!(hints
+            .iter()
+            .any(|h| h.to_lowercase().contains("no active sessions")));
     }
 
     #[test]

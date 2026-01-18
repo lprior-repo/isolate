@@ -70,7 +70,7 @@ mod tests {
         let config = test_config();
         let output_dir = env::temp_dir().join("zjj-test-layouts");
 
-        let result = layout_generate(&config, super::config::LayoutTemplate::Minimal, &output_dir);
+        let result = layout_generate(&config, crate::zellij::LayoutTemplate::Minimal, &output_dir);
         assert!(result.is_ok());
 
         if let Ok(layout) = result {

@@ -4,4 +4,3 @@
 //! New code should use workspace_operations directly.
 
 // Re-export for backward compatibility
-pub use super::workspace_operations::force_reinitialize;

@@ -9,13 +9,13 @@ use anyhow::{Context, Result};
 
 use crate::json_output::ConfigSetOutput;
 
-pub use defaults::{parse_value, set_config_value};
+pub use defaults::set_config_value;
 pub use loading::{
-    get_nested_value, global_config_path, global_config_path_opt, project_config_path,
+    global_config_path, global_config_path_opt, project_config_path,
     show_all_config, show_config_value,
 };
 pub use types::ConfigOptions;
-pub use validation::{is_readable, validate_config_key, validate_configuration, validate_size};
+pub use validation::{is_readable, validate_config_key};
 
 /// Execute the config command
 ///

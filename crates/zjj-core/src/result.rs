@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn test_result_into_option_err() {
-        let result: Result<i32> = Err(Error::Unknown("test".into()));
+        let result: Result<i32> = Err(Error::Unknown("test".to_string()));
         assert_eq!(result.into_option_logged(), None);
     }
 
@@ -99,13 +99,13 @@ mod tests {
 
     #[test]
     fn test_result_or_default_logged_err() {
-        let result: Result<i32> = Err(Error::Unknown("test".into()));
+        let result: Result<i32> = Err(Error::Unknown("test".to_string()));
         assert_eq!(result.or_default_logged(99), 99);
     }
 
     #[test]
     fn test_result_inspect_error() {
-        let result: Result<i32> = Err(Error::Unknown("test".into()));
+        let result: Result<i32> = Err(Error::Unknown("test".to_string()));
         let mut called = false;
         let _ = result.inspect_error(|_| {
             called = true;

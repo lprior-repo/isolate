@@ -52,7 +52,7 @@ pub async fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> 
         Ok((db, tab)) => (db, tab),
         Err(e) => {
             if options.json {
-                let suggestion = Some("Initialize jjz: jjz init".to_string());
+                let suggestion = Some("Use 'jjz list' to see available sessions".to_string());
                 error_handler::output_error_json_and_exit(
                     FocusError::NotFound,
                     &e.to_string(),

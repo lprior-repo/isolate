@@ -122,7 +122,6 @@ pub fn check_dependencies() -> Result<()> {
 }
 
 // Re-export parse_version for testing purposes
-pub use system_checks::parse_version;
 
 #[cfg(test)]
 mod tests {

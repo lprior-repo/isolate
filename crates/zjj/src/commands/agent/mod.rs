@@ -4,7 +4,10 @@
 //! Agents can be spawned in sessions and their metadata (ID, task, artifacts, etc.)
 //! is stored in the session metadata field.
 
+mod formatting;
 pub mod list;
+mod output;
+mod queries;
 
 use anyhow::Result;
 

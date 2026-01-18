@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::{
     cli::{args::build_cli, output_help_json, setup},
-    commands::{config, init, introspect, list, prime, version},
+    commands::{config, init, list, prime, version},
 };
 
 /// Execute the CLI and return a Result

@@ -90,7 +90,7 @@ mod tests {
             let exists = sample_output.lines().any(|line| {
                 line.split(':')
                     .next()
-                    .is_some_and(|ws_name| ws_name.trim() == name)
+                    .is_some_and(|ws_name| ws_name.trim() == *name)
             });
             assert!(exists, "Should find '{name}' workspace");
         }

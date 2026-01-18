@@ -9,7 +9,7 @@ pub(crate) fn validate_database_path(path: &Path, allow_create: bool) -> Result<
     let exists = path.exists();
 
     if !exists && !allow_create {
-        return Err(Error::DatabaseError(format!(
+        return Err(Error::database_error(format!(
             "Database file does not exist: {}\n\nRun 'jjz init' to initialize ZJZ.",
             path.display()
         )));
@@ -25,10 +25,10 @@ pub(crate) fn validate_database_path(path: &Path, allow_create: bool) -> Result<
 /// Validate existing database file is not empty
 fn validate_existing_file(path: &Path) -> Result<()> {
     std::fs::metadata(path)
-        .map_err(|e| Error::DatabaseError(format!("Failed to read database metadata: {e}")))
+        .map_err(|e| Error::database_error(format!("Failed to read database metadata: {e}")))
         .and_then(|metadata| {
             if metadata.len() == 0 {
-                Err(Error::DatabaseError(format!(
+                Err(Error::database_error(format!(
                     "Database file is empty or corrupted: {}\n\nRun 'jjz init' to reinitialize.",
                     path.display()
                 )))

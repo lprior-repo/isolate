@@ -1,6 +1,5 @@
 //! Environment gathering functions using functional patterns
 
-use anyhow::Result;
 
 use crate::cli::{is_command_available, is_inside_zellij, is_jj_repo, run_command};
 use crate::commands::{get_session_db, zjj_data_dir};

@@ -161,7 +161,7 @@ mod tests {
     use super::*;
 
     async fn setup_test_db() -> Result<(SessionDb, TempDir)> {
-        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let dir = TempDir::new().map_err(|e| Error::io_error(e.to_string()))?;
         let db_path = dir.path().join("test.db");
         let db = SessionDb::create_or_open(&db_path).await?;
         Ok((db, dir))
@@ -189,7 +189,7 @@ mod tests {
             let retrieved = db.get("test").await?;
             assert!(retrieved.is_some());
 
-            let session = retrieved.ok_or_else(|| Error::NotFound("session".into()))?;
+            let session = retrieved.ok_or_else(|| Error::not_found("session"))?;
             assert_eq!(session.name, created.name);
             Ok(())
         })
@@ -204,11 +204,14 @@ mod tests {
             let result = db.create("test", "/path2").await;
             assert!(result.is_err());
 
-            if let Err(Error::DatabaseError(msg)) = result {
-                assert!(msg.contains("already exists"));
-            } else {
-                return Err(Error::Unknown("Expected DatabaseError".to_string()));
-            }
+            let err = result
+                .err()
+                .ok_or_else(|| Error::unknown("Expected error"))?;
+            let err_msg = err.to_string();
+            assert!(
+                err_msg.contains("already exists"),
+                "Expected 'already exists' error, got: {err_msg}"
+            );
             Ok(())
         })
     }

@@ -87,9 +87,9 @@ async fn insert_session(
     .map(|result| result.last_insert_rowid())
     .map_err(|e| {
         if e.to_string().to_lowercase().contains("unique") {
-            Error::DatabaseError(format!("Session '{name}' already exists"))
+            Error::database_error(format!("Session '{name}' already exists"))
         } else {
-            Error::DatabaseError(format!("Failed to create session: {e}"))
+            Error::database_error(format!("Failed to create session: {e}"))
         }
     })
 }
@@ -115,7 +115,7 @@ fn build_update_clauses(update: &SessionUpdate) -> Result<Vec<(&'static str, Str
         .map(|m| {
             serde_json::to_string(m)
                 .map(|json| ("metadata", json))
-                .map_err(|e| Error::ParseError(format!("Failed to serialize metadata: {e}")))
+                .map_err(|e| Error::parse_error(format!("Failed to serialize metadata: {e}")))
         })
         .transpose()?;
 
@@ -166,7 +166,7 @@ async fn execute_update(pool: &SqlitePool, sql: &str, values: Vec<String>) -> Re
         .execute(pool)
         .await
         .map(|_| ())
-        .map_err(|e| Error::DatabaseError(format!("Failed to update session: {e}")))
+        .map_err(|e| Error::database_error(format!("Failed to update session: {e}")))
 }
 
 /// Delete a session from the database
@@ -176,5 +176,5 @@ async fn delete_session(pool: &SqlitePool, name: &str) -> Result<bool> {
         .execute(pool)
         .await
         .map(|result| result.rows_affected() > 0)
-        .map_err(|e| Error::DatabaseError(format!("Failed to delete session: {e}")))
+        .map_err(|e| Error::database_error(format!("Failed to delete session: {e}")))
 }

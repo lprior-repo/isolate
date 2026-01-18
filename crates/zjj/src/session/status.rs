@@ -44,7 +44,7 @@ impl FromStr for SessionStatus {
             "paused" => Ok(Self::Paused),
             "completed" => Ok(Self::Completed),
             "failed" => Ok(Self::Failed),
-            _ => Err(Error::ValidationError(format!("Invalid status: {s}"))),
+            _ => Err(Error::validation_error(format!("Invalid status: {s}"))),
         }
     }
 }

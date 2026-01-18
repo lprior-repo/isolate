@@ -89,13 +89,13 @@ mod tests {
 
     #[test]
     fn test_database_error_display() {
-        let err = ExecutionError::database_error("connection failed".into());
+        let err = ExecutionError::DatabaseError("connection failed".to_string());
         assert_eq!(err.to_string(), "Database error: connection failed");
     }
 
     #[test]
     fn test_not_found_display() {
-        let err = ExecutionError::not_found("session".into());
+        let err = ExecutionError::NotFound("session".to_string());
         assert_eq!(err.to_string(), "Not found: session");
     }
 
@@ -126,13 +126,16 @@ mod tests {
 
     #[test]
     fn test_exit_code_not_found() {
-        assert_eq!(ExecutionError::NotFound("session".into()).exit_code(), 3);
+        assert_eq!(
+            ExecutionError::NotFound("session".to_string()).exit_code(),
+            3
+        );
     }
 
     #[test]
     fn test_exit_code_invalid_state() {
         assert_eq!(
-            ExecutionError::DatabaseError("corrupt".into()).exit_code(),
+            ExecutionError::DatabaseError("corrupt".to_string()).exit_code(),
             4
         );
         assert_eq!(

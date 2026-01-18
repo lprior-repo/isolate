@@ -22,7 +22,7 @@ pub struct FocusValidationResult {
 ///
 /// Returns error if name is invalid.
 pub fn validate_session_name(name: &str) -> Result<()> {
-    crate::session::validate_session_name(name)
+    Ok(crate::session::validate_session_name(name)?)
 }
 
 /// Validates database is accessible and session exists

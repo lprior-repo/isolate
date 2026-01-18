@@ -202,6 +202,21 @@ mod tests {
         TempDir::new().map_err(|e| Error::io_error(format!("Failed to create temp dir: {e}")))
     }
 
+    // Helper to ensure SHELL is set to a POSIX-compatible shell for tests
+    fn with_posix_shell<F, R>(f: F) -> R
+    where
+        F: FnOnce() -> R,
+    {
+        let original = std::env::var("SHELL").ok();
+        std::env::set_var("SHELL", "/bin/sh");
+        let result = f();
+        match original {
+            Some(shell) => std::env::set_var("SHELL", shell),
+            None => std::env::remove_var("SHELL"),
+        }
+        result
+    }
+
     // Test 1: No hooks configured - returns NoHooks
     #[test]
     fn test_no_hooks_configured() -> Result<()> {
@@ -218,186 +233,200 @@ mod tests {
     // Test 2: Single successful hook
     #[test]
     fn test_single_successful_hook() -> Result<()> {
-        let config = HooksConfig {
-            post_create: vec!["echo 'Hello'".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        with_posix_shell(|| {
+            let config = HooksConfig {
+                post_create: vec!["echo 'Hello'".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+            let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        if let HookResult::Success(results) = result {
-            assert_eq!(results.len(), 1);
-            assert!(results[0].success);
-            assert!(results[0].stdout.contains("Hello"));
-        } else {
-            return Err(Error::invalid_config("Expected Success, got NoHooks"));
-        }
-        Ok(())
+            if let HookResult::Success(results) = result {
+                assert_eq!(results.len(), 1);
+                assert!(results[0].success);
+                assert!(results[0].stdout.contains("Hello"));
+            } else {
+                return Err(Error::invalid_config("Expected Success, got NoHooks"));
+            }
+            Ok(())
+        })
     }
 
     // Test 3: Multiple successful hooks execute in order
     #[test]
     fn test_multiple_successful_hooks() -> Result<()> {
-        let config = HooksConfig {
-            post_create: vec!["echo 'A'".to_string(), "echo 'B'".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        with_posix_shell(|| {
+            let config = HooksConfig {
+                post_create: vec!["echo 'A'".to_string(), "echo 'B'".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+            let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        if let HookResult::Success(results) = result {
-            assert_eq!(results.len(), 2);
-            assert!(results[0].success);
-            assert!(results[0].stdout.contains('A'));
-            assert!(results[1].success);
-            assert!(results[1].stdout.contains('B'));
-        } else {
-            return Err(Error::invalid_config("Expected Success, got NoHooks"));
-        }
-        Ok(())
+            if let HookResult::Success(results) = result {
+                assert_eq!(results.len(), 2);
+                assert!(results[0].success);
+                assert!(results[0].stdout.contains('A'));
+                assert!(results[1].success);
+                assert!(results[1].stdout.contains('B'));
+            } else {
+                return Err(Error::invalid_config("Expected Success, got NoHooks"));
+            }
+            Ok(())
+        })
     }
 
     // Test 4: Hook failure returns error
     #[test]
     fn test_hook_failure() -> Result<()> {
-        let config = HooksConfig {
-            post_create: vec!["exit 1".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        with_posix_shell(|| {
+            let config = HooksConfig {
+                post_create: vec!["exit 1".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path());
+            let result = runner.run(HookType::PostCreate, workspace.path());
 
-        assert!(result.is_err());
-        if let Err(Error::System(crate::error::system::SystemError::HookFailed {
-            hook_type,
-            command,
-            exit_code,
-            ..
-        })) = result
-        {
-            assert_eq!(hook_type, "post_create");
-            assert_eq!(command, "exit 1");
-            assert_eq!(exit_code, Some(1));
-        } else {
-            return Err(Error::invalid_config("Expected HookFailed error"));
-        }
-        Ok(())
+            assert!(result.is_err());
+            if let Err(Error::System(crate::error::system::SystemError::HookFailed {
+                hook_type,
+                command,
+                exit_code,
+                ..
+            })) = result
+            {
+                assert_eq!(hook_type, "post_create");
+                assert_eq!(command, "exit 1");
+                assert_eq!(exit_code, Some(1));
+            } else {
+                return Err(Error::invalid_config("Expected HookFailed error"));
+            }
+            Ok(())
+        })
     }
 
     // Test 5: Partial hook failure - second hook fails, third never runs
     #[test]
     fn test_partial_hook_failure() -> Result<()> {
-        let config = HooksConfig {
-            post_create: vec![
-                "echo 'A'".to_string(),
-                "exit 1".to_string(),
-                "echo 'C'".to_string(),
-            ],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        with_posix_shell(|| {
+            let config = HooksConfig {
+                post_create: vec![
+                    "echo 'A'".to_string(),
+                    "exit 1".to_string(),
+                    "echo 'C'".to_string(),
+                ],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path());
+            let result = runner.run(HookType::PostCreate, workspace.path());
 
-        assert!(result.is_err());
-        // The third hook should never execute
-        if let Err(Error::System(crate::error::system::SystemError::HookFailed {
-            command, ..
-        })) = result
-        {
-            assert_eq!(command, "exit 1");
-        } else {
-            return Err(Error::invalid_config("Expected HookFailed error"));
-        }
-        Ok(())
+            assert!(result.is_err());
+            // The third hook should never execute
+            if let Err(Error::System(crate::error::system::SystemError::HookFailed {
+                command, ..
+            })) = result
+            {
+                assert_eq!(command, "exit 1");
+            } else {
+                return Err(Error::invalid_config("Expected HookFailed error"));
+            }
+            Ok(())
+        })
     }
 
     // Test 6: Hook with workspace as cwd
     #[test]
     fn test_hook_with_workspace_cwd() -> Result<()> {
-        let config = HooksConfig {
-            post_create: vec!["pwd".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        with_posix_shell(|| {
+            let config = HooksConfig {
+                post_create: vec!["pwd".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+            let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        if let HookResult::Success(results) = result {
-            assert_eq!(results.len(), 1);
-            assert!(results[0].success);
-            let output = results[0].stdout.trim();
-            let expected = workspace.path().to_string_lossy();
-            assert_eq!(output, expected.as_ref());
-        } else {
-            return Err(Error::invalid_config("Expected Success, got NoHooks"));
-        }
-        Ok(())
+            if let HookResult::Success(results) = result {
+                assert_eq!(results.len(), 1);
+                assert!(results[0].success);
+                let output = results[0].stdout.trim();
+                let expected = workspace.path().to_string_lossy();
+                assert_eq!(output, expected.as_ref());
+            } else {
+                return Err(Error::invalid_config("Expected Success, got NoHooks"));
+            }
+            Ok(())
+        })
     }
 
     // Test 7: Hook stderr captured
     #[test]
     fn test_hook_stderr_captured() -> Result<()> {
-        let config = HooksConfig {
-            post_create: vec!["echo 'error' >&2".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        with_posix_shell(|| {
+            let config = HooksConfig {
+                post_create: vec!["echo 'error' >&2".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+            let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        if let HookResult::Success(results) = result {
-            assert_eq!(results.len(), 1);
-            assert!(results[0].success);
-            assert!(results[0].stderr.contains("error"));
-        } else {
-            return Err(Error::invalid_config("Expected Success, got NoHooks"));
-        }
-        Ok(())
+            if let HookResult::Success(results) = result {
+                assert_eq!(results.len(), 1);
+                assert!(results[0].success);
+                assert!(results[0].stderr.contains("error"));
+            } else {
+                return Err(Error::invalid_config("Expected Success, got NoHooks"));
+            }
+            Ok(())
+        })
     }
 
     // Test 8: Complex hook script (multi-command)
     #[test]
     fn test_complex_hook_script() -> Result<()> {
-        let workspace = create_test_workspace()?;
+        with_posix_shell(|| {
+            let workspace = create_test_workspace()?;
 
-        // Create a subdirectory
-        let subdir = workspace.path().join("subdir");
-        fs::create_dir(&subdir)?;
+            // Create a subdirectory
+            let subdir = workspace.path().join("subdir");
+            fs::create_dir(&subdir)?;
 
-        let config = HooksConfig {
-            post_create: vec!["cd subdir && pwd".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
+            let config = HooksConfig {
+                post_create: vec!["cd subdir && pwd".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+            let result = runner.run(HookType::PostCreate, workspace.path())?;
 
-        if let HookResult::Success(results) = result {
-            assert_eq!(results.len(), 1);
-            assert!(results[0].success);
-            let output = results[0].stdout.trim();
-            assert!(output.ends_with("subdir"));
-        } else {
-            return Err(Error::invalid_config("Expected Success, got NoHooks"));
-        }
-        Ok(())
+            if let HookResult::Success(results) = result {
+                assert_eq!(results.len(), 1);
+                assert!(results[0].success);
+                let output = results[0].stdout.trim();
+                assert!(output.ends_with("subdir"));
+            } else {
+                return Err(Error::invalid_config("Expected Success, got NoHooks"));
+            }
+            Ok(())
+        })
     }
 
     // Test 9: Different hook types use different configs

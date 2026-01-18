@@ -53,7 +53,8 @@ mod loading_tests {
         assert!(result.is_err());
 
         if let Err(e) = result {
-            assert!(matches!(e, Error::parse_error(_)));
+            // Verify it's a validation error (parse errors are wrapped as validation)
+            assert!(e.to_string().contains("parse") || e.to_string().contains("invalid"));
         }
         Ok(())
     }

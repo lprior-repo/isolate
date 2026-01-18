@@ -9,10 +9,18 @@ use zjj_core::introspection::{CheckStatus, DoctorCheck};
 
 use crate::cli::is_command_available;
 
-/// Check if jjz is initialized
+/// Check if jjz is initialized in the current directory
 pub fn check_initialized() -> DoctorCheck {
+    check_initialized_at(".")
+}
+
+/// Check if jjz is initialized at a specific path
+///
+/// This is the implementation that allows testing without changing current directory.
+pub fn check_initialized_at(base_path: impl AsRef<std::path::Path>) -> DoctorCheck {
     // Check for .jjz directory existence directly, without depending on JJ installation
-    let jjz_dir = std::path::Path::new(".jjz");
+    let base = base_path.as_ref();
+    let jjz_dir = base.join(".jjz");
     let config_file = jjz_dir.join("config.toml");
     let initialized = jjz_dir.exists() && config_file.exists();
 
@@ -86,53 +94,32 @@ pub fn check_beads() -> DoctorCheck {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
     use std::fs;
     use tempfile::TempDir;
 
     #[test]
-    #[serial]
     fn test_check_initialized_detects_jjz_directory() {
-        // Create a temporary directory
-        let temp_dir = TempDir::new().ok();
-        let Some(temp_dir) = temp_dir else {
-            return;
-        };
-
-        // Change to temp directory
-        let original_dir = std::env::current_dir().ok();
-        let Some(original_dir) = original_dir else {
-            return;
-        };
-        if std::env::set_current_dir(temp_dir.path()).is_err() {
-            return;
-        }
+        // Create a temporary directory - no need to change current directory
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
         // Test 1: No .jjz directory - should fail
-        let result = check_initialized();
+        let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Fail);
         assert_eq!(result.name, "jjz Initialized");
         assert!(result.message.contains("not initialized"));
 
         // Test 2: .jjz directory exists but no config.toml - should fail
-        if fs::create_dir(".jjz").is_err() {
-            let _ = std::env::set_current_dir(original_dir);
-            return;
-        }
-        let result = check_initialized();
+        let jjz_dir = temp_dir.path().join(".jjz");
+        fs::create_dir(&jjz_dir).expect("Failed to create .jjz dir");
+        let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Fail);
 
         // Test 3: .jjz directory with config.toml - should pass
-        if fs::write(".jjz/config.toml", "workspace_dir = \"test\"").is_err() {
-            let _ = std::env::set_current_dir(original_dir);
-            return;
-        }
-        let result = check_initialized();
+        fs::write(jjz_dir.join("config.toml"), "workspace_dir = \"test\"")
+            .expect("Failed to write config.toml");
+        let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Pass);
         assert!(result.message.contains(".jjz directory exists"));
-
-        // Cleanup: restore original directory
-        let _ = std::env::set_current_dir(original_dir);
     }
 
     #[test]
@@ -140,43 +127,17 @@ mod tests {
         // This test verifies that check_initialized doesn't call jj commands
         // We test this by checking it works even without a JJ repo
 
-        let temp_dir = TempDir::new().ok();
-        let Some(temp_dir) = temp_dir else {
-            return;
-        };
-
-        let original_dir = std::env::current_dir().ok();
-        let Some(original_dir) = original_dir else {
-            return;
-        };
-        if std::env::set_current_dir(temp_dir.path()).is_err() {
-            return;
-        }
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
         // Create .jjz structure WITHOUT initializing a JJ repo
-        if fs::create_dir(".jjz").is_err() {
-            let _ = std::env::set_current_dir(original_dir);
-            return;
-        }
-        if fs::write(".jjz/config.toml", "workspace_dir = \"test\"").is_err() {
-            let _ = std::env::set_current_dir(original_dir);
-            return;
-        }
+        let jjz_dir = temp_dir.path().join(".jjz");
+        fs::create_dir(&jjz_dir).expect("Failed to create .jjz dir");
+        fs::write(jjz_dir.join("config.toml"), "workspace_dir = \"test\"")
+            .expect("Failed to write config.toml");
 
         // Even without JJ installed/initialized, should detect .jjz
-        // Verify files exist before checking
-        let jjz_exists = std::path::Path::new(".jjz").exists();
-        let config_exists = std::path::Path::new(".jjz/config.toml").exists();
-        if !jjz_exists || !config_exists {
-            // If we couldn't create the files, skip the test
-            let _ = std::env::set_current_dir(original_dir);
-            return;
-        }
-        let result = check_initialized();
+        let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Pass);
-
-        // Cleanup
-        let _ = std::env::set_current_dir(original_dir);
     }
 
     #[test]

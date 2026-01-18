@@ -316,8 +316,8 @@ mod tests {
         let result = validate_kdl(invalid_kdl);
 
         assert!(result.is_err());
-        if let Err(Error::validation_error(msg)) = result {
-            assert!(msg.contains("Unbalanced braces"));
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Unbalanced braces"));
         }
     }
 
@@ -327,8 +327,8 @@ mod tests {
         let result = validate_kdl(invalid_kdl);
 
         assert!(result.is_err());
-        if let Err(Error::validation_error(msg)) = result {
-            assert!(msg.contains("layout"));
+        if let Err(e) = result {
+            assert!(e.to_string().contains("layout"));
         }
     }
 
@@ -338,8 +338,8 @@ mod tests {
         let result = validate_kdl(invalid_kdl);
 
         assert!(result.is_err());
-        if let Err(Error::validation_error(msg)) = result {
-            assert!(msg.contains("pane"));
+        if let Err(e) = result {
+            assert!(e.to_string().contains("pane"));
         }
     }
 }

@@ -173,22 +173,26 @@ mod tests {
     }
 
     #[test]
-    async fn test_check_state_db_returns_valid_check() {
-        let check = check_state_db().await;
-        assert_eq!(check.name, "State Database");
-        assert!(
-            check.status == CheckStatus::Pass
-                || check.status == CheckStatus::Warn
-                || check.status == CheckStatus::Fail
-        );
-        assert!(!check.message.is_empty());
+    fn test_check_state_db_returns_valid_check() {
+        tokio_test::block_on(async {
+            let check = check_state_db().await;
+            assert_eq!(check.name, "State Database");
+            assert!(
+                check.status == CheckStatus::Pass
+                    || check.status == CheckStatus::Warn
+                    || check.status == CheckStatus::Fail
+            );
+            assert!(!check.message.is_empty());
+        });
     }
 
     #[test]
-    async fn test_check_orphaned_workspaces_returns_valid_check() {
-        let check = check_orphaned_workspaces().await;
-        assert_eq!(check.name, "Orphaned Workspaces");
-        assert!(check.status == CheckStatus::Pass || check.status == CheckStatus::Warn);
-        assert!(!check.message.is_empty());
+    fn test_check_orphaned_workspaces_returns_valid_check() {
+        tokio_test::block_on(async {
+            let check = check_orphaned_workspaces().await;
+            assert_eq!(check.name, "Orphaned Workspaces");
+            assert!(check.status == CheckStatus::Pass || check.status == CheckStatus::Warn);
+            assert!(!check.message.is_empty());
+        });
     }
 }
