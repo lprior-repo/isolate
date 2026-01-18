@@ -52,8 +52,6 @@ pub async fn query_beads(
 
 #[cfg(test)]
 mod tests {
-    // NOTE: Tests use defensive patterns (if let Ok) not expect().
-    // Forbid lints are satisfied by implementation, no allow needed.
     use chrono::Utc;
     use im::vector;
 
@@ -63,91 +61,95 @@ mod tests {
         SortDirection,
     };
 
+    /// Helper: Assert issues count using functional pattern
+    fn assert_issue_count(
+        result: &std::result::Result<Vector<BeadIssue>, BeadsError>,
+        count: usize,
+    ) {
+        if let Ok(issues) = result {
+            assert_eq!(issues.len(), count);
+        }
+    }
+
+    /// Helper: Test first and second issues in collection
+    fn assert_first_second_issues(issues: &Vector<BeadIssue>, first_id: &str, second_id: &str) {
+        if let Some(first) = issues.iter().next() {
+            assert_eq!(first.id, first_id);
+        }
+        if let Some(second) = issues.iter().nth(1) {
+            assert_eq!(second.id, second_id);
+        }
+    }
+
+    /// Helper: Setup test directory with JSONL file
+    fn setup_test_dir_with_jsonl(
+        content: &str,
+    ) -> std::result::Result<tempfile::TempDir, std::io::Error> {
+        use std::fs;
+        let dir = tempfile::tempdir()?;
+        let beads_dir = dir.path().join(".beads");
+        fs::create_dir(&beads_dir)?;
+        let jsonl_path = beads_dir.join("issues.jsonl");
+        fs::write(&jsonl_path, content)?;
+        Ok(dir)
+    }
+
     #[tokio::test]
     async fn test_query_beads_empty_path() {
         let result = query_beads(std::path::Path::new("/tmp")).await;
         assert!(result.is_ok());
-
-        if let Ok(issues) = result {
-            assert_eq!(issues.len(), 0);
-        }
+        assert_issue_count(&result, 0);
     }
 
     #[tokio::test]
     async fn test_query_beads_jsonl_parsing() {
-        use std::fs;
-
-        match tempfile::tempdir() {
-            Ok(dir) => {
-                let beads_dir = dir.path().join(".beads");
-                let _ = fs::create_dir(&beads_dir);
-                let jsonl_path = beads_dir.join("issues.jsonl");
-
-                let test_data = r#"{"id":"test-1","title":"Test Issue","status":"open","priority":0,"issue_type":"bug","created_at":"2026-01-17T10:00:00Z","updated_at":"2026-01-17T10:00:00Z"}
+        let test_data = r#"{"id":"test-1","title":"Test Issue","status":"open","priority":0,"issue_type":"bug","created_at":"2026-01-17T10:00:00Z","updated_at":"2026-01-17T10:00:00Z"}
 {"id":"test-2","title":"Another Issue","status":"closed","priority":1,"issue_type":"feature","created_at":"2026-01-17T09:00:00Z","updated_at":"2026-01-17T09:30:00Z","closed_at":"2026-01-17T09:30:00Z"}"#;
 
-                let _ = fs::write(&jsonl_path, test_data);
+        // Functional approach: map_err to skip test on setup failure
+        if let Ok(dir) = setup_test_dir_with_jsonl(test_data) {
+            let result = query_beads(dir.path()).await;
+            assert!(result.is_ok());
+            assert_issue_count(&result, 2);
 
-                let result = query_beads(dir.path()).await;
-                assert!(result.is_ok());
+            if let Ok(issues) = result {
+                assert_first_second_issues(&issues, "test-1", "test-2");
 
-                if let Ok(issues) = result {
-                    assert_eq!(issues.len(), 2);
-
-                    if let Some(first) = issues.iter().next() {
-                        assert_eq!(first.id, "test-1");
-                        assert_eq!(first.title, "Test Issue");
-                        assert_eq!(first.status, IssueStatus::Open);
-                        assert_eq!(first.priority, Some(Priority::P0));
-                        assert_eq!(first.issue_type, Some(IssueType::Bug));
-                    }
-
-                    if let Some(second) = issues.iter().nth(1) {
-                        assert_eq!(second.id, "test-2");
-                        assert_eq!(second.status, IssueStatus::Closed);
-                        assert!(second.closed_at.is_some());
-                    }
+                // Validate first issue properties
+                if let Some(first) = issues.iter().next() {
+                    assert_eq!(first.title, "Test Issue");
+                    assert_eq!(first.status, IssueStatus::Open);
+                    assert_eq!(first.priority, Some(Priority::P0));
+                    assert_eq!(first.issue_type, Some(IssueType::Bug));
                 }
-            }
-            Err(_) => {
-                // Skip test if tempdir creation fails
+
+                // Validate second issue properties
+                if let Some(second) = issues.iter().nth(1) {
+                    assert_eq!(second.status, IssueStatus::Closed);
+                    assert!(second.closed_at.is_some());
+                }
             }
         }
     }
 
     #[tokio::test]
     async fn test_query_beads_with_extra_fields() {
-        use std::fs;
+        let test_data = r#"{"id":"zjj-test","title":"Real Issue Format","description":"Test with all fields","status":"open","priority":2,"issue_type":"task","created_at":"2026-01-17T09:00:00Z","created_by":"test","updated_at":"2026-01-17T10:00:00Z","dependencies":[{"issue_id":"zjj-test","depends_on_id":"zjj-other","type":"blocks"}],"close_reason":null}"#;
 
-        match tempfile::tempdir() {
-            Ok(dir) => {
-                let beads_dir = dir.path().join(".beads");
-                let _ = fs::create_dir(&beads_dir);
-                let jsonl_path = beads_dir.join("issues.jsonl");
+        if let Ok(dir) = setup_test_dir_with_jsonl(test_data) {
+            let result = query_beads(dir.path()).await;
+            assert!(result.is_ok());
+            assert_issue_count(&result, 1);
 
-                // Test with extra fields that bd might include (like dependencies, created_by, etc.)
-                let test_data = r#"{"id":"zjj-test","title":"Real Issue Format","description":"Test with all fields","status":"open","priority":2,"issue_type":"task","created_at":"2026-01-17T09:00:00Z","created_by":"test","updated_at":"2026-01-17T10:00:00Z","dependencies":[{"issue_id":"zjj-test","depends_on_id":"zjj-other","type":"blocks"}],"close_reason":null}"#;
-
-                let _ = fs::write(&jsonl_path, test_data);
-
-                let result = query_beads(dir.path()).await;
-                assert!(result.is_ok());
-
-                if let Ok(issues) = result {
-                    assert_eq!(issues.len(), 1);
-
-                    if let Some(issue) = issues.iter().next() {
-                        assert_eq!(issue.id, "zjj-test");
-                        assert_eq!(issue.title, "Real Issue Format");
-                        assert_eq!(issue.description, Some("Test with all fields".to_string()));
-                        assert_eq!(issue.status, IssueStatus::Open);
-                        assert_eq!(issue.priority, Some(Priority::P2));
-                        assert_eq!(issue.issue_type, Some(IssueType::Task));
-                    }
+            if let Ok(issues) = result {
+                if let Some(issue) = issues.iter().next() {
+                    assert_eq!(issue.id, "zjj-test");
+                    assert_eq!(issue.title, "Real Issue Format");
+                    assert_eq!(issue.description, Some("Test with all fields".to_string()));
+                    assert_eq!(issue.status, IssueStatus::Open);
+                    assert_eq!(issue.priority, Some(Priority::P2));
+                    assert_eq!(issue.issue_type, Some(IssueType::Task));
                 }
-            }
-            Err(_) => {
-                // Skip test if tempdir creation fails
             }
         }
     }

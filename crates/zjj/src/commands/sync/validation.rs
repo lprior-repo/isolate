@@ -44,39 +44,8 @@ pub fn validate_session_status(status: &SessionStatus, name: &str) -> Result<()>
     }
 }
 
-/// Validate that a workspace exists and is a directory
-pub fn validate_workspace(workspace_path: &str, name: &str) -> anyhow::Result<()> {
-    let workspace_pathbuf = std::path::Path::new(workspace_path);
-
-    if !workspace_pathbuf.exists() {
-        anyhow::bail!(
-            "Workspace directory not found: {workspace_path}\n\
-             \n\
-             The workspace may have been deleted manually.\n\
-             \n\
-             Suggestions:\n\
-             • Run 'zjj doctor' to detect and fix orphaned sessions\n\
-             • Remove the session: zjj remove {name} --force\n\
-             • Recreate the session: zjj add {name}"
-        );
-    }
-
-    if !workspace_pathbuf.is_dir() {
-        anyhow::bail!(
-            "Workspace path is not a directory: {workspace_path}\n\
-             \n\
-             Expected a directory but found a file.\n\
-             This indicates database corruption or manual file system changes."
-        );
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
-    use tempfile::TempDir;
-
     use super::*;
 
     #[test]
@@ -116,37 +85,5 @@ mod tests {
         if let Err(e) = result {
             assert!(e.to_string().contains("already completed"));
         }
-    }
-
-    #[test]
-    fn test_validate_workspace_exists() -> anyhow::Result<()> {
-        let dir = TempDir::new()?;
-        let path = dir.path().to_string_lossy().to_string();
-        let result = validate_workspace(&path, "test");
-        assert!(result.is_ok());
-        Ok(())
-    }
-
-    #[test]
-    fn test_validate_workspace_not_exists() {
-        let result = validate_workspace("/nonexistent/path", "test");
-        assert!(result.is_err());
-        if let Err(e) = result {
-            assert!(e.to_string().contains("not found"));
-        }
-    }
-
-    #[test]
-    fn test_validate_workspace_not_directory() -> anyhow::Result<()> {
-        let dir = TempDir::new()?;
-        let file_path = dir.path().join("file.txt");
-        std::fs::write(&file_path, "test")?;
-        let path = file_path.to_string_lossy().to_string();
-        let result = validate_workspace(&path, "test");
-        assert!(result.is_err());
-        if let Err(e) = result {
-            assert!(e.to_string().contains("not a directory"));
-        }
-        Ok(())
     }
 }

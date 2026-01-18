@@ -25,19 +25,6 @@ use std::path::Path;
 // Re-export key functions for backward compatibility
 pub use state_management::run_with_cwd_and_flags;
 
-/// Run the init command
-///
-/// This command:
-/// 1. Checks that required dependencies (jj, zellij) are installed
-/// 2. Initializes a JJ repository if not already present
-/// 3. Creates the .zjj directory structure:
-///    - .zjj/config.toml (default configuration)
-///    - .zjj/state.db (sessions database)
-///    - .zjj/layouts/ (Zellij layouts directory)
-pub async fn run() -> anyhow::Result<()> {
-    run_with_cwd_and_flags(None, false, false).await
-}
-
 /// Run the init command with flags
 ///
 /// With --repair: Attempts to repair a corrupted database

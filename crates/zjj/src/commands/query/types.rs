@@ -117,10 +117,11 @@ mod tests {
 
     #[test]
     fn test_query_type_info_find() {
-        let Some(info) = QueryTypeInfo::find("session-exists") else {
-            panic!("Expected QueryTypeInfo to be found for 'session-exists'");
-        };
-        assert_eq!(info.name, "session-exists");
+        let info = QueryTypeInfo::find("session-exists");
+        assert!(info.is_some());
+        if let Some(info) = info {
+            assert_eq!(info.name, "session-exists");
+        }
     }
 
     #[test]
@@ -131,14 +132,15 @@ mod tests {
 
     #[test]
     fn test_format_error_message() {
-        let Some(info) = QueryTypeInfo::find("session-exists") else {
-            panic!("Expected QueryTypeInfo to be found for 'session-exists'");
-        };
-        let msg = info.format_error_message();
-        assert!(msg.contains("session-exists"));
-        assert!(msg.contains("Description:"));
-        assert!(msg.contains("Usage:"));
-        assert!(msg.contains("Example:"));
+        let info = QueryTypeInfo::find("session-exists");
+        assert!(info.is_some());
+        if let Some(info) = info {
+            let msg = info.format_error_message();
+            assert!(msg.contains("session-exists"));
+            assert!(msg.contains("Description:"));
+            assert!(msg.contains("Usage:"));
+            assert!(msg.contains("Example:"));
+        }
     }
 
     #[test]

@@ -44,13 +44,13 @@ mod tests {
     #[test]
     fn test_create_filter_json_some() {
         let json = create_filter_json(Some("--status=active"));
-        let Some(value) = json else {
-            panic!("Expected create_filter_json to return Some");
-        };
-        assert_eq!(
-            value.get("raw").and_then(|v| v.as_str()),
-            Some("--status=active")
-        );
+        assert!(json.is_some());
+        if let Some(value) = json {
+            assert_eq!(
+                value.get("raw").and_then(|v| v.as_str()),
+                Some("--status=active")
+            );
+        }
     }
 
     #[test]

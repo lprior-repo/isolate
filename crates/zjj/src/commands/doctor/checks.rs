@@ -51,7 +51,7 @@ mod tests {
             assert_eq!(checks.len(), 8);
 
             // Verify each check has a name
-            for check in checks.iter() {
+            for check in &checks {
                 assert!(!check.name.is_empty());
                 assert!(!check.message.is_empty());
             }

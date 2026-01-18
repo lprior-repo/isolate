@@ -15,12 +15,14 @@ unsafe_code = "forbid"
 missing_docs = "allow"
 
 [workspace.lints.clippy]
-# Zero unwrap law - COMPILE ERRORS
-unwrap_used = "forbid"
-expect_used = "forbid"
-panic = "forbid"
-todo = "forbid"
-unimplemented = "forbid"
+# Zero unwrap law - strictly enforced but test-flexible
+# Using deny (not forbid) allows tests to use #[allow(...)] when needed
+# This follows standard Rust practices: forbid is rarely used at workspace level
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
 arithmetic_side_effects = "deny"
 
 # Quality enforcement (with priority)

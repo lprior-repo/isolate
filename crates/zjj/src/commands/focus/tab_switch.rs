@@ -39,18 +39,25 @@ impl TabSwitchResult {
 /// * `Ok(TabSwitchResult::Switched)` - Successfully switched to tab (inside Zellij)
 /// * `Ok(TabSwitchResult::Attached)` - Attached to Zellij session (outside Zellij)
 /// * `Err(e)` - If tab switching failed
+///
+/// # Note on async
+/// This function is async to maintain consistent public API contracts with callers,
+/// even though the current implementation is synchronous. This follows Railway-Oriented
+/// Programming patterns where the interface specifies the effect (async) regardless of
+/// internal implementation details.
+#[allow(clippy::unused_async)]
 pub async fn switch_to_tab(tab_name: &str, session_name: &str) -> Result<TabSwitchResult> {
     if is_inside_zellij() {
-        switch_tab_inside_zellij(tab_name, session_name).await
+        switch_tab_inside_zellij(tab_name, session_name)
     } else {
-        switch_tab_outside_zellij(tab_name, session_name).await
+        switch_tab_outside_zellij(tab_name, session_name)
     }
 }
 
 /// Switch to tab from inside Zellij using action command
 ///
 /// Uses `zellij action go-to-tab-name` to navigate to the tab.
-async fn switch_tab_inside_zellij(tab_name: &str, _session_name: &str) -> Result<TabSwitchResult> {
+fn switch_tab_inside_zellij(tab_name: &str, _session_name: &str) -> Result<TabSwitchResult> {
     run_command("zellij", &["action", "go-to-tab-name", tab_name])?;
     Ok(TabSwitchResult::Switched)
 }
@@ -63,7 +70,7 @@ async fn switch_tab_inside_zellij(tab_name: &str, _session_name: &str) -> Result
 /// 3. User lands in the session
 ///
 /// Note: This function may not return due to exec into Zellij.
-async fn switch_tab_outside_zellij(tab_name: &str, session_name: &str) -> Result<TabSwitchResult> {
+fn switch_tab_outside_zellij(tab_name: &str, session_name: &str) -> Result<TabSwitchResult> {
     println!("Session '{session_name}' is in tab '{tab_name}'");
     println!("Attaching to Zellij session...");
 

@@ -220,14 +220,14 @@ mod tests {
         });
 
         let result = extract_bead_info(&metadata);
-        let Some(bead) = result else {
-            panic!("Expected bead info to be present");
-        };
-        assert_eq!(bead.id, "zjj-1234");
-        assert_eq!(bead.title, Some("Fix authentication bug".to_string()));
-        assert_eq!(bead.status, Some("open".to_string()));
-        assert_eq!(bead.priority, Some("high".to_string()));
-        assert_eq!(bead.bead_type, Some("bug".to_string()));
+        assert!(result.is_some());
+        if let Some(bead) = result {
+            assert_eq!(bead.id, "zjj-1234");
+            assert_eq!(bead.title, Some("Fix authentication bug".to_string()));
+            assert_eq!(bead.status, Some("open".to_string()));
+            assert_eq!(bead.priority, Some("high".to_string()));
+            assert_eq!(bead.bead_type, Some("bug".to_string()));
+        }
     }
 
     #[test]
@@ -249,13 +249,13 @@ mod tests {
         });
 
         let result = extract_agent_info(&metadata);
-        let Some(ref agent) = result else {
-            panic!("Expected agent info to be present");
-        };
-        assert_eq!(agent.agent_id, "claude-code-1234");
-        assert_eq!(agent.task_id, Some("zjj-5678".to_string()));
-        assert_eq!(agent.spawned_at, Some(1_000_000_000));
-        assert!(agent.runtime_seconds.is_some());
+        assert!(result.is_some());
+        if let Some(ref agent) = result {
+            assert_eq!(agent.agent_id, "claude-code-1234");
+            assert_eq!(agent.task_id, Some("zjj-5678".to_string()));
+            assert_eq!(agent.spawned_at, Some(1_000_000_000));
+            assert!(agent.runtime_seconds.is_some());
+        }
     }
 
     #[test]
@@ -268,10 +268,10 @@ mod tests {
         });
 
         let result = extract_agent_info(&metadata);
-        let Some(ref agent) = result else {
-            panic!("Expected agent info to be present");
-        };
-        assert_eq!(agent.agent_id, "claude-code-5678");
-        assert_eq!(agent.task_id, Some("zjj-9012".to_string()));
+        assert!(result.is_some());
+        if let Some(ref agent) = result {
+            assert_eq!(agent.agent_id, "claude-code-5678");
+            assert_eq!(agent.task_id, Some("zjj-9012".to_string()));
+        }
     }
 }

@@ -5,6 +5,8 @@
 //! - Result formatting: Formatting results into JSON/text
 //! - Output handlers: Displaying formatted results
 
+use std::fmt::Write;
+
 use anyhow::{Context, Result};
 
 use super::{branch_detection::detect_main_branch, SyncOptions};
@@ -191,25 +193,29 @@ fn format_single_session_text(name: &str, session: &Session, plan: &SyncDryRunPl
 
     let mut output = String::new();
     output.push_str("DRY RUN: The following sync operation would be performed:\n\n");
-    output.push_str(&format!("Session: {name}\n"));
-    output.push_str(&format!("  Workspace: {}\n", session.workspace_path));
-    output.push_str(&format!("  Workspace exists: {workspace_exists}\n"));
-    output.push_str(&format!("  Status: {:?}\n", session.status));
-    output.push_str("\n");
-    output.push_str(&format!(
-        "Target branch: {} ({})\n",
+    writeln!(output, "Session: {name}").ok();
+    writeln!(output, "  Workspace: {}", session.workspace_path).ok();
+    writeln!(output, "  Workspace exists: {workspace_exists}").ok();
+    writeln!(output, "  Status: {:?}", session.status).ok();
+    output.push('\n');
+    writeln!(
+        output,
+        "Target branch: {} ({})",
         plan.target_branch, plan.target_branch_source
-    ));
-    output.push_str("\n");
+    )
+    .ok();
+    output.push('\n');
     output.push_str("Operations:\n");
-    output.push_str(&format!(
-        "  1. jj rebase -d {} (in workspace)\n",
+    writeln!(
+        output,
+        "  1. jj rebase -d {} (in workspace)",
         plan.target_branch
-    ));
+    )
+    .ok();
     output.push_str("  2. Update last_synced timestamp in database\n");
-    output.push_str("\n");
+    output.push('\n');
     output.push_str("To execute, run without --dry-run flag:\n");
-    output.push_str(&format!("  zjj sync {name}\n"));
+    writeln!(output, "  zjj sync {name}").ok();
 
     output
 }
@@ -218,28 +224,30 @@ fn format_single_session_text(name: &str, session: &Session, plan: &SyncDryRunPl
 fn format_all_sessions_text(sessions: &[Session], plan: &SyncDryRunPlan) -> String {
     let mut output = String::new();
     output.push_str("DRY RUN: The following sync operations would be performed:\n\n");
-    output.push_str(&format!(
-        "Target branch: {} ({})\n",
+    writeln!(
+        output,
+        "Target branch: {} ({})",
         plan.target_branch, plan.target_branch_source
-    ));
-    output.push_str(&format!("Total sessions: {}\n", sessions.len()));
-    output.push_str(&format!("Syncable sessions: {}\n", plan.total_count));
-    output.push_str("\n");
+    )
+    .ok();
+    writeln!(output, "Total sessions: {}", sessions.len()).ok();
+    writeln!(output, "Syncable sessions: {}", plan.total_count).ok();
+    output.push('\n');
 
     output.push_str("Sessions:\n");
     plan.sessions_to_sync.iter().for_each(|sp| {
         let status_icon = if sp.can_sync { "✓" } else { "✗" };
-        output.push_str(&format!("  {status_icon} {} ({})\n", sp.name, sp.status));
+        writeln!(output, "  {status_icon} {} ({})", sp.name, sp.status).ok();
         if let Some(ref reason) = sp.skip_reason {
-            output.push_str(&format!("    Skip reason: {reason}\n"));
+            writeln!(output, "    Skip reason: {reason}").ok();
         }
     });
 
-    output.push_str("\n");
+    output.push('\n');
     output.push_str("Operations per session:\n");
-    output.push_str(&format!("  1. jj rebase -d {}\n", plan.target_branch));
+    writeln!(output, "  1. jj rebase -d {}", plan.target_branch).ok();
     output.push_str("  2. Update last_synced timestamp\n");
-    output.push_str("\n");
+    output.push('\n');
     output.push_str("To execute, run without --dry-run flag:\n");
     output.push_str("  zjj sync\n");
 

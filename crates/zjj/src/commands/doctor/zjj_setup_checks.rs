@@ -98,9 +98,9 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn test_check_initialized_detects_zjj_directory() {
+    fn test_check_initialized_detects_zjj_directory() -> anyhow::Result<()> {
         // Create a temporary directory - no need to change current directory
-        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_dir = TempDir::new()?;
 
         // Test 1: No .zjj directory - should fail
         let result = check_initialized_at(temp_dir.path());
@@ -110,34 +110,34 @@ mod tests {
 
         // Test 2: .zjj directory exists but no config.toml - should fail
         let zjj_dir = temp_dir.path().join(".zjj");
-        fs::create_dir(&zjj_dir).expect("Failed to create .zjj dir");
+        fs::create_dir(&zjj_dir)?;
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Fail);
 
         // Test 3: .zjj directory with config.toml - should pass
-        fs::write(zjj_dir.join("config.toml"), "workspace_dir = \"test\"")
-            .expect("Failed to write config.toml");
+        fs::write(zjj_dir.join("config.toml"), "workspace_dir = \"test\"")?;
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Pass);
         assert!(result.message.contains(".zjj directory exists"));
+        Ok(())
     }
 
     #[test]
-    fn test_check_initialized_independent_of_jj() {
+    fn test_check_initialized_independent_of_jj() -> anyhow::Result<()> {
         // This test verifies that check_initialized doesn't call jj commands
         // We test this by checking it works even without a JJ repo
 
-        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_dir = TempDir::new()?;
 
         // Create .zjj structure WITHOUT initializing a JJ repo
         let zjj_dir = temp_dir.path().join(".zjj");
-        fs::create_dir(&zjj_dir).expect("Failed to create .zjj dir");
-        fs::write(zjj_dir.join("config.toml"), "workspace_dir = \"test\"")
-            .expect("Failed to write config.toml");
+        fs::create_dir(&zjj_dir)?;
+        fs::write(zjj_dir.join("config.toml"), "workspace_dir = \"test\"")?;
 
         // Even without JJ installed/initialized, should detect .zjj
         let result = check_initialized_at(temp_dir.path());
         assert_eq!(result.status, CheckStatus::Pass);
+        Ok(())
     }
 
     #[test]
