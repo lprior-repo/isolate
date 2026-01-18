@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 
-use super::types::SessionListItem;
+use super::types::{ListFilter, SessionListItem, SessionListResponse};
 
 /// Format runtime duration as human-readable string
 ///
@@ -86,9 +86,13 @@ pub fn output_minimal(items: &[SessionListItem]) {
     }
 }
 
-/// Output sessions as JSON
-pub fn output_json(items: &[SessionListItem]) -> Result<()> {
-    let json = serde_json::to_string_pretty(items)?;
+/// Output sessions as JSON with schema metadata
+///
+/// Wraps the sessions array with count, filter metadata, and JSON schema reference
+/// for AI parsing and validation.
+pub fn output_json(items: Vec<SessionListItem>, filter: &ListFilter) -> Result<()> {
+    let response = SessionListResponse::new(items, filter.description()).with_schema();
+    let json = serde_json::to_string_pretty(&response)?;
     println!("{json}");
     Ok(())
 }
@@ -187,7 +191,8 @@ mod tests {
             agent: None,
         }];
 
-        let result = output_json(&items);
+        let filter = ListFilter::default();
+        let result = output_json(items, &filter);
         assert!(result.is_ok());
     }
 }

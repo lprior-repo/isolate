@@ -52,7 +52,7 @@ pub async fn run(all: bool, json: bool, silent: bool, filter: ListFilter) -> Res
     let items = data::format_sessions(sessions, &beads);
 
     if json {
-        formatting::output_json(&items)?;
+        formatting::output_json(items, &filter)?;
     } else if silent || !is_tty() {
         formatting::output_minimal(&items);
     } else {

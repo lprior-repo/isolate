@@ -9,7 +9,7 @@ use zjj_core::hooks::{HookRunner, HookType};
 /// Executes configured `pre_remove` hooks before session removal.
 /// If hooks fail, warns but doesn't block removal.
 pub fn run_pre_remove_hooks(name: &str, workspace_path: &str, config: &zjj_core::config::Config) {
-    let runner = HookRunner::new(config.hooks.clone());
+    let runner = HookRunner::new(&config.hooks);
     let workspace_path_buf = Path::new(workspace_path);
 
     match runner.run(HookType::PreRemove, workspace_path_buf) {
@@ -30,7 +30,7 @@ pub fn run_pre_remove_hooks(name: &str, workspace_path: &str, config: &zjj_core:
 /// Executes configured `post_merge` hooks after merging to main.
 /// If hooks fail, warns but doesn't block removal.
 pub fn run_post_merge_hooks(name: &str, workspace_path: &str, config: &zjj_core::config::Config) {
-    let runner = HookRunner::new(config.hooks.clone());
+    let runner = HookRunner::new(&config.hooks);
     let workspace_path_buf = Path::new(workspace_path);
 
     match runner.run(HookType::PostMerge, workspace_path_buf) {
