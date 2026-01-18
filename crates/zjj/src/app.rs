@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::{
     cli::{args::build_cli, output_help_json, setup},
-    commands::{config, init, list, prime, version},
+    commands::{config, essentials, init, list, prime, version},
 };
 
 /// Execute the CLI and return a Result
@@ -72,6 +72,7 @@ pub async fn run_cli() -> Result<()> {
             crate::cli::dispatch::handle_utility_cmd(cmd, sub_m).await
         }
         Some(("version", sub_m)) => version::run(sub_m.get_flag("json")).await,
+        Some(("essentials", sub_m)) => essentials::run(sub_m.get_flag("json")).await,
         // TODO: Re-enable when hooks module is created
         // Some(("hooks", sub_m)) => match sub_m.subcommand() {
         //     Some(("install", install_m)) => {

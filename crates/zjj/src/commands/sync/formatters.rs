@@ -3,9 +3,10 @@
 //! Handles both JSON and text output formatting for sync results.
 
 use anyhow::Result;
+use zjj_core::json::ErrorDetail;
 
 use super::{operations::SessionSyncResult, rebase::RebaseStats, SyncOptions};
-use crate::json_output::{SyncError, SyncOutput};
+use crate::json_output::SyncOutput;
 
 /// Output success message for single session sync
 pub fn output_sync_success(name: &str, stats: &RebaseStats, options: SyncOptions) -> Result<()> {
@@ -15,7 +16,7 @@ pub fn output_sync_success(name: &str, stats: &RebaseStats, options: SyncOptions
             session_name: Some(name.to_string()),
             synced_count: 1,
             failed_count: 0,
-            errors: Vec::new(),
+            error: None,
             rebased_commits: Some(stats.rebased_commits),
             conflicts: Some(stats.conflicts),
         };
@@ -34,10 +35,12 @@ pub fn output_sync_failure(name: &str, error: anyhow::Error, options: SyncOption
             session_name: Some(name.to_string()),
             synced_count: 0,
             failed_count: 1,
-            errors: vec![SyncError {
-                session_name: name.to_string(),
-                error: error.to_string(),
-            }],
+            error: Some(ErrorDetail {
+                code: "SYNC_FAILED".to_string(),
+                message: error.to_string(),
+                details: None,
+                suggestion: None,
+            }),
             rebased_commits: Some(0),
             conflicts: Some(0),
         };
@@ -56,7 +59,7 @@ pub fn output_no_sessions(options: SyncOptions) -> Result<()> {
             session_name: None,
             synced_count: 0,
             failed_count: 0,
-            errors: Vec::new(),
+            error: None,
             rebased_commits: None,
             conflicts: None,
         };
@@ -67,12 +70,18 @@ pub fn output_no_sessions(options: SyncOptions) -> Result<()> {
     Ok(())
 }
 
+/// Internal struct for tracking session sync errors (not serialized directly)
+pub struct SessionSyncError {
+    pub session_name: String,
+    pub error_message: String,
+}
+
 /// Output results for all sessions sync
 pub fn output_all_sessions_results(results: &[SessionSyncResult], options: SyncOptions) {
     let (success_count, failure_count, errors) = super::operations::aggregate_results(results);
 
     if options.json {
-        output_json_results(success_count, failure_count, errors);
+        output_json_results(success_count, failure_count, &errors);
     } else {
         output_text_results(results.len(), success_count, failure_count, &errors);
     }
@@ -83,13 +92,35 @@ pub fn output_all_sessions_results(results: &[SessionSyncResult], options: SyncO
 }
 
 /// Output JSON results for all sessions
-fn output_json_results(success_count: usize, failure_count: usize, errors: Vec<SyncError>) {
+fn output_json_results(success_count: usize, failure_count: usize, errors: &[SessionSyncError]) {
+    let error = if errors.is_empty() {
+        None
+    } else {
+        // Consolidate multiple errors into a single ErrorDetail
+        let details: Vec<serde_json::Value> = errors
+            .iter()
+            .map(|e| {
+                serde_json::json!({
+                    "session_name": e.session_name,
+                    "message": e.error_message
+                })
+            })
+            .collect();
+
+        Some(ErrorDetail {
+            code: "SYNC_FAILED".to_string(),
+            message: format!("{} session(s) failed to sync", errors.len()),
+            details: Some(serde_json::Value::Array(details)),
+            suggestion: None,
+        })
+    };
+
     let output = SyncOutput {
         success: failure_count == 0,
         session_name: None,
         synced_count: success_count,
         failed_count: failure_count,
-        errors,
+        error,
         rebased_commits: None,
         conflicts: None,
     };
@@ -103,7 +134,7 @@ fn output_text_results(
     total: usize,
     success_count: usize,
     failure_count: usize,
-    errors: &[SyncError],
+    errors: &[SessionSyncError],
 ) {
     println!("Syncing {total} session(s)...");
 
@@ -111,7 +142,7 @@ fn output_text_results(
     for error in errors {
         println!(
             "Syncing '{}' ... FAILED: {}",
-            error.session_name, error.error
+            error.session_name, error.error_message
         );
     }
 
@@ -127,7 +158,7 @@ fn output_text_results(
     if !errors.is_empty() {
         println!("\nErrors:");
         for error in errors {
-            println!("  {}: {}", error.session_name, error.error);
+            println!("  {}: {}", error.session_name, error.error_message);
         }
     }
 }

@@ -5,7 +5,7 @@
 //! 2. Acquire workspace lock
 //! 3. Create JJ workspace
 //! 4. Generate Zellij layout
-//! 5. Run post_create hooks
+//! 5. Run `post_create` hooks
 //! 6. Open Zellij tab
 //! 7. Update database status to "active"
 //! 8. Process bead integration (if provided)
@@ -27,6 +27,10 @@ use super::{bead, security, AddOptions};
 ///
 /// # Errors
 /// Returns error if any step in the workflow fails
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Session creation requires all context parameters"
+)]
 pub async fn create_session(
     db: &crate::database::SessionDb,
     config: &Config,
@@ -100,6 +104,10 @@ pub async fn create_session(
 }
 
 /// Process bead integration for a session
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Bead integration requires all context parameters"
+)]
 async fn process_bead_integration(
     db: &crate::database::SessionDb,
     repo_root: &Path,

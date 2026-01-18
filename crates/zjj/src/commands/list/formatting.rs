@@ -1,5 +1,7 @@
 //! Output formatting functions for list command
 
+use std::fmt::Write;
+
 use anyhow::Result;
 
 use super::types::{ListFilter, SessionListItem, SessionListResponse};
@@ -32,17 +34,21 @@ pub fn output_table(items: &[SessionListItem]) {
     );
 
     if has_beads {
-        header.push_str(&format!(" {:<12} {:<10}", "BEAD", "PRIORITY"));
+        let _ = write!(header, " {:<12} {:<10}", "BEAD", "PRIORITY");
     }
 
     if has_agents {
-        header.push_str(&format!(" {:<20} {:<10}", "AGENT", "RUNTIME"));
+        let _ = write!(header, " {:<20} {:<10}", "AGENT", "RUNTIME");
     }
 
     println!("{header}");
 
     // Calculate separator width dynamically
-    let separator_width = 70 + if has_beads { 24 } else { 0 } + if has_agents { 32 } else { 0 };
+    let beads_width = if has_beads { 24 } else { 0 };
+    let agents_width = if has_agents { 32 } else { 0 };
+    let separator_width = 70_usize
+        .saturating_add(beads_width)
+        .saturating_add(agents_width);
     println!("{}", "-".repeat(separator_width));
 
     for item in items {
@@ -58,7 +64,7 @@ pub fn output_table(items: &[SessionListItem]) {
                 .as_ref()
                 .and_then(|b| b.priority.as_deref())
                 .unwrap_or("-");
-            row.push_str(&format!(" {:<12} {:<10}", bead_id, priority));
+            let _ = write!(row, " {bead_id:<12} {priority:<10}");
         }
 
         if has_agents {
@@ -68,7 +74,7 @@ pub fn output_table(items: &[SessionListItem]) {
                 .as_ref()
                 .and_then(|a| a.runtime_seconds)
                 .map_or_else(|| "-".to_string(), format_runtime);
-            row.push_str(&format!(" {:<20} {:<10}", agent_id, runtime));
+            let _ = write!(row, " {agent_id:<20} {runtime:<10}");
         }
 
         println!("{row}");
@@ -99,7 +105,7 @@ pub fn output_json(items: Vec<SessionListItem>, filter: &ListFilter) -> Result<(
 
 #[cfg(test)]
 mod tests {
-    use super::super::data::{SessionAgentInfo, SessionBeadInfo};
+    use super::super::data::types::{SessionAgentInfo, SessionBeadInfo};
     use super::*;
 
     #[test]

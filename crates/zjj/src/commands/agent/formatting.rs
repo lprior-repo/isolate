@@ -1,4 +1,4 @@
-//! Result formatting - convert session metadata to AgentInfo structures
+//! Result formatting - convert session metadata to `AgentInfo` structures
 
 use serde_json::Value;
 
@@ -8,7 +8,7 @@ use super::queries::SessionWithAgent;
 
 /// Extract agent info from sessions with metadata
 ///
-/// Converts session metadata into AgentInfo structures, handling both
+/// Converts session metadata into `AgentInfo` structures, handling both
 /// direct top-level fields and nested "agent" object structures.
 ///
 /// # Arguments
@@ -17,7 +17,7 @@ use super::queries::SessionWithAgent;
 ///
 /// # Returns
 ///
-/// Vector of AgentInfo for sessions that have agent metadata
+/// Vector of `AgentInfo` for sessions that have agent metadata
 pub fn extract_agents(sessions: Vec<SessionWithAgent>) -> Vec<AgentInfo> {
     sessions
         .into_iter()

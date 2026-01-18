@@ -1,7 +1,7 @@
 //! Validator for session name format and rules
 //!
 //! This module validates session names according to the rules defined
-//! in the crate::session module, delegating the actual validation logic
+//! in the `crate::session` module, delegating the actual validation logic
 //! to maintain a single source of truth for name validation rules.
 
 use anyhow::{Context, Result};

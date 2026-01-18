@@ -21,6 +21,7 @@ use anyhow::Result;
 /// Run a query
 ///
 /// Entry point for query command execution. Routes the query to the appropriate handler.
+#[allow(dead_code)]
 pub async fn handle_query(query_type: &str, args: Option<&str>) -> Result<()> {
     handlers::run(query_type, args).await
 }

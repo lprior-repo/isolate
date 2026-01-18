@@ -9,7 +9,7 @@ use crate::session::Session;
 
 use super::types::ListFilter;
 
-/// Check if a session matches the bead_id filter
+/// Check if a session matches the `bead_id` filter
 ///
 /// Uses functional approach with `and_then` for safe Option chaining.
 fn matches_bead_id_filter(metadata: &Value, bead_id: &str) -> bool {
@@ -20,7 +20,7 @@ fn matches_bead_id_filter(metadata: &Value, bead_id: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Check if a session matches the agent_id filter
+/// Check if a session matches the `agent_id` filter
 ///
 /// Checks both direct top-level fields and nested "agent" object.
 /// Uses functional approach with `or_else` for fallback checking.
@@ -45,7 +45,7 @@ fn has_bead_metadata(metadata: &Value) -> bool {
 
 /// Check if a session has agent metadata
 ///
-/// Checks both direct and nested locations for agent_id field.
+/// Checks both direct and nested locations for `agent_id` field.
 fn has_agent_metadata(metadata: &Value) -> bool {
     metadata.get("agent_id").is_some()
         || metadata
@@ -56,7 +56,7 @@ fn has_agent_metadata(metadata: &Value) -> bool {
 
 /// Check if metadata passes all presence filters
 ///
-/// Returns true if metadata matches with_beads and with_agents requirements.
+/// Returns true if metadata matches `with_beads` and `with_agents` requirements.
 fn passes_presence_filters(metadata: &Value, filter: &ListFilter) -> bool {
     if filter.with_beads && !has_bead_metadata(metadata) {
         return false;
@@ -71,7 +71,7 @@ fn passes_presence_filters(metadata: &Value, filter: &ListFilter) -> bool {
 
 /// Check if metadata passes all exact-match filters
 ///
-/// Returns true if metadata matches bead_id and agent_id requirements.
+/// Returns true if metadata matches `bead_id` and `agent_id` requirements.
 fn passes_exact_filters(metadata: &Value, filter: &ListFilter) -> bool {
     // Check bead_id filter
     if let Some(ref bead_id) = filter.bead_id {
@@ -95,29 +95,29 @@ fn passes_exact_filters(metadata: &Value, filter: &ListFilter) -> bool {
 /// Returns true if session metadata exists and passes all filters.
 /// Sessions without metadata are only included if no filters are active.
 fn should_include_session(session: &Session, filter: &ListFilter) -> bool {
-    match &session.metadata {
-        Some(metadata) => {
-            // Session has metadata: apply exact and presence filters
-            passes_exact_filters(metadata, filter) && passes_presence_filters(metadata, filter)
-        }
-        None => {
+    session.metadata.as_ref().map_or_else(
+        || {
             // No metadata: only include if no filters are active
             !filter.with_beads
                 && !filter.with_agents
                 && filter.bead_id.is_none()
                 && filter.agent_id.is_none()
-        }
-    }
+        },
+        |metadata| {
+            // Session has metadata: apply exact and presence filters
+            passes_exact_filters(metadata, filter) && passes_presence_filters(metadata, filter)
+        },
+    )
 }
 
 /// Apply filters to a list of sessions
 ///
 /// Uses functional patterns with filter/map for clean composition.
 /// Filters sessions based on:
-/// - `bead_id`: Exact match on bead_id in metadata
-/// - `agent_id`: Exact match on agent_id (checks both direct and nested)
-/// - `with_beads`: Presence of bead_id in metadata
-/// - `with_agents`: Presence of agent_id in metadata
+/// - `bead_id`: Exact match on `bead_id` in metadata
+/// - `agent_id`: Exact match on `agent_id` (checks both direct and nested)
+/// - `with_beads`: Presence of `bead_id` in metadata
+/// - `with_agents`: Presence of `agent_id` in metadata
 ///
 /// # Returns
 /// Filtered vector of sessions matching all criteria. Sessions without
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_apply_filters_bead_id() {
-        let session1 = Session {
+        let first = Session {
             name: "session1".to_string(),
             status: SessionStatus::Active,
             workspace_path: "/tmp/session1".to_string(),
@@ -190,7 +190,7 @@ mod tests {
             ..Default::default()
         };
 
-        let session2 = Session {
+        let second = Session {
             name: "session2".to_string(),
             status: SessionStatus::Active,
             workspace_path: "/tmp/session2".to_string(),
@@ -201,7 +201,7 @@ mod tests {
             ..Default::default()
         };
 
-        let sessions = vec![session1, session2];
+        let sessions = vec![first, second];
         let filter = ListFilter {
             bead_id: Some("zjj-1234".to_string()),
             ..Default::default()
@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_apply_filters_with_beads() {
-        let session1 = Session {
+        let first = Session {
             name: "session1".to_string(),
             status: SessionStatus::Active,
             workspace_path: "/tmp/session1".to_string(),
@@ -225,7 +225,7 @@ mod tests {
             ..Default::default()
         };
 
-        let session2 = Session {
+        let second = Session {
             name: "session2".to_string(),
             status: SessionStatus::Active,
             workspace_path: "/tmp/session2".to_string(),
@@ -236,7 +236,7 @@ mod tests {
             ..Default::default()
         };
 
-        let sessions = vec![session1, session2];
+        let sessions = vec![first, second];
         let filter = ListFilter {
             with_beads: true,
             ..Default::default()

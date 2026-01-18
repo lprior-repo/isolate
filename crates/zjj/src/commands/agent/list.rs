@@ -25,7 +25,7 @@ pub async fn run(session: Option<&str>, json: bool) -> Result<()> {
     let agents = formatting::extract_agents(sessions);
 
     // Output results
-    output::output_agents(agents, json, session)?;
+    output::output_agents(&agents, json, session)?;
 
     Ok(())
 }

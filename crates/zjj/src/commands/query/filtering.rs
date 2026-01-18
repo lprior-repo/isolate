@@ -3,8 +3,6 @@
 //! This module handles filtering operations and error categorization
 //! for query operations, using pure functional transformations.
 
-use zjj_core::introspection::QueryError;
-
 /// Categorize database errors into error codes and messages
 ///
 /// Uses pattern matching to identify common error conditions and provide
@@ -50,7 +48,7 @@ pub fn categorize_db_error(error: &anyhow::Error) -> (String, String) {
 pub fn extract_status_filter(filter: Option<&str>) -> Option<String> {
     filter
         .and_then(|f| f.strip_prefix("--status="))
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
 }
 
 #[cfg(test)]

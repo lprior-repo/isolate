@@ -101,7 +101,7 @@ impl DashboardApp {
     }
 
     /// Move selection up (to previous row in column)
-    pub fn move_up(&mut self) {
+    pub const fn move_up(&mut self) {
         if self.selected_row > 0 {
             self.selected_row = self.selected_row.saturating_sub(1);
         }
@@ -245,7 +245,7 @@ const fn status_to_column_index(status: &SessionStatus) -> usize {
 /// Pure function: Always returns `COLUMN_COUNT` empty vectors.
 /// Used to initialize the session grouping structure.
 fn create_empty_columns() -> Vec<Vec<SessionData>> {
-    (0..COLUMN_COUNT).map(|_| Vec::new()).collect()
+    (0..COLUMN_COUNT).map(|_| Vec::default()).collect()
 }
 
 #[cfg(test)]

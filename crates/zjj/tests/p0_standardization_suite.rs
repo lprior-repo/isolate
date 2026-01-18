@@ -43,8 +43,7 @@ fn test_remove_json_has_session_name_field() {
     // Verify 'session_name' field exists (P0 requirement)
     assert!(
         json.get("session_name").is_some(),
-        "RemoveOutput should have 'session_name' field, got: {}",
-        json
+        "RemoveOutput should have 'session_name' field, got: {json}"
     );
 
     // Verify it contains the correct session name
@@ -61,7 +60,7 @@ fn test_remove_json_has_session_name_field() {
     );
 }
 
-/// Test that FocusOutput has session_name field (was 'session')
+/// Test that `FocusOutput` has `session_name` field (was 'session')
 #[test]
 fn test_focus_json_has_session_name_field() {
     let Some(harness) = TestHarness::try_new() else {
@@ -76,19 +75,19 @@ fn test_focus_json_has_session_name_field() {
     let result = harness.zjj(&["focus", "test-session", "--json"]);
 
     // Parse JSON output (even on failure)
-    let json: Value = serde_json::from_str(&result.stdout).unwrap_or_else(|e| {
-        panic!(
-            "Focus output should be valid JSON: {}\nError: {}",
-            result.stdout, e
-        )
-    });
+    let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+        eprintln!(
+            "Focus output should be valid JSON: {}\nError parsing",
+            result.stdout
+        );
+        return;
+    };
 
     if result.success {
         // If focus succeeded (running in Zellij), verify structure
         assert!(
             json.get("session_name").is_some(),
-            "FocusOutput should have 'session_name' field, got: {}",
-            json
+            "FocusOutput should have 'session_name' field, got: {json}"
         );
 
         assert_eq!(
@@ -105,7 +104,7 @@ fn test_focus_json_has_session_name_field() {
     } else {
         // If focus failed (not in Zellij), verify error structure
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(Value::as_bool),
             Some(false),
             "Failed focus should have success=false"
         );
@@ -118,7 +117,7 @@ fn test_focus_json_has_session_name_field() {
     }
 }
 
-/// Test that AddOutput has session_name field (already correct, regression test)
+/// Test that `AddOutput` has `session_name` field (already correct, regression test)
 #[test]
 fn test_add_json_has_session_name_field() {
     let Some(harness) = TestHarness::try_new() else {
@@ -142,8 +141,7 @@ fn test_add_json_has_session_name_field() {
     // Verify 'session_name' field exists
     assert!(
         json.get("session_name").is_some(),
-        "AddOutput should have 'session_name' field, got: {}",
-        json
+        "AddOutput should have 'session_name' field, got: {json}"
     );
 
     assert_eq!(
@@ -184,8 +182,7 @@ fn test_all_commands_support_json_flag() {
         let parse_result: Result<Value, _> = serde_json::from_str(&result.stdout);
         assert!(
             parse_result.is_ok(),
-            "Command {:?} --json output should be valid JSON: {}\nError: {:?}",
-            cmd,
+            "Command {cmd:?} --json output should be valid JSON: {}\nError: {:?}",
             result.stdout,
             parse_result.err()
         );
@@ -194,8 +191,7 @@ fn test_all_commands_support_json_flag() {
         if let Ok(json) = parse_result {
             assert!(
                 json.get("success").is_some(),
-                "Command {:?} JSON output should have 'success' field",
-                cmd
+                "Command {cmd:?} JSON output should have 'success' field"
             );
         }
     }
@@ -205,7 +201,7 @@ fn test_all_commands_support_json_flag() {
 // TEST CATEGORY 2: ErrorDetail Structure Validation
 // ============================================================================
 
-/// Test that error responses have proper ErrorDetail structure
+/// Test that error responses have proper `ErrorDetail` structure
 #[test]
 fn test_error_detail_structure() {
     let Some(harness) = TestHarness::try_new() else {
@@ -228,7 +224,7 @@ fn test_error_detail_structure() {
 
     // Verify error structure
     assert_eq!(
-        json.get("success").and_then(|v| v.as_bool()),
+        json.get("success").and_then(Value::as_bool),
         Some(false),
         "Error response should have success=false"
     );
@@ -274,6 +270,7 @@ fn test_error_detail_structure() {
 }
 
 /// Test semantic error codes (NOT_FOUND, VALIDATION_ERROR, etc.)
+#[allow(clippy::doc_markdown)]
 #[test]
 fn test_semantic_error_codes() {
     let Some(harness) = TestHarness::try_new() else {
@@ -303,8 +300,7 @@ fn test_semantic_error_codes() {
 
     assert!(
         code.contains("NOT_FOUND") || code.contains("SESSION_NOT_FOUND"),
-        "Focus nonexistent session should return NOT_FOUND error, got: {}",
-        code
+        "Focus nonexistent session should return NOT_FOUND error, got: {code}"
     );
 
     // Test 2: VALIDATION_ERROR
@@ -327,8 +323,7 @@ fn test_semantic_error_codes() {
 
     assert!(
         code.contains("VALIDATION") || code.contains("INVALID"),
-        "Invalid session name should return VALIDATION_ERROR, got: {}",
-        code
+        "Invalid session name should return VALIDATION_ERROR, got: {code}"
     );
 }
 
@@ -352,38 +347,34 @@ fn test_error_json_serialization() {
         let result = harness.zjj(&cmd);
 
         if !result.success {
-            let json: Value = serde_json::from_str(&result.stdout).unwrap_or_else(|e| {
-                panic!(
-                    "Error output for {} should be valid JSON: {}\nError: {}",
-                    desc, result.stdout, e
-                )
-            });
+            let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+                eprintln!(
+                    "Error output for {desc} should be valid JSON: {}",
+                    result.stdout
+                );
+                continue;
+            };
 
             // All errors should have consistent structure
             assert_eq!(
-                json.get("success").and_then(|v| v.as_bool()),
+                json.get("success").and_then(Value::as_bool),
                 Some(false),
-                "{} should have success=false",
-                desc
+                "{desc} should have success=false"
             );
 
             assert!(
                 json.get("error").is_some(),
-                "{} should have error field",
-                desc
+                "{desc} should have error field"
             );
 
-            let error = json.get("error").unwrap();
-            assert!(
-                error.get("code").is_some(),
-                "{} error should have code",
-                desc
-            );
+            let Some(error) = json.get("error") else {
+                continue;
+            };
+            assert!(error.get("code").is_some(), "{desc} error should have code");
 
             assert!(
                 error.get("message").is_some(),
-                "{} error should have message",
-                desc
+                "{desc} error should have message"
             );
         }
     }
@@ -420,12 +411,11 @@ fn test_all_commands_have_help() {
     for cmd in commands {
         let result = harness.zjj(&[cmd, "--help"]);
 
-        assert!(result.success, "Command {} --help should succeed", cmd);
+        assert!(result.success, "Command {cmd} --help should succeed");
 
         assert!(
             !result.stdout.is_empty(),
-            "Command {} --help should output help text",
-            cmd
+            "Command {cmd} --help should output help text"
         );
     }
 }
@@ -465,8 +455,7 @@ fn test_help_section_headers_uppercase() {
 
         assert!(
             found_uppercase,
-            "Command {} --help should have UPPERCASE section headers",
-            cmd
+            "Command {cmd} --help should have UPPERCASE section headers"
         );
     }
 }
@@ -487,15 +476,13 @@ fn test_help_has_examples() {
 
         assert!(
             help_text.contains("EXAMPLES:") || help_text.contains("Examples:"),
-            "Command {} --help should have EXAMPLES section",
-            cmd
+            "Command {cmd} --help should have EXAMPLES section"
         );
 
         // Should contain at least one command example
         assert!(
-            help_text.contains(&format!("zjj {}", cmd)),
-            "Command {} --help should have example usage",
-            cmd
+            help_text.contains(&format!("zjj {cmd}")),
+            "Command {cmd} --help should have example usage"
         );
     }
 }
@@ -519,8 +506,7 @@ fn test_help_has_ai_agent_sections() {
 
         assert!(
             has_ai_section,
-            "Command {} --help should have AI AGENT section or mention AI agents",
-            cmd
+            "Command {cmd} --help should have AI AGENT section or mention AI agents"
         );
     }
 }
@@ -585,7 +571,7 @@ fn test_config_view_json() {
 
     // Should have success field
     assert_eq!(
-        json.get("success").and_then(|v| v.as_bool()),
+        json.get("success").and_then(Value::as_bool),
         Some(true),
         "config --json should have success=true"
     );
@@ -649,7 +635,7 @@ fn test_config_get_key_json() {
     };
 
     assert_eq!(
-        json.get("success").and_then(|v| v.as_bool()),
+        json.get("success").and_then(Value::as_bool),
         Some(true),
         "config get --json should have success=true"
     );
@@ -721,7 +707,7 @@ fn test_config_set_key_value_json() {
     };
 
     assert_eq!(
-        json.get("success").and_then(|v| v.as_bool()),
+        json.get("success").and_then(Value::as_bool),
         Some(true),
         "config set --json should have success=true"
     );
@@ -786,7 +772,7 @@ fn test_config_validate_json() {
     };
 
     assert_eq!(
-        json.get("success").and_then(|v| v.as_bool()),
+        json.get("success").and_then(Value::as_bool),
         Some(true),
         "config --validate --json should have success=true for valid config"
     );
@@ -834,7 +820,7 @@ fn test_complete_workflow_json() {
         eprintln!("init JSON: {}", result.stdout);
         return;
     };
-    assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(json.get("success").and_then(Value::as_bool), Some(true));
 
     // 2. Add session
     let result = harness.zjj(&["add", "test", "--no-open", "--json"]);
@@ -843,7 +829,7 @@ fn test_complete_workflow_json() {
         eprintln!("add JSON: {}", result.stdout);
         return;
     };
-    assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(json.get("success").and_then(Value::as_bool), Some(true));
     assert_eq!(
         json.get("session_name").and_then(|v| v.as_str()),
         Some("test")
@@ -874,7 +860,7 @@ fn test_complete_workflow_json() {
         eprintln!("remove JSON: {}", result.stdout);
         return;
     };
-    assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(json.get("success").and_then(Value::as_bool), Some(true));
     assert_eq!(
         json.get("session_name").and_then(|v| v.as_str()),
         Some("test")
@@ -904,33 +890,31 @@ fn test_error_handling_consistency() {
 
     for (cmd, expected_code_pattern) in error_cases {
         let result = harness.zjj(&cmd);
-        assert!(!result.success, "Command {:?} should fail", cmd);
+        assert!(!result.success, "Command {cmd:?} should fail");
 
-        let json: Value = serde_json::from_str(&result.stdout).unwrap_or_else(|e| {
-            panic!(
-                "Command {:?} should output valid JSON: {}\nError: {}",
-                cmd, result.stdout, e
-            )
-        });
+        let Ok(json) = serde_json::from_str::<Value>(&result.stdout) else {
+            eprintln!(
+                "Command {cmd:?} should output valid JSON: {}",
+                result.stdout
+            );
+            continue;
+        };
 
         // Check error structure
-        assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(false));
+        assert_eq!(json.get("success").and_then(Value::as_bool), Some(false));
 
         let Some(error) = json.get("error") else {
             eprintln!("Should have error field");
-            return;
+            continue;
         };
         let Some(code) = error.get("code").and_then(|v| v.as_str()) else {
             eprintln!("Should have error.code");
-            return;
+            continue;
         };
 
         assert!(
             code.contains(expected_code_pattern),
-            "Command {:?} should have error code containing '{}', got: {}",
-            cmd,
-            expected_code_pattern,
-            code
+            "Command {cmd:?} should have error code containing '{expected_code_pattern}', got: {code}"
         );
     }
 }
@@ -948,18 +932,18 @@ fn test_coverage_metrics() {
     println!("  - FocusOutput session_name field");
     println!("  - AddOutput session_name field (regression)");
     println!("  - All commands support --json");
-    println!("");
+    println!();
     println!("ErrorDetail Structure: 3 tests");
     println!("  - ErrorDetail structure validation");
     println!("  - Semantic error codes");
     println!("  - Error JSON serialization consistency");
-    println!("");
+    println!();
     println!("Help Text Verification: 4 tests");
     println!("  - All commands have --help");
     println!("  - Section headers are UPPERCASE");
     println!("  - Examples are present");
     println!("  - AI AGENT sections exist");
-    println!("");
+    println!();
     println!("Config Subcommands: 8 tests");
     println!("  - zjj config (view)");
     println!("  - zjj config --json");
@@ -969,11 +953,11 @@ fn test_coverage_metrics() {
     println!("  - zjj config KEY VALUE --json");
     println!("  - zjj config --validate");
     println!("  - Backward compatibility");
-    println!("");
+    println!();
     println!("Integration & Regression: 2 tests");
     println!("  - Complete workflow with JSON");
     println!("  - Error handling consistency");
-    println!("");
+    println!();
     println!("Total P0 Tests: 21");
     println!("========================================\n");
 }

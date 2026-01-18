@@ -23,10 +23,9 @@ async fn run_once(name: Option<&str>, json: bool) -> Result<()> {
 
     let sessions = if let Some(session_name) = name {
         // Get single session
-        let session = db
-            .get(session_name)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
+        let session = db.get(session_name).await?.ok_or_else(|| {
+            zjj_core::Error::not_found(format!("Session '{session_name}' not found"))
+        })?;
         vec![session]
     } else {
         // Get all sessions

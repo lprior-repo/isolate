@@ -185,6 +185,7 @@ fn output_success(name: &str, operations: Vec<RemoveOperation>, json: bool) -> R
 
 /// Output JSON error and exit
 fn output_json_error(name: &str, e: &anyhow::Error) -> ! {
+    let error_code = crate::cli::error::classify_error_code(e);
     let output = RemoveOutput {
         success: false,
         session_name: name.to_string(),
@@ -192,7 +193,7 @@ fn output_json_error(name: &str, e: &anyhow::Error) -> ! {
         closed_bead: None,
         message: None,
         error: Some(zjj_core::json::ErrorDetail {
-            code: "COMMAND_ERROR".to_string(),
+            code: error_code.to_string(),
             message: e.to_string(),
             details: None,
             suggestion: None,

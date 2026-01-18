@@ -1,9 +1,9 @@
 //! Focus command implementation
 //!
 //! Refactored focus command with extracted:
-//! - tab_switch: Tab switching operations
-//! - validation: Pre-focus validation
-//! - error_handler: Error handling and JSON output
+//! - `tab_switch`: Tab switching operations
+//! - `validation`: Pre-focus validation
+//! - `error_handler`: Error handling and `JSON` output
 
 pub mod error_handler;
 pub mod tab_switch;
@@ -18,7 +18,7 @@ use self::{error_handler::FocusError, tab_switch::TabSwitchResult};
 /// Options for the focus command
 #[derive(Debug, Clone, Default)]
 pub struct FocusOptions {
-    /// Output as JSON
+    /// Output as `JSON`
     pub json: bool,
 }
 
@@ -27,8 +27,8 @@ pub struct FocusOptions {
 /// Workflow:
 /// 1. Validate session name
 /// 2. Validate database and session existence
-/// 3. Validate TTY environment
-/// 4. Switch to tab (inside or outside Zellij)
+/// 3. Validate `TTY` environment
+/// 4. Switch to tab (inside or outside `Zellij`)
 /// 5. Return success or error
 ///
 /// # Arguments
@@ -44,7 +44,7 @@ pub async fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> 
         if options.json {
             error_handler::output_error_json_and_exit(FocusError::Validation, &e.to_string(), None);
         }
-        return Err(e.into());
+        return Err(e);
     }
 
     // Step 2: Validate database and session
@@ -83,7 +83,8 @@ pub async fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> 
             switched: switch_result.did_switch(),
             error: None,
         };
-        println!("{}", serde_json::to_string(&output)?);
+        let json = serde_json::to_string(&output)?;
+        println!("{json}");
     } else {
         match switch_result {
             TabSwitchResult::Switched => {

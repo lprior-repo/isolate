@@ -102,13 +102,13 @@ mod tests {
 
         let data = Data {
             value: 42,
-            float_val: 3.14,
+            float_val: 2.72,
             flag: true,
         };
 
         let json = data.to_json()?;
         assert!(json.contains("42"));
-        assert!(json.contains("3.14"));
+        assert!(json.contains("2.72"));
         assert!(json.contains("true"));
 
         Ok(())

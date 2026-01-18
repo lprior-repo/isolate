@@ -20,6 +20,7 @@ pub fn output_json<T: Serialize>(result: &T) -> Result<()> {
 /// Output with a specific schema type
 ///
 /// Used for query responses that have dedicated schema definitions.
+#[allow(dead_code)]
 pub fn output_json_with_schema<T: Serialize>(result: &T, schema_type: SchemaType) -> Result<()> {
     let envelope = SchemaEnvelope::new(schema_type, result);
     println!("{}", serde_json::to_string_pretty(&envelope)?);
@@ -27,6 +28,7 @@ pub fn output_json_with_schema<T: Serialize>(result: &T, schema_type: SchemaType
 }
 
 /// Create a JSON filter object from a filter string
+#[allow(clippy::single_option_map)]
 pub fn create_filter_json(filter: Option<&str>) -> Option<serde_json::Value> {
     filter.map(|f| serde_json::json!({"raw": f}))
 }

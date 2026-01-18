@@ -5,10 +5,10 @@
 //!
 //! # Module Organization
 //!
-//! - `jj_checks`: JJ (Jujutsu) version verification
-//! - `zellij_checks`: Zellij version verification
-//! - `system_checks`: Version parsing and utility functions
-//! - `check_dependencies`: Main orchestrator combining all checks
+//! - [`jj_checks`]: JJ (Jujutsu) version verification
+//! - [`zellij_checks`]: Zellij version verification
+//! - [`system_checks`]: Version parsing and utility functions
+//! - [`check_dependencies`]: Main orchestrator combining all checks
 
 mod jj_checks;
 mod system_checks;
@@ -125,8 +125,6 @@ pub fn check_dependencies() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_check_dependencies_error_message_format() {
         // This test verifies the error message structure

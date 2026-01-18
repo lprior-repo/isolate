@@ -15,7 +15,7 @@ use crate::{cli::is_tty, json_output::AgentInfo, json_output::AgentListOutput};
 /// * `json` - Whether to output as JSON
 /// * `session` - Optional session name filter (used for empty message)
 pub fn output_agents(
-    agents: Vec<AgentInfo>,
+    agents: &[AgentInfo],
     json: bool,
     session: Option<&str>,
 ) -> anyhow::Result<()> {
@@ -25,9 +25,9 @@ pub fn output_agents(
     }
 
     if json {
-        output_json(&agents)?;
+        output_json(agents)?;
     } else {
-        output_table(&agents);
+        output_table(agents);
     }
 
     Ok(())
@@ -41,7 +41,7 @@ fn output_empty(json: bool, session: Option<&str>) {
             total_count: 0,
         };
         // Safe to unwrap since we're formatting empty JSON
-        let _ = println!(
+        println!(
             "{}",
             serde_json::to_string_pretty(&output).unwrap_or_default()
         );
@@ -71,8 +71,10 @@ fn output_table(agents: &[AgentInfo]) {
     println!("{}", "=".repeat(80));
 
     for agent in agents {
-        println!("\nSession:    {}", agent.session_name);
-        println!("Agent ID:   {}", agent.agent_id);
+        let session_name = &agent.session_name;
+        let agent_id = &agent.agent_id;
+        println!("\nSession:    {session_name}");
+        println!("Agent ID:   {agent_id}");
 
         if let Some(task) = &agent.task_id {
             println!("Task:       {task}");
@@ -99,7 +101,8 @@ fn output_table(agents: &[AgentInfo]) {
         println!("{}", "-".repeat(80));
     }
 
-    println!("\nTotal: {} agent(s)\n", agents.len());
+    let total = agents.len();
+    println!("\nTotal: {total} agent(s)\n");
 }
 
 /// Format spawned timestamp as human-readable relative time

@@ -18,6 +18,4 @@ pub mod types;
 pub use enrichment::get_beads_count;
 pub use output::format_sessions;
 pub use query::apply_filters;
-pub use types::{
-    BeadCounts, ListFilter, SessionAgentInfo, SessionBeadInfo, SessionListItem, SessionListResponse,
-};
+pub use types::{ListFilter, SessionListItem, SessionListResponse};

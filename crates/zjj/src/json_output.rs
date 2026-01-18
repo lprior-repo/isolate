@@ -113,18 +113,12 @@ pub struct SyncOutput {
     pub session_name: Option<String>,
     pub synced_count: usize,
     pub failed_count: usize,
-    pub errors: Vec<SyncError>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<ErrorDetail>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rebased_commits: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conflicts: Option<usize>,
-}
-
-#[derive(Debug, Serialize)]
-#[allow(dead_code)]
-pub struct SyncError {
-    pub session_name: String,
-    pub error: String,
 }
 
 /// Sync command dry-run JSON output

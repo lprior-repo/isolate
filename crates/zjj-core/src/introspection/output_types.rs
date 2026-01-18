@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 /// Complete introspection output
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntrospectOutput {
+    /// Success indicator (required for standardization)
+    pub success: bool,
     /// Version (top-level for AI compatibility)
     pub version: String,
     /// ZJJ version (kept for backwards compatibility with zjj_version)

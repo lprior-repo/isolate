@@ -122,7 +122,7 @@ impl ErrorDetail {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     #[derive(Serialize)]
     struct TestData {
@@ -139,9 +139,9 @@ mod tests {
         let response = JsonResponse::success(data);
 
         let json = serde_json::to_value(response).unwrap_or_else(|_| json!({}));
-        assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
-        assert_eq!(json.get("name").and_then(|v| v.as_str()), Some("test"));
-        assert_eq!(json.get("count").and_then(|v| v.as_u64()), Some(42));
+        assert_eq!(json.get("success").and_then(Value::as_bool), Some(true));
+        assert_eq!(json.get("name").and_then(Value::as_str), Some("test"));
+        assert_eq!(json.get("count").and_then(Value::as_u64), Some(42));
         assert!(json.get("error").is_none());
     }
 
@@ -152,9 +152,9 @@ mod tests {
         let response: JsonResponse<TestData> = JsonResponse::failure(error);
 
         let json = serde_json::to_value(response).unwrap_or_else(|_| json!({}));
-        assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(false));
+        assert_eq!(json.get("success").and_then(Value::as_bool), Some(false));
 
-        let error_obj = json.get("error").and_then(|v| v.as_object());
+        let error_obj = json.get("error").and_then(Value::as_object);
         assert!(error_obj.is_some());
 
         let Some(error) = error_obj else {
@@ -162,15 +162,15 @@ mod tests {
             return;
         };
         assert_eq!(
-            error.get("code").and_then(|v| v.as_str()),
+            error.get("code").and_then(Value::as_str),
             Some("TEST_ERROR")
         );
         assert_eq!(
-            error.get("message").and_then(|v| v.as_str()),
+            error.get("message").and_then(Value::as_str),
             Some("Something went wrong")
         );
         assert_eq!(
-            error.get("suggestion").and_then(|v| v.as_str()),
+            error.get("suggestion").and_then(Value::as_str),
             Some("Try again")
         );
     }

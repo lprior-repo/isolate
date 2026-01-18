@@ -14,6 +14,7 @@ impl IntrospectOutput {
     pub fn new(version: &str) -> Self {
         let version_string = version.to_string();
         Self {
+            success: true,
             version: version_string.clone(),
             zjj_version: version_string,
             capabilities: Capabilities::default(),

@@ -56,11 +56,8 @@ pub async fn run(query_type: &str, args: Option<&str>) -> Result<()> {
             query_suggest_name(pattern).await
         }
         _ => {
-            let error_msg = format!(
-                "Error: Unknown query type '{}'\n\n{}",
-                query_type,
-                QueryTypeInfo::list_all_queries()
-            );
+            let queries = QueryTypeInfo::list_all_queries();
+            let error_msg = format!("Error: Unknown query type '{query_type}'\n\n{queries}");
             Err(anyhow::anyhow!(error_msg))
         }
     }
@@ -222,11 +219,14 @@ fn query_can_run(command: &str) -> Result<()> {
 /// If database access fails, gracefully falls back to empty list.
 async fn query_suggest_name(pattern: &str) -> Result<()> {
     // suggest_name can work without database access if we can't get sessions
+    // Using match instead of map_or_else because we need to await inside each branch
+    #[allow(clippy::option_if_let_else)]
     let existing_names = match get_session_db().await {
-        Ok(db) => match db.list(None).await {
-            Ok(sessions) => sessions.into_iter().map(|s| s.name).collect(),
-            Err(_) => Vec::new(), // Fallback to empty list
-        },
+        Ok(db) => db
+            .list(None)
+            .await
+            .map(|sessions| sessions.into_iter().map(|s| s.name).collect())
+            .unwrap_or_default(),
         Err(_) => Vec::new(), // Fallback to empty list if prerequisites not met
     };
 

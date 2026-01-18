@@ -14,7 +14,7 @@ use super::types::SessionData;
 
 /// Format a session as a styled list item
 ///
-/// Pure function: SessionData -> ListItem with conditional styling.
+/// Pure function: `SessionData` -> `ListItem` with conditional styling.
 /// Combines session name, branch, changes count, and beads status.
 pub fn format_session_item(session_data: &SessionData, is_selected: bool) -> ListItem<'_> {
     let session = &session_data.session;
@@ -53,7 +53,7 @@ pub fn format_session_item(session_data: &SessionData, is_selected: bool) -> Lis
 
 /// Format beads status for display
 ///
-/// Pure function: BeadsStatus -> String transformation.
+/// Pure function: `BeadsStatus` -> String transformation.
 /// Maps enum variants to human-readable strings.
 pub fn format_beads_status(beads: &BeadsStatus) -> String {
     match beads {

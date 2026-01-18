@@ -1,7 +1,7 @@
 //! Specification builders for individual commands
 //!
 //! This module contains builder functions for constructing command specifications.
-//! Each builder function creates a complete CommandIntrospection for its command.
+//! Each builder function creates a complete `CommandIntrospection` for its command.
 
 use zjj_core::introspection::{
     ArgumentSpec, CommandExample, CommandIntrospection, ErrorCondition, FlagSpec, Prerequisites,

@@ -323,6 +323,7 @@ pub fn cmd_add_batch() -> Command {
         )
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn cmd_list() -> Command {
     Command::new("list")
         .about("List all sessions")
@@ -1411,6 +1412,7 @@ pub fn cmd_doctor() -> Command {
         )
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn cmd_query() -> Command {
     Command::new("query")
         .about("Query system state programmatically")
@@ -1533,6 +1535,7 @@ pub fn cmd_query() -> Command {
         )
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn cmd_completions() -> Command {
     Command::new("completions")
         .about("Generate shell completion scripts")

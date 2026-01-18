@@ -113,26 +113,29 @@ pub fn classify_error_code(err: &anyhow::Error) -> &'static str {
 }
 
 /// Classify system errors
-fn classify_system_error(err: &zjj_core::SystemError) -> &'static str {
+const fn classify_system_error(err: &zjj_core::SystemError) -> &'static str {
     match err {
         zjj_core::SystemError::IoError(_) => "IO_ERROR",
-        zjj_core::SystemError::Command(_) => "COMMAND_ERROR",
-        zjj_core::SystemError::HookFailed { .. } => "HOOK_FAILED",
-        zjj_core::SystemError::HookExecutionFailed { .. } => "HOOK_FAILED",
+        zjj_core::SystemError::Command(_)
+        | zjj_core::SystemError::JjCommandError {
+            is_not_found: false,
+            ..
+        } => "COMMAND_ERROR",
+        zjj_core::SystemError::HookFailed { .. }
+        | zjj_core::SystemError::HookExecutionFailed { .. } => "HOOK_FAILED",
         zjj_core::SystemError::JjCommandError {
             is_not_found: true, ..
         } => "DEPENDENCY_ERROR",
-        zjj_core::SystemError::JjCommandError { .. } => "COMMAND_ERROR",
     }
 }
 
 /// Classify execution errors
-fn classify_execution_error(err: &zjj_core::ExecutionError) -> &'static str {
+const fn classify_execution_error(err: &zjj_core::ExecutionError) -> &'static str {
     match err {
         zjj_core::ExecutionError::DatabaseError(_) => "DATABASE_ERROR",
         zjj_core::ExecutionError::NotFound(_) => "NOT_FOUND",
-        zjj_core::ExecutionError::NoCommitsYet { .. } => "INVALID_STATE",
-        zjj_core::ExecutionError::MainBookmarkMissing { .. } => "INVALID_STATE",
+        zjj_core::ExecutionError::NoCommitsYet { .. }
+        | zjj_core::ExecutionError::MainBookmarkMissing { .. } => "INVALID_STATE",
     }
 }
 

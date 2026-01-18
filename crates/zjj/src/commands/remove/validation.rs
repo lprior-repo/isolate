@@ -73,7 +73,7 @@ fn build_session_not_found_error(name: &str, all_sessions: &[Session]) -> anyhow
         )
     };
 
-    anyhow::anyhow!(
+    zjj_core::Error::not_found(format!(
         "Session '{name}' not found\n\
          \n\
          {active_list}\n\
@@ -82,7 +82,8 @@ fn build_session_not_found_error(name: &str, all_sessions: &[Session]) -> anyhow
          • Use 'zjj list' to see all active sessions\n\
          • Use 'zjj list --all' to include completed/failed sessions\n\
          • Check the spelling of the session name{suggestion_text}"
-    )
+    ))
+    .into()
 }
 
 #[cfg(test)]

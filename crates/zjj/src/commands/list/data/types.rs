@@ -8,6 +8,8 @@ use zjj_core::json::{SchemaEnvelope, SchemaType};
 /// Provides metadata alongside the sessions array for AI parsing and tooling.
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionListResponse {
+    /// Success indicator (required for standardization)
+    pub success: bool,
     /// Number of sessions in the response
     pub count: usize,
     /// Applied filter description (null if no filter)
@@ -20,8 +22,10 @@ pub struct SessionListResponse {
 impl SessionListResponse {
     /// Create a new response from sessions and optional filter
     #[must_use]
+    #[allow(clippy::missing_const_for_fn)] // sessions.len() is not const
     pub fn new(sessions: Vec<SessionListItem>, filter: Option<String>) -> Self {
         Self {
+            success: true,
             count: sessions.len(),
             filter,
             sessions,

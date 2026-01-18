@@ -50,7 +50,7 @@ pub async fn run(all: bool, json: bool, silent: bool, filter: ListFilter) -> Res
     let beads = data::get_beads_count().await.unwrap_or_default();
 
     // Format sessions for display using the output module
-    let items = data::format_sessions(sessions, &beads);
+    let items = data::format_sessions(sessions.as_slice(), &beads);
 
     if json {
         formatting::output_json(items, &filter)?;

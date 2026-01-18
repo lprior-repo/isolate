@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 
-use super::types::SessionStatusInfo;
+use super::types::{SessionStatusInfo, StatusResponse};
 
 /// Output sessions as formatted table
 pub fn output_table(items: &[SessionStatusInfo]) {
@@ -20,9 +20,10 @@ pub fn output_table(items: &[SessionStatusInfo]) {
     }
 }
 
-/// Output sessions as JSON
+/// Output sessions as JSON with schema metadata
 pub fn output_json(items: &[SessionStatusInfo]) -> Result<()> {
-    let json = serde_json::to_string_pretty(items)?;
+    let response = StatusResponse::new(items.to_vec()).with_schema();
+    let json = serde_json::to_string_pretty(&response)?;
     println!("{json}");
     Ok(())
 }
@@ -30,7 +31,10 @@ pub fn output_json(items: &[SessionStatusInfo]) -> Result<()> {
 /// Output empty state message
 pub fn output_empty(json: bool) {
     if json {
-        println!("[]");
+        let response = StatusResponse::new(Vec::new()).with_schema();
+        if let Ok(json_str) = serde_json::to_string_pretty(&response) {
+            println!("{json_str}");
+        }
     } else {
         println!("No sessions found.");
         println!("Use 'zjj add <name>' to create a session.");

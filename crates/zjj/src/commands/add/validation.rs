@@ -54,16 +54,11 @@ pub async fn validate_all(
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Tests for individual validators are located in their respective modules:
-    // - validators::name::tests - Session name validation tests
-    // - validators::exists::tests - Session existence checks
-    // - validators::workspace::tests - Workspace availability tests
-    // - validators::zellij::tests - Zellij availability tests
-    // - validators::dependencies::tests - Dependency checks
-    //
-    // Integration tests for validate_all are in the integration test suite.
-}
+// Tests for individual validators are located in their respective modules:
+// - validators::name::tests - Session name validation tests
+// - validators::exists::tests - Session existence checks
+// - validators::workspace::tests - Workspace availability tests
+// - validators::zellij::tests - Zellij availability tests
+// - validators::dependencies::tests - Dependency checks
+//
+// Integration tests for validate_all are in the integration test suite.

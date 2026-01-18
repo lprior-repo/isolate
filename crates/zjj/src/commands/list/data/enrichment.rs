@@ -37,7 +37,7 @@ pub fn get_session_changes(workspace_path: &str) -> Option<usize> {
 
 /// Get beads count from the repository's beads database
 ///
-/// Queries the `.beads/beads.db` SQLite database for open issues.
+/// Queries the `.beads/beads.db` `SQLite` database for open issues.
 /// Returns default counts (0/0/0) if:
 /// - Not in a JJ repository
 /// - Beads database doesn't exist
@@ -158,11 +158,7 @@ pub fn extract_agent_info(metadata: &Value) -> Option<SessionAgentInfo> {
             .ok()
             .and_then(|now| {
                 let current_time = now.as_secs();
-                if current_time >= spawn_time {
-                    Some(current_time - spawn_time)
-                } else {
-                    None
-                }
+                current_time.checked_sub(spawn_time)
             })
     });
 
@@ -177,17 +173,16 @@ pub fn extract_agent_info(metadata: &Value) -> Option<SessionAgentInfo> {
 /// Enrich a session with additional metadata
 ///
 /// Extracts bead and agent information from session metadata in a single operation.
-/// Returns tuple of (bead_info, agent_info).
+/// Returns tuple of (`bead_info`, `agent_info`).
 ///
 /// # Returns
 /// Returns `(None, None)` if session has no metadata.
 pub fn enrich_session_metadata(
     session: &Session,
 ) -> (Option<SessionBeadInfo>, Option<SessionAgentInfo>) {
-    match &session.metadata {
-        Some(metadata) => (extract_bead_info(metadata), extract_agent_info(metadata)),
-        None => (None, None),
-    }
+    session.metadata.as_ref().map_or((None, None), |metadata| {
+        (extract_bead_info(metadata), extract_agent_info(metadata))
+    })
 }
 
 #[cfg(test)]

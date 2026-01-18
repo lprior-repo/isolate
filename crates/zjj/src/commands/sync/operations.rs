@@ -131,7 +131,7 @@ pub async fn sync_all_sessions(
 /// Aggregate sync results into counts and errors
 pub fn aggregate_results(
     results: &[SessionSyncResult],
-) -> (usize, usize, Vec<crate::json_output::SyncError>) {
+) -> (usize, usize, Vec<super::formatters::SessionSyncError>) {
     // Functional approach: partition results into successes and failures
     let (successes, failures): (Vec<_>, Vec<_>) =
         results.iter().partition(|result| result.result.is_ok());
@@ -139,7 +139,7 @@ pub fn aggregate_results(
     let success_count = successes.len();
     let failure_count = failures.len();
 
-    // Map failures to SyncError using functional iterator chain
+    // Map failures to SessionSyncError using functional iterator chain
     let errors = failures
         .into_iter()
         .filter_map(|result| {
@@ -147,9 +147,9 @@ pub fn aggregate_results(
                 .result
                 .as_ref()
                 .err()
-                .map(|e| crate::json_output::SyncError {
+                .map(|e| super::formatters::SessionSyncError {
                     session_name: result.name.clone(),
-                    error: e.to_string(),
+                    error_message: e.to_string(),
                 })
         })
         .collect();

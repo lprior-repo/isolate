@@ -1,22 +1,11 @@
 //! Pre-focus validation for the focus command
 //!
 //! Validates session name, database, and terminal environment before attempting
-//! to switch tabs. Uses Result<T> for all operations - zero unwrap/panic design.
+//! to switch tabs. Uses `Result<T>` for all operations - zero unwrap/panic design.
 
 use anyhow::Result;
 
-use crate::{
-    cli::{is_tty, run_command},
-    commands::get_session_db,
-    database::SessionDb,
-};
-
-/// Validation result containing necessary data for tab switching
-#[derive(Debug, Clone)]
-pub struct FocusValidationResult {
-    /// The Zellij tab name to switch to
-    pub zellij_tab: String,
-}
+use crate::{cli::is_tty, commands::get_session_db, database::SessionDb};
 
 /// Validates session name using the standard validation function
 ///
@@ -44,10 +33,10 @@ pub async fn validate_database_and_session(session_name: &str) -> Result<(Sessio
     Ok((db, session.zellij_tab))
 }
 
-/// Validates that we're running in a TTY environment
+/// Validates that we're running in a `TTY` environment
 ///
-/// Terminal access is required for Zellij operations.
-/// Returns an error with helpful diagnostics if not a TTY.
+/// Terminal access is required for `Zellij` operations.
+/// Returns an error with helpful diagnostics if not a `TTY`.
 pub fn validate_tty_environment() -> Result<()> {
     if !is_tty() {
         return Err(anyhow::anyhow!(
@@ -63,32 +52,6 @@ pub fn validate_tty_environment() -> Result<()> {
         ));
     }
     Ok(())
-}
-
-/// Validates that the specified tab exists and is accessible
-///
-/// Attempts to query Zellij for the tab without switching.
-/// This early validation helps catch tab name issues.
-pub fn validate_tab_accessible(tab_name: &str) -> Result<()> {
-    // Try to list tabs - if this fails, either Zellij is not running or tab doesn't exist
-    match run_command("zellij", &["list-tabs"]) {
-        Ok(output) => {
-            // Check if our tab is in the output
-            if output.contains(tab_name) {
-                Ok(())
-            } else {
-                Err(anyhow::anyhow!(
-                    "Tab '{tab_name}' not found in Zellij session\n\
-                     Use 'zellij list-tabs' to see available tabs"
-                ))
-            }
-        }
-        Err(_) => {
-            // If we can't list tabs, it might be because we're not in Zellij
-            // Return early - we'll let the tab switch operation handle this
-            Ok(())
-        }
-    }
 }
 
 #[cfg(test)]

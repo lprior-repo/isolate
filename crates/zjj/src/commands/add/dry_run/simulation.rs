@@ -27,7 +27,11 @@ pub struct OperationBuilder<'a> {
 
 impl<'a> OperationBuilder<'a> {
     /// Create a new operation builder with the given parameters
-    pub fn new(
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Builder pattern requires all context parameters"
+    )]
+    pub const fn new(
         session_name: &'a str,
         workspace_path: &'a str,
         template_name: &'a str,
@@ -96,7 +100,7 @@ impl<'a> OperationBuilder<'a> {
         ]
     }
 
-    /// Build optional open_zellij_tab operation
+    /// Build optional `open_zellij_tab` operation
     fn build_open_tab_operation(&self) -> Option<PlannedOperation> {
         (!self.no_open).then_some(PlannedOperation {
             action: "open_zellij_tab".to_string(),
@@ -105,7 +109,7 @@ impl<'a> OperationBuilder<'a> {
         })
     }
 
-    /// Build optional run_hook operation
+    /// Build optional `run_hook` operation
     fn build_hook_operation(&self) -> Option<PlannedOperation> {
         (!self.no_hooks && !self.config.hooks.post_create.is_empty()).then_some(PlannedOperation {
             action: "run_hook".to_string(),

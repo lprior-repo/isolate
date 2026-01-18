@@ -1,14 +1,14 @@
 //! Initialize ZJJ - sets up everything needed
 //!
 //! This module orchestrates initialization by delegating to focused submodules:
-//! - dependencies: Check required tools
-//! - repo: JJ repository validation
-//! - config_setup: Configuration file creation
-//! - directory_setup: Directory creation operations
-//! - file_operations: File I/O operations
-//! - health: Database health checking
-//! - operations: Database-specific operations
-//! - workspace_operations: Force reinitialization with backup
+//! - [`dependencies`]: Check required tools
+//! - [`repo`]: JJ repository validation
+//! - [`config_setup`]: Configuration file creation
+//! - [`directory_setup`]: Directory creation operations
+//! - [`file_operations`]: File I/O operations
+//! - [`health`]: Database health checking
+//! - [`operations`]: Database-specific operations
+//! - [`workspace_operations`]: Force reinitialization with backup
 
 mod config_setup;
 mod dependencies;
@@ -20,8 +20,6 @@ pub mod repo;
 mod state_management;
 pub mod workspace_operations;
 
-use std::path::Path;
-
 // Re-export key functions for backward compatibility
 pub use state_management::run_with_cwd_and_flags;
 
@@ -29,14 +27,13 @@ pub use state_management::run_with_cwd_and_flags;
 ///
 /// With --repair: Attempts to repair a corrupted database
 /// With --force: Forces reinitialization (creates backup first)
-pub async fn run_with_flags(repair: bool, force: bool, _json: bool) -> anyhow::Result<()> {
-    // Note: json flag accepted for API compatibility but currently unused
-    // TODO: Wire json output through init command pipeline
-    run_with_cwd_and_flags(None, repair, force).await
+pub async fn run_with_flags(repair: bool, force: bool, json: bool) -> anyhow::Result<()> {
+    state_management::run_with_cwd_and_all_flags(None, repair, force, json).await
 }
 
 /// Run the init command with an optional working directory (for tests)
-pub async fn run_with_cwd(cwd: Option<&Path>) -> anyhow::Result<()> {
+#[cfg(test)]
+async fn run_with_cwd(cwd: Option<&std::path::Path>) -> anyhow::Result<()> {
     run_with_cwd_and_flags(cwd, false, false).await
 }
 

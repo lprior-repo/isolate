@@ -1,6 +1,6 @@
 //! Error handling for focus command
 //!
-//! Handles JSON error output and exit code mapping with zero-panic, zero-unwrap design.
+//! Handles `JSON` error output and exit code mapping with zero-panic, zero-unwrap design.
 
 use std::process;
 
@@ -11,7 +11,7 @@ use crate::json_output::{ErrorDetail, ErrorOutput};
 pub enum FocusError {
     /// Validation error (exit code 1)
     Validation,
-    /// System/TTY error (exit code 2)
+    /// System/`TTY` error (exit code 2)
     System,
     /// Session/database not found (exit code 3)
     NotFound,
@@ -19,7 +19,7 @@ pub enum FocusError {
 
 impl FocusError {
     /// Get the exit code for this error type
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self {
             Self::Validation => 1,
             Self::System => 2,
@@ -27,8 +27,8 @@ impl FocusError {
         }
     }
 
-    /// Get the error code string for JSON output
-    pub fn code_string(&self) -> &'static str {
+    /// Get the error code string for `JSON` output
+    pub const fn code_string(&self) -> &'static str {
         match self {
             Self::Validation => "VALIDATION_ERROR",
             Self::System => "SYSTEM_ERROR",
@@ -37,10 +37,10 @@ impl FocusError {
     }
 }
 
-/// Output error as JSON and exit with specified exit code
+/// Output error as `JSON` and exit with specified exit code
 ///
 /// This function never returns (marked with `-> !`).
-/// Uses fallback JSON serialization if the primary method fails.
+/// Uses fallback `JSON` serialization if the primary method fails.
 ///
 /// # Arguments
 /// * `error_type` - Type of error (determines exit code)
@@ -64,19 +64,16 @@ pub fn output_error_json_and_exit(
     };
 
     // Try to serialize to JSON; use fallback if it fails
-    match serde_json::to_string(&output) {
-        Ok(json) => println!("{json}"),
-        Err(_) => {
-            // Fallback: construct JSON manually with escaped strings
-            let sugg = suggestion
-                .map(|s| format!(",\"suggestion\":\"{}\"", s.replace('"', "\\\"")))
-                .unwrap_or_default();
-            println!(
-                r#"{{"success":false,"error":{{"code":"{}","message":"{msg}"{sugg}}}}}"#,
-                error_type.code_string(),
-                msg = error_msg.replace('"', "\\\"")
-            );
-        }
+    if let Ok(json) = serde_json::to_string(&output) {
+        println!("{json}");
+    } else {
+        // Fallback: construct JSON manually with escaped strings
+        let code = error_type.code_string();
+        let msg = error_msg.replace('"', "\\\"");
+        let sugg = suggestion
+            .map(|s| format!(",\"suggestion\":\"{}\"", s.replace('"', "\\\"")))
+            .unwrap_or_default();
+        println!(r#"{{"success":false,"error":{{"code":"{code}","message":"{msg}"{sugg}}}}}"#);
     }
 
     process::exit(exit_code);

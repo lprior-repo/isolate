@@ -1,6 +1,6 @@
 //! Data formatting and output building for list command
 //!
-//! Transforms raw session data into display-ready SessionListItem structures
+//! Transforms raw session data into display-ready `SessionListItem` structures
 //! using functional patterns for clean composition.
 
 use crate::session::Session;
@@ -11,7 +11,7 @@ use super::types::{BeadCounts, SessionListItem};
 /// Format a session change count for display
 ///
 /// Returns formatted string or "-" if changes cannot be determined.
-/// Uses functional approach with map_or_else for default handling.
+/// Uses functional approach with `map_or_else` for default handling.
 fn format_changes(workspace_path: &str) -> String {
     get_session_changes(workspace_path)
         .map(|count| count.to_string())
@@ -21,15 +21,15 @@ fn format_changes(workspace_path: &str) -> String {
 /// Format a branch name for display
 ///
 /// Returns branch name or "-" if not present.
-/// Uses functional approach with unwrap_or_else for default handling.
-fn format_branch(branch: &Option<String>) -> String {
-    branch.as_ref().cloned().unwrap_or_else(|| "-".to_string())
+/// Uses functional approach with `unwrap_or_else` for default handling.
+fn format_branch(branch: Option<&String>) -> String {
+    branch.cloned().unwrap_or_else(|| "-".to_string())
 }
 
-/// Build a SessionListItem from a session and shared beads count
+/// Build a `SessionListItem` from a session and shared beads count
 ///
 /// Composes enriched metadata and formatted fields into a display-ready item.
-/// Uses functional patterns: enrich_session_metadata extracts metadata,
+/// Uses functional patterns: `enrich_session_metadata` extracts metadata,
 /// then format_* functions prepare individual fields.
 ///
 /// # Arguments
@@ -37,14 +37,14 @@ fn format_branch(branch: &Option<String>) -> String {
 /// - `beads`: Shared beads count (same for all sessions)
 ///
 /// # Returns
-/// Fully constructed SessionListItem with all metadata enriched
+/// Fully constructed `SessionListItem` with all metadata enriched
 fn build_item(session: &Session, beads: &BeadCounts) -> SessionListItem {
     let (bead_info, agent_info) = enrich_session_metadata(session);
 
     SessionListItem {
         name: session.name.clone(),
         status: session.status.to_string(),
-        branch: format_branch(&session.branch),
+        branch: format_branch(session.branch.as_ref()),
         workspace_path: session.workspace_path.clone(),
         zellij_tab: session.zellij_tab.clone(),
         changes: format_changes(&session.workspace_path),
@@ -68,8 +68,8 @@ fn build_item(session: &Session, beads: &BeadCounts) -> SessionListItem {
 /// - `beads`: Shared beads count for all sessions
 ///
 /// # Returns
-/// Vector of formatted SessionListItem ready for display
-pub fn format_sessions(sessions: Vec<Session>, beads: &BeadCounts) -> Vec<SessionListItem> {
+/// Vector of formatted `SessionListItem` ready for display
+pub fn format_sessions(sessions: &[Session], beads: &BeadCounts) -> Vec<SessionListItem> {
     sessions
         .iter()
         .map(|session| build_item(session, beads))
@@ -84,13 +84,13 @@ mod tests {
     #[test]
     fn test_format_branch_with_value() {
         let branch = Some("feature/test".to_string());
-        assert_eq!(format_branch(&branch), "feature/test");
+        assert_eq!(format_branch(branch.as_ref()), "feature/test");
     }
 
     #[test]
     fn test_format_branch_without_value() {
-        let branch = None;
-        assert_eq!(format_branch(&branch), "-");
+        let branch: Option<String> = None;
+        assert_eq!(format_branch(branch.as_ref()), "-");
     }
 
     #[test]
@@ -132,15 +132,15 @@ mod tests {
 
     #[test]
     fn test_format_sessions_empty() {
-        let sessions = vec![];
+        let sessions: Vec<Session> = vec![];
         let beads = BeadCounts::default();
-        let items = format_sessions(sessions, &beads);
+        let items = format_sessions(&sessions, &beads);
         assert!(items.is_empty());
     }
 
     #[test]
     fn test_format_sessions_multiple() {
-        let session1 = Session {
+        let first = Session {
             name: "session1".to_string(),
             status: SessionStatus::Active,
             branch: None,
@@ -152,7 +152,7 @@ mod tests {
             ..Default::default()
         };
 
-        let session2 = Session {
+        let second = Session {
             name: "session2".to_string(),
             status: SessionStatus::Paused,
             branch: Some("develop".to_string()),
@@ -164,14 +164,14 @@ mod tests {
             ..Default::default()
         };
 
-        let sessions = vec![session1, session2];
+        let sessions = vec![first, second];
         let beads = BeadCounts {
             open: 3,
             in_progress: 1,
             blocked: 0,
         };
 
-        let items = format_sessions(sessions, &beads);
+        let items = format_sessions(&sessions, &beads);
 
         assert_eq!(items.len(), 2);
         assert_eq!(items[0].name, "session1");

@@ -1,8 +1,38 @@
 //! Status data types and display implementations
 
 use serde::Serialize;
+use zjj_core::json::{SchemaEnvelope, SchemaType};
 
 use crate::session::Session;
+
+/// JSON response wrapper for status command
+#[derive(Debug, Clone, Serialize)]
+pub struct StatusResponse {
+    /// Success indicator (required for standardization)
+    pub success: bool,
+    /// Number of sessions in the response
+    pub count: usize,
+    /// The session status information
+    pub sessions: Vec<SessionStatusInfo>,
+}
+
+impl StatusResponse {
+    /// Create a new response from session statuses
+    #[must_use]
+    pub fn new(sessions: Vec<SessionStatusInfo>) -> Self {
+        Self {
+            success: true,
+            count: sessions.len(),
+            sessions,
+        }
+    }
+
+    /// Wrap this response with schema metadata for JSON output
+    #[must_use]
+    pub fn with_schema(self) -> SchemaEnvelope<Self> {
+        SchemaEnvelope::new(SchemaType::Status, self)
+    }
+}
 
 /// Detailed session status information
 #[derive(Debug, Clone, Serialize)]

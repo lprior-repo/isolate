@@ -384,7 +384,7 @@ mod tests {
     #[test]
     fn test_priority_serialization_roundtrip() -> Result<(), serde_json::Error> {
         let original = Priority::P1;
-        let serialized = serde_json::to_value(&original)?;
+        let serialized = serde_json::to_value(original)?;
         let deserialized: Priority = serde_json::from_value(serialized)?;
         assert_eq!(original, deserialized);
         Ok(())
