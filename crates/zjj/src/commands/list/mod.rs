@@ -35,7 +35,8 @@ pub async fn run(all: bool, json: bool, silent: bool, filter: ListFilter) -> Res
 
     if sessions.is_empty() {
         if json {
-            println!("[]");
+            // Output empty response with schema metadata
+            formatting::output_json(Vec::new(), &filter)?;
         } else if silent || !is_tty() {
             // Silent mode or pipe: output nothing
         } else {
