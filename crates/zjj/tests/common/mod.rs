@@ -101,7 +101,7 @@ impl TestHarness {
             .args(args)
             .current_dir(&self.repo_path)
             .env("NO_COLOR", "1") // Disable color codes
-            .env("JJZ_TEST_MODE", "1") // Signal we're in test mode
+            .env("ZJJ_TEST_MODE", "1") // Signal we're in test mode
             .output()
             .map_or_else(
                 |_| CommandResult {

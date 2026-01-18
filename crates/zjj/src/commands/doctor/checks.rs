@@ -5,7 +5,7 @@
 //! - System checks: External tool availability
 //! - Environment checks: Runtime environment state
 //! - Repository checks: JJ repository and database health
-//! - JJZ setup checks: JJZ initialization and integration status
+//! - ZJJ setup checks: ZJJ initialization and integration status
 
 use super::env_checks;
 use super::repo_checks;
@@ -21,7 +21,7 @@ use zjj_core::introspection::DoctorCheck;
 /// 1. System checks (JJ and Zellij installation)
 /// 2. Environment checks (Zellij running status)
 /// 3. Repository checks (JJ repo, state database, orphaned workspaces)
-/// 4. JJZ setup checks (initialization, Beads integration)
+/// 4. ZJJ setup checks (initialization, Beads integration)
 pub async fn run_all() -> im::Vector<DoctorCheck> {
     im::vector![
         // System checks
@@ -33,7 +33,7 @@ pub async fn run_all() -> im::Vector<DoctorCheck> {
         repo_checks::check_jj_repo(),
         repo_checks::check_state_db().await,
         repo_checks::check_orphaned_workspaces().await,
-        // JJZ setup checks
+        // ZJJ setup checks
         zjj_setup_checks::check_initialized(),
         zjj_setup_checks::check_beads(),
     ]
@@ -73,7 +73,7 @@ mod tests {
             assert!(names.contains(&"JJ Repository".to_string()));
             assert!(names.contains(&"State Database".to_string()));
             assert!(names.contains(&"Orphaned Workspaces".to_string()));
-            // JJZ setup checks
+            // ZJJ setup checks
             assert!(names.contains(&"zjj Initialized".to_string()));
             assert!(names.contains(&"Beads Integration".to_string()));
         });

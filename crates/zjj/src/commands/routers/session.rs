@@ -11,7 +11,7 @@ use crate::commands::{add, add_batch, focus, list, remove, status};
 /// Handle session management commands
 ///
 /// Routes session-related commands to their appropriate handlers.
-/// Session commands manage the lifecycle of JJZ sessions.
+/// Session commands manage the lifecycle of ZJJ sessions.
 ///
 /// # Errors
 ///

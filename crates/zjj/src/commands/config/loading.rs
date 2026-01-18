@@ -29,7 +29,7 @@ pub fn show_all_config(config: &Config, global_only: bool, json: bool) -> Result
                         .ok()
                         .map(|p| format!("Project: {}", p.display())),
                 )
-                .chain(std::iter::once("Environment: JJZ_* variables".to_string()))
+                .chain(std::iter::once("Environment: ZJJ_* variables".to_string()))
                 .collect::<Vec<_>>();
             Some(sources_list)
         };
@@ -70,7 +70,7 @@ pub fn show_all_config(config: &Config, global_only: bool, json: bool) -> Result
             if let Ok(project_path) = project_config_path() {
                 println!("  3. Project: {}", project_path.display());
             }
-            println!("  4. Environment: JJZ_* variables");
+            println!("  4. Environment: ZJJ_* variables");
         }
     }
 

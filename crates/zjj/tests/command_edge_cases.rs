@@ -53,7 +53,7 @@ fn test_concurrent_add_same_name_race_condition() {
                 .args(["add", "race-session", "--no-open"])
                 .current_dir(&repo_path)
                 .env("NO_COLOR", "1")
-                .env("JJZ_TEST_MODE", "1")
+                .env("ZJJ_TEST_MODE", "1")
                 .output();
 
             (i, result)
@@ -133,7 +133,7 @@ fn test_concurrent_add_different_names() {
                 .args(["add", &name, "--no-open"])
                 .current_dir(&repo_path)
                 .env("NO_COLOR", "1")
-                .env("JJZ_TEST_MODE", "1")
+                .env("ZJJ_TEST_MODE", "1")
                 .output()
         });
         handles.push(handle);
@@ -191,7 +191,7 @@ fn test_concurrent_remove_same_session() {
                 .args(["remove", "to-remove", "--force"])
                 .current_dir(&repo_path)
                 .env("NO_COLOR", "1")
-                .env("JJZ_TEST_MODE", "1")
+                .env("ZJJ_TEST_MODE", "1")
                 .output();
 
             (i, result)
@@ -468,7 +468,7 @@ fn test_multiple_concurrent_reads() {
                 .args(["list"])
                 .current_dir(&repo_path)
                 .env("NO_COLOR", "1")
-                .env("JJZ_TEST_MODE", "1")
+                .env("ZJJ_TEST_MODE", "1")
                 .output()
         });
         handles.push(handle);
@@ -513,7 +513,7 @@ fn test_concurrent_read_write() {
                     .args(["list"])
                     .current_dir(&repo_path)
                     .env("NO_COLOR", "1")
-                    .env("JJZ_TEST_MODE", "1")
+                    .env("ZJJ_TEST_MODE", "1")
                     .output(),
             )
         });
@@ -534,7 +534,7 @@ fn test_concurrent_read_write() {
                     .args(["add", &name, "--no-open"])
                     .current_dir(&repo_path)
                     .env("NO_COLOR", "1")
-                    .env("JJZ_TEST_MODE", "1")
+                    .env("ZJJ_TEST_MODE", "1")
                     .output(),
             )
         });

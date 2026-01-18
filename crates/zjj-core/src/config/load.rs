@@ -148,63 +148,63 @@ impl Config {
     ///
     /// Returns error if environment variable values are invalid
     pub fn apply_env_vars(mut self) -> Result<Self> {
-        // JJZ_WORKSPACE_DIR
-        if let Ok(value) = std::env::var("JJZ_WORKSPACE_DIR") {
+        // ZJJ_WORKSPACE_DIR
+        if let Ok(value) = std::env::var("ZJJ_WORKSPACE_DIR") {
             self.workspace_dir = value;
         }
 
-        // JJZ_MAIN_BRANCH
-        if let Ok(value) = std::env::var("JJZ_MAIN_BRANCH") {
+        // ZJJ_MAIN_BRANCH
+        if let Ok(value) = std::env::var("ZJJ_MAIN_BRANCH") {
             if value.is_empty() {
                 return Err(Error::invalid_config(
-                    "JJZ_MAIN_BRANCH cannot be empty - unset the variable or provide a branch name",
+                    "ZJJ_MAIN_BRANCH cannot be empty - unset the variable or provide a branch name",
                 ));
             }
             self.main_branch = Some(value);
         }
 
-        // JJZ_DEFAULT_TEMPLATE
-        if let Ok(value) = std::env::var("JJZ_DEFAULT_TEMPLATE") {
+        // ZJJ_DEFAULT_TEMPLATE
+        if let Ok(value) = std::env::var("ZJJ_DEFAULT_TEMPLATE") {
             self.default_template = value;
         }
 
-        // JJZ_WATCH_ENABLED
-        if let Ok(value) = std::env::var("JJZ_WATCH_ENABLED") {
+        // ZJJ_WATCH_ENABLED
+        if let Ok(value) = std::env::var("ZJJ_WATCH_ENABLED") {
             self.watch.enabled = value.parse().map_err(|e| {
-                Error::invalid_config(format!("Invalid JJZ_WATCH_ENABLED value: {e}"))
+                Error::invalid_config(format!("Invalid ZJJ_WATCH_ENABLED value: {e}"))
             })?;
         }
 
-        // JJZ_WATCH_DEBOUNCE_MS
-        if let Ok(value) = std::env::var("JJZ_WATCH_DEBOUNCE_MS") {
+        // ZJJ_WATCH_DEBOUNCE_MS
+        if let Ok(value) = std::env::var("ZJJ_WATCH_DEBOUNCE_MS") {
             self.watch.debounce_ms = value.parse().map_err(|e| {
-                Error::invalid_config(format!("Invalid JJZ_WATCH_DEBOUNCE_MS value: {e}"))
+                Error::invalid_config(format!("Invalid ZJJ_WATCH_DEBOUNCE_MS value: {e}"))
             })?;
         }
 
-        // JJZ_ZELLIJ_USE_TABS
-        if let Ok(value) = std::env::var("JJZ_ZELLIJ_USE_TABS") {
+        // ZJJ_ZELLIJ_USE_TABS
+        if let Ok(value) = std::env::var("ZJJ_ZELLIJ_USE_TABS") {
             self.zellij.use_tabs = value.parse().map_err(|e| {
-                Error::invalid_config(format!("Invalid JJZ_ZELLIJ_USE_TABS value: {e}"))
+                Error::invalid_config(format!("Invalid ZJJ_ZELLIJ_USE_TABS value: {e}"))
             })?;
         }
 
-        // JJZ_DASHBOARD_REFRESH_MS
-        if let Ok(value) = std::env::var("JJZ_DASHBOARD_REFRESH_MS") {
+        // ZJJ_DASHBOARD_REFRESH_MS
+        if let Ok(value) = std::env::var("ZJJ_DASHBOARD_REFRESH_MS") {
             self.dashboard.refresh_ms = value.parse().map_err(|e| {
-                Error::invalid_config(format!("Invalid JJZ_DASHBOARD_REFRESH_MS value: {e}"))
+                Error::invalid_config(format!("Invalid ZJJ_DASHBOARD_REFRESH_MS value: {e}"))
             })?;
         }
 
-        // JJZ_DASHBOARD_VIM_KEYS
-        if let Ok(value) = std::env::var("JJZ_DASHBOARD_VIM_KEYS") {
+        // ZJJ_DASHBOARD_VIM_KEYS
+        if let Ok(value) = std::env::var("ZJJ_DASHBOARD_VIM_KEYS") {
             self.dashboard.vim_keys = value.parse().map_err(|e| {
-                Error::invalid_config(format!("Invalid JJZ_DASHBOARD_VIM_KEYS value: {e}"))
+                Error::invalid_config(format!("Invalid ZJJ_DASHBOARD_VIM_KEYS value: {e}"))
             })?;
         }
 
-        // JJZ_AGENT_COMMAND
-        if let Ok(value) = std::env::var("JJZ_AGENT_COMMAND") {
+        // ZJJ_AGENT_COMMAND
+        if let Ok(value) = std::env::var("ZJJ_AGENT_COMMAND") {
             self.agent.command = value;
         }
 

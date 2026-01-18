@@ -76,14 +76,14 @@ mod loading_tests {
         assert!(path.ends_with("config.toml"));
     }
 
-    // Test 5: Env override - JJZ_WORKSPACE_DIR=../custom → config.workspace_dir
+    // Test 5: Env override - ZJJ_WORKSPACE_DIR=../custom → config.workspace_dir
     // Ignored: Requires unsafe code for env var manipulation, conflicts with workspace
     // forbid(unsafe_code)
     #[test]
     #[ignore = "Requires unsafe code for env var manipulation"]
     fn test_env_var_overrides_config() {
         // Set env var
-        std::env::set_var("JJZ_WORKSPACE_DIR", "../env");
+        std::env::set_var("ZJJ_WORKSPACE_DIR", "../env");
 
         let config = Config {
             workspace_dir: "../original".to_string(),
@@ -97,7 +97,7 @@ mod loading_tests {
         }
 
         // Cleanup
-        std::env::remove_var("JJZ_WORKSPACE_DIR");
+        std::env::remove_var("ZJJ_WORKSPACE_DIR");
     }
 
     // Ignored: Requires unsafe code for env var manipulation, conflicts with workspace
@@ -105,7 +105,7 @@ mod loading_tests {
     #[test]
     #[ignore = "Requires unsafe code for env var manipulation"]
     fn test_env_var_parsing_bool() {
-        std::env::set_var("JJZ_WATCH_ENABLED", "false");
+        std::env::set_var("ZJJ_WATCH_ENABLED", "false");
 
         let config = Config::default();
         let result = config.apply_env_vars();
@@ -113,7 +113,7 @@ mod loading_tests {
         let result_config = result.unwrap_or_else(|_| Config::default());
         assert!(!result_config.watch.enabled);
 
-        std::env::remove_var("JJZ_WATCH_ENABLED");
+        std::env::remove_var("ZJJ_WATCH_ENABLED");
     }
 
     // Ignored: Requires unsafe code for env var manipulation, conflicts with workspace
@@ -121,7 +121,7 @@ mod loading_tests {
     #[test]
     #[ignore = "Requires unsafe code for env var manipulation"]
     fn test_env_var_parsing_int() {
-        std::env::set_var("JJZ_WATCH_DEBOUNCE_MS", "200");
+        std::env::set_var("ZJJ_WATCH_DEBOUNCE_MS", "200");
 
         let config = Config::default();
         let result = config.apply_env_vars();
@@ -129,6 +129,6 @@ mod loading_tests {
         let result_config = result.unwrap_or_else(|_| Config::default());
         assert_eq!(result_config.watch.debounce_ms, 200);
 
-        std::env::remove_var("JJZ_WATCH_DEBOUNCE_MS");
+        std::env::remove_var("ZJJ_WATCH_DEBOUNCE_MS");
     }
 }

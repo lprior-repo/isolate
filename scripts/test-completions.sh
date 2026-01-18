@@ -22,18 +22,18 @@ if ! command -v zjj &> /dev/null; then
 
     # Try to find the built binary
     if [ -f "target/release/zjj" ]; then
-        JJZ_CMD="./target/release/zjj"
+        ZJJ_CMD="./target/release/zjj"
     elif [ -f "target/debug/zjj" ]; then
-        JJZ_CMD="./target/debug/zjj"
+        ZJJ_CMD="./target/debug/zjj"
     else
         echo -e "${RED}Failed to build zjj${NC}"
         exit 1
     fi
 else
-    JJZ_CMD="zjj"
+    ZJJ_CMD="zjj"
 fi
 
-echo "Using: $JJZ_CMD"
+echo "Using: $ZJJ_CMD"
 echo
 
 # Test each shell
@@ -43,7 +43,7 @@ FAILED=0
 for shell in "${SHELLS[@]}"; do
     echo -n "Testing $shell completions... "
 
-    if $JJZ_CMD completions "$shell" > /dev/null 2>&1; then
+    if $ZJJ_CMD completions "$shell" > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
@@ -55,7 +55,7 @@ echo
 
 # Test with instructions flag
 echo -n "Testing --instructions flag... "
-if $JJZ_CMD completions bash --instructions > /dev/null 2>&1; then
+if $ZJJ_CMD completions bash --instructions > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"
@@ -66,7 +66,7 @@ echo
 
 # Test invalid shell
 echo -n "Testing invalid shell (should fail)... "
-if ! $JJZ_CMD completions invalid > /dev/null 2>&1; then
+if ! $ZJJ_CMD completions invalid > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗ (should have failed)${NC}"

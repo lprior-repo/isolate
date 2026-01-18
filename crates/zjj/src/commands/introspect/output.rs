@@ -9,12 +9,12 @@ use zjj_core::introspection::{CommandIntrospection, IntrospectOutput};
 /// Print introspection output in human-readable format
 ///
 /// Displays:
-/// - JJZ version
+/// - ZJJ version
 /// - Capabilities organized by category
 /// - Dependencies with installation status
 /// - System state and session statistics
 pub fn print_full_output(output: &IntrospectOutput) {
-    println!("JJZ Version: {}", output.zjj_version);
+    println!("ZJJ Version: {}", output.zjj_version);
     println!();
 
     print_capabilities(output);

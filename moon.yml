@@ -1,0 +1,54 @@
+# Moon Workspace Configuration
+# Reference: https://moonrepo.dev/docs/config/workspace
+
+[workspace]
+# Node workspace only
+node = false
+
+[workspace.hooks]
+# Pre-commit hook: Update codanna index and ensure docs are current
+pre-commit = [
+  "codanna index",
+]
+
+[tasks]
+# Quick validation: format check + clippy
+quick = [
+  "@group(lint)",
+]
+
+# Run all tests
+test = [
+  "cargo test --all --release",
+]
+
+# Release build
+build = [
+  "cargo build --release",
+]
+
+# Full CI pipeline
+ci = [
+  "@group(fmt-fix)",
+  "@group(lint)",
+  "@group(test)",
+  "@group(build)",
+]
+
+# Auto-fix formatting
+fmt-fix = [
+  "cargo fmt --all",
+]
+
+# Fast type check (no build)
+check = [
+  "cargo check --all",
+]
+
+[tasks.lint]
+command = "cargo"
+args = ["clippy", "--all", "--all-targets", "--", "-D", "warnings"]
+
+[tasks.fmt]
+command = "cargo"
+args = ["fmt", "--all", "--check"]

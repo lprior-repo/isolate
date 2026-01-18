@@ -1,4 +1,4 @@
-//! JJZ setup and integration checks
+//! ZJJ setup and integration checks
 //!
 //! This module contains checks for zjj initialization status and integration
 //! with external tools like Beads.
