@@ -18,8 +18,6 @@ pub use handlers::run;
 
 use anyhow::Result;
 
-
-
 /// Run a query
 ///
 /// Entry point for query command execution. Routes the query to the appropriate handler.

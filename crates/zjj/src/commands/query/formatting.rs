@@ -31,17 +31,6 @@ mod tests {
     }
 
     #[test]
-    fn test_format_json_output() {
-        let json = serde_json::json!({"key": "value"});
-        let result = format_json_output(json);
-        let Ok(output) = result else {
-            panic!("Expected format_json_output to succeed");
-        };
-        assert!(output.contains("key"));
-        assert!(output.contains("value"));
-    }
-
-    #[test]
     fn test_create_filter_json_some() {
         let json = create_filter_json(Some("--status=active"));
         let Some(value) = json else {

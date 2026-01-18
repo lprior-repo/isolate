@@ -53,24 +53,6 @@ pub fn extract_status_filter(filter: Option<&str>) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Apply status filter to a slice of sessions
-///
-/// Functional approach that filters sessions based on their status string.
-/// Returns the filtered sessions as a filtered iterator.
-pub fn filter_sessions_by_status<'a>(
-    sessions: &'a [(String, &'a str)],
-    status: &'a str,
-) -> impl Iterator<Item = &'a (String, &'a str)> {
-    sessions.iter().filter(move |(_, s)| *s == status)
-}
-
-/// Create a QueryError from error details
-pub fn query_error(code: impl Into<String>, message: impl Into<String>) -> QueryError {
-    QueryError {
-        code: code.into(),
-        message: message.into(),
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -126,22 +108,4 @@ mod tests {
         assert_eq!(result, None);
     }
 
-    #[test]
-    fn test_filter_sessions_by_status() {
-        let sessions = vec![
-            ("session1".to_string(), "active"),
-            ("session2".to_string(), "inactive"),
-            ("session3".to_string(), "active"),
-        ];
-
-        let active_sessions: Vec<_> = filter_sessions_by_status(&sessions, "active").collect();
-        assert_eq!(active_sessions.len(), 2);
-    }
-
-    #[test]
-    fn test_query_error_creation() {
-        let err = query_error("TEST_CODE", "Test message");
-        assert_eq!(err.code, "TEST_CODE");
-        assert_eq!(err.message, "Test message");
-    }
 }

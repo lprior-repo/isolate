@@ -3,7 +3,6 @@
 //! This module handles querying ZJJ for initialization status,
 //! session counts, and active session information.
 
-
 use crate::commands::{get_session_db, zjj_data_dir};
 
 use super::output_types::{SessionInfo, ZjjStatus};

@@ -52,14 +52,15 @@ fn determine_error_code(error_msg: &str) -> &'static str {
 
 /// Output JSON error and exit
 ///
-/// This function does not return - it prints the error and exits with code 1
+/// This function does not return - it prints the error as JSON to stdout and exits with code 1
+/// In JSON mode, all output must be JSON on stdout (not stderr) for AI agent compatibility.
 pub fn output_json_error(name: &str, error: &anyhow::Error) -> ! {
     let error_msg = error.to_string();
     let error_code = determine_error_code(&error_msg);
 
     let error_detail = ErrorDetail {
         code: error_code.to_string(),
-        message: error_msg.clone(),
+        message: error_msg,
         details: None,
         suggestion: None,
     };
@@ -72,9 +73,13 @@ pub fn output_json_error(name: &str, error: &anyhow::Error) -> ! {
         status: "failed".to_string(),
         error: Some(error_detail),
     };
-    eprintln!("Error: {error_msg}");
+    // Only output JSON to stdout, no stderr output in JSON mode
     if let Ok(json) = serde_json::to_string(&output) {
         println!("{json}");
+    } else {
+        // If JSON serialization fails, output a minimal error JSON
+        let fallback = r#"{"success":false,"error":"Failed to serialize error response"}"#;
+        println!("{fallback}");
     }
     std::process::exit(1);
 }

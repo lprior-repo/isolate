@@ -335,7 +335,8 @@ mod tests {
             assert!(result.is_err());
             // The third hook should never execute
             if let Err(Error::System(crate::error::system::SystemError::HookFailed {
-                command, ..
+                command,
+                ..
             })) = result
             {
                 assert_eq!(command, "exit 1");
@@ -432,45 +433,47 @@ mod tests {
     // Test 9: Different hook types use different configs
     #[test]
     fn test_different_hook_types() -> Result<()> {
-        let config = HooksConfig {
-            post_create: vec!["echo 'post_create'".to_string()],
-            pre_remove: vec!["echo 'pre_remove'".to_string()],
-            post_merge: vec!["echo 'post_merge'".to_string()],
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        with_posix_shell(|| {
+            let config = HooksConfig {
+                post_create: vec!["echo 'post_create'".to_string()],
+                pre_remove: vec!["echo 'pre_remove'".to_string()],
+                post_merge: vec!["echo 'post_merge'".to_string()],
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
 
-        // Test post_create
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
-        if let HookResult::Success(results) = result {
-            assert!(results[0].stdout.contains("post_create"));
-        } else {
-            return Err(Error::invalid_config(
-                "Expected Success for post_create".to_string(),
-            ));
-        }
+            // Test post_create
+            let result = runner.run(HookType::PostCreate, workspace.path())?;
+            if let HookResult::Success(results) = result {
+                assert!(results[0].stdout.contains("post_create"));
+            } else {
+                return Err(Error::invalid_config(
+                    "Expected Success for post_create".to_string(),
+                ));
+            }
 
-        // Test pre_remove
-        let result = runner.run(HookType::PreRemove, workspace.path())?;
-        if let HookResult::Success(results) = result {
-            assert!(results[0].stdout.contains("pre_remove"));
-        } else {
-            return Err(Error::invalid_config(
-                "Expected Success for pre_remove".to_string(),
-            ));
-        }
+            // Test pre_remove
+            let result = runner.run(HookType::PreRemove, workspace.path())?;
+            if let HookResult::Success(results) = result {
+                assert!(results[0].stdout.contains("pre_remove"));
+            } else {
+                return Err(Error::invalid_config(
+                    "Expected Success for pre_remove".to_string(),
+                ));
+            }
 
-        // Test post_merge
-        let result = runner.run(HookType::PostMerge, workspace.path())?;
-        if let HookResult::Success(results) = result {
-            assert!(results[0].stdout.contains("post_merge"));
-        } else {
-            return Err(Error::invalid_config(
-                "Expected Success for post_merge".to_string(),
-            ));
-        }
+            // Test post_merge
+            let result = runner.run(HookType::PostMerge, workspace.path())?;
+            if let HookResult::Success(results) = result {
+                assert!(results[0].stdout.contains("post_merge"));
+            } else {
+                return Err(Error::invalid_config(
+                    "Expected Success for post_merge".to_string(),
+                ));
+            }
 
-        Ok(())
+            Ok(())
+        })
     }
 
     // Test 10: Shell detection uses SHELL env var

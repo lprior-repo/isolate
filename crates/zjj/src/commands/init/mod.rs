@@ -22,7 +22,6 @@ pub mod workspace_operations;
 
 use std::path::Path;
 
-
 // Re-export key functions for backward compatibility
 pub use state_management::run_with_cwd_and_flags;
 
@@ -58,9 +57,11 @@ mod tests {
     use std::path::Path;
     use std::process::Command;
 
-    use anyhow::Result;
+    use anyhow::{Context, Result};
     use tempfile::TempDir;
 
+    use super::health::{check_database_health, DatabaseHealth};
+    use super::workspace_operations::force_reinitialize;
     use super::*;
     use crate::database::SessionDb;
     use crate::session::Session;

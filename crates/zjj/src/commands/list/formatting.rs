@@ -95,8 +95,8 @@ pub fn output_json(items: &[SessionListItem]) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::data::{SessionAgentInfo, SessionBeadInfo};
     use super::*;
-    use crate::commands::list::types::{SessionAgentInfo, SessionBeadInfo};
 
     #[test]
     fn test_format_runtime_hours_minutes() {
