@@ -1,0 +1,371 @@
+{
+  "bead_id": "zjj-3l0p",
+  "title": "P1: Standardize batch operation output structure",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_at": "2026-01-18T13:24:49.418317893-06:00",
+  "created_by": "lewis",
+  "analysis_date": "2026-01-18",
+  "complexity_assessment": {
+    "level": "LOW",
+    "confidence": "HIGH",
+    "reason": "Current implementation already uses consistent structures (BatchOperationOutput<T> and BatchItemResult<T>) across all batch operations. Only add-batch is currently implemented, making scope manageable."
+  },
+  "scope": {
+    "implemented_batch_operations": [
+      {
+        "command": "add-batch",
+        "file": "crates/zjj/src/commands/add_batch/mod.rs",
+        "output_type": "AddBatchOutput",
+        "status": "IMPLEMENTED",
+        "description": "Create multiple sessions from stdin (one bead ID per line)"
+      }
+    ],
+    "planned_batch_operations": [
+      {
+        "command": "remove-batch",
+        "output_type": "RemoveBatchOutput",
+        "status": "TYPE_DEFINED_NOT_IMPLEMENTED",
+        "description": "Remove multiple sessions (planned, type alias exists but no handler)"
+      },
+      {
+        "command": "list-batch",
+        "status": "NOT_PLANNED",
+        "description": "List sessions (single-item list operation, batch not applicable)"
+      }
+    ]
+  },
+  "current_architecture": {
+    "core_structures": [
+      {
+        "name": "BatchOperationOutput<T>",
+        "file": "crates/zjj/src/json_output.rs:315-329",
+        "fields": [
+          {
+            "name": "success",
+            "type": "bool",
+            "description": "Overall success (true if ALL items succeeded)"
+          },
+          {
+            "name": "total_count",
+            "type": "usize",
+            "description": "Total number of items processed"
+          },
+          {
+            "name": "success_count",
+            "type": "usize",
+            "description": "Number of successfully processed items"
+          },
+          {
+            "name": "failure_count",
+            "type": "usize",
+            "description": "Number of failed items"
+          },
+          {
+            "name": "results",
+            "type": "Vec<BatchItemResult<T>>",
+            "description": "Individual results for each item"
+          },
+          {
+            "name": "metadata",
+            "type": "Option<serde_json::Value>",
+            "description": "Optional operation-specific metadata"
+          }
+        ],
+        "design_notes": "Generic over item output type (AddOutput, RemoveOutput, etc). Encapsulates aggregated statistics plus granular per-item results."
+      },
+      {
+        "name": "BatchItemResult<T>",
+        "file": "crates/zjj/src/json_output.rs:333-349",
+        "fields": [
+          {
+            "name": "success",
+            "type": "bool",
+            "description": "Whether this individual item succeeded"
+          },
+          {
+            "name": "item_id",
+            "type": "String",
+            "description": "Identifier for this item (e.g., session name, bead ID)"
+          },
+          {
+            "name": "index",
+            "type": "usize",
+            "description": "Index in the batch (0-based)"
+          },
+          {
+            "name": "data",
+            "type": "Option<T>",
+            "description": "The successful result data (if succeeded)"
+          },
+          {
+            "name": "error",
+            "type": "Option<String>",
+            "description": "Error message (if failed)"
+          },
+          {
+            "name": "metadata",
+            "type": "Option<serde_json::Value>",
+            "description": "Optional item-specific metadata"
+          }
+        ],
+        "design_notes": "Generic over item output type. Each result includes position tracking (index) and optional metadata."
+      }
+    ],
+    "type_aliases": [
+      {
+        "name": "AddBatchOutput",
+        "definition": "BatchOperationOutput<AddOutput>",
+        "file": "crates/zjj/src/json_output.rs:351-352",
+        "usage": "add-batch command output (implemented)"
+      },
+      {
+        "name": "RemoveBatchOutput",
+        "definition": "BatchOperationOutput<RemoveOutput>",
+        "file": "crates/zjj/src/json_output.rs:354-356",
+        "usage": "remove-batch command output (planned, #[allow(dead_code)])"
+      }
+    ]
+  },
+  "implementation_details": {
+    "add_batch_workflow": {
+      "file": "crates/zjj/src/commands/add_batch/mod.rs",
+      "steps": [
+        {
+          "step": 1,
+          "name": "Read from stdin",
+          "function": "read_bead_ids_from_stdin",
+          "line": 77,
+          "complexity": "trivial"
+        },
+        {
+          "step": 2,
+          "name": "Validate all beads",
+          "function": "validate_all_beads",
+          "line": 91,
+          "complexity": "low",
+          "detail": "Fail-fast validation across all beads before any operations"
+        },
+        {
+          "step": 3,
+          "name": "Create sessions batch",
+          "function": "create_sessions_batch",
+          "line": 114,
+          "complexity": "medium",
+          "detail": "Sequential creation with per-item error handling, collects BatchItemResult<AddOutput> for each"
+        },
+        {
+          "step": 4,
+          "name": "Output results",
+          "function": "output_batch_results",
+          "line": 202,
+          "complexity": "low",
+          "detail": "Dispatch to JSON or text formatting based on --json flag"
+        }
+      ]
+    },
+    "output_formatting": {
+      "json_output": {
+        "function": "output_batch_results (line 202-212)",
+        "behavior": "Creates AddBatchOutput from results, serializes to JSON",
+        "callers": ["run_with_options"],
+        "consistency": "Uses standard AddBatchOutput type"
+      },
+      "text_output": {
+        "function": "output_text_results (line 214-239)",
+        "behavior": "Human-readable summary with counts and per-session status",
+        "formatting": "Tables with success counts, failed sessions list, created sessions list",
+        "consistency": "Manually formatted, no schema"
+      }
+    }
+  },
+  "standardization_gaps": [
+    {
+      "gap_id": 1,
+      "category": "Text output inconsistency",
+      "description": "add-batch has custom text output (output_text_results) while other commands use dedicated formatting modules",
+      "affected_commands": ["add-batch"],
+      "severity": "LOW",
+      "detail": "Output is correct and functional but doesn't follow pattern of other commands (status, list, etc) which have dedicated formatting modules"
+    },
+    {
+      "gap_id": 2,
+      "category": "Output function naming",
+      "description": "output_batch_results() is named differently from single-operation outputs (e.g., output_success for remove)",
+      "affected_commands": ["add-batch"],
+      "severity": "TRIVIAL",
+      "detail": "Function naming: 'output_batch_results' vs 'output_success'. Both are clear but inconsistent pattern."
+    },
+    {
+      "gap_id": 3,
+      "category": "Metadata underutilization",
+      "description": "BatchOperationOutput includes optional metadata fields but they're never populated in current implementation",
+      "affected_commands": ["add-batch"],
+      "severity": "LOW",
+      "detail": "Metadata is reserved for future use but not leveraged in add-batch workflow"
+    },
+    {
+      "gap_id": 4,
+      "category": "Exit code documentation",
+      "description": "add-batch uses exit code 2 on partial failures but this isn't standardized across batch operations",
+      "affected_commands": ["add-batch"],
+      "severity": "LOW",
+      "detail": "Line 70: std::process::exit(2) for partial failures. Pattern should be documented."
+    }
+  ],
+  "files_involved": [
+    {
+      "path": "crates/zjj/src/json_output.rs",
+      "purpose": "Core batch output type definitions",
+      "lines_modified": "310-380 (batch operation structures)",
+      "risk": "LOW - Core types are well-designed and already used consistently"
+    },
+    {
+      "path": "crates/zjj/src/commands/add_batch/mod.rs",
+      "purpose": "add-batch command implementation",
+      "lines_affected": "1-240 (entire file)",
+      "risk": "MEDIUM - Output formatting functions may need refactoring to match standard patterns"
+    },
+    {
+      "path": "crates/zjj/src/cli/args.rs",
+      "purpose": "CLI argument parsing for add-batch",
+      "lines_affected": "230-250 (add-batch command definition)",
+      "risk": "LOW - No changes needed unless new batch operations added"
+    },
+    {
+      "path": "crates/zjj/src/commands/routers/session.rs",
+      "purpose": "Command routing",
+      "lines_affected": "3-57 (add-batch handler)",
+      "risk": "LOW - Handler is simple, only needs extension for new batch commands"
+    }
+  ],
+  "refactoring_recommendations": [
+    {
+      "priority": "P2",
+      "title": "Extract text formatting to dedicated module",
+      "description": "Move output_text_results to crates/zjj/src/commands/add_batch/formatting.rs to match pattern of list, status, etc.",
+      "effort": "1 hour",
+      "impact": "HIGH - Improves code organization and discoverability",
+      "files": ["crates/zjj/src/commands/add_batch/mod.rs"]
+    },
+    {
+      "priority": "P2",
+      "title": "Standardize output function naming",
+      "description": "Rename output_batch_results to output_batch_operation_results or align with single-command pattern",
+      "effort": "30 minutes",
+      "impact": "LOW - Improves consistency",
+      "files": ["crates/zjj/src/commands/add_batch/mod.rs"]
+    },
+    {
+      "priority": "P3",
+      "title": "Document batch operation exit codes",
+      "description": "Add comment block explaining exit code semantics for batch operations (0=all success, 2=partial failure)",
+      "effort": "15 minutes",
+      "impact": "LOW - Improves maintainability",
+      "files": ["crates/zjj/src/commands/add_batch/mod.rs"]
+    },
+    {
+      "priority": "P3",
+      "title": "Populate metadata fields for observability",
+      "description": "Add metadata to BatchOperationOutput and individual results (timestamps, duration, etc.)",
+      "effort": "2 hours",
+      "impact": "MEDIUM - Enables better debugging and observability",
+      "files": ["crates/zjj/src/commands/add_batch/mod.rs", "crates/zjj/src/json_output.rs"]
+    }
+  ],
+  "testing_assessment": {
+    "current_coverage": "Unknown - requires test file review",
+    "test_locations": [
+      "crates/zjj/src/commands/add_batch/mod.rs - integration tests",
+      "crates/zjj/tests/ - acceptance tests"
+    ],
+    "test_scenarios_needed": [
+      "Text output formatting (multiple success/failure combinations)",
+      "JSON output schema validation (BatchOperationOutput serialization)",
+      "Exit code verification (exit 0 on success, exit 2 on partial failure)",
+      "Edge cases: empty batch, all failures, single item"
+    ]
+  },
+  "risk_assessment": {
+    "overall_risk": "LOW",
+    "breaking_changes": "NONE - JSON schema is already stable (BatchOperationOutput)",
+    "behavioral_risk": "LOW - Changes are cosmetic (refactoring/standardization)",
+    "complexity_factors": [
+      "Need to preserve exact exit code behavior (exit 2 on failure)"
+    ],
+    "mitigation_strategies": [
+      "Comprehensive test coverage before refactoring",
+      "Keep JSON output schema unchanged",
+      "Use feature flags if adding new metadata fields"
+    ]
+  },
+  "estimated_effort": {
+    "investigation": "2 hours",
+    "implementation": "4-6 hours",
+    "testing": "2-3 hours",
+    "total": "8-11 hours",
+    "breakdown": {
+      "extract_formatting_module": "1 hour",
+      "standardize_naming": "0.5 hours",
+      "document_exit_codes": "0.25 hours",
+      "add_metadata_fields": "2 hours",
+      "test_coverage": "2-3 hours",
+      "integration_and_review": "2 hours"
+    }
+  },
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Review existing batch operation tests",
+      "goal": "Establish baseline for test coverage"
+    },
+    {
+      "step": 2,
+      "action": "Extract output formatting to dedicated module",
+      "goal": "Follow codebase patterns (list, status commands)"
+    },
+    {
+      "step": 3,
+      "action": "Standardize function naming across batch operations",
+      "goal": "Improve consistency with single-command operations"
+    },
+    {
+      "step": 4,
+      "action": "Add comprehensive test coverage",
+      "goal": "Ensure refactoring doesn't break behavior"
+    },
+    {
+      "step": 5,
+      "action": "Document batch operation patterns",
+      "goal": "Enable future batch operation implementations (remove-batch, etc.)"
+    }
+  ],
+  "dependencies": [
+    "No external dependencies - all work is internal to crates/zjj"
+  ],
+  "blockers": [],
+  "decision_points": [
+    {
+      "question": "Should metadata fields be populated in this phase?",
+      "impact": "MEDIUM - Adds 2 hours but improves observability",
+      "recommendation": "Defer to P3 - first establish consistency, then enhance"
+    },
+    {
+      "question": "Should remove-batch be implemented as part of this task?",
+      "impact": "HIGH - Would triple scope",
+      "recommendation": "No - scope limited to standardization of existing add-batch implementation"
+    }
+  ],
+  "summary": {
+    "current_state": "Batch operations (specifically add-batch) use well-designed, consistent JSON output structures (BatchOperationOutput<T>, BatchItemResult<T>). The implementation is functionally correct but has minor inconsistencies in text output formatting and function naming.",
+    "main_work": "Refactor output formatting to match codebase patterns (extract to formatting module), standardize naming conventions, and document behaviors. Low-risk changes that improve maintainability without altering functionality.",
+    "completion_criteria": [
+      "Text and JSON output consistently follow established patterns",
+      "Function naming aligns with other command implementations",
+      "Exit code behavior is documented",
+      "Test coverage validates both text and JSON output formats",
+      "Code is ready for future batch operation extensions"
+    ]
+  }
+}

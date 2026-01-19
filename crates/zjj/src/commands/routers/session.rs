@@ -41,6 +41,7 @@ async fn handle_add_cmd(sub_m: &clap::ArgMatches) -> Result<()> {
         json: sub_m.get_flag("json"),
         dry_run: sub_m.get_flag("dry-run"),
         bead: sub_m.get_one::<String>("bead").cloned(),
+        silent: sub_m.get_flag("silent"),
     };
     add::run_with_options(&options).await
 }
@@ -62,8 +63,8 @@ async fn handle_list_cmd(sub_m: &clap::ArgMatches) -> Result<()> {
     let filter = list::ListFilter {
         bead_id: sub_m.get_one::<String>("filter-by-bead").cloned(),
         agent_id: sub_m.get_one::<String>("filter-by-agent").cloned(),
-        with_beads: sub_m.get_flag("with-beads"),
-        with_agents: sub_m.get_flag("with-agents"),
+        has_bead: sub_m.get_flag("has-bead"),
+        has_agent: sub_m.get_flag("has-agent"),
     };
 
     list::run(
@@ -86,6 +87,7 @@ async fn handle_remove_cmd(sub_m: &clap::ArgMatches) -> Result<()> {
         keep_branch: sub_m.get_flag("keep-branch"),
         json: sub_m.get_flag("json"),
         dry_run: sub_m.get_flag("dry-run"),
+        silent: sub_m.get_flag("silent"),
     };
     remove::run_with_options(name, &options).await
 }
@@ -99,6 +101,7 @@ async fn handle_focus_cmd(sub_m: &clap::ArgMatches) -> Result<()> {
         name,
         &focus::FocusOptions {
             json: sub_m.get_flag("json"),
+            silent: sub_m.get_flag("silent"),
         },
     )
     .await

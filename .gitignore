@@ -28,6 +28,6 @@ Thumbs.db
 # Codanna (local index)
 .codanna/
 .fastembed_cache
-crates/zjj/.jjz/
+crates/zjj/.zjj/
 *.bak
 *.backup

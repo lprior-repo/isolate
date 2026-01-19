@@ -1,0 +1,117 @@
+================================================================================
+BEAD ANALYSIS SUMMARY: zjj-a50v
+"Standardize filter flag naming (--filter-by-*)"
+================================================================================
+
+ANALYSIS COMPLETE: 2026-01-18
+
+KEY FINDINGS:
+=============
+
+1. FILTER FLAGS FOUND: 4 total
+   ✓ --filter-by-bead        (CORRECT - no rename needed)
+   ✓ --filter-by-agent       (CORRECT - no rename needed)
+   ✗ --with-beads            (NEEDS RENAME to --filter-by-has-beads)
+   ✗ --with-agents           (NEEDS RENAME to --filter-by-has-agents)
+
+2. COMPLEXITY LEVEL: LOW
+   - Only 2 flags need renaming
+   - Changes are straightforward string replacements
+   - Only 2 files need modification
+   - Clear, linear implementation path
+
+3. FILES AFFECTED: 2 primary + 1 optional
+   PRIMARY:
+   - crates/zjj/src/cli/args.rs (High: 30+ lines with flag definitions and help)
+   - crates/zjj/src/commands/routers/session.rs (High: 2 lines with flag parsing)
+   
+   SECONDARY:
+   - CHANGELOG.md (Update with breaking change notice)
+
+4. BREAKING CHANGE: YES (HIGH SEVERITY)
+   - Existing scripts using --with-beads or --with-agents will fail
+   - Requires version bump and migration guide
+   - Users need to update their command usage
+   
+5. IMPLEMENTATION EFFORT: 2-3 hours
+   - Update args.rs: 20 min
+   - Update session.rs: 10 min
+   - Add tests: 30 min
+   - Run validation: 20 min
+   - Update CHANGELOG: 15 min
+
+6. RISK ASSESSMENT: LOW technical, MEDIUM user-facing
+   - No hidden dependencies or complex logic
+   - Clear test paths to verify changes
+   - Well-scoped change with definable impact
+
+STANDARDIZATION RATIONALE:
+==========================
+
+Problem:  Inconsistent naming pattern for filter flags
+          Value filters use: --filter-by-{field}
+          Presence filters use: --with-{field} ← INCONSISTENT
+
+Solution: Standardize all filters to: --filter-by-*
+          --filter-by-bead      (value filter)
+          --filter-by-agent     (value filter)
+          --filter-by-has-beads (presence filter)
+          --filter-by-has-agents (presence filter)
+
+Benefit:  - Consistent, predictable naming
+          - Better discoverability (all filters together)
+          - Easier to add new filters following same pattern
+          - Clearer intent with "has-beads" vs "with-beads"
+
+LOCATIONS OF FLAGS:
+===================
+
+crates/zjj/src/cli/args.rs:
+  Line 352-355: Help text documentation
+  Line 396-418: Arg definitions (--with-beads, --with-agents)
+  Line 428-434: Examples in help
+  Line 446: Documentation reference
+
+crates/zjj/src/commands/routers/session.rs:
+  Line 61-76: handle_list_cmd function
+  Line 65-66: Flag parsing (sub_m.get_flag calls)
+
+RECOMMENDATION:
+===============
+
+STATUS: SAFE_TO_IMPLEMENT ✓
+
+This is a well-scoped, low-risk standardization task that improves long-term
+CLI consistency. The breaking change is manageable with proper documentation.
+
+NEXT STEPS:
+===========
+
+1. Review this analysis document
+2. Proceed with implementation per steps in analysis.md
+3. Create feature branch
+4. Update both Rust files with new flag names
+5. Add/update tests
+6. Run moon run :test and moon run :ci
+7. Update CHANGELOG with breaking change notice
+8. Create PR with analysis link
+
+FILES GENERATED:
+================
+
+✓ /home/lewis/src/zjj/.tdd15-cache/zjj-a50v/triage.json
+  - Structured analysis data (JSON format for tooling)
+  - Detailed flag inventory
+  - Implementation steps
+  - Risk assessment
+
+✓ /home/lewis/src/zjj/.tdd15-cache/zjj-a50v/analysis.md
+  - Comprehensive analysis document (Markdown)
+  - Implementation breakdown
+  - Test plan
+  - Detailed rationale
+
+✓ /home/lewis/src/zjj/.tdd15-cache/zjj-a50v/SUMMARY.txt
+  - This file - Executive summary
+
+================================================================================

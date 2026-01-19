@@ -1,0 +1,168 @@
+================================================================================
+TRIAGE ANALYSIS SUMMARY: zjj-viue
+"P0: Implement config command subcommands (view/get/set/validate)"
+================================================================================
+
+STATUS: Ready for Implementation
+COMPLEXITY: MEDIUM
+EFFORT: 7 phases, estimated 400 lines new + 300 lines modified
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+1. CURRENT STATE: Already 85% Implemented
+   - Config command exists with full functionality
+   - Uses positional args model: zjj config [KEY [VALUE]]
+   - Supports: view, get, set, validate via args + flags
+   - Test coverage exists in p0_standardization_suite.rs
+
+2. REFACTORING REQUIRED: Convert to Subcommands
+   - From: zjj config KEY VALUE (positional)
+   - To:   zjj config set KEY VALUE (subcommand)
+   - Benefits: Better discoverability, cleaner UX, standard CLI pattern
+
+3. FILES AFFECTED: 8 total
+   - Modify: 4 files (args.rs, mod.rs, types.rs, app.rs)
+   - Create: 5 files (subcommands module + 4 handlers)
+
+================================================================================
+IMPLEMENTATION BREAKDOWN
+================================================================================
+
+Phase 1: CLI Definition (args.rs)
+  ├─ Add subcommand: view
+  ├─ Add subcommand: get (requires KEY arg)
+  ├─ Add subcommand: set (requires KEY and VALUE args)
+  └─ Add subcommand: validate (optional --json)
+
+Phase 2-5: Create Subcommand Handlers
+  ├─ subcommands/view.rs    (extract from run_internal() case 1)
+  ├─ subcommands/get.rs     (extract from run_internal() case 2)
+  ├─ subcommands/set.rs     (extract from run_internal() case 3)
+  └─ subcommands/validate.rs (extract from run_validate_internal())
+
+Phase 6: Refactor Main Handler (mod.rs, types.rs, app.rs)
+  ├─ Update ConfigOptions to include subcommand
+  ├─ Create dispatcher in run()
+  └─ Update app.rs dispatch logic
+
+Phase 7: Testing
+  ├─ Update existing tests for subcommand format
+  ├─ Add new tests for each subcommand
+  └─ Verify JSON output and --global flag
+
+================================================================================
+CODE REUSE METRICS
+================================================================================
+
+Existing Code to Reuse: ~1,800 lines
+  ├─ config/loading.rs:    show_all_config(), show_config_value()
+  ├─ config/validation.rs: validate_config_key(), validate_configuration()
+  └─ config/defaults.rs:   set_config_value()
+
+New Code to Write: ~400 lines
+  ├─ Subcommand dispatch layer: 100 lines
+  ├─ 4 Subcommand handlers: 300 lines (mostly moved from existing run_internal())
+  └─ Tests: included in above
+
+Code to Modify: ~300 lines
+  ├─ args.rs:    50 lines (cmd_config refactor)
+  ├─ mod.rs:     150 lines (run() refactor)
+  ├─ types.rs:   30 lines (ConfigOptions update)
+  └─ app.rs:     70 lines (dispatch logic)
+
+Simplification Ratio: 0.75 (refactoring-heavy, not algorithm-heavy)
+
+================================================================================
+DEPENDENCIES
+================================================================================
+
+External (All Already Present):
+  ✓ clap          - CLI argument parsing
+  ✓ tokio         - Async runtime
+  ✓ anyhow        - Error handling
+  ✓ serde_json    - JSON serialization
+  ✓ im            - Immutable collections
+
+Internal (All Already Present):
+  ✓ zjj_core::config       - Config types and loading
+  ✓ config::loading        - Show functions
+  ✓ config::validation     - Validation functions
+  ✓ config::defaults       - Set functions
+
+NO NEW DEPENDENCIES REQUIRED
+
+================================================================================
+RISK ASSESSMENT: LOW
+================================================================================
+
+Why LOW Risk:
+  ✓ Core functionality already proven in production
+  ✓ No new external dependencies
+  ✓ Utilities fully tested (loading, validation, defaults)
+  ✓ Error handling already established
+  ✓ Can add layer on top without breaking existing flow
+  ✓ Well-structured code with clear separation of concerns
+
+Risk Mitigation:
+  ✓ Keep existing utilities untouched
+  ✓ Test each subcommand independently
+  ✓ Maintain error handling consistency
+  ✓ Update tests incrementally per phase
+
+================================================================================
+INTEGRATION POINTS
+================================================================================
+
+1. CLI Args (crates/zjj/src/cli/args.rs:947)
+   - Currently: cmd_config() defines positional args
+   - Change: Add subcommands() with view/get/set/validate
+
+2. App Dispatcher (crates/zjj/src/app.rs:33)
+   - Currently: Direct extraction of key, value, flags
+   - Change: Parse subcommand name and route appropriately
+
+3. Config Handler (crates/zjj/src/commands/config/mod.rs:29)
+   - Currently: run() matches on (key, value) combinations
+   - Change: Dispatch to subcommand handlers based on subcommand name
+
+4. Help/Introspection
+   - Automatically updated when subcommands added
+   - Works with existing introspection system
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+Functional Requirements:
+  ☐ zjj config view               - Display all config
+  ☐ zjj config view --json        - JSON output
+  ☐ zjj config get KEY            - Get specific value
+  ☐ zjj config get KEY --json     - JSON output
+  ☐ zjj config set KEY VALUE      - Set value
+  ☐ zjj config set KEY VAL --global - Set in global config
+  ☐ zjj config validate           - Validate configuration
+  ☐ zjj config validate --json    - JSON validation output
+
+Non-Functional Requirements:
+  ☐ All existing tests pass (updated)
+  ☐ New tests cover all subcommands
+  ☐ Error handling matches existing behavior
+  ☐ Help output clear: zjj config --help shows subcommands
+  ☐ JSON output format unchanged
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Review this analysis
+2. Approve recommended MEDIUM complexity level
+3. Approve 7-phase implementation approach
+4. Begin Phase 1: CLI Definition (args.rs)
+
+Files created:
+  ✓ /home/lewis/src/zjj/.tdd15-cache/zjj-viue/triage.json   - Structured analysis
+  ✓ /home/lewis/src/zjj/.tdd15-cache/zjj-viue/ANALYSIS.md   - Detailed walkthrough
+  ✓ /home/lewis/src/zjj/.tdd15-cache/zjj-viue/SUMMARY.txt   - This summary
+

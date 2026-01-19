@@ -1,0 +1,272 @@
+================================================================================
+MANIFEST: Triage Analysis for Bead zjj-gm9a
+"Create CUE schema for JSON outputs"
+Generated: 2026-01-18T21:39:00Z
+================================================================================
+
+ANALYSIS DIRECTORY:
+  /home/lewis/src/zjj/.tdd15-cache/zjj-gm9a/
+
+DELIVERABLES:
+==============
+
+1. README.md (5.4 KB)
+   - Entry point for analysis
+   - Quick facts and statistics
+   - Output types by category
+   - Implementation roadmap summary
+   - Navigation guide to other files
+
+2. triage.json (24 KB)
+   - Comprehensive structured analysis
+   - All 27 output types with field details
+   - 19 nested helper types documented
+   - Complexity assessments
+   - 8-phase implementation roadmap
+   - Challenge matrix with mitigations
+   - Machine-readable format
+
+3. ANALYSIS.md (7.0 KB)
+   - Executive summary
+   - Full complexity breakdown
+   - Key findings and patterns
+   - Validation requirements
+   - Implementation roadmap (8 phases)
+   - Challenge & mitigation matrix
+   - Output structure examples
+   - Success criteria
+
+4. SUMMARY.txt (8.7 KB)
+   - ASCII formatted quick reference
+   - Quick facts and statistics
+   - Output type distribution table
+   - Complexity breakdown with hours
+   - Validation requirements list
+   - Phase breakdown with times
+   - Challenges and mitigations
+
+5. INDEX.txt (11 KB)
+   - File index and navigation
+   - Usage guide for different scenarios
+   - Key statistics summary
+   - Complexity categories breakdown
+   - Challenge & solution matrix
+   - Validation requirements
+   - Implementation phases overview
+   - Success criteria checklist
+
+6. MANIFEST.txt (this file)
+   - Deliverables inventory
+   - File descriptions
+   - Analysis metadata
+   - Usage summary
+
+METADATA:
+=========
+
+7. bead.json (302 B)
+   - Bead metadata (ID, title, status)
+   - Creation and update timestamps
+   - Creator information
+
+8. progress.json (263 B)
+   - Progress tracking data
+   - Bead ID reference
+
+TOTAL LINES: 1,725
+TOTAL SIZE: 72 KB
+
+================================================================================
+ANALYSIS SUMMARY
+================================================================================
+
+SCOPE:
+  Output Types Discovered:    27
+  Nested Helper Types:         19
+  Response Wrappers:            6
+  Generic Types:                1
+  Planning Structures:          2
+
+DISTRIBUTION:
+  Primary file (json_output.rs):           24 types
+  Command-specific modules:                7 locations
+  New consolidation file needed:           1 (schemas/json-outputs.cue)
+
+COMPLEXITY:
+  Simple types (primitives):               13 (1 hour)
+  Intermediate nested:                     10 (2 hours)
+  Complex deeply nested:                    3 (2.5 hours)
+  Generic/Parametric:                       1 (1 hour)
+  Response wrappers:                        2 (1 hour)
+  Dry-run planning:                         2 (1.5 hours)
+  Foundation & enums:                       1 (1 hour)
+  Integration & testing:                    1 (1 hour)
+                                           ────────────
+  TOTAL EFFORT:                                11.5 hours
+
+CONFIDENCE: HIGH
+ACCURACY: HIGH (using Codanna semantic search)
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+PATTERNS:
+  - All outputs follow { success: bool, ... } pattern
+  - Optional error handling with Option<ErrorDetail>
+  - Widespread skip_serializing_if usage
+  - Nested statistics structures
+  - Generic BatchOperationOutput<T> for batch commands
+  - Deep nesting in PrimeOutput and ContextOutput
+
+CHALLENGES:
+  1. Generic types require parametric CUE support
+  2. Flattened Session type (#[serde(flatten)])
+  3. Dynamic serde_json::Value fields
+  4. Types scattered across 8 files
+  5. 3-5 level deep nesting
+
+VALIDATION REQUIREMENTS:
+  - Enum: CheckStatus (Pass | Warn | Fail)
+  - Pattern: Session names ^[a-zA-Z0-9_-]+$
+  - Bounds: Non-negative counts and IDs
+  - Paths: PathBuf field validation
+  - Optionals: All Option<T> with skip_serializing_if
+
+================================================================================
+FILES TO PROCESS
+================================================================================
+
+1. crates/zjj/src/json_output.rs (24 types)
+2. crates/zjj/src/commands/status/types.rs (5 types)
+3. crates/zjj/src/commands/list/data/types.rs (5 types)
+4. crates/zjj/src/commands/prime/output_types.rs (7 types)
+5. crates/zjj-core/src/introspection/doctor_types.rs (4 types)
+6. crates/zjj/src/commands/backup.rs (2 types)
+7. crates/zjj/src/commands/context/types.rs (5 types)
+8. schemas/json-outputs.cue (NEW - consolidation)
+
+================================================================================
+IMPLEMENTATION PHASES
+================================================================================
+
+Phase 1: Foundation & Enums           (1.0 hour)
+Phase 2: Simple Output Types          (1.0 hour)
+Phase 3: Intermediate Nested Types    (2.0 hours)
+Phase 4: Complex Planning Structures  (1.5 hours)
+Phase 5: Generic & Batch Operations   (1.0 hour)
+Phase 6: Status & List Responses      (1.0 hour)
+Phase 7: Complex Composite Types      (2.5 hours)
+Phase 8: Integration & Testing        (1.0 hour)
+                                       ────────────
+                          TOTAL:       11.5 hours
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+REQUIRED:
+  - All 27 primary output types have CUE schema definitions
+  - All 19 helper types properly defined
+  - Generic BatchOperationOutput<T> supports parametric types
+  - All Option<T> marked as optional
+  - Enums (CheckStatus) constrained
+  - Validation rules enforced (regex, bounds, paths)
+  - Real JSON samples pass validation
+  - CUE schemas integrate with architecture.cue
+
+RECOMMENDED:
+  - Documentation for each output type
+  - Command/bead metadata in comments
+  - CUE enforces all constraints (no manual validation)
+
+================================================================================
+RECOMMENDATIONS
+================================================================================
+
+1. Start with Foundation Phase (Phase 1)
+   - Builds confidence and establishes patterns
+
+2. Group by Complexity
+   - Follow simple → intermediate → complex progression
+
+3. Generic Approach Decision
+   - Clarify CUE parametric schema strategy early
+
+4. Collect Real Samples
+   - Use actual JSON outputs for validation
+
+5. Add Documentation
+   - Include bead/command metadata in schemas
+
+6. Consolidate Output
+   - Move all to single schemas/json-outputs.cue
+
+================================================================================
+USAGE RECOMMENDATIONS
+================================================================================
+
+FIRST TIME (5-10 minutes):
+  1. Read README.md completely
+  2. Scan SUMMARY.txt tables
+  3. Note key challenges in INDEX.txt
+
+PLANNING (30-45 minutes):
+  1. Read ANALYSIS.md completely
+  2. Parse triage.json for requirements
+  3. Create detailed implementation timeline
+
+IMPLEMENTATION:
+  1. Follow 8-phase roadmap in order
+  2. Reference triage.json for type specifications
+  3. Check SUMMARY.txt for phase guidance
+  4. Consult ANALYSIS.md for challenges
+
+QUICK REFERENCE:
+  - SUMMARY.txt: Keep visible during work
+  - triage.json: Detailed type specifications
+  - ANALYSIS.md: Troubleshooting and patterns
+
+================================================================================
+ANALYSIS METHODOLOGY
+================================================================================
+
+This analysis was generated using Codanna semantic code search:
+  - Searched for JSON output structures across codebase
+  - Found 27 output types in 8 files
+  - Analyzed complexity of each type
+  - Identified nested helper structures
+  - Documented validation requirements
+  - Created 8-phase implementation plan
+  - Assessed challenges and mitigations
+  - Estimated effort and confidence
+
+Confidence: HIGH (comprehensive search of all Rust source files)
+Completeness: Estimated 100% of JSON output types located
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Review README.md for overview
+2. Parse triage.json for detailed requirements
+3. Follow 8-phase implementation roadmap
+4. Execute phases in order
+5. Test against real JSON outputs
+6. Validate with CUE schema validation
+7. Integrate with existing schemas
+8. Document and commit
+
+================================================================================
+METADATA
+================================================================================
+
+Bead ID: zjj-gm9a
+Title: Create CUE schema for JSON outputs
+Status: OPEN
+Priority: P0
+Analysis Date: 2026-01-18
+Generator: Claude Code with Codanna Semantic Search
+Location: /home/lewis/src/zjj/.tdd15-cache/zjj-gm9a/
+
+================================================================================

@@ -1,0 +1,106 @@
+{
+  "analysis": {
+    "id": "zjj-viue",
+    "title": "Implement config command subcommands (view/get/set/validate)",
+    "current_state": {
+      "status": "PARTIALLY_IMPLEMENTED",
+      "description": "Config command exists with view/get/set/validate functionality via positional args and flags, not true subcommands"
+    },
+    "implementation_approach": "MIGRATE_TO_SUBCOMMANDS",
+    "reason": "Current implementation uses positional arguments (zjj config KEY VALUE) and flags (--validate). The bead asks for true subcommands (zjj config view, zjj config get KEY, etc.) which provides better CLI clarity and discoverability.",
+    "scope": {
+      "current_files": [
+        "crates/zjj/src/cli/args.rs:947-1059 - cmd_config() CLI definition",
+        "crates/zjj/src/commands/config/mod.rs - config::run() command logic",
+        "crates/zjj/src/commands/config/defaults.rs - set_config_value()",
+        "crates/zjj/src/commands/config/loading.rs - show_all_config(), show_config_value()",
+        "crates/zjj/src/commands/config/validation.rs - validate_config_key(), validate_configuration()",
+        "crates/zjj/src/commands/config/types.rs - ConfigOptions struct",
+        "crates/zjj/src/app.rs:33-42 - config command dispatch"
+      ],
+      "new_files_needed": [
+        "crates/zjj/src/commands/config/subcommands/mod.rs - Subcommand handlers (view, get, set, validate)",
+        "crates/zjj/src/commands/config/subcommands/view.rs - View all config",
+        "crates/zjj/src/commands/config/subcommands/get.rs - Get specific value",
+        "crates/zjj/src/commands/config/subcommands/set.rs - Set specific value",
+        "crates/zjj/src/commands/config/subcommands/validate.rs - Validate config"
+      ],
+      "files_to_modify": [
+        "crates/zjj/src/cli/args.rs - Add subcommand definitions to cmd_config()",
+        "crates/zjj/src/commands/config/mod.rs - Refactor run() to dispatch to subcommands",
+        "crates/zjj/src/commands/config/types.rs - Update ConfigOptions to support subcommand mode",
+        "crates/zjj/src/app.rs - Update config command dispatch logic"
+      ]
+    }
+  },
+  "complexity": "MEDIUM",
+  "files_affected": 8,
+  "dependencies": [
+    "zjj-core config types (Config, ConfigOptions)",
+    "clap for CLI parsing",
+    "tokio for async runtime",
+    "Existing config loading/validation utilities in config module"
+  ],
+  "recommended_phases": "medium",
+  "phase_breakdown": {
+    "phase_1": {
+      "title": "Add subcommand CLI definitions",
+      "files": ["crates/zjj/src/cli/args.rs"],
+      "work": "Refactor cmd_config() to use subcommands instead of positional args/flags"
+    },
+    "phase_2": {
+      "title": "Create subcommand handler module",
+      "files": [
+        "crates/zjj/src/commands/config/subcommands/mod.rs",
+        "crates/zjj/src/commands/config/subcommands/view.rs"
+      ],
+      "work": "Extract and refactor view logic into subcommand handler"
+    },
+    "phase_3": {
+      "title": "Implement get subcommand",
+      "files": ["crates/zjj/src/commands/config/subcommands/get.rs"],
+      "work": "Extract and refactor get-specific-key logic"
+    },
+    "phase_4": {
+      "title": "Implement set subcommand",
+      "files": ["crates/zjj/src/commands/config/subcommands/set.rs"],
+      "work": "Extract and refactor set-value logic"
+    },
+    "phase_5": {
+      "title": "Implement validate subcommand",
+      "files": ["crates/zjj/src/commands/config/subcommands/validate.rs"],
+      "work": "Extract and refactor validation logic"
+    },
+    "phase_6": {
+      "title": "Refactor main config handler and update dispatch",
+      "files": [
+        "crates/zjj/src/commands/config/mod.rs",
+        "crates/zjj/src/commands/config/types.rs",
+        "crates/zjj/src/app.rs"
+      ],
+      "work": "Update main run() to dispatch to subcommands, update dispatch logic in app.rs"
+    },
+    "phase_7": {
+      "title": "Test all subcommands",
+      "files": ["crates/zjj/src/commands/config/mod.rs"],
+      "work": "Add tests for all subcommands: view, get, set, validate"
+    }
+  },
+  "effort_estimate": {
+    "simplification_ratio": "0.75",
+    "reasoning": "Most logic already exists in config module; primarily a refactoring of dispatch logic to use subcommands instead of positional args. No new complex algorithms or external dependencies needed.",
+    "estimated_lines": 400,
+    "actual_existing_code": 1800
+  },
+  "risk_assessment": "LOW - Refactoring existing functionality, no new external dependencies, can maintain backward compatibility via subcommands",
+  "integration_points": [
+    "CLI args module (cmd_config definition)",
+    "App dispatch logic (config command routing)",
+    "Existing config loading/validation (reused)"
+  ],
+  "notes": {
+    "backward_compatibility": "Current positional args can be maintained as subcommands: zjj config → zjj config view, zjj config KEY → zjj config get KEY, etc.",
+    "existing_tests": "Tests in p0_standardization_suite.rs (test_config_view, test_config_view_json) can guide subcommand implementation",
+    "code_structure": "Config module is well-organized with separate files for loading, validation, defaults - perfect for extracting into subcommand handlers"
+  }
+}

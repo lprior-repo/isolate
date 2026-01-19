@@ -7,6 +7,8 @@ pub struct DiffOptions {
     pub stat: bool,
     /// Output as JSON
     pub json: bool,
+    /// Minimal output for pipes
+    pub silent: bool,
 }
 
 #[cfg(test)]
@@ -18,5 +20,6 @@ mod tests {
         let options = DiffOptions::default();
         assert!(!options.stat);
         assert!(!options.json);
+        assert!(!options.silent);
     }
 }

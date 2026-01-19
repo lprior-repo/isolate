@@ -1,0 +1,416 @@
+{
+  "bead_id": "zjj-o14q",
+  "title": "P0: Add --silent flag to all output commands",
+  "analysis_date": "2026-01-18",
+  "analysis_status": "COMPLETE",
+  "summary": {
+    "total_commands": 24,
+    "commands_needing_silent": 21,
+    "commands_already_silent": 1,
+    "non_output_commands": 2,
+    "complexity_level": "MEDIUM",
+    "estimated_effort": "3-4 hours"
+  },
+  "commands": {
+    "SESSION_COMMANDS": [
+      {
+        "name": "add",
+        "group": "session",
+        "current_signature": "run_with_options(&AddOptions{name, no_hooks, template, no_open, json, dry_run, bead})",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Creates session - outputs confirmation messages and dry-run details",
+        "modification_needed": "Add silent: bool to AddOptions struct and dispatch",
+        "pattern_complexity": "MEDIUM"
+      },
+      {
+        "name": "add-batch",
+        "group": "session",
+        "current_signature": "run_with_options(&AddBatchOptions{beads_stdin, json, no_open, no_hooks, template})",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Batch creates sessions - outputs per-session creation status",
+        "modification_needed": "Add silent: bool to AddBatchOptions struct and dispatch",
+        "pattern_complexity": "MEDIUM"
+      },
+      {
+        "name": "list",
+        "group": "session",
+        "current_signature": "run(all, json, silent, filter)",
+        "has_silent": true,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Lists sessions - already has silent flag implemented",
+        "modification_needed": "NONE - use as reference pattern",
+        "pattern_complexity": "REFERENCE"
+      },
+      {
+        "name": "remove",
+        "group": "session",
+        "current_signature": "run_with_options(name, &RemoveOptions{force, merge, keep_branch, json, dry_run})",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Removes session - outputs removal status and warnings",
+        "modification_needed": "Add silent: bool to RemoveOptions struct and dispatch",
+        "pattern_complexity": "MEDIUM"
+      },
+      {
+        "name": "focus",
+        "group": "session",
+        "current_signature": "run_with_options(name, &FocusOptions{json})",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Switches to session tab - outputs focus confirmation",
+        "modification_needed": "Add silent: bool to FocusOptions struct and dispatch",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "status",
+        "group": "session",
+        "current_signature": "run(name, json, watch)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Shows session status - outputs formatted table or JSON",
+        "modification_needed": "Add silent: bool parameter to run function",
+        "pattern_complexity": "MEDIUM"
+      }
+    ],
+    "SESSION_MODIFICATIONS": [
+      {
+        "name": "sync",
+        "group": "session-adjacent",
+        "current_signature": "run_with_options(name, SyncOptions{json, dry_run})",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Syncs workspace with main - outputs sync progress and status",
+        "modification_needed": "Add silent: bool to SyncOptions struct and dispatch",
+        "pattern_complexity": "MEDIUM"
+      },
+      {
+        "name": "diff",
+        "group": "session-adjacent",
+        "current_signature": "run_with_options(name, DiffOptions{stat, json})",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Shows diff vs main - outputs diff summary or full diff",
+        "modification_needed": "Add silent: bool to DiffOptions struct and dispatch",
+        "pattern_complexity": "SIMPLE"
+      }
+    ],
+    "INTROSPECTION_COMMANDS": [
+      {
+        "name": "agent list",
+        "group": "introspection",
+        "current_signature": "run_list(session, json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Lists agents - outputs agent table or JSON",
+        "modification_needed": "Add silent: bool parameter to run_list function",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "context",
+        "group": "introspection",
+        "current_signature": "run(json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Shows current context - outputs context details",
+        "modification_needed": "Add silent: bool parameter to run function",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "introspect",
+        "group": "introspection",
+        "current_signature": "run(json) or run_command_introspect(cmd, json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Shows system introspection - outputs command specs or help",
+        "modification_needed": "Add silent: bool parameter to both run functions",
+        "pattern_complexity": "MEDIUM"
+      },
+      {
+        "name": "doctor",
+        "group": "introspection",
+        "current_signature": "run(json, fix)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Health check - outputs health status for each component",
+        "modification_needed": "Add silent: bool parameter to run function",
+        "pattern_complexity": "MEDIUM"
+      }
+    ],
+    "UTILITY_COMMANDS": [
+      {
+        "name": "backup",
+        "group": "utility",
+        "current_signature": "run_backup(path, json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Creates backup - outputs backup status and path",
+        "modification_needed": "Add silent: bool parameter to run_backup function",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "restore",
+        "group": "utility",
+        "current_signature": "run_restore(path, force, json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Restores backup - outputs restore progress and status",
+        "modification_needed": "Add silent: bool parameter to run_restore function",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "verify-backup",
+        "group": "utility",
+        "current_signature": "run_verify_backup(path, json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Verifies backup integrity - outputs verification results",
+        "modification_needed": "Add silent: bool parameter to run_verify_backup function",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "query",
+        "group": "utility",
+        "current_signature": "run(query_type, args)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": false,
+        "description": "Queries system state - outputs query results",
+        "modification_needed": "Add silent: bool parameter to run function",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "completions",
+        "group": "utility",
+        "current_signature": "run(shell, instructions)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": false,
+        "description": "Generates shell completions - outputs completion script",
+        "modification_needed": "Add silent: bool parameter, but should NOT suppress shell script output",
+        "pattern_complexity": "SIMPLE",
+        "special_note": "Special handling needed - must output completion script even when silent"
+      }
+    ],
+    "METADATA_COMMANDS": [
+      {
+        "name": "version",
+        "group": "metadata",
+        "current_signature": "run(json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Shows version info - outputs version string",
+        "modification_needed": "Add silent: bool parameter to run function",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "essentials",
+        "group": "metadata",
+        "current_signature": "run(json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Shows essential commands - outputs command list",
+        "modification_needed": "Add silent: bool parameter to run function",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "prime",
+        "group": "metadata",
+        "current_signature": "run(json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Shows prime commands - outputs curated command guide",
+        "modification_needed": "Add silent: bool parameter to run function",
+        "pattern_complexity": "SIMPLE"
+      },
+      {
+        "name": "onboard",
+        "group": "metadata",
+        "current_signature": "run(json)",
+        "has_silent": false,
+        "outputs_text": true,
+        "json_support": true,
+        "description": "Outputs onboarding template - outputs template snippet",
+        "modification_needed": "Add silent: bool parameter to run function",
+        "pattern_complexity": "SIMPLE"
+      }
+    ],
+    "EXCLUDED_COMMANDS": [
+      {
+        "name": "dashboard",
+        "group": "interactive",
+        "reason": "Interactive TUI - no text output to suppress"
+      },
+      {
+        "name": "init",
+        "group": "setup",
+        "reason": "Setup command - already complex with multiple output modes"
+      }
+    ]
+  },
+  "implementation_pattern": {
+    "pattern_name": "Silent Mode Implementation",
+    "reference_command": "list",
+    "pattern_file": "crates/zjj/src/commands/list/mod.rs",
+    "pattern_code": "if silent || !is_tty() { /* suppress output */ } else { /* output normally */ }",
+    "key_steps": [
+      "1. Add silent: bool field to command's Options struct (or function parameter)",
+      "2. Pass silent flag through dispatch -> router -> command module",
+      "3. In command implementation, conditionally suppress text output",
+      "4. JSON output should NEVER be suppressed (silent only affects text)",
+      "5. Add --silent to CLI argument parser for the command",
+      "6. Test: verify silent flag works, verify JSON still outputs"
+    ]
+  },
+  "cli_definition_pattern": {
+    "description": "How to add --silent to clap CLI definitions",
+    "location": "crates/zjj/src/cli/args.rs (or command-specific CLI files)",
+    "example": {
+      "current": "Command::new(\"add\").arg(Arg::new(\"json\").long(\"json\")...)",
+      "updated": "Command::new(\"add\").arg(...).arg(Arg::new(\"silent\").long(\"silent\").help(\"Suppress text output\").action(ArgAction::SetTrue)...)"
+    }
+  },
+  "complexity_breakdown": {
+    "SIMPLE": {
+      "count": 12,
+      "commands": ["focus", "diff", "agent-list", "context", "backup", "restore", "verify-backup", "query", "version", "essentials", "prime", "onboard"],
+      "effort_per_command": "15-20 minutes",
+      "description": "Single-function commands needing one bool parameter added"
+    },
+    "MEDIUM": {
+      "count": 9,
+      "commands": ["add", "add-batch", "remove", "status", "sync", "introspect", "doctor"],
+      "effort_per_command": "20-30 minutes",
+      "description": "Commands with Options structs or multiple output paths"
+    },
+    "SPECIAL": {
+      "count": 1,
+      "commands": ["completions"],
+      "effort_per_command": "10-15 minutes",
+      "description": "Special case: must output shell script even in silent mode"
+    }
+  },
+  "coverage_analysis": {
+    "commands_with_json_flag": 19,
+    "commands_without_json_flag": 2,
+    "commands_already_with_silent": 1,
+    "description": "Most commands already support --json, making silent flag addition consistent with existing patterns"
+  },
+  "risk_assessment": {
+    "overall_risk": "LOW",
+    "reasoning": [
+      "Pattern already exists in list command - can be copied",
+      "Changes are additive only - no existing functionality modified",
+      "Silent flag defaults to false - backward compatible",
+      "JSON output unaffected - no data loss risk"
+    ],
+    "testing_strategy": [
+      "Verify --silent suppresses text but not JSON (per command)",
+      "Verify --silent flag works alongside --json",
+      "Verify default behavior unchanged (backward compatibility)",
+      "Verify pipe detection (is_tty check) still works"
+    ]
+  },
+  "implementation_order": {
+    "phase_1_setup": [
+      "Update CLI argument definitions in args.rs",
+      "Add silent: bool to all Options structs that need it"
+    ],
+    "phase_2_dispatch": [
+      "Update dispatch routers to pass silent flag",
+      "Update session, utility, and introspection routers"
+    ],
+    "phase_3_implementation": [
+      "Implement silent suppression in each command",
+      "Start with SIMPLE commands (12)",
+      "Then MEDIUM commands (9)",
+      "Handle SPECIAL case (completions)"
+    ],
+    "phase_4_testing": [
+      "Unit tests for each command",
+      "Integration tests for flag combinations",
+      "Backward compatibility verification"
+    ]
+  },
+  "files_to_modify": {
+    "cli_files": [
+      "crates/zjj/src/cli/args.rs"
+    ],
+    "dispatch_files": [
+      "crates/zjj/src/cli/dispatch.rs",
+      "crates/zjj/src/commands/routers/session.rs",
+      "crates/zjj/src/commands/routers/utility.rs",
+      "crates/zjj/src/commands/routers/introspection.rs"
+    ],
+    "command_files": [
+      "crates/zjj/src/commands/add/mod.rs",
+      "crates/zjj/src/commands/add_batch/mod.rs",
+      "crates/zjj/src/commands/remove/mod.rs",
+      "crates/zjj/src/commands/focus/mod.rs",
+      "crates/zjj/src/commands/status/mod.rs",
+      "crates/zjj/src/commands/sync/mod.rs",
+      "crates/zjj/src/commands/diff/mod.rs",
+      "crates/zjj/src/commands/agent/list.rs",
+      "crates/zjj/src/commands/context/mod.rs",
+      "crates/zjj/src/commands/introspect/mod.rs",
+      "crates/zjj/src/commands/doctor/mod.rs",
+      "crates/zjj/src/commands/backup/mod.rs",
+      "crates/zjj/src/commands/query/mod.rs",
+      "crates/zjj/src/commands/completions/mod.rs",
+      "crates/zjj/src/commands/version/mod.rs",
+      "crates/zjj/src/commands/essentials/mod.rs",
+      "crates/zjj/src/commands/prime/mod.rs",
+      "crates/zjj/src/commands/onboard/mod.rs"
+    ]
+  },
+  "definition": {
+    "silent_flag_behavior": {
+      "when_silent_true": [
+        "Suppress all println! statements (user-facing text output)",
+        "Keep JSON output unchanged (silent only affects text)",
+        "Still output errors to stderr",
+        "Still respect exit codes"
+      ],
+      "when_silent_false": [
+        "Normal operation - all current behavior unchanged",
+        "Backward compatible with existing scripts"
+      ],
+      "interaction_with_json": "silent suppresses text output but does not affect --json output",
+      "interaction_with_tty": "is_tty() check should still work (silent is additional suppression)"
+    }
+  },
+  "estimated_timeline": {
+    "analysis": "2 hours (COMPLETE)",
+    "cli_definition": "30 minutes",
+    "dispatch_updates": "45 minutes",
+    "command_implementation": "120 minutes (12 simple × 10min + 9 medium × 15min)",
+    "testing": "60 minutes",
+    "total_estimated": "3-4 hours"
+  },
+  "notes": [
+    "The 'list' command already implements this pattern perfectly - use it as template",
+    "completions command is special case - script output should never be silent",
+    "init command (setup) was excluded - already complex with multiple output modes",
+    "dashboard command excluded - interactive TUI has no text to suppress",
+    "Ensure error messages are always shown regardless of silent flag"
+  ]
+}

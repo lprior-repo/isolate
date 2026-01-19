@@ -20,9 +20,6 @@ pub mod repo;
 mod state_management;
 pub mod workspace_operations;
 
-// Re-export key functions for backward compatibility
-pub use state_management::run_with_cwd_and_flags;
-
 /// Run the init command with flags
 ///
 /// With --repair: Attempts to repair a corrupted database
@@ -34,7 +31,7 @@ pub async fn run_with_flags(repair: bool, force: bool, json: bool) -> anyhow::Re
 /// Run the init command with an optional working directory (for tests)
 #[cfg(test)]
 async fn run_with_cwd(cwd: Option<&std::path::Path>) -> anyhow::Result<()> {
-    run_with_cwd_and_flags(cwd, false, false).await
+    state_management::run_with_cwd_and_flags(cwd, false, false).await
 }
 
 #[cfg(test)]
@@ -47,6 +44,7 @@ mod tests {
     use tempfile::TempDir;
 
     use super::health::{check_database_health, DatabaseHealth};
+    use super::state_management::run_with_cwd_and_flags;
     use super::workspace_operations::force_reinitialize;
     use super::*;
     use crate::database::SessionDb;

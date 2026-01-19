@@ -1,0 +1,217 @@
+{
+  "bead_id": "zjj-jwwd",
+  "title": "Normalize dry-run output structures",
+  "analysis_date": "2026-01-18",
+  "summary": "Three dry-run output types exist with inconsistent field naming and structure patterns across add, sync, and remove commands.",
+  "complexity": "MODERATE",
+  "scope": "CONTAINED",
+
+  "current_state": {
+    "dry_run_implementations": [
+      {
+        "command": "add",
+        "file": "/home/lewis/src/zjj/crates/zjj/src/commands/add/dry_run.rs",
+        "output_type": "AddDryRunOutput",
+        "plan_type": "AddDryRunPlan",
+        "plan_fields": [
+          "session_name: String",
+          "workspace_path: String",
+          "branch: String",
+          "layout_template: String",
+          "zellij_tab_name: String",
+          "will_open_zellij: bool",
+          "will_run_hooks: bool",
+          "operations: im::Vector<PlannedOperation>"
+        ],
+        "operation_type": "PlannedOperation",
+        "operation_fields": [
+          "action: String",
+          "target: String",
+          "details: Option<String>"
+        ]
+      },
+      {
+        "command": "sync",
+        "file": "/home/lewis/src/zjj/crates/zjj/src/commands/sync/dry_run.rs",
+        "output_type": "SyncDryRunOutput",
+        "plan_type": "SyncDryRunPlan",
+        "plan_fields": [
+          "session_name: Option<String>",
+          "sessions_to_sync: Vec<SyncSessionPlan>",
+          "target_branch: String",
+          "target_branch_source: String",
+          "total_count: usize",
+          "operations_per_session: Vec<String>"
+        ],
+        "session_plan_type": "SyncSessionPlan",
+        "session_plan_fields": [
+          "name: String",
+          "workspace_path: String",
+          "workspace_exists: bool",
+          "status: String",
+          "can_sync: bool",
+          "skip_reason: Option<String>"
+        ]
+      },
+      {
+        "command": "remove",
+        "file": "/home/lewis/src/zjj/crates/zjj/src/commands/remove/dry_run.rs",
+        "output_type": "RemoveDryRunOutput",
+        "plan_type": "RemoveDryRunPlan",
+        "plan_fields": [
+          "session_name: String",
+          "session_id: i64",
+          "workspace_path: String",
+          "workspace_exists: bool",
+          "zellij_tab: String",
+          "inside_zellij: bool",
+          "would_run_hooks: bool",
+          "would_merge: bool",
+          "planned_operations: Vec<PlannedRemoveOperation>",
+          "warnings: Option<Vec<String>>"
+        ],
+        "operation_type": "PlannedRemoveOperation",
+        "operation_fields": [
+          "order: u32",
+          "action: String",
+          "description: String",
+          "target: Option<String>",
+          "reversible: bool"
+        ]
+      }
+    ],
+    "json_output_definitions": "/home/lewis/src/zjj/crates/zjj/src/json_output.rs"
+  },
+
+  "inconsistencies_identified": [
+    {
+      "issue": "Wrapper output type inconsistency",
+      "details": "AddDryRunOutput defined in add/dry_run.rs, but SyncDryRunOutput and RemoveDryRunOutput defined in json_output.rs",
+      "impact": "Inconsistent module organization makes it harder to locate and maintain dry-run code",
+      "files_affected": [
+        "crates/zjj/src/commands/add/dry_run.rs",
+        "crates/zjj/src/json_output.rs"
+      ]
+    },
+    {
+      "issue": "Operation structure field naming",
+      "details": "PlannedOperation has (action, target, details), but PlannedRemoveOperation has (order, action, description, target, reversible)",
+      "impact": "Inconsistent field names make generic serialization/deserialization harder",
+      "severity": "HIGH",
+      "examples": {
+        "add": "details: Option<String>",
+        "remove": "description: String + order: u32 + reversible: bool"
+      }
+    },
+    {
+      "issue": "Operation ordering",
+      "details": "Only RemoveDryRunPlan explicitly tracks operation order via 'order: u32' field",
+      "impact": "Add and Sync operations rely on Vec ordering implicitly",
+      "severity": "MEDIUM"
+    },
+    {
+      "issue": "Session context in plans",
+      "details": "SyncDryRunPlan.session_name is Option<String> (None for all-sessions), but Add and Remove always have String",
+      "impact": "Inconsistent handling of single vs batch operations",
+      "severity": "MEDIUM"
+    },
+    {
+      "issue": "Reversibility tracking",
+      "details": "Only RemoveDryRunPlan tracks reversibility of operations",
+      "impact": "Users can't determine which operations are safe without command-specific knowledge",
+      "severity": "LOW"
+    },
+    {
+      "issue": "Flag tracking inconsistency",
+      "details": "Different commands track different flags: Add (will_open_zellij, will_run_hooks), Remove (inside_zellij, would_run_hooks, would_merge)",
+      "impact": "Inconsistent understanding of what would be executed",
+      "severity": "MEDIUM"
+    },
+    {
+      "issue": "Multi-session vs single-session",
+      "details": "Sync command has SyncSessionPlan array with per-session details, but Add/Remove only track single session",
+      "impact": "Sync's structure is more complex; harder to build generic tooling",
+      "severity": "MEDIUM"
+    }
+  ],
+
+  "recommendations": [
+    {
+      "priority": "P1",
+      "action": "Create unified DryRunOperation type",
+      "description": "Define a common operation structure with all needed fields (action, description, target, order, reversible, details)",
+      "rationale": "Enables code reuse and consistent JSON serialization across all commands"
+    },
+    {
+      "priority": "P1",
+      "action": "Move AddDryRunOutput to json_output.rs",
+      "description": "Consolidate all *DryRunOutput and *DryRunPlan types in single module",
+      "rationale": "Improves discoverability and maintenance, follows existing pattern"
+    },
+    {
+      "priority": "P2",
+      "action": "Standardize flag tracking in plans",
+      "description": "Define common flags (would_run_hooks, would_open_zellij, would_merge, inside_zellij) with consistent naming",
+      "rationale": "Reduces cognitive load when reading multiple dry-run outputs"
+    },
+    {
+      "priority": "P2",
+      "action": "Add operation ordering to all plan types",
+      "description": "Add 'order: u32' field to PlannedOperation and ensure consistent numbering",
+      "rationale": "Makes operation sequence explicit and parseable by external tools"
+    },
+    {
+      "priority": "P3",
+      "action": "Standardize single vs multi-session handling",
+      "description": "Consider wrapper struct like 'SyncScope::Single(name) | Multi(vec)' instead of Option<String>",
+      "rationale": "Type-safe distinction between modes, reduces Option handling"
+    }
+  ],
+
+  "implementation_estimate": {
+    "complexity": "MODERATE",
+    "estimated_hours": 4,
+    "risk_level": "LOW",
+    "test_coverage_required": "COMPREHENSIVE",
+    "breaking_changes": true,
+    "affected_tests": [
+      "test_session_name_field.rs::test_remove_dry_run_output_has_session_name"
+    ]
+  },
+
+  "dependencies": [
+    {
+      "type": "serde",
+      "reason": "All structures use #[derive(Serialize)]"
+    },
+    {
+      "type": "im::Vector",
+      "reason": "AddDryRunPlan uses im::Vector for operations"
+    }
+  ],
+
+  "validation_checklist": [
+    "All DryRunPlan types in json_output.rs",
+    "All DryRunOutput types in json_output.rs",
+    "PlannedOperation used consistently across add/sync/remove",
+    "Operation ordering explicit in all output",
+    "Flag tracking standardized across commands",
+    "JSON serialization tests pass for all plans",
+    "Test coverage includes field validation",
+    "Bead test: test_remove_dry_run_output_has_session_name passes"
+  ],
+
+  "related_beads": [
+    "zjj-gyr (add dry-run)",
+    "zjj-g80p (help JSON output)",
+    "zjj-xi2j (batch operations)"
+  ],
+
+  "code_locations": {
+    "add_dry_run": "crates/zjj/src/commands/add/dry_run.rs:20-48",
+    "sync_dry_run": "crates/zjj/src/commands/sync/dry_run.rs:134-161",
+    "remove_dry_run": "crates/zjj/src/commands/remove/dry_run.rs:68-115",
+    "json_output_definitions": "crates/zjj/src/json_output.rs:60-161",
+    "tests": "crates/zjj/tests/test_session_name_field.rs:161-190"
+  }
+}

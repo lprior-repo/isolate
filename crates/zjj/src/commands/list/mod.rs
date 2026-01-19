@@ -30,7 +30,7 @@ pub async fn run(all: bool, json: bool, silent: bool, filter: ListFilter) -> Res
             .collect()
     };
 
-    // Apply additional filters (bead_id, agent_id, with_beads, with_agents)
+    // Apply additional filters (bead_id, agent_id, has_bead, has_agent)
     let sessions = data::apply_filters(status_filtered, &filter);
 
     if sessions.is_empty() {

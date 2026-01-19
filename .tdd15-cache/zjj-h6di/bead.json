@@ -1,0 +1,13 @@
+[
+  {
+    "id": "zjj-h6di",
+    "title": "FIX: Update remaining 'jjz' references in help text",
+    "description": "\nFix help text that still references old 'jjz' command names.\n\nSCOPE:\n- File: crates/zjj/src/cli/args.rs\n- Lines: ~48-220 (help text for init, add, and other commands)\n- Issue: Examples use 'jjz' instead of 'zjj'\n\nEXAMPLES TO UPDATE:\n- 'jjz init' → 'zjj init'\n- 'jjz add' → 'zjj add'\n- 'jjz sync' → 'zjj sync'\n- 'jjz remove' → 'zjj remove'\n- 'jjz focus' → 'zjj focus'\n- 'jjz status' → 'zjj status'\n- All other command references\n\nVERIFICATION:\n- Build: cargo build --release -p zjj\n- Check: ./target/release/zjj --help | grep -i jjz\n  - Expected: No matches\n- Check: ./target/release/zjj --help | grep zjj\n  - Expected: Multiple matches showing examples\n\nBLOCKERS: None\nDEPENDS_ON: Binary and directory rename (already complete)\n",
+    "status": "in_progress",
+    "priority": 1,
+    "issue_type": "task",
+    "created_at": "2026-01-18T08:49:55.103957539-06:00",
+    "created_by": "lewis",
+    "updated_at": "2026-01-18T21:34:57.299002944-06:00"
+  }
+]

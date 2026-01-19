@@ -1,0 +1,176 @@
+================================================================================
+BEAD ANALYSIS: zjj-jwwd - Normalize Dry-Run Output Structures
+================================================================================
+
+ANALYSIS COMPLETED: 2026-01-18
+STATUS: Ready for Implementation
+
+================================================================================
+COMPLEXITY ASSESSMENT
+================================================================================
+
+Complexity Level: MODERATE
+Estimated Effort: 4 hours
+Risk Level: LOW
+Breaking Changes: YES (output structure changes only)
+
+Key Factors:
+- Three independent implementations to normalize
+- Clear patterns identified (not fragmented)
+- Good test coverage exists
+- No external API dependencies
+- Contained to JSON output layer
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+ISSUE #1: Operation Structure Divergence (CRITICAL)
+────────────────────────────────────────────────────
+
+Add command uses:
+  struct PlannedOperation {
+    action: String,
+    target: String,
+    details: Option<String>,
+  }
+
+Sync command uses:
+  Vec<String>  // Just text descriptions!
+
+Remove command uses:
+  struct PlannedRemoveOperation {
+    order: u32,
+    action: String,
+    description: String,
+    target: Option<String>,
+    reversible: bool,
+  }
+
+Impact: Impossible to write generic operation handler
+
+
+ISSUE #2: Module Organization Inconsistency
+────────────────────────────────────────────
+
+Current:
+- AddDryRunOutput → defined in commands/add/dry_run.rs
+- SyncDryRunOutput → defined in json_output.rs
+- RemoveDryRunOutput → defined in json_output.rs
+
+Violates "Single Responsibility" principle. JSON output types should live
+in one place for maintainability.
+
+
+ISSUE #3: Session Context Handling Ambiguity
+─────────────────────────────────────────────
+
+Sync uses:
+  session_name: Option<String>
+
+Meaning:
+  Some("name") = syncing specific session
+  None = syncing all sessions
+
+Problem: Type doesn't encode intent, relies on convention
+
+
+ISSUE #4: Flag Tracking Inconsistency
+─────────────────────────────────────
+
+Add flags:
+  will_open_zellij: bool
+  will_run_hooks: bool
+
+Remove flags:
+  inside_zellij: bool
+  would_run_hooks: bool
+  would_merge: bool
+
+Sync flags:
+  (none tracked)
+
+Problem: Inconsistent prefix conventions and coverage
+
+
+ISSUE #5: Referential Borrowing Inconsistency
+──────────────────────────────────────────────
+
+Add returns: AddDryRunOutput (owned)
+Sync returns: SyncDryRunOutput<'a> (borrowed)
+Remove returns: RemoveDryRunOutput<'a> (borrowed)
+
+Problem: Can't use trait to abstract over these patterns
+
+
+================================================================================
+RECOMMENDED SOLUTION PATH
+================================================================================
+
+Phase 1: Consolidate Type Definitions (2h)
+  ✓ Create unified DryRunOperation struct with all needed fields:
+    - order: u32
+    - action: String
+    - description: String
+    - target: Option<String>
+    - details: Option<String>
+    - reversible: bool
+
+  ✓ Move AddDryRunOutput to json_output.rs
+  ✓ Keep all *DryRunOutput types in json_output.rs
+
+Phase 2: Migrate Implementations (1.5h)
+  ✓ Update Add to use DryRunOperation instead of PlannedOperation
+  ✓ Update Sync to use structured operations instead of String vec
+  ✓ Update Remove to use unified DryRunOperation
+
+Phase 3: Standardize Patterns (0.5h)
+  ✓ Adopt consistent flag naming: "would_*" prefix
+  ✓ Ensure explicit operation ordering throughout
+  ✓ Add "inside_zellij" context to all plans that need it
+
+================================================================================
+VALIDATION CRITERIA
+================================================================================
+
+MUST PASS:
+  □ test_session_name_field.rs passes entirely
+  □ test_remove_dry_run_output_has_session_name passes specifically
+  □ All existing dry-run tests pass
+  □ New normalized structure tests added
+  □ JSON schemas consistent across all commands
+
+================================================================================
+FILE LOCATIONS
+================================================================================
+
+Source Files:
+  • Add plan: crates/zjj/src/commands/add/dry_run.rs (lines 20-48)
+  • Sync plan: crates/zjj/src/commands/sync/dry_run.rs (lines 22-131)
+  • Remove plan: crates/zjj/src/commands/remove/dry_run.rs (lines 20-115)
+  • JSON output: crates/zjj/src/json_output.rs (lines 60-161)
+
+Test Files:
+  • Main test: crates/zjj/tests/test_session_name_field.rs (lines 161-190)
+
+Output:
+  • Detailed analysis: .tdd15-cache/zjj-jwwd/analysis.md
+  • JSON triage: .tdd15-cache/zjj-jwwd/triage.json
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Review this analysis and triage.json
+2. Design unified DryRunOperation struct
+3. Create feature branch for implementation
+4. Migrate each command (Add → Sync → Remove)
+5. Run full test suite including new tests
+6. Update documentation/examples
+7. Submit for review
+
+Total Effort: 4 hours (includes testing)
+Risk: LOW (contained output changes)
+Priority: MEDIUM (improves maintainability, not blocking)
+
+================================================================================

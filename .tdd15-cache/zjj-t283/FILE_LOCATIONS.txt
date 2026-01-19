@@ -1,0 +1,208 @@
+BEAD ANALYSIS: zjj-t283 - Error Code Semantic Mapping
+
+=== FILES TO MODIFY (3 TOTAL) ===
+
+1. PRIMARY: crates/zjj-core/src/json/builders.rs
+   Lines: 78-175 (impl From<&Error> for JsonError)
+   Complexity: HIGH
+   Description: Replace string pattern matching with exhaustive Error variant handling
+   Current implementation uses fragile substring matching on error Display output
+   Requires: Helper functions to map ValidationError → ErrorCode, SystemError → ErrorCode, ExecutionError → ErrorCode
+
+2. SECONDARY: crates/zjj-core/src/error_codes/mod.rs
+   Lines: 1-467 (complete file)
+   Complexity: LOW
+   Description: Review completeness and verify metadata alignment
+   Status: Already comprehensive with 45 ErrorCode variants, descriptions, suggestions, HTTP status codes
+   Requires: Verify all Error variants have ErrorCode equivalents
+
+3. TERTIARY: crates/zjj-core/src/json/types.rs
+   Lines: 75-112 (ErrorCode enum definition)
+   Complexity: MEDIUM
+   Description: Consolidate outdated ErrorCode enum with error_codes/mod.rs version
+   Status: Only 21 variants (incomplete vs 45 in error_codes/mod.rs)
+   Requires: Remove old definition, make error_codes/mod.rs the single source of truth
+
+=== FILES REFERENCED (READ-ONLY) ===
+
+crates/zjj-core/src/error.rs
+  - Main Error enum with variants: Validation, System, Execution, Unknown
+  - Has exit_code() method
+  - Has Display impl
+
+crates/zjj-core/src/error/execution.rs
+  - ExecutionError enum: DatabaseError, NoCommitsYet, MainBookmarkMissing, NotFound
+  - Lines 10-23: enum definition
+  - exit_code() method returns 3 (NotFound) or 4 (other)
+
+crates/zjj-core/src/error/system.rs
+  - SystemError enum: IoError, Command, HookFailed, HookExecutionFailed, JjCommandError
+  - Lines 10-31: enum definition
+  - exit_code() method returns 2 (general) or 3 (JJ not found)
+
+crates/zjj-core/src/error/validation.rs
+  - ValidationError enum variants
+  - Has exit_code() method returning 1
+
+crates/zjj-core/src/hints/error_hints.rs
+  - Error hint/guidance functions
+  - May contain logic to preserve for error descriptions
+
+crates/zjj-core/src/json_response.rs
+  - JsonResponse<T> generic wrapper
+  - ErrorDetail struct (DUPLICATE - should consolidate with json/types.rs)
+  - Note: This ErrorDetail has details: Option<String> (not Value like json/types.rs)
+
+crates/zjj-core/src/json/types.rs
+  - JsonSuccess<T> and JsonError structs
+  - OLD ErrorCode enum (21 variants - INCOMPLETE)
+  - ErrorDetail struct (different from json_response.rs - design debt)
+
+crates/zjj-core/src/json/mod.rs
+  - Module exports and re-exports
+
+=== ERROR VARIANT LOCATIONS ===
+
+ValidationError variants:
+  File: crates/zjj-core/src/error/validation.rs
+  Expected variants: InvalidConfig, ParseError, ValidationError (generic)
+
+SystemError variants:
+  File: crates/zjj-core/src/error/system.rs
+  Variants: IoError, Command, HookFailed, HookExecutionFailed, JjCommandError
+
+ExecutionError variants:
+  File: crates/zjj-core/src/error/execution.rs
+  Variants: DatabaseError, NoCommitsYet, MainBookmarkMissing, NotFound
+
+=== ERRORCODE VARIANTS (45 TOTAL) ===
+
+Validation (5):
+  - SessionNameInvalid
+  - SessionInvalidTransition
+  - ConfigParseError
+  - ConfigInvalidValue
+  - InvalidArgument
+
+Execution (9):
+  - JjCommandFailed
+  - ZellijCommandFailed
+  - HookFailed
+  - HookExecutionError
+  - HookTimeout
+  - BeadsDbQueryFailed
+  - WorkspaceCreationFailed
+  - WorkspaceDeletionFailed
+  - StateDbMigrationFailed
+
+System (31):
+  - SessionNotFound
+  - SessionAlreadyExists
+  - SessionDbError
+  - WorkspaceNotFound
+  - WorkspaceCorrupted
+  - JjNotInstalled
+  - NotJjRepository
+  - JjRepositoryCorrupted
+  - JjWorkspaceError
+  - ZellijNotRunning
+  - ZellijTabNotFound
+  - ZellijSessionCreationFailed
+  - ConfigNotFound
+  - ConfigKeyNotFound
+  - ConfigWriteFailed
+  - StateDbCorrupted
+  - StateDbLocked
+  - StateDbNotInitialized
+  - BeadsDbNotFound
+  - BeadsIssueNotFound
+  - FileNotFound
+  - PermissionDenied
+  - DiskFull
+  - IoError
+  - OperationNotPermitted
+  - ResourceBusy
+  - Unknown
+
+=== KEY FUNCTIONS TO IMPLEMENT ===
+
+In crates/zjj-core/src/json/builders.rs:
+
+1. fn map_validation_error(err: &ValidationError) -> ErrorCode
+   Maps ValidationError variants to ErrorCode variants
+
+2. fn map_system_error(err: &SystemError) -> ErrorCode
+   Maps SystemError variants to ErrorCode variants
+
+3. fn map_execution_error(err: &ExecutionError) -> ErrorCode
+   Maps ExecutionError variants to ErrorCode variants
+
+4. Refactor impl From<&Error> for JsonError
+   Use helper functions + ErrorCode metadata to build ErrorDetail
+
+=== TESTING LOCATIONS ===
+
+Existing tests:
+  - error_codes/mod.rs: 45+ test cases for ErrorCode variants
+  - error/execution.rs: ExecutionError display tests
+  - error/system.rs: SystemError display tests
+  - json/builders.rs: Some conversion tests (to be replaced)
+
+New tests needed:
+  - All Error variants → ErrorCode mapping verification
+  - ErrorDetail structure with code + message + suggestion
+  - Exit code preservation through conversion
+  - Context preservation (workspace_path, hook_name, etc.)
+
+=== DEPENDENCY TRACKING ===
+
+Uses of ErrorCode from json/types.rs (OLD):
+  grep -r "ErrorCode" crates/zjj-core/src/json/ --include="*.rs"
+  grep -r "ErrorCode" crates/zjj-core/src/ --include="*.rs" | grep -v error_codes
+
+Uses of error_codes::ErrorCode (CORRECT):
+  Already being used in error_codes/mod.rs tests
+  Should be primary import after consolidation
+
+=== DESIGN DECISIONS ===
+
+1. Error message in ErrorDetail.message:
+   Decision: Keep Error::Display output (preserves human-readable guidance)
+
+2. ErrorDetail.details field:
+   Decision: Use for structured context (JSON Value) for programmatic recovery
+
+3. Single source of truth for ErrorCode:
+   Decision: error_codes/mod.rs (45 variants with full metadata)
+
+4. Backward compatibility:
+   Decision: OK to break json/types.rs ErrorCode (only used in builders.rs)
+
+5. New ErrorCode variants:
+   Decision: Add only if new Error variants created (not for this bead)
+
+=== EFFORT BREAKDOWN ===
+
+Phase 1: Create helper functions - 30 min
+Phase 2: Refactor main From impl - 60 min  
+Phase 3: Consolidate definitions - 20 min
+Testing - 60 min
+Total: 3-4 hours
+
+=== QUALITY GATES ===
+
+Compile checks:
+  ✓ No compiler errors
+  ✓ No clippy warnings
+  ✓ All tests pass
+  ✓ Exit codes preserved (1/2/3/4)
+
+Functional checks:
+  ✓ No string pattern matching in builders.rs
+  ✓ Exhaustive Error variant matching
+  ✓ All 45+ ErrorCode variants testable
+  ✓ ErrorDetail has code + message + suggestion for all variants
+
+Performance:
+  ✓ No runtime performance degradation
+  ✓ No additional allocations in hot path

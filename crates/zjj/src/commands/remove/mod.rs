@@ -42,6 +42,8 @@ pub struct RemoveOptions {
     pub json: bool,
     /// Show what would be done without executing
     pub dry_run: bool,
+    /// Minimal output for pipes
+    pub silent: bool,
 }
 
 /// Run the remove command

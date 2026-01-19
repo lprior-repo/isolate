@@ -1,0 +1,256 @@
+================================================================================
+BEAD TRIAGE REPORT: zjj-gm9a
+"Create CUE schema for JSON outputs"
+================================================================================
+
+Analysis Date: 2026-01-18
+Status: HIGH COMPLEXITY
+
+================================================================================
+QUICK FACTS
+================================================================================
+
+Total Output Types:           27
+Nested Helper Types:          19
+Response Wrappers:             6
+Generic Types:                 1
+Planning Structures:           2
+
+Files Affected:                8
+Simple Types (1-2 hours):     13
+Intermediate Types (2 hours): 10
+Complex Types (2.5 hours):     3
+Generic Types (1 hour):        1
+
+Total Effort Estimate:    11.5 hours
+Confidence Level:        HIGH
+
+================================================================================
+OUTPUT TYPE DISTRIBUTION
+================================================================================
+
+Primary File (json_output.rs):           24 types
+Status Module (status/types.rs):          5 types
+List Module (list/data/types.rs):         5 types
+Prime Module (prime/output_types.rs):     7 types
+Doctor Module (doctor_types.rs):          4 types
+Backup Module (backup.rs):                2 types
+Context Module (context/types.rs):        5 types
+
+================================================================================
+COMPLEXITY BREAKDOWN
+================================================================================
+
+SIMPLE (Single-level, primitive fields):
+  - InitOutput, AddOutput, FocusOutput
+  - ConfigViewAllOutput/Get/Set
+  - BackupOutput, VerifyBackupOutput
+  - AgentInfo, AgentListOutput
+  - ExampleHelp, ExitCodeHelp, ParameterHelp
+  Effort: 1 hour
+
+INTERMEDIATE (1-2 levels of nesting):
+  - RemoveOutput + RemoveOperation
+  - DiffOutput + DiffStat + FileDiffStat
+  - SyncOutput
+  - HelpOutput + SubcommandHelp
+  - FileChanges, DiffStats, BeadStats
+  - SessionBeadInfo, SessionAgentInfo
+  - CommandRef, CommandCategories
+  Effort: 2 hours
+
+COMPLEX (3+ levels of nesting):
+  - PrimeOutput (6+ nested types)
+  - DoctorOutput + DoctorCheck + CheckStatus enum
+  - ContextOutput (5 nested levels)
+  Effort: 2.5 hours
+
+GENERIC:
+  - BatchOperationOutput<T>
+  - BatchItemResult<T>
+  Effort: 1 hour
+
+RESPONSE WRAPPERS:
+  - StatusResponse (+ SessionStatusInfo)
+  - SessionListResponse (+ SessionListItem)
+  Effort: 1 hour
+
+PLANNING STRUCTURES:
+  - RemoveDryRunPlan + PlannedRemoveOperation
+  - SyncDryRunPlan + SyncSessionPlan
+  Effort: 1.5 hours
+
+================================================================================
+KEY CHARACTERISTICS
+================================================================================
+
+✓ All outputs follow consistent pattern: { success: bool, ... }
+✓ Optional error handling with Option<ErrorDetail>
+✓ Widespread use of #[serde(skip_serializing_if = "Option::is_none")]
+✓ Nested statistics structures (FileChanges, DiffStats, BeadStats)
+✓ Generic BatchOperationOutput<T> for batch commands
+✓ Deep nesting in PrimeOutput (6+ types) and ContextOutput (5 levels)
+
+Challenges:
+✗ Generic types require parametric CUE schema support
+✗ Flattened Session type (#[serde(flatten)])
+✗ Dynamic serde_json::Value fields
+✗ Types scattered across 8 different files
+✗ 3-4 level nesting requires careful hierarchy
+
+================================================================================
+VALIDATION REQUIREMENTS
+================================================================================
+
+Enum Constraints:
+  - CheckStatus: Pass | Warn | Fail
+
+String Patterns:
+  - Session names: ^[a-zA-Z0-9_-]+$
+
+Numeric Bounds:
+  - Counts and IDs: non-negative integers
+
+Path Validations:
+  - backup_path, workspace_path: PathBuf serialization
+
+Conditional Fields:
+  - All Option<T> marked with skip_serializing_if
+
+================================================================================
+IMPLEMENTATION PHASES
+================================================================================
+
+Phase 1: Foundation & Enums                 (1.0 hour)
+  - CheckStatus enum
+  - ErrorDetail common structure
+  - Base schema patterns
+
+Phase 2: Simple Output Types                (1.0 hour)
+  - All 13 simple types
+
+Phase 3: Intermediate Nested Types          (2.0 hours)
+  - All 10 intermediate complexity types
+
+Phase 4: Complex Planning Structures        (1.5 hours)
+  - RemoveDryRunPlan + RemoveDryRunOutput
+  - SyncDryRunPlan + SyncDryRunOutput
+
+Phase 5: Generic & Batch Operations         (1.0 hour)
+  - BatchOperationOutput<T>
+  - BatchItemResult<T>
+
+Phase 6: Status & List Responses            (1.0 hour)
+  - StatusResponse + SessionStatusInfo
+  - SessionListResponse + SessionListItem
+
+Phase 7: Complex Composite Types            (2.5 hours)
+  - PrimeOutput (6+ nested)
+  - DoctorOutput
+  - ContextOutput (5 levels)
+
+Phase 8: Integration & Testing              (1.0 hour)
+  - Consolidate into schemas/json-outputs.cue
+  - Validate against real outputs
+  - Documentation
+
+Total: 11.5 hours
+
+================================================================================
+FILES REQUIRING SCHEMA DEFINITION
+================================================================================
+
+1. crates/zjj/src/json_output.rs
+   - 24 output types (main definitions)
+
+2. crates/zjj/src/commands/status/types.rs
+   - SessionStatusInfo, StatusResponse, FileChanges, DiffStats, BeadStats
+
+3. crates/zjj/src/commands/list/data/types.rs
+   - SessionListItem, SessionListResponse, SessionBeadInfo, SessionAgentInfo
+
+4. crates/zjj/src/commands/prime/output_types.rs
+   - PrimeOutput, JjStatus, ZjjStatus, SessionInfo, CommandCategories,
+     CommandRef, BeadsStatus, WorkflowSection
+
+5. crates/zjj-core/src/introspection/doctor_types.rs
+   - DoctorOutput, DoctorCheck, CheckStatus, DoctorFixOutput, etc.
+
+6. crates/zjj/src/commands/backup.rs
+   - BackupOutput, VerifyBackupOutput
+
+7. crates/zjj/src/commands/context/types.rs
+   - ContextOutput, EnvironmentContext, SessionStats, EnvironmentInfo,
+     DependencyStatus, DependencyInfo
+
+8. schemas/json-outputs.cue (NEW FILE)
+   - Consolidation of all schemas
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+Required:
+  ✓ All 27 primary output types have CUE schema definitions
+  ✓ All 19 helper types are properly defined
+  ✓ Generic BatchOperationOutput<T> supports parametric types
+  ✓ All Option<T> fields correctly marked as optional
+  ✓ Enums (CheckStatus) properly constrained
+  ✓ Validation rules enforced (regex, bounds, paths)
+  ✓ Real JSON samples pass schema validation
+  ✓ CUE schemas integrate with existing architecture.cue
+
+Recommended:
+  ✓ Documentation explaining each output type's purpose
+  ✓ Command/bead metadata in schema comments
+  ✓ No manual validation needed (CUE enforces all)
+
+================================================================================
+CHALLENGES & MITIGATIONS
+================================================================================
+
+Challenge 1: Generic BatchOperationOutput<T>
+  Issue: CUE parametric schema support needed
+  Mitigation: Use CUE parameter syntax or define separate concrete types
+
+Challenge 2: Flattened Session Type
+  Issue: SessionStatusInfo uses #[serde(flatten)]
+  Mitigation: Define inline expansion of Session fields in schema
+
+Challenge 3: Dynamic JSON Values
+  Issue: ConfigViewAllOutput, ContextOutput use serde_json::Value
+  Mitigation: Schema definition as 'any' or document expected structure
+
+Challenge 4: Scattered Output Types
+  Issue: Types across 8 different files
+  Mitigation: Consolidate all into single schemas/json-outputs.cue
+
+Challenge 5: Deep Nesting
+  Issue: PrimeOutput (6+ types), ContextOutput (5 levels)
+  Mitigation: Clear hierarchical organization and proper hierarchy in schema
+
+================================================================================
+RECOMMENDATIONS
+================================================================================
+
+1. START WITH FOUNDATIONS
+   - Phase 1 builds confidence and establishes patterns
+
+2. GROUP BY COMPLEXITY
+   - Tackle simple → intermediate → complex progression
+
+3. DECIDE ON GENERIC APPROACH EARLY
+   - Clarify CUE parametric schema strategy before Phase 5
+
+4. COLLECT REAL SAMPLES
+   - Use actual JSON outputs for validation testing
+
+5. ADD DOCUMENTATION
+   - Include bead/command metadata in schema comments
+
+6. CONSOLIDATE OUTPUT
+   - Move all to single schemas/json-outputs.cue for consistency
+
+================================================================================
+END OF TRIAGE REPORT
+================================================================================

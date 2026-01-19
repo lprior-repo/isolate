@@ -1,6 +1,6 @@
-// jjz Zellij Layout Templates
+// zjj Zellij Layout Templates
 // Defines KDL layout templates with variable substitution
-package jjz
+package zjj
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LAYOUT TEMPLATE SCHEMA
@@ -51,7 +51,7 @@ templates: [...#LayoutTemplate] & [
                         pane command="claude" size="70%" name="claude"
                         pane split_direction="horizontal" size="30%" {
                             pane command="bv" name="beads"
-                            pane command="jjz" {
+                            pane command="zjj" {
                                 args "status" "--watch" "{session_name}"
                             }
                         }
@@ -82,7 +82,7 @@ templates: [...#LayoutTemplate] & [
                         pane split_direction="horizontal" size="40%" {
                             pane command="bv" name="beads" size="40%"
                             pane split_direction="vertical" size="60%" {
-                                pane command="jjz" {
+                                pane command="zjj" {
                                     args "status" "--watch" "{session_name}"
                                 }
                                 pane command="jj" {

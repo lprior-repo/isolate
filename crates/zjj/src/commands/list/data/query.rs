@@ -56,13 +56,13 @@ fn has_agent_metadata(metadata: &Value) -> bool {
 
 /// Check if metadata passes all presence filters
 ///
-/// Returns true if metadata matches `with_beads` and `with_agents` requirements.
+/// Returns true if metadata matches `has_bead` and `has_agent` requirements.
 fn passes_presence_filters(metadata: &Value, filter: &ListFilter) -> bool {
-    if filter.with_beads && !has_bead_metadata(metadata) {
+    if filter.has_bead && !has_bead_metadata(metadata) {
         return false;
     }
 
-    if filter.with_agents && !has_agent_metadata(metadata) {
+    if filter.has_agent && !has_agent_metadata(metadata) {
         return false;
     }
 
@@ -98,8 +98,8 @@ fn should_include_session(session: &Session, filter: &ListFilter) -> bool {
     session.metadata.as_ref().map_or_else(
         || {
             // No metadata: only include if no filters are active
-            !filter.with_beads
-                && !filter.with_agents
+            !filter.has_bead
+                && !filter.has_agent
                 && filter.bead_id.is_none()
                 && filter.agent_id.is_none()
         },
@@ -116,8 +116,8 @@ fn should_include_session(session: &Session, filter: &ListFilter) -> bool {
 /// Filters sessions based on:
 /// - `bead_id`: Exact match on `bead_id` in metadata
 /// - `agent_id`: Exact match on `agent_id` (checks both direct and nested)
-/// - `with_beads`: Presence of `bead_id` in metadata
-/// - `with_agents`: Presence of `agent_id` in metadata
+/// - `has_bead`: Presence of `bead_id` in metadata
+/// - `has_agent`: Presence of `agent_id` in metadata
 ///
 /// # Returns
 /// Filtered vector of sessions matching all criteria. Sessions without
@@ -238,7 +238,7 @@ mod tests {
 
         let sessions = vec![first, second];
         let filter = ListFilter {
-            with_beads: true,
+            has_bead: true,
             ..Default::default()
         };
 

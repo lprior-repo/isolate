@@ -1,0 +1,230 @@
+{
+  "bead_id": "zjj-a50v",
+  "title": "Standardize filter flag naming (--filter-by-*)",
+  "analysis_date": "2026-01-18T13:30:00Z",
+  "analyzed_by": "codanna",
+  "summary": "Standardize naming convention for filter flags: rename --with-* flags to --filter-by-* for consistency",
+  "flags_found": 4,
+  "flags_needing_rename": 2,
+  "complexity_level": "low",
+  "breaking_change": true,
+  "recommendation": "SAFE_TO_IMPLEMENT",
+  "details": {
+    "current_flags": [
+      {
+        "flag_name": "--filter-by-bead",
+        "current_name": "--filter-by-bead",
+        "proposed_name": "--filter-by-bead",
+        "needs_rename": false,
+        "type": "value-arg",
+        "description": "Show only sessions with specific bead ID",
+        "locations": [
+          {
+            "file": "crates/zjj/src/cli/args.rs",
+            "lines": [396, 397, 428],
+            "context": "clap Arg definition and documentation"
+          },
+          {
+            "file": "crates/zjj/src/commands/routers/session.rs",
+            "lines": [63],
+            "context": "flag parsing from ArgMatches"
+          }
+        ]
+      },
+      {
+        "flag_name": "--filter-by-agent",
+        "current_name": "--filter-by-agent",
+        "proposed_name": "--filter-by-agent",
+        "needs_rename": false,
+        "type": "value-arg",
+        "description": "Show only sessions with specific agent ID",
+        "locations": [
+          {
+            "file": "crates/zjj/src/cli/args.rs",
+            "lines": [402, 403, 428],
+            "context": "clap Arg definition and documentation"
+          },
+          {
+            "file": "crates/zjj/src/commands/routers/session.rs",
+            "lines": [64],
+            "context": "flag parsing from ArgMatches"
+          }
+        ]
+      },
+      {
+        "flag_name": "--with-beads",
+        "current_name": "--with-beads",
+        "proposed_name": "--filter-by-presence",
+        "alternative_proposals": ["--filter-has-beads", "--filter-by-has-beads"],
+        "needs_rename": true,
+        "type": "boolean-flag",
+        "description": "Show only sessions that have beads attached",
+        "locations": [
+          {
+            "file": "crates/zjj/src/cli/args.rs",
+            "lines": [408, 409, 431, 446],
+            "context": "clap Arg definition and documentation/examples"
+          },
+          {
+            "file": "crates/zjj/src/commands/routers/session.rs",
+            "lines": [65],
+            "context": "flag parsing from ArgMatches"
+          }
+        ]
+      },
+      {
+        "flag_name": "--with-agents",
+        "current_name": "--with-agents",
+        "proposed_name": "--filter-by-presence",
+        "alternative_proposals": ["--filter-has-agents", "--filter-by-has-agents"],
+        "needs_rename": true,
+        "type": "boolean-flag",
+        "description": "Show only sessions with active agents",
+        "locations": [
+          {
+            "file": "crates/zjj/src/cli/args.rs",
+            "lines": [414, 415, 434],
+            "context": "clap Arg definition and documentation/examples"
+          },
+          {
+            "file": "crates/zjj/src/commands/routers/session.rs",
+            "lines": [66],
+            "context": "flag parsing from ArgMatches"
+          }
+        ]
+      }
+    ],
+    "affected_files": [
+      {
+        "file": "crates/zjj/src/cli/args.rs",
+        "impact": "high",
+        "description": "Defines all flags and help text",
+        "changes_needed": [
+          "Update Arg::new() names for --with-* flags",
+          "Update .long() for --with-* flags",
+          "Update help text",
+          "Update documentation/examples"
+        ]
+      },
+      {
+        "file": "crates/zjj/src/commands/routers/session.rs",
+        "impact": "high",
+        "description": "Parses flags into ListFilter struct",
+        "changes_needed": [
+          "Update sub_m.get_flag() calls for renamed flags",
+          "No struct changes needed if internal field names stay the same"
+        ]
+      },
+      {
+        "file": "crates/zjj/src/commands/list/data/types.rs",
+        "impact": "low",
+        "description": "ListFilter struct definition",
+        "changes_needed": [
+          "No changes required - internal field names can remain unchanged"
+        ]
+      }
+    ],
+    "standardization_analysis": {
+      "problem": "Inconsistent naming pattern for filter flags",
+      "current_pattern": {
+        "value_filters": "--filter-by-{field}",
+        "presence_filters": "--with-{field}"
+      },
+      "proposed_pattern": {
+        "all_filters": "--filter-by-{type}"
+      },
+      "examples": {
+        "current": [
+          "--filter-by-bead (value)",
+          "--filter-by-agent (value)",
+          "--with-beads (presence)",
+          "--with-agents (presence)"
+        ],
+        "proposed": [
+          "--filter-by-bead (value)",
+          "--filter-by-agent (value)",
+          "--filter-by-has-beads (presence)",
+          "--filter-by-has-agents (presence)"
+        ]
+      }
+    }
+  },
+  "breaking_change_analysis": {
+    "is_breaking": true,
+    "severity": "high",
+    "impact": "Users who have scripts or workflows using --with-beads or --with-agents flags will experience breakage",
+    "migration_path": [
+      "1. Update help text to mention deprecated flags",
+      "2. Add support for both old and new flag names (with warning)",
+      "3. Update all documentation and examples",
+      "4. Provide migration guide in CHANGELOG",
+      "5. Set deprecation timeline for old flags"
+    ],
+    "deprecated_flags": [
+      "--with-beads",
+      "--with-agents"
+    ]
+  },
+  "implementation_scope": {
+    "minimal_changes": [
+      "Rename --with-beads → --filter-by-has-beads",
+      "Rename --with-agents → --filter-by-has-agents",
+      "Update 3 files: args.rs, session.rs, and documentation"
+    ],
+    "effort_estimate": {
+      "analysis": "1 hour",
+      "implementation": "2 hours",
+      "testing": "1 hour",
+      "total": "4 hours"
+    },
+    "test_coverage": {
+      "existing_tests": "No specific tests found for filter flag parsing",
+      "new_tests_needed": [
+        "Test --filter-by-bead flag parsing",
+        "Test --filter-by-agent flag parsing",
+        "Test --filter-by-has-beads flag parsing",
+        "Test --filter-by-has-agents flag parsing",
+        "Test multiple filters combined"
+      ]
+    }
+  },
+  "risk_assessment": {
+    "risk_level": "low",
+    "risks": [
+      {
+        "type": "breaking_change",
+        "severity": "high",
+        "description": "Existing scripts using --with-beads or --with-agents will fail"
+      },
+      {
+        "type": "documentation",
+        "severity": "medium",
+        "description": "Need to update all user-facing documentation and examples"
+      },
+      {
+        "type": "testing",
+        "severity": "low",
+        "description": "No existing unit tests for filter flags; new tests needed"
+      }
+    ],
+    "mitigations": [
+      "Add deprecation warnings for old flags",
+      "Support both old and new flag names during transition period",
+      "Update CHANGELOG with clear migration instructions"
+    ]
+  },
+  "recommendations": {
+    "proposed_solution": "Standardize to --filter-by-* naming across all filters",
+    "naming_rationale": {
+      "why_filter_by": "Aligns with existing --filter-by-bead and --filter-by-agent",
+      "descriptive_suffix": "Use 'has-beads' and 'has-agents' to clearly indicate presence filtering"
+    },
+    "implementation_order": [
+      "Step 1: Update crates/zjj/src/cli/args.rs - Rename flags and update help text",
+      "Step 2: Update crates/zjj/src/commands/routers/session.rs - Update flag parsing",
+      "Step 3: Add/update tests in crates/zjj/tests/ - Verify flag parsing",
+      "Step 4: Update CHANGELOG.md - Document breaking change",
+      "Step 5: Verify with 'moon run :test' and 'moon run :ci'"
+    ]
+  }
+}

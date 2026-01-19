@@ -125,7 +125,7 @@ tasks:
 
   install:
     command: "cargo install --path crates/zjj --force"
-    description: "Install jjz binary to ~/.cargo/bin (overwrites existing)"
+    description: "Install zjj binary to ~/.cargo/bin (overwrites existing)"
     deps:
       - "build"
     options:

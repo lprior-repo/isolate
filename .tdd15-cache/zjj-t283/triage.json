@@ -1,0 +1,166 @@
+{
+  "bead_id": "zjj-t283",
+  "title": "P0: Implement error code semantic mapping",
+  "analysis_date": "2026-01-18",
+  "complexity": "MEDIUM",
+  "files_to_modify": 3,
+  "summary": "Implement semantic error code mapping between internal Error types and structured JSON ErrorCode enum with full suggestion/description metadata",
+  "current_state": {
+    "description": "Error handling is split across two systems that need alignment",
+    "error_types": {
+      "internal_error": {
+        "location": "crates/zjj-core/src/error.rs",
+        "type": "enum Error",
+        "variants": [
+          "Validation(ValidationError)",
+          "System(SystemError)",
+          "Execution(ExecutionError)",
+          "Unknown(String)"
+        ],
+        "has_exit_codes": true,
+        "exit_code_scheme": {
+          "1": "Validation errors (user input)",
+          "2": "System errors (IO, commands)",
+          "3": "Not found errors",
+          "4": "Invalid state (database)"
+        }
+      },
+      "error_codes_enum": {
+        "location": "crates/zjj-core/src/error_codes/mod.rs",
+        "type": "enum ErrorCode",
+        "variant_count": 45,
+        "capabilities": [
+          "as_str() - SCREAMING_SNAKE_CASE codes",
+          "description() - human-readable",
+          "suggestion() - recovery guidance",
+          "http_status() - REST equivalents"
+        ],
+        "organized_by": ["Validation (5)", "Execution (9)", "System (31)"]
+      },
+      "json_error_types": {
+        "location": "crates/zjj-core/src/json/types.rs",
+        "types": [
+          {
+            "name": "ErrorCode enum (OLD)",
+            "variants": 21,
+            "status": "outdated, incomplete"
+          },
+          {
+            "name": "ErrorDetail struct",
+            "fields": ["code: String", "message: String", "details: Option<Value>", "suggestion: Option<String>"],
+            "used_by": "all JSON error responses"
+          },
+          {
+            "name": "JsonError struct",
+            "status": "wrapper with success boolean"
+          }
+        ]
+      },
+      "json_response_types": {
+        "location": "crates/zjj-core/src/json_response.rs",
+        "types": [
+          {
+            "name": "ErrorDetail (duplicate)",
+            "fields": ["code: String", "message: String", "details: Option<String>", "suggestion: Option<String>"],
+            "note": "Different from json/types.rs - details is String not Value"
+          }
+        ]
+      }
+    },
+    "mapping_system": {
+      "location": "crates/zjj-core/src/json/builders.rs",
+      "current_implementation": {
+        "function": "impl From<&Error> for JsonError",
+        "approach": "string pattern matching on error Display output",
+        "weakness": "Fragile - relies on substring matching ('IO error:', 'Hook', 'JJ', etc.)",
+        "coverage": "Incomplete - many errors map to ErrorCode::Unknown"
+      }
+    }
+  },
+  "task": "Create semantic mapping between Error types and ErrorCode enum that:",
+  "requirements": [
+    "Map all Error variants → ErrorCode variants with correct categories",
+    "Ensure ErrorDetail includes error code + description + suggestion",
+    "Create conversion functions from internal errors to structured ErrorDetail",
+    "Eliminate string pattern matching - use exhaustive type matching",
+    "Align ErrorCode enum across json/types.rs and error_codes/mod.rs",
+    "Ensure all 45+ ErrorCode variants have description + suggestion"
+  ],
+  "files_needing_modification": [
+    {
+      "path": "crates/zjj-core/src/json/builders.rs",
+      "reason": "Replace string pattern matching with proper Error→ErrorCode→ErrorDetail mapping",
+      "lines": "~80-175 (impl From<&Error>)",
+      "complexity": "HIGH - requires exhaustive error variant handling"
+    },
+    {
+      "path": "crates/zjj-core/src/error_codes/mod.rs",
+      "reason": "Already complete with 45 ErrorCode variants + descriptions/suggestions - verify alignment",
+      "lines": "entire file",
+      "complexity": "LOW - review only, possible minor additions"
+    },
+    {
+      "path": "crates/zjj-core/src/json/types.rs",
+      "reason": "Consolidate ErrorCode enum (21 variants) with error_codes/mod.rs (45 variants)",
+      "lines": "76-112 (ErrorCode enum definition)",
+      "complexity": "MEDIUM - decide on single source of truth, ensure no duplication"
+    }
+  ],
+  "files_referenced_but_not_modified": [
+    "crates/zjj-core/src/error.rs - read only to understand Error structure",
+    "crates/zjj-core/src/error/execution.rs - read only",
+    "crates/zjj-core/src/error/system.rs - read only",
+    "crates/zjj-core/src/hints/error_hints.rs - may contain hint logic to preserve",
+    "crates/zjj-core/src/json_response.rs - has duplicate ErrorDetail (address separately)"
+  ],
+  "key_observations": [
+    "Two competing ErrorCode definitions: json/types.rs (21) vs error_codes/mod.rs (45) - consolidation needed",
+    "error_codes/mod.rs is MORE COMPLETE with full semantic metadata",
+    "Current mapping uses fragile string pattern matching instead of type-safe exhaustive matching",
+    "error_codes/mod.rs already has http_status() mapping for potential REST API",
+    "Duplicate ErrorDetail struct in both json/response.rs and json/types.rs - design debt",
+    "No existing mapping from ValidationError/SystemError/ExecutionError subtypes to ErrorCode"
+  ],
+  "complexity_rationale": "MEDIUM because:",
+  "complexity_details": [
+    "Not SIMPLE: Requires understanding of 3+ error hierarchies and reconciling conflicting definitions",
+    "Not COMPLEX: No parsing, AST manipulation, or multi-crate coordination needed",
+    "Core work: Type-safe conversion functions with exhaustive pattern matching on known variants",
+    "Testing: Comprehensive test coverage exists; new tests mainly verify all variants map correctly"
+  ],
+  "estimated_effort": {
+    "understanding": "30 mins - explore error hierarchies",
+    "implementation": "90 mins - implement exhaustive Error→ErrorCode→ErrorDetail mapping",
+    "testing": "60 mins - verify all variants map correctly, edge cases",
+    "total_estimate": "3-4 hours"
+  },
+  "dependencies": [
+    "No external dependencies",
+    "Must preserve existing Error types (ValidationError, SystemError, ExecutionError)",
+    "Must preserve exit_code() methods on Error enums",
+    "TDD approach: Start with tests for all error variants"
+  ],
+  "risk_factors": [
+    "Incomplete error_codes/mod.rs coverage - some Error variants may not have ErrorCode equivalent (mitigation: add new variants)",
+    "Subtypes (ValidationError, SystemError, ExecutionError) have their own display logic - must extract properly",
+    "String messages from errors need to be preserved in ErrorDetail while also mapping to ErrorCode"
+  ],
+  "test_coverage": {
+    "existing": "Comprehensive tests in error_codes/mod.rs (45+ variants tested)",
+    "needed": [
+      "Test Error::Validation → ErrorCode::ConfigParseError",
+      "Test Error::System variants → ErrorCode::{JjNotInstalled, HookFailed, etc}",
+      "Test Error::Execution variants → ErrorCode::{NotFound, InvalidState, etc}",
+      "Test complete ErrorDetail creation with code + message + suggestion",
+      "Test exit_code preservation through conversion"
+    ]
+  },
+  "success_criteria": [
+    "All Error variants can convert to ErrorCode without losing information",
+    "No string pattern matching in conversion functions",
+    "ErrorDetail struct includes full metadata (code, message, suggestion, details)",
+    "Single source of truth for ErrorCode definition (recommend error_codes/mod.rs)",
+    "All 45+ ErrorCode variants tested with descriptions and suggestions",
+    "Exit codes preserved (1/2/3/4 scheme maintained)"
+  ]
+}

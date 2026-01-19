@@ -19,6 +19,7 @@ pub struct StatusResponse {
 impl StatusResponse {
     /// Create a new response from session statuses
     #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn new(sessions: Vec<SessionStatusInfo>) -> Self {
         Self {
             success: true,

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "zjj-o14q",
+    "title": "P0: Add --silent flag to all output commands",
+    "status": "in_progress",
+    "priority": 0,
+    "issue_type": "task",
+    "created_at": "2026-01-18T13:24:49.191462766-06:00",
+    "created_by": "lewis",
+    "updated_at": "2026-01-18T21:34:57.261303685-06:00"
+  }
+]

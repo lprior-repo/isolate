@@ -1,6 +1,6 @@
-// jjz CLI Command Specification
+// zjj CLI Command Specification
 // Defines all commands, subcommands, arguments, and options
-package jjz
+package zjj
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COMMAND SCHEMA
@@ -53,9 +53,9 @@ commands: [...#Command] & [
             {long: "no-open", description: "Create workspace but don't open Zellij tab"},
         ]
         examples: [
-            {command: "jjz add feature-auth", description: "Create session with default template"},
-            {command: "jjz add bugfix-123 --no-hooks", description: "Create without running hooks"},
-            {command: "jjz add experiment -t minimal", description: "Create with minimal layout"},
+            {command: "zjj add feature-auth", description: "Create session with default template"},
+            {command: "zjj add bugfix-123 --no-hooks", description: "Create without running hooks"},
+            {command: "zjj add experiment -t minimal", description: "Create with minimal layout"},
         ]
     },
     {
@@ -68,9 +68,9 @@ commands: [...#Command] & [
             {long: "json", description: "Output as JSON"},
         ]
         examples: [
-            {command: "jjz list", description: "Show active sessions"},
-            {command: "jjz list --all", description: "Show all sessions including completed"},
-            {command: "jjz list --json", description: "JSON output for scripting"},
+            {command: "zjj list", description: "Show active sessions"},
+            {command: "zjj list --all", description: "Show all sessions including completed"},
+            {command: "zjj list --json", description: "JSON output for scripting"},
         ]
     },
     {
@@ -86,9 +86,9 @@ commands: [...#Command] & [
             {long: "keep-branch", description: "Don't delete the branch after removal"},
         ]
         examples: [
-            {command: "jjz remove feature-auth", description: "Remove session with confirmation"},
-            {command: "jjz remove feature-auth --merge", description: "Merge changes then remove"},
-            {command: "jjz remove experiment --force", description: "Force remove without prompts"},
+            {command: "zjj remove feature-auth", description: "Remove session with confirmation"},
+            {command: "zjj remove feature-auth --merge", description: "Merge changes then remove"},
+            {command: "zjj remove experiment --force", description: "Force remove without prompts"},
         ]
     },
     {
@@ -103,9 +103,9 @@ commands: [...#Command] & [
             {long: "watch", short: "w", description: "Continuously watch for changes"},
         ]
         examples: [
-            {command: "jjz status", description: "Show status of all sessions"},
-            {command: "jjz status feature-auth", description: "Show specific session status"},
-            {command: "jjz status --watch", description: "Live status updates"},
+            {command: "zjj status", description: "Show status of all sessions"},
+            {command: "zjj status feature-auth", description: "Show specific session status"},
+            {command: "zjj status --watch", description: "Live status updates"},
         ]
     },
     {
@@ -115,8 +115,8 @@ commands: [...#Command] & [
         args: []
         flags: []
         examples: [
-            {command: "jjz dashboard", description: "Open interactive dashboard"},
-            {command: "jjz dash", description: "Short alias"},
+            {command: "zjj dashboard", description: "Open interactive dashboard"},
+            {command: "zjj dash", description: "Short alias"},
         ]
     },
     {
@@ -128,7 +128,7 @@ commands: [...#Command] & [
         ]
         flags: []
         examples: [
-            {command: "jjz focus feature-auth", description: "Switch to feature-auth tab"},
+            {command: "zjj focus feature-auth", description: "Switch to feature-auth tab"},
         ]
     },
     {
@@ -140,8 +140,8 @@ commands: [...#Command] & [
         ]
         flags: []
         examples: [
-            {command: "jjz sync", description: "Sync all workspaces"},
-            {command: "jjz sync feature-auth", description: "Sync specific workspace"},
+            {command: "zjj sync", description: "Sync all workspaces"},
+            {command: "zjj sync feature-auth", description: "Sync specific workspace"},
         ]
     },
     {
@@ -155,21 +155,21 @@ commands: [...#Command] & [
             {long: "stat", description: "Show diffstat only"},
         ]
         examples: [
-            {command: "jjz diff feature-auth", description: "Show full diff"},
-            {command: "jjz diff feature-auth --stat", description: "Show summary stats"},
+            {command: "zjj diff feature-auth", description: "Show full diff"},
+            {command: "zjj diff feature-auth --stat", description: "Show summary stats"},
         ]
     },
     {
         name:        "init"
         aliases:     []
-        description: "Initialize jjz in current repository"
+        description: "Initialize zjj in current repository"
         args: []
         flags: [
             {long: "global", description: "Create global config only"},
         ]
         examples: [
-            {command: "jjz init", description: "Initialize project config"},
-            {command: "jjz init --global", description: "Initialize global config"},
+            {command: "zjj init", description: "Initialize project config"},
+            {command: "zjj init --global", description: "Initialize global config"},
         ]
     },
     {
@@ -184,9 +184,9 @@ commands: [...#Command] & [
             {long: "global", short: "g", description: "Operate on global config"},
         ]
         examples: [
-            {command: "jjz config", description: "Show all config"},
-            {command: "jjz config workspace_dir", description: "Show specific key"},
-            {command: "jjz config workspace_dir ../ws", description: "Set value"},
+            {command: "zjj config", description: "Show all config"},
+            {command: "zjj config workspace_dir", description: "Show specific key"},
+            {command: "zjj config workspace_dir ../ws", description: "Set value"},
         ]
     },
 ]

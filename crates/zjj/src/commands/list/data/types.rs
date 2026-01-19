@@ -93,9 +93,9 @@ pub struct ListFilter {
     /// Filter by specific agent ID
     pub agent_id: Option<String>,
     /// Show only sessions with beads
-    pub with_beads: bool,
+    pub has_bead: bool,
     /// Show only sessions with agents
-    pub with_agents: bool,
+    pub has_agent: bool,
 }
 
 impl ListFilter {
@@ -110,11 +110,11 @@ impl ListFilter {
         if let Some(ref id) = self.agent_id {
             parts.push(format!("agent_id={id}"));
         }
-        if self.with_beads {
-            parts.push("with_beads".to_string());
+        if self.has_bead {
+            parts.push("has_bead".to_string());
         }
-        if self.with_agents {
-            parts.push("with_agents".to_string());
+        if self.has_agent {
+            parts.push("has_agent".to_string());
         }
 
         if parts.is_empty() {

@@ -32,6 +32,7 @@ pub struct AddOptions {
     pub json: bool,
     pub dry_run: bool,
     pub bead: Option<String>,
+    pub silent: bool,
 }
 
 /// Run add command with default options (called by dashboard)
@@ -47,6 +48,7 @@ pub async fn run(name: &str) -> Result<()> {
         json: false,
         dry_run: false,
         bead: None,
+        silent: false,
     })
     .await
 }

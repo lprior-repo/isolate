@@ -1,0 +1,12 @@
+[
+  {
+    "id": "zjj-a50v",
+    "title": "P0: Standardize filter flag naming (--filter-by-*)",
+    "status": "in_progress",
+    "priority": 0,
+    "issue_type": "task",
+    "created_at": "2026-01-18T13:24:49.261121307-06:00",
+    "created_by": "lewis",
+    "updated_at": "2026-01-18T21:34:57.269838606-06:00"
+  }
+]

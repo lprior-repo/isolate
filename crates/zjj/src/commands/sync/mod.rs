@@ -24,6 +24,8 @@ pub struct SyncOptions {
     pub json: bool,
     /// Show what would be done without executing
     pub dry_run: bool,
+    /// Minimal output for pipes
+    pub silent: bool,
 }
 
 /// Run the sync command with options

@@ -20,6 +20,8 @@ use self::{error_handler::FocusError, tab_switch::TabSwitchResult};
 pub struct FocusOptions {
     /// Output as `JSON`
     pub json: bool,
+    /// Minimal output for pipes
+    pub silent: bool,
 }
 
 /// Run the focus command with options

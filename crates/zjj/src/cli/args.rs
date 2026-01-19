@@ -195,6 +195,12 @@ pub fn cmd_add() -> Command {
                 .value_name("BEAD_ID")
                 .help("Create session from bead ID (auto-pulls spec and updates status)"),
         )
+        .arg(
+            Arg::new("silent")
+                .long("silent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Minimal output for pipes (auto-detected when stdout is not a TTY)"),
+        )
         .after_help(
             "EXAMPLES:\n  \
              # Standard workflow - create and open session\n  \
@@ -351,8 +357,8 @@ pub fn cmd_list() -> Command {
              Filter sessions by bead or agent metadata:\n  \
              • --filter-by-bead <ID>   - Show only sessions with specific bead\n  \
              • --filter-by-agent <ID>  - Show only sessions with specific agent\n  \
-             • --with-beads            - Show only sessions that have beads\n  \
-             • --with-agents           - Show only sessions with active agents\n\
+             • --has-bead              - Show only sessions that have beads\n  \
+             • --has-agent             - Show only sessions with active agents\n\
              \n\
              STATUS VALUES:\n  \
              • creating:  Session being set up (transient state)\n  \
@@ -405,14 +411,14 @@ pub fn cmd_list() -> Command {
                 .help("Show only sessions with specific agent ID"),
         )
         .arg(
-            Arg::new("with-beads")
-                .long("with-beads")
+            Arg::new("has-bead")
+                .long("has-bead")
                 .action(clap::ArgAction::SetTrue)
                 .help("Show only sessions that have beads attached"),
         )
         .arg(
-            Arg::new("with-agents")
-                .long("with-agents")
+            Arg::new("has-agent")
+                .long("has-agent")
                 .action(clap::ArgAction::SetTrue)
                 .help("Show only sessions with active agents"),
         )
@@ -524,6 +530,12 @@ pub fn cmd_remove() -> Command {
                 .action(clap::ArgAction::SetTrue)
                 .help("Show what would be done without executing"),
         )
+        .arg(
+            Arg::new("silent")
+                .long("silent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Minimal output for pipes (auto-detected when stdout is not a TTY)"),
+        )
         .after_help(
             "EXAMPLES:\n  \
              # Standard removal (with confirmation)\n  \
@@ -611,6 +623,12 @@ pub fn cmd_focus() -> Command {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("silent")
+                .long("silent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Minimal output for pipes (auto-detected when stdout is not a TTY)"),
         )
         .after_help(
             "EXAMPLES:\n  \
@@ -794,6 +812,12 @@ pub fn cmd_sync() -> Command {
                 .action(clap::ArgAction::SetTrue)
                 .help("Show what would be done without executing"),
         )
+        .arg(
+            Arg::new("silent")
+                .long("silent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Minimal output for pipes (auto-detected when stdout is not a TTY)"),
+        )
         .after_help(
             "EXAMPLES:\n  \
              # Sync specific session\n  \
@@ -893,6 +917,12 @@ pub fn cmd_diff() -> Command {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("silent")
+                .long("silent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Minimal output for pipes (auto-detected when stdout is not a TTY)"),
         )
         .after_help(
             "EXAMPLES:\n  \
@@ -2019,11 +2049,11 @@ pub fn cmd_agent() -> Command {
                      \n\
                      FILTERING:\n\
                      • All sessions: Shows agents in all active sessions (default)\n  \
-                     • Specific session: Use --session <name> to filter",
+                     • Specific session: Use --filter-by-session <name> to filter",
                 )
                 .arg(
-                    Arg::new("session")
-                        .long("session")
+                    Arg::new("filter-by-session")
+                        .long("filter-by-session")
                         .short('s')
                         .value_name("NAME")
                         .help("Filter by session name"),
@@ -2040,7 +2070,7 @@ pub fn cmd_agent() -> Command {
                      zjj agent list\n\
                      \n  \
                      # List agent for specific session\n  \
-                     zjj agent list --session feature-x\n\
+                     zjj agent list --filter-by-session feature-x\n\
                      \n  \
                      # JSON output for scripting\n  \
                      zjj agent list --json\n\
@@ -2178,3 +2208,4 @@ pub fn build_cli() -> Command {
         .subcommand(cmd_hooks())
         .subcommand(cmd_agent())
 }
+

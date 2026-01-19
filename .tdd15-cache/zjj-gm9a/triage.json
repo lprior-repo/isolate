@@ -1,0 +1,748 @@
+{
+  "bead_id": "zjj-gm9a",
+  "title": "Create CUE schema for JSON outputs",
+  "analysis_date": "2026-01-18",
+  "analysis": {
+    "summary": "Comprehensive CUE schema creation needed for 27 JSON output types across 11+ commands",
+    "complexity": "HIGH",
+    "estimated_schema_count": 27,
+    "output_types_found": 27
+  },
+  "json_output_structures": {
+    "core_output_types": [
+      {
+        "name": "InitOutput",
+        "file": "crates/zjj/src/json_output.rs:8-15",
+        "fields": [
+          "success: bool",
+          "message: String",
+          "zjj_dir: String",
+          "config_file: String",
+          "state_db: String",
+          "layouts_dir: String"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Init command output"
+      },
+      {
+        "name": "AddOutput",
+        "file": "crates/zjj/src/json_output.rs:19-28",
+        "fields": [
+          "success: bool",
+          "session_name: String",
+          "workspace_path: String",
+          "zellij_tab: String",
+          "status: String",
+          "error: Option<ErrorDetail>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Add command output with optional error"
+      },
+      {
+        "name": "RemoveOutput",
+        "file": "crates/zjj/src/json_output.rs:32-45",
+        "fields": [
+          "success: bool",
+          "session_name: String",
+          "operations: Option<Vec<RemoveOperation>>",
+          "closed_bead: Option<String>",
+          "message: Option<String>",
+          "error: Option<ErrorDetail>"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Remove command with nested operations"
+      },
+      {
+        "name": "RemoveOperation",
+        "file": "crates/zjj/src/json_output.rs:48-58",
+        "fields": [
+          "action: String",
+          "path: Option<String>",
+          "id: Option<i64>",
+          "tab: Option<String>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in RemoveOutput"
+      },
+      {
+        "name": "RemoveDryRunOutput",
+        "file": "crates/zjj/src/json_output.rs:61-66",
+        "fields": [
+          "success: bool",
+          "dry_run: bool",
+          "plan: RemoveDryRunPlan"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Contains reference to RemoveDryRunPlan"
+      },
+      {
+        "name": "RemoveDryRunPlan",
+        "file": "crates/zjj/src/json_output.rs:69-83",
+        "fields": [
+          "session_name: String",
+          "session_id: i64",
+          "workspace_path: String",
+          "workspace_exists: bool",
+          "zellij_tab: String",
+          "inside_zellij: bool",
+          "would_run_hooks: bool",
+          "would_merge: bool",
+          "planned_operations: Vec<PlannedRemoveOperation>",
+          "warnings: Option<Vec<String>>"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Planning structure for remove operations"
+      },
+      {
+        "name": "PlannedRemoveOperation",
+        "file": "crates/zjj/src/json_output.rs:86-94",
+        "fields": [
+          "order: u32",
+          "action: String",
+          "description: String",
+          "target: Option<String>",
+          "reversible: bool"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in RemoveDryRunPlan"
+      },
+      {
+        "name": "FocusOutput",
+        "file": "crates/zjj/src/json_output.rs:98-106",
+        "fields": [
+          "success: bool",
+          "session_name: String",
+          "tab: String",
+          "switched: bool",
+          "error: Option<ErrorDetail>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Focus command output"
+      },
+      {
+        "name": "SyncOutput",
+        "file": "crates/zjj/src/json_output.rs:110-122",
+        "fields": [
+          "success: bool",
+          "session_name: Option<String>",
+          "synced_count: usize",
+          "failed_count: usize",
+          "error: Option<ErrorDetail>",
+          "rebased_commits: Option<usize>",
+          "conflicts: Option<usize>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Sync command output with optional details"
+      },
+      {
+        "name": "SyncDryRunOutput",
+        "file": "crates/zjj/src/json_output.rs:125-130",
+        "fields": [
+          "success: bool",
+          "dry_run: bool",
+          "plan: SyncDryRunPlan"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Sync dry-run planning output"
+      },
+      {
+        "name": "SyncDryRunPlan",
+        "file": "crates/zjj/src/json_output.rs:133-148",
+        "fields": [
+          "session_name: Option<String>",
+          "sessions_to_sync: Vec<SyncSessionPlan>",
+          "target_branch: String",
+          "target_branch_source: String",
+          "total_count: usize",
+          "operations_per_session: Vec<String>"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Planning structure for sync"
+      },
+      {
+        "name": "SyncSessionPlan",
+        "file": "crates/zjj/src/json_output.rs:151-160",
+        "fields": [
+          "name: String",
+          "workspace_path: String",
+          "workspace_exists: bool",
+          "status: String",
+          "can_sync: bool",
+          "skip_reason: Option<String>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in SyncDryRunPlan"
+      },
+      {
+        "name": "DiffOutput",
+        "file": "crates/zjj/src/json_output.rs:164-173",
+        "fields": [
+          "session_name: String",
+          "base: String",
+          "head: String",
+          "diff_stat: Option<DiffStat>",
+          "diff_content: Option<String>"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Diff command output"
+      },
+      {
+        "name": "DiffStat",
+        "file": "crates/zjj/src/json_output.rs:175-181",
+        "fields": [
+          "files_changed: usize",
+          "insertions: usize",
+          "deletions: usize",
+          "files: Vec<FileDiffStat>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in DiffOutput"
+      },
+      {
+        "name": "FileDiffStat",
+        "file": "crates/zjj/src/json_output.rs:183-189",
+        "fields": [
+          "path: String",
+          "insertions: usize",
+          "deletions: usize",
+          "status: String"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in DiffStat"
+      },
+      {
+        "name": "ConfigViewAllOutput",
+        "file": "crates/zjj/src/json_output.rs:192-201",
+        "fields": [
+          "success: bool",
+          "config: serde_json::Value",
+          "sources: Option<Vec<String>>",
+          "error: Option<String>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Config view output"
+      },
+      {
+        "name": "ConfigGetOutput",
+        "file": "crates/zjj/src/json_output.rs:204-213",
+        "fields": [
+          "success: bool",
+          "key: String",
+          "value: Option<String>",
+          "error: Option<String>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Config get output"
+      },
+      {
+        "name": "ConfigSetOutput",
+        "file": "crates/zjj/src/json_output.rs:216-226",
+        "fields": [
+          "success: bool",
+          "key: String",
+          "value: String",
+          "scope: Option<String>",
+          "error: Option<String>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Config set output"
+      },
+      {
+        "name": "HelpOutput",
+        "file": "crates/zjj/src/json_output.rs:237-252",
+        "fields": [
+          "command: String",
+          "version: String",
+          "description: String",
+          "subcommands: Vec<SubcommandHelp>",
+          "exit_codes: Vec<ExitCodeHelp>",
+          "author: Option<String>"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Machine-readable help output (zjj-g80p)"
+      },
+      {
+        "name": "SubcommandHelp",
+        "file": "crates/zjj/src/json_output.rs:255-265",
+        "fields": [
+          "name: String",
+          "description: String",
+          "parameters: Vec<ParameterHelp>",
+          "examples: Vec<ExampleHelp>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in HelpOutput"
+      },
+      {
+        "name": "ParameterHelp",
+        "file": "crates/zjj/src/json_output.rs:268-287",
+        "fields": [
+          "name: String",
+          "description: String",
+          "param_type: String",
+          "required: bool",
+          "default: Option<String>",
+          "value_type: Option<String>",
+          "possible_values: Option<Vec<String>>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in SubcommandHelp"
+      },
+      {
+        "name": "ExampleHelp",
+        "file": "crates/zjj/src/json_output.rs:290-296",
+        "fields": [
+          "command: String",
+          "description: String"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in SubcommandHelp"
+      },
+      {
+        "name": "ExitCodeHelp",
+        "file": "crates/zjj/src/json_output.rs:299-307",
+        "fields": [
+          "code: i32",
+          "meaning: String",
+          "description: String"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in HelpOutput"
+      },
+      {
+        "name": "BatchOperationOutput<T>",
+        "file": "crates/zjj/src/json_output.rs:314-329",
+        "fields": [
+          "success: bool",
+          "total_count: usize",
+          "success_count: usize",
+          "failure_count: usize",
+          "results: Vec<BatchItemResult<T>>",
+          "metadata: Option<serde_json::Value>"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Generic batch operation output (zjj-xi2j)"
+      },
+      {
+        "name": "BatchItemResult<T>",
+        "file": "crates/zjj/src/json_output.rs:331-349",
+        "fields": [
+          "success: bool",
+          "item_id: String",
+          "index: usize",
+          "data: Option<T>",
+          "error: Option<String>",
+          "metadata: Option<serde_json::Value>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Nested in BatchOperationOutput"
+      },
+      {
+        "name": "AgentInfo",
+        "file": "crates/zjj/src/json_output.rs:424-445",
+        "fields": [
+          "session_name: String",
+          "agent_id: String",
+          "task_id: Option<String>",
+          "spawned_at: Option<u64>",
+          "pid: Option<u32>",
+          "exit_code: Option<i32>",
+          "artifacts_path: Option<String>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Agent metadata (zjj-bq9g)"
+      },
+      {
+        "name": "AgentListOutput",
+        "file": "crates/zjj/src/json_output.rs:448-454",
+        "fields": [
+          "total_count: usize",
+          "agents: Vec<AgentInfo>"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Agent list output"
+      }
+    ],
+    "external_output_types": [
+      {
+        "name": "SessionStatusInfo",
+        "file": "crates/zjj/src/commands/status/types.rs:38-49",
+        "fields": [
+          "name: String",
+          "status: String",
+          "workspace_path: String",
+          "branch: String",
+          "changes: FileChanges",
+          "diff_stats: DiffStats",
+          "beads: BeadStats",
+          "session: Session (flattened)"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Status command with nested stats structures"
+      },
+      {
+        "name": "SessionListItem",
+        "file": "crates/zjj/src/commands/list/data/types.rs:43-60",
+        "fields": [
+          "name: String",
+          "status: String",
+          "branch: String",
+          "workspace_path: String",
+          "zellij_tab: String",
+          "changes: String",
+          "beads: String",
+          "created_at: u64",
+          "updated_at: u64",
+          "last_synced: Option<u64>",
+          "bead: Option<SessionBeadInfo>",
+          "agent: Option<SessionAgentInfo>"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "List command item with optional metadata"
+      },
+      {
+        "name": "PrimeOutput",
+        "file": "crates/zjj/src/commands/prime/output_types.rs:9-17",
+        "fields": [
+          "jj_status: JjStatus",
+          "zjj_status: ZjjStatus",
+          "sessions: Vec<SessionInfo>",
+          "commands: CommandCategories",
+          "beads_status: BeadsStatus",
+          "workflows: Vec<WorkflowSection>"
+        ],
+        "complexity": "VERY_COMPLEX",
+        "notes": "Prime context command with 6+ nested types"
+      },
+      {
+        "name": "DoctorOutput",
+        "file": "crates/zjj-core/src/introspection/doctor_types.rs:37-52",
+        "fields": [
+          "success: bool (renamed from healthy)",
+          "checks: Vec<DoctorCheck>",
+          "warnings: usize",
+          "errors: usize",
+          "auto_fixable_issues: usize",
+          "ai_guidance: Vec<String>"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Health check output with check vector"
+      },
+      {
+        "name": "BackupOutput",
+        "file": "crates/zjj/src/commands/backup.rs:11-16",
+        "fields": [
+          "backup_path: PathBuf",
+          "session_count: usize",
+          "message: String"
+        ],
+        "complexity": "SIMPLE",
+        "notes": "Backup command output"
+      },
+      {
+        "name": "ContextOutput",
+        "file": "crates/zjj/src/commands/context/types.rs:6-10",
+        "fields": [
+          "success: bool",
+          "context: EnvironmentContext"
+        ],
+        "complexity": "COMPLEX",
+        "notes": "Environment context with nested structures"
+      }
+    ]
+  },
+  "nested_helper_types": [
+    {
+      "name": "FileChanges",
+      "file": "crates/zjj/src/commands/status/types.rs:52-59",
+      "used_by": ["SessionStatusInfo"],
+      "fields": ["modified", "added", "deleted", "renamed", "unknown"]
+    },
+    {
+      "name": "DiffStats",
+      "file": "crates/zjj/src/commands/status/types.rs:89-93",
+      "used_by": ["SessionStatusInfo"],
+      "fields": ["insertions", "deletions"]
+    },
+    {
+      "name": "BeadStats",
+      "file": "crates/zjj/src/commands/status/types.rs:102-108",
+      "used_by": ["SessionStatusInfo"],
+      "fields": ["open", "in_progress", "blocked", "closed"]
+    },
+    {
+      "name": "SessionBeadInfo",
+      "file": "crates/zjj/src/commands/list/data/types.rs:62-74",
+      "used_by": ["SessionListItem"],
+      "fields": ["id", "title", "status", "priority", "bead_type"]
+    },
+    {
+      "name": "SessionAgentInfo",
+      "file": "crates/zjj/src/commands/list/data/types.rs:76-86",
+      "used_by": ["SessionListItem"],
+      "fields": ["agent_id", "task_id", "spawned_at", "runtime_seconds"]
+    },
+    {
+      "name": "JjStatus",
+      "file": "crates/zjj/src/commands/prime/output_types.rs:20-27",
+      "used_by": ["PrimeOutput"],
+      "fields": ["in_repo", "repo_root", "current_bookmark", "has_changes", "change_summary"]
+    },
+    {
+      "name": "ZjjStatus",
+      "file": "crates/zjj/src/commands/prime/output_types.rs:30-36",
+      "used_by": ["PrimeOutput"],
+      "fields": ["initialized", "data_dir", "total_sessions", "active_sessions"]
+    },
+    {
+      "name": "SessionInfo",
+      "file": "crates/zjj/src/commands/prime/output_types.rs:39-45",
+      "used_by": ["PrimeOutput"],
+      "fields": ["name", "status", "workspace_path", "zellij_tab"]
+    },
+    {
+      "name": "CommandCategories",
+      "file": "crates/zjj/src/commands/prime/output_types.rs:48-55",
+      "used_by": ["PrimeOutput"],
+      "fields": ["session_lifecycle", "workspace_sync", "system", "introspection", "utilities"]
+    },
+    {
+      "name": "CommandRef",
+      "file": "crates/zjj/src/commands/prime/output_types.rs:58-62",
+      "used_by": ["CommandCategories"],
+      "fields": ["name", "description"]
+    },
+    {
+      "name": "BeadsStatus",
+      "file": "crates/zjj/src/commands/prime/output_types.rs:65-70",
+      "used_by": ["PrimeOutput"],
+      "fields": ["available", "beads_dir", "command_available"]
+    },
+    {
+      "name": "WorkflowSection",
+      "file": "crates/zjj/src/commands/prime/output_types.rs:73-77",
+      "used_by": ["PrimeOutput"],
+      "fields": ["title", "steps"]
+    },
+    {
+      "name": "DoctorCheck",
+      "file": "crates/zjj-core/src/introspection/doctor_types.rs:6-22",
+      "used_by": ["DoctorOutput"],
+      "fields": ["name", "status", "message", "suggestion", "auto_fixable", "details"]
+    },
+    {
+      "name": "CheckStatus",
+      "file": "crates/zjj-core/src/introspection/doctor_types.rs:24-34",
+      "used_by": ["DoctorCheck"],
+      "enum_values": ["Pass", "Warn", "Fail"]
+    },
+    {
+      "name": "EnvironmentContext",
+      "file": "crates/zjj/src/commands/context/types.rs:13-33",
+      "used_by": ["ContextOutput"],
+      "fields": ["cwd", "jj_repo", "jj_repo_root", "jj_current_branch", "zjj_initialized", "zjj_data_dir", "sessions", "environment", "dependencies"]
+    },
+    {
+      "name": "SessionStats",
+      "file": "crates/zjj/src/commands/context/types.rs:35-44",
+      "used_by": ["EnvironmentContext"],
+      "fields": ["total", "active", "current"]
+    },
+    {
+      "name": "EnvironmentInfo",
+      "file": "crates/zjj/src/commands/context/types.rs:47-57",
+      "used_by": ["EnvironmentContext"],
+      "fields": ["zellij_running", "zellij_session", "pager", "editor"]
+    },
+    {
+      "name": "DependencyStatus",
+      "file": "crates/zjj/src/commands/context/types.rs:60-66",
+      "used_by": ["EnvironmentContext"],
+      "fields": ["jj", "zellij"]
+    },
+    {
+      "name": "DependencyInfo",
+      "file": "crates/zjj/src/commands/context/types.rs:69-75",
+      "used_by": ["DependencyStatus"],
+      "fields": ["installed", "version"]
+    }
+  ],
+  "complexity_assessment": {
+    "simple_types": {
+      "count": 13,
+      "description": "Single-level structs with primitive fields only",
+      "effort_hours": 1
+    },
+    "intermediate_types": {
+      "count": 10,
+      "description": "Structs with one or two levels of nesting",
+      "effort_hours": 3
+    },
+    "complex_types": {
+      "count": 3,
+      "description": "Heavily nested structures (3+ levels) like PrimeOutput, ContextOutput",
+      "effort_hours": 4
+    },
+    "generic_types": {
+      "count": 1,
+      "description": "Generic BatchOperationOutput<T> requires parametric schema",
+      "effort_hours": 2
+    }
+  },
+  "files_affected": [
+    "crates/zjj/src/json_output.rs",
+    "crates/zjj/src/commands/status/types.rs",
+    "crates/zjj/src/commands/list/data/types.rs",
+    "crates/zjj/src/commands/prime/output_types.rs",
+    "crates/zjj-core/src/introspection/doctor_types.rs",
+    "crates/zjj/src/commands/backup.rs",
+    "crates/zjj/src/commands/context/types.rs",
+    "schemas/json-outputs.cue (new file to be created)"
+  ],
+  "schema_creation_plan": {
+    "phase_1": {
+      "title": "Foundation & Enums",
+      "items": [
+        "Define CheckStatus enum",
+        "Define #ErrorDetail common structure",
+        "Create base schema patterns (#Response, #Output)"
+      ],
+      "estimated_hours": 1
+    },
+    "phase_2": {
+      "title": "Simple Output Types (13 types)",
+      "items": [
+        "InitOutput, AddOutput, FocusOutput",
+        "ConfigViewAllOutput, ConfigGetOutput, ConfigSetOutput",
+        "BackupOutput, VerifyBackupOutput",
+        "AgentInfo, AgentListOutput",
+        "ExampleHelp, ExitCodeHelp, ParameterHelp"
+      ],
+      "estimated_hours": 1
+    },
+    "phase_3": {
+      "title": "Intermediate Nested Types (10 types)",
+      "items": [
+        "RemoveOutput + RemoveOperation",
+        "DiffOutput + DiffStat + FileDiffStat",
+        "SyncOutput",
+        "HelpOutput + SubcommandHelp",
+        "FileChanges, DiffStats, BeadStats",
+        "SessionBeadInfo, SessionAgentInfo",
+        "CommandRef, CommandCategories"
+      ],
+      "estimated_hours": 2
+    },
+    "phase_4": {
+      "title": "Complex Planning Structures (4 types)",
+      "items": [
+        "RemoveDryRunPlan + PlannedRemoveOperation",
+        "SyncDryRunPlan + SyncSessionPlan"
+      ],
+      "estimated_hours": 1.5
+    },
+    "phase_5": {
+      "title": "Generic & Batch Operations",
+      "items": [
+        "BatchOperationOutput<T> parametric schema",
+        "BatchItemResult<T>"
+      ],
+      "estimated_hours": 1
+    },
+    "phase_6": {
+      "title": "Status & List Responses",
+      "items": [
+        "StatusResponse + SessionStatusInfo",
+        "SessionListResponse + SessionListItem"
+      ],
+      "estimated_hours": 1
+    },
+    "phase_7": {
+      "title": "Complex Composite Types",
+      "items": [
+        "PrimeOutput (6+ nested types)",
+        "DoctorOutput + DoctorCheck",
+        "ContextOutput + nested environment structures (EnvironmentContext, SessionStats, EnvironmentInfo, DependencyStatus, DependencyInfo)"
+      ],
+      "estimated_hours": 2.5
+    },
+    "phase_8": {
+      "title": "Integration & Testing",
+      "items": [
+        "Organize all schemas into schemas/json-outputs.cue",
+        "Validate all schemas against actual JSON outputs",
+        "Create reference documentation"
+      ],
+      "estimated_hours": 1
+    }
+  },
+  "key_findings": {
+    "primary_dimensions": [
+      "27 total output types (24 in json_output.rs, 3+ in command modules)",
+      "19 helper/nested types that must be defined",
+      "6 response wrapper types (StatusResponse, SessionListResponse, etc.)",
+      "1 generic type requiring parametric schema support"
+    ],
+    "schema_patterns": [
+      "All outputs follow pattern: { success: bool, ... optional fields }",
+      "Widespread use of Option<T> with skip_serializing_if",
+      "Nested structures with 3-4 levels deep in PrimeOutput and ContextOutput",
+      "Generic BatchOperationOutput<T> used for batch commands"
+    ],
+    "validation_requirements": [
+      "Enum validation for CheckStatus: Pass | Warn | Fail",
+      "String constraints for session names: ^[a-zA-Z0-9_-]+$",
+      "Numeric bounds for counts and IDs",
+      "Path validations for PathBuf fields (backup_path, workspace_path)"
+    ],
+    "dependencies": [
+      "ErrorDetail from zjj_core::json",
+      "Session type (used in SessionStatusInfo)",
+      "PathBuf serialization handling"
+    ]
+  },
+  "challenges": [
+    {
+      "type": "Generic Types",
+      "description": "BatchOperationOutput<T> requires CUE parametric schema definition",
+      "mitigation": "Use CUE parameter syntax or define separate concrete types"
+    },
+    {
+      "type": "Flattened Structures",
+      "description": "SessionStatusInfo uses #[serde(flatten)] for Session type",
+      "mitigation": "Define inline expansion of Session fields in schema"
+    },
+    {
+      "type": "Dynamic JSON",
+      "description": "ConfigViewAllOutput and ContextOutput use serde_json::Value",
+      "mitigation": "Schema definition as 'any' or document expected structure"
+    },
+    {
+      "type": "External Types",
+      "description": "Output types spread across 8 different files",
+      "mitigation": "Consolidate all into single schemas/json-outputs.cue file"
+    }
+  ],
+  "recommendations": {
+    "scope_division": "Split schema creation into 8 phases as outlined above",
+    "priority_order": "Enums and simple types first (phase 1-2), complex nested types last (phase 7)",
+    "validation_strategy": "Create test fixtures with real output samples for validation",
+    "documentation": "Add comments explaining each output type's command and use case",
+    "tooling": "Consider using CUE's built-in JSON to CUE conversion for rapid schema generation"
+  },
+  "effort_estimate": {
+    "total_hours": 11.5,
+    "breakdown": {
+      "phase_1": 1,
+      "phase_2": 1,
+      "phase_3": 2,
+      "phase_4": 1.5,
+      "phase_5": 1,
+      "phase_6": 1,
+      "phase_7": 2.5,
+      "phase_8": 1
+    },
+    "confidence": "HIGH",
+    "notes": "Estimates based on schema complexity and file organization. Assumes CUE expertise present."
+  }
+}

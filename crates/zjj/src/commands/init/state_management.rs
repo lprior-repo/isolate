@@ -36,6 +36,7 @@ pub struct InitOutput {
 /// 4. Handle --force or --repair flags if specified
 /// 5. Check if already initialized
 /// 6. Create .zjj directory and initialize database
+#[allow(dead_code)]
 pub async fn run_with_cwd_and_flags(cwd: Option<&Path>, repair: bool, force: bool) -> Result<()> {
     // Resolve working directory
     let cwd = resolve_cwd(cwd)?;
@@ -192,6 +193,7 @@ fn ensure_config_exists(zjj_dir: &Path) -> Result<ConfigStatus> {
 }
 
 /// Handle initialization of an existing .zjj directory
+#[allow(dead_code)]
 async fn handle_existing_directory(zjj_dir: &Path, db_path: &Path) -> Result<()> {
     match health::check_database_health(db_path).await {
         health::DatabaseHealth::Healthy => {

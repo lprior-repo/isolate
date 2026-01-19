@@ -1,0 +1,189 @@
+{
+  "bead_id": "zjj-h6di",
+  "title": "Update remaining 'jjz' references in help text",
+  "analysis_date": "2026-01-19",
+  "summary": {
+    "total_jjz_references": 22,
+    "files_with_references": 2,
+    "help_text_references_found": 0,
+    "documentation_references": 22,
+    "status": "RESOLVED - No help text updates needed"
+  },
+  "detailed_findings": {
+    "help_text_files": {
+      "crates/zjj/src/cli/args.rs": {
+        "file_path": "/home/lewis/src/zjj/crates/zjj/src/cli/args.rs",
+        "jjz_occurrences": 0,
+        "status": "CLEAN",
+        "note": "All help text, examples, and descriptions have been updated to use 'zjj' instead of 'jjz'",
+        "verified_sections": [
+          {
+            "function": "cmd_init()",
+            "line_range": "8-107",
+            "status": "clean",
+            "examples": "Uses 'zjj init', 'zjj doctor', 'zjj config', 'zjj backup', 'zjj restore'"
+          },
+          {
+            "function": "cmd_add()",
+            "line_range": "110-229",
+            "status": "clean",
+            "examples": "Uses 'zjj add', 'zjj list', 'zjj status', 'zjj remove', 'zjj sync', 'zjj focus'"
+          },
+          {
+            "function": "cmd_add_batch()",
+            "line_range": "231-290",
+            "status": "clean",
+            "examples": "Uses 'zjj add', 'zjj add-batch'"
+          }
+        ]
+      }
+    },
+    "documentation_references": {
+      "CHANGELOG.md": {
+        "file_path": "/home/lewis/src/zjj/CHANGELOG.md",
+        "jjz_occurrences": 22,
+        "status": "HISTORICAL - Part of release notes",
+        "note": "All references are in CHANGELOG documenting the migration from 'jjz' to 'zjj'",
+        "locations": [
+          {
+            "line": 44,
+            "content": "**Binary and Directory Rename: `jjz` → `zjj`**",
+            "type": "migration_header"
+          },
+          {
+            "line": 47,
+            "content": "- **Binary**: `jjz` → `zjj`",
+            "type": "migration_note"
+          },
+          {
+            "line": 48,
+            "content": "- **Configuration Directory**: `.jjz/` → `.zjj/`",
+            "type": "migration_note"
+          },
+          {
+            "line": 49,
+            "content": "- **Session Prefix**: `jjz:` → `zjj:` (configurable)",
+            "type": "migration_note"
+          },
+          {
+            "line": 50,
+            "content": "- **Database Location**: `.jjz/state.db` → `.zjj/state.db`",
+            "type": "migration_note"
+          },
+          {
+            "line": 51,
+            "content": "- **Layouts Directory**: `.jjz/layouts/` → `.zjj/layouts/`",
+            "type": "migration_note"
+          },
+          {
+            "line": 60,
+            "content": "mv .jjz .zjj",
+            "type": "migration_example"
+          },
+          {
+            "line": 65,
+            "content": "- **All commands now use `zjj` binary instead of `jjz`**",
+            "type": "migration_summary"
+          },
+          {
+            "line": 66,
+            "content": "- `jjz init` → `zjj init`",
+            "type": "command_mapping"
+          },
+          {
+            "line": 67,
+            "content": "- `jjz add` → `zjj add`",
+            "type": "command_mapping"
+          },
+          {
+            "line": 68,
+            "content": "- `jjz list` → `zjj list`",
+            "type": "command_mapping"
+          },
+          {
+            "line": 69,
+            "content": "- `jjz remove` → `zjj remove`",
+            "type": "command_mapping"
+          },
+          {
+            "line": 70,
+            "content": "- `jjz focus` → `zjj focus`",
+            "type": "command_mapping"
+          },
+          {
+            "line": 73,
+            "content": "- **Configuration and state directory**: `.jjz/` → `.zjj/`",
+            "type": "migration_note"
+          },
+          {
+            "line": 74,
+            "content": "- Default config: `.jjz/config.toml` → `.zjj/config.toml`",
+            "type": "migration_detail"
+          },
+          {
+            "line": 75,
+            "content": "- Session database: `.jjz/state.db` → `.zjj/state.db`",
+            "type": "migration_detail"
+          },
+          {
+            "line": 76,
+            "content": "- Layouts: `.jjz/layouts/` → `.zjj/layouts/`",
+            "type": "migration_detail"
+          },
+          {
+            "line": 78,
+            "content": "- **Default session prefix**: `jjz:` → `zjj:` in Zellij tabs",
+            "type": "migration_note"
+          }
+        ]
+      }
+    }
+  },
+  "verification_results": {
+    "command": "grep -r 'jjz' --include='*.rs' /home/lewis/src/zjj/crates/",
+    "result": "No matches found in Rust source code",
+    "status": "PASSED"
+  },
+  "help_text_verification": {
+    "init_command": {
+      "file": "crates/zjj/src/cli/args.rs",
+      "function": "cmd_init()",
+      "examples_found": [
+        "zjj init",
+        "zjj init --repair",
+        "zjj init --force",
+        "zjj init --json",
+        "zjj doctor"
+      ],
+      "contains_jjz": false,
+      "status": "PASSED"
+    },
+    "add_command": {
+      "file": "crates/zjj/src/cli/args.rs",
+      "function": "cmd_add()",
+      "examples_found": [
+        "zjj add feature-auth",
+        "zjj add bugfix-123 --no-open",
+        "zjj add experiment -t minimal",
+        "zjj add feature-test --dry-run",
+        "zjj add quick-test --no-hooks",
+        "zjj add api-work --json --no-open",
+        "zjj add review-pr-123 -t review",
+        "zjj list",
+        "zjj status",
+        "zjj remove",
+        "zjj sync",
+        "zjj focus",
+        "zjj context"
+      ],
+      "contains_jjz": false,
+      "status": "PASSED"
+    }
+  },
+  "conclusion": {
+    "issue_resolved": true,
+    "reason": "All 'jjz' references in help text have already been updated to 'zjj'. The only remaining 'jjz' references are in CHANGELOG.md, which are intentional as they document the historical migration from 'jjz' to 'zjj'.",
+    "action_needed": "Mark bead as resolved - no code changes required",
+    "recommendation": "Close bead zjj-h6di as 'RESOLVED' since the migration was already completed in the previous phase"
+  }
+}

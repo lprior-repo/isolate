@@ -35,6 +35,7 @@ pub async fn handle_sync_cmd(sub_m: &clap::ArgMatches) -> Result<()> {
         sync::SyncOptions {
             json: sub_m.get_flag("json"),
             dry_run: sub_m.get_flag("dry-run"),
+            silent: sub_m.get_flag("silent"),
         },
     )
     .await
@@ -53,6 +54,7 @@ pub async fn handle_diff_cmd(sub_m: &clap::ArgMatches) -> Result<()> {
         diff::DiffOptions {
             stat: sub_m.get_flag("stat"),
             json: sub_m.get_flag("json"),
+            silent: sub_m.get_flag("silent"),
         },
     )
     .await
@@ -64,7 +66,9 @@ pub async fn handle_diff_cmd(sub_m: &clap::ArgMatches) -> Result<()> {
 pub async fn handle_agent_cmd(sub_m: &clap::ArgMatches) -> Result<()> {
     match sub_m.subcommand() {
         Some(("list", list_m)) => {
-            let session = list_m.get_one::<String>("session").map(String::as_str);
+            let session = list_m
+                .get_one::<String>("filter-by-session")
+                .map(String::as_str);
             let json = list_m.get_flag("json");
             agent::run_list(session, json).await
         }

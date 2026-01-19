@@ -41,14 +41,14 @@ ZJJ is currently in **alpha** stage (0.x series). Per [SemVer 2.0 Section 4](htt
 
 ### ⚠️ BREAKING CHANGES
 
-**Binary and Directory Rename: `zjj` → `zjj`**
+**Binary and Directory Rename: `jjz` → `zjj`**
 
-Complete rename for consistency:
-- **Binary**: `zjj` → `zjj`
-- **Configuration Directory**: `.zjj/` → `.zjj/`
-- **Session Prefix**: `zjj:` → `zjj:` (configurable)
-- **Database Location**: `.zjj/state.db` → `.zjj/state.db`
-- **Layouts Directory**: `.zjj/layouts/` → `.zjj/layouts/`
+Complete rename for consistency and clarity:
+- **Binary**: `jjz` → `zjj`
+- **Configuration Directory**: `.jjz/` → `.zjj/`
+- **Session Prefix**: `jjz:` → `zjj:` (configurable)
+- **Database Location**: `.jjz/state.db` → `.zjj/state.db`
+- **Layouts Directory**: `.jjz/layouts/` → `.zjj/layouts/`
 
 **Impact**: All users must update scripts and shell configurations to use the new binary name.
 
@@ -57,29 +57,45 @@ Complete rename for consistency:
 For existing installations:
 ```bash
 # Manual rename (no backward compatibility layer)
-mv .zjj .zjj
+mv .jjz .zjj
 ```
-
-See [MIGRATION.md](MIGRATION.md) for detailed upgrade instructions.
 
 ### Changed
 
-- **All commands now use `zjj` binary instead of `zjj`**
-  - `zjj init` → `zjj init`
-  - `zjj add` → `zjj add`
+- **All commands now use `zjj` binary instead of `jjz`**
+  - `jjz init` → `zjj init`
+  - `jjz add` → `zjj add`
+  - `jjz list` → `zjj list`
+  - `jjz remove` → `zjj remove`
+  - `jjz focus` → `zjj focus`
   - All other commands follow the same pattern
 
-- **Configuration and state directory**: `.zjj/` → `.zjj/`
-  - Default config: `.zjj/config.toml` → `.zjj/config.toml`
-  - Session database: `.zjj/state.db` → `.zjj/state.db`
-  - Layouts: `.zjj/layouts/` → `.zjj/layouts/`
+- **Configuration and state directory**: `.jjz/` → `.zjj/`
+  - Default config: `.jjz/config.toml` → `.zjj/config.toml`
+  - Session database: `.jjz/state.db` → `.zjj/state.db`
+  - Layouts: `.jjz/layouts/` → `.zjj/layouts/`
 
-- **Default session prefix**: `zjj:` → `zjj:` in Zellij tabs
+- **Default session prefix**: `jjz:` → `zjj:` in Zellij tabs
   - Configurable via `.zjj/config.toml`
+
+- **Standardized JSON error fields** to use `Option<ErrorDetail>` structure
+  - `SyncOutput.errors: Vec<SyncError>` → `SyncOutput.error: Option<ErrorDetail>`
+  - Consolidated multiple errors into single ErrorDetail with details array
+  - All error responses now have consistent structure with `code`, `message`, `details`
 
 ### Added
 
-- **New MIGRATION.md guide** for version upgrade instructions
+- **JJ (Jujutsu) workflow documentation** in CLAUDE.md
+  - Revset mastery guide for precise commit selection
+  - Workspace-based multitasking (no git stash needed)
+  - Conflicts as data philosophy
+  - Bookmark management workflow
+  - Operation log safety net
+
+### Fixed
+
+- **Database schema initialization** - Fixed missing status column error on fresh installs
+- **Clippy lint compliance** - Resolved 100+ clippy warnings for strict code quality
 
 ### Notes
 

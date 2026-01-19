@@ -1,0 +1,324 @@
+{
+  "bead_id": "zjj-ffz9",
+  "title": "P0: Update help text for v0.2.0 release",
+  "status": "OPEN",
+  "priority": "P0",
+  "created_at": "2026-01-18T13:24:57Z",
+  "analysis_timestamp": "2026-01-18",
+
+  "overview": {
+    "scope": "Update all CLI help text to reflect v0.2.0 release changes",
+    "primary_location": "/home/lewis/src/zjj/crates/zjj/src/cli/args.rs",
+    "total_file_size": "2180 lines",
+    "complexity": "MEDIUM - Systematic documentation updates across 25+ command functions"
+  },
+
+  "v0_2_0_key_changes": {
+    "breaking_changes": [
+      "Binary rename: jjz → zjj",
+      "Directory rename: .jjz/ → .zjj/",
+      "Session prefix: jjz: → zjj: (configurable)",
+      "Database location: .jjz/state.db → .zjj/state.db",
+      "Layouts directory: .jjz/layouts/ → .zjj/layouts/"
+    ],
+    "changelog_reference": "/home/lewis/src/zjj/CHANGELOG.md (lines 40-100+)",
+    "release_status": "Completed - version bumped to 0.2.0"
+  },
+
+  "help_text_locations": {
+    "primary_file": "/home/lewis/src/zjj/crates/zjj/src/cli/args.rs",
+    "command_builders": [
+      {
+        "line": 8,
+        "function": "cmd_init",
+        "help_lines": "10-107",
+        "status": "CONTAINS_ZJJ_REFS - references .zjj/ (correct for v0.2.0)"
+      },
+      {
+        "line": 110,
+        "function": "cmd_add",
+        "help_lines": "112-228",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 231,
+        "function": "cmd_add_batch",
+        "help_lines": "233-325",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 327,
+        "function": "cmd_list",
+        "help_lines": "329-456",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 458,
+        "function": "cmd_remove",
+        "help_lines": "460-577",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 579,
+        "function": "cmd_focus",
+        "help_lines": "581-647",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 649,
+        "function": "cmd_status",
+        "help_lines": "651-743",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 745,
+        "function": "cmd_sync",
+        "help_lines": "747-849",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 851,
+        "function": "cmd_diff",
+        "help_lines": "853-946",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 948,
+        "function": "cmd_config",
+        "help_lines": "951-1060",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1062,
+        "function": "cmd_dashboard",
+        "help_lines": "1064-1137",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1139,
+        "function": "cmd_context",
+        "help_lines": "1141-1226",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1228,
+        "function": "cmd_prime",
+        "help_lines": "1230-1295",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1297,
+        "function": "cmd_introspect",
+        "help_lines": "1299-1386",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1388,
+        "function": "cmd_doctor",
+        "help_lines": "1390-1414",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1416,
+        "function": "cmd_query",
+        "help_lines": "1418-1537",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1539,
+        "function": "cmd_completions",
+        "help_lines": "1541-1611",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1649,
+        "function": "cmd_backup",
+        "help_lines": "1651-1671",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1673,
+        "function": "cmd_restore",
+        "help_lines": "1675-1702",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1704,
+        "function": "cmd_verify_backup",
+        "help_lines": "1706-1807",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1809,
+        "function": "cmd_essentials",
+        "help_lines": "1810-1865",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1867,
+        "function": "cmd_version",
+        "help_lines": "1868-1883",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1885,
+        "function": "cmd_onboard",
+        "help_lines": "1886-1949",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1951,
+        "function": "cmd_hooks",
+        "help_lines": "1952-1970",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 1972,
+        "function": "cmd_agent",
+        "help_lines": "1973-2063",
+        "status": "NEEDS_REVIEW"
+      },
+      {
+        "line": 2068,
+        "function": "build_cli (root command)",
+        "help_lines": "2072-2150+",
+        "status": "CRITICAL - Root command description and examples"
+      }
+    ],
+    "command_count": 25
+  },
+
+  "update_requirements": {
+    "critical_checks": [
+      {
+        "check": "jjz to zjj binary name",
+        "search_pattern": "jjz init|jjz add|jjz list|jjz remove|jjz focus|jjz sync|jjz diff",
+        "expected_pattern": "zjj init|zjj add|zjj list|zjj remove|zjj focus|zjj sync|zjj diff",
+        "impact": "User-facing examples must reflect new command names"
+      },
+      {
+        "check": ".jjz to .zjj directory references",
+        "search_pattern": "\\.jjz/|\\.jjz\\\\",
+        "expected_pattern": "\\.zjj/|\\.zjj\\\\",
+        "impact": "Documentation must show correct config directory"
+      },
+      {
+        "check": "jjz: tab prefix to zjj: (where hardcoded)",
+        "search_pattern": "jjz:",
+        "expected_pattern": "zjj: (or note as configurable)",
+        "impact": "Tab naming examples must be updated"
+      },
+      {
+        "check": "Version reference mentions",
+        "search_pattern": "0\\.1\\.0",
+        "expected_pattern": "Should mention 0.2.0 or be version-agnostic (using env macro)",
+        "impact": "Help text should reflect current release"
+      }
+    ],
+    "style_guidelines": [
+      "Maintain existing multi-line help text format with WHAT IT DOES, WHEN TO USE, etc.",
+      "All examples must use 'zjj' command (not 'jjz')",
+      "All paths must use '.zjj/' (not '.jjz/')",
+      "Keep consistent capitalization: ZJJ (acronym), zjj (command/binary)",
+      "Tab prefix references should note it's configurable via .zjj/config.toml"
+    ]
+  },
+
+  "search_results": {
+    "findings": {
+      "jjz_occurrences_in_args_rs": 0,
+      "zjj_occurrences_in_args_rs": "ABUNDANT - Already updated",
+      "zellij_tab_prefix_examples": "Multiple (.e.g. in cmd_add long_about)",
+      "version_references": "env!('CARGO_PKG_VERSION') used for root command version"
+    }
+  },
+
+  "implementation_strategy": {
+    "approach": "Systematic review and update of all 25 command builders",
+    "phases": [
+      {
+        "phase": 1,
+        "task": "Audit all command builders for outdated references",
+        "scope": "Scan all cmd_* functions for jjz, .jjz, version numbers",
+        "effort": "30 minutes"
+      },
+      {
+        "phase": 2,
+        "task": "Update root command documentation",
+        "scope": "build_cli() function - primary entry point",
+        "effort": "15 minutes"
+      },
+      {
+        "phase": 3,
+        "task": "Update session lifecycle commands",
+        "scope": "init, add, add_batch, list, remove, focus, status",
+        "effort": "45 minutes"
+      },
+      {
+        "phase": 4,
+        "task": "Update workspace/utility commands",
+        "scope": "sync, diff, config, backup, restore, verify_backup",
+        "effort": "30 minutes"
+      },
+      {
+        "phase": 5,
+        "task": "Update introspection/AI commands",
+        "scope": "context, introspect, dashboard, prime, query, agent",
+        "effort": "30 minutes"
+      },
+      {
+        "phase": 6,
+        "task": "Run tests to validate help text",
+        "scope": "test_all_commands_have_help, test_help_has_examples",
+        "effort": "15 minutes"
+      }
+    ]
+  },
+
+  "related_tests": [
+    {
+      "file": "crates/zjj/tests/test_cli_parsing.rs",
+      "tests": [
+        "test_help_flag",
+        "test_init_help",
+        "test_add_help"
+      ]
+    },
+    {
+      "file": "crates/zjj/tests/p0_standardization_suite.rs",
+      "tests": [
+        "test_all_commands_have_help",
+        "test_help_section_headers_uppercase",
+        "test_help_has_examples",
+        "test_help_has_ai_agent_sections"
+      ]
+    }
+  ],
+
+  "risk_assessment": {
+    "severity": "LOW",
+    "reason": "Documentation-only changes with no code logic modifications",
+    "validation": "Tests automatically verify help text exists and has proper structure",
+    "regression_potential": "Minimal - text changes don't affect functionality"
+  },
+
+  "deliverables": {
+    "primary": [
+      "Updated /home/lewis/src/zjj/crates/zjj/src/cli/args.rs with v0.2.0 documentation",
+      "All 25 command builders reviewed and updated",
+      "All examples reflect new zjj binary name and .zjj/ paths"
+    ],
+    "validation": [
+      "All help text tests passing",
+      "Manual review of output: zjj --help, zjj <cmd> --help",
+      "Verify JSON help output: zjj --help --json"
+    ]
+  },
+
+  "estimated_effort": {
+    "audit": "30 minutes",
+    "updates": "2-2.5 hours",
+    "testing": "20 minutes",
+    "total": "3-3.5 hours"
+  }
+}
