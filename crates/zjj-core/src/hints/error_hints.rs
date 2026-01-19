@@ -3,6 +3,8 @@
 //! Pure functions for generating helpful hints based on error codes,
 //! providing context-aware solutions and next steps.
 
+use im::{vector, Vector};
+
 use crate::hints::Hint;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -24,9 +26,9 @@ fn extract_session_name(error_msg: &str, default: &str) -> String {
 
 /// Generate hints for SESSION_ALREADY_EXISTS error
 #[must_use]
-pub(crate) fn hints_for_session_exists(error_msg: &str) -> Vec<Hint> {
+pub(crate) fn hints_for_session_exists(error_msg: &str) -> Vector<Hint> {
     let session_name = extract_session_name(error_msg, "session");
-    vec![
+    vector![
         Hint::suggestion("Use a different name for the new session")
             .with_command(format!("zjj add {session_name}-v2"))
             .with_rationale("Append version or date to differentiate"),
@@ -41,8 +43,8 @@ pub(crate) fn hints_for_session_exists(error_msg: &str) -> Vec<Hint> {
 
 /// Generate hints for ZELLIJ_NOT_RUNNING error
 #[must_use]
-pub(crate) fn hints_for_zellij_not_running() -> Vec<Hint> {
-    vec![
+pub(crate) fn hints_for_zellij_not_running() -> Vector<Hint> {
+    vector![
         Hint::suggestion("Start Zellij first")
             .with_command("zellij")
             .with_rationale("zjj requires Zellij to be running"),
@@ -54,8 +56,8 @@ pub(crate) fn hints_for_zellij_not_running() -> Vec<Hint> {
 
 /// Generate hints for NOT_INITIALIZED error
 #[must_use]
-pub(crate) fn hints_for_not_initialized() -> Vec<Hint> {
-    vec![
+pub(crate) fn hints_for_not_initialized() -> Vector<Hint> {
+    vector![
         Hint::suggestion("Initialize zjj in this repository")
             .with_command("zjj init")
             .with_rationale("Creates .zjj directory with configuration"),
@@ -66,8 +68,8 @@ pub(crate) fn hints_for_not_initialized() -> Vec<Hint> {
 
 /// Generate hints for JJ_NOT_FOUND error
 #[must_use]
-pub(crate) fn hints_for_jj_not_found() -> Vec<Hint> {
-    vec![
+pub(crate) fn hints_for_jj_not_found() -> Vector<Hint> {
+    vector![
         Hint::warning("JJ (Jujutsu) is not installed or not in PATH")
             .with_rationale("zjj requires JJ for workspace management"),
         Hint::suggestion("Install JJ from https://github.com/martinvonz/jj")
@@ -77,8 +79,8 @@ pub(crate) fn hints_for_jj_not_found() -> Vec<Hint> {
 
 /// Generate hints for SESSION_NOT_FOUND error
 #[must_use]
-pub(crate) fn hints_for_session_not_found() -> Vec<Hint> {
-    vec![
+pub(crate) fn hints_for_session_not_found() -> Vector<Hint> {
+    vector![
         Hint::suggestion("List all sessions to see available ones")
             .with_command("zjj list")
             .with_rationale("Check session names and status"),
@@ -89,8 +91,8 @@ pub(crate) fn hints_for_session_not_found() -> Vec<Hint> {
 
 /// Generate generic error recovery hints
 #[must_use]
-pub(crate) fn hints_for_generic_error() -> Vec<Hint> {
-    vec![Hint::info("Check error details for more information")
+pub(crate) fn hints_for_generic_error() -> Vector<Hint> {
+    vector![Hint::info("Check error details for more information")
         .with_command("zjj status")
         .with_rationale("Verify system state and configuration")]
 }
@@ -104,7 +106,7 @@ pub(crate) fn hints_for_generic_error() -> Vec<Hint> {
 /// Returns appropriate hints based on the error code,
 /// providing next steps and recovery strategies.
 #[must_use]
-pub fn hints_for_error_code(error_code: &str, error_msg: &str) -> Vec<Hint> {
+pub fn hints_for_error_code(error_code: &str, error_msg: &str) -> Vector<Hint> {
     match error_code {
         "SESSION_ALREADY_EXISTS" => hints_for_session_exists(error_msg),
         "ZELLIJ_NOT_RUNNING" => hints_for_zellij_not_running(),
@@ -119,7 +121,7 @@ pub fn hints_for_error_code(error_code: &str, error_msg: &str) -> Vec<Hint> {
 ///
 /// Delegates to error_code matching and returns appropriate suggestions.
 #[must_use]
-pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
+pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vector<Hint> {
     hints_for_error_code(error_code, error_msg)
 }
 

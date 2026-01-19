@@ -4,6 +4,8 @@
 //! session status changes, and beads issue tracking.
 
 use chrono::Utc;
+use im::{vector, Vector};
+use tap::Pipe;
 
 use crate::{
     hints::{Hint, SystemState},
@@ -66,58 +68,58 @@ pub(crate) fn hint_for_multiple_active_sessions() -> Hint {
 /// # Errors
 /// Returns error if unable to process sessions
 #[allow(clippy::unnecessary_wraps)]
-pub fn generate_session_hints(state: &SystemState) -> Result<Vec<Hint>> {
+pub fn generate_session_hints(state: &SystemState) -> Result<Vector<Hint>> {
     // No sessions - encourage creation
     if state.sessions.is_empty() {
-        return Ok(vec![hint_for_no_sessions()]);
+        return Ok(vector![hint_for_no_sessions()]);
     }
 
-    // Active session hints
-    let active_hints: Vec<Hint> = state
-        .sessions
-        .iter()
-        .filter(|s| s.status == SessionStatus::Active)
-        .map(|session| hint_for_active_session(&session.name))
-        .collect();
-
-    // Completed sessions hints (only if older than 1 day)
     let now = Utc::now();
-    let completed_hints: Vec<Hint> = state
+
+    // Single fold to collect all hints
+    state
         .sessions
         .iter()
-        .filter(|s| s.status == SessionStatus::Completed)
-        .filter_map(|session| {
-            let duration = now.signed_duration_since(session.updated_at);
-            let age = duration.num_days();
-            (age > 1).then(|| hint_for_completed_session(&session.name, age))
+        .fold(Vector::new(), |acc, session| match session.status {
+            SessionStatus::Active => acc.pipe(|v| {
+                let mut v = v;
+                v.push_back(hint_for_active_session(&session.name));
+                v
+            }),
+            SessionStatus::Completed => {
+                let age = now.signed_duration_since(session.updated_at).num_days();
+                if age > 1 {
+                    acc.pipe(|v| {
+                        let mut v = v;
+                        v.push_back(hint_for_completed_session(&session.name, age));
+                        v
+                    })
+                } else {
+                    acc
+                }
+            }
+            SessionStatus::Failed => acc.pipe(|v| {
+                let mut v = v;
+                v.push_back(hint_for_failed_session(&session.name));
+                v
+            }),
+            SessionStatus::Removed => acc,
         })
-        .collect();
-
-    // Failed sessions hints
-    let failed_hints: Vec<Hint> = state
-        .sessions
-        .iter()
-        .filter(|s| s.status == SessionStatus::Failed)
-        .map(|session| hint_for_failed_session(&session.name))
-        .collect();
-
-    // Multiple active sessions - suggest dashboard
-    let active_count = active_hints.len();
-    let dashboard_hint = if active_count > 2 {
-        vec![hint_for_multiple_active_sessions()]
-    } else {
-        vec![]
-    };
-
-    // Chain all hints together
-    let hints: Vec<Hint> = active_hints
-        .into_iter()
-        .chain(completed_hints)
-        .chain(failed_hints)
-        .chain(dashboard_hint)
-        .collect();
-
-    Ok(hints)
+        .pipe(|hints| {
+            let active_count = state
+                .sessions
+                .iter()
+                .filter(|s| s.status == SessionStatus::Active)
+                .count();
+            if active_count > 2 {
+                let mut hints = hints;
+                hints.push_back(hint_for_multiple_active_sessions());
+                hints
+            } else {
+                hints
+            }
+        })
+        .pipe(Ok)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -160,21 +162,35 @@ pub(crate) fn hint_for_no_beads_issues(session_name: &str) -> Hint {
 /// Analyzes issue count, blocked items, and work-in-progress levels
 /// to provide context-aware suggestions for task management.
 #[must_use]
-pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vec<Hint> {
-    let blocker_hint = beads
-        .has_blockers()
-        .then(|| hint_for_blocked_issues(session_name, beads.blocked));
-
-    let wip_hint =
-        (beads.active() > 5).then(|| hint_for_excessive_wip(session_name, beads.active()));
-
-    let empty_hint = (beads.total() == 0).then(|| hint_for_no_beads_issues(session_name));
-
-    blocker_hint
-        .into_iter()
-        .chain(wip_hint)
-        .chain(empty_hint)
-        .collect()
+pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vector<Hint> {
+    Vector::new()
+        .pipe(|v| {
+            if beads.has_blockers() {
+                let mut v = v;
+                v.push_back(hint_for_blocked_issues(session_name, beads.blocked));
+                v
+            } else {
+                v
+            }
+        })
+        .pipe(|v| {
+            if beads.active() > 5 {
+                let mut v = v;
+                v.push_back(hint_for_excessive_wip(session_name, beads.active()));
+                v
+            } else {
+                v
+            }
+        })
+        .pipe(|v| {
+            if beads.total() == 0 {
+                let mut v = v;
+                v.push_back(hint_for_no_beads_issues(session_name));
+                v
+            } else {
+                v
+            }
+        })
 }
 
 /// Suggest actions based on session activity
@@ -182,48 +198,57 @@ pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vec<Hint> {
 /// Provides contextual suggestions for session management
 /// based on current session state.
 #[must_use]
-pub fn suggest_session_actions(state: &SystemState) -> Vec<String> {
-    let mut actions = Vec::new();
-
-    // Check for completed sessions that might need cleanup
+pub fn suggest_session_actions(state: &SystemState) -> Vector<String> {
     let has_completed = state
         .sessions
         .iter()
         .any(|s| s.status == SessionStatus::Completed);
-
-    if has_completed {
-        actions.push("Review completed sessions for cleanup".to_string());
-    }
-
-    // Check for failed sessions
     let has_failed = state
         .sessions
         .iter()
         .any(|s| s.status == SessionStatus::Failed);
-
-    if has_failed {
-        actions.push("Remove failed sessions and retry".to_string());
-    }
-
-    // Check for too many active sessions
     let active_count = state
         .sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Active)
         .count();
 
-    if active_count > 3 {
-        actions.push("Consider consolidating active sessions".to_string());
-    }
-
-    actions
+    Vector::new()
+        .pipe(|v| {
+            if has_completed {
+                let mut v = v;
+                v.push_back("Review completed sessions for cleanup".into());
+                v
+            } else {
+                v
+            }
+        })
+        .pipe(|v| {
+            if has_failed {
+                let mut v = v;
+                v.push_back("Remove failed sessions and retry".into());
+                v
+            } else {
+                v
+            }
+        })
+        .pipe(|v| {
+            if active_count > 3 {
+                let mut v = v;
+                v.push_back("Consider consolidating active sessions".into());
+                v
+            } else {
+                v
+            }
+        })
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
     use crate::{hints::HintType, types::Session};
-    use std::path::PathBuf;
 
     fn create_test_session(name: &str, status: SessionStatus) -> Session {
         Session {
@@ -263,7 +288,7 @@ mod tests {
     #[test]
     fn test_generate_session_hints_no_sessions() {
         let state = SystemState {
-            sessions: Vec::new(),
+            sessions: Vector::new(),
             initialized: true,
             jj_repo: true,
         };
@@ -276,7 +301,7 @@ mod tests {
     #[test]
     fn test_generate_session_hints_with_active() {
         let state = SystemState {
-            sessions: vec![create_test_session("active-1", SessionStatus::Active)],
+            sessions: vector![create_test_session("active-1", SessionStatus::Active)],
             initialized: true,
             jj_repo: true,
         };
@@ -289,7 +314,7 @@ mod tests {
     #[test]
     fn test_generate_session_hints_multiple_active() {
         let state = SystemState {
-            sessions: vec![
+            sessions: vector![
                 create_test_session("active-1", SessionStatus::Active),
                 create_test_session("active-2", SessionStatus::Active),
                 create_test_session("active-3", SessionStatus::Active),
@@ -339,7 +364,7 @@ mod tests {
     #[test]
     fn test_suggest_session_actions_completed() {
         let state = SystemState {
-            sessions: vec![create_test_session("done", SessionStatus::Completed)],
+            sessions: vector![create_test_session("done", SessionStatus::Completed)],
             initialized: true,
             jj_repo: true,
         };
@@ -351,7 +376,7 @@ mod tests {
     #[test]
     fn test_suggest_session_actions_many_active() {
         let state = SystemState {
-            sessions: vec![
+            sessions: vector![
                 create_test_session("a1", SessionStatus::Active),
                 create_test_session("a2", SessionStatus::Active),
                 create_test_session("a3", SessionStatus::Active),

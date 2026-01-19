@@ -1,6 +1,6 @@
 //! Tool metadata, categories, workflows, and prerequisites
 
-use std::collections::HashMap;
+use im::{hashmap, vector, HashMap, Vector};
 
 use super::types::{CoreConcept, Prerequisite, ToolMetadata, Workflow, WorkflowStep};
 
@@ -10,7 +10,7 @@ pub fn generate_tool_metadata() -> ToolMetadata {
         version: env!("CARGO_PKG_VERSION").to_string(),
         description: "Manage JJ workspaces with Zellij sessions".to_string(),
         purpose: "A workflow tool that manages isolated development sessions by combining JJ (Jujutsu) workspaces for parallel Git branches, Zellij terminal multiplexer for organized UI layouts, and SQLite database for session state tracking.".to_string(),
-        core_concepts: vec![
+        core_concepts: vector![
             CoreConcept {
                 name: "Session".to_string(),
                 description: "A named development task with its own workspace and Zellij tab".to_string(),
@@ -30,56 +30,41 @@ pub fn generate_tool_metadata() -> ToolMetadata {
     }
 }
 
-pub fn generate_categories() -> HashMap<String, Vec<String>> {
-    let mut categories = HashMap::new();
-    categories.insert(
-        "Session Lifecycle".to_string(),
-        vec![
-            "add".to_string(),
-            "remove".to_string(),
-            "list".to_string(),
-            "status".to_string(),
-            "focus".to_string(),
+pub fn generate_categories() -> HashMap<String, Vector<String>> {
+    hashmap! {
+        "Session Lifecycle".into() => vector![
+            "add".into(),
+            "remove".into(),
+            "list".into(),
+            "status".into(),
+            "focus".into(),
         ],
-    );
-    categories.insert(
-        "Workspace Sync".to_string(),
-        vec!["sync".to_string(), "diff".to_string()],
-    );
-    categories.insert(
-        "System".to_string(),
-        vec![
-            "init".to_string(),
-            "config".to_string(),
-            "doctor".to_string(),
+        "Workspace Sync".into() => vector!["sync".into(), "diff".into()],
+        "System".into() => vector![
+            "init".into(),
+            "config".into(),
+            "doctor".into(),
         ],
-    );
-    categories.insert(
-        "Introspection".to_string(),
-        vec![
-            "context".to_string(),
-            "introspect".to_string(),
-            "dashboard".to_string(),
+        "Introspection".into() => vector![
+            "context".into(),
+            "introspect".into(),
+            "dashboard".into(),
         ],
-    );
-    categories.insert(
-        "Utilities".to_string(),
-        vec![
-            "backup".to_string(),
-            "restore".to_string(),
-            "verify-backup".to_string(),
-            "completions".to_string(),
-            "query".to_string(),
+        "Utilities".into() => vector![
+            "backup".into(),
+            "restore".into(),
+            "verify-backup".into(),
+            "completions".into(),
+            "query".into(),
         ],
-    );
-    categories
+    }
 }
 
-pub fn generate_workflows() -> Vec<Workflow> {
-    vec![Workflow {
+pub fn generate_workflows() -> Vector<Workflow> {
+    vector![Workflow {
         name: "Standard Development".to_string(),
         description: "Typical workflow for feature development".to_string(),
-        steps: vec![
+        steps: vector![
             WorkflowStep {
                 order: 1,
                 command: "zjj init".to_string(),
@@ -115,29 +100,17 @@ pub fn generate_workflows() -> Vec<Workflow> {
 }
 
 pub fn generate_exit_codes() -> HashMap<i32, String> {
-    let mut codes = HashMap::new();
-    codes.insert(0, "Success".to_string());
-    codes.insert(
-        1,
-        "User error (invalid input, validation failure, bad configuration)".to_string(),
-    );
-    codes.insert(
-        2,
-        "System error (IO failure, external command error, hook failure)".to_string(),
-    );
-    codes.insert(
-        3,
-        "Not found (session not found, resource missing, JJ not installed)".to_string(),
-    );
-    codes.insert(
-        4,
-        "Invalid state (database corruption, unhealthy system)".to_string(),
-    );
-    codes
+    hashmap! {
+        0 => "Success".into(),
+        1 => "User error (invalid input, validation failure, bad configuration)".into(),
+        2 => "System error (IO failure, external command error, hook failure)".into(),
+        3 => "Not found (session not found, resource missing, JJ not installed)".into(),
+        4 => "Invalid state (database corruption, unhealthy system)".into(),
+    }
 }
 
-pub fn generate_prerequisites() -> Vec<Prerequisite> {
-    vec![
+pub fn generate_prerequisites() -> Vector<Prerequisite> {
+    vector![
         Prerequisite {
             name: "jj".to_string(),
             description: "Jujutsu VCS - Git-compatible version control".to_string(),

@@ -33,6 +33,7 @@ pub mod beads;
 pub mod build_lock;
 pub mod config;
 pub mod contracts;
+pub mod effects;
 mod error;
 pub mod error_codes;
 pub mod functional;

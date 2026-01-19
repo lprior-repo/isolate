@@ -18,6 +18,10 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use either::Either;
+use im::Vector;
+use itertools::Itertools;
+use tap::Pipe;
 
 /// Hook names as constants
 const POST_CHECKOUT_HOOK: &str = "post-checkout";
@@ -69,6 +73,36 @@ const HOOKS: &[HookDefinition] = &[
     HookDefinition::new(POST_MERGE_HOOK, HOOK_TEMPLATE),
 ];
 
+/// Result of attempting to install a hook
+#[derive(Debug, Clone)]
+enum HookResult<'a> {
+    Installed {
+        name: &'a str,
+        status: &'static str,
+        path: PathBuf,
+    },
+    Skipped {
+        name: &'a str,
+        reason: String,
+    },
+}
+
+/// Attempt to install a single hook and return the result
+fn attempt_hook_install<'a>(hook: &'a HookDefinition, hooks_dir: &Path) -> HookResult<'a> {
+    let hook_path = hooks_dir.join(hook.name);
+    match install_hook(&hook_path, hook.content) {
+        Ok(was_created) => HookResult::Installed {
+            name: hook.name,
+            status: if was_created { "created" } else { "updated" },
+            path: hook_path,
+        },
+        Err(e) => HookResult::Skipped {
+            name: hook.name,
+            reason: e.to_string(),
+        },
+    }
+}
+
 /// Install git hooks for AI workflow integration
 ///
 /// # Errors
@@ -93,30 +127,30 @@ pub fn install_hooks(dry_run: bool, json: bool) -> Result<()> {
         })?;
     }
 
-    let mut installed = Vec::new();
-    let mut skipped = Vec::new();
+    // Pure: Compute all results
+    let results: Vector<HookResult<'_>> = HOOKS
+        .iter()
+        .map(|hook| attempt_hook_install(hook, &hooks_dir))
+        .collect();
 
-    for hook in HOOKS {
-        let hook_path = hooks_dir.join(hook.name);
-
-        match install_hook(&hook_path, hook.content) {
-            Ok(was_created) => {
-                let status = if was_created { "created" } else { "updated" };
-                installed.push((hook.name, status));
-
-                if !json {
-                    eprintln!("{} hook {}: {}", status, hook.name, hook_path.display());
-                }
+    // Side effect: Print if not JSON mode
+    if !json {
+        results.iter().for_each(|r| match r {
+            HookResult::Installed { name, status, path } => {
+                eprintln!("{status} hook {name}: {}", path.display());
             }
-            Err(e) => {
-                skipped.push((hook.name, e.to_string()));
-
-                if !json {
-                    eprintln!("Warning: Failed to install {}: {}", hook.name, e);
-                }
+            HookResult::Skipped { name, reason } => {
+                eprintln!("Warning: Failed to install {name}: {reason}");
             }
-        }
+        });
     }
+
+    // Pure: Partition results into installed and skipped
+    let (installed, skipped): (Vector<_>, Vector<_>) =
+        results.into_iter().partition_map(|r| match r {
+            HookResult::Installed { name, status, .. } => Either::Left((name, status)),
+            HookResult::Skipped { name, reason } => Either::Right((name, reason)),
+        });
 
     if json {
         output_json(&hooks_dir, &installed, &skipped)?;
@@ -135,8 +169,9 @@ pub fn install_hooks(dry_run: bool, json: bool) -> Result<()> {
 /// - Unable to determine current directory
 /// - No .git directory found in any parent
 fn find_git_directory() -> Result<PathBuf> {
-    let current_dir = std::env::current_dir().context("Failed to determine current directory")?;
-    find_git_directory_from(&current_dir)
+    std::env::current_dir()
+        .context("Failed to determine current directory")
+        .pipe(|r| r.and_then(|p| find_git_directory_from(&p)))
 }
 
 /// Find the git directory (.git) starting from a specific path
@@ -147,23 +182,16 @@ fn find_git_directory() -> Result<PathBuf> {
 ///
 /// Returns error if no .git directory found in any parent
 fn find_git_directory_from(start_path: &Path) -> Result<PathBuf> {
-    let mut current = start_path;
-
-    loop {
-        let git_dir = current.join(".git");
-
-        if git_dir.exists() && git_dir.is_dir() {
-            return Ok(git_dir);
-        }
-
-        current = current.parent().ok_or_else(|| {
+    std::iter::successors(Some(start_path), |p| p.parent())
+        .map(|p| p.join(".git"))
+        .find(|git_dir| git_dir.exists() && git_dir.is_dir())
+        .ok_or_else(|| {
             anyhow::anyhow!(
                 "Not in a git repository (no .git directory found).\n\n\
                 zjj hooks require a git repository for git interop.\n\
                 If using pure JJ, git hooks are not needed."
             )
-        })?;
-    }
+        })
 }
 
 /// Install a single hook file
@@ -178,6 +206,7 @@ fn install_hook(hook_path: &Path, content: &str) -> Result<bool> {
         .with_context(|| format!("Failed to write hook file: {}", hook_path.display()))?;
 
     // Make executable (chmod +x)
+    // Note: let mut is necessary here for I/O permission modification
     let mut perms = fs::metadata(hook_path)
         .with_context(|| format!("Failed to read hook metadata: {}", hook_path.display()))?
         .permissions();
@@ -202,18 +231,18 @@ fn build_hook_operation_json(hook_name: &str, hook_path: &Path, exists: bool) ->
 /// Preview what would be installed (dry-run mode)
 fn preview_installation(hooks_dir: &Path, json: bool) -> Result<()> {
     if json {
-        let operations = HOOKS
+        let operations: Vector<_> = HOOKS
             .iter()
             .map(|hook| {
                 let hook_path = hooks_dir.join(hook.name);
                 build_hook_operation_json(hook.name, &hook_path, hook_path.exists())
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         let output = serde_json::json!({
             "dry_run": true,
             "hooks_dir": hooks_dir.display().to_string(),
-            "operations": operations,
+            "operations": operations.iter().collect::<Vec<_>>(),
         });
 
         println!("{}", serde_json::to_string_pretty(&output)?);
@@ -221,7 +250,7 @@ fn preview_installation(hooks_dir: &Path, json: bool) -> Result<()> {
         eprintln!("DRY RUN - No changes will be made\n");
         eprintln!("Hooks directory: {}\n", hooks_dir.display());
 
-        for hook in HOOKS {
+        HOOKS.iter().for_each(|hook| {
             let hook_path = hooks_dir.join(hook.name);
             let exists = hook_path.exists();
             let action = if exists { "update" } else { "create" };
@@ -232,7 +261,7 @@ fn preview_installation(hooks_dir: &Path, json: bool) -> Result<()> {
                 hook.name,
                 hook_path.display()
             );
-        }
+        });
 
         eprintln!("\nRun without --dry-run to install hooks");
     }
@@ -259,8 +288,8 @@ fn build_skipped_hook_json(name: &str, reason: &str) -> serde_json::Value {
 /// Output JSON summary of installation
 fn output_json(
     hooks_dir: &Path,
-    installed: &[(&str, &str)],
-    skipped: &[(&str, String)],
+    installed: &Vector<(&str, &'static str)>,
+    skipped: &Vector<(&str, String)>,
 ) -> Result<()> {
     let output = serde_json::json!({
         "success": skipped.is_empty(),
@@ -278,7 +307,7 @@ fn output_json(
 }
 
 /// Output human-readable summary
-fn output_summary(installed: &[(&str, &str)], skipped: &[(&str, String)]) {
+fn output_summary(installed: &Vector<(&str, &'static str)>, skipped: &Vector<(&str, String)>) {
     eprintln!("\nHooks installation complete!");
     eprintln!("Installed {} hook(s)", installed.len());
 
@@ -393,7 +422,7 @@ mod tests {
         // Verify we have the expected hooks defined
         assert_eq!(HOOKS.len(), 2);
 
-        let hook_names: Vec<&str> = HOOKS.iter().map(|h| h.name).collect();
+        let hook_names: Vector<&str> = HOOKS.iter().map(|h| h.name).collect();
         assert!(hook_names.contains(&POST_CHECKOUT_HOOK));
         assert!(hook_names.contains(&POST_MERGE_HOOK));
     }

@@ -18,6 +18,7 @@ mod error_hints;
 mod session_hints;
 mod workflow_hints;
 
+use im::{vector, Vector};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -76,7 +77,7 @@ pub enum HintType {
 #[derive(Debug, Clone)]
 pub struct SystemState {
     /// All sessions
-    pub sessions: Vec<Session>,
+    pub sessions: Vector<Session>,
 
     /// Whether system is initialized
     pub initialized: bool,
@@ -102,10 +103,10 @@ pub struct HintsResponse {
     pub context: SystemContext,
 
     /// Generated hints
-    pub hints: Vec<Hint>,
+    pub hints: Vector<Hint>,
 
     /// Suggested next actions
-    pub next_actions: Vec<NextAction>,
+    pub next_actions: Vector<NextAction>,
 }
 
 /// System context summary
@@ -221,19 +222,18 @@ impl Hint {
 /// # Errors
 ///
 /// Returns error if unable to analyze state
-pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
-    let hints = session_hints::generate_session_hints(state)?;
-    Ok(hints)
+pub fn generate_hints(state: &SystemState) -> Result<Vector<Hint>> {
+    session_hints::generate_session_hints(state)
 }
 
 /// Generate hints for a specific error (public re-export from error module)
 /// Delegates to error_hints module for hint generation
-pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
+pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vector<Hint> {
     error_hints::hints_for_error(error_code, error_msg)
 }
 
 /// Generate suggested next actions based on state (public re-export from workflow module)
-pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
+pub fn suggest_next_actions(state: &SystemState) -> Vector<NextAction> {
     workflow_hints::suggest_next_actions(state)
 }
 
@@ -278,7 +278,7 @@ pub fn generate_hints_response(state: &SystemState) -> Result<HintsResponse> {
 }
 
 /// Generate hints for beads status (public re-export from session module)
-pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vec<Hint> {
+pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vector<Hint> {
     session_hints::hints_for_beads(session_name, beads)
 }
 
@@ -323,12 +323,12 @@ mod tests {
     #[test]
     fn test_generate_hints_no_sessions() {
         let state = SystemState {
-            sessions: Vec::new(),
+            sessions: Vector::new(),
             initialized: true,
             jj_repo: true,
         };
 
-        let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
+        let hints = generate_hints(&state).unwrap_or_else(|_| Vector::new());
         assert!(!hints.is_empty());
         assert!(hints[0].message.contains("first parallel workspace"));
     }
@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn test_generate_hints_response() {
         let state = SystemState {
-            sessions: vec![create_test_session("active", SessionStatus::Active)],
+            sessions: vector![create_test_session("active", SessionStatus::Active)],
             initialized: true,
             jj_repo: true,
         };
@@ -349,8 +349,8 @@ mod tests {
                 active_sessions: 0,
                 has_changes: false,
             },
-            hints: Vec::new(),
-            next_actions: Vec::new(),
+            hints: Vector::new(),
+            next_actions: Vector::new(),
         });
 
         assert_eq!(response.context.sessions_count, 1);

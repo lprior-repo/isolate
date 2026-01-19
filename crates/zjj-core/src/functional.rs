@@ -1,4 +1,5 @@
 use crate::Result;
+use tap::Pipe;
 
 pub type FallibleTransform<T, U> = fn(T) -> Result<U>;
 
@@ -37,9 +38,11 @@ where
 {
     items.iter().fold(im::HashMap::new(), |map, item| {
         let key = key_fn(item);
-        let mut group = map.get(&key).cloned().unwrap_or_else(im::Vector::new);
-        group.push_back(item.clone());
-        map.update(key, group)
+        map.get(&key)
+            .cloned()
+            .unwrap_or_else(im::Vector::new)
+            .push_back(item.clone())
+            .pipe(|updated_group| map.update(key, updated_group))
     })
 }
 
@@ -48,17 +51,15 @@ where
     T: Clone,
     F: Fn(&T) -> bool,
 {
-    items.iter().fold(
-        (im::Vector::new(), im::Vector::new()),
-        |(mut yes, mut no), item| {
+    items
+        .iter()
+        .fold((im::Vector::new(), im::Vector::new()), |(yes, no), item| {
             if predicate(item) {
-                yes.push_back(item.clone());
+                (yes.push_back(item.clone()), no)
             } else {
-                no.push_back(item.clone());
+                (yes, no.push_back(item.clone()))
             }
-            (yes, no)
-        },
-    )
+        })
 }
 
 pub fn fold_result<T, U, F>(items: &im::Vector<T>, init: U, f: F) -> Result<U>
@@ -77,11 +78,8 @@ where
     U: Clone,
     F: Fn(T) -> Result<U>,
 {
-    items.iter().try_fold(im::Vector::new(), |mut acc, item| {
-        f(item.clone()).map(|result| {
-            acc.push_back(result);
-            acc
-        })
+    items.iter().try_fold(im::Vector::new(), |acc, item| {
+        f(item.clone()).map(|result| acc.push_back(result))
     })
 }
 
@@ -90,12 +88,13 @@ where
     T: Clone,
     F: Fn(&T) -> Result<bool>,
 {
-    items.iter().try_fold(im::Vector::new(), |mut acc, item| {
+    items.iter().try_fold(im::Vector::new(), |acc, item| {
         f(item).map(|keep| {
             if keep {
-                acc.push_back(item.clone());
+                acc.push_back(item.clone())
+            } else {
+                acc
             }
-            acc
         })
     })
 }

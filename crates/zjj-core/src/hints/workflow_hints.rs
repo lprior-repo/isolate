@@ -3,6 +3,9 @@
 //! Pure functions for generating hints and next actions based on
 //! system workflow state and initialization status.
 
+use im::{vector, Vector};
+use tap::Pipe;
+
 use crate::{
     hints::{NextAction, SystemState},
     types::SessionStatus,
@@ -66,30 +69,26 @@ pub(crate) fn action_create_new_session() -> NextAction {
 /// Analyzes system state to provide workflow recommendations
 /// for user guidance and next steps.
 #[must_use]
-pub fn suggest_workflow_hints(state: &SystemState) -> Vec<String> {
-    let mut hints = Vec::new();
-
+pub fn suggest_workflow_hints(state: &SystemState) -> Vector<String> {
     if !state.initialized {
-        hints.push("System not initialized - run `zjj init` to get started".to_string());
-    } else if state.sessions.is_empty() {
-        hints.push("No active sessions - create one with `zjj add <name>`".to_string());
-    } else {
-        let active_count = state
-            .sessions
-            .iter()
-            .filter(|s| s.status == SessionStatus::Active)
-            .count();
-
-        if active_count == 0 {
-            hints.push("No active sessions - all sessions are idle or completed".to_string());
-        } else if active_count == 1 {
-            hints.push("You have 1 active session".to_string());
-        } else if active_count > 1 {
-            hints.push(format!("You have {active_count} active sessions"));
-        }
+        return vector!["System not initialized - run `zjj init` to get started".to_string()];
     }
 
-    hints
+    if state.sessions.is_empty() {
+        return vector!["No active sessions - create one with `zjj add <name>`".to_string()];
+    }
+
+    let active_count = state
+        .sessions
+        .iter()
+        .filter(|s| s.status == SessionStatus::Active)
+        .count();
+
+    match active_count {
+        0 => vector!["No active sessions - all sessions are idle or completed".to_string()],
+        1 => vector!["You have 1 active session".to_string()],
+        n => vector![format!("You have {n} active sessions")],
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -101,46 +100,60 @@ pub fn suggest_workflow_hints(state: &SystemState) -> Vec<String> {
 /// Uses functional composition to build a list of contextually
 /// appropriate next actions for the user to take.
 #[must_use]
-pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
+pub fn suggest_next_actions(state: &SystemState) -> Vector<NextAction> {
     // Early returns for initialization path
     if !state.initialized {
-        return vec![action_initialize()];
+        return vector![action_initialize()];
     }
 
     if state.sessions.is_empty() {
-        return vec![action_create_first_session()];
+        return vector![action_create_first_session()];
     }
 
-    // Functional approach: collect conditional actions
     let has_active = state
         .sessions
         .iter()
         .any(|s| s.status == SessionStatus::Active);
 
-    let active_action = has_active.then(action_review_status);
-
-    let cleanup_action = state
+    let completed_session = state
         .sessions
         .iter()
-        .find(|s| s.status == SessionStatus::Completed)
-        .map(|s| action_cleanup_completed(&s.name));
+        .find(|s| s.status == SessionStatus::Completed);
 
-    let new_session_action = action_create_new_session();
-
-    // Chain all optional actions together
-    active_action
-        .into_iter()
-        .chain(cleanup_action)
-        .chain(std::iter::once(new_session_action))
-        .collect()
+    Vector::new()
+        .pipe(|v| {
+            if has_active {
+                let mut v = v;
+                v.push_back(action_review_status());
+                v
+            } else {
+                v
+            }
+        })
+        .pipe(|v| {
+            if let Some(s) = completed_session {
+                let mut v = v;
+                v.push_back(action_cleanup_completed(&s.name));
+                v
+            } else {
+                v
+            }
+        })
+        .pipe(|v| {
+            let mut v = v;
+            v.push_back(action_create_new_session());
+            v
+        })
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
+    use chrono::Utc;
+
     use super::*;
     use crate::types::Session;
-    use chrono::Utc;
-    use std::path::PathBuf;
 
     fn create_test_session(name: &str, status: SessionStatus) -> Session {
         Session {
@@ -180,7 +193,7 @@ mod tests {
     #[test]
     fn test_suggest_next_actions_not_initialized() {
         let state = SystemState {
-            sessions: Vec::new(),
+            sessions: Vector::new(),
             initialized: false,
             jj_repo: true,
         };
@@ -193,7 +206,7 @@ mod tests {
     #[test]
     fn test_suggest_next_actions_no_sessions() {
         let state = SystemState {
-            sessions: Vec::new(),
+            sessions: Vector::new(),
             initialized: true,
             jj_repo: true,
         };
@@ -205,7 +218,7 @@ mod tests {
     #[test]
     fn test_suggest_next_actions_with_active() {
         let state = SystemState {
-            sessions: vec![create_test_session("active", SessionStatus::Active)],
+            sessions: vector![create_test_session("active", SessionStatus::Active)],
             initialized: true,
             jj_repo: true,
         };
@@ -217,7 +230,7 @@ mod tests {
     #[test]
     fn test_suggest_next_actions_with_completed() {
         let state = SystemState {
-            sessions: vec![create_test_session("done", SessionStatus::Completed)],
+            sessions: vector![create_test_session("done", SessionStatus::Completed)],
             initialized: true,
             jj_repo: true,
         };
@@ -229,7 +242,7 @@ mod tests {
     #[test]
     fn test_suggest_workflow_hints_not_initialized() {
         let state = SystemState {
-            sessions: Vec::new(),
+            sessions: Vector::new(),
             initialized: false,
             jj_repo: true,
         };
@@ -241,7 +254,7 @@ mod tests {
     #[test]
     fn test_suggest_workflow_hints_empty() {
         let state = SystemState {
-            sessions: Vec::new(),
+            sessions: Vector::new(),
             initialized: true,
             jj_repo: true,
         };
@@ -256,7 +269,7 @@ mod tests {
     #[test]
     fn test_suggest_workflow_hints_multiple_active() {
         let state = SystemState {
-            sessions: vec![
+            sessions: vector![
                 create_test_session("a1", SessionStatus::Active),
                 create_test_session("a2", SessionStatus::Active),
             ],

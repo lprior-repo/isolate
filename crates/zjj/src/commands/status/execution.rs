@@ -3,6 +3,8 @@
 use std::io::Write;
 
 use anyhow::Result;
+use futures::TryStreamExt;
+use im::Vector;
 use tokio::time::{sleep, Duration};
 
 use super::{formatting, gathering::gather_session_status, types::SessionStatusInfo};
@@ -71,15 +73,13 @@ async fn run_watch_mode(name: Option<&str>, json: bool) -> Result<()> {
 }
 
 /// Gather status for all sessions
-async fn gather_statuses(sessions: &[crate::session::Session]) -> Result<Vec<SessionStatusInfo>> {
-    // Functional approach using manual async fold pattern
-    // Sequential execution (I/O bound operations, no parallelism needed)
-    let mut statuses = Vec::with_capacity(sessions.len());
-
-    // Use iterator to make intent clear (async requires sequential await)
-    for session in sessions {
-        statuses.push(gather_session_status(session).await?);
-    }
-
-    Ok(statuses)
+async fn gather_statuses(
+    sessions: &[crate::session::Session],
+) -> Result<Vector<SessionStatusInfo>> {
+    futures::stream::iter(sessions)
+        .then(gather_session_status)
+        .try_fold(Vector::new(), |acc, status| async move {
+            Ok(acc.push_back(status))
+        })
+        .await
 }
