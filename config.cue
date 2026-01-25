@@ -10,7 +10,7 @@ package jjz
     workspace_dir:    string | *"../{repo}__workspaces"
     main_branch:      string | *""  // auto-detected if empty
     default_template: string | *"standard"
-    state_db:         string | *".jjz/state.db"
+    state_db:         string | *".zjj/state.db"
 
     watch:   #WatchConfig
     hooks:   #HooksConfig
@@ -35,7 +35,7 @@ package jjz
 #ZellijConfig: {
     session_prefix: string | *"jjz"
     use_tabs:       bool | *true
-    layout_dir:     string | *".jjz/layouts"
+    layout_dir:     string | *".zjj/layouts"
     panes:          #PanesConfig
 }
 
@@ -89,7 +89,7 @@ package jjz
 config_sources: [...#ConfigSource] & [
     {path: "<builtin>", priority: 1, required: true},
     {path: "~/.config/jjz/config.toml", priority: 2, required: false},
-    {path: ".jjz/config.toml", priority: 3, required: false},
+    {path: ".zjj/config.toml", priority: 3, required: false},
     {path: "JJZ_* environment variables", priority: 4, required: false},
     {path: "CLI flags", priority: 5, required: false},
 ]
@@ -142,7 +142,7 @@ default_config: #Config & {
     workspace_dir:    "../{repo}__workspaces"
     main_branch:      ""
     default_template: "standard"
-    state_db:         ".jjz/state.db"
+    state_db:         ".zjj/state.db"
 
     watch: {
         enabled:     true
@@ -159,7 +159,7 @@ default_config: #Config & {
     zellij: {
         session_prefix: "jjz"
         use_tabs:       true
-        layout_dir:     ".jjz/layouts"
+        layout_dir:     ".zjj/layouts"
         panes: {
             main:  {command: "claude", args: [], size: "70%"}
             beads: {command: "bv", args: [], size: "50%"}
