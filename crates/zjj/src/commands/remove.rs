@@ -48,7 +48,7 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
         if options.json {
             let output = RemoveOutput {
                 success: false,
-                session_name: name.to_string(),
+                name: name.to_string(),
                 message: "Removal cancelled".to_string(),
             };
             println!("{}", serde_json::to_string(&output)?);
@@ -92,7 +92,7 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     if options.json {
         let output = RemoveOutput {
             success: true,
-            session_name: name.to_string(),
+            name: name.to_string(),
             message: format!("Removed session '{name}'"),
         };
         println!("{}", serde_json::to_string(&output)?);
