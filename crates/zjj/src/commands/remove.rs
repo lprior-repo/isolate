@@ -134,9 +134,11 @@ fn merge_to_main(_name: &str, _workspace_path: &str) -> Result<()> {
 /// Close a Zellij tab by name
 fn close_zellij_tab(tab_name: &str) -> Result<()> {
     // First, go to the tab
-    run_command("zellij", &["action", "go-to-tab-name", tab_name])?;
+    run_command("zellij", &["action", "go-to-tab-name", tab_name])
+        .map_err(|e| anyhow::anyhow!("Failed to switch to tab: {}", e))?;
     // Then close it
-    run_command("zellij", &["action", "close-tab"])?;
+    run_command("zellij", &["action", "close-tab"])
+        .map_err(|e| anyhow::anyhow!("Failed to close tab: {}", e))?;
     Ok(())
 }
 
