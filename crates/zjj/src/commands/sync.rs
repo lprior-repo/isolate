@@ -47,7 +47,7 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
             if options.json {
                 let output = SyncOutput {
                     success: true,
-                    session_name: Some(name.to_string()),
+                    name: Some(name.to_string()),
                     synced_count: 1,
                     failed_count: 0,
                     errors: Vec::new(),
@@ -62,11 +62,11 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
             if options.json {
                 let output = SyncOutput {
                     success: false,
-                    session_name: Some(name.to_string()),
+                    name: Some(name.to_string()),
                     synced_count: 0,
                     failed_count: 1,
                     errors: vec![SyncError {
-                        session_name: name.to_string(),
+                        name: name.to_string(),
                         error: e.to_string(),
                     }],
                 };
@@ -89,7 +89,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
         if options.json {
             let output = SyncOutput {
                 success: true,
-                session_name: None,
+                name: None,
                 synced_count: 0,
                 failed_count: 0,
                 errors: Vec::new(),
@@ -114,7 +114,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                 }
                 Err(e) => {
                     errors.push(SyncError {
-                        session_name: session.name.clone(),
+                        name: session.name.clone(),
                         error: e.to_string(),
                     });
                     failure_count += 1;
@@ -124,7 +124,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
 
         let output = SyncOutput {
             success: failure_count == 0,
-            session_name: None,
+            name: None,
             synced_count: success_count,
             failed_count: failure_count,
             errors,
