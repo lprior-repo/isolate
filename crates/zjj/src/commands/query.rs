@@ -87,12 +87,14 @@ impl QueryTypeInfo {
     }
 
     fn list_all_queries() -> String {
+        use std::fmt::Write;
         let mut output = String::from("Available query types:\n\n");
         for query in Self::all() {
-            output.push_str(&format!(
+            let _ = write!(
+                output,
                 "  {} - {}\n    Example: {}\n\n",
                 query.name, query.description, query.usage_example
-            ));
+            );
         }
         output.push_str(
             "For detailed help on a specific query type, try running it without arguments.\n",
@@ -162,7 +164,7 @@ fn categorize_db_error(err: &anyhow::Error) -> (String, String) {
     } else {
         (
             "DATABASE_INIT_ERROR".to_string(),
-            format!("Failed to access database: {}", err),
+            format!("Failed to access database: {err}"),
         )
     }
 }
@@ -184,7 +186,7 @@ fn query_session_exists(name: &str) -> Result<()> {
                 session: None,
                 error: Some(QueryError {
                     code: "DATABASE_ERROR".to_string(),
-                    message: format!("Failed to query session: {}", e),
+                    message: format!("Failed to query session: {e}"),
                 }),
             },
         },
@@ -228,7 +230,7 @@ fn query_session_count(filter: Option<&str>) -> Result<()> {
                 filter: filter.map(|f| serde_json::json!({"raw": f})),
                 error: Some(QueryError {
                     code: "DATABASE_ERROR".to_string(),
-                    message: format!("Failed to list sessions: {}", e),
+                    message: format!("Failed to list sessions: {e}"),
                 }),
             },
         },
@@ -315,13 +317,15 @@ fn query_can_run(command: &str) -> Result<()> {
 /// Query for suggested name based on pattern
 fn query_suggest_name(pattern: &str) -> Result<()> {
     // suggest_name can work without database access if we can't get sessions
-    let existing_names = match get_session_db() {
-        Ok(db) => match db.list(None) {
-            Ok(sessions) => sessions.into_iter().map(|s| s.name).collect(),
-            Err(_) => Vec::new(), // Fallback to empty list
+    let existing_names = get_session_db().map_or_else(
+        |_| Vec::new(),
+        |db| {
+            db.list(None).map_or_else(
+                |_| Vec::new(),
+                |sessions| sessions.into_iter().map(|s| s.name).collect(),
+            )
         },
-        Err(_) => Vec::new(), // Fallback to empty list if prerequisites not met
-    };
+    );
 
     let result = zjj_core::introspection::suggest_name(pattern, &existing_names)?;
 
@@ -353,39 +357,4 @@ fn requires_jj_repo(command: &str) -> bool {
 /// Check if command requires Zellij to be running
 fn requires_zellij(command: &str) -> bool {
     matches!(command, "add" | "focus")
-}
-
-/// Categorize database errors into error codes and messages
-fn categorize_db_error(error: &anyhow::Error) -> (String, String) {
-    let error_msg = error.to_string();
-
-    // Check for JJ not installed
-    if error_msg.contains("JJ not installed") || error_msg.contains("jj: not found") {
-        return (
-            "JJ_NOT_INSTALLED".to_string(),
-            "Cannot check session - JJ not installed".to_string(),
-        );
-    }
-
-    // Check for not in JJ repo
-    if error_msg.contains("Not in a JJ repository") || error_msg.contains("not a jj repo") {
-        return (
-            "NOT_JJ_REPO".to_string(),
-            "Cannot check session - not in a JJ repository".to_string(),
-        );
-    }
-
-    // Check for not initialized
-    if error_msg.contains("not initialized") || error_msg.contains("Run 'jjz init'") {
-        return (
-            "NOT_INITIALIZED".to_string(),
-            "Cannot check session - jjz not initialized".to_string(),
-        );
-    }
-
-    // Generic database error
-    (
-        "DATABASE_ERROR".to_string(),
-        format!("Cannot check session - {}", error_msg),
-    )
 }

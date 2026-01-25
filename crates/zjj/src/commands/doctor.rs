@@ -12,8 +12,8 @@
 //! - **Exit 1**: System has errors (one or more checks failed), or critical issues remain after
 //!   auto-fix
 //!
-//! Warnings (CheckStatus::Warn) do not cause non-zero exit codes - only failures
-//! (CheckStatus::Fail) do.
+//! Warnings (`CheckStatus::Warn`) do not cause non-zero exit codes - only failures
+//! (`CheckStatus::Fail`) do.
 
 use std::process::Command;
 
@@ -461,10 +461,7 @@ fn run_fixes(checks: &[DoctorCheck], json: bool) -> Result<()> {
         .count();
 
     if critical_unfixed > 0 {
-        anyhow::bail!(
-            "Auto-fix completed but {} critical issue(s) remain unfixed",
-            critical_unfixed
-        );
+        anyhow::bail!("Auto-fix completed but {critical_unfixed} critical issue(s) remain unfixed");
     }
 
     Ok(())

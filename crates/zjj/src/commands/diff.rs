@@ -5,7 +5,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crate::commands::get_session_db;
 
@@ -148,6 +148,7 @@ fn get_pager() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Context;
     use serial_test::serial;
     use tempfile::TempDir;
 
