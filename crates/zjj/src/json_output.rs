@@ -95,7 +95,7 @@ pub struct FileDiffStat {
 
 /// Output a JSON error and exit with code 1
 ///
-/// Converts an anyhow::Error to a JSON error structure and outputs it to stdout.
+/// Converts an `anyhow::Error` to a JSON error structure and outputs it to stdout.
 /// Then exits the process with exit code 1.
 pub fn output_json_error_and_exit(error: &Error) -> ! {
     let json_error = error_to_json_error(error);
@@ -109,7 +109,7 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
     std::process::exit(1);
 }
 
-/// Convert an anyhow::Error to a JsonError
+/// Convert an `anyhow::Error` to a `JsonError`
 fn error_to_json_error(error: &Error) -> JsonError {
     let error_str = error.to_string();
 

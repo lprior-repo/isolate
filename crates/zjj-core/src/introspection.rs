@@ -4,7 +4,6 @@
 //! enabling AI agents to discover features and understand system state.
 
 use im::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};

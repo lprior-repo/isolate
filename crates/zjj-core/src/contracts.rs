@@ -7,7 +7,6 @@
 //! - Machine-readable schemas
 
 use im::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};

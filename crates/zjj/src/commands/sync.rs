@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// Options for the sync command
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct SyncOptions {
     /// Output as JSON
     pub json: bool,
@@ -23,10 +23,10 @@ pub struct SyncOptions {
 /// If a session name is provided, syncs that session's workspace.
 /// Otherwise, syncs all sessions.
 pub fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
-    match name {
-        Some(n) => sync_session_with_options(n, options),
-        None => sync_all_with_options(options),
-    }
+    name.map_or_else(
+        || sync_all_with_options(options),
+        |n| sync_session_with_options(n, options),
+    )
 }
 
 /// Sync a specific session's workspace
@@ -128,7 +128,6 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
             errors,
         };
         println!("{}", serde_json::to_string(&output)?);
-        Ok(())
     } else {
         // Original text output
         println!("Syncing {} session(s)...", sessions.len());
@@ -162,9 +161,8 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                 println!("  {name}: {error}");
             }
         }
-
-        Ok(())
     }
+    Ok(())
 }
 
 /// Internal function to sync a session's workspace

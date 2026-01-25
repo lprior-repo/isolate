@@ -28,7 +28,7 @@ fn test_init_json_error_when_already_initialized() {
         // Check that output is valid JSON
         let output = result.stdout.trim();
         let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-        assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+        assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
         // Check for required error fields
         if let Ok(json) = parsed {
@@ -64,12 +64,12 @@ fn test_list_json_error_without_init() {
     // Check that output is valid JSON
     let output = result.stdout.trim();
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-    assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+    assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
     // Check for required error fields
     if let Ok(json) = parsed {
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
         );
@@ -104,12 +104,12 @@ fn test_focus_json_error_nonexistent_session() {
     // Check that output is valid JSON
     let output = result.stdout.trim();
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-    assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+    assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
     // Check for required error fields
     if let Ok(json) = parsed {
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
         );
@@ -156,12 +156,12 @@ fn test_remove_json_error_nonexistent_session() {
     // Check that output is valid JSON
     let output = result.stdout.trim();
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-    assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+    assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
     // Check for required error fields
     if let Ok(json) = parsed {
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
         );
@@ -186,12 +186,12 @@ fn test_add_json_error_invalid_name() {
     // Check that output is valid JSON
     let output = result.stdout.trim();
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-    assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+    assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
     // Check for required error fields
     if let Ok(json) = parsed {
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
         );
@@ -201,8 +201,7 @@ fn test_add_json_error_invalid_name() {
         let code = error.get("code").and_then(|v| v.as_str()).unwrap_or("");
         assert!(
             code.contains("INVALID") || code.contains("VALIDATION"),
-            "Error code should indicate validation error: {}",
-            code
+            "Error code should indicate validation error: {code}"
         );
     }
 }
@@ -227,12 +226,12 @@ fn test_add_json_error_duplicate_session() {
     // Check that output is valid JSON
     let output = result.stdout.trim();
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-    assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+    assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
     // Check for required error fields
     if let Ok(json) = parsed {
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
         );
@@ -242,8 +241,7 @@ fn test_add_json_error_duplicate_session() {
         let message = error.get("message").and_then(|v| v.as_str()).unwrap_or("");
         assert!(
             message.contains("already exists") || message.contains("duplicate"),
-            "Error message should indicate duplicate: {}",
-            message
+            "Error message should indicate duplicate: {message}"
         );
     }
 }
@@ -264,12 +262,12 @@ fn test_status_json_error_without_init() {
     // Check that output is valid JSON
     let output = result.stdout.trim();
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-    assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+    assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
     // Check for required error fields
     if let Ok(json) = parsed {
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
         );
@@ -293,12 +291,12 @@ fn test_sync_json_error_without_init() {
     // Check that output is valid JSON
     let output = result.stdout.trim();
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-    assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+    assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
     // Check for required error fields
     if let Ok(json) = parsed {
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
         );
@@ -320,7 +318,7 @@ fn test_doctor_json_error_format() {
     let output = result.stdout.trim();
     if !output.is_empty() {
         let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-        assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+        assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
         if let Ok(json) = parsed {
             assert!(json.get("success").is_some(), "Should have 'success' field");
@@ -341,7 +339,7 @@ fn test_introspect_json_error_format() {
     // Should output valid JSON
     let output = result.stdout.trim();
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-    assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+    assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 }
 
 #[test]
@@ -361,12 +359,12 @@ fn test_diff_json_error_nonexistent_session() {
     // Check that output is valid JSON
     let output = result.stdout.trim();
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(output);
-    assert!(parsed.is_ok(), "Output should be valid JSON: {}", output);
+    assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
     // Check for required error fields
     if let Ok(json) = parsed {
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
         );
