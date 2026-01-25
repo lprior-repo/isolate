@@ -14,8 +14,8 @@ mod json_output;
 mod session;
 
 use commands::{
-    add, config, dashboard, diff, doctor, focus, init, introspect, list, query, remove, status,
-    sync,
+    add, attach, config, dashboard, diff, doctor, focus, init, introspect, list, query, remove,
+    status, sync,
 };
 
 fn cmd_init() -> ClapCommand {
@@ -26,6 +26,16 @@ fn cmd_init() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+}
+
+fn cmd_attach() -> ClapCommand {
+    ClapCommand::new("attach")
+        .about("Attach to an existing Zellij session")
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Name of the session to attach to"),
         )
 }
 
@@ -276,6 +286,7 @@ fn build_cli() -> ClapCommand {
         .subcommand_required(true)
         .subcommand(cmd_init())
         .subcommand(cmd_add())
+        .subcommand(cmd_attach())
         .subcommand(cmd_list())
         .subcommand(cmd_remove())
         .subcommand(cmd_focus())
@@ -314,7 +325,7 @@ fn run_cli() -> Result<()> {
         Some(("init", sub_m)) => {
             let json = sub_m.get_flag("json");
             match init::run() {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if json {
                         json_output::output_json_error_and_exit(&e);
@@ -323,6 +334,10 @@ fn run_cli() -> Result<()> {
                     }
                 }
             }
+        }
+        Some(("attach", sub_m)) => {
+            let options = attach::AttachOptions::from_matches(sub_m)?;
+            attach::run_with_options(&options)
         }
         Some(("add", sub_m)) => {
             let name = sub_m
@@ -342,7 +357,7 @@ fn run_cli() -> Result<()> {
             };
 
             match add::run_with_options(&options) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if json {
                         json_output::output_json_error_and_exit(&e);
@@ -370,7 +385,7 @@ fn run_cli() -> Result<()> {
                 json,
             };
             match remove::run_with_options(name, &options) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if json {
                         json_output::output_json_error_and_exit(&e);
@@ -387,7 +402,7 @@ fn run_cli() -> Result<()> {
             let json = sub_m.get_flag("json");
             let options = focus::FocusOptions { json };
             match focus::run_with_options(name, &options) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if json {
                         json_output::output_json_error_and_exit(&e);
@@ -402,7 +417,7 @@ fn run_cli() -> Result<()> {
             let json = sub_m.get_flag("json");
             let watch = sub_m.get_flag("watch");
             match status::run(name, json, watch) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if json {
                         json_output::output_json_error_and_exit(&e);
@@ -417,7 +432,7 @@ fn run_cli() -> Result<()> {
             let json = sub_m.get_flag("json");
             let options = sync::SyncOptions { json };
             match sync::run_with_options(name, options) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if json {
                         json_output::output_json_error_and_exit(&e);
@@ -434,7 +449,7 @@ fn run_cli() -> Result<()> {
             let stat = sub_m.get_flag("stat");
             let json = sub_m.get_flag("json");
             match diff::run(name, stat) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if json {
                         json_output::output_json_error_and_exit(&e);
@@ -460,7 +475,7 @@ fn run_cli() -> Result<()> {
                 |cmd| introspect::run_command_introspect(cmd, json),
             );
             match result {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if json {
                         json_output::output_json_error_and_exit(&e);
@@ -474,7 +489,7 @@ fn run_cli() -> Result<()> {
             let json = sub_m.get_flag("json");
             let fix = sub_m.get_flag("fix");
             match doctor::run(json, fix) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if json {
                         json_output::output_json_error_and_exit(&e);

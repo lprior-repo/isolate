@@ -155,7 +155,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_add_output_json_uses_name_field() {
+    fn test_add_output_json_uses_name_field() -> Result<(), serde_json::Error> {
         let output = AddOutput {
             success: true,
             name: "test-session".to_string(),
@@ -164,7 +164,7 @@ mod tests {
             status: "active".to_string(),
         };
 
-        let json = serde_json::to_value(&output).expect("Failed to serialize");
+        let json = serde_json::to_value(&output)?;
 
         // Should have 'name' field, not 'session_name'
         assert!(json.get("name").is_some(), "JSON should have 'name' field");
@@ -177,10 +177,11 @@ mod tests {
             Some("test-session"),
             "name field should match"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_add_output_name_matches_session() {
+    fn test_add_output_name_matches_session() -> Result<(), serde_json::Error> {
         let session_name = "my-feature";
         let output = AddOutput {
             success: true,
@@ -190,17 +191,18 @@ mod tests {
             status: "creating".to_string(),
         };
 
-        let json = serde_json::to_value(&output).expect("Failed to serialize");
+        let json = serde_json::to_value(&output)?;
 
         assert_eq!(
             json.get("name").and_then(|v| v.as_str()),
             Some(session_name),
             "name in JSON should match session name"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_add_output_backwards_compat_session_name_removed() {
+    fn test_add_output_backwards_compat_session_name_removed() -> Result<(), serde_json::Error> {
         // This test verifies that the old 'session_name' field is completely removed
         let output = AddOutput {
             success: false,
@@ -210,7 +212,7 @@ mod tests {
             status: "failed".to_string(),
         };
 
-        let json_str = serde_json::to_string(&output).expect("Failed to serialize");
+        let json_str = serde_json::to_string(&output)?;
 
         // The JSON string should not contain 'session_name' anywhere
         assert!(
@@ -223,10 +225,11 @@ mod tests {
             json_str.contains("\"name\""),
             "JSON should contain 'name' field: {json_str}"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_add_output_all_fields_present() {
+    fn test_add_output_all_fields_present() -> Result<(), serde_json::Error> {
         let output = AddOutput {
             success: true,
             name: "test".to_string(),
@@ -235,7 +238,7 @@ mod tests {
             status: "active".to_string(),
         };
 
-        let json = serde_json::to_value(&output).expect("Failed to serialize");
+        let json = serde_json::to_value(&output)?;
 
         assert_eq!(
             json.get("success").and_then(|v| v.as_bool()),
@@ -254,17 +257,18 @@ mod tests {
             json.get("status").and_then(|v| v.as_str()),
             Some("active")
         );
+        Ok(())
     }
 
     #[test]
-    fn test_remove_output_json_uses_name_field() {
+    fn test_remove_output_json_uses_name_field() -> Result<(), serde_json::Error> {
         let output = RemoveOutput {
             success: true,
             name: "test-session".to_string(),
             message: "Session removed successfully".to_string(),
         };
 
-        let json = serde_json::to_value(&output).expect("Failed to serialize");
+        let json = serde_json::to_value(&output)?;
 
         // Should have 'name' field, not 'session_name'
         assert!(json.get("name").is_some(), "JSON should have 'name' field");
@@ -277,10 +281,11 @@ mod tests {
             Some("test-session"),
             "name field should match"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_remove_output_matches_add_structure() {
+    fn test_remove_output_matches_add_structure() -> Result<(), serde_json::Error> {
         // RemoveOutput should use same 'name' field as AddOutput
         let add_output = AddOutput {
             success: true,
@@ -296,8 +301,8 @@ mod tests {
             message: "Removed".to_string(),
         };
 
-        let add_json = serde_json::to_value(&add_output).expect("Failed to serialize");
-        let remove_json = serde_json::to_value(&remove_output).expect("Failed to serialize");
+        let add_json = serde_json::to_value(&add_output)?;
+        let remove_json = serde_json::to_value(&remove_output)?;
 
         // Both should have 'name' field with same value
         assert_eq!(
@@ -309,10 +314,11 @@ mod tests {
         // Neither should have session_name
         assert!(add_json.get("session_name").is_none());
         assert!(remove_json.get("session_name").is_none());
+        Ok(())
     }
 
     #[test]
-    fn test_focus_output_json_uses_name_field() {
+    fn test_focus_output_json_uses_name_field() -> Result<(), serde_json::Error> {
         let output = FocusOutput {
             success: true,
             name: "test-session".to_string(),
@@ -320,7 +326,7 @@ mod tests {
             message: "Focused on session".to_string(),
         };
 
-        let json = serde_json::to_value(&output).expect("Failed to serialize");
+        let json = serde_json::to_value(&output)?;
 
         // Should have 'name' field, not 'session_name'
         assert!(json.get("name").is_some(), "JSON should have 'name' field");
@@ -333,10 +339,11 @@ mod tests {
             Some("test-session"),
             "name field should match"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_focus_output_consistent_with_other_outputs() {
+    fn test_focus_output_consistent_with_other_outputs() -> Result<(), serde_json::Error> {
         // All output structs should use 'name' field consistently
         let focus = FocusOutput {
             success: true,
@@ -359,9 +366,9 @@ mod tests {
             message: "Removed".to_string(),
         };
 
-        let focus_json = serde_json::to_value(&focus).expect("Failed to serialize");
-        let add_json = serde_json::to_value(&add).expect("Failed to serialize");
-        let remove_json = serde_json::to_value(&remove).expect("Failed to serialize");
+        let focus_json = serde_json::to_value(&focus)?;
+        let add_json = serde_json::to_value(&add)?;
+        let remove_json = serde_json::to_value(&remove)?;
 
         // All should have 'name' field with same value
         assert_eq!(
@@ -381,5 +388,6 @@ mod tests {
         assert!(focus_json.get("session_name").is_none());
         assert!(add_json.get("session_name").is_none());
         assert!(remove_json.get("session_name").is_none());
+        Ok(())
     }
 }

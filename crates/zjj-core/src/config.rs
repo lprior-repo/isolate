@@ -274,14 +274,11 @@ pub fn load_config() -> Result<Config> {
 
     // Only attempt placeholder substitution if we're in a proper directory structure
     // This prevents failures in test environments where current_dir might not be valid
-    match get_repo_name() {
-        Ok(_) => config.substitute_placeholders()?,
-        Err(_) => {
-            // In test environments, we might not have a proper repo name
-            // For now, just use defaults without placeholder substitution
-            // This allows tests to pass while maintaining functionality in normal usage
-        }
+    if get_repo_name().is_ok() {
+        config.substitute_placeholders()?;
     }
+    // In test environments, we might not have a proper repo name
+    // Just use defaults without placeholder substitution
 
     Ok(config)
 }
