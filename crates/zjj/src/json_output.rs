@@ -118,11 +118,38 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
 }
 
 /// Convert an `anyhow::Error` to a `JsonError`
+///
+/// Uses Railway-Oriented Programming to extract the underlying zjj_core::Error
+/// and convert it to a standardized JSON error format using ErrorDetail::from_error().
 fn error_to_json_error(error: &Error) -> JsonError {
-    let error_str = error.to_string();
+    // Try to downcast to zjj_core::Error first (Railway left track - success)
+    error
+        .downcast_ref::<ZjjError>()
+        .map(JsonError::from)
+        .unwrap_or_else(|| {
+            // Railway right track - fallback for non-zjj errors
+            // This handles cases where anyhow wraps other error types
+            let error_str = error.to_string();
 
-    // Try to classify the error by its message
-    let code = if error_str.contains("database") || error_str.contains("Database") {
+            // Classify error by message pattern (fallback heuristic)
+            let code = classify_error_by_message(&error_str);
+            let mut json_error = JsonError::new(code, error_str.clone());
+
+            // Add suggestions based on error type
+            if let Some(sugg) = suggest_resolution(code) {
+                json_error = json_error.with_suggestion(sugg);
+            }
+
+            // Default exit code for unknown errors
+            json_error.error.exit_code = 4;
+
+            json_error
+        })
+}
+
+/// Classify an error by its message text (fallback heuristic)
+fn classify_error_by_message(error_str: &str) -> ErrorCode {
+    if error_str.contains("database") || error_str.contains("Database") {
         ErrorCode::StateDbCorrupted
     } else if error_str.contains("not found") || error_str.contains("Not found") {
         ErrorCode::SessionNotFound
@@ -136,37 +163,18 @@ fn error_to_json_error(error: &Error) -> JsonError {
         ErrorCode::NotJjRepository
     } else {
         ErrorCode::Unknown
-    };
+    }
+}
 
-    let mut json_error = JsonError::new(code, error_str.clone());
-
-    // Add suggestions based on error type
-    let suggestion = match code {
-        ErrorCode::StateDbCorrupted => {
-            Some("Try running 'zjj doctor --fix' to repair the database")
-        }
+/// Suggest resolution for an error code
+fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
+    match code {
+        ErrorCode::StateDbCorrupted => Some("Try running 'zjj doctor --fix' to repair the database"),
         ErrorCode::SessionNotFound => Some("Use 'zjj list' to see available sessions"),
         ErrorCode::JjNotInstalled => Some("Install JJ: cargo install jj-cli or brew install jj"),
         ErrorCode::NotJjRepository => Some("Run 'zjj init' to initialize a JJ repository"),
         _ => None,
-    };
-
-    if let Some(sugg) = suggestion {
-        json_error = json_error.with_suggestion(sugg);
     }
-
-    // Try to get the exit code from the underlying error
-    if let Some(zjj_error) = error.downcast_ref::<ZjjError>() {
-        json_error.error.exit_code = zjj_error.exit_code();
-    } else if error_str.contains("validation")
-        || error_str.contains("Invalid session name")
-        || error_str.contains("already exists")
-        || error_str.contains("Session name")
-    {
-        json_error.error.exit_code = 1;
-    }
-
-    json_error
 }
 
 #[cfg(test)]
