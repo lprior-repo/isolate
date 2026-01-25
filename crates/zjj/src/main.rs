@@ -37,6 +37,12 @@ fn cmd_attach() -> ClapCommand {
                 .required(true)
                 .help("Name of the session to attach to"),
         )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON (only for errors)"),
+        )
 }
 
 fn cmd_add() -> ClapCommand {
@@ -221,6 +227,12 @@ fn cmd_config() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Operate on global config instead of project"),
         )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
 }
 
 fn cmd_dashboard() -> ClapCommand {
@@ -275,6 +287,12 @@ fn cmd_query() -> ClapCommand {
             Arg::new("args")
                 .required(false)
                 .help("Query-specific arguments"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON (default for query)"),
         )
 }
 
@@ -463,8 +481,23 @@ fn handle_config(sub_m: &clap::ArgMatches) -> Result<()> {
     let key = sub_m.get_one::<String>("key").cloned();
     let value = sub_m.get_one::<String>("value").cloned();
     let global = sub_m.get_flag("global");
-    let options = config::ConfigOptions { key, value, global };
-    config::run(options)
+    let json = sub_m.get_flag("json");
+    let options = config::ConfigOptions {
+        key,
+        value,
+        global,
+        json,
+    };
+    match config::run(options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if json {
+                json_output::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
 }
 
 fn handle_introspect(sub_m: &clap::ArgMatches) -> Result<()> {
@@ -506,6 +539,7 @@ fn handle_query(sub_m: &clap::ArgMatches) -> Result<()> {
         .get_one::<String>("query_type")
         .ok_or_else(|| anyhow::anyhow!("Query type is required"))?;
     let args = sub_m.get_one::<String>("args").map(String::as_str);
+    let _json = sub_m.get_flag("json"); // Ignored as query is always JSON
     query::run(query_type, args)
 }
 
@@ -517,7 +551,16 @@ fn run_cli() -> Result<()> {
         Some(("init", sub_m)) => handle_init(sub_m),
         Some(("attach", sub_m)) => {
             let options = attach::AttachOptions::from_matches(sub_m)?;
-            attach::run_with_options(&options)
+            match attach::run_with_options(&options) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if options.json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
         }
         Some(("add", sub_m)) => handle_add(sub_m),
         Some(("list", sub_m)) => handle_list(sub_m),
