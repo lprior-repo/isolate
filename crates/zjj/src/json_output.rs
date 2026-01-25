@@ -41,7 +41,7 @@ pub struct RemoveOutput {
 #[allow(dead_code)]
 pub struct FocusOutput {
     pub success: bool,
-    pub session_name: String,
+    pub name: String,
     pub zellij_tab: String,
     pub message: String,
 }
@@ -307,6 +307,78 @@ mod tests {
         );
 
         // Neither should have session_name
+        assert!(add_json.get("session_name").is_none());
+        assert!(remove_json.get("session_name").is_none());
+    }
+
+    #[test]
+    fn test_focus_output_json_uses_name_field() {
+        let output = FocusOutput {
+            success: true,
+            name: "test-session".to_string(),
+            zellij_tab: "zjj:test-session".to_string(),
+            message: "Focused on session".to_string(),
+        };
+
+        let json = serde_json::to_value(&output).expect("Failed to serialize");
+
+        // Should have 'name' field, not 'session_name'
+        assert!(json.get("name").is_some(), "JSON should have 'name' field");
+        assert!(
+            json.get("session_name").is_none(),
+            "JSON should NOT have 'session_name' field"
+        );
+        assert_eq!(
+            json.get("name").and_then(|v| v.as_str()),
+            Some("test-session"),
+            "name field should match"
+        );
+    }
+
+    #[test]
+    fn test_focus_output_consistent_with_other_outputs() {
+        // All output structs should use 'name' field consistently
+        let focus = FocusOutput {
+            success: true,
+            name: "my-session".to_string(),
+            zellij_tab: "zjj:my-session".to_string(),
+            message: "Focused".to_string(),
+        };
+
+        let add = AddOutput {
+            success: true,
+            name: "my-session".to_string(),
+            workspace_path: "/workspace".to_string(),
+            zellij_tab: "zjj:my-session".to_string(),
+            status: "active".to_string(),
+        };
+
+        let remove = RemoveOutput {
+            success: true,
+            name: "my-session".to_string(),
+            message: "Removed".to_string(),
+        };
+
+        let focus_json = serde_json::to_value(&focus).expect("Failed to serialize");
+        let add_json = serde_json::to_value(&add).expect("Failed to serialize");
+        let remove_json = serde_json::to_value(&remove).expect("Failed to serialize");
+
+        // All should have 'name' field with same value
+        assert_eq!(
+            focus_json.get("name").and_then(|v| v.as_str()),
+            Some("my-session")
+        );
+        assert_eq!(
+            add_json.get("name").and_then(|v| v.as_str()),
+            Some("my-session")
+        );
+        assert_eq!(
+            remove_json.get("name").and_then(|v| v.as_str()),
+            Some("my-session")
+        );
+
+        // None should have session_name
+        assert!(focus_json.get("session_name").is_none());
         assert!(add_json.get("session_name").is_none());
         assert!(remove_json.get("session_name").is_none());
     }
