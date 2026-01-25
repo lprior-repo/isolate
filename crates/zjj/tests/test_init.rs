@@ -12,7 +12,7 @@ mod common;
 use common::TestHarness;
 
 #[test]
-fn test_init_creates_jjz_directory() {
+fn test_init_creates_zjj_directory() {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
@@ -22,7 +22,7 @@ fn test_init_creates_jjz_directory() {
     harness.assert_success(&["init"]);
 
     // Verify .zjj directory was created
-    harness.assert_jjz_dir_exists();
+    harness.assert_zjj_dir_exists();
 }
 
 #[test]
