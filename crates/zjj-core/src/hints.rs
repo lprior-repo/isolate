@@ -17,7 +17,7 @@ use crate::{
 // HINT TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// A contextual hint from jjz
+/// A contextual hint from zjj
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Hint {
     /// Hint type
@@ -94,7 +94,7 @@ pub struct HintsResponse {
 /// System context summary
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SystemContext {
-    /// Is jjz initialized?
+    /// Is zjj initialized?
     pub initialized: bool,
 
     /// Is this a JJ repository?
@@ -193,7 +193,7 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
     if state.sessions.is_empty() {
         hints.push(
             Hint::suggestion("No sessions yet. Create your first parallel workspace!")
-                .with_command("jjz add <name>")
+                .with_command("zjj add <name>")
                 .with_rationale("Sessions enable parallel work on multiple features"),
         );
         return Ok(hints);
@@ -206,7 +206,7 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
             // For now, just demonstrate the hint structure
             hints.push(
                 Hint::info(format!("Session '{}' is active", session.name))
-                    .with_command(format!("jjz status {}", session.name))
+                    .with_command(format!("zjj status {}", session.name))
                     .with_rationale("Review session status regularly"),
             );
         }
@@ -227,7 +227,7 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
                     "Session '{}' completed {} day(s) ago, consider removing",
                     session.name, age
                 ))
-                .with_command(format!("jjz remove {} --merge", session.name))
+                .with_command(format!("zjj remove {} --merge", session.name))
                 .with_rationale("Clean up completed work")
                 .with_context(serde_json::json!({
                     "session": session.name,
@@ -248,7 +248,7 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
         for session in failed {
             hints.push(
                 Hint::warning(format!("Session '{}' failed during creation", session.name))
-                    .with_command(format!("jjz remove {}", session.name))
+                    .with_command(format!("zjj remove {}", session.name))
                     .with_rationale("Clean up failed session and retry"),
             );
         }
@@ -264,7 +264,7 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
     if active_count > 2 {
         hints.push(
             Hint::tip("You have multiple active sessions. Use the dashboard for an overview")
-                .with_command("jjz dashboard")
+                .with_command("zjj dashboard")
                 .with_rationale("Visual overview helps manage multiple sessions"),
         );
     }
@@ -279,13 +279,13 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
             let session_name = extract_session_name(error_msg).unwrap_or("session");
             vec![
                 Hint::suggestion("Use a different name for the new session")
-                    .with_command(format!("jjz add {session_name}-v2"))
+                    .with_command(format!("zjj add {session_name}-v2"))
                     .with_rationale("Append version or date to differentiate"),
                 Hint::suggestion("Switch to the existing session")
-                    .with_command(format!("jjz focus {session_name}"))
+                    .with_command(format!("zjj focus {session_name}"))
                     .with_rationale("Continue work in existing session"),
                 Hint::suggestion("Remove the existing session first")
-                    .with_command(format!("jjz remove {session_name}"))
+                    .with_command(format!("zjj remove {session_name}"))
                     .with_rationale("Clean up old session before creating new one"),
             ]
         }
@@ -293,7 +293,7 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
             vec![
                 Hint::suggestion("Start Zellij first")
                     .with_command("zellij")
-                    .with_rationale("jjz requires Zellij to be running"),
+                    .with_rationale("zjj requires Zellij to be running"),
                 Hint::tip("You can attach to existing Zellij session")
                     .with_command("zellij attach")
                     .with_rationale("Reuse existing session instead of creating new one"),
@@ -301,17 +301,17 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
         }
         "NOT_INITIALIZED" => {
             vec![
-                Hint::suggestion("Initialize jjz in this repository")
-                    .with_command("jjz init")
+                Hint::suggestion("Initialize zjj in this repository")
+                    .with_command("zjj init")
                     .with_rationale("Creates .zjj directory with configuration"),
-                Hint::tip("After init, you can configure jjz in .zjj/config.toml")
+                Hint::tip("After init, you can configure zjj in .zjj/config.toml")
                     .with_rationale("Customize workspace paths, hooks, and layouts"),
             ]
         }
         "JJ_NOT_FOUND" => {
             vec![
                 Hint::warning("JJ (Jujutsu) is not installed or not in PATH")
-                    .with_rationale("jjz requires JJ for workspace management"),
+                    .with_rationale("zjj requires JJ for workspace management"),
                 Hint::suggestion("Install JJ from https://github.com/martinvonz/jj")
                     .with_rationale("Follow installation instructions for your platform"),
             ]
@@ -319,7 +319,7 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
         "SESSION_NOT_FOUND" => {
             vec![
                 Hint::suggestion("List all sessions to see available ones")
-                    .with_command("jjz list")
+                    .with_command("zjj list")
                     .with_rationale("Check session names and status"),
                 Hint::tip("Session names are case-sensitive")
                     .with_rationale("Ensure exact match when referencing sessions"),
@@ -336,8 +336,8 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
     // Not initialized
     if !state.initialized {
         actions.push(NextAction {
-            action: "Initialize jjz".to_string(),
-            commands: vec!["jjz init".to_string()],
+            action: "Initialize zjj".to_string(),
+            commands: vec!["zjj init".to_string()],
         });
         return actions;
     }
@@ -346,7 +346,7 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
     if state.sessions.is_empty() {
         actions.push(NextAction {
             action: "Create first session".to_string(),
-            commands: vec!["jjz add <name>".to_string()],
+            commands: vec!["zjj add <name>".to_string()],
         });
         return actions;
     }
@@ -360,7 +360,7 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
     if has_active {
         actions.push(NextAction {
             action: "Review session status".to_string(),
-            commands: vec!["jjz status".to_string(), "jjz dashboard".to_string()],
+            commands: vec!["zjj status".to_string(), "zjj dashboard".to_string()],
         });
     }
 
@@ -379,14 +379,14 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
         if let Some(name) = completed_name {
             actions.push(NextAction {
                 action: "Clean up completed sessions".to_string(),
-                commands: vec![format!("jjz remove {} --merge", name)],
+                commands: vec![format!("zjj remove {} --merge", name)],
             });
         }
     }
 
     actions.push(NextAction {
         action: "Create new session".to_string(),
-        commands: vec!["jjz add <name>".to_string()],
+        commands: vec!["zjj add <name>".to_string()],
     });
 
     actions
@@ -502,12 +502,12 @@ mod tests {
     #[test]
     fn test_hint_builders() {
         let hint = Hint::info("Test message")
-            .with_command("jjz test")
+            .with_command("zjj test")
             .with_rationale("Testing");
 
         assert_eq!(hint.hint_type, HintType::Info);
         assert_eq!(hint.message, "Test message");
-        assert_eq!(hint.suggested_command, Some("jjz test".to_string()));
+        assert_eq!(hint.suggested_command, Some("zjj test".to_string()));
         assert_eq!(hint.rationale, Some("Testing".to_string()));
     }
 
@@ -587,7 +587,7 @@ mod tests {
 
     #[test]
     fn test_hints_for_error_not_initialized() {
-        let hints = hints_for_error("NOT_INITIALIZED", "jjz not initialized");
+        let hints = hints_for_error("NOT_INITIALIZED", "zjj not initialized");
         assert!(!hints.is_empty());
         assert!(hints[0].message.contains("Initialize"));
     }
@@ -602,7 +602,7 @@ mod tests {
 
         let actions = suggest_next_actions(&state);
         assert_eq!(actions.len(), 1);
-        assert_eq!(actions[0].action, "Initialize jjz");
+        assert_eq!(actions[0].action, "Initialize zjj");
     }
 
     #[test]

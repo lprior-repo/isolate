@@ -1,7 +1,7 @@
 //! Common test helpers and fixtures for integration tests
 //!
 //! This module provides utilities for setting up test environments,
-//! running jjz commands, and making assertions about the results.
+//! running zjj commands, and making assertions about the results.
 
 #![allow(dead_code)]
 #![allow(clippy::unused_self)]
@@ -23,13 +23,13 @@ pub fn jj_is_available() -> bool {
 /// Test harness for integration tests
 ///
 /// Provides a clean temporary environment with a JJ repository
-/// and utilities to execute jjz commands.
+/// and utilities to execute zjj commands.
 pub struct TestHarness {
     /// Temporary directory for the test (kept for automatic cleanup on drop)
     _temp_dir: TempDir,
     /// Path to the JJ repository root
     pub repo_path: PathBuf,
-    /// Path to the jjz binary
+    /// Path to the zjj binary
     jjz_bin: PathBuf,
 }
 
@@ -79,7 +79,7 @@ impl TestHarness {
             );
         }
 
-        // Get the jjz binary path from the build
+        // Get the zjj binary path from the build
         let jjz_bin = PathBuf::from(env!("CARGO_BIN_EXE_jjz"));
 
         Ok(Self {
@@ -95,9 +95,9 @@ impl TestHarness {
         Self::new().ok()
     }
 
-    /// Run a jjz command and return the result
-    pub fn jjz(&self, args: &[&str]) -> CommandResult {
-        let output = Command::new(&self.zjj_bin)
+    /// Run a zjj command and return the result
+    pub fn zjj(&self, args: &[&str]) -> CommandResult {
+        let output = Command::new(&self.jjz_bin)
             .args(args)
             .current_dir(&self.repo_path)
             .env("NO_COLOR", "1") // Disable color codes
@@ -129,12 +129,12 @@ impl TestHarness {
         output
     }
 
-    /// Run a jjz command and assert it succeeds
+    /// Run a zjj command and assert it succeeds
     pub fn assert_success(&self, args: &[&str]) {
         let result = self.zjj(args);
         assert!(
             result.success,
-            "Command failed: jjz {}\nStderr: {}\nStdout: {}",
+            "Command failed: zjj {}\nStderr: {}\nStdout: {}",
             args.join(" "),
             result.stderr,
             result.stdout
@@ -148,7 +148,7 @@ impl TestHarness {
 
     /// Get the workspace path for a session
     pub fn workspace_path(&self, session: &str) -> PathBuf {
-        self.zjj_dir().join("workspaces").join(session)
+        self.jjz_dir().join("workspaces").join(session)
     }
 
     /// Assert that a workspace exists
@@ -169,7 +169,7 @@ impl TestHarness {
 
     /// Assert that the .zjj directory exists
     pub fn assert_jjz_dir_exists(&self) {
-        let jjz_dir = self.zjj_dir();
+        let jjz_dir = self.jjz_dir();
         assert!(
             jjz_dir.exists(),
             ".zjj directory should exist: {}",
@@ -187,12 +187,12 @@ impl TestHarness {
         assert!(!path.exists(), "File should not exist: {}", path.display());
     }
 
-    /// Run a jjz command and assert it fails with expected error
+    /// Run a zjj command and assert it fails with expected error
     pub fn assert_failure(&self, args: &[&str], expected_error: &str) {
         let result = self.zjj(args);
         assert!(
             !result.success,
-            "Command should have failed: jjz {}\nStdout: {}",
+            "Command should have failed: zjj {}\nStdout: {}",
             args.join(" "),
             result.stdout
         );
@@ -207,19 +207,19 @@ impl TestHarness {
 
     /// Write a custom config file
     pub fn write_config(&self, content: &str) -> Result<()> {
-        let config_path = self.zjj_dir().join("config.toml");
+        let config_path = self.jjz_dir().join("config.toml");
         std::fs::write(config_path, content).context("Failed to write config")
     }
 
     /// Read the config file
     pub fn read_config(&self) -> Result<String> {
-        let config_path = self.zjj_dir().join("config.toml");
+        let config_path = self.jjz_dir().join("config.toml");
         std::fs::read_to_string(config_path).context("Failed to read config")
     }
 
     /// Get the state database path
     pub fn state_db_path(&self) -> PathBuf {
-        self.zjj_dir().join("state.db")
+        self.jjz_dir().join("state.db")
     }
 
     /// Run a JJ command in the test repository
@@ -259,7 +259,7 @@ impl TestHarness {
 
     /// Set an environment variable for the next command
     pub fn jjz_with_env(&self, args: &[&str], env_vars: &[(&str, &str)]) -> CommandResult {
-        let mut cmd = Command::new(&self.zjj_bin);
+        let mut cmd = Command::new(&self.jjz_bin);
         cmd.args(args)
             .current_dir(&self.repo_path)
             .env("NO_COLOR", "1");
@@ -344,7 +344,7 @@ mod tests {
             return;
         };
         assert!(harness.repo_path.exists());
-        assert!(harness.zjj_bin.exists());
+        assert!(harness.jjz_bin.exists());
     }
 
     #[test]

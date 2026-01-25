@@ -1,6 +1,6 @@
 //! AI-first introspection capabilities
 //!
-//! This module provides structured metadata about jjz capabilities,
+//! This module provides structured metadata about zjj capabilities,
 //! enabling AI agents to discover features and understand system state.
 
 use im::HashMap;
@@ -60,7 +60,7 @@ pub struct DependencyInfo {
 /// Current system state
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SystemState {
-    /// Whether jjz has been initialized in this repo
+    /// Whether zjj has been initialized in this repo
     pub initialized: bool,
     /// Whether current directory is a JJ repository
     pub jj_repo: bool,
@@ -515,7 +515,7 @@ mod tests {
     #[test]
     fn test_introspect_output_new() {
         let output = IntrospectOutput::new("0.1.0");
-        assert_eq!(output.zjj_version, "0.1.0");
+        assert_eq!(output.jjz_version, "0.1.0");
         assert!(!output.capabilities.session_management.commands.is_empty());
     }
 

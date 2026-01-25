@@ -76,9 +76,9 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
             std::path::Path::new(&root)
                 .file_name()
                 .and_then(|s| s.to_str())
-                .map(|s| format!("jjz-{s}"))
+                .map(|s| format!("zjj-{s}"))
         })
-        .unwrap_or_else(|| "jjz".to_string());
+        .unwrap_or_else(|| "zjj".to_string());
 
     // Print a helpful message before attaching
     eprintln!("Attaching to Zellij session '{session_name}'...");
@@ -92,7 +92,7 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
     // If layout content provided, write it to a temp file and use it
     if let Some(layout) = layout_content {
         let temp_dir = std::env::temp_dir();
-        let layout_path = temp_dir.join(format!("jjz-{}.kdl", std::process::id()));
+        let layout_path = temp_dir.join(format!("zjj-{}.kdl", std::process::id()));
         std::fs::write(&layout_path, layout)?;
 
         cmd.args([

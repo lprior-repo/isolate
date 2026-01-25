@@ -114,7 +114,7 @@ mod tests {
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
         assert_eq!(retrieved_session.name, session.name);
-        assert_eq!(retrieved_session.zellij_tab, "jjz:test-session");
+        assert_eq!(retrieved_session.zellij_tab, "zjj:test-session");
 
         Ok(())
     }
@@ -132,7 +132,7 @@ mod tests {
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
         assert_eq!(retrieved_session.name, "my-test-session");
-        assert_eq!(retrieved_session.zellij_tab, "jjz:my-test-session");
+        assert_eq!(retrieved_session.zellij_tab, "zjj:my-test-session");
 
         Ok(())
     }
@@ -150,7 +150,7 @@ mod tests {
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
         assert_eq!(retrieved_session.name, "my_test_session");
-        assert_eq!(retrieved_session.zellij_tab, "jjz:my_test_session");
+        assert_eq!(retrieved_session.zellij_tab, "zjj:my_test_session");
 
         Ok(())
     }
@@ -168,7 +168,7 @@ mod tests {
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
         assert_eq!(retrieved_session.name, "my-test_123");
-        assert_eq!(retrieved_session.zellij_tab, "jjz:my-test_123");
+        assert_eq!(retrieved_session.zellij_tab, "zjj:my-test_123");
 
         Ok(())
     }
@@ -179,13 +179,13 @@ mod tests {
 
         // Create sessions and verify tab name format
         let session1 = db.create("session1", "/tmp/s1")?;
-        assert_eq!(session1.zellij_tab, "jjz:session1");
+        assert_eq!(session1.zellij_tab, "zjj:session1");
 
         let session2 = db.create("my-session", "/tmp/s2")?;
-        assert_eq!(session2.zellij_tab, "jjz:my-session");
+        assert_eq!(session2.zellij_tab, "zjj:my-session");
 
         let session3 = db.create("test_session_123", "/tmp/s3")?;
-        assert_eq!(session3.zellij_tab, "jjz:test_session_123");
+        assert_eq!(session3.zellij_tab, "zjj:test_session_123");
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-//! Introspect command - discover jjz capabilities
+//! Introspect command - discover zjj capabilities
 //!
 //! This command enables AI agents to understand available commands,
 //! system state, and dependencies.
@@ -148,7 +148,7 @@ pub fn run(json: bool) -> Result<()> {
 
 /// Print introspection output in human-readable format
 fn print_human_readable(output: &IntrospectOutput) {
-    println!("JJZ Version: {}", output.zjj_version);
+    println!("JJZ Version: {}", output.jjz_version);
     println!();
 
     println!("Capabilities:");
@@ -351,15 +351,15 @@ fn get_add_introspection() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz add feature-auth".to_string(),
+                command: "zjj add feature-auth".to_string(),
                 description: "Create session with default template".to_string(),
             },
             CommandExample {
-                command: "jjz add bugfix-123 --no-hooks".to_string(),
+                command: "zjj add bugfix-123 --no-hooks".to_string(),
                 description: "Create without running hooks".to_string(),
             },
             CommandExample {
-                command: "jjz add experiment -t minimal".to_string(),
+                command: "zjj add experiment -t minimal".to_string(),
                 description: "Create with minimal layout".to_string(),
             },
         ],
@@ -437,15 +437,15 @@ fn get_remove_introspection() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz remove my-session".to_string(),
+                command: "zjj remove my-session".to_string(),
                 description: "Remove session with confirmation".to_string(),
             },
             CommandExample {
-                command: "jjz remove my-session -f".to_string(),
+                command: "zjj remove my-session -f".to_string(),
                 description: "Remove without confirmation".to_string(),
             },
             CommandExample {
-                command: "jjz remove my-session -m".to_string(),
+                command: "zjj remove my-session -m".to_string(),
                 description: "Merge changes before removing".to_string(),
             },
         ],
@@ -464,7 +464,7 @@ fn get_remove_introspection() -> CommandIntrospection {
         error_conditions: vec![ErrorCondition {
             code: "SESSION_NOT_FOUND".to_string(),
             description: "Session does not exist".to_string(),
-            resolution: "Check session name with 'jjz list'".to_string(),
+            resolution: "Check session name with 'zjj list'".to_string(),
         }],
     }
 }
@@ -495,11 +495,11 @@ fn get_list_introspection() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz list".to_string(),
+                command: "zjj list".to_string(),
                 description: "List active sessions".to_string(),
             },
             CommandExample {
-                command: "jjz list --all".to_string(),
+                command: "zjj list --all".to_string(),
                 description: "List all sessions including completed".to_string(),
             },
         ],
@@ -517,13 +517,13 @@ fn get_list_introspection() -> CommandIntrospection {
 fn get_init_introspection() -> CommandIntrospection {
     CommandIntrospection {
         command: "init".to_string(),
-        description: "Initialize jjz in a JJ repository".to_string(),
+        description: "Initialize zjj in a JJ repository".to_string(),
         aliases: vec![],
         arguments: vec![],
         flags: vec![],
         examples: vec![CommandExample {
-            command: "jjz init".to_string(),
-            description: "Initialize jjz in current directory".to_string(),
+            command: "zjj init".to_string(),
+            description: "Initialize zjj in current directory".to_string(),
         }],
         prerequisites: Prerequisites {
             initialized: false,
@@ -559,7 +559,7 @@ fn get_focus_introspection() -> CommandIntrospection {
         }],
         flags: vec![],
         examples: vec![CommandExample {
-            command: "jjz focus my-session".to_string(),
+            command: "zjj focus my-session".to_string(),
             description: "Switch to my-session tab".to_string(),
         }],
         prerequisites: Prerequisites {
@@ -572,7 +572,7 @@ fn get_focus_introspection() -> CommandIntrospection {
         error_conditions: vec![ErrorCondition {
             code: "SESSION_NOT_FOUND".to_string(),
             description: "Session does not exist".to_string(),
-            resolution: "Check session name with 'jjz list'".to_string(),
+            resolution: "Check session name with 'zjj list'".to_string(),
         }],
     }
 }
@@ -610,11 +610,11 @@ fn get_status_introspection() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz status".to_string(),
+                command: "zjj status".to_string(),
                 description: "Show status of all sessions".to_string(),
             },
             CommandExample {
-                command: "jjz status my-session".to_string(),
+                command: "zjj status my-session".to_string(),
                 description: "Show status of specific session".to_string(),
             },
         ],
@@ -644,7 +644,7 @@ fn get_sync_introspection() -> CommandIntrospection {
         }],
         flags: vec![],
         examples: vec![CommandExample {
-            command: "jjz sync my-session".to_string(),
+            command: "zjj sync my-session".to_string(),
             description: "Sync session with main branch".to_string(),
         }],
         prerequisites: Prerequisites {
@@ -688,11 +688,11 @@ fn get_diff_introspection() -> CommandIntrospection {
         }],
         examples: vec![
             CommandExample {
-                command: "jjz diff my-session".to_string(),
+                command: "zjj diff my-session".to_string(),
                 description: "Show full diff".to_string(),
             },
             CommandExample {
-                command: "jjz diff my-session --stat".to_string(),
+                command: "zjj diff my-session --stat".to_string(),
                 description: "Show diffstat summary".to_string(),
             },
         ],
@@ -710,7 +710,7 @@ fn get_diff_introspection() -> CommandIntrospection {
 fn get_introspect_introspection() -> CommandIntrospection {
     CommandIntrospection {
         command: "introspect".to_string(),
-        description: "Discover jjz capabilities".to_string(),
+        description: "Discover zjj capabilities".to_string(),
         aliases: vec![],
         arguments: vec![ArgumentSpec {
             name: "command".to_string(),
@@ -730,11 +730,11 @@ fn get_introspect_introspection() -> CommandIntrospection {
         }],
         examples: vec![
             CommandExample {
-                command: "jjz introspect".to_string(),
+                command: "zjj introspect".to_string(),
                 description: "Show all capabilities".to_string(),
             },
             CommandExample {
-                command: "jjz introspect add --json".to_string(),
+                command: "zjj introspect add --json".to_string(),
                 description: "Get add command schema as JSON".to_string(),
             },
         ],
@@ -775,11 +775,11 @@ fn get_doctor_introspection() -> CommandIntrospection {
         ],
         examples: vec![
             CommandExample {
-                command: "jjz doctor".to_string(),
+                command: "zjj doctor".to_string(),
                 description: "Check system health".to_string(),
             },
             CommandExample {
-                command: "jjz doctor --fix".to_string(),
+                command: "zjj doctor --fix".to_string(),
                 description: "Auto-fix issues".to_string(),
             },
         ],
@@ -832,15 +832,15 @@ fn get_query_introspection() -> CommandIntrospection {
         }],
         examples: vec![
             CommandExample {
-                command: "jjz query session-exists my-session".to_string(),
+                command: "zjj query session-exists my-session".to_string(),
                 description: "Check if session exists".to_string(),
             },
             CommandExample {
-                command: "jjz query can-run add".to_string(),
+                command: "zjj query can-run add".to_string(),
                 description: "Check if add command can run".to_string(),
             },
             CommandExample {
-                command: "jjz query suggest-name feature-{n}".to_string(),
+                command: "zjj query suggest-name feature-{n}".to_string(),
                 description: "Suggest next available name".to_string(),
             },
         ],

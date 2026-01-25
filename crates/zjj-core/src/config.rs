@@ -4,7 +4,7 @@
 //!
 //! Configuration is loaded in this order (later overrides earlier):
 //! 1. Built-in defaults
-//! 2. Global config: ~/.config/jjz/config.toml
+//! 2. Global config: ~/.config/zjj/config.toml
 //! 3. Project config: .zjj/config.toml
 //! 4. Environment variables: JJZ_*
 //! 5. CLI flags (command-specific)
@@ -157,7 +157,7 @@ impl Default for HooksConfig {
 impl Default for ZellijConfig {
     fn default() -> Self {
         Self {
-            session_prefix: "jjz".to_string(),
+            session_prefix: "zjj".to_string(),
             use_tabs: true,
             layout_dir: ".zjj/layouts".to_string(),
             panes: PanesConfig::default(),
@@ -179,7 +179,7 @@ impl Default for PanesConfig {
                 size: "50%".to_string(),
             },
             status: PaneConfig {
-                command: "jjz".to_string(),
+                command: "zjj".to_string(),
                 args: vec!["status".to_string(), "--watch".to_string()],
                 size: "50%".to_string(),
             },
@@ -281,7 +281,7 @@ pub fn load_config() -> Result<Config> {
 
 /// Get path to global config file
 fn global_config_path() -> Option<PathBuf> {
-    directories::ProjectDirs::from("", "", "jjz")
+    directories::ProjectDirs::from("", "", "zjj")
         .map(|proj_dirs| proj_dirs.config_dir().join("config.toml"))
 }
 
@@ -367,7 +367,7 @@ impl HooksConfig {
 
 impl ZellijConfig {
     fn merge(&mut self, other: Self) {
-        if other.session_prefix != "jjz" {
+        if other.session_prefix != "zjj" {
             self.session_prefix = other.session_prefix;
         }
         self.use_tabs = other.use_tabs;
@@ -807,7 +807,7 @@ mod tests {
     #[test]
     fn test_global_config_path() {
         let path = global_config_path();
-        // Should return Some path to ~/.config/jjz/config.toml
+        // Should return Some path to ~/.config/zjj/config.toml
         // or None on systems without home directory
         assert!(path.is_some() || path.is_none());
     }
@@ -830,7 +830,7 @@ mod tests {
         assert!(config.watch.enabled);
         assert_eq!(config.watch.debounce_ms, 100);
         assert_eq!(config.dashboard.refresh_ms, 1000);
-        assert_eq!(config.zellij.session_prefix, "jjz");
+        assert_eq!(config.zellij.session_prefix, "zjj");
     }
 
     #[test]

@@ -46,7 +46,7 @@ pub fn check_in_jj_repo() -> Result<PathBuf> {
     zjj_core::jj::check_in_jj_repo().map_err(|_| {
         anyhow::anyhow!(
             "Not in a JJ repository.\n\n\
-            Run 'jjz init' to initialize JJ and ZJJ in this directory."
+            Run 'zjj init' to initialize JJ and ZJJ in this directory."
         )
     })
 }
@@ -92,7 +92,7 @@ pub fn get_session_db() -> Result<SessionDb> {
 
     anyhow::ensure!(
         data_dir.exists(),
-        "ZJJ not initialized. Run 'jjz init' first."
+        "ZJJ not initialized. Run 'zjj init' first."
     );
 
     let db_path = data_dir.join("sessions.db");
@@ -232,11 +232,11 @@ mod tests {
         let repo_err = check_in_jj_repo();
         if let Err(e) = repo_err {
             let msg = e.to_string();
-            // If we get the "not in repo" error, it should mention jjz init
+            // If we get the "not in repo" error, it should mention zjj init
             if msg.contains("Not in a JJ repository") {
                 assert!(
-                    msg.contains("jjz init"),
-                    "Repository error should mention 'jjz init'"
+                    msg.contains("zjj init"),
+                    "Repository error should mention 'zjj init'"
                 );
             }
         }

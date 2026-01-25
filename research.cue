@@ -1,6 +1,6 @@
-// jjz Research Notes
+// zjj Research Notes
 // Documents analysis of existing tools and technology decisions
-package jjz
+package zjj
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROBLEM STATEMENT
@@ -146,7 +146,7 @@ tech_decisions: [...#TechDecision] & [
             "Built-in plugin system for future extensibility",
             "Better floating pane support",
             "Session resume built-in",
-            "Modern Rust codebase aligns with jjz",
+            "Modern Rust codebase aligns with zjj",
         ]
     },
     {

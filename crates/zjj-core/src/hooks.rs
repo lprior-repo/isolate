@@ -1,6 +1,6 @@
 //! Hook execution for lifecycle events
 //!
-//! This module provides hook execution capabilities for jjz lifecycle events:
+//! This module provides hook execution capabilities for zjj lifecycle events:
 //! - `post_create`: After workspace creation, before Zellij tab opens
 //! - `pre_remove`: Before workspace deletion
 //! - `post_merge`: After merge to main (optional)
@@ -18,7 +18,7 @@ use crate::{config::HooksConfig, Error, Result};
 // PUBLIC TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Types of lifecycle hooks supported by jjz
+/// Types of lifecycle hooks supported by zjj
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HookType {
     /// Runs after workspace creation, before Zellij tab opens

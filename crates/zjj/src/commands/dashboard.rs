@@ -103,7 +103,7 @@ enum InputAction {
 /// Run the interactive dashboard
 pub fn run() -> Result<()> {
     // Check if we're in a JJ repo
-    let _root = crate::cli::jj_root().context("Not in a JJ repository. Run 'jjz init' first.")?;
+    let _root = crate::cli::jj_root().context("Not in a JJ repository. Run 'zjj init' first.")?;
 
     // Setup terminal
     enable_raw_mode().context("Failed to enable raw mode")?;
@@ -771,7 +771,7 @@ mod tests {
             name: "active-session".to_string(),
             status: SessionStatus::Active,
             workspace_path: "/tmp/active".to_string(),
-            zellij_tab: "jjz:active-session".to_string(),
+            zellij_tab: "zjj:active-session".to_string(),
             branch: Some("main".to_string()),
             created_at: 0,
             updated_at: 0,
@@ -784,7 +784,7 @@ mod tests {
             name: "paused-session".to_string(),
             status: SessionStatus::Paused,
             workspace_path: "/tmp/paused".to_string(),
-            zellij_tab: "jjz:paused-session".to_string(),
+            zellij_tab: "zjj:paused-session".to_string(),
             branch: Some("main".to_string()),
             created_at: 0,
             updated_at: 0,

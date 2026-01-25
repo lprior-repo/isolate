@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Integration Test Suite for jjz CLI
+# Integration Test Suite for zjj CLI
 # Tests all commands work together end-to-end
 
 set -uo pipefail
@@ -18,10 +18,10 @@ declare -a FAILED_TESTS
 declare -a BUGS_FOUND
 
 # Find the binary
-JJZ_BIN="${CARGO_TARGET_DIR:-target}/release/jjz"
+JJZ_BIN="${CARGO_TARGET_DIR:-target}/release/zjj"
 if [[ ! -f "$JJZ_BIN" ]]; then
-    echo -e "${RED}Error: jjz binary not found at $JJZ_BIN${NC}"
-    echo "Run: cargo build --release --bin jjz"
+    echo -e "${RED}Error: zjj binary not found at $JJZ_BIN${NC}"
+    echo "Run: cargo build --release --bin zjj"
     exit 1
 fi
 

@@ -1,4 +1,4 @@
-//! Integration tests for `jjz init` command
+//! Integration tests for `zjj init` command
 //!
 //! Tests the initialization workflow including:
 //! - Creating .zjj directory structure

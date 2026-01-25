@@ -15,8 +15,6 @@ tasks:
       - "crates/**/*.rs"
       - "Cargo.toml"
       - "rustfmt.toml"
-    outputs:
-      - ".moon/cache/fmt-check"
     options:
       cache: true
       runInCI: true
@@ -36,10 +34,8 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-      - "Cargo.lock"
+      - "/Cargo.lock"
       - ".clippy.toml"
-    outputs:
-      - ".moon/cache/clippy-check"
     options:
       cache: true
       runInCI: true
@@ -54,9 +50,7 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-      - "Cargo.lock"
-    outputs:
-      - ".moon/cache/test-results"
+      - "/Cargo.lock"
     options:
       cache: true
       runInCI: true
@@ -68,9 +62,7 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-      - "Cargo.lock"
-    outputs:
-      - ".moon/cache/doctest-results"
+      - "/Cargo.lock"
     options:
       cache: true
       runInCI: true
@@ -95,9 +87,9 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-      - "Cargo.lock"
+      - "/Cargo.lock"
     outputs:
-      - "target/release/jjz"
+      - "target/release/zjj"
     options:
       cache: true
       runInCI: true
@@ -108,9 +100,7 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-      - "Cargo.lock"
-    outputs:
-      - "target/doc"
+      - "/Cargo.lock"
     options:
       cache: true
       runInCI: true
@@ -147,8 +137,8 @@ tasks:
   # ============================================================================
 
   install:
-    command: "cp target/release/jjz ~/.local/bin/jjz && chmod +x ~/.local/bin/jjz && echo 'Installed jjz to ~/.local/bin/jjz'"
-    description: "Install jjz binary to ~/.local/bin (after build)"
+    command: "cp target/release/zjj ~/.local/bin/zjj && chmod +x ~/.local/bin/zjj && echo 'Installed zjj to ~/.local/bin/zjj'"
+    description: "Install zjj binary to ~/.local/bin (after build)"
     deps:
       - "build"
     options:
@@ -175,9 +165,7 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-      - "Cargo.lock"
-    outputs:
-      - ".moon/cache/check-results"
+      - "/Cargo.lock"
     options:
       cache: true
       runInCI: false
