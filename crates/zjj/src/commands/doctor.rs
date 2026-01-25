@@ -504,11 +504,13 @@ fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
 mod tests {
     use std::fs;
 
+    use serial_test::serial;
     use tempfile::TempDir;
 
     use super::*;
 
     #[test]
+    #[serial]
     fn test_check_initialized_detects_jjz_directory() {
         // Create a temporary directory
         let temp_dir = TempDir::new().ok().filter(|_| true);
@@ -553,6 +555,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_check_initialized_independent_of_jj() {
         // This test verifies that check_initialized doesn't call jj commands
         // We test this by checking it works even without a JJ repo
