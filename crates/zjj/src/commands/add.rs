@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use zjj_core::jj;
 
 use crate::{
@@ -46,14 +46,17 @@ pub fn run(name: &str) -> Result<()> {
 /// Run the add command with options
 pub fn run_with_options(options: &AddOptions) -> Result<()> {
     // Validate session name (REQ-CLI-015)
-    validate_session_name(&options.name)
-        .map_err(|e| anyhow::anyhow!("Invalid session name: {e}"))?;
+    // Map zjj_core::Error to anyhow::Error while preserving the original error
+    validate_session_name(&options.name).map_err(|e| anyhow::Error::new(e))?;
 
     let db = get_session_db()?;
 
     // Check if session already exists (REQ-ERR-004)
+    // Return zjj_core::Error::ValidationError to get exit code 1
     if db.get(&options.name)?.is_some() {
-        bail!("Session '{}' already exists", options.name);
+        return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
+            format!("Session '{}' already exists", options.name),
+        )));
     }
 
     let root = check_prerequisites()?;
@@ -132,9 +135,9 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 /// Create a JJ workspace for the session
 fn create_jj_workspace(name: &str, workspace_path: &str) -> Result<()> {
     // Use the JJ workspace manager from core
+    // Preserve the zjj_core::Error to maintain exit code semantics
     let path = PathBuf::from(workspace_path);
-    jj::workspace_create(name, &path)
-        .map_err(|e| anyhow::anyhow!("Failed to create JJ workspace: {e}"))?;
+    jj::workspace_create(name, &path).map_err(anyhow::Error::new)?;
 
     Ok(())
 }
@@ -278,6 +281,52 @@ mod tests {
         assert!(!opts.no_hooks);
         assert!(opts.template.is_none());
         assert!(!opts.no_open);
+    }
+
+    // Tests for P0-3a: Validation errors should map to exit code 1
+
+    #[test]
+    fn test_add_invalid_name_returns_validation_error() {
+        // Empty name
+        let result = validate_session_name("");
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert_eq!(e.exit_code(), 1);
+        }
+
+        // Non-ASCII name
+        let result = validate_session_name("test-session-🚀");
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert_eq!(e.exit_code(), 1);
+        }
+
+        // Name starting with number
+        let result = validate_session_name("123-test");
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert_eq!(e.exit_code(), 1);
+        }
+
+        // Name with invalid characters
+        let result = validate_session_name("test session");
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert_eq!(e.exit_code(), 1);
+        }
+    }
+
+    #[test]
+    fn test_duplicate_session_error_wraps_validation_error() {
+        // This test verifies that the duplicate session check creates a ValidationError
+        // which maps to exit code 1
+        let err = zjj_core::Error::ValidationError("Session 'test' already exists".into());
+        assert_eq!(err.exit_code(), 1);
+        assert!(matches!(err, zjj_core::Error::ValidationError(_)));
     }
 
     #[test]

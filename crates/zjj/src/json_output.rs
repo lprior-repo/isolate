@@ -96,12 +96,17 @@ pub struct FileDiffStat {
     pub status: String,
 }
 
-/// Output a JSON error and exit with code 1
+/// Output a JSON error and exit with the appropriate semantic exit code
 ///
 /// Converts an `anyhow::Error` to a JSON error structure and outputs it to stdout.
-/// Then exits the process with exit code 1.
+/// Then exits the process with the semantic exit code from the error:
+/// - 1: Validation errors (user input issues)
+/// - 2: Not found errors (missing resources)
+/// - 3: System errors (IO, database issues)
+/// - 4: External command errors
 pub fn output_json_error_and_exit(error: &Error) -> ! {
     let json_error = error_to_json_error(error);
+    let exit_code = json_error.error.exit_code;
 
     if let Ok(json_str) = serde_json::to_string_pretty(&json_error) {
         println!("{json_str}");
@@ -109,7 +114,7 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
         eprintln!("Error: {error}");
     }
 
-    std::process::exit(1);
+    std::process::exit(exit_code);
 }
 
 /// Convert an `anyhow::Error` to a `JsonError`
