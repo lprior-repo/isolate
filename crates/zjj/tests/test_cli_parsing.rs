@@ -268,22 +268,6 @@ fn test_status_without_name_shows_all() {
     // Should show all sessions or a summary
 }
 
-#[test]
-fn test_status_with_watch_flag() {
-    let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
-        return;
-    };
-    harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test", "--no-open"]);
-
-    // Note: --watch will block, so we can't test it in CI
-    // Just verify it doesn't error immediately
-    let _result = harness.zjj(&["status", "test", "--watch"]);
-    // Will run continuously - this test may timeout
-    // In practice, we'd need to kill it after a short time
-}
-
 // ============================================================================
 // Diff Command Options
 // ============================================================================
