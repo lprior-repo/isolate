@@ -36,6 +36,7 @@ impl Default for JsonError {
             error: ErrorDetail {
                 code: "UNKNOWN".to_string(),
                 message: "An unknown error occurred".to_string(),
+                exit_code: 4,
                 details: None,
                 suggestion: None,
             },
@@ -50,6 +51,8 @@ pub struct ErrorDetail {
     pub code: String,
     /// Human-readable error message
     pub message: String,
+    /// Semantic exit code (1-4)
+    pub exit_code: i32,
     /// Optional additional context
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<serde_json::Value>,
@@ -66,6 +69,7 @@ impl JsonError {
             error: ErrorDetail {
                 code: code.into(),
                 message: message.into(),
+                exit_code: 4, // Default to unknown/external error
                 details: None,
                 suggestion: None,
             },
@@ -163,6 +167,47 @@ impl ErrorCode {
 impl From<ErrorCode> for String {
     fn from(code: ErrorCode) -> Self {
         code.as_str().to_string()
+    }
+}
+
+/// Classify an error into a semantic exit code.
+///
+/// Exit codes follow this semantic mapping:
+/// - 1: Validation errors (user input issues)
+/// - 2: Not found errors (missing resources)
+/// - 3: System errors (IO, database issues)
+/// - 4: External command errors
+const fn classify_exit_code(error: &crate::Error) -> i32 {
+    use crate::Error;
+    match error {
+        // Validation errors: exit code 1
+        Error::InvalidConfig(_) | Error::ValidationError(_) | Error::ParseError(_) => 1,
+        // Not found errors: exit code 2
+        Error::NotFound(_) => 2,
+        // System errors: exit code 3
+        Error::IoError(_) | Error::DatabaseError(_) => 3,
+        // External command errors: exit code 4
+        Error::Command(_)
+        | Error::JjCommandError { .. }
+        | Error::HookFailed { .. }
+        | Error::HookExecutionFailed { .. }
+        | Error::Unknown(_) => 4,
+    }
+}
+
+impl ErrorDetail {
+    /// Construct an `ErrorDetail` from an Error.
+    ///
+    /// This is the standard way to convert errors to JSON-serializable format.
+    #[must_use]
+    pub fn from_error(error: &crate::Error) -> Self {
+        Self {
+            code: error.code().to_string(),
+            message: error.to_string(),
+            exit_code: classify_exit_code(error),
+            details: error.context_map(),
+            suggestion: error.suggestion(),
+        }
     }
 }
 
@@ -421,5 +466,57 @@ mod tests {
         assert!(!json.contains("\"suggestion\""));
 
         Ok(())
+    }
+
+    // Tests for ErrorDetail::from_error() constructor (zjj-lgkf Phase 4 - RED)
+    #[test]
+    fn test_error_detail_from_validation_error() {
+        let err = crate::Error::ValidationError("invalid session name".into());
+        let detail = ErrorDetail::from_error(&err);
+
+        assert_eq!(detail.code, "VALIDATION_ERROR");
+        assert!(detail.message.contains("Validation error"));
+        assert_eq!(detail.exit_code, 1);
+    }
+
+    #[test]
+    fn test_error_detail_from_io_error() {
+        let err = crate::Error::IoError("file not found".into());
+        let detail = ErrorDetail::from_error(&err);
+
+        assert_eq!(detail.code, "IO_ERROR");
+        assert!(detail.message.contains("IO error"));
+        assert_eq!(detail.exit_code, 3);
+    }
+
+    #[test]
+    fn test_error_detail_from_not_found_error() {
+        let err = crate::Error::NotFound("session not found".into());
+        let detail = ErrorDetail::from_error(&err);
+
+        assert_eq!(detail.code, "NOT_FOUND");
+        assert!(detail.message.contains("Not found"));
+        assert_eq!(detail.exit_code, 2);
+    }
+
+    #[test]
+    fn test_error_detail_preserves_context() {
+        let err = crate::Error::ValidationError("invalid input".into());
+        let detail = ErrorDetail::from_error(&err);
+
+        // Should have context map populated
+        assert!(detail.details.is_some());
+    }
+
+    #[test]
+    fn test_error_detail_includes_suggestion() {
+        let err = crate::Error::NotFound("session not found".into());
+        let detail = ErrorDetail::from_error(&err);
+
+        // Should have suggestion populated
+        assert!(detail.suggestion.is_some());
+        if let Some(sugg) = detail.suggestion {
+            assert!(sugg.contains("list"));
+        }
     }
 }
