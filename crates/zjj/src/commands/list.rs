@@ -136,8 +136,12 @@ fn get_beads_count() -> Result<BeadCounts> {
     }
 
     // Query beads database
-    let conn = Connection::open(&beads_db_path)
-        .map_err(|e| anyhow::anyhow!("Failed to open beads database: {e}"))?;
+    // Map database errors to zjj_core::Error::DatabaseError for exit code 3
+    let conn = Connection::open(&beads_db_path).map_err(|e| {
+        anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+            "Failed to open beads database: {e}"
+        )))
+    })?;
 
     // Count open issues
     let open: usize = conn

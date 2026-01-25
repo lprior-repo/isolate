@@ -28,8 +28,8 @@ pub struct ConfigOptions {
 /// - Config value cannot be set
 /// - Invalid arguments provided
 pub fn run(options: ConfigOptions) -> Result<()> {
-    let config = zjj_core::config::load_config()
-        .map_err(|e| anyhow::anyhow!("Failed to load config: {e}"))?;
+    // Preserve error type for proper exit code mapping
+    let config = zjj_core::config::load_config().map_err(anyhow::Error::new)?;
 
     match (options.key, options.value) {
         // No key, no value: Show all config
@@ -127,9 +127,11 @@ fn show_config_value(config: &Config, key: &str, json: bool) -> Result<()> {
             serde_json::to_value(config).context("Failed to serialize config for value lookup")?;
         let parts: Vec<&str> = key.split('.').collect();
         let current = parts.iter().try_fold(&json_val, |current_value, &part| {
-            current_value
-                .get(part)
-                .ok_or_else(|| anyhow::anyhow!("Config key '{key}' not found"))
+            current_value.get(part).ok_or_else(|| {
+                anyhow::Error::new(zjj_core::Error::ValidationError(format!(
+                    "Config key '{key}' not found"
+                )))
+            })
         })?;
 
         println!("{}", serde_json::to_string_pretty(current)?);
@@ -152,7 +154,9 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
     // Navigate through nested keys using functional fold pattern
     let current = parts.iter().try_fold(&json, |current_value, &part| {
         current_value.get(part).ok_or_else(|| {
-            anyhow::anyhow!("Config key '{key}' not found. Use 'zjj config' to see all keys.")
+            anyhow::Error::new(zjj_core::Error::ValidationError(format!(
+                "Config key '{key}' not found. Use 'zjj config' to see all keys."
+            )))
         })
     })?;
 
@@ -229,15 +233,19 @@ fn set_nested_value(doc: &mut toml_edit::DocumentMut, parts: &[&str], value: &st
                 if !current_table.contains_key(part) {
                     current_table[part] = toml_edit::table();
                 }
-                current_table[part]
-                    .as_table_mut()
-                    .ok_or_else(|| anyhow::anyhow!("{part} is not a table"))
+                current_table[part].as_table_mut().ok_or_else(|| {
+                    anyhow::Error::new(zjj_core::Error::ValidationError(format!(
+                        "{part} is not a table"
+                    )))
+                })
             })?;
 
     // Set the value
-    let key = parts
-        .last()
-        .ok_or_else(|| anyhow::anyhow!("Invalid key path"))?;
+    let key = parts.last().ok_or_else(|| {
+        anyhow::Error::new(zjj_core::Error::ValidationError(
+            "Invalid key path".to_string(),
+        ))
+    })?;
     let toml_value = parse_value(value)?;
     final_table[key] = toml_value;
 
@@ -276,7 +284,11 @@ fn parse_value(value: &str) -> Result<toml_edit::Item> {
 fn global_config_path() -> Result<PathBuf> {
     directories::ProjectDirs::from("", "", "zjj")
         .map(|proj_dirs| proj_dirs.config_dir().join("config.toml"))
-        .ok_or_else(|| anyhow::anyhow!("Failed to determine global config directory"))
+        .ok_or_else(|| {
+            anyhow::Error::new(zjj_core::Error::IoError(
+                "Failed to determine global config directory".to_string(),
+            ))
+        })
 }
 
 /// Get path to project config file
