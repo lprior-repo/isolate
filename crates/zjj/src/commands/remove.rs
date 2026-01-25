@@ -39,9 +39,12 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session
-    let session = db
-        .get(name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{name}' not found"))?;
+    // Return zjj_core::Error::NotFound to get exit code 2 (not found)
+    let session = db.get(name)?.ok_or_else(|| {
+        anyhow::Error::new(zjj_core::Error::NotFound(format!(
+            "Session '{name}' not found"
+        )))
+    })?;
 
     // Confirm removal unless --force
     if !options.force && !confirm_removal(name)? {
@@ -203,5 +206,31 @@ mod tests {
             .map(|()| false)
             .unwrap_or_else(|e| e.to_string().contains("not yet implemented"));
         assert!(is_not_impl);
+    }
+
+    // Tests for P0-3b: Error exit code mapping
+
+    #[test]
+    fn test_not_found_error_has_correct_exit_code() {
+        // When we can't find a session, we should return NotFound error with exit code 2
+        let err = zjj_core::Error::NotFound("Session 'test' not found".into());
+        assert_eq!(err.exit_code(), 2);
+        assert!(matches!(err, zjj_core::Error::NotFound(_)));
+    }
+
+    #[test]
+    fn test_io_error_maps_to_exit_code_3() {
+        // IO errors (like permission denied) should map to exit code 3
+        let err = zjj_core::Error::IoError("Permission denied".into());
+        assert_eq!(err.exit_code(), 3);
+        assert!(matches!(err, zjj_core::Error::IoError(_)));
+    }
+
+    #[test]
+    fn test_validation_error_maps_to_exit_code_1() {
+        // Validation errors should map to exit code 1
+        let err = zjj_core::Error::ValidationError("Invalid name".into());
+        assert_eq!(err.exit_code(), 1);
+        assert!(matches!(err, zjj_core::Error::ValidationError(_)));
     }
 }
