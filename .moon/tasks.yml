@@ -15,8 +15,11 @@ tasks:
       - "crates/**/*.rs"
       - "Cargo.toml"
       - "rustfmt.toml"
+    outputs:
+      - ".moon/cache/fmt-check"
     options:
-      cache: false
+      cache: true
+      runInCI: true
 
   fmt-fix:
     command: "cargo fmt --all"
@@ -25,7 +28,7 @@ tasks:
       - "crates/**/*.rs"
       - "Cargo.toml"
     options:
-      cache: false
+      cache: false  # Never cache - always format
 
   clippy:
     command: "cargo clippy --workspace --all-targets --all-features -- -D warnings"
@@ -33,22 +36,31 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-    deps:
-      - "fmt"
+      - "Cargo.lock"
+      - ".clippy.toml"
+    outputs:
+      - ".moon/cache/clippy-check"
+    options:
+      cache: true
+      runInCI: true
 
   # ============================================================================
   # STAGE 2: TESTING
   # ============================================================================
 
   test:
-    command: "cargo test --workspace --all-features"
-    description: "Run all unit tests"
+    command: "cargo nextest run --workspace --all-features --no-fail-fast"
+    description: "Run all tests with nextest (parallel + faster)"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-    deps:
-      - "fmt"
-      - "clippy"
+      - "Cargo.lock"
+    outputs:
+      - ".moon/cache/test-results"
+    options:
+      cache: true
+      runInCI: true
+      mergeArgs: "replace"  # Allow overriding with specific test filters
 
   test-doc:
     command: "cargo test --doc --workspace"
@@ -56,8 +68,12 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-    deps:
-      - "fmt"
+      - "Cargo.lock"
+    outputs:
+      - ".moon/cache/doctest-results"
+    options:
+      cache: true
+      runInCI: true
 
   # ============================================================================
   # STAGE 3: SECURITY
@@ -79,9 +95,12 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-    deps:
-      - "clippy"
-      - "test"
+      - "Cargo.lock"
+    outputs:
+      - "target/release/jjz"
+    options:
+      cache: true
+      runInCI: true
 
   build-docs:
     command: "cargo doc --no-deps --document-private-items"
@@ -89,8 +108,12 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
-    deps:
-      - "clippy"
+      - "Cargo.lock"
+    outputs:
+      - "target/doc"
+    options:
+      cache: true
+      runInCI: true
 
   # ============================================================================
   # COMPOSITE PIPELINES
@@ -98,25 +121,26 @@ tasks:
 
   quick:
     command: "true"
-    description: "Fast lint check (format + clippy)"
+    description: "Fast lint check (format + clippy in parallel)"
     deps:
-      - "fmt"
-      - "clippy"
+      - "~:fmt"      # ~ prefix runs in parallel
+      - "~:clippy"
     options:
-      cache: false
+      cache: false  # Composite task - deps handle caching
 
   ci:
     command: "true"
-    description: "Full CI pipeline (fmt, clippy, test, build)"
+    description: "Full CI pipeline (all checks in parallel where possible)"
     deps:
-      - "quick"
-      - "test"
-      - "test-doc"
-      - "audit"
-      - "build"
-      - "build-docs"
+      - "~:fmt"        # Parallel: formatting
+      - "~:clippy"     # Parallel: linting
+      - "~:test"       # Parallel: tests
+      - "~:test-doc"   # Parallel: doc tests
+      - "~:audit"      # Parallel: security
+      - "build"        # Sequential: needs tests to pass
+      - "build-docs"   # Sequential: needs clippy
     options:
-      cache: false
+      cache: false  # Composite task - deps handle caching
 
   # ============================================================================
   # CONVENIENCE
@@ -151,3 +175,9 @@ tasks:
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
+      - "Cargo.lock"
+    outputs:
+      - ".moon/cache/check-results"
+    options:
+      cache: true
+      runInCI: false

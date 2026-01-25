@@ -29,5 +29,7 @@ Thumbs.db
 # Codanna (local index)
 .codanna/
 .fastembed_cache
+
+# JJZ runtime data
+.jjz/
 workspaces/
-.jjz/workspaces/
