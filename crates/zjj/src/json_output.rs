@@ -54,7 +54,7 @@ pub struct FocusOutput {
 #[allow(dead_code)]
 pub struct SyncOutput {
     pub success: bool,
-    pub session_name: Option<String>,
+    pub name: Option<String>,
     pub synced_count: usize,
     pub failed_count: usize,
     pub errors: Vec<SyncError>,
@@ -63,7 +63,7 @@ pub struct SyncOutput {
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
 pub struct SyncError {
-    pub session_name: String,
+    pub name: String,
     pub error: String,
 }
 
@@ -71,7 +71,7 @@ pub struct SyncError {
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
 pub struct DiffOutput {
-    pub session_name: String,
+    pub name: String,
     pub base: String,
     pub head: String,
     #[serde(skip_serializing_if = "Option::is_none")]
