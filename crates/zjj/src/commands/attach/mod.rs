@@ -10,6 +10,8 @@ use crate::commands::get_session_db;
 pub struct AttachOptions {
     /// Name of the session to attach to
     pub name: String,
+    /// Output as JSON
+    pub json: bool,
 }
 
 impl AttachOptions {
@@ -18,8 +20,12 @@ impl AttachOptions {
         let name = matches
             .get_one::<String>("name")
             .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+        let json = matches.get_flag("json");
 
-        Ok(Self { name: name.clone() })
+        Ok(Self {
+            name: name.clone(),
+            json,
+        })
     }
 }
 
@@ -73,6 +79,7 @@ mod tests {
     fn test_attach_options_creation() {
         let opts = AttachOptions {
             name: "test-session".to_string(),
+            json: false,
         };
         assert_eq!(opts.name, "test-session");
     }

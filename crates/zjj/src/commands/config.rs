@@ -15,6 +15,7 @@ pub struct ConfigOptions {
     pub key: Option<String>,
     pub value: Option<String>,
     pub global: bool,
+    pub json: bool,
 }
 
 /// Execute the config command
@@ -33,12 +34,12 @@ pub fn run(options: ConfigOptions) -> Result<()> {
     match (options.key, options.value) {
         // No key, no value: Show all config
         (None, None) => {
-            show_all_config(&config, options.global)?;
+            show_all_config(&config, options.global, options.json)?;
         }
 
         // Key, no value: Show specific value
         (Some(key), None) => {
-            show_config_value(&config, &key)?;
+            show_config_value(&config, &key, options.json)?;
         }
 
         // Key + value: Set value
@@ -49,11 +50,21 @@ pub fn run(options: ConfigOptions) -> Result<()> {
                 project_config_path()?
             };
             set_config_value(&config_path, &key, &value)?;
-            println!("✓ Set {key} = {value}");
-            if options.global {
-                println!("  (in global config)");
+
+            if options.json {
+                println!(
+                    "{{ \"success\": true, \"key\": \"{}\", \"value\": \"{}\", \"scope\": \"{}\" }}",
+                    key,
+                    value,
+                    if options.global { "global" } else { "project" }
+                );
             } else {
-                println!("  (in project config)");
+                println!("✓ Set {key} = {value}");
+                if options.global {
+                    println!("  (in global config)");
+                } else {
+                    println!("  (in project config)");
+                }
             }
         }
 
@@ -71,7 +82,14 @@ pub fn run(options: ConfigOptions) -> Result<()> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Show all configuration
-fn show_all_config(config: &Config, global_only: bool) -> Result<()> {
+fn show_all_config(config: &Config, global_only: bool, json: bool) -> Result<()> {
+    if json {
+        let json_val =
+            serde_json::to_string_pretty(config).context("Failed to serialize config to JSON")?;
+        println!("{json_val}");
+        return Ok(());
+    }
+
     // Serialize config to TOML
     let toml = toml::to_string_pretty(config).context("Failed to serialize config to TOML")?;
 
@@ -103,7 +121,21 @@ fn show_all_config(config: &Config, global_only: bool) -> Result<()> {
 }
 
 /// Show a specific config value
-fn show_config_value(config: &Config, key: &str) -> Result<()> {
+fn show_config_value(config: &Config, key: &str, json: bool) -> Result<()> {
+    if json {
+        let json_val =
+            serde_json::to_value(config).context("Failed to serialize config for value lookup")?;
+        let parts: Vec<&str> = key.split('.').collect();
+        let current = parts.iter().try_fold(&json_val, |current_value, &part| {
+            current_value
+                .get(part)
+                .ok_or_else(|| anyhow::anyhow!("Config key '{key}' not found"))
+        })?;
+
+        println!("{}", serde_json::to_string_pretty(current)?);
+        return Ok(());
+    }
+
     let value = get_nested_value(config, key)?;
     println!("{key} = {value}");
     Ok(())
@@ -431,7 +463,7 @@ mod tests {
     fn test_show_config_value() -> Result<()> {
         let config = setup_test_config();
         // Just test that it doesn't panic
-        show_config_value(&config, "workspace_dir")?;
+        show_config_value(&config, "workspace_dir", false)?;
         Ok(())
     }
 
@@ -439,8 +471,8 @@ mod tests {
     fn test_show_all_config() -> Result<()> {
         let config = setup_test_config();
         // Just test that it doesn't panic
-        show_all_config(&config, false)?;
-        show_all_config(&config, true)?;
+        show_all_config(&config, false, false)?;
+        show_all_config(&config, true, false)?;
         Ok(())
     }
 
