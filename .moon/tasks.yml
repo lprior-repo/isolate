@@ -137,12 +137,11 @@ tasks:
   # ============================================================================
 
   install:
-    command: "cp target/release/zjj ~/.local/bin/zjj && chmod +x ~/.local/bin/zjj && echo 'Installed zjj to ~/.local/bin/zjj'"
-    description: "Install zjj binary to ~/.local/bin (after build)"
-    deps:
-      - "build"
+    command: "mkdir -p ~/.local/bin && cargo build --release && cp target/release/zjj ~/.local/bin/zjj && chmod +x ~/.local/bin/zjj && echo '✅ Installed zjj to ~/.local/bin/zjj'"
+    description: "Install zjj binary to ~/.local/bin (system-wide)"
     options:
       cache: false
+      runInCI: false
 
   dev:
     command: "true"
