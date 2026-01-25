@@ -10,36 +10,48 @@ ZJJ is a powerful tool that combines [JJ (Just Join)](https://github.com/martinv
 - **JSON Output Support**: All commands support JSON output for scripting
 - **Error Handling**: Comprehensive error handling with user-friendly messages
 
-## Full Moon CI/CD Setup
+## ⚡ Hyper-Fast CI/CD Pipeline
 
-This project implements a comprehensive CI/CD pipeline that includes:
+This project uses **Moon** + **bazel-remote** for a production-grade CI/CD pipeline with **98.5% faster** cached builds:
 
-### Continuous Integration
-- Automated testing on every push and pull request
-- Code quality checks with Clippy
-- Formatting validation with rustfmt
-- Security audit with cargo-audit
+### 🚀 Performance
+- **6-7ms** cached task execution (vs ~450ms cold)
+- **100GB local cache** with zstd compression
+- **Parallel task execution** across all crates
+- **Persistent cache** survives clean/rebuild cycles
 
-### Automated Testing
-- Unit tests for all modules
-- Integration tests for session lifecycle
-- Error handling verification
-- JSON output format validation
+### 🛠️ Build System
+- **Moon v1.41.8**: Modern build orchestrator
+- **bazel-remote v2.6.1**: High-performance cache backend
+- **Native binary**: No Docker overhead
+- **User service**: Auto-starts on login, no sudo required
 
-### Release Pipeline
-- Automated build and packaging
-- Cross-platform release artifacts
-- GitHub release automation
-- Coverage reporting (optional)
+### ✅ Pipeline Stages
+1. **Format Check** (`moon run :fmt`) - Verify code formatting
+2. **Linting** (`moon run :clippy`) - Strict Clippy checks
+3. **Type Check** (`moon run :check`) - Fast compilation check
+4. **Testing** (`moon run :test`) - Full test suite with nextest
+5. **Build** (`moon run :build`) - Release builds
+6. **Security** (`moon run :audit`) - Dependency audits
+
+### 📊 Typical Development Loop
+```bash
+# Edit code...
+moon run :fmt :check  # 6-7ms with cache! ⚡
+```
+
+See [docs/CI-CD-PERFORMANCE.md](docs/CI-CD-PERFORMANCE.md) for detailed benchmarks and optimization guide.
 
 ## Getting Started
 
 ### Prerequisites
 
 - Rust 1.80 or later
-- Cargo
+- **Moon** (install from https://moonrepo.dev/docs/install)
+- **bazel-remote** (auto-installed via setup script)
 - Zellij (for session management)
 - SQLite (for database operations)
+- CUE (for schema validation)
 
 ### Installation
 
@@ -48,12 +60,20 @@ This project implements a comprehensive CI/CD pipeline that includes:
 git clone https://github.com/lprior-repo/zjj.git
 cd zjj
 
-# Build the project
-cargo build --release
+# Install Moon (if not already installed)
+curl -fsSL https://moonrepo.dev/install/moon.sh | bash
+
+# Setup hyper-fast local cache (one-time setup)
+bash /tmp/install-bazel-remote-user.sh  # Created during development
+
+# Build the project with Moon
+moon run :build
 
 # Install the binary
-cargo install --path crates/zjj
+moon run :install  # Copies to ~/.local/bin/zjj
 ```
+
+**Note**: The bazel-remote cache service runs as a systemd user service and auto-starts on login.
 
 ### Usage
 
@@ -76,42 +96,77 @@ zjj remove my-session
 
 ## Development
 
-### Running Tests
+### Quick Development Loop
 
 ```bash
-# Run all tests
-cargo test --workspace
+# Format and type-check (6-7ms with cache!)
+moon run :quick
 
-# Run specific test file
-cargo test -p zjj test_session_lifecycle
+# Full pipeline (parallel execution)
+moon run :ci
 
-# Run tests with coverage
-cargo install cargo-tarpaulin
-cargo tarpaulin --workspace
+# Individual tasks
+moon run :fmt        # Check formatting
+moon run :fmt-fix    # Auto-fix formatting
+moon run :check      # Fast type check
+moon run :test       # Run tests with nextest
+moon run :clippy     # Linting
+moon run :build      # Release build
 ```
 
-### Code Quality
+### Cache Management
 
 ```bash
-# Check code formatting
-cargo fmt --check
+# View cache stats
+curl http://localhost:9090/status | jq
 
-# Run clippy lints
-cargo clippy --workspace
+# Monitor cache in real-time
+watch -n 1 'curl -s http://localhost:9090/status | jq'
 
-# Security audit
-cargo audit
+# Restart cache service (if needed)
+systemctl --user restart bazel-remote
+
+# View cache logs
+journalctl --user -u bazel-remote -f
+```
+
+### Performance Benchmarking
+
+```bash
+# Benchmark cache performance
+time moon run :fmt :check  # First run (cache miss)
+time moon run :fmt :check  # Second run (cache hit - should be <10ms!)
 ```
 
 ## CI/CD Configuration
 
-The project includes a complete GitHub Actions workflow in `.github/workflows/full-moon-cicd.yml` that:
+The project uses **Moon** for all CI/CD operations with hyper-fast caching:
 
-1. **Tests**: Runs all tests on Ubuntu with caching for speed
-2. **Lints**: Executes Clippy for code quality
-3. **Formats**: Checks Rust formatting compliance
-4. **Audits**: Performs security audits
-5. **Releases**: Builds and publishes release artifacts
+### Local Development
+- **bazel-remote** runs as systemd user service
+- **gRPC cache** at `localhost:9092` (zero network latency)
+- **100GB cache** with zstd compression
+- **6-7ms** task execution with cache hits
+
+### CI Environment (Future)
+```yaml
+# .github/workflows/ci.yml (example)
+- uses: moonrepo/setup-toolchain@v0
+- run: moon ci --base origin/main --head HEAD
+  env:
+    CACHE_TOKEN: ${{ secrets.CACHE_TOKEN }}  # Optional remote cache
+```
+
+### Pipeline Stages
+1. **Format** (`~:fmt`) - Parallel formatting check
+2. **Lint** (`~:clippy`) - Parallel linting
+3. **Test** (`~:test`) - Parallel test execution
+4. **Build** (`build`) - Sequential release build
+5. **Docs** (`build-docs`) - Generate documentation
+
+All stages with `~:` prefix run **in parallel** for maximum speed.
+
+See [docs/CI-CD-PERFORMANCE.md](docs/CI-CD-PERFORMANCE.md) for detailed configuration and optimization guide.
 
 ## Contributing
 

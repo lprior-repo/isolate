@@ -89,7 +89,7 @@ tasks:
       - "Cargo.toml"
       - "/Cargo.lock"
     outputs:
-      - "target/release/zjj"
+      - "/target/release/zjj"
     options:
       cache: true
       runInCI: true

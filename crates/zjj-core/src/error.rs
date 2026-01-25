@@ -186,25 +186,50 @@ impl Error {
     #[must_use]
     pub fn suggestion(&self) -> Option<String> {
         match self {
-            Self::NotFound(_) => Some("Try 'zjj list' to see available sessions".to_string()),
-            Self::ValidationError(msg) if msg.contains("name") => Some(
-                "Session name must start with letter and contain only alphanumeric, dash, underscore"
-                    .to_string(),
-            ),
-            Self::DatabaseError(_) => {
-                Some("Try 'zjj doctor' to check database health".to_string())
-            }
-            Self::JjCommandError {
-                is_not_found: true,
-                ..
-            } => Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
-            Self::HookFailed { .. } => Some(
-                "Check your hook configuration and ensure the command is correct".to_string(),
-            ),
-            Self::HookExecutionFailed { .. } => {
-                Some("Ensure the hook command exists and is executable".to_string())
-            }
-            _ => None,
+             Self::NotFound(_) => Some("Try 'zjj list' to see available sessions".to_string()),
+             Self::ValidationError(msg) if msg.contains("name") => Some(
+                 "Session name must start with letter and contain only alphanumeric, dash, underscore"
+                     .to_string(),
+             ),
+             Self::DatabaseError(_) => {
+                 Some("Try 'zjj doctor' to check database health".to_string())
+             }
+             Self::JjCommandError {
+                 is_not_found: true,
+                 ..
+             } => Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
+             Self::HookFailed { .. } => Some(
+                 "Check your hook configuration and ensure the command is correct".to_string(),
+             ),
+             Self::HookExecutionFailed { .. } => {
+                 Some("Ensure the hook command exists and is executable".to_string())
+             }
+             _ => None,
+         }
+    }
+
+    /// Returns the semantic exit code for this error.
+    ///
+    /// Exit codes follow this semantic mapping:
+    /// - 1: Validation errors (user input issues)
+    /// - 2: Not found errors (missing resources)
+    /// - 3: System errors (IO, database issues)
+    /// - 4: External command errors
+    #[must_use]
+    pub const fn exit_code(&self) -> i32 {
+        match self {
+            // Validation errors: exit code 1
+            Self::InvalidConfig(_) | Self::ValidationError(_) | Self::ParseError(_) => 1,
+            // Not found errors: exit code 2
+            Self::NotFound(_) => 2,
+            // System errors: exit code 3
+            Self::IoError(_) | Self::DatabaseError(_) => 3,
+            // External command errors: exit code 4
+            Self::Command(_)
+            | Self::JjCommandError { .. }
+            | Self::HookFailed { .. }
+            | Self::HookExecutionFailed { .. }
+            | Self::Unknown(_) => 4,
         }
     }
 }
@@ -381,5 +406,85 @@ mod tests {
         let suggestion = err.suggestion();
         // Unknown errors might not have suggestions
         assert!(suggestion.is_none() || suggestion.is_some());
+    }
+
+    // Tests for Error::exit_code() method (zjj-2x2p Phase 4 - RED)
+    #[test]
+    fn test_validation_error_maps_to_exit_code_1() {
+        let err = Error::ValidationError("invalid input".into());
+        assert_eq!(err.exit_code(), 1);
+    }
+
+    #[test]
+    fn test_invalid_config_maps_to_exit_code_1() {
+        let err = Error::InvalidConfig("bad config".into());
+        assert_eq!(err.exit_code(), 1);
+    }
+
+    #[test]
+    fn test_parse_error_maps_to_exit_code_1() {
+        let err = Error::ParseError("malformed input".into());
+        assert_eq!(err.exit_code(), 1);
+    }
+
+    #[test]
+    fn test_not_found_error_maps_to_exit_code_2() {
+        let err = Error::NotFound("session not found".into());
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_io_error_maps_to_exit_code_3() {
+        let err = Error::IoError("file not found".into());
+        assert_eq!(err.exit_code(), 3);
+    }
+
+    #[test]
+    fn test_database_error_maps_to_exit_code_3() {
+        let err = Error::DatabaseError("connection failed".into());
+        assert_eq!(err.exit_code(), 3);
+    }
+
+    #[test]
+    fn test_command_error_maps_to_exit_code_4() {
+        let err = Error::Command("command failed".into());
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    #[test]
+    fn test_jj_command_error_maps_to_exit_code_4() {
+        let err = Error::JjCommandError {
+            operation: "create workspace".to_string(),
+            source: "error".to_string(),
+            is_not_found: false,
+        };
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    #[test]
+    fn test_hook_failed_maps_to_exit_code_4() {
+        let err = Error::HookFailed {
+            hook_type: "post_create".to_string(),
+            command: "npm install".to_string(),
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: "Package not found".to_string(),
+        };
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    #[test]
+    fn test_hook_execution_failed_maps_to_exit_code_4() {
+        let err = Error::HookExecutionFailed {
+            command: "invalid-shell".to_string(),
+            source: "No such file or directory".to_string(),
+        };
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    #[test]
+    fn test_unknown_error_maps_to_exit_code_4() {
+        let err = Error::Unknown("unknown error".into());
+        assert_eq!(err.exit_code(), 4);
     }
 }
