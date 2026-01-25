@@ -14,17 +14,20 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session
-    let session = db
-        .get(name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{name}' not found"))?;
+    // Return zjj_core::Error::NotFound to get exit code 2 (not found)
+    let session = db.get(name)?.ok_or_else(|| {
+        anyhow::Error::new(zjj_core::Error::NotFound(format!(
+            "Session '{name}' not found"
+        )))
+    })?;
 
     // Verify workspace exists
     let workspace_path = Path::new(&session.workspace_path);
     if !workspace_path.exists() {
-        anyhow::bail!(
+        return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Workspace not found: {}. The session may be stale.",
             session.workspace_path
-        );
+        ))));
     }
 
     // Determine the main branch
@@ -51,23 +54,33 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
         .output()
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                anyhow::anyhow!(
-                    "Failed to execute jj diff: JJ is not installed or not in PATH.\n\n\
-                    Install JJ:\n\
-                      cargo install jj-cli\n\
-                    or:\n\
-                      brew install jj\n\
-                    or visit: https://github.com/martinvonz/jj#installation\n\n\
-                    Error: {e}"
-                )
+                anyhow::Error::new(zjj_core::Error::JjCommandError {
+                    operation: "diff".to_string(),
+                    source: format!(
+                        "JJ is not installed or not in PATH.\n\n\
+                        Install JJ:\n\
+                          cargo install jj-cli\n\
+                        or:\n\
+                          brew install jj\n\
+                        or visit: https://github.com/martinvonz/jj#installation\n\n\
+                        Error: {e}"
+                    ),
+                    is_not_found: true,
+                })
             } else {
-                anyhow::anyhow!("Failed to execute jj diff: {e}")
+                anyhow::Error::new(zjj_core::Error::IoError(format!(
+                    "Failed to execute jj diff: {e}"
+                )))
             }
         })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("jj diff failed: {stderr}");
+        return Err(anyhow::Error::new(zjj_core::Error::JjCommandError {
+            operation: "diff".to_string(),
+            source: stderr.to_string(),
+            is_not_found: false,
+        }));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);

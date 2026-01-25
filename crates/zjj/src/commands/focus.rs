@@ -20,9 +20,12 @@ pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session
-    let session = db
-        .get(name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{name}' not found"))?;
+    // Return zjj_core::Error::NotFound to get exit code 2 (not found)
+    let session = db.get(name)?.ok_or_else(|| {
+        anyhow::Error::new(zjj_core::Error::NotFound(format!(
+            "Session '{name}' not found"
+        )))
+    })?;
 
     let zellij_tab = session.zellij_tab;
 
