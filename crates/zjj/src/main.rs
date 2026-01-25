@@ -311,7 +311,19 @@ fn run_cli() -> Result<()> {
     let matches = build_cli().get_matches();
 
     match matches.subcommand() {
-        Some(("init", _)) => init::run(),
+        Some(("init", sub_m)) => {
+            let json = sub_m.get_flag("json");
+            match init::run() {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
+        }
         Some(("add", sub_m)) => {
             let name = sub_m
                 .get_one::<String>("name")
@@ -320,6 +332,7 @@ fn run_cli() -> Result<()> {
             let no_hooks = sub_m.get_flag("no-hooks");
             let template = sub_m.get_one::<String>("template").cloned();
             let no_open = sub_m.get_flag("no-open");
+            let json = sub_m.get_flag("json");
 
             let options = add::AddOptions {
                 name: name.clone(),
@@ -328,53 +341,108 @@ fn run_cli() -> Result<()> {
                 no_open,
             };
 
-            add::run_with_options(&options)
+            match add::run_with_options(&options) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
         }
         Some(("list", sub_m)) => {
             let all = sub_m.get_flag("all");
             let json = sub_m.get_flag("json");
+            // list::run handles JSON errors internally
             list::run(all, json)
         }
         Some(("remove", sub_m)) => {
             let name = sub_m
                 .get_one::<String>("name")
                 .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+            let json = sub_m.get_flag("json");
             let options = remove::RemoveOptions {
                 force: sub_m.get_flag("force"),
                 merge: sub_m.get_flag("merge"),
                 keep_branch: sub_m.get_flag("keep-branch"),
-                json: sub_m.get_flag("json"),
+                json,
             };
-            remove::run_with_options(name, &options)
+            match remove::run_with_options(name, &options) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
         }
         Some(("focus", sub_m)) => {
             let name = sub_m
                 .get_one::<String>("name")
                 .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
-            let options = focus::FocusOptions {
-                json: sub_m.get_flag("json"),
-            };
-            focus::run_with_options(name, &options)
+            let json = sub_m.get_flag("json");
+            let options = focus::FocusOptions { json };
+            match focus::run_with_options(name, &options) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
         }
         Some(("status", sub_m)) => {
             let name = sub_m.get_one::<String>("name").map(String::as_str);
             let json = sub_m.get_flag("json");
             let watch = sub_m.get_flag("watch");
-            status::run(name, json, watch)
+            match status::run(name, json, watch) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
         }
         Some(("sync", sub_m)) => {
             let name = sub_m.get_one::<String>("name").map(String::as_str);
-            let options = sync::SyncOptions {
-                json: sub_m.get_flag("json"),
-            };
-            sync::run_with_options(name, options)
+            let json = sub_m.get_flag("json");
+            let options = sync::SyncOptions { json };
+            match sync::run_with_options(name, options) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
         }
         Some(("diff", sub_m)) => {
             let name = sub_m
                 .get_one::<String>("name")
                 .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
             let stat = sub_m.get_flag("stat");
-            diff::run(name, stat)
+            let json = sub_m.get_flag("json");
+            match diff::run(name, stat) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
         }
         Some(("config", sub_m)) => {
             let key = sub_m.get_one::<String>("key").cloned();
@@ -387,21 +455,42 @@ fn run_cli() -> Result<()> {
         Some(("introspect", sub_m)) => {
             let command = sub_m.get_one::<String>("command").map(String::as_str);
             let json = sub_m.get_flag("json");
-            command.map_or_else(
+            let result = command.map_or_else(
                 || introspect::run(json),
                 |cmd| introspect::run_command_introspect(cmd, json),
-            )
+            );
+            match result {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
         }
         Some(("doctor" | "check", sub_m)) => {
             let json = sub_m.get_flag("json");
             let fix = sub_m.get_flag("fix");
-            doctor::run(json, fix)
+            match doctor::run(json, fix) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if json {
+                        json_output::output_json_error_and_exit(&e);
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
         }
         Some(("query", sub_m)) => {
             let query_type = sub_m
                 .get_one::<String>("query_type")
                 .ok_or_else(|| anyhow::anyhow!("Query type is required"))?;
             let args = sub_m.get_one::<String>("args").map(String::as_str);
+            // query command doesn't have --json flag but output is often machine readable
+            // keeping standard error handling for now as it's not specified
             query::run(query_type, args)
         }
         _ => {

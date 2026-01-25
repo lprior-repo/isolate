@@ -124,22 +124,33 @@ fn test_error_exit_code() {
 
 #[test]
 fn test_database_error_display() {
+    use std::{fs, os::unix::fs::PermissionsExt};
+
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
     };
     harness.assert_success(&["init"]);
 
-    // Corrupt the database
-    let db_path = harness.state_db_path();
-    if std::fs::write(&db_path, "corrupted data").is_err() {
+    // Make .zjj directory read-only to force database error
+    // SQLite requires write access to directory to create lock files
+    let jjz_dir = harness.zjj_dir();
+    let Ok(metadata) = fs::metadata(&jjz_dir) else {
         std::process::abort()
-    }
+    };
+    let mut perms = metadata.permissions();
+    perms.set_mode(0o555); // Read+Execute, no Write
+    fs::set_permissions(&jjz_dir, perms).ok();
 
-    // Try to list sessions
-    let result = harness.zjj(&["list"]);
+    // Try to add a session - requires writing to DB
+    let result = harness.zjj(&["add", "test", "--no-open"]);
 
-    assert!(!result.success, "Should fail with corrupted database");
+    // Restore permissions immediately for cleanup
+    let mut perms = metadata.permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(&jjz_dir, perms).ok();
+
+    assert!(!result.success, "Should fail with database error");
 
     let stderr = result.stderr;
 

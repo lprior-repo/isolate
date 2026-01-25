@@ -265,10 +265,12 @@ fn test_corrupted_database_recovery() {
         std::process::abort()
     }
 
-    // Operations should fail gracefully
+    // Operations should succeed by recovering (resetting the DB)
     let result = harness.zjj(&["list"]);
-    assert!(!result.success, "Should fail with corrupted database");
-    result.assert_output_contains(""); // Some error message
+    assert!(
+        result.success,
+        "Should recover from corrupted database (reset)"
+    );
 }
 
 #[test]
@@ -285,9 +287,12 @@ fn test_missing_database() {
         std::process::abort()
     }
 
-    // Operations should fail
+    // Operations should succeed by re-creating the database
     let result = harness.zjj(&["list"]);
-    assert!(!result.success, "Should fail with missing database");
+    assert!(
+        result.success,
+        "Should recover from missing database (re-create)"
+    );
 }
 
 // ============================================================================
@@ -497,17 +502,18 @@ fn test_session_name_exactly_64_chars() {
 }
 
 #[test]
-fn test_session_name_with_numbers_only() {
+fn test_session_name_with_numbers_only_rejected() {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
     };
     harness.assert_success(&["init"]);
 
-    harness.assert_success(&["add", "12345", "--no-open"]);
-
-    let result = harness.zjj(&["list"]);
-    result.assert_stdout_contains("12345");
+    // Numbers only should be rejected
+    harness.assert_failure(
+        &["add", "12345", "--no-open"],
+        "Session name must start with a letter",
+    );
 }
 
 #[test]

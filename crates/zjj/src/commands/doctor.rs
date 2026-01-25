@@ -337,6 +337,12 @@ fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
 
     if json {
         println!("{}", serde_json::to_string_pretty(&output)?);
+        // If unhealthy in JSON mode, exit with 1 immediately to avoid
+        // main.rs printing a second JSON error object
+        if !output.healthy {
+            std::process::exit(1);
+        }
+        return Ok(());
     } else {
         println!("zjj System Health Check");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -431,8 +437,20 @@ fn run_fixes(checks: &[DoctorCheck], json: bool) -> Result<()> {
         unable_to_fix,
     };
 
+    // Count critical (Fail status) issues that couldn't be fixed
+    let critical_unfixed = checks
+        .iter()
+        .filter(|c| {
+            c.status == CheckStatus::Fail && !output.fixed.iter().any(|f| f.issue == c.name)
+        })
+        .count();
+
     if json {
         println!("{}", serde_json::to_string_pretty(&output)?);
+        if critical_unfixed > 0 {
+            std::process::exit(1);
+        }
+        return Ok(());
     } else {
         if !output.fixed.is_empty() {
             println!("Fixed Issues:");
@@ -451,14 +469,6 @@ fn run_fixes(checks: &[DoctorCheck], json: bool) -> Result<()> {
             });
         }
     }
-
-    // Count critical (Fail status) issues that couldn't be fixed
-    let critical_unfixed = checks
-        .iter()
-        .filter(|c| {
-            c.status == CheckStatus::Fail && !output.fixed.iter().any(|f| f.issue == c.name)
-        })
-        .count();
 
     if critical_unfixed > 0 {
         anyhow::bail!("Auto-fix completed but {critical_unfixed} critical issue(s) remain unfixed");
