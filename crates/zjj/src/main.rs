@@ -345,7 +345,7 @@ fn run_cli() -> Result<()> {
                 keep_branch: sub_m.get_flag("keep-branch"),
                 json: sub_m.get_flag("json"),
             };
-            remove::run_with_options(name, options)
+            remove::run_with_options(name, &options)
         }
         Some(("focus", sub_m)) => {
             let name = sub_m
@@ -354,7 +354,7 @@ fn run_cli() -> Result<()> {
             let options = focus::FocusOptions {
                 json: sub_m.get_flag("json"),
             };
-            focus::run_with_options(name, options)
+            focus::run_with_options(name, &options)
         }
         Some(("status", sub_m)) => {
             let name = sub_m.get_one::<String>("name").map(String::as_str);

@@ -7,6 +7,7 @@ use serde::Serialize;
 
 use crate::{
     commands::get_session_db,
+    json_output,
     session::{Session, SessionStatus},
 };
 
@@ -38,50 +39,65 @@ impl std::fmt::Display for BeadCounts {
 
 /// Run the list command
 pub fn run(all: bool, json: bool) -> Result<()> {
-    let db = get_session_db()?;
+    // Execute in a closure to allow ? operator while catching errors for JSON mode
+    let result = (|| -> Result<()> {
+        let db = get_session_db()?;
 
-    // Filter sessions: exclude completed/failed unless --all is used
-    // We always get all and filter manually since we need multiple exclusions
-    let mut sessions = db.list(None)?;
+        // Filter sessions: exclude completed/failed unless --all is used
+        // We always get all and filter manually since we need multiple exclusions
+        let mut sessions = db.list(None)?;
 
-    // Filter out completed and failed unless --all flag is set
-    if !all {
-        sessions
-            .retain(|s| s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
-    }
-
-    if sessions.is_empty() {
-        if json {
-            println!("[]");
-        } else {
-            println!("No sessions found.");
-            println!("Use 'jjz add <name>' to create a session.");
+        // Filter out completed and failed unless --all flag is set
+        if !all {
+            sessions.retain(|s| {
+                s.status != SessionStatus::Completed && s.status != SessionStatus::Failed
+            });
         }
-        return Ok(());
-    }
 
-    // Build list items with enhanced data
-    let items: Vec<SessionListItem> = sessions
-        .into_iter()
-        .map(|session| {
-            let changes = get_session_changes(&session.workspace_path);
-            let beads = get_beads_count().unwrap_or_default();
-
-            SessionListItem {
-                name: session.name.clone(),
-                status: session.status.to_string(),
-                branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
-                changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
-                beads: beads.to_string(),
-                session,
+        if sessions.is_empty() {
+            if json {
+                println!("[]");
+            } else {
+                println!("No sessions found.");
+                println!("Use 'jjz add <name>' to create a session.");
             }
-        })
-        .collect();
+            return Ok(());
+        }
 
-    if json {
-        output_json(&items)?;
-    } else {
-        output_table(&items);
+        // Build list items with enhanced data
+        let items: Vec<SessionListItem> = sessions
+            .into_iter()
+            .map(|session| {
+                let changes = get_session_changes(&session.workspace_path);
+                let beads = get_beads_count().unwrap_or_default();
+
+                SessionListItem {
+                    name: session.name.clone(),
+                    status: session.status.to_string(),
+                    branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
+                    changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
+                    beads: beads.to_string(),
+                    session,
+                }
+            })
+            .collect();
+
+        if json {
+            output_json(&items)?;
+        } else {
+            output_table(&items);
+        }
+
+        Ok(())
+    })();
+
+    // Handle errors in JSON mode
+    if let Err(e) = result {
+        if json {
+            json_output::output_json_error_and_exit(&e);
+        } else {
+            return Err(e);
+        }
     }
 
     Ok(())
