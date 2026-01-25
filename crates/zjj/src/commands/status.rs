@@ -102,9 +102,12 @@ fn run_once(name: Option<&str>, json: bool) -> Result<()> {
 
     let sessions = if let Some(session_name) = name {
         // Get single session
-        let session = db
-            .get(session_name)?
-            .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
+        // Return zjj_core::Error::NotFound to get exit code 2 (not found)
+        let session = db.get(session_name)?.ok_or_else(|| {
+            anyhow::Error::new(zjj_core::Error::NotFound(format!(
+                "Session '{session_name}' not found"
+            )))
+        })?;
         vec![session]
     } else {
         // Get all sessions
@@ -234,8 +237,12 @@ fn get_beads_stats() -> Result<BeadStats> {
     }
 
     // Query beads database
-    let conn = Connection::open(&beads_db_path)
-        .map_err(|e| anyhow::anyhow!("Failed to open beads database: {e}"))?;
+    // Map database errors to zjj_core::Error::DatabaseError for exit code 3
+    let conn = Connection::open(&beads_db_path).map_err(|e| {
+        anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+            "Failed to open beads database: {e}"
+        )))
+    })?;
 
     // Count issues by status
     let open: usize = conn
