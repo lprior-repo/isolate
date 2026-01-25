@@ -151,7 +151,24 @@ pub fn run(query_type: &str, args: Option<&str>) -> Result<()> {
 /// Categorize database errors for better error reporting
 fn categorize_db_error(err: &anyhow::Error) -> (String, String) {
     let err_str = err.to_string();
-    if err_str.contains("no such table") || err_str.contains("database schema") {
+
+    // Check for JJ prerequisite failures first
+    if err_str.contains("JJ is not installed") || err_str.contains("jj not found") {
+        (
+            "JJ_NOT_INSTALLED".to_string(),
+            "JJ is not installed. Install with: cargo install jj-cli".to_string(),
+        )
+    } else if err_str.contains("Not a JJ repository") || err_str.contains("not in a jj repo") {
+        (
+            "NOT_JJ_REPOSITORY".to_string(),
+            "Not in a JJ repository. Run 'jj git init' or 'zjj init' first.".to_string(),
+        )
+    } else if err_str.contains("ZJJ not initialized") {
+        (
+            "ZJJ_NOT_INITIALIZED".to_string(),
+            "ZJJ not initialized. Run 'zjj init' first.".to_string(),
+        )
+    } else if err_str.contains("no such table") || err_str.contains("database schema") {
         (
             "DATABASE_NOT_INITIALIZED".to_string(),
             "Database not initialized. Run 'zjj init' first.".to_string(),
