@@ -552,7 +552,7 @@ fn run_cli() -> Result<()> {
         Some(("attach", sub_m)) => {
             let options = attach::AttachOptions::from_matches(sub_m)?;
             match attach::run_with_options(&options) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) => {
                     if options.json {
                         json_output::output_json_error_and_exit(&e);

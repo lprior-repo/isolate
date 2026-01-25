@@ -2,7 +2,10 @@
 
 use anyhow::Error;
 use serde::Serialize;
-use zjj_core::json::{ErrorCode, JsonError};
+use zjj_core::{
+    json::{ErrorCode, JsonError},
+    Error as ZjjError,
+};
 
 /// Init command JSON output
 #[derive(Debug, Serialize)]
@@ -118,7 +121,7 @@ fn error_to_json_error(error: &Error) -> JsonError {
         ErrorCode::StateDbCorrupted
     } else if error_str.contains("not found") || error_str.contains("Not found") {
         ErrorCode::SessionNotFound
-    } else if error_str.contains("Invalid session name") {
+    } else if error_str.contains("Invalid session name") || error_str.contains("Session name") {
         ErrorCode::SessionNameInvalid
     } else if error_str.contains("already exists") {
         ErrorCode::SessionAlreadyExists
@@ -130,7 +133,7 @@ fn error_to_json_error(error: &Error) -> JsonError {
         ErrorCode::Unknown
     };
 
-    let mut json_error = JsonError::new(code, error_str);
+    let mut json_error = JsonError::new(code, error_str.clone());
 
     // Add suggestions based on error type
     let suggestion = match code {
@@ -145,6 +148,17 @@ fn error_to_json_error(error: &Error) -> JsonError {
 
     if let Some(sugg) = suggestion {
         json_error = json_error.with_suggestion(sugg);
+    }
+
+    // Try to get the exit code from the underlying error
+    if let Some(zjj_error) = error.downcast_ref::<ZjjError>() {
+        json_error.error.exit_code = zjj_error.exit_code();
+    } else if error_str.contains("validation")
+        || error_str.contains("Invalid session name")
+        || error_str.contains("already exists")
+        || error_str.contains("Session name")
+    {
+        json_error.error.exit_code = 1;
     }
 
     json_error
