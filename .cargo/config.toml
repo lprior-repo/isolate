@@ -1,0 +1,38 @@
+# Cargo configuration for maximum build performance
+
+[build]
+# Use all available CPU cores for parallel compilation
+jobs = 0  # 0 = auto-detect CPU count
+
+# Incremental compilation for faster rebuilds (dev only)
+incremental = true
+
+# Parallel rustc frontend
+pipelined-compilation = true
+
+[term]
+# Better progress reporting
+progress.when = "auto"
+progress.width = 80
+
+# Colorized output
+color = "auto"
+
+[profile.dev]
+# Faster debug builds - reduce debuginfo
+debug = 1  # Line tables only (was 2 = full)
+incremental = true
+
+[profile.test]
+# Faster test compilation
+debug = 1  # Line tables only
+incremental = true
+
+# Optional: Uncomment when sccache is installed
+# [build]
+# rustc-wrapper = "sccache"
+
+# Optional: Uncomment when mold linker is installed (Linux only)
+# [target.x86_64-unknown-linux-gnu]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
