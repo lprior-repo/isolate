@@ -1,7 +1,7 @@
 //! Integration tests for `jjz init` command
 //!
 //! Tests the initialization workflow including:
-//! - Creating .jjz directory structure
+//! - Creating .zjj directory structure
 //! - Generating default config.toml
 //! - Initializing state.db
 //! - Creating layouts directory
@@ -21,7 +21,7 @@ fn test_init_creates_jjz_directory() {
     // Run init
     harness.assert_success(&["init"]);
 
-    // Verify .jjz directory was created
+    // Verify .zjj directory was created
     harness.assert_jjz_dir_exists();
 }
 
@@ -35,7 +35,7 @@ fn test_init_creates_config_toml() {
     harness.assert_success(&["init"]);
 
     // Verify config.toml exists
-    let config_path = harness.jjz_dir().join("config.toml");
+    let config_path = harness.zjj_dir().join("config.toml");
     harness.assert_file_exists(&config_path);
 
     // Verify it contains expected sections
@@ -85,7 +85,7 @@ fn test_init_creates_layouts_directory() {
     harness.assert_success(&["init"]);
 
     // Verify layouts directory exists
-    let layouts_path = harness.jjz_dir().join("layouts");
+    let layouts_path = harness.zjj_dir().join("layouts");
     harness.assert_file_exists(&layouts_path);
     assert!(layouts_path.is_dir(), "layouts should be a directory");
 }
@@ -101,7 +101,7 @@ fn test_init_twice_succeeds_idempotently() {
     harness.assert_success(&["init"]);
 
     // Second init should not fail
-    let result = harness.jjz(&["init"]);
+    let result = harness.zjj(&["init"]);
     assert!(result.success, "Second init should succeed");
     result.assert_output_contains("already initialized");
 }
@@ -188,7 +188,7 @@ fn test_init_sets_up_complete_directory_structure() {
     harness.assert_success(&["init"]);
 
     // Verify complete structure
-    let jjz_dir = harness.jjz_dir();
+    let jjz_dir = harness.zjj_dir();
     harness.assert_file_exists(&jjz_dir);
     harness.assert_file_exists(&jjz_dir.join("config.toml"));
     harness.assert_file_exists(&jjz_dir.join("state.db"));
@@ -206,11 +206,11 @@ fn test_init_output_is_informative() {
         return;
     };
 
-    let result = harness.jjz(&["init"]);
+    let result = harness.zjj(&["init"]);
 
     assert!(result.success);
     result.assert_output_contains("Initialized");
-    result.assert_output_contains(".jjz");
+    result.assert_output_contains(".zjj");
 }
 
 #[test]
@@ -224,7 +224,7 @@ fn test_init_creates_workspaces_directory() {
 
     // After init, workspaces directory should not exist yet
     // It will be created when first session is added
-    let workspaces_path = harness.jjz_dir().join("workspaces");
+    let workspaces_path = harness.zjj_dir().join("workspaces");
     // This is expected - workspaces dir is created on first add, not on init
     // So this test verifies the baseline state
     assert!(!workspaces_path.exists() || workspaces_path.is_dir());

@@ -21,7 +21,7 @@ fn test_init_json_error_when_already_initialized() {
     harness.assert_success(&["init"]);
 
     // Try to initialize again with --json flag
-    let result = harness.jjz(&["init", "--json"]);
+    let result = harness.zjj(&["init", "--json"]);
 
     // Should still succeed (init is idempotent), but if it errors, should be JSON
     if !result.success {
@@ -56,7 +56,7 @@ fn test_list_json_error_without_init() {
     };
 
     // Try to list without init, with --json flag
-    let result = harness.jjz(&["list", "--json"]);
+    let result = harness.zjj(&["list", "--json"]);
 
     // Should fail
     assert!(!result.success, "list should fail without init");
@@ -96,7 +96,7 @@ fn test_focus_json_error_nonexistent_session() {
     harness.assert_success(&["init"]);
 
     // Try to focus nonexistent session with --json flag
-    let result = harness.jjz(&["focus", "nonexistent", "--json"]);
+    let result = harness.zjj(&["focus", "nonexistent", "--json"]);
 
     // Should fail
     assert!(!result.success, "focus should fail for nonexistent session");
@@ -145,7 +145,7 @@ fn test_remove_json_error_nonexistent_session() {
     harness.assert_success(&["init"]);
 
     // Try to remove nonexistent session with --json flag
-    let result = harness.jjz(&["remove", "nonexistent", "--force", "--json"]);
+    let result = harness.zjj(&["remove", "nonexistent", "--force", "--json"]);
 
     // Should fail
     assert!(
@@ -178,7 +178,7 @@ fn test_add_json_error_invalid_name() {
     harness.assert_success(&["init"]);
 
     // Try to add session with invalid name (starts with dash)
-    let result = harness.jjz(&["add", "-invalid", "--no-open", "--json"]);
+    let result = harness.zjj(&["add", "-invalid", "--no-open", "--json"]);
 
     // Should fail
     assert!(!result.success, "add should fail with invalid name");
@@ -218,7 +218,7 @@ fn test_add_json_error_duplicate_session() {
     harness.assert_success(&["add", "test", "--no-open"]);
 
     // Try to add same session again with --json flag
-    let result = harness.jjz(&["add", "test", "--no-open", "--json"]);
+    let result = harness.zjj(&["add", "test", "--no-open", "--json"]);
 
     // Should fail
     assert!(!result.success, "add should fail for duplicate session");
@@ -254,7 +254,7 @@ fn test_status_json_error_without_init() {
     };
 
     // Try to get status without init, with --json flag
-    let result = harness.jjz(&["status", "--json"]);
+    let result = harness.zjj(&["status", "--json"]);
 
     // Should fail
     assert!(!result.success, "status should fail without init");
@@ -283,7 +283,7 @@ fn test_sync_json_error_without_init() {
     };
 
     // Try to sync without init, with --json flag
-    let result = harness.jjz(&["sync", "--json"]);
+    let result = harness.zjj(&["sync", "--json"]);
 
     // Should fail
     assert!(!result.success, "sync should fail without init");
@@ -312,7 +312,7 @@ fn test_doctor_json_error_format() {
     };
 
     // Try doctor with --json (may or may not error, but should output JSON)
-    let result = harness.jjz(&["doctor", "--json"]);
+    let result = harness.zjj(&["doctor", "--json"]);
 
     // If it outputs anything, it should be valid JSON
     let output = result.stdout.trim();
@@ -334,7 +334,7 @@ fn test_introspect_json_error_format() {
     };
 
     // Try introspect with --json (should always output JSON)
-    let result = harness.jjz(&["introspect", "--json"]);
+    let result = harness.zjj(&["introspect", "--json"]);
 
     // Should output valid JSON
     let output = result.stdout.trim();
@@ -351,7 +351,7 @@ fn test_diff_json_error_nonexistent_session() {
     harness.assert_success(&["init"]);
 
     // Try to diff nonexistent session with --json flag
-    let result = harness.jjz(&["diff", "nonexistent", "--json"]);
+    let result = harness.zjj(&["diff", "nonexistent", "--json"]);
 
     // Should fail
     assert!(!result.success, "diff should fail for nonexistent session");

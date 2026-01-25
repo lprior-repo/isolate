@@ -30,6 +30,6 @@ Thumbs.db
 .codanna/
 .fastembed_cache
 
-# JJZ runtime data
-.jjz/
+# ZJJ runtime data
+.zjj/
 workspaces/

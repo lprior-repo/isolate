@@ -251,7 +251,7 @@ fn global_config_path() -> Result<PathBuf> {
 fn project_config_path() -> Result<PathBuf> {
     std::env::current_dir()
         .context("Failed to get current directory")
-        .map(|dir| dir.join(".jjz/config.toml"))
+        .map(|dir| dir.join(".zjj/config.toml"))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -448,7 +448,7 @@ mod tests {
     fn test_project_config_path() -> Result<()> {
         let path = project_config_path()?;
         assert!(path.ends_with("config.toml"));
-        assert!(path.to_string_lossy().contains(".jjz"));
+        assert!(path.to_string_lossy().contains(".zjj"));
         Ok(())
     }
 }

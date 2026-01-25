@@ -20,7 +20,7 @@ const DEFAULT_CONFIG: &str = r#"# jjz Configuration File
 workspace_dir = "../{repo}__workspaces"
 main_branch = ""  # auto-detect
 default_template = "standard"
-state_db = ".jjz/state.db"
+state_db = ".zjj/state.db"
 
 [watch]
 enabled = true
@@ -35,7 +35,7 @@ post_merge = []
 [zellij]
 session_prefix = "jjz"
 use_tabs = true
-layout_dir = ".jjz/layouts"
+layout_dir = ".zjj/layouts"
 
 [zellij.panes.main]
 command = "claude"
@@ -79,10 +79,10 @@ commit_prefix = "wip:"
 /// This command:
 /// 1. Checks that required dependencies (jj, zellij) are installed
 /// 2. Initializes a JJ repository if not already present
-/// 3. Creates the .jjz directory structure:
-///    - .jjz/config.toml (default configuration)
-///    - .jjz/state.db (sessions database)
-///    - .jjz/layouts/ (Zellij layouts directory)
+/// 3. Creates the .zjj directory structure:
+///    - .zjj/config.toml (default configuration)
+///    - .zjj/state.db (sessions database)
+///    - .zjj/layouts/ (Zellij layouts directory)
 pub fn run() -> Result<()> {
     run_with_cwd(None)
 }
@@ -105,7 +105,7 @@ pub fn run_with_cwd(cwd: Option<&Path>) -> Result<()> {
 
     // Get the repo root using the provided cwd
     let root = jj_root_with_cwd(&cwd)?;
-    let zjj_dir = root.join(".jjz");
+    let zjj_dir = root.join(".zjj");
 
     // Check if already initialized
     if zjj_dir.exists() {
@@ -113,8 +113,8 @@ pub fn run_with_cwd(cwd: Option<&Path>) -> Result<()> {
         return Ok(());
     }
 
-    // Create .jjz directory
-    fs::create_dir_all(&zjj_dir).context("Failed to create .jjz directory")?;
+    // Create .zjj directory
+    fs::create_dir_all(&zjj_dir).context("Failed to create .zjj directory")?;
 
     // Create config.toml with defaults
     let config_path = zjj_dir.join("config.toml");
@@ -129,10 +129,10 @@ pub fn run_with_cwd(cwd: Option<&Path>) -> Result<()> {
     let _db = SessionDb::open(&db_path)?;
 
     println!("Initialized ZJZ in {}", root.display());
-    println!("  Data directory: .jjz/");
-    println!("  Configuration: .jjz/config.toml");
-    println!("  State database: .jjz/state.db");
-    println!("  Layouts: .jjz/layouts/");
+    println!("  Data directory: .zjj/");
+    println!("  Configuration: .zjj/config.toml");
+    println!("  State database: .zjj/state.db");
+    println!("  Layouts: .zjj/layouts/");
 
     Ok(())
 }
@@ -291,10 +291,10 @@ mod tests {
         // Check result
         result?;
 
-        // Verify .jjz directory was created (use absolute path)
-        let jjz_path = temp_dir.path().join(".jjz");
-        assert!(jjz_path.exists(), ".jjz directory was not created");
-        assert!(jjz_path.is_dir(), ".jjz is not a directory");
+        // Verify .zjj directory was created (use absolute path)
+        let jjz_path = temp_dir.path().join(".zjj");
+        assert!(jjz_path.exists(), ".zjj directory was not created");
+        assert!(jjz_path.is_dir(), ".zjj is not a directory");
 
         Ok(())
     }
@@ -310,7 +310,7 @@ mod tests {
         result?;
 
         // Verify config.toml was created
-        let config_path = temp_dir.path().join(".jjz/config.toml");
+        let config_path = temp_dir.path().join(".zjj/config.toml");
         assert!(config_path.exists(), "config.toml was not created");
         assert!(config_path.is_file(), "config.toml is not a file");
 
@@ -335,7 +335,7 @@ mod tests {
         result?;
 
         // Verify state.db was created
-        let db_path = temp_dir.path().join(".jjz/state.db");
+        let db_path = temp_dir.path().join(".zjj/state.db");
         assert!(db_path.exists(), "state.db was not created");
         assert!(db_path.is_file(), "state.db is not a file");
 
@@ -358,7 +358,7 @@ mod tests {
         result?;
 
         // Verify layouts directory was created
-        let layouts_path = temp_dir.path().join(".jjz/layouts");
+        let layouts_path = temp_dir.path().join(".zjj/layouts");
         assert!(layouts_path.exists(), "layouts directory was not created");
         assert!(layouts_path.is_dir(), "layouts is not a directory");
 
