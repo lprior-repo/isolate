@@ -241,7 +241,7 @@ mod tests {
         let json = serde_json::to_value(&output)?;
 
         assert_eq!(
-            json.get("success").and_then(|v| v.as_bool()),
+            json.get("success").and_then(serde_json::Value::as_bool),
             Some(true)
         );
         assert_eq!(json.get("name").and_then(|v| v.as_str()), Some("test"));
@@ -253,10 +253,7 @@ mod tests {
             json.get("zellij_tab").and_then(|v| v.as_str()),
             Some("zjj:test")
         );
-        assert_eq!(
-            json.get("status").and_then(|v| v.as_str()),
-            Some("active")
-        );
+        assert_eq!(json.get("status").and_then(|v| v.as_str()), Some("active"));
         Ok(())
     }
 

@@ -19,18 +19,17 @@ impl AttachOptions {
             .get_one::<String>("name")
             .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
 
-        Ok(Self {
-            name: name.clone(),
-        })
+        Ok(Self { name: name.clone() })
     }
 }
 
 /// Run the attach command with given options
 pub fn run_with_options(opts: &AttachOptions) -> Result<()> {
     let db = get_session_db()?;
-    
+
     // 1. Validate session exists
-    let _session = db.get(&opts.name)?
+    let _session = db
+        .get(&opts.name)?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", opts.name))?;
 
     // 2. Check if Zellij is installed
@@ -46,18 +45,20 @@ pub fn run_with_options(opts: &AttachOptions) -> Result<()> {
     // this will fail, and we'll fall back to attach
     let status = cmd.status().ok();
 
-    if status.map_or(true, |s| !s.success()) {
+    if status.is_none_or(|s| !s.success()) {
         // If that fails, try to start Zellij with the session
         // Note: 'attach -c' connects to an existing session or creates a new one
         // We use the session name as the zellij session name
         let mut cmd2 = Command::new("zellij");
         cmd2.args(["attach", "-c", &opts.name]);
 
-        let status2 = cmd2.status()
-            .context("Failed to execute zellij attach")?;
-            
+        let status2 = cmd2.status().context("Failed to execute zellij attach")?;
+
         if !status2.success() {
-            return Err(anyhow::anyhow!("Failed to attach to session '{}'", opts.name));
+            return Err(anyhow::anyhow!(
+                "Failed to attach to session '{}'",
+                opts.name
+            ));
         }
     }
 

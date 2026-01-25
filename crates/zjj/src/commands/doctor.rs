@@ -343,36 +343,36 @@ fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
             std::process::exit(1);
         }
         return Ok(());
-    } else {
-        println!("zjj System Health Check");
-        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!();
+    }
 
-        output.checks.iter().for_each(|check| {
-            let symbol = match check.status {
-                CheckStatus::Pass => "✓",
-                CheckStatus::Warn => "⚠",
-                CheckStatus::Fail => "✗",
-            };
+    println!("zjj System Health Check");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!();
 
-            println!("{symbol} {:<25} {}", check.name, check.message);
+    output.checks.iter().for_each(|check| {
+        let symbol = match check.status {
+            CheckStatus::Pass => "✓",
+            CheckStatus::Warn => "⚠",
+            CheckStatus::Fail => "✗",
+        };
 
-            if let Some(ref suggestion) = check.suggestion {
-                println!("  → {suggestion}");
-            }
-        });
+        println!("{symbol} {:<25} {}", check.name, check.message);
 
-        println!();
-        println!(
-            "Health: {} passed, {} warning(s), {} error(s)",
-            output.checks.len() - output.warnings - output.errors,
-            output.warnings,
-            output.errors
-        );
-
-        if output.auto_fixable_issues > 0 {
-            println!("Some issues can be auto-fixed: zjj doctor --fix");
+        if let Some(ref suggestion) = check.suggestion {
+            println!("  → {suggestion}");
         }
+    });
+
+    println!();
+    println!(
+        "Health: {} passed, {} warning(s), {} error(s)",
+        output.checks.len() - output.warnings - output.errors,
+        output.warnings,
+        output.errors
+    );
+
+    if output.auto_fixable_issues > 0 {
+        println!("Some issues can be auto-fixed: zjj doctor --fix");
     }
 
     // Return error if system is unhealthy (has failures)
@@ -451,23 +451,23 @@ fn run_fixes(checks: &[DoctorCheck], json: bool) -> Result<()> {
             std::process::exit(1);
         }
         return Ok(());
-    } else {
-        if !output.fixed.is_empty() {
-            println!("Fixed Issues:");
-            output.fixed.iter().for_each(|fix| {
-                let symbol = if fix.success { "✓" } else { "✗" };
-                println!("{symbol} {}: {}", fix.issue, fix.action);
-            });
-            println!();
-        }
+    }
 
-        if !output.unable_to_fix.is_empty() {
-            println!("Unable to Fix:");
-            output.unable_to_fix.iter().for_each(|issue| {
-                println!("✗ {}: {}", issue.issue, issue.reason);
-                println!("  → {}", issue.suggestion);
-            });
-        }
+    if !output.fixed.is_empty() {
+        println!("Fixed Issues:");
+        output.fixed.iter().for_each(|fix| {
+            let symbol = if fix.success { "✓" } else { "✗" };
+            println!("{symbol} {}: {}", fix.issue, fix.action);
+        });
+        println!();
+    }
+
+    if !output.unable_to_fix.is_empty() {
+        println!("Unable to Fix:");
+        output.unable_to_fix.iter().for_each(|issue| {
+            println!("✗ {}: {}", issue.issue, issue.reason);
+            println!("  → {}", issue.suggestion);
+        });
     }
 
     if critical_unfixed > 0 {
