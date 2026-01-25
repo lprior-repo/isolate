@@ -101,18 +101,10 @@ impl TestHarness {
             .args(args)
             .current_dir(&self.repo_path)
             .env("NO_COLOR", "1") // Disable color codes
-            .env("JJZ_TEST_MODE", "1") // Signal we're in test mode
+            .env("ZJJ_TEST_MODE", "1") // Signal we're in test mode
             .output()
-            .ok()
-            .and_then(|output| {
-                if output.status.success() {
-                    Some(output)
-                } else {
-                    None
-                }
-            })
             .map_or_else(
-                || CommandResult {
+                |_| CommandResult {
                     success: false,
                     exit_code: None,
                     stdout: String::new(),
