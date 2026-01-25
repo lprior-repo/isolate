@@ -33,7 +33,7 @@ pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
         if options.json {
             let output = FocusOutput {
                 success: true,
-                session_name: name.to_string(),
+                name: name.to_string(),
                 zellij_tab,
                 message: format!("Switched to session '{name}'"),
             };
@@ -47,7 +47,7 @@ pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
         if options.json {
             let output = FocusOutput {
                 success: true,
-                session_name: name.to_string(),
+                name: name.to_string(),
                 zellij_tab: zellij_tab.clone(),
                 message: format!(
                     "Session '{name}' is in tab '{zellij_tab}'. Attaching to Zellij session..."
