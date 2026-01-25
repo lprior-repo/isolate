@@ -32,7 +32,7 @@ pub struct AddOutput {
 #[allow(dead_code)]
 pub struct RemoveOutput {
     pub success: bool,
-    pub session_name: String,
+    pub name: String,
     pub message: String,
 }
 
@@ -254,5 +254,60 @@ mod tests {
             json.get("status").and_then(|v| v.as_str()),
             Some("active")
         );
+    }
+
+    #[test]
+    fn test_remove_output_json_uses_name_field() {
+        let output = RemoveOutput {
+            success: true,
+            name: "test-session".to_string(),
+            message: "Session removed successfully".to_string(),
+        };
+
+        let json = serde_json::to_value(&output).expect("Failed to serialize");
+
+        // Should have 'name' field, not 'session_name'
+        assert!(json.get("name").is_some(), "JSON should have 'name' field");
+        assert!(
+            json.get("session_name").is_none(),
+            "JSON should NOT have 'session_name' field"
+        );
+        assert_eq!(
+            json.get("name").and_then(|v| v.as_str()),
+            Some("test-session"),
+            "name field should match"
+        );
+    }
+
+    #[test]
+    fn test_remove_output_matches_add_structure() {
+        // RemoveOutput should use same 'name' field as AddOutput
+        let add_output = AddOutput {
+            success: true,
+            name: "my-session".to_string(),
+            workspace_path: "/workspace".to_string(),
+            zellij_tab: "zjj:my-session".to_string(),
+            status: "active".to_string(),
+        };
+
+        let remove_output = RemoveOutput {
+            success: true,
+            name: "my-session".to_string(),
+            message: "Removed".to_string(),
+        };
+
+        let add_json = serde_json::to_value(&add_output).expect("Failed to serialize");
+        let remove_json = serde_json::to_value(&remove_output).expect("Failed to serialize");
+
+        // Both should have 'name' field with same value
+        assert_eq!(
+            add_json.get("name").and_then(|v| v.as_str()),
+            remove_json.get("name").and_then(|v| v.as_str()),
+            "Both should use 'name' field consistently"
+        );
+
+        // Neither should have session_name
+        assert!(add_json.get("session_name").is_none());
+        assert!(remove_json.get("session_name").is_none());
     }
 }
