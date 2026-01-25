@@ -234,7 +234,10 @@ fn check_orphaned_workspaces() -> DoctorCheck {
                         .lines()
                         .filter_map(|line| {
                             // Parse workspace list output
-                            line.split_whitespace().next().map(str::to_string)
+                            // JJ workspace names end with a colon (e.g., "my-session:")
+                            line.split_whitespace()
+                                .next()
+                                .map(|name| name.trim_end_matches(':').to_string())
                         })
                         .collect::<Vec<_>>()
                 }
