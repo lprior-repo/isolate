@@ -63,7 +63,7 @@ pub struct Session {
     pub status: SessionStatus,
     /// Path to the JJ workspace directory
     pub workspace_path: String,
-    /// Zellij tab name (format: `jjz:NAME`)
+    /// Zellij tab name (format: `zjj:NAME`)
     pub zellij_tab: String,
     /// Git branch associated with this session
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -99,7 +99,7 @@ impl Session {
             name: name.to_string(),
             status: SessionStatus::Creating,
             workspace_path: workspace_path.to_string(),
-            zellij_tab: format!("jjz:{name}"),
+            zellij_tab: format!("zjj:{name}"),
             branch: None,
             created_at: now,
             updated_at: now,
@@ -210,7 +210,7 @@ mod tests {
     fn test_session_new_valid() -> Result<()> {
         let session = Session::new("my-session", "/path/to/workspace")?;
         assert_eq!(session.name, "my-session");
-        assert_eq!(session.zellij_tab, "jjz:my-session");
+        assert_eq!(session.zellij_tab, "zjj:my-session");
         assert_eq!(session.status, SessionStatus::Creating);
         assert!(session.id.is_none());
         assert!(session.created_at > 0);

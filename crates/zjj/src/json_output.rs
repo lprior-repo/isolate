@@ -21,7 +21,7 @@ pub struct InitOutput {
 #[allow(dead_code)]
 pub struct AddOutput {
     pub success: bool,
-    pub session_name: String,
+    pub name: String,
     pub workspace_path: String,
     pub zellij_tab: String,
     pub status: String,
@@ -135,11 +135,11 @@ fn error_to_json_error(error: &Error) -> JsonError {
     // Add suggestions based on error type
     let suggestion = match code {
         ErrorCode::StateDbCorrupted => {
-            Some("Try running 'jjz doctor --fix' to repair the database")
+            Some("Try running 'zjj doctor --fix' to repair the database")
         }
-        ErrorCode::SessionNotFound => Some("Use 'jjz list' to see available sessions"),
+        ErrorCode::SessionNotFound => Some("Use 'zjj list' to see available sessions"),
         ErrorCode::JjNotInstalled => Some("Install JJ: cargo install jj-cli or brew install jj"),
-        ErrorCode::NotJjRepository => Some("Run 'jjz init' to initialize a JJ repository"),
+        ErrorCode::NotJjRepository => Some("Run 'zjj init' to initialize a JJ repository"),
         _ => None,
     };
 
@@ -148,4 +148,111 @@ fn error_to_json_error(error: &Error) -> JsonError {
     }
 
     json_error
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_output_json_uses_name_field() {
+        let output = AddOutput {
+            success: true,
+            name: "test-session".to_string(),
+            workspace_path: "/path/to/workspace".to_string(),
+            zellij_tab: "zjj:test-session".to_string(),
+            status: "active".to_string(),
+        };
+
+        let json = serde_json::to_value(&output).expect("Failed to serialize");
+
+        // Should have 'name' field, not 'session_name'
+        assert!(json.get("name").is_some(), "JSON should have 'name' field");
+        assert!(
+            json.get("session_name").is_none(),
+            "JSON should NOT have 'session_name' field"
+        );
+        assert_eq!(
+            json.get("name").and_then(|v| v.as_str()),
+            Some("test-session"),
+            "name field should match"
+        );
+    }
+
+    #[test]
+    fn test_add_output_name_matches_session() {
+        let session_name = "my-feature";
+        let output = AddOutput {
+            success: true,
+            name: session_name.to_string(),
+            workspace_path: format!("/workspaces/{session_name}"),
+            zellij_tab: format!("zjj:{session_name}"),
+            status: "creating".to_string(),
+        };
+
+        let json = serde_json::to_value(&output).expect("Failed to serialize");
+
+        assert_eq!(
+            json.get("name").and_then(|v| v.as_str()),
+            Some(session_name),
+            "name in JSON should match session name"
+        );
+    }
+
+    #[test]
+    fn test_add_output_backwards_compat_session_name_removed() {
+        // This test verifies that the old 'session_name' field is completely removed
+        let output = AddOutput {
+            success: false,
+            name: "test".to_string(),
+            workspace_path: "/path".to_string(),
+            zellij_tab: "zjj:test".to_string(),
+            status: "failed".to_string(),
+        };
+
+        let json_str = serde_json::to_string(&output).expect("Failed to serialize");
+
+        // The JSON string should not contain 'session_name' anywhere
+        assert!(
+            !json_str.contains("session_name"),
+            "JSON should not contain 'session_name' field: {json_str}"
+        );
+
+        // But should contain 'name'
+        assert!(
+            json_str.contains("\"name\""),
+            "JSON should contain 'name' field: {json_str}"
+        );
+    }
+
+    #[test]
+    fn test_add_output_all_fields_present() {
+        let output = AddOutput {
+            success: true,
+            name: "test".to_string(),
+            workspace_path: "/workspace/test".to_string(),
+            zellij_tab: "zjj:test".to_string(),
+            status: "active".to_string(),
+        };
+
+        let json = serde_json::to_value(&output).expect("Failed to serialize");
+
+        assert_eq!(
+            json.get("success").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(json.get("name").and_then(|v| v.as_str()), Some("test"));
+        assert_eq!(
+            json.get("workspace_path").and_then(|v| v.as_str()),
+            Some("/workspace/test")
+        );
+        assert_eq!(
+            json.get("zellij_tab").and_then(|v| v.as_str()),
+            Some("zjj:test")
+        );
+        assert_eq!(
+            json.get("status").and_then(|v| v.as_str()),
+            Some("active")
+        );
+    }
 }

@@ -239,12 +239,12 @@ impl From<&crate::Error> for JsonError {
             Error::NotFound(msg) => (
                 ErrorCode::SessionNotFound,
                 format!("Not found: {msg}"),
-                Some("Use 'jjz list' to see available sessions".to_string()),
+                Some("Use 'zjj list' to see available sessions".to_string()),
             ),
             Error::DatabaseError(msg) => (
                 ErrorCode::StateDbCorrupted,
                 format!("Database error: {msg}"),
-                Some("Try running 'jjz doctor --fix' to repair the database".to_string()),
+                Some("Try running 'zjj doctor --fix' to repair the database".to_string()),
             ),
             Error::Command(msg) => (
                 ErrorCode::Unknown,
@@ -338,7 +338,7 @@ pub fn error_with_available_sessions(
 
     JsonError::new(code, message)
         .with_details(details)
-        .with_suggestion("Use 'jjz list' to see available sessions")
+        .with_suggestion("Use 'zjj list' to see available sessions")
 }
 
 #[cfg(test)]

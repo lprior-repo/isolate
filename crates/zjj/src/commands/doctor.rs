@@ -1,6 +1,6 @@
 //! Doctor command - system health checks and auto-fix
 //!
-//! This command checks the health of the jjz system and can
+//! This command checks the health of the zjj system and can
 //! automatically fix common issues.
 //!
 //! # Exit Codes
@@ -149,14 +149,14 @@ fn check_jj_repo() -> DoctorCheck {
         suggestion: if is_repo {
             None
         } else {
-            Some("Initialize JJ: jjz init or jj git init".to_string())
+            Some("Initialize JJ: zjj init or jj git init".to_string())
         },
         auto_fixable: false,
         details: None,
     }
 }
 
-/// Check if jjz is initialized
+/// Check if zjj is initialized
 fn check_initialized() -> DoctorCheck {
     // Check for .zjj directory existence directly, without depending on JJ installation
     let jjz_dir = std::path::Path::new(".zjj");
@@ -164,7 +164,7 @@ fn check_initialized() -> DoctorCheck {
     let initialized = jjz_dir.exists() && config_file.exists();
 
     DoctorCheck {
-        name: "jjz Initialized".to_string(),
+        name: "zjj Initialized".to_string(),
         status: if initialized {
             CheckStatus::Pass
         } else {
@@ -173,12 +173,12 @@ fn check_initialized() -> DoctorCheck {
         message: if initialized {
             ".zjj directory exists with valid config".to_string()
         } else {
-            "jjz not initialized".to_string()
+            "zjj not initialized".to_string()
         },
         suggestion: if initialized {
             None
         } else {
-            Some("Initialize jjz: jjz init".to_string())
+            Some("Initialize zjj: zjj init".to_string())
         },
         auto_fixable: false,
         details: None,
@@ -192,7 +192,7 @@ fn check_state_db() -> DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
             message: "State database not accessible".to_string(),
-            suggestion: Some("Initialize jjz: jjz init".to_string()),
+            suggestion: Some("Initialize zjj: zjj init".to_string()),
             auto_fixable: false,
             details: None,
         },
@@ -273,7 +273,7 @@ fn check_orphaned_workspaces() -> DoctorCheck {
                 "Found {} workspace(s) without session records",
                 orphaned.len()
             ),
-            suggestion: Some("Run 'jjz doctor --fix' to clean up".to_string()),
+            suggestion: Some("Run 'zjj doctor --fix' to clean up".to_string()),
             auto_fixable: true,
             details: Some(serde_json::json!({
                 "orphaned_workspaces": orphaned,
@@ -338,7 +338,7 @@ fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
     if json {
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
-        println!("jjz System Health Check");
+        println!("zjj System Health Check");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!();
 
@@ -365,7 +365,7 @@ fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
         );
 
         if output.auto_fixable_issues > 0 {
-            println!("Some issues can be auto-fixed: jjz doctor --fix");
+            println!("Some issues can be auto-fixed: zjj doctor --fix");
         }
     }
 
@@ -530,7 +530,7 @@ mod tests {
         // Test 1: No .zjj directory - should fail
         let result = check_initialized();
         assert_eq!(result.status, CheckStatus::Fail);
-        assert_eq!(result.name, "jjz Initialized");
+        assert_eq!(result.name, "zjj Initialized");
         assert!(result.message.contains("not initialized"));
 
         // Test 2: .zjj directory exists but no config.toml - should fail
@@ -599,10 +599,10 @@ mod tests {
 
         // These should be independent checks
         assert_eq!(jj_check.name, "JJ Installation");
-        assert_eq!(init_check.name, "jjz Initialized");
+        assert_eq!(init_check.name, "zjj Initialized");
 
         // They should have different purposes
         assert!(jj_check.message.contains("JJ") || jj_check.message.contains("installed"));
-        assert!(init_check.message.contains("jjz") || init_check.message.contains("initialized"));
+        assert!(init_check.message.contains("zjj") || init_check.message.contains("initialized"));
     }
 }

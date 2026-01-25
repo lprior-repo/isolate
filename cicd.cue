@@ -1,7 +1,7 @@
 // Moon CICD Pipeline Specification
 // Defines all CI/CD tasks, pipelines, and quality gates
 // Source: moon.yml (355 lines)
-package jjz
+package zjj
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MOON CICD SCHEMA

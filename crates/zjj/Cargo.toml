@@ -8,7 +8,7 @@ repository.workspace = true
 description = "ZJJ - JJ workspace + Zellij session manager"
 
 [[bin]]
-name = "jjz"
+name = "zjj"
 path = "src/main.rs"
 
 [dependencies]

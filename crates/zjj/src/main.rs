@@ -1,6 +1,6 @@
 //! ZJJ CLI - JJ workspace + Zellij session manager
 //!
-//! Binary name: `jjz`
+//! Binary name: `zjj`
 
 use std::process;
 
@@ -20,7 +20,7 @@ use commands::{
 
 fn cmd_init() -> ClapCommand {
     ClapCommand::new("init")
-        .about("Initialize jjz in a JJ repository (or create one)")
+        .about("Initialize zjj in a JJ repository (or create one)")
         .arg(
             Arg::new("json")
                 .long("json")
@@ -221,7 +221,7 @@ fn cmd_dashboard() -> ClapCommand {
 
 fn cmd_introspect() -> ClapCommand {
     ClapCommand::new("introspect")
-        .about("Discover jjz capabilities and command details")
+        .about("Discover zjj capabilities and command details")
         .arg(
             Arg::new("command")
                 .required(false)
@@ -269,7 +269,7 @@ fn cmd_query() -> ClapCommand {
 }
 
 fn build_cli() -> ClapCommand {
-    ClapCommand::new("jjz")
+    ClapCommand::new("zjj")
         .version(env!("CARGO_PKG_VERSION"))
         .author("ZJJ Contributors")
         .about("ZJJ - Manage JJ workspaces with Zellij sessions")

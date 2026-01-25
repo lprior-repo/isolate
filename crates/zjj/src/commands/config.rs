@@ -120,7 +120,7 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
     // Navigate through nested keys using functional fold pattern
     let current = parts.iter().try_fold(&json, |current_value, &part| {
         current_value.get(part).ok_or_else(|| {
-            anyhow::anyhow!("Config key '{key}' not found. Use 'jjz config' to see all keys.")
+            anyhow::anyhow!("Config key '{key}' not found. Use 'zjj config' to see all keys.")
         })
     })?;
 
@@ -242,7 +242,7 @@ fn parse_value(value: &str) -> Result<toml_edit::Item> {
 
 /// Get path to global config file
 fn global_config_path() -> Result<PathBuf> {
-    directories::ProjectDirs::from("", "", "jjz")
+    directories::ProjectDirs::from("", "", "zjj")
         .map(|proj_dirs| proj_dirs.config_dir().join("config.toml"))
         .ok_or_else(|| anyhow::anyhow!("Failed to determine global config directory"))
 }

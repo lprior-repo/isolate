@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Quick install script for jjz development
+# Quick install script for zjj development
 
 set -e
 
-echo "Building jjz in release mode..."
+echo "Building zjj in release mode..."
 cargo build --release
 
-echo "Installing to ~/.local/bin/jjz..."
+echo "Installing to ~/.local/bin/zjj..."
 mkdir -p ~/.local/bin
-cp target/release/jjz ~/.local/bin/jjz
-chmod +x ~/.local/bin/jjz
+cp target/release/zjj ~/.local/bin/zjj
+chmod +x ~/.local/bin/zjj
 
-echo "✓ Installed jjz to ~/.local/bin/jjz"
+echo "✓ Installed zjj to ~/.local/bin/zjj"
 echo ""
-echo "You can now run 'jjz' from anywhere!"
-jjz --version
+echo "You can now run 'zjj' from anywhere!"
+zjj --version

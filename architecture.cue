@@ -1,6 +1,6 @@
-// jjz Architecture Specification
+// zjj Architecture Specification
 // Defines system components, data flow, and technology stack
-package jjz
+package zjj
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COMPONENT DEFINITIONS
@@ -85,21 +85,21 @@ components: {
 }
 
 data_flows: [...#DataFlow] & [
-    {trigger: "jjz add <name>", source: "cli", destination: "config_loader", data: "config request"},
-    {trigger: "jjz add <name>", source: "cli", destination: "jj_manager", data: "workspace name + path"},
-    {trigger: "jjz add <name>", source: "jj_manager", destination: "state_store", data: "session record"},
-    {trigger: "jjz add <name>", source: "cli", destination: "hook_runner", data: "post_create hooks"},
-    {trigger: "jjz add <name>", source: "cli", destination: "zellij_manager", data: "layout config"},
-    {trigger: "jjz add <name>", source: "zellij_manager", destination: "state_store", data: "tab info update"},
+    {trigger: "zjj add <name>", source: "cli", destination: "config_loader", data: "config request"},
+    {trigger: "zjj add <name>", source: "cli", destination: "jj_manager", data: "workspace name + path"},
+    {trigger: "zjj add <name>", source: "jj_manager", destination: "state_store", data: "session record"},
+    {trigger: "zjj add <name>", source: "cli", destination: "hook_runner", data: "post_create hooks"},
+    {trigger: "zjj add <name>", source: "cli", destination: "zellij_manager", data: "layout config"},
+    {trigger: "zjj add <name>", source: "zellij_manager", destination: "state_store", data: "tab info update"},
 
-    {trigger: "jjz remove <name>", source: "cli", destination: "hook_runner", data: "pre_remove hooks"},
-    {trigger: "jjz remove <name>", source: "cli", destination: "zellij_manager", data: "tab close request"},
-    {trigger: "jjz remove <name>", source: "cli", destination: "jj_manager", data: "workspace forget"},
-    {trigger: "jjz remove <name>", source: "cli", destination: "state_store", data: "session delete"},
+    {trigger: "zjj remove <name>", source: "cli", destination: "hook_runner", data: "pre_remove hooks"},
+    {trigger: "zjj remove <name>", source: "cli", destination: "zellij_manager", data: "tab close request"},
+    {trigger: "zjj remove <name>", source: "cli", destination: "jj_manager", data: "workspace forget"},
+    {trigger: "zjj remove <name>", source: "cli", destination: "state_store", data: "session delete"},
 
-    {trigger: "jjz dashboard", source: "tui_dashboard", destination: "state_store", data: "session list query"},
-    {trigger: "jjz dashboard", source: "tui_dashboard", destination: "jj_manager", data: "status queries"},
-    {trigger: "jjz dashboard", source: "file_watcher", destination: "tui_dashboard", data: "beads change events"},
+    {trigger: "zjj dashboard", source: "tui_dashboard", destination: "state_store", data: "session list query"},
+    {trigger: "zjj dashboard", source: "tui_dashboard", destination: "jj_manager", data: "status queries"},
+    {trigger: "zjj dashboard", source: "file_watcher", destination: "tui_dashboard", data: "beads change events"},
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -115,13 +115,13 @@ data_flows: [...#DataFlow] & [
 directories: {
     project: #DirectoryLayout & {
         path:        ".zjj/"
-        description: "Project-specific jjz data"
+        description: "Project-specific zjj data"
         contents:    ["config.toml", "state.db", "layouts/"]
     }
 
     global: #DirectoryLayout & {
-        path:        "~/.config/jjz/"
-        description: "Global jjz configuration"
+        path:        "~/.config/zjj/"
+        description: "Global zjj configuration"
         contents:    ["config.toml", "templates/"]
     }
 

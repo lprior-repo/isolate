@@ -1,6 +1,6 @@
-// jjz Configuration Schema
+// zjj Configuration Schema
 // Defines all configuration options with defaults and validation
-package jjz
+package zjj
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION SCHEMA
@@ -33,7 +33,7 @@ package jjz
 }
 
 #ZellijConfig: {
-    session_prefix: string | *"jjz"
+    session_prefix: string | *"zjj"
     use_tabs:       bool | *true
     layout_dir:     string | *".zjj/layouts"
     panes:          #PanesConfig
@@ -42,7 +42,7 @@ package jjz
 #PanesConfig: {
     main:  #PaneConfig & {command: string | *"claude", size: string | *"70%"}
     beads: #PaneConfig & {command: string | *"bv", size: string | *"50%"}
-    status: #PaneConfig & {command: string | *"jjz", args: [...string] | *["status", "--watch"], size: string | *"50%"}
+    status: #PaneConfig & {command: string | *"zjj", args: [...string] | *["status", "--watch"], size: string | *"50%"}
     float: #FloatPaneConfig
 }
 
@@ -88,7 +88,7 @@ package jjz
 
 config_sources: [...#ConfigSource] & [
     {path: "<builtin>", priority: 1, required: true},
-    {path: "~/.config/jjz/config.toml", priority: 2, required: false},
+    {path: "~/.config/zjj/config.toml", priority: 2, required: false},
     {path: ".zjj/config.toml", priority: 3, required: false},
     {path: "JJZ_* environment variables", priority: 4, required: false},
     {path: "CLI flags", priority: 5, required: false},
@@ -157,13 +157,13 @@ default_config: #Config & {
     }
 
     zellij: {
-        session_prefix: "jjz"
+        session_prefix: "zjj"
         use_tabs:       true
         layout_dir:     ".zjj/layouts"
         panes: {
             main:  {command: "claude", args: [], size: "70%"}
             beads: {command: "bv", args: [], size: "50%"}
-            status: {command: "jjz", args: ["status", "--watch"], size: "50%"}
+            status: {command: "zjj", args: ["status", "--watch"], size: "50%"}
             float: {enabled: true, command: "", width: "80%", height: "60%"}
         }
     }
