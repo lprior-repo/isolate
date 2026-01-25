@@ -14,8 +14,8 @@ mod json_output;
 mod session;
 
 use commands::{
-    add, attach, config, dashboard, diff, doctor, focus, init, introspect, list, query, remove,
-    status, sync,
+    add, attach, clean, config, dashboard, diff, doctor, focus, init, introspect, list, query,
+    remove, status, sync,
 };
 
 fn cmd_init() -> ClapCommand {
@@ -235,6 +235,30 @@ fn cmd_config() -> ClapCommand {
         )
 }
 
+fn cmd_clean() -> ClapCommand {
+    ClapCommand::new("clean")
+        .about("Remove stale sessions (where workspace no longer exists)")
+        .arg(
+            Arg::new("force")
+                .long("force")
+                .short('f')
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip confirmation prompt"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("List stale sessions without removing"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 fn cmd_dashboard() -> ClapCommand {
     ClapCommand::new("dashboard")
         .about("Launch interactive TUI dashboard with kanban view")
@@ -312,6 +336,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_sync())
         .subcommand(cmd_diff())
         .subcommand(cmd_config())
+        .subcommand(cmd_clean())
         .subcommand(cmd_dashboard())
         .subcommand(cmd_introspect())
         .subcommand(cmd_doctor())
@@ -500,6 +525,18 @@ fn handle_config(sub_m: &clap::ArgMatches) -> Result<()> {
     }
 }
 
+fn handle_clean(sub_m: &clap::ArgMatches) -> Result<()> {
+    let force = sub_m.get_flag("force");
+    let dry_run = sub_m.get_flag("dry-run");
+    let json = sub_m.get_flag("json");
+    let options = clean::CleanOptions {
+        force,
+        dry_run,
+        json,
+    };
+    clean::run_with_options(&options)
+}
+
 fn handle_introspect(sub_m: &clap::ArgMatches) -> Result<()> {
     let command = sub_m.get_one::<String>("command").map(String::as_str);
     let json = sub_m.get_flag("json");
@@ -570,6 +607,7 @@ fn run_cli() -> Result<()> {
         Some(("sync", sub_m)) => handle_sync(sub_m),
         Some(("diff", sub_m)) => handle_diff(sub_m),
         Some(("config", sub_m)) => handle_config(sub_m),
+        Some(("clean", sub_m)) => handle_clean(sub_m),
         Some(("dashboard" | "dash", _)) => dashboard::run(),
         Some(("introspect", sub_m)) => handle_introspect(sub_m),
         Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m),
