@@ -132,3 +132,24 @@ The hook exists to prevent broken code from reaching the remote repository and b
 **Created**: 2026-01-25  
 **Location**: `.git/hooks/pre-push`  
 **Status**: ✅ Active and enforcing quality gates
+
+## Hook Location
+
+**IMPORTANT**: The pre-push hook is installed in the **global git hooks directory**:
+
+- **Location**: `/home/lewis/.git-hooks/pre-push`  
+- **Reason**: Git config has `core.hooksPath = /home/lewis/.git-hooks`
+- **Applies to**: All git repositories on this system
+
+The hook in `.git/hooks/pre-push` is not used due to the custom hooks path configuration.
+
+### Verification
+
+To verify the hook is active:
+```bash
+git config --get core.hooksPath
+# Should show: /home/lewis/.git-hooks
+
+ls -la /home/lewis/.git-hooks/pre-push
+# Should be executable
+```
