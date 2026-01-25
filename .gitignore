@@ -33,3 +33,5 @@ Thumbs.db
 # ZJJ runtime data
 .zjj/
 workspaces/
+cue
+cuepls
