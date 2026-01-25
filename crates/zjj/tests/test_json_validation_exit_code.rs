@@ -1,14 +1,11 @@
 //! Test to verify that JSON output properly maps validation error exit codes
 
-use assert_cmd::Command;
 use anyhow::Result;
 
 #[test]
 fn test_add_json_error_exit_code() -> Result<()> {
     // Test that adding a session with invalid name returns exit code 1 in JSON mode
-    // We explicitly allow deprecated usage for cargo_bin as it's common in existing tests
-    #[allow(deprecated)]
-    let output = Command::cargo_bin("zjj")?
+    let output = assert_cmd::cargo::cargo_bin_cmd!("zjj")
         .args([
             "add",
             "-invalid",
