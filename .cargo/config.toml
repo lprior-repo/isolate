@@ -1,14 +1,8 @@
 # Cargo configuration for maximum build performance
 
 [build]
-# Use all available CPU cores for parallel compilation
-jobs = 0  # 0 = auto-detect CPU count
-
-# Incremental compilation for faster rebuilds (dev only)
+# Incremental compilation for faster rebuilds
 incremental = true
-
-# Parallel rustc frontend
-pipelined-compilation = true
 
 [term]
 # Better progress reporting
