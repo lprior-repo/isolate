@@ -20,6 +20,7 @@
 pub mod config;
 pub mod contracts;
 mod error;
+pub mod fix;
 pub mod functional;
 pub mod hints;
 pub mod hooks;
@@ -32,6 +33,7 @@ pub mod watcher;
 pub mod zellij;
 
 pub use error::Error;
+pub use fix::{ErrorWithFixes, Fix, FixImpact};
 pub use result::{Result, ResultExt};
 
 /// Marker trait for types guaranteed safe (no panics possible).
