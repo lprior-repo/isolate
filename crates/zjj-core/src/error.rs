@@ -80,6 +80,45 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+impl Error {
+    /// Returns the appropriate exit code for this error type.
+    ///
+    /// Exit code scheme:
+    /// - 1: Validation errors (invalid input, duplicate, etc.)
+    /// - 2: System/execution errors (IO, database, external commands)
+    /// - 3: Not found errors (session, resource not found)
+    /// - 4: Invalid state/corruption errors
+    pub const fn exit_code(&self) -> i32 {
+        match self {
+            // Validation errors → 1
+            Self::InvalidConfig(_) | Self::ValidationError(_) => 1,
+
+            // System/execution errors → 2
+            Self::IoError(_)
+            | Self::DatabaseError(_)
+            | Self::Command(_)
+            | Self::Unknown(_)
+            | Self::HookFailed { .. }
+            | Self::HookExecutionFailed { .. } => 2,
+
+            // Not found errors → 3
+            Self::NotFound(_) => 3,
+
+            // JJ command errors → depends on is_not_found flag
+            Self::JjCommandError { is_not_found, .. } => {
+                if *is_not_found {
+                    3
+                } else {
+                    2
+                }
+            }
+
+            // Parse errors → 4 (invalid state)
+            Self::ParseError(_) => 4,
+        }
+    }
+}
+
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
         Self::IoError(err.to_string())
@@ -181,5 +220,95 @@ mod tests {
         assert!(display.contains("Failed to list workspaces"));
         assert!(display.contains("Permission denied"));
         assert!(!display.contains("JJ is not installed"));
+    }
+
+    // zjj-cq39: Exit code classification tests
+    #[test]
+    fn test_validation_error_maps_to_1() {
+        let err = Error::ValidationError("invalid input".to_string());
+        assert_eq!(err.exit_code(), 1);
+    }
+
+    #[test]
+    fn test_invalid_config_maps_to_1() {
+        let err = Error::InvalidConfig("bad config".to_string());
+        assert_eq!(err.exit_code(), 1);
+    }
+
+    #[test]
+    fn test_io_error_maps_to_2() {
+        let err = Error::IoError("file not found".to_string());
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_database_error_maps_to_2() {
+        let err = Error::DatabaseError("connection failed".to_string());
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_command_error_maps_to_2() {
+        let err = Error::Command("command failed".to_string());
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_not_found_error_maps_to_3() {
+        let err = Error::NotFound("resource missing".to_string());
+        assert_eq!(err.exit_code(), 3);
+    }
+
+    #[test]
+    fn test_jj_not_found_maps_to_3() {
+        let err = Error::JjCommandError {
+            operation: "create workspace".to_string(),
+            source: "No such file or directory".to_string(),
+            is_not_found: true,
+        };
+        assert_eq!(err.exit_code(), 3);
+    }
+
+    #[test]
+    fn test_jj_other_error_maps_to_2() {
+        let err = Error::JjCommandError {
+            operation: "create workspace".to_string(),
+            source: "Permission denied".to_string(),
+            is_not_found: false,
+        };
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_parse_error_maps_to_4() {
+        let err = Error::ParseError("invalid json".to_string());
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    #[test]
+    fn test_unknown_error_maps_to_2_default() {
+        let err = Error::Unknown("something went wrong".to_string());
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_hook_failed_maps_to_2() {
+        let err = Error::HookFailed {
+            hook_type: "post_create".to_string(),
+            command: "npm install".to_string(),
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: "failed".to_string(),
+        };
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_hook_execution_failed_maps_to_2() {
+        let err = Error::HookExecutionFailed {
+            command: "invalid-shell".to_string(),
+            source: "No such file or directory".to_string(),
+        };
+        assert_eq!(err.exit_code(), 2);
     }
 }
