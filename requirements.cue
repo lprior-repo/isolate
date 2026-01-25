@@ -126,7 +126,7 @@ requirements: cli: [
     {
         id:       "REQ-CLI-014"
         pattern:  "event"
-        text:     "When the user invokes 'jjz init', jjz shall create a .jjz directory with default config.toml."
+        text:     "When the user invokes 'jjz init', jjz shall create a .zjj directory with default config.toml."
         priority: "must"
         status:   "draft"
     },
@@ -315,7 +315,7 @@ requirements: state: [
     {
         id:       "REQ-STATE-001"
         pattern:  "ubiquitous"
-        text:     "jjz shall persist session state in a SQLite database at .jjz/state.db."
+        text:     "jjz shall persist session state in a SQLite database at .zjj/state.db."
         priority: "must"
         status:   "draft"
     },
@@ -364,7 +364,7 @@ requirements: config: [
     {
         id:       "REQ-CONFIG-001"
         pattern:  "ubiquitous"
-        text:     "jjz shall load configuration from global (~/.config/jjz/config.toml) then project (.jjz/config.toml)."
+        text:     "jjz shall load configuration from global (~/.config/jjz/config.toml) then project (.zjj/config.toml)."
         priority: "must"
         status:   "draft"
     },

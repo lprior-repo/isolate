@@ -114,7 +114,7 @@ data_flows: [...#DataFlow] & [
 
 directories: {
     project: #DirectoryLayout & {
-        path:        ".jjz/"
+        path:        ".zjj/"
         description: "Project-specific jjz data"
         contents:    ["config.toml", "state.db", "layouts/"]
     }
