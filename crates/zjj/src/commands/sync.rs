@@ -34,9 +34,12 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session
-    let session = db
-        .get(name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{name}' not found"))?;
+    // Return zjj_core::Error::NotFound to get exit code 2 (not found)
+    let session = db.get(name)?.ok_or_else(|| {
+        anyhow::Error::new(zjj_core::Error::NotFound(format!(
+            "Session '{name}' not found"
+        )))
+    })?;
 
     // Use internal sync function
     match sync_session_internal(&db, &session.name, &session.workspace_path) {
@@ -79,9 +82,8 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // Get all sessions
-    let sessions = db
-        .list(None)
-        .map_err(|e| anyhow::anyhow!("Failed to list sessions: {e}"))?;
+    // Preserve error type for proper exit code mapping
+    let sessions = db.list(None).map_err(anyhow::Error::new)?;
 
     if sessions.is_empty() {
         if options.json {
@@ -191,7 +193,7 @@ fn sync_session_internal(
             ..Default::default()
         },
     )
-    .map_err(|e| anyhow::anyhow!("Failed to update sync timestamp: {e}"))?;
+    .map_err(anyhow::Error::new)?;
 
     Ok(())
 }
