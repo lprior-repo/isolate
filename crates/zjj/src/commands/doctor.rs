@@ -158,8 +158,8 @@ fn check_jj_repo() -> DoctorCheck {
 
 /// Check if jjz is initialized
 fn check_initialized() -> DoctorCheck {
-    // Check for .jjz directory existence directly, without depending on JJ installation
-    let jjz_dir = std::path::Path::new(".jjz");
+    // Check for .zjj directory existence directly, without depending on JJ installation
+    let jjz_dir = std::path::Path::new(".zjj");
     let config_file = jjz_dir.join("config.toml");
     let initialized = jjz_dir.exists() && config_file.exists();
 
@@ -171,7 +171,7 @@ fn check_initialized() -> DoctorCheck {
             CheckStatus::Fail
         },
         message: if initialized {
-            ".jjz directory exists with valid config".to_string()
+            ".zjj directory exists with valid config".to_string()
         } else {
             "jjz not initialized".to_string()
         },
@@ -527,28 +527,28 @@ mod tests {
             return;
         }
 
-        // Test 1: No .jjz directory - should fail
+        // Test 1: No .zjj directory - should fail
         let result = check_initialized();
         assert_eq!(result.status, CheckStatus::Fail);
         assert_eq!(result.name, "jjz Initialized");
         assert!(result.message.contains("not initialized"));
 
-        // Test 2: .jjz directory exists but no config.toml - should fail
-        if fs::create_dir(".jjz").is_err() {
+        // Test 2: .zjj directory exists but no config.toml - should fail
+        if fs::create_dir(".zjj").is_err() {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
         let result = check_initialized();
         assert_eq!(result.status, CheckStatus::Fail);
 
-        // Test 3: .jjz directory with config.toml - should pass
-        if fs::write(".jjz/config.toml", "workspace_dir = \"test\"").is_err() {
+        // Test 3: .zjj directory with config.toml - should pass
+        if fs::write(".zjj/config.toml", "workspace_dir = \"test\"").is_err() {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
         let result = check_initialized();
         assert_eq!(result.status, CheckStatus::Pass);
-        assert!(result.message.contains(".jjz directory exists"));
+        assert!(result.message.contains(".zjj directory exists"));
 
         // Cleanup: restore original directory
         let _ = std::env::set_current_dir(original_dir);
@@ -573,17 +573,17 @@ mod tests {
             return;
         }
 
-        // Create .jjz structure WITHOUT initializing a JJ repo
-        if fs::create_dir(".jjz").is_err() {
+        // Create .zjj structure WITHOUT initializing a JJ repo
+        if fs::create_dir(".zjj").is_err() {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
-        if fs::write(".jjz/config.toml", "workspace_dir = \"test\"").is_err() {
+        if fs::write(".zjj/config.toml", "workspace_dir = \"test\"").is_err() {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
 
-        // Even without JJ installed/initialized, should detect .jjz
+        // Even without JJ installed/initialized, should detect .zjj
         let result = check_initialized();
         assert_eq!(result.status, CheckStatus::Pass);
 

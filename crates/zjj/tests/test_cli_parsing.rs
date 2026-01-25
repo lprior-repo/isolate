@@ -17,7 +17,7 @@ fn test_help_flag() {
         return;
     };
 
-    let result = harness.jjz(&["--help"]);
+    let result = harness.zjj(&["--help"]);
     // Help may exit with 0 or display help text
     result.assert_output_contains("jjz");
 }
@@ -29,7 +29,7 @@ fn test_version_flag() {
         return;
     };
 
-    let _result = harness.jjz(&["--version"]);
+    let _result = harness.zjj(&["--version"]);
     // Version should show version number
 }
 
@@ -40,7 +40,7 @@ fn test_init_help() {
         return;
     };
 
-    let result = harness.jjz(&["init", "--help"]);
+    let result = harness.zjj(&["init", "--help"]);
     result.assert_output_contains("init");
 }
 
@@ -51,7 +51,7 @@ fn test_add_help() {
         return;
     };
 
-    let result = harness.jjz(&["add", "--help"]);
+    let result = harness.zjj(&["add", "--help"]);
     result.assert_output_contains("add");
 }
 
@@ -69,7 +69,7 @@ fn test_add_with_no_open_flag() {
 
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("test");
 }
 
@@ -83,7 +83,7 @@ fn test_add_with_no_hooks_flag() {
 
     harness.assert_success(&["add", "test", "--no-hooks", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("test");
 }
 
@@ -100,7 +100,7 @@ fn test_add_with_template_flag() {
     harness.assert_success(&["add", "standard", "--template", "standard", "--no-open"]);
     harness.assert_success(&["add", "full", "--template", "full", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("minimal");
     result.assert_stdout_contains("standard");
     result.assert_stdout_contains("full");
@@ -116,7 +116,7 @@ fn test_add_with_short_template_flag() {
 
     harness.assert_success(&["add", "test", "-t", "minimal", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("test");
 }
 
@@ -130,7 +130,7 @@ fn test_add_combined_flags() {
 
     harness.assert_success(&["add", "test", "--no-open", "--no-hooks", "-t", "minimal"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("test");
 }
 
@@ -147,7 +147,7 @@ fn test_list_with_all_flag() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["list", "--all"]);
+    let result = harness.zjj(&["list", "--all"]);
     assert!(result.success);
     result.assert_stdout_contains("test");
 }
@@ -161,7 +161,7 @@ fn test_list_with_json_flag() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["list", "--json"]);
+    let result = harness.zjj(&["list", "--json"]);
     assert!(result.success);
 
     // Verify JSON format
@@ -184,7 +184,7 @@ fn test_remove_with_force_flag() {
 
     harness.assert_success(&["remove", "test", "--force"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.stdout.contains("test"));
 }
 
@@ -199,7 +199,7 @@ fn test_remove_with_short_force_flag() {
 
     harness.assert_success(&["remove", "test", "-f"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.stdout.contains("test"));
 }
 
@@ -213,7 +213,7 @@ fn test_remove_with_merge_flag() {
     harness.assert_success(&["add", "test", "--no-open"]);
 
     // Note: merge requires force too (or confirmation)
-    let _result = harness.jjz(&["remove", "test", "--merge", "--force"]);
+    let _result = harness.zjj(&["remove", "test", "--merge", "--force"]);
     // May succeed or fail depending on git state
 }
 
@@ -228,7 +228,7 @@ fn test_remove_with_keep_branch_flag() {
 
     harness.assert_success(&["remove", "test", "--keep-branch", "--force"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.stdout.contains("test"));
 }
 
@@ -245,7 +245,7 @@ fn test_status_with_json_flag() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["status", "test", "--json"]);
+    let result = harness.zjj(&["status", "test", "--json"]);
     assert!(result.success);
 
     // Verify JSON format
@@ -263,7 +263,7 @@ fn test_status_without_name_shows_all() {
     harness.assert_success(&["add", "test1", "--no-open"]);
     harness.assert_success(&["add", "test2", "--no-open"]);
 
-    let result = harness.jjz(&["status"]);
+    let result = harness.zjj(&["status"]);
     assert!(result.success);
     // Should show all sessions or a summary
 }
@@ -279,7 +279,7 @@ fn test_status_with_watch_flag() {
 
     // Note: --watch will block, so we can't test it in CI
     // Just verify it doesn't error immediately
-    let _result = harness.jjz(&["status", "test", "--watch"]);
+    let _result = harness.zjj(&["status", "test", "--watch"]);
     // Will run continuously - this test may timeout
     // In practice, we'd need to kill it after a short time
 }
@@ -297,7 +297,7 @@ fn test_diff_with_stat_flag() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let _result = harness.jjz(&["diff", "test", "--stat"]);
+    let _result = harness.zjj(&["diff", "test", "--stat"]);
     // May succeed or fail depending on whether there are changes
 }
 
@@ -310,7 +310,7 @@ fn test_diff_without_stat() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let _result = harness.jjz(&["diff", "test"]);
+    let _result = harness.zjj(&["diff", "test"]);
     // May succeed or fail depending on whether there are changes
 }
 
@@ -327,7 +327,7 @@ fn test_sync_with_explicit_session() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let _result = harness.jjz(&["sync", "test"]);
+    let _result = harness.zjj(&["sync", "test"]);
     // Sync behavior depends on git state
 }
 
@@ -340,7 +340,7 @@ fn test_sync_without_session_name() {
     harness.assert_success(&["init"]);
 
     // Sync without name should sync current workspace
-    let _result = harness.jjz(&["sync"]);
+    let _result = harness.zjj(&["sync"]);
     // May succeed or fail depending on context
 }
 
@@ -375,7 +375,7 @@ fn test_flags_before_positional_args() {
     // Flags before name
     harness.assert_success(&["add", "--no-open", "test"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("test");
 }
 
@@ -390,7 +390,7 @@ fn test_flags_after_positional_args() {
     // Flags after name
     harness.assert_success(&["add", "test", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("test");
 }
 
@@ -408,7 +408,7 @@ fn test_session_name_with_hyphens() {
 
     harness.assert_success(&["add", "feature-with-hyphens", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("feature-with-hyphens");
 }
 
@@ -422,7 +422,7 @@ fn test_session_name_with_underscores() {
 
     harness.assert_success(&["add", "feature_with_underscores", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("feature_with_underscores");
 }
 
@@ -436,7 +436,7 @@ fn test_session_name_with_numbers() {
 
     harness.assert_success(&["add", "feature123", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("feature123");
 }
 
@@ -453,7 +453,7 @@ fn test_session_name_with_leading_whitespace() {
     harness.assert_success(&["init"]);
 
     // Leading whitespace should be rejected or trimmed
-    let _result = harness.jjz(&["add", " test", "--no-open"]);
+    let _result = harness.zjj(&["add", " test", "--no-open"]);
     // May fail with validation error
 }
 
@@ -466,7 +466,7 @@ fn test_session_name_with_trailing_whitespace() {
     harness.assert_success(&["init"]);
 
     // Trailing whitespace should be rejected or trimmed
-    let _result = harness.jjz(&["add", "test ", "--no-open"]);
+    let _result = harness.zjj(&["add", "test ", "--no-open"]);
     // May fail with validation error
 }
 
@@ -486,7 +486,7 @@ fn test_session_names_are_case_sensitive() {
     harness.assert_success(&["add", "test", "--no-open"]);
 
     // Both should exist as separate sessions
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("Test");
     result.assert_stdout_contains("test");
 }
@@ -506,7 +506,7 @@ fn test_long_flag_names() {
     // All flags should work with long names
     harness.assert_success(&["add", "test", "--no-open", "--no-hooks"]);
 
-    let result = harness.jjz(&["list", "--all", "--json"]);
+    let result = harness.zjj(&["list", "--all", "--json"]);
     assert!(result.success);
 }
 
@@ -525,7 +525,7 @@ fn test_template_with_equals_sign() {
     // --template=minimal syntax
     harness.assert_success(&["add", "test", "--template=minimal", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("test");
 }
 
@@ -542,7 +542,7 @@ fn test_session_name_starting_with_single_dash() {
     harness.assert_success(&["init"]);
 
     // Names starting with a single dash should be rejected
-    let result = harness.jjz(&["add", "-foo", "--no-open"]);
+    let result = harness.zjj(&["add", "-foo", "--no-open"]);
     assert!(!result.success, "Should reject name starting with dash");
     result.assert_output_contains("must start with a letter");
 }
@@ -556,7 +556,7 @@ fn test_session_name_starting_with_double_dash() {
     harness.assert_success(&["init"]);
 
     // Names starting with double dash should be rejected
-    let result = harness.jjz(&["add", "--bar", "--no-open"]);
+    let result = harness.zjj(&["add", "--bar", "--no-open"]);
     assert!(!result.success, "Should reject name starting with --");
     // Will likely be interpreted as unknown flag or show validation error
 }
@@ -570,7 +570,7 @@ fn test_session_name_starting_with_triple_dash() {
     harness.assert_success(&["init"]);
 
     // Names starting with triple dash should be rejected
-    let result = harness.jjz(&["add", "---baz", "--no-open"]);
+    let result = harness.zjj(&["add", "---baz", "--no-open"]);
     assert!(!result.success, "Should reject name starting with ---");
     result.assert_output_contains("must start with a letter");
 }
@@ -584,7 +584,7 @@ fn test_session_name_just_dash() {
     harness.assert_success(&["init"]);
 
     // A single dash should be rejected
-    let result = harness.jjz(&["add", "-", "--no-open"]);
+    let result = harness.zjj(&["add", "-", "--no-open"]);
     assert!(!result.success, "Should reject single dash as name");
     result.assert_output_contains("must start with a letter");
 }
@@ -598,7 +598,7 @@ fn test_session_name_starting_with_underscore() {
     harness.assert_success(&["init"]);
 
     // Names starting with underscore should be rejected
-    let result = harness.jjz(&["add", "_private", "--no-open"]);
+    let result = harness.zjj(&["add", "_private", "--no-open"]);
     assert!(
         !result.success,
         "Should reject name starting with underscore"
@@ -615,7 +615,7 @@ fn test_session_name_starting_with_number() {
     harness.assert_success(&["init"]);
 
     // Names starting with number should be rejected
-    let result = harness.jjz(&["add", "123session", "--no-open"]);
+    let result = harness.zjj(&["add", "123session", "--no-open"]);
     assert!(!result.success, "Should reject name starting with number");
     result.assert_output_contains("must start with a letter");
 }
@@ -629,7 +629,7 @@ fn test_remove_session_name_starting_with_dash() {
     harness.assert_success(&["init"]);
 
     // Try to remove a session with dash-prefixed name
-    let result = harness.jjz(&["remove", "-session", "--force"]);
+    let result = harness.zjj(&["remove", "-session", "--force"]);
     assert!(
         !result.success,
         "Should reject remove with dash-prefixed name"
@@ -646,7 +646,7 @@ fn test_focus_session_name_starting_with_dash() {
     harness.assert_success(&["init"]);
 
     // Try to focus a session with dash-prefixed name
-    let result = harness.jjz(&["focus", "-session"]);
+    let result = harness.zjj(&["focus", "-session"]);
     assert!(
         !result.success,
         "Should reject focus with dash-prefixed name"
@@ -663,7 +663,7 @@ fn test_diff_session_name_starting_with_dash() {
     harness.assert_success(&["init"]);
 
     // Try to diff a session with dash-prefixed name
-    let result = harness.jjz(&["diff", "-session"]);
+    let result = harness.zjj(&["diff", "-session"]);
     assert!(
         !result.success,
         "Should reject diff with dash-prefixed name"

@@ -76,7 +76,7 @@ pub fn check_prerequisites() -> Result<PathBuf> {
 pub fn zjj_data_dir() -> Result<PathBuf> {
     // Check prerequisites first
     let root = check_prerequisites()?;
-    Ok(root.join(".jjz"))
+    Ok(root.join(".zjj"))
 }
 
 /// Get the session database for the current repository
@@ -187,8 +187,8 @@ mod tests {
             );
             if let Some(p) = path {
                 assert!(
-                    p.to_string_lossy().ends_with(".jjz"),
-                    "Path should end with .jjz"
+                    p.to_string_lossy().ends_with(".zjj"),
+                    "Path should end with .zjj"
                 );
             }
         }
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn test_get_session_db_requires_init() {
         // get_session_db should fail if zjj is not initialized
-        // Even if we're in a JJ repo, if .jjz doesn't exist, it should fail
+        // Even if we're in a JJ repo, if .zjj doesn't exist, it should fail
         let result = get_session_db();
 
         if let Err(e) = result {

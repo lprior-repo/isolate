@@ -19,7 +19,7 @@ fn test_init_succeeds_with_jj_and_zellij_installed() {
 
     // This test assumes jj and zellij are installed
     // If they're not, init should fail with helpful error
-    let result = harness.jjz(&["init"]);
+    let result = harness.zjj(&["init"]);
 
     // Either succeeds (if deps available) or fails with helpful message
     if !result.success {
@@ -115,7 +115,7 @@ fn test_add_without_init() {
     };
 
     // Try to add without running init first
-    let result = harness.jjz(&["add", "test", "--no-open"]);
+    let result = harness.zjj(&["add", "test", "--no-open"]);
     assert!(!result.success, "add should fail without init");
 }
 
@@ -127,7 +127,7 @@ fn test_list_without_init() {
     };
 
     // Try to list without running init first
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success, "list should fail without init");
 }
 
@@ -138,7 +138,7 @@ fn test_remove_without_init() {
         return;
     };
 
-    let result = harness.jjz(&["remove", "test", "--force"]);
+    let result = harness.zjj(&["remove", "test", "--force"]);
     assert!(!result.success, "remove should fail without init");
 }
 
@@ -149,7 +149,7 @@ fn test_status_without_init() {
         return;
     };
 
-    let result = harness.jjz(&["status", "test"]);
+    let result = harness.zjj(&["status", "test"]);
     assert!(!result.success, "status should fail without init");
 }
 
@@ -176,7 +176,7 @@ fn test_status_nonexistent_session() {
     };
     harness.assert_success(&["init"]);
 
-    let _result = harness.jjz(&["status", "nonexistent"]);
+    let _result = harness.zjj(&["status", "nonexistent"]);
     // May fail or return empty - either is acceptable
 }
 
@@ -188,7 +188,7 @@ fn test_focus_nonexistent_session() {
     };
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["focus", "nonexistent"]);
+    let result = harness.zjj(&["focus", "nonexistent"]);
     assert!(!result.success, "focus should fail for nonexistent session");
 }
 
@@ -200,7 +200,7 @@ fn test_sync_nonexistent_session() {
     };
     harness.assert_success(&["init"]);
 
-    let _result = harness.jjz(&["sync", "nonexistent"]);
+    let _result = harness.zjj(&["sync", "nonexistent"]);
     // May fail or handle gracefully
 }
 
@@ -212,7 +212,7 @@ fn test_diff_nonexistent_session() {
     };
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["diff", "nonexistent"]);
+    let result = harness.zjj(&["diff", "nonexistent"]);
     assert!(!result.success, "diff should fail for nonexistent session");
 }
 
@@ -266,7 +266,7 @@ fn test_corrupted_database_recovery() {
     }
 
     // Operations should fail gracefully
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success, "Should fail with corrupted database");
     result.assert_output_contains(""); // Some error message
 }
@@ -286,7 +286,7 @@ fn test_missing_database() {
     }
 
     // Operations should fail
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(!result.success, "Should fail with missing database");
 }
 
@@ -303,13 +303,13 @@ fn test_workspace_directory_creation_failure() {
     harness.assert_success(&["init"]);
 
     // Create a file where workspace directory should be
-    let workspaces_dir = harness.jjz_dir().join("workspaces");
+    let workspaces_dir = harness.zjj_dir().join("workspaces");
     std::fs::create_dir_all(&workspaces_dir).ok();
     let blocking_file = workspaces_dir.join("test-session");
     std::fs::write(&blocking_file, "blocking").ok();
 
     // Try to add session - should fail
-    let _result = harness.jjz(&["add", "test-session", "--no-open"]);
+    let _result = harness.zjj(&["add", "test-session", "--no-open"]);
     // May fail or handle the conflict
 }
 
@@ -323,8 +323,8 @@ fn test_readonly_jjz_directory() {
     };
     harness.assert_success(&["init"]);
 
-    // Make .jjz directory readonly
-    let jjz_dir = harness.jjz_dir();
+    // Make .zjj directory readonly
+    let jjz_dir = harness.zjj_dir();
     let Ok(metadata) = fs::metadata(&jjz_dir) else {
         std::process::abort()
     };
@@ -333,7 +333,7 @@ fn test_readonly_jjz_directory() {
     fs::set_permissions(&jjz_dir, perms).ok();
 
     // Operations that need write access should fail
-    let _result = harness.jjz(&["add", "test", "--no-open"]);
+    let _result = harness.zjj(&["add", "test", "--no-open"]);
     // Should fail with permission error
 
     // Restore permissions for cleanup
@@ -357,7 +357,7 @@ fn test_init_with_extra_arguments() {
     };
 
     // init doesn't take arguments
-    let _result = harness.jjz(&["init", "extra"]);
+    let _result = harness.zjj(&["init", "extra"]);
     // May fail or ignore extra args
 }
 
@@ -369,7 +369,7 @@ fn test_add_missing_name_argument() {
     };
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["add"]);
+    let result = harness.zjj(&["add"]);
     assert!(!result.success, "add requires a name argument");
 }
 
@@ -381,7 +381,7 @@ fn test_remove_missing_name_argument() {
     };
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["remove"]);
+    let result = harness.zjj(&["remove"]);
     assert!(!result.success, "remove requires a name argument");
 }
 
@@ -393,7 +393,7 @@ fn test_diff_missing_name_argument() {
     };
     harness.assert_success(&["init"]);
 
-    let result = harness.jjz(&["diff"]);
+    let result = harness.zjj(&["diff"]);
     assert!(!result.success, "diff requires a name argument");
 }
 
@@ -404,7 +404,7 @@ fn test_unknown_subcommand() {
         return;
     };
 
-    let result = harness.jjz(&["unknown-command"]);
+    let result = harness.zjj(&["unknown-command"]);
     assert!(!result.success, "Unknown subcommand should fail");
 }
 
@@ -415,7 +415,7 @@ fn test_invalid_flag() {
         return;
     };
 
-    let result = harness.jjz(&["init", "--invalid-flag"]);
+    let result = harness.zjj(&["init", "--invalid-flag"]);
     assert!(!result.success, "Invalid flag should fail");
 }
 
@@ -435,7 +435,7 @@ fn test_invalid_toml_config() {
     harness.write_config("invalid toml {{{").ok();
 
     // Commands that read config may fail gracefully
-    let _result = harness.jjz(&["add", "test", "--no-open"]);
+    let _result = harness.zjj(&["add", "test", "--no-open"]);
     // Should either fail or use defaults
 }
 
@@ -448,11 +448,11 @@ fn test_missing_config_file() {
     harness.assert_success(&["init"]);
 
     // Delete config file
-    let config_path = harness.jjz_dir().join("config.toml");
+    let config_path = harness.zjj_dir().join("config.toml");
     std::fs::remove_file(&config_path).ok();
 
     // Commands should still work with defaults or fail gracefully
-    let _result = harness.jjz(&["add", "test", "--no-open"]);
+    let _result = harness.zjj(&["add", "test", "--no-open"]);
     // Implementation may vary
 }
 
@@ -474,7 +474,7 @@ fn test_corrupted_jj_workspace() {
     std::fs::remove_dir_all(&workspace_jj).ok();
 
     // Status and other operations may fail
-    let _result = harness.jjz(&["status", "test"]);
+    let _result = harness.zjj(&["status", "test"]);
     // May fail or report corruption
 }
 
@@ -492,7 +492,7 @@ fn test_session_name_exactly_64_chars() {
 
     // Exactly 64 characters should be valid
     let name = "a".repeat(64);
-    let result = harness.jjz(&["add", &name, "--no-open"]);
+    let result = harness.zjj(&["add", &name, "--no-open"]);
     assert!(result.success, "64-character name should be valid");
 }
 
@@ -506,7 +506,7 @@ fn test_session_name_with_numbers_only() {
 
     harness.assert_success(&["add", "12345", "--no-open"]);
 
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("12345");
 }
 
@@ -525,7 +525,7 @@ fn test_rapid_add_remove_cycles() {
     }
 
     // Should work without issues
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
 }
 
@@ -546,6 +546,6 @@ fn test_list_with_no_sessions_after_remove_all() {
     harness.assert_success(&["remove", "s2", "--force"]);
 
     // List should succeed but show no sessions
-    let result = harness.jjz(&["list"]);
+    let result = harness.zjj(&["list"]);
     assert!(result.success);
 }

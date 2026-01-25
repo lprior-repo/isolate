@@ -303,8 +303,8 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
             vec![
                 Hint::suggestion("Initialize jjz in this repository")
                     .with_command("jjz init")
-                    .with_rationale("Creates .jjz directory with configuration"),
-                Hint::tip("After init, you can configure jjz in .jjz/config.toml")
+                    .with_rationale("Creates .zjj directory with configuration"),
+                Hint::tip("After init, you can configure jjz in .zjj/config.toml")
                     .with_rationale("Customize workspace paths, hooks, and layouts"),
             ]
         }

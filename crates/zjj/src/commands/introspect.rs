@@ -148,7 +148,7 @@ pub fn run(json: bool) -> Result<()> {
 
 /// Print introspection output in human-readable format
 fn print_human_readable(output: &IntrospectOutput) {
-    println!("JJZ Version: {}", output.jjz_version);
+    println!("JJZ Version: {}", output.zjj_version);
     println!();
 
     println!("Capabilities:");
@@ -532,14 +532,14 @@ fn get_init_introspection() -> CommandIntrospection {
             custom: vec![],
         },
         side_effects: vec![
-            "Creates .jjz directory".to_string(),
+            "Creates .zjj directory".to_string(),
             "Creates config.toml".to_string(),
             "Creates sessions.db".to_string(),
         ],
         error_conditions: vec![ErrorCondition {
             code: "ALREADY_INITIALIZED".to_string(),
             description: "JJZ already initialized".to_string(),
-            resolution: "Remove .jjz directory to reinitialize".to_string(),
+            resolution: "Remove .zjj directory to reinitialize".to_string(),
         }],
     }
 }

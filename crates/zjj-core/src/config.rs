@@ -5,7 +5,7 @@
 //! Configuration is loaded in this order (later overrides earlier):
 //! 1. Built-in defaults
 //! 2. Global config: ~/.config/jjz/config.toml
-//! 3. Project config: .jjz/config.toml
+//! 3. Project config: .zjj/config.toml
 //! 4. Environment variables: JJZ_*
 //! 5. CLI flags (command-specific)
 //!
@@ -122,7 +122,7 @@ impl Default for Config {
             workspace_dir: "../{repo}__workspaces".to_string(),
             main_branch: String::new(),
             default_template: "standard".to_string(),
-            state_db: ".jjz/state.db".to_string(),
+            state_db: ".zjj/state.db".to_string(),
             watch: WatchConfig::default(),
             hooks: HooksConfig::default(),
             zellij: ZellijConfig::default(),
@@ -159,7 +159,7 @@ impl Default for ZellijConfig {
         Self {
             session_prefix: "jjz".to_string(),
             use_tabs: true,
-            layout_dir: ".jjz/layouts".to_string(),
+            layout_dir: ".zjj/layouts".to_string(),
             panes: PanesConfig::default(),
         }
     }
@@ -292,7 +292,7 @@ fn global_config_path() -> Option<PathBuf> {
 /// Returns error if current directory cannot be determined
 fn project_config_path() -> Result<PathBuf> {
     std::env::current_dir()
-        .map(|dir| dir.join(".jjz/config.toml"))
+        .map(|dir| dir.join(".zjj/config.toml"))
         .map_err(|e| Error::IoError(format!("Failed to get current directory: {e}")))
 }
 
@@ -371,7 +371,7 @@ impl ZellijConfig {
             self.session_prefix = other.session_prefix;
         }
         self.use_tabs = other.use_tabs;
-        if other.layout_dir != ".jjz/layouts" {
+        if other.layout_dir != ".zjj/layouts" {
             self.layout_dir = other.layout_dir;
         }
         self.panes.merge(other.panes);
@@ -479,7 +479,7 @@ impl Config {
         if other.default_template != "standard" {
             self.default_template = other.default_template;
         }
-        if other.state_db != ".jjz/state.db" {
+        if other.state_db != ".zjj/state.db" {
             self.state_db = other.state_db;
         }
 
@@ -602,7 +602,7 @@ mod tests {
     // Test 1: No config files - Returns default config
     #[test]
     fn test_no_config_files_returns_defaults() {
-        // This test works in the normal repo context where no .jjz/config.toml exists
+        // This test works in the normal repo context where no .zjj/config.toml exists
         // and global config likely doesn't exist either
         let result = load_config();
         assert!(
@@ -614,7 +614,7 @@ mod tests {
         // Check that we got defaults (with {repo} replaced by actual repo name)
         assert!(config.workspace_dir.contains("__workspaces"));
         assert_eq!(config.default_template, "standard");
-        assert_eq!(config.state_db, ".jjz/state.db");
+        assert_eq!(config.state_db, ".zjj/state.db");
     }
 
     // Test 2: Global only - Loads global, merges with defaults
@@ -826,7 +826,7 @@ mod tests {
         assert_eq!(config.workspace_dir, "../{repo}__workspaces");
         assert_eq!(config.main_branch, "");
         assert_eq!(config.default_template, "standard");
-        assert_eq!(config.state_db, ".jjz/state.db");
+        assert_eq!(config.state_db, ".zjj/state.db");
         assert!(config.watch.enabled);
         assert_eq!(config.watch.debounce_ms, 100);
         assert_eq!(config.dashboard.refresh_ms, 1000);

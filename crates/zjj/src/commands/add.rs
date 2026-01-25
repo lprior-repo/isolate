@@ -57,7 +57,7 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     }
 
     let root = check_prerequisites()?;
-    let workspace_path = format!("{}/.jjz/workspaces/{}", root.display(), options.name);
+    let workspace_path = format!("{}/.zjj/workspaces/{}", root.display(), options.name);
 
     // Create the JJ workspace (REQ-JJ-003, REQ-JJ-007)
     create_jj_workspace(&options.name, &workspace_path).with_context(|| {
