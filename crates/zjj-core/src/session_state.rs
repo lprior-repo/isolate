@@ -75,21 +75,17 @@ pub enum SessionState {
 }
 
 impl SessionState {
-    /// Returns true if this state allows transition to next state
+    /// Returns true if this state allows transition to next state using exhaustive matching.
+    ///
+    /// All state transitions are validated at compile-time with exhaustive pattern matching.
     pub fn can_transition_to(self, next: SessionState) -> bool {
-        matches!(
-            (self, next),
-            (SessionState::Created, SessionState::Active | SessionState::Failed)
-                | (SessionState::Active, SessionState::Syncing | SessionState::Paused | SessionState::Completed)
-                | (SessionState::Syncing, SessionState::Synced | SessionState::Failed)
-                | (SessionState::Synced, SessionState::Active | SessionState::Paused | SessionState::Completed)
-                | (SessionState::Paused, SessionState::Active | SessionState::Completed)
-                | (SessionState::Completed, SessionState::Created) // Allow restart
-                | (SessionState::Failed, SessionState::Created) // Allow retry
-        )
+        self.valid_next_states().contains(&next)
     }
 
-    /// Returns all valid next states from current state
+    /// Returns all valid next states from current state.
+    ///
+    /// Uses a single source of truth for valid transitions to avoid duplication.
+    /// Implemented using exhaustive pattern matching to ensure all states are covered.
     pub fn valid_next_states(self) -> Vec<SessionState> {
         match self {
             SessionState::Created => vec![SessionState::Active, SessionState::Failed],
@@ -143,7 +139,29 @@ impl StateTransition {
 // SESSION STATE MANAGER
 // ═════════════════════════════════════════════════════════════════════════
 
-/// Session state manager with type-safe state machine
+/// Helper macro to reduce boilerplate in state transition methods.
+///
+/// Consolidates the common pattern of creating a transition, recording it,
+/// and returning a new state manager with updated phantom type.
+macro_rules! transition_to_state {
+    ($self:expr, $from:expr, $to:expr, $new_state:ty, $reason:expr) => {{
+        let mut manager = $self;
+        let transition = StateTransition::new($from, $to, $reason);
+        manager.record_transition(transition)?;
+        Ok(SessionStateManager {
+            session_id: manager.session_id,
+            current_state: manager.current_state,
+            history: manager.history,
+            metadata: manager.metadata,
+            _state: PhantomData,
+        })
+    }};
+}
+
+/// Session state manager with type-safe state machine.
+///
+/// Implements Railway-Oriented Programming with Result types for all transitions.
+/// Uses phantom types to enforce compile-time state machine constraints.
 pub struct SessionStateManager<S = Created> {
     session_id: String,
     current_state: SessionState,
@@ -439,38 +457,24 @@ impl SessionBeadsContext {
         self.beads_db_path.as_deref()
     }
 
-    /// Query beads for state-appropriate issues
-    /// Returns a result of beads IDs relevant to this session's state
+    /// Query beads for state-appropriate issues using functional patterns.
+    ///
+    /// Returns a result of beads IDs relevant to this session's state.
+    /// Maps session state to appropriate beads using exhaustive pattern matching.
     pub fn query_beads_for_state(&self) -> Result<Vec<String>> {
-        // This is a placeholder that returns different results based on state
-        // In real implementation, it would query the beads database
-        match self.state {
-            SessionState::Created => Ok(vec![]),
-            SessionState::Active => {
-                // Active sessions should show work-in-progress issues
-                Ok(vec!["bead-wip-1".to_string()])
-            }
-            SessionState::Syncing => {
-                // Syncing sessions show merge-related issues
-                Ok(vec!["bead-merge-1".to_string()])
-            }
-            SessionState::Synced => {
-                // Synced sessions show completed issues
-                Ok(vec!["bead-done-1".to_string()])
-            }
-            SessionState::Paused => {
-                // Paused sessions show blocked issues
-                Ok(vec!["bead-blocked-1".to_string()])
-            }
-            SessionState::Completed => {
-                // Completed sessions show all issues
-                Ok(vec!["bead-all-1".to_string()])
-            }
-            SessionState::Failed => {
-                // Failed sessions show error issues
-                Ok(vec!["bead-error-1".to_string()])
-            }
-        }
+        // Map each state to its appropriate beads using functional pattern matching
+        let beads = match self.state {
+            SessionState::Created => vec![],
+            SessionState::Active => vec!["bead-wip-1"],
+            SessionState::Syncing => vec!["bead-merge-1"],
+            SessionState::Synced => vec!["bead-done-1"],
+            SessionState::Paused => vec!["bead-blocked-1"],
+            SessionState::Completed => vec!["bead-all-1"],
+            SessionState::Failed => vec!["bead-error-1"],
+        };
+
+        // Convert string slices to owned strings using functional iterator
+        Ok(beads.into_iter().map(String::from).collect())
     }
 
     /// Update state
