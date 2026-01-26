@@ -330,15 +330,16 @@ impl<T: Serialize> JsonSerializable for T {}
 
 /// Generic schema envelope for protocol-compliant JSON responses
 ///
-/// Wraps response data with schema metadata ($schema, _schema_version) for AI-first CLI design.
-/// All JSON outputs should be wrapped with this envelope to conform to ResponseEnvelope pattern.
+/// Wraps response data with schema metadata (`$schema`, `_schema_version`) for AI-first CLI design.
+/// All JSON outputs should be wrapped with this envelope to conform to `ResponseEnvelope` pattern.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaEnvelope<T> {
-    /// JSON Schema reference (e.g., "zjj://status-response/v1")
+    /// JSON Schema reference (e.g., `zjj://status-response/v1`)
     #[serde(rename = "$schema")]
     pub schema: String,
     /// Schema version for compatibility tracking
-    pub _schema_version: String,
+    #[serde(rename = "_schema_version")]
+    pub schema_version: String,
     /// Response shape type ("single" for objects, "array" for collections)
     pub schema_type: String,
     /// Success flag
@@ -370,7 +371,7 @@ impl<T> SchemaEnvelope<T> {
     pub fn new(schema_name: &str, schema_type: &str, data: T) -> Self {
         Self {
             schema: format!("zjj://{schema_name}/v1"),
-            _schema_version: "1.0".to_string(),
+            schema_version: "1.0".to_string(),
             schema_type: schema_type.to_string(),
             success: true,
             data,
@@ -383,7 +384,7 @@ impl<T> SchemaEnvelope<T> {
     pub fn with_next(schema_name: &str, schema_type: &str, data: T, next: Vec<NextAction>) -> Self {
         Self {
             schema: format!("zjj://{schema_name}/v1"),
-            _schema_version: "1.0".to_string(),
+            schema_version: "1.0".to_string(),
             schema_type: schema_type.to_string(),
             success: true,
             data,
@@ -395,16 +396,17 @@ impl<T> SchemaEnvelope<T> {
 
 /// Schema envelope for array responses
 ///
-/// Unlike SchemaEnvelope which uses flatten for single objects,
-/// SchemaEnvelopeArray explicitly wraps array data because serde flatten
+/// Unlike `SchemaEnvelope` which uses flatten for single objects,
+/// `SchemaEnvelopeArray` explicitly wraps array data because serde flatten
 /// cannot serialize sequences.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaEnvelopeArray<T> {
-    /// JSON Schema reference (e.g., "zjj://list-response/v1")
+    /// JSON Schema reference (e.g., `zjj://list-response/v1`)
     #[serde(rename = "$schema")]
     pub schema: String,
     /// Schema version for compatibility tracking
-    pub _schema_version: String,
+    #[serde(rename = "_schema_version")]
+    pub schema_version: String,
     /// Response shape type ("array" for collections)
     pub schema_type: String,
     /// Success flag
@@ -434,7 +436,7 @@ impl<T> SchemaEnvelopeArray<T> {
     pub fn new(schema_name: &str, data: Vec<T>) -> Self {
         Self {
             schema: format!("zjj://{schema_name}/v1"),
-            _schema_version: "1.0".to_string(),
+            schema_version: "1.0".to_string(),
             schema_type: "array".to_string(),
             success: true,
             data,

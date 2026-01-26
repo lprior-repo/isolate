@@ -55,21 +55,21 @@ pub fn run(all: bool, format: OutputFormat, bead: Option<&str>, agent: Option<&s
                     || (s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
 
                 // Filter by bead ID if specified
-                let bead_matches = bead.map_or(true, |bead_id| {
+                let bead_matches = bead.is_none_or(|bead_id| {
                     s.metadata
                         .as_ref()
                         .and_then(|m| m.get("bead_id"))
                         .and_then(|v| v.as_str())
-                        .map_or(false, |id| id == bead_id)
+                        == Some(bead_id)
                 });
 
                 // Filter by agent owner if specified
-                let agent_matches = agent.map_or(true, |agent_filter| {
+                let agent_matches = agent.is_none_or(|agent_filter| {
                     s.metadata
                         .as_ref()
                         .and_then(|m| m.get("owner"))
                         .and_then(|v| v.as_str())
-                        .map_or(false, |owner| owner == agent_filter)
+                        == Some(agent_filter)
                 });
 
                 // Combine all filter conditions
@@ -545,13 +545,13 @@ mod tests {
                     .as_ref()
                     .and_then(|m| m.get("bead_id"))
                     .and_then(|v| v.as_str())
-                    .map_or(false, |id| id == "123");
+                    == Some("123");
                 let agent_matches = s
                     .metadata
                     .as_ref()
                     .and_then(|m| m.get("owner"))
                     .and_then(|v| v.as_str())
-                    .map_or(false, |owner| owner == "agent-a");
+                    == Some("agent-a");
                 status_matches && bead_matches && agent_matches
             })
             .collect();
@@ -571,7 +571,7 @@ mod tests {
                     .as_ref()
                     .and_then(|m| m.get("bead_id"))
                     .and_then(|v| v.as_str())
-                    .map_or(false, |id| id == "456");
+                    == Some("456");
                 status_matches && bead_matches
             })
             .collect();
@@ -628,9 +628,9 @@ mod tests {
                 zellij_tab: "zjj:session1".to_string(),
                 status: SessionStatus::Active,
                 branch: Some("main".to_string()),
-                created_at: 1704067200u64,
-                updated_at: 1704067200u64,
-                last_synced: Some(1704067200u64),
+                created_at: 1_704_067_200_u64,
+                updated_at: 1_704_067_200_u64,
+                last_synced: Some(1_704_067_200_u64),
                 metadata: None,
             },
         }];
@@ -694,9 +694,9 @@ mod tests {
                 zellij_tab: "zjj:session1".to_string(),
                 status: SessionStatus::Active,
                 branch: Some("feature".to_string()),
-                created_at: 1704067200u64,
-                updated_at: 1704067200u64,
-                last_synced: Some(1704067200u64),
+                created_at: 1_704_067_200_u64,
+                updated_at: 1_704_067_200_u64,
+                last_synced: Some(1_704_067_200_u64),
                 metadata: Some(metadata),
             },
         }];

@@ -20,13 +20,14 @@ pub struct AddOptions {
     /// Create workspace but don't open Zellij tab
     pub no_open: bool,
     /// Output format (JSON or Human-readable)
+    #[allow(dead_code)]
     pub format: OutputFormat,
 }
 
 impl AddOptions {
     /// Create new `AddOptions` with defaults
     #[allow(dead_code)]
-    pub fn new(name: String) -> Self {
+    pub const fn new(name: String) -> Self {
         Self {
             name,
             no_hooks: false,
@@ -48,7 +49,7 @@ pub fn run(name: &str) -> Result<()> {
 pub fn run_with_options(options: &AddOptions) -> Result<()> {
     // Validate session name (REQ-CLI-015)
     // Map zjj_core::Error to anyhow::Error while preserving the original error
-    validate_session_name(&options.name).map_err(|e| anyhow::Error::new(e))?;
+    validate_session_name(&options.name).map_err(anyhow::Error::new)?;
 
     let db = get_session_db()?;
 
@@ -383,7 +384,7 @@ mod tests {
 
     // === Tests for P4: Category-grouped help output (Phase 4 RED - should fail) ===
 
-    /// Test that FlagSpec category field accepts valid categories
+    /// Test that `FlagSpec` category field accepts valid categories
     #[test]
     fn test_flag_spec_category_valid_values() {
         use zjj_core::introspection::FlagSpec;
@@ -406,7 +407,7 @@ mod tests {
         }
     }
 
-    /// Test that FlagSpec rejects invalid categories with error instead of panic
+    /// Test that `FlagSpec` rejects invalid categories with error instead of panic
     #[test]
     fn test_flag_spec_category_invalid_returns_error() {
         use zjj_core::introspection::FlagSpec;
@@ -423,8 +424,7 @@ mod tests {
             let result = FlagSpec::validate_category(invalid);
             assert!(
                 result.is_err(),
-                "Expected validation error for category: {}",
-                invalid
+                "Expected validation error for category: {invalid}"
             );
         }
     }
@@ -494,10 +494,12 @@ mod tests {
             "Output should contain 'Configuration' category header"
         );
 
-        let behavior_pos = output.find("Behavior").expect("Behavior header must exist");
-        let config_pos = output
-            .find("Configuration")
-            .expect("Configuration header must exist");
+        let behavior_pos_result = output.find("Behavior");
+        assert!(behavior_pos_result.is_some(), "Behavior header must exist");
+        let Some(behavior_pos) = behavior_pos_result else { return };
+        let config_pos_result = output.find("Configuration");
+        assert!(config_pos_result.is_some(), "Configuration header must exist");
+        let Some(config_pos) = config_pos_result else { return };
         assert!(behavior_pos < config_pos, "Categories should be ordered");
 
         let behavior_section = &output[behavior_pos..];
@@ -662,8 +664,7 @@ mod tests {
             if let Some(pos) = output1.find(category) {
                 assert!(
                     pos > last_pos,
-                    "Category {} should appear after previous categories in consistent order",
-                    category
+                    "Category {category} should appear after previous categories in consistent order"
                 );
                 last_pos = pos;
             }
@@ -680,8 +681,7 @@ mod tests {
 
             assert!(
                 result.is_err(),
-                "Invalid category '{}' should return error, not panic",
-                category
+                "Invalid category '{category}' should return error, not panic"
             );
         };
 
@@ -697,7 +697,7 @@ mod tests {
     // These tests FAIL until AddOptions.format field is added in Phase 4 (GREEN)
     // ============================================================================
 
-    /// RED: AddOptions should accept format field of type OutputFormat
+    /// RED: `AddOptions` should accept format field of type `OutputFormat`
     #[test]
     fn test_add_options_has_format_field_requirement() {
         use zjj_core::OutputFormat;
@@ -729,7 +729,7 @@ mod tests {
         // };
     }
 
-    /// RED: AddOptions::new() should accept format parameter
+    /// RED: `AddOptions::new()` should accept format parameter
     #[test]
     fn test_add_options_new_with_format() {
         use zjj_core::OutputFormat;
@@ -741,7 +741,7 @@ mod tests {
         assert_eq!(opts.format, expected_format);
     }
 
-    /// RED: AddOptions should support OutputFormat::Human
+    /// RED: `AddOptions` should support `OutputFormat::Human`
     #[test]
     fn test_add_options_format_human() {
         use zjj_core::OutputFormat;
@@ -758,7 +758,7 @@ mod tests {
         assert!(!opts.format.is_json());
     }
 
-    /// RED: AddOptions should support OutputFormat::Json
+    /// RED: `AddOptions` should support `OutputFormat::Json`
     #[test]
     fn test_add_options_format_json() {
         use zjj_core::OutputFormat;
@@ -775,7 +775,7 @@ mod tests {
         assert!(!opts.format.is_human());
     }
 
-    /// RED: AddOptions format field should persist through conversion
+    /// RED: `AddOptions` format field should persist through conversion
     #[test]
     fn test_add_options_format_roundtrip() {
         use zjj_core::OutputFormat;
@@ -795,7 +795,7 @@ mod tests {
         assert_eq!(opts.format.to_json_flag(), json_bool);
     }
 
-    /// RED: run_with_options() should use OutputFormat from options
+    /// RED: `run_with_options()` should use `OutputFormat` from options
     #[test]
     fn test_add_run_with_options_uses_format() {
         use zjj_core::OutputFormat;
@@ -836,10 +836,9 @@ mod tests {
             .split('-')
             .map(|word| {
                 let mut chars = word.chars();
-                match chars.next() {
-                    None => String::new(),
-                    Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-                }
+                chars.next().map_or_else(String::new, |first| {
+                    first.to_uppercase().collect::<String>() + chars.as_str()
+                })
             })
             .collect::<Vec<_>>()
             .join(" ")
@@ -859,7 +858,7 @@ mod tests {
     /// ensuring consistent and predictable help output. Uncategorized flags
     /// are placed at the end.
     ///
-    /// This implementation uses functional iterators (.fold, .filter_map)
+    /// This implementation uses functional iterators (`.fold`, `.filter_map`)
     /// instead of imperative loops to improve clarity and reduce mutable state.
     ///
     /// # Arguments
@@ -868,8 +867,8 @@ mod tests {
     ///
     /// # Returns
     ///
-    /// Vector of tuples containing (category_name, flags_in_category).
-    /// Categories follow CATEGORY_ORDER, with "Uncategorized" at the end.
+    /// Vector of tuples containing (`category_name`, `flags_in_category`).
+    /// Categories follow `CATEGORY_ORDER`, with "Uncategorized" at the end.
     fn group_flags_by_category<'a>(
         flags: &'a [zjj_core::introspection::FlagSpec],
     ) -> Vec<(String, Vec<&'a zjj_core::introspection::FlagSpec>)> {
@@ -882,7 +881,7 @@ mod tests {
                     .unwrap_or("Uncategorized")
                     .to_string();
 
-                acc.entry(category).or_insert_with(Vec::new).push(flag);
+                acc.entry(category).or_default().push(flag);
                 acc
             });
 
@@ -914,7 +913,7 @@ mod tests {
     /// short form and description. The output is indented for use in
     /// categorized help sections.
     ///
-    /// Uses Option::map_or_default to handle optional short form without
+    /// Uses `Option::map_or_default` to handle optional short form without
     /// intermediate variables or mutability.
     ///
     /// # Arguments
@@ -928,7 +927,7 @@ mod tests {
         let short_form = flag
             .short
             .as_ref()
-            .map(|s| format!("-{}, ", s))
+            .map(|s| format!("-{s}, "))
             .unwrap_or_default();
 
         format!(
@@ -956,6 +955,8 @@ mod tests {
     ///
     /// Formatted help text suitable for display in terminal
     fn format_help_output(cmd: &zjj_core::introspection::CommandIntrospection) -> String {
+        use std::fmt::Write;
+
         let header = format!(
             "Command: {}\nDescription: {}\n\n",
             cmd.command, cmd.description
@@ -966,18 +967,16 @@ mod tests {
         }
 
         let grouped = group_flags_by_category(&cmd.flags);
-        let flags_section = grouped
-            .iter()
-            .map(|(category_name, flags)| {
-                let flags_text = flags
-                    .iter()
-                    .map(|flag| format_flag(flag))
-                    .collect::<String>();
+        let flags_section = grouped.iter().fold(String::new(), |mut acc, (category_name, flags)| {
+            let flags_text = flags
+                .iter()
+                .map(|flag| format_flag(flag))
+                .collect::<String>();
 
-                format!("\n  {}:\n{}", category_name, flags_text)
-            })
-            .collect::<String>();
+            let _ = write!(acc, "\n  {category_name}:\n{flags_text}");
+            acc
+        });
 
-        format!("{}Flags:{}", header, flags_section)
+        format!("{header}Flags:{flags_section}")
     }
 }

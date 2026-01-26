@@ -114,8 +114,8 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
 
 /// Convert an `anyhow::Error` to a `JsonError`
 ///
-/// Uses Railway-Oriented Programming to extract the underlying zjj_core::Error
-/// and convert it to a standardized JSON error format using ErrorDetail::from_error().
+/// Uses Railway-Oriented Programming to extract the underlying `zjj_core::Error`
+/// and convert it to a standardized JSON error format using `ErrorDetail::from_error()`.
 fn error_to_json_error(error: &Error) -> JsonError {
     // Try to downcast to zjj_core::Error first (Railway left track - success)
     error
@@ -187,7 +187,7 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
 }
 
 /// Suggest resolution for an error code
-fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
+const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
     match code {
         ErrorCode::StateDbCorrupted => {
             Some("Try running 'zjj doctor --fix' to repair the database")
@@ -484,18 +484,22 @@ mod tests {
         );
 
         // Verify $schema URI format
-        if let Some(schema) = json.get("$schema").and_then(|v| v.as_str()) {
-            assert!(
-                schema.starts_with("zjj://"),
-                "Schema URI must start with 'zjj://'"
-            );
-            assert!(
-                schema.contains("/v1"),
-                "Schema URI must include version '/v1'"
-            );
-        } else {
-            panic!("Missing $schema field");
-        }
+        let schema_value = json.get("$schema").and_then(|v| v.as_str());
+        assert!(
+            schema_value.is_some(),
+            "$schema field should be present"
+        );
+        let Some(schema) = schema_value else {
+            return Ok(());
+        };
+        assert!(
+            schema.starts_with("zjj://"),
+            "Schema URI must start with 'zjj://'"
+        );
+        assert!(
+            schema.contains("/v1"),
+            "Schema URI must include version '/v1'"
+        );
 
         Ok(())
     }

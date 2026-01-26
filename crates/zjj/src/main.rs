@@ -6,7 +6,6 @@ use std::process;
 
 use anyhow::Result;
 use clap::{Arg, Command as ClapCommand};
-use serde_json;
 
 mod cli;
 mod commands;
@@ -729,7 +728,7 @@ fn main() {
 mod main_tests {
     use zjj_core::OutputFormat;
 
-    /// RED: handle_add should accept OutputFormat from options
+    /// RED: `handle_add` should accept `OutputFormat` from options
     #[test]
     fn test_handle_add_converts_json_flag_to_output_format() {
         // This test documents the expected behavior:
@@ -746,7 +745,7 @@ mod main_tests {
         // When implemented: AddOptions { name, no_hooks, template, no_open, format }
     }
 
-    /// RED: handle_init should accept OutputFormat parameter
+    /// RED: `handle_init` should accept `OutputFormat` parameter
     #[test]
     fn test_handle_init_converts_json_flag_to_output_format() {
         // This test documents the expected behavior:
@@ -762,7 +761,7 @@ mod main_tests {
         // When implemented: init::run(OutputFormat::from_json_flag(json))
     }
 
-    /// RED: handle_diff should accept OutputFormat parameter
+    /// RED: `handle_diff` should accept `OutputFormat` parameter
     #[test]
     fn test_handle_diff_converts_json_flag_to_output_format() {
         // This test documents the expected behavior:
@@ -778,7 +777,7 @@ mod main_tests {
         // When implemented: diff::run("session", stat, format)
     }
 
-    /// RED: handle_query always uses JSON format
+    /// RED: `handle_query` always uses JSON format
     #[test]
     fn test_handle_query_always_uses_json_format() {
         // Query always outputs JSON for programmatic access
@@ -789,13 +788,13 @@ mod main_tests {
         assert!(format.is_json());
 
         let json_flag_false = false;
-        let _format2 = OutputFormat::from_json_flag(json_flag_false);
+        let _ = OutputFormat::from_json_flag(json_flag_false);
         // But query::run should internally convert to Json
         let query_format = OutputFormat::Json;
         assert!(query_format.is_json());
     }
 
-    /// RED: AddOptions constructor includes format field
+    /// RED: `AddOptions` constructor includes format field
     #[test]
     fn test_add_options_struct_has_format() {
         use crate::commands::add::AddOptions;
@@ -821,7 +820,7 @@ mod main_tests {
         assert_eq!(opts.format, OutputFormat::Json);
     }
 
-    /// RED: --json flag is converted to OutputFormat for add
+    /// RED: --json flag is converted to `OutputFormat` for add
     #[test]
     fn test_add_json_flag_propagates_through_handler() {
         // Document the expected flow:
@@ -838,7 +837,7 @@ mod main_tests {
         assert_eq!(format.to_json_flag(), json_bool);
     }
 
-    /// RED: --json flag is converted to OutputFormat for init
+    /// RED: --json flag is converted to `OutputFormat` for init
     #[test]
     fn test_init_json_flag_propagates_through_handler() {
         // Document the expected flow:
@@ -853,7 +852,7 @@ mod main_tests {
         assert!(format.is_json());
     }
 
-    /// RED: --json flag is converted to OutputFormat for diff
+    /// RED: --json flag is converted to `OutputFormat` for diff
     #[test]
     fn test_diff_json_flag_propagates_through_handler() {
         // Document the expected flow:
@@ -868,7 +867,7 @@ mod main_tests {
         assert!(format.is_json());
     }
 
-    /// RED: OutputFormat prevents mixing json bool with command options
+    /// RED: `OutputFormat` prevents mixing json bool with command options
     #[test]
     fn test_output_format_eliminates_json_bool_field() {
         // After migration, command options should NOT have:
@@ -886,7 +885,7 @@ mod main_tests {
         // No more mixing bool and enum - exhaustive pattern matching enforced
     }
 
-    /// RED: OutputFormat handles both --json flag conversions
+    /// RED: `OutputFormat` handles both --json flag conversions
     #[test]
     fn test_output_format_bidirectional_conversion() {
         let original_bool = true;
@@ -902,7 +901,7 @@ mod main_tests {
         assert_eq!(original_bool2, restored_bool2);
     }
 
-    /// RED: All handlers use OutputFormat instead of bool
+    /// RED: All handlers use `OutputFormat` instead of bool
     #[test]
     fn test_all_handlers_accept_output_format() {
         // Document which handlers need updates:
@@ -925,7 +924,7 @@ mod main_tests {
         assert!(human_format.is_human());
     }
 
-    /// RED: JSON output errors also use OutputFormat
+    /// RED: JSON output errors also use `OutputFormat`
     #[test]
     fn test_error_output_respects_format() {
         // When errors occur, they should also respect OutputFormat:
@@ -946,7 +945,7 @@ mod main_tests {
     #[test]
     fn test_handlers_never_panic_on_format() {
         // All handlers should handle both formats without panic
-        for format in [OutputFormat::Json, OutputFormat::Human].iter() {
+        for format in &[OutputFormat::Json, OutputFormat::Human] {
             let _ = format.is_json();
             let _ = format.is_human();
             let _ = format.to_string();
@@ -954,7 +953,7 @@ mod main_tests {
         }
     }
 
-    /// RED: OutputFormat is passed to all command functions
+    /// RED: `OutputFormat` is passed to all command functions
     #[test]
     fn test_format_parameter_reaches_command_functions() {
         // Document parameter passing:

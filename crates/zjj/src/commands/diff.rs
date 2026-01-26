@@ -284,7 +284,7 @@ mod tests {
     // These tests FAIL until diff command accepts OutputFormat parameter
     // ============================================================================
 
-    /// RED: diff run() should accept OutputFormat parameter
+    /// RED: diff `run()` should accept `OutputFormat` parameter
     #[test]
     fn test_diff_run_signature_accepts_format() {
         use zjj_core::OutputFormat;
@@ -364,7 +364,7 @@ mod tests {
         // diff::run("session", true, OutputFormat::Human) should output text stat
     }
 
-    /// RED: OutputFormat::from_json_flag converts correctly
+    /// RED: `OutputFormat::from_json_flag` converts correctly
     #[test]
     fn test_diff_from_json_flag() {
         use zjj_core::OutputFormat;
@@ -396,7 +396,7 @@ mod tests {
         use zjj_core::OutputFormat;
 
         // Both formats should be processable without panic
-        for format in [OutputFormat::Json, OutputFormat::Human].iter() {
+        for format in &[OutputFormat::Json, OutputFormat::Human] {
             let _ = format.is_json();
             let _ = format.is_human();
             let _ = format.to_string();

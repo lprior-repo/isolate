@@ -9,9 +9,9 @@
 //!
 //! Provides a type-safe state machine for session lifecycle management using:
 //! - State Transition enums for valid state changes
-//! - SessionStateManager for managing state transitions
+//! - `SessionStateManager` for managing state transitions
 //! - Type State Pattern with Phantom Types for compile-time safety
-//! - SessionBeadsContext for beads integration
+//! - `SessionBeadsContext` for beads integration
 //! - State history tracking and validation
 //! - Railway-Oriented error handling with zero panics
 
@@ -78,7 +78,8 @@ impl SessionState {
     /// Returns true if this state allows transition to next state using exhaustive matching.
     ///
     /// All state transitions are validated at compile-time with exhaustive pattern matching.
-    pub fn can_transition_to(self, next: SessionState) -> bool {
+    #[must_use]
+    pub fn can_transition_to(self, next: Self) -> bool {
         self.valid_next_states().contains(&next)
     }
 
@@ -86,23 +87,15 @@ impl SessionState {
     ///
     /// Uses a single source of truth for valid transitions to avoid duplication.
     /// Implemented using exhaustive pattern matching to ensure all states are covered.
-    pub fn valid_next_states(self) -> Vec<SessionState> {
+    #[must_use]
+    pub fn valid_next_states(self) -> Vec<Self> {
         match self {
-            SessionState::Created => vec![SessionState::Active, SessionState::Failed],
-            SessionState::Active => vec![
-                SessionState::Syncing,
-                SessionState::Paused,
-                SessionState::Completed,
-            ],
-            SessionState::Syncing => vec![SessionState::Synced, SessionState::Failed],
-            SessionState::Synced => vec![
-                SessionState::Active,
-                SessionState::Paused,
-                SessionState::Completed,
-            ],
-            SessionState::Paused => vec![SessionState::Active, SessionState::Completed],
-            SessionState::Completed => vec![SessionState::Created],
-            SessionState::Failed => vec![SessionState::Created],
+            Self::Created => vec![Self::Active, Self::Failed],
+            Self::Active => vec![Self::Syncing, Self::Paused, Self::Completed],
+            Self::Syncing => vec![Self::Synced, Self::Failed],
+            Self::Synced => vec![Self::Active, Self::Paused, Self::Completed],
+            Self::Paused => vec![Self::Active, Self::Completed],
+            Self::Completed | Self::Failed => vec![Self::Created],
         }
     }
 }
@@ -132,6 +125,10 @@ impl StateTransition {
     }
 
     /// Validate that the transition is allowed
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn validate(&self) -> Result<()> {
         if self.from.can_transition_to(self.to) {
             Ok(())
@@ -175,22 +172,26 @@ impl SessionStateManager<Created> {
 
 impl<S> SessionStateManager<S> {
     /// Get current session ID
+    #[must_use]
     pub fn session_id(&self) -> &str {
         &self.session_id
     }
 
     /// Get current state
-    pub fn current_state(&self) -> SessionState {
+    #[must_use]
+    pub const fn current_state(&self) -> SessionState {
         self.current_state
     }
 
     /// Get state history
+    #[must_use]
     pub fn history(&self) -> &[StateTransition] {
         &self.history
     }
 
     /// Get metadata
-    pub fn metadata(&self) -> &HashMap<String, String> {
+    #[must_use]
+    pub const fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
     }
 
@@ -200,7 +201,7 @@ impl<S> SessionStateManager<S> {
     }
 
     /// Record a state transition
-    fn record_transition(&mut self, transition: StateTransition) -> Result<()> {
+    fn record_transition(&mut self, transition: &StateTransition) -> Result<()> {
         transition.validate()?;
         self.history.push(transition.clone());
         self.current_state = transition.to;
@@ -210,9 +211,13 @@ impl<S> SessionStateManager<S> {
 
 impl SessionStateManager<Created> {
     /// Transition from Created to Active
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn activate(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Active>> {
         let transition = StateTransition::new(SessionState::Created, SessionState::Active, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -223,9 +228,13 @@ impl SessionStateManager<Created> {
     }
 
     /// Transition from Created to Failed
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn fail(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Failed>> {
         let transition = StateTransition::new(SessionState::Created, SessionState::Failed, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -238,9 +247,13 @@ impl SessionStateManager<Created> {
 
 impl SessionStateManager<Active> {
     /// Transition from Active to Syncing
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn sync(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Syncing>> {
         let transition = StateTransition::new(SessionState::Active, SessionState::Syncing, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -251,9 +264,13 @@ impl SessionStateManager<Active> {
     }
 
     /// Transition from Active to Paused
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn pause(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Paused>> {
         let transition = StateTransition::new(SessionState::Active, SessionState::Paused, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -264,10 +281,14 @@ impl SessionStateManager<Active> {
     }
 
     /// Transition from Active to Completed
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn complete(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Completed>> {
         let transition =
             StateTransition::new(SessionState::Active, SessionState::Completed, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -280,12 +301,16 @@ impl SessionStateManager<Active> {
 
 impl SessionStateManager<Syncing> {
     /// Transition from Syncing to Synced
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn sync_complete(
         mut self,
         reason: impl Into<String>,
     ) -> Result<SessionStateManager<Synced>> {
         let transition = StateTransition::new(SessionState::Syncing, SessionState::Synced, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -296,9 +321,13 @@ impl SessionStateManager<Syncing> {
     }
 
     /// Transition from Syncing to Failed
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn fail(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Failed>> {
         let transition = StateTransition::new(SessionState::Syncing, SessionState::Failed, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -311,9 +340,13 @@ impl SessionStateManager<Syncing> {
 
 impl SessionStateManager<Synced> {
     /// Transition from Synced to Active
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn reactivate(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Active>> {
         let transition = StateTransition::new(SessionState::Synced, SessionState::Active, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -324,9 +357,13 @@ impl SessionStateManager<Synced> {
     }
 
     /// Transition from Synced to Paused
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn pause(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Paused>> {
         let transition = StateTransition::new(SessionState::Synced, SessionState::Paused, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -337,10 +374,14 @@ impl SessionStateManager<Synced> {
     }
 
     /// Transition from Synced to Completed
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn complete(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Completed>> {
         let transition =
             StateTransition::new(SessionState::Synced, SessionState::Completed, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -353,9 +394,13 @@ impl SessionStateManager<Synced> {
 
 impl SessionStateManager<Paused> {
     /// Transition from Paused to Active
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn resume(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Active>> {
         let transition = StateTransition::new(SessionState::Paused, SessionState::Active, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -366,10 +411,14 @@ impl SessionStateManager<Paused> {
     }
 
     /// Transition from Paused to Completed
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn complete(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Completed>> {
         let transition =
             StateTransition::new(SessionState::Paused, SessionState::Completed, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -382,10 +431,14 @@ impl SessionStateManager<Paused> {
 
 impl SessionStateManager<Completed> {
     /// Transition from Completed to Created to allow restart
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn restart(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Created>> {
         let transition =
             StateTransition::new(SessionState::Completed, SessionState::Created, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -398,9 +451,13 @@ impl SessionStateManager<Completed> {
 
 impl SessionStateManager<Failed> {
     /// Transition from Failed to Created to allow retry
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn retry(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Created>> {
         let transition = StateTransition::new(SessionState::Failed, SessionState::Created, reason);
-        self.record_transition(transition)?;
+        self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
             current_state: self.current_state,
@@ -434,22 +491,26 @@ impl SessionBeadsContext {
     }
 
     /// Set beads database path
+    #[must_use]
     pub fn with_beads_path(mut self, path: impl Into<String>) -> Self {
         self.beads_db_path = Some(path.into());
         self
     }
 
     /// Get session ID
+    #[must_use]
     pub fn session_id(&self) -> &str {
         &self.session_id
     }
 
     /// Get current state
-    pub fn state(&self) -> SessionState {
+    #[must_use]
+    pub const fn state(&self) -> SessionState {
         self.state
     }
 
     /// Get beads database path
+    #[must_use]
     pub fn beads_db_path(&self) -> Option<&str> {
         self.beads_db_path.as_deref()
     }
@@ -458,6 +519,11 @@ impl SessionBeadsContext {
     ///
     /// Returns a result of beads IDs relevant to this session's state.
     /// Maps session state to appropriate beads using exhaustive pattern matching.
+    ///
+    /// # Errors
+    ///
+    /// This function currently does not return errors, but the Result type
+    /// is used for forward compatibility with database queries.
     pub fn query_beads_for_state(&self) -> Result<Vec<String>> {
         // Map each state to its appropriate beads using functional pattern matching
         let beads = match self.state {
@@ -475,6 +541,10 @@ impl SessionBeadsContext {
     }
 
     /// Update state
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the transition is not allowed.
     pub fn update_state(&mut self, new_state: SessionState) -> Result<()> {
         if self.state.can_transition_to(new_state) {
             self.state = new_state;
@@ -534,7 +604,7 @@ mod tests {
         let mut manager = SessionStateManager::new("test");
         manager.set_metadata("key1", "value1");
         assert_eq!(
-            manager.metadata().get("key1").map(|s| s.as_str()),
+            manager.metadata().get("key1").map(String::as_str),
             Some("value1")
         );
     }
@@ -689,8 +759,8 @@ mod tests {
         // Beads queries should return state-appropriate issues
         let context = SessionBeadsContext::new("test", SessionState::Created);
         let result = context.query_beads_for_state();
-        assert!(result.is_ok());
-        let beads = result.unwrap();
+        assert!(result.is_ok(), "query_beads_for_state should succeed");
+        let Some(beads) = result.ok() else { return };
         assert!(beads.is_empty(), "Created state should have no beads");
     }
 
@@ -698,8 +768,8 @@ mod tests {
     fn test_session_beads_context_query_beads_for_active_state() {
         let context = SessionBeadsContext::new("test", SessionState::Active);
         let result = context.query_beads_for_state();
-        assert!(result.is_ok());
-        let beads = result.unwrap();
+        assert!(result.is_ok(), "query_beads_for_state should succeed");
+        let Some(beads) = result.ok() else { return };
         assert!(!beads.is_empty(), "Active state should have beads");
         assert!(
             beads.iter().any(|b| b.contains("wip")),
@@ -711,8 +781,8 @@ mod tests {
     fn test_session_beads_context_query_beads_for_syncing_state() {
         let context = SessionBeadsContext::new("test", SessionState::Syncing);
         let result = context.query_beads_for_state();
-        assert!(result.is_ok());
-        let beads = result.unwrap();
+        assert!(result.is_ok(), "query_beads_for_state should succeed");
+        let Some(beads) = result.ok() else { return };
         assert!(!beads.is_empty(), "Syncing state should have beads");
     }
 
@@ -720,8 +790,8 @@ mod tests {
     fn test_session_beads_context_query_beads_for_synced_state() {
         let context = SessionBeadsContext::new("test", SessionState::Synced);
         let result = context.query_beads_for_state();
-        assert!(result.is_ok());
-        let beads = result.unwrap();
+        assert!(result.is_ok(), "query_beads_for_state should succeed");
+        let Some(beads) = result.ok() else { return };
         assert!(!beads.is_empty(), "Synced state should have beads");
     }
 
@@ -757,8 +827,8 @@ mod tests {
         // After transitions, history should be populated
         let manager = SessionStateManager::new("test");
         let result = manager.activate("test activation");
-        assert!(result.is_ok());
-        let manager = result.unwrap();
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
         assert_eq!(manager.history().len(), 1);
         assert_eq!(manager.history()[0].from, SessionState::Created);
         assert_eq!(manager.history()[0].to, SessionState::Active);
@@ -767,8 +837,12 @@ mod tests {
     #[test]
     fn test_state_history_multiple_transitions() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.activate("activate").unwrap();
-        let manager = manager.sync("start sync").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
+        let result = manager.sync("start sync");
+        assert!(result.is_ok(), "sync should succeed");
+        let Some(manager) = result.ok() else { return };
         assert_eq!(manager.history().len(), 2);
         assert_eq!(manager.history()[0].from, SessionState::Created);
         assert_eq!(manager.history()[0].to, SessionState::Active);
@@ -779,7 +853,9 @@ mod tests {
     #[test]
     fn test_state_history_preserves_reason() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.activate("initialization reason").unwrap();
+        let result = manager.activate("initialization reason");
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
         assert_eq!(manager.history()[0].reason, "initialization reason");
     }
 
@@ -799,7 +875,9 @@ mod tests {
     #[test]
     fn test_type_state_pattern_active_to_syncing() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.activate("activate").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
         let result = manager.sync("sync");
         assert!(result.is_ok());
         // manager.sync() should only be available on Active state
@@ -808,8 +886,12 @@ mod tests {
     #[test]
     fn test_type_state_pattern_syncing_to_synced() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.activate("activate").unwrap();
-        let manager = manager.sync("sync").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
+        let result = manager.sync("sync");
+        assert!(result.is_ok(), "sync should succeed");
+        let Some(manager) = result.ok() else { return };
         let result = manager.sync_complete("complete");
         assert!(result.is_ok());
         // manager.sync_complete() should only be available on Syncing state
@@ -826,7 +908,9 @@ mod tests {
     #[test]
     fn test_type_state_pattern_active_can_pause() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.activate("activate").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
         let result = manager.pause("pause");
         assert!(result.is_ok());
         // manager.pause() should be available on Active state
@@ -835,7 +919,9 @@ mod tests {
     #[test]
     fn test_type_state_pattern_active_can_complete() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.activate("activate").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
         let result = manager.complete("finish");
         assert!(result.is_ok());
         // manager.complete() should be available on Active state
@@ -844,9 +930,15 @@ mod tests {
     #[test]
     fn test_type_state_pattern_synced_can_reactivate() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.activate("activate").unwrap();
-        let manager = manager.sync("sync").unwrap();
-        let manager = manager.sync_complete("complete").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
+        let result = manager.sync("sync");
+        assert!(result.is_ok(), "sync should succeed");
+        let Some(manager) = result.ok() else { return };
+        let result = manager.sync_complete("complete");
+        assert!(result.is_ok(), "sync_complete should succeed");
+        let Some(manager) = result.ok() else { return };
         let result = manager.reactivate("reactivate");
         assert!(result.is_ok());
         // manager.reactivate() should only be available on Synced state
@@ -855,8 +947,12 @@ mod tests {
     #[test]
     fn test_type_state_pattern_paused_can_resume() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.activate("activate").unwrap();
-        let manager = manager.pause("pause").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
+        let result = manager.pause("pause");
+        assert!(result.is_ok(), "pause should succeed");
+        let Some(manager) = result.ok() else { return };
         let result = manager.resume("resume");
         assert!(result.is_ok());
         // manager.resume() should only be available on Paused state
@@ -865,8 +961,12 @@ mod tests {
     #[test]
     fn test_type_state_pattern_completed_can_restart() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.activate("activate").unwrap();
-        let manager = manager.complete("complete").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activate should succeed");
+        let Some(manager) = result.ok() else { return };
+        let result = manager.complete("complete");
+        assert!(result.is_ok(), "complete should succeed");
+        let Some(manager) = result.ok() else { return };
         let result = manager.restart("restart");
         assert!(result.is_ok());
         // manager.restart() should only be available on Completed state
@@ -875,7 +975,9 @@ mod tests {
     #[test]
     fn test_type_state_pattern_failed_can_retry() {
         let manager = SessionStateManager::new("test");
-        let manager = manager.fail("failed").unwrap();
+        let result = manager.fail("failed");
+        assert!(result.is_ok(), "fail should succeed");
+        let Some(manager) = result.ok() else { return };
         let result = manager.retry("retry");
         assert!(result.is_ok());
         // manager.retry() should only be available on Failed state
@@ -889,7 +991,8 @@ mod tests {
     fn test_invalid_transition_returns_result_err_not_panic() {
         let manager = SessionStateManager::new("test");
         let result = manager.fail("fail"); // Valid transition from Created
-        let manager = result.unwrap();
+        assert!(result.is_ok(), "fail should succeed");
+        let Some(manager) = result.ok() else { return };
 
         // This is actually invalid from Failed state (cannot go from Failed to Active)
         // But we can't test it at compile time - the type system prevents it
@@ -949,7 +1052,9 @@ mod tests {
     fn test_integration_add_command_state_flow() {
         // add.rs should use state manager: Created → Active
         let manager = SessionStateManager::new("new-session");
-        let manager = manager.activate("workspace created").unwrap();
+        let result = manager.activate("workspace created");
+        assert!(result.is_ok(), "activation should succeed");
+        let Some(manager) = result.ok() else { return };
         assert_eq!(manager.current_state(), SessionState::Active);
     }
 
@@ -957,10 +1062,16 @@ mod tests {
     fn test_integration_sync_command_state_flow() {
         // sync.rs should use state manager: Active → Syncing → Synced
         let manager = SessionStateManager::new("session");
-        let manager = manager.activate("activate").unwrap();
-        let manager = manager.sync("starting sync").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activation should succeed");
+        let Some(manager) = result.ok() else { return };
+        let result = manager.sync("starting sync");
+        assert!(result.is_ok(), "sync should succeed");
+        let Some(manager) = result.ok() else { return };
         assert_eq!(manager.current_state(), SessionState::Syncing);
-        let manager = manager.sync_complete("sync complete").unwrap();
+        let result = manager.sync_complete("sync complete");
+        assert!(result.is_ok(), "sync_complete should succeed");
+        let Some(manager) = result.ok() else { return };
         assert_eq!(manager.current_state(), SessionState::Synced);
     }
 
@@ -968,8 +1079,12 @@ mod tests {
     fn test_integration_remove_command_state_flow() {
         // remove.rs should use state manager to complete sessions
         let manager = SessionStateManager::new("session");
-        let manager = manager.activate("activate").unwrap();
-        let manager = manager.complete("removing").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activation should succeed");
+        let Some(manager) = result.ok() else { return };
+        let result = manager.complete("removing");
+        assert!(result.is_ok(), "complete should succeed");
+        let Some(manager) = result.ok() else { return };
         assert_eq!(manager.current_state(), SessionState::Completed);
     }
 
@@ -977,7 +1092,9 @@ mod tests {
     fn test_integration_status_command_state_query() {
         // status.rs should query state and history
         let manager = SessionStateManager::new("session");
-        let manager = manager.activate("activate").unwrap();
+        let result = manager.activate("activate");
+        assert!(result.is_ok(), "activation should succeed");
+        let Some(manager) = result.ok() else { return };
         let _status = manager.current_state();
         let _history = manager.history();
         // Status command can query these without panic
@@ -987,7 +1104,9 @@ mod tests {
     fn test_integration_list_command_with_beads() {
         // list.rs should use beads context to show state-appropriate info
         let context = SessionBeadsContext::new("session", SessionState::Active);
-        let beads = context.query_beads_for_state().unwrap();
+        let result = context.query_beads_for_state();
+        assert!(result.is_ok(), "query_beads should succeed");
+        let Some(beads) = result.ok() else { return };
         assert!(!beads.is_empty());
     }
 
@@ -1018,8 +1137,8 @@ mod tests {
             .and_then(|m| m.sync("sync"))
             .and_then(|m| m.sync_complete("complete"));
 
-        assert!(result.is_ok());
-        let final_manager = result.unwrap();
+        assert!(result.is_ok(), "chained operations should succeed");
+        let Some(final_manager) = result.ok() else { return };
         assert_eq!(final_manager.current_state(), SessionState::Synced);
     }
 
@@ -1031,7 +1150,7 @@ mod tests {
             .map(|m| m.session_id().to_string());
 
         assert!(result.is_ok());
-        assert_eq!(result.map(|s| s == "test").unwrap_or(false), true);
+        assert!(result.map(|s| s == "test").unwrap_or(false));
     }
 
     #[test]
@@ -1092,7 +1211,7 @@ mod tests {
         manager.set_metadata("key", "value1");
         manager.set_metadata("key", "value2");
         assert_eq!(
-            manager.metadata().get("key").map(|s| s.as_str()),
+            manager.metadata().get("key").map(String::as_str),
             Some("value2")
         );
     }

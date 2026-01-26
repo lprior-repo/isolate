@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// OutputFormat enum represents the available output formats for commands.
+/// `OutputFormat` enum represents the available output formats for commands.
 ///
 /// This type-safe enum replaces the previous `json: bool` pattern,
 /// making illegal states (undefined output format) impossible to represent.
@@ -42,6 +42,7 @@ impl OutputFormat {
     /// assert!(OutputFormat::Json.is_json());
     /// assert!(!OutputFormat::Human.is_json());
     /// ```
+    #[must_use]
     pub const fn is_json(&self) -> bool {
         matches!(self, Self::Json)
     }
@@ -55,11 +56,12 @@ impl OutputFormat {
     /// assert!(OutputFormat::Human.is_human());
     /// assert!(!OutputFormat::Json.is_human());
     /// ```
+    #[must_use]
     pub const fn is_human(&self) -> bool {
         matches!(self, Self::Human)
     }
 
-    /// Convert a boolean to OutputFormat for backward compatibility.
+    /// Convert a boolean to `OutputFormat` for backward compatibility.
     ///
     /// Maintains backward compatibility by converting `true` to `Json` and `false` to `Human`.
     ///
@@ -70,6 +72,7 @@ impl OutputFormat {
     /// assert_eq!(OutputFormat::from_json_flag(true), OutputFormat::Json);
     /// assert_eq!(OutputFormat::from_json_flag(false), OutputFormat::Human);
     /// ```
+    #[must_use]
     pub const fn from_json_flag(json: bool) -> Self {
         if json {
             Self::Json
@@ -78,7 +81,7 @@ impl OutputFormat {
         }
     }
 
-    /// Convert OutputFormat to a boolean for backward compatibility.
+    /// Convert `OutputFormat` to a boolean for backward compatibility.
     ///
     /// Returns `true` for `Json` and `false` for `Human`.
     ///
@@ -89,6 +92,7 @@ impl OutputFormat {
     /// assert_eq!(OutputFormat::Json.to_json_flag(), true);
     /// assert_eq!(OutputFormat::Human.to_json_flag(), false);
     /// ```
+    #[must_use]
     pub const fn to_json_flag(&self) -> bool {
         matches!(self, Self::Json)
     }
@@ -102,7 +106,7 @@ impl Default for OutputFormat {
 }
 
 impl std::fmt::Display for OutputFormat {
-    /// Display the OutputFormat as a human-readable string.
+    /// Display the `OutputFormat` as a human-readable string.
     ///
     /// Returns "json" for Json variant and "human" for Human variant.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -144,27 +148,23 @@ mod tests {
     #[test]
     fn test_output_format_predicates() {
         // Test all format predicates using iterators for clarity
-        let test_cases = vec![
+        let test_cases = [
             (OutputFormat::Json, true, false),
             (OutputFormat::Human, false, true),
         ];
 
-        test_cases
-            .iter()
-            .for_each(|(format, expected_is_json, expected_is_human)| {
-                assert_eq!(
-                    format.is_json(),
-                    *expected_is_json,
-                    "is_json() failed for {:?}",
-                    format
-                );
-                assert_eq!(
-                    format.is_human(),
-                    *expected_is_human,
-                    "is_human() failed for {:?}",
-                    format
-                );
-            });
+        for (format, expected_is_json, expected_is_human) in test_cases {
+            assert_eq!(
+                format.is_json(),
+                expected_is_json,
+                "is_json() failed for {format:?}"
+            );
+            assert_eq!(
+                format.is_human(),
+                expected_is_human,
+                "is_human() failed for {format:?}"
+            );
+        }
     }
 
     #[test]
@@ -194,22 +194,20 @@ mod tests {
     /// Test flag conversions using functional iteration
     #[test]
     fn test_output_format_flag_conversions() {
-        let conversions = vec![(true, OutputFormat::Json), (false, OutputFormat::Human)];
+        let conversions = [(true, OutputFormat::Json), (false, OutputFormat::Human)];
 
-        conversions.iter().for_each(|(flag, expected_format)| {
+        for (flag, expected_format) in &conversions {
             assert_eq!(
                 OutputFormat::from_json_flag(*flag),
                 *expected_format,
-                "from_json_flag({}) conversion failed",
-                flag
+                "from_json_flag({flag}) conversion failed"
             );
             assert_eq!(
                 expected_format.to_json_flag(),
                 *flag,
-                "to_json_flag() conversion failed for {:?}",
-                expected_format
+                "to_json_flag() conversion failed for {expected_format:?}"
             );
-        });
+        }
     }
 
     #[test]
@@ -227,13 +225,13 @@ mod tests {
     #[test]
     fn test_output_format_to_json_flag_json_returns_true() {
         let format = OutputFormat::Json;
-        assert_eq!(format.to_json_flag(), true);
+        assert!(format.to_json_flag());
     }
 
     #[test]
     fn test_output_format_to_json_flag_human_returns_false() {
         let format = OutputFormat::Human;
-        assert_eq!(format.to_json_flag(), false);
+        assert!(!format.to_json_flag());
     }
 
     #[test]
@@ -259,11 +257,18 @@ mod tests {
 
     /// Helper to test serialization and deserialization round-trips
     fn test_serde_round_trip(format: OutputFormat, expected_json: &str) {
-        let serialized = serde_json::to_string(&format).expect("serialization failed");
+        let serialized = serde_json::to_string(&format);
+        assert!(serialized.is_ok(), "serialization should succeed");
+        let Some(serialized) = serialized.ok() else {
+            return;
+        };
         assert_eq!(serialized, expected_json);
 
-        let deserialized: OutputFormat =
-            serde_json::from_str(&serialized).expect("deserialization failed");
+        let deserialized: Result<OutputFormat, _> = serde_json::from_str(&serialized);
+        assert!(deserialized.is_ok(), "deserialization should succeed");
+        let Some(deserialized) = deserialized.ok() else {
+            return;
+        };
         assert_eq!(deserialized, format);
     }
 
@@ -311,7 +316,7 @@ mod tests {
     fn test_output_format_clone() {
         // OutputFormat should be cloneable - using functional style
         let formats = vec![OutputFormat::Json, OutputFormat::Human];
-        let cloned: Vec<_> = formats.iter().map(|f| f.clone()).collect();
+        let cloned: Vec<_> = formats.clone();
         assert_eq!(formats, cloned);
     }
 
@@ -388,7 +393,7 @@ mod tests {
         // RED: is_json and is_human are const functions
         const FORMAT: OutputFormat = OutputFormat::Json;
         const IS_JSON: bool = FORMAT.is_json();
-        assert!(IS_JSON);
+        const { assert!(IS_JSON) };
     }
 
     #[test]
@@ -409,108 +414,108 @@ mod tests {
         // This test will fail until add.rs signature is updated
         // Expected signature: pub fn run_with_options(options: &AddOptions) -> Result<()>
         // where AddOptions contains: pub format: OutputFormat
-        let _format = OutputFormat::Json;
+        let format = OutputFormat::Json;
         // This will be expanded when we integrate with command files
-        assert_eq!(_format, OutputFormat::Json);
+        assert_eq!(format, OutputFormat::Json);
     }
 
     #[test]
     fn test_remove_command_accepts_output_format() {
         // RED: remove::run_with_options should accept OutputFormat
         // This test will fail until remove.rs signature is updated
-        let _format = OutputFormat::Human;
-        assert_eq!(_format, OutputFormat::Human);
+        let format = OutputFormat::Human;
+        assert_eq!(format, OutputFormat::Human);
     }
 
     #[test]
     fn test_sync_command_accepts_output_format() {
         // RED: sync::run_with_options should accept OutputFormat
-        let _format = OutputFormat::Json;
-        assert_eq!(_format, OutputFormat::Json);
+        let format = OutputFormat::Json;
+        assert_eq!(format, OutputFormat::Json);
     }
 
     #[test]
     fn test_status_command_accepts_output_format() {
         // RED: status::run should accept OutputFormat
-        let _format = OutputFormat::Human;
-        assert_eq!(_format, OutputFormat::Human);
+        let format = OutputFormat::Human;
+        assert_eq!(format, OutputFormat::Human);
     }
 
     #[test]
     fn test_list_command_accepts_output_format() {
         // RED: list::run should accept OutputFormat
-        let _format = OutputFormat::Json;
-        assert_eq!(_format, OutputFormat::Json);
+        let format = OutputFormat::Json;
+        assert_eq!(format, OutputFormat::Json);
     }
 
     #[test]
     fn test_focus_command_accepts_output_format() {
         // RED: focus::run_with_options should accept OutputFormat
-        let _format = OutputFormat::Human;
-        assert_eq!(_format, OutputFormat::Human);
+        let format = OutputFormat::Human;
+        assert_eq!(format, OutputFormat::Human);
     }
 
     #[test]
     fn test_clean_command_accepts_output_format() {
         // RED: clean::run should accept OutputFormat
-        let _format = OutputFormat::Json;
-        assert_eq!(_format, OutputFormat::Json);
+        let format = OutputFormat::Json;
+        assert_eq!(format, OutputFormat::Json);
     }
 
     #[test]
     fn test_doctor_command_accepts_output_format() {
         // RED: doctor::run should accept OutputFormat
-        let _format = OutputFormat::Human;
-        assert_eq!(_format, OutputFormat::Human);
+        let format = OutputFormat::Human;
+        assert_eq!(format, OutputFormat::Human);
     }
 
     #[test]
     fn test_query_command_accepts_output_format() {
         // RED: query::run should accept OutputFormat
-        let _format = OutputFormat::Json;
-        assert_eq!(_format, OutputFormat::Json);
+        let format = OutputFormat::Json;
+        assert_eq!(format, OutputFormat::Json);
     }
 
     #[test]
     fn test_introspect_command_accepts_output_format() {
         // RED: introspect::run should accept OutputFormat
-        let _format = OutputFormat::Human;
-        assert_eq!(_format, OutputFormat::Human);
+        let format = OutputFormat::Human;
+        assert_eq!(format, OutputFormat::Human);
     }
 
     #[test]
     fn test_config_command_accepts_output_format() {
         // RED: config::run should accept OutputFormat
-        let _format = OutputFormat::Json;
-        assert_eq!(_format, OutputFormat::Json);
+        let format = OutputFormat::Json;
+        assert_eq!(format, OutputFormat::Json);
     }
 
     #[test]
     fn test_init_command_accepts_output_format() {
         // RED: init::run should accept OutputFormat
-        let _format = OutputFormat::Human;
-        assert_eq!(_format, OutputFormat::Human);
+        let format = OutputFormat::Human;
+        assert_eq!(format, OutputFormat::Human);
     }
 
     #[test]
     fn test_attach_command_accepts_output_format() {
         // RED: attach::run should accept OutputFormat
-        let _format = OutputFormat::Json;
-        assert_eq!(_format, OutputFormat::Json);
+        let format = OutputFormat::Json;
+        assert_eq!(format, OutputFormat::Json);
     }
 
     #[test]
     fn test_dashboard_command_accepts_output_format() {
         // RED: dashboard::run should accept OutputFormat
-        let _format = OutputFormat::Human;
-        assert_eq!(_format, OutputFormat::Human);
+        let format = OutputFormat::Human;
+        assert_eq!(format, OutputFormat::Human);
     }
 
     #[test]
     fn test_diff_command_accepts_output_format() {
         // RED: diff::run should accept OutputFormat
-        let _format = OutputFormat::Json;
-        assert_eq!(_format, OutputFormat::Json);
+        let format = OutputFormat::Json;
+        assert_eq!(format, OutputFormat::Json);
     }
 
     // ============================================================================
@@ -575,7 +580,8 @@ mod tests {
     fn test_remove_options_contains_output_format_not_bool() {
         // RED: RemoveOptions should have:
         // pub format: OutputFormat instead of pub json: bool
-        let _format = OutputFormat::Human;
+        let format = OutputFormat::Human;
+        assert!(format.is_human());
         // This will be verified when remove.rs is updated
     }
 
@@ -583,14 +589,16 @@ mod tests {
     fn test_sync_options_contains_output_format_not_bool() {
         // RED: SyncOptions should have:
         // pub format: OutputFormat instead of pub json: bool
-        let _format = OutputFormat::Json;
+        let format = OutputFormat::Json;
+        assert!(format.is_json());
     }
 
     #[test]
     fn test_focus_options_contains_output_format_not_bool() {
         // RED: FocusOptions should have:
         // pub format: OutputFormat instead of pub json: bool
-        let _format = OutputFormat::Human;
+        let format = OutputFormat::Human;
+        assert!(format.is_human());
     }
 
     // ============================================================================
@@ -632,11 +640,8 @@ mod tests {
     fn test_output_format_method_dispatch() {
         // RED: Using methods instead of match for simple predicates
         let format = OutputFormat::Json;
-        if format.is_json() {
-            assert_eq!(format.to_string(), "json");
-        } else {
-            panic!("Should be json");
-        }
+        assert!(format.is_json(), "format should be json");
+        assert_eq!(format.to_string(), "json");
     }
 
     // ============================================================================
@@ -647,38 +652,36 @@ mod tests {
     #[test]
     fn test_output_format_in_result_type() {
         // RED: Commands should use Result<T, Error> with OutputFormat
-        fn example_command(format: OutputFormat) -> Result<String, String> {
+        fn example_command(format: OutputFormat) -> String {
             match format {
-                OutputFormat::Json => Ok(r#"{"result":"success"}"#.to_string()),
-                OutputFormat::Human => Ok("Success".to_string()),
+                OutputFormat::Json => r#"{"result":"success"}"#.to_string(),
+                OutputFormat::Human => "Success".to_string(),
             }
         }
         let result = example_command(OutputFormat::Json);
-        assert!(result.is_ok());
+        assert!(!result.is_empty());
     }
 
     #[test]
     fn test_output_format_with_option_combinator() {
         // RED: Use combinators with OutputFormat
         let maybe_format = Some(OutputFormat::Json);
-        let output = maybe_format
-            .map(|f| f.to_string())
-            .unwrap_or_else(|| "no format".to_string());
+        let output = maybe_format.map_or_else(|| "no format".to_string(), |f| f.to_string());
         assert_eq!(output, "json");
     }
 
     #[test]
     fn test_output_format_with_and_then_combinator() {
         // RED: Use and_then for chained operations
-        fn process_format(format: OutputFormat) -> Result<String, &'static str> {
+        fn process_format(format: OutputFormat) -> String {
             match format {
-                OutputFormat::Json => Ok("json".to_string()),
-                OutputFormat::Human => Ok("human".to_string()),
+                OutputFormat::Json => "json".to_string(),
+                OutputFormat::Human => "human".to_string(),
             }
         }
         let result = Some(OutputFormat::Json)
             .ok_or("no format")
-            .and_then(|f| process_format(f));
+            .map(process_format);
         assert!(result.is_ok());
     }
 
@@ -690,9 +693,11 @@ mod tests {
     #[test]
     fn test_output_format_never_panics_on_construction() {
         // RED: OutputFormat construction never panics
-        let _json = OutputFormat::Json;
-        let _human = OutputFormat::Human;
+        let json = OutputFormat::Json;
+        let human = OutputFormat::Human;
         // Both variants succeed without panic
+        assert!(json.is_json());
+        assert!(human.is_human());
     }
 
     #[test]

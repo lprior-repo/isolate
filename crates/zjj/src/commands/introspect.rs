@@ -300,7 +300,7 @@ fn print_command_human_readable(cmd: &CommandIntrospection) {
 /// 5. Advanced
 /// 6. General (for uncategorized flags)
 ///
-/// Uses functional patterns with BTreeMap for deterministic ordering and
+/// Uses functional patterns with `BTreeMap` for deterministic ordering and
 /// custom category ordering via match-based key transformation.
 fn print_flags_by_category(flags: &[FlagSpec]) {
     print!("{}", format_flags_by_category(flags));
@@ -320,6 +320,7 @@ fn print_flags_by_category(flags: &[FlagSpec]) {
 /// 6. General (for uncategorized flags)
 pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
     use std::collections::BTreeMap;
+    use std::fmt::Write;
 
     let mut output = String::from("Flags:");
 
@@ -329,7 +330,7 @@ pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
         BTreeMap::new(),
         |mut acc: BTreeMap<String, Vec<&FlagSpec>>, flag| {
             let category = flag.category.as_deref().unwrap_or("general").to_string();
-            acc.entry(category).or_insert_with(Vec::new).push(flag);
+            acc.entry(category).or_default().push(flag);
             acc
         },
     );
@@ -344,39 +345,36 @@ pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
         "general",
     ];
 
-    // Display categories in defined order using functional patterns
-    category_order
-        .iter()
-        .filter_map(|&category| {
-            grouped
-                .get(category)
-                .map(|flags_in_category| (category, flags_in_category))
-        })
-        .for_each(|(category, flags_in_category)| {
-            output.push_str(&format!("\n\n  {}:", capitalize_category(category)));
+    // Display categories in defined order using for loops
+    for &category in &category_order {
+        let Some(flags_in_category) = grouped.get(category) else {
+            continue;
+        };
+        let _ = write!(output, "\n\n  {}:", capitalize_category(category));
 
-            flags_in_category.iter().for_each(|flag| {
-                let short = flag
-                    .short
-                    .as_ref()
-                    .map(|s| format!("-{s}, "))
-                    .unwrap_or_default();
-                output.push_str(&format!("\n    {short}--{}", flag.long));
-                output.push_str(&format!("\n      Type: {}", flag.flag_type));
-                output.push_str(&format!("\n      Description: {}", flag.description));
+        for flag in flags_in_category {
+            let short = flag
+                .short
+                .as_ref()
+                .map(|s| format!("-{s}, "))
+                .unwrap_or_default();
+            let _ = write!(output, "\n    {short}--{}", flag.long);
+            let _ = write!(output, "\n      Type: {}", flag.flag_type);
+            let _ = write!(output, "\n      Description: {}", flag.description);
 
-                if let Some(ref default) = flag.default {
-                    output.push_str(&format!("\n      Default: {default}"));
-                }
+            if let Some(ref default) = flag.default {
+                let _ = write!(output, "\n      Default: {default}");
+            }
 
-                if !flag.possible_values.is_empty() {
-                    output.push_str(&format!(
-                        "\n      Values: {}",
-                        flag.possible_values.join(", ")
-                    ));
-                }
-            });
-        });
+            if !flag.possible_values.is_empty() {
+                let _ = write!(
+                    output,
+                    "\n      Values: {}",
+                    flag.possible_values.join(", ")
+                );
+            }
+        }
+    }
 
     output.push('\n');
     output
@@ -454,7 +452,7 @@ fn create_enum_flag(
 ) -> FlagSpec {
     FlagSpec {
         long: long.to_string(),
-        short: short.map(|s| s.to_string()),
+        short: short.map(ToString::to_string),
         description: description.to_string(),
         flag_type: "enum".to_string(),
         default: Some(serde_json::json!(default_value)),
