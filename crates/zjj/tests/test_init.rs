@@ -188,15 +188,15 @@ fn test_init_sets_up_complete_directory_structure() {
     harness.assert_success(&["init"]);
 
     // Verify complete structure
-    let jjz_dir = harness.zjj_dir();
-    harness.assert_file_exists(&jjz_dir);
-    harness.assert_file_exists(&jjz_dir.join("config.toml"));
-    harness.assert_file_exists(&jjz_dir.join("state.db"));
-    harness.assert_file_exists(&jjz_dir.join("layouts"));
+    let zjj_dir = harness.zjj_dir();
+    harness.assert_file_exists(&zjj_dir);
+    harness.assert_file_exists(&zjj_dir.join("config.toml"));
+    harness.assert_file_exists(&zjj_dir.join("state.db"));
+    harness.assert_file_exists(&zjj_dir.join("layouts"));
 
     // Verify it's a directory
-    assert!(jjz_dir.is_dir());
-    assert!(jjz_dir.join("layouts").is_dir());
+    assert!(zjj_dir.is_dir());
+    assert!(zjj_dir.join("layouts").is_dir());
 }
 
 #[test]

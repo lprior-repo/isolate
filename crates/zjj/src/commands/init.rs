@@ -248,8 +248,8 @@ fn create_jjignore(repo_root: &Path) -> Result<()> {
 
     if jjignore_path.exists() {
         // Check if .zjj/ is already in the file
-        let content = fs::read_to_string(&jjignore_path)
-            .context("Failed to read existing .jjignore")?;
+        let content =
+            fs::read_to_string(&jjignore_path).context("Failed to read existing .jjignore")?;
 
         if content.lines().any(|line| line.trim() == zjj_pattern) {
             return Ok(()); // Already has .zjj/
@@ -263,8 +263,7 @@ fn create_jjignore(repo_root: &Path) -> Result<()> {
         new_content.push_str(zjj_pattern);
         new_content.push('\n');
 
-        fs::write(&jjignore_path, new_content)
-            .context("Failed to update .jjignore")?;
+        fs::write(&jjignore_path, new_content).context("Failed to update .jjignore")?;
     } else {
         // Create new .jjignore with .zjj/
         fs::write(&jjignore_path, format!("{zjj_pattern}\n"))
@@ -318,22 +317,22 @@ mod tests {
     }
 
     #[test]
-    fn test_init_creates_jjz_directory() -> Result<()> {
+    fn test_init_creates_zjj_directory() -> Result<()> {
         let Some(temp_dir) = setup_test_jj_repo()? else {
             eprintln!("Skipping test: jj not available");
             return Ok(());
         };
 
-        // Run init with the temp directory as cwd
+        // Run init with temp directory as cwd
         let result = run_with_cwd(Some(temp_dir.path()));
 
         // Check result
         result?;
 
         // Verify .zjj directory was created (use absolute path)
-        let jjz_path = temp_dir.path().join(".zjj");
-        assert!(jjz_path.exists(), ".zjj directory was not created");
-        assert!(jjz_path.is_dir(), ".zjj is not a directory");
+        let zjj_path = temp_dir.path().join(".zjj");
+        assert!(zjj_path.exists(), ".zjj directory was not created");
+        assert!(zjj_path.is_dir(), ".zjj is not a directory");
 
         Ok(())
     }

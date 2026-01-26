@@ -134,13 +134,13 @@ fn test_database_error_display() {
 
     // Make .zjj directory read-only to force database error
     // SQLite requires write access to directory to create lock files
-    let jjz_dir = harness.zjj_dir();
-    let Ok(metadata) = fs::metadata(&jjz_dir) else {
+    let zjj_dir = harness.zjj_dir();
+    let Ok(metadata) = fs::metadata(&zjj_dir) else {
         std::process::abort()
     };
     let mut perms = metadata.permissions();
     perms.set_mode(0o555); // Read+Execute, no Write
-    fs::set_permissions(&jjz_dir, perms).ok();
+    fs::set_permissions(&zjj_dir, perms).ok();
 
     // Try to add a session - requires writing to DB
     let result = harness.zjj(&["add", "test", "--no-open"]);
@@ -148,7 +148,7 @@ fn test_database_error_display() {
     // Restore permissions immediately for cleanup
     let mut perms = metadata.permissions();
     perms.set_mode(0o755);
-    fs::set_permissions(&jjz_dir, perms).ok();
+    fs::set_permissions(&zjj_dir, perms).ok();
 
     assert!(!result.success, "Should fail with database error");
 

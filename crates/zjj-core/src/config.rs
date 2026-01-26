@@ -6,7 +6,7 @@
 //! 1. Built-in defaults
 //! 2. Global config: ~/.config/zjj/config.toml
 //! 3. Project config: .zjj/config.toml
-//! 4. Environment variables: JJZ_*
+//! 4. Environment variables: ZJJ_*
 //! 5. CLI flags (command-specific)
 //!
 //! # Example Config
@@ -506,58 +506,58 @@ impl Config {
     ///
     /// Returns error if environment variable values are invalid
     fn apply_env_vars(&mut self) -> Result<()> {
-        // JJZ_WORKSPACE_DIR
-        if let Ok(value) = std::env::var("JJZ_WORKSPACE_DIR") {
+        // ZJJ_WORKSPACE_DIR
+        if let Ok(value) = std::env::var("ZJJ_WORKSPACE_DIR") {
             self.workspace_dir = value;
         }
 
-        // JJZ_MAIN_BRANCH
-        if let Ok(value) = std::env::var("JJZ_MAIN_BRANCH") {
+        // ZJJ_MAIN_BRANCH
+        if let Ok(value) = std::env::var("ZJJ_MAIN_BRANCH") {
             self.main_branch = value;
         }
 
-        // JJZ_DEFAULT_TEMPLATE
-        if let Ok(value) = std::env::var("JJZ_DEFAULT_TEMPLATE") {
+        // ZJJ_DEFAULT_TEMPLATE
+        if let Ok(value) = std::env::var("ZJJ_DEFAULT_TEMPLATE") {
             self.default_template = value;
         }
 
-        // JJZ_WATCH_ENABLED
-        if let Ok(value) = std::env::var("JJZ_WATCH_ENABLED") {
+        // ZJJ_WATCH_ENABLED
+        if let Ok(value) = std::env::var("ZJJ_WATCH_ENABLED") {
             self.watch.enabled = value.parse().map_err(|e| {
-                Error::InvalidConfig(format!("Invalid JJZ_WATCH_ENABLED value: {e}"))
+                Error::InvalidConfig(format!("Invalid ZJJ_WATCH_ENABLED value: {e}"))
             })?;
         }
 
-        // JJZ_WATCH_DEBOUNCE_MS
-        if let Ok(value) = std::env::var("JJZ_WATCH_DEBOUNCE_MS") {
+        // ZJJ_WATCH_DEBOUNCE_MS
+        if let Ok(value) = std::env::var("ZJJ_WATCH_DEBOUNCE_MS") {
             self.watch.debounce_ms = value.parse().map_err(|e| {
-                Error::InvalidConfig(format!("Invalid JJZ_WATCH_DEBOUNCE_MS value: {e}"))
+                Error::InvalidConfig(format!("Invalid ZJJ_WATCH_DEBOUNCE_MS value: {e}"))
             })?;
         }
 
-        // JJZ_ZELLIJ_USE_TABS
-        if let Ok(value) = std::env::var("JJZ_ZELLIJ_USE_TABS") {
+        // ZJJ_ZELLIJ_USE_TABS
+        if let Ok(value) = std::env::var("ZJJ_ZELLIJ_USE_TABS") {
             self.zellij.use_tabs = value.parse().map_err(|e| {
-                Error::InvalidConfig(format!("Invalid JJZ_ZELLIJ_USE_TABS value: {e}"))
+                Error::InvalidConfig(format!("Invalid ZJJ_ZELLIJ_USE_TABS value: {e}"))
             })?;
         }
 
-        // JJZ_DASHBOARD_REFRESH_MS
-        if let Ok(value) = std::env::var("JJZ_DASHBOARD_REFRESH_MS") {
+        // ZJJ_DASHBOARD_REFRESH_MS
+        if let Ok(value) = std::env::var("ZJJ_DASHBOARD_REFRESH_MS") {
             self.dashboard.refresh_ms = value.parse().map_err(|e| {
-                Error::InvalidConfig(format!("Invalid JJZ_DASHBOARD_REFRESH_MS value: {e}"))
+                Error::InvalidConfig(format!("Invalid ZJJ_DASHBOARD_REFRESH_MS value: {e}"))
             })?;
         }
 
-        // JJZ_DASHBOARD_VIM_KEYS
-        if let Ok(value) = std::env::var("JJZ_DASHBOARD_VIM_KEYS") {
+        // ZJJ_DASHBOARD_VIM_KEYS
+        if let Ok(value) = std::env::var("ZJJ_DASHBOARD_VIM_KEYS") {
             self.dashboard.vim_keys = value.parse().map_err(|e| {
-                Error::InvalidConfig(format!("Invalid JJZ_DASHBOARD_VIM_KEYS value: {e}"))
+                Error::InvalidConfig(format!("Invalid ZJJ_DASHBOARD_VIM_KEYS value: {e}"))
             })?;
         }
 
-        // JJZ_AGENT_COMMAND
-        if let Ok(value) = std::env::var("JJZ_AGENT_COMMAND") {
+        // ZJJ_AGENT_COMMAND
+        if let Ok(value) = std::env::var("ZJJ_AGENT_COMMAND") {
             self.agent.command = value;
         }
 
@@ -679,11 +679,11 @@ mod tests {
         assert_eq!(base.workspace_dir, "../project");
     }
 
-    // Test 5: Env override - JJZ_WORKSPACE_DIR=../custom → config.workspace_dir
+    // Test 5: Env override - ZJJ_WORKSPACE_DIR=../custom → config.workspace_dir
     #[test]
     fn test_env_var_overrides_config() {
         // Set env var
-        std::env::set_var("JJZ_WORKSPACE_DIR", "../env");
+        std::env::set_var("ZJJ_WORKSPACE_DIR", "../env");
 
         let mut config = Config {
             workspace_dir: "../original".to_string(),
@@ -696,7 +696,7 @@ mod tests {
         assert_eq!(config.workspace_dir, "../env");
 
         // Cleanup
-        std::env::remove_var("JJZ_WORKSPACE_DIR");
+        std::env::remove_var("ZJJ_WORKSPACE_DIR");
     }
 
     // Test 6: Placeholder substitution
@@ -843,26 +843,26 @@ mod tests {
 
     #[test]
     fn test_env_var_parsing_bool() {
-        std::env::set_var("JJZ_WATCH_ENABLED", "false");
+        std::env::set_var("ZJJ_WATCH_ENABLED", "false");
 
         let mut config = Config::default();
         let result = config.apply_env_vars();
         assert!(result.is_ok());
         assert!(!config.watch.enabled);
 
-        std::env::remove_var("JJZ_WATCH_ENABLED");
+        std::env::remove_var("ZJJ_WATCH_ENABLED");
     }
 
     #[test]
     fn test_env_var_parsing_int() {
-        std::env::set_var("JJZ_WATCH_DEBOUNCE_MS", "200");
+        std::env::set_var("ZJJ_WATCH_DEBOUNCE_MS", "200");
 
         let mut config = Config::default();
         let result = config.apply_env_vars();
         assert!(result.is_ok());
         assert_eq!(config.watch.debounce_ms, 200);
 
-        std::env::remove_var("JJZ_WATCH_DEBOUNCE_MS");
+        std::env::remove_var("ZJJ_WATCH_DEBOUNCE_MS");
     }
 
     #[test]
