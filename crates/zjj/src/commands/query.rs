@@ -641,7 +641,7 @@ mod tests {
 
         // Even if --json=false (nonsensical for query), output should still be JSON
         let false_flag = false;
-        let format2 = OutputFormat::from_json_flag(false_flag);
+        let _format2 = OutputFormat::from_json_flag(false_flag);
         // Query implementation should convert this back to Json anyway
         let json_format = OutputFormat::Json;
         assert!(json_format.is_json());
