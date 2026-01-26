@@ -1,14 +1,71 @@
 # ZJJ - JJ Workspace + Zellij Session Manager
 
-ZJJ is a powerful tool that combines [JJ (Just Join)](https://github.com/martinvonz/jj) version control with [Zellij](https://zellij.dev/) terminal sessions for an enhanced development workflow.
+ZJJ is a workspace isolation and setup tool that combines [JJ (Jujutsu)](https://github.com/martinvonz/jj) version control with [Zellij](https://zellij.dev/) terminal multiplexing for focused development sessions.
 
-## Features
+## What ZJJ Does
 
-- **JJ Integration**: Seamlessly manage JJ workspaces
-- **Zellij Sessions**: Create and manage Zellij tabs for each session
-- **Session Management**: Add, remove, list, and focus sessions
-- **JSON Output Support**: All commands support JSON output for scripting
-- **Error Handling**: Comprehensive error handling with user-friendly messages
+ZJJ creates **isolated workspaces** for parallel development tasks:
+- Each workspace is a separate JJ branch with a dedicated Zellij tab
+- Seamlessly switch between tasks with `zjj focus`
+- Keep your main branch clean while working on multiple features
+- Built-in agent workflow support with `zjj spawn` and `zjj done`
+
+## Commands
+
+### Core Session Management
+| Command | Description |
+|---------|-------------|
+| `zjj init` | Initialize zjj in a JJ repository |
+| `zjj add <name>` | Create a new session with JJ workspace + Zellij tab |
+| `zjj list` | List all sessions |
+| `zjj remove <name>` | Remove a session and its workspace |
+| `zjj focus <name>` | Switch to a session's Zellij tab |
+
+### Session Operations
+| Command | Description |
+|---------|-------------|
+| `zjj status [name]` | Show detailed session status |
+| `zjj sync [name]` | Sync session workspace with main (rebase) |
+| `zjj diff <name>` | Show diff between session and main |
+| `zjj attach <name>` | Attach to an existing Zellij session |
+| `zjj clean` | Remove stale sessions |
+
+### Agent Workflow
+| Command | Description |
+|---------|-------------|
+| `zjj spawn <bead-id>` | Spawn isolated workspace for a bead and run agent |
+| `zjj done` | Complete work and merge workspace to main |
+
+### System & Diagnostics
+| Command | Description |
+|---------|-------------|
+| `zjj config [key] [value]` | View or modify configuration |
+| `zjj doctor` | Run system health checks |
+| `zjj introspect [cmd]` | Discover zjj capabilities and command details |
+| `zjj query <type>` | Query system state programmatically |
+| `zjj context` | Show complete environment context |
+| `zjj dashboard` | Launch interactive TUI dashboard |
+
+All commands support `--json` flag for machine-readable output.
+
+## Quick Start
+
+```bash
+# Initialize ZJJ in a JJ repository
+zjj init
+
+# Create a session for a feature
+zjj add auth-refactor
+
+# List all sessions
+zjj list
+
+# Switch to the session
+zjj focus auth-refactor
+
+# When done, clean up
+zjj remove auth-refactor
+```
 
 ## ⚡ Hyper-Fast CI/CD Pipeline
 
@@ -42,18 +99,17 @@ moon run :fmt :check  # 6-7ms with cache! ⚡
 
 See [docs/CI-CD-PERFORMANCE.md](docs/CI-CD-PERFORMANCE.md) for detailed benchmarks and optimization guide.
 
-## Getting Started
+## Installation
 
 ### Prerequisites
 
-- Rust 1.80 or later
-- **Moon** (install from https://moonrepo.dev/docs/install)
-- **bazel-remote** (auto-installed via setup script)
-- Zellij (for session management)
-- SQLite (for database operations)
-- CUE (for schema validation)
+- **Moon** - Install from https://moonrepo.dev/docs/install
+- **bazel-remote** - For local caching (setup below)
+- **JJ** (Jujutsu) - Install from https://github.com/martinvonz/jj#installation
+- **Zellij** - Install from https://zellij.dev/download
+- **Rust** 1.80 or later
 
-### Installation
+### From Source (with Moon)
 
 ```bash
 # Clone the repository
@@ -63,17 +119,14 @@ cd zjj
 # Install Moon (if not already installed)
 curl -fsSL https://moonrepo.dev/install/moon.sh | bash
 
-# Setup hyper-fast local cache (one-time setup)
-bash /tmp/install-bazel-remote-user.sh  # Created during development
-
-# Build the project with Moon
+# Build with Moon
 moon run :build
 
-# Install the binary
-moon run :install  # Copies to ~/.local/bin/zjj
+# Run the binary
+./target/release/zjj --help
 ```
 
-**Note**: The bazel-remote cache service runs as a systemd user service and auto-starts on login.
+**Important**: All commands in this project must be run through Moon. Do not use `cargo` directly.
 
 ### Usage
 
@@ -96,6 +149,8 @@ zjj remove my-session
 
 ## Development
 
+**All commands must be run through Moon.** This project uses Moon for build orchestration with bazel-remote for hyper-fast local caching.
+
 ### Quick Development Loop
 
 ```bash
@@ -109,12 +164,13 @@ moon run :ci
 moon run :fmt        # Check formatting
 moon run :fmt-fix    # Auto-fix formatting
 moon run :check      # Fast type check
-moon run :test       # Run tests with nextest
-moon run :clippy     # Linting
+moon run :test       # Run tests
 moon run :build      # Release build
 ```
 
-### Cache Management
+### Cache Setup (bazel-remote)
+
+The project uses bazel-remote for local caching at `http://localhost:9092`:
 
 ```bash
 # View cache stats
@@ -130,43 +186,17 @@ systemctl --user restart bazel-remote
 journalctl --user -u bazel-remote -f
 ```
 
-### Performance Benchmarking
+### Available Moon Tasks
 
 ```bash
-# Benchmark cache performance
-time moon run :fmt :check  # First run (cache miss)
-time moon run :fmt :check  # Second run (cache hit - should be <10ms!)
+moon run :fmt        # Format check
+moon run :fmt-fix    # Auto-fix formatting
+moon run :check      # Type check only
+moon run :test       # Run all tests
+moon run :build      # Release build
+moon run :ci         # Full CI pipeline
+moon run :quick      # fmt + check (fastest)
 ```
-
-## CI/CD Configuration
-
-The project uses **Moon** for all CI/CD operations with hyper-fast caching:
-
-### Local Development
-- **bazel-remote** runs as systemd user service
-- **gRPC cache** at `localhost:9092` (zero network latency)
-- **100GB cache** with zstd compression
-- **6-7ms** task execution with cache hits
-
-### CI Environment (Future)
-```yaml
-# .github/workflows/ci.yml (example)
-- uses: moonrepo/setup-toolchain@v0
-- run: moon ci --base origin/main --head HEAD
-  env:
-    CACHE_TOKEN: ${{ secrets.CACHE_TOKEN }}  # Optional remote cache
-```
-
-### Pipeline Stages
-1. **Format** (`~:fmt`) - Parallel formatting check
-2. **Lint** (`~:clippy`) - Parallel linting
-3. **Test** (`~:test`) - Parallel test execution
-4. **Build** (`build`) - Sequential release build
-5. **Docs** (`build-docs`) - Generate documentation
-
-All stages with `~:` prefix run **in parallel** for maximum speed.
-
-See [docs/CI-CD-PERFORMANCE.md](docs/CI-CD-PERFORMANCE.md) for detailed configuration and optimization guide.
 
 ## Contributing
 
