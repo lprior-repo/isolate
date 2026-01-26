@@ -27,13 +27,16 @@ pub mod hooks;
 pub mod introspection;
 pub mod jj;
 pub mod json;
+pub mod output_format;
 mod result;
+pub mod session_state;
 pub mod types;
 pub mod watcher;
 pub mod zellij;
 
 pub use error::Error;
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
+pub use output_format::OutputFormat;
 pub use result::{Result, ResultExt};
 
 /// Marker trait for types guaranteed safe (no panics possible).
