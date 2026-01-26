@@ -125,7 +125,7 @@ fn get_current_branch(root: &PathBuf) -> Result<String> {
 fn count_uncommitted_files(root: &PathBuf) -> Result<usize> {
     let output = std::process::Command::new("jj")
         .current_dir(root)
-        .args(["status", "--no-pager", "-T", "files"])
+        .args(["status", "--no-pager"])
         .output()
         .map_err(|e| anyhow::anyhow!("Failed to get uncommitted files: {e}"))?;
 
@@ -137,7 +137,18 @@ fn count_uncommitted_files(root: &PathBuf) -> Result<usize> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let count = stdout.lines().filter(|line| !line.is_empty()).count();
+    // Count lines that start with file change indicators (A, M, D, R, C)
+    let count = stdout
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            trimmed.starts_with("A ")
+                || trimmed.starts_with("M ")
+                || trimmed.starts_with("D ")
+                || trimmed.starts_with("R ")
+                || trimmed.starts_with("C ")
+        })
+        .count();
     Ok(count)
 }
 
