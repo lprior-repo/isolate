@@ -303,7 +303,7 @@ fn handle_failure(
 }
 
 /// Merge workspace changes to main
-fn merge_to_main(root: &str, workspace_path: &Path) -> Result<bool, SpawnError> {
+fn merge_to_main(root: &str, _workspace_path: &Path) -> Result<bool, SpawnError> {
     // First, abandon the workspace
     let _ = Command::new("jj")
         .args(["workspace", "abandon"])
