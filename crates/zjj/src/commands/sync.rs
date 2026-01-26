@@ -72,7 +72,8 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
                 };
                 let envelope = SchemaEnvelope::new("sync-response", "single", output);
                 println!("{}", serde_json::to_string(&envelope)?);
-                Ok(())
+            } else {
+                println!("Error syncing session '{name}': {e}");
             }
             Err(e)
         }

@@ -15,7 +15,7 @@ mod session;
 
 use commands::{
     add, attach, clean, config, context, dashboard, diff, doctor, focus, init, introspect, list,
-    query, remove, status, sync,
+    query, remove, spawn, status, sync,
 };
 
 fn cmd_init() -> ClapCommand {
@@ -369,6 +369,63 @@ fn cmd_context() -> ClapCommand {
         )
 }
 
+fn cmd_spawn() -> ClapCommand {
+    ClapCommand::new("spawn")
+        .about("Spawn isolated workspace for a bead and run agent")
+        .arg(
+            Arg::new("bead_id")
+                .required(true)
+                .help("Bead ID to work on (e.g., zjj-xxxx)"),
+        )
+        .arg(
+            Arg::new("agent-command")
+                .long("agent-command")
+                .value_name("COMMAND")
+                .default_value("claude")
+                .help("Agent command to run"),
+        )
+        .arg(
+            Arg::new("agent-args")
+                .long("agent-args")
+                .value_name("ARGS")
+                .action(clap::ArgAction::Append)
+                .num_args(0..)
+                .help("Additional agent arguments"),
+        )
+        .arg(
+            Arg::new("no-auto-merge")
+                .long("no-auto-merge")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't merge on success"),
+        )
+        .arg(
+            Arg::new("no-auto-cleanup")
+                .long("no-auto-cleanup")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't cleanup on failure"),
+        )
+        .arg(
+            Arg::new("background")
+                .long("background")
+                .short('b')
+                .action(clap::ArgAction::SetTrue)
+                .help("Run agent in background"),
+        )
+        .arg(
+            Arg::new("timeout")
+                .long("timeout")
+                .value_name("SECONDS")
+                .default_value("14400")
+                .help("Timeout in seconds (default: 14400 = 4 hours)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 fn build_cli() -> ClapCommand {
     ClapCommand::new("zjj")
         .version(env!("CARGO_PKG_VERSION"))
@@ -391,6 +448,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_doctor())
         .subcommand(cmd_query())
         .subcommand(cmd_context())
+        .subcommand(cmd_spawn())
 }
 
 /// Format an error for user display (no stack traces)
@@ -647,6 +705,43 @@ fn handle_doctor(sub_m: &clap::ArgMatches) -> Result<()> {
     }
 }
 
+fn handle_spawn(sub_m: &clap::ArgMatches) -> Result<()> {
+    let bead_id = sub_m
+        .get_one::<String>("bead_id")
+        .ok_or_else(|| anyhow::anyhow!("bead_id is required"))?
+        .clone();
+    let agent_command = sub_m
+        .get_one::<String>("agent-command")
+        .cloned()
+        .unwrap_or_else(|| "claude".to_string());
+    let agent_args = sub_m
+        .get_many::<String>("agent-args")
+        .map(|v| v.cloned().collect())
+        .unwrap_or_default();
+    let no_auto_merge = sub_m.get_flag("no-auto-merge");
+    let no_auto_cleanup = sub_m.get_flag("no-auto-cleanup");
+    let background = sub_m.get_flag("background");
+    let timeout = sub_m
+        .get_one::<String>("timeout")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(14400);
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let options = spawn::SpawnOptions {
+        bead_id,
+        agent_command,
+        agent_args,
+        no_auto_merge,
+        no_auto_cleanup,
+        background,
+        timeout_secs: timeout,
+        format,
+    };
+
+    spawn::run_with_options(&options)
+}
+
 fn handle_query(sub_m: &clap::ArgMatches) -> Result<()> {
     let query_type = sub_m
         .get_one::<String>("query_type")
@@ -723,6 +818,7 @@ fn run_cli() -> Result<()> {
         Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m),
         Some(("query", sub_m)) => handle_query(sub_m),
         Some(("context", sub_m)) => handle_context(sub_m),
+        Some(("spawn", sub_m)) => handle_spawn(sub_m),
         _ => {
             build_cli().print_help()?;
             Ok(())

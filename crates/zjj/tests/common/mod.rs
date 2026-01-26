@@ -153,8 +153,16 @@ impl TestHarness {
         // Workspace is at ../repo__workspaces/session relative to repo_path
         self.repo_path
             .parent()
-            .map(|parent| parent.join(format!("{repo_name}__workspaces")).join(session))
-            .unwrap_or_else(|| self.repo_path.join(format!("{repo_name}__workspaces")).join(session))
+            .map(|parent| {
+                parent
+                    .join(format!("{repo_name}__workspaces"))
+                    .join(session)
+            })
+            .unwrap_or_else(|| {
+                self.repo_path
+                    .join(format!("{repo_name}__workspaces"))
+                    .join(session)
+            })
     }
 
     /// Assert that a workspace exists

@@ -485,10 +485,7 @@ mod tests {
 
         // Verify $schema URI format
         let schema_value = json.get("$schema").and_then(|v| v.as_str());
-        assert!(
-            schema_value.is_some(),
-            "$schema field should be present"
-        );
+        assert!(schema_value.is_some(), "$schema field should be present");
         let Some(schema) = schema_value else {
             return Ok(());
         };

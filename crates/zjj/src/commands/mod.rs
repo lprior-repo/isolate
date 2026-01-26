@@ -14,6 +14,7 @@ pub mod introspect;
 pub mod list;
 pub mod query;
 pub mod remove;
+pub mod spawn;
 pub mod status;
 pub mod sync;
 

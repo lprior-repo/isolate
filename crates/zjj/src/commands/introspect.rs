@@ -319,8 +319,7 @@ fn print_flags_by_category(flags: &[FlagSpec]) {
 /// 5. Advanced
 /// 6. General (for uncategorized flags)
 pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
-    use std::collections::BTreeMap;
-    use std::fmt::Write;
+    use std::{collections::BTreeMap, fmt::Write};
 
     let mut output = String::from("Flags:");
 

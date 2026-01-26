@@ -29,136 +29,110 @@ struct DiffStats {
     deletions: usize,
 }
 
+/// Build diff command arguments
+fn build_diff_args(stat: bool, main_branch: &str) -> Vec<String> {
+    let mut args = vec![
+        "diff".to_string(),
+        if stat { "--stat" } else { "--git" }.to_string(),
+    ];
+    args.extend_from_slice(&["-r".to_string(), format!("{main_branch}..@")]);
+    args
+}
+
+/// Map JJ command error to proper error type
+fn map_jj_error(e: &std::io::Error, operation: &str) -> anyhow::Error {
+    anyhow::Error::new(if e.kind() == std::io::ErrorKind::NotFound {
+        zjj_core::Error::JjCommandError {
+            operation: operation.to_string(),
+            source: format!(
+                "JJ is not installed or not in PATH.\n\n\
+                Install JJ:\n\
+                  cargo install jj-cli\n\
+                or:\n\
+                  brew install jj\n\
+                or visit: https://github.com/martinvonz/jj#installation\n\n\
+                Error: {e}"
+            ),
+            is_not_found: true,
+        }
+    } else {
+        zjj_core::Error::IoError(format!("Failed to execute jj {operation}: {e}"))
+    })
+}
+
+/// Handle diff output based on format
+fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: OutputFormat) {
+    if format.is_json() {
+        let stats = stat.then(|| parse_stat_output(stdout));
+        let diff_output = DiffOutput {
+            session: name.to_string(),
+            diff_type: if stat { "stat" } else { "full" }.to_string(),
+            content: stdout.to_string(),
+            stats,
+        };
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&diff_output)
+                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
+        );
+    } else if stat {
+        print!("{stdout}");
+    } else {
+        get_pager()
+            .and_then(|pager| {
+                Command::new(&pager)
+                    .stdin(Stdio::piped())
+                    .spawn()
+                    .ok()
+                    .map(|mut child| {
+                        if let Some(mut stdin) = child.stdin.take() {
+                            use std::io::Write;
+                            let _ = stdin.write_all(stdout.as_bytes());
+                        }
+                        let _ = child.wait();
+                    })
+            })
+            .unwrap_or_else(|| print!("{stdout}"));
+    }
+}
+
 /// Run the diff command
 pub fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
     let db = get_session_db()?;
-
-    // Get the session
-    // Return zjj_core::Error::NotFound to get exit code 2 (not found)
     let session = db.get(name)?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{name}' not found"
         )))
     })?;
 
-    // Verify workspace exists
     let workspace_path = Path::new(&session.workspace_path);
-    if !workspace_path.exists() {
-        return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
+    workspace_path.exists().then_some(()).ok_or_else(|| {
+        anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Workspace not found: {}. The session may be stale.",
             session.workspace_path
-        ))));
-    }
+        )))
+    })?;
 
-    // Determine the main branch
     let main_branch = determine_main_branch(workspace_path);
+    let args = build_diff_args(stat, &main_branch);
 
-    // Build the diff command
-    let mut args = vec!["diff"];
-
-    if stat {
-        args.push("--stat");
-    } else {
-        args.push("--git");
-    }
-
-    // Show diff from main branch to current workspace (@)
-    args.push("-r");
-    let revset = format!("{main_branch}..@");
-    args.push(&revset);
-
-    // Execute the diff command
     let output = Command::new("jj")
         .args(&args)
         .current_dir(workspace_path)
         .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                anyhow::Error::new(zjj_core::Error::JjCommandError {
-                    operation: "diff".to_string(),
-                    source: format!(
-                        "JJ is not installed or not in PATH.\n\n\
-                        Install JJ:\n\
-                          cargo install jj-cli\n\
-                        or:\n\
-                          brew install jj\n\
-                        or visit: https://github.com/martinvonz/jj#installation\n\n\
-                        Error: {e}"
-                    ),
-                    is_not_found: true,
-                })
-            } else {
-                anyhow::Error::new(zjj_core::Error::IoError(format!(
-                    "Failed to execute jj diff: {e}"
-                )))
-            }
-        })?;
+        .map_err(|e| map_jj_error(&e, "diff"))?;
 
-    if !output.status.success() {
+    output.status.success().then_some(()).ok_or_else(|| {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow::Error::new(zjj_core::Error::JjCommandError {
+        anyhow::Error::new(zjj_core::Error::JjCommandError {
             operation: "diff".to_string(),
             source: stderr.to_string(),
             is_not_found: false,
-        }));
-    }
+        })
+    })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // Handle JSON output format
-    if format.is_json() {
-        let diff_output = if stat {
-            let stats = parse_stat_output(&stdout);
-            DiffOutput {
-                session: name.to_string(),
-                diff_type: "stat".to_string(),
-                content: stdout.to_string(),
-                stats: Some(stats),
-            }
-        } else {
-            DiffOutput {
-                session: name.to_string(),
-                diff_type: "full".to_string(),
-                content: stdout.to_string(),
-                stats: None,
-            }
-        };
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&diff_output)
-                .unwrap_or_else(|_| "{{\"error\": \"serialization failed\"}}".to_string())
-        );
-        return Ok(());
-    }
-
-    // Human-readable output
-    // For stat output, just print directly
-    if stat {
-        print!("{stdout}");
-        return Ok(());
-    }
-
-    // For full diff, try to use a pager
-    if let Some(pager) = get_pager() {
-        // Spawn the pager and pipe the diff to it
-        match Command::new(&pager).stdin(Stdio::piped()).spawn() {
-            Ok(mut child) => {
-                if let Some(mut stdin) = child.stdin.take() {
-                    use std::io::Write;
-                    let _ = stdin.write_all(stdout.as_bytes());
-                }
-                let _ = child.wait();
-            }
-            Err(_) => {
-                // If pager fails, just print directly
-                print!("{stdout}");
-            }
-        }
-    } else {
-        // No pager available, print directly
-        print!("{stdout}");
-    }
-
+    handle_diff_output(&stdout, name, stat, format);
     Ok(())
 }
 
