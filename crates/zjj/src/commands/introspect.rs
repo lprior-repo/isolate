@@ -5,9 +5,12 @@
 
 use anyhow::Result;
 use im::HashMap;
-use zjj_core::introspection::{
-    ArgumentSpec, CommandExample, CommandIntrospection, DependencyInfo, ErrorCondition, FlagSpec,
-    IntrospectOutput, Prerequisites, SystemState,
+use zjj_core::{
+    introspection::{
+        ArgumentSpec, CommandExample, CommandIntrospection, DependencyInfo, ErrorCondition,
+        FlagSpec, IntrospectOutput, Prerequisites, SystemState,
+    },
+    OutputFormat,
 };
 
 use crate::{
@@ -127,7 +130,7 @@ fn get_system_state() -> SystemState {
 }
 
 /// Run the introspect command - show all capabilities
-pub fn run(json: bool) -> Result<()> {
+pub fn run(format: OutputFormat) -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     let mut output = IntrospectOutput::new(version);
 
@@ -137,7 +140,7 @@ pub fn run(json: bool) -> Result<()> {
     // Add system state
     output.system_state = get_system_state();
 
-    if json {
+    if format.is_json() {
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
         print_human_readable(&output);
@@ -213,7 +216,7 @@ fn print_human_readable(output: &IntrospectOutput) {
 }
 
 /// Introspect a specific command
-pub fn run_command_introspect(command: &str, json: bool) -> Result<()> {
+pub fn run_command_introspect(command: &str, format: OutputFormat) -> Result<()> {
     let introspection = match command {
         "add" => get_add_introspection(),
         "remove" => get_remove_introspection(),
@@ -231,7 +234,7 @@ pub fn run_command_introspect(command: &str, json: bool) -> Result<()> {
         }
     };
 
-    if json {
+    if format.is_json() {
         println!("{}", serde_json::to_string_pretty(&introspection)?);
     } else {
         print_command_human_readable(&introspection);
@@ -265,23 +268,7 @@ fn print_command_human_readable(cmd: &CommandIntrospection) {
     }
 
     if !cmd.flags.is_empty() {
-        println!("Flags:");
-        for flag in &cmd.flags {
-            let short = flag
-                .short
-                .as_ref()
-                .map(|s| format!("-{s}, "))
-                .unwrap_or_default();
-            println!("  {short}--{}", flag.long);
-            println!("    Type: {}", flag.flag_type);
-            println!("    Description: {}", flag.description);
-            if let Some(ref default) = flag.default {
-                println!("    Default: {default}");
-            }
-            if !flag.possible_values.is_empty() {
-                println!("    Values: {}", flag.possible_values.join(", "));
-            }
-        }
+        print_flags_by_category(&cmd.flags);
         println!();
     }
 
@@ -298,6 +285,130 @@ fn print_command_human_readable(cmd: &CommandIntrospection) {
     println!("  Initialized: {}", cmd.prerequisites.initialized);
     println!("  JJ Installed: {}", cmd.prerequisites.jj_installed);
     println!("  Zellij Running: {}", cmd.prerequisites.zellij_running);
+}
+
+/// Print flags grouped by category with deterministic ordering
+///
+/// Categories are displayed in the following order:
+/// 1. Behavior
+/// 2. Configuration
+/// 3. Filter
+/// 4. Output
+/// 5. Advanced
+/// 6. General (for uncategorized flags)
+///
+/// Uses functional patterns with BTreeMap for deterministic ordering and
+/// custom category ordering via match-based key transformation.
+fn print_flags_by_category(flags: &[FlagSpec]) {
+    print!("{}", format_flags_by_category(flags));
+}
+
+/// Format flags grouped by category with deterministic ordering
+///
+/// Returns a formatted string with flags grouped by category.
+/// This is the core formatting logic used by `print_flags_by_category`.
+///
+/// Categories are displayed in the following order:
+/// 1. Behavior
+/// 2. Configuration  
+/// 3. Filter
+/// 4. Output
+/// 5. Advanced
+/// 6. General (for uncategorized flags)
+pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
+    use std::collections::BTreeMap;
+
+    let mut output = String::from("Flags:");
+
+    // Group flags by category using functional iterator patterns
+    // Map None to "general" for uncategorized flags
+    let grouped = flags.iter().fold(
+        BTreeMap::new(),
+        |mut acc: BTreeMap<String, Vec<&FlagSpec>>, flag| {
+            let category = flag
+                .category
+                .as_deref()
+                .unwrap_or("general")
+                .to_string();
+            acc.entry(category).or_insert_with(Vec::new).push(flag);
+            acc
+        },
+    );
+
+    // Define category display order (deterministic, consistent across runs)
+    let category_order = [
+        "behavior",
+        "configuration",
+        "filter",
+        "output",
+        "advanced",
+        "general",
+    ];
+
+    // Display categories in defined order using functional patterns
+    category_order
+        .iter()
+        .filter_map(|&category| {
+            grouped
+                .get(category)
+                .map(|flags_in_category| (category, flags_in_category))
+        })
+        .for_each(|(category, flags_in_category)| {
+            output.push_str(&format!("\n\n  {}:", capitalize_category(category)));
+
+            flags_in_category.iter().for_each(|flag| {
+                let short = flag
+                    .short
+                    .as_ref()
+                    .map(|s| format!("-{s}, "))
+                    .unwrap_or_default();
+                output.push_str(&format!("\n    {short}--{}", flag.long));
+                output.push_str(&format!("\n      Type: {}", flag.flag_type));
+                output.push_str(&format!("\n      Description: {}", flag.description));
+
+                if let Some(ref default) = flag.default {
+                    output.push_str(&format!("\n      Default: {default}"));
+                }
+
+                if !flag.possible_values.is_empty() {
+                    output.push_str(&format!("\n      Values: {}", flag.possible_values.join(", ")));
+                }
+            });
+        });
+
+    output.push('\n');
+    output
+}
+
+/// Capitalize category name for display
+///
+/// Converts category strings like "behavior" or "multi-word" to
+/// "Behavior" or "Multi Word" using functional transformations.
+///
+/// # Examples
+///
+/// ```
+/// # use zjj::commands::introspect::capitalize_category;
+/// assert_eq!(capitalize_category("behavior"), "Behavior");
+/// assert_eq!(capitalize_category("multi-word"), "Multi Word");
+/// ```
+fn capitalize_category(category: &str) -> String {
+    category
+        .split('-')
+        .map(|word| {
+            let mut chars = word.chars();
+            chars
+                .next()
+                .map(|first| {
+                    first
+                        .to_uppercase()
+                        .chain(chars)
+                        .collect::<String>()
+                })
+                .unwrap_or_default()
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 // Command introspection definitions
@@ -500,6 +611,24 @@ fn get_list_introspection() -> CommandIntrospection {
                 possible_values: vec![],
                 category: None,
             },
+            FlagSpec {
+                long: "bead".to_string(),
+                short: Some("b".to_string()),
+                description: "Filter by bead ID or pattern - supports dynamic values".to_string(),
+                flag_type: "string".to_string(),
+                default: None,
+                possible_values: vec![],
+                category: None,
+            },
+            FlagSpec {
+                long: "agent".to_string(),
+                short: Some("a".to_string()),
+                description: "Filter by agent name or pattern - supports dynamic values".to_string(),
+                flag_type: "string".to_string(),
+                default: None,
+                possible_values: vec![],
+                category: None,
+            },
         ],
         examples: vec![
             CommandExample {
@@ -510,6 +639,18 @@ fn get_list_introspection() -> CommandIntrospection {
                 command: "zjj list --all".to_string(),
                 description: "List all sessions including completed".to_string(),
             },
+            CommandExample {
+                command: "zjj list --bead feature-123".to_string(),
+                description: "List sessions for bead feature-123".to_string(),
+            },
+            CommandExample {
+                command: "zjj list --agent alice".to_string(),
+                description: "List sessions assigned to alice".to_string(),
+            },
+            CommandExample {
+                command: "zjj list --bead feature-123 --agent alice".to_string(),
+                description: "List feature-123 sessions assigned to alice".to_string(),
+            },
         ],
         prerequisites: Prerequisites {
             initialized: true,
@@ -518,7 +659,11 @@ fn get_list_introspection() -> CommandIntrospection {
             custom: vec![],
         },
         side_effects: vec![],
-        error_conditions: vec![],
+        error_conditions: vec![ErrorCondition {
+            code: "NO_MATCHING_SESSIONS".to_string(),
+            description: "No sessions match the filter criteria".to_string(),
+            resolution: "Try with less restrictive filters".to_string(),
+        }],
     }
 }
 

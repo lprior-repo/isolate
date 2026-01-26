@@ -421,9 +421,10 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
 fn handle_list(sub_m: &clap::ArgMatches) -> Result<()> {
     let all = sub_m.get_flag("all");
     let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
     let bead = sub_m.get_one::<String>("bead").cloned();
     let agent = sub_m.get_one::<String>("agent").map(String::as_str);
-    list::run(all, json, bead.as_deref(), agent)
+    list::run(all, format, bead.as_deref(), agent)
 }
 
 fn handle_remove(sub_m: &clap::ArgMatches) -> Result<()> {
@@ -431,16 +432,17 @@ fn handle_remove(sub_m: &clap::ArgMatches) -> Result<()> {
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
     let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
     let options = remove::RemoveOptions {
         force: sub_m.get_flag("force"),
         merge: sub_m.get_flag("merge"),
         keep_branch: sub_m.get_flag("keep-branch"),
-        json,
+        format,
     };
     match remove::run_with_options(name, &options) {
         Ok(()) => Ok(()),
         Err(e) => {
-            if json {
+            if format.is_json() {
                 json_output::output_json_error_and_exit(&e);
             } else {
                 Err(e)
@@ -454,11 +456,12 @@ fn handle_focus(sub_m: &clap::ArgMatches) -> Result<()> {
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
     let json = sub_m.get_flag("json");
-    let options = focus::FocusOptions { json };
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let options = focus::FocusOptions { format };
     match focus::run_with_options(name, &options) {
         Ok(()) => Ok(()),
         Err(e) => {
-            if json {
+            if format.is_json() {
                 json_output::output_json_error_and_exit(&e);
             } else {
                 Err(e)
@@ -470,11 +473,12 @@ fn handle_focus(sub_m: &clap::ArgMatches) -> Result<()> {
 fn handle_status(sub_m: &clap::ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
     let watch = sub_m.get_flag("watch");
-    match status::run(name, json, watch) {
+    match status::run(name, format, watch) {
         Ok(()) => Ok(()),
         Err(e) => {
-            if json {
+            if format.is_json() {
                 json_output::output_json_error_and_exit(&e);
             } else {
                 Err(e)
@@ -486,11 +490,12 @@ fn handle_status(sub_m: &clap::ArgMatches) -> Result<()> {
 fn handle_sync(sub_m: &clap::ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let json = sub_m.get_flag("json");
-    let options = sync::SyncOptions { json };
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let options = sync::SyncOptions { format };
     match sync::run_with_options(name, options) {
         Ok(()) => Ok(()),
         Err(e) => {
-            if json {
+            if format.is_json() {
                 json_output::output_json_error_and_exit(&e);
             } else {
                 Err(e)
@@ -522,16 +527,17 @@ fn handle_config(sub_m: &clap::ArgMatches) -> Result<()> {
     let value = sub_m.get_one::<String>("value").cloned();
     let global = sub_m.get_flag("global");
     let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
     let options = config::ConfigOptions {
         key,
         value,
         global,
-        json,
+        format,
     };
     match config::run(options) {
         Ok(()) => Ok(()),
         Err(e) => {
-            if json {
+            if format.is_json() {
                 json_output::output_json_error_and_exit(&e);
             } else {
                 Err(e)
@@ -544,10 +550,11 @@ fn handle_clean(sub_m: &clap::ArgMatches) -> Result<()> {
     let force = sub_m.get_flag("force");
     let dry_run = sub_m.get_flag("dry-run");
     let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
     let options = clean::CleanOptions {
         force,
         dry_run,
-        json,
+        format,
     };
     clean::run_with_options(&options)
 }
@@ -555,14 +562,15 @@ fn handle_clean(sub_m: &clap::ArgMatches) -> Result<()> {
 fn handle_introspect(sub_m: &clap::ArgMatches) -> Result<()> {
     let command = sub_m.get_one::<String>("command").map(String::as_str);
     let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
     let result = command.map_or_else(
-        || introspect::run(json),
-        |cmd| introspect::run_command_introspect(cmd, json),
+        || introspect::run(format),
+        |cmd| introspect::run_command_introspect(cmd, format),
     );
     match result {
         Ok(()) => Ok(()),
         Err(e) => {
-            if json {
+            if format.is_json() {
                 json_output::output_json_error_and_exit(&e);
             } else {
                 Err(e)
@@ -573,11 +581,12 @@ fn handle_introspect(sub_m: &clap::ArgMatches) -> Result<()> {
 
 fn handle_doctor(sub_m: &clap::ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
     let fix = sub_m.get_flag("fix");
-    match doctor::run(json, fix) {
+    match doctor::run(format, fix) {
         Ok(()) => Ok(()),
         Err(e) => {
-            if json {
+            if format.is_json() {
                 json_output::output_json_error_and_exit(&e);
             } else {
                 Err(e)
@@ -606,7 +615,7 @@ fn run_cli() -> Result<()> {
             match attach::run_with_options(&options) {
                 Ok(()) => Ok(()),
                 Err(e) => {
-                    if options.json {
+                    if options.format.is_json() {
                         json_output::output_json_error_and_exit(&e);
                     } else {
                         Err(e)

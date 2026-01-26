@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use serde::Serialize;
-use zjj_core::json::SchemaEnvelope;
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{commands::get_session_db, session::Session};
 
@@ -89,16 +89,16 @@ impl std::fmt::Display for BeadStats {
 }
 
 /// Run the status command
-pub fn run(name: Option<&str>, json: bool, watch: bool) -> Result<()> {
+pub fn run(name: Option<&str>, format: OutputFormat, watch: bool) -> Result<()> {
     if watch {
-        run_watch_mode(name, json)
+        run_watch_mode(name, format)
     } else {
-        run_once(name, json)
+        run_once(name, format)
     }
 }
 
 /// Run status once
-fn run_once(name: Option<&str>, json: bool) -> Result<()> {
+fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
     let db = get_session_db()?;
 
     let sessions = if let Some(session_name) = name {
@@ -116,7 +116,7 @@ fn run_once(name: Option<&str>, json: bool) -> Result<()> {
     };
 
     if sessions.is_empty() {
-        if json {
+        if format.is_json() {
             println!("[]");
         } else {
             println!("No sessions found.");
@@ -131,7 +131,7 @@ fn run_once(name: Option<&str>, json: bool) -> Result<()> {
         .map(|session| gather_session_status(&session))
         .collect::<Result<Vec<_>>>()?;
 
-    if json {
+    if format.is_json() {
         output_json(&statuses)?;
     } else {
         output_table(&statuses);
@@ -141,19 +141,19 @@ fn run_once(name: Option<&str>, json: bool) -> Result<()> {
 }
 
 /// Run status in watch mode (continuous updates)
-fn run_watch_mode(name: Option<&str>, json: bool) -> Result<()> {
+fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<()> {
     use std::{io::Write, thread, time::Duration};
 
     loop {
         // Clear screen (ANSI escape code)
-        if !json {
+        if format.is_human() {
             print!("\x1B[2J\x1B[1;1H");
             std::io::stdout().flush()?;
         }
 
         // Run status once
-        if let Err(e) = run_once(name, json) {
-            if !json {
+        if let Err(e) = run_once(name, format) {
+            if format.is_human() {
                 eprintln!("Error: {e}");
             }
         }

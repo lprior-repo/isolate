@@ -4,6 +4,7 @@ use std::{io::Write, path::Path};
 
 use anyhow::Result;
 use serde::Serialize;
+use zjj_core::OutputFormat;
 
 use crate::commands::get_session_db;
 
@@ -14,14 +15,13 @@ pub struct CleanOptions {
     pub force: bool,
     /// List stale sessions without removing
     pub dry_run: bool,
-    /// Output as JSON
-    pub json: bool,
+    /// Output format
+    pub format: OutputFormat,
 }
 
 /// Output for clean command in JSON mode
 #[derive(Debug, Clone, Serialize)]
 pub struct CleanOutput {
-    pub success: bool,
     pub stale_count: usize,
     pub removed_count: usize,
     pub stale_sessions: Vec<String>,
@@ -47,7 +47,7 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
 
     // 2. Handle no stale sessions case
     if stale_sessions.is_empty() {
-        output_no_stale(options.json);
+        output_no_stale(options.format);
         return Ok(());
     }
 
@@ -55,13 +55,13 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
 
     // 3. Dry-run: list and exit
     if options.dry_run {
-        output_dry_run(&stale_names, options.json);
+        output_dry_run(&stale_names, options.format);
         return Ok(());
     }
 
     // 4. Prompt for confirmation unless --force
     if !options.force && !confirm_removal(&stale_names)? {
-        output_cancelled(&stale_names, options.json);
+        output_cancelled(&stale_names, options.format);
         return Ok(());
     }
 
@@ -73,7 +73,7 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
     })?;
 
     // 6. Output result
-    output_result(removed_count, &stale_names, options.json);
+    output_result(removed_count, &stale_names, options.format);
 
     Ok(())
 }
@@ -83,10 +83,9 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Output when no stale sessions found
-fn output_no_stale(json: bool) -> () {
-    if json {
+fn output_no_stale(format: OutputFormat) -> () {
+    if format.is_json() {
         let output = CleanOutput {
-            success: true,
             stale_count: 0,
             removed_count: 0,
             stale_sessions: Vec::new(),
@@ -101,10 +100,9 @@ fn output_no_stale(json: bool) -> () {
 }
 
 /// Output for dry-run mode
-fn output_dry_run(stale_names: &[String], json: bool) {
-    if json {
+fn output_dry_run(stale_names: &[String], format: OutputFormat) {
+    if format.is_json() {
         let output = CleanOutput {
-            success: true,
             stale_count: stale_names.len(),
             removed_count: 0,
             stale_sessions: stale_names.to_vec(),
@@ -126,10 +124,9 @@ fn output_dry_run(stale_names: &[String], json: bool) {
 }
 
 /// Output when cleanup is cancelled
-fn output_cancelled(stale_names: &[String], json: bool) {
-    if json {
+fn output_cancelled(stale_names: &[String], format: OutputFormat) {
+    if format.is_json() {
         let output = CleanOutput {
-            success: false,
             stale_count: stale_names.len(),
             removed_count: 0,
             stale_sessions: stale_names.to_vec(),
@@ -143,10 +140,9 @@ fn output_cancelled(stale_names: &[String], json: bool) {
 }
 
 /// Output cleanup result
-fn output_result(removed_count: usize, stale_names: &[String], json: bool) {
-    if json {
+fn output_result(removed_count: usize, stale_names: &[String], format: OutputFormat) {
+    if format.is_json() {
         let output = CleanOutput {
-            success: true,
             stale_count: stale_names.len(),
             removed_count,
             stale_sessions: stale_names.to_vec(),
@@ -198,20 +194,18 @@ mod tests {
         let opts = CleanOptions::default();
         assert!(!opts.force);
         assert!(!opts.dry_run);
-        assert!(!opts.json);
+        assert!(opts.format.is_human());
     }
 
     #[test]
     fn test_clean_output_serialization() -> Result<()> {
         let output = CleanOutput {
-            success: true,
             stale_count: 2,
             removed_count: 2,
             stale_sessions: vec!["session1".to_string(), "session2".to_string()],
         };
 
         let json = serde_json::to_string(&output)?;
-        assert!(json.contains("\"success\":true"));
         assert!(json.contains("\"stale_count\":2"));
         assert!(json.contains("\"removed_count\":2"));
         assert!(json.contains("session1"));

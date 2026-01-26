@@ -18,8 +18,11 @@
 use std::process::Command;
 
 use anyhow::Result;
-use zjj_core::introspection::{
-    CheckStatus, DoctorCheck, DoctorFixOutput, DoctorOutput, FixResult, UnfixableIssue,
+use zjj_core::{
+    introspection::{
+        CheckStatus, DoctorCheck, DoctorFixOutput, DoctorOutput, FixResult, UnfixableIssue,
+    },
+    OutputFormat,
 };
 
 use crate::{
@@ -28,13 +31,13 @@ use crate::{
 };
 
 /// Run health checks
-pub fn run(json: bool, fix: bool) -> Result<()> {
+pub fn run(format: OutputFormat, fix: bool) -> Result<()> {
     let checks = run_all_checks();
 
     if fix {
-        run_fixes(&checks, json)
+        run_fixes(&checks, format)
     } else {
-        show_health_report(&checks, json)
+        show_health_report(&checks, format)
     }
 }
 
@@ -335,10 +338,10 @@ fn check_beads() -> DoctorCheck {
 /// # Exit Codes
 /// - 0: All checks passed (healthy system)
 /// - 1: One or more checks failed (unhealthy system)
-fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
+fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     let output = DoctorOutput::from_checks(checks.to_vec());
 
-    if json {
+    if format.is_json() {
         println!("{}", serde_json::to_string_pretty(&output)?);
         // If unhealthy in JSON mode, exit with 1 immediately to avoid
         // main.rs printing a second JSON error object
@@ -391,7 +394,7 @@ fn show_health_report(checks: &[DoctorCheck], json: bool) -> Result<()> {
 /// # Exit Codes
 /// - 0: All critical issues were fixed or none existed
 /// - 1: Critical issues remain unfixed
-fn run_fixes(checks: &[DoctorCheck], json: bool) -> Result<()> {
+fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     let mut fixed = vec![];
     let mut unable_to_fix = vec![];
 
@@ -448,7 +451,7 @@ fn run_fixes(checks: &[DoctorCheck], json: bool) -> Result<()> {
         })
         .count();
 
-    if json {
+    if format.is_json() {
         println!("{}", serde_json::to_string_pretty(&output)?);
         if critical_unfixed > 0 {
             std::process::exit(1);
