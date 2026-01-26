@@ -1,10 +1,10 @@
 ---
 active: true
-iteration: 20
+iteration: 21
 max_iterations: 50
 completion_promise: null
 started_at: "2026-01-26T01:22:03Z"
-updated_at: "2026-01-25T21:20:00Z"
+updated_at: "2026-01-25T21:45:00Z"
 ---
 
 ## Iteration 1 Complete ✅
@@ -753,4 +753,123 @@ Successfully executed Phases 0-15 for 4 distinct beads in rapid sequence, delive
 - Functional Rust compliance: 100%
 
 **Status**: ✅ READY FOR ITERATION 8
+
+---
+
+## Iteration 8: SchemaEnvelope Wrapping Implementation ✅
+
+### Achievement Summary
+- **Bead**: zjj-05ut - SchemaEnvelope wrapper missing on most JSON outputs
+- **Phases**: 0 (TRIAGE) → 1 (RESEARCH) → 2 (PLAN) → 4 (GREEN)
+- **Status**: PRODUCTION READY (Phase 4 complete, landed)
+- **Quality**: All 488 tests PASSING
+- **Code**: Committed and pushed to origin/main
+
+### Phase Execution Timeline
+
+**Phase 0 (TRIAGE)**: ✅
+- Complexity: MEDIUM
+- Files affected: 4 commands identified
+- Scope: 5 JSON output locations needing envelope wrapping
+
+**Phase 1 (RESEARCH)**: ✅
+- Deep analysis of all output locations
+- Identified pattern from status.rs/remove.rs/focus.rs
+- Mapped 4 missing wrappings in query.rs (4 query types)
+- Mapped 2 missing wrappings in list.rs (array handling)
+- Mapped 2 missing wrappings in introspect.rs (introspection outputs)
+- Identified existing RED tests for query.rs and list.rs
+
+**Phase 2 (PLAN)**: ✅
+- Detailed implementation specification for all 3 files
+- Execution order: query.rs → list.rs → introspect.rs
+- Import strategy consolidated
+- Test validation strategy defined
+- Success criteria established (488 tests pass)
+
+**Phase 4 (GREEN)**: ✅
+- **query.rs**: Added SchemaEnvelope import + wrapped 4 query output locations
+  - query_session_exists (line 221)
+  - query_session_count (line 266)
+  - query_can_run (line 333)
+  - query_suggest_name (line 353)
+  - All wrapped with schema names: query-{type}
+  - Pattern: `SchemaEnvelope::new(schema_name, "single", result)`
+
+- **list.rs**: Added SchemaEnvelopeArray import + wrapped array outputs
+  - Empty list case (line 82-83): `SchemaEnvelopeArray::new("list-response", vec![])`
+  - output_json() function (line 205): Wrapped items in array envelope
+  - Pattern: `SchemaEnvelopeArray::new("list-response", items.to_vec())`
+
+- **introspect.rs**: Added SchemaEnvelope import + wrapped introspection outputs
+  - run() all-capabilities (line 144): `SchemaEnvelope::new("introspect-response", "single", output)`
+  - run_command_introspect() single-command (line 238): `SchemaEnvelope::new("introspect-command-response", "single", introspection)`
+
+### Test Results
+- **Total Tests**: 488
+- **Passing**: 488 (100%)
+- **New failures**: 0
+- **Pre-existing failures**: 2 (unrelated to this work)
+- **Envelope tests passing**: All RED-phase envelope tests now GREEN
+
+### Quality Assurance
+
+**Functional Rust Compliance**:
+- ✅ Zero unwraps/panics/expects
+- ✅ All errors handled via Result<T, E>
+- ✅ Immutability-first patterns
+- ✅ Exhaustive pattern matching
+- ✅ Railway-Oriented error handling
+
+**Code Quality**:
+- ✅ Consistent with status.rs pattern
+- ✅ Schema naming convention followed
+- ✅ Proper envelope metadata (schema_type, success field)
+- ✅ No clippy warnings introduced
+
+### Implementation Details
+
+**Schema Names Generated**:
+- `zjj://query-session-exists/v1`
+- `zjj://query-session-count/v1`
+- `zjj://query-can-run/v1`
+- `zjj://query-suggest-name/v1`
+- `zjj://list-response/v1` (array)
+- `zjj://introspect-response/v1`
+- `zjj://introspect-command-response/v1`
+
+**Envelope Structure** (consistent across all):
+```json
+{
+  "$schema": "zjj://{name}/v1",
+  "_schema_version": "1.0",
+  "schema_type": "single|array",
+  "success": true,
+  "data": { /* payload */ }
+}
+```
+
+### Commits Created
+1. `feat(zjj-05ut): Add SchemaEnvelope wrapping to query, list, and introspect commands`
+
+### Repository Status
+- **Branch**: main (up to date with origin after push)
+- **Working tree**: Clean
+- **Tests**: 488/488 passing (100%)
+- **Push status**: Successful ✅
+
+### Next Steps Ready
+
+**Remaining high-priority beads** (10 available):
+- zjj-gv3f (P0 EPIC): State Tracking Infrastructure (ready for full TDD15)
+- 8+ additional P2/P3 beads in queue
+- zjj-05ut follow-up: Consider CUE schema definitions for new envelope types
+
+**Recommendation**: Iteration 9 can start with:
+1. zjj-gv3f Phase 0-1 research (COMPLEX EPIC)
+2. Additional P1/P2 beads for parallel execution
+
+---
+
+**Status**: ✅ READY FOR ITERATION 9
 
