@@ -156,7 +156,7 @@ pub fn validate_session_name(name: &str) -> Result<()> {
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return Err(Error::ValidationError(
-            "Session name can only contain ASCII alphanumeric characters, dashes, and underscores"
+            "Invalid session name: Session name can only contain ASCII alphanumeric characters, dashes, and underscores"
                 .into(),
         ));
     }
@@ -165,7 +165,7 @@ pub fn validate_session_name(name: &str) -> Result<()> {
     if let Some(first) = name.chars().next() {
         if !first.is_ascii_alphabetic() {
             return Err(Error::ValidationError(
-                "Session name must start with a letter (a-z, A-Z)".into(),
+                "Invalid session name: Session name must start with a letter (a-z, A-Z)".into(),
             ));
         }
     }
