@@ -1523,4 +1523,83 @@ mod tests {
             );
         }
     }
+
+    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
+    // These tests FAIL initially - they verify envelope structure and format
+    // Implementation in Phase 4 (GREEN) will make them pass
+
+    #[test]
+    fn test_introspect_json_has_envelope() -> Result<()> {
+        // FAILING: Verify envelope wrapping for introspect command output
+        let output = IntrospectOutput::new("0.1.0");
+        let envelope = crate::json::SchemaEnvelope::new("introspect-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_introspect_schema_format() -> Result<()> {
+        // FAILING: Verify schema format matches zjj://introspect/v1 pattern
+        let output = IntrospectOutput::new("0.1.0");
+        let envelope = crate::json::SchemaEnvelope::new("introspect-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        let schema = parsed.get("$schema")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| crate::Error::ParseError("$schema not found".to_string()))?;
+
+        assert!(schema.starts_with("zjj://introspect"), "Schema should start with 'zjj://introspect'");
+        assert!(schema.ends_with("/v1"), "Schema should end with '/v1'");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_introspect_flags_wrapped() -> Result<()> {
+        // FAILING: Verify flags array is wrapped in envelope
+        let flag = FlagSpec {
+            long: "test-flag".to_string(),
+            short: Some("t".to_string()),
+            description: "A test flag".to_string(),
+            flag_type: "string".to_string(),
+            default: None,
+            possible_values: vec![],
+            category: None,
+        };
+
+        let flags = vec![flag];
+        let envelope = crate::json::SchemaEnvelope::new("introspect-flags", "array", flags);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("array"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_introspect_schema_version() -> Result<()> {
+        // FAILING: Verify _schema_version is "1.0"
+        let output = IntrospectOutput::new("0.1.0");
+        let envelope = crate::json::SchemaEnvelope::new("introspect-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        let version = parsed.get("_schema_version")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| crate::Error::ParseError("_schema_version not found".to_string()))?;
+
+        assert_eq!(version, "1.0", "_schema_version should be exactly '1.0'");
+
+        Ok(())
+    }
 }

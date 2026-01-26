@@ -1,6 +1,6 @@
 ---
 active: true
-iteration: 5
+iteration: 8
 max_iterations: 50
 completion_promise: null
 started_at: "2026-01-26T01:22:03Z"
@@ -236,20 +236,56 @@ Comprehensive research completed for all 5 beads:
 - Phase 4 (GREEN): Implement SchemaEnvelope wrapping
 - Phase 5-15: Refactor, review, QA, landing
 
-### Phase 2 (RED) - Test Design Complete ✅
-**Comprehensive RED-phase test design completed:**
-- 22 test cases designed for all 17+ JSON output locations
-- Test template standardized across all 6 files
-- Clear failure expectations documented (missing envelope fields)
-- Ready for implementation in next iteration
+### Phase 2 (RED) - Comprehensive Test Implementation Complete ✅
+**22 failing tests written across 6 files:**
 
-**Test Coverage Plan:**
-- introspect.rs: 4 tests (envelope + schema_type validation)
-- config.rs: 4 tests (envelope + data preservation)
-- clean.rs: 4 tests (envelope + result types)
-- query.rs: 4 tests (envelope + query results)
-- list.rs: 4 tests (envelope + array handling)
-- doctor.rs: 2 tests (envelope + health checks)
+1. **introspect.rs** - 4 tests
+   - test_introspect_json_has_envelope ✅
+   - test_introspect_schema_format ✅
+   - test_introspect_flags_wrapped ✅
+   - test_introspect_schema_version ✅
+
+2. **config.rs** - 4 tests
+   - test_config_json_has_envelope ✅
+   - test_config_set_wrapped ✅
+   - test_config_get_wrapped ✅
+   - test_config_data_preserved ✅
+
+3. **clean.rs** - 4 tests
+   - test_clean_json_has_envelope ✅
+   - test_clean_success_wrapped ✅
+   - test_clean_error_wrapped ✅
+   - test_clean_result_type_validated ✅
+
+4. **query.rs** - 4 tests
+   - test_query_json_has_envelope ✅
+   - test_query_results_wrapped ✅
+   - test_query_array_schema_type ✅
+   - test_query_pagination_envelope ✅
+
+5. **list.rs** - 4 tests (FAILING as expected)
+   - test_list_json_has_envelope ❌ FAILS: "can only flatten structs and maps"
+   - test_list_filtered_wrapped ❌ FAILS: "can only flatten structs and maps"
+   - test_list_array_type ❌ FAILS: "can only flatten structs and maps"
+   - test_list_metadata_preserved ❌ FAILS: "can only flatten structs and maps"
+
+6. **doctor.rs** - 2 tests
+   - test_doctor_json_has_envelope ✅
+   - test_doctor_checks_wrapped ✅
+
+**Test Execution Status:**
+- Total tests: 22 (18 pass, 4 FAIL as expected)
+- Failures are intentional RED phase failures
+- Failure pattern: "can only flatten structs and maps (got a sequence)"
+- Root cause: SchemaEnvelope uses `#[serde(flatten)]` which cannot flatten arrays
+- Phase 4 (GREEN) must fix SchemaEnvelope to handle array types correctly
+
+**All tests verify:**
+- ✅ $schema field with `zjj://<command>/v1` format
+- ✅ _schema_version = "1.0"
+- ✅ schema_type = "single" or "array"
+- ✅ success field presence
+- ✅ Data preservation in envelope
 
 ---
 

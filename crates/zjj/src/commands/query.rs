@@ -375,3 +375,109 @@ fn requires_jj_repo(command: &str) -> bool {
 fn requires_zellij(command: &str) -> bool {
     matches!(command, "add" | "focus")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
+    // These tests FAIL initially - they verify envelope structure and format
+    // Implementation in Phase 4 (GREEN) will make them pass
+
+    #[test]
+    fn test_query_json_has_envelope() -> anyhow::Result<()> {
+        // FAILING: Verify envelope wrapping for query command output
+        use zjj_core::json::SchemaEnvelope;
+
+        let query_result = SessionExistsQuery {
+            exists: Some(true),
+            session: Some(SessionInfo {
+                name: "test-session".to_string(),
+                status: "active".to_string(),
+            }),
+            error: None,
+        };
+        let envelope = SchemaEnvelope::new("query-session-exists", "single", query_result);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_query_results_wrapped() -> anyhow::Result<()> {
+        // FAILING: Verify query results are wrapped in envelope
+        use zjj_core::json::SchemaEnvelope;
+
+        let query_result = CanRunQuery {
+            can_run: true,
+            command: "add".to_string(),
+            blockers: vec![],
+            prerequisites_met: 3,
+            prerequisites_total: 3,
+        };
+        let envelope = SchemaEnvelope::new("query-can-run", "single", query_result);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_query_array_schema_type() -> anyhow::Result<()> {
+        // FAILING: Verify schema_type is "array" for array results
+        use zjj_core::json::SchemaEnvelope;
+
+        let blockers = vec![
+            Blocker {
+                check: "JJ installed".to_string(),
+                status: true,
+                message: "JJ is installed".to_string(),
+            }
+        ];
+        let envelope = SchemaEnvelope::new("query-blockers", "array", blockers);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        let schema_type = parsed.get("schema_type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("schema_type not found"))?;
+
+        assert_eq!(schema_type, "array", "schema_type should be 'array' for array responses");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_query_pagination_envelope() -> anyhow::Result<()> {
+        // FAILING: Verify pagination info is preserved in envelope
+        use zjj_core::json::SchemaEnvelope;
+        use serde_json::json;
+
+        let count_result = SessionCountQuery {
+            count: Some(5),
+            filter: Some(json!({"status": "active"})),
+            error: None,
+        };
+        let envelope = SchemaEnvelope::new("query-session-count", "single", count_result);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+
+        Ok(())
+    }
+}
