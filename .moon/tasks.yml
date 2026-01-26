@@ -168,3 +168,57 @@ tasks:
     options:
       cache: true
       runInCI: false
+
+  # ============================================================================
+  # RELEASE AUTOMATION
+  # ============================================================================
+
+  release:bump:
+    command: |
+      if [ -z "$VERSION" ]; then
+        echo "Error: VERSION environment variable required"
+        echo "Usage: VERSION=0.4.0 moon run :release:bump"
+        exit 1
+      fi
+      sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+      cargo build --release
+      echo "✅ Version bumped to $VERSION"
+    description: "Bump version in Cargo.toml and rebuild"
+    options:
+      cache: false
+
+  release:tag:
+    command: |
+      VERSION=$(grep "^version = " Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+      if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+        echo "⚠️  Tag v$VERSION already exists"
+        exit 1
+      fi
+      git add Cargo.toml
+      git commit -m "chore: Bump version to $VERSION for release"
+      git tag -a "v$VERSION" -m "Release v$VERSION"
+      echo "✅ Created tag v$VERSION"
+    description: "Commit version bump and create git tag"
+    options:
+      cache: false
+
+  release:push:
+    command: |
+      VERSION=$(grep "^version = " Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+      git push origin main
+      git push origin "v$VERSION"
+      echo "✅ Pushed main and tag v$VERSION to origin"
+    description: "Push release commit and tag to remote"
+    options:
+      cache: false
+
+  release:
+    command: "true"
+    description: "Full release workflow: bump version, tag, and push"
+    deps:
+      - "ci"           # Ensure all tests pass first
+      - "release:bump"  # Bump version (requires VERSION env var)
+      - "release:tag"   # Create and commit tag
+      - "release:push"  # Push to remote
+    options:
+      cache: false
