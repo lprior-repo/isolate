@@ -594,8 +594,14 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("array"));
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("array")
+        );
         assert!(parsed.get("success").is_some(), "Missing success field");
 
         Ok(())
@@ -606,33 +612,34 @@ mod tests {
         // Verify filtered results are wrapped in envelope
         use zjj_core::json::SchemaEnvelopeArray;
 
-        let items = vec![
-            SessionListItem {
+        let items = vec![SessionListItem {
+            name: "session1".to_string(),
+            status: "active".to_string(),
+            branch: "main".to_string(),
+            changes: "0".to_string(),
+            beads: "1/0/0".to_string(),
+            session: Session {
+                id: Some(1i64),
                 name: "session1".to_string(),
-                status: "active".to_string(),
-                branch: "main".to_string(),
-                changes: "0".to_string(),
-                beads: "1/0/0".to_string(),
-                session: Session {
-                    id: Some(1i64),
-                    name: "session1".to_string(),
-                    workspace_path: "/tmp/ws1".to_string(),
-                    zellij_tab: "zjj:session1".to_string(),
-                    status: SessionStatus::Active,
-                    branch: Some("main".to_string()),
-                    created_at: 1704067200u64,
-                    updated_at: 1704067200u64,
-                    last_synced: Some(1704067200u64),
-                    metadata: None,
-                },
-            }
-        ];
+                workspace_path: "/tmp/ws1".to_string(),
+                zellij_tab: "zjj:session1".to_string(),
+                status: SessionStatus::Active,
+                branch: Some("main".to_string()),
+                created_at: 1704067200u64,
+                updated_at: 1704067200u64,
+                last_synced: Some(1704067200u64),
+                metadata: None,
+            },
+        }];
         let envelope = SchemaEnvelopeArray::new("list-response", items);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("array"));
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("array")
+        );
 
         Ok(())
     }
@@ -647,11 +654,15 @@ mod tests {
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-        let schema_type = parsed.get("schema_type")
+        let schema_type = parsed
+            .get("schema_type")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("schema_type not found"))?;
 
-        assert_eq!(schema_type, "array", "schema_type should be 'array' for list responses");
+        assert_eq!(
+            schema_type, "array",
+            "schema_type should be 'array' for list responses"
+        );
 
         Ok(())
     }
@@ -659,41 +670,42 @@ mod tests {
     #[test]
     fn test_list_metadata_preserved() -> Result<()> {
         // Verify session metadata is preserved in envelope
-        use zjj_core::json::SchemaEnvelopeArray;
         use serde_json::json;
+        use zjj_core::json::SchemaEnvelopeArray;
 
         let metadata = json!({
             "owner": "alice",
             "bead_id": "feat-123"
         });
 
-        let items = vec![
-            SessionListItem {
+        let items = vec![SessionListItem {
+            name: "session1".to_string(),
+            status: "active".to_string(),
+            branch: "feature".to_string(),
+            changes: "3".to_string(),
+            beads: "2/1/0".to_string(),
+            session: Session {
+                id: Some(1i64),
                 name: "session1".to_string(),
-                status: "active".to_string(),
-                branch: "feature".to_string(),
-                changes: "3".to_string(),
-                beads: "2/1/0".to_string(),
-                session: Session {
-                    id: Some(1i64),
-                    name: "session1".to_string(),
-                    workspace_path: "/tmp/ws1".to_string(),
-                    zellij_tab: "zjj:session1".to_string(),
-                    status: SessionStatus::Active,
-                    branch: Some("feature".to_string()),
-                    created_at: 1704067200u64,
-                    updated_at: 1704067200u64,
-                    last_synced: Some(1704067200u64),
-                    metadata: Some(metadata),
-                },
-            }
-        ];
+                workspace_path: "/tmp/ws1".to_string(),
+                zellij_tab: "zjj:session1".to_string(),
+                status: SessionStatus::Active,
+                branch: Some("feature".to_string()),
+                created_at: 1704067200u64,
+                updated_at: 1704067200u64,
+                last_synced: Some(1704067200u64),
+                metadata: Some(metadata),
+            },
+        }];
         let envelope = SchemaEnvelopeArray::new("list-response", items);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
 
         Ok(())
     }

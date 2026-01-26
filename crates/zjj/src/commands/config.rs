@@ -510,8 +510,14 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
         assert!(parsed.get("success").is_some(), "Missing success field");
 
         Ok(())
@@ -520,8 +526,8 @@ mod tests {
     #[test]
     fn test_config_set_wrapped() -> Result<()> {
         // FAILING: Verify envelope wrapping when setting config values
-        use zjj_core::json::SchemaEnvelope;
         use serde_json::json;
+        use zjj_core::json::SchemaEnvelope;
 
         let response = json!({"success": true, "key": "test.key", "value": "test_value"});
         let envelope = SchemaEnvelope::new("config-set", "single", response);
@@ -529,7 +535,10 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
 
         Ok(())
     }
@@ -537,8 +546,8 @@ mod tests {
     #[test]
     fn test_config_get_wrapped() -> Result<()> {
         // FAILING: Verify envelope wrapping when getting config values
-        use zjj_core::json::SchemaEnvelope;
         use serde_json::json;
+        use zjj_core::json::SchemaEnvelope;
 
         let response = json!({"value": "config_value"});
         let envelope = SchemaEnvelope::new("config-get", "single", response);
@@ -562,9 +571,12 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         // Verify data is flattened into envelope (not nested in a "data" field)
-        let has_config_fields = parsed.get("workspace_dir").is_some()
-            || parsed.get("zellij").is_some();
-        assert!(has_config_fields, "Config data should be preserved in envelope");
+        let has_config_fields =
+            parsed.get("workspace_dir").is_some() || parsed.get("zellij").is_some();
+        assert!(
+            has_config_fields,
+            "Config data should be preserved in envelope"
+        );
 
         Ok(())
     }

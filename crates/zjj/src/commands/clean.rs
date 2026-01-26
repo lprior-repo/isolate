@@ -273,8 +273,14 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
         assert!(parsed.get("success").is_some(), "Missing success field");
 
         Ok(())
@@ -295,7 +301,10 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
 
         Ok(())
     }
@@ -303,8 +312,8 @@ mod tests {
     #[test]
     fn test_clean_error_wrapped() -> Result<()> {
         // FAILING: Verify envelope wrapping includes error information
-        use zjj_core::json::SchemaEnvelope;
         use serde_json::json;
+        use zjj_core::json::SchemaEnvelope;
 
         let error_response = json!({"error": "No sessions found"});
         let envelope = SchemaEnvelope::new("clean-response", "single", error_response);
@@ -312,7 +321,10 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert!(parsed.get("_schema_version").is_some(), "Missing _schema_version field");
+        assert!(
+            parsed.get("_schema_version").is_some(),
+            "Missing _schema_version field"
+        );
 
         Ok(())
     }
@@ -331,11 +343,15 @@ mod tests {
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-        let schema_type = parsed.get("schema_type")
+        let schema_type = parsed
+            .get("schema_type")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("schema_type not found"))?;
 
-        assert_eq!(schema_type, "single", "schema_type should be 'single' for single object responses");
+        assert_eq!(
+            schema_type, "single",
+            "schema_type should be 'single' for single object responses"
+        );
 
         Ok(())
     }
