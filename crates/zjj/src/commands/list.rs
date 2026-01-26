@@ -585,11 +585,11 @@ mod tests {
 
     #[test]
     fn test_list_json_has_envelope() -> Result<()> {
-        // FAILING: Verify envelope wrapping for list command output
-        use zjj_core::json::SchemaEnvelope;
+        // Verify envelope wrapping for list command output
+        use zjj_core::json::SchemaEnvelopeArray;
 
         let items: Vec<SessionListItem> = vec![];
-        let envelope = SchemaEnvelope::new("list-response", "array", items);
+        let envelope = SchemaEnvelopeArray::new("list-response", items);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
@@ -603,8 +603,8 @@ mod tests {
 
     #[test]
     fn test_list_filtered_wrapped() -> Result<()> {
-        // FAILING: Verify filtered results are wrapped in envelope
-        use zjj_core::json::SchemaEnvelope;
+        // Verify filtered results are wrapped in envelope
+        use zjj_core::json::SchemaEnvelopeArray;
 
         let items = vec![
             SessionListItem {
@@ -627,7 +627,7 @@ mod tests {
                 },
             }
         ];
-        let envelope = SchemaEnvelope::new("list-response", "array", items);
+        let envelope = SchemaEnvelopeArray::new("list-response", items);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
@@ -639,11 +639,11 @@ mod tests {
 
     #[test]
     fn test_list_array_type() -> Result<()> {
-        // FAILING: Verify schema_type is "array" for list results
-        use zjj_core::json::SchemaEnvelope;
+        // Verify schema_type is "array" for list results
+        use zjj_core::json::SchemaEnvelopeArray;
 
         let items: Vec<SessionListItem> = vec![];
-        let envelope = SchemaEnvelope::new("list-response", "array", items);
+        let envelope = SchemaEnvelopeArray::new("list-response", items);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
@@ -658,8 +658,8 @@ mod tests {
 
     #[test]
     fn test_list_metadata_preserved() -> Result<()> {
-        // FAILING: Verify session metadata is preserved in envelope
-        use zjj_core::json::SchemaEnvelope;
+        // Verify session metadata is preserved in envelope
+        use zjj_core::json::SchemaEnvelopeArray;
         use serde_json::json;
 
         let metadata = json!({
@@ -688,7 +688,7 @@ mod tests {
                 },
             }
         ];
-        let envelope = SchemaEnvelope::new("list-response", "array", items);
+        let envelope = SchemaEnvelopeArray::new("list-response", items);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 

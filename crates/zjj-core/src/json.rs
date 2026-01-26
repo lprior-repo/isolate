@@ -370,6 +370,49 @@ impl<T> SchemaEnvelope<T> {
     }
 }
 
+/// Schema envelope for array responses
+///
+/// Unlike SchemaEnvelope which uses flatten for single objects,
+/// SchemaEnvelopeArray explicitly wraps array data because serde flatten
+/// cannot serialize sequences.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaEnvelopeArray<T> {
+    /// JSON Schema reference (e.g., "zjj://list-response/v1")
+    #[serde(rename = "$schema")]
+    pub schema: String,
+    /// Schema version for compatibility tracking
+    pub _schema_version: String,
+    /// Response shape type ("array" for collections)
+    pub schema_type: String,
+    /// Success flag
+    pub success: bool,
+    /// Array data (cannot be flattened, so stored as explicit field)
+    pub data: Vec<T>,
+}
+
+impl<T> SchemaEnvelopeArray<T> {
+    /// Create a new array schema envelope
+    ///
+    /// # Arguments
+    /// * `schema_name` - Command/response type (e.g., "list-response")
+    /// * `data` - The array data to wrap
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let envelope = SchemaEnvelopeArray::new("list-response", items);
+    /// ```
+    pub fn new(schema_name: &str, data: Vec<T>) -> Self {
+        Self {
+            schema: format!("zjj://{schema_name}/v1"),
+            _schema_version: "1.0".to_string(),
+            schema_type: "array".to_string(),
+            success: true,
+            data,
+        }
+    }
+}
+
 /// Helper to create error details with available sessions
 pub fn error_with_available_sessions(
     code: ErrorCode,
