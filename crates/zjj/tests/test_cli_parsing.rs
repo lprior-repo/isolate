@@ -1154,6 +1154,9 @@ fn test_add_example_json_output_fields_are_strings() {
         parsed["workspace_path"].is_string(),
         "workspace_path should be string"
     );
-    assert!(parsed["zellij_tab"].is_string(), "zellij_tab should be string");
+    assert!(
+        parsed["zellij_tab"].is_string(),
+        "zellij_tab should be string"
+    );
     assert!(parsed["status"].is_string(), "status should be string");
 }

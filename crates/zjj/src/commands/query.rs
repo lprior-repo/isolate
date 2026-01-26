@@ -4,10 +4,12 @@
 //! for AI agents to make informed decisions.
 
 use anyhow::Result;
-use zjj_core::introspection::{
-    Blocker, CanRunQuery, QueryError, SessionCountQuery, SessionExistsQuery, SessionInfo,
+use zjj_core::{
+    introspection::{
+        Blocker, CanRunQuery, QueryError, SessionCountQuery, SessionExistsQuery, SessionInfo,
+    },
+    json::SchemaEnvelope,
 };
-use zjj_core::json::SchemaEnvelope;
 
 use crate::{
     cli::{is_command_available, is_inside_zellij, is_jj_repo},

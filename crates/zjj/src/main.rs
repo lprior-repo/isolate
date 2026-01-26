@@ -15,8 +15,8 @@ mod json_output;
 mod session;
 
 use commands::{
-    add, attach, clean, config, dashboard, diff, doctor, focus, init, introspect, list, query,
-    remove, status, sync,
+    add, attach, clean, config, context, dashboard, diff, doctor, focus, init, introspect, list,
+    query, remove, status, sync,
 };
 
 fn cmd_init() -> ClapCommand {
@@ -341,6 +341,35 @@ fn cmd_query() -> ClapCommand {
         )
 }
 
+fn cmd_context() -> ClapCommand {
+    ClapCommand::new("context")
+        .about("Show complete environment context (AI agent query)")
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON (default when not TTY)"),
+        )
+        .arg(
+            Arg::new("field")
+                .long("field")
+                .value_name("PATH")
+                .help("Extract single field (e.g., --field=repository.branch)"),
+        )
+        .arg(
+            Arg::new("no-beads")
+                .long("no-beads")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip beads database query (faster)"),
+        )
+        .arg(
+            Arg::new("no-health")
+                .long("no-health")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip health checks (faster)"),
+        )
+}
+
 fn build_cli() -> ClapCommand {
     ClapCommand::new("zjj")
         .version(env!("CARGO_PKG_VERSION"))
@@ -362,6 +391,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_introspect())
         .subcommand(cmd_doctor())
         .subcommand(cmd_query())
+        .subcommand(cmd_context())
 }
 
 /// Format an error for user display (no stack traces)
@@ -625,6 +655,14 @@ fn handle_query(sub_m: &clap::ArgMatches) -> Result<()> {
     query::run(query_type, args)
 }
 
+fn handle_context(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let field = sub_m.get_one::<String>("field").map(String::as_str);
+    let no_beads = sub_m.get_flag("no-beads");
+    let no_health = sub_m.get_flag("no-health");
+    context::run(json, field, no_beads, no_health)
+}
+
 /// Execute the CLI and return a Result
 fn run_cli() -> Result<()> {
     let matches = build_cli().get_matches();
@@ -657,6 +695,7 @@ fn run_cli() -> Result<()> {
         Some(("introspect", sub_m)) => handle_introspect(sub_m),
         Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m),
         Some(("query", sub_m)) => handle_query(sub_m),
+        Some(("context", sub_m)) => handle_context(sub_m),
         _ => {
             build_cli().print_help()?;
             Ok(())

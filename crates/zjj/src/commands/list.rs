@@ -4,8 +4,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use serde::Serialize;
-use zjj_core::OutputFormat;
-use zjj_core::json::SchemaEnvelopeArray;
+use zjj_core::{json::SchemaEnvelopeArray, OutputFormat};
 
 use crate::{
     commands::get_session_db,
@@ -80,7 +79,8 @@ pub fn run(all: bool, format: OutputFormat, bead: Option<&str>, agent: Option<&s
 
         if sessions.is_empty() {
             if format.is_json() {
-                let envelope = SchemaEnvelopeArray::new("list-response", Vec::<SessionListItem>::new());
+                let envelope =
+                    SchemaEnvelopeArray::new("list-response", Vec::<SessionListItem>::new());
                 println!("{}", serde_json::to_string_pretty(&envelope)?);
             } else {
                 println!("No sessions found.");
