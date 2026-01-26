@@ -51,106 +51,41 @@ fn build_init_response(root: &Path, already_initialized: bool) -> InitResponse {
     }
 }
 
-/// AI instructions for discoverability
-const AI_INSTRUCTIONS: &str = r#"# AI Agent Instructions for ZJJ Repository
+/// Repo-level AI instructions for when working on zjj itself
+const REPO_AI_INSTRUCTIONS: &str = r#"# ZJJ Repository - AI Agent Instructions
 
-## Critical: Do NOT Clone This Repository Elsewhere
+This is the ZJJ repository itself. If you're working on a bead/issue:
 
-This repository uses **ZJJ** for workspace isolation. You are likely already being invoked via `zjj spawn <bead-id>`, which means:
+## You Should Be Invoked Via zjj spawn
 
-1. **You are in an isolated workspace** at `.zjj/workspaces/<bead-id>/`
-2. **Work here** - do not clone the repo to another location
-3. **When done**, just exit cleanly on success - zjj will handle merging
-
-## Environment Variables Available
-
-When spawned via `zjj spawn`:
-- `ZJJ_BEAD_ID` - The bead/issue you're working on
-- `ZJJ_WORKSPACE` - Path to your isolated workspace
-
-## Build Commands: Moon Only
-
-**NEVER use `cargo` directly.** All build commands go through Moon:
-
+If you're working on a bead, you should have been invoked via:
 ```bash
-moon run :quick      # Format + type check (6-7ms with cache)
-moon run :ci         # Full CI pipeline
+zjj spawn <bead-id> -- <your-command>
+```
+
+This creates an isolated workspace at `.zjj/workspaces/<bead-id>/` and:
+- Sets `ZJJ_BEAD_ID` and `ZJJ_WORKSPACE` environment variables
+- Automatically merges your work on success
+- Cleans up the workspace when done
+
+## Working on ZJJ Itself
+
+If you're working directly on the ZJJ codebase (not on a bead):
+
+**All build commands must use Moon:**
+```bash
+moon run :quick      # Format + type check
+moon run :ci         # Full pipeline
 moon run :test       # Run tests
-moon run :build      # Release build
-moon run :fmt-fix    # Auto-fix formatting
 ```
 
-## Common Workflows
-
-**Check bead details:**
-```bash
-bd show <bead-id>
-```
-
-**Complete work:**
-```bash
-# When spawned via zjj spawn, just exit cleanly on success
-# ZJJ will automatically merge the workspace
-```
-
-**Manual zjj commands:**
-```bash
-zjj list              # Show all sessions
-zjj status <name>     # Show session status
-zjj focus <name>      # Switch Zellij tab
-```
+**Never use `cargo` directly** - this project uses Moon for build orchestration.
 
 ## Zero-Policy
 
-This codebase enforces zero panics and zero unwraps:
+ZJJ enforces zero panics and zero unwraps:
 - No `.unwrap()`, `.expect()`, `panic!()`, `todo!()`, `unimplemented!()`
 - All errors use `Result<T, Error>` with proper propagation
-- Use functional patterns: `map`, `and_then`, `?` operator
-"#;
-
-/// Cursor rules for AI discoverability
-const CURSOR_RULES: &str = r#"# ZJJ - Workspace Isolation for Parallel Development
-
-This repository uses ZJJ for workspace isolation. If you're working on a bead/issue:
-
-**DO NOT clone this repository elsewhere.** Use the existing zjj workspace:
-
-```bash
-zjj spawn <bead-id>   # Creates workspace, runs agent, merges on success
-zjj done               # Complete work and merge to main
-```
-
-When zjj spawn is invoked, you are already IN the correct workspace. The environment provides:
-- `ZJJ_BEAD_ID`: The bead you're working on
-- `ZJJ_WORKSPACE`: Path to your isolated workspace
-
-Core commands:
-- `zjj init` - Initialize zjj in a JJ repository
-- `zjj add <name>` - Create new session with JJ workspace + Zellij tab
-- `zjj list` - Show all sessions
-- `zjj focus <name>` - Switch to session's Zellij tab
-- `zjj spawn <bead-id>` - Spawn isolated workspace for a bead and run agent
-- `zjj done` - Complete work and merge workspace to main
-
-**All build commands must use Moon (not cargo):**
-```bash
-moon run :quick      # fmt + check (6-7ms with cache)
-moon run :ci         # Full pipeline
-```
-
-See README.md for full documentation.
-"#;
-
-/// ZJJ marker file
-const ZJJ_MARKER: &str = r#"# ZJJ Repository Marker
-
-This file marks this as a ZJJ-managed repository.
-
-If you're an AI agent working on a bead:
-1. You should have been invoked via `zjj spawn <bead-id>`
-2. You are already in the correct workspace
-3. DO NOT clone this repository elsewhere
-4. See .ai-instructions.md for details
 "#;
 
 /// Default configuration content from config.cue
@@ -295,8 +230,8 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
     // Create .jjignore to prevent .zjj tracking (avoids nested .jj conflicts)
     create_jjignore(&root)?;
 
-    // Create AI discoverability files
-    create_ai_discoverability_files(&root)?;
+    // Create repo-level AI discoverability file
+    create_repo_ai_instructions(&root)?;
 
     // Initialize the database
     let db_path = zjj_dir.join("state.db");
@@ -450,30 +385,16 @@ fn create_jjignore(repo_root: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Create AI discoverability files at repo root
+/// Create repo-level AI instructions file
 ///
-/// These files help AI agents (Cursor, Claude Code, Windsurf, etc.) understand
-/// that this is a zjj-managed repository and they should NOT clone elsewhere.
-fn create_ai_discoverability_files(repo_root: &Path) -> Result<()> {
-    // Create .cursorrules for Cursor/Windsurf
-    let cursorrules_path = repo_root.join(".cursorrules");
-    if !cursorrules_path.exists() {
-        fs::write(&cursorrules_path, CURSOR_RULES)
-            .context("Failed to create .cursorrules")?;
-    }
+/// This helps AI agents understand how to work with a zjj-managed repository.
+fn create_repo_ai_instructions(repo_root: &Path) -> Result<()> {
+    let ai_path = repo_root.join(".ai-instructions.md");
 
-    // Create .ai-instructions.md for Claude Code and others
-    let ai_instructions_path = repo_root.join(".ai-instructions.md");
-    if !ai_instructions_path.exists() {
-        fs::write(&ai_instructions_path, AI_INSTRUCTIONS)
+    // Only create if it doesn't exist
+    if !ai_path.exists() {
+        fs::write(&ai_path, REPO_AI_INSTRUCTIONS)
             .context("Failed to create .ai-instructions.md")?;
-    }
-
-    // Create .zjj-marker as a signal file
-    let marker_path = repo_root.join(".zjj-marker");
-    if !marker_path.exists() {
-        fs::write(&marker_path, ZJJ_MARKER)
-            .context("Failed to create .zjj-marker")?;
     }
 
     Ok(())

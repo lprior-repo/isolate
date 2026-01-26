@@ -14,6 +14,50 @@ pub mod types;
 
 pub use types::{SpawnArgs, SpawnOptions};
 
+/// AI instructions placed in spawned workspace
+const AI_INSTRUCTIONS: &str = r#"# AI Agent - You Are in a ZJJ Workspace
+
+## STOP - Do NOT Clone Elsewhere
+
+You were invoked via `zjj spawn` and are **already in the correct isolated workspace**.
+
+- **Work here** - Do NOT clone this repository to another location
+- **Current workspace**: `.zjj/workspaces/<bead-id>/`
+- **Your task**: Defined by `$ZJJ_BEAD_ID`
+
+## Environment Variables
+
+- `ZJJ_BEAD_ID` - The bead/issue you're working on
+- `ZJJ_WORKSPACE` - Path to this isolated workspace
+
+## When Done
+
+Just exit cleanly with success (exit code 0). ZJJ will automatically:
+1. Merge your changes to the main branch
+2. Clean up this workspace
+3. Mark the bead as completed
+
+## Check Your Task
+
+```bash
+bd show $ZJJ_BEAD_ID
+```
+
+## Build Commands
+
+Check the project's README or CLAUDE.md for the correct build commands.
+"#;
+
+/// Cursor rules for spawned workspace
+const CURSOR_RULES: &str = r#"# ZJJ Workspace - Do NOT Clone Elsewhere
+
+You are in an isolated workspace created by `zjj spawn <bead-id>`.
+
+**WORK HERE** - This is your assigned workspace. Do NOT clone the repo elsewhere.
+
+When done, exit with success and zjj will auto-merge to main.
+"#;
+
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -174,7 +218,30 @@ fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, Spa
         });
     }
 
+    // Create AI discoverability files in the workspace
+    create_workspace_discoverability(&workspace_path)?;
+
     Ok(workspace_path)
+}
+
+/// Create discoverability files in the spawned workspace
+///
+/// These files tell AI agents they're already in the right place
+/// and should NOT clone the repository elsewhere.
+fn create_workspace_discoverability(workspace_path: &Path) -> Result<(), SpawnError> {
+    // Create .cursorrules for Cursor/Windsurf
+    let cursorrules_path = workspace_path.join(".cursorrules");
+    fs::write(&cursorrules_path, CURSOR_RULES).map_err(|e| SpawnError::WorkspaceCreationFailed {
+        reason: format!("Failed to create .cursorrules: {e}"),
+    })?;
+
+    // Create .ai-instructions.md for Claude Code and others
+    let ai_instructions_path = workspace_path.join(".ai-instructions.md");
+    fs::write(&ai_instructions_path, AI_INSTRUCTIONS).map_err(|e| SpawnError::WorkspaceCreationFailed {
+        reason: format!("Failed to create .ai-instructions.md: {e}"),
+    })?;
+
+    Ok(())
 }
 
 /// Update bead status in the database

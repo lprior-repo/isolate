@@ -48,6 +48,7 @@ fn run_all_checks() -> Vec<DoctorCheck> {
         check_zellij_installed(),
         check_zellij_running(),
         check_jj_repo(),
+        check_workspace_context(),
         check_initialized(),
         check_state_db(),
         check_orphaned_workspaces(),
@@ -156,6 +157,50 @@ fn check_jj_repo() -> DoctorCheck {
         },
         auto_fixable: false,
         details: None,
+    }
+}
+
+/// Check workspace context - warn if in a zjj workspace
+///
+/// This helps AI agents understand they're already in the right place
+/// and should NOT clone the repository elsewhere.
+fn check_workspace_context() -> DoctorCheck {
+    let current_dir = std::env::current_dir().ok();
+    let in_workspace = current_dir
+        .as_ref()
+        .map(|p| p.to_string_lossy().contains(".zjj/workspaces"))
+        .unwrap_or(false);
+
+    // Extract bead ID if we're in a workspace
+    let bead_id = current_dir.as_ref().and_then(|p| {
+        p.components()
+            .rev()
+            .nth(1) // Parent of current dir
+            .and_then(|comp| comp.as_os_str().to_str())
+            .map(|s| s.to_string())
+    });
+
+    DoctorCheck {
+        name: "Workspace Context".to_string(),
+        status: CheckStatus::Pass, // Always pass, just informational
+        message: if in_workspace {
+            format!("In zjj workspace{}", bead_id.as_ref().map(|b| format!(" for {b}")).unwrap_or_default())
+        } else {
+            "Not in a zjj workspace".to_string()
+        },
+        suggestion: if in_workspace {
+            Some("You are in an isolated workspace. Work here - DO NOT clone elsewhere. See .ai-instructions.md".to_string())
+        } else {
+            None
+        },
+        auto_fixable: false,
+        details: in_workspace.then(|| {
+            serde_json::json!({
+                "location": current_dir.as_ref().map(|p| p.display().to_string()).unwrap_or_default(),
+                "zjj_bead_id": std::env::var("ZJJ_BEAD_ID").unwrap_or_else(|_| "<not set>".to_string()),
+                "zjj_workspace": std::env::var("ZJJ_WORKSPACE").unwrap_or_else(|_| "<not set>".to_string()),
+            })
+        }),
     }
 }
 
