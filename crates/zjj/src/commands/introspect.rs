@@ -153,7 +153,7 @@ pub fn run(format: OutputFormat) -> Result<()> {
 
 /// Print introspection output in human-readable format
 fn print_human_readable(output: &IntrospectOutput) {
-    println!("JJZ Version: {}", output.jjz_version);
+    println!("ZJJ Version: {}", output.zjj_version);
     println!();
 
     println!("Capabilities:");
