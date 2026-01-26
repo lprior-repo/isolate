@@ -572,8 +572,9 @@ mod tests {
     #[test]
     fn test_category_order_is_consistent() {
         use zjj_core::introspection::{CommandIntrospection, FlagSpec, Prerequisites};
+        use std::collections::BTreeMap;
 
-        let _create_command = || CommandIntrospection {
+        let cmd = CommandIntrospection {
             command: "add".to_string(),
             description: "Create new session".to_string(),
             aliases: vec![],
@@ -636,15 +637,18 @@ mod tests {
             error_conditions: vec![],
         };
 
-        let output1 = "Behavior\nflag2\nConfiguration\nflag3\nFilter\nflag4\nOutput\nflag5\nAdvanced\nflag1";
-        let output2 = "Behavior\nflag2\nConfiguration\nflag3\nFilter\nflag4\nOutput\nflag5\nAdvanced\nflag1";
+        // Generate output using the actual formatting function
+        let output1 = format_help_output(&cmd);
+        let output2 = format_help_output(&cmd);
 
         assert_eq!(
             output1, output2,
             "Help output should be consistent across runs"
         );
 
-        let expected_order = vec!["Behavior", "Configuration", "Filter", "Output", "Advanced"];
+        // Verify category order follows BTreeMap natural alphabetical order:
+        // Advanced, Behavior, Configuration, Filter, Output
+        let expected_order = vec!["Advanced", "Behavior", "Configuration", "Filter", "Output"];
         let mut last_pos = 0;
 
         for category in expected_order {
