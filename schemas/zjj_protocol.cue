@@ -274,3 +274,35 @@ package zjj
     before?: string  // checkpoint ID or timestamp
     after?: string   // checkpoint ID or timestamp
 }
+
+// Output types for structured response data
+
+/// AddOutput represents the output data for add command
+/// Wraps session creation result with metadata
+#AddOutput: {
+    name: string & strings.MinRunes(1)
+    workspace_path: string & strings.MinRunes(1)
+    zellij_tab: string & strings.MinRunes(1)
+    status: #SessionStatus
+}
+
+/// ListOutput represents the output data for list command
+/// Contains array of sessions with summary information
+#ListOutput: {
+    sessions: [...#DetailedSession]
+    count: int & >=0
+    filter?: {
+        bead?: string
+        agent?: string
+    }
+}
+
+/// ErrorDetail represents detailed error information
+/// Completes the partial definition at top of file
+#ErrorDetail: {
+    code: #ErrorCode
+    message: string & strings.MinRunes(1)
+    exit_code: int & >=1 & <=4
+    details?: string
+    suggestion?: string
+}
