@@ -1,0 +1,25 @@
+{
+  "bead_id": "zjj-zd9l",
+  "title": "P1-2b: Rename --filter-by-agent to --agent in list command",
+  "current_phase": 1,
+  "complexity": "MEDIUM",
+  "language": "rust",
+  "phases": {
+    "0_triage": "complete",
+    "1_research": "complete",
+    "2_plan": "pending",
+    "3_verify": "pending",
+    "4_red": "pending",
+    "5_green": "pending",
+    "6_refactor": "pending",
+    "7_mf1": "pending",
+    "8_implement": "pending",
+    "9_verify_criteria": "pending",
+    "10_fp_gates": "pending",
+    "11_qa": "pending",
+    "12_mf2": "pending",
+    "13_consistency": "pending",
+    "14_liability": "pending",
+    "15_landing": "pending"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "phase": 1,
+  "task_id": "zjj-1ppy",
+  "flag_definition_file": "crates/zjj/src/main.rs:84-99",
+  "flag_usage_locations": [
+    "crates/zjj/src/main.rs:408-412 (handle_list)",
+    "crates/zjj/src/commands/list.rs:40-104 (run function)"
+  ],
+  "test_files": [
+    "crates/zjj/tests/test_cli_parsing.rs:141-170"
+  ],
+  "help_text_location": "crates/zjj/src/commands/introspect.rs:472-515",
+  "current_flags": ["--all", "--json"],
+  "note": "Flag does not exist yet - needs to be created with proper beads filtering infrastructure",
+  "gate_passed": true
+}

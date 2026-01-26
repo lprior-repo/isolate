@@ -324,6 +324,50 @@ pub trait JsonSerializable: Serialize {
 // Implement for all Serialize types
 impl<T: Serialize> JsonSerializable for T {}
 
+/// Generic schema envelope for protocol-compliant JSON responses
+///
+/// Wraps response data with schema metadata ($schema, _schema_version) for AI-first CLI design.
+/// All JSON outputs should be wrapped with this envelope to conform to ResponseEnvelope pattern.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaEnvelope<T> {
+    /// JSON Schema reference (e.g., "zjj://status-response/v1")
+    #[serde(rename = "$schema")]
+    pub schema: String,
+    /// Schema version for compatibility tracking
+    pub _schema_version: String,
+    /// Response shape type ("single" for objects, "array" for collections)
+    pub schema_type: String,
+    /// Success flag
+    pub success: bool,
+    /// Response data (flattened into envelope at JSON level)
+    #[serde(flatten)]
+    pub data: T,
+}
+
+impl<T> SchemaEnvelope<T> {
+    /// Create a new schema envelope
+    ///
+    /// # Arguments
+    /// * `schema_name` - Command/response type (e.g., "status-response")
+    /// * `schema_type` - Response shape ("single" or "array")
+    /// * `data` - The response data to wrap
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let envelope = SchemaEnvelope::new("status-response", "single", data);
+    /// ```
+    pub fn new(schema_name: &str, schema_type: &str, data: T) -> Self {
+        Self {
+            schema: format!("zjj://{schema_name}/v1"),
+            _schema_version: "1.0".to_string(),
+            schema_type: schema_type.to_string(),
+            success: true,
+            data,
+        }
+    }
+}
+
 /// Helper to create error details with available sessions
 pub fn error_with_available_sessions(
     code: ErrorCode,
