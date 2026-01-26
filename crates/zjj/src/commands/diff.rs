@@ -6,11 +6,31 @@ use std::{
 };
 
 use anyhow::Result;
+use serde::Serialize;
+use zjj_core::OutputFormat;
 
 use crate::commands::get_session_db;
 
+/// JSON output structure for diff command
+#[derive(Serialize)]
+struct DiffOutput {
+    session: String,
+    diff_type: String,
+    content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stats: Option<DiffStats>,
+}
+
+/// Diff statistics for JSON output
+#[derive(Serialize)]
+struct DiffStats {
+    files_changed: usize,
+    insertions: usize,
+    deletions: usize,
+}
+
 /// Run the diff command
-pub fn run(name: &str, stat: bool) -> Result<()> {
+pub fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
     let db = get_session_db()?;
 
     // Get the session
@@ -85,6 +105,33 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
+    // Handle JSON output format
+    if format.is_json() {
+        let diff_output = if stat {
+            let stats = parse_stat_output(&stdout);
+            DiffOutput {
+                session: name.to_string(),
+                diff_type: "stat".to_string(),
+                content: stdout.to_string(),
+                stats: Some(stats),
+            }
+        } else {
+            DiffOutput {
+                session: name.to_string(),
+                diff_type: "full".to_string(),
+                content: stdout.to_string(),
+                stats: None,
+            }
+        };
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&diff_output)
+                .unwrap_or_else(|_| "{{\"error\": \"serialization failed\"}}".to_string())
+        );
+        return Ok(());
+    }
+
+    // Human-readable output
     // For stat output, just print directly
     if stat {
         print!("{stdout}");
@@ -113,6 +160,49 @@ pub fn run(name: &str, stat: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Parse stat output to extract statistics
+fn parse_stat_output(stat_output: &str) -> DiffStats {
+    let mut files_changed = 0;
+    let mut insertions = 0;
+    let mut deletions = 0;
+
+    for line in stat_output.lines() {
+        // Count file change lines (e.g., " file.txt | 5 ++-")
+        if line.contains('|') {
+            files_changed += 1;
+        }
+        // Parse summary line (e.g., "1 file changed, 3 insertions(+), 1 deletion(-)")
+        if line.contains("changed") {
+            // Split by comma and parse each segment
+            for segment in line.split(',') {
+                let segment = segment.trim();
+                // Look for insertion(s)
+                if segment.contains("insertion") {
+                    if let Some(num_str) = segment.split_whitespace().next() {
+                        if let Ok(n) = num_str.parse::<usize>() {
+                            insertions = n;
+                        }
+                    }
+                }
+                // Look for deletion(s)
+                if segment.contains("deletion") {
+                    if let Some(num_str) = segment.split_whitespace().next() {
+                        if let Ok(n) = num_str.parse::<usize>() {
+                            deletions = n;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    DiffStats {
+        files_changed,
+        insertions,
+        deletions,
+    }
 }
 
 /// Determine the main branch for diffing

@@ -560,7 +560,8 @@ fn handle_diff(sub_m: &clap::ArgMatches) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
     let stat = sub_m.get_flag("stat");
     let json = sub_m.get_flag("json");
-    match diff::run(name, stat) {
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    match diff::run(name, stat, format) {
         Ok(()) => Ok(()),
         Err(e) => {
             if json {
