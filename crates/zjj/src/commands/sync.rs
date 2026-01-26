@@ -3,6 +3,7 @@
 use std::time::SystemTime;
 
 use anyhow::{Context, Result};
+use zjj_core::json::SchemaEnvelope;
 
 use crate::{
     cli::run_command,
@@ -52,7 +53,8 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
                     failed_count: 0,
                     errors: Vec::new(),
                 };
-                println!("{}", serde_json::to_string(&output)?);
+                let envelope = SchemaEnvelope::new("sync-response", "single", output);
+                println!("{}", serde_json::to_string(&envelope)?);
             } else {
                 println!("Synced session '{name}' with main");
             }
@@ -70,7 +72,8 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
                         error: e.to_string(),
                     }],
                 };
-                println!("{}", serde_json::to_string(&output)?);
+                let envelope = SchemaEnvelope::new("sync-response", "single", output);
+                println!("{}", serde_json::to_string(&envelope)?);
             }
             Err(e)
         }
@@ -94,7 +97,8 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                 failed_count: 0,
                 errors: Vec::new(),
             };
-            println!("{}", serde_json::to_string(&output)?);
+            let envelope = SchemaEnvelope::new("sync-response", "single", output);
+            println!("{}", serde_json::to_string(&envelope)?);
         } else {
             println!("No sessions to sync");
         }
@@ -129,7 +133,8 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
             failed_count: failure_count,
             errors,
         };
-        println!("{}", serde_json::to_string(&output)?);
+        let envelope = SchemaEnvelope::new("sync-response", "single", output);
+        println!("{}", serde_json::to_string(&envelope)?);
     } else {
         // Original text output
         println!("Syncing {} session(s)...", sessions.len());

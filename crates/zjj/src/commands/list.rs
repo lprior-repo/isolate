@@ -38,7 +38,7 @@ impl std::fmt::Display for BeadCounts {
 }
 
 /// Run the list command
-pub fn run(all: bool, json: bool) -> Result<()> {
+pub fn run(all: bool, json: bool, bead: Option<&str>, agent: Option<&str>) -> Result<()> {
     // Execute in a closure to allow ? operator while catching errors for JSON mode
     let result = (|| -> Result<()> {
         let db = get_session_db()?;
@@ -51,6 +51,28 @@ pub fn run(all: bool, json: bool) -> Result<()> {
         if !all {
             sessions.retain(|s| {
                 s.status != SessionStatus::Completed && s.status != SessionStatus::Failed
+            });
+        }
+
+        // Filter by bead ID if specified
+        if let Some(bead_id) = bead {
+            sessions.retain(|s| {
+                s.metadata
+                    .as_ref()
+                    .and_then(|m| m.get("bead_id"))
+                    .and_then(|v| v.as_str())
+                    .map_or(false, |id| id == bead_id)
+            });
+        }
+
+        // Filter by agent owner if specified
+        if let Some(agent_filter) = agent {
+            sessions.retain(|s| {
+                s.metadata
+                    .as_ref()
+                    .and_then(|m| m.get("owner"))
+                    .and_then(|v| v.as_str())
+                    .map_or(false, |owner| owner == agent_filter)
             });
         }
 

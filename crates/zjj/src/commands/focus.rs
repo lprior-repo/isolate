@@ -1,6 +1,7 @@
 //! Switch to a session's Zellij tab
 
 use anyhow::Result;
+use zjj_core::json::SchemaEnvelope;
 
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, run_command},
@@ -40,7 +41,8 @@ pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
                 zellij_tab,
                 message: format!("Switched to session '{name}'"),
             };
-            println!("{}", serde_json::to_string(&output)?);
+            let envelope = SchemaEnvelope::new("focus-response", "single", output);
+            println!("{}", serde_json::to_string(&envelope)?);
         } else {
             println!("Switched to session '{name}'");
         }
@@ -56,7 +58,8 @@ pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
                     "Session '{name}' is in tab '{zellij_tab}'. Attaching to Zellij session..."
                 ),
             };
-            println!("{}", serde_json::to_string(&output)?);
+            let envelope = SchemaEnvelope::new("focus-response", "single", output);
+            println!("{}", serde_json::to_string(&envelope)?);
         } else {
             println!("Session '{name}' is in tab '{zellij_tab}'");
             println!("Attaching to Zellij session...");
@@ -212,5 +215,93 @@ mod tests {
         } else {
             std::env::remove_var("ZELLIJ");
         }
+    }
+
+    // Phase 1 RED tests: Focus JSON output should be wrapped with SchemaEnvelope
+
+    #[test]
+    fn test_focus_json_has_envelope() -> Result<()> {
+        use crate::json_output::FocusOutput;
+
+        // Create sample FocusOutput
+        let output = FocusOutput {
+            success: true,
+            name: "test-session".to_string(),
+            zellij_tab: "zjj:test-session".to_string(),
+            message: "Switched to session".to_string(),
+        };
+
+        // Wrap with SchemaEnvelope (this is what the command actually prints)
+        let envelope = SchemaEnvelope::new("focus-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify SchemaEnvelope fields are present
+        assert!(
+            parsed.get("$schema").is_some(),
+            "JSON output should have $schema field"
+        );
+        assert!(
+            parsed.get("_schema_version").is_some(),
+            "JSON output should have _schema_version field"
+        );
+        assert!(
+            parsed.get("schema_type").is_some(),
+            "JSON output should have schema_type field"
+        );
+
+        // Verify schema_type is "single"
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single"),
+            "schema_type should be 'single' for FocusOutput"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_focus_schema_format() -> Result<()> {
+        use crate::json_output::FocusOutput;
+
+        // Create sample output
+        let output = FocusOutput {
+            success: true,
+            name: "my-feature".to_string(),
+            zellij_tab: "zjj:my-feature".to_string(),
+            message: "Focused".to_string(),
+        };
+
+        // Wrap with SchemaEnvelope
+        let envelope = SchemaEnvelope::new("focus-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify $schema format matches zjj://<command>/v1 pattern
+        if let Some(schema) = parsed.get("$schema").and_then(|v| v.as_str()) {
+            assert!(
+                schema.starts_with("zjj://"),
+                "$schema should start with 'zjj://', got: {schema}"
+            );
+            assert!(
+                schema.ends_with("/v1"),
+                "$schema should end with '/v1', got: {schema}"
+            );
+            assert!(
+                schema.contains("focus"),
+                "$schema should contain 'focus' for focus command, got: {schema}"
+            );
+        } else {
+            panic!("$schema field should be a string");
+        }
+
+        // Verify _schema_version is "1.0"
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0"),
+            "_schema_version should be '1.0'"
+        );
+
+        Ok(())
     }
 }

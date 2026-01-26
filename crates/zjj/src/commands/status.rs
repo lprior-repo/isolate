@@ -4,6 +4,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use serde::Serialize;
+use zjj_core::json::SchemaEnvelope;
 
 use crate::{commands::get_session_db, session::Session};
 
@@ -285,6 +286,12 @@ fn get_beads_stats() -> Result<BeadStats> {
     })
 }
 
+/// Wrapper for status response data
+#[derive(Debug, Clone, Serialize)]
+struct StatusResponseData {
+    pub sessions: Vec<SessionStatusInfo>,
+}
+
 /// Output sessions as formatted table
 fn output_table(items: &[SessionStatusInfo]) {
     println!(
@@ -303,7 +310,11 @@ fn output_table(items: &[SessionStatusInfo]) {
 
 /// Output sessions as JSON
 fn output_json(items: &[SessionStatusInfo]) -> Result<()> {
-    let json = serde_json::to_string_pretty(items)?;
+    let data = StatusResponseData {
+        sessions: items.to_vec(),
+    };
+    let envelope = SchemaEnvelope::new("status-response", "single", data);
+    let json = serde_json::to_string_pretty(&envelope)?;
     println!("{json}");
     Ok(())
 }
@@ -543,5 +554,478 @@ mod tests {
         // Unknown files don't count toward total
         assert_eq!(changes.total(), 1);
         assert!(!changes.is_clean());
+    }
+
+    // ========================================================================
+    // RED PHASE: Tests for SchemaEnvelope wrapping (should fail initially)
+    // ========================================================================
+
+    /// Test that JSON output includes the $schema field
+    #[test]
+    fn test_status_json_has_envelope() -> Result<()> {
+        let session = Session {
+            id: Some(1),
+            name: "test-envelope".to_string(),
+            status: SessionStatus::Active,
+            workspace_path: "/tmp/test-envelope".to_string(),
+            zellij_tab: "zjj:test-envelope".to_string(),
+            branch: Some("main".to_string()),
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_890,
+            last_synced: None,
+            metadata: None,
+        };
+
+        let items = vec![SessionStatusInfo {
+            name: session.name.clone(),
+            status: "active".to_string(),
+            workspace_path: session.workspace_path.clone(),
+            branch: "main".to_string(),
+            changes: FileChanges::default(),
+            diff_stats: DiffStats::default(),
+            beads: BeadStats::default(),
+            session,
+        }];
+
+        // Wrap in envelope
+        let data = StatusResponseData { sessions: items };
+        let envelope = SchemaEnvelope::new("status-response", "single", data);
+
+        // Serialize to JSON
+        let json_str = serde_json::to_string(&envelope)?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify $schema field exists
+        let schema_field = json_value
+            .get("$schema")
+            .ok_or_else(|| anyhow::anyhow!("Missing $schema field in envelope"))?;
+
+        // Verify it's a string
+        assert!(schema_field.is_string(), "$schema field must be a string");
+
+        // Verify the schema format
+        let schema_str = schema_field
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("$schema is not a valid string"))?;
+
+        assert_eq!(
+            schema_str, "zjj://status-response/v1",
+            "Schema format must be zjj://status-response/v1"
+        );
+
+        Ok(())
+    }
+
+    /// Test that schema_type field is set to "single" for wrapped responses
+    #[test]
+    fn test_status_schema_type_single() -> Result<()> {
+        let session = Session {
+            id: Some(2),
+            name: "test-schema-type".to_string(),
+            status: SessionStatus::Paused,
+            workspace_path: "/tmp/test-schema-type".to_string(),
+            zellij_tab: "zjj:test-schema-type".to_string(),
+            branch: Some("feature".to_string()),
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_891,
+            last_synced: Some(1_234_567_891),
+            metadata: Some(serde_json::json!({"test": "metadata"})),
+        };
+
+        let items = vec![SessionStatusInfo {
+            name: session.name.clone(),
+            status: "paused".to_string(),
+            workspace_path: session.workspace_path.clone(),
+            branch: "feature".to_string(),
+            changes: FileChanges {
+                modified: 3,
+                added: 2,
+                deleted: 1,
+                renamed: 1,
+                unknown: 0,
+            },
+            diff_stats: DiffStats {
+                insertions: 100,
+                deletions: 50,
+            },
+            beads: BeadStats {
+                open: 5,
+                in_progress: 2,
+                blocked: 1,
+                closed: 10,
+            },
+            session,
+        }];
+
+        // Wrap in envelope
+        let data = StatusResponseData { sessions: items };
+        let envelope = SchemaEnvelope::new("status-response", "single", data);
+
+        // Serialize to JSON
+        let json_str = serde_json::to_string(&envelope)?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify schema_type field exists
+        let schema_type = json_value
+            .get("schema_type")
+            .ok_or_else(|| anyhow::anyhow!("Missing schema_type field in envelope"))?;
+
+        // Verify it's a string with value "single"
+        let schema_type_str = schema_type
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("schema_type is not a valid string"))?;
+
+        assert_eq!(
+            schema_type_str, "single",
+            "schema_type must be 'single' for wrapped responses"
+        );
+
+        Ok(())
+    }
+
+    /// Test that empty sessions array is properly wrapped in envelope
+    #[test]
+    fn test_status_empty_sessions_wrapped() -> Result<()> {
+        let items: Vec<SessionStatusInfo> = vec![];
+
+        // Wrap in envelope
+        let data = StatusResponseData { sessions: items };
+        let envelope = SchemaEnvelope::new("status-response", "single", data);
+
+        // Serialize to JSON
+        let json_str = serde_json::to_string(&envelope)?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify envelope structure exists even for empty data
+        let schema_field = json_value
+            .get("$schema")
+            .ok_or_else(|| anyhow::anyhow!("Missing $schema field for empty response"))?;
+
+        assert!(
+            schema_field.is_string(),
+            "Empty response must have $schema field"
+        );
+
+        // Verify schema_type exists
+        let schema_type = json_value
+            .get("schema_type")
+            .ok_or_else(|| anyhow::anyhow!("Missing schema_type field for empty response"))?;
+
+        assert!(
+            schema_type.is_string(),
+            "Empty response must have schema_type field"
+        );
+
+        // Verify success field exists
+        let success = json_value
+            .get("success")
+            .ok_or_else(|| anyhow::anyhow!("Missing success field for empty response"))?;
+
+        assert!(
+            success.is_boolean(),
+            "Empty response must have boolean success field"
+        );
+
+        let success_bool = success
+            .as_bool()
+            .ok_or_else(|| anyhow::anyhow!("success is not a valid boolean"))?;
+
+        assert!(success_bool, "Empty response should have success=true");
+
+        // Verify sessions field contains empty array
+        let sessions = json_value
+            .get("sessions")
+            .ok_or_else(|| anyhow::anyhow!("Missing sessions field for empty response"))?;
+
+        assert!(sessions.is_array(), "sessions field must be an array");
+
+        let sessions_array = sessions
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("sessions is not a valid array"))?;
+
+        assert!(sessions_array.is_empty(), "sessions array must be empty");
+
+        Ok(())
+    }
+
+    /// Test that the schema format is exactly "zjj://status-response/v1"
+    #[test]
+    fn test_status_schema_format() -> Result<()> {
+        let session = Session {
+            id: Some(3),
+            name: "test-format".to_string(),
+            status: SessionStatus::Active,
+            workspace_path: "/tmp/test-format".to_string(),
+            zellij_tab: "zjj:test-format".to_string(),
+            branch: None,
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_890,
+            last_synced: None,
+            metadata: None,
+        };
+
+        let items = vec![SessionStatusInfo {
+            name: session.name.clone(),
+            status: "active".to_string(),
+            workspace_path: session.workspace_path.clone(),
+            branch: "-".to_string(),
+            changes: FileChanges::default(),
+            diff_stats: DiffStats::default(),
+            beads: BeadStats::default(),
+            session,
+        }];
+
+        // Wrap in envelope
+        let data = StatusResponseData { sessions: items };
+        let envelope = SchemaEnvelope::new("status-response", "single", data);
+
+        // Serialize to JSON
+        let json_str = serde_json::to_string(&envelope)?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Extract $schema field
+        let schema_field = json_value
+            .get("$schema")
+            .ok_or_else(|| anyhow::anyhow!("Missing $schema field"))?;
+
+        let schema_str = schema_field
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("$schema is not a string"))?;
+
+        // Verify exact format (no variations allowed)
+        assert_eq!(
+            schema_str, "zjj://status-response/v1",
+            "Schema format must exactly match zjj://status-response/v1"
+        );
+
+        // Verify it's not some other variation
+        assert!(
+            !schema_str.contains("http://"),
+            "Schema must use zjj:// protocol"
+        );
+        assert!(
+            !schema_str.contains("https://"),
+            "Schema must use zjj:// protocol"
+        );
+        assert!(
+            schema_str.starts_with("zjj://"),
+            "Schema must start with zjj://"
+        );
+        assert!(schema_str.ends_with("/v1"), "Schema must end with /v1");
+
+        Ok(())
+    }
+
+    /// Test that _schema_version field exists and is correct
+    #[test]
+    fn test_status_schema_version_field() -> Result<()> {
+        let session = Session {
+            id: Some(4),
+            name: "test-version".to_string(),
+            status: SessionStatus::Active,
+            workspace_path: "/tmp/test-version".to_string(),
+            zellij_tab: "zjj:test-version".to_string(),
+            branch: Some("main".to_string()),
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_890,
+            last_synced: None,
+            metadata: None,
+        };
+
+        let items = vec![SessionStatusInfo {
+            name: session.name.clone(),
+            status: "active".to_string(),
+            workspace_path: session.workspace_path.clone(),
+            branch: "main".to_string(),
+            changes: FileChanges::default(),
+            diff_stats: DiffStats::default(),
+            beads: BeadStats::default(),
+            session,
+        }];
+
+        // Wrap in envelope
+        let data = StatusResponseData { sessions: items };
+        let envelope = SchemaEnvelope::new("status-response", "single", data);
+
+        // Serialize to JSON
+        let json_str = serde_json::to_string(&envelope)?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify _schema_version field exists
+        let version_field = json_value
+            .get("_schema_version")
+            .ok_or_else(|| anyhow::anyhow!("Missing _schema_version field"))?;
+
+        // Verify it's a string
+        assert!(
+            version_field.is_string(),
+            "_schema_version field must be a string"
+        );
+
+        let version_str = version_field
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("_schema_version is not a valid string"))?;
+
+        assert_eq!(version_str, "1.0", "_schema_version must be 1.0");
+
+        Ok(())
+    }
+
+    /// Test that success field is present and true for valid responses
+    #[test]
+    fn test_status_success_field_true() -> Result<()> {
+        let session = Session {
+            id: Some(5),
+            name: "test-success".to_string(),
+            status: SessionStatus::Active,
+            workspace_path: "/tmp/test-success".to_string(),
+            zellij_tab: "zjj:test-success".to_string(),
+            branch: Some("main".to_string()),
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_890,
+            last_synced: None,
+            metadata: None,
+        };
+
+        let items = vec![SessionStatusInfo {
+            name: session.name.clone(),
+            status: "active".to_string(),
+            workspace_path: session.workspace_path.clone(),
+            branch: "main".to_string(),
+            changes: FileChanges::default(),
+            diff_stats: DiffStats::default(),
+            beads: BeadStats::default(),
+            session,
+        }];
+
+        // Wrap in envelope
+        let data = StatusResponseData { sessions: items };
+        let envelope = SchemaEnvelope::new("status-response", "single", data);
+
+        // Serialize to JSON
+        let json_str = serde_json::to_string(&envelope)?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify success field exists
+        let success = json_value
+            .get("success")
+            .ok_or_else(|| anyhow::anyhow!("Missing success field"))?;
+
+        // Verify it's a boolean
+        assert!(success.is_boolean(), "success field must be a boolean");
+
+        let success_bool = success
+            .as_bool()
+            .ok_or_else(|| anyhow::anyhow!("success is not a valid boolean"))?;
+
+        assert!(success_bool, "success must be true for valid responses");
+
+        Ok(())
+    }
+
+    /// Test that data field contains the actual session array
+    #[test]
+    fn test_status_data_field_contains_sessions() -> Result<()> {
+        let session1 = Session {
+            id: Some(6),
+            name: "session-1".to_string(),
+            status: SessionStatus::Active,
+            workspace_path: "/tmp/session-1".to_string(),
+            zellij_tab: "zjj:session-1".to_string(),
+            branch: Some("main".to_string()),
+            created_at: 1_234_567_890,
+            updated_at: 1_234_567_890,
+            last_synced: None,
+            metadata: None,
+        };
+
+        let session2 = Session {
+            id: Some(7),
+            name: "session-2".to_string(),
+            status: SessionStatus::Paused,
+            workspace_path: "/tmp/session-2".to_string(),
+            zellij_tab: "zjj:session-2".to_string(),
+            branch: Some("feature".to_string()),
+            created_at: 1_234_567_891,
+            updated_at: 1_234_567_891,
+            last_synced: None,
+            metadata: None,
+        };
+
+        let items = vec![
+            SessionStatusInfo {
+                name: session1.name.clone(),
+                status: "active".to_string(),
+                workspace_path: session1.workspace_path.clone(),
+                branch: "main".to_string(),
+                changes: FileChanges::default(),
+                diff_stats: DiffStats::default(),
+                beads: BeadStats::default(),
+                session: session1,
+            },
+            SessionStatusInfo {
+                name: session2.name.clone(),
+                status: "paused".to_string(),
+                workspace_path: session2.workspace_path.clone(),
+                branch: "feature".to_string(),
+                changes: FileChanges::default(),
+                diff_stats: DiffStats::default(),
+                beads: BeadStats::default(),
+                session: session2,
+            },
+        ];
+
+        // Wrap in envelope
+        let data = StatusResponseData { sessions: items };
+        let envelope = SchemaEnvelope::new("status-response", "single", data);
+
+        // Serialize to JSON
+        let json_str = serde_json::to_string(&envelope)?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify sessions field exists
+        let sessions = json_value
+            .get("sessions")
+            .ok_or_else(|| anyhow::anyhow!("Missing sessions field"))?;
+
+        // Verify it's an array
+        assert!(sessions.is_array(), "sessions field must be an array");
+
+        let sessions_array = sessions
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("sessions is not a valid array"))?;
+
+        // Verify it contains 2 sessions
+        assert_eq!(
+            sessions_array.len(),
+            2,
+            "sessions array must contain 2 sessions"
+        );
+
+        // Verify first session name
+        let first_session = &sessions_array[0];
+        let first_name = first_session
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("First session missing name"))?;
+
+        assert_eq!(
+            first_name, "session-1",
+            "First session name must be session-1"
+        );
+
+        // Verify second session name
+        let second_session = &sessions_array[1];
+        let second_name = second_session
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Second session missing name"))?;
+
+        assert_eq!(
+            second_name, "session-2",
+            "Second session name must be session-2"
+        );
+
+        Ok(())
     }
 }
