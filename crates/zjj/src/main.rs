@@ -412,10 +412,11 @@ fn format_error(err: &anyhow::Error) -> String {
 
 fn handle_init(sub_m: &clap::ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
-    match init::run() {
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    match init::run_with_options(init::InitOptions { format }) {
         Ok(()) => Ok(()),
         Err(e) => {
-            if json {
+            if format.is_json() {
                 json_output::output_json_error_and_exit(&e);
             } else {
                 Err(e)
@@ -665,7 +666,33 @@ fn handle_context(sub_m: &clap::ArgMatches) -> Result<()> {
 
 /// Execute the CLI and return a Result
 fn run_cli() -> Result<()> {
-    let matches = build_cli().get_matches();
+    let cli = build_cli();
+
+    // Check for --json flag before parsing to handle Clap errors in JSON format
+    let args: Vec<String> = std::env::args().collect();
+    let json_mode = args.iter().any(|a| a.as_str() == "--json" || a.as_str() == "-j");
+
+    let matches = match cli.try_get_matches() {
+        Ok(m) => m,
+        Err(e) => {
+            if json_mode {
+                // Convert Clap error to JSON and exit
+                let json_err = serde_json::json!({
+                    "success": false,
+                    "error": {
+                        "code": "INVALID_ARGUMENT",
+                        "message": e.to_string(),
+                        "exit_code": 2
+                    }
+                });
+                println!("{}", serde_json::to_string_pretty(&json_err).unwrap_or_default());
+                std::process::exit(2);
+            } else {
+                e.print().expect("Failed to print Clap error");
+                std::process::exit(2);
+            }
+        }
+    };
 
     match matches.subcommand() {
         Some(("init", sub_m)) => handle_init(sub_m),

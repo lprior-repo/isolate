@@ -7,11 +7,49 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
+use serde::Serialize;
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     cli::{is_jj_installed, is_zellij_installed},
     db::SessionDb,
 };
+
+#[derive(Serialize)]
+struct InitResponse {
+    message: String,
+    root: String,
+    paths: InitPaths,
+    jj_initialized: bool,
+    already_initialized: bool,
+}
+
+#[derive(Serialize)]
+struct InitPaths {
+    data_directory: String,
+    config: String,
+    state_db: String,
+    layouts: String,
+}
+
+fn build_init_response(root: &Path, already_initialized: bool) -> InitResponse {
+    InitResponse {
+        message: if already_initialized {
+            "zjj already initialized in this repository.".to_string()
+        } else {
+            format!("Initialized zjj in {}", root.display())
+        },
+        root: root.display().to_string(),
+        paths: InitPaths {
+            data_directory: ".zjj/".to_string(),
+            config: ".zjj/config.toml".to_string(),
+            state_db: ".zjj/state.db".to_string(),
+            layouts: ".zjj/layouts/".to_string(),
+        },
+        jj_initialized: true,
+        already_initialized,
+    }
+}
 
 /// Default configuration content from config.cue
 const DEFAULT_CONFIG: &str = r#"# zjj Configuration File
@@ -74,6 +112,12 @@ auto_commit = false
 commit_prefix = "wip:"
 "#;
 
+/// Run init command with options
+#[derive(Debug, Clone, Copy, Default)]
+pub struct InitOptions {
+    pub format: OutputFormat,
+}
+
 /// Run the init command
 ///
 /// This command:
@@ -84,14 +128,16 @@ commit_prefix = "wip:"
 ///    - .zjj/state.db (sessions database)
 ///    - .zjj/layouts/ (Zellij layouts directory)
 pub fn run() -> Result<()> {
-    run_with_cwd(None)
+    run_with_options(InitOptions::default())
 }
 
-/// Run the init command with an optional working directory
-///
-/// If `cwd` is Some, operations will be performed relative to that directory.
-/// If `cwd` is None, operations will use the current working directory.
-pub fn run_with_cwd(cwd: Option<&Path>) -> Result<()> {
+/// Run init command with options
+pub fn run_with_options(options: InitOptions) -> Result<()> {
+    run_with_cwd_and_format(None, options.format)
+}
+
+/// Run init command with cwd and format
+pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Result<()> {
     let cwd = match cwd {
         Some(p) => PathBuf::from(p),
         None => std::env::current_dir().context("Failed to get current directory")?,
@@ -109,7 +155,26 @@ pub fn run_with_cwd(cwd: Option<&Path>) -> Result<()> {
 
     // Check if already initialized
     if zjj_dir.exists() {
-        println!("ZJZ already initialized in this repository.");
+        let response = InitResponse {
+            message: "zjj already initialized in this repository.".to_string(),
+            root: root.display().to_string(),
+            paths: InitPaths {
+                data_directory: ".zjj/".to_string(),
+                config: ".zjj/config.toml".to_string(),
+                state_db: ".zjj/state.db".to_string(),
+                layouts: ".zjj/layouts/".to_string(),
+            },
+            jj_initialized: true,
+            already_initialized: true,
+        };
+
+        if format.is_json() {
+            let envelope = SchemaEnvelope::new("init-response", "single", response);
+            println!("{}", serde_json::to_string(&envelope)?);
+        } else {
+            println!("zjj already initialized in this repository.");
+        }
+
         return Ok(());
     }
 
@@ -131,11 +196,17 @@ pub fn run_with_cwd(cwd: Option<&Path>) -> Result<()> {
     let db_path = zjj_dir.join("state.db");
     let _db = SessionDb::open(&db_path)?;
 
-    println!("Initialized ZJZ in {}", root.display());
-    println!("  Data directory: .zjj/");
-    println!("  Configuration: .zjj/config.toml");
-    println!("  State database: .zjj/state.db");
-    println!("  Layouts: .zjj/layouts/");
+    if format.is_json() {
+        let response = build_init_response(&root, false);
+        let envelope = SchemaEnvelope::new("init-response", "single", response);
+        println!("{}", serde_json::to_string(&envelope)?);
+    } else {
+        println!("Initialized zjj in {}", root.display());
+        println!("  Data directory: .zjj/");
+        println!("  Configuration: .zjj/config.toml");
+        println!("  State database: .zjj/state.db");
+        println!("  Layouts: .zjj/layouts/");
+    }
 
     Ok(())
 }
@@ -324,7 +395,7 @@ mod tests {
         };
 
         // Run init with temp directory as cwd
-        let result = run_with_cwd(Some(temp_dir.path()));
+        let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
 
         // Check result
         result?;
@@ -344,7 +415,7 @@ mod tests {
             return Ok(());
         };
 
-        let result = run_with_cwd(Some(temp_dir.path()));
+        let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
         result?;
 
         // Verify config.toml was created
@@ -369,7 +440,7 @@ mod tests {
             return Ok(());
         };
 
-        let result = run_with_cwd(Some(temp_dir.path()));
+        let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
         result?;
 
         // Verify state.db was created
@@ -392,7 +463,7 @@ mod tests {
             return Ok(());
         };
 
-        let result = run_with_cwd(Some(temp_dir.path()));
+        let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
         result?;
 
         // Verify layouts directory was created
@@ -411,11 +482,11 @@ mod tests {
         };
 
         // First init should succeed
-        let result1 = run_with_cwd(Some(temp_dir.path()));
+        let result1 = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
         assert!(result1.is_ok());
 
         // Second init should not fail, just inform user
-        let result2 = run_with_cwd(Some(temp_dir.path()));
+        let result2 = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
         assert!(result2.is_ok());
 
         Ok(())
@@ -435,7 +506,7 @@ mod tests {
         // Before JJ init, should not be a repo
         // After our init command runs, it will create a JJ repo automatically
         // So we just verify the automatic initialization works
-        let result = run_with_cwd(Some(temp_dir.path()));
+        let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
 
         // Should succeed because init_jj_repo is called automatically
         assert!(result.is_ok());
