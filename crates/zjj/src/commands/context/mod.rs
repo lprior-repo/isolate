@@ -60,7 +60,7 @@ fn gather_context(no_beads: bool, no_health: bool) -> Result<ContextOutput> {
     })
 }
 
-fn detect_location(root: &PathBuf) -> Result<Location> {
+pub fn detect_location(root: &PathBuf) -> Result<Location> {
     let current_dir = std::env::current_dir()?;
 
     if current_dir == *root {

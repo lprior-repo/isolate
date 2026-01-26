@@ -8,6 +8,7 @@ pub mod context;
 pub mod dashboard;
 pub mod diff;
 pub mod doctor;
+pub mod done;
 pub mod focus;
 pub mod init;
 pub mod introspect;

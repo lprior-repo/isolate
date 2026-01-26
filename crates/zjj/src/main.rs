@@ -14,8 +14,8 @@ mod json_output;
 mod session;
 
 use commands::{
-    add, attach, clean, config, context, dashboard, diff, doctor, focus, init, introspect, list,
-    query, remove, spawn, status, sync,
+    add, attach, clean, config, context, dashboard, diff, doctor, done, focus, init, introspect,
+    list, query, remove, spawn, status, sync,
 };
 
 fn cmd_init() -> ClapCommand {
@@ -48,6 +48,14 @@ fn cmd_attach() -> ClapCommand {
 fn cmd_add() -> ClapCommand {
     ClapCommand::new("add")
         .about("Create a new session with JJ workspace + Zellij tab")
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj add feature-auth              Create session with standard layout\n  \
+            zjj add bugfix-123 --no-open       Create without opening Zellij tab\n  \
+            zjj add experiment -t minimal      Use minimal layout template\n  \
+            zjj add quick-test --no-hooks      Skip post-create hooks\n  \
+            zjj add --example-json            Show example JSON output",
+        )
         .arg(
             Arg::new("name")
                 .required_unless_present("example-json")
@@ -121,6 +129,13 @@ fn cmd_list() -> ClapCommand {
 fn cmd_remove() -> ClapCommand {
     ClapCommand::new("remove")
         .about("Remove a session and its workspace")
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj remove old-feature            Remove with confirmation prompt\n  \
+            zjj remove test-session -f        Force removal without prompt\n  \
+            zjj remove feature-x --merge       Merge changes to main first\n  \
+            zjj remove experiment -k -f       Keep branch, force removal",
+        )
         .arg(
             Arg::new("name")
                 .required(true)
@@ -159,6 +174,11 @@ fn cmd_remove() -> ClapCommand {
 fn cmd_focus() -> ClapCommand {
     ClapCommand::new("focus")
         .about("Switch to a session's Zellij tab")
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj focus feature-auth            Switch to session's Zellij tab\n  \
+            zjj focus bugfix-123 --json       Get JSON output of focus operation",
+        )
         .arg(
             Arg::new("name")
                 .required(true)
@@ -198,6 +218,12 @@ fn cmd_status() -> ClapCommand {
 fn cmd_sync() -> ClapCommand {
     ClapCommand::new("sync")
         .about("Sync a session's workspace with main (rebase)")
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj sync feature-auth             Sync named session with main\n  \
+            zjj sync                          Sync current workspace\n  \
+            zjj sync --json                   Get JSON output of sync operation",
+        )
         .arg(
             Arg::new("name")
                 .required(false)
@@ -322,6 +348,13 @@ fn cmd_doctor() -> ClapCommand {
 fn cmd_query() -> ClapCommand {
     ClapCommand::new("query")
         .about("Query system state programmatically")
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj query session-exists feature   Check if session exists\n  \
+            zjj query session-count             Count active sessions\n  \
+            zjj query can-run                   Check if zjj can run\n  \
+            zjj query suggest-name feat         Get name suggestion",
+        )
         .arg(
             Arg::new("query_type")
                 .required(true)
@@ -372,6 +405,13 @@ fn cmd_context() -> ClapCommand {
 fn cmd_spawn() -> ClapCommand {
     ClapCommand::new("spawn")
         .about("Spawn isolated workspace for a bead and run agent")
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj spawn zjj-abc12               Spawn workspace for bead with Claude\n  \
+            zjj spawn zjj-xyz34 -b            Run agent in background\n  \
+            zjj spawn zjj-def56 --agent-command=llm-run  Use custom agent\n  \
+            zjj spawn zjj-ghi78 --no-auto-merge  Don't auto-merge on success",
+        )
         .arg(
             Arg::new("bead_id")
                 .required(true)
@@ -426,6 +466,57 @@ fn cmd_spawn() -> ClapCommand {
         )
 }
 
+fn cmd_done() -> ClapCommand {
+    ClapCommand::new("done")
+        .about("Complete work and merge workspace to main")
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj done                            Complete work and merge to main\n  \
+            zjj done -m \"Fix auth bug\"         Use custom commit message\n  \
+            zjj done --dry-run                  Preview without executing\n  \
+            zjj done --keep-workspace           Keep workspace after merge\n  \
+            zjj done --json                     Get JSON output",
+        )
+        .arg(
+            Arg::new("message")
+                .short('m')
+                .long("message")
+                .value_name("MSG")
+                .help("Commit message (auto-generated if not provided)"),
+        )
+        .arg(
+            Arg::new("keep-workspace")
+                .long("keep-workspace")
+                .action(clap::ArgAction::SetTrue)
+                .help("Keep workspace after merge"),
+        )
+        .arg(
+            Arg::new("squash")
+                .long("squash")
+                .action(clap::ArgAction::SetTrue)
+                .help("Squash all commits into one"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("no-bead-update")
+                .long("no-bead-update")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip bead status update"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .short('j')
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 fn build_cli() -> ClapCommand {
     ClapCommand::new("zjj")
         .version(env!("CARGO_PKG_VERSION"))
@@ -448,6 +539,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_doctor())
         .subcommand(cmd_query())
         .subcommand(cmd_context())
+        .subcommand(cmd_done())
         .subcommand(cmd_spawn())
 }
 
@@ -759,6 +851,27 @@ fn handle_context(sub_m: &clap::ArgMatches) -> Result<()> {
     context::run(json, field, no_beads, no_health)
 }
 
+fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
+    let message = sub_m.get_one::<String>("message").cloned();
+    let keep_workspace = sub_m.get_flag("keep-workspace");
+    let squash = sub_m.get_flag("squash");
+    let dry_run = sub_m.get_flag("dry-run");
+    let no_bead_update = sub_m.get_flag("no-bead-update");
+    let json = sub_m.get_flag("json");
+
+    let options = done::DoneOptions {
+        message,
+        keep_workspace,
+        squash,
+        dry_run,
+        no_bead_update,
+        format: zjj_core::OutputFormat::from_json_flag(json),
+    };
+
+    done::run_with_options(&options)?;
+    Ok(())
+}
+
 /// Execute the CLI and return a Result
 fn run_cli() -> Result<()> {
     let cli = build_cli();
@@ -818,6 +931,7 @@ fn run_cli() -> Result<()> {
         Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m),
         Some(("query", sub_m)) => handle_query(sub_m),
         Some(("context", sub_m)) => handle_context(sub_m),
+        Some(("done", sub_m)) => handle_done(sub_m),
         Some(("spawn", sub_m)) => handle_spawn(sub_m),
         _ => {
             build_cli().print_help()?;
