@@ -96,6 +96,19 @@ fn cmd_list() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("bead")
+                .long("bead")
+                .value_name("BEAD_ID")
+                .help("Filter sessions by bead ID"),
+        )
+        .arg(
+            Arg::new("agent")
+                .long("agent")
+                .value_name("NAME")
+                .action(clap::ArgAction::Set)
+                .help("Filter sessions by agent owner"),
+        )
 }
 
 fn cmd_remove() -> ClapCommand {
@@ -408,7 +421,9 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
 fn handle_list(sub_m: &clap::ArgMatches) -> Result<()> {
     let all = sub_m.get_flag("all");
     let json = sub_m.get_flag("json");
-    list::run(all, json)
+    let bead = sub_m.get_one::<String>("bead").cloned();
+    let agent = sub_m.get_one::<String>("agent").map(String::as_str);
+    list::run(all, json, bead.as_deref(), agent)
 }
 
 fn handle_remove(sub_m: &clap::ArgMatches) -> Result<()> {

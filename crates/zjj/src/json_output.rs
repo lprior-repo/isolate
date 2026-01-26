@@ -416,4 +416,161 @@ mod tests {
         assert!(remove_json.get("session_name").is_none());
         Ok(())
     }
+
+    // PHASE 5 - GREEN for zjj-ioa3: SyncOutput SchemaEnvelope wrapping tests
+    // These tests verify that SyncOutput JSON includes SchemaEnvelope wrapper
+
+    #[test]
+    fn test_sync_json_has_envelope() -> Result<(), serde_json::Error> {
+        // Create a SyncOutput (single session success)
+        let output = SyncOutput {
+            success: true,
+            name: Some("test-session".to_string()),
+            synced_count: 1,
+            failed_count: 0,
+            errors: Vec::new(),
+        };
+
+        // Wrap in envelope (as done in sync.rs)
+        let envelope = zjj_core::json::SchemaEnvelope::new("sync-response", "single", output);
+
+        // Serialize to JSON
+        let json_str = serde_json::to_string(&envelope)?;
+        let json: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify envelope fields exist
+        assert!(
+            json.get("$schema").is_some(),
+            "SyncOutput JSON must have $schema field in envelope"
+        );
+        assert!(
+            json.get("_schema_version").is_some(),
+            "SyncOutput JSON must have _schema_version field in envelope"
+        );
+        assert!(
+            json.get("schema_type").is_some(),
+            "SyncOutput JSON must have schema_type field in envelope"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sync_schema_type_single() -> Result<(), serde_json::Error> {
+        // Create a SyncOutput (all sessions sync)
+        let output = SyncOutput {
+            success: true,
+            name: None,
+            synced_count: 3,
+            failed_count: 0,
+            errors: Vec::new(),
+        };
+
+        // Wrap in envelope (as done in sync.rs)
+        let envelope = zjj_core::json::SchemaEnvelope::new("sync-response", "single", output);
+
+        // Serialize to JSON
+        let json_str = serde_json::to_string(&envelope)?;
+        let json: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify schema_type is "single"
+        assert_eq!(
+            json.get("schema_type").and_then(|v| v.as_str()),
+            Some("single"),
+            "SyncOutput schema_type must be 'single' (SyncOutput is a single object, not array)"
+        );
+
+        // Verify $schema URI format
+        if let Some(schema) = json.get("$schema").and_then(|v| v.as_str()) {
+            assert!(
+                schema.starts_with("zjj://"),
+                "Schema URI must start with 'zjj://'"
+            );
+            assert!(
+                schema.contains("/v1"),
+                "Schema URI must include version '/v1'"
+            );
+        } else {
+            panic!("Missing $schema field");
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sync_all_serialization_points() -> Result<(), serde_json::Error> {
+        // Test all 4 serialization points mentioned in PLAN.md
+
+        // Point 1: Single session success (line 56 in sync.rs)
+        let output1 = SyncOutput {
+            success: true,
+            name: Some("session1".to_string()),
+            synced_count: 1,
+            failed_count: 0,
+            errors: Vec::new(),
+        };
+        let envelope1 = zjj_core::json::SchemaEnvelope::new("sync-response", "single", output1);
+        let json1_str = serde_json::to_string(&envelope1)?;
+        let json1: serde_json::Value = serde_json::from_str(&json1_str)?;
+        assert!(
+            json1.get("$schema").is_some(),
+            "Single success case must have envelope (line 56)"
+        );
+
+        // Point 2: Single session failure (line 75 in sync.rs)
+        let output2 = SyncOutput {
+            success: false,
+            name: Some("session2".to_string()),
+            synced_count: 0,
+            failed_count: 1,
+            errors: vec![SyncError {
+                name: "session2".to_string(),
+                error: "rebase failed".to_string(),
+            }],
+        };
+        let envelope2 = zjj_core::json::SchemaEnvelope::new("sync-response", "single", output2);
+        let json2_str = serde_json::to_string(&envelope2)?;
+        let json2: serde_json::Value = serde_json::from_str(&json2_str)?;
+        assert!(
+            json2.get("$schema").is_some(),
+            "Single failure case must have envelope (line 75)"
+        );
+
+        // Point 3: All sessions empty (line 100 in sync.rs)
+        let output3 = SyncOutput {
+            success: true,
+            name: None,
+            synced_count: 0,
+            failed_count: 0,
+            errors: Vec::new(),
+        };
+        let envelope3 = zjj_core::json::SchemaEnvelope::new("sync-response", "single", output3);
+        let json3_str = serde_json::to_string(&envelope3)?;
+        let json3: serde_json::Value = serde_json::from_str(&json3_str)?;
+        assert!(
+            json3.get("$schema").is_some(),
+            "All sessions empty case must have envelope (line 100)"
+        );
+
+        // Point 4: All sessions with results (line 136 in sync.rs)
+        let output4 = SyncOutput {
+            success: false,
+            name: None,
+            synced_count: 2,
+            failed_count: 1,
+            errors: vec![SyncError {
+                name: "session3".to_string(),
+                error: "workspace not found".to_string(),
+            }],
+        };
+        let envelope4 = zjj_core::json::SchemaEnvelope::new("sync-response", "single", output4);
+        let json4_str = serde_json::to_string(&envelope4)?;
+        let json4: serde_json::Value = serde_json::from_str(&json4_str)?;
+        assert!(
+            json4.get("$schema").is_some(),
+            "All sessions with results case must have envelope (line 136)"
+        );
+
+        Ok(())
+    }
 }

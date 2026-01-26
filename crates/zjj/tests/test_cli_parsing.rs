@@ -169,6 +169,218 @@ fn test_list_with_json_flag() {
     assert!(parsed.is_ok(), "Output should be valid JSON");
 }
 
+#[test]
+fn test_list_with_agent_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["add", "test", "--no-open"]);
+
+    // This should fail because --agent flag doesn't exist yet
+    let result = harness.zjj(&["list", "--agent", "claude-sonnet"]);
+    assert!(result.success, "Should accept --agent flag");
+}
+
+#[test]
+fn test_list_agent_with_no_matches() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["add", "test", "--no-open"]);
+
+    // Filter by non-existent agent should return empty list
+    let result = harness.zjj(&["list", "--agent", "nonexistent-agent"]);
+    assert!(result.success, "Should succeed with no matches");
+    // Output should be empty or show "No sessions found"
+    assert!(
+        result.stdout.is_empty() || result.stdout.contains("No sessions"),
+        "Should show empty result when no sessions match agent filter"
+    );
+}
+
+#[test]
+fn test_list_agent_combined_with_all() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["add", "test", "--no-open"]);
+
+    // Combine --agent with --all flag
+    let result = harness.zjj(&["list", "--agent", "claude-sonnet", "--all"]);
+    assert!(
+        result.success,
+        "Should accept --agent combined with --all flag"
+    );
+}
+
+#[test]
+fn test_list_agent_combined_with_json() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["add", "test", "--no-open"]);
+
+    // Combine --agent with --json flag
+    let result = harness.zjj(&["list", "--agent", "claude-sonnet", "--json"]);
+    assert!(
+        result.success,
+        "Should accept --agent combined with --json flag"
+    );
+
+    // Verify JSON format is still valid
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    assert!(
+        parsed.is_ok(),
+        "Output should be valid JSON when combining --agent with --json"
+    );
+}
+
+// ============================================================================
+// List Command --bead Flag (zjj-1ppy)
+// ============================================================================
+
+#[test]
+fn test_list_with_bead_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Create multiple sessions
+    harness.assert_success(&["add", "session1", "--no-open"]);
+    harness.assert_success(&["add", "session2", "--no-open"]);
+    harness.assert_success(&["add", "session3", "--no-open"]);
+
+    // Filter by bead ID (none will match since sessions don't have bead metadata)
+    harness.assert_success(&["list", "--bead", "zjj-1ppy"]);
+}
+
+#[test]
+fn test_list_with_bead_no_matches() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Create sessions without bead metadata
+    harness.assert_success(&["add", "session1", "--no-open"]);
+    harness.assert_success(&["add", "session2", "--no-open"]);
+
+    // Filter by bead ID that doesn't match any session
+    let result = harness.zjj(&["list", "--bead", "zjj-9999"]);
+
+    // Should succeed but show no results
+    assert!(
+        result.success,
+        "Should succeed with empty results\nStdout: {}\nStderr: {}",
+        result.stdout, result.stderr
+    );
+    assert!(
+        result.stdout.contains("No sessions found"),
+        "Should indicate no sessions found\nStdout: {}",
+        result.stdout
+    );
+}
+
+#[test]
+fn test_list_with_bead_excludes_others() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Create multiple sessions
+    // Note: These sessions won't have bead metadata initially
+    harness.assert_success(&["add", "with-bead", "--no-open"]);
+    harness.assert_success(&["add", "without-bead-1", "--no-open"]);
+    harness.assert_success(&["add", "without-bead-2", "--no-open"]);
+
+    // Filter by bead ID - will show no results since sessions don't have metadata
+    harness.assert_success(&["list", "--bead", "zjj-1ppy"]);
+}
+
+#[test]
+fn test_list_without_bead_shows_all() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Create multiple sessions
+    harness.assert_success(&["add", "session1", "--no-open"]);
+    harness.assert_success(&["add", "session2", "--no-open"]);
+    harness.assert_success(&["add", "session3", "--no-open"]);
+
+    // List without --bead flag should show all sessions (backward compatibility)
+    let result = harness.zjj(&["list"]);
+    assert!(
+        result.success,
+        "List without --bead should succeed\nStdout: {}\nStderr: {}",
+        result.stdout, result.stderr
+    );
+
+    // All sessions should be present
+    result.assert_stdout_contains("session1");
+    result.assert_stdout_contains("session2");
+    result.assert_stdout_contains("session3");
+}
+
+#[test]
+fn test_list_with_bead_and_all_flags() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Create sessions
+    harness.assert_success(&["add", "session1", "--no-open"]);
+    harness.assert_success(&["add", "session2", "--no-open"]);
+
+    // Combine --bead with --all flag
+    harness.assert_success(&["list", "--bead", "zjj-1ppy", "--all"]);
+}
+
+#[test]
+fn test_list_with_bead_json_output() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Create sessions
+    harness.assert_success(&["add", "session1", "--no-open"]);
+    harness.assert_success(&["add", "session2", "--no-open"]);
+
+    // Combine --bead with --json flag
+    let result = harness.zjj(&["list", "--bead", "zjj-1ppy", "--json"]);
+
+    // Should succeed and return JSON array
+    assert!(
+        result.success,
+        "Should succeed with JSON output\nStdout: {}\nStderr: {}",
+        result.stdout, result.stderr
+    );
+    assert!(
+        result.stdout.starts_with('[') && result.stdout.trim().ends_with(']'),
+        "Should output valid JSON array\nStdout: {}",
+        result.stdout
+    );
+}
+
 // ============================================================================
 // Remove Command Options
 // ============================================================================

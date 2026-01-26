@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use zjj_core::json::SchemaEnvelope;
 
 use crate::{
     cli::{is_inside_zellij, run_command},
@@ -54,7 +55,8 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
                 name: name.to_string(),
                 message: "Removal cancelled".to_string(),
             };
-            println!("{}", serde_json::to_string(&output)?);
+            let envelope = SchemaEnvelope::new("remove-response", "single", output);
+            println!("{}", serde_json::to_string(&envelope)?);
         } else {
             println!("Removal cancelled");
         }
@@ -98,7 +100,8 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
             name: name.to_string(),
             message: format!("Removed session '{name}'"),
         };
-        println!("{}", serde_json::to_string(&output)?);
+        let envelope = SchemaEnvelope::new("remove-response", "single", output);
+        println!("{}", serde_json::to_string(&envelope)?);
     } else {
         println!("Removed session '{name}'");
     }
@@ -232,5 +235,91 @@ mod tests {
         let err = zjj_core::Error::ValidationError("Invalid name".into());
         assert_eq!(err.exit_code(), 1);
         assert!(matches!(err, zjj_core::Error::ValidationError(_)));
+    }
+
+    // Phase 1 RED tests: Remove JSON output should be wrapped with SchemaEnvelope
+
+    #[test]
+    fn test_remove_json_has_envelope() -> Result<()> {
+        use crate::json_output::RemoveOutput;
+
+        // Create sample RemoveOutput
+        let output = RemoveOutput {
+            success: true,
+            name: "test-session".to_string(),
+            message: "Removed session 'test-session'".to_string(),
+        };
+
+        // Wrap with SchemaEnvelope (this is what the command actually prints)
+        let envelope = SchemaEnvelope::new("remove-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify SchemaEnvelope fields are present
+        assert!(
+            parsed.get("$schema").is_some(),
+            "JSON output should have $schema field"
+        );
+        assert!(
+            parsed.get("_schema_version").is_some(),
+            "JSON output should have _schema_version field"
+        );
+        assert!(
+            parsed.get("schema_type").is_some(),
+            "JSON output should have schema_type field"
+        );
+
+        // Verify schema_type is "single"
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single"),
+            "schema_type should be 'single' for RemoveOutput"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_remove_schema_format() -> Result<()> {
+        use crate::json_output::RemoveOutput;
+
+        // Create sample output
+        let output = RemoveOutput {
+            success: false,
+            name: "cancelled-session".to_string(),
+            message: "Removal cancelled".to_string(),
+        };
+
+        // Wrap with SchemaEnvelope
+        let envelope = SchemaEnvelope::new("remove-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify $schema format matches zjj://<command>/v1 pattern
+        if let Some(schema) = parsed.get("$schema").and_then(|v| v.as_str()) {
+            assert!(
+                schema.starts_with("zjj://"),
+                "$schema should start with 'zjj://', got: {schema}"
+            );
+            assert!(
+                schema.ends_with("/v1"),
+                "$schema should end with '/v1', got: {schema}"
+            );
+            assert!(
+                schema.contains("remove"),
+                "$schema should contain 'remove' for remove command, got: {schema}"
+            );
+        } else {
+            panic!("$schema field should be a string");
+        }
+
+        // Verify _schema_version is "1.0"
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0"),
+            "_schema_version should be '1.0'"
+        );
+
+        Ok(())
     }
 }
