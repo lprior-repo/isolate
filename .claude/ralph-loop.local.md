@@ -287,6 +287,52 @@ Comprehensive research completed for all 5 beads:
 - ✅ success field presence
 - ✅ Data preservation in envelope
 
+### Phase 4 (GREEN) - Implementation Plan ⏳
+
+**Challenge Identified:**
+SchemaEnvelope currently uses `#[serde(flatten)]` which cannot serialize array types.
+Error: "can only flatten structs and maps (got a sequence)"
+
+**Solution Options:**
+
+Option A: Wrapper struct for arrays
+```rust
+#[derive(Serialize)]
+pub struct ArrayEnvelope<T> {
+    #[serde(rename = "$schema")]
+    pub schema: String,
+    pub _schema_version: String,
+    pub schema_type: String,
+    pub success: bool,
+    pub data: Vec<T>,  // Direct array, not flattened
+}
+```
+
+Option B: Generic enum for flattening
+```rust
+#[serde(untagged)]
+pub enum SchemaData<T> {
+    Single(T),
+    Array(Vec<T>),
+}
+```
+
+Option C: Conditional flatten with separate path
+Different serialization for Vec<T> types vs struct types
+
+**Recommended Implementation:**
+Use wrapper structs for array types:
+1. Create `SchemaEnvelopeArray<T>` for Vec<T> types
+2. Keep `SchemaEnvelope<T>` for single object types
+3. Update 4 failing tests to use new wrapper type
+4. All tests will then pass (GREEN phase complete)
+
+**Files to Modify in Phase 4:**
+- `/home/lewis/src/zjj/crates/zjj-core/src/json.rs` - Add SchemaEnvelopeArray<T>
+- `/home/lewis/src/zjj/crates/zjj/src/commands/list.rs` - Use SchemaEnvelopeArray in actual code + tests
+- `/home/lewis/src/zjj/crates/zjj/src/commands/query.rs` - Update for array wrapping if needed
+- `/home/lewis/src/zjj/crates/zjj/src/commands/introspect.rs` - Update for array output wrapping
+
 ---
 
 ## Complete Session Summary
