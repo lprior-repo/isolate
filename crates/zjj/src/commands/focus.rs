@@ -274,22 +274,24 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         // Verify $schema format matches zjj://<command>/v1 pattern
-        if let Some(schema) = parsed.get("$schema").and_then(|v| v.as_str()) {
-            assert!(
-                schema.starts_with("zjj://"),
-                "$schema should start with 'zjj://', got: {schema}"
-            );
-            assert!(
-                schema.ends_with("/v1"),
-                "$schema should end with '/v1', got: {schema}"
-            );
-            assert!(
-                schema.contains("focus"),
-                "$schema should contain 'focus' for focus command, got: {schema}"
-            );
-        } else {
-            panic!("$schema field should be a string");
-        }
+        let schema_value = parsed.get("$schema").and_then(|v| v.as_str());
+        assert!(
+            schema_value.is_some(),
+            "$schema field should be present and be a string"
+        );
+        let Some(schema) = schema_value else { return Ok(()); };
+        assert!(
+            schema.starts_with("zjj://"),
+            "$schema should start with 'zjj://', got: {schema}"
+        );
+        assert!(
+            schema.ends_with("/v1"),
+            "$schema should end with '/v1', got: {schema}"
+        );
+        assert!(
+            schema.contains("focus"),
+            "$schema should contain 'focus' for focus command, got: {schema}"
+        );
 
         // Verify _schema_version is "1.0"
         assert_eq!(

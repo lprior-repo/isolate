@@ -381,17 +381,18 @@ fn test_list_with_bead_json_output() {
         "Should output valid JSON\nStdout: {}",
         result.stdout
     );
-    let json = parsed.unwrap();
-    assert!(
-        json.get("$schema").is_some(),
-        "Should have $schema field\nStdout: {}",
-        result.stdout
-    );
-    assert_eq!(
-        json.get("schema_type").and_then(|v| v.as_str()),
-        Some("array"),
-        "Should have schema_type='array'"
-    );
+    if let Ok(json) = parsed {
+        assert!(
+            json.get("$schema").is_some(),
+            "Should have $schema field\nStdout: {}",
+            result.stdout
+        );
+        assert_eq!(
+            json.get("schema_type").and_then(|v| v.as_str()),
+            Some("array"),
+            "Should have schema_type='array'"
+        );
+    }
 }
 
 // ============================================================================
@@ -933,8 +934,9 @@ fn test_add_example_json_has_name_field() {
     assert!(result.success, "Should succeed with --example-json");
 
     // Test: JSON should have 'name' field with string value
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    assert!(parsed_result.is_ok(), "Output should be valid JSON");
+    let Some(parsed) = parsed_result.ok() else { return };
     assert!(
         parsed.get("name").is_some(),
         "JSON should have 'name' field"
@@ -957,8 +959,9 @@ fn test_add_example_json_has_workspace_path_field() {
     let result = harness.zjj(&["add", "--example-json"]);
     assert!(result.success, "Should succeed with --example-json");
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    assert!(parsed_result.is_ok(), "Output should be valid JSON");
+    let Some(parsed) = parsed_result.ok() else { return };
     assert!(
         parsed.get("workspace_path").is_some(),
         "JSON should have 'workspace_path' field"
@@ -980,8 +983,9 @@ fn test_add_example_json_has_zellij_tab_field() {
     let result = harness.zjj(&["add", "--example-json"]);
     assert!(result.success, "Should succeed with --example-json");
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    assert!(parsed_result.is_ok(), "Output should be valid JSON");
+    let Some(parsed) = parsed_result.ok() else { return };
     assert!(
         parsed.get("zellij_tab").is_some(),
         "JSON should have 'zellij_tab' field"
@@ -1003,8 +1007,9 @@ fn test_add_example_json_has_status_field() {
     let result = harness.zjj(&["add", "--example-json"]);
     assert!(result.success, "Should succeed with --example-json");
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    assert!(parsed_result.is_ok(), "Output should be valid JSON");
+    let Some(parsed) = parsed_result.ok() else { return };
     assert!(
         parsed.get("status").is_some(),
         "JSON should have 'status' field"
@@ -1080,16 +1085,16 @@ fn test_add_example_json_has_all_required_fields() {
     let result = harness.zjj(&["add", "--example-json"]);
     assert!(result.success, "Should succeed with --example-json");
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    assert!(parsed_result.is_ok(), "Output should be valid JSON");
+    let Some(parsed) = parsed_result.ok() else { return };
 
     // Test: All required fields present
     let required_fields = vec!["name", "workspace_path", "zellij_tab", "status"];
     for field in required_fields {
         assert!(
             parsed.get(field).is_some(),
-            "JSON should have required field '{}'",
-            field
+            "JSON should have required field '{field}'"
         );
     }
 }
@@ -1145,8 +1150,9 @@ fn test_add_example_json_output_fields_are_strings() {
     let result = harness.zjj(&["add", "--example-json"]);
     assert!(result.success, "Should succeed with --example-json");
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    assert!(parsed_result.is_ok(), "Output should be valid JSON");
+    let Some(parsed) = parsed_result.ok() else { return };
 
     // Test: All fields should be strings (matching AddOutput struct)
     assert!(parsed["name"].is_string(), "name should be string");

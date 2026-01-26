@@ -680,16 +680,18 @@ mod tests {
     // They FAIL until the implementation adds the required flags and error conditions.
 
     /// Validates that a list introspection includes bead flag specification
+    #[allow(dead_code)]
     fn validate_list_has_bead_flag(list_introspection: &CommandIntrospection) -> bool {
         list_introspection.flags.iter().any(|f| f.long == "bead")
     }
 
     /// Validates that a list introspection includes agent flag specification
+    #[allow(dead_code)]
     fn validate_list_has_agent_flag(list_introspection: &CommandIntrospection) -> bool {
         list_introspection.flags.iter().any(|f| f.long == "agent")
     }
 
-    /// Validates that error conditions include NO_MATCHING_SESSIONS
+    /// Validates that error conditions include `NO_MATCHING_SESSIONS`
     fn validate_has_no_matching_error(list_introspection: &CommandIntrospection) -> bool {
         list_introspection
             .error_conditions
@@ -927,7 +929,7 @@ mod tests {
     fn test_list_command_filters_are_optional_parameters() {
         // FAILING: Verifies that both filter flags are optional (not required)
         // FlagSpec structure doesn't have a 'required' field; all flags are optional by design
-        let filters = vec![
+        let filters = [
             FlagSpec {
                 long: "bead".to_string(),
                 short: Some("b".to_string()),
@@ -1050,8 +1052,8 @@ mod tests {
         let validation = &add_introspection.arguments[0].validation;
         assert!(validation.is_some());
         assert_eq!(
-            validation.as_ref().unwrap(),
-            "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"
+            validation.as_deref(),
+            Some("^[a-zA-Z][a-zA-Z0-9_-]{0,63}$")
         );
     }
 
@@ -1077,8 +1079,7 @@ mod tests {
         for name in valid_names {
             assert!(
                 validate_add_session_name(name).is_ok(),
-                "Name '{}' should be valid",
-                name
+                "Name '{name}' should be valid"
             );
         }
     }
@@ -1091,8 +1092,7 @@ mod tests {
         for name in names {
             assert!(
                 validate_add_session_name(name).is_ok(),
-                "Name '{}' with dashes should be valid",
-                name
+                "Name '{name}' with dashes should be valid"
             );
         }
     }
@@ -1105,8 +1105,7 @@ mod tests {
         for name in names {
             assert!(
                 validate_add_session_name(name).is_ok(),
-                "Name '{}' with underscores should be valid",
-                name
+                "Name '{name}' with underscores should be valid"
             );
         }
     }
@@ -1119,8 +1118,7 @@ mod tests {
         for name in names {
             assert!(
                 validate_add_session_name(name).is_ok(),
-                "Name '{}' with mixed case should be valid",
-                name
+                "Name '{name}' with mixed case should be valid"
             );
         }
     }
@@ -1133,8 +1131,7 @@ mod tests {
         for name in names {
             assert!(
                 validate_add_session_name(name).is_ok(),
-                "Name '{}' with digits should be valid",
-                name
+                "Name '{name}' with digits should be valid"
             );
         }
     }
@@ -1165,8 +1162,7 @@ mod tests {
         for name in names {
             assert!(
                 validate_add_session_name(name).is_err(),
-                "Name '{}' starting with digit should be rejected",
-                name
+                "Name '{name}' starting with digit should be rejected"
             );
         }
     }
@@ -1210,8 +1206,7 @@ mod tests {
         for name in names {
             assert!(
                 validate_add_session_name(name).is_err(),
-                "Name '{}' with spaces should be rejected",
-                name
+                "Name '{name}' with spaces should be rejected"
             );
         }
     }
@@ -1239,8 +1234,7 @@ mod tests {
         for name in names {
             assert!(
                 validate_add_session_name(name).is_err(),
-                "Name '{}' with special chars should be rejected",
-                name
+                "Name '{name}' with special chars should be rejected"
             );
         }
     }
@@ -1263,8 +1257,7 @@ mod tests {
         for name in names {
             assert!(
                 validate_add_session_name(name).is_err(),
-                "Name '{}' with unicode should be rejected",
-                name
+                "Name '{name}' with unicode should be rejected"
             );
         }
     }
@@ -1283,16 +1276,13 @@ mod tests {
 
         for (name, expected_keyword) in error_cases {
             let result = validate_add_session_name(name);
-            assert!(result.is_err(), "Name '{}' should produce error", name);
+            assert!(result.is_err(), "Name '{name}' should produce error");
 
             if let Err(Error::ValidationError(msg)) = result {
                 let lowercase_msg = msg.to_lowercase();
                 assert!(
                     lowercase_msg.contains(&expected_keyword.to_lowercase()),
-                    "Error for '{}' should mention '{}', got: {}",
-                    name,
-                    expected_keyword,
-                    msg
+                    "Error for '{name}' should mention '{expected_keyword}', got: {msg}"
                 );
             }
         }
@@ -1319,9 +1309,7 @@ mod tests {
             let result = validate_add_session_name(name);
             assert!(
                 result.is_ok(),
-                "Name '{}' ({}) should be valid",
-                name,
-                description
+                "Name '{name}' ({description}) should be valid"
             );
         }
     }
@@ -1357,9 +1345,7 @@ mod tests {
             let result = validate_add_session_name(name);
             assert!(
                 result.is_err(),
-                "Name '{}' ({}) should be invalid",
-                name,
-                description
+                "Name '{name}' ({description}) should be invalid"
             );
         }
     }
@@ -1394,7 +1380,7 @@ mod tests {
     #[test]
     fn test_add_command_validation_functional_pipeline() {
         // FAILING: Verify validation works in functional composition (ROP pattern)
-        let names = vec!["valid-name", "another_session", "0invalid", ""];
+        let names = ["valid-name", "another_session", "0invalid", ""];
 
         let results: Vec<(String, bool)> = names
             .iter()
@@ -1402,10 +1388,10 @@ mod tests {
             .collect();
 
         // Verify correct validation outcomes
-        assert_eq!(results[0].1, true, "valid-name should pass");
-        assert_eq!(results[1].1, true, "another_session should pass");
-        assert_eq!(results[2].1, false, "0invalid should fail");
-        assert_eq!(results[3].1, false, "empty should fail");
+        assert!(results[0].1, "valid-name should pass");
+        assert!(results[1].1, "another_session should pass");
+        assert!(!results[2].1, "0invalid should fail");
+        assert!(!results[3].1, "empty should fail");
 
         // Count valid names using functional filter
         let valid_count = results.iter().filter(|(_, is_valid)| *is_valid).count();
@@ -1419,16 +1405,18 @@ mod tests {
 
         for name in invalid_names {
             let result = validate_add_session_name(name);
-            assert!(result.is_err(), "Name '{}' should produce error", name);
+            assert!(result.is_err(), "Name '{name}' should produce error");
 
             // Verify error type is ValidationError
-            match result {
-                Err(Error::ValidationError(_)) => {
-                    // Correct error type
-                }
-                Err(_other) => panic!("Name '{}' produced wrong error type", name),
-                Ok(_) => panic!("Name '{}' should have failed", name),
-            }
+            let Err(ref err) = result else {
+                // Already asserted above, unreachable
+                continue;
+            };
+            let is_validation_error = matches!(err, Error::ValidationError(_));
+            assert!(
+                is_validation_error,
+                "Name '{name}' should produce ValidationError, got: {err}"
+            );
         }
     }
 
@@ -1494,8 +1482,7 @@ mod tests {
         for example in &arg.examples {
             assert!(
                 validate_add_session_name(example).is_ok(),
-                "Example '{}' should be a valid session name",
-                example
+                "Example '{example}' should be a valid session name"
             );
         }
     }
@@ -1518,8 +1505,7 @@ mod tests {
 
             assert_eq!(
                 is_valid, should_be_valid,
-                "Name '{}': validation result {} doesn't match expectation {}",
-                name, is_valid, should_be_valid
+                "Name '{name}': validation result {is_valid} doesn't match expectation {should_be_valid}"
             );
         }
     }

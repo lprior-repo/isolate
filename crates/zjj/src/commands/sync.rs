@@ -105,7 +105,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
     if options.format.is_json() {
         // For JSON output, collect results and output once at the end
         // Use functional pattern: map to Results, partition into successes/failures
-        let results: Vec<_> = sessions
+        let (successes, errors): (Vec<_>, Vec<_>) = sessions
             .iter()
             .map(|session| {
                 sync_session_internal(&db, &session.name, &session.workspace_path)
@@ -115,9 +115,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                         error: e.to_string(),
                     })
             })
-            .collect();
-
-        let (successes, errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
+            .partition(Result::is_ok);
 
         let output = SyncOutput {
             name: None,
@@ -133,7 +131,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
 
         // Use functional pattern: map to Results with side effects, partition into
         // successes/failures
-        let results: Vec<_> = sessions
+        let (successes, errors): (Vec<_>, Vec<_>) = sessions
             .iter()
             .map(|session| {
                 print!("Syncing '{}' ... ", session.name);
@@ -148,9 +146,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                         (session.name.clone(), e)
                     })
             })
-            .collect();
-
-        let (successes, errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
+            .partition(Result::is_ok);
 
         let success_count = successes.len();
         let failure_count = errors.len();

@@ -7,7 +7,6 @@ pub mod types;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 pub use types::{
     BeadsContext, ContextOutput, HealthStatus, Location, RepositoryContext, SessionContext,
 };
@@ -46,7 +45,7 @@ fn gather_context(no_beads: bool, no_health: bool) -> Result<ContextOutput> {
     let health_status = if no_health {
         HealthStatus::Good
     } else {
-        check_health(&root, &session_context)?
+        check_health(&root, session_context.as_ref())
     };
 
     let suggestions = generate_suggestions(&location, &health_status, &repository_context);
@@ -110,7 +109,7 @@ fn get_current_branch(root: &PathBuf) -> Result<String> {
         .current_dir(root)
         .args(["log", "-r", "@", "--no-graph", "-T", "change_id"])
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to get current branch: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to get current branch: {e}"))?;
 
     if !output.status.success() {
         return Err(anyhow::anyhow!(
@@ -128,7 +127,7 @@ fn count_uncommitted_files(root: &PathBuf) -> Result<usize> {
         .current_dir(root)
         .args(["status", "--no-pager", "-T", "files"])
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to get uncommitted files: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to get uncommitted files: {e}"))?;
 
     if !output.status.success() {
         return Err(anyhow::anyhow!(
@@ -147,7 +146,7 @@ fn check_conflicts(root: &PathBuf) -> Result<bool> {
         .current_dir(root)
         .args(["status", "--no-pager"])
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to check for conflicts: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to check for conflicts: {e}"))?;
 
     if !output.status.success() {
         return Err(anyhow::anyhow!(
@@ -165,7 +164,7 @@ fn count_commits_ahead(root: &PathBuf) -> Result<usize> {
         .current_dir(root)
         .args(["log", "-r", "@..@", "--no-graph", "-T", "commit_id"])
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to count commits ahead: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to count commits ahead: {e}"))?;
 
     if !output.status.success() {
         return Err(anyhow::anyhow!(
@@ -192,7 +191,7 @@ fn get_session_info() -> Result<SessionContext> {
     let session = sessions
         .iter()
         .find(|s| s.name == workspace_name)
-        .ok_or_else(|| anyhow::anyhow!("Session not found for workspace: {}", workspace_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Session not found for workspace: {workspace_name}"))?;
 
     let bead_id = session
         .metadata
@@ -201,9 +200,11 @@ fn get_session_info() -> Result<SessionContext> {
         .and_then(|v| v.as_str())
         .map(String::from);
 
+    #[allow(clippy::cast_possible_wrap)]
     let created_at = chrono::DateTime::from_timestamp(session.created_at as i64, 0)
         .ok_or_else(|| anyhow::anyhow!("Invalid created_at timestamp"))?;
 
+    #[allow(clippy::cast_possible_wrap)]
     let last_synced = session
         .last_synced
         .map(|ts| {
@@ -267,7 +268,7 @@ fn get_beads_context() -> Result<Option<BeadsContext>> {
     }))
 }
 
-fn check_health(root: &PathBuf, session_context: &Option<SessionContext>) -> Result<HealthStatus> {
+fn check_health(root: &std::path::Path, session_context: Option<&SessionContext>) -> HealthStatus {
     let mut warnings: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
 
@@ -276,7 +277,7 @@ fn check_health(root: &PathBuf, session_context: &Option<SessionContext>) -> Res
         errors.push("Session database not found".to_string());
     }
 
-    if let Some(ref session) = session_context {
+    if let Some(session) = session_context {
         let workspace_path = root.join(".zjj/workspaces").join(&session.name);
         if !workspace_path.exists() {
             warnings.push(format!(
@@ -286,13 +287,13 @@ fn check_health(root: &PathBuf, session_context: &Option<SessionContext>) -> Res
         }
     }
 
-    Ok(if errors.is_empty() && warnings.is_empty() {
+    if errors.is_empty() && warnings.is_empty() {
         HealthStatus::Good
     } else if !errors.is_empty() {
         HealthStatus::Error { critical: errors }
     } else {
         HealthStatus::Warn { issues: warnings }
-    })
+    }
 }
 
 fn generate_suggestions(
@@ -307,7 +308,7 @@ fn generate_suggestions(
             suggestions.push("Use 'zjj add <name>' to create a workspace".to_string());
         }
         Location::Workspace { name, .. } => {
-            suggestions.push(format!("Working in workspace: {}", name));
+            suggestions.push(format!("Working in workspace: {name}"));
             if repo.uncommitted_files > 0 {
                 suggestions.push(format!(
                     "You have {} uncommitted files. Use 'jj status' to review.",
@@ -320,15 +321,15 @@ fn generate_suggestions(
     match health {
         HealthStatus::Warn { issues } => {
             for issue in issues {
-                suggestions.push(format!("Warning: {}", issue));
+                suggestions.push(format!("Warning: {issue}"));
             }
         }
         HealthStatus::Error { critical } => {
             for error in critical {
-                suggestions.push(format!("Error: {}", error));
+                suggestions.push(format!("Error: {error}"));
             }
         }
-        _ => {}
+        HealthStatus::Good => {}
     }
 
     suggestions
@@ -349,7 +350,7 @@ fn print_human_readable(context: &ContextOutput) {
             println!("📍 Location: Main branch");
         }
         Location::Workspace { name, .. } => {
-            println!("📍 Location: Workspace '{}'", name);
+            println!("📍 Location: Workspace '{name}'");
         }
     }
 
@@ -370,7 +371,7 @@ fn print_human_readable(context: &ContextOutput) {
 
     if let Some(ref beads) = context.beads {
         if let Some(ref active) = beads.active {
-            println!("🔴 Active task: {}", active);
+            println!("🔴 Active task: {active}");
         }
         println!("📋 Ready tasks: {}", beads.ready_count);
         if !beads.blocked_by.is_empty() {
@@ -383,13 +384,13 @@ fn print_human_readable(context: &ContextOutput) {
         HealthStatus::Warn { issues } => {
             println!("⚠️  Health: Warning");
             for issue in issues {
-                println!("  - {}", issue);
+                println!("  - {issue}");
             }
         }
         HealthStatus::Error { critical } => {
             println!("❌ Health: Error");
             for error in critical {
-                println!("  - {}", error);
+                println!("  - {error}");
             }
         }
     }
@@ -397,7 +398,7 @@ fn print_human_readable(context: &ContextOutput) {
     if !context.suggestions.is_empty() {
         println!("\n💡 Suggestions:");
         for suggestion in &context.suggestions {
-            println!("  • {}", suggestion);
+            println!("  • {suggestion}");
         }
     }
 }
@@ -408,8 +409,8 @@ fn extract_and_print_field(context: &ContextOutput, field_path: &str) -> Result<
 
     let value = json_value
         .pointer(&pointer)
-        .ok_or_else(|| anyhow::anyhow!("Field not found: {}", field_path))?;
+        .ok_or_else(|| anyhow::anyhow!("Field not found: {field_path}"))?;
 
-    println!("{}", value);
+    println!("{value}");
     Ok(())
 }

@@ -83,7 +83,7 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Output when no stale sessions found
-fn output_no_stale(format: OutputFormat) -> () {
+fn output_no_stale(format: OutputFormat) {
     if format.is_json() {
         let output = CleanOutput {
             stale_count: 0,
@@ -115,9 +115,9 @@ fn output_dry_run(stale_names: &[String], format: OutputFormat) {
             "Found {} stale session(s) (dry-run, no changes made):",
             stale_names.len()
         );
-        stale_names.iter().for_each(|name| {
+        for name in stale_names {
             println!("  - {name}");
-        });
+        }
         println!();
         println!("Run 'zjj clean --force' to remove these sessions");
     }
@@ -151,10 +151,10 @@ fn output_result(removed_count: usize, stale_names: &[String], format: OutputFor
             println!("{json_str}");
         }
     } else {
-        println!("✓ Removed {} stale session(s)", removed_count);
-        stale_names.iter().for_each(|name| {
+        println!("✓ Removed {removed_count} stale session(s)");
+        for name in stale_names {
             println!("  - {name}");
-        });
+        }
     }
 }
 
@@ -167,9 +167,9 @@ fn output_result(removed_count: usize, stale_names: &[String], format: OutputFor
 /// Returns Ok(true) if user confirms, Ok(false) if user cancels
 fn confirm_removal(stale_names: &[String]) -> Result<bool> {
     println!("Found {} stale session(s):", stale_names.len());
-    stale_names.iter().for_each(|name| {
+    for name in stale_names {
         println!("  - {name}");
-    });
+    }
     println!();
     print!("Remove these sessions? [y/N] ");
     std::io::stdout()
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn test_removed_count_calculation() {
         // Simulate the fold operation for counting removals
-        let sessions = vec!["s1", "s2", "s3"];
+        let sessions = ["s1", "s2", "s3"];
 
         // Simulate successful removals using functional fold
         let count = sessions

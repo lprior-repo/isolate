@@ -605,7 +605,7 @@ mod tests {
         Ok(())
     }
 
-    /// Test that schema_type field is set to "single" for wrapped responses
+    /// Test that `schema_type` field is set to "single" for wrapped responses
     #[test]
     fn test_status_schema_type_single() -> Result<()> {
         let session = Session {
@@ -737,7 +737,7 @@ mod tests {
         Ok(())
     }
 
-    /// Test that the schema format is exactly "zjj://status-response/v1"
+    /// Test that the schema format is exactly `<zjj://status-response/v1>`
     #[test]
     fn test_status_schema_format() -> Result<()> {
         let session = Session {
@@ -805,7 +805,7 @@ mod tests {
         Ok(())
     }
 
-    /// Test that _schema_version field exists and is correct
+    /// Test that `_schema_version` field exists and is correct
     #[test]
     fn test_status_schema_version_field() -> Result<()> {
         let session = Session {
@@ -973,14 +973,14 @@ mod tests {
         let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
 
         // Verify sessions field exists
-        let sessions = json_value
+        let sessions_field = json_value
             .get("sessions")
             .ok_or_else(|| anyhow::anyhow!("Missing sessions field"))?;
 
         // Verify it's an array
-        assert!(sessions.is_array(), "sessions field must be an array");
+        assert!(sessions_field.is_array(), "sessions field must be an array");
 
-        let sessions_array = sessions
+        let sessions_array = sessions_field
             .as_array()
             .ok_or_else(|| anyhow::anyhow!("sessions is not a valid array"))?;
 

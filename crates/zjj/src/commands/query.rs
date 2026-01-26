@@ -504,9 +504,9 @@ mod tests {
     // These tests FAIL until query command accepts OutputFormat parameter
     // ============================================================================
 
-    /// RED: query run() should accept OutputFormat parameter
+    /// RED: query `run()` should accept `OutputFormat` parameter
     #[test]
-    fn test_query_run_accepts_output_format() -> anyhow::Result<()> {
+    fn test_query_run_accepts_output_format() {
         use zjj_core::OutputFormat;
 
         // This test documents the expected signature:
@@ -520,13 +520,11 @@ mod tests {
 
         // When run() is updated to accept format:
         // query::run("session-exists", Some("my-session"), OutputFormat::Json)
-
-        Ok(())
     }
 
     /// RED: query should always use JSON output format by default
     #[test]
-    fn test_query_defaults_to_json_format() -> anyhow::Result<()> {
+    fn test_query_defaults_to_json_format() {
         use zjj_core::OutputFormat;
 
         // Per requirements: query is always JSON format for programmatic access
@@ -535,13 +533,11 @@ mod tests {
 
         // Even if a human format is requested, query should use JSON
         // This is because query is designed for AI agents/scripts, not humans
-
-        Ok(())
     }
 
     /// RED: query session-exists always outputs JSON
     #[test]
-    fn test_query_session_exists_json_only() -> anyhow::Result<()> {
+    fn test_query_session_exists_json_only() {
         use zjj_core::OutputFormat;
 
         let format = OutputFormat::Json;
@@ -554,13 +550,11 @@ mod tests {
         //   "session": {...},
         //   "error": null
         // }
-
-        Ok(())
     }
 
     /// RED: query session-count always outputs JSON
     #[test]
-    fn test_query_session_count_json_only() -> anyhow::Result<()> {
+    fn test_query_session_count_json_only() {
         use zjj_core::OutputFormat;
 
         let format = OutputFormat::Json;
@@ -573,13 +567,11 @@ mod tests {
         //   "filter": {...},
         //   "error": null
         // }
-
-        Ok(())
     }
 
     /// RED: query can-run always outputs JSON
     #[test]
-    fn test_query_can_run_json_only() -> anyhow::Result<()> {
+    fn test_query_can_run_json_only() {
         use zjj_core::OutputFormat;
 
         let format = OutputFormat::Json;
@@ -594,13 +586,11 @@ mod tests {
         //   "prerequisites_met": 4,
         //   "prerequisites_total": 4
         // }
-
-        Ok(())
     }
 
     /// RED: query suggest-name always outputs JSON
     #[test]
-    fn test_query_suggest_name_json_only() -> anyhow::Result<()> {
+    fn test_query_suggest_name_json_only() {
         use zjj_core::OutputFormat;
 
         let format = OutputFormat::Json;
@@ -614,13 +604,11 @@ mod tests {
         //   "next_available_n": 3,
         //   "existing_matches": ["feature-1", "feature-2"]
         // }
-
-        Ok(())
     }
 
-    /// RED: query output is always SchemaEnvelope wrapped
+    /// RED: query output is always `SchemaEnvelope` wrapped
     #[test]
-    fn test_query_all_outputs_wrapped_in_envelope() -> anyhow::Result<()> {
+    fn test_query_all_outputs_wrapped_in_envelope() {
         use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
         let format = OutputFormat::Json;
@@ -636,18 +624,20 @@ mod tests {
         };
 
         let envelope = SchemaEnvelope::new("query-session-exists", "single", test_result);
-        let json_str = serde_json::to_string(&envelope)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+        let json_str_result = serde_json::to_string(&envelope);
+        assert!(json_str_result.is_ok(), "serialization should succeed");
+        let Some(json_str) = json_str_result.ok() else { return };
+        let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&json_str);
+        assert!(parsed_result.is_ok(), "parsing should succeed");
+        let Some(parsed) = parsed_result.ok() else { return };
 
         assert!(parsed.get("$schema").is_some());
         assert!(parsed.get("success").is_some());
-
-        Ok(())
     }
 
     /// RED: query --json flag is processed but ignored (always JSON)
     #[test]
-    fn test_query_ignores_json_flag_always_json() -> anyhow::Result<()> {
+    fn test_query_ignores_json_flag_always_json() {
         use zjj_core::OutputFormat;
 
         // The --json flag in query command is for consistency with other commands
@@ -659,17 +649,15 @@ mod tests {
 
         // Even if --json=false (nonsensical for query), output should still be JSON
         let false_flag = false;
-        let _format2 = OutputFormat::from_json_flag(false_flag);
+        let _ = OutputFormat::from_json_flag(false_flag);
         // Query implementation should convert this back to Json anyway
         let json_format = OutputFormat::Json;
         assert!(json_format.is_json());
-
-        Ok(())
     }
 
     /// RED: query never outputs Human-readable format
     #[test]
-    fn test_query_rejects_human_format() -> anyhow::Result<()> {
+    fn test_query_rejects_human_format() {
         use zjj_core::OutputFormat;
 
         // Even though OutputFormat::Human exists, query should never use it
@@ -678,13 +666,11 @@ mod tests {
 
         // But query::run should internally convert to Json for all queries
         // This documents that query is always JSON for AI/script consumption
-
-        Ok(())
     }
 
-    /// RED: OutputFormat::from_json_flag works with query
+    /// RED: `OutputFormat::from_json_flag` works with query
     #[test]
-    fn test_query_from_json_flag_conversion() -> anyhow::Result<()> {
+    fn test_query_from_json_flag_conversion() {
         use zjj_core::OutputFormat;
 
         let json_flag = true;
@@ -696,21 +682,18 @@ mod tests {
         assert_eq!(format2, OutputFormat::Human);
 
         // But query would convert both to Json internally
-        Ok(())
     }
 
-    /// RED: query processing never panics with OutputFormat
+    /// RED: query processing never panics with `OutputFormat`
     #[test]
-    fn test_query_format_no_panics() -> anyhow::Result<()> {
+    fn test_query_format_no_panics() {
         use zjj_core::OutputFormat;
 
         // Processing both formats should not panic
-        for format in [OutputFormat::Json, OutputFormat::Human].iter() {
+        for format in &[OutputFormat::Json, OutputFormat::Human] {
             let _ = format.is_json();
             let _ = format.is_human();
             let _ = format.to_string();
         }
-
-        Ok(())
     }
 }
