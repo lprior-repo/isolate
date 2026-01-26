@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde_json::Value as JsonValue;
-use zjj_core::config::Config;
+use zjj_core::{config::Config, OutputFormat};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API
@@ -15,7 +15,7 @@ pub struct ConfigOptions {
     pub key: Option<String>,
     pub value: Option<String>,
     pub global: bool,
-    pub json: bool,
+    pub format: OutputFormat,
 }
 
 /// Execute the config command
@@ -34,12 +34,12 @@ pub fn run(options: ConfigOptions) -> Result<()> {
     match (options.key, options.value) {
         // No key, no value: Show all config
         (None, None) => {
-            show_all_config(&config, options.global, options.json)?;
+            show_all_config(&config, options.global, options.format)?;
         }
 
         // Key, no value: Show specific value
         (Some(key), None) => {
-            show_config_value(&config, &key, options.json)?;
+            show_config_value(&config, &key, options.format)?;
         }
 
         // Key + value: Set value
@@ -51,7 +51,7 @@ pub fn run(options: ConfigOptions) -> Result<()> {
             };
             set_config_value(&config_path, &key, &value)?;
 
-            if options.json {
+            if options.format.is_json() {
                 println!(
                     "{{ \"success\": true, \"key\": \"{}\", \"value\": \"{}\", \"scope\": \"{}\" }}",
                     key,
@@ -82,8 +82,8 @@ pub fn run(options: ConfigOptions) -> Result<()> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Show all configuration
-fn show_all_config(config: &Config, global_only: bool, json: bool) -> Result<()> {
-    if json {
+fn show_all_config(config: &Config, global_only: bool, format: OutputFormat) -> Result<()> {
+    if format.is_json() {
         let json_val =
             serde_json::to_string_pretty(config).context("Failed to serialize config to JSON")?;
         println!("{json_val}");
@@ -121,8 +121,8 @@ fn show_all_config(config: &Config, global_only: bool, json: bool) -> Result<()>
 }
 
 /// Show a specific config value
-fn show_config_value(config: &Config, key: &str, json: bool) -> Result<()> {
-    if json {
+fn show_config_value(config: &Config, key: &str, format: OutputFormat) -> Result<()> {
+    if format.is_json() {
         let json_val =
             serde_json::to_value(config).context("Failed to serialize config for value lookup")?;
         let parts: Vec<&str> = key.split('.').collect();
@@ -475,7 +475,7 @@ mod tests {
     fn test_show_config_value() -> Result<()> {
         let config = setup_test_config();
         // Just test that it doesn't panic
-        show_config_value(&config, "workspace_dir", false)?;
+        show_config_value(&config, "workspace_dir", zjj_core::OutputFormat::Human)?;
         Ok(())
     }
 
@@ -483,8 +483,8 @@ mod tests {
     fn test_show_all_config() -> Result<()> {
         let config = setup_test_config();
         // Just test that it doesn't panic
-        show_all_config(&config, false, false)?;
-        show_all_config(&config, true, false)?;
+        show_all_config(&config, false, zjj_core::OutputFormat::Human)?;
+        show_all_config(&config, true, zjj_core::OutputFormat::Human)?;
         Ok(())
     }
 

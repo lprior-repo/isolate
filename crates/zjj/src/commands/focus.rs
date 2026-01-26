@@ -1,7 +1,7 @@
 //! Switch to a session's Zellij tab
 
 use anyhow::Result;
-use zjj_core::json::SchemaEnvelope;
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, run_command},
@@ -12,8 +12,8 @@ use crate::{
 /// Options for the focus command
 #[derive(Debug, Clone, Default)]
 pub struct FocusOptions {
-    /// Output as JSON
-    pub json: bool,
+    /// Output format
+    pub format: OutputFormat,
 }
 
 /// Run the focus command with options
@@ -34,9 +34,8 @@ pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
         // Inside Zellij: Switch to the tab
         run_command("zellij", &["action", "go-to-tab-name", &zellij_tab])?;
 
-        if options.json {
+        if options.format.is_json() {
             let output = FocusOutput {
-                success: true,
                 name: name.to_string(),
                 zellij_tab,
                 message: format!("Switched to session '{name}'"),
@@ -49,9 +48,8 @@ pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
     } else {
         // Outside Zellij: Attach to the Zellij session
         // User will land in session and can navigate to desired tab
-        if options.json {
+        if options.format.is_json() {
             let output = FocusOutput {
-                success: true,
                 name: name.to_string(),
                 zellij_tab: zellij_tab.clone(),
                 message: format!(
@@ -225,7 +223,6 @@ mod tests {
 
         // Create sample FocusOutput
         let output = FocusOutput {
-            success: true,
             name: "test-session".to_string(),
             zellij_tab: "zjj:test-session".to_string(),
             message: "Switched to session".to_string(),
@@ -266,7 +263,6 @@ mod tests {
 
         // Create sample output
         let output = FocusOutput {
-            success: true,
             name: "my-feature".to_string(),
             zellij_tab: "zjj:my-feature".to_string(),
             message: "Focused".to_string(),

@@ -4,6 +4,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use serde::Serialize;
+use zjj_core::OutputFormat;
 
 use crate::{
     commands::get_session_db,
@@ -38,7 +39,7 @@ impl std::fmt::Display for BeadCounts {
 }
 
 /// Run the list command
-pub fn run(all: bool, json: bool, bead: Option<&str>, agent: Option<&str>) -> Result<()> {
+pub fn run(all: bool, format: OutputFormat, bead: Option<&str>, agent: Option<&str>) -> Result<()> {
     // Execute in a closure to allow ? operator while catching errors for JSON mode
     let result = (|| -> Result<()> {
         let db = get_session_db()?;
@@ -77,7 +78,7 @@ pub fn run(all: bool, json: bool, bead: Option<&str>, agent: Option<&str>) -> Re
             .collect();
 
         if sessions.is_empty() {
-            if json {
+            if format.is_json() {
                 println!("[]");
             } else {
                 println!("No sessions found.");
@@ -104,7 +105,7 @@ pub fn run(all: bool, json: bool, bead: Option<&str>, agent: Option<&str>) -> Re
             })
             .collect();
 
-        if json {
+        if format.is_json() {
             output_json(&items)?;
         } else {
             output_table(&items);
@@ -115,7 +116,7 @@ pub fn run(all: bool, json: bool, bead: Option<&str>, agent: Option<&str>) -> Re
 
     // Handle errors in JSON mode
     if let Err(e) = result {
-        if json {
+        if format.is_json() {
             json_output::output_json_error_and_exit(&e);
         } else {
             return Err(e);

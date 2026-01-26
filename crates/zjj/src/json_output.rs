@@ -11,7 +11,6 @@ use zjj_core::{
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
 pub struct InitOutput {
-    pub success: bool,
     pub message: String,
     pub jjz_dir: String,
     pub config_file: String,
@@ -23,7 +22,6 @@ pub struct InitOutput {
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
 pub struct AddOutput {
-    pub success: bool,
     pub name: String,
     pub workspace_path: String,
     pub zellij_tab: String,
@@ -34,7 +32,6 @@ pub struct AddOutput {
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
 pub struct RemoveOutput {
-    pub success: bool,
     pub name: String,
     pub message: String,
 }
@@ -43,7 +40,6 @@ pub struct RemoveOutput {
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
 pub struct FocusOutput {
-    pub success: bool,
     pub name: String,
     pub zellij_tab: String,
     pub message: String,
@@ -53,7 +49,6 @@ pub struct FocusOutput {
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
 pub struct SyncOutput {
-    pub success: bool,
     pub name: Option<String>,
     pub synced_count: usize,
     pub failed_count: usize,
@@ -186,7 +181,6 @@ mod tests {
     #[test]
     fn test_add_output_json_uses_name_field() -> Result<(), serde_json::Error> {
         let output = AddOutput {
-            success: true,
             name: "test-session".to_string(),
             workspace_path: "/path/to/workspace".to_string(),
             zellij_tab: "zjj:test-session".to_string(),
@@ -213,7 +207,6 @@ mod tests {
     fn test_add_output_name_matches_session() -> Result<(), serde_json::Error> {
         let session_name = "my-feature";
         let output = AddOutput {
-            success: true,
             name: session_name.to_string(),
             workspace_path: format!("/workspaces/{session_name}"),
             zellij_tab: format!("zjj:{session_name}"),
@@ -234,7 +227,6 @@ mod tests {
     fn test_add_output_backwards_compat_session_name_removed() -> Result<(), serde_json::Error> {
         // This test verifies that the old 'session_name' field is completely removed
         let output = AddOutput {
-            success: false,
             name: "test".to_string(),
             workspace_path: "/path".to_string(),
             zellij_tab: "zjj:test".to_string(),
@@ -260,7 +252,6 @@ mod tests {
     #[test]
     fn test_add_output_all_fields_present() -> Result<(), serde_json::Error> {
         let output = AddOutput {
-            success: true,
             name: "test".to_string(),
             workspace_path: "/workspace/test".to_string(),
             zellij_tab: "zjj:test".to_string(),
@@ -269,10 +260,6 @@ mod tests {
 
         let json = serde_json::to_value(&output)?;
 
-        assert_eq!(
-            json.get("success").and_then(serde_json::Value::as_bool),
-            Some(true)
-        );
         assert_eq!(json.get("name").and_then(|v| v.as_str()), Some("test"));
         assert_eq!(
             json.get("workspace_path").and_then(|v| v.as_str()),
@@ -289,7 +276,6 @@ mod tests {
     #[test]
     fn test_remove_output_json_uses_name_field() -> Result<(), serde_json::Error> {
         let output = RemoveOutput {
-            success: true,
             name: "test-session".to_string(),
             message: "Session removed successfully".to_string(),
         };
@@ -314,7 +300,6 @@ mod tests {
     fn test_remove_output_matches_add_structure() -> Result<(), serde_json::Error> {
         // RemoveOutput should use same 'name' field as AddOutput
         let add_output = AddOutput {
-            success: true,
             name: "my-session".to_string(),
             workspace_path: "/workspace".to_string(),
             zellij_tab: "zjj:my-session".to_string(),
@@ -322,7 +307,6 @@ mod tests {
         };
 
         let remove_output = RemoveOutput {
-            success: true,
             name: "my-session".to_string(),
             message: "Removed".to_string(),
         };
@@ -346,7 +330,6 @@ mod tests {
     #[test]
     fn test_focus_output_json_uses_name_field() -> Result<(), serde_json::Error> {
         let output = FocusOutput {
-            success: true,
             name: "test-session".to_string(),
             zellij_tab: "zjj:test-session".to_string(),
             message: "Focused on session".to_string(),
@@ -372,14 +355,12 @@ mod tests {
     fn test_focus_output_consistent_with_other_outputs() -> Result<(), serde_json::Error> {
         // All output structs should use 'name' field consistently
         let focus = FocusOutput {
-            success: true,
             name: "my-session".to_string(),
             zellij_tab: "zjj:my-session".to_string(),
             message: "Focused".to_string(),
         };
 
         let add = AddOutput {
-            success: true,
             name: "my-session".to_string(),
             workspace_path: "/workspace".to_string(),
             zellij_tab: "zjj:my-session".to_string(),
@@ -387,7 +368,6 @@ mod tests {
         };
 
         let remove = RemoveOutput {
-            success: true,
             name: "my-session".to_string(),
             message: "Removed".to_string(),
         };
@@ -424,7 +404,6 @@ mod tests {
     fn test_sync_json_has_envelope() -> Result<(), serde_json::Error> {
         // Create a SyncOutput (single session success)
         let output = SyncOutput {
-            success: true,
             name: Some("test-session".to_string()),
             synced_count: 1,
             failed_count: 0,
@@ -459,7 +438,6 @@ mod tests {
     fn test_sync_schema_type_single() -> Result<(), serde_json::Error> {
         // Create a SyncOutput (all sessions sync)
         let output = SyncOutput {
-            success: true,
             name: None,
             synced_count: 3,
             failed_count: 0,
@@ -503,7 +481,6 @@ mod tests {
 
         // Point 1: Single session success (line 56 in sync.rs)
         let output1 = SyncOutput {
-            success: true,
             name: Some("session1".to_string()),
             synced_count: 1,
             failed_count: 0,
@@ -519,7 +496,6 @@ mod tests {
 
         // Point 2: Single session failure (line 75 in sync.rs)
         let output2 = SyncOutput {
-            success: false,
             name: Some("session2".to_string()),
             synced_count: 0,
             failed_count: 1,
@@ -538,7 +514,6 @@ mod tests {
 
         // Point 3: All sessions empty (line 100 in sync.rs)
         let output3 = SyncOutput {
-            success: true,
             name: None,
             synced_count: 0,
             failed_count: 0,
@@ -554,7 +529,6 @@ mod tests {
 
         // Point 4: All sessions with results (line 136 in sync.rs)
         let output4 = SyncOutput {
-            success: false,
             name: None,
             synced_count: 2,
             failed_count: 1,

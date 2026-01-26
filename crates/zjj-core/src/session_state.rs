@@ -85,6 +85,7 @@ impl SessionState {
                 | (SessionState::Synced, SessionState::Active | SessionState::Paused | SessionState::Completed)
                 | (SessionState::Paused, SessionState::Active | SessionState::Completed)
                 | (SessionState::Completed, SessionState::Created) // Allow restart
+                | (SessionState::Failed, SessionState::Created) // Allow retry
         )
     }
 

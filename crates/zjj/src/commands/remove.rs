@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use zjj_core::json::SchemaEnvelope;
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     cli::{is_inside_zellij, run_command},
@@ -25,8 +25,8 @@ pub struct RemoveOptions {
     /// Preserve branch after removal
     #[allow(dead_code)]
     pub keep_branch: bool,
-    /// Output as JSON
-    pub json: bool,
+    /// Output format
+    pub format: OutputFormat,
 }
 
 /// Run the remove command
@@ -49,9 +49,8 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
 
     // Confirm removal unless --force
     if !options.force && !confirm_removal(name)? {
-        if options.json {
+        if options.format.is_json() {
             let output = RemoveOutput {
-                success: false,
                 name: name.to_string(),
                 message: "Removal cancelled".to_string(),
             };
@@ -94,9 +93,8 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     // Remove from database
     db.delete(name)?;
 
-    if options.json {
+    if options.format.is_json() {
         let output = RemoveOutput {
-            success: true,
             name: name.to_string(),
             message: format!("Removed session '{name}'"),
         };
@@ -245,7 +243,6 @@ mod tests {
 
         // Create sample RemoveOutput
         let output = RemoveOutput {
-            success: true,
             name: "test-session".to_string(),
             message: "Removed session 'test-session'".to_string(),
         };
@@ -285,7 +282,6 @@ mod tests {
 
         // Create sample output
         let output = RemoveOutput {
-            success: false,
             name: "cancelled-session".to_string(),
             message: "Removal cancelled".to_string(),
         };

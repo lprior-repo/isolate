@@ -3,7 +3,7 @@
 use std::time::SystemTime;
 
 use anyhow::{Context, Result};
-use zjj_core::json::SchemaEnvelope;
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     cli::run_command,
@@ -15,8 +15,8 @@ use crate::{
 /// Options for the sync command
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SyncOptions {
-    /// Output as JSON
-    pub json: bool,
+    /// Output format
+    pub format: OutputFormat,
 }
 
 /// Run the sync command with options
@@ -45,9 +45,8 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
     // Use internal sync function
     match sync_session_internal(&db, &session.name, &session.workspace_path) {
         Ok(()) => {
-            if options.json {
+            if options.format.is_json() {
                 let output = SyncOutput {
-                    success: true,
                     name: Some(name.to_string()),
                     synced_count: 1,
                     failed_count: 0,
@@ -61,9 +60,8 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
             Ok(())
         }
         Err(e) => {
-            if options.json {
+            if options.format.is_json() {
                 let output = SyncOutput {
-                    success: false,
                     name: Some(name.to_string()),
                     synced_count: 0,
                     failed_count: 1,
@@ -89,9 +87,8 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
     let sessions = db.list(None).map_err(anyhow::Error::new)?;
 
     if sessions.is_empty() {
-        if options.json {
+        if options.format.is_json() {
             let output = SyncOutput {
-                success: true,
                 name: None,
                 synced_count: 0,
                 failed_count: 0,
@@ -105,7 +102,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
         return Ok(());
     }
 
-    if options.json {
+    if options.format.is_json() {
         // For JSON output, collect results and output once at the end
         // Use functional pattern: map to Results, partition into successes/failures
         let results: Vec<_> = sessions
@@ -123,7 +120,6 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
         let (successes, errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
 
         let output = SyncOutput {
-            success: errors.is_empty(),
             name: None,
             synced_count: successes.len(),
             failed_count: errors.len(),

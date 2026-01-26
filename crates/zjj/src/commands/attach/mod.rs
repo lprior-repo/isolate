@@ -2,6 +2,7 @@ use std::process::Command;
 
 use anyhow::{Context, Result};
 use clap::ArgMatches;
+use zjj_core::OutputFormat;
 
 use crate::commands::get_session_db;
 
@@ -10,8 +11,8 @@ use crate::commands::get_session_db;
 pub struct AttachOptions {
     /// Name of the session to attach to
     pub name: String,
-    /// Output as JSON
-    pub json: bool,
+    /// Output format
+    pub format: OutputFormat,
 }
 
 impl AttachOptions {
@@ -21,10 +22,11 @@ impl AttachOptions {
             .get_one::<String>("name")
             .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
         let json = matches.get_flag("json");
+        let format = OutputFormat::from_json_flag(json);
 
         Ok(Self {
             name: name.clone(),
-            json,
+            format,
         })
     }
 }
@@ -79,7 +81,7 @@ mod tests {
     fn test_attach_options_creation() {
         let opts = AttachOptions {
             name: "test-session".to_string(),
-            json: false,
+            format: OutputFormat::Human,
         };
         assert_eq!(opts.name, "test-session");
     }
