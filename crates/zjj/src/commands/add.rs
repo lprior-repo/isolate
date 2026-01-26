@@ -685,13 +685,6 @@ mod tests {
         test_invalid("");
     }
 
-    /// Canonical ordering of flag categories for consistent help output
-    ///
-    /// Categories are ordered by importance/frequency of use, ensuring
-    /// users see the most critical options first (behavior, then configuration)
-    /// and advanced options last.
-    const CATEGORY_ORDER: &[&str] = &["behavior", "configuration", "filter", "output", "advanced"];
-
     /// Display name for a flag category with capitalization
     ///
     /// Converts hyphenated category names to Title Case for display.
@@ -718,14 +711,21 @@ mod tests {
             .join(" ")
     }
 
-    /// Groups flags by category in canonical order
+    /// Canonical ordering of flag categories for consistent help output
+    ///
+    /// Categories are ordered by importance/frequency of use, ensuring
+    /// users see the most critical options first (behavior, then configuration)
+    /// and advanced options last.
+    const CANONICAL_CATEGORY_ORDER: &[&str] = &["behavior", "configuration", "filter", "output", "advanced"];
+
+    /// Groups flags by category in canonical order using functional iterators
     ///
     /// Organizes flags into categories following the defined category order,
     /// ensuring consistent and predictable help output. Uncategorized flags
     /// are placed at the end.
     ///
-    /// This function processes flags in a single pass and maintains the
-    /// original order of categories as defined by CATEGORY_ORDER constant.
+    /// This implementation uses functional iterators (.fold, .filter_map)
+    /// instead of imperative loops to improve clarity and reduce mutable state.
     ///
     /// # Arguments
     ///
@@ -735,62 +735,36 @@ mod tests {
     ///
     /// Vector of tuples containing (category_name, flags_in_category).
     /// Categories follow CATEGORY_ORDER, with "Uncategorized" at the end.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use zjj_core::introspection::FlagSpec;
-    /// let flags = vec![
-    ///     FlagSpec {
-    ///         long: "flag1".to_string(),
-    ///         short: None,
-    ///         description: "A behavior flag".to_string(),
-    ///         flag_type: "bool".to_string(),
-    ///         default: None,
-    ///         possible_values: vec![],
-    ///         category: Some("behavior".to_string()),
-    ///     },
-    /// ];
-    ///
-    /// // Would return:
-    /// // vec![(
-    /// //     "Behavior".to_string(),
-    /// //     vec![&flags[0]],
-    /// // )]
-    /// ```
     fn group_flags_by_category<'a>(
         flags: &'a [zjj_core::introspection::FlagSpec],
     ) -> Vec<(String, Vec<&'a zjj_core::introspection::FlagSpec>)> {
         // Use im::HashMap for initial grouping to avoid BTreeMap's alphabetical sorting
-        // This gives us O(1) lookups while maintaining explicit ordering
-        let mut grouped = im::HashMap::new();
+        let grouped: im::HashMap<String, Vec<&'a zjj_core::introspection::FlagSpec>> = flags
+            .iter()
+            .fold(im::HashMap::new(), |mut acc, flag| {
+                let category = flag
+                    .category
+                    .as_deref()
+                    .unwrap_or("Uncategorized")
+                    .to_string();
 
-        // Group flags by their category
-        for flag in flags {
-            let category = flag
-                .category
-                .as_deref()
-                .unwrap_or("Uncategorized");
+                acc.entry(category)
+                    .or_insert_with(Vec::new)
+                    .push(flag);
+                acc
+            });
 
-            grouped
-                .entry(category.to_string())
-                .or_insert_with(Vec::new)
-                .push(flag);
-        }
+        // Build result in canonical order using functional iterators
+        let mut result: Vec<(String, Vec<&'a zjj_core::introspection::FlagSpec>)> = Self::CANONICAL_CATEGORY_ORDER
+            .iter()
+            .filter_map(|&category_name| {
+                grouped.get(category_name).map(|flags_in_category| {
+                    (capitalize_category(category_name), flags_in_category.clone())
+                })
+            })
+            .collect();
 
-        // Build result in canonical order
-        let mut result = Vec::new();
-
-        // First, add categories in the defined order
-        const CATEGORY_ORDER: &[&str] = &["behavior", "configuration", "filter", "output", "advanced"];
-        for &category_name in CATEGORY_ORDER {
-            if let Some(flags_in_category) = grouped.get(category_name) {
-                let display_name = capitalize_category(category_name);
-                result.push((display_name, flags_in_category.clone()));
-            }
-        }
-
-        // Then add any uncategorized flags at the end
+        // Add uncategorized flags at the end if present
         if let Some(uncategorized) = grouped.get("Uncategorized") {
             result.push(("Uncategorized".to_string(), uncategorized.clone()));
         }
@@ -798,11 +772,14 @@ mod tests {
         result
     }
 
-    /// Formats a single flag for display in help output
+    /// Formats a single flag for display in help output using functional patterns
     ///
     /// Produces a human-readable representation of a flag with optional
     /// short form and description. The output is indented for use in
     /// categorized help sections.
+    ///
+    /// Uses Option::map_or_default to handle optional short form without
+    /// intermediate variables or mutability.
     ///
     /// # Arguments
     ///
@@ -811,14 +788,6 @@ mod tests {
     /// # Returns
     ///
     /// Formatted string containing flag name(s) and description
-    ///
-    /// # Example
-    ///
-    /// For a flag with short form:
-    /// ```text
-    ///     -t, --template
-    ///       Layout template name
-    /// ```
     fn format_flag(flag: &zjj_core::introspection::FlagSpec) -> String {
         let short_form = flag
             .short
@@ -832,7 +801,7 @@ mod tests {
         )
     }
 
-    /// Helper function to format help output (simulates introspect.rs implementation)
+    /// Helper function to format help output using functional patterns
     ///
     /// Produces comprehensive help text for a command with flags grouped by category.
     /// The output includes:
@@ -840,10 +809,8 @@ mod tests {
     /// - Flags organized by category in canonical order
     /// - Consistent formatting with proper indentation
     ///
-    /// This function demonstrates the complete help formatting pipeline:
-    /// 1. Group flags by category (using explicit ordering)
-    /// 2. Format category headers
-    /// 3. Format individual flags within each category
+    /// This implementation uses functional iterators (.fold, .collect)
+    /// to build the output string without mutable state.
     ///
     /// # Arguments
     ///
@@ -853,23 +820,25 @@ mod tests {
     ///
     /// Formatted help text suitable for display in terminal
     fn format_help_output(cmd: &zjj_core::introspection::CommandIntrospection) -> String {
-        let mut output = String::new();
-        output.push_str(&format!("Command: {}\n", cmd.command));
-        output.push_str(&format!("Description: {}\n\n", cmd.description));
+        let header = format!("Command: {}\nDescription: {}\n\n", cmd.command, cmd.description);
 
-        if !cmd.flags.is_empty() {
-            output.push_str("Flags:\n");
-
-            let grouped = group_flags_by_category(&cmd.flags);
-
-            for (category_name, flags) in grouped {
-                output.push_str(&format!("\n  {}:\n", category_name));
-                for flag in flags {
-                    output.push_str(&format_flag(&flag));
-                }
-            }
+        if cmd.flags.is_empty() {
+            return header;
         }
 
-        output
+        let grouped = group_flags_by_category(&cmd.flags);
+        let flags_section = grouped
+            .iter()
+            .map(|(category_name, flags)| {
+                let flags_text = flags
+                    .iter()
+                    .map(|flag| format_flag(flag))
+                    .collect::<String>();
+
+                format!("\n  {}:\n{}", category_name, flags_text)
+            })
+            .collect::<String>();
+
+        format!("{}Flags:{}", header, flags_section)
     }
 }
