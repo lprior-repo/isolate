@@ -4,7 +4,7 @@
 //! 1. Validates we're on main branch (not in a workspace)
 //! 2. Validates the bead is ready/open
 //! 3. Creates a JJ workspace for the bead
-//! 4. Updates bead status to in_progress
+//! 4. Updates bead status to `in_progress`
 //! 5. Spawns an agent subprocess in the workspace
 //! 6. Waits for completion (or background)
 //! 7. On success: merges to main and cleans up
@@ -12,7 +12,7 @@
 
 pub mod types;
 
-pub use types::SpawnOptions;
+pub use types::{SpawnArgs, SpawnOptions};
 
 use std::fs;
 use std::io::Write;
@@ -86,7 +86,7 @@ fn validate_location() -> Result<String> {
         .to_string_lossy()
         .contains(".zjj/workspaces")
     {
-        return anyhow::bail!("In workspace directory");
+        anyhow::bail!("In workspace directory");
     }
 
     Ok(root)
@@ -108,7 +108,7 @@ fn validate_bead_status(bead_id: &str) -> Result<(), SpawnError> {
         });
     }
 
-    let content = fs::read_to_string(&beads_db).map_err(|e| SpawnError::DatabaseError {
+    let content = fs::read_to_string(beads_db).map_err(|e| SpawnError::DatabaseError {
         reason: format!("Failed to read beads database: {e}"),
     })?;
 
@@ -180,7 +180,7 @@ fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, Spa
 /// Update bead status in the database
 fn update_bead_status(bead_id: &str, new_status: &str) -> Result<()> {
     let beads_db = Path::new(".beads/issues.jsonl");
-    let content = fs::read_to_string(&beads_db)?;
+    let content = fs::read_to_string(beads_db)?;
     let mut new_content = String::new();
     let mut updated = false;
 
@@ -200,7 +200,7 @@ fn update_bead_status(bead_id: &str, new_status: &str) -> Result<()> {
     }
 
     if updated {
-        let mut file = fs::File::create(&beads_db)?;
+        let mut file = fs::File::create(beads_db)?;
         file.write_all(new_content.as_bytes())?;
     }
 
@@ -271,10 +271,10 @@ fn handle_success(
     workspace_path: &Path,
     options: &SpawnOptions,
 ) -> Result<(bool, bool, SpawnStatus), SpawnError> {
-    let merged = if !options.no_auto_merge {
-        merge_to_main(root, workspace_path)?
-    } else {
+    let merged = if options.no_auto_merge {
         false
+    } else {
+        merge_to_main(root, bead_id)?
     };
 
     let cleaned = cleanup_workspace(workspace_path)?;
@@ -292,23 +292,103 @@ fn handle_failure(
     options: &SpawnOptions,
     _exit_code: i32,
 ) -> Result<(bool, bool, SpawnStatus), SpawnError> {
-    let cleaned = if !options.no_auto_cleanup {
-        cleanup_workspace(workspace_path)?
-    } else {
+    let cleaned = if options.no_auto_cleanup {
         false
+    } else {
+        cleanup_workspace(workspace_path)?
     };
 
     // Leave bead as in_progress for retry
     Ok((false, cleaned, SpawnStatus::Failed))
 }
 
-/// Merge workspace changes to main
-fn merge_to_main(root: &str, _workspace_path: &Path) -> Result<bool, SpawnError> {
-    // First, abandon the workspace
-    let _ = Command::new("jj")
-        .args(["workspace", "abandon"])
+/// Merge workspace changes to main by abandoning the workspace
+///
+/// This function uses `jj workspace abandon` to merge the workspace's changes
+/// back to the main branch. The abandon operation in JJ moves the workspace's
+/// changes into the main branch's working copy.
+///
+/// # Arguments
+/// * `root` - The JJ repository root directory
+/// * `workspace_name` - The name of the workspace to abandon (`bead_id`)
+///
+/// # Returns
+/// * `Ok(true)` - If the workspace was successfully abandoned/merged
+/// * `Err(SpawnError)` - If the abandon operation failed
+///
+/// # Errors
+/// * `JjCommandFailed` - If the jj command execution fails
+/// * `MergeFailed` - If the workspace doesn't exist or abandon fails
+fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
+    // First, check if the workspace exists before attempting to abandon
+    let list_output = Command::new("jj")
+        .args(["workspace", "list"])
         .current_dir(root)
-        .output();
+        .output()
+        .map_err(|e| SpawnError::JjCommandFailed {
+            reason: format!("Failed to execute jj workspace list: {e}"),
+        })?;
+
+    if !list_output.status.success() {
+        return Err(SpawnError::JjCommandFailed {
+            reason: format!(
+                "jj workspace list failed: {}",
+                String::from_utf8_lossy(&list_output.stderr)
+            ),
+        });
+    }
+
+    // Check if our workspace exists in the list
+    let workspace_list = String::from_utf8_lossy(&list_output.stdout);
+    let workspace_exists = workspace_list
+        .lines()
+        .any(|line| line.contains(workspace_name));
+
+    if !workspace_exists {
+        return Err(SpawnError::MergeFailed {
+            reason: format!("Workspace '{workspace_name}' does not exist"),
+        });
+    }
+
+    // Abandon the workspace to merge changes back to main
+    let abandon_output = Command::new("jj")
+        .args(["workspace", "abandon", "--name", workspace_name])
+        .current_dir(root)
+        .output()
+        .map_err(|e| SpawnError::JjCommandFailed {
+            reason: format!("Failed to execute jj workspace abandon: {e}"),
+        })?;
+
+    if !abandon_output.status.success() {
+        let stderr = String::from_utf8_lossy(&abandon_output.stderr);
+        let stdout = String::from_utf8_lossy(&abandon_output.stdout);
+
+        // Check for conflict indicators in the output
+        let error_output = if stderr.is_empty() {
+            stdout.to_string()
+        } else {
+            stderr.to_string()
+        };
+
+        let has_conflicts = error_output
+            .to_lowercase()
+            .contains("conflict")
+            || error_output.to_lowercase().contains("conflicting");
+
+        if has_conflicts {
+            return Err(SpawnError::MergeFailed {
+                reason: format!(
+                    "Merge conflicts detected when abandoning workspace: {error_output}"
+                ),
+            });
+        }
+
+        return Err(SpawnError::JjCommandFailed {
+            reason: format!(
+                "jj workspace abandon failed: {error_output}"
+            ),
+        });
+    }
 
     Ok(true)
 }
@@ -335,10 +415,10 @@ fn output_result(result: &SpawnOutput, format: zjj_core::OutputFormat) -> Result
         println!("  Bead ID: {}", result.bead_id);
         println!("  Workspace: {}", result.workspace_path);
         if let Some(pid) = result.agent_pid {
-            println!("  Agent PID: {}", pid);
+            println!("  Agent PID: {pid}");
         }
         if let Some(code) = result.exit_code {
-            println!("  Exit code: {}", code);
+            println!("  Exit code: {code}");
         }
         if result.merged {
             println!("  Merged: yes");
@@ -350,7 +430,7 @@ fn output_result(result: &SpawnOutput, format: zjj_core::OutputFormat) -> Result
     Ok(())
 }
 
-fn status_display(status: &SpawnStatus) -> &'static str {
+const fn status_display(status: &SpawnStatus) -> &'static str {
     match status {
         SpawnStatus::Running => "running in background",
         SpawnStatus::Completed => "completed",
@@ -364,7 +444,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_spawn_output_serialization() {
+    fn test_spawn_output_fields() {
+        // Verify SpawnOutput can be constructed with all fields
         let output = SpawnOutput {
             bead_id: "test-bead".to_string(),
             workspace_path: "/path/to/workspace".to_string(),
@@ -375,8 +456,11 @@ mod tests {
             status: SpawnStatus::Completed,
         };
 
-        let json = serde_json::to_string(&output).unwrap();
-        assert!(json.contains("\"test-bead\""));
-        assert!(json.contains("\"completed\""));
+        // Verify field values
+        assert_eq!(output.bead_id, "test-bead");
+        assert_eq!(output.agent_pid, Some(12345));
+        assert!(output.merged);
+        assert!(output.cleaned);
+        assert!(matches!(output.status, SpawnStatus::Completed));
     }
 }

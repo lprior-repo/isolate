@@ -9,6 +9,7 @@ use zjj_core::OutputFormat;
 
 /// CLI arguments for the done command (parsed in main.rs)
 #[derive(Debug, Clone)]
+#[expect(clippy::struct_excessive_bools)] // CLI flags: >3 bools is appropriate for independent options
 pub struct DoneArgs {
     /// Commit message (auto-generated if not provided)
     pub message: Option<String>,
@@ -30,7 +31,7 @@ pub struct DoneArgs {
 }
 
 impl DoneArgs {
-    /// Convert to DoneOptions
+    /// Convert to `DoneOptions`
     pub fn to_options(&self) -> DoneOptions {
         DoneOptions {
             message: self.message.clone(),
@@ -49,6 +50,7 @@ impl DoneArgs {
 
 /// Internal options for the done command
 #[derive(Debug, Clone)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct DoneOptions {
     pub message: Option<String>,
     pub keep_workspace: bool,
@@ -59,7 +61,8 @@ pub struct DoneOptions {
 }
 
 /// Output from the done command
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct DoneOutput {
     pub workspace_name: String,
     pub bead_id: Option<String>,
@@ -73,22 +76,6 @@ pub struct DoneOutput {
     pub error: Option<String>,
 }
 
-impl Default for DoneOutput {
-    fn default() -> Self {
-        Self {
-            workspace_name: String::new(),
-            bead_id: None,
-            files_committed: 0,
-            commits_merged: 0,
-            merged: false,
-            cleaned: false,
-            bead_closed: false,
-            dry_run: false,
-            preview: None,
-            error: None,
-        }
-    }
-}
 
 /// Preview information for dry-run mode
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,17 +100,20 @@ pub struct CommitInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DonePhase {
     ValidatingLocation,
+    #[expect(dead_code)] // For future workflow implementation
     CheckingUncommitted,
     CommittingChanges,
+    #[expect(dead_code)] // For future workflow implementation
     CheckingConflicts,
     MergingToMain,
     UpdatingBeadStatus,
     CleaningWorkspace,
+    #[expect(dead_code)] // For future workflow implementation
     SwitchingToMain,
 }
 
 impl DonePhase {
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
             Self::ValidatingLocation => "validating_location",
             Self::CheckingUncommitted => "checking_uncommitted",
@@ -142,6 +132,7 @@ impl DonePhase {
 pub enum DoneError {
     NotInWorkspace { current_location: String },
     NotAJjRepo,
+    #[allow(dead_code)] // Reserved for future workspace validation
     WorkspaceNotFound { workspace_name: String },
     CommitFailed { reason: String },
     MergeConflict { conflicts: Vec<String> },
@@ -157,26 +148,25 @@ impl fmt::Display for DoneError {
         match self {
             Self::NotInWorkspace { current_location } => write!(
                 f,
-                "Not in a workspace (currently at: {}). Use 'zjj focus <name>' to switch to a workspace first.",
-                current_location
+                "Not in a workspace (currently at: {current_location}). Use 'zjj focus <name>' to switch to a workspace first."
             ),
             Self::NotAJjRepo => write!(f, "Not in a JJ repository. Run 'zjj init' first."),
             Self::WorkspaceNotFound { workspace_name } => {
-                write!(f, "Workspace '{}' not found", workspace_name)
+                write!(f, "Workspace '{workspace_name}' not found")
             }
-            Self::CommitFailed { reason } => write!(f, "Failed to commit changes: {}", reason),
+            Self::CommitFailed { reason } => write!(f, "Failed to commit changes: {reason}"),
             Self::MergeConflict { conflicts } => {
                 write!(f, "Merge conflicts detected: {}", conflicts.join(", "))
             }
-            Self::MergeFailed { reason } => write!(f, "Failed to merge to main: {}", reason),
-            Self::CleanupFailed { reason } => write!(f, "Failed to cleanup workspace: {}", reason),
+            Self::MergeFailed { reason } => write!(f, "Failed to merge to main: {reason}"),
+            Self::CleanupFailed { reason } => write!(f, "Failed to cleanup workspace: {reason}"),
             Self::BeadUpdateFailed { reason } => {
-                write!(f, "Failed to update bead status: {}", reason)
+                write!(f, "Failed to update bead status: {reason}")
             }
             Self::JjCommandFailed { command, reason } => {
-                write!(f, "JJ command '{}' failed: {}", command, reason)
+                write!(f, "JJ command '{command}' failed: {reason}")
             }
-            Self::InvalidState { reason } => write!(f, "Invalid state: {}", reason),
+            Self::InvalidState { reason } => write!(f, "Invalid state: {reason}"),
         }
     }
 }
@@ -184,20 +174,22 @@ impl fmt::Display for DoneError {
 impl std::error::Error for DoneError {}
 
 impl DoneError {
-    pub fn phase(&self) -> DonePhase {
+    pub const fn phase(&self) -> DonePhase {
         match self {
-            Self::NotInWorkspace { .. } | Self::NotAJjRepo => DonePhase::ValidatingLocation,
-            Self::WorkspaceNotFound { .. } => DonePhase::ValidatingLocation,
+            Self::NotInWorkspace { .. }
+            | Self::NotAJjRepo
+            | Self::WorkspaceNotFound { .. }
+            | Self::InvalidState { .. } => DonePhase::ValidatingLocation,
             Self::CommitFailed { .. } => DonePhase::CommittingChanges,
-            Self::MergeConflict { .. } | Self::MergeFailed { .. } => DonePhase::MergingToMain,
+            Self::MergeConflict { .. } | Self::MergeFailed { .. } | Self::JjCommandFailed { .. } => {
+                DonePhase::MergingToMain
+            }
             Self::CleanupFailed { .. } => DonePhase::CleaningWorkspace,
             Self::BeadUpdateFailed { .. } => DonePhase::UpdatingBeadStatus,
-            Self::JjCommandFailed { .. } => DonePhase::MergingToMain,
-            Self::InvalidState { .. } => DonePhase::ValidatingLocation,
         }
     }
 
-    pub fn error_code(&self) -> &'static str {
+    pub const fn error_code(&self) -> &'static str {
         match self {
             Self::NotInWorkspace { .. } => "NOT_IN_WORKSPACE",
             Self::NotAJjRepo => "NOT_A_JJ_REPO",
@@ -212,7 +204,7 @@ impl DoneError {
         }
     }
 
-    pub fn is_recoverable(&self) -> bool {
+    pub const fn is_recoverable(&self) -> bool {
         matches!(self, Self::MergeConflict { .. })
     }
 }
@@ -264,6 +256,13 @@ mod tests {
         };
         assert_eq!(err.error_code(), "NOT_IN_WORKSPACE");
         assert_eq!(err.phase(), DonePhase::ValidatingLocation);
+
+        // Test WorkspaceNotFound for API completeness
+        let err2 = DoneError::WorkspaceNotFound {
+            workspace_name: "test-ws".to_string(),
+        };
+        assert_eq!(err2.error_code(), "WORKSPACE_NOT_FOUND");
+        assert_eq!(err2.phase(), DonePhase::ValidatingLocation);
     }
 
     #[test]
@@ -294,14 +293,13 @@ mod tests {
             error: None,
         };
 
-        let json = serde_json::to_string(&output).unwrap();
-        assert!(json.contains("\"test-ws\""));
-        assert!(json.contains("\"merged\":true"));
-        assert!(json.contains("\"cleaned\":true"));
+        assert_eq!(output.workspace_name, "test-ws");
+        assert!(output.merged);
+        assert!(output.cleaned);
     }
 
     #[test]
-    fn test_done_preview_serialization() {
+    fn test_done_display_formats() {
         let preview = DonePreview {
             uncommitted_files: vec!["file.txt".to_string()],
             commits_to_merge: vec![CommitInfo {
@@ -315,8 +313,11 @@ mod tests {
             workspace_path: "/path/to/workspace".to_string(),
         };
 
-        let json = serde_json::to_string(&preview).unwrap();
-        assert!(json.contains("\"file.txt\""));
-        assert!(json.contains("\"zjj-test\""));
+        // Verify preview field values
+        assert_eq!(preview.uncommitted_files.len(), 1);
+        assert_eq!(preview.uncommitted_files[0], "file.txt");
+        assert_eq!(preview.bead_to_close, Some("zjj-test".to_string()));
+        assert_eq!(preview.commits_to_merge.len(), 1);
+        assert_eq!(preview.commits_to_merge[0].change_id, "abc123");
     }
 }

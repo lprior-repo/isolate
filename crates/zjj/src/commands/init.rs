@@ -127,6 +127,7 @@ pub struct InitOptions {
 ///    - .zjj/config.toml (default configuration)
 ///    - .zjj/state.db (sessions database)
 ///    - .zjj/layouts/ (Zellij layouts directory)
+#[expect(dead_code)] // Convenience wrapper, currently unused but part of public API
 pub fn run() -> Result<()> {
     run_with_options(InitOptions::default())
 }

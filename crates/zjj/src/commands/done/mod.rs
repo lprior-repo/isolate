@@ -12,7 +12,7 @@
 
 pub mod types;
 
-pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput, DonePhase};
+pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput};
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -59,7 +59,7 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
 
     if options.dry_run {
         return Ok(DoneOutput {
-            workspace_name: workspace_name.clone(),
+            workspace_name,
             dry_run: true,
             preview,
             ..Default::default()
@@ -70,10 +70,10 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
     let uncommitted_files = get_uncommitted_files(&root)?;
 
     // Phase 4: Commit uncommitted changes
-    let files_committed = if !uncommitted_files.is_empty() {
-        commit_changes(&root, &workspace_name, options.message.as_deref())?
-    } else {
+    let files_committed = if uncommitted_files.is_empty() {
         0
+    } else {
+        commit_changes(&root, &workspace_name, options.message.as_deref())?
     };
 
     // Phase 5: Check for conflicts
@@ -88,21 +88,21 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
     // Phase 8: Update bead status
     let bead_id = get_bead_id_for_workspace(&workspace_name)?;
     let bead_closed = if let Some(ref bead) = bead_id {
-        if !options.no_bead_update {
+        if options.no_bead_update {
+            false
+        } else {
             update_bead_status(bead, "closed")?;
             true
-        } else {
-            false
         }
     } else {
         false
     };
 
     // Phase 9: Cleanup workspace
-    let cleaned = if !options.keep_workspace {
-        cleanup_workspace(&root, &workspace_name)?
-    } else {
+    let cleaned = if options.keep_workspace {
         false
+    } else {
+        cleanup_workspace(&root, &workspace_name)?
     };
 
     Ok(DoneOutput {
@@ -215,7 +215,7 @@ fn commit_changes(
     workspace_name: &str,
     message: Option<&str>,
 ) -> Result<usize, DoneError> {
-    let default_msg = format!("Complete work on {}", workspace_name);
+    let default_msg = format!("Complete work on {workspace_name}");
     let msg = message.unwrap_or(&default_msg);
 
     let output = Command::new("jj")
@@ -411,7 +411,7 @@ fn get_bead_id_for_workspace(workspace_name: &str) -> Result<Option<String>, Don
 /// Update bead status in the database
 fn update_bead_status(bead_id: &str, new_status: &str) -> Result<(), DoneError> {
     let beads_db = Path::new(".beads/issues.jsonl");
-    let content = fs::read_to_string(&beads_db).map_err(|e| DoneError::BeadUpdateFailed {
+    let content = fs::read_to_string(beads_db).map_err(|e| DoneError::BeadUpdateFailed {
         reason: e.to_string(),
     })?;
 
@@ -434,7 +434,7 @@ fn update_bead_status(bead_id: &str, new_status: &str) -> Result<(), DoneError> 
     }
 
     if updated {
-        fs::write(&beads_db, new_content).map_err(|e| DoneError::BeadUpdateFailed {
+        fs::write(beads_db, new_content).map_err(|e| DoneError::BeadUpdateFailed {
             reason: e.to_string(),
         })?;
     }
@@ -448,7 +448,7 @@ fn cleanup_workspace(root: &str, workspace_name: &str) -> Result<bool, DoneError
 
     if workspace_path.exists() {
         fs::remove_dir_all(&workspace_path).map_err(|e| DoneError::CleanupFailed {
-            reason: format!("Failed to remove workspace {}: {}", workspace_name, e),
+            reason: format!("Failed to remove workspace {workspace_name}: {e}"),
         })?;
         Ok(true)
     } else {
@@ -460,37 +460,35 @@ fn cleanup_workspace(root: &str, workspace_name: &str) -> Result<bool, DoneError
 fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<()> {
     if format.is_json() {
         println!("{}", serde_json::to_string_pretty(result)?);
+    } else if result.dry_run {
+        println!("🔍 Dry-run preview for workspace: {}", result.workspace_name);
+        if let Some(ref preview) = result.preview {
+            if !preview.uncommitted_files.is_empty() {
+                println!("  Files to commit:");
+                for file in &preview.uncommitted_files {
+                    println!("    - {file}");
+                }
+            }
+            if !preview.commits_to_merge.is_empty() {
+                println!("  Commits to merge: {}", preview.commits_to_merge.len());
+            }
+            if let Some(ref bead) = preview.bead_to_close {
+                println!("  Bead to close: {bead}");
+            }
+        }
     } else {
-        if result.dry_run {
-            println!("🔍 Dry-run preview for workspace: {}", result.workspace_name);
-            if let Some(ref preview) = result.preview {
-                if !preview.uncommitted_files.is_empty() {
-                    println!("  Files to commit:");
-                    for file in &preview.uncommitted_files {
-                        println!("    - {}", file);
-                    }
-                }
-                if !preview.commits_to_merge.is_empty() {
-                    println!("  Commits to merge: {}", preview.commits_to_merge.len());
-                }
-                if let Some(ref bead) = preview.bead_to_close {
-                    println!("  Bead to close: {}", bead);
-                }
-            }
-        } else {
-            println!("✅ Workspace '{}' completed", result.workspace_name);
-            if result.merged {
-                println!("  Merged {} commits to main", result.commits_merged);
-            }
-            if result.files_committed > 0 {
-                println!("  Committed {} files", result.files_committed);
-            }
-            if result.cleaned {
-                println!("  Workspace cleaned up");
-            }
-            if result.bead_closed {
-                println!("  Bead status updated to closed");
-            }
+        println!("✅ Workspace '{}' completed", result.workspace_name);
+        if result.merged {
+            println!("  Merged {} commits to main", result.commits_merged);
+        }
+        if result.files_committed > 0 {
+            println!("  Committed {} files", result.files_committed);
+        }
+        if result.cleaned {
+            println!("  Workspace cleaned up");
+        }
+        if result.bead_closed {
+            println!("  Bead status updated to closed");
         }
     }
     Ok(())
@@ -507,7 +505,7 @@ fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()>
         });
         println!("{}", serde_json::to_string_pretty(&error_json)?);
     } else {
-        eprintln!("❌ {}", error);
+        eprintln!("❌ {error}");
         if error.is_recoverable() {
             eprintln!("   Workspace preserved - resolve conflicts and retry");
         }
@@ -518,6 +516,7 @@ fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::done::types::DonePhase;
 
     #[test]
     fn test_done_output_default() {
