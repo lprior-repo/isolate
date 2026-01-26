@@ -230,6 +230,9 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
     // Create .jjignore to prevent .zjj tracking (avoids nested .jj conflicts)
     create_jjignore(&root)?;
 
+    // Create git pre-commit hook to enforce zjj workflow
+    create_git_pre_commit_hook(&root)?;
+
     // Create repo-level AI discoverability file
     create_repo_ai_instructions(&root)?;
 
@@ -380,6 +383,75 @@ fn create_jjignore(repo_root: &Path) -> Result<()> {
         // Create new .jjignore with .zjj/
         fs::write(&jjignore_path, format!("{zjj_pattern}\n"))
             .context("Failed to create .jjignore")?;
+    }
+
+    Ok(())
+}
+
+/// Create git pre-commit hook to enforce zjj workflow
+///
+/// This hook BLOCKS commits unless ZJJ_ACTIVE environment variable is set.
+/// AI agents that clone the repo elsewhere will hit this wall immediately.
+fn create_git_pre_commit_hook(repo_root: &Path) -> Result<()> {
+    let hooks_dir = repo_root.join(".git/hooks");
+    fs::create_dir_all(&hooks_dir).context("Failed to create .git/hooks directory")?;
+
+    let hook_path = hooks_dir.join("pre-commit");
+
+    // Only create if doesn't exist (don't override custom hooks)
+    if !hook_path.exists() {
+        let hook_content = r#"#!/bin/sh
+# ZJJ Pre-Commit Hook - ENFORCES ZJJ WORKSPACE USAGE
+#
+# This hook BLOCKS commits outside of zjj workspaces.
+# If you're seeing this, you're trying to commit from outside a zjj workspace.
+#
+# SOLUTION: Use zjj spawn to work on beads
+#   zjj spawn <bead-id> -- <your-command>
+#
+# The ZJJ_ACTIVE environment variable is only set in zjj-spawned workspaces.
+
+if [ -z "$ZJJ_ACTIVE" ]; then
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════════════╗"
+    echo "║  🛑 COMMIT BLOCKED - Not in a ZJJ Workspace                          ║"
+    echo "╚════════════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "You are trying to commit from OUTSIDE a zjj workspace."
+    echo ""
+    echo "This repository requires ALL work to be done through zjj workspaces:"
+    echo ""
+    echo "  ✗ DO NOT: Clone this repo elsewhere and commit"
+    echo "  ✓ DO:     Use 'zjj spawn <bead-id>' to create an isolated workspace"
+    echo ""
+    echo "Why?"
+    echo "  • ZJJ workspaces keep main branch clean"
+    echo "  • Parallel work doesn't conflict"
+    echo "  • Each bead gets isolated JJ workspace + Zellij tab"
+    echo ""
+    echo "Install JJ (Jujutsu) first:"
+    echo "  cargo install jj-cli"
+    echo "  # or: brew install jj"
+    echo ""
+    echo "Then use zjj:"
+    echo "  zjj spawn <bead-id>"
+    echo ""
+    exit 1
+fi
+"#;
+        fs::write(&hook_path, hook_content).context("Failed to create pre-commit hook")?;
+
+        // Make hook executable
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&hook_path)
+                .context("Failed to get hook permissions")?
+                .permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&hook_path, perms)
+                .context("Failed to set hook permissions")?;
+        }
     }
 
     Ok(())
