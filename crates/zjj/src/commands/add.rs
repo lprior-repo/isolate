@@ -3,7 +3,6 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use im;
 use zjj_core::jj;
 
 use crate::{
@@ -755,7 +754,7 @@ mod tests {
             });
 
         // Build result in canonical order using functional iterators
-        let mut result: Vec<(String, Vec<&'a zjj_core::introspection::FlagSpec>)> = Self::CANONICAL_CATEGORY_ORDER
+        let mut result: Vec<(String, Vec<&'a zjj_core::introspection::FlagSpec>)> = CANONICAL_CATEGORY_ORDER
             .iter()
             .filter_map(|&category_name| {
                 grouped.get(category_name).map(|flags_in_category| {
