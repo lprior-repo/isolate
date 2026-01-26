@@ -7,6 +7,7 @@ use anyhow::Result;
 use zjj_core::introspection::{
     Blocker, CanRunQuery, QueryError, SessionCountQuery, SessionExistsQuery, SessionInfo,
 };
+use zjj_core::json::SchemaEnvelope;
 
 use crate::{
     cli::{is_command_available, is_inside_zellij, is_jj_repo},
@@ -217,7 +218,8 @@ fn query_session_exists(name: &str) -> Result<()> {
         }
     };
 
-    println!("{}", serde_json::to_string_pretty(&result)?);
+    let envelope = SchemaEnvelope::new("query-session-exists", "single", result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
     Ok(())
 }
 
@@ -261,7 +263,8 @@ fn query_session_count(filter: Option<&str>) -> Result<()> {
         }
     };
 
-    println!("{}", serde_json::to_string_pretty(&result)?);
+    let envelope = SchemaEnvelope::new("query-session-count", "single", result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
     Ok(())
 }
 
@@ -327,7 +330,8 @@ fn query_can_run(command: &str) -> Result<()> {
         prerequisites_total: prereqs_total,
     };
 
-    println!("{}", serde_json::to_string_pretty(&result)?);
+    let envelope = SchemaEnvelope::new("query-can-run", "single", result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
     Ok(())
 }
 
@@ -346,7 +350,8 @@ fn query_suggest_name(pattern: &str) -> Result<()> {
 
     let result = zjj_core::introspection::suggest_name(pattern, &existing_names)?;
 
-    println!("{}", serde_json::to_string_pretty(&result)?);
+    let envelope = SchemaEnvelope::new("query-suggest-name", "single", result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
     Ok(())
 }
 
