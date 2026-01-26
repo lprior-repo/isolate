@@ -188,10 +188,10 @@ impl Error {
              Self::DatabaseError(_) => {
                  Some("Try 'zjj doctor' to check database health".to_string())
              }
-             Self::JjCommandError {
-                 is_not_found: true,
-                 .. 
-             } => Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
+Self::JjCommandError {
+                  is_not_found: true,
+                  ..
+              } => Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
              Self::HookFailed { .. } => Some(
                  "Check your hook configuration and ensure the command is correct".to_string(),
              ),
