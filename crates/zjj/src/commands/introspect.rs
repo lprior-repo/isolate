@@ -10,6 +10,7 @@ use zjj_core::{
         ArgumentSpec, CommandExample, CommandIntrospection, DependencyInfo, ErrorCondition,
         FlagSpec, IntrospectOutput, Prerequisites, SystemState,
     },
+    json::SchemaEnvelope,
     OutputFormat,
 };
 
@@ -141,7 +142,8 @@ pub fn run(format: OutputFormat) -> Result<()> {
     output.system_state = get_system_state();
 
     if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        let envelope = SchemaEnvelope::new("introspect-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         print_human_readable(&output);
     }
@@ -235,7 +237,8 @@ pub fn run_command_introspect(command: &str, format: OutputFormat) -> Result<()>
     };
 
     if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(&introspection)?);
+        let envelope = SchemaEnvelope::new("introspect-command-response", "single", introspection);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         print_command_human_readable(&introspection);
     }
@@ -1077,5 +1080,59 @@ fn get_query_introspection() -> CommandIntrospection {
         },
         side_effects: vec![],
         error_conditions: vec![],
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
+    // These tests FAIL initially - they verify envelope structure and format
+    // Implementation in Phase 4 (GREEN) will make them pass
+
+    #[test]
+    fn test_introspect_json_has_envelope() -> Result<()> {
+        // Verify envelope wrapping for introspect command output
+        use zjj_core::json::SchemaEnvelope;
+
+        let version = env!("CARGO_PKG_VERSION");
+        let output = IntrospectOutput::new(version);
+        let envelope = SchemaEnvelope::new("introspect-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_introspect_command_wrapped() -> Result<()> {
+        // Verify command introspection results are wrapped in envelope
+        use zjj_core::json::SchemaEnvelope;
+
+        let cmd = get_add_introspection();
+        let envelope = SchemaEnvelope::new("introspect-command-response", "single", cmd);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
     }
 }

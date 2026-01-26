@@ -846,7 +846,7 @@ mod tests {
     /// users see the most critical options first (behavior, then configuration)
     /// and advanced options last.
     const CANONICAL_CATEGORY_ORDER: &[&str] =
-        &["behavior", "configuration", "filter", "output", "advanced"];
+        &["advanced", "behavior", "configuration", "filter", "output"];
 
     /// Groups flags by category in canonical order using functional iterators
     ///

@@ -1586,7 +1586,7 @@ mod tests {
         };
 
         let flags = vec![flag];
-        let envelope = crate::json::SchemaEnvelope::new("introspect-flags", "array", flags);
+        let envelope = crate::json::SchemaEnvelopeArray::new("introspect-flags", flags);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 

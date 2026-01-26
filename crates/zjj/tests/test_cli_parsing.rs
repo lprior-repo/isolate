@@ -368,16 +368,29 @@ fn test_list_with_bead_json_output() {
     // Combine --bead with --json flag
     let result = harness.zjj(&["list", "--bead", "zjj-1ppy", "--json"]);
 
-    // Should succeed and return JSON array
+    // Should succeed and return JSON with envelope
     assert!(
         result.success,
         "Should succeed with JSON output\nStdout: {}\nStderr: {}",
         result.stdout, result.stderr
     );
+    // Check that output is valid JSON with envelope structure
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
     assert!(
-        result.stdout.starts_with('[') && result.stdout.trim().ends_with(']'),
-        "Should output valid JSON array\nStdout: {}",
+        parsed.is_ok(),
+        "Should output valid JSON\nStdout: {}",
         result.stdout
+    );
+    let json = parsed.unwrap();
+    assert!(
+        json.get("$schema").is_some(),
+        "Should have $schema field\nStdout: {}",
+        result.stdout
+    );
+    assert_eq!(
+        json.get("schema_type").and_then(|v| v.as_str()),
+        Some("array"),
+        "Should have schema_type='array'"
     );
 }
 
