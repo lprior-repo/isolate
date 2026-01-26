@@ -9,7 +9,7 @@ use anyhow::Result;
 use serde::Serialize;
 use zjj_core::OutputFormat;
 
-use crate::commands::get_session_db;
+use crate::commands::{determine_main_branch, get_session_db};
 
 /// JSON output structure for diff command
 #[derive(Serialize)]
@@ -205,30 +205,6 @@ fn parse_stat_output(stat_output: &str) -> DiffStats {
     }
 }
 
-/// Determine the main branch for diffing
-fn determine_main_branch(workspace_path: &Path) -> String {
-    // Try to find the trunk/main branch using jj
-    // If jj is not available or fails, fall back to "main"
-    let output = Command::new("jj")
-        .args(["log", "-r", "trunk()", "--no-graph", "-T", "commit_id"])
-        .current_dir(workspace_path)
-        .output();
-
-    // Handle case where jj is not installed or command fails
-    if let Ok(output) = output {
-        if output.status.success() {
-            let commit_id = String::from_utf8_lossy(&output.stdout);
-            let trimmed = commit_id.trim();
-            if !trimmed.is_empty() {
-                return trimmed.to_string();
-            }
-        }
-    }
-
-    // Fallback: use "main" branch
-    "main".to_string()
-}
-
 /// Get the pager command from environment or defaults
 fn get_pager() -> Option<String> {
     // Check PAGER environment variable
@@ -256,7 +232,7 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
-    use crate::db::SessionDb;
+    use crate::{commands::determine_main_branch, db::SessionDb};
 
     fn setup_test_db() -> Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
