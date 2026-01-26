@@ -621,4 +621,58 @@ mod tests {
         assert!(jj_check.message.contains("JJ") || jj_check.message.contains("installed"));
         assert!(init_check.message.contains("zjj") || init_check.message.contains("initialized"));
     }
+
+    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
+    // These tests FAIL initially - they verify envelope structure and format
+    // Implementation in Phase 4 (GREEN) will make them pass
+
+    #[test]
+    fn test_doctor_json_has_envelope() -> Result<()> {
+        // FAILING: Verify envelope wrapping for doctor command output
+        use zjj_core::json::SchemaEnvelope;
+
+        let output = DoctorOutput {
+            healthy: true,
+            checks: vec![],
+            warnings: 0,
+            errors: 0,
+            auto_fixable_issues: 0,
+        };
+        let envelope = SchemaEnvelope::new("doctor-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doctor_checks_wrapped() -> Result<()> {
+        // FAILING: Verify health check results are wrapped in envelope
+        use zjj_core::json::SchemaEnvelope;
+
+        let checks = vec![
+            DoctorCheck {
+                name: "JJ Installation".to_string(),
+                status: CheckStatus::Pass,
+                message: "JJ is installed".to_string(),
+                suggestion: None,
+                auto_fixable: false,
+                details: None,
+            }
+        ];
+        let output = DoctorOutput::from_checks(checks);
+        let envelope = SchemaEnvelope::new("doctor-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
 }

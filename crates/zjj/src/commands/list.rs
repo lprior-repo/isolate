@@ -578,4 +578,123 @@ mod tests {
 
         Ok(())
     }
+
+    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
+    // These tests FAIL initially - they verify envelope structure and format
+    // Implementation in Phase 4 (GREEN) will make them pass
+
+    #[test]
+    fn test_list_json_has_envelope() -> Result<()> {
+        // FAILING: Verify envelope wrapping for list command output
+        use zjj_core::json::SchemaEnvelope;
+
+        let items: Vec<SessionListItem> = vec![];
+        let envelope = SchemaEnvelope::new("list-response", "array", items);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("array"));
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_filtered_wrapped() -> Result<()> {
+        // FAILING: Verify filtered results are wrapped in envelope
+        use zjj_core::json::SchemaEnvelope;
+
+        let items = vec![
+            SessionListItem {
+                name: "session1".to_string(),
+                status: "active".to_string(),
+                branch: "main".to_string(),
+                changes: "0".to_string(),
+                beads: "1/0/0".to_string(),
+                session: Session {
+                    id: Some(1i64),
+                    name: "session1".to_string(),
+                    workspace_path: "/tmp/ws1".to_string(),
+                    zellij_tab: "zjj:session1".to_string(),
+                    status: SessionStatus::Active,
+                    branch: Some("main".to_string()),
+                    created_at: 1704067200u64,
+                    updated_at: 1704067200u64,
+                    last_synced: Some(1704067200u64),
+                    metadata: None,
+                },
+            }
+        ];
+        let envelope = SchemaEnvelope::new("list-response", "array", items);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("array"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_array_type() -> Result<()> {
+        // FAILING: Verify schema_type is "array" for list results
+        use zjj_core::json::SchemaEnvelope;
+
+        let items: Vec<SessionListItem> = vec![];
+        let envelope = SchemaEnvelope::new("list-response", "array", items);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        let schema_type = parsed.get("schema_type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("schema_type not found"))?;
+
+        assert_eq!(schema_type, "array", "schema_type should be 'array' for list responses");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_metadata_preserved() -> Result<()> {
+        // FAILING: Verify session metadata is preserved in envelope
+        use zjj_core::json::SchemaEnvelope;
+        use serde_json::json;
+
+        let metadata = json!({
+            "owner": "alice",
+            "bead_id": "feat-123"
+        });
+
+        let items = vec![
+            SessionListItem {
+                name: "session1".to_string(),
+                status: "active".to_string(),
+                branch: "feature".to_string(),
+                changes: "3".to_string(),
+                beads: "2/1/0".to_string(),
+                session: Session {
+                    id: Some(1i64),
+                    name: "session1".to_string(),
+                    workspace_path: "/tmp/ws1".to_string(),
+                    zellij_tab: "zjj:session1".to_string(),
+                    status: SessionStatus::Active,
+                    branch: Some("feature".to_string()),
+                    created_at: 1704067200u64,
+                    updated_at: 1704067200u64,
+                    last_synced: Some(1704067200u64),
+                    metadata: Some(metadata),
+                },
+            }
+        ];
+        let envelope = SchemaEnvelope::new("list-response", "array", items);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+
+        Ok(())
+    }
 }

@@ -495,4 +495,77 @@ mod tests {
         assert!(path.to_string_lossy().contains(".zjj"));
         Ok(())
     }
+
+    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
+    // These tests FAIL initially - they verify envelope structure and format
+    // Implementation in Phase 4 (GREEN) will make them pass
+
+    #[test]
+    fn test_config_json_has_envelope() -> Result<()> {
+        // FAILING: Verify envelope wrapping for config command output
+        use zjj_core::json::SchemaEnvelope;
+        let config = setup_test_config();
+        let envelope = SchemaEnvelope::new("config-response", "single", config);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_set_wrapped() -> Result<()> {
+        // FAILING: Verify envelope wrapping when setting config values
+        use zjj_core::json::SchemaEnvelope;
+        use serde_json::json;
+
+        let response = json!({"success": true, "key": "test.key", "value": "test_value"});
+        let envelope = SchemaEnvelope::new("config-set", "single", response);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_get_wrapped() -> Result<()> {
+        // FAILING: Verify envelope wrapping when getting config values
+        use zjj_core::json::SchemaEnvelope;
+        use serde_json::json;
+
+        let response = json!({"value": "config_value"});
+        let envelope = SchemaEnvelope::new("config-get", "single", response);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_data_preserved() -> Result<()> {
+        // FAILING: Verify config data is preserved inside envelope
+        use zjj_core::json::SchemaEnvelope;
+
+        let config = setup_test_config();
+        let envelope = SchemaEnvelope::new("config-response", "single", config);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // Verify data is flattened into envelope (not nested in a "data" field)
+        let has_config_fields = parsed.get("workspace_dir").is_some()
+            || parsed.get("zellij").is_some();
+        assert!(has_config_fields, "Config data should be preserved in envelope");
+
+        Ok(())
+    }
 }

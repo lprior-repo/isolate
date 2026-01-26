@@ -253,4 +253,90 @@ mod tests {
 
         assert_eq!(count.ok(), Some(3));
     }
+
+    // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
+    // These tests FAIL initially - they verify envelope structure and format
+    // Implementation in Phase 4 (GREEN) will make them pass
+
+    #[test]
+    fn test_clean_json_has_envelope() -> Result<()> {
+        // FAILING: Verify envelope wrapping for clean command output
+        use zjj_core::json::SchemaEnvelope;
+
+        let output = CleanOutput {
+            stale_count: 0,
+            removed_count: 0,
+            stale_sessions: Vec::new(),
+        };
+        let envelope = SchemaEnvelope::new("clean-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert!(parsed.get("success").is_some(), "Missing success field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_clean_success_wrapped() -> Result<()> {
+        // FAILING: Verify envelope wrapping on successful cleanup
+        use zjj_core::json::SchemaEnvelope;
+
+        let output = CleanOutput {
+            stale_count: 2,
+            removed_count: 2,
+            stale_sessions: vec!["session1".to_string(), "session2".to_string()],
+        };
+        let envelope = SchemaEnvelope::new("clean-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_clean_error_wrapped() -> Result<()> {
+        // FAILING: Verify envelope wrapping includes error information
+        use zjj_core::json::SchemaEnvelope;
+        use serde_json::json;
+
+        let error_response = json!({"error": "No sessions found"});
+        let envelope = SchemaEnvelope::new("clean-response", "single", error_response);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
+        assert!(parsed.get("_schema_version").is_some(), "Missing _schema_version field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_clean_result_type_validated() -> Result<()> {
+        // FAILING: Verify schema_type field correctly identifies response shape
+        use zjj_core::json::SchemaEnvelope;
+
+        let output = CleanOutput {
+            stale_count: 1,
+            removed_count: 0,
+            stale_sessions: vec!["stale_session".to_string()],
+        };
+        let envelope = SchemaEnvelope::new("clean-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        let schema_type = parsed.get("schema_type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("schema_type not found"))?;
+
+        assert_eq!(schema_type, "single", "schema_type should be 'single' for single object responses");
+
+        Ok(())
+    }
 }
