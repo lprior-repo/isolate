@@ -33,7 +33,7 @@ pub enum OutputFormat {
 }
 
 impl OutputFormat {
-    /// Check if the format is JSON.
+    /// Check if the format is JSON using exhaustive pattern matching.
     ///
     /// # Examples
     ///
@@ -59,10 +59,9 @@ impl OutputFormat {
         matches!(self, Self::Human)
     }
 
-    /// Convert a boolean to OutputFormat.
+    /// Convert a boolean to OutputFormat for backward compatibility.
     ///
-    /// This function maintains backward compatibility by converting
-    /// `true` to `Json` and `false` to `Human`.
+    /// Maintains backward compatibility by converting `true` to `Json` and `false` to `Human`.
     ///
     /// # Examples
     ///
@@ -103,6 +102,9 @@ impl Default for OutputFormat {
 }
 
 impl std::fmt::Display for OutputFormat {
+    /// Display the OutputFormat as a human-readable string.
+    ///
+    /// Returns "json" for Json variant and "human" for Human variant.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Json => write!(f, "json"),
@@ -119,72 +121,108 @@ mod tests {
     // PHASE 4 (RED) - FAILING TESTS: OutputFormat Enum Behavior
     // ============================================================================
 
+    /// Test that both variants exist and can be constructed
+    fn verify_variants_exist() {
+        let _ = OutputFormat::Json;
+        let _ = OutputFormat::Human;
+    }
+
     #[test]
     fn test_output_format_json_variant_exists() {
-        // RED: Verify Json variant can be constructed
+        verify_variants_exist();
         let format = OutputFormat::Json;
         assert_eq!(format, OutputFormat::Json);
     }
 
     #[test]
     fn test_output_format_human_variant_exists() {
-        // RED: Verify Human variant can be constructed
+        verify_variants_exist();
         let format = OutputFormat::Human;
         assert_eq!(format, OutputFormat::Human);
     }
 
     #[test]
+    fn test_output_format_predicates() {
+        // Test all format predicates using iterators for clarity
+        let test_cases = vec![
+            (OutputFormat::Json, true, false),
+            (OutputFormat::Human, false, true),
+        ];
+
+        test_cases.iter().for_each(|(format, expected_is_json, expected_is_human)| {
+            assert_eq!(format.is_json(), *expected_is_json, "is_json() failed for {:?}", format);
+            assert_eq!(format.is_human(), *expected_is_human, "is_human() failed for {:?}", format);
+        });
+    }
+
+    #[test]
     fn test_output_format_is_json_returns_true_for_json_variant() {
-        // RED: is_json() should return true for Json variant
         let format = OutputFormat::Json;
         assert!(format.is_json());
     }
 
     #[test]
     fn test_output_format_is_json_returns_false_for_human_variant() {
-        // RED: is_json() should return false for Human variant
         let format = OutputFormat::Human;
         assert!(!format.is_json());
     }
 
     #[test]
     fn test_output_format_is_human_returns_true_for_human_variant() {
-        // RED: is_human() should return true for Human variant
         let format = OutputFormat::Human;
         assert!(format.is_human());
     }
 
     #[test]
     fn test_output_format_is_human_returns_false_for_json_variant() {
-        // RED: is_human() should return false for Json variant
         let format = OutputFormat::Json;
         assert!(!format.is_human());
     }
 
+    /// Test flag conversions using functional iteration
+    #[test]
+    fn test_output_format_flag_conversions() {
+        let conversions = vec![
+            (true, OutputFormat::Json),
+            (false, OutputFormat::Human),
+        ];
+
+        conversions.iter().for_each(|(flag, expected_format)| {
+            assert_eq!(
+                OutputFormat::from_json_flag(*flag),
+                *expected_format,
+                "from_json_flag({}) conversion failed",
+                flag
+            );
+            assert_eq!(
+                expected_format.to_json_flag(),
+                *flag,
+                "to_json_flag() conversion failed for {:?}",
+                expected_format
+            );
+        });
+    }
+
     #[test]
     fn test_output_format_from_json_flag_true_returns_json() {
-        // RED: Backward compatibility - true should map to Json
         let format = OutputFormat::from_json_flag(true);
         assert_eq!(format, OutputFormat::Json);
     }
 
     #[test]
     fn test_output_format_from_json_flag_false_returns_human() {
-        // RED: Backward compatibility - false should map to Human
         let format = OutputFormat::from_json_flag(false);
         assert_eq!(format, OutputFormat::Human);
     }
 
     #[test]
     fn test_output_format_to_json_flag_json_returns_true() {
-        // RED: Convert Json variant back to bool returns true
         let format = OutputFormat::Json;
         assert_eq!(format.to_json_flag(), true);
     }
 
     #[test]
     fn test_output_format_to_json_flag_human_returns_false() {
-        // RED: Convert Human variant back to bool returns false
         let format = OutputFormat::Human;
         assert_eq!(format.to_json_flag(), false);
     }
@@ -210,9 +248,23 @@ mod tests {
         assert_eq!(format.to_string(), "human");
     }
 
+    /// Helper to test serialization and deserialization round-trips
+    fn test_serde_round_trip(format: OutputFormat, expected_json: &str) {
+        let serialized = serde_json::to_string(&format).expect("serialization failed");
+        assert_eq!(serialized, expected_json);
+
+        let deserialized: OutputFormat = serde_json::from_str(&serialized).expect("deserialization failed");
+        assert_eq!(deserialized, format);
+    }
+
+    #[test]
+    fn test_output_format_serde_serialization() {
+        test_serde_round_trip(OutputFormat::Json, "\"json\"");
+        test_serde_round_trip(OutputFormat::Human, "\"human\"");
+    }
+
     #[test]
     fn test_output_format_serde_serialize_json_variant() {
-        // RED: Serde serialization of Json variant
         let format = OutputFormat::Json;
         let serialized = serde_json::to_string(&format).map_err(|_| "serde failed");
         assert!(serialized.is_ok());
@@ -222,7 +274,6 @@ mod tests {
 
     #[test]
     fn test_output_format_serde_serialize_human_variant() {
-        // RED: Serde serialization of Human variant
         let format = OutputFormat::Human;
         let serialized = serde_json::to_string(&format).map_err(|_| "serde failed");
         assert!(serialized.is_ok());
@@ -232,7 +283,6 @@ mod tests {
 
     #[test]
     fn test_output_format_serde_deserialize_json_variant() {
-        // RED: Serde deserialization of "json" string
         let json_str = "\"json\"";
         let result: Result<OutputFormat, _> = serde_json::from_str(json_str);
         assert!(result.is_ok());
@@ -241,7 +291,6 @@ mod tests {
 
     #[test]
     fn test_output_format_serde_deserialize_human_variant() {
-        // RED: Serde deserialization of "human" string
         let json_str = "\"human\"";
         let result: Result<OutputFormat, _> = serde_json::from_str(json_str);
         assert!(result.is_ok());
@@ -250,15 +299,15 @@ mod tests {
 
     #[test]
     fn test_output_format_clone() {
-        // RED: OutputFormat should be cloneable
-        let format = OutputFormat::Json;
-        let cloned = format.clone();
-        assert_eq!(format, cloned);
+        // OutputFormat should be cloneable - using functional style
+        let formats = vec![OutputFormat::Json, OutputFormat::Human];
+        let cloned: Vec<_> = formats.iter().map(|f| f.clone()).collect();
+        assert_eq!(formats, cloned);
     }
 
     #[test]
     fn test_output_format_copy() {
-        // RED: OutputFormat should be copyable
+        // OutputFormat should be copyable - demonstrate with functional iteration
         let format = OutputFormat::Human;
         let copied = format;
         assert_eq!(format, copied);
