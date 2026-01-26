@@ -188,3 +188,50 @@ Ready to start next iteration with remaining 7 beads ready:
 - zjj-zd9l: Rename --filter-by-agent (P1)
 - zjj-yz9c: Mixed json: bool/OutputFormat (P1)
 - zjj-gv3f: State Tracking EPIC (COMPLEX, P0)
+
+---
+
+## Iteration 5: Phase 0-1 Research Complete ✅
+
+### Phase 0 (TRIAGE) - Complexity Assessment ✅
+**5 beads analyzed:**
+1. zjj-jakw: SIMPLE (P0) - StatusOutput SchemaEnvelope ✅ COMPLETE
+2. zjj-ioa3: SIMPLE (P0) - SyncOutput SchemaEnvelope ✅ COMPLETE
+3. zjj-05ut: MEDIUM (P0) - Audit all JSON outputs (17 locations)
+4. zjj-1ppy: SIMPLE (P1) - Rename --filter-by-bead ✅ COMPLETE
+5. zjj-zd9l: SIMPLE (P1) - Rename --filter-by-agent ✅ COMPLETE
+
+**Finding**: 4 of 5 beads are already complete from previous iterations!
+
+### Phase 1 (RESEARCH) - Detailed Analysis ✅
+Comprehensive research completed for all 5 beads:
+
+**Already Complete (4 beads):**
+- ✅ zjj-jakw: StatusOutput fully wrapped in SchemaEnvelope with 8 comprehensive tests
+- ✅ zjj-ioa3: SyncOutput wrapped in all 4 code paths with 3 comprehensive tests
+- ✅ zjj-1ppy: CLI flag already optimized to --bead (not --filter-by-bead)
+- ✅ zjj-zd9l: CLI flag already optimized to --agent (not --filter-by-agent)
+
+**Actual Work Required (1 bead):**
+- ❌ zjj-05ut: MEDIUM complexity - 17+ JSON output locations across 7 files need SchemaEnvelope wrapping:
+  - introspect.rs: 2 locations (lines 144, 238)
+  - config.rs: 4 locations (lines 54, 86, 125, 137)
+  - clean.rs: 4 locations (lines 87, 104, 128, 144)
+  - query.rs: 4 locations (lines 220, 264, 330, 349)
+  - list.rs: 2-3 locations (lines 81, 119, 205)
+  - doctor.rs: 2 locations (lines 344, 455)
+
+### Action Taken
+- ✅ Closed 4 completed beads: zjj-jakw, zjj-ioa3, zjj-1ppy, zjj-zd9l
+
+### Status Summary
+**Iteration 5 Progress:**
+- Phase 0-1: COMPLETE
+- Ready to begin Phase 2 (RED) for zjj-05ut
+- 4 beads closed, removed from queue
+- Cleaned up working tree
+
+**Next Steps**: Execute TDD15 phases 2-15 for bead zjj-05ut
+- Phase 2 (RED): Write 20+ tests for all JSON output locations
+- Phase 4 (GREEN): Implement SchemaEnvelope wrapping
+- Phase 5-15: Refactor, review, QA, landing
