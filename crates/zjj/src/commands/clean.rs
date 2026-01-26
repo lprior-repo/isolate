@@ -165,14 +165,16 @@ fn output_result(removed_count: usize, stale_names: &[String], format: OutputFor
 /// Prompt user for confirmation to remove stale sessions
 ///
 /// Returns Ok(true) if user confirms, Ok(false) if user cancels
+///
+/// Prompts are written to stderr to avoid mixing with JSON output on stdout.
 fn confirm_removal(stale_names: &[String]) -> Result<bool> {
-    println!("Found {} stale session(s):", stale_names.len());
+    eprintln!("Found {} stale session(s):", stale_names.len());
     for name in stale_names {
-        println!("  - {name}");
+        eprintln!("  - {name}");
     }
-    println!();
-    print!("Remove these sessions? [y/N] ");
-    std::io::stdout()
+    eprintln!();
+    eprint!("Remove these sessions? [y/N] ");
+    std::io::stderr()
         .flush()
         .map_err(|e| anyhow::Error::new(zjj_core::Error::IoError(e.to_string())))?;
 
