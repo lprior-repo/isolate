@@ -11,8 +11,8 @@ use crate::{Error, Result};
 /// Complete introspection output
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntrospectOutput {
-    /// JJZ version
-    pub jjz_version: String,
+    /// ZJJ version
+    pub zjj_version: String,
     /// Categorized capabilities
     pub capabilities: Capabilities,
     /// External dependency status
@@ -382,7 +382,7 @@ impl IntrospectOutput {
     /// Create default introspection output
     pub fn new(version: &str) -> Self {
         Self {
-            jjz_version: version.to_string(),
+            zjj_version: version.to_string(),
             capabilities: Capabilities::default(),
             dependencies: HashMap::new(),
             system_state: SystemState::default(),
@@ -550,7 +550,7 @@ mod tests {
     #[test]
     fn test_introspect_output_new() {
         let output = IntrospectOutput::new("0.1.0");
-        assert_eq!(output.jjz_version, "0.1.0");
+        assert_eq!(output.zjj_version, "0.1.0");
         assert!(!output.capabilities.session_management.commands.is_empty());
     }
 

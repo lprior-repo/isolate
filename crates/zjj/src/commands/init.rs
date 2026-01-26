@@ -124,6 +124,9 @@ pub fn run_with_cwd(cwd: Option<&Path>) -> Result<()> {
     let layouts_dir = zjj_dir.join("layouts");
     fs::create_dir_all(&layouts_dir).context("Failed to create layouts directory")?;
 
+    // Create .jjignore to prevent .zjj tracking (avoids nested .jj conflicts)
+    create_jjignore(&root)?;
+
     // Initialize the database
     let db_path = zjj_dir.join("state.db");
     let _db = SessionDb::open(&db_path)?;
@@ -230,6 +233,42 @@ fn init_jj_repo_with_cwd(cwd: &Path) -> Result<()> {
             "jj git init failed: {}",
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    Ok(())
+}
+
+/// Create .jjignore to prevent .zjj directory from being tracked
+///
+/// This prevents nested .jj directories when jj workspace add checks out files.
+/// If .jjignore already exists, appends .zjj/ if not already present.
+fn create_jjignore(repo_root: &Path) -> Result<()> {
+    let jjignore_path = repo_root.join(".jjignore");
+    let zjj_pattern = ".zjj/";
+
+    if jjignore_path.exists() {
+        // Check if .zjj/ is already in the file
+        let content = fs::read_to_string(&jjignore_path)
+            .context("Failed to read existing .jjignore")?;
+
+        if content.lines().any(|line| line.trim() == zjj_pattern) {
+            return Ok(()); // Already has .zjj/
+        }
+
+        // Append .zjj/ to existing file
+        let mut new_content = content;
+        if !new_content.ends_with('\n') {
+            new_content.push('\n');
+        }
+        new_content.push_str(zjj_pattern);
+        new_content.push('\n');
+
+        fs::write(&jjignore_path, new_content)
+            .context("Failed to update .jjignore")?;
+    } else {
+        // Create new .jjignore with .zjj/
+        fs::write(&jjignore_path, format!("{zjj_pattern}\n"))
+            .context("Failed to create .jjignore")?;
     }
 
     Ok(())

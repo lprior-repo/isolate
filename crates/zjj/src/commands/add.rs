@@ -1,9 +1,7 @@
 //! Create a new session with JJ workspace + Zellij tab
 
-use std::path::PathBuf;
-
 use anyhow::{Context, Result};
-use zjj_core::{jj, OutputFormat};
+use zjj_core::{config, jj, OutputFormat};
 
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, run_command},
@@ -63,7 +61,15 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     }
 
     let root = check_prerequisites()?;
-    let workspace_path = format!("{}/.zjj/workspaces/{}", root.display(), options.name);
+
+    // Load config to get workspace_dir setting
+    let cfg = config::load_config().map_err(|e| anyhow::Error::msg(e.to_string()))?;
+
+    // Construct workspace path from config's workspace_dir
+    // workspace_dir is already placeholder-substituted (e.g., "../zjj__workspaces")
+    let workspace_base = root.join(&cfg.workspace_dir);
+    let workspace_path = workspace_base.join(&options.name);
+    let workspace_path_str = workspace_path.display().to_string();
 
     // Create the JJ workspace (REQ-JJ-003, REQ-JJ-007)
     create_jj_workspace(&options.name, &workspace_path).with_context(|| {
@@ -74,11 +80,11 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     })?;
 
     // Insert into database with status 'creating' (REQ-STATE-004)
-    let mut session = db.create(&options.name, &workspace_path)?;
+    let mut session = db.create(&options.name, &workspace_path_str)?;
 
     // Execute post_create hooks unless --no-hooks (REQ-CLI-004, REQ-CLI-005)
     if !options.no_hooks {
-        if let Err(e) = execute_post_create_hooks(&workspace_path) {
+        if let Err(e) = execute_post_create_hooks(&workspace_path_str) {
             // Hook failure → status 'failed' (REQ-HOOKS-003)
             let _ = db.update(
                 &options.name,
@@ -104,14 +110,14 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     // Open Zellij tab unless --no-open (REQ-CLI-003)
     if options.no_open {
         println!(
-            "Created session '{}' (workspace at {workspace_path})",
+            "Created session '{}' (workspace at {workspace_path_str})",
             options.name
         );
     } else if is_inside_zellij() {
         // Inside Zellij: Create tab and switch to it
         create_zellij_tab(
             &session.zellij_tab,
-            &workspace_path,
+            &workspace_path_str,
             options.template.as_deref(),
         )?;
         println!(
@@ -125,7 +131,7 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 
         let layout = create_session_layout(
             &session.zellij_tab,
-            &workspace_path,
+            &workspace_path_str,
             options.template.as_deref(),
         );
         attach_to_zellij_session(Some(&layout))?;
@@ -136,11 +142,10 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 }
 
 /// Create a JJ workspace for the session
-fn create_jj_workspace(name: &str, workspace_path: &str) -> Result<()> {
+fn create_jj_workspace(name: &str, workspace_path: &std::path::Path) -> Result<()> {
     // Use the JJ workspace manager from core
     // Preserve the zjj_core::Error to maintain exit code semantics
-    let path = PathBuf::from(workspace_path);
-    jj::workspace_create(name, &path).map_err(anyhow::Error::new)?;
+    jj::workspace_create(name, workspace_path).map_err(anyhow::Error::new)?;
 
     Ok(())
 }

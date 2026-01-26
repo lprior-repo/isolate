@@ -12,7 +12,7 @@ use zjj_core::{
 #[allow(dead_code)]
 pub struct InitOutput {
     pub message: String,
-    pub jjz_dir: String,
+    pub zjj_dir: String,
     pub config_file: String,
     pub state_db: String,
     pub layouts_dir: String,
