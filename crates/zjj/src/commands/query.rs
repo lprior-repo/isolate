@@ -437,8 +437,8 @@ mod tests {
 
     #[test]
     fn test_query_array_schema_type() -> anyhow::Result<()> {
-        // FAILING: Verify schema_type is "array" for array results
-        use zjj_core::json::SchemaEnvelope;
+        // Verify schema_type is "array" for array results
+        use zjj_core::json::SchemaEnvelopeArray;
 
         let blockers = vec![
             Blocker {
@@ -447,7 +447,7 @@ mod tests {
                 message: "JJ is installed".to_string(),
             }
         ];
-        let envelope = SchemaEnvelope::new("query-blockers", "array", blockers);
+        let envelope = SchemaEnvelopeArray::new("query-blockers", blockers);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
