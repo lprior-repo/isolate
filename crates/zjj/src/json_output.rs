@@ -173,7 +173,9 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
         ErrorCode::StateDbCorrupted
     } else if error_str.contains("not found") || error_str.contains("Not found") {
         ErrorCode::SessionNotFound
-    } else if error_str.contains("Invalid session name") || error_str.contains("Session name") {
+    } else if error_str.contains("Invalid session name") || error_str.contains("Session name")
+        || error_str.contains("must start with a letter")
+    {
         ErrorCode::SessionNameInvalid
     } else if error_str.contains("already exists") {
         ErrorCode::SessionAlreadyExists
@@ -181,6 +183,14 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
         ErrorCode::JjNotInstalled
     } else if error_str.contains("Not a JJ repository") || error_str.contains("not in a jj repo") {
         ErrorCode::NotJjRepository
+    } else if error_str.contains("Zellij") || error_str.contains("zellij") {
+        ErrorCode::ZellijCommandFailed
+    } else if error_str.contains("workspace") && error_str.contains("not found") {
+        ErrorCode::WorkspaceNotFound
+    } else if error_str.contains("Not in workspace") || error_str.contains("not in a workspace") {
+        ErrorCode::InvalidArgument
+    } else if error_str.contains("conflict") || error_str.contains("Conflicting") {
+        ErrorCode::JjCommandFailed
     } else {
         ErrorCode::Unknown
     }
@@ -189,13 +199,41 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
 /// Suggest resolution for an error code
 const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
     match code {
-        ErrorCode::StateDbCorrupted => {
-            Some("Try running 'zjj doctor --fix' to repair the database")
-        }
+        ErrorCode::StateDbCorrupted => Some(
+            "Try running 'zjj doctor --fix' to repair the database, or delete .zjj/sessions.db to reset",
+        ),
         ErrorCode::SessionNotFound => Some("Use 'zjj list' to see available sessions"),
-        ErrorCode::JjNotInstalled => Some("Install JJ: cargo install jj-cli or brew install jj"),
-        ErrorCode::NotJjRepository => Some("Run 'zjj init' to initialize a JJ repository"),
-        _ => None,
+        ErrorCode::SessionNameInvalid => {
+            Some("Session names must be 1-64 chars, start with a letter, and contain only alphanumeric, dash, underscore")
+        }
+        ErrorCode::SessionAlreadyExists => {
+            Some("Use 'zjj focus <name>' to switch to existing session, or choose a different name")
+        }
+        ErrorCode::JjNotInstalled => {
+            Some("Install JJ: cargo install jj-cli or brew install jj or visit https://martinvonz.github.io/jj/latest/install-and-setup/")
+        }
+        ErrorCode::NotJjRepository => Some("Run 'zjj init' to initialize a JJ repository in this directory"),
+        ErrorCode::ZellijCommandFailed => {
+            Some("Check that Zellij is installed: zellij --version, or start with: zellij attach -c new-session")
+        }
+        ErrorCode::WorkspaceNotFound => Some("Run 'zjj list' to see available workspaces, or 'zjj doctor' to check system health"),
+        ErrorCode::WorkspaceCreationFailed => {
+            Some("Check JJ is working: jj status, or try: zjj doctor")
+        }
+        ErrorCode::InvalidArgument => {
+            Some("Use 'zjj context' to see current state, or check command help: zjj <command> --help")
+        }
+        ErrorCode::JjCommandFailed => {
+            Some("Check JJ status: jj status, resolve conflicts with: jj resolve, or see: zjj doctor")
+        }
+        ErrorCode::ConfigNotFound => Some("Run 'zjj init' to create default configuration"),
+        ErrorCode::HookFailed => Some("Check hook scripts in .zjj/hooks/, or use --no-hooks to skip"),
+        ErrorCode::Unknown => Some("Run 'zjj doctor' to check system health and configuration"),
+        ErrorCode::StateDbLocked
+        | ErrorCode::ConfigParseError
+        | ErrorCode::ConfigKeyNotFound
+        | ErrorCode::ZellijNotRunning
+        | ErrorCode::HookExecutionError => None,
     }
 }
 
