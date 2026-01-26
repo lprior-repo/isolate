@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use zjj_core::jj;
+use zjj_core::{jj, OutputFormat};
 
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, run_command},
@@ -21,6 +21,8 @@ pub struct AddOptions {
     pub template: Option<String>,
     /// Create workspace but don't open Zellij tab
     pub no_open: bool,
+    /// Output format (JSON or Human-readable)
+    pub format: OutputFormat,
 }
 
 impl AddOptions {
@@ -32,6 +34,7 @@ impl AddOptions {
             no_hooks: false,
             template: None,
             no_open: false,
+            format: OutputFormat::Human,
         }
     }
 }
