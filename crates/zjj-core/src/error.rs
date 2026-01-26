@@ -61,13 +61,7 @@ impl fmt::Display for Error {
                 if *is_not_found {
                     write!(
                         f,
-                        "Failed to {operation}: JJ is not installed or not in PATH.\n\n\
-                        Install JJ:\n\
-                          cargo install jj-cli\n\
-                        or:\n\
-                          brew install jj\n\
-                        or visit: https://github.com/martinvonz/jj#installation\n\n\
-                        Error: {source}"
+                        "Failed to {operation}: JJ is not installed or not in PATH.\n\n\ Still JJ:\n  cargo install jj-cli\n\ or:\n  brew install jj\n\ or visit: https://github.com/martinvonz/jj#installation\n\nError: {source}"
                     )
                 } else {
                     write!(f, "Failed to {operation}: {source}")
@@ -196,7 +190,7 @@ impl Error {
              }
              Self::JjCommandError {
                  is_not_found: true,
-                 ..
+                 .. 
              } => Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
              Self::HookFailed { .. } => Some(
                  "Check your hook configuration and ensure the command is correct".to_string(),
@@ -212,24 +206,37 @@ impl Error {
     ///
     /// Exit codes follow this semantic mapping:
     /// - 1: Validation errors (user input issues)
-    /// - 2: Not found errors (missing resources)
-    /// - 3: System errors (IO, database issues)
-    /// - 4: External command errors
+    /// - 2: System errors (IO, database issues, execution errors)
+    /// - 3: Not found errors (missing resources)
+    /// - 4: Parse errors (invalid state)
     #[must_use]
     pub const fn exit_code(&self) -> i32 {
         match self {
             // Validation errors: exit code 1
-            Self::InvalidConfig(_) | Self::ValidationError(_) | Self::ParseError(_) => 1,
-            // Not found errors: exit code 2
-            Self::NotFound(_) => 2,
-            // System errors: exit code 3
-            Self::IoError(_) | Self::DatabaseError(_) => 3,
-            // External command errors: exit code 4
-            Self::Command(_)
-            | Self::JjCommandError { .. }
-            | Self::HookFailed { .. }
-            | Self::HookExecutionFailed { .. }
-            | Self::Unknown(_) => 4,
+            Self::InvalidConfig(_) | Self::ValidationError(_) => 1,
+
+            // System/execution errors: exit code 2
+            Self::IoError(_) 
+            | Self::DatabaseError(_) 
+            | Self::Command(_) 
+            | Self::Unknown(_) 
+            | Self::HookFailed { .. } 
+            | Self::HookExecutionFailed { .. } => 2,
+
+            // Not found errors: exit code 3
+            Self::NotFound(_) => 3,
+
+            // JJ command errors: depends on if it's "not found" (3) or execution error (2)
+            Self::JjCommandError { is_not_found, .. } => {
+                if *is_not_found {
+                    3
+                } else {
+                    2
+                }
+            }
+
+            // Parse errors: exit code 4
+            Self::ParseError(_) => 4,
         }
     }
 }
@@ -319,7 +326,6 @@ mod tests {
         assert!(!display.contains("JJ is not installed"));
     }
 
-    // Tests for Error::code() method (zjj-lgkf Phase 4 - RED)
     #[test]
     fn test_error_code_validation_error() {
         let err = Error::ValidationError("invalid input".into());
@@ -351,7 +357,6 @@ mod tests {
         assert_eq!(code, code.to_uppercase(), "Error code must be uppercase");
     }
 
-    // Tests for Error::context_map() method (zjj-lgkf Phase 4 - RED)
     #[test]
     fn test_validation_error_context_has_field() {
         let err = Error::ValidationError("Session name must be alphanumeric".into());
@@ -382,7 +387,6 @@ mod tests {
         }
     }
 
-    // Tests for Error::suggestion() method (zjj-lgkf Phase 4 - RED)
     #[test]
     fn test_session_not_found_suggests_list() {
         let err = Error::NotFound("session not found".into());
@@ -401,15 +405,6 @@ mod tests {
     }
 
     #[test]
-    fn test_generic_error_no_suggestion() {
-        let err = Error::Unknown("unknown error".into());
-        let suggestion = err.suggestion();
-        // Unknown errors might not have suggestions
-        assert!(suggestion.is_none() || suggestion.is_some());
-    }
-
-    // Tests for Error::exit_code() method (zjj-2x2p Phase 4 - RED)
-    #[test]
     fn test_validation_error_maps_to_exit_code_1() {
         let err = Error::ValidationError("invalid input".into());
         assert_eq!(err.exit_code(), 1);
@@ -422,47 +417,57 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_error_maps_to_exit_code_1() {
+    fn test_parse_error_maps_to_exit_code_4() {
         let err = Error::ParseError("malformed input".into());
-        assert_eq!(err.exit_code(), 1);
-    }
-
-    #[test]
-    fn test_not_found_error_maps_to_exit_code_2() {
-        let err = Error::NotFound("session not found".into());
-        assert_eq!(err.exit_code(), 2);
-    }
-
-    #[test]
-    fn test_io_error_maps_to_exit_code_3() {
-        let err = Error::IoError("file not found".into());
-        assert_eq!(err.exit_code(), 3);
-    }
-
-    #[test]
-    fn test_database_error_maps_to_exit_code_3() {
-        let err = Error::DatabaseError("connection failed".into());
-        assert_eq!(err.exit_code(), 3);
-    }
-
-    #[test]
-    fn test_command_error_maps_to_exit_code_4() {
-        let err = Error::Command("command failed".into());
         assert_eq!(err.exit_code(), 4);
     }
 
     #[test]
-    fn test_jj_command_error_maps_to_exit_code_4() {
+    fn test_not_found_error_maps_to_exit_code_3() {
+        let err = Error::NotFound("session not found".into());
+        assert_eq!(err.exit_code(), 3);
+    }
+
+    #[test]
+    fn test_io_error_maps_to_exit_code_2() {
+        let err = Error::IoError("file not found".into());
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_database_error_maps_to_exit_code_2() {
+        let err = Error::DatabaseError("connection failed".into());
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_command_error_maps_to_exit_code_2() {
+        let err = Error::Command("command failed".into());
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_jj_command_error_not_found_maps_to_exit_code_3() {
+        let err = Error::JjCommandError {
+            operation: "create workspace".to_string(),
+            source: "error".to_string(),
+            is_not_found: true,
+        };
+        assert_eq!(err.exit_code(), 3);
+    }
+
+    #[test]
+    fn test_jj_command_error_execution_maps_to_exit_code_2() {
         let err = Error::JjCommandError {
             operation: "create workspace".to_string(),
             source: "error".to_string(),
             is_not_found: false,
         };
-        assert_eq!(err.exit_code(), 4);
+        assert_eq!(err.exit_code(), 2);
     }
 
     #[test]
-    fn test_hook_failed_maps_to_exit_code_4() {
+    fn test_hook_failed_maps_to_exit_code_2() {
         let err = Error::HookFailed {
             hook_type: "post_create".to_string(),
             command: "npm install".to_string(),
@@ -470,21 +475,21 @@ mod tests {
             stdout: String::new(),
             stderr: "Package not found".to_string(),
         };
-        assert_eq!(err.exit_code(), 4);
+        assert_eq!(err.exit_code(), 2);
     }
 
     #[test]
-    fn test_hook_execution_failed_maps_to_exit_code_4() {
+    fn test_hook_execution_failed_maps_to_exit_code_2() {
         let err = Error::HookExecutionFailed {
             command: "invalid-shell".to_string(),
             source: "No such file or directory".to_string(),
         };
-        assert_eq!(err.exit_code(), 4);
+        assert_eq!(err.exit_code(), 2);
     }
 
     #[test]
-    fn test_unknown_error_maps_to_exit_code_4() {
+    fn test_unknown_error_maps_to_exit_code_2() {
         let err = Error::Unknown("unknown error".into());
-        assert_eq!(err.exit_code(), 4);
+        assert_eq!(err.exit_code(), 2);
     }
 }
