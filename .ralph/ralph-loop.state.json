@@ -1,0 +1,13 @@
+{
+  "active": true,
+  "iteration": 1,
+  "minIterations": 1,
+  "maxIterations": 0,
+  "completionPromise": "COMPLETE",
+  "tasksMode": false,
+  "taskPromise": "READY_FOR_NEXT_TASK",
+  "prompt": "please get all beads driven to completion using tdd15 pelase",
+  "startedAt": "2026-01-26T06:28:27.339Z",
+  "model": "",
+  "agent": "opencode"
+}
