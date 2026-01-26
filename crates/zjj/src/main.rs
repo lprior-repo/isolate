@@ -6,6 +6,7 @@ use std::process;
 
 use anyhow::Result;
 use clap::{Arg, Command as ClapCommand};
+use serde_json;
 
 mod cli;
 mod commands;
@@ -50,7 +51,7 @@ fn cmd_add() -> ClapCommand {
         .about("Create a new session with JJ workspace + Zellij tab")
         .arg(
             Arg::new("name")
-                .required(true)
+                .required_unless_present("example-json")
                 .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Name for the new session (must start with a letter)"),
         )
@@ -78,6 +79,13 @@ fn cmd_add() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("example-json")
+                .long("example-json")
+                .action(clap::ArgAction::SetTrue)
+                .conflicts_with("name")
+                .help("Show example JSON output without executing"),
         )
 }
 
@@ -388,6 +396,18 @@ fn handle_init(sub_m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
+    // Handle --example-json flag (return example output without execution)
+    if sub_m.get_flag("example-json") {
+        let example_output = json_output::AddOutput {
+            name: "example-session".to_string(),
+            workspace_path: "/path/to/.zjj/workspaces/example-session".to_string(),
+            zellij_tab: "zjj:example-session".to_string(),
+            status: "active".to_string(),
+        };
+        println!("{}", serde_json::to_string_pretty(&example_output)?);
+        return Ok(());
+    }
+
     let name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;

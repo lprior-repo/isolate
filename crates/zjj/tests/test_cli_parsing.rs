@@ -879,3 +879,281 @@ fn test_diff_session_name_starting_with_dash() {
     );
     // May show validation error or "session not found"
 }
+
+// ============================================================================
+// Add Command --example-json Flag (RED PHASE TESTS - Phase 2)
+// ============================================================================
+
+#[test]
+fn test_add_example_json_flag_is_recognized() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Test: Flag should be recognized without error
+    let result = harness.zjj(&["add", "--example-json"]);
+    assert!(
+        result.success,
+        "Should accept --example-json flag (got stderr: {})",
+        result.stderr
+    );
+}
+
+#[test]
+fn test_add_example_json_outputs_valid_json() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["add", "--example-json"]);
+    assert!(result.success, "Should succeed with --example-json");
+
+    // Test: Output should be valid JSON
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    assert!(
+        parsed.is_ok(),
+        "Output should be valid JSON (got: {})",
+        result.stdout
+    );
+}
+
+#[test]
+fn test_add_example_json_has_name_field() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["add", "--example-json"]);
+    assert!(result.success, "Should succeed with --example-json");
+
+    // Test: JSON should have 'name' field with string value
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    assert!(
+        parsed.get("name").is_some(),
+        "JSON should have 'name' field"
+    );
+    assert!(
+        parsed["name"].is_string(),
+        "name field should be a string (got: {:?})",
+        parsed["name"]
+    );
+}
+
+#[test]
+fn test_add_example_json_has_workspace_path_field() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["add", "--example-json"]);
+    assert!(result.success, "Should succeed with --example-json");
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    assert!(
+        parsed.get("workspace_path").is_some(),
+        "JSON should have 'workspace_path' field"
+    );
+    assert!(
+        parsed["workspace_path"].is_string(),
+        "workspace_path field should be a string"
+    );
+}
+
+#[test]
+fn test_add_example_json_has_zellij_tab_field() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["add", "--example-json"]);
+    assert!(result.success, "Should succeed with --example-json");
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    assert!(
+        parsed.get("zellij_tab").is_some(),
+        "JSON should have 'zellij_tab' field"
+    );
+    assert!(
+        parsed["zellij_tab"].is_string(),
+        "zellij_tab field should be a string"
+    );
+}
+
+#[test]
+fn test_add_example_json_has_status_field() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["add", "--example-json"]);
+    assert!(result.success, "Should succeed with --example-json");
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    assert!(
+        parsed.get("status").is_some(),
+        "JSON should have 'status' field"
+    );
+    assert!(
+        parsed["status"].is_string(),
+        "status field should be a string"
+    );
+}
+
+#[test]
+fn test_add_example_json_does_not_create_session() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["add", "--example-json"]);
+    assert!(result.success, "Should succeed with --example-json");
+
+    // Test: Example output should not create an actual session
+    let list_result = harness.zjj(&["list"]);
+    assert!(
+        list_result.stdout.is_empty() || list_result.stdout.contains("No sessions"),
+        "Should not create a session (list output: {})",
+        list_result.stdout
+    );
+}
+
+#[test]
+fn test_add_example_json_with_name_argument_fails() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Test: Providing both --example-json and name should fail
+    let result = harness.zjj(&["add", "my-session", "--example-json"]);
+    assert!(
+        !result.success,
+        "Should reject --example-json with name argument"
+    );
+}
+
+#[test]
+fn test_add_example_json_mutually_exclusive_with_name() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Test: Order doesn't matter - both should fail
+    let result1 = harness.zjj(&["add", "test1", "--example-json"]);
+    let result2 = harness.zjj(&["add", "--example-json", "test2"]);
+
+    assert!(
+        !result1.success && !result2.success,
+        "Should reject --example-json with name in any order"
+    );
+}
+
+#[test]
+fn test_add_example_json_has_all_required_fields() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["add", "--example-json"]);
+    assert!(result.success, "Should succeed with --example-json");
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+
+    // Test: All required fields present
+    let required_fields = vec!["name", "workspace_path", "zellij_tab", "status"];
+    for field in required_fields {
+        assert!(
+            parsed.get(field).is_some(),
+            "JSON should have required field '{}'",
+            field
+        );
+    }
+}
+
+#[test]
+fn test_add_example_json_with_no_open_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Test: Combining --example-json with --no-open (conflicting intent but both are flags)
+    let _result = harness.zjj(&["add", "--example-json", "--no-open"]);
+    // Should either succeed (ignoring --no-open) or clearly fail
+    // Exact behavior TBD in Phase 3 specification
+}
+
+#[test]
+fn test_add_example_json_with_template_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Test: Combining --example-json with --template (should either succeed or fail clearly)
+    let _result = harness.zjj(&["add", "--example-json", "--template", "minimal"]);
+    // Exact behavior TBD in Phase 3 specification
+}
+
+#[test]
+fn test_add_example_json_with_no_hooks_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Test: Combining --example-json with --no-hooks
+    let _result = harness.zjj(&["add", "--example-json", "--no-hooks"]);
+    // Should succeed - example output doesn't execute hooks anyway
+}
+
+#[test]
+fn test_add_example_json_output_fields_are_strings() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["add", "--example-json"]);
+    assert!(result.success, "Should succeed with --example-json");
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+
+    // Test: All fields should be strings (matching AddOutput struct)
+    assert!(parsed["name"].is_string(), "name should be string");
+    assert!(
+        parsed["workspace_path"].is_string(),
+        "workspace_path should be string"
+    );
+    assert!(parsed["zellij_tab"].is_string(), "zellij_tab should be string");
+    assert!(parsed["status"].is_string(), "status should be string");
+}
