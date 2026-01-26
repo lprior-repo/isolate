@@ -74,7 +74,7 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
         .try_fold(0, |count, session| {
             db.delete(&session.name)
                 .map_err(anyhow::Error::new)
-                .map(|()| count + 1)
+                .map(|_| count + 1)
         })?;
 
     // 6. Output result
