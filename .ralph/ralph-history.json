@@ -12,14 +12,27 @@
       "errors": [
         "\u001b[91m\u001b[1mError: \u001b[0mHeader中未收到Authorization参数，无法进行身份验证。"
       ]
+    },
+    {
+      "iteration": 2,
+      "startedAt": "2026-01-26T06:28:32.286Z",
+      "endedAt": "2026-01-26T06:28:34.797Z",
+      "durationMs": 2165,
+      "toolsUsed": {},
+      "filesModified": [],
+      "exitCode": 1,
+      "completionDetected": false,
+      "errors": [
+        "\u001b[91m\u001b[1mError: \u001b[0mHeader中未收到Authorization参数，无法进行身份验证。"
+      ]
     }
   ],
-  "totalDurationMs": 2882,
+  "totalDurationMs": 5047,
   "struggleIndicators": {
     "repeatedErrors": {
-      "\u001b[91m\u001b[1mError: \u001b[0mHeader中未收到Authorization参数，无法进行身份验证。": 1
+      "\u001b[91m\u001b[1mError: \u001b[0mHeader中未收到Authorization参数，无法进行身份验证。": 2
     },
-    "noProgressIterations": 1,
-    "shortIterations": 1
+    "noProgressIterations": 2,
+    "shortIterations": 2
   }
 }
