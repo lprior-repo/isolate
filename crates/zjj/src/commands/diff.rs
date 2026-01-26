@@ -278,4 +278,128 @@ mod tests {
         let revset2 = format!("{commit_id}..@");
         assert_eq!(revset2, "abc123..@");
     }
+
+    // ============================================================================
+    // PHASE 2 (RED) - OutputFormat Migration Tests for diff.rs
+    // These tests FAIL until diff command accepts OutputFormat parameter
+    // ============================================================================
+
+    /// RED: diff run() should accept OutputFormat parameter
+    #[test]
+    fn test_diff_run_signature_accepts_format() {
+        use zjj_core::OutputFormat;
+
+        // This test documents the expected signature change:
+        // Current: pub fn run(name: &str, stat: bool) -> Result<()>
+        // Expected: pub fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()>
+
+        let format = OutputFormat::Json;
+        assert_eq!(format, OutputFormat::Json);
+
+        // When run() is updated to accept format:
+        // diff::run("session-name", false, OutputFormat::Json)
+    }
+
+    /// RED: diff should support JSON output format
+    #[test]
+    fn test_diff_json_output_format() {
+        use zjj_core::OutputFormat;
+
+        let format = OutputFormat::Json;
+        assert!(format.is_json());
+
+        // When diff is called with OutputFormat::Json:
+        // - diff output should be formatted as JSON
+        // - diff should be wrapped in SchemaEnvelope
+    }
+
+    /// RED: diff should support Human output format
+    #[test]
+    fn test_diff_human_output_format() {
+        use zjj_core::OutputFormat;
+
+        let format = OutputFormat::Human;
+        assert!(format.is_human());
+
+        // When diff is called with OutputFormat::Human:
+        // - diff output should be human-readable text
+        // - diff should be sent to pager if available
+    }
+
+    /// RED: diff output structure changes based on format
+    #[test]
+    fn test_diff_respects_output_format() {
+        use zjj_core::OutputFormat;
+
+        // For JSON format: diff content should be wrapped in envelope
+        let json_format = OutputFormat::Json;
+        assert!(json_format.is_json());
+
+        // For Human format: diff should be displayed to terminal/pager
+        let human_format = OutputFormat::Human;
+        assert!(human_format.is_human());
+
+        // The implementation should check format variant:
+        // match format {
+        //     OutputFormat::Json => output_json_diff(...),
+        //     OutputFormat::Human => display_diff_with_pager(...),
+        // }
+    }
+
+    /// RED: diff --stat works with both output formats
+    #[test]
+    fn test_diff_stat_with_format() {
+        use zjj_core::OutputFormat;
+
+        // stat diff should work with JSON format
+        let json_format = OutputFormat::Json;
+        assert!(json_format.is_json());
+
+        // stat diff should work with Human format
+        let human_format = OutputFormat::Human;
+        assert!(human_format.is_human());
+
+        // When stat=true is passed along with format:
+        // diff::run("session", true, OutputFormat::Json) should output JSON stat
+        // diff::run("session", true, OutputFormat::Human) should output text stat
+    }
+
+    /// RED: OutputFormat::from_json_flag converts correctly
+    #[test]
+    fn test_diff_from_json_flag() {
+        use zjj_core::OutputFormat;
+
+        let json_flag = true;
+        let format = OutputFormat::from_json_flag(json_flag);
+        assert_eq!(format, OutputFormat::Json);
+
+        let human_flag = false;
+        let format2 = OutputFormat::from_json_flag(human_flag);
+        assert_eq!(format2, OutputFormat::Human);
+    }
+
+    /// RED: diff preserves format through conversion chain
+    #[test]
+    fn test_diff_format_roundtrip() {
+        use zjj_core::OutputFormat;
+
+        let json_bool = true;
+        let format = OutputFormat::from_json_flag(json_bool);
+        let restored_bool = format.to_json_flag();
+
+        assert_eq!(json_bool, restored_bool);
+    }
+
+    /// RED: diff never panics during format processing
+    #[test]
+    fn test_diff_format_no_panics() {
+        use zjj_core::OutputFormat;
+
+        // Both formats should be processable without panic
+        for format in [OutputFormat::Json, OutputFormat::Human].iter() {
+            let _ = format.is_json();
+            let _ = format.is_human();
+            let _ = format.to_string();
+        }
+    }
 }

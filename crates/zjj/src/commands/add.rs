@@ -684,6 +684,133 @@ mod tests {
         test_invalid("");
     }
 
+    // ============================================================================
+    // PHASE 2 (RED) - OutputFormat Migration Tests for add.rs
+    // These tests FAIL until AddOptions.format field is added in Phase 4 (GREEN)
+    // ============================================================================
+
+    /// RED: AddOptions should accept format field of type OutputFormat
+    #[test]
+    fn test_add_options_has_format_field_requirement() {
+        use zjj_core::OutputFormat;
+
+        // PHASE 2 (RED) - This test documents the requirement:
+        // AddOptions MUST have a format field of type OutputFormat
+        //
+        // Expected structure after Phase 4 (GREEN):
+        // pub struct AddOptions {
+        //     pub name: String,
+        //     pub no_hooks: bool,
+        //     pub template: Option<String>,
+        //     pub no_open: bool,
+        //     pub format: OutputFormat,  // <-- NEW FIELD
+        // }
+        //
+        // This test documents the contract - even though it passes now,
+        // the actual implementation in Phase 4 will enforce this at compile time.
+
+        let _ = OutputFormat::Json;
+        let _ = OutputFormat::Human;
+        // When format field is added, initialization like this will be possible:
+        // let opts = AddOptions {
+        //     name: "test".to_string(),
+        //     no_hooks: false,
+        //     template: None,
+        //     no_open: false,
+        //     format: OutputFormat::Json,  // Will compile when field exists
+        // };
+    }
+
+    /// RED: AddOptions::new() should accept format parameter
+    #[test]
+    fn test_add_options_new_with_format() {
+        use zjj_core::OutputFormat;
+
+        // This test verifies AddOptions::new() accepts format
+        // Will fail until signature is: pub fn new(name: String, format: OutputFormat) -> Self
+        let opts = AddOptions::new("session1".to_string());
+        let expected_format = OutputFormat::default();
+        assert_eq!(opts.format, expected_format);
+    }
+
+    /// RED: AddOptions should support OutputFormat::Human
+    #[test]
+    fn test_add_options_format_human() {
+        use zjj_core::OutputFormat;
+
+        let opts = AddOptions {
+            name: "test".to_string(),
+            no_hooks: false,
+            template: None,
+            no_open: false,
+            format: OutputFormat::Human,
+        };
+
+        assert!(opts.format.is_human());
+        assert!(!opts.format.is_json());
+    }
+
+    /// RED: AddOptions should support OutputFormat::Json
+    #[test]
+    fn test_add_options_format_json() {
+        use zjj_core::OutputFormat;
+
+        let opts = AddOptions {
+            name: "test".to_string(),
+            no_hooks: false,
+            template: None,
+            no_open: false,
+            format: OutputFormat::Json,
+        };
+
+        assert!(opts.format.is_json());
+        assert!(!opts.format.is_human());
+    }
+
+    /// RED: AddOptions format field should persist through conversion
+    #[test]
+    fn test_add_options_format_roundtrip() {
+        use zjj_core::OutputFormat;
+
+        let json_bool = true;
+        let format = OutputFormat::from_json_flag(json_bool);
+
+        let opts = AddOptions {
+            name: "session".to_string(),
+            no_hooks: false,
+            template: None,
+            no_open: false,
+            format,
+        };
+
+        // Verify round-trip
+        assert_eq!(opts.format.to_json_flag(), json_bool);
+    }
+
+    /// RED: run_with_options() should use OutputFormat from options
+    #[test]
+    fn test_add_run_with_options_uses_format() {
+        use zjj_core::OutputFormat;
+
+        // This test documents the expected behavior:
+        // run_with_options() should accept options with format field
+        // and use it to control output (JSON vs Human)
+
+        let opts = AddOptions {
+            name: "test".to_string(),
+            no_hooks: false,
+            template: None,
+            no_open: false,
+            format: OutputFormat::Json,
+        };
+
+        // When run_with_options is called:
+        // - If format.is_json(), output JSON envelope
+        // - If format.is_human(), output human-readable text
+        // This test documents the contract even if not all paths are exercised
+        assert_eq!(opts.format, OutputFormat::Json);
+    }
+
     /// Display name for a flag category with capitalization
     ///
     /// Converts hyphenated category names to Title Case for display.

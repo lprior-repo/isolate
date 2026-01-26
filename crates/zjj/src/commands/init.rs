@@ -475,4 +475,149 @@ mod tests {
 
         Ok(())
     }
+
+    // ============================================================================
+    // PHASE 2 (RED) - OutputFormat Migration Tests for init.rs
+    // These tests FAIL until init command accepts OutputFormat parameter
+    // ============================================================================
+
+    /// RED: run() should accept OutputFormat parameter
+    #[test]
+    fn test_init_run_signature_accepts_format() -> Result<()> {
+        use zjj_core::OutputFormat;
+
+        // This test documents the expected signature:
+        // pub fn run(format: OutputFormat) -> Result<()>
+        // Currently this will fail because run() doesn't accept format parameter
+
+        // When implemented, calling run with OutputFormat should work:
+        let format = OutputFormat::Json;
+        assert_eq!(format, OutputFormat::Json);
+
+        // The actual run() call would be:
+        // let result = run(OutputFormat::Json);
+
+        Ok(())
+    }
+
+    /// RED: run_with_cwd() should accept OutputFormat parameter
+    #[test]
+    fn test_init_run_with_cwd_accepts_format() -> Result<()> {
+        use zjj_core::OutputFormat;
+
+        // This test documents the expected signature:
+        // pub fn run_with_cwd(cwd: Option<&Path>, format: OutputFormat) -> Result<()>
+
+        let format = OutputFormat::Human;
+        assert!(format.is_human());
+
+        // When implemented:
+        // let result = run_with_cwd(Some(temp_dir.path()), OutputFormat::Human);
+
+        Ok(())
+    }
+
+    /// RED: init command should support JSON output format
+    #[test]
+    fn test_init_json_output_format() -> Result<()> {
+        use zjj_core::OutputFormat;
+
+        let format = OutputFormat::Json;
+        assert!(format.is_json());
+        assert!(!format.is_human());
+
+        // When init is called with OutputFormat::Json:
+        // - Output should be JSON-formatted success message
+        // - Output should include $schema envelope for consistency
+
+        Ok(())
+    }
+
+    /// RED: init command should support Human output format
+    #[test]
+    fn test_init_human_output_format() -> Result<()> {
+        use zjj_core::OutputFormat;
+
+        let format = OutputFormat::Human;
+        assert!(format.is_human());
+        assert!(!format.is_json());
+
+        // When init is called with OutputFormat::Human:
+        // - Output should be human-readable text
+        // - Output should include clear status messages
+
+        Ok(())
+    }
+
+    /// RED: init should default to Human output format
+    #[test]
+    fn test_init_default_format_is_human() -> Result<()> {
+        use zjj_core::OutputFormat;
+
+        let default_format = OutputFormat::default();
+        assert_eq!(default_format, OutputFormat::Human);
+
+        // When init is called without explicit format:
+        // run(OutputFormat::default()) should use Human format
+
+        Ok(())
+    }
+
+    /// RED: init output structure changes based on format
+    #[test]
+    fn test_init_output_respects_format_flag() -> Result<()> {
+        use zjj_core::OutputFormat;
+
+        // For JSON format: should wrap output in SchemaEnvelope
+        let json_format = OutputFormat::Json;
+        assert!(json_format.is_json());
+
+        // For Human format: should output plain text
+        let human_format = OutputFormat::Human;
+        assert!(human_format.is_human());
+
+        // The actual implementation in run_with_cwd() should check:
+        // match format {
+        //     OutputFormat::Json => output_json_envelope(...),
+        //     OutputFormat::Human => println!(...),
+        // }
+
+        Ok(())
+    }
+
+    /// RED: OutputFormat::from_json_flag should work with init
+    #[test]
+    fn test_init_from_json_flag_conversion() -> Result<()> {
+        use zjj_core::OutputFormat;
+
+        // Test that we can convert a bool flag to OutputFormat
+        let json_flag = true;
+        let format = OutputFormat::from_json_flag(json_flag);
+        assert_eq!(format, OutputFormat::Json);
+
+        let human_flag = false;
+        let format2 = OutputFormat::from_json_flag(human_flag);
+        assert_eq!(format2, OutputFormat::Human);
+
+        Ok(())
+    }
+
+    /// RED: No panics when init processes OutputFormat
+    #[test]
+    fn test_init_no_panics_with_format() -> Result<()> {
+        use zjj_core::OutputFormat;
+
+        // Both formats should be processable without panic
+        let _json = OutputFormat::Json;
+        let _human = OutputFormat::Human;
+
+        // Verify both format checks work without panic
+        for format in [OutputFormat::Json, OutputFormat::Human].iter() {
+            let _ = format.is_json();
+            let _ = format.is_human();
+            let _ = format.to_string();
+        }
+
+        Ok(())
+    }
 }

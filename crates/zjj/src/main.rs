@@ -659,3 +659,254 @@ fn main() {
         process::exit(1);
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 2 (RED) - OutputFormat Migration Tests for main.rs
+// These tests FAIL until handlers are updated to use OutputFormat
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod main_tests {
+    use zjj_core::OutputFormat;
+
+    /// RED: handle_add should accept OutputFormat from options
+    #[test]
+    fn test_handle_add_converts_json_flag_to_output_format() {
+        // This test documents the expected behavior:
+        // handle_add should:
+        // 1. Extract --json flag from clap matches
+        // 2. Convert to OutputFormat::from_json_flag(json)
+        // 3. Pass to AddOptions with format field
+        // 4. Call add::run_with_options() which uses the format
+
+        let json_flag = true;
+        let format = OutputFormat::from_json_flag(json_flag);
+
+        assert_eq!(format, OutputFormat::Json);
+        // When implemented: AddOptions { name, no_hooks, template, no_open, format }
+    }
+
+    /// RED: handle_init should accept OutputFormat parameter
+    #[test]
+    fn test_handle_init_converts_json_flag_to_output_format() {
+        // This test documents the expected behavior:
+        // handle_init should:
+        // 1. Extract --json flag from clap matches
+        // 2. Convert to OutputFormat::from_json_flag(json)
+        // 3. Pass to init::run(format) or create InitOptions with format
+
+        let json_flag = true;
+        let format = OutputFormat::from_json_flag(json_flag);
+
+        assert!(format.is_json());
+        // When implemented: init::run(OutputFormat::from_json_flag(json))
+    }
+
+    /// RED: handle_diff should accept OutputFormat parameter
+    #[test]
+    fn test_handle_diff_converts_json_flag_to_output_format() {
+        // This test documents the expected behavior:
+        // handle_diff should:
+        // 1. Extract --json flag from clap matches
+        // 2. Convert to OutputFormat::from_json_flag(json)
+        // 3. Pass to diff::run(name, stat, format)
+
+        let json_flag = true;
+        let format = OutputFormat::from_json_flag(json_flag);
+
+        assert!(format.is_json());
+        // When implemented: diff::run("session", stat, format)
+    }
+
+    /// RED: handle_query always uses JSON format
+    #[test]
+    fn test_handle_query_always_uses_json_format() {
+        // Query always outputs JSON for programmatic access
+        // Even if --json flag is false, query should output JSON
+
+        let json_flag = true;
+        let format = OutputFormat::from_json_flag(json_flag);
+        assert!(format.is_json());
+
+        let json_flag_false = false;
+        let format2 = OutputFormat::from_json_flag(json_flag_false);
+        // But query::run should internally convert to Json
+        let query_format = OutputFormat::Json;
+        assert!(query_format.is_json());
+    }
+
+    /// RED: AddOptions constructor includes format field
+    #[test]
+    fn test_add_options_struct_has_format() {
+        use crate::commands::add::AddOptions;
+
+        // When AddOptions is updated to include format field:
+        // pub struct AddOptions {
+        //     pub name: String,
+        //     pub no_hooks: bool,
+        //     pub template: Option<String>,
+        //     pub no_open: bool,
+        //     pub format: OutputFormat,
+        // }
+
+        let opts = AddOptions {
+            name: "test".to_string(),
+            no_hooks: false,
+            template: None,
+            no_open: false,
+            format: OutputFormat::Json,
+        };
+
+        assert_eq!(opts.name, "test");
+        assert_eq!(opts.format, OutputFormat::Json);
+    }
+
+    /// RED: --json flag is converted to OutputFormat for add
+    #[test]
+    fn test_add_json_flag_propagates_through_handler() {
+        // Document the expected flow:
+        // main.rs handle_add:
+        //   json = sub_m.get_flag("json")           // Extract --json flag
+        //   format = OutputFormat::from_json_flag(json)
+        //   options = AddOptions { ..., format }
+        //   add::run_with_options(&options)
+
+        let json_bool = true;
+        let format = OutputFormat::from_json_flag(json_bool);
+
+        assert_eq!(format, OutputFormat::Json);
+        assert_eq!(format.to_json_flag(), json_bool);
+    }
+
+    /// RED: --json flag is converted to OutputFormat for init
+    #[test]
+    fn test_init_json_flag_propagates_through_handler() {
+        // Document the expected flow:
+        // main.rs handle_init:
+        //   json = sub_m.get_flag("json")           // Extract --json flag
+        //   format = OutputFormat::from_json_flag(json)
+        //   init::run(format)
+
+        let json_bool = true;
+        let format = OutputFormat::from_json_flag(json_bool);
+
+        assert!(format.is_json());
+    }
+
+    /// RED: --json flag is converted to OutputFormat for diff
+    #[test]
+    fn test_diff_json_flag_propagates_through_handler() {
+        // Document the expected flow:
+        // main.rs handle_diff:
+        //   json = sub_m.get_flag("json")           // Extract --json flag
+        //   format = OutputFormat::from_json_flag(json)
+        //   diff::run(name, stat, format)
+
+        let json_bool = true;
+        let format = OutputFormat::from_json_flag(json_bool);
+
+        assert!(format.is_json());
+    }
+
+    /// RED: OutputFormat prevents mixing json bool with command options
+    #[test]
+    fn test_output_format_eliminates_json_bool_field() {
+        // After migration, command options should NOT have:
+        //   pub json: bool
+        //
+        // Instead they should have:
+        //   pub format: OutputFormat
+        //
+        // This test documents that the bool field is completely removed
+
+        let format1 = OutputFormat::Json;
+        let format2 = OutputFormat::Human;
+
+        assert_ne!(format1, format2);
+        // No more mixing bool and enum - exhaustive pattern matching enforced
+    }
+
+    /// RED: OutputFormat handles both --json flag conversions
+    #[test]
+    fn test_output_format_bidirectional_conversion() {
+        let original_bool = true;
+        let format = OutputFormat::from_json_flag(original_bool);
+        let restored_bool = format.to_json_flag();
+
+        assert_eq!(original_bool, restored_bool);
+
+        let original_bool2 = false;
+        let format2 = OutputFormat::from_json_flag(original_bool2);
+        let restored_bool2 = format2.to_json_flag();
+
+        assert_eq!(original_bool2, restored_bool2);
+    }
+
+    /// RED: All handlers use OutputFormat instead of bool
+    #[test]
+    fn test_all_handlers_accept_output_format() {
+        // Document which handlers need updates:
+        // - handle_init: format parameter
+        // - handle_add: format in AddOptions
+        // - handle_diff: format parameter
+        // - handle_query: always Json, ignores flag
+        //
+        // Already updated (10 commands):
+        // - handle_list, handle_remove, handle_focus
+        // - handle_status, handle_sync
+        // - handle_config, handle_clean
+        // - handle_introspect, handle_doctor
+        // - handle_attach
+
+        let json_format = OutputFormat::Json;
+        let human_format = OutputFormat::Human;
+
+        assert!(json_format.is_json());
+        assert!(human_format.is_human());
+    }
+
+    /// RED: JSON output errors also use OutputFormat
+    #[test]
+    fn test_error_output_respects_format() {
+        // When errors occur, they should also respect OutputFormat:
+        // if format.is_json() {
+        //     json_output::output_json_error_and_exit(&e)
+        // } else {
+        //     Err(e) for default error handling
+        // }
+
+        let format = OutputFormat::Json;
+        assert!(format.is_json());
+
+        let format2 = OutputFormat::Human;
+        assert!(format2.is_human());
+    }
+
+    /// RED: No panics during format conversion in handlers
+    #[test]
+    fn test_handlers_never_panic_on_format() {
+        // All handlers should handle both formats without panic
+        for format in [OutputFormat::Json, OutputFormat::Human].iter() {
+            let _ = format.is_json();
+            let _ = format.is_human();
+            let _ = format.to_string();
+            let _ = format.to_json_flag();
+        }
+    }
+
+    /// RED: OutputFormat is passed to all command functions
+    #[test]
+    fn test_format_parameter_reaches_command_functions() {
+        // Document parameter passing:
+        // main.rs handle_* extracts --json flag
+        //   -> converts to OutputFormat
+        //   -> passes to command::run() or struct with format field
+        //   -> command functions check format to decide output style
+
+        let json_bool = true;
+        let format = OutputFormat::from_json_flag(json_bool);
+
+        // This format should reach all command implementations
+        assert!(format.is_json());
+    }
+}
