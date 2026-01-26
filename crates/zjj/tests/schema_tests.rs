@@ -8,7 +8,7 @@ fn run_cue_export() -> Result<Option<String>, Box<dyn std::error::Error>> {
     }
 
     let output = Command::new("cue")
-        .args(["export", "schemas/zjj_protocol.cue", "--json"])
+        .args(["export", "schemas/zjj_protocol.cue", "--out", "json"])
         .output()?;
 
     if !output.status.success() {

@@ -139,8 +139,22 @@ impl TestHarness {
     }
 
     /// Get the workspace path for a session
+    ///
+    /// By default, zjj creates workspaces at `../{repo}__workspaces/{session}`
+    /// where `{repo}` is the repository directory name.
     pub fn workspace_path(&self, session: &str) -> PathBuf {
-        self.zjj_dir().join("workspaces").join(session)
+        // Get the repo directory name (e.g., "test-repo")
+        let repo_name = self
+            .repo_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("repo");
+
+        // Workspace is at ../repo__workspaces/session relative to repo_path
+        self.repo_path
+            .parent()
+            .map(|parent| parent.join(format!("{repo_name}__workspaces")).join(session))
+            .unwrap_or_else(|| self.repo_path.join(format!("{repo_name}__workspaces")).join(session))
     }
 
     /// Assert that a workspace exists
