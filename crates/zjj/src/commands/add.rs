@@ -573,8 +573,7 @@ mod tests {
     #[test]
     fn test_category_order_is_consistent() {
         use zjj_core::introspection::{CommandIntrospection, FlagSpec, Prerequisites};
-        use std::collections::BTreeMap;
-
+        
         let cmd = CommandIntrospection {
             command: "add".to_string(),
             description: "Create new session".to_string(),
@@ -783,7 +782,8 @@ mod tests {
         let mut result = Vec::new();
 
         // First, add categories in the defined order
-        for &category_name in Self::CATEGORY_ORDER {
+        const CATEGORY_ORDER: &[&str] = &["behavior", "configuration", "filter", "output", "advanced"];
+        for &category_name in CATEGORY_ORDER {
             if let Some(flags_in_category) = grouped.get(category_name) {
                 let display_name = capitalize_category(category_name);
                 result.push((display_name, flags_in_category.clone()));
@@ -860,12 +860,12 @@ mod tests {
         if !cmd.flags.is_empty() {
             output.push_str("Flags:\n");
 
-            let grouped = Self::group_flags_by_category(&cmd.flags);
+            let grouped = group_flags_by_category(&cmd.flags);
 
             for (category_name, flags) in grouped {
                 output.push_str(&format!("\n  {}:\n", category_name));
                 for flag in flags {
-                    output.push_str(&Self::format_flag(flag));
+                    output.push_str(&format_flag(&flag));
                 }
             }
         }
