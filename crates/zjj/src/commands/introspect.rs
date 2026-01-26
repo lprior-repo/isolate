@@ -413,6 +413,169 @@ fn capitalize_category(category: &str) -> String {
 
 // Command introspection definitions
 
+/// Helper function to create a boolean flag with common defaults
+///
+/// Creates a flag of type "bool" with default value of false.
+/// Used for flags like --all, --json, --force, etc.
+fn create_bool_flag(long: &str, description: &str) -> FlagSpec {
+    FlagSpec {
+        long: long.to_string(),
+        short: None,
+        description: description.to_string(),
+        flag_type: "bool".to_string(),
+        default: Some(serde_json::json!(false)),
+        possible_values: vec![],
+        category: None,
+    }
+}
+
+/// Helper function to create a string filter flag
+///
+/// Creates a flag of type "string" for filtering operations.
+/// These flags support dynamic values and pattern matching.
+fn create_string_filter_flag(long: &str, short: &str, description: &str) -> FlagSpec {
+    FlagSpec {
+        long: long.to_string(),
+        short: Some(short.to_string()),
+        description: description.to_string(),
+        flag_type: "string".to_string(),
+        default: None,
+        possible_values: vec![],
+        category: None,
+    }
+}
+
+/// Helper function to create an enum flag with predefined values
+///
+/// Creates a flag with specific allowed values and a default.
+fn create_enum_flag(
+    long: &str,
+    short: Option<&str>,
+    description: &str,
+    possible_values: Vec<String>,
+    default_value: &str,
+) -> FlagSpec {
+    FlagSpec {
+        long: long.to_string(),
+        short: short.map(|s| s.to_string()),
+        description: description.to_string(),
+        flag_type: "enum".to_string(),
+        default: Some(serde_json::json!(default_value)),
+        possible_values,
+        category: None,
+    }
+}
+
+/// Helper function to create an error condition with comprehensive context
+///
+/// Uses Railway-Oriented Programming to ensure consistent error documentation
+/// across all commands.
+fn create_error_condition(code: &str, description: &str, resolution: &str) -> ErrorCondition {
+    ErrorCondition {
+        code: code.to_string(),
+        description: description.to_string(),
+        resolution: resolution.to_string(),
+    }
+}
+
+/// Helper function to create a command example with description
+fn create_example(command: &str, description: &str) -> CommandExample {
+    CommandExample {
+        command: command.to_string(),
+        description: description.to_string(),
+    }
+}
+
+/// List command filter flags with comprehensive documentation
+///
+/// Returns a vector of filter flags used by the list command.
+/// Factored out to reduce duplication and improve maintainability.
+fn create_list_filter_flags() -> Vec<FlagSpec> {
+    vec![
+        create_bool_flag("all", "Include completed and failed sessions"),
+        create_bool_flag("json", "Output as JSON"),
+        create_string_filter_flag("bead", "b", "Filter by bead ID or pattern - supports dynamic values like 'feature-*'"),
+        create_string_filter_flag("agent", "a", "Filter by agent name or pattern - supports dynamic values"),
+    ]
+}
+
+/// List command examples demonstrating filtering capabilities
+///
+/// Returns comprehensive examples showing basic usage and advanced filter combinations.
+fn create_list_examples() -> Vec<CommandExample> {
+    vec![
+        create_example("zjj list", "List active sessions"),
+        create_example("zjj list --all", "List all sessions including completed"),
+        create_example("zjj list --bead feature-123", "List sessions for bead feature-123"),
+        create_example("zjj list --agent alice", "List sessions assigned to alice"),
+        create_example("zjj list --bead feature-123 --agent alice", "List feature-123 sessions assigned to alice"),
+    ]
+}
+
+/// List command error conditions with recovery guidance
+///
+/// Documents expected error scenarios and how to resolve them.
+fn create_list_error_conditions() -> Vec<ErrorCondition> {
+    vec![
+        create_error_condition(
+            "NO_MATCHING_SESSIONS",
+            "No sessions match the specified filter criteria (bead, agent, status, etc.)",
+            "Review filter parameters: check bead IDs with 'bd list' or agent names, try with fewer restrictions",
+        ),
+    ]
+}
+
+/// Add command flags with comprehensive documentation
+///
+/// Returns the flags for the add command, organized for clarity.
+fn create_add_flags() -> Vec<FlagSpec> {
+    vec![
+        create_bool_flag("no-hooks", "Skip post_create hooks"),
+        create_enum_flag(
+            "template",
+            Some("t"),
+            "Layout template name",
+            vec![
+                "minimal".to_string(),
+                "standard".to_string(),
+                "full".to_string(),
+            ],
+            "standard",
+        ),
+        create_bool_flag("no-open", "Create workspace but don't open Zellij tab"),
+    ]
+}
+
+/// Add command examples showing various usage patterns
+fn create_add_examples() -> Vec<CommandExample> {
+    vec![
+        create_example("zjj add feature-auth", "Create session with default template"),
+        create_example("zjj add bugfix-123 --no-hooks", "Create without running hooks"),
+        create_example("zjj add experiment -t minimal", "Create with minimal layout"),
+    ]
+}
+
+/// Add command error conditions with resolution guidance
+fn create_add_error_conditions() -> Vec<ErrorCondition> {
+    vec![
+        create_error_condition(
+            "SESSION_ALREADY_EXISTS",
+            "Session with this name already exists in the database",
+            "Choose a different session name or remove the existing session with 'zjj remove'",
+        ),
+        create_error_condition(
+            "INVALID_SESSION_NAME",
+            "Session name contains invalid characters or does not match naming rules",
+            "Use only alphanumeric characters, hyphens, and underscores; must start with a letter",
+        ),
+        create_error_condition(
+            "ZELLIJ_NOT_RUNNING",
+            "Zellij terminal multiplexer is not currently running",
+            "Start Zellij first with 'zellij' command, then retry session creation",
+        ),
+    ]
+}
+
 fn get_add_introspection() -> CommandIntrospection {
     CommandIntrospection {
         command: "add".to_string(),
@@ -430,53 +593,8 @@ fn get_add_introspection() -> CommandIntrospection {
                 "experiment".to_string(),
             ],
         }],
-        flags: vec![
-            FlagSpec {
-                long: "no-hooks".to_string(),
-                short: None,
-                description: "Skip post_create hooks".to_string(),
-                flag_type: "bool".to_string(),
-                default: Some(serde_json::json!(false)),
-                possible_values: vec![],
-                category: None,
-            },
-            FlagSpec {
-                long: "template".to_string(),
-                short: Some("t".to_string()),
-                description: "Layout template name".to_string(),
-                flag_type: "string".to_string(),
-                default: Some(serde_json::json!("standard")),
-                possible_values: vec![
-                    "minimal".to_string(),
-                    "standard".to_string(),
-                    "full".to_string(),
-                ],
-                category: None,
-            },
-            FlagSpec {
-                long: "no-open".to_string(),
-                short: None,
-                description: "Create workspace but don't open Zellij tab".to_string(),
-                flag_type: "bool".to_string(),
-                default: Some(serde_json::json!(false)),
-                possible_values: vec![],
-                category: None,
-            },
-        ],
-        examples: vec![
-            CommandExample {
-                command: "zjj add feature-auth".to_string(),
-                description: "Create session with default template".to_string(),
-            },
-            CommandExample {
-                command: "zjj add bugfix-123 --no-hooks".to_string(),
-                description: "Create without running hooks".to_string(),
-            },
-            CommandExample {
-                command: "zjj add experiment -t minimal".to_string(),
-                description: "Create with minimal layout".to_string(),
-            },
-        ],
+        flags: create_add_flags(),
+        examples: create_add_examples(),
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: true,
@@ -490,24 +608,63 @@ fn get_add_introspection() -> CommandIntrospection {
             "Executes post_create hooks".to_string(),
             "Records session in state.db".to_string(),
         ],
-        error_conditions: vec![
-            ErrorCondition {
-                code: "SESSION_ALREADY_EXISTS".to_string(),
-                description: "Session with this name exists".to_string(),
-                resolution: "Use different name or remove existing session".to_string(),
-            },
-            ErrorCondition {
-                code: "INVALID_SESSION_NAME".to_string(),
-                description: "Session name contains invalid characters".to_string(),
-                resolution: "Use only alphanumeric, hyphens, underscores".to_string(),
-            },
-            ErrorCondition {
-                code: "ZELLIJ_NOT_RUNNING".to_string(),
-                description: "Zellij is not running".to_string(),
-                resolution: "Start Zellij first: zellij".to_string(),
-            },
-        ],
+        error_conditions: create_add_error_conditions(),
     }
+}
+
+/// Remove command flags
+///
+/// Provides control over removal behavior: force-skip, merge, and branch preservation.
+fn create_remove_flags() -> Vec<FlagSpec> {
+    vec![
+        FlagSpec {
+            long: "force".to_string(),
+            short: Some("f".to_string()),
+            description: "Skip confirmation prompt and hooks".to_string(),
+            flag_type: "bool".to_string(),
+            default: Some(serde_json::json!(false)),
+            possible_values: vec![],
+            category: None,
+        },
+        FlagSpec {
+            long: "merge".to_string(),
+            short: Some("m".to_string()),
+            description: "Squash-merge to main before removal".to_string(),
+            flag_type: "bool".to_string(),
+            default: Some(serde_json::json!(false)),
+            possible_values: vec![],
+            category: None,
+        },
+        FlagSpec {
+            long: "keep-branch".to_string(),
+            short: Some("k".to_string()),
+            description: "Preserve branch after removal".to_string(),
+            flag_type: "bool".to_string(),
+            default: Some(serde_json::json!(false)),
+            possible_values: vec![],
+            category: None,
+        },
+    ]
+}
+
+/// Remove command examples showing cleanup patterns
+fn create_remove_examples() -> Vec<CommandExample> {
+    vec![
+        create_example("zjj remove my-session", "Remove session with confirmation"),
+        create_example("zjj remove my-session -f", "Remove without confirmation"),
+        create_example("zjj remove my-session -m", "Merge changes before removing"),
+    ]
+}
+
+/// Remove command error conditions
+fn create_remove_error_conditions() -> Vec<ErrorCondition> {
+    vec![
+        create_error_condition(
+            "SESSION_NOT_FOUND",
+            "The specified session does not exist in the database",
+            "List active sessions with 'zjj list' to verify the session name",
+        ),
+    ]
 }
 
 fn get_remove_introspection() -> CommandIntrospection {
@@ -523,49 +680,8 @@ fn get_remove_introspection() -> CommandIntrospection {
             validation: None,
             examples: vec!["my-session".to_string()],
         }],
-        flags: vec![
-            FlagSpec {
-                long: "force".to_string(),
-                short: Some("f".to_string()),
-                description: "Skip confirmation prompt and hooks".to_string(),
-                flag_type: "bool".to_string(),
-                default: Some(serde_json::json!(false)),
-                possible_values: vec![],
-                category: None,
-            },
-            FlagSpec {
-                long: "merge".to_string(),
-                short: Some("m".to_string()),
-                description: "Squash-merge to main before removal".to_string(),
-                flag_type: "bool".to_string(),
-                default: Some(serde_json::json!(false)),
-                possible_values: vec![],
-                category: None,
-            },
-            FlagSpec {
-                long: "keep-branch".to_string(),
-                short: Some("k".to_string()),
-                description: "Preserve branch after removal".to_string(),
-                flag_type: "bool".to_string(),
-                default: Some(serde_json::json!(false)),
-                possible_values: vec![],
-                category: None,
-            },
-        ],
-        examples: vec![
-            CommandExample {
-                command: "zjj remove my-session".to_string(),
-                description: "Remove session with confirmation".to_string(),
-            },
-            CommandExample {
-                command: "zjj remove my-session -f".to_string(),
-                description: "Remove without confirmation".to_string(),
-            },
-            CommandExample {
-                command: "zjj remove my-session -m".to_string(),
-                description: "Merge changes before removing".to_string(),
-            },
-        ],
+        flags: create_remove_flags(),
+        examples: create_remove_examples(),
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: true,
@@ -578,11 +694,7 @@ fn get_remove_introspection() -> CommandIntrospection {
             "Deletes layout file".to_string(),
             "Removes session from state.db".to_string(),
         ],
-        error_conditions: vec![ErrorCondition {
-            code: "SESSION_NOT_FOUND".to_string(),
-            description: "Session does not exist".to_string(),
-            resolution: "Check session name with 'zjj list'".to_string(),
-        }],
+        error_conditions: create_remove_error_conditions(),
     }
 }
 
@@ -592,66 +704,8 @@ fn get_list_introspection() -> CommandIntrospection {
         description: "List all sessions".to_string(),
         aliases: vec!["ls".to_string()],
         arguments: vec![],
-        flags: vec![
-            FlagSpec {
-                long: "all".to_string(),
-                short: None,
-                description: "Include completed and failed sessions".to_string(),
-                flag_type: "bool".to_string(),
-                default: Some(serde_json::json!(false)),
-                possible_values: vec![],
-                category: None,
-            },
-            FlagSpec {
-                long: "json".to_string(),
-                short: None,
-                description: "Output as JSON".to_string(),
-                flag_type: "bool".to_string(),
-                default: Some(serde_json::json!(false)),
-                possible_values: vec![],
-                category: None,
-            },
-            FlagSpec {
-                long: "bead".to_string(),
-                short: Some("b".to_string()),
-                description: "Filter by bead ID or pattern - supports dynamic values".to_string(),
-                flag_type: "string".to_string(),
-                default: None,
-                possible_values: vec![],
-                category: None,
-            },
-            FlagSpec {
-                long: "agent".to_string(),
-                short: Some("a".to_string()),
-                description: "Filter by agent name or pattern - supports dynamic values".to_string(),
-                flag_type: "string".to_string(),
-                default: None,
-                possible_values: vec![],
-                category: None,
-            },
-        ],
-        examples: vec![
-            CommandExample {
-                command: "zjj list".to_string(),
-                description: "List active sessions".to_string(),
-            },
-            CommandExample {
-                command: "zjj list --all".to_string(),
-                description: "List all sessions including completed".to_string(),
-            },
-            CommandExample {
-                command: "zjj list --bead feature-123".to_string(),
-                description: "List sessions for bead feature-123".to_string(),
-            },
-            CommandExample {
-                command: "zjj list --agent alice".to_string(),
-                description: "List sessions assigned to alice".to_string(),
-            },
-            CommandExample {
-                command: "zjj list --bead feature-123 --agent alice".to_string(),
-                description: "List feature-123 sessions assigned to alice".to_string(),
-            },
-        ],
+        flags: create_list_filter_flags(),
+        examples: create_list_examples(),
         prerequisites: Prerequisites {
             initialized: true,
             jj_installed: false,
@@ -659,11 +713,7 @@ fn get_list_introspection() -> CommandIntrospection {
             custom: vec![],
         },
         side_effects: vec![],
-        error_conditions: vec![ErrorCondition {
-            code: "NO_MATCHING_SESSIONS".to_string(),
-            description: "No sessions match the filter criteria".to_string(),
-            resolution: "Try with less restrictive filters".to_string(),
-        }],
+        error_conditions: create_list_error_conditions(),
     }
 }
 

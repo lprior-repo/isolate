@@ -1,25 +1,14 @@
 {
   "bead_id": "zjj-05ut",
-  "title": "SchemaEnvelope wrapper missing on most JSON outputs",
-  "current_phase": 1,
-  "complexity": "COMPLEX",
-  "language": "rust",
-  "phases": {
-    "0_triage": "complete",
-    "1_research": "complete",
-    "2_plan": "pending",
-    "3_verify": "pending",
-    "4_red": "pending",
-    "5_green": "pending",
-    "6_refactor": "pending",
-    "7_mf1": "pending",
-    "8_implement": "pending",
-    "9_verify_criteria": "pending",
-    "10_fp_gates": "pending",
-    "11_qa": "pending",
-    "12_mf2": "pending",
-    "13_consistency": "pending",
-    "14_liability": "pending",
-    "15_landing": "pending"
-  }
+  "complexity": "MEDIUM",
+  "status": "researched",
+  "phase": 1,
+  "research_completed_at": "2026-01-25T20:25:00Z",
+  "routing": "Phases 1-12, iterate per command module",
+  "next_steps": [
+    "Phase 1: Audit all command files for JSON output locations",
+    "Phase 2: List all locations needing SchemaEnvelope wrapping",
+    "Phase 3: Design refactoring approach by command module",
+    "Phase 4-12: Implement per command module (add, remove, focus, clean, etc)"
+  ]
 }

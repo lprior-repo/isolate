@@ -299,6 +299,8 @@ impl From<&crate::Error> for JsonError {
         if let Some(sugg) = suggestion {
             json_error = json_error.with_suggestion(sugg);
         }
+        // Override exit code to match the error classification
+        json_error.error.exit_code = classify_exit_code(err);
         json_error
     }
 }

@@ -135,11 +135,36 @@ fn error_to_json_error(error: &Error) -> JsonError {
                 json_error = json_error.with_suggestion(sugg);
             }
 
-            // Default exit code for unknown errors
-            json_error.error.exit_code = 4;
+            // Determine exit code based on error classification
+            json_error.error.exit_code = classify_exit_code_by_message(&error_str);
 
             json_error
         })
+}
+
+/// Classify exit code based on error message pattern
+fn classify_exit_code_by_message(error_str: &str) -> i32 {
+    // Validation errors: exit code 1
+    if error_str.contains("Session name")
+        || error_str.contains("Invalid session name")
+        || error_str.contains("Validation error")
+        || error_str.contains("already exists")
+    {
+        return 1;
+    }
+
+    // Not found errors: exit code 2
+    if error_str.contains("not found") || error_str.contains("Not found") {
+        return 2;
+    }
+
+    // System errors: exit code 3
+    if error_str.contains("database") || error_str.contains("IO error") {
+        return 3;
+    }
+
+    // External command errors: exit code 4
+    4
 }
 
 /// Classify an error by its message text (fallback heuristic)

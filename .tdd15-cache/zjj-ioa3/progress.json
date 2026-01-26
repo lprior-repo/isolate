@@ -1,25 +1,13 @@
 {
   "bead_id": "zjj-ioa3",
-  "title": "P0-2e: Wrap SyncOutput in SchemaEnvelope",
-  "current_phase": 1,
-  "complexity": "MEDIUM",
-  "language": "rust",
-  "phases": {
-    "0_triage": "complete",
-    "1_research": "complete",
-    "2_plan": "pending",
-    "3_verify": "pending",
-    "4_red": "pending",
-    "5_green": "pending",
-    "6_refactor": "pending",
-    "7_mf1": "pending",
-    "8_implement": "pending",
-    "9_verify_criteria": "pending",
-    "10_fp_gates": "pending",
-    "11_qa": "pending",
-    "12_mf2": "pending",
-    "13_consistency": "pending",
-    "14_liability": "pending",
-    "15_landing": "pending"
-  }
+  "complexity": "SIMPLE",
+  "status": "researched",
+  "phase": 1,
+  "research_completed_at": "2026-01-25T20:25:00Z",
+  "routing": "Skip phases 1-3, start at phase 4 (RED tests)",
+  "next_steps": [
+    "Phase 4: Write RED tests for sync SchemaEnvelope wrapping",
+    "Phase 5: Implement wrapping in sync.rs",
+    "Phase 6: Verify tests pass for both sync_session and sync_all paths"
+  ]
 }

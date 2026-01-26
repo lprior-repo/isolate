@@ -1,18 +1,49 @@
 {
-  "phase": 1,
-  "task_id": "zjj-05ut",
-  "json_output_locations": [
-    "crates/zjj/src/commands/focus.rs:43,59",
-    "crates/zjj/src/commands/remove.rs:57,101",
-    "crates/zjj/src/commands/sync.rs:55,73,97,132",
-    "crates/zjj/src/commands/clean.rs:94-95,112-113,137-138,154-155",
-    "crates/zjj/src/commands/list.rs:59,182-183",
-    "crates/zjj/src/commands/status.rs:306-307",
-    "crates/zjj/src/commands/query.rs:220,264,330,349",
-    "crates/zjj/src/commands/doctor.rs:342,452",
-    "crates/zjj/src/commands/introspect.rs:141,235",
-    "crates/zjj/src/commands/config.rs:88-89,137,176"
+  "bead_id": "zjj-05ut",
+  "title": "SchemaEnvelope wrapper missing on most JSON outputs",
+  "type": "task",
+  "priority": "P0",
+  "status": "IN_PROGRESS",
+  "complexity": "MEDIUM",
+  "description": "Audit all JSON output locations and wrap with SchemaEnvelope.with_schema(). Most JSON outputs lack SchemaEnvelope wrapping for AI-native schema validation.",
+  "files_affected": [
+    "crates/zjj/src/commands/add.rs - JSON output",
+    "crates/zjj/src/commands/remove.rs - JSON output",
+    "crates/zjj/src/commands/focus.rs - JSON output",
+    "crates/zjj/src/commands/clean.rs - JSON output",
+    "crates/zjj/src/commands/doctor.rs - JSON output",
+    "crates/zjj/src/commands/init.rs - JSON output",
+    "crates/zjj/src/commands/config.rs - JSON output",
+    "crates/zjj/src/commands/query.rs - JSON output",
+    "crates/zjj/src/commands/dashboard.rs - JSON output",
+    "crates/zjj/src/commands/diff.rs - JSON output",
+    "crates/zjj/src/commands/introspect.rs - JSON output",
+    "crates/zjj/src/json_output.rs - All output struct definitions"
   ],
-  "envelope_pattern": "ResponseEnvelope defined in schemas/zjj_protocol.cue:15-32",
-  "gate_passed": true
+  "key_dependencies": {
+    "existing_types": [
+      "zjj_core::json::SchemaEnvelope - Already exists",
+      "OutputFormat - Already integrated in most commands"
+    ]
+  },
+  "integration_points": {
+    "audit_scope": "All command modules that output JSON",
+    "schema_naming_convention": "Use command-response pattern (add-response, remove-response, etc)",
+    "schema_type_values": "single for objects, array for collections"
+  },
+  "test_requirements": [
+    "test_all_json_outputs_have_envelope - Scan all JSON output and verify envelope presence",
+    "test_envelope_fields_present - Verify $schema, _schema_version, schema_type, success fields",
+    "test_command_specific_schema_names - Verify correct naming per command"
+  ],
+  "implementation_sketch": {
+    "step_1": "Audit: grep -r 'serde_json::to_string' crates/zjj/src/commands/ to find all JSON outputs",
+    "step_2": "For each JSON output location, identify output struct name",
+    "step_3": "Determine schema_type (single for objects, array for Vec/lists)",
+    "step_4": "Wrap with SchemaEnvelope::new(command-name + \"-response\", schema_type, data)",
+    "step_5": "Verify all commands tested with --json flag"
+  },
+  "research_notes": "This is a large refactoring task covering all commands. Each command likely has 1-3 JSON output locations. Start by running audit grep command to identify all locations, then batch refactor by command module. The effort is medium because it's repetitive but straightforward.",
+  "estimated_effort": "MEDIUM - Audit + refactor ~20-30 locations across 10+ command files, ~2-3 hours",
+  "phase_routing": "MEDIUM - Phases 1-12, expect testing at each command module"
 }
