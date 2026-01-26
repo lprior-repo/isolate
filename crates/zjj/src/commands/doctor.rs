@@ -643,8 +643,14 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
         assert!(parsed.get("success").is_some(), "Missing success field");
 
         Ok(())
@@ -655,16 +661,14 @@ mod tests {
         // FAILING: Verify health check results are wrapped in envelope
         use zjj_core::json::SchemaEnvelope;
 
-        let checks = vec![
-            DoctorCheck {
-                name: "JJ Installation".to_string(),
-                status: CheckStatus::Pass,
-                message: "JJ is installed".to_string(),
-                suggestion: None,
-                auto_fixable: false,
-                details: None,
-            }
-        ];
+        let checks = vec![DoctorCheck {
+            name: "JJ Installation".to_string(),
+            status: CheckStatus::Pass,
+            message: "JJ is installed".to_string(),
+            suggestion: None,
+            auto_fixable: false,
+            details: None,
+        }];
         let output = DoctorOutput::from_checks(checks);
         let envelope = SchemaEnvelope::new("doctor-response", "single", output);
         let json_str = serde_json::to_string(&envelope)?;

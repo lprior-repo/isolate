@@ -1537,8 +1537,14 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
         assert!(parsed.get("success").is_some(), "Missing success field");
 
         Ok(())
@@ -1552,11 +1558,15 @@ mod tests {
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-        let schema = parsed.get("$schema")
+        let schema = parsed
+            .get("$schema")
             .and_then(|v| v.as_str())
             .ok_or_else(|| crate::Error::ParseError("$schema not found".to_string()))?;
 
-        assert!(schema.starts_with("zjj://introspect"), "Schema should start with 'zjj://introspect'");
+        assert!(
+            schema.starts_with("zjj://introspect"),
+            "Schema should start with 'zjj://introspect'"
+        );
         assert!(schema.ends_with("/v1"), "Schema should end with '/v1'");
 
         Ok(())
@@ -1581,7 +1591,10 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("array"));
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("array")
+        );
 
         Ok(())
     }
@@ -1594,7 +1607,8 @@ mod tests {
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-        let version = parsed.get("_schema_version")
+        let version = parsed
+            .get("_schema_version")
             .and_then(|v| v.as_str())
             .ok_or_else(|| crate::Error::ParseError("_schema_version not found".to_string()))?;
 

@@ -406,8 +406,14 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
-        assert_eq!(parsed.get("schema_type").and_then(|v| v.as_str()), Some("single"));
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
+        assert_eq!(
+            parsed.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
         assert!(parsed.get("success").is_some(), "Missing success field");
 
         Ok(())
@@ -440,22 +446,24 @@ mod tests {
         // Verify schema_type is "array" for array results
         use zjj_core::json::SchemaEnvelopeArray;
 
-        let blockers = vec![
-            Blocker {
-                check: "JJ installed".to_string(),
-                status: true,
-                message: "JJ is installed".to_string(),
-            }
-        ];
+        let blockers = vec![Blocker {
+            check: "JJ installed".to_string(),
+            status: true,
+            message: "JJ is installed".to_string(),
+        }];
         let envelope = SchemaEnvelopeArray::new("query-blockers", blockers);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
-        let schema_type = parsed.get("schema_type")
+        let schema_type = parsed
+            .get("schema_type")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("schema_type not found"))?;
 
-        assert_eq!(schema_type, "array", "schema_type should be 'array' for array responses");
+        assert_eq!(
+            schema_type, "array",
+            "schema_type should be 'array' for array responses"
+        );
 
         Ok(())
     }
@@ -463,8 +471,8 @@ mod tests {
     #[test]
     fn test_query_pagination_envelope() -> anyhow::Result<()> {
         // FAILING: Verify pagination info is preserved in envelope
-        use zjj_core::json::SchemaEnvelope;
         use serde_json::json;
+        use zjj_core::json::SchemaEnvelope;
 
         let count_result = SessionCountQuery {
             count: Some(5),
@@ -476,7 +484,10 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(parsed.get("_schema_version").and_then(|v| v.as_str()), Some("1.0"));
+        assert_eq!(
+            parsed.get("_schema_version").and_then(|v| v.as_str()),
+            Some("1.0")
+        );
 
         Ok(())
     }
@@ -493,7 +504,8 @@ mod tests {
 
         // This test documents the expected signature:
         // Current: pub fn run(query_type: &str, args: Option<&str>) -> Result<()>
-        // Expected: pub fn run(query_type: &str, args: Option<&str>, format: OutputFormat) -> Result<()>
+        // Expected: pub fn run(query_type: &str, args: Option<&str>, format: OutputFormat) ->
+        // Result<()>
 
         // However, query always defaults to JSON format per requirements
         let format = OutputFormat::Json;
@@ -602,8 +614,7 @@ mod tests {
     /// RED: query output is always SchemaEnvelope wrapped
     #[test]
     fn test_query_all_outputs_wrapped_in_envelope() -> anyhow::Result<()> {
-        use zjj_core::OutputFormat;
-        use zjj_core::json::SchemaEnvelope;
+        use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
         let format = OutputFormat::Json;
         assert!(format.is_json());
