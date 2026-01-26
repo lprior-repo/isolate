@@ -402,6 +402,7 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
         no_hooks,
         template,
         no_open,
+        format: zjj_core::OutputFormat::from_json_flag(json),
     };
 
     match add::run_with_options(&options) {
@@ -729,7 +730,7 @@ mod main_tests {
         assert!(format.is_json());
 
         let json_flag_false = false;
-        let format2 = OutputFormat::from_json_flag(json_flag_false);
+        let _format2 = OutputFormat::from_json_flag(json_flag_false);
         // But query::run should internally convert to Json
         let query_format = OutputFormat::Json;
         assert!(query_format.is_json());
