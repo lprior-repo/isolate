@@ -245,44 +245,33 @@ fn get_beads_stats() -> Result<BeadStats> {
         )))
     })?;
 
-    // Count issues by status
-    let open: usize = conn
-        .query_row(
-            "SELECT COUNT(*) FROM issues WHERE status = 'open'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
-
-    let in_progress: usize = conn
-        .query_row(
-            "SELECT COUNT(*) FROM issues WHERE status = 'in_progress'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
-
-    let blocked: usize = conn
-        .query_row(
-            "SELECT COUNT(*) FROM issues WHERE status = 'blocked'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
-
-    let closed: usize = conn
-        .query_row(
-            "SELECT COUNT(*) FROM issues WHERE status = 'closed'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
+    // Count issues by status using parameterized queries
+    // Use ?1 placeholder to prevent SQL injection and follow security best practices
+    let open = count_issues_by_status(&conn, "open")?;
+    let in_progress = count_issues_by_status(&conn, "in_progress")?;
+    let blocked = count_issues_by_status(&conn, "blocked")?;
+    let closed = count_issues_by_status(&conn, "closed")?;
 
     Ok(BeadStats {
         open,
         in_progress,
         blocked,
         closed,
+    })
+}
+
+/// Count issues by status using parameterized query
+fn count_issues_by_status(conn: &rusqlite::Connection, status: &str) -> Result<usize> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM issues WHERE status = ?1",
+        [status],
+        |row| row.get(0),
+    )
+    .or_else(|e| match e {
+        rusqlite::Error::QueryReturnedNoRows => Ok(0),
+        _ => Err(anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+            "Failed to query beads database: {e}"
+        )))),
     })
 }
 

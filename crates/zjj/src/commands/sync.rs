@@ -107,31 +107,27 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
 
     if options.json {
         // For JSON output, collect results and output once at the end
-        let mut success_count = 0;
-        let mut failure_count = 0;
-        let mut errors = Vec::new();
-
-        for session in &sessions {
-            match sync_session_internal(&db, &session.name, &session.workspace_path) {
-                Ok(()) => {
-                    success_count += 1;
-                }
-                Err(e) => {
-                    errors.push(SyncError {
+        // Use functional pattern: map to Results, partition into successes/failures
+        let results: Vec<_> = sessions
+            .iter()
+            .map(|session| {
+                sync_session_internal(&db, &session.name, &session.workspace_path)
+                    .map(|()| session.name.clone())
+                    .map_err(|e| SyncError {
                         name: session.name.clone(),
                         error: e.to_string(),
-                    });
-                    failure_count += 1;
-                }
-            }
-        }
+                    })
+            })
+            .collect();
+
+        let (successes, errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
 
         let output = SyncOutput {
-            success: failure_count == 0,
+            success: errors.is_empty(),
             name: None,
-            synced_count: success_count,
-            failed_count: failure_count,
-            errors,
+            synced_count: successes.len(),
+            failed_count: errors.len(),
+            errors: errors.into_iter().filter_map(Result::err).collect(),
         };
         let envelope = SchemaEnvelope::new("sync-response", "single", output);
         println!("{}", serde_json::to_string(&envelope)?);
@@ -139,34 +135,41 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
         // Original text output
         println!("Syncing {} session(s)...", sessions.len());
 
-        let mut success_count = 0;
-        let mut failure_count = 0;
-        let mut errors = Vec::new();
+        // Use functional pattern: map to Results with side effects, partition into
+        // successes/failures
+        let results: Vec<_> = sessions
+            .iter()
+            .map(|session| {
+                print!("Syncing '{}' ... ", session.name);
 
-        for session in &sessions {
-            print!("Syncing '{}' ... ", session.name);
+                sync_session_internal(&db, &session.name, &session.workspace_path)
+                    .map(|()| {
+                        println!("OK");
+                        session.name.clone()
+                    })
+                    .map_err(|e| {
+                        println!("FAILED: {e}");
+                        (session.name.clone(), e)
+                    })
+            })
+            .collect();
 
-            match sync_session_internal(&db, &session.name, &session.workspace_path) {
-                Ok(()) => {
-                    println!("OK");
-                    success_count += 1;
-                }
-                Err(e) => {
-                    println!("FAILED: {e}");
-                    errors.push((session.name.clone(), e));
-                    failure_count += 1;
-                }
-            }
-        }
+        let (successes, errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
+
+        let success_count = successes.len();
+        let failure_count = errors.len();
 
         println!();
         println!("Summary: {success_count} succeeded, {failure_count} failed");
 
         if !errors.is_empty() {
             println!("\nErrors:");
-            for (name, error) in errors {
-                println!("  {name}: {error}");
-            }
+            errors
+                .into_iter()
+                .filter_map(Result::err)
+                .for_each(|(name, error)| {
+                    println!("  {name}: {error}");
+                });
         }
     }
     Ok(())

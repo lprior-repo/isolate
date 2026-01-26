@@ -327,6 +327,7 @@ fn get_add_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
             FlagSpec {
                 long: "template".to_string(),
@@ -339,6 +340,7 @@ fn get_add_introspection() -> CommandIntrospection {
                     "standard".to_string(),
                     "full".to_string(),
                 ],
+                category: None,
             },
             FlagSpec {
                 long: "no-open".to_string(),
@@ -347,6 +349,7 @@ fn get_add_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
         ],
         examples: vec![
@@ -417,6 +420,7 @@ fn get_remove_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
             FlagSpec {
                 long: "merge".to_string(),
@@ -425,6 +429,7 @@ fn get_remove_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
             FlagSpec {
                 long: "keep-branch".to_string(),
@@ -433,6 +438,7 @@ fn get_remove_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
         ],
         examples: vec![
@@ -483,6 +489,7 @@ fn get_list_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
             FlagSpec {
                 long: "json".to_string(),
@@ -491,6 +498,7 @@ fn get_list_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
         ],
         examples: vec![
@@ -598,6 +606,7 @@ fn get_status_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
             FlagSpec {
                 long: "watch".to_string(),
@@ -606,6 +615,7 @@ fn get_status_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
         ],
         examples: vec![
@@ -685,6 +695,7 @@ fn get_diff_introspection() -> CommandIntrospection {
             flag_type: "bool".to_string(),
             default: Some(serde_json::json!(false)),
             possible_values: vec![],
+                category: None,
         }],
         examples: vec![
             CommandExample {
@@ -727,6 +738,7 @@ fn get_introspect_introspection() -> CommandIntrospection {
             flag_type: "bool".to_string(),
             default: Some(serde_json::json!(false)),
             possible_values: vec![],
+                category: None,
         }],
         examples: vec![
             CommandExample {
@@ -763,6 +775,7 @@ fn get_doctor_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
             FlagSpec {
                 long: "fix".to_string(),
@@ -771,6 +784,7 @@ fn get_doctor_introspection() -> CommandIntrospection {
                 flag_type: "bool".to_string(),
                 default: Some(serde_json::json!(false)),
                 possible_values: vec![],
+                category: None,
             },
         ],
         examples: vec![
@@ -829,6 +843,7 @@ fn get_query_introspection() -> CommandIntrospection {
             flag_type: "bool".to_string(),
             default: Some(serde_json::json!(true)),
             possible_values: vec![],
+                category: None,
         }],
         examples: vec![
             CommandExample {

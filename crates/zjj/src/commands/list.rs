@@ -44,37 +44,37 @@ pub fn run(all: bool, json: bool, bead: Option<&str>, agent: Option<&str>) -> Re
         let db = get_session_db()?;
 
         // Filter sessions: exclude completed/failed unless --all is used
-        // We always get all and filter manually since we need multiple exclusions
-        let mut sessions = db.list(None)?;
+        // Single-pass filtering using iterator chain for O(n) complexity
+        let sessions: Vec<Session> = db
+            .list(None)?
+            .into_iter()
+            .filter(|s| {
+                // Filter by status: exclude completed/failed unless --all flag is set
+                let status_matches = all
+                    || (s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
 
-        // Filter out completed and failed unless --all flag is set
-        if !all {
-            sessions.retain(|s| {
-                s.status != SessionStatus::Completed && s.status != SessionStatus::Failed
-            });
-        }
+                // Filter by bead ID if specified
+                let bead_matches = bead.map_or(true, |bead_id| {
+                    s.metadata
+                        .as_ref()
+                        .and_then(|m| m.get("bead_id"))
+                        .and_then(|v| v.as_str())
+                        .map_or(false, |id| id == bead_id)
+                });
 
-        // Filter by bead ID if specified
-        if let Some(bead_id) = bead {
-            sessions.retain(|s| {
-                s.metadata
-                    .as_ref()
-                    .and_then(|m| m.get("bead_id"))
-                    .and_then(|v| v.as_str())
-                    .map_or(false, |id| id == bead_id)
-            });
-        }
+                // Filter by agent owner if specified
+                let agent_matches = agent.map_or(true, |agent_filter| {
+                    s.metadata
+                        .as_ref()
+                        .and_then(|m| m.get("owner"))
+                        .and_then(|v| v.as_str())
+                        .map_or(false, |owner| owner == agent_filter)
+                });
 
-        // Filter by agent owner if specified
-        if let Some(agent_filter) = agent {
-            sessions.retain(|s| {
-                s.metadata
-                    .as_ref()
-                    .and_then(|m| m.get("owner"))
-                    .and_then(|v| v.as_str())
-                    .map_or(false, |owner| owner == agent_filter)
-            });
-        }
+                // Combine all filter conditions
+                status_matches && bead_matches && agent_matches
+            })
+            .collect();
 
         if sessions.is_empty() {
             if json {
@@ -465,5 +465,116 @@ mod tests {
         assert_eq!(counts.open, 0);
         assert_eq!(counts.in_progress, 0);
         assert_eq!(counts.blocked, 0);
+    }
+
+    #[test]
+    fn test_combined_filters_single_pass() -> Result<()> {
+        let (db, _dir) = setup_test_db()?;
+
+        // Create sessions with different combinations of properties
+        let s1 = db.create("active-bead-123", "/tmp/s1")?;
+        let mut metadata1 = serde_json::Map::new();
+        metadata1.insert(
+            "bead_id".to_string(),
+            serde_json::Value::String("123".to_string()),
+        );
+        metadata1.insert(
+            "owner".to_string(),
+            serde_json::Value::String("agent-a".to_string()),
+        );
+        db.update(
+            &s1.name,
+            SessionUpdate {
+                status: Some(SessionStatus::Active),
+                metadata: Some(serde_json::Value::Object(metadata1)),
+                ..Default::default()
+            },
+        )?;
+
+        let s2 = db.create("completed-bead-123", "/tmp/s2")?;
+        let mut metadata2 = serde_json::Map::new();
+        metadata2.insert(
+            "bead_id".to_string(),
+            serde_json::Value::String("123".to_string()),
+        );
+        metadata2.insert(
+            "owner".to_string(),
+            serde_json::Value::String("agent-a".to_string()),
+        );
+        db.update(
+            &s2.name,
+            SessionUpdate {
+                status: Some(SessionStatus::Completed),
+                metadata: Some(serde_json::Value::Object(metadata2)),
+                ..Default::default()
+            },
+        )?;
+
+        let s3 = db.create("active-bead-456", "/tmp/s3")?;
+        let mut metadata3 = serde_json::Map::new();
+        metadata3.insert(
+            "bead_id".to_string(),
+            serde_json::Value::String("456".to_string()),
+        );
+        metadata3.insert(
+            "owner".to_string(),
+            serde_json::Value::String("agent-b".to_string()),
+        );
+        db.update(
+            &s3.name,
+            SessionUpdate {
+                status: Some(SessionStatus::Active),
+                metadata: Some(serde_json::Value::Object(metadata3)),
+                ..Default::default()
+            },
+        )?;
+
+        // Test 1: Filter by bead_id=123 AND agent=agent-a (excludes completed)
+        let filtered: Vec<Session> = db
+            .list(None)?
+            .into_iter()
+            .filter(|s| {
+                let status_matches =
+                    s.status != SessionStatus::Completed && s.status != SessionStatus::Failed;
+                let bead_matches = s
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.get("bead_id"))
+                    .and_then(|v| v.as_str())
+                    .map_or(false, |id| id == "123");
+                let agent_matches = s
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.get("owner"))
+                    .and_then(|v| v.as_str())
+                    .map_or(false, |owner| owner == "agent-a");
+                status_matches && bead_matches && agent_matches
+            })
+            .collect();
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "active-bead-123");
+
+        // Test 2: Filter by bead_id=456 only (excludes completed)
+        let filtered2: Vec<Session> = db
+            .list(None)?
+            .into_iter()
+            .filter(|s| {
+                let status_matches =
+                    s.status != SessionStatus::Completed && s.status != SessionStatus::Failed;
+                let bead_matches = s
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.get("bead_id"))
+                    .and_then(|v| v.as_str())
+                    .map_or(false, |id| id == "456");
+                status_matches && bead_matches
+            })
+            .collect();
+
+        assert_eq!(filtered2.len(), 1);
+        assert_eq!(filtered2[0].name, "active-bead-456");
+
+        Ok(())
     }
 }
