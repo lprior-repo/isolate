@@ -759,7 +759,7 @@ fn get_init_introspection() -> CommandIntrospection {
         ],
         error_conditions: vec![ErrorCondition {
             code: "ALREADY_INITIALIZED".to_string(),
-            description: "JJZ already initialized".to_string(),
+            description: "ZJJ already initialized".to_string(),
             resolution: "Remove .zjj directory to reinitialize".to_string(),
         }],
     }

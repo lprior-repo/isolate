@@ -18,14 +18,14 @@ declare -a FAILED_TESTS
 declare -a BUGS_FOUND
 
 # Find the binary
-JJZ_BIN="${CARGO_TARGET_DIR:-target}/release/zjj"
-if [[ ! -f "$JJZ_BIN" ]]; then
-    echo -e "${RED}Error: zjj binary not found at $JJZ_BIN${NC}"
+ZJJ_BIN="${CARGO_TARGET_DIR:-target}/release/zjj"
+if [[ ! -f "$ZJJ_BIN" ]]; then
+    echo -e "${RED}Error: zjj binary not found at $ZJJ_BIN${NC}"
     echo "Run: cargo build --release --bin zjj"
     exit 1
 fi
 
-echo "Using binary: $JJZ_BIN"
+echo "Using binary: $ZJJ_BIN"
 echo
 
 # Helper functions
@@ -52,7 +52,7 @@ log_bug() {
 
 # Test 1: Help text consistency
 log_test "Help text consistency"
-if "$JJZ_BIN" --help > /dev/null 2>&1; then
+if "$ZJJ_BIN" --help > /dev/null 2>&1; then
     log_pass "Main help works"
 else
     log_fail "Main help failed"
@@ -60,7 +60,7 @@ fi
 
 # Check individual command help
 for cmd in add list remove focus status sync diff init config dashboard introspect doctor query; do
-    if "$JJZ_BIN" "$cmd" --help > /dev/null 2>&1; then
+    if "$ZJJ_BIN" "$cmd" --help > /dev/null 2>&1; then
         log_pass "$cmd --help works"
     else
         log_fail "$cmd --help failed"
@@ -71,7 +71,7 @@ done
 log_test "Validation errors exit with code 1"
 
 # Empty name
-if "$JJZ_BIN" add "" 2>/dev/null; then
+if "$ZJJ_BIN" add "" 2>/dev/null; then
     log_fail "Empty name should fail"
     log_bug "add command accepts empty name (should reject with exit code 1)"
 else
@@ -85,7 +85,7 @@ else
 fi
 
 # Name starting with dash
-if "$JJZ_BIN" add "-test" 2>/dev/null; then
+if "$ZJJ_BIN" add "-test" 2>/dev/null; then
     log_fail "Name starting with dash should fail"
     log_bug "add command accepts names starting with dash"
 else
@@ -101,7 +101,7 @@ fi
 log_test "JSON output support"
 
 # list --json
-OUTPUT=$("$JJZ_BIN" list --json 2>&1 || true)
+OUTPUT=$("$ZJJ_BIN" list --json 2>&1 || true)
 if echo "$OUTPUT" | jq . > /dev/null 2>&1; then
     log_pass "list --json produces valid JSON"
 
@@ -118,7 +118,7 @@ else
 fi
 
 # status --json
-OUTPUT=$("$JJZ_BIN" status --json 2>&1 || true)
+OUTPUT=$("$ZJJ_BIN" status --json 2>&1 || true)
 if echo "$OUTPUT" | jq . > /dev/null 2>&1; then
     log_pass "status --json produces valid JSON"
 
@@ -136,7 +136,7 @@ fi
 # Test 4: Error structure in JSON
 log_test "Error structure in JSON mode"
 
-ERROR_OUTPUT=$("$JJZ_BIN" add "" --json 2>&1 || true)
+ERROR_OUTPUT=$("$ZJJ_BIN" add "" --json 2>&1 || true)
 if echo "$ERROR_OUTPUT" | jq . > /dev/null 2>&1; then
     log_pass "Error produces valid JSON"
 
@@ -168,10 +168,10 @@ fi
 log_test "Special characters in session names"
 
 # Dash is allowed
-if "$JJZ_BIN" add "test-with-dash" 2>/dev/null; then
+if "$ZJJ_BIN" add "test-with-dash" 2>/dev/null; then
     log_pass "Dash in name accepted"
     # Try to remove it
-    "$JJZ_BIN" remove "test-with-dash" --force 2>/dev/null || true
+    "$ZJJ_BIN" remove "test-with-dash" --force 2>/dev/null || true
 else
     EXIT_CODE=$?
     if [[ $EXIT_CODE -eq 1 ]]; then
@@ -182,9 +182,9 @@ else
 fi
 
 # Underscore is allowed
-if "$JJZ_BIN" add "test_with_underscore" 2>/dev/null; then
+if "$ZJJ_BIN" add "test_with_underscore" 2>/dev/null; then
     log_pass "Underscore in name accepted"
-    "$JJZ_BIN" remove "test_with_underscore" --force 2>/dev/null || true
+    "$ZJJ_BIN" remove "test_with_underscore" --force 2>/dev/null || true
 else
     EXIT_CODE=$?
     if [[ $EXIT_CODE -eq 1 ]]; then
@@ -195,10 +195,10 @@ else
 fi
 
 # Special chars should be rejected
-if "$JJZ_BIN" add "test@session" 2>/dev/null; then
+if "$ZJJ_BIN" add "test@session" 2>/dev/null; then
     log_fail "Special char @ should be rejected"
     log_bug "Session names allow invalid character @"
-    "$JJZ_BIN" remove "test@session" --force 2>/dev/null || true
+    "$ZJJ_BIN" remove "test@session" --force 2>/dev/null || true
 else
     log_pass "Special char @ rejected"
 fi
@@ -207,10 +207,10 @@ fi
 log_test "Name length validation"
 
 LONG_NAME=$(printf 'a%.0s' {1..100})
-if "$JJZ_BIN" add "$LONG_NAME" 2>/dev/null; then
+if "$ZJJ_BIN" add "$LONG_NAME" 2>/dev/null; then
     log_fail "Very long name (100 chars) should be rejected"
     log_bug "Session names allow length > 64 characters"
-    "$JJZ_BIN" remove "$LONG_NAME" --force 2>/dev/null || true
+    "$ZJJ_BIN" remove "$LONG_NAME" --force 2>/dev/null || true
 else
     EXIT_CODE=$?
     if [[ $EXIT_CODE -eq 1 ]]; then
@@ -224,7 +224,7 @@ fi
 log_test "Empty and whitespace names"
 
 # Pure whitespace
-if "$JJZ_BIN" add "   " 2>/dev/null; then
+if "$ZJJ_BIN" add "   " 2>/dev/null; then
     log_fail "Whitespace-only name should be rejected"
     log_bug "Session names allow whitespace-only input"
 else
@@ -234,10 +234,10 @@ fi
 # Test 8: Name starting with digit
 log_test "Names starting with non-letter"
 
-if "$JJZ_BIN" add "1test" 2>/dev/null; then
+if "$ZJJ_BIN" add "1test" 2>/dev/null; then
     log_fail "Name starting with digit should be rejected"
     log_bug "Session names allow starting with digit"
-    "$JJZ_BIN" remove "1test" --force 2>/dev/null || true
+    "$ZJJ_BIN" remove "1test" --force 2>/dev/null || true
 else
     EXIT_CODE=$?
     if [[ $EXIT_CODE -eq 1 ]]; then
@@ -250,13 +250,13 @@ fi
 # Test 9: Introspect command
 log_test "Introspect command functionality"
 
-if "$JJZ_BIN" introspect > /dev/null 2>&1; then
+if "$ZJJ_BIN" introspect > /dev/null 2>&1; then
     log_pass "introspect command works"
 else
     log_fail "introspect command failed"
 fi
 
-if "$JJZ_BIN" introspect --json 2>&1 | jq . > /dev/null 2>&1; then
+if "$ZJJ_BIN" introspect --json 2>&1 | jq . > /dev/null 2>&1; then
     log_pass "introspect --json produces valid JSON"
 else
     log_fail "introspect --json produces invalid JSON"
@@ -266,7 +266,7 @@ fi
 log_test "Query command functionality"
 
 # session-count
-if "$JJZ_BIN" query session-count > /dev/null 2>&1; then
+if "$ZJJ_BIN" query session-count > /dev/null 2>&1; then
     log_pass "query session-count works"
 else
     log_fail "query session-count failed"
@@ -275,13 +275,13 @@ fi
 # Test 11: Doctor command
 log_test "Doctor command functionality"
 
-if "$JJZ_BIN" doctor > /dev/null 2>&1; then
+if "$ZJJ_BIN" doctor > /dev/null 2>&1; then
     log_pass "doctor command works"
 else
     log_fail "doctor command failed"
 fi
 
-if "$JJZ_BIN" doctor --json 2>&1 | jq . > /dev/null 2>&1; then
+if "$ZJJ_BIN" doctor --json 2>&1 | jq . > /dev/null 2>&1; then
     log_pass "doctor --json produces valid JSON"
 else
     log_fail "doctor --json produces invalid JSON"

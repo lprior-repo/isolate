@@ -90,7 +90,7 @@ config_sources: [...#ConfigSource] & [
     {path: "<builtin>", priority: 1, required: true},
     {path: "~/.config/zjj/config.toml", priority: 2, required: false},
     {path: ".zjj/config.toml", priority: 3, required: false},
-    {path: "JJZ_* environment variables", priority: 4, required: false},
+    {path: "ZJJ_* environment variables", priority: 4, required: false},
     {path: "CLI flags", priority: 5, required: false},
 ]
 
@@ -99,21 +99,21 @@ config_sources: [...#ConfigSource] & [
 // ═══════════════════════════════════════════════════════════════════════════
 
 #EnvVar: {
-    env_name:    string & =~"^JJZ_"
+    env_name:    string & =~"^ZJJ_"
     config_path: string & !=""
     value_type:  "string" | "bool" | "int" | "list"
 }
 
 env_vars: [...#EnvVar] & [
-    {env_name: "JJZ_WORKSPACE_DIR", config_path: "workspace_dir", value_type: "string"},
-    {env_name: "JJZ_MAIN_BRANCH", config_path: "main_branch", value_type: "string"},
-    {env_name: "JJZ_DEFAULT_TEMPLATE", config_path: "default_template", value_type: "string"},
-    {env_name: "JJZ_WATCH_ENABLED", config_path: "watch.enabled", value_type: "bool"},
-    {env_name: "JJZ_WATCH_DEBOUNCE_MS", config_path: "watch.debounce_ms", value_type: "int"},
-    {env_name: "JJZ_ZELLIJ_USE_TABS", config_path: "zellij.use_tabs", value_type: "bool"},
-    {env_name: "JJZ_DASHBOARD_REFRESH_MS", config_path: "dashboard.refresh_ms", value_type: "int"},
-    {env_name: "JJZ_DASHBOARD_VIM_KEYS", config_path: "dashboard.vim_keys", value_type: "bool"},
-    {env_name: "JJZ_AGENT_COMMAND", config_path: "agent.command", value_type: "string"},
+    {env_name: "ZJJ_WORKSPACE_DIR", config_path: "workspace_dir", value_type: "string"},
+    {env_name: "ZJJ_MAIN_BRANCH", config_path: "main_branch", value_type: "string"},
+    {env_name: "ZJJ_DEFAULT_TEMPLATE", config_path: "default_template", value_type: "string"},
+    {env_name: "ZJJ_WATCH_ENABLED", config_path: "watch.enabled", value_type: "bool"},
+    {env_name: "ZJJ_WATCH_DEBOUNCE_MS", config_path: "watch.debounce_ms", value_type: "int"},
+    {env_name: "ZJJ_ZELLIJ_USE_TABS", config_path: "zellij.use_tabs", value_type: "bool"},
+    {env_name: "ZJJ_DASHBOARD_REFRESH_MS", config_path: "dashboard.refresh_ms", value_type: "int"},
+    {env_name: "ZJJ_DASHBOARD_VIM_KEYS", config_path: "dashboard.vim_keys", value_type: "bool"},
+    {env_name: "ZJJ_AGENT_COMMAND", config_path: "agent.command", value_type: "string"},
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -114,7 +114,7 @@ fn show_all_config(config: &Config, global_only: bool, format: OutputFormat) -> 
         if let Ok(project_path) = project_config_path() {
             println!("  3. Project: {}", project_path.display());
         }
-        println!("  4. Environment: JJZ_* variables");
+        println!("  4. Environment: ZJJ_* variables");
     }
 
     Ok(())

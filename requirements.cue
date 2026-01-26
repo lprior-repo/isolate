@@ -378,7 +378,7 @@ requirements: config: [
     {
         id:       "REQ-CONFIG-003"
         pattern:  "ubiquitous"
-        text:     "zjj shall support environment variables with JJZ_ prefix to override config values."
+        text:     "zjj shall support environment variables with ZJJ_ prefix to override config values."
         priority: "should"
         status:   "draft"
     },

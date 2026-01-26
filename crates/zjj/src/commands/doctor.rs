@@ -162,9 +162,9 @@ fn check_jj_repo() -> DoctorCheck {
 /// Check if zjj is initialized
 fn check_initialized() -> DoctorCheck {
     // Check for .zjj directory existence directly, without depending on JJ installation
-    let jjz_dir = std::path::Path::new(".zjj");
-    let config_file = jjz_dir.join("config.toml");
-    let initialized = jjz_dir.exists() && config_file.exists();
+    let zjj_dir = std::path::Path::new(".zjj");
+    let config_file = zjj_dir.join("config.toml");
+    let initialized = zjj_dir.exists() && config_file.exists();
 
     DoctorCheck {
         name: "zjj Initialized".to_string(),
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_check_initialized_detects_jjz_directory() {
+    fn test_check_initialized_detects_zjj_directory() {
         // Create a temporary directory
         let temp_dir = TempDir::new().ok().filter(|_| true);
         let Some(temp_dir) = temp_dir else {
