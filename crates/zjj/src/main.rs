@@ -798,39 +798,8 @@ fn handle_doctor(sub_m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn handle_spawn(sub_m: &clap::ArgMatches) -> Result<()> {
-    let bead_id = sub_m
-        .get_one::<String>("bead_id")
-        .ok_or_else(|| anyhow::anyhow!("bead_id is required"))?
-        .clone();
-    let agent_command = sub_m
-        .get_one::<String>("agent-command")
-        .cloned()
-        .unwrap_or_else(|| "claude".to_string());
-    let agent_args = sub_m
-        .get_many::<String>("agent-args")
-        .map(|v| v.cloned().collect())
-        .unwrap_or_default();
-    let no_auto_merge = sub_m.get_flag("no-auto-merge");
-    let no_auto_cleanup = sub_m.get_flag("no-auto-cleanup");
-    let background = sub_m.get_flag("background");
-    let timeout = sub_m
-        .get_one::<String>("timeout")
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(14400);
-    let json = sub_m.get_flag("json");
-    let format = zjj_core::OutputFormat::from_json_flag(json);
-
-    let options = spawn::SpawnOptions {
-        bead_id,
-        agent_command,
-        agent_args,
-        no_auto_merge,
-        no_auto_cleanup,
-        background,
-        timeout_secs: timeout,
-        format,
-    };
-
+    let args = spawn::SpawnArgs::from_matches(sub_m)?;
+    let options = args.to_options();
     spawn::run_with_options(&options)
 }
 
@@ -852,22 +821,20 @@ fn handle_context(sub_m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
-    let message = sub_m.get_one::<String>("message").cloned();
-    let keep_workspace = sub_m.get_flag("keep-workspace");
-    let squash = sub_m.get_flag("squash");
-    let dry_run = sub_m.get_flag("dry-run");
-    let no_bead_update = sub_m.get_flag("no-bead-update");
-    let json = sub_m.get_flag("json");
-
-    let options = done::DoneOptions {
-        message,
-        keep_workspace,
-        squash,
-        dry_run,
-        no_bead_update,
-        format: zjj_core::OutputFormat::from_json_flag(json),
+    let args = commands::done::types::DoneArgs {
+        message: sub_m.get_one::<String>("message").cloned(),
+        keep_workspace: sub_m.get_flag("keep-workspace"),
+        squash: sub_m.get_flag("squash"),
+        dry_run: sub_m.get_flag("dry-run"),
+        no_bead_update: sub_m.get_flag("no-bead-update"),
+        format: if sub_m.get_flag("json") {
+            "json".to_string()
+        } else {
+            "human".to_string()
+        },
     };
 
+    let options = args.to_options();
     done::run_with_options(&options)?;
     Ok(())
 }
@@ -894,11 +861,9 @@ fn run_cli() -> Result<()> {
                     }
                 });
                 println!("{}", serde_json::to_string_pretty(&json_err).unwrap_or_default());
-                std::process::exit(2);
-            } else {
-                e.print().expect("Failed to print Clap error");
-                std::process::exit(2);
             }
+            let _ = e.print();
+            std::process::exit(2);
         }
     };
 

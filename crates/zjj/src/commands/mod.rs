@@ -111,6 +111,7 @@ pub fn get_session_db() -> Result<SessionDb> {
 ///
 /// Uses jj's `trunk()` function to find the main branch.
 /// Falls back to "main" if unable to detect.
+#[allow(dead_code)] // Used in sync.rs via re-export
 pub fn determine_main_branch(workspace_path: &Path) -> String {
     let output = Command::new("jj")
         .args(["log", "-r", "trunk()", "--no-graph", "-T", "commit_id"])
