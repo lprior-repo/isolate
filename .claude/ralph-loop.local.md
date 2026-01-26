@@ -1,10 +1,67 @@
 ---
 active: true
-iteration: 21
+iteration: 26
 max_iterations: 50
 completion_promise: null
 started_at: "2026-01-26T01:22:03Z"
 updated_at: "2026-01-25T22:00:00Z"
+---
+
+## Iteration 10: Phase 0-4 Implementation for --example-json Flag ✅ (Partial)
+
+### Achievement Summary
+- **Bead**: zjj-p8um - P2-2a: Add --example-json flag to add command
+- **Phases**: 0 (TRIAGE) → 1 (RESEARCH) → 2 (RED) → 4 (GREEN - IN PROGRESS)
+- **Status**: RED phase tests written (14 tests), GREEN phase implementation starting
+- **Complexity**: SIMPLE (estimated 1-2 hours, ~25-30 LOC)
+
+### Phase 0 (TRIAGE): ✅
+**Complexity Assessment: SIMPLE**
+- No blocking dependencies
+- Minimal scope: 2-3 files modified
+- Clear precedent from `--no-open` flag
+- Existing JSON infrastructure (AddOutput struct, serde)
+- Estimated effort: 1-2 hours
+
+### Phase 1 (RESEARCH): ✅
+**Deep Analysis Complete**
+- Examined --json handling pattern in add command
+- Identified AddOutput struct (name, workspace_path, zellij_tab, status)
+- Found --no-open flag as direct precedent
+- Mapped all required modifications:
+  1. main.rs: Add clap argument + flag validation
+  2. add.rs: Update AddOptions struct + early return logic
+  3. test_cli_parsing.rs: Add 2-3 basic tests (DONE - 14 comprehensive tests)
+
+### Phase 2 (RED): ✅
+**14 Comprehensive Failing Tests Written**
+- test_add_example_json_flag_is_recognized
+- test_add_example_json_outputs_valid_json
+- test_add_example_json_has_name_field
+- test_add_example_json_has_workspace_path_field
+- test_add_example_json_has_zellij_tab_field
+- test_add_example_json_has_status_field
+- test_add_example_json_does_not_create_session
+- test_add_example_json_with_name_argument_fails
+- test_add_example_json_mutually_exclusive_with_name
+- test_add_example_json_has_all_required_fields
+- test_add_example_json_with_no_open_flag
+- test_add_example_json_with_template_flag
+- test_add_example_json_with_no_hooks_flag
+- test_add_example_json_output_fields_are_strings
+
+**Test Status**: 8 FAILURES (expected RED), 6 PASSES (flag parsing accepted)
+
+### Phase 3: VERIFICATION (SKIPPED - SIMPLE complexity path)
+
+### Phase 4 (GREEN): IN PROGRESS
+**Implementation Plan:**
+1. Add --example-json flag to cmd_add() in main.rs
+2. Extract flag in handle_add() with validation logic
+3. Update AddOptions struct with example_json field
+4. Implement early return in add.rs:run_with_options()
+5. Generate example AddOutput with placeholder values
+
 ---
 
 ## Iteration 1 Complete ✅
