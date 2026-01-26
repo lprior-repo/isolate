@@ -10,29 +10,6 @@ ZJJ creates **isolated workspaces** for parallel development tasks:
 - Keep your main branch clean while working on multiple features
 - Built-in agent workflow support with `zjj spawn` and `zjj done`
 
-## 🤖 For AI Agents
-
-**DO NOT clone this repository elsewhere.** If you're working on a bead/issue, you should have been invoked via `zjj spawn <bead-id>`, which:
-
-1. Creates an isolated workspace at `.zjj/workspaces/<bead-id>/`
-2. Sets environment variables: `ZJJ_BEAD_ID`, `ZJJ_WORKSPACE`
-3. Drops you into the workspace directory
-4. Waits for you to complete the work
-5. Merges successful changes back to main automatically
-
-```bash
-# When spawned, you're already in the right place
-# Just work normally, then exit cleanly
-
-# Check what you're working on
-bd show $ZJJ_BEAD_ID
-
-# Build (use Moon, NEVER cargo)
-moon run :quick
-```
-
-**See [`.ai-instructions.md`](.ai-instructions.md) for complete AI agent guidelines.**
-
 ## Commands
 
 ### Core Session Management

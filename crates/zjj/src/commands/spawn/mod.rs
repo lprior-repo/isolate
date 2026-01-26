@@ -283,7 +283,8 @@ fn spawn_agent_foreground(
     cmd.args(&options.agent_args)
         .current_dir(workspace_path)
         .env("ZJJ_BEAD_ID", &options.bead_id)
-        .env("ZJJ_WORKSPACE", workspace_path.to_string_lossy().as_ref());
+        .env("ZJJ_WORKSPACE", workspace_path.to_string_lossy().as_ref())
+        .env("ZJJ_ACTIVE", "1");  // Required by git pre-commit hook
 
     let mut spawn_result = cmd
         .spawn()
@@ -315,6 +316,7 @@ fn spawn_agent_background(
         .current_dir(workspace_path)
         .env("ZJJ_BEAD_ID", &options.bead_id)
         .env("ZJJ_WORKSPACE", workspace_path.to_string_lossy().as_ref())
+        .env("ZJJ_ACTIVE", "1")  // Required by git pre-commit hook
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
