@@ -149,10 +149,22 @@ mod tests {
             (OutputFormat::Human, false, true),
         ];
 
-        test_cases.iter().for_each(|(format, expected_is_json, expected_is_human)| {
-            assert_eq!(format.is_json(), *expected_is_json, "is_json() failed for {:?}", format);
-            assert_eq!(format.is_human(), *expected_is_human, "is_human() failed for {:?}", format);
-        });
+        test_cases
+            .iter()
+            .for_each(|(format, expected_is_json, expected_is_human)| {
+                assert_eq!(
+                    format.is_json(),
+                    *expected_is_json,
+                    "is_json() failed for {:?}",
+                    format
+                );
+                assert_eq!(
+                    format.is_human(),
+                    *expected_is_human,
+                    "is_human() failed for {:?}",
+                    format
+                );
+            });
     }
 
     #[test]
@@ -182,10 +194,7 @@ mod tests {
     /// Test flag conversions using functional iteration
     #[test]
     fn test_output_format_flag_conversions() {
-        let conversions = vec![
-            (true, OutputFormat::Json),
-            (false, OutputFormat::Human),
-        ];
+        let conversions = vec![(true, OutputFormat::Json), (false, OutputFormat::Human)];
 
         conversions.iter().for_each(|(flag, expected_format)| {
             assert_eq!(
@@ -253,7 +262,8 @@ mod tests {
         let serialized = serde_json::to_string(&format).expect("serialization failed");
         assert_eq!(serialized, expected_json);
 
-        let deserialized: OutputFormat = serde_json::from_str(&serialized).expect("deserialization failed");
+        let deserialized: OutputFormat =
+            serde_json::from_str(&serialized).expect("deserialization failed");
         assert_eq!(deserialized, format);
     }
 

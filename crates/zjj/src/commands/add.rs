@@ -572,7 +572,7 @@ mod tests {
     #[test]
     fn test_category_order_is_consistent() {
         use zjj_core::introspection::{CommandIntrospection, FlagSpec, Prerequisites};
-        
+
         let cmd = CommandIntrospection {
             command: "add".to_string(),
             description: "Create new session".to_string(),
@@ -715,7 +715,8 @@ mod tests {
     /// Categories are ordered by importance/frequency of use, ensuring
     /// users see the most critical options first (behavior, then configuration)
     /// and advanced options last.
-    const CANONICAL_CATEGORY_ORDER: &[&str] = &["behavior", "configuration", "filter", "output", "advanced"];
+    const CANONICAL_CATEGORY_ORDER: &[&str] =
+        &["behavior", "configuration", "filter", "output", "advanced"];
 
     /// Groups flags by category in canonical order using functional iterators
     ///
@@ -738,30 +739,31 @@ mod tests {
         flags: &'a [zjj_core::introspection::FlagSpec],
     ) -> Vec<(String, Vec<&'a zjj_core::introspection::FlagSpec>)> {
         // Use im::HashMap for initial grouping to avoid BTreeMap's alphabetical sorting
-        let grouped: im::HashMap<String, Vec<&'a zjj_core::introspection::FlagSpec>> = flags
-            .iter()
-            .fold(im::HashMap::new(), |mut acc, flag| {
+        let grouped: im::HashMap<String, Vec<&'a zjj_core::introspection::FlagSpec>> =
+            flags.iter().fold(im::HashMap::new(), |mut acc, flag| {
                 let category = flag
                     .category
                     .as_deref()
                     .unwrap_or("Uncategorized")
                     .to_string();
 
-                acc.entry(category)
-                    .or_insert_with(Vec::new)
-                    .push(flag);
+                acc.entry(category).or_insert_with(Vec::new).push(flag);
                 acc
             });
 
         // Build result in canonical order using functional iterators
-        let mut result: Vec<(String, Vec<&'a zjj_core::introspection::FlagSpec>)> = CANONICAL_CATEGORY_ORDER
-            .iter()
-            .filter_map(|&category_name| {
-                grouped.get(category_name).map(|flags_in_category| {
-                    (capitalize_category(category_name), flags_in_category.clone())
+        let mut result: Vec<(String, Vec<&'a zjj_core::introspection::FlagSpec>)> =
+            CANONICAL_CATEGORY_ORDER
+                .iter()
+                .filter_map(|&category_name| {
+                    grouped.get(category_name).map(|flags_in_category| {
+                        (
+                            capitalize_category(category_name),
+                            flags_in_category.clone(),
+                        )
+                    })
                 })
-            })
-            .collect();
+                .collect();
 
         // Add uncategorized flags at the end if present
         if let Some(uncategorized) = grouped.get("Uncategorized") {
@@ -819,7 +821,10 @@ mod tests {
     ///
     /// Formatted help text suitable for display in terminal
     fn format_help_output(cmd: &zjj_core::introspection::CommandIntrospection) -> String {
-        let header = format!("Command: {}\nDescription: {}\n\n", cmd.command, cmd.description);
+        let header = format!(
+            "Command: {}\nDescription: {}\n\n",
+            cmd.command, cmd.description
+        );
 
         if cmd.flags.is_empty() {
             return header;

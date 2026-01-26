@@ -15,8 +15,8 @@
 //! - State history tracking and validation
 //! - Railway-Oriented error handling with zero panics
 
-use std::marker::PhantomData;
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -89,9 +89,17 @@ impl SessionState {
     pub fn valid_next_states(self) -> Vec<SessionState> {
         match self {
             SessionState::Created => vec![SessionState::Active, SessionState::Failed],
-            SessionState::Active => vec![SessionState::Syncing, SessionState::Paused, SessionState::Completed],
+            SessionState::Active => vec![
+                SessionState::Syncing,
+                SessionState::Paused,
+                SessionState::Completed,
+            ],
             SessionState::Syncing => vec![SessionState::Synced, SessionState::Failed],
-            SessionState::Synced => vec![SessionState::Active, SessionState::Paused, SessionState::Completed],
+            SessionState::Synced => vec![
+                SessionState::Active,
+                SessionState::Paused,
+                SessionState::Completed,
+            ],
             SessionState::Paused => vec![SessionState::Active, SessionState::Completed],
             SessionState::Completed => vec![SessionState::Created],
             SessionState::Failed => vec![SessionState::Created],
@@ -128,9 +136,10 @@ impl StateTransition {
         if self.from.can_transition_to(self.to) {
             Ok(())
         } else {
-            Err(Error::ValidationError(
-                format!("Invalid state transition: {:?} -> {:?}", self.from, self.to),
-            ))
+            Err(Error::ValidationError(format!(
+                "Invalid state transition: {:?} -> {:?}",
+                self.from, self.to
+            )))
         }
     }
 }
@@ -256,7 +265,8 @@ impl SessionStateManager<Active> {
 
     /// Transition from Active to Completed
     pub fn complete(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Completed>> {
-        let transition = StateTransition::new(SessionState::Active, SessionState::Completed, reason);
+        let transition =
+            StateTransition::new(SessionState::Active, SessionState::Completed, reason);
         self.record_transition(transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
@@ -270,7 +280,10 @@ impl SessionStateManager<Active> {
 
 impl SessionStateManager<Syncing> {
     /// Transition from Syncing to Synced
-    pub fn sync_complete(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Synced>> {
+    pub fn sync_complete(
+        mut self,
+        reason: impl Into<String>,
+    ) -> Result<SessionStateManager<Synced>> {
         let transition = StateTransition::new(SessionState::Syncing, SessionState::Synced, reason);
         self.record_transition(transition)?;
         Ok(SessionStateManager {
@@ -325,7 +338,8 @@ impl SessionStateManager<Synced> {
 
     /// Transition from Synced to Completed
     pub fn complete(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Completed>> {
-        let transition = StateTransition::new(SessionState::Synced, SessionState::Completed, reason);
+        let transition =
+            StateTransition::new(SessionState::Synced, SessionState::Completed, reason);
         self.record_transition(transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
@@ -353,7 +367,8 @@ impl SessionStateManager<Paused> {
 
     /// Transition from Paused to Completed
     pub fn complete(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Completed>> {
-        let transition = StateTransition::new(SessionState::Paused, SessionState::Completed, reason);
+        let transition =
+            StateTransition::new(SessionState::Paused, SessionState::Completed, reason);
         self.record_transition(transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
@@ -368,7 +383,8 @@ impl SessionStateManager<Paused> {
 impl SessionStateManager<Completed> {
     /// Transition from Completed to Created to allow restart
     pub fn restart(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Created>> {
-        let transition = StateTransition::new(SessionState::Completed, SessionState::Created, reason);
+        let transition =
+            StateTransition::new(SessionState::Completed, SessionState::Created, reason);
         self.record_transition(transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
@@ -464,9 +480,10 @@ impl SessionBeadsContext {
             self.state = new_state;
             Ok(())
         } else {
-            Err(Error::ValidationError(
-                format!("Cannot transition from {:?} to {:?}", self.state, new_state),
-            ))
+            Err(Error::ValidationError(format!(
+                "Cannot transition from {:?} to {:?}",
+                self.state, new_state
+            )))
         }
     }
 }
@@ -516,7 +533,10 @@ mod tests {
     fn test_session_state_manager_metadata_operations() {
         let mut manager = SessionStateManager::new("test");
         manager.set_metadata("key1", "value1");
-        assert_eq!(manager.metadata().get("key1").map(|s| s.as_str()), Some("value1"));
+        assert_eq!(
+            manager.metadata().get("key1").map(|s| s.as_str()),
+            Some("value1")
+        );
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -526,7 +546,8 @@ mod tests {
     #[test]
     fn test_state_transition_created_to_active() {
         // StateTransition enum should cover Created → Active transition
-        let transition = StateTransition::new(SessionState::Created, SessionState::Active, "activation");
+        let transition =
+            StateTransition::new(SessionState::Created, SessionState::Active, "activation");
         assert_eq!(transition.from, SessionState::Created);
         assert_eq!(transition.to, SessionState::Active);
         assert_eq!(transition.reason, "activation");
@@ -535,7 +556,8 @@ mod tests {
     #[test]
     fn test_state_transition_active_to_syncing() {
         // StateTransition enum should cover Active → Syncing transition
-        let transition = StateTransition::new(SessionState::Active, SessionState::Syncing, "starting sync");
+        let transition =
+            StateTransition::new(SessionState::Active, SessionState::Syncing, "starting sync");
         assert_eq!(transition.from, SessionState::Active);
         assert_eq!(transition.to, SessionState::Syncing);
     }
@@ -543,7 +565,8 @@ mod tests {
     #[test]
     fn test_state_transition_syncing_to_synced() {
         // StateTransition enum should cover Syncing → Synced transition
-        let transition = StateTransition::new(SessionState::Syncing, SessionState::Synced, "sync complete");
+        let transition =
+            StateTransition::new(SessionState::Syncing, SessionState::Synced, "sync complete");
         assert_eq!(transition.from, SessionState::Syncing);
         assert_eq!(transition.to, SessionState::Synced);
     }
@@ -559,7 +582,8 @@ mod tests {
     #[test]
     fn test_state_transition_active_to_completed() {
         // StateTransition enum should cover Active → Completed transition
-        let transition = StateTransition::new(SessionState::Active, SessionState::Completed, "finish");
+        let transition =
+            StateTransition::new(SessionState::Active, SessionState::Completed, "finish");
         assert_eq!(transition.from, SessionState::Active);
         assert_eq!(transition.to, SessionState::Completed);
     }
@@ -579,25 +603,29 @@ mod tests {
     #[test]
     fn test_state_validation_prevents_invalid_created_to_paused() {
         // State validation should prevent invalid transitions
-        let transition = StateTransition::new(SessionState::Created, SessionState::Paused, "invalid");
+        let transition =
+            StateTransition::new(SessionState::Created, SessionState::Paused, "invalid");
         assert!(transition.validate().is_err());
     }
 
     #[test]
     fn test_state_validation_prevents_invalid_synced_to_syncing() {
-        let transition = StateTransition::new(SessionState::Synced, SessionState::Syncing, "invalid");
+        let transition =
+            StateTransition::new(SessionState::Synced, SessionState::Syncing, "invalid");
         assert!(transition.validate().is_err());
     }
 
     #[test]
     fn test_state_validation_prevents_invalid_paused_to_syncing() {
-        let transition = StateTransition::new(SessionState::Paused, SessionState::Syncing, "invalid");
+        let transition =
+            StateTransition::new(SessionState::Paused, SessionState::Syncing, "invalid");
         assert!(transition.validate().is_err());
     }
 
     #[test]
     fn test_state_validation_prevents_invalid_completed_to_active() {
-        let transition = StateTransition::new(SessionState::Completed, SessionState::Active, "invalid");
+        let transition =
+            StateTransition::new(SessionState::Completed, SessionState::Active, "invalid");
         assert!(transition.validate().is_err());
     }
 
@@ -673,7 +701,10 @@ mod tests {
         assert!(result.is_ok());
         let beads = result.unwrap();
         assert!(!beads.is_empty(), "Active state should have beads");
-        assert!(beads.iter().any(|b| b.contains("wip")), "Active state should have WIP beads");
+        assert!(
+            beads.iter().any(|b| b.contains("wip")),
+            "Active state should have WIP beads"
+        );
     }
 
     #[test]
@@ -966,7 +997,8 @@ mod tests {
 
     #[test]
     fn test_railway_error_handling_invalid_transition() {
-        let transition = StateTransition::new(SessionState::Created, SessionState::Synced, "invalid");
+        let transition =
+            StateTransition::new(SessionState::Created, SessionState::Synced, "invalid");
         let result = transition.validate();
         // Should return Result::Err, not panic
         assert!(result.is_err());
@@ -1004,7 +1036,8 @@ mod tests {
 
     #[test]
     fn test_railway_error_handling_with_map_err() {
-        let transition = StateTransition::new(SessionState::Created, SessionState::Paused, "invalid");
+        let transition =
+            StateTransition::new(SessionState::Created, SessionState::Paused, "invalid");
         let result = transition
             .validate()
             .map_err(|_| "Failed to validate transition");
@@ -1036,7 +1069,11 @@ mod tests {
     #[test]
     fn test_state_transition_long_reason() {
         let long_reason = "a".repeat(1000);
-        let transition = StateTransition::new(SessionState::Created, SessionState::Active, long_reason.clone());
+        let transition = StateTransition::new(
+            SessionState::Created,
+            SessionState::Active,
+            long_reason.clone(),
+        );
         assert_eq!(transition.reason, long_reason);
     }
 
@@ -1054,7 +1091,10 @@ mod tests {
         let mut manager = SessionStateManager::new("test");
         manager.set_metadata("key", "value1");
         manager.set_metadata("key", "value2");
-        assert_eq!(manager.metadata().get("key").map(|s| s.as_str()), Some("value2"));
+        assert_eq!(
+            manager.metadata().get("key").map(|s| s.as_str()),
+            Some("value2")
+        );
     }
 
     #[test]
@@ -1078,7 +1118,8 @@ mod tests {
     fn test_session_state_deserialization() {
         // Verify states can be deserialized
         let state_json = r#""active""#;
-        let state: std::result::Result<SessionState, serde_json::Error> = serde_json::from_str(state_json);
+        let state: std::result::Result<SessionState, serde_json::Error> =
+            serde_json::from_str(state_json);
         assert!(state.is_ok());
         let state_value = state.map(|s| s == SessionState::Active).unwrap_or(false);
         assert!(state_value);
