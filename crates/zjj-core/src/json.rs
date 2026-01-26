@@ -4,8 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::fix::Fix;
-use crate::hints::NextAction;
+use crate::{fix::Fix, hints::NextAction};
 
 /// Standard JSON success response wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
