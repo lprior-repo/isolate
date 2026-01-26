@@ -1138,7 +1138,9 @@ mod tests {
             .and_then(|m| m.sync_complete("complete"));
 
         assert!(result.is_ok(), "chained operations should succeed");
-        let Some(final_manager) = result.ok() else { return };
+        let Some(final_manager) = result.ok() else {
+            return;
+        };
         assert_eq!(final_manager.current_state(), SessionState::Synced);
     }
 

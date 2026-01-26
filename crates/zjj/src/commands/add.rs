@@ -175,7 +175,13 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 }
 
 /// Output the result in the appropriate format
-fn output_result(name: &str, workspace_path: &str, zellij_tab: &str, mode: &str, format: OutputFormat) {
+fn output_result(
+    name: &str,
+    workspace_path: &str,
+    zellij_tab: &str,
+    mode: &str,
+    format: OutputFormat,
+) {
     if format.is_json() {
         let output = AddOutput {
             schema: "zjj://add-response/v1",
@@ -185,7 +191,7 @@ fn output_result(name: &str, workspace_path: &str, zellij_tab: &str, mode: &str,
             name: name.to_string(),
             workspace_path: workspace_path.to_string(),
             zellij_tab: zellij_tab.to_string(),
-            message: format!("Created session '{}' ({})", name, mode),
+            message: format!("Created session '{name}' ({mode})"),
         };
         println!(
             "{}",
@@ -193,7 +199,7 @@ fn output_result(name: &str, workspace_path: &str, zellij_tab: &str, mode: &str,
                 .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
         );
     } else {
-        println!("Created session '{}' (workspace at {})", name, workspace_path);
+        println!("Created session '{name}' (workspace at {workspace_path})");
     }
 }
 
@@ -551,10 +557,17 @@ mod tests {
 
         let behavior_pos_result = output.find("Behavior");
         assert!(behavior_pos_result.is_some(), "Behavior header must exist");
-        let Some(behavior_pos) = behavior_pos_result else { return };
+        let Some(behavior_pos) = behavior_pos_result else {
+            return;
+        };
         let config_pos_result = output.find("Configuration");
-        assert!(config_pos_result.is_some(), "Configuration header must exist");
-        let Some(config_pos) = config_pos_result else { return };
+        assert!(
+            config_pos_result.is_some(),
+            "Configuration header must exist"
+        );
+        let Some(config_pos) = config_pos_result else {
+            return;
+        };
         assert!(behavior_pos < config_pos, "Categories should be ordered");
 
         let behavior_section = &output[behavior_pos..];
@@ -1022,15 +1035,18 @@ mod tests {
         }
 
         let grouped = group_flags_by_category(&cmd.flags);
-        let flags_section = grouped.iter().fold(String::new(), |mut acc, (category_name, flags)| {
-            let flags_text = flags
+        let flags_section =
+            grouped
                 .iter()
-                .map(|flag| format_flag(flag))
-                .collect::<String>();
+                .fold(String::new(), |mut acc, (category_name, flags)| {
+                    let flags_text = flags
+                        .iter()
+                        .map(|flag| format_flag(flag))
+                        .collect::<String>();
 
-            let _ = write!(acc, "\n  {category_name}:\n{flags_text}");
-            acc
-        });
+                    let _ = write!(acc, "\n  {category_name}:\n{flags_text}");
+                    acc
+                });
 
         format!("{header}Flags:{flags_section}")
     }

@@ -279,7 +279,9 @@ mod tests {
             schema_value.is_some(),
             "$schema field should be present and be a string"
         );
-        let Some(schema) = schema_value else { return Ok(()); };
+        let Some(schema) = schema_value else {
+            return Ok(());
+        };
         assert!(
             schema.starts_with("zjj://"),
             "$schema should start with 'zjj://', got: {schema}"

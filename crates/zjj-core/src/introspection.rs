@@ -1051,10 +1051,7 @@ mod tests {
         assert!(add_introspection.arguments[0].required);
         let validation = &add_introspection.arguments[0].validation;
         assert!(validation.is_some());
-        assert_eq!(
-            validation.as_deref(),
-            Some("^[a-zA-Z][a-zA-Z0-9_-]{0,63}$")
-        );
+        assert_eq!(validation.as_deref(), Some("^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"));
     }
 
     #[test]
