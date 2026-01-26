@@ -17,7 +17,10 @@ pub mod remove;
 pub mod status;
 pub mod sync;
 
-use std::path::PathBuf;
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::{Context, Result};
 
@@ -100,6 +103,29 @@ pub fn get_session_db() -> Result<SessionDb> {
 
     let db_path = data_dir.join("sessions.db");
     SessionDb::open(&db_path).context("Failed to open session database")
+}
+
+/// Determine the main branch for a workspace
+///
+/// Uses jj's `trunk()` function to find the main branch.
+/// Falls back to "main" if unable to detect.
+pub fn determine_main_branch(workspace_path: &Path) -> String {
+    let output = Command::new("jj")
+        .args(["log", "-r", "trunk()", "--no-graph", "-T", "commit_id"])
+        .current_dir(workspace_path)
+        .output();
+
+    if let Ok(output) = output {
+        if output.status.success() {
+            let commit_id = String::from_utf8_lossy(&output.stdout);
+            let trimmed = commit_id.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+    }
+
+    "main".to_string()
 }
 
 #[cfg(test)]

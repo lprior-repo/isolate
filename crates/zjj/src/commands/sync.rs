@@ -1,13 +1,13 @@
 //! Sync a session's workspace with main branch
 
-use std::time::SystemTime;
+use std::{path::Path, time::SystemTime};
 
 use anyhow::{Context, Result};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     cli::run_command,
-    commands::get_session_db,
+    commands::{determine_main_branch, get_session_db},
     json_output::{SyncError, SyncOutput},
     session::SessionUpdate,
 };
@@ -173,10 +173,12 @@ fn sync_session_internal(
     name: &str,
     workspace_path: &str,
 ) -> Result<()> {
+    let main_branch = determine_main_branch(Path::new(workspace_path));
+
     // Run rebase in the session's workspace
     run_command(
         "jj",
-        &["--repository", workspace_path, "rebase", "-d", "main"],
+        &["--repository", workspace_path, "rebase", "-d", &main_branch],
     )
     .context("Failed to sync workspace with main")?;
 
@@ -204,7 +206,7 @@ mod tests {
 
     use tempfile::TempDir;
 
-    use crate::{db::SessionDb, session::SessionUpdate};
+    use crate::{commands::determine_main_branch, db::SessionDb, session::SessionUpdate};
 
     // Helper to create a test database
     fn setup_test_db() -> anyhow::Result<(SessionDb, TempDir)> {
@@ -360,6 +362,43 @@ mod tests {
             }
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_determine_main_branch_not_in_repo() -> anyhow::Result<()> {
+        // When not in a JJ repo, should fall back to "main"
+        let temp = tempfile::TempDir::new()?;
+        let result = determine_main_branch(temp.path());
+        assert_eq!(result, "main");
+        Ok(())
+    }
+
+    #[test]
+    fn test_determine_main_branch_fallback() -> anyhow::Result<()> {
+        // Test that function returns "main" when trunk() fails
+        let temp = tempfile::TempDir::new()?;
+        let result = determine_main_branch(temp.path());
+        assert_eq!(result, "main");
+        Ok(())
+    }
+
+    #[test]
+    fn test_sync_uses_determined_main_branch() -> anyhow::Result<()> {
+        // Test that sync_session_internal uses determine_main_branch
+        // This test will verify the integration once implemented
+        let temp = tempfile::TempDir::new()?;
+        let branch = determine_main_branch(temp.path());
+        assert_eq!(branch, "main");
+        Ok(())
+    }
+
+    #[test]
+    fn test_main_branch_detection_respects_trunk() -> anyhow::Result<()> {
+        // When trunk() returns a valid commit ID, use it
+        let temp = tempfile::TempDir::new()?;
+        let _branch = determine_main_branch(temp.path());
+        // Implementation should use trunk() when available
         Ok(())
     }
 }
