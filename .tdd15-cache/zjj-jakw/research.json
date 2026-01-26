@@ -1,0 +1,18 @@
+{
+  "phase": 1,
+  "task_id": "zjj-jakw",
+  "status_output_location": "crates/zjj/src/commands/status.rs:12-22",
+  "current_json_impl": "Direct serialization of SessionStatusInfo array without envelope",
+  "similar_patterns": [
+    "JsonSuccess<T> in zjj-core/src/json.rs:8-23",
+    "JsonError in zjj-core/src/json.rs:27-30",
+    "ResponseEnvelope in schemas/zjj_protocol.cue:14-32"
+  ],
+  "suggested_envelope_location": "crates/zjj-core/src/json.rs",
+  "test_files": [
+    "crates/zjj/tests/test_json_error_output.rs",
+    "crates/zjj/tests/schema_tests.rs"
+  ],
+  "dependencies_needed": [],
+  "gate_passed": true
+}

@@ -1,0 +1,15 @@
+{
+  "phase": 1,
+  "task_id": "zjj-ioa3",
+  "sync_output_location": "crates/zjj/src/json_output.rs:52-68",
+  "current_json_impl": "Direct serde_json::to_string(&output) in commands/sync.rs",
+  "similar_patterns": [
+    "JsonSuccess<T> in zjj-core/src/json.rs:8-23",
+    "JsonError in zjj-core/src/json.rs:26-30",
+    "#SyncResponse in schemas/zjj_protocol.cue:261-264"
+  ],
+  "test_files": [
+    "crates/zjj/tests/schema_tests.rs"
+  ],
+  "gate_passed": true
+}

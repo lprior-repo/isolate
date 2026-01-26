@@ -1,0 +1,17 @@
+{
+  "phase": 1,
+  "task_id": "zjj-zd9l",
+  "flag_definition_file": "crates/zjj/src/main.rs:84-99",
+  "flag_usage_locations": [
+    "crates/zjj/src/main.rs:408-412 (handle_list)",
+    "crates/zjj/src/commands/list.rs:40-104 (run function)"
+  ],
+  "test_files": [
+    "crates/zjj/tests/test_cli_parsing.rs",
+    "crates/zjj/tests/test_session_lifecycle.rs"
+  ],
+  "help_text_location": "crates/zjj/src/main.rs:84-99",
+  "current_flags": ["--all", "--json"],
+  "note": "Flag does not exist yet - similar to bead filter, needs agent filtering infrastructure",
+  "gate_passed": true
+}

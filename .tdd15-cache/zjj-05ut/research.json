@@ -1,0 +1,18 @@
+{
+  "phase": 1,
+  "task_id": "zjj-05ut",
+  "json_output_locations": [
+    "crates/zjj/src/commands/focus.rs:43,59",
+    "crates/zjj/src/commands/remove.rs:57,101",
+    "crates/zjj/src/commands/sync.rs:55,73,97,132",
+    "crates/zjj/src/commands/clean.rs:94-95,112-113,137-138,154-155",
+    "crates/zjj/src/commands/list.rs:59,182-183",
+    "crates/zjj/src/commands/status.rs:306-307",
+    "crates/zjj/src/commands/query.rs:220,264,330,349",
+    "crates/zjj/src/commands/doctor.rs:342,452",
+    "crates/zjj/src/commands/introspect.rs:141,235",
+    "crates/zjj/src/commands/config.rs:88-89,137,176"
+  ],
+  "envelope_pattern": "ResponseEnvelope defined in schemas/zjj_protocol.cue:15-32",
+  "gate_passed": true
+}
