@@ -1,6 +1,7 @@
 //! Create a new session with JJ workspace + Zellij tab
 
 use anyhow::{Context, Result};
+use serde::Serialize;
 use zjj_core::{config, jj, OutputFormat};
 
 use crate::{
@@ -8,6 +9,21 @@ use crate::{
     commands::{check_prerequisites, get_session_db},
     session::{validate_session_name, SessionStatus, SessionUpdate},
 };
+
+/// JSON output structure for add command
+#[derive(Serialize)]
+struct AddOutput {
+    #[serde(rename = "$schema")]
+    schema: &'static str,
+    #[serde(rename = "_schema_version")]
+    schema_version: &'static str,
+    schema_type: &'static str,
+    success: bool,
+    name: String,
+    workspace_path: String,
+    zellij_tab: String,
+    message: String,
+}
 
 /// Options for the add command
 pub struct AddOptions {
@@ -20,7 +36,6 @@ pub struct AddOptions {
     /// Create workspace but don't open Zellij tab
     pub no_open: bool,
     /// Output format (JSON or Human-readable)
-    #[allow(dead_code)]
     pub format: OutputFormat,
 }
 
@@ -110,9 +125,12 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 
     // Open Zellij tab unless --no-open (REQ-CLI-003)
     if options.no_open {
-        println!(
-            "Created session '{}' (workspace at {workspace_path_str})",
-            options.name
+        output_result(
+            &options.name,
+            &workspace_path_str,
+            &session.zellij_tab,
+            "workspace only",
+            options.format,
         );
     } else if is_inside_zellij() {
         // Inside Zellij: Create tab and switch to it
@@ -121,14 +139,28 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
             &workspace_path_str,
             options.template.as_deref(),
         )?;
-        println!(
-            "Created session '{}' with Zellij tab '{}'",
-            options.name, session.zellij_tab
+        output_result(
+            &options.name,
+            &workspace_path_str,
+            &session.zellij_tab,
+            "with Zellij tab",
+            options.format,
         );
     } else {
         // Outside Zellij: Create layout and exec into Zellij
-        println!("Created session '{}'", options.name);
-        println!("Launching Zellij with new tab...");
+        // For JSON mode, output before exec (since exec never returns)
+        if options.format.is_json() {
+            output_result(
+                &options.name,
+                &workspace_path_str,
+                &session.zellij_tab,
+                "launching Zellij",
+                options.format,
+            );
+        } else {
+            println!("Created session '{}'", options.name);
+            println!("Launching Zellij with new tab...");
+        }
 
         let layout = create_session_layout(
             &session.zellij_tab,
@@ -140,6 +172,29 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Output the result in the appropriate format
+fn output_result(name: &str, workspace_path: &str, zellij_tab: &str, mode: &str, format: OutputFormat) {
+    if format.is_json() {
+        let output = AddOutput {
+            schema: "zjj://add-response/v1",
+            schema_version: "1.0",
+            schema_type: "single",
+            success: true,
+            name: name.to_string(),
+            workspace_path: workspace_path.to_string(),
+            zellij_tab: zellij_tab.to_string(),
+            message: format!("Created session '{}' ({})", name, mode),
+        };
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
+        );
+    } else {
+        println!("Created session '{}' (workspace at {})", name, workspace_path);
+    }
 }
 
 /// Create a JJ workspace for the session
