@@ -139,25 +139,6 @@ impl StateTransition {
 // SESSION STATE MANAGER
 // ═════════════════════════════════════════════════════════════════════════
 
-/// Helper macro to reduce boilerplate in state transition methods.
-///
-/// Consolidates the common pattern of creating a transition, recording it,
-/// and returning a new state manager with updated phantom type.
-macro_rules! transition_to_state {
-    ($self:expr, $from:expr, $to:expr, $new_state:ty, $reason:expr) => {{
-        let mut manager = $self;
-        let transition = StateTransition::new($from, $to, $reason);
-        manager.record_transition(transition)?;
-        Ok(SessionStateManager {
-            session_id: manager.session_id,
-            current_state: manager.current_state,
-            history: manager.history,
-            metadata: manager.metadata,
-            _state: PhantomData,
-        })
-    }};
-}
-
 /// Session state manager with type-safe state machine.
 ///
 /// Implements Railway-Oriented Programming with Result types for all transitions.
