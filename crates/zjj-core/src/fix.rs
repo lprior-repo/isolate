@@ -13,7 +13,7 @@ use crate::error::Error;
 
 /// Impact level of a fix operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "lowercase")]
 pub enum FixImpact {
     /// No side effects, always reversible
     Safe,
@@ -38,8 +38,9 @@ pub struct Fix {
     pub automatic: bool,
     /// Risk/impact level of this fix
     pub impact: FixImpact,
-    /// Optional explanation of why this fix works or what it does
-    pub explanation: Option<String>,
+    /// Optional rationale of why this fix works or what it does
+    #[serde(rename = "rationale")]
+    pub rationale: Option<String>,
 }
 
 impl Fix {
@@ -60,7 +61,7 @@ impl Fix {
             commands,
             automatic: true,
             impact: FixImpact::Safe,
-            explanation: None,
+            rationale: None,
         }
     }
 
@@ -82,14 +83,14 @@ impl Fix {
     pub fn risky(
         description: impl Into<String>,
         commands: Vec<String>,
-        explanation: impl Into<String>,
+        rationale: impl Into<String>,
     ) -> Self {
         Self {
             description: description.into(),
             commands,
             automatic: false,
             impact: FixImpact::Medium,
-            explanation: Some(explanation.into()),
+            rationale: Some(rationale.into()),
         }
     }
 
@@ -118,7 +119,7 @@ impl Fix {
             commands,
             automatic: false,
             impact: FixImpact::Destructive,
-            explanation: Some(warning.into()),
+            rationale: Some(warning.into()),
         }
     }
 
@@ -219,7 +220,7 @@ mod tests {
         assert_eq!(fix.commands, vec!["zjj add zjj-test-2"]);
         assert!(fix.automatic);
         assert_eq!(fix.impact, FixImpact::Safe);
-        assert!(fix.explanation.is_none());
+        assert!(fix.rationale.is_none());
     }
 
     #[test]
@@ -235,7 +236,7 @@ mod tests {
         assert!(!fix.automatic);
         assert_eq!(fix.impact, FixImpact::Medium);
         assert_eq!(
-            fix.explanation,
+            fix.rationale,
             Some("Will delete existing session and all its data".to_string())
         );
     }
@@ -253,7 +254,7 @@ mod tests {
         assert!(!fix.automatic);
         assert_eq!(fix.impact, FixImpact::Destructive);
         assert_eq!(
-            fix.explanation,
+            fix.rationale,
             Some("WARNING: This will delete all session data irreversibly".to_string())
         );
     }
@@ -265,7 +266,7 @@ mod tests {
             commands: Vec::new(),
             automatic: false,
             impact: FixImpact::Safe,
-            explanation: None,
+            rationale: None,
         };
 
         let result = fix.validate();
@@ -282,7 +283,7 @@ mod tests {
             commands: vec!["rm -rf /".to_string()],
             automatic: true,
             impact: FixImpact::Destructive,
-            explanation: None,
+            rationale: None,
         };
 
         let result = fix.validate();
@@ -299,7 +300,7 @@ mod tests {
             commands: vec!["echo test".to_string()],
             automatic: true,
             impact: FixImpact::Low,
-            explanation: None,
+            rationale: None,
         };
 
         assert!(fix.validate().is_ok());

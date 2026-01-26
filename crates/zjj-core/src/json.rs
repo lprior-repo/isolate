@@ -4,6 +4,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::fix::Fix;
+use crate::hints::NextAction;
+
 /// Standard JSON success response wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonSuccess<T> {
@@ -344,6 +347,12 @@ pub struct SchemaEnvelope<T> {
     /// Response data (flattened into envelope at JSON level)
     #[serde(flatten)]
     pub data: T,
+    /// Suggested next actions for AI agents
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub next: Vec<NextAction>,
+    /// Available fixes for errors (empty for success responses)
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub fixes: Vec<Fix>,
 }
 
 impl<T> SchemaEnvelope<T> {
@@ -366,6 +375,21 @@ impl<T> SchemaEnvelope<T> {
             schema_type: schema_type.to_string(),
             success: true,
             data,
+            next: Vec::new(),
+            fixes: Vec::new(),
+        }
+    }
+
+    /// Create a schema envelope with next actions
+    pub fn with_next(schema_name: &str, schema_type: &str, data: T, next: Vec<NextAction>) -> Self {
+        Self {
+            schema: format!("zjj://{schema_name}/v1"),
+            _schema_version: "1.0".to_string(),
+            schema_type: schema_type.to_string(),
+            success: true,
+            data,
+            next,
+            fixes: Vec::new(),
         }
     }
 }
@@ -388,6 +412,12 @@ pub struct SchemaEnvelopeArray<T> {
     pub success: bool,
     /// Array data (cannot be flattened, so stored as explicit field)
     pub data: Vec<T>,
+    /// Suggested next actions for AI agents
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub next: Vec<NextAction>,
+    /// Available fixes for errors (empty for success responses)
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub fixes: Vec<Fix>,
 }
 
 impl<T> SchemaEnvelopeArray<T> {
@@ -409,6 +439,8 @@ impl<T> SchemaEnvelopeArray<T> {
             schema_type: "array".to_string(),
             success: true,
             data,
+            next: Vec::new(),
+            fixes: Vec::new(),
         }
     }
 }
