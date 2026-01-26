@@ -1021,8 +1021,9 @@ mod tests {
                 name: "name".to_string(),
                 arg_type: "string".to_string(),
                 required: true,
-                description: "Session name (alphanumeric, dash, underscore; must start with letter)"
-                    .to_string(),
+                description:
+                    "Session name (alphanumeric, dash, underscore; must start with letter)"
+                        .to_string(),
                 validation: Some("^[a-zA-Z][a-zA-Z0-9_-]{0,63}$".to_string()),
                 examples: vec![
                     "my-session".to_string(),
@@ -1065,7 +1066,13 @@ mod tests {
     #[test]
     fn test_add_command_validation_accepts_standard_names() {
         // FAILING: Standard session names should be valid
-        let valid_names = vec!["session", "feature", "my-session", "my_session", "Session123"];
+        let valid_names = vec![
+            "session",
+            "feature",
+            "my-session",
+            "my_session",
+            "Session123",
+        ];
 
         for name in valid_names {
             assert!(
@@ -1168,7 +1175,10 @@ mod tests {
     fn test_add_command_validation_rejects_name_starting_with_dash() {
         // FAILING: Names starting with dash should be rejected
         let result = validate_add_session_name("-session");
-        assert!(result.is_err(), "Name starting with dash should be rejected");
+        assert!(
+            result.is_err(),
+            "Name starting with dash should be rejected"
+        );
     }
 
     #[test]

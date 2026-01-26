@@ -310,7 +310,7 @@ fn print_flags_by_category(flags: &[FlagSpec]) {
 ///
 /// Categories are displayed in the following order:
 /// 1. Behavior
-/// 2. Configuration  
+/// 2. Configuration
 /// 3. Filter
 /// 4. Output
 /// 5. Advanced
@@ -325,11 +325,7 @@ pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
     let grouped = flags.iter().fold(
         BTreeMap::new(),
         |mut acc: BTreeMap<String, Vec<&FlagSpec>>, flag| {
-            let category = flag
-                .category
-                .as_deref()
-                .unwrap_or("general")
-                .to_string();
+            let category = flag.category.as_deref().unwrap_or("general").to_string();
             acc.entry(category).or_insert_with(Vec::new).push(flag);
             acc
         },
@@ -371,7 +367,10 @@ pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
                 }
 
                 if !flag.possible_values.is_empty() {
-                    output.push_str(&format!("\n      Values: {}", flag.possible_values.join(", ")));
+                    output.push_str(&format!(
+                        "\n      Values: {}",
+                        flag.possible_values.join(", ")
+                    ));
                 }
             });
         });
@@ -399,12 +398,7 @@ fn capitalize_category(category: &str) -> String {
             let mut chars = word.chars();
             chars
                 .next()
-                .map(|first| {
-                    first
-                        .to_uppercase()
-                        .chain(chars)
-                        .collect::<String>()
-                })
+                .map(|first| first.to_uppercase().chain(chars).collect::<String>())
                 .unwrap_or_default()
         })
         .collect::<Vec<_>>()
@@ -494,8 +488,16 @@ fn create_list_filter_flags() -> Vec<FlagSpec> {
     vec![
         create_bool_flag("all", "Include completed and failed sessions"),
         create_bool_flag("json", "Output as JSON"),
-        create_string_filter_flag("bead", "b", "Filter by bead ID or pattern - supports dynamic values like 'feature-*'"),
-        create_string_filter_flag("agent", "a", "Filter by agent name or pattern - supports dynamic values"),
+        create_string_filter_flag(
+            "bead",
+            "b",
+            "Filter by bead ID or pattern - supports dynamic values like 'feature-*'",
+        ),
+        create_string_filter_flag(
+            "agent",
+            "a",
+            "Filter by agent name or pattern - supports dynamic values",
+        ),
     ]
 }
 
@@ -506,9 +508,15 @@ fn create_list_examples() -> Vec<CommandExample> {
     vec![
         create_example("zjj list", "List active sessions"),
         create_example("zjj list --all", "List all sessions including completed"),
-        create_example("zjj list --bead feature-123", "List sessions for bead feature-123"),
+        create_example(
+            "zjj list --bead feature-123",
+            "List sessions for bead feature-123",
+        ),
         create_example("zjj list --agent alice", "List sessions assigned to alice"),
-        create_example("zjj list --bead feature-123 --agent alice", "List feature-123 sessions assigned to alice"),
+        create_example(
+            "zjj list --bead feature-123 --agent alice",
+            "List feature-123 sessions assigned to alice",
+        ),
     ]
 }
 
@@ -549,9 +557,18 @@ fn create_add_flags() -> Vec<FlagSpec> {
 /// Add command examples showing various usage patterns
 fn create_add_examples() -> Vec<CommandExample> {
     vec![
-        create_example("zjj add feature-auth", "Create session with default template"),
-        create_example("zjj add bugfix-123 --no-hooks", "Create without running hooks"),
-        create_example("zjj add experiment -t minimal", "Create with minimal layout"),
+        create_example(
+            "zjj add feature-auth",
+            "Create session with default template",
+        ),
+        create_example(
+            "zjj add bugfix-123 --no-hooks",
+            "Create without running hooks",
+        ),
+        create_example(
+            "zjj add experiment -t minimal",
+            "Create with minimal layout",
+        ),
     ]
 }
 
@@ -658,13 +675,11 @@ fn create_remove_examples() -> Vec<CommandExample> {
 
 /// Remove command error conditions
 fn create_remove_error_conditions() -> Vec<ErrorCondition> {
-    vec![
-        create_error_condition(
-            "SESSION_NOT_FOUND",
-            "The specified session does not exist in the database",
-            "List active sessions with 'zjj list' to verify the session name",
-        ),
-    ]
+    vec![create_error_condition(
+        "SESSION_NOT_FOUND",
+        "The specified session does not exist in the database",
+        "List active sessions with 'zjj list' to verify the session name",
+    )]
 }
 
 fn get_remove_introspection() -> CommandIntrospection {
@@ -890,7 +905,7 @@ fn get_diff_introspection() -> CommandIntrospection {
             flag_type: "bool".to_string(),
             default: Some(serde_json::json!(false)),
             possible_values: vec![],
-                category: None,
+            category: None,
         }],
         examples: vec![
             CommandExample {
@@ -933,7 +948,7 @@ fn get_introspect_introspection() -> CommandIntrospection {
             flag_type: "bool".to_string(),
             default: Some(serde_json::json!(false)),
             possible_values: vec![],
-                category: None,
+            category: None,
         }],
         examples: vec![
             CommandExample {
@@ -1038,7 +1053,7 @@ fn get_query_introspection() -> CommandIntrospection {
             flag_type: "bool".to_string(),
             default: Some(serde_json::json!(true)),
             possible_values: vec![],
-                category: None,
+            category: None,
         }],
         examples: vec![
             CommandExample {
