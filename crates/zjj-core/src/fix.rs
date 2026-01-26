@@ -50,10 +50,7 @@ impl Fix {
     /// ```
     /// use zjj_core::fix::Fix;
     ///
-    /// let fix = Fix::safe(
-    ///     "Use different name",
-    ///     vec!["zjj add zjj-test-2".to_string()]
-    /// );
+    /// let fix = Fix::safe("Use different name", vec!["zjj add zjj-test-2".to_string()]);
     /// assert!(fix.automatic);
     /// ```
     #[must_use]
@@ -77,7 +74,7 @@ impl Fix {
     /// let fix = Fix::risky(
     ///     "Remove existing session",
     ///     vec!["zjj remove test".to_string()],
-    ///     "Will delete existing session and all its data"
+    ///     "Will delete existing session and all its data",
     /// );
     /// assert!(!fix.automatic);
     /// ```
@@ -106,7 +103,7 @@ impl Fix {
     /// let fix = Fix::destructive(
     ///     "Force delete all data",
     ///     vec!["rm -rf .zjj".to_string()],
-    ///     "WARNING: This will delete all session data irreversibly"
+    ///     "WARNING: This will delete all session data irreversibly",
     /// );
     /// assert!(!fix.automatic);
     /// ```
@@ -216,10 +213,7 @@ mod tests {
 
     #[test]
     fn test_safe_fix_creation() {
-        let fix = Fix::safe(
-            "Use different name",
-            vec!["zjj add zjj-test-2".to_string()],
-        );
+        let fix = Fix::safe("Use different name", vec!["zjj add zjj-test-2".to_string()]);
 
         assert_eq!(fix.description, "Use different name");
         assert_eq!(fix.commands, vec!["zjj add zjj-test-2"]);
@@ -318,7 +312,10 @@ mod tests {
         let error_with_fixes = ErrorWithFixes::new(error, fix);
 
         assert_eq!(error_with_fixes.fixes().len(), 1);
-        assert_eq!(error_with_fixes.fixes()[0].description, "Use different name");
+        assert_eq!(
+            error_with_fixes.fixes()[0].description,
+            "Use different name"
+        );
     }
 
     #[test]

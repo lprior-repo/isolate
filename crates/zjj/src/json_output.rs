@@ -169,7 +169,9 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
 /// Suggest resolution for an error code
 fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
     match code {
-        ErrorCode::StateDbCorrupted => Some("Try running 'zjj doctor --fix' to repair the database"),
+        ErrorCode::StateDbCorrupted => {
+            Some("Try running 'zjj doctor --fix' to repair the database")
+        }
         ErrorCode::SessionNotFound => Some("Use 'zjj list' to see available sessions"),
         ErrorCode::JjNotInstalled => Some("Install JJ: cargo install jj-cli or brew install jj"),
         ErrorCode::NotJjRepository => Some("Run 'zjj init' to initialize a JJ repository"),

@@ -51,10 +51,7 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
         return Ok(());
     }
 
-    let stale_names: Vec<String> = stale_sessions
-        .iter()
-        .map(|s| s.name.clone())
-        .collect();
+    let stale_names: Vec<String> = stale_sessions.iter().map(|s| s.name.clone()).collect();
 
     // 3. Dry-run: list and exit
     if options.dry_run {
@@ -69,13 +66,11 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
     }
 
     // 5. Remove stale sessions using functional fold for error handling
-    let removed_count = stale_sessions
-        .iter()
-        .try_fold(0, |count, session| {
-            db.delete(&session.name)
-                .map_err(anyhow::Error::new)
-                .map(|_| count + 1)
-        })?;
+    let removed_count = stale_sessions.iter().try_fold(0, |count, session| {
+        db.delete(&session.name)
+            .map_err(anyhow::Error::new)
+            .map(|_| count + 1)
+    })?;
 
     // 6. Output result
     output_result(removed_count, &stale_names, options.json);
@@ -118,7 +113,10 @@ fn output_dry_run(stale_names: &[String], json: bool) {
             println!("{json_str}");
         }
     } else {
-        println!("Found {} stale session(s) (dry-run, no changes made):", stale_names.len());
+        println!(
+            "Found {} stale session(s) (dry-run, no changes made):",
+            stale_names.len()
+        );
         stale_names.iter().for_each(|name| {
             println!("  - {name}");
         });
@@ -255,9 +253,9 @@ mod tests {
         let sessions = vec!["s1", "s2", "s3"];
 
         // Simulate successful removals using functional fold
-        let count = sessions.iter().try_fold(0, |acc, _| -> Result<i32> {
-            Ok(acc + 1)
-        });
+        let count = sessions
+            .iter()
+            .try_fold(0, |acc, _| -> Result<i32> { Ok(acc + 1) });
 
         assert_eq!(count.ok(), Some(3));
     }
