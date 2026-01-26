@@ -33,3 +33,4 @@ Thumbs.db
 # ZJJ runtime data
 .zjj/
 workspaces/
+.tdd15-worktree/
