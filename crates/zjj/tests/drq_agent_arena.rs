@@ -271,10 +271,10 @@ fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_concurrent_add_same_name() -> Result<(), Box<dyn std::error::Error>> {
+fn test_concurrent_add_same_name() {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return Ok(());
+        return;
     };
 
     harness.assert_success(&["init"]);
@@ -296,7 +296,6 @@ fn test_concurrent_add_same_name() -> Result<(), Box<dyn std::error::Error>> {
     if result1.success {
         harness.assert_success(&["remove", "race-test", "-f"]);
     }
-    Ok(())
 }
 
 #[test]
@@ -483,7 +482,7 @@ fn test_query_operations_in_progress_empty() -> Result<(), Box<dyn std::error::E
     );
     assert!(json["operations"]
         .as_array()
-        .map(|v| v.is_empty())
+        .map(Vec::is_empty)
         .unwrap_or(true));
     Ok(())
 }
@@ -548,16 +547,14 @@ fn test_all_query_commands_use_schema_envelope() -> Result<(), Box<dyn std::erro
 // Helper Functions
 // ============================================================================
 
-/// Validate that JSON output uses SchemaEnvelope structure
+/// Validate that JSON output uses `SchemaEnvelope` structure
 fn validate_schema_envelope(json_str: &str, command_name: &str) -> Result<(), Box<dyn std::error::Error>> {
     let json = parse_json(json_str)
-        .map_err(|e| format!("{}: Invalid JSON: {}", command_name, e))?;
+        .map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
 
     assert!(
         json.get("$schema").is_some(),
-        "{}: Missing $schema field in output: {}",
-        command_name,
-        json_str
+        "{command_name}: Missing $schema field in output: {json_str}"
     );
     assert!(
         json.get("_schema_version").is_some(),
