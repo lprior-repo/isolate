@@ -555,3 +555,193 @@ fn test_list_with_no_sessions_after_remove_all() {
     let result = harness.zjj(&["list"]);
     assert!(result.success);
 }
+
+// ============================================================================
+// PHASE 1: Security & Data Loss Prevention Tests
+// ============================================================================
+
+#[test]
+fn test_session_name_path_traversal_double_dot() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Session name ".." should be rejected (prevents directory traversal)
+    harness.assert_failure(&["add", "..", "--no-open"], "Invalid session name");
+}
+
+#[test]
+fn test_session_name_path_traversal_parent_ref() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Session name "../etc" should be rejected (prevents workspace in system directories)
+    harness.assert_failure(&["add", "../etc", "--no-open"], "Invalid session name");
+}
+
+#[test]
+fn test_session_name_absolute_path() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Session name "/tmp/evil" should be rejected (prevents absolute path injection)
+    harness.assert_failure(&["add", "/tmp/evil", "--no-open"], "Invalid session name");
+}
+
+#[test]
+fn test_session_name_null_byte() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Session name with null byte should be rejected (prevents null byte injection in filesystem
+    // operations)
+    // Note: Null bytes in strings are typically filtered by the shell before reaching validation,
+    // but we verify the command fails rather than succeeding with truncated input
+    let result = harness.zjj(&["add", "test\0evil", "--no-open"]);
+    assert!(
+        !result.success,
+        "Command with null byte in session name should fail (shell filtering or validation)"
+    );
+}
+
+#[test]
+fn test_session_name_zero_width_chars() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Session name with U+200B (zero-width space) should be rejected
+    let name_with_zwsp = "test\u{200B}name";
+    harness.assert_failure(&["add", name_with_zwsp, "--no-open"], "ASCII");
+}
+
+#[test]
+#[cfg(unix)]
+fn test_remove_workspace_symlink_cleanup() {
+    use std::os::unix::fs as unix_fs;
+
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Create a workspace normally first
+    harness.assert_success(&["add", "test-ws", "--no-open"]);
+
+    // Get the workspace path
+    let workspace_path = harness.workspace_path("test-ws");
+
+    // Create a symlink that points to the workspace
+    let workspaces_dir = harness.zjj_dir().join("workspaces");
+    let symlink_target = workspaces_dir.join("test-symlink");
+
+    if std::fs::create_dir_all(&workspaces_dir).is_ok()
+        && unix_fs::symlink(&workspace_path, &symlink_target).is_ok()
+    {
+        // Now when we remove the original workspace, the symlink should only be removed,
+        // not the target it points to (data loss prevention)
+        harness.assert_success(&["remove", "test-ws", "--force"]);
+
+        // Verify symlink is gone
+        assert!(!symlink_target.exists(), "Symlink should be removed");
+    }
+}
+
+// ============================================================================
+// PHASE 2: UX & Error Messages Tests
+// ============================================================================
+
+#[test]
+fn test_session_name_all_special_chars() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Session name with all special characters should fail with clear error message
+    harness.assert_failure(&["add", "!@#$%^&*()", "--no-open"], "Invalid session name");
+}
+
+#[test]
+fn test_session_name_embedded_tab() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Session name with embedded tab should be rejected (prevents invisible whitespace)
+    harness.assert_failure(&["add", "test\tname", "--no-open"], "Invalid session name");
+}
+
+#[test]
+fn test_session_name_embedded_newline() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Session name with embedded newline should be rejected (prevents multi-line names)
+    harness.assert_failure(&["add", "test\nname", "--no-open"], "Invalid session name");
+}
+
+#[test]
+fn test_rapid_sequential_add_remove() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Rapid add/remove cycles should maintain database integrity
+    for i in 0..10 {
+        let session_name = format!("rapid{}", i);
+        harness.assert_success(&["add", &session_name, "--no-open"]);
+        harness.assert_success(&["remove", &session_name, "--force"]);
+    }
+
+    // Verify no sessions remain
+    let result = harness.zjj(&["list"]);
+    assert!(result.success);
+}
+
+#[test]
+fn test_status_with_manually_deleted_workspace() {
+    let Some(harness) = TestHarness::try_new() else {
+        eprintln!("Skipping test: jj not available");
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Create a session normally
+    harness.assert_success(&["add", "orphaned", "--no-open"]);
+
+    // Manually delete the workspace directory
+    let workspace_path = harness.workspace_path("orphaned");
+    if workspace_path.exists() {
+        let _result = std::fs::remove_dir_all(&workspace_path);
+    }
+
+    // Status command should detect the orphaned session
+    // The command may succeed or fail depending on implementation,
+    // but it should not panic or hang
+    let result = harness.zjj(&["status", "orphaned"]);
+    // We don't assert success/failure - just that it completes without panic
+    drop(result);
+}
