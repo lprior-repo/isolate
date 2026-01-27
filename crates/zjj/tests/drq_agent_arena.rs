@@ -23,6 +23,11 @@ mod common;
 use common::TestHarness;
 use serde_json::Value as JsonValue;
 
+/// Parse JSON from string, returning Result for error propagation
+fn parse_json(s: &str) -> Result<JsonValue, serde_json::Error> {
+    serde_json::from_str(s)
+}
+
 
 // ============================================================================
 // ROUND 1: JSON Schema Consistency Tests
@@ -30,11 +35,11 @@ use serde_json::Value as JsonValue;
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_all_json_outputs_use_schema_envelope() {
+fn test_all_json_outputs_use_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     // Every command with --json should return SchemaEnvelope
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     // Initialize zjj first
@@ -53,17 +58,19 @@ fn test_all_json_outputs_use_schema_envelope() {
     for args in json_commands {
         let result = harness.zjj(&args);
         if result.success {
-            validate_schema_envelope(&result.stdout, args[0]);
+            validate_schema_envelope(&result.stdout, args[0])?;
         }
     }
+
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_json_output_has_required_fields() {
+fn test_json_output_has_required_fields() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -72,13 +79,7 @@ fn test_json_output_has_required_fields() {
     let result = harness.zjj(&["status", "test-session", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = match serde_json::from_str(&result.stdout) {
-        Ok(j) => j,
-        Err(e) => {
-            assert!(false, "JSON output should be valid: {e}");
-            return;
-        }
-    };
+    let json = parse_json(&result.stdout)?;
 
     // All JSON outputs must have these fields
     assert!(json.get("$schema").is_some(), "Missing $schema field");
@@ -87,14 +88,16 @@ fn test_json_output_has_required_fields() {
         "Missing _schema_version field"
     );
     assert!(json.get("success").is_some(), "Missing success field");
+
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_diff_uses_schema_envelope() {
+fn test_diff_uses_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -103,8 +106,9 @@ fn test_diff_uses_schema_envelope() {
     let result = harness.zjj(&["diff", "test-session", "--json"]);
     // Diff might fail if no changes, but JSON format should still be consistent
     if result.success {
-        validate_schema_envelope(&result.stdout, "diff");
+        validate_schema_envelope(&result.stdout, "diff")?;
     }
+    Ok(())
 }
 
 // ============================================================================
@@ -113,10 +117,10 @@ fn test_diff_uses_schema_envelope() {
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_failed_add_leaves_no_artifacts() {
+fn test_failed_add_leaves_no_artifacts() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -135,22 +139,19 @@ fn test_failed_add_leaves_no_artifacts() {
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success);
 
-    let json: JsonValue = match serde_json::from_str(&list_result.stdout) {
-        Ok(j) => j,
-        Err(e) => {
-            panic!("Failed to parse JSON: {e}");
-        }
-    };
+    let json = parse_json(&list_result.stdout)?;
     let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
     assert_eq!(count, 1, "Should have exactly 1 session");
+
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_remove_cleans_up_all_artifacts() {
+fn test_remove_cleans_up_all_artifacts() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -166,9 +167,10 @@ fn test_remove_cleans_up_all_artifacts() {
 
     // Verify session is not in database
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue = serde_json::from_str(&list_result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&list_result.stdout)?;
     let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
     assert_eq!(count, 0, "Should have 0 sessions after remove");
+    Ok(())
 }
 
 // ============================================================================
@@ -177,10 +179,10 @@ fn test_remove_cleans_up_all_artifacts() {
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_complete_agent_workflow() {
+fn test_complete_agent_workflow() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     // 1. Initialize zjj
@@ -196,7 +198,7 @@ fn test_complete_agent_workflow() {
     // 4. Query session state
     let query_result = harness.zjj(&["query", "session-exists", "feature-1", "--json"]);
     assert!(query_result.success);
-    let json: JsonValue = serde_json::from_str(&query_result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&query_result.stdout)?;
     assert_eq!(json["exists"], true);
 
     // 5. Remove session (cleanup)
@@ -205,16 +207,17 @@ fn test_complete_agent_workflow() {
     // 6. Verify cleanup
     let query_result2 = harness.zjj(&["query", "session-exists", "feature-1", "--json"]);
     assert!(query_result2.success);
-    let json2: JsonValue = serde_json::from_str(&query_result2.stdout).expect("valid JSON");
+    let json2: JsonValue = parse_json(&query_result2.stdout)?;
     assert_eq!(json2["exists"], false);
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_context_command_for_agents() {
+fn test_context_command_for_agents() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -223,7 +226,7 @@ fn test_context_command_for_agents() {
     let result = harness.zjj(&["context", "--json"]);
     assert!(result.success, "context command should succeed");
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&result.stdout)?;
 
     // Context should provide all the information an AI agent needs
     assert!(json.get("zjj").is_some(), "Context should have zjj section");
@@ -232,14 +235,15 @@ fn test_context_command_for_agents() {
         json.get("zellij").is_some(),
         "Context should have zellij section"
     );
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_query_command_discovery() {
+fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -247,7 +251,7 @@ fn test_query_command_discovery() {
     // Test session-count query
     let result = harness.zjj(&["query", "session-count", "--json"]);
     assert!(result.success);
-    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&result.stdout)?;
     assert_eq!(json["count"], 0, "Should have 0 sessions initially");
 
     // Add a session
@@ -256,8 +260,9 @@ fn test_query_command_discovery() {
     // Query again
     let result2 = harness.zjj(&["query", "session-count", "--json"]);
     assert!(result2.success);
-    let json2: JsonValue = serde_json::from_str(&result2.stdout).expect("valid JSON");
+    let json2: JsonValue = parse_json(&result2.stdout)?;
     assert_eq!(json2["count"], 1, "Should have 1 session after add");
+    Ok(())
 }
 
 // ============================================================================
@@ -266,10 +271,10 @@ fn test_query_command_discovery() {
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_concurrent_add_same_name() {
+fn test_concurrent_add_same_name() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -291,14 +296,15 @@ fn test_concurrent_add_same_name() {
     if result1.success {
         harness.assert_success(&["remove", "race-test", "-f"]);
     }
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_multiple_sessions_isolation() {
+fn test_multiple_sessions_isolation() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -310,7 +316,7 @@ fn test_multiple_sessions_isolation() {
 
     // Verify all sessions exist independently
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue = serde_json::from_str(&list_result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&list_result.stdout)?;
     let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
     assert_eq!(count, 3, "Should have 3 sessions");
 
@@ -324,6 +330,7 @@ fn test_multiple_sessions_isolation() {
     harness.assert_success(&["remove", "session-a", "-f"]);
     harness.assert_success(&["remove", "session-b", "-f"]);
     harness.assert_success(&["remove", "session-c", "-f"]);
+    Ok(())
 }
 
 // ============================================================================
@@ -332,10 +339,10 @@ fn test_multiple_sessions_isolation() {
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_error_responses_have_consistent_structure() {
+fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -344,7 +351,7 @@ fn test_error_responses_have_consistent_structure() {
     let result = harness.zjj(&["status", "nonexistent", "--json"]);
     assert!(!result.success, "Should fail for non-existent session");
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&result.stdout)?;
 
     // Error responses must have these fields
     assert!(
@@ -365,21 +372,22 @@ fn test_error_responses_have_consistent_structure() {
         json["error"].get("exit_code").is_some(),
         "Error should have exit_code"
     );
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_not_found_vs_validation_error_codes() {
+fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
 
     // Test not found error (exit code 2)
     let result1 = harness.zjj(&["status", "nonexistent", "--json"]);
-    let json1: JsonValue = serde_json::from_str(&result1.stdout).expect("valid JSON");
+    let json1: JsonValue = parse_json(&result1.stdout)?;
     assert_eq!(
         json1["error"]["exit_code"], 2,
         "Not found should be exit code 2"
@@ -387,11 +395,12 @@ fn test_not_found_vs_validation_error_codes() {
 
     // Test validation error (exit code 1)
     let result2 = harness.zjj(&["add", "123invalid", "--no-open", "--json"]);
-    let json2: JsonValue = serde_json::from_str(&result2.stdout).expect("valid JSON");
+    let json2: JsonValue = parse_json(&result2.stdout)?;
     assert_eq!(
         json2["error"]["exit_code"], 1,
         "Validation error should be exit code 1"
     );
+    Ok(())
 }
 
 // ============================================================================
@@ -400,10 +409,10 @@ fn test_not_found_vs_validation_error_codes() {
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_query_session_locked_no_locks() {
+fn test_query_session_locked_no_locks() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -415,7 +424,7 @@ fn test_query_session_locked_no_locks() {
         "Query should succeed even for non-existent session"
     );
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&result.stdout)?;
     assert_eq!(
         json["locked"], false,
         "Non-existent session should not be locked"
@@ -424,14 +433,15 @@ fn test_query_session_locked_no_locks() {
         json["lock_info"].is_null(),
         "lock_info should be null when not locked"
     );
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_query_session_locked_with_session() {
+fn test_query_session_locked_with_session() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -441,7 +451,7 @@ fn test_query_session_locked_with_session() {
     let result = harness.zjj(&["query", "session-locked", "test-session", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&result.stdout)?;
     assert_eq!(
         json["locked"], false,
         "Session should not be locked when idle"
@@ -449,14 +459,15 @@ fn test_query_session_locked_with_session() {
 
     // Cleanup
     harness.assert_success(&["remove", "test-session", "-f"]);
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_query_operations_in_progress_empty() {
+fn test_query_operations_in_progress_empty() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -465,7 +476,7 @@ fn test_query_operations_in_progress_empty() {
     let result = harness.zjj(&["query", "operations-in-progress", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&result.stdout)?;
     assert_eq!(
         json["count"], 0,
         "Should have 0 active operations initially"
@@ -474,14 +485,15 @@ fn test_query_operations_in_progress_empty() {
         .as_array()
         .map(|v| v.is_empty())
         .unwrap_or(true));
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_query_operations_in_progress_with_session() {
+fn test_query_operations_in_progress_with_session() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -491,7 +503,7 @@ fn test_query_operations_in_progress_with_session() {
     let result = harness.zjj(&["query", "operations-in-progress", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
+    let json: JsonValue = parse_json(&result.stdout)?;
     assert_eq!(
         json["count"], 0,
         "Session creation doesn't create a persistent lock"
@@ -499,14 +511,15 @@ fn test_query_operations_in_progress_with_session() {
 
     // Cleanup
     harness.assert_success(&["remove", "active-session", "-f"]);
+    Ok(())
 }
 
 #[test]
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_all_query_commands_use_schema_envelope() {
+fn test_all_query_commands_use_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
-        return;
+        return Ok(());
     };
 
     harness.assert_success(&["init"]);
@@ -524,10 +537,11 @@ fn test_all_query_commands_use_schema_envelope() {
         if result.success {
             validate_schema_envelope(
                 &result.stdout,
-                &query.split_whitespace().next().unwrap_or(query),
-            );
+                query.split_whitespace().next().unwrap_or(query),
+            )?;
         }
     }
+    Ok(())
 }
 
 // ============================================================================
@@ -535,9 +549,9 @@ fn test_all_query_commands_use_schema_envelope() {
 // ============================================================================
 
 /// Validate that JSON output uses SchemaEnvelope structure
-fn validate_schema_envelope(json_str: &str, command_name: &str) {
-    let json: JsonValue = serde_json::from_str(json_str)
-        .unwrap_or_else(|e| panic!("{}: Invalid JSON: {}", command_name, e));
+fn validate_schema_envelope(json_str: &str, command_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let json = parse_json(json_str)
+        .map_err(|e| format!("{}: Invalid JSON: {}", command_name, e))?;
 
     assert!(
         json.get("$schema").is_some(),
@@ -555,9 +569,13 @@ fn validate_schema_envelope(json_str: &str, command_name: &str) {
     );
 
     // Validate schema format
-    let schema = json["$schema"].as_str().unwrap();
+    let schema = json["$schema"]
+        .as_str()
+        .ok_or_else(|| format!("{command_name}: $schema field is not a string"))?;
     assert!(
         schema.starts_with("zjj://"),
         "{command_name}: $schema should start with 'zjj://', got: {schema}"
     );
+
+    Ok(())
 }
