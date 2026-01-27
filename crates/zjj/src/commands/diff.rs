@@ -105,7 +105,7 @@ fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: OutputFormat
 /// Run the diff command
 pub fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
     let db = get_session_db()?;
-    let session = db.get(name)?.ok_or_else(|| {
+    let session = db.get_blocking(name)?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{name}' not found"
         )))
@@ -217,7 +217,7 @@ mod tests {
     fn setup_test_db() -> Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open(&db_path)?;
+        let db = SessionDb::open_blocking(&db_path)?;
         Ok((db, dir))
     }
 
@@ -287,7 +287,7 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session with a non-existent workspace
-        let session = db.create("test-session", "/nonexistent/path")?;
+        let session = db.create_blocking("test-session", "/nonexistent/path")?;
 
         // Verify the session exists
         assert_eq!(session.name, "test-session");

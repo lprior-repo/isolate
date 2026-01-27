@@ -47,7 +47,7 @@ pub fn run(all: bool, format: OutputFormat, bead: Option<&str>, agent: Option<&s
         // Filter sessions: exclude completed/failed unless --all is used
         // Single-pass filtering using iterator chain for O(n) complexity
         let sessions: Vec<Session> = db
-            .list(None)?
+            .list_blocking(None)?
             .into_iter()
             .filter(|s| {
                 // Filter by status: exclude completed/failed unless --all flag is set
@@ -230,7 +230,7 @@ mod tests {
     fn setup_test_db() -> Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open(&db_path)?;
+        let db = SessionDb::open_blocking(&db_path)?;
         Ok((db, dir))
     }
 
@@ -350,8 +350,8 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create sessions with different statuses
-        let s1 = db.create("active-session", "/tmp/active")?;
-        db.update(
+        let s1 = db.create_blocking("active-session", "/tmp/active")?;
+        db.update_blocking(
             &s1.name,
             SessionUpdate {
                 status: Some(SessionStatus::Active),
@@ -359,8 +359,8 @@ mod tests {
             },
         )?;
 
-        let s2 = db.create("completed-session", "/tmp/completed")?;
-        db.update(
+        let s2 = db.create_blocking("completed-session", "/tmp/completed")?;
+        db.update_blocking(
             &s2.name,
             SessionUpdate {
                 status: Some(SessionStatus::Completed),
@@ -368,8 +368,8 @@ mod tests {
             },
         )?;
 
-        let s3 = db.create("failed-session", "/tmp/failed")?;
-        db.update(
+        let s3 = db.create_blocking("failed-session", "/tmp/failed")?;
+        db.update_blocking(
             &s3.name,
             SessionUpdate {
                 status: Some(SessionStatus::Failed),
@@ -377,8 +377,8 @@ mod tests {
             },
         )?;
 
-        let s4 = db.create("paused-session", "/tmp/paused")?;
-        db.update(
+        let s4 = db.create_blocking("paused-session", "/tmp/paused")?;
+        db.update_blocking(
             &s4.name,
             SessionUpdate {
                 status: Some(SessionStatus::Paused),
@@ -387,7 +387,7 @@ mod tests {
         )?;
 
         // Get all sessions and filter
-        let mut sessions = db.list(None)?;
+        let mut sessions = db.list_blocking(None)?;
 
         // Simulate the filtering logic from run()
         sessions
@@ -408,9 +408,9 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create sessions with different statuses
-        db.create("active-session", "/tmp/active")?;
-        let s2 = db.create("completed-session", "/tmp/completed")?;
-        db.update(
+        db.create_blocking("active-session", "/tmp/active")?;
+        let s2 = db.create_blocking("completed-session", "/tmp/completed")?;
+        db.update_blocking(
             &s2.name,
             SessionUpdate {
                 status: Some(SessionStatus::Completed),
@@ -419,11 +419,11 @@ mod tests {
         )?;
 
         // With all=true, no filtering
-        let sessions = db.list(None)?;
+        let sessions = db.list_blocking(None)?;
         assert_eq!(sessions.len(), 2);
 
         // With all=false, filter out completed
-        let mut filtered = db.list(None)?;
+        let mut filtered = db.list_blocking(None)?;
         filtered
             .retain(|s| s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
         assert_eq!(filtered.len(), 1);
@@ -435,7 +435,7 @@ mod tests {
     async fn test_empty_list_handling() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
-        let sessions = db.list(None)?;
+        let sessions = db.list_blocking(None)?;
         assert!(sessions.is_empty());
 
         Ok(())
@@ -483,7 +483,7 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create sessions with different combinations of properties
-        let s1 = db.create("active-bead-123", "/tmp/s1")?;
+        let s1 = db.create_blocking("active-bead-123", "/tmp/s1")?;
         let mut metadata1 = serde_json::Map::new();
         metadata1.insert(
             "bead_id".to_string(),
@@ -493,7 +493,7 @@ mod tests {
             "owner".to_string(),
             serde_json::Value::String("agent-a".to_string()),
         );
-        db.update(
+        db.update_blocking(
             &s1.name,
             SessionUpdate {
                 status: Some(SessionStatus::Active),
@@ -502,7 +502,7 @@ mod tests {
             },
         )?;
 
-        let s2 = db.create("completed-bead-123", "/tmp/s2")?;
+        let s2 = db.create_blocking("completed-bead-123", "/tmp/s2")?;
         let mut metadata2 = serde_json::Map::new();
         metadata2.insert(
             "bead_id".to_string(),
@@ -512,7 +512,7 @@ mod tests {
             "owner".to_string(),
             serde_json::Value::String("agent-a".to_string()),
         );
-        db.update(
+        db.update_blocking(
             &s2.name,
             SessionUpdate {
                 status: Some(SessionStatus::Completed),
@@ -521,7 +521,7 @@ mod tests {
             },
         )?;
 
-        let s3 = db.create("active-bead-456", "/tmp/s3")?;
+        let s3 = db.create_blocking("active-bead-456", "/tmp/s3")?;
         let mut metadata3 = serde_json::Map::new();
         metadata3.insert(
             "bead_id".to_string(),
@@ -531,7 +531,7 @@ mod tests {
             "owner".to_string(),
             serde_json::Value::String("agent-b".to_string()),
         );
-        db.update(
+        db.update_blocking(
             &s3.name,
             SessionUpdate {
                 status: Some(SessionStatus::Active),
@@ -542,7 +542,7 @@ mod tests {
 
         // Test 1: Filter by bead_id=123 AND agent=agent-a (excludes completed)
         let filtered: Vec<Session> = db
-            .list(None)?
+            .list_blocking(None)?
             .into_iter()
             .filter(|s| {
                 let status_matches =
@@ -550,14 +550,14 @@ mod tests {
                 let bead_matches = s
                     .metadata
                     .as_ref()
-                    .and_then(|m| m.get("bead_id"))
-                    .and_then(|v| v.as_str())
+                    .and_then(|m: &serde_json::Value| m.get("bead_id"))
+                    .and_then(|v: &serde_json::Value| v.as_str())
                     == Some("123");
                 let agent_matches = s
                     .metadata
                     .as_ref()
-                    .and_then(|m| m.get("owner"))
-                    .and_then(|v| v.as_str())
+                    .and_then(|m: &serde_json::Value| m.get("owner"))
+                    .and_then(|v: &serde_json::Value| v.as_str())
                     == Some("agent-a");
                 status_matches && bead_matches && agent_matches
             })
@@ -568,7 +568,7 @@ mod tests {
 
         // Test 2: Filter by bead_id=456 only (excludes completed)
         let filtered2: Vec<Session> = db
-            .list(None)?
+            .list_blocking(None)?
             .into_iter()
             .filter(|s| {
                 let status_matches =
@@ -576,8 +576,8 @@ mod tests {
                 let bead_matches = s
                     .metadata
                     .as_ref()
-                    .and_then(|m| m.get("bead_id"))
-                    .and_then(|v| v.as_str())
+                    .and_then(|m: &serde_json::Value| m.get("bead_id"))
+                    .and_then(|v: &serde_json::Value| v.as_str())
                     == Some("456");
                 status_matches && bead_matches
             })

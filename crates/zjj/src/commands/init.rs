@@ -238,7 +238,7 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
 
     // Initialize the database
     let db_path = zjj_dir.join("state.db");
-    let _db = SessionDb::open(&db_path)?;
+    let _db = SessionDb::open_blocking(&db_path)?;
 
     if format.is_json() {
         let response = build_init_response(&root, false);
@@ -561,8 +561,8 @@ mod tests {
         assert!(db_path.is_file(), "state.db is not a file");
 
         // Verify it's a valid SQLite database with correct schema
-        let db = SessionDb::open(&db_path)?;
-        let sessions = db.list(None)?;
+        let db = SessionDb::open_blocking(&db_path)?;
+        let sessions = db.list_blocking(None)?;
         assert_eq!(sessions.len(), 0); // Should be empty initially
 
         Ok(())

@@ -104,7 +104,7 @@ fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
     let sessions = if let Some(session_name) = name {
         // Get single session
         // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-        let session = db.get(session_name)?.ok_or_else(|| {
+        let session = db.get_blocking(session_name)?.ok_or_else(|| {
             anyhow::Error::new(zjj_core::Error::NotFound(format!(
                 "Session '{session_name}' not found"
             )))
@@ -112,7 +112,7 @@ fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
         vec![session]
     } else {
         // Get all sessions
-        db.list(None)?
+        db.list_blocking(None)?
     };
 
     if sessions.is_empty() {

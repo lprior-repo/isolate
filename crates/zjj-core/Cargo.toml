@@ -29,7 +29,7 @@ either = "1.13"
 futures = "0.3"
 notify = "6"
 notify-debouncer-mini = "0.4"
-rusqlite = { version = "0.34", features = ["bundled"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1.11"
 

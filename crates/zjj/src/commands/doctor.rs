@@ -244,7 +244,7 @@ fn check_state_db() -> DoctorCheck {
             auto_fixable: false,
             details: None,
         },
-        |db| match db.list(None) {
+        |db| match db.list_blocking(None) {
             Ok(sessions) => DoctorCheck {
                 name: "State Database".to_string(),
                 status: CheckStatus::Pass,
@@ -297,7 +297,7 @@ fn check_orphaned_workspaces() -> DoctorCheck {
     // Get list of sessions from DB
     let session_names = get_session_db()
         .ok()
-        .and_then(|db| db.list(None).ok())
+        .and_then(|db| db.list_blocking(None).ok())
         .map(|sessions| sessions.into_iter().map(|s| s.name).collect::<Vec<_>>())
         .unwrap_or_default();
 

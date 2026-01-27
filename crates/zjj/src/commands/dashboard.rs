@@ -202,7 +202,7 @@ fn setup_file_watcher(
 ) -> Result<tokio::sync::mpsc::Receiver<WatchEvent>> {
     // Get all workspace paths from sessions
     let db = get_session_db()?;
-    let sessions = db.list(None)?;
+    let sessions = db.list_blocking(None)?;
 
     let workspaces: Vec<PathBuf> = sessions
         .into_iter()
@@ -602,7 +602,7 @@ impl DashboardApp {
     /// Refresh session data from database
     fn refresh_sessions(&mut self) -> Result<()> {
         let db = get_session_db()?;
-        let sessions = db.list(None)?;
+        let sessions = db.list_blocking(None)?;
 
         // Group sessions by status using itertools
         let mut grouped: Vec<Vec<SessionData>> = vec![vec![], vec![], vec![], vec![], vec![]];

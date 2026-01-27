@@ -41,7 +41,7 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
 
     // Get the session
     // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-    let session = db.get(name)?.ok_or_else(|| {
+    let session = db.get_blocking(name)?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{name}' not found"
         )))
@@ -91,7 +91,7 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     }
 
     // Remove from database
-    db.delete(name)?;
+    db.delete_blocking(name)?;
 
     if options.format.is_json() {
         let output = RemoveOutput {
@@ -158,7 +158,7 @@ mod tests {
     fn setup_test_session(name: &str) -> Result<(SessionDb, TempDir, String)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open(&db_path)?;
+        let db = SessionDb::open_blocking(&db_path)?;
 
         let workspace_dir = dir.path().join("workspaces").join(name);
         fs::create_dir_all(&workspace_dir)?;
@@ -167,7 +167,7 @@ mod tests {
             .ok_or_else(|| anyhow::anyhow!("Invalid workspace path"))?
             .to_string();
 
-        db.create(name, &workspace_path)?;
+        db.create_blocking(name, &workspace_path)?;
 
         Ok((db, dir, workspace_path))
     }
@@ -184,7 +184,7 @@ mod tests {
     async fn test_session_not_found() -> Result<()> {
         let dir = TempDir::new().context("Failed to create temp dir")?;
         let db_path = dir.path().join("test.db");
-        let _db = SessionDb::open(&db_path)?;
+        let _db = SessionDb::open_blocking(&db_path)?;
 
         // Mock get_session_db to return our test db
         // Note: This test will fail until we refactor to use dependency injection

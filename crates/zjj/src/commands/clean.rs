@@ -38,7 +38,7 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
     let db = get_session_db()?;
 
     // 1. List all sessions and filter to stale ones using functional pipeline
-    let sessions = db.list(None).map_err(anyhow::Error::new)?;
+    let sessions = db.list_blocking(None).map_err(anyhow::Error::new)?;
 
     let stale_sessions: Vec<_> = sessions
         .into_iter()
@@ -67,7 +67,7 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
 
     // 5. Remove stale sessions using functional fold for error handling
     let removed_count = stale_sessions.iter().try_fold(0, |count, session| {
-        db.delete(&session.name)
+        db.delete_blocking(&session.name)
             .map_err(anyhow::Error::new)
             .map(|_| count + 1)
     })?;

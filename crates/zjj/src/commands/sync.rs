@@ -36,7 +36,7 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
 
     // Get the session
     // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-    let session = db.get(name)?.ok_or_else(|| {
+    let session = db.get_blocking(name)?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{name}' not found"
         )))
@@ -86,7 +86,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
 
     // Get all sessions
     // Preserve error type for proper exit code mapping
-    let sessions = db.list(None).map_err(anyhow::Error::new)?;
+    let sessions = db.list_blocking(None).map_err(anyhow::Error::new)?;
 
     if sessions.is_empty() {
         if options.format.is_json() {
@@ -190,7 +190,7 @@ fn sync_session_internal(
         .context("System time error")?
         .as_secs();
 
-    db.update(
+    db.update_blocking(
         name,
         SessionUpdate {
             last_synced: Some(now),
@@ -214,7 +214,7 @@ mod tests {
     fn setup_test_db() -> anyhow::Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open(&db_path)?;
+        let db = SessionDb::open_blocking(&db_path)?;
         Ok((db, dir))
     }
 
@@ -232,7 +232,7 @@ mod tests {
 
         // Try to sync a non-existent session
         // We can't actually run this without a real JJ repo, but we can test the lookup
-        let result = db.get("nonexistent")?;
+        let result = db.get_blocking("nonexistent")?;
         assert!(result.is_none());
         Ok(())
     }
@@ -242,11 +242,11 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session
-        let session = db.create("test-session", "/fake/workspace")?;
+        let session = db.create_blocking("test-session", "/fake/workspace")?;
         assert!(session.last_synced.is_none());
 
         // Verify we can get it
-        let retrieved = db.get("test-session")?;
+        let retrieved = db.get_blocking("test-session")?;
         assert!(retrieved.is_some());
         if let Some(session) = retrieved {
             assert_eq!(session.name, "test-session");
@@ -260,7 +260,7 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session
-        db.create("test-session", "/fake/workspace")?;
+        db.create_blocking("test-session", "/fake/workspace")?;
 
         // Update last_synced
         let now = current_timestamp();
@@ -268,10 +268,10 @@ mod tests {
             last_synced: Some(now),
             ..Default::default()
         };
-        db.update("test-session", update)?;
+        db.update_blocking("test-session", update)?;
 
         // Verify it was updated
-        let session = db.get("test-session")?;
+        let session = db.get_blocking("test-session")?;
         assert!(session.is_some(), "Session not found");
         if let Some(session) = session {
             assert_eq!(session.last_synced, Some(now));
@@ -285,12 +285,12 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create multiple sessions
-        db.create("session1", "/fake/workspace1")?;
-        db.create("session2", "/fake/workspace2")?;
-        db.create("session3", "/fake/workspace3")?;
+        db.create_blocking("session1", "/fake/workspace1")?;
+        db.create_blocking("session2", "/fake/workspace2")?;
+        db.create_blocking("session3", "/fake/workspace3")?;
 
         // List all
-        let sessions = db.list(None)?;
+        let sessions = db.list_blocking(None)?;
         assert_eq!(sessions.len(), 3);
 
         Ok(())
@@ -301,7 +301,7 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session
-        db.create("test-session", "/fake/workspace")?;
+        db.create_blocking("test-session", "/fake/workspace")?;
 
         // Simulate successful sync by updating timestamp
         let before = current_timestamp();
@@ -309,10 +309,10 @@ mod tests {
             last_synced: Some(before),
             ..Default::default()
         };
-        db.update("test-session", update)?;
+        db.update_blocking("test-session", update)?;
 
         // Verify timestamp was set
-        let session = db.get("test-session")?;
+        let session = db.get_blocking("test-session")?;
         assert!(session.is_some(), "Session not found");
         if let Some(session) = session {
             assert!(session.last_synced.is_some(), "last_synced should be set");
@@ -329,11 +329,11 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session
-        db.create("test-session", "/fake/workspace")?;
+        db.create_blocking("test-session", "/fake/workspace")?;
 
         // First sync
         let first_sync = current_timestamp();
-        db.update(
+        db.update_blocking(
             "test-session",
             SessionUpdate {
                 last_synced: Some(first_sync),
@@ -346,7 +346,7 @@ mod tests {
 
         // Second sync
         let second_sync = current_timestamp();
-        db.update(
+        db.update_blocking(
             "test-session",
             SessionUpdate {
                 last_synced: Some(second_sync),
@@ -355,7 +355,7 @@ mod tests {
         )?;
 
         // Verify second timestamp is newer
-        let session = db.get("test-session")?;
+        let session = db.get_blocking("test-session")?;
         assert!(session.is_some(), "Session not found");
         if let Some(session) = session {
             assert!(session.last_synced.is_some(), "last_synced should be set");
@@ -408,7 +408,7 @@ mod tests {
     fn test_sync_json_single_output_on_success() -> anyhow::Result<()> {
         // JSON mode should output exactly one JSON object on success
         let (db, _dir) = setup_test_db()?;
-        db.create("test-session", "/fake/workspace")?;
+        db.create_blocking("test-session", "/fake/workspace")?;
 
         // Simulate sync success by mocking internal function
         // RED: This test will verify that output is single JSON
@@ -422,7 +422,7 @@ mod tests {
         // JSON mode should output exactly one JSON object on failure
         // RED: Currently outputs two JSON objects (SyncResponse + separate error)
         let (db, _dir) = setup_test_db()?;
-        db.create("test-session", "/fake/workspace")?;
+        db.create_blocking("test-session", "/fake/workspace")?;
 
         // Simulate sync failure by mocking internal function
         // RED: This test will fail until duplicate JSON bug is fixed
@@ -437,7 +437,7 @@ mod tests {
         // JSON output should be parseable by jq
         // RED: Duplicate JSON objects break jq parsing
         let (db, _dir) = setup_test_db()?;
-        db.create("test-session", "/fake/workspace")?;
+        db.create_blocking("test-session", "/fake/workspace")?;
 
         // Simulate JSON output and verify parseability
         // RED: This will fail until bug is fixed

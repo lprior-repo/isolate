@@ -104,7 +104,7 @@ pub fn get_session_db() -> Result<SessionDb> {
     );
 
     let db_path = data_dir.join("sessions.db");
-    SessionDb::open(&db_path).context("Failed to open session database")
+    SessionDb::open_blocking(&db_path).context("Failed to open session database")
 }
 
 /// Determine the main branch for a workspace
