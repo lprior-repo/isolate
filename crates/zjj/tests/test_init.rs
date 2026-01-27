@@ -66,16 +66,17 @@ async fn test_init_creates_state_db() -> Result<(), Box<dyn std::error::Error>> 
     harness.assert_file_exists(&db_path);
 
     // Verify it's a valid SQLite database
-    let path_str = db_path
-        .to_str()
-        .ok_or("Invalid UTF-8 in database path")?;
+    let path_str = db_path.to_str().ok_or("Invalid UTF-8 in database path")?;
     let db_url = format!("sqlite:///{path_str}?mode=rwc");
     let pool = SqlitePool::connect(&db_url).await?;
     let row = sqlx::query("SELECT COUNT(*) as count FROM sessions")
         .fetch_one(&pool)
         .await?;
     let count: i64 = row.try_get("count")?;
-    assert_eq!(count, 0, "Database should be empty after init, but has {count} rows");
+    assert_eq!(
+        count, 0,
+        "Database should be empty after init, but has {count} rows"
+    );
 
     Ok(())
 }
@@ -321,9 +322,7 @@ async fn test_init_creates_indexes() -> Result<(), Box<dyn std::error::Error>> {
     harness.assert_success(&["init"]);
 
     let db_path = harness.state_db_path();
-    let path_str = db_path
-        .to_str()
-        .ok_or("Invalid UTF-8 in database path")?;
+    let path_str = db_path.to_str().ok_or("Invalid UTF-8 in database path")?;
     let db_url = format!("sqlite:///{path_str}?mode=rwc");
     let pool = SqlitePool::connect(&db_url).await?;
     // Check that indexes exist

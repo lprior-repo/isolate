@@ -354,4 +354,32 @@ mod tests {
         let result = validate_status_transition(SessionStatus::Completed, SessionStatus::Paused);
         assert!(result.is_err());
     }
+
+    // Property-based tests using proptest
+    mod property_tests {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            /// Property test: validate_session_name never panics with arbitrary input
+            /// Tests the no-panic guarantee across the input space
+            #[test]
+            fn proptest_session_name_validation_never_panics(s in "\\PC{0,100}") {
+                // This test passes if validate_session_name doesn't panic
+                // We don't care about the result (Ok/Err), only that it returns
+                let _ = validate_session_name(&s);
+            }
+
+            /// Property test: valid names are idempotent through validation
+            #[test]
+            fn proptest_valid_names_consistent(
+                s in "[a-zA-Z][a-zA-Z0-9_-]{0,63}"
+            ) {
+                // If a name passes validation once, it should always pass
+                let first_result = validate_session_name(&s);
+                let second_result = validate_session_name(&s);
+                prop_assert_eq!(first_result.is_ok(), second_result.is_ok());
+            }
+        }
+    }
 }

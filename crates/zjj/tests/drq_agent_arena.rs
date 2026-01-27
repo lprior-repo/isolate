@@ -28,7 +28,6 @@ fn parse_json(s: &str) -> Result<JsonValue, serde_json::Error> {
     serde_json::from_str(s)
 }
 
-
 // ============================================================================
 // ROUND 1: JSON Schema Consistency Tests
 // ============================================================================
@@ -548,9 +547,11 @@ fn test_all_query_commands_use_schema_envelope() -> Result<(), Box<dyn std::erro
 // ============================================================================
 
 /// Validate that JSON output uses `SchemaEnvelope` structure
-fn validate_schema_envelope(json_str: &str, command_name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let json = parse_json(json_str)
-        .map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
+fn validate_schema_envelope(
+    json_str: &str,
+    command_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let json = parse_json(json_str).map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
 
     assert!(
         json.get("$schema").is_some(),

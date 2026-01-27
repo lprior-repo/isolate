@@ -38,6 +38,7 @@ assert_cmd = "2"
 predicates = "3"
 toml = "0.8"
 serial_test = "3.2"
+proptest = "1.0"
 
 [lints]
 workspace = true
