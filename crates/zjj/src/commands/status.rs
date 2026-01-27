@@ -280,7 +280,7 @@ async fn count_issues_by_status(pool: &sqlx::SqlitePool, status: &str) -> Result
             )))
         })?;
 
-    Ok(result.unwrap_or(0) as usize)
+    Ok(usize::try_from(result.unwrap_or(0)).unwrap_or(0))
 }
 
 /// Wrapper for status response data

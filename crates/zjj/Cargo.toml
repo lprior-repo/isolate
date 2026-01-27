@@ -30,6 +30,7 @@ toml = "0.8"
 toml_edit = "0.22"
 itertools = "0.13"
 chrono = "0.4"
+num-traits = "0.2"
 
 [dev-dependencies]
 tempfile = "3"
