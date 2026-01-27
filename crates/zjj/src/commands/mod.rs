@@ -103,7 +103,7 @@ pub fn get_session_db() -> Result<SessionDb> {
         "ZJJ not initialized. Run 'zjj init' first."
     );
 
-    let db_path = data_dir.join("sessions.db");
+    let db_path = data_dir.join("state.db");
     SessionDb::open_blocking(&db_path).context("Failed to open session database")
 }
 

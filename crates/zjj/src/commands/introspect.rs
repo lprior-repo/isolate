@@ -99,7 +99,7 @@ fn get_system_state() -> SystemState {
             .map(|d| d.join("config.toml").display().to_string());
         let db = data_dir
             .as_ref()
-            .map(|d| d.join("sessions.db").display().to_string());
+            .map(|d| d.join("state.db").display().to_string());
 
         let (count, active) = get_session_db()
             .ok()
@@ -752,7 +752,7 @@ fn get_init_introspection() -> CommandIntrospection {
         side_effects: vec![
             "Creates .zjj directory".to_string(),
             "Creates config.toml".to_string(),
-            "Creates sessions.db".to_string(),
+            "Creates state.db".to_string(),
         ],
         error_conditions: vec![ErrorCondition {
             code: "ALREADY_INITIALIZED".to_string(),

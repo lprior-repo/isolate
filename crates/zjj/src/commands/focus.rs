@@ -76,25 +76,26 @@ mod tests {
     use super::*;
     use crate::db::SessionDb;
 
-    fn setup_test_db() -> Result<(SessionDb, TempDir)> {
+    async fn setup_test_db() -> Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open_blocking(&db_path)?;
+        let db = SessionDb::create_or_open(&db_path).await?;
         Ok((db, dir))
     }
 
     #[tokio::test]
     async fn test_focus_session_not_found() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Try to get a non-existent session
-        let result = db.get_blocking("nonexistent")?;
+        let result = db.get("nonexistent").await?;
         assert!(result.is_none());
 
         // Verify the error message format when session not found
         let session_name = "nonexistent";
         let result = db
-            .get_blocking(session_name)?
+            .get(session_name)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"));
 
         assert!(result.is_err());
@@ -107,13 +108,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_focus_session_exists() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Create a session
-        let session = db.create_blocking("test-session", "/tmp/test")?;
+        let session = db.create("test-session", "/tmp/test").await?;
 
         // Verify we can retrieve it
-        let retrieved = db.get_blocking("test-session")?;
+        let retrieved = db.get("test-session").await?;
         assert!(retrieved.is_some());
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
@@ -125,13 +126,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_focus_session_with_hyphens() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Create a session with hyphens in the name
-        let _session = db.create_blocking("my-test-session", "/tmp/my-test")?;
+        let _session = db.create("my-test-session", "/tmp/my-test").await?;
 
         // Verify we can retrieve it
-        let retrieved = db.get_blocking("my-test-session")?;
+        let retrieved = db.get("my-test-session").await?;
         assert!(retrieved.is_some());
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
@@ -143,13 +144,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_focus_session_with_underscores() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Create a session with underscores in the name
-        let _session = db.create_blocking("my_test_session", "/tmp/my_test")?;
+        let _session = db.create("my_test_session", "/tmp/my_test").await?;
 
         // Verify we can retrieve it
-        let retrieved = db.get_blocking("my_test_session")?;
+        let retrieved = db.get("my_test_session").await?;
         assert!(retrieved.is_some());
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
@@ -161,13 +162,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_focus_session_with_mixed_special_chars() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Create a session with mixed special characters
-        let _session = db.create_blocking("my-test_123", "/tmp/my-test_123")?;
+        let _session = db.create("my-test_123", "/tmp/my-test_123").await?;
 
         // Verify we can retrieve it
-        let retrieved = db.get_blocking("my-test_123")?;
+        let retrieved = db.get("my-test_123").await?;
         assert!(retrieved.is_some());
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
@@ -179,16 +180,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_zellij_tab_format() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Create sessions and verify tab name format
-        let session1 = db.create_blocking("session1", "/tmp/s1")?;
+        let session1 = db.create("session1", "/tmp/s1").await?;
         assert_eq!(session1.zellij_tab, "zjj:session1");
 
-        let session2 = db.create_blocking("my-session", "/tmp/s2")?;
+        let session2 = db.create("my-session", "/tmp/s2").await?;
         assert_eq!(session2.zellij_tab, "zjj:my-session");
 
-        let session3 = db.create_blocking("test_session_123", "/tmp/s3")?;
+        let session3 = db.create("test_session_123", "/tmp/s3").await?;
         assert_eq!(session3.zellij_tab, "zjj:test_session_123");
 
         Ok(())

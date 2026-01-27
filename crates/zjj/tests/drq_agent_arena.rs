@@ -12,7 +12,7 @@
 //!
 //! ## Test Categories
 //!
-//! - **Round 1**: JSON schema consistency (all commands use SchemaEnvelope)
+//! - **Round 1**: JSON schema consistency (all commands use `SchemaEnvelope`)
 //! - **Round 2**: Atomicity (operations are all-or-nothing)
 //! - **Round 3**: Core workflow (add → work → done)
 //! - **Round 4**: Concurrency (multi-agent scenarios)
@@ -21,7 +21,6 @@
 // Import from the test common module
 mod common;
 use common::TestHarness;
-
 use serde_json::Value as JsonValue;
 
 // ============================================================================
@@ -72,12 +71,15 @@ fn test_json_output_has_required_fields() {
     let result = harness.zjj(&["status", "test-session", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = serde_json::from_str(&result.stdout)
-        .expect("JSON output should be valid");
+    let json: JsonValue =
+        serde_json::from_str(&result.stdout).expect("JSON output should be valid");
 
     // All JSON outputs must have these fields
     assert!(json.get("$schema").is_some(), "Missing $schema field");
-    assert!(json.get("_schema_version").is_some(), "Missing _schema_version field");
+    assert!(
+        json.get("_schema_version").is_some(),
+        "Missing _schema_version field"
+    );
     assert!(json.get("success").is_some(), "Missing success field");
 }
 
@@ -215,7 +217,10 @@ fn test_context_command_for_agents() {
     // Context should provide all the information an AI agent needs
     assert!(json.get("zjj").is_some(), "Context should have zjj section");
     assert!(json.get("jj").is_some(), "Context should have jj section");
-    assert!(json.get("zellij").is_some(), "Context should have zellij section");
+    assert!(
+        json.get("zellij").is_some(),
+        "Context should have zellij section"
+    );
 }
 
 #[test]
@@ -331,12 +336,24 @@ fn test_error_responses_have_consistent_structure() {
     let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
 
     // Error responses must have these fields
-    assert!(json.get("success").is_some(), "Error should have success field");
+    assert!(
+        json.get("success").is_some(),
+        "Error should have success field"
+    );
     assert_eq!(json["success"], false, "success should be false");
     assert!(json.get("error").is_some(), "Error should have error field");
-    assert!(json["error"].get("code").is_some(), "Error should have code");
-    assert!(json["error"].get("message").is_some(), "Error should have message");
-    assert!(json["error"].get("exit_code").is_some(), "Error should have exit_code");
+    assert!(
+        json["error"].get("code").is_some(),
+        "Error should have code"
+    );
+    assert!(
+        json["error"].get("message").is_some(),
+        "Error should have message"
+    );
+    assert!(
+        json["error"].get("exit_code").is_some(),
+        "Error should have exit_code"
+    );
 }
 
 #[test]
@@ -352,12 +369,18 @@ fn test_not_found_vs_validation_error_codes() {
     // Test not found error (exit code 2)
     let result1 = harness.zjj(&["status", "nonexistent", "--json"]);
     let json1: JsonValue = serde_json::from_str(&result1.stdout).unwrap();
-    assert_eq!(json1["error"]["exit_code"], 2, "Not found should be exit code 2");
+    assert_eq!(
+        json1["error"]["exit_code"], 2,
+        "Not found should be exit code 2"
+    );
 
     // Test validation error (exit code 1)
     let result2 = harness.zjj(&["add", "123invalid", "--no-open", "--json"]);
     let json2: JsonValue = serde_json::from_str(&result2.stdout).unwrap();
-    assert_eq!(json2["error"]["exit_code"], 1, "Validation error should be exit code 1");
+    assert_eq!(
+        json2["error"]["exit_code"], 1,
+        "Validation error should be exit code 1"
+    );
 }
 
 // ============================================================================
@@ -376,11 +399,20 @@ fn test_query_session_locked_no_locks() {
 
     // Query a non-existent session - should not be locked
     let result = harness.zjj(&["query", "session-locked", "nonexistent", "--json"]);
-    assert!(result.success, "Query should succeed even for non-existent session");
+    assert!(
+        result.success,
+        "Query should succeed even for non-existent session"
+    );
 
     let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
-    assert_eq!(json["locked"], false, "Non-existent session should not be locked");
-    assert!(json["lock_info"].is_null(), "lock_info should be null when not locked");
+    assert_eq!(
+        json["locked"], false,
+        "Non-existent session should not be locked"
+    );
+    assert!(
+        json["lock_info"].is_null(),
+        "lock_info should be null when not locked"
+    );
 }
 
 #[test]
@@ -399,7 +431,10 @@ fn test_query_session_locked_with_session() {
     assert!(result.success);
 
     let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
-    assert_eq!(json["locked"], false, "Session should not be locked when idle");
+    assert_eq!(
+        json["locked"], false,
+        "Session should not be locked when idle"
+    );
 
     // Cleanup
     harness.assert_success(&["remove", "test-session", "-f"]);
@@ -420,8 +455,14 @@ fn test_query_operations_in_progress_empty() {
     assert!(result.success);
 
     let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
-    assert_eq!(json["count"], 0, "Should have 0 active operations initially");
-    assert!(json["operations"].as_array().map(|v| v.is_empty()).unwrap_or(true));
+    assert_eq!(
+        json["count"], 0,
+        "Should have 0 active operations initially"
+    );
+    assert!(json["operations"]
+        .as_array()
+        .map(|v| v.is_empty())
+        .unwrap_or(true));
 }
 
 #[test]
@@ -440,7 +481,10 @@ fn test_query_operations_in_progress_with_session() {
     assert!(result.success);
 
     let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
-    assert_eq!(json["count"], 0, "Session creation doesn't create a persistent lock");
+    assert_eq!(
+        json["count"], 0,
+        "Session creation doesn't create a persistent lock"
+    );
 
     // Cleanup
     harness.assert_success(&["remove", "active-session", "-f"]);
@@ -467,7 +511,10 @@ fn test_all_query_commands_use_schema_envelope() {
     for query in queries {
         let result = harness.zjj(&["query", query, "--json"]);
         if result.success {
-            validate_schema_envelope(&result.stdout, &query.split_whitespace().next().unwrap_or(query));
+            validate_schema_envelope(
+                &result.stdout,
+                &query.split_whitespace().next().unwrap_or(query),
+            );
         }
     }
 }

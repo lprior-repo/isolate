@@ -2,9 +2,9 @@
 //!
 //! This module provides zero-panic, type-safe types for spawning isolated workspaces.
 
-use serde::{Deserialize, Serialize};
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
 use zjj_core::OutputFormat;
 
 /// Options for the spawn command (from CLI args)
@@ -175,30 +175,60 @@ impl SpawnPhase {
 #[derive(Debug, Clone)]
 pub enum SpawnError {
     #[expect(dead_code)] // current_location reserved for future error messages
-    NotOnMain { current_location: String },
-    InvalidBeadStatus { bead_id: String, status: String },
-    BeadNotFound { bead_id: String },
-    WorkspaceCreationFailed { reason: String },
-    AgentSpawnFailed { reason: String },
+    NotOnMain {
+        current_location: String,
+    },
+    InvalidBeadStatus {
+        bead_id: String,
+        status: String,
+    },
+    BeadNotFound {
+        bead_id: String,
+    },
+    WorkspaceCreationFailed {
+        reason: String,
+    },
+    AgentSpawnFailed {
+        reason: String,
+    },
     #[expect(dead_code)] // Timeout handling reserved for future implementation
-    Timeout { timeout_secs: u64 },
-    MergeFailed { reason: String },
-    CleanupFailed { reason: String },
-    DatabaseError { reason: String },
-    JjCommandFailed { reason: String },
+    Timeout {
+        timeout_secs: u64,
+    },
+    MergeFailed {
+        reason: String,
+    },
+    CleanupFailed {
+        reason: String,
+    },
+    DatabaseError {
+        reason: String,
+    },
+    JjCommandFailed {
+        reason: String,
+    },
 }
 
 impl fmt::Display for SpawnError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotOnMain { .. } => write!(f, "Cannot spawn from workspace, must be on main branch"),
+            Self::NotOnMain { .. } => {
+                write!(f, "Cannot spawn from workspace, must be on main branch")
+            }
             Self::InvalidBeadStatus { bead_id, status } => {
-                write!(f, "Bead '{bead_id}' has status '{status}', expected open or ready")
+                write!(
+                    f,
+                    "Bead '{bead_id}' has status '{status}', expected open or ready"
+                )
             }
             Self::BeadNotFound { bead_id } => write!(f, "Bead '{bead_id}' not found"),
-            Self::WorkspaceCreationFailed { reason } => write!(f, "Failed to create workspace: {reason}"),
+            Self::WorkspaceCreationFailed { reason } => {
+                write!(f, "Failed to create workspace: {reason}")
+            }
             Self::AgentSpawnFailed { reason } => write!(f, "Failed to spawn agent: {reason}"),
-            Self::Timeout { timeout_secs } => write!(f, "Agent timed out after {timeout_secs} seconds"),
+            Self::Timeout { timeout_secs } => {
+                write!(f, "Agent timed out after {timeout_secs} seconds")
+            }
             Self::MergeFailed { reason } => write!(f, "Failed to merge changes: {reason}"),
             Self::CleanupFailed { reason } => write!(f, "Failed to cleanup workspace: {reason}"),
             Self::DatabaseError { reason } => write!(f, "Database error: {reason}"),
@@ -214,7 +244,9 @@ impl SpawnError {
     pub const fn phase(&self) -> SpawnPhase {
         match self {
             Self::NotOnMain { .. } => SpawnPhase::ValidatingLocation,
-            Self::InvalidBeadStatus { .. } | Self::BeadNotFound { .. } => SpawnPhase::ValidatingBead,
+            Self::InvalidBeadStatus { .. } | Self::BeadNotFound { .. } => {
+                SpawnPhase::ValidatingBead
+            }
             Self::WorkspaceCreationFailed { .. } => SpawnPhase::CreatingWorkspace,
             Self::DatabaseError { .. } => SpawnPhase::UpdatingBeadStatus,
             Self::AgentSpawnFailed { .. } => SpawnPhase::SpawningAgent,
@@ -275,7 +307,10 @@ mod tests {
         assert_eq!(SpawnPhase::ValidatingBead.name(), "validating_bead");
         assert_eq!(SpawnPhase::CreatingWorkspace.name(), "creating_workspace");
         assert_eq!(SpawnPhase::SpawningAgent.name(), "spawning_agent");
-        assert_eq!(SpawnPhase::WaitingForCompletion.name(), "waiting_for_completion");
+        assert_eq!(
+            SpawnPhase::WaitingForCompletion.name(),
+            "waiting_for_completion"
+        );
         assert_eq!(SpawnPhase::MergingChanges.name(), "merging_changes");
         assert_eq!(SpawnPhase::CleaningWorkspace.name(), "cleaning_workspace");
     }

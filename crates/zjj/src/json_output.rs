@@ -173,7 +173,8 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
         ErrorCode::StateDbCorrupted
     } else if error_str.contains("not found") || error_str.contains("Not found") {
         ErrorCode::SessionNotFound
-    } else if error_str.contains("Invalid session name") || error_str.contains("Session name")
+    } else if error_str.contains("Invalid session name")
+        || error_str.contains("Session name")
         || error_str.contains("must start with a letter")
     {
         ErrorCode::SessionNameInvalid
@@ -200,7 +201,7 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
 const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
     match code {
         ErrorCode::StateDbCorrupted => Some(
-            "Try running 'zjj doctor --fix' to repair the database, or delete .zjj/sessions.db to reset",
+            "Try running 'zjj doctor --fix' to repair the database, or delete .zjj/state.db to reset",
         ),
         ErrorCode::SessionNotFound => Some("Use 'zjj list' to see available sessions"),
         ErrorCode::SessionNameInvalid => {

@@ -168,20 +168,20 @@ fn get_beads_count() -> Result<BeadCounts> {
 
     rt.block_on(async {
         let connection_string = format!("sqlite:{}", beads_db_path.display());
-        let pool = sqlx::SqlitePool::connect(&connection_string).await.map_err(|e| {
-            anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-                "Failed to open beads database: {e}"
-            )))
-        })?;
+        let pool = sqlx::SqlitePool::connect(&connection_string)
+            .await
+            .map_err(|e| {
+                anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+                    "Failed to open beads database: {e}"
+                )))
+            })?;
 
         // Count open issues
-        let open: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM issues WHERE status = ?1"
-        )
-        .bind("open")
-        .fetch_one(&pool)
-        .await
-        .unwrap_or(0);
+        let open: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM issues WHERE status = ?1")
+            .bind("open")
+            .fetch_one(&pool)
+            .await
+            .unwrap_or(0);
 
         // For now, we can't distinguish in_progress vs blocked without more schema knowledge
         // Let's return a simplified count
@@ -227,10 +227,10 @@ mod tests {
         session::{Session, SessionStatus, SessionUpdate},
     };
 
-    fn setup_test_db() -> Result<(SessionDb, TempDir)> {
+    async fn setup_test_db() -> Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open_blocking(&db_path)?;
+        let db = SessionDb::create_or_open(&db_path).await?;
         Ok((db, dir))
     }
 
@@ -347,47 +347,51 @@ mod tests {
 
     #[tokio::test]
     async fn test_filter_completed_and_failed_sessions() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Create sessions with different statuses
-        let s1 = db.create_blocking("active-session", "/tmp/active")?;
-        db.update_blocking(
+        let s1 = db.create("active-session", "/tmp/active").await?;
+        db.update(
             &s1.name,
             SessionUpdate {
                 status: Some(SessionStatus::Active),
                 ..Default::default()
             },
-        )?;
+        )
+        .await?;
 
-        let s2 = db.create_blocking("completed-session", "/tmp/completed")?;
-        db.update_blocking(
+        let s2 = db.create("completed-session", "/tmp/completed").await?;
+        db.update(
             &s2.name,
             SessionUpdate {
                 status: Some(SessionStatus::Completed),
                 ..Default::default()
             },
-        )?;
+        )
+        .await?;
 
-        let s3 = db.create_blocking("failed-session", "/tmp/failed")?;
-        db.update_blocking(
+        let s3 = db.create("failed-session", "/tmp/failed").await?;
+        db.update(
             &s3.name,
             SessionUpdate {
                 status: Some(SessionStatus::Failed),
                 ..Default::default()
             },
-        )?;
+        )
+        .await?;
 
-        let s4 = db.create_blocking("paused-session", "/tmp/paused")?;
-        db.update_blocking(
+        let s4 = db.create("paused-session", "/tmp/paused").await?;
+        db.update(
             &s4.name,
             SessionUpdate {
                 status: Some(SessionStatus::Paused),
                 ..Default::default()
             },
-        )?;
+        )
+        .await?;
 
         // Get all sessions and filter
-        let mut sessions = db.list_blocking(None)?;
+        let mut sessions = db.list(None).await?;
 
         // Simulate the filtering logic from run()
         sessions
@@ -405,25 +409,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_all_flag_includes_all_sessions() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Create sessions with different statuses
-        db.create_blocking("active-session", "/tmp/active")?;
-        let s2 = db.create_blocking("completed-session", "/tmp/completed")?;
-        db.update_blocking(
+        db.create("active-session", "/tmp/active").await?;
+        let s2 = db.create("completed-session", "/tmp/completed").await?;
+        db.update(
             &s2.name,
             SessionUpdate {
                 status: Some(SessionStatus::Completed),
                 ..Default::default()
             },
-        )?;
+        )
+        .await?;
 
         // With all=true, no filtering
-        let sessions = db.list_blocking(None)?;
+        let sessions = db.list(None).await?;
         assert_eq!(sessions.len(), 2);
 
         // With all=false, filter out completed
-        let mut filtered = db.list_blocking(None)?;
+        let mut filtered = db.list(None).await?;
         filtered
             .retain(|s| s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
         assert_eq!(filtered.len(), 1);
@@ -433,9 +438,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty_list_handling() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
-        let sessions = db.list_blocking(None)?;
+        let sessions = db.list(None).await?;
         assert!(sessions.is_empty());
 
         Ok(())
@@ -478,12 +483,13 @@ mod tests {
         assert_eq!(counts.blocked, 0);
     }
 
+    #[allow(clippy::too_many_lines)]
     #[tokio::test]
     async fn test_combined_filters_single_pass() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Create sessions with different combinations of properties
-        let s1 = db.create_blocking("active-bead-123", "/tmp/s1")?;
+        let s1 = db.create("active-bead-123", "/tmp/s1").await?;
         let mut metadata1 = serde_json::Map::new();
         metadata1.insert(
             "bead_id".to_string(),
@@ -493,16 +499,17 @@ mod tests {
             "owner".to_string(),
             serde_json::Value::String("agent-a".to_string()),
         );
-        db.update_blocking(
+        db.update(
             &s1.name,
             SessionUpdate {
                 status: Some(SessionStatus::Active),
                 metadata: Some(serde_json::Value::Object(metadata1)),
                 ..Default::default()
             },
-        )?;
+        )
+        .await?;
 
-        let s2 = db.create_blocking("completed-bead-123", "/tmp/s2")?;
+        let s2 = db.create("completed-bead-123", "/tmp/s2").await?;
         let mut metadata2 = serde_json::Map::new();
         metadata2.insert(
             "bead_id".to_string(),
@@ -512,16 +519,17 @@ mod tests {
             "owner".to_string(),
             serde_json::Value::String("agent-a".to_string()),
         );
-        db.update_blocking(
+        db.update(
             &s2.name,
             SessionUpdate {
                 status: Some(SessionStatus::Completed),
                 metadata: Some(serde_json::Value::Object(metadata2)),
                 ..Default::default()
             },
-        )?;
+        )
+        .await?;
 
-        let s3 = db.create_blocking("active-bead-456", "/tmp/s3")?;
+        let s3 = db.create("active-bead-456", "/tmp/s3").await?;
         let mut metadata3 = serde_json::Map::new();
         metadata3.insert(
             "bead_id".to_string(),
@@ -531,18 +539,20 @@ mod tests {
             "owner".to_string(),
             serde_json::Value::String("agent-b".to_string()),
         );
-        db.update_blocking(
+        db.update(
             &s3.name,
             SessionUpdate {
                 status: Some(SessionStatus::Active),
                 metadata: Some(serde_json::Value::Object(metadata3)),
                 ..Default::default()
             },
-        )?;
+        )
+        .await?;
 
         // Test 1: Filter by bead_id=123 AND agent=agent-a (excludes completed)
         let filtered: Vec<Session> = db
-            .list_blocking(None)?
+            .list(None)
+            .await?
             .into_iter()
             .filter(|s| {
                 let status_matches =
@@ -568,7 +578,8 @@ mod tests {
 
         // Test 2: Filter by bead_id=456 only (excludes completed)
         let filtered2: Vec<Session> = db
-            .list_blocking(None)?
+            .list(None)
+            .await?
             .into_iter()
             .filter(|s| {
                 let status_matches =

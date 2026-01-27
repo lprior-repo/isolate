@@ -12,15 +12,19 @@
 
 pub mod types;
 
-pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput};
-
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::Result;
-use crate::cli::jj_root;
-use crate::commands::context::{detect_location, Location};
+pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput};
+
+use crate::{
+    cli::jj_root,
+    commands::context::{detect_location, Location},
+};
 
 /// Run the done command with options
 pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
@@ -371,7 +375,7 @@ fn merge_to_main(root: &str, workspace_name: &str, _squash: bool) -> Result<(), 
 
 /// Get bead ID for a workspace
 fn get_bead_id_for_workspace(workspace_name: &str) -> Result<Option<String>, DoneError> {
-    let session_db_path = Path::new(".zjj/sessions.db");
+    let session_db_path = Path::new(".zjj/state.db");
     if !session_db_path.exists() {
         return Ok(None);
     }
@@ -388,7 +392,8 @@ fn get_bead_id_for_workspace(workspace_name: &str) -> Result<Option<String>, Don
 
     for line in content.lines() {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if json.get("status")
+            if json
+                .get("status")
                 .and_then(|s| s.as_str())
                 .map(|s| s == "in_progress")
                 .unwrap_or(false)
@@ -420,7 +425,8 @@ fn update_bead_status(bead_id: &str, new_status: &str) -> Result<(), DoneError> 
 
     for line in content.lines() {
         if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(line) {
-            if json.get("id")
+            if json
+                .get("id")
                 .and_then(|i| i.as_str())
                 .map(|i| i == bead_id)
                 .unwrap_or(false)
@@ -461,7 +467,10 @@ fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<
     if format.is_json() {
         println!("{}", serde_json::to_string_pretty(result)?);
     } else if result.dry_run {
-        println!("🔍 Dry-run preview for workspace: {}", result.workspace_name);
+        println!(
+            "🔍 Dry-run preview for workspace: {}",
+            result.workspace_name
+        );
         if let Some(ref preview) = result.preview {
             if !preview.uncommitted_files.is_empty() {
                 println!("  Files to commit:");

@@ -2,9 +2,9 @@
 //!
 //! This module provides zero-panic, type-safe types for completing work in a workspace.
 
-use serde::{Deserialize, Serialize};
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
 use zjj_core::OutputFormat;
 
 /// CLI arguments for the done command (parsed in main.rs)
@@ -76,7 +76,6 @@ pub struct DoneOutput {
     pub error: Option<String>,
 }
 
-
 /// Preview information for dry-run mode
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DonePreview {
@@ -130,17 +129,36 @@ impl DonePhase {
 /// Done operation error (zero-panic, no unwraps)
 #[derive(Debug, Clone)]
 pub enum DoneError {
-    NotInWorkspace { current_location: String },
+    NotInWorkspace {
+        current_location: String,
+    },
     NotAJjRepo,
     #[allow(dead_code)] // Reserved for future workspace validation
-    WorkspaceNotFound { workspace_name: String },
-    CommitFailed { reason: String },
-    MergeConflict { conflicts: Vec<String> },
-    MergeFailed { reason: String },
-    CleanupFailed { reason: String },
-    BeadUpdateFailed { reason: String },
-    JjCommandFailed { command: String, reason: String },
-    InvalidState { reason: String },
+    WorkspaceNotFound {
+        workspace_name: String,
+    },
+    CommitFailed {
+        reason: String,
+    },
+    MergeConflict {
+        conflicts: Vec<String>,
+    },
+    MergeFailed {
+        reason: String,
+    },
+    CleanupFailed {
+        reason: String,
+    },
+    BeadUpdateFailed {
+        reason: String,
+    },
+    JjCommandFailed {
+        command: String,
+        reason: String,
+    },
+    InvalidState {
+        reason: String,
+    },
 }
 
 impl fmt::Display for DoneError {
@@ -181,9 +199,9 @@ impl DoneError {
             | Self::WorkspaceNotFound { .. }
             | Self::InvalidState { .. } => DonePhase::ValidatingLocation,
             Self::CommitFailed { .. } => DonePhase::CommittingChanges,
-            Self::MergeConflict { .. } | Self::MergeFailed { .. } | Self::JjCommandFailed { .. } => {
-                DonePhase::MergingToMain
-            }
+            Self::MergeConflict { .. }
+            | Self::MergeFailed { .. }
+            | Self::JjCommandFailed { .. } => DonePhase::MergingToMain,
             Self::CleanupFailed { .. } => DonePhase::CleaningWorkspace,
             Self::BeadUpdateFailed { .. } => DonePhase::UpdatingBeadStatus,
         }

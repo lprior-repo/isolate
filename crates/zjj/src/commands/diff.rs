@@ -72,7 +72,11 @@ fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: OutputFormat
         };
         // Wrap in SchemaEnvelope for consistent JSON output (DRQ Round 1)
         let envelope = SchemaEnvelope::new(
-            if stat { "diff-stat-response" } else { "diff-response" },
+            if stat {
+                "diff-stat-response"
+            } else {
+                "diff-response"
+            },
             "single",
             diff_output,
         );
@@ -214,10 +218,10 @@ mod tests {
     use super::*;
     use crate::{commands::determine_main_branch, db::SessionDb};
 
-    fn setup_test_db() -> Result<(SessionDb, TempDir)> {
+    async fn setup_test_db() -> Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open_blocking(&db_path)?;
+        let db = SessionDb::create_or_open(&db_path).await?;
         Ok((db, dir))
     }
 
@@ -273,7 +277,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_session_not_found() -> Result<()> {
-        let _temp_db = setup_test_db()?;
+        let _temp_db = setup_test_db().await?;
 
         // Try to diff a non-existent session
         // We need to set up the context so get_session_db works
@@ -284,10 +288,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_workspace_not_found() -> Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let (db, _dir) = setup_test_db().await?;
 
         // Create a session with a non-existent workspace
-        let session = db.create_blocking("test-session", "/nonexistent/path")?;
+        let session = db.create("test-session", "/nonexistent/path").await?;
 
         // Verify the session exists
         assert_eq!(session.name, "test-session");

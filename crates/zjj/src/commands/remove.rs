@@ -155,10 +155,10 @@ mod tests {
 
     // Helper to create a test database with a session
     #[allow(dead_code)]
-    fn setup_test_session(name: &str) -> Result<(SessionDb, TempDir, String)> {
+    async fn setup_test_session(name: &str) -> Result<(SessionDb, TempDir, String)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open_blocking(&db_path)?;
+        let db = SessionDb::create_or_open(&db_path).await?;
 
         let workspace_dir = dir.path().join("workspaces").join(name);
         fs::create_dir_all(&workspace_dir)?;
@@ -167,7 +167,7 @@ mod tests {
             .ok_or_else(|| anyhow::anyhow!("Invalid workspace path"))?
             .to_string();
 
-        db.create_blocking(name, &workspace_path)?;
+        db.create(name, &workspace_path).await?;
 
         Ok((db, dir, workspace_path))
     }
@@ -184,7 +184,7 @@ mod tests {
     async fn test_session_not_found() -> Result<()> {
         let dir = TempDir::new().context("Failed to create temp dir")?;
         let db_path = dir.path().join("test.db");
-        let _db = SessionDb::open_blocking(&db_path)?;
+        let _db = SessionDb::create_or_open(&db_path).await?;
 
         // Mock get_session_db to return our test db
         // Note: This test will fail until we refactor to use dependency injection

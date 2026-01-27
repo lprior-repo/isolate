@@ -245,11 +245,13 @@ fn get_beads_stats() -> Result<BeadStats> {
 
     rt.block_on(async {
         let connection_string = format!("sqlite:{}", beads_db_path.display());
-        let pool = sqlx::SqlitePool::connect(&connection_string).await.map_err(|e| {
-            anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-                "Failed to open beads database: {e}"
-            )))
-        })?;
+        let pool = sqlx::SqlitePool::connect(&connection_string)
+            .await
+            .map_err(|e| {
+                anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+                    "Failed to open beads database: {e}"
+                )))
+            })?;
 
         // Count issues by status using parameterized queries
         let open = count_issues_by_status(&pool, "open").await?;
@@ -267,22 +269,16 @@ fn get_beads_stats() -> Result<BeadStats> {
 }
 
 /// Count issues by status using parameterized query
-async fn count_issues_by_status(
-    pool: &sqlx::SqlitePool,
-    status: &str,
-) -> Result<usize> {
-
-    let result: Option<i64> = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM issues WHERE status = ?1"
-    )
-    .bind(status)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| {
-        anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-            "Failed to query beads database: {e}"
-        )))
-    })?;
+async fn count_issues_by_status(pool: &sqlx::SqlitePool, status: &str) -> Result<usize> {
+    let result: Option<i64> = sqlx::query_scalar("SELECT COUNT(*) FROM issues WHERE status = ?1")
+        .bind(status)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| {
+            anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+                "Failed to query beads database: {e}"
+            )))
+        })?;
 
     Ok(result.unwrap_or(0) as usize)
 }

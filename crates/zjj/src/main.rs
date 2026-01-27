@@ -845,7 +845,9 @@ fn run_cli() -> Result<()> {
 
     // Check for --json flag before parsing to handle Clap errors in JSON format
     let args: Vec<String> = std::env::args().collect();
-    let json_mode = args.iter().any(|a| a.as_str() == "--json" || a.as_str() == "-j");
+    let json_mode = args
+        .iter()
+        .any(|a| a.as_str() == "--json" || a.as_str() == "-j");
 
     let matches = match cli.try_get_matches() {
         Ok(m) => m,
@@ -860,7 +862,10 @@ fn run_cli() -> Result<()> {
                         "exit_code": 2
                     }
                 });
-                println!("{}", serde_json::to_string_pretty(&json_err).unwrap_or_default());
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&json_err).unwrap_or_default()
+                );
             }
             let _ = e.print();
             std::process::exit(2);
@@ -909,21 +914,21 @@ fn main() {
     // HARD REQUIREMENT: JJ must be installed
     // AI agents that don't have JJ cannot use zjj - period.
     if !cli::is_jj_installed() {
-        eprintln!("");
+        eprintln!();
         eprintln!("╔════════════════════════════════════════════════════════════════════════╗");
         eprintln!("║  🔒 ZJJ REQUIRES JJ (JUJUTSU)                                          ║");
         eprintln!("╚════════════════════════════════════════════════════════════════════════╝");
-        eprintln!("");
+        eprintln!();
         eprintln!("JJ is NOT installed. ZJJ cannot function without it.");
-        eprintln!("");
+        eprintln!();
         eprintln!("Install JJ now:");
         eprintln!("  cargo install jj-cli");
         eprintln!("  # or: brew install jj");
         eprintln!("  # or: https://martinvonz.github.io/jj/latest/install-and-setup/");
-        eprintln!("");
+        eprintln!();
         eprintln!("ZJJ is built on top of JJ for workspace isolation.");
         eprintln!("There is NO workaround - JJ is required.");
-        eprintln!("");
+        eprintln!();
         std::process::exit(1);
     }
 
