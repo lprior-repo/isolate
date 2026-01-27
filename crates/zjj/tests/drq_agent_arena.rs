@@ -23,6 +23,7 @@ mod common;
 use common::TestHarness;
 use serde_json::Value as JsonValue;
 
+
 // ============================================================================
 // ROUND 1: JSON Schema Consistency Tests
 // ============================================================================
@@ -52,7 +53,7 @@ fn test_all_json_outputs_use_schema_envelope() {
     for args in json_commands {
         let result = harness.zjj(&args);
         if result.success {
-            validate_schema_envelope(&result.stdout, &args[0]);
+            validate_schema_envelope(&result.stdout, args[0]);
         }
     }
 }
@@ -71,8 +72,13 @@ fn test_json_output_has_required_fields() {
     let result = harness.zjj(&["status", "test-session", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue =
-        serde_json::from_str(&result.stdout).expect("JSON output should be valid");
+    let json: JsonValue = match serde_json::from_str(&result.stdout) {
+        Ok(j) => j,
+        Err(e) => {
+            assert!(false, "JSON output should be valid: {e}");
+            return;
+        }
+    };
 
     // All JSON outputs must have these fields
     assert!(json.get("$schema").is_some(), "Missing $schema field");
@@ -129,8 +135,13 @@ fn test_failed_add_leaves_no_artifacts() {
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success);
 
-    let json: JsonValue = serde_json::from_str(&list_result.stdout).unwrap();
-    let count = json["sessions"].as_array().map(|v| v.len()).unwrap_or(0);
+    let json: JsonValue = match serde_json::from_str(&list_result.stdout) {
+        Ok(j) => j,
+        Err(e) => {
+            panic!("Failed to parse JSON: {e}");
+        }
+    };
+    let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
     assert_eq!(count, 1, "Should have exactly 1 session");
 }
 
@@ -155,8 +166,8 @@ fn test_remove_cleans_up_all_artifacts() {
 
     // Verify session is not in database
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue = serde_json::from_str(&list_result.stdout).unwrap();
-    let count = json["sessions"].as_array().map(|v| v.len()).unwrap_or(0);
+    let json: JsonValue = serde_json::from_str(&list_result.stdout).expect("valid JSON");
+    let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
     assert_eq!(count, 0, "Should have 0 sessions after remove");
 }
 
@@ -185,7 +196,7 @@ fn test_complete_agent_workflow() {
     // 4. Query session state
     let query_result = harness.zjj(&["query", "session-exists", "feature-1", "--json"]);
     assert!(query_result.success);
-    let json: JsonValue = serde_json::from_str(&query_result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&query_result.stdout).expect("valid JSON");
     assert_eq!(json["exists"], true);
 
     // 5. Remove session (cleanup)
@@ -194,7 +205,7 @@ fn test_complete_agent_workflow() {
     // 6. Verify cleanup
     let query_result2 = harness.zjj(&["query", "session-exists", "feature-1", "--json"]);
     assert!(query_result2.success);
-    let json2: JsonValue = serde_json::from_str(&query_result2.stdout).unwrap();
+    let json2: JsonValue = serde_json::from_str(&query_result2.stdout).expect("valid JSON");
     assert_eq!(json2["exists"], false);
 }
 
@@ -212,7 +223,7 @@ fn test_context_command_for_agents() {
     let result = harness.zjj(&["context", "--json"]);
     assert!(result.success, "context command should succeed");
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
 
     // Context should provide all the information an AI agent needs
     assert!(json.get("zjj").is_some(), "Context should have zjj section");
@@ -236,7 +247,7 @@ fn test_query_command_discovery() {
     // Test session-count query
     let result = harness.zjj(&["query", "session-count", "--json"]);
     assert!(result.success);
-    let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
     assert_eq!(json["count"], 0, "Should have 0 sessions initially");
 
     // Add a session
@@ -245,7 +256,7 @@ fn test_query_command_discovery() {
     // Query again
     let result2 = harness.zjj(&["query", "session-count", "--json"]);
     assert!(result2.success);
-    let json2: JsonValue = serde_json::from_str(&result2.stdout).unwrap();
+    let json2: JsonValue = serde_json::from_str(&result2.stdout).expect("valid JSON");
     assert_eq!(json2["count"], 1, "Should have 1 session after add");
 }
 
@@ -299,8 +310,8 @@ fn test_multiple_sessions_isolation() {
 
     // Verify all sessions exist independently
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue = serde_json::from_str(&list_result.stdout).unwrap();
-    let count = json["sessions"].as_array().map(|v| v.len()).unwrap_or(0);
+    let json: JsonValue = serde_json::from_str(&list_result.stdout).expect("valid JSON");
+    let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
     assert_eq!(count, 3, "Should have 3 sessions");
 
     // Verify each session can be queried independently
@@ -333,7 +344,7 @@ fn test_error_responses_have_consistent_structure() {
     let result = harness.zjj(&["status", "nonexistent", "--json"]);
     assert!(!result.success, "Should fail for non-existent session");
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
 
     // Error responses must have these fields
     assert!(
@@ -368,7 +379,7 @@ fn test_not_found_vs_validation_error_codes() {
 
     // Test not found error (exit code 2)
     let result1 = harness.zjj(&["status", "nonexistent", "--json"]);
-    let json1: JsonValue = serde_json::from_str(&result1.stdout).unwrap();
+    let json1: JsonValue = serde_json::from_str(&result1.stdout).expect("valid JSON");
     assert_eq!(
         json1["error"]["exit_code"], 2,
         "Not found should be exit code 2"
@@ -376,7 +387,7 @@ fn test_not_found_vs_validation_error_codes() {
 
     // Test validation error (exit code 1)
     let result2 = harness.zjj(&["add", "123invalid", "--no-open", "--json"]);
-    let json2: JsonValue = serde_json::from_str(&result2.stdout).unwrap();
+    let json2: JsonValue = serde_json::from_str(&result2.stdout).expect("valid JSON");
     assert_eq!(
         json2["error"]["exit_code"], 1,
         "Validation error should be exit code 1"
@@ -404,7 +415,7 @@ fn test_query_session_locked_no_locks() {
         "Query should succeed even for non-existent session"
     );
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
     assert_eq!(
         json["locked"], false,
         "Non-existent session should not be locked"
@@ -430,7 +441,7 @@ fn test_query_session_locked_with_session() {
     let result = harness.zjj(&["query", "session-locked", "test-session", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
     assert_eq!(
         json["locked"], false,
         "Session should not be locked when idle"
@@ -454,7 +465,7 @@ fn test_query_operations_in_progress_empty() {
     let result = harness.zjj(&["query", "operations-in-progress", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
     assert_eq!(
         json["count"], 0,
         "Should have 0 active operations initially"
@@ -480,7 +491,7 @@ fn test_query_operations_in_progress_with_session() {
     let result = harness.zjj(&["query", "operations-in-progress", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = serde_json::from_str(&result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&result.stdout).expect("valid JSON");
     assert_eq!(
         json["count"], 0,
         "Session creation doesn't create a persistent lock"
@@ -536,21 +547,17 @@ fn validate_schema_envelope(json_str: &str, command_name: &str) {
     );
     assert!(
         json.get("_schema_version").is_some(),
-        "{}: Missing _schema_version field",
-        command_name
+        "{command_name}: Missing _schema_version field"
     );
     assert!(
         json.get("success").is_some(),
-        "{}: Missing success field",
-        command_name
+        "{command_name}: Missing success field"
     );
 
     // Validate schema format
     let schema = json["$schema"].as_str().unwrap();
     assert!(
         schema.starts_with("zjj://"),
-        "{}: $schema should start with 'zjj://', got: {}",
-        command_name,
-        schema
+        "{command_name}: $schema should start with 'zjj://', got: {schema}"
     );
 }
