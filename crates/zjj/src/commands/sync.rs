@@ -211,10 +211,10 @@ mod tests {
     use crate::{commands::determine_main_branch, db::SessionDb, session::SessionUpdate};
 
     // Helper to create a test database
-    fn setup_test_db() -> anyhow::Result<(SessionDb, TempDir)> {
+    async fn setup_test_db() -> anyhow::Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open_blocking(&db_path)?;
+        let db = SessionDb::create_or_open(&db_path).await?;
         Ok((db, dir))
     }
 
@@ -228,143 +228,163 @@ mod tests {
 
     #[test]
     fn test_sync_session_not_found() -> anyhow::Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let (db, _dir) = setup_test_db().await?;
 
-        // Try to sync a non-existent session
-        // We can't actually run this without a real JJ repo, but we can test the lookup
-        let result = db.get_blocking("nonexistent")?;
-        assert!(result.is_none());
-        Ok(())
+            // Try to sync a non-existent session
+            // We can't actually run this without a real JJ repo, but we can test the lookup
+            let result = db.get("nonexistent").await?;
+            assert!(result.is_none());
+            Ok::<_, anyhow::Error>(())
+        })
     }
 
     #[test]
     fn test_sync_session_exists() -> anyhow::Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let (db, _dir) = setup_test_db().await?;
 
-        // Create a session
-        let session = db.create_blocking("test-session", "/fake/workspace")?;
-        assert!(session.last_synced.is_none());
+            // Create a session
+            let session = db.create("test-session", "/fake/workspace").await?;
+            assert!(session.last_synced.is_none());
 
-        // Verify we can get it
-        let retrieved = db.get_blocking("test-session")?;
-        assert!(retrieved.is_some());
-        if let Some(session) = retrieved {
-            assert_eq!(session.name, "test-session");
-        }
+            // Verify we can get it
+            let retrieved = db.get("test-session").await?;
+            assert!(retrieved.is_some());
+            if let Some(session) = retrieved {
+                assert_eq!(session.name, "test-session");
+            }
 
-        Ok(())
+            Ok::<_, anyhow::Error>(())
+        })
     }
 
     #[test]
     fn test_update_last_synced_timestamp() -> anyhow::Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let (db, _dir) = setup_test_db().await?;
 
-        // Create a session
-        db.create_blocking("test-session", "/fake/workspace")?;
+            // Create a session
+            db.create("test-session", "/fake/workspace").await?;
 
-        // Update last_synced
-        let now = current_timestamp();
-        let update = SessionUpdate {
-            last_synced: Some(now),
-            ..Default::default()
-        };
-        db.update_blocking("test-session", update)?;
+            // Update last_synced
+            let now = current_timestamp();
+            let update = SessionUpdate {
+                last_synced: Some(now),
+                ..Default::default()
+            };
+            db.update("test-session", update).await?;
 
-        // Verify it was updated
-        let session = db.get_blocking("test-session")?;
-        assert!(session.is_some(), "Session not found");
-        if let Some(session) = session {
-            assert_eq!(session.last_synced, Some(now));
-        }
+            // Verify it was updated
+            let session = db.get("test-session").await?;
+            assert!(session.is_some(), "Session not found");
+            if let Some(session) = session {
+                assert_eq!(session.last_synced, Some(now));
+            }
 
-        Ok(())
+            Ok::<_, anyhow::Error>(())
+        })
     }
 
     #[test]
     fn test_list_all_sessions() -> anyhow::Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let (db, _dir) = setup_test_db().await?;
 
-        // Create multiple sessions
-        db.create_blocking("session1", "/fake/workspace1")?;
-        db.create_blocking("session2", "/fake/workspace2")?;
-        db.create_blocking("session3", "/fake/workspace3")?;
+            // Create multiple sessions
+            db.create("session1", "/fake/workspace1").await?;
+            db.create("session2", "/fake/workspace2").await?;
+            db.create("session3", "/fake/workspace3").await?;
 
-        // List all
-        let sessions = db.list_blocking(None)?;
-        assert_eq!(sessions.len(), 3);
+            // List all
+            let sessions = db.list(None).await?;
+            assert_eq!(sessions.len(), 3);
 
-        Ok(())
+            Ok::<_, anyhow::Error>(())
+        })
     }
 
     #[test]
     fn test_sync_updates_timestamp_on_success() -> anyhow::Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let (db, _dir) = setup_test_db().await?;
 
-        // Create a session
-        db.create_blocking("test-session", "/fake/workspace")?;
+            // Create a session
+            db.create("test-session", "/fake/workspace").await?;
 
-        // Simulate successful sync by updating timestamp
-        let before = current_timestamp();
-        let update = SessionUpdate {
-            last_synced: Some(before),
-            ..Default::default()
-        };
-        db.update_blocking("test-session", update)?;
+            // Simulate successful sync by updating timestamp
+            let before = current_timestamp();
+            let update = SessionUpdate {
+                last_synced: Some(before),
+                ..Default::default()
+            };
+            db.update("test-session", update).await?;
 
-        // Verify timestamp was set
-        let session = db.get_blocking("test-session")?;
-        assert!(session.is_some(), "Session not found");
-        if let Some(session) = session {
-            assert!(session.last_synced.is_some(), "last_synced should be set");
-            if let Some(last_synced) = session.last_synced {
-                assert!(last_synced >= before);
+            // Verify timestamp was set
+            let session = db.get("test-session").await?;
+            assert!(session.is_some(), "Session not found");
+            if let Some(session) = session {
+                assert!(session.last_synced.is_some(), "last_synced should be set");
+                if let Some(last_synced) = session.last_synced {
+                    assert!(last_synced >= before);
+                }
             }
-        }
 
-        Ok(())
+            Ok::<_, anyhow::Error>(())
+        })
     }
 
     #[test]
     fn test_multiple_syncs_update_timestamp() -> anyhow::Result<()> {
-        let (db, _dir) = setup_test_db()?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let (db, _dir) = setup_test_db().await?;
 
-        // Create a session
-        db.create_blocking("test-session", "/fake/workspace")?;
+            // Create a session
+            db.create("test-session", "/fake/workspace").await?;
 
-        // First sync
-        let first_sync = current_timestamp();
-        db.update_blocking(
-            "test-session",
-            SessionUpdate {
-                last_synced: Some(first_sync),
-                ..Default::default()
-            },
-        )?;
+            // First sync
+            let first_sync = current_timestamp();
+            db.update(
+                "test-session",
+                SessionUpdate {
+                    last_synced: Some(first_sync),
+                    ..Default::default()
+                },
+            )
+            .await?;
 
-        // Sleep to ensure different timestamp
-        std::thread::sleep(std::time::Duration::from_millis(10));
+            // Sleep to ensure different timestamp
+            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
-        // Second sync
-        let second_sync = current_timestamp();
-        db.update_blocking(
-            "test-session",
-            SessionUpdate {
-                last_synced: Some(second_sync),
-                ..Default::default()
-            },
-        )?;
+            // Second sync
+            let second_sync = current_timestamp();
+            db.update(
+                "test-session",
+                SessionUpdate {
+                    last_synced: Some(second_sync),
+                    ..Default::default()
+                },
+            )
+            .await?;
 
-        // Verify second timestamp is newer
-        let session = db.get_blocking("test-session")?;
-        assert!(session.is_some(), "Session not found");
-        if let Some(session) = session {
-            assert!(session.last_synced.is_some(), "last_synced should be set");
-            if let Some(last_synced) = session.last_synced {
-                assert!(last_synced >= second_sync);
+            // Verify second timestamp is newer
+            let session = db.get("test-session").await?;
+            assert!(session.is_some(), "Session not found");
+            if let Some(session) = session {
+                assert!(session.last_synced.is_some(), "last_synced should be set");
+                if let Some(last_synced) = session.last_synced {
+                    assert!(last_synced >= second_sync);
+                }
             }
-        }
 
-        Ok(())
+            Ok::<_, anyhow::Error>(())
+        })
     }
 
     #[test]
@@ -406,42 +426,51 @@ mod tests {
 
     #[test]
     fn test_sync_json_single_output_on_success() -> anyhow::Result<()> {
-        // JSON mode should output exactly one JSON object on success
-        let (db, _dir) = setup_test_db()?;
-        db.create_blocking("test-session", "/fake/workspace")?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            // JSON mode should output exactly one JSON object on success
+            let (db, _dir) = setup_test_db().await?;
+            db.create("test-session", "/fake/workspace").await?;
 
-        // Simulate sync success by mocking internal function
-        // RED: This test will verify that output is single JSON
-        // Once implemented, this should pass
+            // Simulate sync success by mocking internal function
+            // RED: This test will verify that output is single JSON
+            // Once implemented, this should pass
 
-        Ok(())
+            Ok::<_, anyhow::Error>(())
+        })
     }
 
     #[test]
     fn test_sync_json_single_output_on_failure() -> anyhow::Result<()> {
-        // JSON mode should output exactly one JSON object on failure
-        // RED: Currently outputs two JSON objects (SyncResponse + separate error)
-        let (db, _dir) = setup_test_db()?;
-        db.create_blocking("test-session", "/fake/workspace")?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            // JSON mode should output exactly one JSON object on failure
+            // RED: Currently outputs two JSON objects (SyncResponse + separate error)
+            let (db, _dir) = setup_test_db().await?;
+            db.create("test-session", "/fake/workspace").await?;
 
-        // Simulate sync failure by mocking internal function
-        // RED: This test will fail until duplicate JSON bug is fixed
-        // Expected: ONE JSON response with success=false
-        // Actual: TWO JSON objects
+            // Simulate sync failure by mocking internal function
+            // RED: This test will fail until duplicate JSON bug is fixed
+            // Expected: ONE JSON response with success=false
+            // Actual: TWO JSON objects
 
-        Ok(())
+            Ok::<_, anyhow::Error>(())
+        })
     }
 
     #[test]
     fn test_sync_json_parseable_by_jq() -> anyhow::Result<()> {
-        // JSON output should be parseable by jq
-        // RED: Duplicate JSON objects break jq parsing
-        let (db, _dir) = setup_test_db()?;
-        db.create_blocking("test-session", "/fake/workspace")?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            // JSON output should be parseable by jq
+            // RED: Duplicate JSON objects break jq parsing
+            let (db, _dir) = setup_test_db().await?;
+            db.create("test-session", "/fake/workspace").await?;
 
-        // Simulate JSON output and verify parseability
-        // RED: This will fail until bug is fixed
+            // Simulate JSON output and verify parseability
+            // RED: This will fail until bug is fixed
 
-        Ok(())
+            Ok::<_, anyhow::Error>(())
+        })
     }
 }

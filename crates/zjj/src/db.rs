@@ -12,7 +12,7 @@
 
 use std::{path::Path, str::FromStr, time::SystemTime};
 
-use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
+use sqlx::{Row, SqlitePool};
 use zjj_core::{Error, Result};
 
 use crate::session::{Session, SessionStatus, SessionUpdate};
@@ -67,13 +67,67 @@ impl SessionDb {
     }
 
     async fn open_internal(path: &Path, allow_create: bool) -> Result<Self> {
-        validate_database_path(path, allow_create)?;
+        // Ensure parent directory exists for create operations
+        if let Some(parent) = path.parent() {
+            if !parent.exists() && allow_create {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    Error::IoError(format!("Failed to create parent directory: {e}"))
+                })?;
+            }
+        }
 
-        let db_url = format!("sqlite:{}", path.display());
+        // Convert path to string for use in connection string
+        let path_str = path.to_str().ok_or_else(|| {
+            Error::DatabaseError("Database path contains invalid UTF-8".to_string())
+        })?;
 
-        let pool = create_connection_pool(&db_url).await?;
-        init_schema(&pool).await?;
-        Ok(Self { pool })
+        // SQLx connection string with mode parameter
+        // ?mode=rwc tells SQLite to Read/Write/Create
+        let db_url = if path.is_absolute() {
+            format!("sqlite:///{}?mode=rwc", path_str)
+        } else {
+            format!("sqlite:{}?mode=rwc", path_str)
+        };
+
+        // Try to open the database, with auto-recovery for missing/corrupted files
+        let pool = match create_connection_pool(&db_url).await {
+            Ok(p) => p,
+            Err(e) => {
+                // Connection failed - check if we can recover
+                match can_recover_database(path, allow_create) {
+                    Ok(()) => {
+                        recover_database(path)?;
+                        create_connection_pool(&db_url).await?
+                    }
+                    Err(recovery_err) => {
+                        return Err(Error::DatabaseError(format!(
+                            "{}\n\nRecovery check failed: {}",
+                            e, recovery_err
+                        )));
+                    }
+                }
+            }
+        };
+
+        // Try to initialize schema, with recovery for corrupted databases
+        match init_schema(&pool).await {
+            Ok(()) => Ok(Self { pool }),
+            Err(e) => {
+                // Schema init failed - likely corrupted database
+                match can_recover_database(path, allow_create) {
+                    Ok(()) => {
+                        recover_database(path)?;
+                        let new_pool = create_connection_pool(&db_url).await?;
+                        init_schema(&new_pool).await?;
+                        Ok(Self { pool: new_pool })
+                    }
+                    Err(recovery_err) => Err(Error::DatabaseError(format!(
+                        "{}\n\nRecovery check failed: {}",
+                        e, recovery_err
+                    ))),
+                }
+            }
+        }
     }
 
     /// Create a new session
@@ -126,49 +180,6 @@ impl SessionDb {
     /// Returns error if database query fails
     pub async fn list(&self, status_filter: Option<SessionStatus>) -> Result<Vec<Session>> {
         query_sessions(&self.pool, status_filter).await
-    }
-
-    /// Create a backup of the database
-    ///
-    /// # Errors
-    ///
-    /// Returns error if backup cannot be written
-    pub async fn backup(&self, backup_path: &Path) -> Result<()> {
-        self.list(None)
-            .await
-            .and_then(|sessions| serialize_sessions(&sessions))
-            .and_then(|json| write_backup(backup_path, &json))
-    }
-
-    /// Restore database from a backup file
-    ///
-    /// # Errors
-    ///
-    /// Returns error if backup is invalid or restore fails
-    pub async fn restore(&self, backup_path: &Path) -> Result<()> {
-        let json = read_backup(backup_path)?;
-        let sessions = deserialize_sessions(&json)?;
-        rebuild_database(&self.pool, sessions).await
-    }
-
-    /// Verify integrity of a backup file
-    ///
-    /// # Errors
-    ///
-    /// Returns error if backup file is invalid
-    pub fn verify_backup(backup_path: &Path) -> Result<usize> {
-        read_backup(backup_path)
-            .and_then(|json| deserialize_sessions(&json))
-            .map(|sessions| sessions.len())
-    }
-
-    /// Rebuild database from a list of sessions
-    ///
-    /// # Errors
-    ///
-    /// Returns error if rebuild fails
-    pub async fn rebuild_from_sessions(&self, sessions: Vec<Session>) -> Result<()> {
-        rebuild_database(&self.pool, sessions).await
     }
 
     // === BLOCKING WRAPPERS ===
@@ -224,63 +235,51 @@ impl SessionDb {
             .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
         rt.block_on(self.list(status_filter))
     }
-
-    /// Blocking version of [`backup`](Self::backup)
-    pub fn backup_blocking(&self, backup_path: &Path) -> Result<()> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(self.backup(backup_path))
-    }
-
-    /// Blocking version of [`restore`](Self::restore)
-    pub fn restore_blocking(&self, backup_path: &Path) -> Result<()> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(self.restore(backup_path))
-    }
-
-    /// Blocking version of [`rebuild_from_sessions`](Self::rebuild_from_sessions)
-    pub fn rebuild_from_sessions_blocking(&self, sessions: Vec<Session>) -> Result<()> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(self.rebuild_from_sessions(sessions))
-    }
 }
 
 // === PURE FUNCTIONS (Functional Core) ===
 
-/// Validate database path preconditions
-fn validate_database_path(path: &Path, allow_create: bool) -> Result<()> {
-    let exists = path.exists();
+/// Check if database can be auto-recovered
+///
+/// Recovery is allowed when:
+/// - The database file exists (corruption recovery)
+/// - The parent directory exists (missing file recovery)
+fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
+    // If file exists, we can recover from corruption
+    if path.exists() {
+        return Ok(());
+    }
 
-    if !exists && !allow_create {
-        return Err(Error::DatabaseError(format!(
-            "Database file does not exist: {}\n\nRun 'jjz init' to initialize ZJZ.",
+    // If file doesn't exist, check if parent directory exists
+    // (meaning zjj was previously initialized)
+    if let Some(parent) = path.parent() {
+        if parent.exists() {
+            return Ok(());
+        }
+    }
+
+    // Otherwise, only allow creation if explicitly requested
+    if allow_create {
+        Ok(())
+    } else {
+        Err(Error::DatabaseError(format!(
+            "Database file does not exist: {}\n\nRun 'zjj init' to initialize.",
             path.display()
-        )));
+        )))
     }
-
-    if exists {
-        validate_existing_file(path)?;
-    }
-
-    Ok(())
 }
 
-/// Validate existing database file is not empty
-fn validate_existing_file(path: &Path) -> Result<()> {
-    std::fs::metadata(path)
-        .map_err(|e| Error::DatabaseError(format!("Failed to read database metadata: {e}")))
-        .and_then(|metadata| {
-            if metadata.len() == 0 {
-                Err(Error::DatabaseError(format!(
-                    "Database file is empty or corrupted: {}\n\nRun 'jjz init' to reinitialize.",
-                    path.display()
-                )))
-            } else {
-                Ok(())
-            }
-        })
+/// Recover database by removing corrupted/missing file
+///
+/// This is safe because the database is a cache of session state,
+/// not the source of truth. Sessions can be reconstructed from JJ workspaces.
+fn recover_database(path: &Path) -> Result<()> {
+    // Remove the corrupted file if it exists
+    if path.exists() {
+        std::fs::remove_file(path)
+            .map_err(|e| Error::IoError(format!("Failed to remove corrupted database: {e}")))?;
+    }
+    Ok(())
 }
 
 /// Get current Unix timestamp
@@ -304,7 +303,7 @@ fn build_session(
         name: name.to_string(),
         status,
         workspace_path: workspace_path.to_string(),
-        zellij_tab: format!("jjz:{name}"),
+        zellij_tab: format!("zjj:{name}"),
         branch: None,
         created_at: timestamp,
         updated_at: timestamp,
@@ -313,38 +312,11 @@ fn build_session(
     }
 }
 
-/// Serialize sessions to JSON
-fn serialize_sessions(sessions: &[Session]) -> Result<String> {
-    serde_json::to_string_pretty(sessions)
-        .map_err(|e| Error::ParseError(format!("Failed to serialize sessions: {e}")))
-}
-
-/// Deserialize sessions from JSON
-fn deserialize_sessions(json: &str) -> Result<Vec<Session>> {
-    serde_json::from_str(json)
-        .map_err(|e| Error::ParseError(format!("Failed to parse backup file: {e}")))
-}
-
-/// Write backup to file
-fn write_backup(path: &Path, content: &str) -> Result<()> {
-    std::fs::write(path, content)
-        .map_err(|e| Error::IoError(format!("Failed to write backup file: {e}")))
-}
-
-/// Read backup from file
-fn read_backup(path: &Path) -> Result<String> {
-    std::fs::read_to_string(path)
-        .map_err(|e| Error::IoError(format!("Failed to read backup file: {e}")))
-}
-
 // === IMPERATIVE SHELL (Database Side Effects) ===
 
 /// Create SQLite connection pool
 async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
-    SqlitePoolOptions::new()
-        .max_connections(5)
-        .min_connections(1)
-        .connect(db_url)
+    SqlitePool::connect(db_url)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to connect to database: {e}")))
 }
@@ -398,7 +370,7 @@ async fn query_session_by_name(pool: &SqlitePool, name: &str) -> Result<Option<S
     .await
     .map_err(|e| Error::DatabaseError(format!("Failed to query session: {e}")))
     .and_then(|opt_row| match opt_row {
-        Some(row) => parse_session_row(row).map(Some),
+        Some(ref row) => parse_session_row(row).map(Some),
         None => Ok(None),
     })
 }
@@ -428,11 +400,11 @@ async fn query_sessions(
         }
     }.map_err(|e| Error::DatabaseError(format!("Failed to query sessions: {e}")))?;
 
-    rows.into_iter().map(parse_session_row).collect()
+    rows.iter().map(parse_session_row).collect()
 }
 
-/// Parse a database row into a Session
-fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
+/// Parse a database row into a `Session`
+fn parse_session_row(row: &sqlx::sqlite::SqliteRow) -> Result<Session> {
     let id: i64 = row
         .try_get("id")
         .map_err(|e| Error::DatabaseError(format!("Failed to read id: {e}")))?;
@@ -474,11 +446,11 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
         name: name.clone(),
         status,
         workspace_path,
-        zellij_tab: format!("jjz:{name}"),
+        zellij_tab: format!("zjj:{name}"),
         branch,
-        created_at: created_at as u64,
-        updated_at: updated_at as u64,
-        last_synced: last_synced.map(|v| v as u64),
+        created_at: created_at.cast_unsigned(),
+        updated_at: updated_at.cast_unsigned(),
+        last_synced: last_synced.map(i64::cast_unsigned),
         metadata,
     })
 }
@@ -495,7 +467,7 @@ async fn update_session(pool: &SqlitePool, name: &str, update: SessionUpdate) ->
     execute_update(pool, &sql, values).await
 }
 
-/// Build update clauses from SessionUpdate
+/// Build update clauses from `SessionUpdate`
 fn build_update_clauses(update: &SessionUpdate) -> Result<Vec<(&'static str, String)>> {
     let mut clauses = Vec::new();
 
@@ -562,64 +534,6 @@ async fn delete_session(pool: &SqlitePool, name: &str) -> Result<bool> {
         .map_err(|e| Error::DatabaseError(format!("Failed to delete session: {e}")))
 }
 
-/// Rebuild database from sessions list
-async fn rebuild_database(pool: &SqlitePool, sessions: Vec<Session>) -> Result<()> {
-    drop_existing_schema(pool).await?;
-    init_schema(pool).await?;
-    insert_all_sessions(pool, sessions).await
-}
-
-/// Drop existing database schema
-async fn drop_existing_schema(pool: &SqlitePool) -> Result<()> {
-    sqlx::query("DROP TABLE IF EXISTS sessions")
-        .execute(pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to drop sessions table: {e}")))?;
-
-    sqlx::query("DROP TRIGGER IF EXISTS update_timestamp")
-        .execute(pool)
-        .await
-        .map(|_| ())
-        .map_err(|e| Error::DatabaseError(format!("Failed to drop update trigger: {e}")))
-}
-
-/// Insert all sessions into database
-async fn insert_all_sessions(pool: &SqlitePool, sessions: Vec<Session>) -> Result<()> {
-    for session in sessions {
-        insert_session_from_backup(pool, &session).await?;
-    }
-    Ok(())
-}
-
-/// Insert a session from backup
-async fn insert_session_from_backup(pool: &SqlitePool, session: &Session) -> Result<()> {
-    let metadata_json = session
-        .metadata
-        .as_ref()
-        .map(|m| {
-            serde_json::to_string(m)
-                .map_err(|e| Error::ParseError(format!("Failed to serialize metadata: {e}")))
-        })
-        .transpose()?;
-
-    sqlx::query(
-        "INSERT INTO sessions (name, status, workspace_path, branch, created_at, updated_at, last_synced, metadata)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    )
-    .bind(&session.name)
-    .bind(session.status.to_string())
-    .bind(&session.workspace_path)
-    .bind(&session.branch)
-    .bind(session.created_at as i64)
-    .bind(session.updated_at as i64)
-    .bind(session.last_synced.map(|v| v as i64))
-    .bind(metadata_json)
-    .execute(pool)
-    .await
-    .map(|_| ())
-    .map_err(|e| Error::DatabaseError(format!("Failed to insert session during rebuild: {e}")))
-}
-
 #[cfg(test)]
 mod tests {
     use tempfile::TempDir;
@@ -670,27 +584,6 @@ mod tests {
         } else {
             return Err(Error::Unknown("Expected DatabaseError".to_string()));
         }
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_backup_restore_roundtrip() -> Result<()> {
-        let (db1, dir) = setup_test_db().await?;
-
-        db1.create("session1", "/path1").await?;
-        db1.create("session2", "/path2").await?;
-
-        let backup_path = dir.path().join("backup.json");
-        db1.backup(&backup_path).await?;
-
-        let db2_path = dir.path().join("restored.db");
-        let db2 = SessionDb::create_or_open(&db2_path).await?;
-        db2.restore(&backup_path).await?;
-
-        let sessions1 = db1.list(None).await?;
-        let sessions2 = db2.list(None).await?;
-
-        assert_eq!(sessions1.len(), sessions2.len());
         Ok(())
     }
 }

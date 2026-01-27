@@ -236,9 +236,9 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
     // Create repo-level AI discoverability file
     create_repo_ai_instructions(&root)?;
 
-    // Initialize the database
+    // Initialize the database (create if it doesn't exist)
     let db_path = zjj_dir.join("state.db");
-    let _db = SessionDb::open_blocking(&db_path)?;
+    let _db = SessionDb::create_or_open_blocking(&db_path)?;
 
     if format.is_json() {
         let response = build_init_response(&root, false);

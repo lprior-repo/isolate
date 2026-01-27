@@ -13,10 +13,10 @@
 
 // Import from the test common module
 mod common;
-use common::TestHarness;
-
-use serde_json::Value as JsonValue;
 use std::fs;
+
+use common::TestHarness;
+use serde_json::Value as JsonValue;
 
 // ============================================================================
 // OPPONENT 1: State Divergence
@@ -46,14 +46,20 @@ fn test_workspace_exists_without_db_entry() {
 
     // Manually create a workspace directory (simulating crash after workspace creation)
     let workspace_path = harness.workspace_path("zombie-session");
-    fs::create_dir_all(&workspace_path).expect("Failed to create workspace");
+    if fs::create_dir_all(&workspace_path).is_err() {
+        eprintln!("Failed to create workspace");
+        std::process::abort();
+    }
 
     // Try to create a session with the same name
     let result = harness.zjj(&["add", "zombie-session", "--no-open"]);
 
     // CURRENT CHAMPION: This fails with unclear error
     // EXPECTED: Either succeeds (recovering the orphan) OR fails with clear error
-    assert!(!result.success, "Should detect workspace exists and handle it");
+    assert!(
+        !result.success,
+        "Should detect workspace exists and handle it"
+    );
 
     // Verify the error message is actionable
     let error_output = if result.stdout.contains("error") || result.stdout.contains("Error") {
@@ -64,11 +70,10 @@ fn test_workspace_exists_without_db_entry() {
 
     // EXPECTED: Error mentions cleanup action OR automatic recovery occurred
     assert!(
-        error_output.contains("already exists") ||
-        error_output.contains("workspace") ||
-        error_output.contains("recover"),
-        "Error should be actionable: {}",
-        error_output
+        error_output.contains("already exists")
+            || error_output.contains("workspace")
+            || error_output.contains("recover"),
+        "Error should be actionable: {error_output}"
     );
 }
 
@@ -95,22 +100,34 @@ fn test_db_entry_exists_without_workspace() {
 
     // Delete the workspace behind zjj's back
     let workspace_path = harness.workspace_path("ghost-session");
-    fs::remove_dir_all(&workspace_path).expect("Failed to remove workspace");
+    if fs::remove_dir_all(&workspace_path).is_err() {
+        eprintln!("Failed to remove workspace");
+        std::process::abort();
+    }
 
     // Query session-exists
     let query_result = harness.zjj(&["query", "session-exists", "ghost-session", "--json"]);
     assert!(query_result.success, "Query should succeed");
 
-    let json: JsonValue = serde_json::from_str(&query_result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&query_result.stdout).unwrap_or_else(|_| {
+        eprintln!("Failed to parse JSON");
+        std::process::abort()
+    });
 
     // CURRENT CHAMPION: Reports exists=true despite workspace being gone
     // EXPECTED: Either exists=false OR status indicates failure/missing
-    let exists = json.get("exists").and_then(|v| v.as_bool()).unwrap_or(false);
+    let exists = json
+        .get("exists")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     if exists {
         // If it reports existence, the status should reflect the problem
         if let Some(session) = json.get("session") {
-            let status = session.get("status").and_then(|s| s.as_str()).unwrap_or("unknown");
+            let status = session
+                .get("status")
+                .and_then(|s| s.as_str())
+                .unwrap_or("unknown");
             assert_ne!(
                 status, "active",
                 "Session should not report as 'active' when workspace is missing, got: {}",
@@ -234,13 +251,19 @@ fn test_clean_command_detects_orphans() {
 
     // Create an orphan workspace
     let workspace_path = harness.workspace_path("orphan-session");
-    fs::create_dir_all(&workspace_path).expect("Failed to create workspace");
+    if fs::create_dir_all(&workspace_path).is_err() {
+        eprintln!("Failed to create workspace");
+        std::process::abort();
+    }
 
     // Run clean
     let clean_result = harness.zjj(&["clean", "--dry-run", "--json"]);
     assert!(clean_result.success, "clean should succeed");
 
-    let json: JsonValue = serde_json::from_str(&clean_result.stdout).unwrap();
+    let json: JsonValue = serde_json::from_str(&clean_result.stdout).unwrap_or_else(|_| {
+        eprintln!("Failed to parse JSON");
+        std::process::abort()
+    });
 
     // CURRENT CHAMPION: Does not report orphaned workspace
     // EXPECTED: Lists orphaned workspaces and suggests actions
@@ -278,18 +301,27 @@ fn test_recover_orphaned_session() {
 
     // Create a realistic orphan workspace (with .jj directory)
     let workspace_path = harness.workspace_path("recoverable-session");
-    fs::create_dir_all(&workspace_path).expect("Failed to create workspace");
+    if fs::create_dir_all(&workspace_path).is_err() {
+        eprintln!("Failed to create workspace");
+        std::process::abort();
+    }
 
     // Create a minimal .jj directory to make it look real
     let jj_dir = workspace_path.join(".jj");
-    fs::create_dir_all(&jj_dir).expect("Failed to create .jj");
+    if fs::create_dir_all(&jj_dir).is_err() {
+        eprintln!("Failed to create .jj");
+        std::process::abort();
+    }
 
     // Try to add with --recover flag (if it exists)
     let result = harness.zjj(&["add", "recoverable-session", "--no-open"]);
 
     // CURRENT CHAMPION: Fails because workspace exists
     // EXPECTED: With --recover flag, succeeds by detecting and adopting workspace
-    assert!(!result.success, "Current champion does not support --recover");
+    assert!(
+        !result.success,
+        "Current champion does not support --recover"
+    );
 }
 
 // ============================================================================
@@ -360,9 +392,9 @@ fn test_error_messages_are_actionable() {
 
     // Try various error scenarios
     let error_scenarios: &[&[&str]] = &[
-        &["add", "123invalid", "--no-open", "--json"],  // Invalid name
-        &["status", "nonexistent", "--json"],           // Not found
-        &["remove", "nonexistent", "-f", "--json"],     // Remove non-existent
+        &["add", "123invalid", "--no-open", "--json"], // Invalid name
+        &["status", "nonexistent", "--json"],          // Not found
+        &["remove", "nonexistent", "-f", "--json"],    // Remove non-existent
     ];
 
     let mut missing_recovery_count = 0;
@@ -428,7 +460,10 @@ fn test_add_is_not_idempotent() {
 
     // CURRENT CHAMPION: Fails with "already exists"
     // EXPECTED: With --idempotent, returns success with "already_exists" field
-    assert!(!result.success, "Duplicate add should fail without --idempotent flag");
+    assert!(
+        !result.success,
+        "Duplicate add should fail without --idempotent flag"
+    );
 
     // Cleanup
     harness.assert_success(&["remove", "idemp-test", "-f"]);

@@ -58,16 +58,13 @@ You are in an isolated workspace created by `zjj spawn <bead-id>`.
 When done, exit with success and zjj will auto-merge to main.
 "#;
 
-use std::fs;
-use std::io::Write;
-use std::path::Path;
-use std::process::Command;
+use std::{fs, io::Write, path::Path, process::Command};
 
 use anyhow::{Context, Result};
-
-use crate::cli::jj_root;
 use types::{SpawnError, SpawnOutput, SpawnStatus};
 use zjj_core::json::SchemaEnvelope;
+
+use crate::cli::jj_root;
 
 /// Run the spawn command with options
 pub fn run_with_options(options: &SpawnOptions) -> Result<()> {
@@ -80,8 +77,9 @@ pub fn run_with_options(options: &SpawnOptions) -> Result<()> {
 /// Core spawn logic using Railway-Oriented Programming
 fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
     // Phase 1: Validate location (must be on main)
-    let root = validate_location()
-        .map_err(|e| SpawnError::NotOnMain { current_location: e.to_string() })?;
+    let root = validate_location().map_err(|e| SpawnError::NotOnMain {
+        current_location: e.to_string(),
+    })?;
 
     // Phase 2: Validate bead status
     validate_bead_status(&options.bead_id)?;
@@ -90,8 +88,9 @@ fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
     let workspace_path = create_workspace(&root, &options.bead_id)?;
 
     // Phase 4: Update bead status to in_progress
-    update_bead_status(&options.bead_id, "in_progress")
-        .map_err(|e| SpawnError::DatabaseError { reason: e.to_string() })?;
+    update_bead_status(&options.bead_id, "in_progress").map_err(|e| SpawnError::DatabaseError {
+        reason: e.to_string(),
+    })?;
 
     // Phase 5: Spawn agent
     let (pid, exit_code) = if options.background {
@@ -126,10 +125,7 @@ fn validate_location() -> Result<String> {
     let current_dir = std::env::current_dir().context("Failed to get current directory")?;
 
     // Simple check: if we're in .zjj/workspaces, we're in a workspace
-    if current_dir
-        .to_string_lossy()
-        .contains(".zjj/workspaces")
-    {
+    if current_dir.to_string_lossy().contains(".zjj/workspaces") {
         anyhow::bail!("In workspace directory");
     }
 
@@ -161,7 +157,8 @@ fn validate_bead_status(bead_id: &str) -> Result<(), SpawnError> {
 
     for line in content.lines() {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if json.get("id")
+            if json
+                .get("id")
                 .and_then(|i| i.as_str())
                 .map(|i| i == bead_id)
                 .unwrap_or(false)
@@ -231,14 +228,18 @@ fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, Spa
 fn create_workspace_discoverability(workspace_path: &Path) -> Result<(), SpawnError> {
     // Create .cursorrules for Cursor/Windsurf
     let cursorrules_path = workspace_path.join(".cursorrules");
-    fs::write(&cursorrules_path, CURSOR_RULES).map_err(|e| SpawnError::WorkspaceCreationFailed {
-        reason: format!("Failed to create .cursorrules: {e}"),
+    fs::write(&cursorrules_path, CURSOR_RULES).map_err(|e| {
+        SpawnError::WorkspaceCreationFailed {
+            reason: format!("Failed to create .cursorrules: {e}"),
+        }
     })?;
 
     // Create .ai-instructions.md for Claude Code and others
     let ai_instructions_path = workspace_path.join(".ai-instructions.md");
-    fs::write(&ai_instructions_path, AI_INSTRUCTIONS).map_err(|e| SpawnError::WorkspaceCreationFailed {
-        reason: format!("Failed to create .ai-instructions.md: {e}"),
+    fs::write(&ai_instructions_path, AI_INSTRUCTIONS).map_err(|e| {
+        SpawnError::WorkspaceCreationFailed {
+            reason: format!("Failed to create .ai-instructions.md: {e}"),
+        }
     })?;
 
     Ok(())
@@ -253,7 +254,8 @@ fn update_bead_status(bead_id: &str, new_status: &str) -> Result<()> {
 
     for line in content.lines() {
         if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(line) {
-            if json.get("id")
+            if json
+                .get("id")
                 .and_then(|i| i.as_str())
                 .map(|i| i == bead_id)
                 .unwrap_or(false)
@@ -284,13 +286,11 @@ fn spawn_agent_foreground(
         .current_dir(workspace_path)
         .env("ZJJ_BEAD_ID", &options.bead_id)
         .env("ZJJ_WORKSPACE", workspace_path.to_string_lossy().as_ref())
-        .env("ZJJ_ACTIVE", "1");  // Required by git pre-commit hook
+        .env("ZJJ_ACTIVE", "1"); // Required by git pre-commit hook
 
-    let mut spawn_result = cmd
-        .spawn()
-        .map_err(|e| SpawnError::AgentSpawnFailed {
-            reason: format!("Failed to spawn agent: {e}"),
-        })?;
+    let mut spawn_result = cmd.spawn().map_err(|e| SpawnError::AgentSpawnFailed {
+        reason: format!("Failed to spawn agent: {e}"),
+    })?;
 
     let pid = Some(spawn_result.id());
 
@@ -321,11 +321,9 @@ fn spawn_agent_background(
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
 
-    let spawn_result = cmd
-        .spawn()
-        .map_err(|e| SpawnError::AgentSpawnFailed {
-            reason: format!("Failed to spawn agent: {e}"),
-        })?;
+    let spawn_result = cmd.spawn().map_err(|e| SpawnError::AgentSpawnFailed {
+        reason: format!("Failed to spawn agent: {e}"),
+    })?;
 
     let pid = Some(spawn_result.id());
 
@@ -349,8 +347,9 @@ fn handle_success(
     let cleaned = cleanup_workspace(workspace_path)?;
 
     // Update bead to completed
-    update_bead_status(bead_id, "completed")
-        .map_err(|e| SpawnError::DatabaseError { reason: e.to_string() })?;
+    update_bead_status(bead_id, "completed").map_err(|e| SpawnError::DatabaseError {
+        reason: e.to_string(),
+    })?;
 
     Ok((merged, cleaned, SpawnStatus::Completed))
 }
@@ -439,9 +438,7 @@ fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
             stderr.to_string()
         };
 
-        let has_conflicts = error_output
-            .to_lowercase()
-            .contains("conflict")
+        let has_conflicts = error_output.to_lowercase().contains("conflict")
             || error_output.to_lowercase().contains("conflicting");
 
         if has_conflicts {
@@ -453,9 +450,7 @@ fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
         }
 
         return Err(SpawnError::JjCommandFailed {
-            reason: format!(
-                "jj workspace abandon failed: {error_output}"
-            ),
+            reason: format!("jj workspace abandon failed: {error_output}"),
         });
     }
 

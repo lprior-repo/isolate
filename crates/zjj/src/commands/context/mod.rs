@@ -283,7 +283,7 @@ fn check_health(root: &std::path::Path, session_context: Option<&SessionContext>
     let mut warnings: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
 
-    let db_path = root.join(".zjj/sessions.db");
+    let db_path = root.join(".zjj/state.db");
     if !db_path.exists() {
         errors.push("Session database not found".to_string());
     }

@@ -200,8 +200,9 @@ async fn query_count(pool: &SqlitePool, status: &str) -> Result<u32> {
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to query {status} count: {e}")))?;
 
-    // i64 to u32 is safe here since issue counts won't exceed u32::MAX
-    Ok(count as u32)
+    // COUNT(*) is always non-negative, convert safely
+    u32::try_from(count)
+        .map_err(|_| Error::DatabaseError(format!("Issue count exceeds u32::MAX: {count}")))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -278,15 +279,15 @@ mod tests {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     #[tokio::test]
-    async fn test_query_beads_status_no_beads() {
+    async fn test_query_beads_status_no_beads() -> Result<()> {
         let Ok(temp_dir) = TempDir::new() else {
-            return;
+            return Ok(());
         };
 
         // Create a temporary in-memory pool for the test
         let pool = SqlitePool::connect("sqlite::memory:")
             .await
-            .expect("Failed to create in-memory pool");
+            .map_err(|e| Error::DatabaseError(format!("Failed to create in-memory pool: {e}")))?;
 
         let result = query_beads_status(&pool, temp_dir.path()).await;
 
@@ -294,6 +295,7 @@ mod tests {
         if let Ok(status) = result {
             assert_eq!(status, BeadsStatus::NoBeads);
         }
+        Ok(())
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -309,7 +311,10 @@ mod tests {
             .map_err(|e| Error::IoError(format!("Failed to create beads dir: {e}")))?;
 
         let db_path = beads_dir.join("beads.db");
-        let db_url = format!("sqlite:{}", db_path.display());
+        let path_str = db_path
+            .to_str()
+            .ok_or_else(|| Error::IoError("Invalid UTF-8 in path".to_string()))?;
+        let db_url = format!("sqlite:///{path_str}?mode=rwc");
         let pool = SqlitePool::connect(&db_url)
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to open DB: {e}")))?;

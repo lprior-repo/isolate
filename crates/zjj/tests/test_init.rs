@@ -64,7 +64,8 @@ async fn test_init_creates_state_db() {
     harness.assert_file_exists(&db_path);
 
     // Verify it's a valid SQLite database
-    let db_url = format!("sqlite:{}", db_path.display());
+    let path_str = db_path.to_str().unwrap_or_else(|| std::process::abort());
+    let db_url = format!("sqlite:///{}?mode=rwc", path_str);
     let Ok(pool) = SqlitePool::connect(&db_url).await else {
         std::process::abort()
     };
@@ -72,11 +73,17 @@ async fn test_init_creates_state_db() {
     use sqlx::Row;
     let Ok(row) = sqlx::query("SELECT COUNT(*) as count FROM sessions")
         .fetch_one(&pool)
-        .await else {
+        .await
+    else {
         std::process::abort()
     };
-    let count: i64 = row.get("count");
-    assert_eq!(count, 0, "Database should be empty after init");
+    let count: i64 = row
+        .try_get("count")
+        .unwrap_or_else(|_| std::process::abort());
+    if count != 0 {
+        eprintln!("Database should be empty after init, but has {count} rows");
+        std::process::abort();
+    }
 }
 
 #[test]
@@ -284,21 +291,31 @@ async fn test_init_state_db_has_correct_schema() {
     // Check that sessions table has all required columns
     let Ok(rows) = sqlx::query("PRAGMA table_info(sessions)")
         .fetch_all(&pool)
-        .await else {
+        .await
+    else {
         std::process::abort()
     };
 
-    let columns: Vec<String> = rows.iter()
-        .map(|row: &sqlx::sqlite::SqliteRow| row.get::<_, &str>("name"))
+    let columns: Vec<String> = rows
+        .iter()
+        .filter_map(|row: &sqlx::sqlite::SqliteRow| row.try_get::<&str, _>("name").ok())
         .map(|s: &str| s.to_string())
         .collect();
 
-    assert!(columns.contains(&"id".to_string()));
-    assert!(columns.contains(&"name".to_string()));
-    assert!(columns.contains(&"status".to_string()));
-    assert!(columns.contains(&"workspace_path".to_string()));
-    assert!(columns.contains(&"created_at".to_string()));
-    assert!(columns.contains(&"updated_at".to_string()));
+    let required_columns = [
+        "id",
+        "name",
+        "status",
+        "workspace_path",
+        "created_at",
+        "updated_at",
+    ];
+    for col in required_columns {
+        if !columns.iter().any(|c| c == col) {
+            eprintln!("Missing required column: {col}");
+            std::process::abort();
+        }
+    }
 }
 
 #[tokio::test]
@@ -311,25 +328,35 @@ async fn test_init_creates_indexes() {
     harness.assert_success(&["init"]);
 
     let db_path = harness.state_db_path();
-    let db_url = format!("sqlite:{}", db_path.display());
+    let path_str = db_path.to_str().unwrap_or_else(|| std::process::abort());
+    let db_url = format!("sqlite:///{}?mode=rwc", path_str);
     let Ok(pool) = SqlitePool::connect(&db_url).await else {
         std::process::abort()
     };
 
     use sqlx::Row;
     // Check that indexes exist
-    let Ok(rows) = sqlx::query("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sessions'")
-        .fetch_all(&pool)
-        .await else {
+    let Ok(rows) =
+        sqlx::query("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sessions'")
+            .fetch_all(&pool)
+            .await
+    else {
         std::process::abort()
     };
 
-    let indexes: Vec<String> = rows.iter()
-        .map(|row: &sqlx::sqlite::SqliteRow| row.get::<_, &str>("name"))
+    let indexes: Vec<String> = rows
+        .iter()
+        .filter_map(|row: &sqlx::sqlite::SqliteRow| row.try_get::<&str, _>("name").ok())
         .map(|s: &str| s.to_string())
         .collect();
 
     // Should have at least status and name indexes
-    assert!(indexes.iter().any(|name: &String| name.contains("status")));
-    assert!(indexes.iter().any(|name: &String| name.contains("name")));
+    if !indexes.iter().any(|name: &String| name.contains("status")) {
+        eprintln!("Missing status index");
+        std::process::abort();
+    }
+    if !indexes.iter().any(|name: &String| name.contains("name")) {
+        eprintln!("Missing name index");
+        std::process::abort();
+    }
 }
