@@ -145,8 +145,6 @@ fn get_session_changes(workspace_path: &str) -> Option<usize> {
 
 /// Get beads count from the repository's beads database
 fn get_beads_count() -> Result<BeadCounts> {
-    use rusqlite::Connection;
-
     // Find repository root
     let repo_root = zjj_core::jj::check_in_jj_repo().ok();
 
@@ -160,29 +158,38 @@ fn get_beads_count() -> Result<BeadCounts> {
         return Ok(BeadCounts::default());
     }
 
-    // Query beads database
-    // Map database errors to zjj_core::Error::DatabaseError for exit code 3
-    let conn = Connection::open(&beads_db_path).map_err(|e| {
+    // Use sqlx to query the beads database synchronously
+    // We create a runtime and block on the async operation
+    let rt = tokio::runtime::Runtime::new().map_err(|e| {
         anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-            "Failed to open beads database: {e}"
+            "Failed to create runtime: {e}"
         )))
     })?;
 
-    // Count open issues
-    let open: usize = conn
-        .query_row(
-            "SELECT COUNT(*) FROM issues WHERE status = 'open'",
-            [],
-            |row| row.get(0),
+    rt.block_on(async {
+        let connection_string = format!("sqlite:{}", beads_db_path.display());
+        let pool = sqlx::SqlitePool::connect(&connection_string).await.map_err(|e| {
+            anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+                "Failed to open beads database: {e}"
+            )))
+        })?;
+
+        // Count open issues
+        let open: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM issues WHERE status = ?1"
         )
+        .bind("open")
+        .fetch_one(&pool)
+        .await
         .unwrap_or(0);
 
-    // For now, we can't distinguish in_progress vs blocked without more schema knowledge
-    // Let's return a simplified count
-    Ok(BeadCounts {
-        open,
-        in_progress: 0,
-        blocked: 0,
+        // For now, we can't distinguish in_progress vs blocked without more schema knowledge
+        // Let's return a simplified count
+        Result::<_, anyhow::Error>::Ok(BeadCounts {
+            open: open as usize,
+            in_progress: 0,
+            blocked: 0,
+        })
     })
 }
 
@@ -227,8 +234,8 @@ mod tests {
         Ok((db, dir))
     }
 
-    #[test]
-    fn test_bead_counts_display() {
+    #[tokio::test]
+    async fn test_bead_counts_display() {
         let counts = BeadCounts {
             open: 5,
             in_progress: 3,
@@ -237,16 +244,16 @@ mod tests {
         assert_eq!(counts.to_string(), "5/3/2");
     }
 
-    #[test]
-    fn test_bead_counts_default() {
+    #[tokio::test]
+    async fn test_bead_counts_default() {
         let counts = BeadCounts::default();
         assert_eq!(counts.open, 0);
         assert_eq!(counts.in_progress, 0);
         assert_eq!(counts.blocked, 0);
     }
 
-    #[test]
-    fn test_session_list_item_serialization() -> Result<()> {
+    #[tokio::test]
+    async fn test_session_list_item_serialization() -> Result<()> {
         let session = Session {
             id: Some(1),
             name: "test".to_string(),
@@ -276,14 +283,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_get_session_changes_missing_workspace() {
+    #[tokio::test]
+    async fn test_get_session_changes_missing_workspace() {
         let result = get_session_changes("/nonexistent/path");
         assert!(result.is_none());
     }
 
-    #[test]
-    fn test_output_table_format() {
+    #[tokio::test]
+    async fn test_output_table_format() {
         let session = Session {
             id: Some(1),
             name: "test-session".to_string(),
@@ -310,8 +317,8 @@ mod tests {
         output_table(&items);
     }
 
-    #[test]
-    fn test_output_json_format() {
+    #[tokio::test]
+    async fn test_output_json_format() {
         let session = Session {
             id: Some(1),
             name: "test-session".to_string(),
@@ -338,8 +345,8 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_filter_completed_and_failed_sessions() -> Result<()> {
+    #[tokio::test]
+    async fn test_filter_completed_and_failed_sessions() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Create sessions with different statuses
@@ -396,8 +403,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_all_flag_includes_all_sessions() -> Result<()> {
+    #[tokio::test]
+    async fn test_all_flag_includes_all_sessions() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Create sessions with different statuses
@@ -424,8 +431,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_empty_list_handling() -> Result<()> {
+    #[tokio::test]
+    async fn test_empty_list_handling() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         let sessions = db.list(None)?;
@@ -434,8 +441,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_session_list_item_with_none_branch() {
+    #[tokio::test]
+    async fn test_session_list_item_with_none_branch() {
         let session = Session {
             id: Some(1),
             name: "test".to_string(),
@@ -462,8 +469,8 @@ mod tests {
         assert_eq!(item.changes, "-");
     }
 
-    #[test]
-    fn test_get_beads_count_no_repo() {
+    #[tokio::test]
+    async fn test_get_beads_count_no_repo() {
         // When not in a repo or no beads db, should return default
         let counts = BeadCounts::default();
         assert_eq!(counts.open, 0);
@@ -471,8 +478,8 @@ mod tests {
         assert_eq!(counts.blocked, 0);
     }
 
-    #[test]
-    fn test_combined_filters_single_pass() -> Result<()> {
+    #[tokio::test]
+    async fn test_combined_filters_single_pass() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Create sessions with different combinations of properties
@@ -586,8 +593,8 @@ mod tests {
     // These tests FAIL initially - they verify envelope structure and format
     // Implementation in Phase 4 (GREEN) will make them pass
 
-    #[test]
-    fn test_list_json_has_envelope() -> Result<()> {
+    #[tokio::test]
+    async fn test_list_json_has_envelope() -> Result<()> {
         // Verify envelope wrapping for list command output
         use zjj_core::json::SchemaEnvelopeArray;
 
@@ -610,8 +617,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_list_filtered_wrapped() -> Result<()> {
+    #[tokio::test]
+    async fn test_list_filtered_wrapped() -> Result<()> {
         // Verify filtered results are wrapped in envelope
         use zjj_core::json::SchemaEnvelopeArray;
 
@@ -647,8 +654,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_list_array_type() -> Result<()> {
+    #[tokio::test]
+    async fn test_list_array_type() -> Result<()> {
         // Verify schema_type is "array" for list results
         use zjj_core::json::SchemaEnvelopeArray;
 
@@ -670,8 +677,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_list_metadata_preserved() -> Result<()> {
+    #[tokio::test]
+    async fn test_list_metadata_preserved() -> Result<()> {
         // Verify session metadata is preserved in envelope
         use serde_json::json;
         use zjj_core::json::SchemaEnvelopeArray;

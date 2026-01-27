@@ -222,8 +222,6 @@ fn get_diff_stats(workspace_path: &Path) -> DiffStats {
 
 /// Get beads statistics from the repository's beads database
 fn get_beads_stats() -> Result<BeadStats> {
-    use rusqlite::Connection;
-
     // Find repository root
     let repo_root = zjj_core::jj::check_in_jj_repo().ok();
 
@@ -237,42 +235,56 @@ fn get_beads_stats() -> Result<BeadStats> {
         return Ok(BeadStats::default());
     }
 
-    // Query beads database
-    // Map database errors to zjj_core::Error::DatabaseError for exit code 3
-    let conn = Connection::open(&beads_db_path).map_err(|e| {
+    // Use sqlx to query the beads database synchronously
+    // We create a runtime and block on the async operation
+    let rt = tokio::runtime::Runtime::new().map_err(|e| {
         anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-            "Failed to open beads database: {e}"
+            "Failed to create runtime: {e}"
         )))
     })?;
 
-    // Count issues by status using parameterized queries
-    // Use ?1 placeholder to prevent SQL injection and follow security best practices
-    let open = count_issues_by_status(&conn, "open")?;
-    let in_progress = count_issues_by_status(&conn, "in_progress")?;
-    let blocked = count_issues_by_status(&conn, "blocked")?;
-    let closed = count_issues_by_status(&conn, "closed")?;
+    rt.block_on(async {
+        let connection_string = format!("sqlite:{}", beads_db_path.display());
+        let pool = sqlx::SqlitePool::connect(&connection_string).await.map_err(|e| {
+            anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+                "Failed to open beads database: {e}"
+            )))
+        })?;
 
-    Ok(BeadStats {
-        open,
-        in_progress,
-        blocked,
-        closed,
+        // Count issues by status using parameterized queries
+        let open = count_issues_by_status(&pool, "open").await?;
+        let in_progress = count_issues_by_status(&pool, "in_progress").await?;
+        let blocked = count_issues_by_status(&pool, "blocked").await?;
+        let closed = count_issues_by_status(&pool, "closed").await?;
+
+        Result::<_, anyhow::Error>::Ok(BeadStats {
+            open,
+            in_progress,
+            blocked,
+            closed,
+        })
     })
 }
 
 /// Count issues by status using parameterized query
-fn count_issues_by_status(conn: &rusqlite::Connection, status: &str) -> Result<usize> {
-    conn.query_row(
-        "SELECT COUNT(*) FROM issues WHERE status = ?1",
-        [status],
-        |row| row.get(0),
+async fn count_issues_by_status(
+    pool: &sqlx::SqlitePool,
+    status: &str,
+) -> Result<usize> {
+
+    let result: Option<i64> = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM issues WHERE status = ?1"
     )
-    .or_else(|e| match e {
-        rusqlite::Error::QueryReturnedNoRows => Ok(0),
-        _ => Err(anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+    .bind(status)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
             "Failed to query beads database: {e}"
-        )))),
-    })
+        )))
+    })?;
+
+    Ok(result.unwrap_or(0) as usize)
 }
 
 /// Wrapper for status response data
@@ -313,8 +325,8 @@ mod tests {
     use super::*;
     use crate::session::{Session, SessionStatus};
 
-    #[test]
-    fn test_file_changes_total() {
+    #[tokio::test]
+    async fn test_file_changes_total() {
         let changes = FileChanges {
             modified: 2,
             added: 3,
@@ -325,8 +337,8 @@ mod tests {
         assert_eq!(changes.total(), 7);
     }
 
-    #[test]
-    fn test_file_changes_is_clean() {
+    #[tokio::test]
+    async fn test_file_changes_is_clean() {
         let clean = FileChanges::default();
         assert!(clean.is_clean());
 
@@ -337,14 +349,14 @@ mod tests {
         assert!(!dirty.is_clean());
     }
 
-    #[test]
-    fn test_file_changes_display_clean() {
+    #[tokio::test]
+    async fn test_file_changes_display_clean() {
         let changes = FileChanges::default();
         assert_eq!(changes.to_string(), "clean");
     }
 
-    #[test]
-    fn test_file_changes_display_dirty() {
+    #[tokio::test]
+    async fn test_file_changes_display_dirty() {
         let changes = FileChanges {
             modified: 2,
             added: 3,
@@ -355,8 +367,8 @@ mod tests {
         assert_eq!(changes.to_string(), "M:2 A:3 D:1 R:1");
     }
 
-    #[test]
-    fn test_diff_stats_display() {
+    #[tokio::test]
+    async fn test_diff_stats_display() {
         let stats = DiffStats {
             insertions: 123,
             deletions: 45,
@@ -364,16 +376,16 @@ mod tests {
         assert_eq!(stats.to_string(), "+123 -45");
     }
 
-    #[test]
-    fn test_diff_stats_default() {
+    #[tokio::test]
+    async fn test_diff_stats_default() {
         let stats = DiffStats::default();
         assert_eq!(stats.insertions, 0);
         assert_eq!(stats.deletions, 0);
         assert_eq!(stats.to_string(), "+0 -0");
     }
 
-    #[test]
-    fn test_bead_stats_display() {
+    #[tokio::test]
+    async fn test_bead_stats_display() {
         let stats = BeadStats {
             open: 5,
             in_progress: 3,
@@ -383,8 +395,8 @@ mod tests {
         assert_eq!(stats.to_string(), "O:5 P:3 B:2 C:10");
     }
 
-    #[test]
-    fn test_bead_stats_default() {
+    #[tokio::test]
+    async fn test_bead_stats_default() {
         let stats = BeadStats::default();
         assert_eq!(stats.open, 0);
         assert_eq!(stats.in_progress, 0);
@@ -392,8 +404,8 @@ mod tests {
         assert_eq!(stats.closed, 0);
     }
 
-    #[test]
-    fn test_session_status_info_serialization() -> Result<()> {
+    #[tokio::test]
+    async fn test_session_status_info_serialization() -> Result<()> {
         let session = Session {
             id: Some(1),
             name: "test-session".to_string(),
@@ -441,8 +453,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_get_file_changes_missing_workspace() {
+    #[tokio::test]
+    async fn test_get_file_changes_missing_workspace() {
         let result = get_file_changes(Path::new("/nonexistent/path"));
         assert_eq!(result.modified, 0);
         assert_eq!(result.added, 0);
@@ -450,15 +462,15 @@ mod tests {
         assert_eq!(result.renamed, 0);
     }
 
-    #[test]
-    fn test_get_diff_stats_missing_workspace() {
+    #[tokio::test]
+    async fn test_get_diff_stats_missing_workspace() {
         let result = get_diff_stats(Path::new("/nonexistent/path"));
         assert_eq!(result.insertions, 0);
         assert_eq!(result.deletions, 0);
     }
 
-    #[test]
-    fn test_output_table_format() {
+    #[tokio::test]
+    async fn test_output_table_format() {
         let session = Session {
             id: Some(1),
             name: "test".to_string(),
@@ -501,8 +513,8 @@ mod tests {
         output_table(&items);
     }
 
-    #[test]
-    fn test_output_json_format() {
+    #[tokio::test]
+    async fn test_output_json_format() {
         let session = Session {
             id: Some(1),
             name: "test".to_string(),
@@ -531,8 +543,8 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_file_changes_with_unknown_files() {
+    #[tokio::test]
+    async fn test_file_changes_with_unknown_files() {
         let changes = FileChanges {
             modified: 1,
             added: 0,
@@ -550,8 +562,8 @@ mod tests {
     // ========================================================================
 
     /// Test that JSON output includes the $schema field
-    #[test]
-    fn test_status_json_has_envelope() -> Result<()> {
+    #[tokio::test]
+    async fn test_status_json_has_envelope() -> Result<()> {
         let session = Session {
             id: Some(1),
             name: "test-envelope".to_string(),
@@ -606,8 +618,8 @@ mod tests {
     }
 
     /// Test that `schema_type` field is set to "single" for wrapped responses
-    #[test]
-    fn test_status_schema_type_single() -> Result<()> {
+    #[tokio::test]
+    async fn test_status_schema_type_single() -> Result<()> {
         let session = Session {
             id: Some(2),
             name: "test-schema-type".to_string(),
@@ -673,8 +685,8 @@ mod tests {
     }
 
     /// Test that empty sessions array is properly wrapped in envelope
-    #[test]
-    fn test_status_empty_sessions_wrapped() -> Result<()> {
+    #[tokio::test]
+    async fn test_status_empty_sessions_wrapped() -> Result<()> {
         let items: Vec<SessionStatusInfo> = vec![];
 
         // Wrap in envelope
@@ -738,8 +750,8 @@ mod tests {
     }
 
     /// Test that the schema format is exactly `<zjj://status-response/v1>`
-    #[test]
-    fn test_status_schema_format() -> Result<()> {
+    #[tokio::test]
+    async fn test_status_schema_format() -> Result<()> {
         let session = Session {
             id: Some(3),
             name: "test-format".to_string(),
@@ -806,8 +818,8 @@ mod tests {
     }
 
     /// Test that `_schema_version` field exists and is correct
-    #[test]
-    fn test_status_schema_version_field() -> Result<()> {
+    #[tokio::test]
+    async fn test_status_schema_version_field() -> Result<()> {
         let session = Session {
             id: Some(4),
             name: "test-version".to_string(),
@@ -861,8 +873,8 @@ mod tests {
     }
 
     /// Test that success field is present and true for valid responses
-    #[test]
-    fn test_status_success_field_true() -> Result<()> {
+    #[tokio::test]
+    async fn test_status_success_field_true() -> Result<()> {
         let session = Session {
             id: Some(5),
             name: "test-success".to_string(),
@@ -913,8 +925,8 @@ mod tests {
     }
 
     /// Test that data field contains the actual session array
-    #[test]
-    fn test_status_data_field_contains_sessions() -> Result<()> {
+    #[tokio::test]
+    async fn test_status_data_field_contains_sessions() -> Result<()> {
         let session1 = Session {
             id: Some(6),
             name: "session-1".to_string(),

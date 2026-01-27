@@ -172,16 +172,16 @@ mod tests {
         Ok((db, dir, workspace_path))
     }
 
-    #[test]
-    fn test_remove_options_default() {
+    #[tokio::test]
+    async fn test_remove_options_default() {
         let opts = RemoveOptions::default();
         assert!(!opts.force);
         assert!(!opts.merge);
         assert!(!opts.keep_branch);
     }
 
-    #[test]
-    fn test_session_not_found() -> Result<()> {
+    #[tokio::test]
+    async fn test_session_not_found() -> Result<()> {
         let dir = TempDir::new().context("Failed to create temp dir")?;
         let db_path = dir.path().join("test.db");
         let _db = SessionDb::open(&db_path)?;
@@ -192,15 +192,15 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_confirm_removal_format() {
+    #[tokio::test]
+    async fn test_confirm_removal_format() {
         // Test that confirmation prompt is correct
         // This is a unit test for the confirmation logic
         // Actual I/O testing would require mocking stdin/stdout
     }
 
-    #[test]
-    fn test_merge_to_main_not_implemented() {
+    #[tokio::test]
+    async fn test_merge_to_main_not_implemented() {
         let result = merge_to_main("test", "/path");
         let is_not_impl = result
             .as_ref()
@@ -211,24 +211,24 @@ mod tests {
 
     // Tests for P0-3b: Error exit code mapping
 
-    #[test]
-    fn test_not_found_error_has_correct_exit_code() {
+    #[tokio::test]
+    async fn test_not_found_error_has_correct_exit_code() {
         // When we can't find a session, we should return NotFound error with exit code 2
         let err = zjj_core::Error::NotFound("Session 'test' not found".into());
         assert_eq!(err.exit_code(), 2);
         assert!(matches!(err, zjj_core::Error::NotFound(_)));
     }
 
-    #[test]
-    fn test_io_error_maps_to_exit_code_3() {
+    #[tokio::test]
+    async fn test_io_error_maps_to_exit_code_3() {
         // IO errors (like permission denied) should map to exit code 3
         let err = zjj_core::Error::IoError("Permission denied".into());
         assert_eq!(err.exit_code(), 3);
         assert!(matches!(err, zjj_core::Error::IoError(_)));
     }
 
-    #[test]
-    fn test_validation_error_maps_to_exit_code_1() {
+    #[tokio::test]
+    async fn test_validation_error_maps_to_exit_code_1() {
         // Validation errors should map to exit code 1
         let err = zjj_core::Error::ValidationError("Invalid name".into());
         assert_eq!(err.exit_code(), 1);
@@ -237,8 +237,8 @@ mod tests {
 
     // Phase 1 RED tests: Remove JSON output should be wrapped with SchemaEnvelope
 
-    #[test]
-    fn test_remove_json_has_envelope() -> Result<()> {
+    #[tokio::test]
+    async fn test_remove_json_has_envelope() -> Result<()> {
         use crate::json_output::RemoveOutput;
 
         // Create sample RemoveOutput
@@ -276,8 +276,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_remove_schema_format() -> Result<()> {
+    #[tokio::test]
+    async fn test_remove_schema_format() -> Result<()> {
         use crate::json_output::RemoveOutput;
 
         // Create sample output
