@@ -186,7 +186,7 @@ fn get_beads_count() -> Result<BeadCounts> {
         // For now, we can't distinguish in_progress vs blocked without more schema knowledge
         // Let's return a simplified count
         Result::<_, anyhow::Error>::Ok(BeadCounts {
-            open: open as usize,
+            open: usize::try_from(open).unwrap_or(0),
             in_progress: 0,
             blocked: 0,
         })

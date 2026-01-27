@@ -1,4 +1,4 @@
-//! Database operations for session persistence using SQLx
+//! Database operations for session persistence using `SQLx`
 //!
 //! This module provides async SQLite-based persistence with:
 //! - Connection pooling (no Arc<Mutex<>>)
@@ -12,6 +12,7 @@
 
 use std::{path::Path, str::FromStr, time::SystemTime};
 
+use num_traits::cast::ToPrimitive;
 use sqlx::{Row, SqlitePool};
 use zjj_core::{Error, Result};
 
@@ -84,9 +85,9 @@ impl SessionDb {
         // SQLx connection string with mode parameter
         // ?mode=rwc tells SQLite to Read/Write/Create
         let db_url = if path.is_absolute() {
-            format!("sqlite:///{}?mode=rwc", path_str)
+            format!("sqlite:///{path_str}?mode=rwc")
         } else {
-            format!("sqlite:{}?mode=rwc", path_str)
+            format!("sqlite:{path_str}?mode=rwc")
         };
 
         // Try to open the database, with auto-recovery for missing/corrupted files
@@ -101,8 +102,7 @@ impl SessionDb {
                     }
                     Err(recovery_err) => {
                         return Err(Error::DatabaseError(format!(
-                            "{}\n\nRecovery check failed: {}",
-                            e, recovery_err
+                            "{e}\n\nRecovery check failed: {recovery_err}"
                         )));
                     }
                 }
@@ -122,8 +122,7 @@ impl SessionDb {
                         Ok(Self { pool: new_pool })
                     }
                     Err(recovery_err) => Err(Error::DatabaseError(format!(
-                        "{}\n\nRecovery check failed: {}",
-                        e, recovery_err
+                        "{e}\n\nRecovery check failed: {recovery_err}"
                     ))),
                 }
             }
@@ -314,7 +313,7 @@ fn build_session(
 
 // === IMPERATIVE SHELL (Database Side Effects) ===
 
-/// Create SQLite connection pool
+/// Create `SQLite` connection pool
 async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
     SqlitePool::connect(db_url)
         .await
@@ -345,8 +344,8 @@ async fn insert_session(
     .bind(name)
     .bind(status.to_string())
     .bind(workspace_path)
-    .bind(timestamp as i64)
-    .bind(timestamp as i64)
+    .bind(timestamp.to_i64().unwrap_or(i64::MAX))
+    .bind(timestamp.to_i64().unwrap_or(i64::MAX))
     .execute(pool)
     .await
     .map(|result| result.last_insert_rowid())
@@ -369,10 +368,7 @@ async fn query_session_by_name(pool: &SqlitePool, name: &str) -> Result<Option<S
     .fetch_optional(pool)
     .await
     .map_err(|e| Error::DatabaseError(format!("Failed to query session: {e}")))
-    .and_then(|opt_row| match opt_row {
-        Some(ref row) => parse_session_row(row).map(Some),
-        None => Ok(None),
-    })
+    .and_then(|opt_row| opt_row.map(parse_session_row).transpose())
 }
 
 /// Query all sessions with optional status filter
@@ -400,11 +396,12 @@ async fn query_sessions(
         }
     }.map_err(|e| Error::DatabaseError(format!("Failed to query sessions: {e}")))?;
 
-    rows.iter().map(parse_session_row).collect()
+    rows.into_iter().map(parse_session_row).collect()
 }
 
 /// Parse a database row into a `Session`
-fn parse_session_row(row: &sqlx::sqlite::SqliteRow) -> Result<Session> {
+#[allow(clippy::needless_pass_by_value)]
+fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
     let id: i64 = row
         .try_get("id")
         .map_err(|e| Error::DatabaseError(format!("Failed to read id: {e}")))?;

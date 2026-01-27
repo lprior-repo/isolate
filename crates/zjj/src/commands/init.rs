@@ -52,7 +52,7 @@ fn build_init_response(root: &Path, already_initialized: bool) -> InitResponse {
 }
 
 /// Repo-level AI instructions for when working on zjj itself
-const REPO_AI_INSTRUCTIONS: &str = r#"# ZJJ Repository - AI Agent Instructions
+const REPO_AI_INSTRUCTIONS: &str = r"# ZJJ Repository - AI Agent Instructions
 
 This is the ZJJ repository itself. If you're working on a bead/issue:
 
@@ -86,7 +86,7 @@ moon run :test       # Run tests
 ZJJ enforces zero panics and zero unwraps:
 - No `.unwrap()`, `.expect()`, `panic!()`, `todo!()`, `unimplemented!()`
 - All errors use `Result<T, Error>` with proper propagation
-"#;
+";
 
 /// Default configuration content from config.cue
 const DEFAULT_CONFIG: &str = r#"# zjj Configuration File

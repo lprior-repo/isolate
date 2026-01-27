@@ -177,7 +177,7 @@ fn check_workspace_context() -> DoctorCheck {
             .rev()
             .nth(1) // Parent of current dir
             .and_then(|comp| comp.as_os_str().to_str())
-            .map(|s| s.to_string())
+            .map(ToString::to_string)
     });
 
     DoctorCheck {
