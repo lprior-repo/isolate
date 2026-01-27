@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::Result;
 use serde::Serialize;
-use zjj_core::OutputFormat;
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::commands::{determine_main_branch, get_session_db};
 
@@ -70,9 +70,15 @@ fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: OutputFormat
             content: stdout.to_string(),
             stats,
         };
+        // Wrap in SchemaEnvelope for consistent JSON output (DRQ Round 1)
+        let envelope = SchemaEnvelope::new(
+            if stat { "diff-stat-response" } else { "diff-response" },
+            "single",
+            diff_output,
+        );
         println!(
             "{}",
-            serde_json::to_string_pretty(&diff_output)
+            serde_json::to_string_pretty(&envelope)
                 .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
         );
     } else if stat {
@@ -215,8 +221,8 @@ mod tests {
         Ok((db, dir))
     }
 
-    #[test]
-    fn test_determine_main_branch_not_in_repo() -> Result<()> {
+    #[tokio::test]
+    async fn test_determine_main_branch_not_in_repo() -> Result<()> {
         // When not in a JJ repo (or jj not installed), should fall back to "main"
         let temp = TempDir::new().context("Failed to create temp dir")?;
         let result = determine_main_branch(temp.path());
@@ -226,9 +232,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
+    #[tokio::test]
     #[serial]
-    fn test_get_pager_from_env() {
+    async fn test_get_pager_from_env() {
         // Set PAGER environment variable
         std::env::set_var("PAGER", "custom-pager");
         let pager = get_pager();
@@ -238,9 +244,9 @@ mod tests {
         std::env::remove_var("PAGER");
     }
 
-    #[test]
+    #[tokio::test]
     #[serial]
-    fn test_get_pager_defaults() {
+    async fn test_get_pager_defaults() {
         // Unset PAGER
         std::env::remove_var("PAGER");
         let pager = get_pager();
@@ -251,9 +257,9 @@ mod tests {
         assert!(pager.is_some() || pager.is_none());
     }
 
-    #[test]
+    #[tokio::test]
     #[serial]
-    fn test_get_pager_empty_env() {
+    async fn test_get_pager_empty_env() {
         // Set PAGER to empty string
         std::env::set_var("PAGER", "");
         let pager = get_pager();
@@ -265,8 +271,8 @@ mod tests {
         std::env::remove_var("PAGER");
     }
 
-    #[test]
-    fn test_run_session_not_found() -> Result<()> {
+    #[tokio::test]
+    async fn test_run_session_not_found() -> Result<()> {
         let _temp_db = setup_test_db()?;
 
         // Try to diff a non-existent session
@@ -276,8 +282,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_run_workspace_not_found() -> Result<()> {
+    #[tokio::test]
+    async fn test_run_workspace_not_found() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session with a non-existent workspace
@@ -292,24 +298,24 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_diff_command_args_full() {
+    #[tokio::test]
+    async fn test_diff_command_args_full() {
         // Verify that full diff uses --git flag
         let args = ["diff", "--git", "-r", "main..@"];
         assert!(args.contains(&"--git"));
         assert!(args.contains(&"-r"));
     }
 
-    #[test]
-    fn test_diff_command_args_stat() {
+    #[tokio::test]
+    async fn test_diff_command_args_stat() {
         // Verify that stat diff uses --stat flag
         let args = ["diff", "--stat", "-r", "main..@"];
         assert!(args.contains(&"--stat"));
         assert!(!args.contains(&"--git"));
     }
 
-    #[test]
-    fn test_revset_format() {
+    #[tokio::test]
+    async fn test_revset_format() {
         let main_branch = "main";
         let revset = format!("{main_branch}..@");
         assert_eq!(revset, "main..@");
@@ -325,8 +331,8 @@ mod tests {
     // ============================================================================
 
     /// RED: diff `run()` should accept `OutputFormat` parameter
-    #[test]
-    fn test_diff_run_signature_accepts_format() {
+    #[tokio::test]
+    async fn test_diff_run_signature_accepts_format() {
         use zjj_core::OutputFormat;
 
         // This test documents the expected signature change:
@@ -341,8 +347,8 @@ mod tests {
     }
 
     /// RED: diff should support JSON output format
-    #[test]
-    fn test_diff_json_output_format() {
+    #[tokio::test]
+    async fn test_diff_json_output_format() {
         use zjj_core::OutputFormat;
 
         let format = OutputFormat::Json;
@@ -354,8 +360,8 @@ mod tests {
     }
 
     /// RED: diff should support Human output format
-    #[test]
-    fn test_diff_human_output_format() {
+    #[tokio::test]
+    async fn test_diff_human_output_format() {
         use zjj_core::OutputFormat;
 
         let format = OutputFormat::Human;
@@ -367,8 +373,8 @@ mod tests {
     }
 
     /// RED: diff output structure changes based on format
-    #[test]
-    fn test_diff_respects_output_format() {
+    #[tokio::test]
+    async fn test_diff_respects_output_format() {
         use zjj_core::OutputFormat;
 
         // For JSON format: diff content should be wrapped in envelope
@@ -387,8 +393,8 @@ mod tests {
     }
 
     /// RED: diff --stat works with both output formats
-    #[test]
-    fn test_diff_stat_with_format() {
+    #[tokio::test]
+    async fn test_diff_stat_with_format() {
         use zjj_core::OutputFormat;
 
         // stat diff should work with JSON format
@@ -405,8 +411,8 @@ mod tests {
     }
 
     /// RED: `OutputFormat::from_json_flag` converts correctly
-    #[test]
-    fn test_diff_from_json_flag() {
+    #[tokio::test]
+    async fn test_diff_from_json_flag() {
         use zjj_core::OutputFormat;
 
         let json_flag = true;
@@ -419,8 +425,8 @@ mod tests {
     }
 
     /// RED: diff preserves format through conversion chain
-    #[test]
-    fn test_diff_format_roundtrip() {
+    #[tokio::test]
+    async fn test_diff_format_roundtrip() {
         use zjj_core::OutputFormat;
 
         let json_bool = true;
@@ -431,8 +437,8 @@ mod tests {
     }
 
     /// RED: diff never panics during format processing
-    #[test]
-    fn test_diff_format_no_panics() {
+    #[tokio::test]
+    async fn test_diff_format_no_panics() {
         use zjj_core::OutputFormat;
 
         // Both formats should be processable without panic

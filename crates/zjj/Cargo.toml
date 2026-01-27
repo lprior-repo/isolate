@@ -21,7 +21,8 @@ serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-rusqlite = { version = "0.34", features = ["bundled"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 directories = "6"
 which = "7.0"
 ratatui = "0.26"

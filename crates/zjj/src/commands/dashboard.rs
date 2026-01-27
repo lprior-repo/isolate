@@ -29,7 +29,7 @@ use ratatui::{
 };
 use zjj_core::{
     config::load_config,
-    watcher::{query_beads_status, BeadsStatus, FileWatcher, WatchEvent},
+    watcher::{BeadsStatus, FileWatcher, WatchEvent},
 };
 
 use crate::{
@@ -621,7 +621,7 @@ impl DashboardApp {
                     None
                 };
 
-                let beads = query_beads_status(workspace_path).unwrap_or(BeadsStatus::NoBeads);
+                let beads = BeadsStatus::NoBeads;
 
                 let column_idx = match session.status {
                     SessionStatus::Creating => 0,

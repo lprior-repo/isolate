@@ -83,8 +83,8 @@ mod tests {
         Ok((db, dir))
     }
 
-    #[test]
-    fn test_focus_session_not_found() -> Result<()> {
+    #[tokio::test]
+    async fn test_focus_session_not_found() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Try to get a non-existent session
@@ -105,8 +105,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_focus_session_exists() -> Result<()> {
+    #[tokio::test]
+    async fn test_focus_session_exists() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session
@@ -123,8 +123,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_focus_session_with_hyphens() -> Result<()> {
+    #[tokio::test]
+    async fn test_focus_session_with_hyphens() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session with hyphens in the name
@@ -141,8 +141,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_focus_session_with_underscores() -> Result<()> {
+    #[tokio::test]
+    async fn test_focus_session_with_underscores() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session with underscores in the name
@@ -159,8 +159,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_focus_session_with_mixed_special_chars() -> Result<()> {
+    #[tokio::test]
+    async fn test_focus_session_with_mixed_special_chars() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session with mixed special characters
@@ -177,8 +177,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_zellij_tab_format() -> Result<()> {
+    #[tokio::test]
+    async fn test_zellij_tab_format() -> Result<()> {
         let (db, _dir) = setup_test_db()?;
 
         // Create sessions and verify tab name format
@@ -194,8 +194,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_is_inside_zellij_detection() {
+    #[tokio::test]
+    async fn test_is_inside_zellij_detection() {
         // Save original value
         let original = std::env::var("ZELLIJ").ok();
 
@@ -217,8 +217,8 @@ mod tests {
 
     // Phase 1 RED tests: Focus JSON output should be wrapped with SchemaEnvelope
 
-    #[test]
-    fn test_focus_json_has_envelope() -> Result<()> {
+    #[tokio::test]
+    async fn test_focus_json_has_envelope() -> Result<()> {
         use crate::json_output::FocusOutput;
 
         // Create sample FocusOutput
@@ -257,8 +257,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_focus_schema_format() -> Result<()> {
+    #[tokio::test]
+    async fn test_focus_schema_format() -> Result<()> {
         use crate::json_output::FocusOutput;
 
         // Create sample output
