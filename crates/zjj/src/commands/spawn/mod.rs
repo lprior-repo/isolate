@@ -15,7 +15,7 @@ pub mod types;
 pub use types::{SpawnArgs, SpawnOptions};
 
 /// AI instructions placed in spawned workspace
-const AI_INSTRUCTIONS: &str = r#"# AI Agent - You Are in a ZJJ Workspace
+const AI_INSTRUCTIONS: &str = r"# AI Agent - You Are in a ZJJ Workspace
 
 ## STOP - Do NOT Clone Elsewhere
 
@@ -46,17 +46,17 @@ bd show $ZJJ_BEAD_ID
 ## Build Commands
 
 Check the project's README or CLAUDE.md for the correct build commands.
-"#;
+";
 
 /// Cursor rules for spawned workspace
-const CURSOR_RULES: &str = r#"# ZJJ Workspace - Do NOT Clone Elsewhere
+const CURSOR_RULES: &str = r"# ZJJ Workspace - Do NOT Clone Elsewhere
 
 You are in an isolated workspace created by `zjj spawn <bead-id>`.
 
 **WORK HERE** - This is your assigned workspace. Do NOT clone the repo elsewhere.
 
 When done, exit with success and zjj will auto-merge to main.
-"#;
+";
 
 use std::{fs, io::Write, path::Path, process::Command};
 

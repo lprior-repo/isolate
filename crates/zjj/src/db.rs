@@ -19,7 +19,7 @@ use zjj_core::{Error, Result};
 use crate::session::{Session, SessionStatus, SessionUpdate};
 
 /// Database schema as SQL string - executed once on init
-const SCHEMA: &str = r#"
+const SCHEMA: &str = r"
 CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
@@ -41,7 +41,7 @@ FOR EACH ROW
 BEGIN
     UPDATE sessions SET updated_at = strftime('%s', 'now') WHERE id = NEW.id;
 END;
-"#;
+";
 
 /// Database wrapper for session storage with connection pooling
 #[derive(Clone)]
