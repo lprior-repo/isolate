@@ -52,6 +52,8 @@ fn test_init_creates_config_toml() {
 
 #[tokio::test]
 async fn test_init_creates_state_db() {
+    use sqlx::Row;
+
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
@@ -65,12 +67,10 @@ async fn test_init_creates_state_db() {
 
     // Verify it's a valid SQLite database
     let path_str = db_path.to_str().unwrap_or_else(|| std::process::abort());
-    let db_url = format!("sqlite:///{}?mode=rwc", path_str);
+    let db_url = format!("sqlite:///{path_str}?mode=rwc");
     let Ok(pool) = SqlitePool::connect(&db_url).await else {
         std::process::abort()
     };
-
-    use sqlx::Row;
     let Ok(row) = sqlx::query("SELECT COUNT(*) as count FROM sessions")
         .fetch_one(&pool)
         .await
@@ -274,6 +274,8 @@ main_branch = "main"
 
 #[tokio::test]
 async fn test_init_state_db_has_correct_schema() {
+    use sqlx::Row;
+
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
@@ -286,8 +288,6 @@ async fn test_init_state_db_has_correct_schema() {
     let Ok(pool) = SqlitePool::connect(&db_url).await else {
         std::process::abort()
     };
-
-    use sqlx::Row;
     // Check that sessions table has all required columns
     let Ok(rows) = sqlx::query("PRAGMA table_info(sessions)")
         .fetch_all(&pool)
@@ -320,6 +320,8 @@ async fn test_init_state_db_has_correct_schema() {
 
 #[tokio::test]
 async fn test_init_creates_indexes() {
+    use sqlx::Row;
+
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
@@ -329,12 +331,10 @@ async fn test_init_creates_indexes() {
 
     let db_path = harness.state_db_path();
     let path_str = db_path.to_str().unwrap_or_else(|| std::process::abort());
-    let db_url = format!("sqlite:///{}?mode=rwc", path_str);
+    let db_url = format!("sqlite:///{path_str}?mode=rwc");
     let Ok(pool) = SqlitePool::connect(&db_url).await else {
         std::process::abort()
     };
-
-    use sqlx::Row;
     // Check that indexes exist
     let Ok(rows) =
         sqlx::query("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sessions'")

@@ -118,7 +118,7 @@ fn test_db_entry_exists_without_workspace() {
     // EXPECTED: Either exists=false OR status indicates failure/missing
     let exists = json
         .get("exists")
-        .and_then(|v| v.as_bool())
+        .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
 
     if exists {
@@ -130,8 +130,7 @@ fn test_db_entry_exists_without_workspace() {
                 .unwrap_or("unknown");
             assert_ne!(
                 status, "active",
-                "Session should not report as 'active' when workspace is missing, got: {}",
-                status
+                "Session should not report as 'active' when workspace is missing, got: {status}"
             );
         }
     }
@@ -209,7 +208,7 @@ fn test_json_success_matches_exit_code() {
 
         // Parse JSON if available
         if let Ok(json) = serde_json::from_str::<JsonValue>(&result.stdout) {
-            if let Some(success) = json.get("success").and_then(|s| s.as_bool()) {
+            if let Some(success) = json.get("success").and_then(serde_json::Value::as_bool) {
                 assert_eq!(
                     success,
                     result.success,
@@ -270,7 +269,7 @@ fn test_clean_command_detects_orphans() {
     let orphan_count = json
         .get("orphans")
         .and_then(|o| o.as_array())
-        .map(|a| a.len())
+        .map(Vec::len)
         .unwrap_or(0);
 
     // This will FAIL on current champion - that's the point
@@ -413,7 +412,7 @@ fn test_error_messages_are_actionable() {
 
                     if !has_recovery {
                         missing_recovery_count += 1;
-                        eprintln!("WARNING: Error for {:?} lacks recovery field", args);
+                        eprintln!("WARNING: Error for {args:?} lacks recovery field");
                     }
                 }
             }
@@ -422,10 +421,7 @@ fn test_error_messages_are_actionable() {
 
     // Document the gap
     if missing_recovery_count > 0 {
-        eprintln!(
-            "WARNING: {} error scenarios lack recovery information",
-            missing_recovery_count
-        );
+        eprintln!("WARNING: {missing_recovery_count} error scenarios lack recovery information");
     }
 }
 
