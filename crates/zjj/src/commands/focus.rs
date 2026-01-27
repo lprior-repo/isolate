@@ -22,7 +22,7 @@ pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
 
     // Get the session
     // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-    let session = db.get(name)?.ok_or_else(|| {
+    let session = db.get_blocking(name)?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{name}' not found"
         )))
@@ -79,7 +79,7 @@ mod tests {
     fn setup_test_db() -> Result<(SessionDb, TempDir)> {
         let dir = TempDir::new()?;
         let db_path = dir.path().join("test.db");
-        let db = SessionDb::open(&db_path)?;
+        let db = SessionDb::open_blocking(&db_path)?;
         Ok((db, dir))
     }
 
@@ -88,13 +88,13 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Try to get a non-existent session
-        let result = db.get("nonexistent")?;
+        let result = db.get_blocking("nonexistent")?;
         assert!(result.is_none());
 
         // Verify the error message format when session not found
         let session_name = "nonexistent";
         let result = db
-            .get(session_name)?
+            .get_blocking(session_name)?
             .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"));
 
         assert!(result.is_err());
@@ -110,10 +110,10 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session
-        let session = db.create("test-session", "/tmp/test")?;
+        let session = db.create_blocking("test-session", "/tmp/test")?;
 
         // Verify we can retrieve it
-        let retrieved = db.get("test-session")?;
+        let retrieved = db.get_blocking("test-session")?;
         assert!(retrieved.is_some());
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
@@ -128,10 +128,10 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session with hyphens in the name
-        let _session = db.create("my-test-session", "/tmp/my-test")?;
+        let _session = db.create_blocking("my-test-session", "/tmp/my-test")?;
 
         // Verify we can retrieve it
-        let retrieved = db.get("my-test-session")?;
+        let retrieved = db.get_blocking("my-test-session")?;
         assert!(retrieved.is_some());
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
@@ -146,10 +146,10 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session with underscores in the name
-        let _session = db.create("my_test_session", "/tmp/my_test")?;
+        let _session = db.create_blocking("my_test_session", "/tmp/my_test")?;
 
         // Verify we can retrieve it
-        let retrieved = db.get("my_test_session")?;
+        let retrieved = db.get_blocking("my_test_session")?;
         assert!(retrieved.is_some());
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
@@ -164,10 +164,10 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create a session with mixed special characters
-        let _session = db.create("my-test_123", "/tmp/my-test_123")?;
+        let _session = db.create_blocking("my-test_123", "/tmp/my-test_123")?;
 
         // Verify we can retrieve it
-        let retrieved = db.get("my-test_123")?;
+        let retrieved = db.get_blocking("my-test_123")?;
         assert!(retrieved.is_some());
 
         let retrieved_session = retrieved.ok_or_else(|| anyhow::anyhow!("Session not found"))?;
@@ -182,13 +182,13 @@ mod tests {
         let (db, _dir) = setup_test_db()?;
 
         // Create sessions and verify tab name format
-        let session1 = db.create("session1", "/tmp/s1")?;
+        let session1 = db.create_blocking("session1", "/tmp/s1")?;
         assert_eq!(session1.zellij_tab, "zjj:session1");
 
-        let session2 = db.create("my-session", "/tmp/s2")?;
+        let session2 = db.create_blocking("my-session", "/tmp/s2")?;
         assert_eq!(session2.zellij_tab, "zjj:my-session");
 
-        let session3 = db.create("test_session_123", "/tmp/s3")?;
+        let session3 = db.create_blocking("test_session_123", "/tmp/s3")?;
         assert_eq!(session3.zellij_tab, "zjj:test_session_123");
 
         Ok(())

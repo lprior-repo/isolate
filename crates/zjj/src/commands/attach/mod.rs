@@ -37,7 +37,7 @@ pub fn run_with_options(opts: &AttachOptions) -> Result<()> {
 
     // 1. Validate session exists
     let _session = db
-        .get(&opts.name)?
+        .get_blocking(&opts.name)?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", opts.name))?;
 
     // 2. Check if Zellij is installed

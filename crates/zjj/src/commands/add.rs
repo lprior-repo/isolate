@@ -70,7 +70,7 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 
     // Check if session already exists (REQ-ERR-004)
     // Return zjj_core::Error::ValidationError to get exit code 1
-    if db.get(&options.name)?.is_some() {
+    if db.get_blocking(&options.name)?.is_some() {
         return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
             format!("Session '{}' already exists", options.name),
         )));
@@ -96,13 +96,13 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     })?;
 
     // Insert into database with status 'creating' (REQ-STATE-004)
-    let mut session = db.create(&options.name, &workspace_path_str)?;
+    let mut session = db.create_blocking(&options.name, &workspace_path_str)?;
 
     // Execute post_create hooks unless --no-hooks (REQ-CLI-004, REQ-CLI-005)
     if !options.no_hooks {
         if let Err(e) = execute_post_create_hooks(&workspace_path_str) {
             // Hook failure → status 'failed' (REQ-HOOKS-003)
-            let _ = db.update(
+            let _ = db.update_blocking(
                 &options.name,
                 SessionUpdate {
                     status: Some(SessionStatus::Failed),
@@ -114,7 +114,7 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     }
 
     // Transition to 'active' status after successful creation (REQ-STATE-004)
-    db.update(
+    db.update_blocking(
         &options.name,
         SessionUpdate {
             status: Some(SessionStatus::Active),

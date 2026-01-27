@@ -192,7 +192,7 @@ fn categorize_db_error(err: &anyhow::Error) -> (String, String) {
 /// Query if a session exists
 fn query_session_exists(name: &str) -> Result<()> {
     let result = match get_session_db() {
-        Ok(db) => match db.get(name) {
+        Ok(db) => match db.get_blocking(name) {
             Ok(session) => SessionExistsQuery {
                 exists: Some(session.is_some()),
                 session: session.map(|s| SessionInfo {
@@ -228,7 +228,7 @@ fn query_session_exists(name: &str) -> Result<()> {
 /// Query session count
 fn query_session_count(filter: Option<&str>) -> Result<()> {
     let result = match get_session_db() {
-        Ok(db) => match db.list(None) {
+        Ok(db) => match db.list_blocking(None) {
             Ok(sessions) => {
                 let count = filter
                     .and_then(|f| f.strip_prefix("--status="))
@@ -343,7 +343,7 @@ fn query_suggest_name(pattern: &str) -> Result<()> {
     let existing_names = get_session_db().map_or_else(
         |_| Vec::new(),
         |db| {
-            db.list(None).map_or_else(
+            db.list_blocking(None).map_or_else(
                 |_| Vec::new(),
                 |sessions| sessions.into_iter().map(|s| s.name).collect(),
             )

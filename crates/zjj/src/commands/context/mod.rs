@@ -191,7 +191,7 @@ fn count_commits_ahead(root: &PathBuf) -> Result<usize> {
 
 fn get_session_info() -> Result<SessionContext> {
     let session_db = get_session_db()?;
-    let sessions = session_db.list(None)?;
+    let sessions = session_db.list_blocking(None)?;
 
     let current_workspace = std::env::current_dir()?;
     let workspace_name = current_workspace

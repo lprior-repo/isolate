@@ -104,7 +104,7 @@ fn get_system_state() -> SystemState {
         let (count, active) = get_session_db()
             .ok()
             .and_then(|db| {
-                db.list(None).ok().map(|sessions| {
+                db.list_blocking(None).ok().map(|sessions| {
                     let total = sessions.len();
                     let active = sessions
                         .iter()

@@ -10,6 +10,7 @@
 mod common;
 
 use common::TestHarness;
+use sqlx::SqlitePool;
 
 #[test]
 fn test_init_creates_zjj_directory() {
@@ -49,8 +50,8 @@ fn test_init_creates_config_toml() {
     assert!(content.contains("[agent]"));
 }
 
-#[test]
-fn test_init_creates_state_db() {
+#[tokio::test]
+async fn test_init_creates_state_db() {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
@@ -63,15 +64,18 @@ fn test_init_creates_state_db() {
     harness.assert_file_exists(&db_path);
 
     // Verify it's a valid SQLite database
-    let Ok(conn) = rusqlite::Connection::open(&db_path) else {
+    let db_url = format!("sqlite:{}", db_path.display());
+    let Ok(pool) = SqlitePool::connect(&db_url).await else {
         std::process::abort()
     };
-    let result: Result<i32, _> =
-        conn.query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0));
-    assert!(result.is_ok(), "Database should have sessions table");
-    let Ok(count) = result else {
+
+    use sqlx::Row;
+    let Ok(row) = sqlx::query("SELECT COUNT(*) as count FROM sessions")
+        .fetch_one(&pool)
+        .await else {
         std::process::abort()
     };
+    let count: i64 = row.get("count");
     assert_eq!(count, 0, "Database should be empty after init");
 }
 
@@ -261,8 +265,8 @@ main_branch = "main"
     );
 }
 
-#[test]
-fn test_init_state_db_has_correct_schema() {
+#[tokio::test]
+async fn test_init_state_db_has_correct_schema() {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
@@ -271,20 +275,23 @@ fn test_init_state_db_has_correct_schema() {
     harness.assert_success(&["init"]);
 
     let db_path = harness.state_db_path();
-    let Ok(conn) = rusqlite::Connection::open(&db_path) else {
+    let db_url = format!("sqlite:{}", db_path.display());
+    let Ok(pool) = SqlitePool::connect(&db_url).await else {
         std::process::abort()
     };
 
+    use sqlx::Row;
     // Check that sessions table has all required columns
-    let Ok(mut stmt) = conn.prepare("PRAGMA table_info(sessions)") else {
+    let Ok(rows) = sqlx::query("PRAGMA table_info(sessions)")
+        .fetch_all(&pool)
+        .await else {
         std::process::abort()
     };
-    let Ok(column_iter) = stmt.query_map([], |row| row.get::<_, String>(1)) else {
-        std::process::abort()
-    };
-    let Ok(columns) = column_iter.collect::<Result<Vec<String>, _>>() else {
-        std::process::abort()
-    };
+
+    let columns: Vec<String> = rows.iter()
+        .map(|row: &sqlx::sqlite::SqliteRow| row.get::<_, &str>("name"))
+        .map(|s: &str| s.to_string())
+        .collect();
 
     assert!(columns.contains(&"id".to_string()));
     assert!(columns.contains(&"name".to_string()));
@@ -294,8 +301,8 @@ fn test_init_state_db_has_correct_schema() {
     assert!(columns.contains(&"updated_at".to_string()));
 }
 
-#[test]
-fn test_init_creates_indexes() {
+#[tokio::test]
+async fn test_init_creates_indexes() {
     let Some(harness) = TestHarness::try_new() else {
         eprintln!("Skipping test: jj not available");
         return;
@@ -304,26 +311,25 @@ fn test_init_creates_indexes() {
     harness.assert_success(&["init"]);
 
     let db_path = harness.state_db_path();
-    let Ok(conn) = rusqlite::Connection::open(&db_path) else {
+    let db_url = format!("sqlite:{}", db_path.display());
+    let Ok(pool) = SqlitePool::connect(&db_url).await else {
         std::process::abort()
     };
 
+    use sqlx::Row;
     // Check that indexes exist
-    let Ok(mut stmt) =
-        conn.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sessions'")
-    else {
+    let Ok(rows) = sqlx::query("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sessions'")
+        .fetch_all(&pool)
+        .await else {
         std::process::abort()
     };
 
-    let Ok(index_iter) = stmt.query_map([], |row| row.get(0)) else {
-        std::process::abort()
-    };
-
-    let Ok(indexes) = index_iter.collect::<Result<Vec<String>, _>>() else {
-        std::process::abort()
-    };
+    let indexes: Vec<String> = rows.iter()
+        .map(|row: &sqlx::sqlite::SqliteRow| row.get::<_, &str>("name"))
+        .map(|s: &str| s.to_string())
+        .collect();
 
     // Should have at least status and name indexes
-    assert!(indexes.iter().any(|name| name.contains("status")));
-    assert!(indexes.iter().any(|name| name.contains("name")));
+    assert!(indexes.iter().any(|name: &String| name.contains("status")));
+    assert!(indexes.iter().any(|name: &String| name.contains("name")));
 }
