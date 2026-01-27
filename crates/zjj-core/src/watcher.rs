@@ -45,6 +45,7 @@ use notify::RecursiveMode;
 #[cfg(test)]
 use notify_debouncer_mini::DebouncedEventKind;
 use notify_debouncer_mini::{new_debouncer, DebouncedEvent};
+use sqlx::SqlitePool;
 use tokio::sync::mpsc;
 
 use crate::{config::WatchConfig, Error, Result};
@@ -157,21 +158,18 @@ impl FileWatcher {
 /// - Unable to open database
 /// - Database query fails
 /// - Database schema is invalid
-pub fn query_beads_status(workspace_path: &Path) -> Result<BeadsStatus> {
+pub async fn query_beads_status(pool: &SqlitePool, workspace_path: &Path) -> Result<BeadsStatus> {
     let beads_db = workspace_path.join(".beads/beads.db");
 
     if !beads_db.exists() {
         return Ok(BeadsStatus::NoBeads);
     }
 
-    let conn = rusqlite::Connection::open(&beads_db)
-        .map_err(|e| Error::DatabaseError(format!("Failed to open beads database: {e}")))?;
-
     // Query for each status count
-    let open = query_count(&conn, "open")?;
-    let in_progress = query_count(&conn, "in_progress")?;
-    let blocked = query_count(&conn, "blocked")?;
-    let closed = query_count(&conn, "closed")?;
+    let open = query_count(pool, "open").await?;
+    let in_progress = query_count(pool, "in_progress").await?;
+    let blocked = query_count(pool, "blocked").await?;
+    let closed = query_count(pool, "closed").await?;
 
     Ok(BeadsStatus::Counts {
         open,
@@ -195,13 +193,15 @@ fn extract_workspace_path(event: &DebouncedEvent) -> Option<PathBuf> {
 }
 
 /// Query count of issues with a specific status
-fn query_count(conn: &rusqlite::Connection, status: &str) -> Result<u32> {
-    conn.query_row(
-        "SELECT COUNT(*) FROM issues WHERE status = ?1",
-        [status],
-        |row| row.get::<_, u32>(0),
-    )
-    .map_err(|e| Error::DatabaseError(format!("Failed to query {status} count: {e}")))
+async fn query_count(pool: &SqlitePool, status: &str) -> Result<u32> {
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM issues WHERE status = ?")
+        .bind(status)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to query {status} count: {e}")))?;
+
+    // i64 to u32 is safe here since issue counts won't exceed u32::MAX
+    Ok(count as u32)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -277,12 +277,18 @@ mod tests {
     // Test 5: Query beads status - no beads
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    #[test]
-    fn test_query_beads_status_no_beads() {
+    #[tokio::test]
+    async fn test_query_beads_status_no_beads() {
         let Ok(temp_dir) = TempDir::new() else {
             return;
         };
-        let result = query_beads_status(temp_dir.path());
+
+        // Create a temporary in-memory pool for the test
+        let pool = SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("Failed to create in-memory pool");
+
+        let result = query_beads_status(&pool, temp_dir.path()).await;
 
         assert!(result.is_ok());
         if let Ok(status) = result {
@@ -294,8 +300,8 @@ mod tests {
     // Test 6: Query beads status - with valid database
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    #[test]
-    fn test_query_beads_status_with_database() -> Result<()> {
+    #[tokio::test]
+    async fn test_query_beads_status_with_database() -> Result<()> {
         let temp_dir = TempDir::new()
             .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
         let beads_dir = temp_dir.path().join(".beads");
@@ -303,47 +309,53 @@ mod tests {
             .map_err(|e| Error::IoError(format!("Failed to create beads dir: {e}")))?;
 
         let db_path = beads_dir.join("beads.db");
-        let conn = rusqlite::Connection::open(&db_path)
+        let db_url = format!("sqlite:{}", db_path.display());
+        let pool = SqlitePool::connect(&db_url)
+            .await
             .map_err(|e| Error::DatabaseError(format!("Failed to open DB: {e}")))?;
 
         // Create schema
-        conn.execute(
+        sqlx::query(
             "CREATE TABLE issues (
                 id TEXT PRIMARY KEY,
                 status TEXT NOT NULL
             )",
-            [],
         )
+        .execute(&pool)
+        .await
         .map_err(|e| Error::DatabaseError(format!("Failed to create table: {e}")))?;
 
         // Insert test data
-        conn.execute("INSERT INTO issues (id, status) VALUES ('1', 'open')", [])
+        sqlx::query("INSERT INTO issues (id, status) VALUES ('1', 'open')")
+            .execute(&pool)
+            .await
             .ok();
-        conn.execute(
-            "INSERT INTO issues (id, status) VALUES ('2', 'in_progress')",
-            [],
-        )
-        .ok();
-        conn.execute(
-            "INSERT INTO issues (id, status) VALUES ('3', 'in_progress')",
-            [],
-        )
-        .ok();
-        conn.execute(
-            "INSERT INTO issues (id, status) VALUES ('4', 'blocked')",
-            [],
-        )
-        .ok();
-        conn.execute("INSERT INTO issues (id, status) VALUES ('5', 'closed')", [])
+        sqlx::query("INSERT INTO issues (id, status) VALUES ('2', 'in_progress')")
+            .execute(&pool)
+            .await
             .ok();
-        conn.execute("INSERT INTO issues (id, status) VALUES ('6', 'closed')", [])
+        sqlx::query("INSERT INTO issues (id, status) VALUES ('3', 'in_progress')")
+            .execute(&pool)
+            .await
             .ok();
-        conn.execute("INSERT INTO issues (id, status) VALUES ('7', 'closed')", [])
+        sqlx::query("INSERT INTO issues (id, status) VALUES ('4', 'blocked')")
+            .execute(&pool)
+            .await
+            .ok();
+        sqlx::query("INSERT INTO issues (id, status) VALUES ('5', 'closed')")
+            .execute(&pool)
+            .await
+            .ok();
+        sqlx::query("INSERT INTO issues (id, status) VALUES ('6', 'closed')")
+            .execute(&pool)
+            .await
+            .ok();
+        sqlx::query("INSERT INTO issues (id, status) VALUES ('7', 'closed')")
+            .execute(&pool)
+            .await
             .ok();
 
-        drop(conn);
-
-        let result = query_beads_status(temp_dir.path());
+        let result = query_beads_status(&pool, temp_dir.path()).await;
         assert!(result.is_ok());
 
         if let Ok(status) = result {
