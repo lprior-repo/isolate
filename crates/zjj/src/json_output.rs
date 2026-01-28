@@ -3,7 +3,7 @@
 use anyhow::Error;
 use serde::Serialize;
 use zjj_core::{
-    json::{ErrorCode, JsonError},
+    json::{ErrorCode, ErrorDetail, JsonError},
     Error as ZjjError,
 };
 
@@ -59,7 +59,7 @@ pub struct SyncOutput {
 #[allow(dead_code)]
 pub struct SyncError {
     pub name: String,
-    pub error: String,
+    pub error: ErrorDetail,
 }
 
 /// Diff command JSON output
@@ -566,7 +566,13 @@ mod tests {
             failed_count: 1,
             errors: vec![SyncError {
                 name: "session2".to_string(),
-                error: "rebase failed".to_string(),
+                error: zjj_core::json::ErrorDetail {
+                    code: "SYNC_FAILED".to_string(),
+                    message: "rebase failed".to_string(),
+                    exit_code: 3,
+                    details: None,
+                    suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                },
             }],
         };
         let envelope2 = zjj_core::json::SchemaEnvelope::new("sync-response", "single", output2);
@@ -599,7 +605,13 @@ mod tests {
             failed_count: 1,
             errors: vec![SyncError {
                 name: "session3".to_string(),
-                error: "workspace not found".to_string(),
+                error: zjj_core::json::ErrorDetail {
+                    code: "SYNC_FAILED".to_string(),
+                    message: "workspace not found".to_string(),
+                    exit_code: 3,
+                    details: None,
+                    suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                },
             }],
         };
         let envelope4 = zjj_core::json::SchemaEnvelope::new("sync-response", "single", output4);

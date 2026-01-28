@@ -3,7 +3,10 @@
 use std::{path::Path, time::SystemTime};
 
 use anyhow::{Context, Result};
-use zjj_core::{json::SchemaEnvelope, OutputFormat};
+use zjj_core::{
+    json::{ErrorDetail, SchemaEnvelope},
+    OutputFormat,
+};
 
 use crate::{
     cli::run_command,
@@ -67,7 +70,13 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
                     failed_count: 1,
                     errors: vec![SyncError {
                         name: name.to_string(),
-                        error: e.to_string(),
+                        error: ErrorDetail {
+                            code: "SYNC_FAILED".to_string(),
+                            message: e.to_string(),
+                            exit_code: 3,
+                            details: None,
+                            suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                        },
                     }],
                 };
                 let envelope = SchemaEnvelope::new("sync-response", "single", output);
@@ -114,7 +123,13 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                     .map(|()| session.name.clone())
                     .map_err(|e| SyncError {
                         name: session.name.clone(),
-                        error: e.to_string(),
+                        error: ErrorDetail {
+                            code: "SYNC_FAILED".to_string(),
+                            message: e.to_string(),
+                            exit_code: 3,
+                            details: None,
+                            suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                        },
                     })
             })
             .partition(Result::is_ok);
