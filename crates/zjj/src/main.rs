@@ -31,7 +31,12 @@ fn cmd_init() -> ClapCommand {
 
 fn cmd_attach() -> ClapCommand {
     ClapCommand::new("attach")
-        .about("Attach to an existing Zellij session")
+        .about("Enter Zellij session from outside (shell → Zellij)")
+        .long_about(
+            "Use this when you are in a regular shell and want to enter the Zellij session.\n\
+            This replaces your current process with Zellij.\n\n\
+            If already inside Zellij, use 'zjj focus' to switch tabs instead.",
+        )
         .arg(
             Arg::new("name")
                 .required(true)
@@ -47,7 +52,12 @@ fn cmd_attach() -> ClapCommand {
 
 fn cmd_add() -> ClapCommand {
     ClapCommand::new("add")
-        .about("Create a new session with JJ workspace + Zellij tab")
+        .about("Create session for manual work (JJ workspace + Zellij tab)")
+        .long_about(
+            "Creates a JJ workspace and Zellij tab for interactive development.\n\
+            Use this when YOU will work in the session.\n\n\
+            For automated agent workflows, use 'zjj spawn' instead.",
+        )
         .after_help(
             "EXAMPLES:\n  \
             zjj add feature-auth              Create session with standard layout\n  \
@@ -173,7 +183,11 @@ fn cmd_remove() -> ClapCommand {
 
 fn cmd_focus() -> ClapCommand {
     ClapCommand::new("focus")
-        .about("Switch to a session's Zellij tab")
+        .about("Switch to session's Zellij tab (inside Zellij)")
+        .long_about(
+            "Use this when you are already inside Zellij and want to switch tabs.\n\n\
+            If you are outside Zellij, use 'zjj attach' to enter the session instead.",
+        )
         .after_help(
             "EXAMPLES:\n  \
             zjj focus feature-auth            Switch to session's Zellij tab\n  \
@@ -404,7 +418,12 @@ fn cmd_context() -> ClapCommand {
 
 fn cmd_spawn() -> ClapCommand {
     ClapCommand::new("spawn")
-        .about("Spawn isolated workspace for a bead and run agent")
+        .about("Create session for automated agent work on a bead (issue)")
+        .long_about(
+            "Creates a JJ workspace, runs an agent (default: claude), and auto-merges on success.\n\
+            Use this when an AI AGENT should work autonomously on a bead.\n\n\
+            For manual interactive work, use 'zjj add' instead.",
+        )
         .after_help(
             "EXAMPLES:\n  \
             zjj spawn zjj-abc12               Spawn workspace for bead with Claude\n  \
@@ -556,7 +575,16 @@ fn build_cli() -> ClapCommand {
     ClapCommand::new("zjj")
         .version(env!("CARGO_PKG_VERSION"))
         .author("ZJJ Contributors")
-        .about("ZJJ - Manage JJ workspaces with Zellij sessions")
+        .about("ZJJ - Isolated workspace manager combining JJ workspaces with Zellij sessions")
+        .long_about(
+            "ZJJ creates isolated JJ workspaces paired with Zellij tabs for parallel work.\n\n\
+            Core workflow:\n  \
+              zjj init          Initialize zjj in a JJ repo\n  \
+              zjj add <name>    Create session for manual work (you control the tab)\n  \
+              zjj spawn <bead>  Create session for automated agent work\n  \
+              zjj focus <name>  Switch Zellij tab (inside Zellij)\n  \
+              zjj done          Merge workspace to main and clean up",
+        )
         .subcommand_required(true)
         .subcommand(cmd_init())
         .subcommand(cmd_add())
@@ -1013,7 +1041,11 @@ fn main() {
     // Run the CLI and handle errors gracefully
     if let Err(err) = run_cli() {
         eprintln!("Error: {}", format_error(&err));
-        process::exit(1);
+        let code = err
+            .downcast_ref::<zjj_core::Error>()
+            .map(zjj_core::Error::exit_code)
+            .unwrap_or(1);
+        process::exit(code);
     }
 }
 
