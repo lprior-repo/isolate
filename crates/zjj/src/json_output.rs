@@ -7,6 +7,8 @@ use zjj_core::{
     Error as ZjjError,
 };
 
+use crate::commands::spawn::types::SpawnError;
+
 /// Init command JSON output
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
