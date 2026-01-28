@@ -406,13 +406,31 @@ fn check_orphaned_workspaces() -> DoctorCheck {
         .map(|sessions| sessions.into_iter().map(|s| s.name).collect::<Vec<_>>())
         .unwrap_or_default();
 
-    // Find workspaces without sessions (excluding 'default')
-    let orphaned: Vec<_> = jj_workspaces
-        .into_iter()
-        .filter(|ws| ws != "default" && !session_names.contains(ws))
+    // Find workspaces without sessions (filesystem → DB orphans)
+    let filesystem_orphans: Vec<_> = jj_workspaces
+        .iter()
+        .filter(|ws| ws.as_str() != "default" && !session_names.contains(*ws))
+        .cloned()
         .collect();
 
-    if orphaned.is_empty() {
+    // Find sessions without workspaces (DB → filesystem orphans)
+    let db_orphans: Vec<_> = session_names
+        .into_iter()
+        .filter(|session| !jj_workspaces.iter().any(|ws| ws == session.as_str()))
+        .collect();
+
+    // Merge both types of orphans
+    let total_orphans = filesystem_orphans.len() + db_orphans.len();
+    let orphaned_workspaces = if filesystem_orphans.is_empty() && db_orphans.is_empty() {
+        None
+    } else {
+        Some(serde_json::json!({
+            "filesystem_to_db": filesystem_orphans,
+            "db_to_filesystem": db_orphans,
+        }))
+    };
+
+    if total_orphans == 0 {
         DoctorCheck {
             name: "Orphaned Workspaces".to_string(),
             status: CheckStatus::Pass,
@@ -422,18 +440,28 @@ fn check_orphaned_workspaces() -> DoctorCheck {
             details: None,
         }
     } else {
+        let orphan_count_msg = if !filesystem_orphans.is_empty() && !db_orphans.is_empty() {
+            format!(
+                "{} workspace(s) without DB entries, {} session(s) without workspaces",
+                filesystem_orphans.len(),
+                db_orphans.len()
+            )
+        } else if !filesystem_orphans.is_empty() {
+            format!(
+                "{} workspace(s) without session records",
+                filesystem_orphans.len()
+            )
+        } else {
+            format!("{} session(s) with missing workspaces", db_orphans.len())
+        };
+
         DoctorCheck {
             name: "Orphaned Workspaces".to_string(),
             status: CheckStatus::Warn,
-            message: format!(
-                "Found {} workspace(s) without session records",
-                orphaned.len()
-            ),
+            message: orphan_count_msg,
             suggestion: Some("Run 'zjj doctor --fix' to clean up".to_string()),
             auto_fixable: true,
-            details: Some(serde_json::json!({
-                "orphaned_workspaces": orphaned,
-            })),
+            details: orphaned_workspaces,
         }
     }
 }
@@ -655,35 +683,68 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
 
 /// Fix orphaned workspaces
 fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
-    let orphaned = check
+    let orphaned_data = check
         .details
         .as_ref()
-        .and_then(|d| d.get("orphaned_workspaces"))
-        .and_then(|w| w.as_array())
         .ok_or_else(|| anyhow::anyhow!("No orphaned workspaces data"))?;
 
     let root = jj_root()?;
+    let mut filesystem_removed = 0;
+    let mut db_removed = 0;
 
-    let removed_count = orphaned
-        .iter()
-        .filter_map(|workspace| {
-            let name = workspace.as_str()?;
+    // Fix filesystem → DB orphans (workspaces without sessions)
+    if let Some(filesystem_orphans) = orphaned_data
+        .get("filesystem_to_db")
+        .and_then(|v| v.as_array())
+    {
+        for workspace in filesystem_orphans {
+            if let Some(name) = workspace.as_str() {
+                let result = Command::new("jj")
+                    .args(["workspace", "forget", name])
+                    .current_dir(&root)
+                    .output()
+                    .ok();
 
-            let result = Command::new("jj")
-                .args(["workspace", "forget", name])
-                .current_dir(&root)
-                .output()
-                .ok()?;
-
-            if result.status.success() {
-                Some(name)
-            } else {
-                None
+                if result.map(|r| r.status.success()).unwrap_or(false) {
+                    filesystem_removed += 1;
+                }
             }
-        })
-        .count();
+        }
+    }
 
-    Ok(format!("Removed {removed_count} orphaned workspace(s)"))
+    // Fix DB → filesystem orphans (sessions without workspaces)
+    if let Some(db_orphans) = orphaned_data
+        .get("db_to_filesystem")
+        .and_then(|v| v.as_array())
+    {
+        if let Some(db) = get_session_db().ok() {
+            for session_name in db_orphans {
+                if let Some(name) = session_name.as_str() {
+                    if db.delete_blocking(name).unwrap_or(false) {
+                        db_removed += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    let mut parts = Vec::new();
+    if filesystem_removed > 0 {
+        parts.push(format!(
+            "Removed {filesystem_removed} orphaned workspace(s)"
+        ));
+    }
+    if db_removed > 0 {
+        parts.push(format!(
+            "Deleted {db_removed} session(s) without workspaces"
+        ));
+    }
+
+    Ok(if parts.is_empty() {
+        "No orphans to clean up".to_string()
+    } else {
+        parts.join("; ")
+    })
 }
 
 #[cfg(test)]
