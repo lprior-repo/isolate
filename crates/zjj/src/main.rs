@@ -14,8 +14,8 @@ mod json_output;
 mod session;
 
 use commands::{
-    add, attach, clean, config, context, dashboard, diff, doctor, done, focus, init, introspect,
-    list, query, remove, spawn, status, sync,
+    add, attach, checkpoint, clean, config, context, dashboard, diff, doctor, done, focus, init,
+    introspect, list, query, remove, spawn, status, sync,
 };
 
 fn cmd_init() -> ClapCommand {
@@ -466,6 +466,41 @@ fn cmd_spawn() -> ClapCommand {
         )
 }
 
+fn cmd_checkpoint() -> ClapCommand {
+    ClapCommand::new("checkpoint")
+        .about("Save and restore session state snapshots")
+        .alias("ckpt")
+        .subcommand_required(true)
+        .subcommand(
+            ClapCommand::new("create")
+                .about("Create a checkpoint of all current sessions")
+                .arg(
+                    Arg::new("description")
+                        .short('d')
+                        .long("description")
+                        .value_name("DESC")
+                        .help("Description for this checkpoint"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("restore")
+                .about("Restore sessions to a checkpoint state")
+                .arg(
+                    Arg::new("checkpoint_id")
+                        .required(true)
+                        .help("Checkpoint ID to restore"),
+                ),
+        )
+        .subcommand(ClapCommand::new("list").about("List all available checkpoints"))
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .global(true)
+                .help("Output as JSON"),
+        )
+}
+
 fn cmd_done() -> ClapCommand {
     ClapCommand::new("done")
         .about("Complete work and merge workspace to main")
@@ -541,6 +576,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_context())
         .subcommand(cmd_done())
         .subcommand(cmd_spawn())
+        .subcommand(cmd_checkpoint())
 }
 
 /// Format an error for user display (no stack traces)
@@ -820,6 +856,38 @@ fn handle_context(sub_m: &clap::ArgMatches) -> Result<()> {
     context::run(json, field, no_beads, no_health)
 }
 
+fn handle_checkpoint(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let action = match sub_m.subcommand() {
+        Some(("create", create_m)) => checkpoint::CheckpointAction::Create {
+            description: create_m.get_one::<String>("description").cloned(),
+        },
+        Some(("restore", restore_m)) => {
+            let checkpoint_id = restore_m
+                .get_one::<String>("checkpoint_id")
+                .ok_or_else(|| anyhow::anyhow!("Checkpoint ID is required"))?
+                .clone();
+            checkpoint::CheckpointAction::Restore { checkpoint_id }
+        }
+        Some(("list", _)) => checkpoint::CheckpointAction::List,
+        _ => anyhow::bail!("Unknown checkpoint subcommand"),
+    };
+
+    let args = checkpoint::CheckpointArgs { action, format };
+    match checkpoint::run(&args) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json_output::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
 fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
     let args = commands::done::types::DoneArgs {
         message: sub_m.get_one::<String>("message").cloned(),
@@ -903,6 +971,7 @@ fn run_cli() -> Result<()> {
         Some(("context", sub_m)) => handle_context(sub_m),
         Some(("done", sub_m)) => handle_done(sub_m),
         Some(("spawn", sub_m)) => handle_spawn(sub_m),
+        Some(("checkpoint" | "ckpt", sub_m)) => handle_checkpoint(sub_m),
         _ => {
             build_cli().print_help()?;
             Ok(())

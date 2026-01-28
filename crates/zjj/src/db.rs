@@ -50,6 +50,11 @@ pub struct SessionDb {
 }
 
 impl SessionDb {
+    /// Get a reference to the underlying connection pool
+    pub const fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+
     /// Open or create a session database at the given path
     ///
     /// # Errors

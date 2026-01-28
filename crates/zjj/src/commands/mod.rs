@@ -2,6 +2,7 @@
 
 pub mod add;
 pub mod attach;
+pub mod checkpoint;
 pub mod clean;
 pub mod config;
 pub mod context;
