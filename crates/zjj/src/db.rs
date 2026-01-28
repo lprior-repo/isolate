@@ -282,9 +282,34 @@ fn get_recovery_policy() -> RecoveryPolicy {
 /// - The database file exists (corruption recovery)
 /// - The parent directory exists (missing file recovery)
 fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
-    // If file exists, we can recover from corruption
+    // Check if we can access and read the file before allowing recovery
+    // This prevents recovery when DB is inaccessible (chmod 000, permission denied, etc.)
     if path.exists() {
-        return Ok(());
+        match path.metadata() {
+            Ok(_) => {
+                // File exists, check if readable
+                use std::fs::File;
+                match File::open(path) {
+                    Ok(_) => {
+                        // File is accessible, recovery is allowed
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        // File exists but not readable (permission denied, etc.)
+                        // Don't allow recovery - will be handled by doctor's read-only check
+                        return Err(Error::DatabaseError(format!(
+                            "Database file is not accessible: {e}",
+                        )));
+                    }
+                }
+            }
+            Err(e) => {
+                // Can't even read metadata, permission denied
+                return Err(Error::DatabaseError(format!(
+                    "Cannot access database metadata: {e}"
+                )));
+            }
+        }
     }
 
     // If file doesn't exist, check if parent directory exists
@@ -354,10 +379,28 @@ fn recover_database(path: &Path) -> Result<()> {
         }
     }
 
-    // Remove the corrupted file if it exists
+    // Remove corrupted file if it exists
+    // Do NOT modify file permissions - respect user-set permissions
+    // Only log error if removal fails - don't attempt chmod
     if path.exists() {
-        std::fs::remove_file(path)
-            .map_err(|e| Error::IoError(format!("Failed to remove corrupted database: {e}")))?;
+        match std::fs::remove_file(path) {
+            Ok(()) => {
+                // Successfully removed corrupted file
+                // New database will be created with default permissions on next DB open
+            }
+            Err(e) => {
+                // Failed to remove - log error and return it
+                // Don't attempt chmod - preserve user permissions
+                log_recovery(&format!(
+                    "Failed to remove corrupted database {}: {e}",
+                    path.display()
+                ))
+                .ok();
+                return Err(Error::IoError(format!(
+                    "Failed to remove corrupted database: {e}"
+                )));
+            }
+        };
     }
 
     Ok(())

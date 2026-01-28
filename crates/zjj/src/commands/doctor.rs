@@ -337,7 +337,7 @@ fn check_initialized() -> DoctorCheck {
 }
 
 fn check_state_db() -> DoctorCheck {
-    // Check if recovery occurred recently BEFORE opening database
+    // Check if recovery occurred recently BEFORE checking database
     if let Some(recovery_info) = check_for_recent_recovery() {
         return DoctorCheck {
             name: "State Database".to_string(),
@@ -354,66 +354,81 @@ fn check_state_db() -> DoctorCheck {
         };
     }
 
-    // If no recovery in log, check DB health (this may trigger recovery for next check)
-    get_session_db().map_or_else(
-        |_| DoctorCheck {
+    // Read-only database check - don't trigger recovery in doctor mode
+    // Check file existence, readability, and basic validity without opening DB
+    let db_path = std::path::Path::new(".zjj/state.db");
+    
+    if !db_path.exists() {
+        return DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
-            message: "State database not accessible".to_string(),
-            suggestion: Some("Initialize zjj: zjj init".to_string()),
+            message: "Database file does not exist".to_string(),
+            suggestion: Some("Run 'zjj init' to create database".to_string()),
             auto_fixable: false,
             details: None,
-        },
-        |db| match db.list_blocking(None) {
-            Ok(sessions) => DoctorCheck {
-                name: "State Database".to_string(),
-                status: CheckStatus::Pass,
-                message: format!("state.db is healthy ({} sessions)", sessions.len()),
-                suggestion: None,
-                auto_fixable: false,
-                details: None,
-            },
-            Err(e) => DoctorCheck {
+        };
+    }
+    
+    // Check file permissions and readability
+    let metadata = match db_path.metadata() {
+        Ok(m) => m,
+        Err(e) => {
+            return DoctorCheck {
                 name: "State Database".to_string(),
                 status: CheckStatus::Warn,
-                message: format!("Database exists but error reading: {e}"),
-                suggestion: Some("Database may be corrupted".to_string()),
+                message: format!("Cannot access database metadata: {e}"),
+                suggestion: Some("Check file permissions".to_string()),
                 auto_fixable: false,
                 details: None,
-            },
-        },
-    )
-}
-
-    // If no recovery in log, check DB health (this may trigger recovery for next check)
-    get_session_db().map_or_else(
-        |_| DoctorCheck {
+            };
+        }
+    };
+    
+    let is_readable = metadata.permissions().readonly();
+    
+    if !is_readable {
+        return DoctorCheck {
+            name: "State Database".to_string(),
+            status: CheckStatus::Fail,
+            message: "Database file is not readable (permission denied)".to_string(),
+            suggestion: Some("Check file permissions on .zjj/state.db".to_string()),
+            auto_fixable: false,
+            details: Some(serde_json::json!({
+                "path": db_path.display().to_string(),
+                "permission_denied": true
+            })),
+        };
+    }
+    
+    // Check file size (corrupted databases often have wrong size)
+    let file_size = metadata.len();
+    if file_size == 0 || file_size < 100 {
+        return DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
-            message: "State database not accessible".to_string(),
-            suggestion: Some("Initialize zjj: zjj init".to_string()),
-            auto_fixable: false,
-            details: None,
-        },
-        |db| match db.list_blocking(None) {
-            Ok(sessions) => DoctorCheck {
-                name: "State Database".to_string(),
-                status: CheckStatus::Pass,
-                message: format!("state.db is healthy ({} sessions)", sessions.len()),
-                suggestion: None,
-                auto_fixable: false,
-                details: None,
-            },
-            Err(e) => DoctorCheck {
-                name: "State Database".to_string(),
-                status: CheckStatus::Warn,
-                message: format!("Database exists but error reading: {e}"),
-                suggestion: Some("Database may be corrupted".to_string()),
-                auto_fixable: false,
-                details: None,
-            },
-        },
-    )
+            message: format!("Database file has suspicious size: {} bytes (may be corrupted)", file_size),
+            suggestion: Some("Database may be corrupted. Run 'zjj doctor --fix' to attempt recovery.".to_string()),
+            auto_fixable: true,
+            details: Some(serde_json::json!({
+                "file_size": file_size,
+                "suspicious_size": true
+            })),
+        };
+    }
+    
+    // Basic check passed - consider database accessible and potentially healthy
+    // Note: We don't verify SQLite integrity to avoid triggering recovery
+    DoctorCheck {
+        name: "State Database".to_string(),
+        status: CheckStatus::Pass,
+        message: format!("state.db is accessible ({} bytes)", file_size),
+        suggestion: None,
+        auto_fixable: false,
+        details: Some(serde_json::json!({
+            "file_size": file_size,
+            "readable": true
+        })),
+    }
 }
 
     // If no recovery in log, check DB health (this may trigger recovery for next check)
