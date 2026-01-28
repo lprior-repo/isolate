@@ -15,7 +15,7 @@
 //! Warnings (`CheckStatus::Warn`) do not cause non-zero exit codes - only failures
 //! (`CheckStatus::Fail`) do.
 
-use std::process::Command;
+use std::{path::Path, process::Command};
 
 use anyhow::Result;
 use zjj_core::{
@@ -29,6 +29,44 @@ use crate::{
     cli::{is_command_available, is_inside_zellij, is_jj_repo, jj_root},
     commands::get_session_db,
 };
+
+/// Check if recovery log has recent entries (indicating recovery occurred)
+fn check_for_recent_recovery() -> Option<String> {
+    let log_path = Path::new(".zjj/recovery.log");
+
+    if !log_path.exists() {
+        return None;
+    }
+
+    let content = std::fs::read_to_string(&log_path).ok()?;
+
+    // Get last 5 lines to check for recent recovery
+    let recent_lines: Vec<&str> = content.lines().rev().take(5).collect();
+
+    if recent_lines.is_empty() {
+        return None;
+    }
+
+    // Check timestamp of most recent entry
+    if let Some(last_line) = recent_lines.first() {
+        if let Some(timestamp_str) = last_line.split(']').next() {
+            let timestamp = timestamp_str.trim_start_matches('[');
+            // Parse timestamp and check if recent (within last 5 minutes)
+            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+                let now = chrono::Utc::now();
+                let duration = now.signed_duration_since(dt);
+                if duration.num_minutes() < 5 {
+                    return Some(format!(
+                        "Recent recovery detected at {timestamp}: {}",
+                        last_line.trim_start_matches(&format!("[{timestamp}] "))
+                    ));
+                }
+            }
+        }
+    }
+
+    None
+}
 
 /// Run health checks
 pub fn run(format: OutputFormat, fix: bool) -> Result<()> {
@@ -235,7 +273,28 @@ fn check_initialized() -> DoctorCheck {
 
 /// Check state database health
 fn check_state_db() -> DoctorCheck {
-    get_session_db().map_or_else(
+    // First, try to get the database - this may trigger recovery
+    let db_result = get_session_db();
+
+    // After attempting to open DB, check if recovery occurred
+    if let Some(recovery_info) = check_for_recent_recovery() {
+        return DoctorCheck {
+            name: "State Database".to_string(),
+            status: CheckStatus::Warn,
+            message: format!("Database recovered: {recovery_info}"),
+            suggestion: Some(
+                "Recovery completed. Review .zjj/recovery.log for details.".to_string(),
+            ),
+            auto_fixable: false,
+            details: Some(serde_json::json!({
+                "recovered": true,
+                "details": recovery_info
+            })),
+        };
+    }
+
+    // If no recovery occurred, check DB health
+    db_result.map_or_else(
         |_| DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
@@ -383,8 +442,19 @@ fn check_beads() -> DoctorCheck {
 /// # Exit Codes
 /// - 0: All checks passed (healthy system)
 /// - 1: One or more checks failed (unhealthy system)
+/// - 2: System recovered from corruption (recovery detected)
 fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     let output = DoctorOutput::from_checks(checks.to_vec());
+
+    // Check if recovery occurred (any check with "recovered" in details)
+    let has_recovery = checks.iter().any(|check| {
+        check
+            .details
+            .as_ref()
+            .and_then(|d| d.get("recovered"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+    });
 
     if format.is_json() {
         println!("{}", serde_json::to_string_pretty(&output)?);
@@ -392,6 +462,10 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
         // main.rs printing a second JSON error object
         if !output.healthy {
             std::process::exit(1);
+        }
+        // If recovery occurred, exit with 2
+        if has_recovery {
+            std::process::exit(2);
         }
         return Ok(());
     }
@@ -429,6 +503,11 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     // Return error if system is unhealthy (has failures)
     if !output.healthy {
         anyhow::bail!("Health check failed: {} error(s) detected", output.errors);
+    }
+
+    // Exit with code 2 if recovery occurred
+    if has_recovery {
+        std::process::exit(2);
     }
 
     Ok(())

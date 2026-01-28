@@ -9,6 +9,7 @@ use zjj_core::{
         Blocker, CanRunQuery, QueryError, SessionCountQuery, SessionExistsQuery, SessionInfo,
     },
     json::SchemaEnvelope,
+    OutputFormat,
 };
 
 use crate::{

@@ -117,7 +117,10 @@ fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
 
     if sessions.is_empty() {
         if format.is_json() {
-            println!("[]");
+            let data = StatusResponseData { sessions: vec![] };
+            let envelope = SchemaEnvelope::new("status-response", "single", data);
+            let json = serde_json::to_string_pretty(&envelope)?;
+            println!("{json}");
         } else {
             println!("No sessions found.");
             println!("Use 'zjj add <name>' to create a session.");

@@ -14,12 +14,18 @@ use std::{path::Path, str::FromStr, time::SystemTime};
 
 use num_traits::cast::ToPrimitive;
 use sqlx::{Row, SqlitePool};
-use zjj_core::{Error, Result};
+use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result};
 
 use crate::session::{Session, SessionStatus, SessionUpdate};
 
+const CURRENT_SCHEMA_VERSION: i64 = 1;
+
 /// Database schema as SQL string - executed once on init
 const SCHEMA: &str = r"
+CREATE TABLE IF NOT EXISTS schema_version (
+    version INTEGER PRIMARY KEY CHECK(version = 1)
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
@@ -87,12 +93,19 @@ impl SessionDb {
             Error::DatabaseError("Database path contains invalid UTF-8".to_string())
         })?;
 
-        // SQLx connection string with mode parameter
-        // ?mode=rwc tells SQLite to Read/Write/Create
-        let db_url = if path.is_absolute() {
-            format!("sqlite:///{path_str}?mode=rwc")
+        // Check recovery policy for connection mode
+        let policy = get_recovery_policy();
+        let mode = if policy == RecoveryPolicy::FailFast {
+            "rw" // No auto-create, fail on missing/corrupt
         } else {
-            format!("sqlite:{path_str}?mode=rwc")
+            "rwc" // Auto-create and recover (existing behavior)
+        };
+
+        // SQLx connection string with mode parameter
+        let db_url = if path.is_absolute() {
+            format!("sqlite:///{path_str}?mode={mode}")
+        } else {
+            format!("sqlite:{path_str}?mode={mode}")
         };
 
         // Try to open the database, with auto-recovery for missing/corrupted files
@@ -116,7 +129,10 @@ impl SessionDb {
 
         // Try to initialize schema, with recovery for corrupted databases
         match init_schema(&pool).await {
-            Ok(()) => Ok(Self { pool }),
+            Ok(()) => {
+                check_schema_version(&pool).await?;
+                Ok(Self { pool })
+            }
             Err(e) => {
                 // Schema init failed - likely corrupted database
                 match can_recover_database(path, allow_create) {
@@ -124,6 +140,7 @@ impl SessionDb {
                         recover_database(path)?;
                         let new_pool = create_connection_pool(&db_url).await?;
                         init_schema(&new_pool).await?;
+                        check_schema_version(&new_pool).await?;
                         Ok(Self { pool: new_pool })
                     }
                     Err(recovery_err) => Err(Error::DatabaseError(format!(
@@ -243,6 +260,22 @@ impl SessionDb {
 
 // === PURE FUNCTIONS (Functional Core) ===
 
+/// Get the current recovery policy from environment variables
+fn get_recovery_policy() -> RecoveryPolicy {
+    // Check ZJJ_STRICT flag first (highest priority)
+    if std::env::var("ZJJ_STRICT").is_ok() {
+        return RecoveryPolicy::FailFast;
+    }
+
+    // Check ZJJ_RECOVERY_POLICY env var
+    if let Ok(policy_str) = std::env::var("ZJJ_RECOVERY_POLICY") {
+        return policy_str.parse().unwrap_or(RecoveryPolicy::Warn);
+    }
+
+    // Default to warn policy
+    RecoveryPolicy::Warn
+}
+
 /// Check if database can be auto-recovered
 ///
 /// Recovery is allowed when:
@@ -277,12 +310,56 @@ fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
 ///
 /// This is safe because the database is a cache of session state,
 /// not the source of truth. Sessions can be reconstructed from JJ workspaces.
+///
+/// Behavior depends on recovery policy:
+/// - FailFast: Returns error without recovering
+/// - Warn: Logs warning, then recovers
+/// - Silent: Recovers without warning (old behavior)
 fn recover_database(path: &Path) -> Result<()> {
+    let policy = get_recovery_policy();
+    let should_log = should_log_recovery();
+
+    match policy {
+        RecoveryPolicy::FailFast => {
+            return Err(Error::DatabaseError(format!(
+                "Database corruption detected: {}\n\n\
+                 Recovery is disabled in strict mode (--strict or ZJJ_STRICT=1).\n\n\
+                 To recover, either:\n\
+                 - Remove --strict flag\n\
+                 - Run 'zjj doctor --fix'\n\
+                 - Manually delete the database and run 'zjj init'",
+                path.display()
+            )));
+        }
+        RecoveryPolicy::Warn => {
+            eprintln!("⚠  Database corruption detected: {}", path.display());
+            eprintln!("   Recovering by recreating database file...");
+
+            if should_log {
+                let log_msg = format!(
+                    "Database corruption detected at: {}. Recovered by recreating database.",
+                    path.display()
+                );
+                log_recovery(&log_msg).ok();
+            }
+        }
+        RecoveryPolicy::Silent => {
+            if should_log {
+                let log_msg = format!(
+                    "Database corruption detected at: {}. Recovered silently.",
+                    path.display()
+                );
+                log_recovery(&log_msg).ok();
+            }
+        }
+    }
+
     // Remove the corrupted file if it exists
     if path.exists() {
         std::fs::remove_file(path)
             .map_err(|e| Error::IoError(format!("Failed to remove corrupted database: {e}")))?;
     }
+
     Ok(())
 }
 
@@ -330,8 +407,41 @@ async fn init_schema(pool: &SqlitePool) -> Result<()> {
     sqlx::query(SCHEMA)
         .execute(pool)
         .await
-        .map(|_| ())
-        .map_err(|e| Error::DatabaseError(format!("Failed to initialize schema: {e}")))
+        .map_err(|e| Error::DatabaseError(format!("Failed to initialize schema: {e}")))?;
+
+    sqlx::query("INSERT OR IGNORE INTO schema_version (version) VALUES (?)")
+        .bind(CURRENT_SCHEMA_VERSION)
+        .execute(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to set schema version: {e}")))?;
+
+    Ok(())
+}
+
+/// Check database schema version matches expected
+async fn check_schema_version(pool: &SqlitePool) -> Result<()> {
+    let version: Option<i64> = sqlx::query("SELECT version FROM schema_version")
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to read schema version: {e}")))?
+        .map(|row| {
+            row.try_get("version")
+                .map_err(|e| Error::DatabaseError(format!("Failed to parse schema version: {e}")))
+        })
+        .transpose()?;
+
+    match version {
+        Some(v) if v == CURRENT_SCHEMA_VERSION => Ok(()),
+        Some(v) => Err(Error::DatabaseError(format!(
+            "Schema version mismatch: database has version {v}, but zjj expects version {CURRENT_SCHEMA_VERSION}\n\n\
+             The database may have been created by a different version of zjj.\n\n\
+             To reset: rm .zjj/state.db && zjj init"
+        ))),
+        None => Err(Error::DatabaseError(format!(
+            "Schema version not found in database. The database may be corrupted.\n\n\
+             To reset: rm .zjj/state.db && zjj init"
+        ))),
+    }
 }
 
 /// Insert a new session into database

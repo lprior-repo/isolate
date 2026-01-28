@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use serde::Serialize;
-use zjj_core::{config, jj, OutputFormat};
+use zjj_core::{config, jj, json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, run_command},
@@ -11,20 +11,16 @@ use crate::{
 };
 
 /// JSON output structure for add command
+
+/// JSON output structure for add command
 #[derive(Serialize)]
 struct AddOutput {
-    #[serde(rename = "$schema")]
-    schema: &'static str,
-    #[serde(rename = "_schema_version")]
-    schema_version: &'static str,
-    schema_type: &'static str,
     success: bool,
     name: String,
     workspace_path: String,
     zellij_tab: String,
     message: String,
 }
-
 /// Options for the add command
 pub struct AddOptions {
     /// Session name
@@ -109,9 +105,7 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
                     ..Default::default()
                 },
             ) {
-                eprintln!(
-                    "Warning: failed to update session status to 'failed': {db_err}"
-                );
+                eprintln!("Warning: failed to update session status to 'failed': {db_err}");
             }
             return Err(e).context("post_create hook failed");
         }
@@ -188,18 +182,16 @@ fn output_result(
 ) {
     if format.is_json() {
         let output = AddOutput {
-            schema: "zjj://add-response/v1",
-            schema_version: "1.0",
-            schema_type: "single",
             success: true,
             name: name.to_string(),
             workspace_path: workspace_path.to_string(),
             zellij_tab: zellij_tab.to_string(),
             message: format!("Created session '{name}' ({mode})"),
         };
+        let envelope = SchemaEnvelope::new("add-response", "single", output);
         println!(
             "{}",
-            serde_json::to_string_pretty(&output)
+            serde_json::to_string_pretty(&envelope)
                 .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
         );
     } else {

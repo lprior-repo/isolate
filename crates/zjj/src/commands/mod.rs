@@ -105,6 +105,12 @@ pub fn get_session_db() -> Result<SessionDb> {
     );
 
     let db_path = data_dir.join("state.db");
+
+    // Warn if database is a symlink (security consideration)
+    if db_path.is_symlink() {
+        eprintln!("Warning: Database is a symlink: {}", db_path.display());
+    }
+
     SessionDb::open_blocking(&db_path).context("Failed to open session database")
 }
 

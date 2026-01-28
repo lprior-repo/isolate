@@ -151,6 +151,49 @@ zjj remove my-session
 
 **All commands must be run through Moon.** This project uses Moon for build orchestration with bazel-remote for hyper-fast local caching.
 
+### Recovery Policy
+
+ZJJ detects and handles database corruption based on a **recovery policy** that controls whether corruption is silently fixed, warned about, or treated as a fatal error.
+
+#### Policy Modes
+
+| Mode | Behavior | Use Case |
+|-------|-----------|-----------|
+| `silent` | Recovers from corruption without warning (default in older versions) | Development, testing |
+| `warn` | ⚠ Shows warning message, then recovers (new default) | Production systems where auto-recovery is acceptable |
+| `fail-fast` | ✗ Fails immediately on corruption, no recovery | CI/CD, strict production environments |
+
+#### Configuration
+
+Recovery policy can be configured in three ways (higher priority overrides lower):
+
+1. **CLI flag**: `zjj --strict <command>` (sets fail-fast)
+2. **Environment variable**: `ZJJ_RECOVERY_POLICY=silent|warn|fail-fast`
+3. **Config file**: Add to `.zjj/config.toml`:
+   ```toml
+   [recovery]
+   policy = "warn"  # or "silent", "fail-fast"
+   ```
+
+#### Recovery Logging
+
+When recovery occurs, ZJJ logs all recovery actions to `.zjj/recovery.log`:
+```
+[2026-01-27T20:30:00Z] Database corruption detected at: .zjj/state.db. Recovered silently.
+[2026-01-27T20:31:15Z] Database corruption detected at: .zjj/state.db. Recovering by recreating database file.
+```
+
+Logging can be controlled via:
+- Environment variable: `ZJJ_RECOVERY_LOG=1` (default) or `ZJJ_RECOVERY_LOG=0` (disable)
+- Config file: `recovery.log_recovered = true` in `.zjj/config.toml`
+
+#### Doctor Exit Codes
+
+The `zjj doctor` command uses these exit codes:
+- `0`: System healthy (all checks passed)
+- `1`: System unhealthy (one or more checks failed)
+- `2`: Recovery occurred (system recovered from corruption, review `.zjj/recovery.log`)
+
 ### Async Architecture & Database
 
 ZJJ uses **async/await** with Tokio runtime and **sqlx** for all database operations. This provides:

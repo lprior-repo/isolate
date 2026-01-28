@@ -23,11 +23,44 @@
 //! post_create = ["bd sync", "npm install"]
 //! ```
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum RecoveryPolicy {
+    Silent,
+    #[default]
+    Warn,
+    FailFast,
+}
+
+impl FromStr for RecoveryPolicy {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "silent" => Ok(RecoveryPolicy::Silent),
+            "warn" => Ok(RecoveryPolicy::Warn),
+            "fail-fast" | "failfast" | "fail" => Ok(RecoveryPolicy::FailFast),
+            _ => Err(Error::InvalidConfig(format!(
+                "Invalid recovery policy: {s}. Must be one of: silent, warn, fail-fast"
+            ))),
+        }
+    }
+}
+
+impl std::fmt::Display for RecoveryPolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecoveryPolicy::Silent => write!(f, "silent"),
+            RecoveryPolicy::Warn => write!(f, "warn"),
+            RecoveryPolicy::FailFast => write!(f, "fail-fast"),
+        }
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION STRUCTURES
@@ -45,6 +78,13 @@ pub struct Config {
     pub dashboard: DashboardConfig,
     pub agent: AgentConfig,
     pub session: SessionConfig,
+    pub recovery: RecoveryConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RecoveryConfig {
+    pub policy: RecoveryPolicy,
+    pub log_recovered: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -129,6 +169,7 @@ impl Default for Config {
             dashboard: DashboardConfig::default(),
             agent: AgentConfig::default(),
             session: SessionConfig::default(),
+            recovery: RecoveryConfig::default(),
         }
     }
 }
@@ -230,6 +271,15 @@ impl Default for SessionConfig {
         Self {
             auto_commit: false,
             commit_prefix: "wip:".to_string(),
+        }
+    }
+}
+
+impl Default for RecoveryConfig {
+    fn default() -> Self {
+        Self {
+            policy: RecoveryPolicy::Warn,
+            log_recovered: true,
         }
     }
 }
@@ -466,6 +516,13 @@ impl SessionConfig {
     }
 }
 
+impl RecoveryConfig {
+    fn merge(&mut self, other: Self) {
+        self.policy = other.policy;
+        self.log_recovered = other.log_recovered;
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIG METHODS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -475,7 +532,7 @@ impl Config {
     ///
     /// Note: This performs a deep replacement merge, not append.
     /// For example, if `hooks.post_create` is `["a","b"]` in self and `["c"]` in other,
-    /// the result will be `["c"]`, not `["a","b","c"]`.
+    /// result will be `["c"]`, not `["a","b","c"]`.
     fn merge(&mut self, other: Self) {
         // Top-level string fields - replace if non-empty/non-default
         if !other.workspace_dir.is_empty() {
@@ -498,6 +555,7 @@ impl Config {
         self.dashboard.merge(other.dashboard);
         self.agent.merge(other.agent);
         self.session.merge(other.session);
+        self.recovery.merge(other.recovery);
     }
 
     /// Apply environment variable overrides
@@ -559,6 +617,20 @@ impl Config {
         // ZJJ_AGENT_COMMAND
         if let Ok(value) = std::env::var("ZJJ_AGENT_COMMAND") {
             self.agent.command = value;
+        }
+
+        // ZJJ_RECOVERY_POLICY
+        if let Ok(value) = std::env::var("ZJJ_RECOVERY_POLICY") {
+            self.recovery.policy = value.parse().map_err(|e| {
+                Error::InvalidConfig(format!("Invalid ZJJ_RECOVERY_POLICY value: {e}"))
+            })?;
+        }
+
+        // ZJJ_RECOVERY_LOG
+        if let Ok(value) = std::env::var("ZJJ_RECOVERY_LOG") {
+            self.recovery.log_recovered = value.parse().map_err(|e| {
+                Error::InvalidConfig(format!("Invalid ZJJ_RECOVERY_LOG value: {e}"))
+            })?;
         }
 
         Ok(())

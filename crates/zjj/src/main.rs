@@ -580,7 +580,7 @@ fn build_cli() -> ClapCommand {
             "ZJJ creates isolated JJ workspaces paired with Zellij tabs for parallel work.\n\n\
             Core workflow:\n  \
               zjj init          Initialize zjj in a JJ repo\n  \
-              zjj add <name>    Create session for manual work (you control the tab)\n  \
+              zjj add <name>    Create session for manual work (you control tab)\n  \
               zjj spawn <bead>  Create session for automated agent work\n  \
               zjj focus <name>  Switch Zellij tab (inside Zellij)\n  \
               zjj done          Merge workspace to main and clean up",
@@ -917,17 +917,14 @@ fn handle_checkpoint(sub_m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
     let args = commands::done::types::DoneArgs {
         message: sub_m.get_one::<String>("message").cloned(),
         keep_workspace: sub_m.get_flag("keep-workspace"),
         squash: sub_m.get_flag("squash"),
         dry_run: sub_m.get_flag("dry-run"),
         no_bead_update: sub_m.get_flag("no-bead-update"),
-        format: if sub_m.get_flag("json") {
-            "json".to_string()
-        } else {
-            "human".to_string()
-        },
+        format: zjj_core::OutputFormat::from_json_flag(json),
     };
 
     let options = args.to_options();
@@ -944,6 +941,11 @@ fn run_cli() -> Result<()> {
     let json_mode = args
         .iter()
         .any(|a| a.as_str() == "--json" || a.as_str() == "-j");
+
+    // Set ZJJ_STRICT environment variable for database layer to check
+    if args.iter().any(|a| a.as_str() == "--strict") {
+        std::env::set_var("ZJJ_STRICT", "1");
+    }
 
     let matches = match cli.try_get_matches() {
         Ok(m) => m,
