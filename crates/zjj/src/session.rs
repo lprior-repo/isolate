@@ -357,8 +357,9 @@ mod tests {
 
     // Property-based tests using proptest
     mod property_tests {
-        use super::*;
         use proptest::prelude::*;
+
+        use super::*;
 
         proptest! {
             /// Property test: validate_session_name never panics with arbitrary input

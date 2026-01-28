@@ -711,7 +711,7 @@ fn test_rapid_sequential_add_remove() {
 
     // Rapid add/remove cycles should maintain database integrity
     for i in 0..10 {
-        let session_name = format!("rapid{}", i);
+        let session_name = format!("rapid{i}");
         harness.assert_success(&["add", &session_name, "--no-open"]);
         harness.assert_success(&["remove", &session_name, "--force"]);
     }

@@ -25,6 +25,14 @@ pub enum Error {
         source: String,
         is_not_found: bool,
     },
+    SessionLocked {
+        session: String,
+        holder: String,
+    },
+    NotLockHolder {
+        session: String,
+        agent_id: String,
+    },
     Unknown(String),
 }
 
@@ -66,6 +74,15 @@ impl fmt::Display for Error {
                 } else {
                     write!(f, "Failed to {operation}: {source}")
                 }
+            }
+            Self::SessionLocked { session, holder } => {
+                write!(f, "Session '{session}' is locked by agent '{holder}'")
+            }
+            Self::NotLockHolder { session, agent_id } => {
+                write!(
+                    f,
+                    "Agent '{agent_id}' does not hold the lock for session '{session}'"
+                )
             }
             Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
         }
@@ -109,6 +126,8 @@ impl Error {
             Self::HookFailed { .. } => "HOOK_FAILED",
             Self::HookExecutionFailed { .. } => "HOOK_EXECUTION_FAILED",
             Self::JjCommandError { .. } => "JJ_COMMAND_ERROR",
+            Self::SessionLocked { .. } => "SESSION_LOCKED",
+            Self::NotLockHolder { .. } => "NOT_LOCK_HOLDER",
             Self::Unknown(_) => "UNKNOWN",
         }
     }
@@ -170,6 +189,14 @@ impl Error {
                 "source": source,
                 "is_not_found": is_not_found
             })),
+            Self::SessionLocked { session, holder } => Some(serde_json::json!({
+                "session": session,
+                "holder": holder
+            })),
+            Self::NotLockHolder { session, agent_id } => Some(serde_json::json!({
+                "session": session,
+                "agent_id": agent_id
+            })),
             _ => None,
         }
     }
@@ -224,6 +251,8 @@ Self::JjCommandError {
             | Self::HookFailed { .. }
             | Self::HookExecutionFailed { .. }
             | Self::Unknown(_) => 4,
+            // Lock contention errors: exit code 5
+            Self::SessionLocked { .. } | Self::NotLockHolder { .. } => 5,
         }
     }
 }
