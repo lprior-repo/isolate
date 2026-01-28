@@ -102,10 +102,36 @@ def sql-escape [val: string]: nothing -> string {
   $val | str replace --all "'" "''"
 }
 
+def sql-param [val: any]: nothing -> string {
+  if ($val | is-empty) {
+    "NULL"
+  } else if ($val | describe) == "string" {
+    let escaped = ($val | str replace --all "'" "''")
+    $"'($escaped)'"
+  } else {
+    $"($val)"
+  }
+}
+
 def emit-event [job_id: string, task_name: string, event_type: string, old_state: string, new_state: string, payload: string] {
-  let tn = if ($task_name | is-empty) { "NULL" } else { $"'($task_name)'" }
-  let pl = if ($payload | is-empty) { "NULL" } else { $"'(sql-escape $payload)'" }
-  sql-exec $"INSERT INTO events \(job_id, task_name, event_type, old_state, new_state, payload\) VALUES \('($job_id)', ($tn), '($event_type)', '($old_state)', '($new_state)', ($pl)\)"
+  let job_escaped = ($job_id | str replace --all "'" "''")
+  let task_escaped = if ($task_name | is-empty) { "" } else { ($task_name | str replace --all "'" "''") }
+  let event_escaped = ($event_type | str replace --all "'" "''")
+  let old_escaped = ($old_state | str replace --all "'" "''")
+  let new_escaped = ($new_state | str replace --all "'" "''")
+  let payload_escaped = ($payload | str replace --all "'" "''")
+  
+  let task_sql = if ($task_name | is-empty) { "NULL" } else { $"'($task_escaped)'" }
+  let payload_sql = if ($payload | is-empty) { "NULL" } else { $"'($payload_escaped)'" }
+  
+  let query = ['INSERT INTO events (job_id, task_name, event_type, old_state, new_state, payload) VALUES' 
+               $" '($job_escaped)'," 
+               $" ($task_sql)," 
+               $" '($event_escaped)'," 
+               $" '($old_escaped)'," 
+               $" '($new_escaped)'," 
+               $" ($payload_sql)"] | str join
+  sql-exec $query
 }
 
 # ── Job Operations ───────────────────────────────────────────────────────────
@@ -118,9 +144,21 @@ export def job-create [job_def: record] {
   let defaults = ($job_def.defaults? | default {} | to json -r)
   let position = ($job_def.position? | default 0)
 
+  let job_escaped = ($job_id | str replace --all "'" "''")
+  let name_escaped = ($job_def.name | str replace --all "'" "''")
+  let bead_escaped = ($bead_id | str replace --all "'" "''")
   let inputs_esc = (sql-escape $inputs)
   let defaults_esc = (sql-escape $defaults)
-  sql-exec $"INSERT OR REPLACE INTO jobs \(id, name, bead_id, inputs, defaults, status, position\) VALUES \('($job_id)', '($job_def.name)', '($bead_id)', '($inputs_esc)', '($defaults_esc)', 'PENDING', ($position)\)"
+  let pos_str = ($position | into string)
+  
+  sql-exec ['INSERT OR REPLACE INTO jobs (id, name, bead_id, inputs, defaults, status, position) VALUES'
+            $" '($job_escaped)',"
+            $" '($name_escaped)',"
+            $" '($bead_escaped)',"
+            $" '($inputs_esc)',"
+            $" '($defaults_esc)',"
+            $" 'PENDING',"
+            $" ($pos_str)"] | str join
 
   # Insert tasks
   for task in ($job_def.tasks? | default []) {
@@ -136,12 +174,43 @@ export def job-create [job_def: record] {
     let timeout = ($task.timeout_sec? | default 600)
     let max_attempts = ($task.retry?.limit? | default ($job_def.defaults?.retry?.limit? | default 3))
 
+    let task_id_esc = ($task_id | str replace --all "'" "''")
+    let var_esc = ($var | str replace --all "'" "''")
+    let run_cmd_esc = ($run_cmd | str replace --all "'" "''")
+    let agent_type_esc = ($agent_type | str replace --all "'" "''")
+    let agent_model_esc = ($agent_model | str replace --all "'" "''")
+    let gate_esc = ($gate | str replace --all "'" "''")
     let cond_esc = (sql-escape $condition)
-    sql-exec $"INSERT OR REPLACE INTO tasks \(id, job_id, name, var, status, run_cmd, agent_type, agent_model, gate, condition, on_fail_regress, priority, timeout_sec, max_attempts\) VALUES \('($task_id)', '($job_id)', '($task.name)', '($var)', 'PENDING', '($run_cmd)', '($agent_type)', '($agent_model)', '($gate)', '($cond_esc)', '($on_fail)', ($priority), ($timeout), ($max_attempts)\)"
+    let on_fail_esc = ($on_fail | str replace --all "'" "''")
+    let task_name_esc = ($task.name | str replace --all "'" "''")
+    let priority_str = ($priority | into string)
+    let timeout_str = ($timeout | into string)
+    let max_attempts_str = ($max_attempts | into string)
+    
+    sql-exec ['INSERT OR REPLACE INTO tasks'
+              ' (id, job_id, name, var, status, run_cmd, agent_type, agent_model, gate, condition, on_fail_regress, priority, timeout_sec, max_attempts) VALUES'
+              $" '($task_id_esc)',"
+              $" '($job_escaped)',"
+              $" '($task_name_esc)',"
+              $" '($var_esc)',"
+              $" 'PENDING',"
+              $" '($run_cmd_esc)',"
+              $" '($agent_type_esc)',"
+              $" '($agent_model_esc)',"
+              $" '($gate_esc)',"
+              $" '($cond_esc)',"
+              $" '($on_fail_esc)',"
+              $" ($priority_str),"
+              $" ($timeout_str),"
+              $" ($max_attempts_str)"] | str join
 
     # Insert dependencies
     for dep in ($task.needs? | default []) {
-      sql-exec $"INSERT OR IGNORE INTO task_deps \(job_id, task_name, depends_on\) VALUES \('($job_id)', '($task.name)', '($dep)'\)"
+      let dep_esc = ($dep | str replace --all "'" "''")
+      sql-exec ['INSERT OR IGNORE INTO task_deps (job_id, task_name, depends_on) VALUES'
+                $" '($job_escaped)',"
+                $" '($task_name_esc)',"
+                $" '($dep_esc)'"] | str join
     }
   }
 
@@ -152,19 +221,19 @@ export def job-create [job_def: record] {
 # Execute a job using Kahn's BFS with replay + regression
 export def job-execute [job_id: string] {
   # Mark job running
-  sql-exec $"UPDATE jobs SET status = 'RUNNING', started_at = datetime\('now'\) WHERE id = '($job_id)'"
+  sql-exec $"UPDATE jobs SET status = 'RUNNING', started_at = datetime\('now'\) WHERE id = (sql-param $job_id)"
   emit-event $job_id "" "job.StateChange" "PENDING" "RUNNING" ""
 
   # Load all tasks
-  let all_tasks = (sql $"SELECT name, status, condition, priority, on_fail_regress FROM tasks WHERE job_id = '($job_id)'" )
+  let all_tasks = (sql $"SELECT name, status, condition, priority, on_fail_regress FROM tasks WHERE job_id = (sql-param $job_id)" )
 
   # Build in-degree map
-  let deps = (sql $"SELECT task_name, depends_on FROM task_deps WHERE job_id = '($job_id)'" )
+  let deps = (sql $"SELECT task_name, depends_on FROM task_deps WHERE job_id = (sql-param $job_id)" )
 
   # Main execution loop
   loop {
     # Refresh task statuses
-    let tasks = (sql $"SELECT name, status, condition, priority, on_fail_regress FROM tasks WHERE job_id = '($job_id)'" )
+    let tasks = (sql $"SELECT name, status, condition, priority, on_fail_regress FROM tasks WHERE job_id = (sql-param $job_id)" )
 
     # Find tasks with all deps satisfied (COMPLETED or SKIPPED)
     let pending = ($tasks | where status == "PENDING")
@@ -173,7 +242,7 @@ export def job-execute [job_id: string] {
       let deps_met = if ($task_deps | is-empty) {
         true
       } else {
-        let dep_statuses = (sql $"SELECT name, status FROM tasks WHERE job_id = '($job_id)' AND name IN \(($task_deps | each {|d| $"'($d)'" } | str join ",")\)" )
+        let dep_statuses = (sql $"SELECT name, status FROM tasks WHERE job_id = (sql-param $job_id) AND name IN \(($task_deps | each {|d| sql-param $d } | str join ",")\)" )
         ($dep_statuses | all {|d| $d.status in ["COMPLETED", "SKIPPED"] })
       }
       if $deps_met { $t } else { null }
@@ -198,24 +267,24 @@ export def job-execute [job_id: string] {
     }
 
     # Check if any task failed without regression
-    let failed = (sql $"SELECT name FROM tasks WHERE job_id = '($job_id)' AND status = 'FAILED'" )
+    let failed = (sql $"SELECT name FROM tasks WHERE job_id = (sql-param $job_id) AND status = 'FAILED'" )
     if ($failed | is-not-empty) {
-      sql-exec $"UPDATE jobs SET status = 'FAILED', completed_at = datetime\('now'\), error = 'Task failed: ($failed.0.name)' WHERE id = '($job_id)'"
+      sql-exec $"UPDATE jobs SET status = 'FAILED', completed_at = datetime\('now'\), error = 'Task failed: ($failed.0.name)' WHERE id = (sql-param $job_id)"
       emit-event $job_id "" "job.StateChange" "RUNNING" "FAILED" $"Task failed: ($failed.0.name)"
       return { status: "FAILED", failed_task: $failed.0.name }
     }
   }
 
   # Check final state
-  let final_tasks = (sql $"SELECT status FROM tasks WHERE job_id = '($job_id)'" )
+  let final_tasks = (sql $"SELECT status FROM tasks WHERE job_id = (sql-param $job_id)" )
   let all_done = ($final_tasks | all {|t| $t.status in ["COMPLETED", "SKIPPED"] })
 
   if $all_done {
-    sql-exec $"UPDATE jobs SET status = 'COMPLETED', completed_at = datetime\('now'\) WHERE id = '($job_id)'"
+    sql-exec $"UPDATE jobs SET status = 'COMPLETED', completed_at = datetime\('now'\) WHERE id = (sql-param $job_id)"
     emit-event $job_id "" "job.StateChange" "RUNNING" "COMPLETED" ""
     { status: "COMPLETED" }
   } else {
-    sql-exec $"UPDATE jobs SET status = 'FAILED', completed_at = datetime\('now'\) WHERE id = '($job_id)'"
+    sql-exec $"UPDATE jobs SET status = 'FAILED', completed_at = datetime\('now'\) WHERE id = (sql-param $job_id)"
     emit-event $job_id "" "job.StateChange" "RUNNING" "FAILED" ""
     { status: "FAILED" }
   }
@@ -223,21 +292,21 @@ export def job-execute [job_id: string] {
 
 # Resume a job from its last checkpoint (skip completed tasks)
 export def job-resume [job_id: string] {
-  let job = (sql $"SELECT status FROM jobs WHERE id = '($job_id)'" )
+  let job = (sql $"SELECT status FROM jobs WHERE id = (sql-param $job_id)" )
   if ($job | is-empty) {
     error make { msg: $"Job not found: ($job_id)" }
   }
   # Reset RUNNING tasks back to PENDING (they were interrupted)
-  sql-exec $"UPDATE tasks SET status = 'PENDING' WHERE job_id = '($job_id)' AND status = 'RUNNING'"
+  sql-exec $"UPDATE tasks SET status = 'PENDING' WHERE job_id = (sql-param $job_id) AND status = 'RUNNING'"
   # Reset job to RUNNING if it was FAILED
-  sql-exec $"UPDATE jobs SET status = 'RUNNING' WHERE id = '($job_id)'"
+  sql-exec $"UPDATE jobs SET status = 'RUNNING' WHERE id = (sql-param $job_id)"
   emit-event $job_id "" "job.StateChange" $job.0.status "RUNNING" "resumed"
   job-execute $job_id
 }
 
 # Execute a single task with retry + gate evaluation
 export def task-execute [job_id: string, task_name: string]: nothing -> record {
-  let task = (sql $"SELECT * FROM tasks WHERE job_id = '($job_id)' AND name = '($task_name)'" ).0
+  let task = (sql $"SELECT * FROM tasks WHERE job_id = (sql-param $job_id) AND name = (sql-param $task_name)" ).0
 
   # Replay check
   if $task.status == "COMPLETED" {
@@ -248,14 +317,14 @@ export def task-execute [job_id: string, task_name: string]: nothing -> record {
   if ($task.condition | is-not-empty) {
     let should_run = (eval-condition $job_id $task.condition)
     if not $should_run {
-      sql-exec $"UPDATE tasks SET status = 'SKIPPED', completed_at = datetime\('now'\) WHERE job_id = '($job_id)' AND name = '($task_name)'"
+      sql-exec $"UPDATE tasks SET status = 'SKIPPED', completed_at = datetime\('now'\) WHERE job_id = (sql-param $job_id) AND name = (sql-param $task_name)"
       emit-event $job_id $task_name "task.StateChange" $task.status "SKIPPED" "condition false"
       return { name: $task_name, status: "SKIPPED" }
     }
   }
 
   # Mark RUNNING
-  sql-exec $"UPDATE tasks SET status = 'RUNNING', started_at = datetime\('now'\), attempt = attempt + 1 WHERE job_id = '($job_id)' AND name = '($task_name)'"
+  sql-exec $"UPDATE tasks SET status = 'RUNNING', started_at = datetime\('now'\), attempt = attempt + 1 WHERE job_id = (sql-param $job_id) AND name = (sql-param $task_name)"
   emit-event $job_id $task_name "task.StateChange" $task.status "RUNNING" ""
 
   # Execute with retry loop
@@ -272,7 +341,7 @@ export def task-execute [job_id: string, task_name: string]: nothing -> record {
       sleep ($delay | into duration)
     }
 
-    sql-exec $"UPDATE tasks SET attempt = ($attempt) WHERE job_id = '($job_id)' AND name = '($task_name)'"
+    sql-exec $"UPDATE tasks SET attempt = ($attempt) WHERE job_id = (sql-param $job_id) AND name = (sql-param $task_name)"
 
     # Execute the task
     let exec_result = (try {
@@ -283,8 +352,8 @@ export def task-execute [job_id: string, task_name: string]: nothing -> record {
 
     if $exec_result.status == "COMPLETED" {
       let output = (sql-escape ($exec_result.output? | default ""))
-      let start = (sql $"SELECT started_at FROM tasks WHERE job_id = '($job_id)' AND name = '($task_name)'" ).0.started_at
-      sql-exec $"UPDATE tasks SET status = 'COMPLETED', output = '($output)', completed_at = datetime\('now'\) WHERE job_id = '($job_id)' AND name = '($task_name)'"
+      let start = (sql $"SELECT started_at FROM tasks WHERE job_id = (sql-param $job_id) AND name = (sql-param $task_name)" ).0.started_at
+      sql-exec $"UPDATE tasks SET status = 'COMPLETED', output = '($output)', completed_at = datetime\('now'\) WHERE job_id = (sql-param $job_id) AND name = (sql-param $task_name)"
       emit-event $job_id $task_name "task.StateChange" "RUNNING" "COMPLETED" ""
       $result = { name: $task_name, status: "COMPLETED", output: ($exec_result.output? | default "") }
       break
@@ -296,7 +365,7 @@ export def task-execute [job_id: string, task_name: string]: nothing -> record {
   # All retries exhausted — check regression
   if $result.status == "FAILED" {
     let err = (sql-escape $last_error)
-    sql-exec $"UPDATE tasks SET status = 'FAILED', error = '($err)', completed_at = datetime\('now'\) WHERE job_id = '($job_id)' AND name = '($task_name)'"
+    sql-exec $"UPDATE tasks SET status = 'FAILED', error = '($err)', completed_at = datetime\('now'\) WHERE job_id = (sql-param $job_id) AND name = (sql-param $task_name)"
     emit-event $job_id $task_name "task.StateChange" "RUNNING" "FAILED" $last_error
 
     if ($task.on_fail_regress | is-not-empty) {
@@ -357,7 +426,7 @@ def run-task [job_id: string, task: record]: nothing -> record {
 
 # Build prompt for agent task using prior outputs
 def build-prompt [job_id: string, task: record, prior_outputs: record]: nothing -> string {
-  let bead_id = (sql $"SELECT bead_id FROM jobs WHERE id = '($job_id)'" ).0.bead_id
+  let bead_id = (sql $"SELECT bead_id FROM jobs WHERE id = (sql-param $job_id)" ).0.bead_id
   let context_lines = ($prior_outputs | transpose key value | each {|kv|
     $"## Prior output: ($kv.key)\n($kv.value)"
   } | str join "\n\n")
@@ -367,7 +436,7 @@ def build-prompt [job_id: string, task: record, prior_outputs: record]: nothing 
 
 # Gather completed task outputs as a record keyed by var name
 def gather-task-outputs [job_id: string]: nothing -> record {
-  let completed = (sql $"SELECT var, output FROM tasks WHERE job_id = '($job_id)' AND status = 'COMPLETED' AND var IS NOT NULL AND var != ''" )
+  let completed = (sql $"SELECT var, output FROM tasks WHERE job_id = (sql-param $job_id) AND status = 'COMPLETED' AND var IS NOT NULL AND var != ''" )
   mut outputs = {}
   for row in $completed {
     $outputs = ($outputs | insert $row.var $row.output)
@@ -384,14 +453,14 @@ export def task-regress [job_id: string, target_task: string] {
   let to_reset = ([$target_task] | append $all_downstream | uniq)
 
   for task_name in $to_reset {
-    sql-exec $"UPDATE tasks SET status = 'PENDING', output = NULL, error = NULL, attempt = 0, started_at = NULL, completed_at = NULL, duration_ms = NULL WHERE job_id = '($job_id)' AND name = '($task_name)'"
+    sql-exec $"UPDATE tasks SET status = 'PENDING', output = NULL, error = NULL, attempt = 0, started_at = NULL, completed_at = NULL, duration_ms = NULL WHERE job_id = (sql-param $job_id) AND name = (sql-param $task_name)"
     emit-event $job_id $task_name "task.Regression" "" "PENDING" $"regressed from ($target_task)"
   }
 }
 
 # Find all tasks transitively downstream of a given task
 def find-downstream [job_id: string, task_name: string]: nothing -> list<string> {
-  let direct = (sql $"SELECT task_name FROM task_deps WHERE job_id = '($job_id)' AND depends_on = '($task_name)'" | get task_name)
+  let direct = (sql $"SELECT task_name FROM task_deps WHERE job_id = (sql-param $job_id) AND depends_on = (sql-param $task_name)" | get task_name)
   if ($direct | is-empty) { return [] }
   let indirect = ($direct | each {|d| find-downstream $job_id $d } | flatten)
   $direct | append $indirect | uniq
@@ -407,7 +476,7 @@ def eval-condition [job_id: string, condition: string]: nothing -> bool {
 
   let task_ref = $match.task_ref
   let phase = ($match.phase | str trim | into int)
-  let output = (sql $"SELECT output FROM tasks WHERE job_id = '($job_id)' AND name = '($task_ref)' AND status = 'COMPLETED'" )
+  let output = (sql $"SELECT output FROM tasks WHERE job_id = (sql-param $job_id) AND name = (sql-param $task_ref) AND status = 'COMPLETED'" )
 
   if ($output | is-empty) { return false }
 
@@ -502,7 +571,7 @@ export def gate-check [gate_name: string, output: string, job_id: string]: nothi
 
 # Retrieve cached output by var name (Tork's {{ tasks.X }})
 export def task-output [job_id: string, var_name: string]: nothing -> string {
-  let result = (sql $"SELECT output FROM tasks WHERE job_id = '($job_id)' AND var = '($var_name)' AND status = 'COMPLETED'" )
+  let result = (sql $"SELECT output FROM tasks WHERE job_id = (sql-param $job_id) AND var = (sql-param $var_name) AND status = 'COMPLETED'" )
   if ($result | is-empty) { "" } else { $result.0.output }
 }
 
@@ -510,18 +579,18 @@ export def task-output [job_id: string, var_name: string]: nothing -> string {
 
 # Show status of a job and all its tasks
 export def job-status [job_id: string]: nothing -> record {
-  let job = (sql $"SELECT * FROM jobs WHERE id = '($job_id)'" )
+  let job = (sql $"SELECT * FROM jobs WHERE id = (sql-param $job_id)" )
   if ($job | is-empty) {
     error make { msg: $"Job not found: ($job_id)" }
   }
-  let tasks = (sql $"SELECT name, status, attempt, gate, error, started_at, completed_at FROM tasks WHERE job_id = '($job_id)' ORDER BY rowid" )
+  let tasks = (sql $"SELECT name, status, attempt, gate, error, started_at, completed_at FROM tasks WHERE job_id = (sql-param $job_id) ORDER BY rowid" )
   { job: $job.0, tasks: $tasks }
 }
 
 # Cancel a running job
 export def job-cancel [job_id: string] {
-  sql-exec $"UPDATE jobs SET status = 'CANCELLED', completed_at = datetime\('now'\) WHERE id = '($job_id)'"
-  sql-exec $"UPDATE tasks SET status = 'CANCELLED' WHERE job_id = '($job_id)' AND status IN \('PENDING', 'RUNNING', 'SCHEDULED'\)"
+  sql-exec $"UPDATE jobs SET status = 'CANCELLED', completed_at = datetime\('now'\) WHERE id = (sql-param $job_id)"
+  sql-exec $"UPDATE tasks SET status = 'CANCELLED' WHERE job_id = (sql-param $job_id) AND status IN \('PENDING', 'RUNNING', 'SCHEDULED'\)"
   emit-event $job_id "" "job.StateChange" "RUNNING" "CANCELLED" ""
 }
 
@@ -532,8 +601,8 @@ export def job-list []: nothing -> table {
 
 # Retry a failed job — reset failed tasks and re-execute
 export def job-retry [job_id: string] {
-  sql-exec $"UPDATE tasks SET status = 'PENDING', error = NULL, attempt = 0 WHERE job_id = '($job_id)' AND status = 'FAILED'"
-  sql-exec $"UPDATE jobs SET status = 'PENDING', error = NULL WHERE id = '($job_id)'"
+  sql-exec $"UPDATE tasks SET status = 'PENDING', error = NULL, attempt = 0 WHERE job_id = (sql-param $job_id) AND status = 'FAILED'"
+  sql-exec $"UPDATE jobs SET status = 'PENDING', error = NULL WHERE id = (sql-param $job_id)"
   emit-event $job_id "" "job.StateChange" "FAILED" "PENDING" "retry"
   job-execute $job_id
 }
@@ -541,5 +610,5 @@ export def job-retry [job_id: string] {
 # ── Event Log ────────────────────────────────────────────────────────────────
 
 export def event-log [job_id: string, --limit: int = 50]: nothing -> table {
-  sql $"SELECT * FROM events WHERE job_id = '($job_id)' ORDER BY created_at DESC LIMIT ($limit)"
+  sql $"SELECT * FROM events WHERE job_id = (sql-param $job_id) ORDER BY created_at DESC LIMIT ($limit)"
 }
