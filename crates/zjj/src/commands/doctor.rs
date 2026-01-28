@@ -32,20 +32,20 @@ use crate::{
 
 fn check_for_recent_recovery() -> Option<String> {
     let log_path = Path::new(".zjj/recovery.log");
-    
+
     if !log_path.exists() {
         return None;
     }
 
     let content = std::fs::read_to_string(&log_path).ok()?;
-    
+
     // Get last 5 lines to check for recent recovery
     let recent_lines: Vec<&str> = content.lines().rev().take(5).collect();
-    
+
     if recent_lines.is_empty() {
         return None;
     }
-    
+
     // Check timestamp of most recent entry
     if let Some(last_line) = recent_lines.first() {
         if let Some(timestamp_str) = last_line.split(']').next() {
@@ -57,74 +57,7 @@ fn check_for_recent_recovery() -> Option<String> {
                 if duration.num_minutes() < 5 {
                     // Find message part (everything after '] ')
                     let message = last_line.split(']').nth(1).unwrap_or("");
-                    return Some(format!(
-                        "Recent recovery detected: {}",
-                        message
-                    ));
-                }
-            }
-        }
-    }
-    
-    None
-}
-
-    let content = std::fs::read_to_string(&log_path).ok()?;
-    
-    // Get last 5 lines to check for recent recovery
-    let recent_lines: Vec<&str> = content.lines().rev().take(5).collect();
-    
-    if recent_lines.is_empty() {
-        return None;
-    }
-    
-    // Check timestamp of most recent entry
-    if let Some(last_line) = recent_lines.first() {
-        if let Some(timestamp_str) = last_line.split(']').next() {
-            let timestamp = timestamp_str.trim_start_matches('[');
-            // Parse timestamp and check if recent (within last 5 minutes)
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
-                let now = chrono::Utc::now();
-                let duration = now.signed_duration_since(dt);
-                if duration.num_minutes() < 5 {
-                    // Find message part (everything after '] ')
-                    let message = last_line.split(']').nth(1).unwrap_or("");
-                    return Some(format!(
-                        "Recent recovery detected: {message}",
-                        message
-                    ));
-                }
-            }
-        }
-    }
-    
-    None
-}
-
-    let content = std::fs::read_to_string(&log_path).ok()?;
-
-    // Get last 5 lines to check for recent recovery
-    let recent_lines: Vec<&str> = content.lines().rev().take(5).collect();
-
-    if recent_lines.is_empty() {
-        return None;
-    }
-
-    // Check timestamp of most recent entry
-    if let Some(last_line) = recent_lines.first() {
-        if let Some(timestamp_str) = last_line.split(']').next() {
-            let timestamp = timestamp_str.trim_start_matches('[');
-            // Parse timestamp and check if recent (within last 5 minutes)
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
-                let now = chrono::Utc::now();
-                let duration = now.signed_duration_since(dt);
-                if duration.num_minutes() < 5 {
-                    // Find the message part (everything after timestamp and space)
-                    let message = last_line.replacen(timestamp, "").trim();
-                    return Some(format!(
-                        "Recent recovery detected at {timestamp}: {message}",
-                        timestamp, message
-                    ));
+                    return Some(format!("Recent recovery detected: {}", message));
                 }
             }
         }
@@ -357,7 +290,7 @@ fn check_state_db() -> DoctorCheck {
     // Read-only database check - don't trigger recovery in doctor mode
     // Check file existence, readability, and basic validity without opening DB
     let db_path = std::path::Path::new(".zjj/state.db");
-    
+
     if !db_path.exists() {
         return DoctorCheck {
             name: "State Database".to_string(),
@@ -368,7 +301,7 @@ fn check_state_db() -> DoctorCheck {
             details: None,
         };
     }
-    
+
     // Check file permissions and readability
     let metadata = match db_path.metadata() {
         Ok(m) => m,
@@ -383,9 +316,9 @@ fn check_state_db() -> DoctorCheck {
             };
         }
     };
-    
+
     let is_readable = metadata.permissions().readonly();
-    
+
     if !is_readable {
         return DoctorCheck {
             name: "State Database".to_string(),
@@ -399,15 +332,21 @@ fn check_state_db() -> DoctorCheck {
             })),
         };
     }
-    
+
     // Check file size (corrupted databases often have wrong size)
     let file_size = metadata.len();
     if file_size == 0 || file_size < 100 {
         return DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
-            message: format!("Database file has suspicious size: {} bytes (may be corrupted)", file_size),
-            suggestion: Some("Database may be corrupted. Run 'zjj doctor --fix' to attempt recovery.".to_string()),
+            message: format!(
+                "Database file has suspicious size: {} bytes (may be corrupted)",
+                file_size
+            ),
+            suggestion: Some(
+                "Database may be corrupted. Run 'zjj doctor --fix' to attempt recovery."
+                    .to_string(),
+            ),
             auto_fixable: true,
             details: Some(serde_json::json!({
                 "file_size": file_size,
@@ -415,7 +354,7 @@ fn check_state_db() -> DoctorCheck {
             })),
         };
     }
-    
+
     // Basic check passed - consider database accessible and potentially healthy
     // Note: We don't verify SQLite integrity to avoid triggering recovery
     DoctorCheck {
@@ -429,37 +368,6 @@ fn check_state_db() -> DoctorCheck {
             "readable": true
         })),
     }
-}
-
-    // If no recovery in log, check DB health (this may trigger recovery for next check)
-    get_session_db().map_or_else(
-        |_| DoctorCheck {
-            name: "State Database".to_string(),
-            status: CheckStatus::Warn,
-            message: "State database not accessible".to_string(),
-            suggestion: Some("Initialize zjj: zjj init".to_string()),
-            auto_fixable: false,
-            details: None,
-        },
-        |db| match db.list_blocking(None) {
-            Ok(sessions) => DoctorCheck {
-                name: "State Database".to_string(),
-                status: CheckStatus::Pass,
-                message: format!("state.db is healthy ({} sessions)", sessions.len()),
-                suggestion: None,
-                auto_fixable: false,
-                details: None,
-            },
-            Err(e) => DoctorCheck {
-                name: "State Database".to_string(),
-                status: CheckStatus::Warn,
-                message: format!("Database exists but error reading: {e}"),
-                suggestion: Some("Database may be corrupted".to_string()),
-                auto_fixable: false,
-                details: None,
-            },
-        },
-    )
 }
 
 /// Check for orphaned workspaces
@@ -498,13 +406,31 @@ fn check_orphaned_workspaces() -> DoctorCheck {
         .map(|sessions| sessions.into_iter().map(|s| s.name).collect::<Vec<_>>())
         .unwrap_or_default();
 
-    // Find workspaces without sessions (excluding 'default')
-    let orphaned: Vec<_> = jj_workspaces
-        .into_iter()
-        .filter(|ws| ws != "default" && !session_names.contains(ws))
+    // Find workspaces without sessions (filesystem → DB orphans)
+    let filesystem_orphans: Vec<_> = jj_workspaces
+        .iter()
+        .filter(|ws| ws.as_str() != "default" && !session_names.contains(*ws))
+        .cloned()
         .collect();
 
-    if orphaned.is_empty() {
+    // Find sessions without workspaces (DB → filesystem orphans)
+    let db_orphans: Vec<_> = session_names
+        .into_iter()
+        .filter(|session| !jj_workspaces.iter().any(|ws| ws == session.as_str()))
+        .collect();
+
+    // Merge both types of orphans
+    let total_orphans = filesystem_orphans.len() + db_orphans.len();
+    let orphaned_workspaces = if filesystem_orphans.is_empty() && db_orphans.is_empty() {
+        None
+    } else {
+        Some(serde_json::json!({
+            "filesystem_to_db": filesystem_orphans,
+            "db_to_filesystem": db_orphans,
+        }))
+    };
+
+    if total_orphans == 0 {
         DoctorCheck {
             name: "Orphaned Workspaces".to_string(),
             status: CheckStatus::Pass,
@@ -514,18 +440,28 @@ fn check_orphaned_workspaces() -> DoctorCheck {
             details: None,
         }
     } else {
+        let orphan_count_msg = if !filesystem_orphans.is_empty() && !db_orphans.is_empty() {
+            format!(
+                "{} workspace(s) without DB entries, {} session(s) without workspaces",
+                filesystem_orphans.len(),
+                db_orphans.len()
+            )
+        } else if !filesystem_orphans.is_empty() {
+            format!(
+                "{} workspace(s) without session records",
+                filesystem_orphans.len()
+            )
+        } else {
+            format!("{} session(s) with missing workspaces", db_orphans.len())
+        };
+
         DoctorCheck {
             name: "Orphaned Workspaces".to_string(),
             status: CheckStatus::Warn,
-            message: format!(
-                "Found {} workspace(s) without session records",
-                orphaned.len()
-            ),
+            message: orphan_count_msg,
             suggestion: Some("Run 'zjj doctor --fix' to clean up".to_string()),
             auto_fixable: true,
-            details: Some(serde_json::json!({
-                "orphaned_workspaces": orphaned,
-            })),
+            details: orphaned_workspaces,
         }
     }
 }
@@ -747,35 +683,68 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
 
 /// Fix orphaned workspaces
 fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
-    let orphaned = check
+    let orphaned_data = check
         .details
         .as_ref()
-        .and_then(|d| d.get("orphaned_workspaces"))
-        .and_then(|w| w.as_array())
         .ok_or_else(|| anyhow::anyhow!("No orphaned workspaces data"))?;
 
     let root = jj_root()?;
+    let mut filesystem_removed = 0;
+    let mut db_removed = 0;
 
-    let removed_count = orphaned
-        .iter()
-        .filter_map(|workspace| {
-            let name = workspace.as_str()?;
+    // Fix filesystem → DB orphans (workspaces without sessions)
+    if let Some(filesystem_orphans) = orphaned_data
+        .get("filesystem_to_db")
+        .and_then(|v| v.as_array())
+    {
+        for workspace in filesystem_orphans {
+            if let Some(name) = workspace.as_str() {
+                let result = Command::new("jj")
+                    .args(["workspace", "forget", name])
+                    .current_dir(&root)
+                    .output()
+                    .ok();
 
-            let result = Command::new("jj")
-                .args(["workspace", "forget", name])
-                .current_dir(&root)
-                .output()
-                .ok()?;
-
-            if result.status.success() {
-                Some(name)
-            } else {
-                None
+                if result.map(|r| r.status.success()).unwrap_or(false) {
+                    filesystem_removed += 1;
+                }
             }
-        })
-        .count();
+        }
+    }
 
-    Ok(format!("Removed {removed_count} orphaned workspace(s)"))
+    // Fix DB → filesystem orphans (sessions without workspaces)
+    if let Some(db_orphans) = orphaned_data
+        .get("db_to_filesystem")
+        .and_then(|v| v.as_array())
+    {
+        if let Some(db) = get_session_db().ok() {
+            for session_name in db_orphans {
+                if let Some(name) = session_name.as_str() {
+                    if db.delete_blocking(name).unwrap_or(false) {
+                        db_removed += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    let mut parts = Vec::new();
+    if filesystem_removed > 0 {
+        parts.push(format!(
+            "Removed {filesystem_removed} orphaned workspace(s)"
+        ));
+    }
+    if db_removed > 0 {
+        parts.push(format!(
+            "Deleted {db_removed} session(s) without workspaces"
+        ));
+    }
+
+    Ok(if parts.is_empty() {
+        "No orphans to clean up".to_string()
+    } else {
+        parts.join("; ")
+    })
 }
 
 #[cfg(test)]

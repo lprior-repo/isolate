@@ -101,6 +101,20 @@ impl SessionDb {
             "rwc" // Auto-create and recover (existing behavior)
         };
 
+        // Pre-flight check: Detect permission issues BEFORE SQLite tries to open
+        // This prevents silent recovery from permission-denied scenarios
+        if path.exists() {
+            use std::fs::File;
+            if let Err(e) = File::open(path) {
+                return Err(Error::DatabaseError(format!(
+                    "Database file is not accessible: {e}\n\n\
+                     Run 'zjj doctor' to diagnose, or fix permissions manually:\n\
+                     chmod 644 {}",
+                    path.display()
+                )));
+            }
+        }
+
         // SQLx connection string with mode parameter
         let db_url = if path.is_absolute() {
             format!("sqlite:///{path_str}?mode={mode}")
