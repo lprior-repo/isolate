@@ -64,7 +64,11 @@ export def "main run" [
         # Register outer-level job dependencies
         for dep_id in ($bead.deps? | default []) {
           let dep_job = $"tdd15-($dep_id)"
-          sqlite3 ".oc-workflow/journal.db" $"INSERT OR IGNORE INTO job_deps \(job_id, depends_on\) VALUES \('($job_id)', '($dep_job)'\)"
+          let job_id_esc = ($job_id | str replace --all "'" "''")
+          let dep_job_esc = ($dep_job | str replace --all "'" "''")
+          sqlite3 ".oc-workflow/journal.db" ['INSERT OR IGNORE INTO job_deps (job_id, depends_on) VALUES'
+                                                     $" '($job_id_esc)',"
+                                                     $" '($dep_job_esc)'"] | str join
         }
         print $"  [ok] Created job: ($job_id)"
       }
@@ -83,10 +87,10 @@ export def "main run" [
 
     # Check outer deps are satisfied
     let ready_jobs = ($job_ids | where {|jid|
-      let blocked = (sql $"SELECT depends_on FROM job_deps WHERE job_id = '($jid)'" )
+      let blocked = (sql $"SELECT depends_on FROM job_deps WHERE job_id = (sql-param $jid)" )
       if ($blocked | is-empty) { true } else {
         let dep_statuses = ($blocked | each {|d|
-          sql $"SELECT status FROM jobs WHERE id = '($d.depends_on)'"
+          sql $"SELECT status FROM jobs WHERE id = (sql-param $d.depends_on)"
         } | flatten)
         $dep_statuses | all {|s| $s.status == "COMPLETED" }
       }
@@ -158,7 +162,7 @@ export def "main status" [] {
   print ""
 
   for job in $jobs {
-    let tasks = (sql $"SELECT name, status, attempt, gate, error FROM tasks WHERE job_id = '($job.id)' ORDER BY rowid")
+    let tasks = (sql $"SELECT name, status, attempt, gate, error FROM tasks WHERE job_id = (sql-param $job.id) ORDER BY rowid")
     let completed = ($tasks | where status == "COMPLETED" | length)
     let skipped = ($tasks | where status == "SKIPPED" | length)
     let failed = ($tasks | where status == "FAILED" | length)
@@ -289,4 +293,15 @@ def compute-levels [beads: list<record>]: nothing -> list<record> {
 
 def sql [query: string] {
   sqlite3 -json ".oc-workflow/journal.db" $query | from json
+}
+
+def sql-param [val: any]: nothing -> string {
+  if ($val | is-empty) {
+    "NULL"
+  } else if ($val | describe) == "string" {
+    let escaped = ($val | str replace --all "'" "''")
+    $"'($escaped)'"
+  } else {
+    $"($val)"
+  }
 }

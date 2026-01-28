@@ -10,7 +10,7 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 
-use std::{path::Path, str::FromStr, time::SystemTime};
+use std::{io::Read, path::Path, str::FromStr, time::SystemTime};
 
 use num_traits::cast::ToPrimitive;
 use sqlx::{Row, SqlitePool};
@@ -114,6 +114,14 @@ impl SessionDb {
                 )));
             }
         }
+
+        // Pre-flight check: Detect WAL file corruption BEFORE SQLite tries to open
+        // This prevents silent recovery from corrupted WAL files
+        check_wal_integrity(path)?;
+
+        // Pre-flight check: Detect database file corruption BEFORE SQLite tries to open
+        // This prevents silent recovery from corrupted database files
+        check_database_integrity(path)?;
 
         // SQLx connection string with mode parameter
         let db_url = if path.is_absolute() {
@@ -343,6 +351,206 @@ fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
             path.display()
         )))
     }
+}
+
+/// Check WAL file integrity before SQLite opens database
+///
+/// SQLite WAL files have a specific header format:
+/// - First 32 bytes: WAL header
+/// - Magic bytes at offset 0: 0x377f0682 (377f0682 in big-endian)
+///
+/// This function detects corrupted WAL files and logs the recovery
+/// according to the current recovery policy.
+fn check_wal_integrity(db_path: &Path) -> Result<()> {
+    let wal_path = db_path.with_extension("db-wal");
+
+    // If WAL file doesn't exist, no issue
+    if !wal_path.exists() {
+        return Ok(());
+    }
+
+    // Read first 32 bytes of WAL header
+    let mut header = [0u8; 32];
+    if let Err(e) = std::fs::File::open(&wal_path).and_then(|mut f| f.read_exact(&mut header)) {
+        // Can't read WAL file - likely corrupted or inaccessible
+        log_recovery(&format!(
+            "WAL file inaccessible or corrupted: {}. Error: {}",
+            wal_path.display(),
+            e
+        ))
+        .ok();
+        return Err(Error::DatabaseError(format!(
+            "WAL file is corrupted or inaccessible: {}\n\
+             Recovery logged. Run 'zjj doctor' for details.",
+            wal_path.display()
+        )));
+    }
+
+    // Check WAL magic bytes: 0x377f0682 in big-endian at offset 0
+    // This is the standard SQLite WAL header magic number
+    let wal_magic = u32::from_be_bytes([header[0], header[1], header[2], header[3]]);
+
+    if wal_magic != 0x377f0682 {
+        // WAL magic bytes don't match - file is corrupted
+        let policy = get_recovery_policy();
+        let should_log = should_log_recovery();
+
+        match policy {
+            RecoveryPolicy::FailFast => {
+                return Err(Error::DatabaseError(format!(
+                    "WAL file corrupted: {}\n\
+                     Magic bytes: 0x{:08x}, expected 0x377f0682\n\n\
+                     Recovery is disabled in strict mode (--strict or ZJJ_STRICT=1).\n\n\
+                     To recover, either:\n\
+                     - Remove --strict flag\n\
+                     - Run 'zjj doctor --fix'\n\
+                     - Manually delete WAL file: rm {}",
+                    wal_path.display(),
+                    wal_magic,
+                    wal_path.display()
+                )));
+            }
+            RecoveryPolicy::Warn => {
+                eprintln!("⚠  WAL file corrupted: {}", wal_path.display());
+                eprintln!("   Magic bytes: 0x{:08x}, expected 0x377f0682", wal_magic);
+                eprintln!("   SQLite will attempt automatic recovery...");
+
+                if should_log {
+                    log_recovery(&format!(
+                        "WAL file corrupted: {}. Magic bytes: 0x{:08x}, expected 0x377f0682. SQLite will recover automatically.",
+                        wal_path.display(),
+                        wal_magic
+                    ))
+                    .ok();
+                }
+            }
+            RecoveryPolicy::Silent => {
+                if should_log {
+                    log_recovery(&format!(
+                        "WAL file corrupted: {}. Magic bytes: 0x{:08x}, expected 0x377f0682. SQLite recovered silently.",
+                        wal_path.display(),
+                        wal_magic
+                    ))
+                    .ok();
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Check SQLite database file integrity before SQLite opens database
+///
+/// SQLite database files have a specific header format:
+/// - First 100 bytes: Header
+/// - Magic bytes at offset 0: "SQLite format 3\000"
+///
+/// This function detects corrupted database files and logs recovery
+/// according to current recovery policy.
+fn check_database_integrity(db_path: &Path) -> Result<()> {
+    // If database file doesn't exist, no issue (might be creating)
+    if !db_path.exists() {
+        return Ok(());
+    }
+
+    // Database files must be at least 100 bytes (minimum header size)
+    let file_size = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
+
+    if file_size < 100 {
+        // Too small to be a valid database
+        log_recovery(&format!(
+            "Database file too small: {} bytes. Expected at least 100 bytes.",
+            file_size
+        ))
+        .ok();
+        return Err(Error::DatabaseError(format!(
+            "Database file is too small to be valid: {} bytes\n\
+             Expected at least 100 bytes. File may be corrupted.\n\
+             Recovery logged. Run 'zjj doctor' for details.",
+            file_size
+        )));
+    }
+
+    // Read first 16 bytes of database header
+    let mut header = [0u8; 16];
+    if let Err(e) = std::fs::File::open(db_path).and_then(|mut f| f.read_exact(&mut header)) {
+        // Can't read database header - likely corrupted or inaccessible
+        log_recovery(&format!(
+            "Database file inaccessible or corrupted: {}. Error: {}",
+            db_path.display(),
+            e
+        ))
+        .ok();
+        return Err(Error::DatabaseError(format!(
+            "Database file is corrupted or inaccessible: {}\n\
+             Recovery logged. Run 'zjj doctor' for details.",
+            db_path.display()
+        )));
+    }
+
+    // Check SQLite magic bytes: "SQLite format 3\000"
+    let expected_magic: &[u8] = [
+        b'S', b'Q', b'l', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ', b'3',
+        0x00, 0x00,
+    ];
+
+    if &header[..16] != expected_magic {
+        // Magic bytes don't match - file is corrupted
+        let policy = get_recovery_policy();
+        let should_log = should_log_recovery();
+
+        let magic_hex: String = header
+            .iter()
+            .take(16)
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        match policy {
+            RecoveryPolicy::FailFast => {
+                return Err(Error::DatabaseError(format!(
+                    "Database file corrupted: {}\n\
+                     Magic bytes (hex): {}\n\
+                     Expected: 53 51 6c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 00 (SQLite format 3)\n\n\
+                     Recovery is disabled in strict mode (--strict or ZJJ_STRICT=1).\n\n\
+                     To recover, either:\n\
+                     - Remove --strict flag\n\
+                     - Run 'zjj doctor --fix'\n\
+                     - Manually delete database and run 'zjj init'",
+                    db_path.display(),
+                    magic_hex
+                )));
+            }
+            RecoveryPolicy::Warn => {
+                eprintln!("⚠  Database file corrupted: {}", db_path.display());
+                eprintln!("   Magic bytes (hex): {}", magic_hex);
+                eprintln!("   Expected: 53 51 6c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 00 (SQLite format 3)");
+                eprintln!("   SQLite will attempt automatic recovery...");
+
+                if should_log {
+                    log_recovery(&format!(
+                        "Database file corrupted: {}. Magic bytes: {}. SQLite will recover automatically.",
+                        db_path.display(),
+                        magic_hex
+                    ))
+                    .ok();
+                }
+            }
+            RecoveryPolicy::Silent => {
+                if should_log {
+                    log_recovery(&format!(
+                        "Database file corrupted: {}. Magic bytes: {}. SQLite recovered silently.",
+                        db_path.display(),
+                        magic_hex
+                    ))
+                    .ok();
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Recover database by removing corrupted/missing file
