@@ -18,6 +18,7 @@
 //! - `unwrap_or_default()`, `unwrap_or_else()` for defaults
 
 pub mod agents;
+pub mod checkpoint;
 pub mod config;
 pub mod contracts;
 pub mod coordination;
