@@ -151,6 +151,30 @@ zjj remove my-session
 
 **All commands must be run through Moon.** This project uses Moon for build orchestration with bazel-remote for hyper-fast local caching.
 
+### Async Architecture & Database
+
+ZJJ uses **async/await** with Tokio runtime and **sqlx** for all database operations. This provides:
+
+- **Non-blocking database access** - UI remains responsive during queries
+- **Connection pooling** - Efficient reuse of database connections
+- **Better error handling** - Railway-oriented error propagation
+
+**For Contributors:**
+- All command functions accessing database are `async fn`
+- Use `.await` on all database operations
+- Database connection is via `SqlitePool` (not direct `Connection`)
+- Main function uses `#[tokio::main]` to provide async runtime
+
+**Example Pattern:**
+```rust
+// In command handler
+pub async fn run(args: Args, ctx: &Context) -> Result<()> {
+    let db = get_session_db().await?;
+    let sessions = db.list(None).await?;
+    ctx.output_json(&sessions)
+}
+```
+
 ### Quick Development Loop
 
 ```bash

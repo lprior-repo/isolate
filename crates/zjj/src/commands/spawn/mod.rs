@@ -200,6 +200,7 @@ fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, Spa
     // Create JJ workspace
     let output = Command::new("jj")
         .args(["workspace", "add", "--name", bead_id])
+        .arg(&workspace_path)
         .current_dir(root)
         .output()
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
