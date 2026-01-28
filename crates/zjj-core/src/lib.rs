@@ -19,6 +19,7 @@
 
 pub mod config;
 pub mod contracts;
+pub mod coordination;
 mod error;
 pub mod fix;
 pub mod functional;

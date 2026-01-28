@@ -194,6 +194,8 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
         | Error::HookFailed { .. }
         | Error::HookExecutionFailed { .. }
         | Error::Unknown(_) => 4,
+        // Lock contention errors: exit code 5
+        Error::SessionLocked { .. } | Error::NotLockHolder { .. } => 5,
     }
 }
 
@@ -293,6 +295,16 @@ impl From<&crate::Error> for JsonError {
             Error::Unknown(msg) => (
                 ErrorCode::Unknown,
                 format!("Unknown error: {msg}"),
+                None,
+            ),
+            Error::SessionLocked { session, holder } => (
+                ErrorCode::Unknown,
+                format!("Session '{session}' is locked by agent '{holder}'"),
+                Some("Wait for the other agent to finish or check lock status".to_string()),
+            ),
+            Error::NotLockHolder { session, agent_id } => (
+                ErrorCode::Unknown,
+                format!("Agent '{agent_id}' does not hold the lock for session '{session}'"),
                 None,
             ),
         };
