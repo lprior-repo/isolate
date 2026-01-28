@@ -102,13 +102,17 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     if !options.no_hooks {
         if let Err(e) = execute_post_create_hooks(&workspace_path_str) {
             // Hook failure → status 'failed' (REQ-HOOKS-003)
-            let _ = db.update_blocking(
+            if let Err(db_err) = db.update_blocking(
                 &options.name,
                 SessionUpdate {
                     status: Some(SessionStatus::Failed),
                     ..Default::default()
                 },
-            );
+            ) {
+                eprintln!(
+                    "Warning: failed to update session status to 'failed': {db_err}"
+                );
+            }
             return Err(e).context("post_create hook failed");
         }
     }
