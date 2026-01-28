@@ -32,20 +32,20 @@ use crate::{
 
 fn check_for_recent_recovery() -> Option<String> {
     let log_path = Path::new(".zjj/recovery.log");
-    
+
     if !log_path.exists() {
         return None;
     }
 
     let content = std::fs::read_to_string(&log_path).ok()?;
-    
+
     // Get last 5 lines to check for recent recovery
     let recent_lines: Vec<&str> = content.lines().rev().take(5).collect();
-    
+
     if recent_lines.is_empty() {
         return None;
     }
-    
+
     // Check timestamp of most recent entry
     if let Some(last_line) = recent_lines.first() {
         if let Some(timestamp_str) = last_line.split(']').next() {
@@ -57,74 +57,7 @@ fn check_for_recent_recovery() -> Option<String> {
                 if duration.num_minutes() < 5 {
                     // Find message part (everything after '] ')
                     let message = last_line.split(']').nth(1).unwrap_or("");
-                    return Some(format!(
-                        "Recent recovery detected: {}",
-                        message
-                    ));
-                }
-            }
-        }
-    }
-    
-    None
-}
-
-    let content = std::fs::read_to_string(&log_path).ok()?;
-    
-    // Get last 5 lines to check for recent recovery
-    let recent_lines: Vec<&str> = content.lines().rev().take(5).collect();
-    
-    if recent_lines.is_empty() {
-        return None;
-    }
-    
-    // Check timestamp of most recent entry
-    if let Some(last_line) = recent_lines.first() {
-        if let Some(timestamp_str) = last_line.split(']').next() {
-            let timestamp = timestamp_str.trim_start_matches('[');
-            // Parse timestamp and check if recent (within last 5 minutes)
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
-                let now = chrono::Utc::now();
-                let duration = now.signed_duration_since(dt);
-                if duration.num_minutes() < 5 {
-                    // Find message part (everything after '] ')
-                    let message = last_line.split(']').nth(1).unwrap_or("");
-                    return Some(format!(
-                        "Recent recovery detected: {message}",
-                        message
-                    ));
-                }
-            }
-        }
-    }
-    
-    None
-}
-
-    let content = std::fs::read_to_string(&log_path).ok()?;
-
-    // Get last 5 lines to check for recent recovery
-    let recent_lines: Vec<&str> = content.lines().rev().take(5).collect();
-
-    if recent_lines.is_empty() {
-        return None;
-    }
-
-    // Check timestamp of most recent entry
-    if let Some(last_line) = recent_lines.first() {
-        if let Some(timestamp_str) = last_line.split(']').next() {
-            let timestamp = timestamp_str.trim_start_matches('[');
-            // Parse timestamp and check if recent (within last 5 minutes)
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
-                let now = chrono::Utc::now();
-                let duration = now.signed_duration_since(dt);
-                if duration.num_minutes() < 5 {
-                    // Find the message part (everything after timestamp and space)
-                    let message = last_line.replacen(timestamp, "").trim();
-                    return Some(format!(
-                        "Recent recovery detected at {timestamp}: {message}",
-                        timestamp, message
-                    ));
+                    return Some(format!("Recent recovery detected: {}", message));
                 }
             }
         }
@@ -357,7 +290,7 @@ fn check_state_db() -> DoctorCheck {
     // Read-only database check - don't trigger recovery in doctor mode
     // Check file existence, readability, and basic validity without opening DB
     let db_path = std::path::Path::new(".zjj/state.db");
-    
+
     if !db_path.exists() {
         return DoctorCheck {
             name: "State Database".to_string(),
@@ -368,7 +301,7 @@ fn check_state_db() -> DoctorCheck {
             details: None,
         };
     }
-    
+
     // Check file permissions and readability
     let metadata = match db_path.metadata() {
         Ok(m) => m,
@@ -383,9 +316,9 @@ fn check_state_db() -> DoctorCheck {
             };
         }
     };
-    
+
     let is_readable = metadata.permissions().readonly();
-    
+
     if !is_readable {
         return DoctorCheck {
             name: "State Database".to_string(),
@@ -399,15 +332,21 @@ fn check_state_db() -> DoctorCheck {
             })),
         };
     }
-    
+
     // Check file size (corrupted databases often have wrong size)
     let file_size = metadata.len();
     if file_size == 0 || file_size < 100 {
         return DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
-            message: format!("Database file has suspicious size: {} bytes (may be corrupted)", file_size),
-            suggestion: Some("Database may be corrupted. Run 'zjj doctor --fix' to attempt recovery.".to_string()),
+            message: format!(
+                "Database file has suspicious size: {} bytes (may be corrupted)",
+                file_size
+            ),
+            suggestion: Some(
+                "Database may be corrupted. Run 'zjj doctor --fix' to attempt recovery."
+                    .to_string(),
+            ),
             auto_fixable: true,
             details: Some(serde_json::json!({
                 "file_size": file_size,
@@ -415,7 +354,7 @@ fn check_state_db() -> DoctorCheck {
             })),
         };
     }
-    
+
     // Basic check passed - consider database accessible and potentially healthy
     // Note: We don't verify SQLite integrity to avoid triggering recovery
     DoctorCheck {
@@ -429,37 +368,6 @@ fn check_state_db() -> DoctorCheck {
             "readable": true
         })),
     }
-}
-
-    // If no recovery in log, check DB health (this may trigger recovery for next check)
-    get_session_db().map_or_else(
-        |_| DoctorCheck {
-            name: "State Database".to_string(),
-            status: CheckStatus::Warn,
-            message: "State database not accessible".to_string(),
-            suggestion: Some("Initialize zjj: zjj init".to_string()),
-            auto_fixable: false,
-            details: None,
-        },
-        |db| match db.list_blocking(None) {
-            Ok(sessions) => DoctorCheck {
-                name: "State Database".to_string(),
-                status: CheckStatus::Pass,
-                message: format!("state.db is healthy ({} sessions)", sessions.len()),
-                suggestion: None,
-                auto_fixable: false,
-                details: None,
-            },
-            Err(e) => DoctorCheck {
-                name: "State Database".to_string(),
-                status: CheckStatus::Warn,
-                message: format!("Database exists but error reading: {e}"),
-                suggestion: Some("Database may be corrupted".to_string()),
-                auto_fixable: false,
-                details: None,
-            },
-        },
-    )
 }
 
 /// Check for orphaned workspaces
