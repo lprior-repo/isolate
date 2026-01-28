@@ -114,16 +114,22 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
 
 /// Convert an `anyhow::Error` to a `JsonError`
 ///
-/// Uses Railway-Oriented Programming to extract the underlying `zjj_core::Error`
+/// Uses Railway-Oriented Programming to extract the underlying error type
 /// and convert it to a standardized JSON error format using `ErrorDetail::from_error()`.
 fn error_to_json_error(error: &Error) -> JsonError {
-    // Try to downcast to zjj_core::Error first (Railway left track - success)
+    use crate::commands::spawn::types::SpawnError;
+
+    // Try to downcast to SpawnError first (Railway left track 1 - spawn errors)
+    if let Some(spawn_error) = error.downcast_ref::<SpawnError>() {
+        return convert_spawn_error(spawn_error);
+    }
+
+    // Try to downcast to zjj_core::Error (Railway left track 2 - core errors)
     error
         .downcast_ref::<ZjjError>()
         .map(JsonError::from)
         .unwrap_or_else(|| {
-            // Railway right track - fallback for non-zjj errors
-            // This handles cases where anyhow wraps other error types
+            // Railway right track - fallback for other error types
             let error_str = error.to_string();
 
             // Classify error by message pattern (fallback heuristic)
@@ -140,6 +146,39 @@ fn error_to_json_error(error: &Error) -> JsonError {
 
             json_error
         })
+}
+
+/// Convert a `SpawnError` to a `JsonError` preserving structured context
+///
+/// AI agents use error_code() and phase() to distinguish error types:
+/// - NOT_ON_MAIN vs INVALID_BEAD_STATUS vs BEAD_NOT_FOUND
+/// - Know which phase of spawn failed (validating, creating, etc.)
+fn convert_spawn_error(error: &SpawnError) -> JsonError {
+    use zjj_core::ErrorCode;
+
+    // Map SpawnError variants to ErrorCode and exit codes
+    let (code, exit_code) = match error {
+        SpawnError::NotOnMain { .. } => (ErrorCode::SpawnNotOnMain, 1),
+        SpawnError::InvalidBeadStatus { .. } => (ErrorCode::SpawnInvalidBeadStatus, 1),
+        SpawnError::BeadNotFound { .. } => (ErrorCode::SpawnBeadNotFound, 2),
+        SpawnError::WorkspaceCreationFailed { .. } => (ErrorCode::SpawnWorkspaceCreationFailed, 3),
+        SpawnError::AgentSpawnFailed { .. } => (ErrorCode::SpawnAgentSpawnFailed, 4),
+        SpawnError::Timeout { .. } => (ErrorCode::SpawnTimeout, 4),
+        SpawnError::MergeFailed { .. } => (ErrorCode::SpawnMergeFailed, 4),
+        SpawnError::CleanupFailed { .. } => (ErrorCode::SpawnCleanupFailed, 3),
+        SpawnError::DatabaseError { .. } => (ErrorCode::SpawnDatabaseError, 3),
+        SpawnError::JjCommandFailed { .. } => (ErrorCode::SpawnJjCommandFailed, 4),
+    };
+
+    // Build details JSON with error_code and phase
+    let details = serde_json::json!({
+        "error_code": error.error_code(),
+        "phase": error.phase().name(),
+    });
+
+    JsonError::new(code, error.to_string())
+        .with_details(details)
+        .with_exit_code(exit_code)
 }
 
 /// Classify exit code based on error message pattern
@@ -229,6 +268,26 @@ const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
         }
         ErrorCode::ConfigNotFound => Some("Run 'zjj init' to create default configuration"),
         ErrorCode::HookFailed => Some("Check hook scripts in .zjj/hooks/, or use --no-hooks to skip"),
+        ErrorCode::SpawnNotOnMain => Some("Switch to main branch: jj checkout main"),
+        ErrorCode::SpawnInvalidBeadStatus => Some("Check bead status with: bd show <bead-id>"),
+        ErrorCode::SpawnBeadNotFound => Some("List available beads with: bd ready"),
+        ErrorCode::SpawnWorkspaceCreationFailed => {
+            Some("Check disk space and permissions, or run: zjj doctor")
+        }
+        ErrorCode::SpawnAgentSpawnFailed => {
+            Some("Check agent command is valid, or use --agent-command flag")
+        }
+        ErrorCode::SpawnTimeout => {
+            Some("Increase timeout with --timeout flag, or check for infinite loops")
+        }
+        ErrorCode::SpawnMergeFailed => {
+            Some("Resolve conflicts manually in workspace, or use: jj abandon")
+        }
+        ErrorCode::SpawnCleanupFailed => Some("Manually clean workspace: rm -rf .zjj/workspaces/<bead-id>"),
+        ErrorCode::SpawnDatabaseError => Some("Run: bd sync or zjj doctor --fix"),
+        ErrorCode::SpawnJjCommandFailed => {
+            Some("Check JJ is working: jj status, or run: zjj doctor")
+        }
         ErrorCode::Unknown => Some("Run 'zjj doctor' to check system health and configuration"),
         ErrorCode::StateDbLocked
         | ErrorCode::ConfigParseError
@@ -571,7 +630,9 @@ mod tests {
                     message: "rebase failed".to_string(),
                     exit_code: 3,
                     details: None,
-                    suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                    suggestion: Some(
+                        "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
+                    ),
                 },
             }],
         };
@@ -610,7 +671,9 @@ mod tests {
                     message: "workspace not found".to_string(),
                     exit_code: 3,
                     details: None,
-                    suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                    suggestion: Some(
+                        "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
+                    ),
                 },
             }],
         };

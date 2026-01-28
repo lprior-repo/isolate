@@ -345,4 +345,93 @@ Rust's type system and zero-cost abstractions make functional programming both e
 
 ---
 
+## Command Implementation Patterns
+
+zjj follows a consistent pattern for command implementation:
+
+### 1. Command Structure
+
+**Args + Options Pattern** (for commands with flags):
+```rust
+// CLI arguments (from clap::ArgMatches)
+pub struct Args {
+    pub bead_id: String,
+    pub format: String,  // Raw string from clap
+}
+
+// Internal options (for business logic)
+pub struct Options {
+    pub bead_id: String,
+    pub format: OutputFormat,  // Enum for code clarity
+}
+
+// Conversion: Args → Options
+impl Args {
+    pub fn to_options(&self) -> Options {
+        Options {
+            bead_id: self.bead_id.clone(),
+            format: if self.format == "json" {
+                OutputFormat::Json
+            } else {
+                OutputFormat::Human
+            },
+        }
+    }
+}
+```
+
+**Options-Only Pattern** (for commands without conversion):
+```rust
+// Commands like query that are always JSON use only Options
+pub struct Options {
+    pub query_type: String,
+}
+```
+
+### 2. Error Handling Pattern
+
+**Business Logic Errors**: Use `zjj_core::Error` at command boundaries
+```rust
+use zjj_core::Error;
+
+pub fn run(options: &Options) -> Result<()> {
+    let result = execute_business_logic(options)
+        .map_err(|e| anyhow::Error::new(e))?;
+
+    output_result(&result, options.format)
+}
+```
+
+**System Errors**: Use `anyhow::Error` with `.context()` for system operations
+```rust
+pub fn run(options: &Options) -> Result<()> {
+    let file = read_file(path)
+        .context("Failed to read configuration")?;
+    Ok(())
+}
+```
+
+### 3. JSON Output Pattern
+
+All commands use `SchemaEnvelope` for JSON output:
+```rust
+use zjj_core::json::SchemaEnvelope;
+
+pub struct Output {
+    pub name: String,
+    pub status: String,
+}
+
+fn output_json(data: &Output) -> Result<()> {
+    let envelope = SchemaEnvelope::new("command-response", "single", data);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
+}
+```
+
+### 4. Module Boundaries
+
+- **zjj-core**: Pure library (no CLI, database, or side effects)
+- **crates/zjj**: CLI + commands + database + Zellij integration
+- **zjj_core::Error**: Defined in core for semantic exit codes
+
 **Next**: [Rust Standards](05_RUST_STANDARDS.md)

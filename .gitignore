@@ -30,6 +30,9 @@ Thumbs.db
 .codanna/
 .fastembed_cache
 
+# OC Workflow engine
+.oc-workflow/
+
 # ZJJ runtime data
 .zjj/
 workspaces/

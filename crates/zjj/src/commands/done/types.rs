@@ -27,7 +27,7 @@ pub struct DoneArgs {
     pub no_bead_update: bool,
 
     /// Output format
-    pub format: String,
+    pub format: OutputFormat,
 }
 
 impl DoneArgs {
@@ -39,11 +39,7 @@ impl DoneArgs {
             squash: self.squash,
             dry_run: self.dry_run,
             no_bead_update: self.no_bead_update,
-            format: if self.format == "json" {
-                OutputFormat::Json
-            } else {
-                OutputFormat::Human
-            },
+            format: self.format,
         }
     }
 }

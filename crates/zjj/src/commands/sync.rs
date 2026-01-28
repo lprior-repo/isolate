@@ -75,7 +75,9 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
                             message: e.to_string(),
                             exit_code: 3,
                             details: None,
-                            suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                            suggestion: Some(
+                                "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
+                            ),
                         },
                     }],
                 };
@@ -128,7 +130,9 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                             message: e.to_string(),
                             exit_code: 3,
                             details: None,
-                            suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                            suggestion: Some(
+                                "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
+                            ),
                         },
                     })
             })

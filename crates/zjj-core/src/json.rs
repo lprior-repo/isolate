@@ -92,6 +92,13 @@ impl JsonError {
         self
     }
 
+    /// Set exit code for this error
+    #[must_use]
+    pub fn with_exit_code(mut self, exit_code: i32) -> Self {
+        self.error.exit_code = exit_code;
+        self
+    }
+
     /// Convert to JSON string
     pub fn to_json(&self) -> crate::Result<String> {
         serde_json::to_string_pretty(self)
@@ -133,6 +140,18 @@ pub enum ErrorCode {
     StateDbCorrupted,
     StateDbLocked,
 
+    // Spawn errors
+    SpawnNotOnMain,
+    SpawnInvalidBeadStatus,
+    SpawnBeadNotFound,
+    SpawnWorkspaceCreationFailed,
+    SpawnAgentSpawnFailed,
+    SpawnTimeout,
+    SpawnMergeFailed,
+    SpawnCleanupFailed,
+    SpawnDatabaseError,
+    SpawnJjCommandFailed,
+
     // Generic errors
     InvalidArgument,
     Unknown,
@@ -160,6 +179,16 @@ impl ErrorCode {
             Self::HookExecutionError => "HOOK_EXECUTION_ERROR",
             Self::StateDbCorrupted => "STATE_DB_CORRUPTED",
             Self::StateDbLocked => "STATE_DB_LOCKED",
+            Self::SpawnNotOnMain => "SPAWN_NOT_ON_MAIN",
+            Self::SpawnInvalidBeadStatus => "SPAWN_INVALID_BEAD_STATUS",
+            Self::SpawnBeadNotFound => "SPAWN_BEAD_NOT_FOUND",
+            Self::SpawnWorkspaceCreationFailed => "SPAWN_WORKSPACE_CREATION_FAILED",
+            Self::SpawnAgentSpawnFailed => "SPAWN_AGENT_SPAWN_FAILED",
+            Self::SpawnTimeout => "SPAWN_TIMEOUT",
+            Self::SpawnMergeFailed => "SPAWN_MERGE_FAILED",
+            Self::SpawnCleanupFailed => "SPAWN_CLEANUP_FAILED",
+            Self::SpawnDatabaseError => "SPAWN_DATABASE_ERROR",
+            Self::SpawnJjCommandFailed => "SPAWN_JJ_COMMAND_FAILED",
             Self::InvalidArgument => "INVALID_ARGUMENT",
             Self::Unknown => "UNKNOWN",
         }
