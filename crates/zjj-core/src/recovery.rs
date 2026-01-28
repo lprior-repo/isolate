@@ -24,7 +24,7 @@ pub fn log_recovery(message: &str) -> Result<()> {
 
     let log_path = zjj_dir.join("recovery.log");
 
-    // Create log entry with timestamp
+    // Create log entry with timestamp (in brackets for parsing)
     let timestamp = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let log_entry = format!("[{timestamp}] {message}\n");
 
