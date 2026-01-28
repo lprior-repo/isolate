@@ -68,14 +68,298 @@ pub struct SystemState {
     pub jj_repo: bool,
 }
 
+/// Risk level for a suggested next action
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ActionRisk {
+    /// No side effects, always safe to run
+    #[default]
+    Safe,
+    /// Some risk, review before running
+    Medium,
+    /// Significant risk, may cause data loss or irreversible changes
+    High,
+}
+
 /// Next action suggestion
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NextAction {
     /// Action description
     pub action: String,
 
-    /// Commands to execute
+    /// Commands to execute (copy-pastable)
     pub commands: Vec<String>,
+
+    /// Risk level of this action
+    #[serde(default)]
+    pub risk: ActionRisk,
+
+    /// Optional longer description
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+/// Context about the command that just ran, used to generate next actions
+#[derive(Debug, Clone)]
+pub struct CommandContext {
+    /// The command name (e.g., "init", "add", "list", "remove", "focus", "status")
+    pub command: String,
+    /// Whether the command succeeded
+    pub success: bool,
+    /// Number of existing sessions
+    pub session_count: usize,
+    /// Name of the session involved, if any
+    pub session_name: Option<String>,
+}
+
+/// Generate next action suggestions based on command context.
+///
+/// Returns 0-5 suggestions with copy-pastable commands.
+#[must_use]
+pub fn next_actions_for_command(context: &CommandContext) -> Vec<NextAction> {
+    if !context.success {
+        return next_actions_for_error(context);
+    }
+
+    match context.command.as_str() {
+        "init" => next_after_init(),
+        "add" => next_after_add(context),
+        "remove" => next_after_remove(context),
+        "list" => next_after_list(context),
+        "focus" => next_after_focus(context),
+        "status" => next_after_status(context),
+        "sync" => next_after_sync(context),
+        "doctor" => next_after_doctor(),
+        "clean" => next_after_clean(),
+        _ => vec![],
+    }
+}
+
+fn next_after_init() -> Vec<NextAction> {
+    vec![
+        NextAction {
+            action: "Create your first session".to_string(),
+            commands: vec!["zjj add <name>".to_string()],
+            risk: ActionRisk::Safe,
+            description: Some("Start a parallel workspace".to_string()),
+        },
+        NextAction {
+            action: "Check system health".to_string(),
+            commands: vec!["zjj doctor".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        },
+    ]
+}
+
+fn next_after_add(context: &CommandContext) -> Vec<NextAction> {
+    let mut actions = vec![];
+    if let Some(name) = &context.session_name {
+        actions.push(NextAction {
+            action: "Switch to new session".to_string(),
+            commands: vec![format!("zjj focus {name}")],
+            risk: ActionRisk::Safe,
+            description: Some("Open the session's Zellij tab".to_string()),
+        });
+        actions.push(NextAction {
+            action: "Check session status".to_string(),
+            commands: vec![format!("zjj status {name}")],
+            risk: ActionRisk::Safe,
+            description: None,
+        });
+    }
+    actions.push(NextAction {
+        action: "List all sessions".to_string(),
+        commands: vec!["zjj list".to_string()],
+        risk: ActionRisk::Safe,
+        description: None,
+    });
+    actions
+}
+
+fn next_after_remove(context: &CommandContext) -> Vec<NextAction> {
+    let mut actions = vec![NextAction {
+        action: "List remaining sessions".to_string(),
+        commands: vec!["zjj list".to_string()],
+        risk: ActionRisk::Safe,
+        description: None,
+    }];
+    if context.session_count > 1 {
+        actions.push(NextAction {
+            action: "Clean up stale sessions".to_string(),
+            commands: vec!["zjj clean --dry-run".to_string()],
+            risk: ActionRisk::Safe,
+            description: Some("Preview which sessions would be cleaned".to_string()),
+        });
+    }
+    actions.push(NextAction {
+        action: "Create a new session".to_string(),
+        commands: vec!["zjj add <name>".to_string()],
+        risk: ActionRisk::Safe,
+        description: None,
+    });
+    actions
+}
+
+fn next_after_list(context: &CommandContext) -> Vec<NextAction> {
+    if context.session_count == 0 {
+        return vec![NextAction {
+            action: "Create your first session".to_string(),
+            commands: vec!["zjj add <name>".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        }];
+    }
+    vec![
+        NextAction {
+            action: "Check session status".to_string(),
+            commands: vec!["zjj status".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        },
+        NextAction {
+            action: "Create another session".to_string(),
+            commands: vec!["zjj add <name>".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        },
+    ]
+}
+
+fn next_after_focus(context: &CommandContext) -> Vec<NextAction> {
+    let mut actions = vec![];
+    if let Some(name) = &context.session_name {
+        actions.push(NextAction {
+            action: "Check session status".to_string(),
+            commands: vec![format!("zjj status {name}")],
+            risk: ActionRisk::Safe,
+            description: None,
+        });
+        actions.push(NextAction {
+            action: "Sync session with main".to_string(),
+            commands: vec![format!("zjj sync {name}")],
+            risk: ActionRisk::Medium,
+            description: Some("Rebase session onto latest main".to_string()),
+        });
+    }
+    actions.push(NextAction {
+        action: "List all sessions".to_string(),
+        commands: vec!["zjj list".to_string()],
+        risk: ActionRisk::Safe,
+        description: None,
+    });
+    actions
+}
+
+fn next_after_status(context: &CommandContext) -> Vec<NextAction> {
+    let mut actions = vec![];
+    if let Some(name) = &context.session_name {
+        actions.push(NextAction {
+            action: "Sync session".to_string(),
+            commands: vec![format!("zjj sync {name}")],
+            risk: ActionRisk::Medium,
+            description: Some("Rebase onto latest main".to_string()),
+        });
+        actions.push(NextAction {
+            action: "Remove session".to_string(),
+            commands: vec![format!("zjj remove {name}")],
+            risk: ActionRisk::High,
+            description: Some("Delete session and its workspace".to_string()),
+        });
+    }
+    actions.push(NextAction {
+        action: "List all sessions".to_string(),
+        commands: vec!["zjj list".to_string()],
+        risk: ActionRisk::Safe,
+        description: None,
+    });
+    actions
+}
+
+fn next_after_sync(context: &CommandContext) -> Vec<NextAction> {
+    let mut actions = vec![];
+    if let Some(name) = &context.session_name {
+        actions.push(NextAction {
+            action: "Check session status".to_string(),
+            commands: vec![format!("zjj status {name}")],
+            risk: ActionRisk::Safe,
+            description: Some("Verify sync result".to_string()),
+        });
+    }
+    actions.push(NextAction {
+        action: "List all sessions".to_string(),
+        commands: vec!["zjj list".to_string()],
+        risk: ActionRisk::Safe,
+        description: None,
+    });
+    actions
+}
+
+fn next_after_doctor() -> Vec<NextAction> {
+    vec![
+        NextAction {
+            action: "List sessions".to_string(),
+            commands: vec!["zjj list".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        },
+        NextAction {
+            action: "Clean stale sessions".to_string(),
+            commands: vec!["zjj clean --dry-run".to_string()],
+            risk: ActionRisk::Safe,
+            description: Some("Preview cleanup before applying".to_string()),
+        },
+    ]
+}
+
+fn next_after_clean() -> Vec<NextAction> {
+    vec![
+        NextAction {
+            action: "List remaining sessions".to_string(),
+            commands: vec!["zjj list".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        },
+        NextAction {
+            action: "Run doctor check".to_string(),
+            commands: vec!["zjj doctor".to_string()],
+            risk: ActionRisk::Safe,
+            description: Some("Verify system health after cleanup".to_string()),
+        },
+    ]
+}
+
+/// Generate next actions for failed commands
+fn next_actions_for_error(context: &CommandContext) -> Vec<NextAction> {
+    match context.command.as_str() {
+        "init" => vec![NextAction {
+            action: "Check system prerequisites".to_string(),
+            commands: vec!["zjj doctor".to_string()],
+            risk: ActionRisk::Safe,
+            description: Some("Diagnose what's missing".to_string()),
+        }],
+        "add" => vec![
+            NextAction {
+                action: "List existing sessions".to_string(),
+                commands: vec!["zjj list".to_string()],
+                risk: ActionRisk::Safe,
+                description: Some("Check if session name is already taken".to_string()),
+            },
+            NextAction {
+                action: "Check system health".to_string(),
+                commands: vec!["zjj doctor".to_string()],
+                risk: ActionRisk::Safe,
+                description: None,
+            },
+        ],
+        "focus" | "status" | "sync" | "remove" => vec![NextAction {
+            action: "List available sessions".to_string(),
+            commands: vec!["zjj list".to_string()],
+            risk: ActionRisk::Safe,
+            description: Some("See which sessions exist".to_string()),
+        }],
+        _ => vec![],
+    }
 }
 
 /// Complete hints response
@@ -338,6 +622,8 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
         actions.push(NextAction {
             action: "Initialize zjj".to_string(),
             commands: vec!["zjj init".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
         });
         return actions;
     }
@@ -347,6 +633,8 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
         actions.push(NextAction {
             action: "Create first session".to_string(),
             commands: vec!["zjj add <name>".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
         });
         return actions;
     }
@@ -361,6 +649,8 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
         actions.push(NextAction {
             action: "Review session status".to_string(),
             commands: vec!["zjj status".to_string(), "zjj dashboard".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
         });
     }
 
@@ -380,6 +670,8 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
             actions.push(NextAction {
                 action: "Clean up completed sessions".to_string(),
                 commands: vec![format!("zjj remove {} --merge", name)],
+                risk: ActionRisk::Medium,
+                description: Some("Merge and remove completed session".to_string()),
             });
         }
     }
@@ -387,6 +679,8 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
     actions.push(NextAction {
         action: "Create new session".to_string(),
         commands: vec!["zjj add <name>".to_string()],
+        risk: ActionRisk::Safe,
+        description: None,
     });
 
     actions
@@ -674,6 +968,210 @@ mod tests {
             extract_session_name("Session 'my-session' not found"),
             Some("my-session")
         );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // NEXT ACTIONS FOR COMMAND TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    fn success_context(command: &str, session_name: Option<&str>) -> CommandContext {
+        CommandContext {
+            command: command.to_string(),
+            success: true,
+            session_count: 2,
+            session_name: session_name.map(String::from),
+        }
+    }
+
+    fn error_context(command: &str) -> CommandContext {
+        CommandContext {
+            command: command.to_string(),
+            success: false,
+            session_count: 0,
+            session_name: None,
+        }
+    }
+
+    #[test]
+    fn test_next_actions_init_success() {
+        let actions = next_actions_for_command(&success_context("init", None));
+        assert!(!actions.is_empty());
+        assert!(actions.len() <= 5);
+        assert!(actions.iter().any(|a| a.action.contains("first session")));
+        // All commands should be non-empty strings
+        for action in &actions {
+            assert!(!action.commands.is_empty());
+            for cmd in &action.commands {
+                assert!(!cmd.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn test_next_actions_add_success_with_session() {
+        let actions = next_actions_for_command(&success_context("add", Some("feature-x")));
+        assert!(!actions.is_empty());
+        assert!(actions.len() <= 5);
+        // Should suggest focusing on the new session
+        assert!(actions
+            .iter()
+            .any(|a| a.commands.iter().any(|c| c.contains("focus feature-x"))));
+    }
+
+    #[test]
+    fn test_next_actions_remove_success() {
+        let actions = next_actions_for_command(&success_context("remove", Some("old")));
+        assert!(!actions.is_empty());
+        assert!(actions.iter().any(|a| a.action.contains("List")));
+    }
+
+    #[test]
+    fn test_next_actions_list_no_sessions() {
+        let ctx = CommandContext {
+            command: "list".to_string(),
+            success: true,
+            session_count: 0,
+            session_name: None,
+        };
+        let actions = next_actions_for_command(&ctx);
+        assert!(actions.iter().any(|a| a.action.contains("first session")));
+    }
+
+    #[test]
+    fn test_next_actions_list_has_sessions() {
+        let actions = next_actions_for_command(&success_context("list", None));
+        assert!(actions.iter().any(|a| a.action.contains("status")));
+    }
+
+    #[test]
+    fn test_next_actions_focus_success() {
+        let actions = next_actions_for_command(&success_context("focus", Some("my-session")));
+        assert!(!actions.is_empty());
+        // Should suggest sync with medium risk
+        let sync_action = actions.iter().find(|a| a.action.contains("Sync"));
+        assert!(sync_action.is_some());
+        if let Some(sa) = sync_action {
+            assert_eq!(sa.risk, ActionRisk::Medium);
+        }
+    }
+
+    #[test]
+    fn test_next_actions_status_includes_risk_levels() {
+        let actions = next_actions_for_command(&success_context("status", Some("sess")));
+        // Remove action should be High risk
+        let remove = actions.iter().find(|a| a.action.contains("Remove"));
+        assert!(remove.is_some());
+        if let Some(r) = remove {
+            assert_eq!(r.risk, ActionRisk::High);
+        }
+    }
+
+    #[test]
+    fn test_next_actions_unknown_command_returns_empty() {
+        let actions = next_actions_for_command(&success_context("nonexistent", None));
+        assert!(actions.is_empty());
+    }
+
+    #[test]
+    fn test_next_actions_error_returns_suggestions() {
+        let actions = next_actions_for_command(&error_context("add"));
+        assert!(!actions.is_empty());
+        // Should suggest listing sessions
+        assert!(actions
+            .iter()
+            .any(|a| a.commands.iter().any(|c| c.contains("zjj list"))));
+    }
+
+    #[test]
+    fn test_next_actions_error_unknown_returns_empty() {
+        let actions = next_actions_for_command(&error_context("nonexistent"));
+        assert!(actions.is_empty());
+    }
+
+    #[test]
+    fn test_next_actions_all_have_copy_pastable_commands() {
+        let commands = [
+            "init", "add", "remove", "list", "focus", "status", "sync", "doctor", "clean",
+        ];
+        for cmd in &commands {
+            let ctx = success_context(cmd, Some("test-sess"));
+            let actions = next_actions_for_command(&ctx);
+            for action in &actions {
+                assert!(
+                    !action.commands.is_empty(),
+                    "Command {cmd} action '{}' has no commands",
+                    action.action
+                );
+                for c in &action.commands {
+                    assert!(!c.is_empty(), "Command {cmd} has empty command string");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_next_actions_max_5() {
+        // No command should return more than 5 suggestions
+        let commands = [
+            "init", "add", "remove", "list", "focus", "status", "sync", "doctor", "clean",
+        ];
+        for cmd in &commands {
+            let ctx = success_context(cmd, Some("s"));
+            let actions = next_actions_for_command(&ctx);
+            assert!(
+                actions.len() <= 5,
+                "Command {cmd} returned {} actions",
+                actions.len()
+            );
+        }
+    }
+
+    #[test]
+    fn test_action_risk_default_is_safe() {
+        assert_eq!(ActionRisk::default(), ActionRisk::Safe);
+    }
+
+    #[test]
+    fn test_action_risk_serialization() {
+        let safe_json = serde_json::to_string(&ActionRisk::Safe).unwrap_or_default();
+        assert_eq!(safe_json, "\"safe\"");
+        let medium_json = serde_json::to_string(&ActionRisk::Medium).unwrap_or_default();
+        assert_eq!(medium_json, "\"medium\"");
+        let high_json = serde_json::to_string(&ActionRisk::High).unwrap_or_default();
+        assert_eq!(high_json, "\"high\"");
+    }
+
+    #[test]
+    fn test_next_action_serialization_includes_risk() {
+        let action = NextAction {
+            action: "Test".to_string(),
+            commands: vec!["zjj test".to_string()],
+            risk: ActionRisk::Medium,
+            description: Some("A test action".to_string()),
+        };
+        let json = serde_json::to_string(&action).unwrap_or_default();
+        assert!(json.contains("\"risk\":\"medium\""));
+        assert!(json.contains("\"description\":\"A test action\""));
+    }
+
+    #[test]
+    fn test_next_action_serialization_omits_none_description() {
+        let action = NextAction {
+            action: "Test".to_string(),
+            commands: vec!["zjj test".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        };
+        let json = serde_json::to_string(&action).unwrap_or_default();
+        assert!(!json.contains("description"));
+    }
+
+    #[test]
+    fn test_command_context_clone() {
+        let ctx = success_context("init", Some("s"));
+        let cloned = ctx.clone();
+        assert_eq!(ctx.command, cloned.command);
+        assert_eq!(ctx.success, cloned.success);
     }
 
     #[test]

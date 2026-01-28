@@ -38,6 +38,7 @@ pub mod zellij;
 
 pub use error::Error;
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
+pub use hints::{ActionRisk, CommandContext, NextAction};
 pub use output_format::OutputFormat;
 pub use result::{Result, ResultExt};
 
