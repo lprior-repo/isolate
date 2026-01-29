@@ -913,6 +913,7 @@ fn build_cli() -> ClapCommand {
         .subcommand_required(true)
         .subcommand(cmd_init())
         .subcommand(cmd_add())
+        .subcommand(cmd_agents())
         .subcommand(cmd_attach())
         .subcommand(cmd_list())
         .subcommand(cmd_remove())
@@ -1312,6 +1313,7 @@ fn run_cli() -> Result<()> {
             }
         }
         Some(("add", sub_m)) => handle_add(sub_m),
+        Some(("agents", sub_m)) => handle_agents(sub_m),
         Some(("list", sub_m)) => handle_list(sub_m),
         Some(("remove", sub_m)) => handle_remove(sub_m),
         Some(("focus", sub_m)) => handle_focus(sub_m),
