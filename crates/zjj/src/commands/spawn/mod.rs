@@ -48,16 +48,6 @@ bd show $ZJJ_BEAD_ID
 Check the project's README or CLAUDE.md for the correct build commands.
 ";
 
-/// Cursor rules for spawned workspace
-const CURSOR_RULES: &str = r"# ZJJ Workspace - Do NOT Clone Elsewhere
-
-You are in an isolated workspace created by `zjj spawn <bead-id>`.
-
-**WORK HERE** - This is your assigned workspace. Do NOT clone the repo elsewhere.
-
-When done, exit with success and zjj will auto-merge to main.
-";
-
 use std::{fs, io::Write, path::Path, process::Command};
 
 use anyhow::{Context, Result};
@@ -227,14 +217,6 @@ fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, Spa
 /// These files tell AI agents they're already in the right place
 /// and should NOT clone the repository elsewhere.
 fn create_workspace_discoverability(workspace_path: &Path) -> Result<(), SpawnError> {
-    // Create .cursorrules for Cursor/Windsurf
-    let cursorrules_path = workspace_path.join(".cursorrules");
-    fs::write(&cursorrules_path, CURSOR_RULES).map_err(|e| {
-        SpawnError::WorkspaceCreationFailed {
-            reason: format!("Failed to create .cursorrules: {e}"),
-        }
-    })?;
-
     // Create .ai-instructions.md for Claude Code and others
     let ai_instructions_path = workspace_path.join(".ai-instructions.md");
     fs::write(&ai_instructions_path, AI_INSTRUCTIONS).map_err(|e| {
