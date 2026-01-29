@@ -403,6 +403,33 @@ fn cmd_add() -> ClapCommand {
         )
 }
 
+fn cmd_agents() -> ClapCommand {
+    ClapCommand::new("agents")
+        .about("List all active agents and their locks")
+        .long_about(
+            "Shows all agents that have recently sent heartbeats, along with their current sessions and any locks they hold.\n\n\
+            Agents are considered active if they've sent a heartbeat within the last 60 seconds.",
+        )
+        .arg(
+            Arg::new("all")
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .help("Include stale agents (not seen within heartbeat timeout)"),
+        )
+        .arg(
+            Arg::new("session")
+                .long("session")
+                .value_name("SESSION")
+                .help("Filter by session"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 fn cmd_list() -> ClapCommand {
     ClapCommand::new("list")
         .about("List all sessions")
@@ -1019,7 +1046,7 @@ fn handle_focus(sub_m: &clap::ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let options = focus::FocusOptions { format };
-    
+
     // Pass name as Option<&str> to run_with_options
     // If name is None, focus::run_with_options will trigger interactive selection
     match focus::run_with_options(name, &options) {

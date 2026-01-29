@@ -16,16 +16,11 @@ use std::collections::HashMap;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use sqlx::{SqlitePool, Row};
-use zjj_core::{
-    json::SchemaEnvelope,
-    coordination::locks::LockManager,
-    OutputFormat,
-};
+use sqlx::{Row, SqlitePool};
+use zjj_core::{coordination::locks::LockManager, json::SchemaEnvelope, OutputFormat};
 
+use self::types::{AgentInfo, AgentsArgs, AgentsOutput, LockSummary};
 use crate::json_output;
-
-use self::types::{AgentsArgs, AgentsOutput, AgentInfo, LockSummary};
 
 /// Run the agents command
 ///
@@ -38,9 +33,7 @@ use self::types::{AgentsArgs, AgentsOutput, AgentInfo, LockSummary};
 /// - Query fails
 pub fn run(args: &AgentsArgs, format: OutputFormat) -> Result<()> {
     let runtime = tokio::runtime::Runtime::new()?;
-    runtime.block_on(async {
-        run_async(args, format).await
-    })
+    runtime.block_on(async { run_async(args, format).await })
 }
 
 /// Async implementation of the agents command
@@ -85,12 +78,11 @@ async fn get_db_pool() -> Result<SqlitePool> {
 
     // Check if database exists
     if !db_path.exists() {
-        anyhow::bail!(
-            "ZJJ not initialized. Run 'zjj init' first."
-        );
+        anyhow::bail!("ZJJ not initialized. Run 'zjj init' first.");
     }
 
-    let pool = sqlx::SqlitePool::connect(&format!("sqlite:{}", db_path.display())).await
+    let pool = sqlx::SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to connect to database: {}", e))?;
 
     Ok(pool)
@@ -115,7 +107,8 @@ async fn get_agents(pool: &SqlitePool, args: &AgentsArgs) -> Result<Vec<AgentInf
          FROM agents"
     };
 
-    let mut query_builder = sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, i64)>(query);
+    let mut query_builder =
+        sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, i64)>(query);
 
     if let Some(ref session) = args.session {
         query_builder = query_builder.bind(session);
@@ -129,21 +122,30 @@ async fn get_agents(pool: &SqlitePool, args: &AgentsArgs) -> Result<Vec<AgentInf
     // Transform rows into AgentInfo, computing staleness
     let agents: Result<Vec<AgentInfo>, _> = rows
         .into_iter()
-        .map(|(agent_id, registered_at, last_seen, current_session, current_command, actions_count)| {
-            let registered_at = parse_timestamp(&registered_at)?;
-            let last_seen = parse_timestamp(&last_seen)?;
-            let stale = last_seen < cutoff;
-
-            Ok(AgentInfo {
+        .map(
+            |(
                 agent_id,
                 registered_at,
                 last_seen,
                 current_session,
                 current_command,
-                actions_count: actions_count as u64,
-                stale,
-            })
-        })
+                actions_count,
+            )| {
+                let registered_at = parse_timestamp(&registered_at)?;
+                let last_seen = parse_timestamp(&last_seen)?;
+                let stale = last_seen < cutoff;
+
+                Ok(AgentInfo {
+                    agent_id,
+                    registered_at,
+                    last_seen,
+                    current_session,
+                    current_command,
+                    actions_count: actions_count as u64,
+                    stale,
+                })
+            },
+        )
         .collect();
 
     let mut agents = agents?;
@@ -209,7 +211,11 @@ fn print_human_readable(output: &AgentsOutput) {
         println!();
         println!("Stale Agents ({}):", output.total_stale);
         for agent in output.agents.iter().filter(|a| a.stale) {
-            println!("  {} (last seen: {})", agent.agent_id, agent.last_seen.to_rfc3339());
+            println!(
+                "  {} (last seen: {})",
+                agent.agent_id,
+                agent.last_seen.to_rfc3339()
+            );
         }
     }
 

@@ -6,12 +6,11 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-use chrono::Utc;
-use sqlx::sqlite::SqlitePoolOptions;
 use std::collections::HashMap;
 
-use zjj_core::agents::AgentRegistry;
-use zjj_core::coordination::locks::LockManager;
+use chrono::Utc;
+use sqlx::sqlite::SqlitePoolOptions;
+use zjj_core::{agents::AgentRegistry, coordination::locks::LockManager};
 
 use super::types::{AgentInfo, AgentsArgs, AgentsOutput, LockSummary};
 
@@ -72,10 +71,7 @@ impl TestContext {
     }
 
     /// Register an agent and backdate it to make it stale
-    async fn register_stale_agent(
-        &self,
-        agent_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn register_stale_agent(&self, agent_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.agent_registry.register(agent_id).await?;
 
         // Backdate the agent to make it stale (set last_seen to 2 minutes ago)
@@ -111,27 +107,36 @@ impl TestContext {
         .await?;
 
         rows.into_iter()
-            .map(|(agent_id, registered_at, last_seen, current_session, current_command, actions_count)| {
-                let registered_at = DateTime::parse_from_rfc3339(&registered_at)
-                    .map(|dt| dt.with_timezone(&Utc))
-                    .map_err(|e| format!("Invalid registered_at: {e}"))?;
-                let last_seen = DateTime::parse_from_rfc3339(&last_seen)
-                    .map(|dt| dt.with_timezone(&Utc))
-                    .map_err(|e| format!("Invalid last_seen: {e}"))?;
-
-                // Determine if stale (more than 60 seconds ago)
-                let stale = Utc::now().signed_duration_since(last_seen).num_seconds() > 60;
-
-                Ok(AgentInfo {
+            .map(
+                |(
                     agent_id,
                     registered_at,
                     last_seen,
                     current_session,
                     current_command,
-                    actions_count: actions_count.cast_unsigned(),
-                    stale,
-                })
-            })
+                    actions_count,
+                )| {
+                    let registered_at = DateTime::parse_from_rfc3339(&registered_at)
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .map_err(|e| format!("Invalid registered_at: {e}"))?;
+                    let last_seen = DateTime::parse_from_rfc3339(&last_seen)
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .map_err(|e| format!("Invalid last_seen: {e}"))?;
+
+                    // Determine if stale (more than 60 seconds ago)
+                    let stale = Utc::now().signed_duration_since(last_seen).num_seconds() > 60;
+
+                    Ok(AgentInfo {
+                        agent_id,
+                        registered_at,
+                        last_seen,
+                        current_session,
+                        current_command,
+                        actions_count: actions_count.cast_unsigned(),
+                        stale,
+                    })
+                },
+            )
             .collect()
     }
 
@@ -157,14 +162,21 @@ impl TestContext {
     }
 }
 
-// EARS 1: WHEN agents runs, system shall list all active agents with last_seen within heartbeat timeout
+// EARS 1: WHEN agents runs, system shall list all active agents with last_seen within heartbeat
+// timeout
 #[tokio::test]
 async fn agents_lists_active_only() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register two active agents
-    ctx.register_agent("agent-1").await.expect("register failed");
-    ctx.register_agent("agent-2").await.expect("register failed");
+    ctx.register_agent("agent-1")
+        .await
+        .expect("register failed");
+    ctx.register_agent("agent-2")
+        .await
+        .expect("register failed");
 
     // Get active agents
     let agents = ctx
@@ -173,16 +185,23 @@ async fn agents_lists_active_only() {
         .expect("get_active_agents failed");
 
     assert_eq!(agents.len(), 2, "should have 2 active agents");
-    assert!(agents.iter().all(|a| !a.stale), "all agents should be active");
+    assert!(
+        agents.iter().all(|a| !a.stale),
+        "all agents should be active"
+    );
 }
 
 // EARS 2: WHEN --all specified, system shall include stale agents with stale=true flag
 #[tokio::test]
 async fn agents_includes_stale_with_all_flag() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register one active and one stale agent
-    ctx.register_agent("active").await.expect("register active failed");
+    ctx.register_agent("active")
+        .await
+        .expect("register active failed");
     ctx.register_stale_agent("stale")
         .await
         .expect("register stale failed");
@@ -202,16 +221,23 @@ async fn agents_includes_stale_with_all_flag() {
         .iter()
         .find(|a| a.agent_id == "active")
         .expect("active agent not found");
-    assert!(!active_agent.stale, "active agent should not be marked stale");
+    assert!(
+        !active_agent.stale,
+        "active agent should not be marked stale"
+    );
 }
 
 // EARS 2 (cont): WHEN --all not specified, stale agents excluded
 #[tokio::test]
 async fn agents_excludes_stale_by_default() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register one active and one stale agent
-    ctx.register_agent("active").await.expect("register active failed");
+    ctx.register_agent("active")
+        .await
+        .expect("register active failed");
     ctx.register_stale_agent("stale")
         .await
         .expect("register stale failed");
@@ -229,10 +255,14 @@ async fn agents_excludes_stale_by_default() {
 // EARS 3: WHEN reporting locks, system shall show which agents hold locks on which sessions
 #[tokio::test]
 async fn agents_shows_locks_correctly() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register agent and acquire lock
-    ctx.register_agent("agent-1").await.expect("register failed");
+    ctx.register_agent("agent-1")
+        .await
+        .expect("register failed");
     ctx.acquire_lock("session-1", "agent-1")
         .await
         .expect("lock failed");
@@ -248,10 +278,14 @@ async fn agents_shows_locks_correctly() {
 // EARS 4: WHEN computing actions_count, system shall aggregate from history database
 #[tokio::test]
 async fn agents_action_counts_accurate() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register agent
-    ctx.register_agent("agent-1").await.expect("register failed");
+    ctx.register_agent("agent-1")
+        .await
+        .expect("register failed");
 
     // Manually increment action count in database
     sqlx::query("UPDATE agents SET actions_count = 5 WHERE agent_id = ?1")
@@ -273,7 +307,9 @@ async fn agents_action_counts_accurate() {
 // Test: WHEN agent has current_session, system shall include session name in output
 #[tokio::test]
 async fn agents_shows_current_session() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register agent with session
     ctx.register_agent_with_session("agent-1", "test-session")
@@ -297,7 +333,9 @@ async fn agents_shows_current_session() {
 // Test: WHEN no active agents, return empty array (not error)
 #[tokio::test]
 async fn agents_empty_is_valid() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // No agents registered
 
@@ -313,7 +351,9 @@ async fn agents_empty_is_valid() {
 // Test: WHEN --session specified, filter by session
 #[tokio::test]
 async fn agents_filters_by_session() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register agents with different sessions
     ctx.register_agent_with_session("a1", "s1")
@@ -334,16 +374,22 @@ async fn agents_filters_by_session() {
         .collect();
 
     assert_eq!(filtered.len(), 2, "should have 2 agents with session s1");
-    assert!(filtered.iter().all(|a| a.current_session == Some("s1".to_string())));
+    assert!(filtered
+        .iter()
+        .all(|a| a.current_session == Some("s1".to_string())));
 }
 
 // Test: Verify stale threshold is 60 seconds
 #[tokio::test]
 async fn agents_stale_threshold_is_60_seconds() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register agent
-    ctx.register_agent("agent-1").await.expect("register failed");
+    ctx.register_agent("agent-1")
+        .await
+        .expect("register failed");
 
     // Backdate to exactly 59 seconds ago (should be active)
     let recent = Utc::now() - chrono::Duration::seconds(59);
@@ -381,11 +427,17 @@ async fn agents_stale_threshold_is_60_seconds() {
 // Test: Multiple locks on different sessions
 #[tokio::test]
 async fn agents_multiple_locks() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register agents and acquire locks
-    ctx.register_agent("agent-1").await.expect("register a1 failed");
-    ctx.register_agent("agent-2").await.expect("register a2 failed");
+    ctx.register_agent("agent-1")
+        .await
+        .expect("register a1 failed");
+    ctx.register_agent("agent-2")
+        .await
+        .expect("register a2 failed");
 
     ctx.acquire_lock("session-1", "agent-1")
         .await
@@ -399,10 +451,7 @@ async fn agents_multiple_locks() {
 
     assert_eq!(locks.len(), 2, "should have 2 locks");
 
-    let lock_map: HashMap<_, _> = locks
-        .into_iter()
-        .map(|l| (l.session.clone(), l))
-        .collect();
+    let lock_map: HashMap<_, _> = locks.into_iter().map(|l| (l.session.clone(), l)).collect();
 
     assert_eq!(lock_map["session-1"].holder, "agent-1");
     assert_eq!(lock_map["session-2"].holder, "agent-2");
@@ -411,11 +460,17 @@ async fn agents_multiple_locks() {
 // Test: Verify total_active and total_stale counts
 #[tokio::test]
 async fn agents_counts_accurate() {
-    let ctx = TestContext::new().await.expect("failed to create test context");
+    let ctx = TestContext::new()
+        .await
+        .expect("failed to create test context");
 
     // Register mix of active and stale agents
-    ctx.register_agent("active-1").await.expect("register a1 failed");
-    ctx.register_agent("active-2").await.expect("register a2 failed");
+    ctx.register_agent("active-1")
+        .await
+        .expect("register a1 failed");
+    ctx.register_agent("active-2")
+        .await
+        .expect("register a2 failed");
     ctx.register_stale_agent("stale-1")
         .await
         .expect("register s1 failed");
