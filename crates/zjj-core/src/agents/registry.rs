@@ -92,8 +92,9 @@ impl AgentRegistry {
         let cutoff = Utc::now() - chrono::Duration::seconds(self.timeout_secs.cast_signed());
         let cutoff_str = cutoff.to_rfc3339();
 
-        let rows: Vec<(String, String, String)> = sqlx::query_as(
-            "SELECT agent_id, last_seen, registered_at FROM agents WHERE last_seen >= ?1",
+        let rows: Vec<(String, String, String, Option<String>, Option<String>, i64)> = sqlx::query_as(
+            "SELECT agent_id, last_seen, registered_at, current_session, current_command, actions_count
+         FROM agents WHERE last_seen >= ?1",
         )
         .bind(&cutoff_str)
         .fetch_all(&self.db)
@@ -101,21 +102,26 @@ impl AgentRegistry {
         .map_err(|e| Error::DatabaseError(format!("Failed to get active agents: {e}")))?;
 
         rows.into_iter()
-            .map(|(agent_id, last_seen, registered_at)| {
-                let last_seen = DateTime::parse_from_rfc3339(&last_seen)
-                    .map(|dt| dt.with_timezone(&Utc))
-                    .map_err(|e| Error::ParseError(format!("Invalid last_seen timestamp: {e}")))?;
-                let registered_at = DateTime::parse_from_rfc3339(&registered_at)
-                    .map(|dt| dt.with_timezone(&Utc))
-                    .map_err(|e| {
-                        Error::ParseError(format!("Invalid registered_at timestamp: {e}"))
-                    })?;
-                Ok(ActiveAgent {
-                    agent_id,
-                    last_seen,
-                    registered_at,
-                })
-            })
+            .map(
+                |(agent_id, last_seen, registered_at, current_session, current_command, actions_count)| {
+                    let last_seen = DateTime::parse_from_rfc3339(&last_seen)
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .map_err(|e| Error::ParseError(format!("Invalid last_seen timestamp: {e}")))?;
+                    let registered_at = DateTime::parse_from_rfc3339(&registered_at)
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .map_err(|e| {
+                            Error::ParseError(format!("Invalid registered_at timestamp: {e}"))
+                        })?;
+                    Ok(ActiveAgent {
+                        agent_id,
+                        last_seen,
+                        registered_at,
+                        current_session,
+                        current_command,
+                        actions_count: actions_count.cast_unsigned(),
+                    })
+                },
+            )
             .collect()
     }
 
