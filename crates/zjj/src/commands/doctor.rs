@@ -22,12 +22,17 @@ use zjj_core::{
     introspection::{
         CheckStatus, DoctorCheck, DoctorFixOutput, DoctorOutput, FixResult, UnfixableIssue,
     },
+    json::OutputFormat,
     OutputFormat,
 };
 
 use crate::{
     cli::{is_command_available, is_inside_zellij, is_jj_repo, jj_root},
-    commands::get_session_db,
+    commands::{
+        get_session_db,
+        list::{run_with_options, ListOptions},
+    },
+    session::SessionStatus,
 };
 
 fn check_for_recent_recovery() -> Option<String> {
@@ -88,6 +93,7 @@ fn run_all_checks() -> Vec<DoctorCheck> {
         check_initialized(),
         check_state_db(),
         check_orphaned_workspaces(),
+        check_stale_sessions(),
         check_beads(),
     ]
 }
@@ -511,6 +517,122 @@ fn check_beads() -> DoctorCheck {
     }
 }
 
+/// Check for stale/incomplete sessions
+fn check_stale_sessions() -> DoctorCheck {
+    let sessions = get_session_db()
+        .ok()
+        .and_then(|db| db.list_blocking(None).ok())
+        .unwrap_or_default();
+
+    use chrono::{Duration, Utc};
+
+    let stale_threshold = Duration::minutes(5);
+    let now = Utc::now();
+
+    let stale_sessions: Vec<_> = sessions
+        .iter()
+        .filter(|s| {
+            if s.status != SessionStatus::Creating {
+                return false;
+            }
+
+            // Check if session is stale (not updated in 5 minutes)
+            let updated_at = s.updated_at.signed_duration_since(now);
+            let is_stale = updated_at > stale_threshold;
+
+            is_stale
+        })
+        .map(|s| s.name.clone())
+        .collect();
+
+    if stale_sessions.is_empty() {
+        DoctorCheck {
+            name: "Stale Sessions".to_string(),
+            status: CheckStatus::Pass,
+            message: "No stale sessions detected".to_string(),
+            suggestion: None,
+            auto_fixable: false,
+            details: None,
+        }
+    } else {
+        let details = serde_json::json!({
+            "stale_sessions": stale_sessions,
+        });
+        DoctorCheck {
+            name: "Stale Sessions".to_string(),
+            status: CheckStatus::Warn,
+            message: format!(
+                "{} stale/incomplete session(s) detected (not updated in 5 minutes)",
+                stale_sessions.len()
+            ),
+            suggestion: Some(
+                "Check for interrupted operations or run 'zjj remove <name>' to clean up"
+                    .to_string(),
+            ),
+            auto_fixable: false,
+            details: Some(details),
+        }
+    }
+}
+
+/// Check for stale/incomplete sessions
+fn check_stale_sessions() -> DoctorCheck {
+    let sessions = get_session_db()
+        .ok()
+        .and_then(|db| db.list_blocking(None).ok())
+        .unwrap_or_default();
+
+    use chrono::{Duration, Utc};
+
+    let stale_threshold = Duration::minutes(5);
+    let now = Utc::now();
+
+    let stale_sessions: Vec<_> = sessions
+        .iter()
+        .filter(|s| {
+            if s.status != crate::session::SessionStatus::Creating {
+                return false;
+            }
+
+            // Check if session is stale (not updated in 5 minutes)
+            let updated_at = s.updated_at.signed_duration_since(now);
+            let is_stale = updated_at > stale_threshold;
+
+            is_stale
+        })
+        .map(|s| s.name.clone())
+        .collect();
+
+    if stale_sessions.is_empty() {
+        DoctorCheck {
+            name: "Stale Sessions".to_string(),
+            status: CheckStatus::Pass,
+            message: "No stale sessions detected".to_string(),
+            suggestion: None,
+            auto_fixable: false,
+            details: None,
+        }
+    } else {
+        let details = serde_json::json!({
+            "stale_sessions": stale_sessions,
+        });
+        DoctorCheck {
+            name: "Stale Sessions".to_string(),
+            status: CheckStatus::Warn,
+            message: format!(
+                "{} stale/incomplete session(s) detected (not updated in 5 minutes)",
+                stale_sessions.len()
+            ),
+            suggestion: Some(
+                "Check for interrupted operations or run 'zjj remove <name>' to clean up"
+                    .to_string(),
+            ),
+            auto_fixable: false,
+            details: Some(details),
+        }
+    }
+}
+
 /// Show health report
 ///
 /// # Exit Codes
@@ -626,6 +748,48 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
                     });
                 }
             },
+            "Stale Sessions" => {
+                let stale_data = check
+                    .details
+                    .as_ref()
+                    .ok()
+                    .and_then(|v| v.get("stale_sessions"));
+
+                if let Some(stale_sessions) = stale_data {
+                    if let Ok(sessions) = stale_sessions.as_array() {
+                        let db = get_session_db().ok();
+                        if let Some(db) = db {
+                            let mut removed = 0;
+                            for session_name in sessions {
+                                match db.delete_blocking(session_name.as_str()) {
+                                    Ok(true) => removed += 1,
+                                    Ok(false) => {}
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "Failed to delete stale session '{}': {}",
+                                            session_name,
+                                            e
+                                        );
+                                    }
+                                }
+                            }
+                            fixed.push(FixResult {
+                                issue: check.name.clone(),
+                                action: format!("Removed {} stale session(s)", removed),
+                                success: removed > 0,
+                            });
+                        }
+                    }
+                }
+
+                if fixed.is_empty() {
+                    unable_to_fix.push(UnfixableIssue {
+                        issue: check.name.clone(),
+                        reason: "No stale sessions data".to_string(),
+                        suggestion: None,
+                    });
+                }
+            }
             _ => {
                 unable_to_fix.push(UnfixableIssue {
                     issue: check.name.clone(),
