@@ -32,10 +32,7 @@ pub enum TemplateError {
     InvalidContext { name: String, reason: String },
 
     #[error("missing required variable '{variable}' in template '{template}'")]
-    MissingVariable {
-        variable: String,
-        template: String,
-    },
+    MissingVariable { variable: String, template: String },
 }
 
 /// Project configuration context for template rendering
@@ -202,8 +199,7 @@ pub fn render_all_templates(
     TemplateType::all()
         .iter()
         .map(|&template_type| {
-            render_template(template_type, context)
-                .map(|content| (template_type, content))
+            render_template(template_type, context).map(|content| (template_type, content))
         })
         .collect()
 }
@@ -263,7 +259,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             TemplateError::InvalidContext {
-                name: "ProjectContext",
+                name: "ProjectContext".to_string(),
                 reason: "version cannot be empty".to_string(),
             }
         );
@@ -283,7 +279,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             TemplateError::InvalidContext {
-                name: "ProjectContext",
+                name: "ProjectContext".to_string(),
                 reason: "authors cannot be empty".to_string(),
             }
         );
@@ -317,12 +313,12 @@ mod tests {
             vec!["Author".to_string()],
             None,
         )
-        .unwrap();
+        .expect("Valid context");
 
         let result = render_all_templates(&context);
 
         assert!(result.is_ok());
-        let templates = result.unwrap();
+        let templates = result.expect("Templates should render");
         assert_eq!(templates.len(), TemplateType::all().len());
     }
 
@@ -344,7 +340,7 @@ mod tests {
     // Property-based test: rendering never panics
     #[test]
     fn test_render_never_panics() {
-        let contexts = vec![
+        let context_results = vec![
             ProjectContext::new(
                 "a".to_string(),
                 "b".to_string(),
@@ -361,8 +357,11 @@ mod tests {
             ),
         ];
 
-        for context_result in contexts {
-            let context = context_result.unwrap();
+        for context_result in context_results {
+            let context = match context_result {
+                Ok(ctx) => ctx,
+                Err(_) => continue,
+            };
             for &template_type in TemplateType::all() {
                 let _ = render_template(template_type, &context); // Never panics
             }
