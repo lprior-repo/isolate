@@ -109,8 +109,8 @@ impl SessionDb {
                 return Err(Error::DatabaseError(format!(
                     "Database file is not accessible: {e}\n\n\
                      Run 'zjj doctor' to diagnose, or fix permissions manually:\n\
-                     chmod 644 {}",
-                    path.display()
+                     chmod 644 {p}",
+                    p = path.display()
                 )));
             }
         }
@@ -353,9 +353,9 @@ fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
     }
 }
 
-/// Check WAL file integrity before SQLite opens database
+/// Check WAL file integrity before `SQLite` opens database
 ///
-/// SQLite WAL files have a specific header format:
+/// `SQLite` WAL files have a specific header format:
 /// - First 32 bytes: WAL header
 /// - Magic bytes at offset 0: 0x377f0682 (377f0682 in big-endian)
 ///
@@ -374,15 +374,14 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
     if let Err(e) = std::fs::File::open(&wal_path).and_then(|mut f| f.read_exact(&mut header)) {
         // Can't read WAL file - likely corrupted or inaccessible
         log_recovery(&format!(
-            "WAL file inaccessible or corrupted: {}. Error: {}",
-            wal_path.display(),
-            e
+            "WAL file inaccessible or corrupted: {p}. Error: {e}",
+            p = wal_path.display()
         ))
         .ok();
         return Err(Error::DatabaseError(format!(
-            "WAL file is corrupted or inaccessible: {}\n\
+            "WAL file is corrupted or inaccessible: {p}\n\
              Recovery logged. Run 'zjj doctor' for details.",
-            wal_path.display()
+            p = wal_path.display()
         )));
     }
 
@@ -390,7 +389,7 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
     // This is the standard SQLite WAL header magic number
     let wal_magic = u32::from_be_bytes([header[0], header[1], header[2], header[3]]);
 
-    if wal_magic != 0x377f0682 {
+    if wal_magic != 0x377f_0682 {
         // WAL magic bytes don't match - file is corrupted
         let policy = get_recovery_policy();
         let should_log = should_log_recovery();
@@ -398,28 +397,25 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
         match policy {
             RecoveryPolicy::FailFast => {
                 return Err(Error::DatabaseError(format!(
-                    "WAL file corrupted: {}\n\
-                     Magic bytes: 0x{:08x}, expected 0x377f0682\n\n\
+                    "WAL file corrupted: {p}\n\
+                     Magic bytes: 0x{wal_magic:08x}, expected 0x377f0682\n\n\
                      Recovery is disabled in strict mode (--strict or ZJJ_STRICT=1).\n\n\
                      To recover, either:\n\
                      - Remove --strict flag\n\
                      - Run 'zjj doctor --fix'\n\
-                     - Manually delete WAL file: rm {}",
-                    wal_path.display(),
-                    wal_magic,
-                    wal_path.display()
+                     - Manually delete WAL file: rm {p}",
+                    p = wal_path.display()
                 )));
             }
             RecoveryPolicy::Warn => {
-                eprintln!("⚠  WAL file corrupted: {}", wal_path.display());
-                eprintln!("   Magic bytes: 0x{:08x}, expected 0x377f0682", wal_magic);
+                eprintln!("⚠  WAL file corrupted: {p}", p = wal_path.display());
+                eprintln!("   Magic bytes: 0x{wal_magic:08x}, expected 0x377f0682");
                 eprintln!("   SQLite will attempt automatic recovery...");
 
                 if should_log {
                     log_recovery(&format!(
-                        "WAL file corrupted: {}. Magic bytes: 0x{:08x}, expected 0x377f0682. SQLite will recover automatically.",
-                        wal_path.display(),
-                        wal_magic
+                        "WAL file corrupted: {p}. Magic bytes: 0x{wal_magic:08x}, expected 0x377f0682. SQLite will recover automatically.",
+                        p = wal_path.display()
                     ))
                     .ok();
                 }
@@ -427,9 +423,8 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
             RecoveryPolicy::Silent => {
                 if should_log {
                     log_recovery(&format!(
-                        "WAL file corrupted: {}. Magic bytes: 0x{:08x}, expected 0x377f0682. SQLite recovered silently.",
-                        wal_path.display(),
-                        wal_magic
+                        "WAL file corrupted: {p}. Magic bytes: 0x{wal_magic:08x}, expected 0x377f0682. SQLite recovered silently.",
+                        p = wal_path.display()
                     ))
                     .ok();
                 }
@@ -440,11 +435,11 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Check SQLite database file integrity before SQLite opens database
+/// Check `SQLite` database file integrity before `SQLite` opens database
 ///
-/// SQLite database files have a specific header format:
+/// `SQLite` database files have a specific header format:
 /// - First 100 bytes: Header
-/// - Magic bytes at offset 0: "SQLite format 3\000"
+/// - Magic bytes at offset 0: "`SQLite` format 3\000"
 ///
 /// This function detects corrupted database files and logs recovery
 /// according to current recovery policy.
@@ -460,15 +455,13 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
     if file_size < 100 {
         // Too small to be a valid database
         log_recovery(&format!(
-            "Database file too small: {} bytes. Expected at least 100 bytes.",
-            file_size
+            "Database file too small: {file_size} bytes. Expected at least 100 bytes."
         ))
         .ok();
         return Err(Error::DatabaseError(format!(
-            "Database file is too small to be valid: {} bytes\n\
+            "Database file is too small to be valid: {file_size} bytes\n\
              Expected at least 100 bytes. File may be corrupted.\n\
-             Recovery logged. Run 'zjj doctor' for details.",
-            file_size
+             Recovery logged. Run 'zjj doctor' for details."
         )));
     }
 
@@ -477,20 +470,19 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
     if let Err(e) = std::fs::File::open(db_path).and_then(|mut f| f.read_exact(&mut header)) {
         // Can't read database header - likely corrupted or inaccessible
         log_recovery(&format!(
-            "Database file inaccessible or corrupted: {}. Error: {}",
-            db_path.display(),
-            e
+            "Database file inaccessible or corrupted: {p}. Error: {e}",
+            p = db_path.display()
         ))
         .ok();
         return Err(Error::DatabaseError(format!(
-            "Database file is corrupted or inaccessible: {}\n\
+            "Database file is corrupted or inaccessible: {p}\n\
              Recovery logged. Run 'zjj doctor' for details.",
-            db_path.display()
+            p = db_path.display()
         )));
     }
 
     // Check SQLite magic bytes: "SQLite format 3\000"
-    let expected_magic: &[u8] = [
+    let expected_magic: &[u8] = &[
         b'S', b'Q', b'l', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ', b'3',
         0x00, 0x00,
     ];
@@ -503,36 +495,34 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
         let magic_hex: String = header
             .iter()
             .take(16)
-            .map(|b| format!("{:02x}", b))
+            .map(|b| format!("{b:02x}"))
             .collect::<Vec<_>>()
             .join(" ");
 
         match policy {
             RecoveryPolicy::FailFast => {
                 return Err(Error::DatabaseError(format!(
-                    "Database file corrupted: {}\n\
-                     Magic bytes (hex): {}\n\
+                    "Database file corrupted: {p}\n\
+                     Magic bytes (hex): {magic_hex}\n\
                      Expected: 53 51 6c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 00 (SQLite format 3)\n\n\
                      Recovery is disabled in strict mode (--strict or ZJJ_STRICT=1).\n\n\
                      To recover, either:\n\
                      - Remove --strict flag\n\
                      - Run 'zjj doctor --fix'\n\
                      - Manually delete database and run 'zjj init'",
-                    db_path.display(),
-                    magic_hex
+                    p = db_path.display()
                 )));
             }
             RecoveryPolicy::Warn => {
-                eprintln!("⚠  Database file corrupted: {}", db_path.display());
-                eprintln!("   Magic bytes (hex): {}", magic_hex);
+                eprintln!("⚠  Database file corrupted: {p}", p = db_path.display());
+                eprintln!("   Magic bytes (hex): {magic_hex}");
                 eprintln!("   Expected: 53 51 6c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 00 (SQLite format 3)");
                 eprintln!("   SQLite will attempt automatic recovery...");
 
                 if should_log {
                     log_recovery(&format!(
-                        "Database file corrupted: {}. Magic bytes: {}. SQLite will recover automatically.",
-                        db_path.display(),
-                        magic_hex
+                        "Database file corrupted: {p}. Magic bytes: {magic_hex}. SQLite will recover automatically.",
+                        p = db_path.display()
                     ))
                     .ok();
                 }
@@ -540,9 +530,8 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
             RecoveryPolicy::Silent => {
                 if should_log {
                     log_recovery(&format!(
-                        "Database file corrupted: {}. Magic bytes: {}. SQLite recovered silently.",
-                        db_path.display(),
-                        magic_hex
+                        "Database file corrupted: {p}. Magic bytes: {magic_hex}. SQLite recovered silently.",
+                        p = db_path.display()
                     ))
                     .ok();
                 }
@@ -559,7 +548,7 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
 /// not the source of truth. Sessions can be reconstructed from JJ workspaces.
 ///
 /// Behavior depends on recovery policy:
-/// - FailFast: Returns error without recovering
+/// - `FailFast`: Returns error without recovering
 /// - Warn: Logs warning, then recovers
 /// - Silent: Recovers without warning (old behavior)
 fn recover_database(path: &Path) -> Result<()> {
@@ -569,23 +558,23 @@ fn recover_database(path: &Path) -> Result<()> {
     match policy {
         RecoveryPolicy::FailFast => {
             return Err(Error::DatabaseError(format!(
-                "Database corruption detected: {}\n\n\
+                "Database corruption detected: {p}\n\n\
                  Recovery is disabled in strict mode (--strict or ZJJ_STRICT=1).\n\n\
                  To recover, either:\n\
                  - Remove --strict flag\n\
                  - Run 'zjj doctor --fix'\n\
                  - Manually delete the database and run 'zjj init'",
-                path.display()
+                p = path.display()
             )));
         }
         RecoveryPolicy::Warn => {
-            eprintln!("⚠  Database corruption detected: {}", path.display());
+            eprintln!("⚠  Database corruption detected: {p}", p = path.display());
             eprintln!("   Recovering by recreating database file...");
 
             if should_log {
                 let log_msg = format!(
-                    "Database corruption detected at: {}. Recovered by recreating database.",
-                    path.display()
+                    "Database corruption detected at: {p}. Recovered by recreating database.",
+                    p = path.display()
                 );
                 log_recovery(&log_msg).ok();
             }
@@ -593,8 +582,8 @@ fn recover_database(path: &Path) -> Result<()> {
         RecoveryPolicy::Silent => {
             if should_log {
                 let log_msg = format!(
-                    "Database corruption detected at: {}. Recovered silently.",
-                    path.display()
+                    "Database corruption detected at: {p}. Recovered silently.",
+                    p = path.display()
                 );
                 log_recovery(&log_msg).ok();
             }
@@ -614,15 +603,15 @@ fn recover_database(path: &Path) -> Result<()> {
                 // Failed to remove - log error and return it
                 // Don't attempt chmod - preserve user permissions
                 log_recovery(&format!(
-                    "Failed to remove corrupted database {}: {e}",
-                    path.display()
+                    "Failed to remove corrupted database {p}: {e}",
+                    p = path.display()
                 ))
                 .ok();
                 return Err(Error::IoError(format!(
                     "Failed to remove corrupted database: {e}"
                 )));
             }
-        };
+        }
     }
 
     Ok(())
@@ -702,10 +691,8 @@ async fn check_schema_version(pool: &SqlitePool) -> Result<()> {
              The database may have been created by a different version of zjj.\n\n\
              To reset: rm .zjj/state.db && zjj init"
         ))),
-        None => Err(Error::DatabaseError(format!(
-            "Schema version not found in database. The database may be corrupted.\n\n\
-             To reset: rm .zjj/state.db && zjj init"
-        ))),
+        None => Err(Error::DatabaseError("Schema version not found in database. The database may be corrupted.\n\n\
+             To reset: rm .zjj/state.db && zjj init".to_string())),
     }
 }
 

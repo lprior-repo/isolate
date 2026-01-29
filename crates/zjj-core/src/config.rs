@@ -42,9 +42,9 @@ impl FromStr for RecoveryPolicy {
 
     fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
-            "silent" => Ok(RecoveryPolicy::Silent),
-            "warn" => Ok(RecoveryPolicy::Warn),
-            "fail-fast" | "failfast" | "fail" => Ok(RecoveryPolicy::FailFast),
+            "silent" => Ok(Self::Silent),
+            "warn" => Ok(Self::Warn),
+            "fail-fast" | "failfast" | "fail" => Ok(Self::FailFast),
             _ => Err(Error::InvalidConfig(format!(
                 "Invalid recovery policy: {s}. Must be one of: silent, warn, fail-fast"
             ))),
@@ -55,9 +55,9 @@ impl FromStr for RecoveryPolicy {
 impl std::fmt::Display for RecoveryPolicy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RecoveryPolicy::Silent => write!(f, "silent"),
-            RecoveryPolicy::Warn => write!(f, "warn"),
-            RecoveryPolicy::FailFast => write!(f, "fail-fast"),
+            Self::Silent => write!(f, "silent"),
+            Self::Warn => write!(f, "warn"),
+            Self::FailFast => write!(f, "fail-fast"),
         }
     }
 }
@@ -81,7 +81,7 @@ pub struct Config {
     pub recovery: RecoveryConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RecoveryConfig {
     pub policy: RecoveryPolicy,
     pub log_recovered: bool,
@@ -517,7 +517,7 @@ impl SessionConfig {
 }
 
 impl RecoveryConfig {
-    fn merge(&mut self, other: Self) {
+    const fn merge(&mut self, other: Self) {
         self.policy = other.policy;
         self.log_recovered = other.log_recovered;
     }

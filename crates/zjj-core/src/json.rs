@@ -94,7 +94,7 @@ impl JsonError {
 
     /// Set exit code for this error
     #[must_use]
-    pub fn with_exit_code(mut self, exit_code: i32) -> Self {
+    pub const fn with_exit_code(mut self, exit_code: i32) -> Self {
         self.error.exit_code = exit_code;
         self
     }

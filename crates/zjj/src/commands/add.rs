@@ -11,8 +11,6 @@ use crate::{
 };
 
 /// JSON output structure for add command
-
-/// JSON output structure for add command
 #[derive(Serialize)]
 struct AddOutput {
     success: bool,

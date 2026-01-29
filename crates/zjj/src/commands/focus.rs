@@ -17,14 +17,36 @@ pub struct FocusOptions {
 }
 
 /// Run the focus command with options
-pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
+pub fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()> {
     let db = get_session_db()?;
 
-    // Get the session
+    // Resolve the name (either provided or selected interactively)
+    let resolved_name = if let Some(n) = name {
+        n.to_string()
+    } else {
+        // Interactive selection
+        let sessions = db.list_blocking(None)?;
+        
+        if sessions.is_empty() {
+            if options.format.is_json() {
+                return Err(anyhow::anyhow!("No sessions found"));
+            }
+            println!("No sessions found. Create one with 'zjj add <name>'.");
+            return Ok(());
+        }
+
+        if let Some(session) = crate::selector::select_session(&sessions)? {
+            session.name
+        } else {
+            return Ok(()); // User cancelled
+        }
+    };
+
+    // Get the session (we might need to fetch it again if it was provided by name)
     // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-    let session = db.get_blocking(name)?.ok_or_else(|| {
+    let session = db.get_blocking(&resolved_name)?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
-            "Session '{name}' not found"
+            "Session '{resolved_name}' not found"
         )))
     })?;
 
@@ -36,30 +58,30 @@ pub fn run_with_options(name: &str, options: &FocusOptions) -> Result<()> {
 
         if options.format.is_json() {
             let output = FocusOutput {
-                name: name.to_string(),
+                name: resolved_name.clone(),
                 zellij_tab,
-                message: format!("Switched to session '{name}'"),
+                message: format!("Switched to session '{resolved_name}'"),
             };
             let envelope = SchemaEnvelope::new("focus-response", "single", output);
             println!("{}", serde_json::to_string(&envelope)?);
         } else {
-            println!("Switched to session '{name}'");
+            println!("Switched to session '{resolved_name}'");
         }
     } else {
         // Outside Zellij: Attach to the Zellij session
         // User will land in session and can navigate to desired tab
         if options.format.is_json() {
             let output = FocusOutput {
-                name: name.to_string(),
+                name: resolved_name.clone(),
                 zellij_tab: zellij_tab.clone(),
                 message: format!(
-                    "Session '{name}' is in tab '{zellij_tab}'. Attaching to Zellij session..."
+                    "Session '{resolved_name}' is in tab '{zellij_tab}'. Attaching to Zellij session..."
                 ),
             };
             let envelope = SchemaEnvelope::new("focus-response", "single", output);
             println!("{}", serde_json::to_string(&envelope)?);
         } else {
-            println!("Session '{name}' is in tab '{zellij_tab}'");
+            println!("Session '{resolved_name}' is in tab '{zellij_tab}'");
             println!("Attaching to Zellij session...");
         }
         attach_to_zellij_session(None)?;

@@ -11,6 +11,7 @@ mod cli;
 mod commands;
 mod db;
 mod json_output;
+mod selector;
 mod session;
 
 use commands::{
@@ -191,13 +192,14 @@ fn cmd_focus() -> ClapCommand {
         .after_help(
             "EXAMPLES:\n  \
             zjj focus feature-auth            Switch to session's Zellij tab\n  \
+            zjj focus                         Interactive session selection\n  \
             zjj focus bugfix-123 --json       Get JSON output of focus operation",
         )
         .arg(
             Arg::new("name")
-                .required(true)
+                .required(false)
                 .allow_hyphen_values(true) // Allow -name to be passed through for validation
-                .help("Name of the session to focus"),
+                .help("Name of the session to focus (interactive if omitted)"),
         )
         .arg(
             Arg::new("json")
@@ -717,12 +719,13 @@ fn handle_remove(sub_m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn handle_focus(sub_m: &clap::ArgMatches) -> Result<()> {
-    let name = sub_m
-        .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+    let name = sub_m.get_one::<String>("name").map(String::as_str);
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let options = focus::FocusOptions { format };
+    
+    // Pass name as Option<&str> to run_with_options
+    // If name is None, focus::run_with_options will trigger interactive selection
     match focus::run_with_options(name, &options) {
         Ok(()) => Ok(()),
         Err(e) => {
