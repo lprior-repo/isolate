@@ -72,6 +72,139 @@ systemctl --user restart bazel-remote
 
 See [docs/CI-CD-PERFORMANCE.md](docs/CI-CD-PERFORMANCE.md) for benchmarks and optimization guide.
 
+## Using bv for AI Triage
+
+bv is a graph-aware triage engine for Beads projects. Use robot flags for deterministic, dependency-aware outputs with precomputed metrics.
+
+**⚠️ CRITICAL: Use ONLY `--robot-*` flags. Bare `bv` launches an interactive TUI that blocks.**
+
+```bash
+# THE ENTRY POINT - Get everything in one call
+bv --robot-triage
+
+# Minimal: just the top pick + claim command
+bv --robot-next
+
+# Parallel execution tracks for multi-agent workflows
+bv --robot-plan --robot-triage-by-track
+
+# Token-optimized output
+bv --robot-triage --format toon
+```
+
+**Key outputs from `--robot-triage`:**
+- `quick_ref.top_picks` - Top 3 ranked issues
+- `recommendations` - Full ranked list with scores, reasons
+- `quick_wins` - Low-effort, high-impact items
+- `blockers_to_clear` - High-impact unblock targets
+- `commands` - Copy-paste shell commands for next steps
+
+**jq examples:**
+```bash
+bv --robot-triage | jq '.quick_ref.top_picks[:3]'
+bv --robot-triage | jq '.recommendations[0]'
+bv --robot-plan | jq '.plan.summary.highest_impact'
+```
+
+Use bv instead of parsing beads.jsonl directly—it computes PageRank, critical paths, and parallel tracks deterministically.
+
+## Parallel Agent Workflow (Orchestration Pattern)
+
+For high-throughput parallel work, use this multi-agent workflow orchestrated through subagents:
+
+### The Complete Pipeline
+
+Each autonomous agent follows this workflow from triage to merge:
+
+```bash
+# Step 1: TRIAGE - Find what to work on
+bv --robot-triage --robot-triage-by-track  # Get parallel execution tracks
+# OR for single issue:
+bv --robot-next  # Get top recommendation + claim command
+
+# Step 2: CLAIM - Reserve the bead
+bd update <bead-id> --status in_progress
+
+# Step 3: ISOLATE - Create isolated workspace
+# Use zjj skill to spawn isolated JJ workspace + Zellij tab
+zjj add <session-name>
+
+# Step 4: IMPLEMENT - Build with functional patterns
+# For Rust: functional-rust-generator skill
+# For Gleam: tdd15-gleam skill (15-phase TDD workflow)
+# Implements with: zero panics, zero unwraps, Railway-Oriented Programming
+
+# Step 5: REVIEW - Adversarial QA
+# Use red-queen skill for evolutionary testing
+# Drives regression hunting and quality gates
+
+# Step 6: LAND - Finalize and push
+# Use land skill for mandatory quality gates:
+# - Moon quick check (6-7ms cached)
+# - git commit with proper message
+# - bd sync
+# - git push (MANDATORY - work not done until pushed)
+
+# Step 7: MERGE - Reintegrate to main
+# Use zjj skill to merge workspace back to main
+# This handles: jj rebase -d main, cleanup, tab switching
+```
+
+### Orchestrator Responsibilities
+
+As orchestrator, your job is to:
+1. **Keep context clean** - Delegate work to subagents, don't implement yourself
+2. **Monitor progress** - Use `TaskOutput` to check agent status without loading full context
+3. **Handle failures** - Spawn replacement agents if needed
+4. **Track completion** - Verify each agent completes all 7 steps
+5. **Report summary** - Provide final status of all beads completed
+
+### Subagent Prompt Template
+
+```markdown
+You are a parallel autonomous agent. Complete this workflow:
+
+**BEAD TO WORK ON**: <bead-id> - "<title>"
+
+**WORKFLOW**:
+1. CLAIM: `bd update <bead-id> --status in_progress`
+2. ISOLATE: Use the zjj skill to spawn an isolated workspace named "<session-name>"
+3. IMPLEMENT: Use functional-rust-generator skill (or tdd15-gleam for Gleam)
+   - Zero unwraps, zero panics
+   - Railway-Oriented Programming
+   - Functional patterns (map, and_then, ? operator)
+4. REVIEW: Use red-queen skill for adversarial QA
+5. LAND: Use land skill to finalize (quality gates, sync, push)
+6. MERGE: Use zjj skill to merge back to main
+
+**CRITICAL CONSTRAINTS**:
+- Zero unwraps, zero panics
+- Use Moon for builds (never raw cargo)
+- Work is NOT done until git push succeeds
+
+Report your final status with the bead ID.
+```
+
+### Parallel Execution Example
+
+```bash
+# Run bv triage to get parallel tracks
+bv --robot-triage --robot-triage-by-track
+
+# Spawn 8 parallel agents using Task tool
+# Each gets unique bead from different track
+# All run simultaneously in isolated workspaces
+# Orchestrator monitors from clean context
+```
+
+### Key Benefits
+
+- **Isolation**: Each agent works in separate JJ workspace
+- **Parallel**: 8x throughput with no conflicts
+- **Deterministic**: bv precomputes dependencies and execution tracks
+- **Quality**: Red-queen ensures adversarial testing on each change
+- **Clean handoff**: land skill guarantees all work pushed before completion
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
