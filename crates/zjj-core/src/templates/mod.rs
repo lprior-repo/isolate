@@ -42,7 +42,7 @@ Work is not complete until:
 3. `git push` succeeds.
 ";
 
-/// Template for docs/01_ERROR_HANDLING.md
+/// Template for `docs/01_ERROR_HANDLING.md`
 pub const DOC_01_ERROR_HANDLING: &str = r"# Error Handling: Zero Policy
 
 ## The Sacred Law
@@ -52,7 +52,7 @@ All fallible operations return `Result<T, Error>`. Capturing error information i
 Use `map`, `and_then`, and `?` to propagate errors idiomatically.
 ";
 
-/// Template for docs/02_MOON_BUILD.md
+/// Template for `docs/02_MOON_BUILD.md`
 pub const DOC_02_MOON_BUILD: &str = r"# Build Pipeline: Moon
 
 ## Absolute Verification
@@ -62,7 +62,7 @@ moon run :ci --force
 ```
 ";
 
-/// Template for docs/03_WORKFLOW.md
+/// Template for `docs/03_WORKFLOW.md`
 pub const DOC_03_WORKFLOW: &str = r"# Workflow: Pull -> Isolate -> Verify -> Merge
 
 1. **Pull**: `bv` discover.
@@ -71,7 +71,7 @@ pub const DOC_03_WORKFLOW: &str = r"# Workflow: Pull -> Isolate -> Verify -> Mer
 4. **Merge**: `zjj done`.
 ";
 
-/// Template for docs/05_RUST_STANDARDS.md
+/// Template for `docs/05_RUST_STANDARDS.md`
 pub const DOC_05_RUST_STANDARDS: &str = r"# Rust Standards
 
 - **KIRK**: Keep It Robust and Klean.
@@ -79,13 +79,13 @@ pub const DOC_05_RUST_STANDARDS: &str = r"# Rust Standards
 - **Invariants**: Document and enforce state consistency.
 ";
 
-/// Template for docs/08_BEADS.md
+/// Template for `docs/08_BEADS.md`
 pub const DOC_08_BEADS: &str = r"# Beads Integration
 
 Issues are nodes in a graph. Prioritize using `bv --robot-triage`.
 ";
 
-/// Template for docs/09_JUJUTSU.md
+/// Template for `docs/09_JUJUTSU.md`
 pub const DOC_09_JUJUTSU: &str = r"# Jujutsu Workspaces
 
 Instant isolation via `jj workspace add`. Managed automatically by `zjj`.

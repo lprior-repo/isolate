@@ -123,18 +123,21 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
             .map(|session| {
                 sync_session_internal(&db, &session.name, &session.workspace_path)
                     .map(|()| session.name.clone())
-                    .map_err(|e| Box::new(SyncError {
-                        name: session.name.clone(),
-                        error: ErrorDetail {
-                            code: "SYNC_FAILED".to_string(),
-                            message: e.to_string(),
-                            exit_code: 3,
-                            details: None,
-                            suggestion: Some(
-                                "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
-                            ),
-                        },
-                    }))
+                    .map_err(|e| {
+                        Box::new(SyncError {
+                            name: session.name.clone(),
+                            error: ErrorDetail {
+                                code: "SYNC_FAILED".to_string(),
+                                message: e.to_string(),
+                                exit_code: 3,
+                                details: None,
+                                suggestion: Some(
+                                    "Try 'jj resolve' to fix conflicts, then retry sync"
+                                        .to_string(),
+                                ),
+                            },
+                        })
+                    })
             })
             .partition(Result::is_ok);
 
@@ -142,7 +145,10 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
             name: None,
             synced_count: successes.len(),
             failed_count: errors.len(),
-            errors: errors.into_iter().filter_map(|r| r.err().map(|e| *e)).collect(),
+            errors: errors
+                .into_iter()
+                .filter_map(|r| r.err().map(|e| *e))
+                .collect(),
         };
         let envelope = SchemaEnvelope::new("sync-response", "single", output);
         println!("{}", serde_json::to_string(&envelope)?);

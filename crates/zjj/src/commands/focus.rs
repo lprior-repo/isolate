@@ -26,7 +26,7 @@ pub fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()
     } else {
         // Interactive selection
         let sessions = db.list_blocking(None)?;
-        
+
         if sessions.is_empty() {
             if options.format.is_json() {
                 return Err(anyhow::anyhow!("No sessions found"));

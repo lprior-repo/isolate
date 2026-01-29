@@ -161,7 +161,11 @@ pub fn render_template(
         .replace("{{ authors }}", &context.authors.join(", "))
         .replace(
             "{{ repository_url }}",
-            context.repository_url.as_ref().map(|s| s.as_str()).unwrap_or(""),
+            context
+                .repository_url
+                .as_ref()
+                .map(|s| s.as_str())
+                .unwrap_or(""),
         );
 
     Ok(result)
@@ -299,9 +303,9 @@ mod tests {
         let result = render_template(TemplateType::AgentsMd, &context);
 
         assert!(result.is_ok());
-        let content = result.expect("Should render successfully");
-        assert!(content.contains("my-project"));
-        assert!(content.contains("My awesome project"));
+        let rendered = result.expect("Should render successfully");
+        assert!(rendered.contains("my-project"));
+        assert!(rendered.contains("My awesome project"));
     }
 
     #[test]

@@ -75,6 +75,8 @@ fn run_selector(
                     KeyCode::Char('q') | KeyCode::Esc => return Ok(None),
                     KeyCode::Enter => {
                         return Ok(Some(sessions[state.selected_index].clone()));
+                        // Note: Clone necessary here as we need owned Session for return
+                        // Future optimization: Consider Arc<Session> for shared ownership
                     }
                     KeyCode::Up | KeyCode::Char('k') => {
                         if state.selected_index > 0 {
@@ -124,10 +126,7 @@ fn draw_ui(f: &mut Frame, sessions: &[Session], state: &mut SelectorState) {
                     format!("{:10}", session.status),
                     Style::default().fg(status_color),
                 ),
-                Span::raw(format!(
-                    " {}",
-                    session.branch.as_deref().unwrap_or("-")
-                )),
+                Span::raw(format!(" {}", session.branch.as_deref().unwrap_or("-"))),
             ]);
 
             ListItem::new(line)
@@ -135,7 +134,11 @@ fn draw_ui(f: &mut Frame, sessions: &[Session], state: &mut SelectorState) {
         .collect();
 
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(" Select Session "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Select Session "),
+        )
         .highlight_style(
             Style::default()
                 .add_modifier(Modifier::BOLD)
@@ -155,11 +158,11 @@ fn draw_ui(f: &mut Frame, sessions: &[Session], state: &mut SelectorState) {
         Span::raw(" | Cancel: "),
         Span::styled("Esc/q", Style::default().add_modifier(Modifier::BOLD)),
     ];
-    
+
     let help = Paragraph::new(Line::from(help_text))
         .block(Block::default().borders(Borders::ALL))
         .alignment(ratatui::layout::Alignment::Center);
-    
+
     f.render_widget(help, chunks[1]);
 }
 

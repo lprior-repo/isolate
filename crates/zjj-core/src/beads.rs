@@ -5,6 +5,8 @@
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
+// NOTE: im::HashMap provides O(1) cloning through structural sharing
+// This is significantly more efficient than std::collections::HashMap for clone-heavy workloads
 use im::HashMap;
 use itertools::Itertools;
 use rusqlite::Connection;

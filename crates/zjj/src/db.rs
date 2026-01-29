@@ -958,8 +958,8 @@ mod tests {
     fn test_sqlite_magic_bytes_valid() {
         // Valid SQLite header: "SQLite format 3\0" (uppercase L, single null)
         let valid_header = [
-            0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74,
-            0x20, 0x33, 0x00,
+            0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20,
+            0x33, 0x00,
         ];
         let expected_magic: &[u8] = &[
             b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
@@ -974,8 +974,8 @@ mod tests {
     fn test_sqlite_magic_bytes_lowercase_l_fails() {
         // Invalid SQLite header: "SQLite format 3\0" (lowercase l - the bug)
         let invalid_header = [
-            0x53, 0x51, 0x6c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74,
-            0x20, 0x33, 0x00,
+            0x53, 0x51, 0x6c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20,
+            0x33, 0x00,
         ];
         let expected_magic: &[u8] = &[
             b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
@@ -991,8 +991,8 @@ mod tests {
         // Invalid SQLite header: "SQLite format 3\0\0" (double null - the bug)
         // This is 17 bytes total, but we only check first 16
         let invalid_header = [
-            0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74,
-            0x20, 0x33, 0x00, 0x00,
+            0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20,
+            0x33, 0x00, 0x00,
         ];
         let expected_magic: &[u8] = &[
             b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
@@ -1002,7 +1002,11 @@ mod tests {
         // The first 16 bytes should match, but the 17th byte (0x00) makes it invalid
         // because SQLite format is exactly 16 bytes
         assert_eq!(&invalid_header[..16], expected_magic);
-        assert_eq!(invalid_header.len(), 17, "Invalid header should have 17 bytes");
+        assert_eq!(
+            invalid_header.len(),
+            17,
+            "Invalid header should have 17 bytes"
+        );
     }
 
     /// Test that completely wrong magic bytes fail validation
@@ -1010,8 +1014,8 @@ mod tests {
     fn test_sqlite_magic_bytes_completely_wrong_fails() {
         // Completely invalid header
         let invalid_header = [
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
-            0x0d, 0x0e, 0x0f,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+            0x0e, 0x0f,
         ];
         let expected_magic: &[u8] = &[
             b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
@@ -1087,8 +1091,8 @@ mod tests {
 
         // Create a file with invalid magic bytes (the old bug: lowercase l)
         let invalid_header = [
-            0x53, 0x51, 0x6c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74,
-            0x20, 0x33, 0x00,
+            0x53, 0x51, 0x6c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20,
+            0x33, 0x00,
         ];
         // Create a file with at least 100 bytes (minimum required)
         let mut invalid_data = Vec::with_capacity(100);
@@ -1131,9 +1135,7 @@ mod tests {
 
         // Verify the file exists but is too small
         assert!(db_path.exists());
-        let file_size = std::fs::metadata(&db_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
         assert!(file_size < 100, "File should be less than 100 bytes");
 
         Ok(())
