@@ -381,6 +381,10 @@ pub fn query_beads(workspace_path: &Path) -> std::result::Result<Vec<BeadIssue>,
     let beads_db = workspace_path.join(".beads/beads.db");
 
     if !beads_db.exists() {
+        eprintln!(
+            "Warning: Beads database not found at {}. It will be created when needed.",
+            beads_db.display()
+        );
         return Ok(Vec::new());
     }
 
@@ -567,11 +571,7 @@ pub fn sort_issues(
                 .collect(),
         },
         BeadSort::Status => match direction {
-            SortDirection::Asc => issues
-                .iter()
-                .sorted_by_key(|i| i.status)
-                .cloned()
-                .collect(),
+            SortDirection::Asc => issues.iter().sorted_by_key(|i| i.status).cloned().collect(),
             SortDirection::Desc => issues
                 .iter()
                 .sorted_by_key(|i| Reverse(i.status))

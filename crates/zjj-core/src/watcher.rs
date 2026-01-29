@@ -162,6 +162,10 @@ pub async fn query_beads_status(pool: &SqlitePool, workspace_path: &Path) -> Res
     let beads_db = workspace_path.join(".beads/beads.db");
 
     if !beads_db.exists() {
+        eprintln!(
+            "Warning: Beads database not found at {}. It will be created when needed.",
+            beads_db.display()
+        );
         return Ok(BeadsStatus::NoBeads);
     }
 
