@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 /// Unified AI Instructions for AGENTS.md and CLAUDE.md
-pub const AI_INSTRUCTIONS: &str = r#"# Agent Instructions: Autonomous Development Loop
+pub const AI_INSTRUCTIONS: &str = r"# Agent Instructions: Autonomous Development Loop
 
 This project uses **Beads** for triage, **ZJJ** for isolation, and **Moon** for absolute quality.
 
@@ -40,56 +40,56 @@ Work is not complete until:
 1. `moon run :ci --force` passes.
 2. `zjj done` has been executed.
 3. `git push` succeeds.
-"#;
+";
 
 /// Template for docs/01_ERROR_HANDLING.md
-pub const DOC_01_ERROR_HANDLING: &str = r#"# Error Handling: Zero Policy
+pub const DOC_01_ERROR_HANDLING: &str = r"# Error Handling: Zero Policy
 
 ## The Sacred Law
 All fallible operations return `Result<T, Error>`. Capturing error information is a requirement, not a suggestion.
 
 ## combinators
 Use `map`, `and_then`, and `?` to propagate errors idiomatically.
-"#;
+";
 
 /// Template for docs/02_MOON_BUILD.md
-pub const DOC_02_MOON_BUILD: &str = r#"# Build Pipeline: Moon
+pub const DOC_02_MOON_BUILD: &str = r"# Build Pipeline: Moon
 
 ## Absolute Verification
 To ensure no cached success masks a subtle regression, always run:
 ```bash
 moon run :ci --force
 ```
-"#;
+";
 
 /// Template for docs/03_WORKFLOW.md
-pub const DOC_03_WORKFLOW: &str = r#"# Workflow: Pull -> Isolate -> Verify -> Merge
+pub const DOC_03_WORKFLOW: &str = r"# Workflow: Pull -> Isolate -> Verify -> Merge
 
 1. **Pull**: `bv` discover.
 2. **Isolate**: `zjj spawn`.
 3. **Verify**: `moon run :ci --force`.
 4. **Merge**: `zjj done`.
-"#;
+";
 
 /// Template for docs/05_RUST_STANDARDS.md
-pub const DOC_05_RUST_STANDARDS: &str = r#"# Rust Standards
+pub const DOC_05_RUST_STANDARDS: &str = r"# Rust Standards
 
 - **KIRK**: Keep It Robust and Klean.
 - **Contract Based Testing**: Verify boundaries.
 - **Invariants**: Document and enforce state consistency.
-"#;
+";
 
 /// Template for docs/08_BEADS.md
-pub const DOC_08_BEADS: &str = r#"# Beads Integration
+pub const DOC_08_BEADS: &str = r"# Beads Integration
 
 Issues are nodes in a graph. Prioritize using `bv --robot-triage`.
-"#;
+";
 
 /// Template for docs/09_JUJUTSU.md
-pub const DOC_09_JUJUTSU: &str = r#"# Jujutsu Workspaces
+pub const DOC_09_JUJUTSU: &str = r"# Jujutsu Workspaces
 
 Instant isolation via `jj workspace add`. Managed automatically by `zjj`.
-"#;
+";
 
 /// Get all documentation templates mapped to their relative paths
 #[must_use]
