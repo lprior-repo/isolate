@@ -1,7 +1,6 @@
 //! Create a new session with JJ workspace + Zellij tab
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 use zjj_core::{config, jj, json::SchemaEnvelope, OutputFormat};
 
 use crate::{
@@ -11,14 +10,9 @@ use crate::{
 };
 
 /// JSON output structure for add command
-#[derive(Serialize)]
-struct AddOutput {
-    success: bool,
-    name: String,
-    workspace_path: String,
-    zellij_tab: String,
-    message: String,
-}
+///
+/// Re-exported from crate::json::serializers
+use crate::json::AddOutput;
 /// Options for the add command
 pub struct AddOptions {
     /// Session name
@@ -180,11 +174,10 @@ fn output_result(
 ) {
     if format.is_json() {
         let output = AddOutput {
-            success: true,
             name: name.to_string(),
             workspace_path: workspace_path.to_string(),
             zellij_tab: zellij_tab.to_string(),
-            message: format!("Created session '{name}' ({mode})"),
+            status: format!("Created session '{name}' ({mode})"),
         };
         let envelope = SchemaEnvelope::new("add-response", "single", output);
         println!(

@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use chrono::Utc;
+use chrono::{DateTime, FixedOffset, Utc};
 use sqlx::sqlite::SqlitePoolOptions;
 use zjj_core::{agents::registry::AgentRegistry, coordination::locks::LockManager};
 
@@ -117,10 +117,10 @@ impl TestContext {
                     actions_count,
                 )| {
                     let registered_at = DateTime::parse_from_rfc3339(&registered_at)
-                        .map(|dt| dt.with_timezone(&Utc))
+                        .map(|dt: DateTime<FixedOffset>| dt.with_timezone(&Utc))
                         .map_err(|e| format!("Invalid registered_at: {e}"))?;
                     let last_seen = DateTime::parse_from_rfc3339(&last_seen)
-                        .map(|dt| dt.with_timezone(&Utc))
+                        .map(|dt: DateTime<FixedOffset>| dt.with_timezone(&Utc))
                         .map_err(|e| format!("Invalid last_seen: {e}"))?;
 
                     // Determine if stale (more than 60 seconds ago)
@@ -132,7 +132,7 @@ impl TestContext {
                         last_seen,
                         current_session,
                         current_command,
-                        actions_count: actions_count.cast_unsigned(),
+                        actions_count: actions_count as u64,
                         stale,
                     })
                 },

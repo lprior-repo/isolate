@@ -321,9 +321,11 @@ fn test_doctor_json_error_format() {
         assert!(parsed.is_ok(), "Output should be valid JSON: {output}");
 
         if let Ok(json) = parsed {
-            // Doctor output uses 'healthy' instead of 'success'
-            assert!(json.get("healthy").is_some(), "Should have 'healthy' field");
+            // Doctor output uses SchemaEnvelope wrapper
+            assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+            assert!(json.get("success").is_some(), "Should have 'success' field");
             assert!(json.get("checks").is_some(), "Should have 'checks' field");
+            assert!(json.get("summary").is_some(), "Should have 'summary' field");
         }
     }
 }
