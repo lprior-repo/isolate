@@ -4,6 +4,7 @@
 //! to .zjj/recovery.log for audit trails.
 
 use std::path::Path;
+use std::io::Write;
 
 use crate::{Error, Result};
 
@@ -29,7 +30,6 @@ pub fn log_recovery(message: &str) -> Result<()> {
     let log_entry = format!("[{timestamp}] {message}\n");
 
     // Append to log file (create if doesn't exist)
-    use std::io::Write;
     std::fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -88,7 +88,9 @@ mod tests {
         // We can't verify the exact content because log_recovery works on .zjj/recovery.log
         // relative to current directory, not our temp dir
         // So we just verify it doesn't crash
-        assert!(result.is_ok() || result.unwrap_err().to_string().contains(".zjj"));
+        if let Err(e) = result {
+            assert!(e.to_string().contains(".zjj"));
+        }
 
         Ok(())
     }

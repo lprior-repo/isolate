@@ -18,20 +18,17 @@
 use std::{path::Path, process::Command};
 
 use anyhow::Result;
+use chrono::{Duration, Utc};
 use zjj_core::{
     introspection::{
         CheckStatus, DoctorCheck, DoctorFixOutput, DoctorOutput, FixResult, UnfixableIssue,
     },
-    json::OutputFormat,
     OutputFormat,
 };
 
 use crate::{
     cli::{is_command_available, is_inside_zellij, is_jj_repo, jj_root},
-    commands::{
-        get_session_db,
-        list::{run_with_options, ListOptions},
-    },
+    commands::get_session_db,
     session::SessionStatus,
 };
 
@@ -42,7 +39,7 @@ fn check_for_recent_recovery() -> Option<String> {
         return None;
     }
 
-    let content = std::fs::read_to_string(&log_path).ok()?;
+    let content = std::fs::read_to_string(log_path).ok()?;
 
     // Get last 5 lines to check for recent recovery
     let recent_lines: Vec<&str> = content.lines().rev().take(5).collect();
@@ -62,7 +59,7 @@ fn check_for_recent_recovery() -> Option<String> {
                 if duration.num_minutes() < 5 {
                     // Find message part (everything after '] ')
                     let message = last_line.split(']').nth(1).unwrap_or("");
-                    return Some(format!("Recent recovery detected: {}", message));
+                    return Some(format!("Recent recovery detected: {message}"));
                 }
             }
         }
@@ -346,8 +343,7 @@ fn check_state_db() -> DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
             message: format!(
-                "Database file has suspicious size: {} bytes (may be corrupted)",
-                file_size
+                "Database file has suspicious size: {file_size} bytes (may be corrupted)"
             ),
             suggestion: Some(
                 "Database may be corrupted. Run 'zjj doctor --fix' to attempt recovery."
@@ -366,7 +362,7 @@ fn check_state_db() -> DoctorCheck {
     DoctorCheck {
         name: "State Database".to_string(),
         status: CheckStatus::Pass,
-        message: format!("state.db is accessible ({} bytes)", file_size),
+        message: format!("state.db is accessible ({file_size} bytes)"),
         suggestion: None,
         auto_fixable: false,
         details: Some(serde_json::json!({
@@ -517,14 +513,14 @@ fn check_beads() -> DoctorCheck {
     }
 }
 
+
+
 /// Check for stale/incomplete sessions
 fn check_stale_sessions() -> DoctorCheck {
     let sessions = get_session_db()
         .ok()
         .and_then(|db| db.list_blocking(None).ok())
         .unwrap_or_default();
-
-    use chrono::{Duration, Utc};
 
     let stale_threshold = Duration::minutes(5);
     let now = Utc::now();
@@ -537,68 +533,11 @@ fn check_stale_sessions() -> DoctorCheck {
             }
 
             // Check if session is stale (not updated in 5 minutes)
-            let updated_at = s.updated_at.signed_duration_since(now);
-            let is_stale = updated_at > stale_threshold;
-
-            is_stale
-        })
-        .map(|s| s.name.clone())
-        .collect();
-
-    if stale_sessions.is_empty() {
-        DoctorCheck {
-            name: "Stale Sessions".to_string(),
-            status: CheckStatus::Pass,
-            message: "No stale sessions detected".to_string(),
-            suggestion: None,
-            auto_fixable: false,
-            details: None,
-        }
-    } else {
-        let details = serde_json::json!({
-            "stale_sessions": stale_sessions,
-        });
-        DoctorCheck {
-            name: "Stale Sessions".to_string(),
-            status: CheckStatus::Warn,
-            message: format!(
-                "{} stale/incomplete session(s) detected (not updated in 5 minutes)",
-                stale_sessions.len()
-            ),
-            suggestion: Some(
-                "Check for interrupted operations or run 'zjj remove <name>' to clean up"
-                    .to_string(),
-            ),
-            auto_fixable: false,
-            details: Some(details),
-        }
-    }
-}
-
-/// Check for stale/incomplete sessions
-fn check_stale_sessions() -> DoctorCheck {
-    let sessions = get_session_db()
-        .ok()
-        .and_then(|db| db.list_blocking(None).ok())
-        .unwrap_or_default();
-
-    use chrono::{Duration, Utc};
-
-    let stale_threshold = Duration::minutes(5);
-    let now = Utc::now();
-
-    let stale_sessions: Vec<_> = sessions
-        .iter()
-        .filter(|s| {
-            if s.status != crate::session::SessionStatus::Creating {
-                return false;
-            }
-
-            // Check if session is stale (not updated in 5 minutes)
-            let updated_at = s.updated_at.signed_duration_since(now);
-            let is_stale = updated_at > stale_threshold;
-
-            is_stale
+            let updated_at_i64: i64 = s.updated_at.try_into().unwrap_or(i64::MAX);
+            let updated_at = chrono::DateTime::from_timestamp(updated_at_i64, 0).unwrap_or(now);
+            let duration = now.signed_duration_since(updated_at);
+            
+            duration > stale_threshold
         })
         .map(|s| s.name.clone())
         .collect();
@@ -648,7 +587,7 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
             .details
             .as_ref()
             .and_then(|d| d.get("recovered"))
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false)
     });
 
@@ -731,69 +670,24 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
         }
 
         // Try to fix the issue
-        match check.name.as_str() {
-            "Orphaned Workspaces" => match fix_orphaned_workspaces(check) {
-                Ok(action) => {
-                    fixed.push(FixResult {
-                        issue: check.name.clone(),
-                        action,
-                        success: true,
-                    });
-                }
-                Err(e) => {
-                    unable_to_fix.push(UnfixableIssue {
-                        issue: check.name.clone(),
-                        reason: format!("Fix failed: {e}"),
-                        suggestion: check.suggestion.clone().unwrap_or_default(),
-                    });
-                }
-            },
-            "Stale Sessions" => {
-                let stale_data = check
-                    .details
-                    .as_ref()
-                    .ok()
-                    .and_then(|v| v.get("stale_sessions"));
+        let fix_result = match check.name.as_str() {
+            "Orphaned Workspaces" => fix_orphaned_workspaces(check).map_err(|e| e.to_string()),
+            "Stale Sessions" => fix_stale_sessions(check),
+            _ => Err("No auto-fix available".to_string()),
+        };
 
-                if let Some(stale_sessions) = stale_data {
-                    if let Ok(sessions) = stale_sessions.as_array() {
-                        let db = get_session_db().ok();
-                        if let Some(db) = db {
-                            let mut removed = 0;
-                            for session_name in sessions {
-                                match db.delete_blocking(session_name.as_str()) {
-                                    Ok(true) => removed += 1,
-                                    Ok(false) => {}
-                                    Err(e) => {
-                                        tracing::warn!(
-                                            "Failed to delete stale session '{}': {}",
-                                            session_name,
-                                            e
-                                        );
-                                    }
-                                }
-                            }
-                            fixed.push(FixResult {
-                                issue: check.name.clone(),
-                                action: format!("Removed {} stale session(s)", removed),
-                                success: removed > 0,
-                            });
-                        }
-                    }
-                }
-
-                if fixed.is_empty() {
-                    unable_to_fix.push(UnfixableIssue {
-                        issue: check.name.clone(),
-                        reason: "No stale sessions data".to_string(),
-                        suggestion: None,
-                    });
-                }
+        match fix_result {
+            Ok(action) => {
+                fixed.push(FixResult {
+                    issue: check.name.clone(),
+                    action,
+                    success: true,
+                });
             }
-            _ => {
+            Err(reason) => {
                 unable_to_fix.push(UnfixableIssue {
                     issue: check.name.clone(),
-                    reason: "No auto-fix available".to_string(),
+                    reason: format!("Fix failed: {reason}"),
                     suggestion: check.suggestion.clone().unwrap_or_default(),
                 });
             }
@@ -821,11 +715,54 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
+    show_fix_results(&output);
+
+    if critical_unfixed > 0 {
+        anyhow::bail!("Auto-fix completed but {critical_unfixed} critical issue(s) remain unfixed");
+    }
+
+    Ok(())
+}
+
+fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
+    let stale_data = check
+        .details
+        .as_ref()
+        .and_then(|v| v.get("stale_sessions"))
+        .ok_or_else(|| "No stale sessions data".to_string())?;
+
+    let sessions = stale_data
+        .as_array()
+        .ok_or_else(|| "Stale sessions data is not an array".to_string())?;
+
+    let db = get_session_db().map_err(|e| format!("Failed to open DB: {e}"))?;
+    let mut removed = 0;
+
+    for session_value in sessions {
+        if let Some(session_name) = session_value.as_str() {
+            match db.delete_blocking(session_name) {
+                Ok(true) => removed += 1,
+                Ok(false) => {}
+                Err(e) => {
+                    tracing::warn!("Failed to delete stale session '{session_name}': {e}");
+                }
+            }
+        }
+    }
+
+    if removed > 0 {
+        Ok(format!("Removed {removed} stale session(s)"))
+    } else {
+        Err("Failed to remove any stale sessions".to_string())
+    }
+}
+
+fn show_fix_results(output: &DoctorFixOutput) {
     if !output.fixed.is_empty() {
         println!("Fixed Issues:");
         output.fixed.iter().for_each(|fix| {
             let symbol = if fix.success { "✓" } else { "✗" };
-            println!("{symbol} {}: {}", fix.issue, fix.action);
+            println!("{symbol} {fix_issue}: {fix_action}", fix_issue = fix.issue, fix_action = fix.action);
         });
         println!();
     }
@@ -833,16 +770,10 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     if !output.unable_to_fix.is_empty() {
         println!("Unable to Fix:");
         output.unable_to_fix.iter().for_each(|issue| {
-            println!("✗ {}: {}", issue.issue, issue.reason);
-            println!("  → {}", issue.suggestion);
+            println!("✗ {issue_name}: {issue_reason}", issue_name = issue.issue, issue_reason = issue.reason);
+            println!("  → {issue_suggestion}", issue_suggestion = issue.suggestion);
         });
     }
-
-    if critical_unfixed > 0 {
-        anyhow::bail!("Auto-fix completed but {critical_unfixed} critical issue(s) remain unfixed");
-    }
-
-    Ok(())
 }
 
 /// Fix orphaned workspaces
@@ -881,7 +812,7 @@ fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
         .get("db_to_filesystem")
         .and_then(|v| v.as_array())
     {
-        if let Some(db) = get_session_db().ok() {
+        if let Ok(db) = get_session_db() {
             for session_name in db_orphans {
                 if let Some(name) = session_name.as_str() {
                     if db.delete_blocking(name).unwrap_or(false) {

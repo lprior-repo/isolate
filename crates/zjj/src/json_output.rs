@@ -152,8 +152,8 @@ fn error_to_json_error(error: &Error) -> JsonError {
 
 /// Convert a `SpawnError` to a `JsonError` preserving structured context
 ///
-/// AI agents use error_code() and phase() to distinguish error types:
-/// - NOT_ON_MAIN vs INVALID_BEAD_STATUS vs BEAD_NOT_FOUND
+/// AI agents use `error_code()` and `phase()` to distinguish error types:
+/// - `NOT_ON_MAIN` vs `INVALID_BEAD_STATUS` vs `BEAD_NOT_FOUND`
 /// - Know which phase of spawn failed (validating, creating, etc.)
 fn convert_spawn_error(error: &SpawnError) -> JsonError {
     use zjj_core::ErrorCode;

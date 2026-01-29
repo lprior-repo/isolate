@@ -244,7 +244,7 @@ mod tests {
             squash: false,
             dry_run: false,
             no_bead_update: false,
-            format: "json".to_string(),
+            format: OutputFormat::Json,
         };
 
         let opts = args.to_options();

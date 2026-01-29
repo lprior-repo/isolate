@@ -1,5 +1,6 @@
 use std::process::Command;
 
+use anyhow::bail;
 use tempfile::TempDir;
 
 use super::*;
