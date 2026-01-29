@@ -161,7 +161,7 @@ pub fn render_template(
         .replace("{{ authors }}", &context.authors.join(", "))
         .replace(
             "{{ repository_url }}",
-            context.repository_url.as_deref().unwrap_or(""),
+            context.repository_url.as_ref().map(|s| s.as_str()).unwrap_or(""),
         );
 
     Ok(result)
@@ -236,13 +236,13 @@ mod tests {
         );
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            TemplateError::InvalidContext {
-                name: "ProjectContext".to_string(),
-                reason: "project_name cannot be empty".to_string(),
+        match result {
+            Err(TemplateError::InvalidContext { name, reason }) => {
+                assert_eq!(name, "ProjectContext".to_string());
+                assert_eq!(reason, "project_name cannot be empty".to_string());
             }
-        );
+            _ => panic!("Wrong error type"),
+        }
     }
 
     #[test]
@@ -294,12 +294,12 @@ mod tests {
             vec!["Alice".to_string(), "Bob".to_string()],
             None,
         )
-        .unwrap();
+        .expect("Valid context");
 
         let result = render_template(TemplateType::AgentsMd, &context);
 
         assert!(result.is_ok());
-        let content = result.unwrap();
+        let content = result.expect("Should render successfully");
         assert!(content.contains("my-project"));
         assert!(content.contains("My awesome project"));
     }
