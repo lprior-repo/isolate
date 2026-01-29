@@ -179,6 +179,8 @@ fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
     // Get beads stats
     let beads = get_beads_stats()?;
 
+    // Note: Clones here are necessary because SessionStatusInfo owns its data
+    // Future optimization: Consider Arc<Session> or Cow<str> for shared ownership
     Ok(SessionStatusInfo {
         name: session.name.clone(),
         status: session.status.to_string(),

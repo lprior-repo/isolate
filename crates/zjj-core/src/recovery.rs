@@ -3,8 +3,7 @@
 //! This module provides functionality to log recovery actions
 //! to .zjj/recovery.log for audit trails.
 
-use std::path::Path;
-use std::io::Write;
+use std::{io::Write, path::Path};
 
 use crate::{Error, Result};
 

@@ -513,8 +513,6 @@ fn check_beads() -> DoctorCheck {
     }
 }
 
-
-
 /// Check for stale/incomplete sessions
 fn check_stale_sessions() -> DoctorCheck {
     let sessions = get_session_db()
@@ -536,7 +534,7 @@ fn check_stale_sessions() -> DoctorCheck {
             let updated_at_i64: i64 = s.updated_at.try_into().unwrap_or(i64::MAX);
             let updated_at = chrono::DateTime::from_timestamp(updated_at_i64, 0).unwrap_or(now);
             let duration = now.signed_duration_since(updated_at);
-            
+
             duration > stale_threshold
         })
         .map(|s| s.name.clone())
@@ -762,7 +760,11 @@ fn show_fix_results(output: &DoctorFixOutput) {
         println!("Fixed Issues:");
         output.fixed.iter().for_each(|fix| {
             let symbol = if fix.success { "✓" } else { "✗" };
-            println!("{symbol} {fix_issue}: {fix_action}", fix_issue = fix.issue, fix_action = fix.action);
+            println!(
+                "{symbol} {fix_issue}: {fix_action}",
+                fix_issue = fix.issue,
+                fix_action = fix.action
+            );
         });
         println!();
     }
@@ -770,8 +772,15 @@ fn show_fix_results(output: &DoctorFixOutput) {
     if !output.unable_to_fix.is_empty() {
         println!("Unable to Fix:");
         output.unable_to_fix.iter().for_each(|issue| {
-            println!("✗ {issue_name}: {issue_reason}", issue_name = issue.issue, issue_reason = issue.reason);
-            println!("  → {issue_suggestion}", issue_suggestion = issue.suggestion);
+            println!(
+                "✗ {issue_name}: {issue_reason}",
+                issue_name = issue.issue,
+                issue_reason = issue.reason
+            );
+            println!(
+                "  → {issue_suggestion}",
+                issue_suggestion = issue.suggestion
+            );
         });
     }
 }

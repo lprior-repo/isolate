@@ -37,3 +37,6 @@ Thumbs.db
 .zjj/
 workspaces/
 .tdd15-worktree/
+
+# bv (beads viewer) local config and caches
+.bv/
