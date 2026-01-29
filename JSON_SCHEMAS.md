@@ -419,17 +419,72 @@ Shows complete environment context.
   "_schema_version": "1.0",
   "schema_type": "single",
   "success": true,
+  "location": {
+    "type": "main"
+  },
+  "session": null,
   "repository": {
     "root": "/path/to/repo",
-    "branch": "main"
+    "branch": "main",
+    "uncommitted_files": 0,
+    "commits_ahead": 0,
+    "has_conflicts": false
   },
-  "sessions": [...],
   "beads": {
-    "open": 10,
-    "in_progress": 3
+    "active": "zjj-123",
+    "blocked_by": [],
+    "ready_count": 5,
+    "in_progress_count": 2
   },
-  "health": {...},
-  "environment": {...}
+  "health": {
+    "status": "good"
+  },
+  "suggestions": [
+    "Use 'zjj add <name>' to create a workspace"
+  ]
+}
+```
+
+When in a workspace, `location` will include workspace details and `session` will contain session information:
+
+```json
+{
+  "$schema": "zjj://context-response/v1",
+  "_schema_version": "1.0",
+  "schema_type": "single",
+  "success": true,
+  "location": {
+    "type": "workspace",
+    "name": "feature-auth",
+    "path": "/path/to/repo/.zjj/workspaces/feature-auth"
+  },
+  "session": {
+    "name": "feature-auth",
+    "status": "active",
+    "bead_id": "zjj-123",
+    "created_at": "2024-01-01T00:00:00Z",
+    "last_synced": "2024-01-01T01:00:00Z"
+  },
+  "repository": {
+    "root": "/path/to/repo",
+    "branch": "main",
+    "uncommitted_files": 2,
+    "commits_ahead": 1,
+    "has_conflicts": false
+  },
+  "beads": {
+    "active": "zjj-123",
+    "blocked_by": [],
+    "ready_count": 5,
+    "in_progress_count": 1
+  },
+  "health": {
+    "status": "good"
+  },
+  "suggestions": [
+    "Working in workspace: feature-auth",
+    "You have 2 uncommitted files. Use 'jj status' to review."
+  ]
 }
 ```
 

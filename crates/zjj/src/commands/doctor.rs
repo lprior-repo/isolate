@@ -20,9 +20,8 @@ use std::{path::Path, process::Command};
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use zjj_core::{
-    introspection::{
-        CheckStatus, DoctorCheck, DoctorFixOutput, DoctorOutput, FixResult, UnfixableIssue,
-    },
+    introspection::{CheckStatus, DoctorCheck, DoctorFixOutput, FixResult, UnfixableIssue},
+    json::SchemaEnvelope,
     OutputFormat,
 };
 
@@ -31,6 +30,21 @@ use crate::{
     commands::get_session_db,
     session::SessionStatus,
 };
+
+/// Doctor command JSON output (matches documented schema)
+#[derive(Debug, Clone, serde::Serialize)]
+struct DoctorJsonResponse {
+    checks: Vec<DoctorCheck>,
+    summary: DoctorSummary,
+}
+
+/// Summary of health check results
+#[derive(Debug, Clone, serde::Serialize)]
+struct DoctorSummary {
+    passed: usize,
+    warnings: usize,
+    failed: usize,
+}
 
 fn check_for_recent_recovery() -> Option<String> {
     let log_path = Path::new(".zjj/recovery.log");
@@ -577,7 +591,17 @@ fn check_stale_sessions() -> DoctorCheck {
 /// - 1: One or more checks failed (unhealthy system)
 /// - 2: System recovered from corruption (recovery detected)
 fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
-    let output = DoctorOutput::from_checks(checks.to_vec());
+    // Calculate summary statistics
+    let warnings = checks
+        .iter()
+        .filter(|c| c.status == CheckStatus::Warn)
+        .count();
+    let errors = checks
+        .iter()
+        .filter(|c| c.status == CheckStatus::Fail)
+        .count();
+    let passed = checks.len() - warnings - errors;
+    let healthy = errors == 0;
 
     // Check if recovery occurred (any check with "recovered" in details)
     let has_recovery = checks.iter().any(|check| {
@@ -590,10 +614,19 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     });
 
     if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        let response = DoctorJsonResponse {
+            checks: checks.to_vec(),
+            summary: DoctorSummary {
+                passed,
+                warnings,
+                failed: errors,
+            },
+        };
+        let envelope = SchemaEnvelope::new("doctor-response", "single", response);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
         // If unhealthy in JSON mode, exit with 1 immediately to avoid
         // main.rs printing a second JSON error object
-        if !output.healthy {
+        if !healthy {
             std::process::exit(1);
         }
         // If recovery occurred, exit with 2
@@ -607,7 +640,7 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!();
 
-    output.checks.iter().for_each(|check| {
+    checks.iter().for_each(|check| {
         let symbol = match check.status {
             CheckStatus::Pass => "✓",
             CheckStatus::Warn => "⚠",
@@ -624,18 +657,17 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     println!();
     println!(
         "Health: {} passed, {} warning(s), {} error(s)",
-        output.checks.len() - output.warnings - output.errors,
-        output.warnings,
-        output.errors
+        passed, warnings, errors
     );
 
-    if output.auto_fixable_issues > 0 {
+    let auto_fixable = checks.iter().filter(|c| c.auto_fixable).count();
+    if auto_fixable > 0 {
         println!("Some issues can be auto-fixed: zjj doctor --fix");
     }
 
     // Return error if system is unhealthy (has failures)
-    if !output.healthy {
-        anyhow::bail!("Health check failed: {} error(s) detected", output.errors);
+    if !healthy {
+        anyhow::bail!("Health check failed: {errors} error(s) detected");
     }
 
     // Exit with code 2 if recovery occurred
@@ -963,17 +995,18 @@ mod tests {
 
     #[test]
     fn test_doctor_json_has_envelope() -> Result<()> {
-        // FAILING: Verify envelope wrapping for doctor command output
+        // Verify envelope wrapping for doctor command output
         use zjj_core::json::SchemaEnvelope;
 
-        let output = DoctorOutput {
-            healthy: true,
+        let response = DoctorJsonResponse {
             checks: vec![],
-            warnings: 0,
-            errors: 0,
-            auto_fixable_issues: 0,
+            summary: DoctorSummary {
+                passed: 0,
+                warnings: 0,
+                failed: 0,
+            },
         };
-        let envelope = SchemaEnvelope::new("doctor-response", "single", output);
+        let envelope = SchemaEnvelope::new("doctor-response", "single", response);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
@@ -993,7 +1026,7 @@ mod tests {
 
     #[test]
     fn test_doctor_checks_wrapped() -> Result<()> {
-        // FAILING: Verify health check results are wrapped in envelope
+        // Verify health check results are wrapped in envelope
         use zjj_core::json::SchemaEnvelope;
 
         let checks = vec![DoctorCheck {
@@ -1004,13 +1037,62 @@ mod tests {
             auto_fixable: false,
             details: None,
         }];
-        let output = DoctorOutput::from_checks(checks);
-        let envelope = SchemaEnvelope::new("doctor-response", "single", output);
+        let response = DoctorJsonResponse {
+            checks,
+            summary: DoctorSummary {
+                passed: 1,
+                warnings: 0,
+                failed: 0,
+            },
+        };
+        let envelope = SchemaEnvelope::new("doctor-response", "single", response);
         let json_str = serde_json::to_string(&envelope)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
         assert!(parsed.get("$schema").is_some(), "Missing $schema field");
         assert!(parsed.get("success").is_some(), "Missing success field");
+        assert!(parsed.get("checks").is_some(), "Missing checks field");
+        assert!(parsed.get("summary").is_some(), "Missing summary field");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doctor_summary_structure() -> Result<()> {
+        // Verify summary structure matches documented schema
+        use zjj_core::json::SchemaEnvelope;
+
+        let response = DoctorJsonResponse {
+            checks: vec![],
+            summary: DoctorSummary {
+                passed: 8,
+                warnings: 2,
+                failed: 1,
+            },
+        };
+        let envelope = SchemaEnvelope::new("doctor-response", "single", response);
+        let json_str = serde_json::to_string(&envelope)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        let summary = parsed
+            .get("summary")
+            .expect("summary field missing");
+
+        assert_eq!(
+            summary.get("passed").and_then(|v| v.as_u64()),
+            Some(8),
+            "passed count should match"
+        );
+        assert_eq!(
+            summary.get("warnings").and_then(|v| v.as_u64()),
+            Some(2),
+            "warnings count should match"
+        );
+        assert_eq!(
+            summary.get("failed").and_then(|v| v.as_u64()),
+            Some(1),
+            "failed count should match"
+        );
 
         Ok(())
     }

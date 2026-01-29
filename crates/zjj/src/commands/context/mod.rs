@@ -10,7 +10,7 @@ use anyhow::Result;
 pub use types::{
     BeadsContext, ContextOutput, HealthStatus, Location, RepositoryContext, SessionContext,
 };
-use zjj_core::OutputFormat;
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::commands::{check_in_jj_repo, get_session_db};
 
@@ -348,7 +348,12 @@ fn generate_suggestions(
 
 fn output_context(context: &ContextOutput, format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(context)?);
+        let envelope = SchemaEnvelope::new("context-response", "single", context);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&envelope)
+                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
+        );
     } else {
         print_human_readable(context);
     }
