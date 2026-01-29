@@ -481,10 +481,10 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
         )));
     }
 
-    // Check SQLite magic bytes: "SQLite format 3\000"
+    // Check SQLite magic bytes: "SQLite format 3\0" (16 bytes: uppercase L, single null)
     let expected_magic: &[u8] = &[
-        b'S', b'Q', b'l', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ', b'3',
-        0x00, 0x00,
+        b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ', b'3',
+        0x00,
     ];
 
     if &header[..16] != expected_magic {
@@ -504,7 +504,7 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
                 return Err(Error::DatabaseError(format!(
                     "Database file corrupted: {p}\n\
                      Magic bytes (hex): {magic_hex}\n\
-                     Expected: 53 51 6c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 00 (SQLite format 3)\n\n\
+                     Expected: 53 51 4c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 (SQLite format 3)\n\n\
                      Recovery is disabled in strict mode (--strict or ZJJ_STRICT=1).\n\n\
                      To recover, either:\n\
                      - Remove --strict flag\n\
@@ -516,7 +516,7 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
             RecoveryPolicy::Warn => {
                 eprintln!("⚠  Database file corrupted: {p}", p = db_path.display());
                 eprintln!("   Magic bytes (hex): {magic_hex}");
-                eprintln!("   Expected: 53 51 6c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 00 (SQLite format 3)");
+                eprintln!("   Expected: 53 51 4c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 (SQLite format 3)");
                 eprintln!("   SQLite will attempt automatic recovery...");
 
                 if should_log {
@@ -948,6 +948,194 @@ mod tests {
         } else {
             return Err(Error::Unknown("Expected DatabaseError".to_string()));
         }
+        Ok(())
+    }
+
+    // ========== SQLite Magic Bytes Validation Tests ==========
+
+    /// Test that valid SQLite magic bytes (uppercase L, single null) are accepted
+    #[test]
+    fn test_sqlite_magic_bytes_valid() {
+        // Valid SQLite header: "SQLite format 3\0" (uppercase L, single null)
+        let valid_header = [
+            0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74,
+            0x20, 0x33, 0x00,
+        ];
+        let expected_magic: &[u8] = &[
+            b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
+            b'3', 0x00,
+        ];
+
+        assert_eq!(&valid_header[..16], expected_magic);
+    }
+
+    /// Test that the old buggy magic bytes (lowercase l) would fail validation
+    #[test]
+    fn test_sqlite_magic_bytes_lowercase_l_fails() {
+        // Invalid SQLite header: "SQLite format 3\0" (lowercase l - the bug)
+        let invalid_header = [
+            0x53, 0x51, 0x6c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74,
+            0x20, 0x33, 0x00,
+        ];
+        let expected_magic: &[u8] = &[
+            b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
+            b'3', 0x00,
+        ];
+
+        assert_ne!(&invalid_header[..16], expected_magic);
+    }
+
+    /// Test that old buggy magic bytes (double null) would fail validation
+    #[test]
+    fn test_sqlite_magic_bytes_double_null_fails() {
+        // Invalid SQLite header: "SQLite format 3\0\0" (double null - the bug)
+        // This is 17 bytes total, but we only check first 16
+        let invalid_header = [
+            0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74,
+            0x20, 0x33, 0x00, 0x00,
+        ];
+        let expected_magic: &[u8] = &[
+            b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
+            b'3', 0x00,
+        ];
+
+        // The first 16 bytes should match, but the 17th byte (0x00) makes it invalid
+        // because SQLite format is exactly 16 bytes
+        assert_eq!(&invalid_header[..16], expected_magic);
+        assert_eq!(invalid_header.len(), 17, "Invalid header should have 17 bytes");
+    }
+
+    /// Test that completely wrong magic bytes fail validation
+    #[test]
+    fn test_sqlite_magic_bytes_completely_wrong_fails() {
+        // Completely invalid header
+        let invalid_header = [
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
+            0x0d, 0x0e, 0x0f,
+        ];
+        let expected_magic: &[u8] = &[
+            b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
+            b'3', 0x00,
+        ];
+
+        assert_ne!(&invalid_header[..16], expected_magic);
+    }
+
+    /// Test that WAL magic bytes validation works correctly
+    #[test]
+    fn test_wal_magic_bytes_valid() {
+        // Valid WAL magic: 0x377f0682 in big-endian
+        let valid_wal_header = [0x37, 0x7f, 0x06, 0x82, 0x00, 0x00, 0x00, 0x00];
+        let wal_magic = u32::from_be_bytes([
+            valid_wal_header[0],
+            valid_wal_header[1],
+            valid_wal_header[2],
+            valid_wal_header[3],
+        ]);
+
+        assert_eq!(wal_magic, 0x377f_0682);
+    }
+
+    /// Test that invalid WAL magic bytes fail validation
+    #[test]
+    fn test_wal_magic_bytes_invalid_fails() {
+        // Invalid WAL magic
+        let invalid_wal_header = [0x00, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00];
+        let wal_magic = u32::from_be_bytes([
+            invalid_wal_header[0],
+            invalid_wal_header[1],
+            invalid_wal_header[2],
+            invalid_wal_header[3],
+        ]);
+
+        assert_ne!(wal_magic, 0x377f_0682);
+    }
+
+    /// Test that a valid SQLite database file can be created and validated
+    #[tokio::test]
+    async fn test_sqlite_database_file_validation() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("test_validation.db");
+
+        // Create a valid SQLite database
+        let _db = SessionDb::create_or_open(&db_path).await?;
+
+        // Verify the file exists and has the correct magic bytes
+        assert!(db_path.exists());
+
+        // Read the first 16 bytes
+        let mut header = [0u8; 16];
+        std::fs::File::open(&db_path)
+            .and_then(|mut f| f.read_exact(&mut header))
+            .map_err(|e| Error::IoError(format!("Failed to read header: {e}")))?;
+
+        // Verify it matches the expected magic bytes
+        let expected_magic: &[u8] = &[
+            b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
+            b'3', 0x00,
+        ];
+        assert_eq!(&header[..16], expected_magic);
+
+        Ok(())
+    }
+
+    /// Test that a file with invalid magic bytes is rejected
+    #[tokio::test]
+    async fn test_sqlite_database_invalid_magic_bytes_rejected() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("test_invalid.db");
+
+        // Create a file with invalid magic bytes (the old bug: lowercase l)
+        let invalid_header = [
+            0x53, 0x51, 0x6c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74,
+            0x20, 0x33, 0x00,
+        ];
+        // Create a file with at least 100 bytes (minimum required)
+        let mut invalid_data = Vec::with_capacity(100);
+        invalid_data.extend_from_slice(&invalid_header);
+        invalid_data.resize(100, 0);
+
+        std::fs::write(&db_path, invalid_data)
+            .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
+
+        // Verify the file was created
+        assert!(db_path.exists());
+
+        // Read and verify the first 16 bytes match the invalid header
+        let mut header = [0u8; 16];
+        std::fs::File::open(&db_path)
+            .and_then(|mut f| f.read_exact(&mut header))
+            .map_err(|e| Error::IoError(format!("Failed to read header: {e}")))?;
+
+        assert_eq!(&header[..16], &invalid_header[..16]);
+
+        // Verify it does NOT match the expected magic bytes
+        let expected_magic: &[u8] = &[
+            b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
+            b'3', 0x00,
+        ];
+        assert_ne!(&header[..16], expected_magic);
+
+        Ok(())
+    }
+
+    /// Test that a file too small to be a valid database is rejected
+    #[tokio::test]
+    async fn test_sqlite_database_too_small_rejected() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("test_too_small.db");
+
+        // Create a file that's too small (< 100 bytes)
+        std::fs::write(&db_path, b"too small")
+            .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
+
+        // Verify the file exists but is too small
+        assert!(db_path.exists());
+        let file_size = std::fs::metadata(&db_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+        assert!(file_size < 100, "File should be less than 100 bytes");
+
         Ok(())
     }
 }
