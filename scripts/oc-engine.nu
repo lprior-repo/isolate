@@ -230,8 +230,16 @@ export def job-execute [job_id: string] {
   # Build in-degree map
   let deps = (sql $"SELECT task_name, depends_on FROM task_deps WHERE job_id = (sql-param $job_id)" )
 
-  # Main execution loop
+  # Main execution loop with max iteration guard
+  mut iteration = 0
+  const MAX_ITERATIONS = 1000
   loop {
+    $iteration = $iteration + 1
+    if $iteration > $MAX_ITERATIONS {
+      sql-exec $"UPDATE jobs SET status = 'FAILED', completed_at = datetime\('now'\), error = 'Max iterations ($MAX_ITERATIONS) exceeded' WHERE id = (sql-param $job_id)"
+      emit-event $job_id "" "job.StateChange" "RUNNING" "FAILED" $"Max iterations ($MAX_ITERATIONS) exceeded"
+      return { status: "FAILED", error: "Max iterations exceeded" }
+    }
     # Refresh task statuses
     let tasks = (sql $"SELECT name, status, condition, priority, on_fail_regress FROM tasks WHERE job_id = (sql-param $job_id)" )
 
@@ -484,7 +492,11 @@ def eval-condition [job_id: string, condition: string]: nothing -> bool {
   let route_str = $output.0.output
   try {
     let route = ($route_str | from json)
-    $phase in $route
+    if ($route | describe | str starts-with "list") {
+      $phase in $route
+    } else {
+      false
+    }
   } catch {
     # Fallback: check if phase number appears in output
     ($route_str | str contains ($phase | into string))
@@ -589,9 +601,17 @@ export def job-status [job_id: string]: nothing -> record {
 
 # Cancel a running job
 export def job-cancel [job_id: string] {
-  sql-exec $"UPDATE jobs SET status = 'CANCELLED', completed_at = datetime\('now'\) WHERE id = (sql-param $job_id)"
+  let job = (sql $"SELECT status FROM jobs WHERE id = (sql-param $job_id)" )
+  if ($job | is-empty) {
+    error make { msg: $"Job not found: ($job_id)" }
+  }
+  let old_status = $job.0.status
+  if $old_status not-in ["PENDING", "RUNNING"] {
+    error make { msg: $"Cannot cancel job in status ($old_status). Job must be PENDING or RUNNING to cancel." }
+  }
+  sql-exec $"UPDATE jobs SET status = 'CANCELLED', completed_at = datetime\('now'\) WHERE id = (sql-param $job_id) AND status IN \('PENDING', 'RUNNING'\)"
   sql-exec $"UPDATE tasks SET status = 'CANCELLED' WHERE job_id = (sql-param $job_id) AND status IN \('PENDING', 'RUNNING', 'SCHEDULED'\)"
-  emit-event $job_id "" "job.StateChange" "RUNNING" "CANCELLED" ""
+  emit-event $job_id "" "job.StateChange" $old_status "CANCELLED" ""
 }
 
 # List all jobs
