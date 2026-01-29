@@ -23,6 +23,12 @@ pub struct ActiveAgent {
     pub last_seen: DateTime<Utc>,
     /// When the agent first registered.
     pub registered_at: DateTime<Utc>,
+    /// Current session the agent is working on.
+    pub current_session: Option<String>,
+    /// Current command the agent is executing.
+    pub current_command: Option<String>,
+    /// Number of actions performed by the agent.
+    pub actions_count: u64,
 }
 
 impl AgentRegistry {
@@ -34,7 +40,10 @@ impl AgentRegistry {
             "CREATE TABLE IF NOT EXISTS agents (
                 agent_id TEXT PRIMARY KEY,
                 last_seen TEXT NOT NULL,
-                registered_at TEXT NOT NULL
+                registered_at TEXT NOT NULL,
+                current_session TEXT,
+                current_command TEXT,
+                actions_count INTEGER NOT NULL DEFAULT 0
             )",
         )
         .execute(&db)

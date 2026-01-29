@@ -6,7 +6,7 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, run_command},
     commands::get_session_db,
-    json_output::FocusOutput,
+    json::FocusOutput,
 };
 
 /// Options for the focus command
@@ -242,7 +242,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_focus_json_has_envelope() -> Result<()> {
-        use crate::json_output::FocusOutput;
+        use crate::json::FocusOutput;
 
         // Create sample FocusOutput
         let output = FocusOutput {
@@ -282,7 +282,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_focus_schema_format() -> Result<()> {
-        use crate::json_output::FocusOutput;
+        use crate::json::FocusOutput;
 
         // Create sample output
         let output = FocusOutput {
