@@ -14,6 +14,7 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = "1.0"
 thiserror = "1.0"
+askama = "0.12"
 im = { version = "15.1", features = ["serde"] }
 tap = "1.0"
 strum = { version = "0.26", features = ["derive"] }

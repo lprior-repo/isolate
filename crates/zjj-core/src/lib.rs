@@ -34,6 +34,7 @@ mod output_format;
 mod recovery;
 pub mod result;
 pub mod session_state;
+pub mod templates;
 pub mod types;
 pub mod watcher;
 pub mod zellij;
