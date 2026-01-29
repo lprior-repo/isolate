@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use chrono::Utc;
 use sqlx::sqlite::SqlitePoolOptions;
-use zjj_core::{agents::AgentRegistry, coordination::locks::LockManager};
+use zjj_core::{agents::registry::AgentRegistry, coordination::locks::LockManager};
 
 use super::types::{AgentInfo, AgentsArgs, AgentsOutput, LockSummary};
 

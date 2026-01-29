@@ -11,16 +11,12 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
-
 use anyhow::Result;
-use chrono::{DateTime, Utc};
-use serde::Serialize;
-use sqlx::{Row, SqlitePool};
+use chrono::Utc;
+use sqlx::SqlitePool;
 use zjj_core::{coordination::locks::LockManager, json::SchemaEnvelope, OutputFormat};
 
 use self::types::{AgentInfo, AgentsArgs, AgentsOutput, LockSummary};
-use crate::json_output;
 
 /// Run the agents command
 ///

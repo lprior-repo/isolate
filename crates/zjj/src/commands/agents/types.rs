@@ -10,14 +10,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Command-line arguments for the agents command
-#[derive(Debug, Clone, clap::Args)]
+#[derive(Debug, Clone)]
 pub struct AgentsArgs {
     /// Include stale agents (not seen within heartbeat timeout)
-    #[arg(long)]
     pub all: bool,
 
     /// Filter by session
-    #[arg(long)]
     pub session: Option<String>,
 }
 
