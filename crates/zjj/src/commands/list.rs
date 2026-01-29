@@ -8,7 +8,7 @@ use zjj_core::{json::SchemaEnvelopeArray, OutputFormat};
 
 use crate::{
     commands::get_session_db,
-    json_output,
+    json,
     session::{Session, SessionStatus},
 };
 
@@ -119,7 +119,7 @@ pub fn run(all: bool, format: OutputFormat, bead: Option<&str>, agent: Option<&s
     // Handle errors in JSON mode
     if let Err(e) = result {
         if format.is_json() {
-            json_output::output_json_error_and_exit(&e);
+            json::output_json_error_and_exit(&e);
         } else {
             return Err(e);
         }

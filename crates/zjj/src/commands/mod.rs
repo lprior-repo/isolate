@@ -1,6 +1,7 @@
 //! Command implementations
 
 pub mod add;
+pub mod agents;
 pub mod attach;
 pub mod checkpoint;
 pub mod clean;

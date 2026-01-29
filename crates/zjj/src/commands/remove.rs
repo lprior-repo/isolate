@@ -11,7 +11,7 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 use crate::{
     cli::{is_inside_zellij, run_command},
     commands::get_session_db,
-    json_output::RemoveOutput,
+    json::RemoveOutput,
 };
 
 /// Options for the remove command
@@ -239,7 +239,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove_json_has_envelope() -> Result<()> {
-        use crate::json_output::RemoveOutput;
+        use crate::json::RemoveOutput;
 
         // Create sample RemoveOutput
         let output = RemoveOutput {
@@ -278,7 +278,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove_schema_format() -> Result<()> {
-        use crate::json_output::RemoveOutput;
+        use crate::json::RemoveOutput;
 
         // Create sample output
         let output = RemoveOutput {

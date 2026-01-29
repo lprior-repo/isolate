@@ -11,7 +11,7 @@ use zjj_core::{
 use crate::{
     cli::run_command,
     commands::{determine_main_branch, get_session_db},
-    json_output::{SyncError, SyncOutput},
+    json::{SyncError, SyncOutput},
     session::SessionUpdate,
 };
 
