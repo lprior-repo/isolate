@@ -16,7 +16,6 @@
 #![warn(clippy::nursery)]
 
 use std::collections::HashMap;
-use std::path::Path;
 
 use thiserror::Error;
 
@@ -244,7 +243,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             TemplateError::InvalidContext {
-                name: "ProjectContext",
+                name: "ProjectContext".to_string(),
                 reason: "project_name cannot be empty".to_string(),
             }
         );
