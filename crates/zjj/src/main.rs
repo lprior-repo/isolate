@@ -10,13 +10,13 @@ use clap::{Arg, Command as ClapCommand};
 mod cli;
 mod commands;
 mod db;
-mod json_output;
+mod json;
 mod selector;
 mod session;
 
 use commands::{
-    add, attach, checkpoint, clean, config, context, dashboard, diff, doctor, done, focus, init,
-    introspect, list, query, remove, spawn, status, sync,
+    add, agents, attach, checkpoint, clean, config, context, dashboard, diff, doctor, done, focus,
+    init, introspect, list, query, remove, spawn, status, sync,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -1256,6 +1256,17 @@ fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
 
     let options = args.to_options();
     done::run_with_options(&options)?;
+    Ok(())
+}
+
+fn handle_agents(sub_m: &clap::ArgMatches) -> Result<()> {
+    let args = agents::types::AgentsArgs {
+        all: sub_m.get_flag("all"),
+        session: sub_m.get_one::<String>("session").cloned(),
+    };
+
+    let format = zjj_core::OutputFormat::from_json_flag(sub_m.get_flag("json"));
+    agents::run(&args, format)?;
     Ok(())
 }
 

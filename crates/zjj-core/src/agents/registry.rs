@@ -103,10 +103,19 @@ impl AgentRegistry {
 
         rows.into_iter()
             .map(
-                |(agent_id, last_seen, registered_at, current_session, current_command, actions_count)| {
+                |(
+                    agent_id,
+                    last_seen,
+                    registered_at,
+                    current_session,
+                    current_command,
+                    actions_count,
+                )| {
                     let last_seen = DateTime::parse_from_rfc3339(&last_seen)
                         .map(|dt| dt.with_timezone(&Utc))
-                        .map_err(|e| Error::ParseError(format!("Invalid last_seen timestamp: {e}")))?;
+                        .map_err(|e| {
+                            Error::ParseError(format!("Invalid last_seen timestamp: {e}"))
+                        })?;
                     let registered_at = DateTime::parse_from_rfc3339(&registered_at)
                         .map(|dt| dt.with_timezone(&Utc))
                         .map_err(|e| {
