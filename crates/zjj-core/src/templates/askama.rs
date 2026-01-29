@@ -317,12 +317,12 @@ mod tests {
             vec!["Author".to_string()],
             None,
         )
-        .expect("Valid context");
+        .unwrap_or_else(|e| panic!("Valid context: {}", e));
 
         let result = render_all_templates(&context);
 
         assert!(result.is_ok());
-        let templates = result.expect("Templates should render");
+        let templates = result.unwrap_or_else(|e| panic!("Templates should render: {e}"));
         assert_eq!(templates.len(), TemplateType::all().len());
     }
 
@@ -362,9 +362,8 @@ mod tests {
         ];
 
         for context_result in context_results {
-            let context = match context_result {
-                Ok(ctx) => ctx,
-                Err(_) => continue,
+            let Ok(context) = context_result else {
+                continue;
             };
             for &template_type in TemplateType::all() {
                 let _ = render_template(template_type, &context); // Never panics

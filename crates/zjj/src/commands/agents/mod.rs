@@ -12,7 +12,7 @@ pub mod types;
 mod tests;
 
 use anyhow::Result;
-use chrono::Utc;
+use chrono::{DateTime, FixedOffset, Utc};
 use sqlx::SqlitePool;
 use zjj_core::{coordination::locks::LockManager, json::SchemaEnvelope, OutputFormat};
 
@@ -126,7 +126,8 @@ async fn get_agents(pool: &SqlitePool, args: &AgentsArgs) -> Result<Vec<AgentInf
                 current_session,
                 current_command,
                 actions_count,
-            )| {
+            )|
+             -> Result<AgentInfo, anyhow::Error> {
                 let registered_at = parse_timestamp(&registered_at)?;
                 let last_seen = parse_timestamp(&last_seen)?;
                 let stale = last_seen < cutoff;
@@ -174,7 +175,7 @@ async fn get_locks(lock_mgr: &LockManager) -> Result<Vec<LockSummary>> {
 /// Parse an RFC3339 timestamp
 fn parse_timestamp(ts: &str) -> Result<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(ts)
-        .map(|dt| dt.with_timezone(&Utc))
+        .map(|dt: DateTime<FixedOffset>| dt.with_timezone(&Utc))
         .map_err(|e| anyhow::anyhow!("Invalid timestamp '{}': {}", ts, e))
 }
 

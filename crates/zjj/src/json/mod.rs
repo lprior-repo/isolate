@@ -14,7 +14,8 @@ pub mod serializers;
 // Re-export commonly used types for convenience
 pub use error::{output_json_error_and_exit, SyncError};
 pub use serializers::{
-    AddOutput, DiffOutput, DiffStat, FileDiffStat, FocusOutput, InitOutput, RemoveOutput, SyncOutput,
+    AddOutput, DiffOutput, DiffStat, FileDiffStat, FocusOutput, InitOutput, RemoveOutput,
+    SyncOutput,
 };
 
 /// Output a JSON success response to stdout
@@ -53,7 +54,10 @@ mod tests {
         };
 
         let result = output_json_success(&output);
-        assert!(result.is_ok(), "output_json_success should succeed with AddOutput");
+        assert!(
+            result.is_ok(),
+            "output_json_success should succeed with AddOutput"
+        );
     }
 
     #[test]
@@ -68,6 +72,9 @@ mod tests {
         });
 
         let result = output_json_success(&data);
-        assert!(result.is_ok(), "output_json_success should handle nested structures");
+        assert!(
+            result.is_ok(),
+            "output_json_success should handle nested structures"
+        );
     }
 }
