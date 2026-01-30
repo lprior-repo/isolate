@@ -1,5 +1,8 @@
 # ZJJ - JJ Workspace + Zellij Session Manager
 
+[![Coverage](https://codecov.io/gh/lprior-repo/zjj/branch/main/graph/badge.svg)](https://codecov.io/gh/lprior-repo/zjj)
+[![CI](https://github.com/lprior-repo/zjj/actions/workflows/ci.yml/badge.svg)](https://github.com/lprior-repo/zjj/actions/workflows/ci.yml)
+
 ZJJ is a workspace isolation and setup tool that combines [JJ (Jujutsu)](https://github.com/martinvonz/jj) version control with [Zellij](https://zellij.dev/) terminal multiplexing for focused development sessions.
 
 ## What ZJJ Does
