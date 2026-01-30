@@ -3,28 +3,28 @@
 //! This module provides structured JSON output types and error handling
 //! for all zjj CLI commands. It is organized into two submodules:
 //!
-//! - [`serializers`]: Command output structures (InitOutput, AddOutput, etc.)
+//! - [`serializers`]: Command output structures (`InitOutput`, `AddOutput`, etc.)
 //! - [`error`]: Error conversion and JSON error formatting
-
-use anyhow::Error;
 
 pub mod error;
 pub mod serializers;
 
 // Re-export commonly used types for convenience
 pub use error::{output_json_error_and_exit, SyncError};
-pub use serializers::{
-    AddOutput, DiffOutput, DiffStat, FileDiffStat, FocusOutput, InitOutput, RemoveOutput,
-    SyncOutput,
-};
+pub use serializers::{AddOutput, FocusOutput, RemoveOutput, SyncOutput};
 
 /// Output a JSON success response to stdout
 ///
 /// This is a convenience function for serializing any serializable type
 /// to pretty-printed JSON and outputting it to stdout.
-pub fn output_json_success<T: serde::Serialize>(data: &T) -> Result<(), Error> {
+///
+/// # Errors
+///
+/// Returns an error if serialization fails
+#[allow(dead_code)]
+pub fn output_json_success<T: serde::Serialize>(data: &T) -> Result<(), anyhow::Error> {
     let json_str = serde_json::to_string_pretty(data)
-        .map_err(|e| Error::msg(format!("Failed to serialize JSON: {e}")))?;
+        .map_err(|e| anyhow::anyhow!("Failed to serialize JSON: {e}"))?;
     println!("{json_str}");
     Ok(())
 }
@@ -40,7 +40,7 @@ mod tests {
             "value": 42
         });
 
-        let result = output_json_success(&data);
+        let result = super::output_json_success(&data);
         assert!(result.is_ok(), "output_json_success should succeed");
     }
 
@@ -53,7 +53,7 @@ mod tests {
             status: "active".to_string(),
         };
 
-        let result = output_json_success(&output);
+        let result = super::output_json_success(&output);
         assert!(
             result.is_ok(),
             "output_json_success should succeed with AddOutput"
@@ -71,7 +71,7 @@ mod tests {
             }
         });
 
-        let result = output_json_success(&data);
+        let result = super::output_json_success(&data);
         assert!(
             result.is_ok(),
             "output_json_success should handle nested structures"

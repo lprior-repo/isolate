@@ -79,7 +79,7 @@ async fn get_db_pool() -> Result<SqlitePool> {
 
     let pool = sqlx::SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to connect to database: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to connect to database: {e}"))?;
 
     Ok(pool)
 }
@@ -88,7 +88,7 @@ async fn get_db_pool() -> Result<SqlitePool> {
 ///
 /// This function:
 /// 1. Fetches all agents from the agents table
-/// 2. Computes staleness based on last_seen timestamp
+/// 2. Computes staleness based on `last_seen` timestamp
 /// 3. Filters by --all flag and --session filter
 async fn get_agents(pool: &SqlitePool, args: &AgentsArgs) -> Result<Vec<AgentInfo>> {
     let cutoff = Utc::now() - chrono::Duration::seconds(60);
@@ -113,7 +113,7 @@ async fn get_agents(pool: &SqlitePool, args: &AgentsArgs) -> Result<Vec<AgentInf
     let rows = query_builder
         .fetch_all(pool)
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to query agents: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to query agents: {e}"))?;
 
     // Transform rows into AgentInfo, computing staleness
     let agents: Result<Vec<AgentInfo>, _> = rows
@@ -138,7 +138,7 @@ async fn get_agents(pool: &SqlitePool, args: &AgentsArgs) -> Result<Vec<AgentInf
                     last_seen,
                     current_session,
                     current_command,
-                    actions_count: actions_count as u64,
+                    actions_count: u64::try_from(actions_count).unwrap_or(0),
                     stale,
                 })
             },
@@ -160,7 +160,7 @@ async fn get_locks(lock_mgr: &LockManager) -> Result<Vec<LockSummary>> {
     let locks = lock_mgr
         .get_all_locks()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to query locks: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to query locks: {e}"))?;
 
     Ok(locks
         .into_iter()
@@ -176,7 +176,7 @@ async fn get_locks(lock_mgr: &LockManager) -> Result<Vec<LockSummary>> {
 fn parse_timestamp(ts: &str) -> Result<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(ts)
         .map(|dt: DateTime<FixedOffset>| dt.with_timezone(&Utc))
-        .map_err(|e| anyhow::anyhow!("Invalid timestamp '{}': {}", ts, e))
+        .map_err(|e| anyhow::anyhow!("Invalid timestamp '{ts}': {e}"))
 }
 
 /// Print human-readable output
@@ -190,11 +190,11 @@ fn print_human_readable(output: &AgentsOutput) {
             print!("  {} ", agent.agent_id);
 
             if let Some(ref session) = agent.current_session {
-                print!("(on {}) ", session);
+                print!("(on {session}) ");
             }
 
             if let Some(ref command) = agent.current_command {
-                print!("running {} ", command);
+                print!("running {command} ");
             }
 
             println!();

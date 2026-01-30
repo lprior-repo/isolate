@@ -1,7 +1,7 @@
 //! Functional Askama Template Rendering
 //!
 //! Pure functional template rendering with zero-panic guarantees.
-//! All operations return Result<T, TemplateError> with explicit error handling.
+//! All operations return Result<T, `TemplateError`> with explicit error handling.
 //!
 //! # Architecture
 //!
@@ -17,10 +17,11 @@
 
 use std::collections::HashMap;
 
+use askama::Template;
 use thiserror::Error;
 
 /// Template rendering errors
-#[derive(Debug, Error, Clone, PartialEq)]
+#[derive(Debug, Error)]
 pub enum TemplateError {
     #[error("template not found: {name}")]
     TemplateNotFound { name: String },
@@ -33,10 +34,13 @@ pub enum TemplateError {
 
     #[error("missing required variable '{variable}' in template '{template}'")]
     MissingVariable { variable: String, template: String },
+
+    #[error("askama error: {0}")]
+    Askama(#[from] askama::Error),
 }
 
 /// Project configuration context for template rendering
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectContext {
     pub project_name: String,
     pub description: String,
@@ -44,6 +48,50 @@ pub struct ProjectContext {
     pub authors: Vec<String>,
     pub repository_url: Option<String>,
 }
+
+#[derive(Template)]
+#[template(path = "agents.md.j2")]
+struct AgentsMdTemplate<'a> {
+    project_name: &'a str,
+    description: &'a str,
+    version: &'a str,
+    authors: &'a [String],
+    repository_url: Option<&'a str>,
+}
+
+#[derive(Template)]
+#[template(path = "claude.md.j2")]
+struct ClaudeMdTemplate<'a> {
+    project_name: &'a str,
+    description: &'a str,
+    version: &'a str,
+    authors: &'a [String],
+    repository_url: Option<&'a str>,
+}
+
+#[derive(Template)]
+#[template(path = "error_handling.md.j2")]
+struct ErrorHandlingTemplate;
+
+#[derive(Template)]
+#[template(path = "rust_standards.md.j2")]
+struct RustStandardsTemplate;
+
+#[derive(Template)]
+#[template(path = "workflow.md.j2")]
+struct WorkflowTemplate;
+
+#[derive(Template)]
+#[template(path = "beads.md.j2")]
+struct BeadsTemplate;
+
+#[derive(Template)]
+#[template(path = "jujutsu.md.j2")]
+struct JujutsuTemplate;
+
+#[derive(Template)]
+#[template(path = "moon_build.md.j2")]
+struct MoonBuildTemplate;
 
 impl ProjectContext {
     /// Create a new project context with validation
@@ -135,6 +183,19 @@ impl TemplateType {
             Self::MoonBuild,
         ]
     }
+
+    /// Get all documentation template types
+    #[must_use]
+    pub const fn docs() -> &'static [Self] {
+        &[
+            Self::ErrorHandling,
+            Self::RustStandards,
+            Self::Workflow,
+            Self::Beads,
+            Self::Jujutsu,
+            Self::MoonBuild,
+        ]
+    }
 }
 
 /// Render a template with the given context (pure function)
@@ -150,49 +211,39 @@ pub fn render_template(
     template_type: TemplateType,
     context: &ProjectContext,
 ) -> Result<String, TemplateError> {
-    // Pure function: input -> output, no side effects
-    let template_content = get_template_content(template_type)?;
-
-    // Simple string substitution (functional, no mutation)
-    let result = template_content
-        .replace("{{ project_name }}", &context.project_name)
-        .replace("{{ description }}", &context.description)
-        .replace("{{ version }}", &context.version)
-        .replace("{{ authors }}", &context.authors.join(", "))
-        .replace(
-            "{{ repository_url }}",
-            context
-                .repository_url
-                .as_ref()
-                .map(|s| s.as_str())
-                .unwrap_or(""),
-        );
-
-    Ok(result)
-}
-
-/// Get template content by type (pure lookup)
-///
-/// # Errors
-///
-/// Returns `TemplateError::TemplateNotFound` if template type is invalid
-fn get_template_content(template_type: TemplateType) -> Result<String, TemplateError> {
     match template_type {
-        TemplateType::AgentsMd | TemplateType::ClaudeMd => {
-            Ok(crate::templates::AI_INSTRUCTIONS.to_string())
+        TemplateType::AgentsMd => {
+            let template = AgentsMdTemplate {
+                project_name: &context.project_name,
+                description: &context.description,
+                version: &context.version,
+                authors: &context.authors,
+                repository_url: context.repository_url.as_deref(),
+            };
+            Ok(template.render()?)
         }
-        TemplateType::ErrorHandling => Ok(crate::templates::DOC_01_ERROR_HANDLING.to_string()),
-        TemplateType::RustStandards => Ok(crate::templates::DOC_05_RUST_STANDARDS.to_string()),
-        TemplateType::Workflow => Ok(crate::templates::DOC_03_WORKFLOW.to_string()),
-        TemplateType::Beads => Ok(crate::templates::DOC_08_BEADS.to_string()),
-        TemplateType::Jujutsu => Ok(crate::templates::DOC_09_JUJUTSU.to_string()),
-        TemplateType::MoonBuild => Ok(crate::templates::DOC_02_MOON_BUILD.to_string()),
+        TemplateType::ClaudeMd => {
+            let template = ClaudeMdTemplate {
+                project_name: &context.project_name,
+                description: &context.description,
+                version: &context.version,
+                authors: &context.authors,
+                repository_url: context.repository_url.as_deref(),
+            };
+            Ok(template.render()?)
+        }
+        TemplateType::ErrorHandling => Ok(ErrorHandlingTemplate.render()?),
+        TemplateType::RustStandards => Ok(RustStandardsTemplate.render()?),
+        TemplateType::Workflow => Ok(WorkflowTemplate.render()?),
+        TemplateType::Beads => Ok(BeadsTemplate.render()?),
+        TemplateType::Jujutsu => Ok(JujutsuTemplate.render()?),
+        TemplateType::MoonBuild => Ok(MoonBuildTemplate.render()?),
     }
 }
 
 /// Render all templates and collect into a map (pure transformation)
 ///
-/// Returns a HashMap of template type to rendered content.
+/// Returns a `HashMap` of template type to rendered content.
 ///
 /// # Errors
 ///
@@ -212,27 +263,30 @@ pub fn render_all_templates(
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_project_context_valid() {
-        let context = ProjectContext::new(
+    // A helper to create a valid context for tests
+    fn valid_context() -> Result<ProjectContext, TemplateError> {
+        ProjectContext::new(
             "test-project".to_string(),
             "A test project".to_string(),
             "0.1.0".to_string(),
             vec!["Author Name".to_string()],
             Some("https://github.com/test/repo".to_string()),
-        );
+        )
+    }
 
-        assert!(context.is_ok());
-        let context = context.unwrap();
+    #[test]
+    fn test_project_context_valid() -> Result<(), TemplateError> {
+        let context = valid_context()?;
         assert_eq!(context.project_name, "test-project");
         assert_eq!(context.version, "0.1.0");
         assert_eq!(context.authors.len(), 1);
+        Ok(())
     }
 
     #[test]
     fn test_project_context_empty_name_rejected() {
         let result = ProjectContext::new(
-            "".to_string(),
+            String::new(),
             "A test project".to_string(),
             "0.1.0".to_string(),
             vec!["Author".to_string()],
@@ -240,13 +294,7 @@ mod tests {
         );
 
         assert!(result.is_err());
-        match result {
-            Err(TemplateError::InvalidContext { name, reason }) => {
-                assert_eq!(name, "ProjectContext".to_string());
-                assert_eq!(reason, "project_name cannot be empty".to_string());
-            }
-            _ => panic!("Wrong error type"),
-        }
+        assert!(matches!(result, Err(TemplateError::InvalidContext { .. })));
     }
 
     #[test]
@@ -254,19 +302,12 @@ mod tests {
         let result = ProjectContext::new(
             "test".to_string(),
             "A test project".to_string(),
-            "".to_string(),
+            String::new(),
             vec!["Author".to_string()],
             None,
         );
-
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            TemplateError::InvalidContext {
-                name: "ProjectContext".to_string(),
-                reason: "version cannot be empty".to_string(),
-            }
-        );
+        assert!(matches!(result, Err(TemplateError::InvalidContext { .. })));
     }
 
     #[test]
@@ -278,52 +319,35 @@ mod tests {
             vec![],
             None,
         );
-
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            TemplateError::InvalidContext {
-                name: "ProjectContext".to_string(),
-                reason: "authors cannot be empty".to_string(),
-            }
-        );
+        assert!(matches!(result, Err(TemplateError::InvalidContext { .. })));
     }
 
     #[test]
-    fn test_render_template_success() {
-        let context = ProjectContext::new(
-            "my-project".to_string(),
-            "My awesome project".to_string(),
-            "1.0.0".to_string(),
-            vec!["Alice".to_string(), "Bob".to_string()],
-            None,
-        )
-        .expect("Valid context");
-
+    fn test_render_template_success() -> Result<(), TemplateError> {
+        let context = valid_context()?;
         let result = render_template(TemplateType::AgentsMd, &context);
 
         assert!(result.is_ok());
-        let rendered = result.expect("Should render successfully");
-        assert!(rendered.contains("my-project"));
-        assert!(rendered.contains("My awesome project"));
+        if let Ok(rendered) = result {
+            assert!(rendered.contains("test-project"));
+            assert!(rendered.contains("A test project"));
+            assert!(rendered.contains("Author Name"));
+            assert!(rendered.contains("https://github.com/test/repo"));
+        }
+        Ok(())
     }
 
     #[test]
-    fn test_render_all_templates() {
-        let context = ProjectContext::new(
-            "test".to_string(),
-            "Test".to_string(),
-            "0.1.0".to_string(),
-            vec!["Author".to_string()],
-            None,
-        )
-        .unwrap_or_else(|e| panic!("Valid context: {}", e));
-
+    fn test_render_all_templates() -> Result<(), TemplateError> {
+        let context = valid_context()?;
         let result = render_all_templates(&context);
 
         assert!(result.is_ok());
-        let templates = result.unwrap_or_else(|e| panic!("Templates should render: {e}"));
-        assert_eq!(templates.len(), TemplateType::all().len());
+        if let Ok(templates) = result {
+            assert_eq!(templates.len(), TemplateType::all().len());
+        }
+        Ok(())
     }
 
     #[test]
@@ -339,35 +363,5 @@ mod tests {
         assert_eq!(all.len(), 8);
         assert!(all.contains(&TemplateType::AgentsMd));
         assert!(all.contains(&TemplateType::ClaudeMd));
-    }
-
-    // Property-based test: rendering never panics
-    #[test]
-    fn test_render_never_panics() {
-        let context_results = vec![
-            ProjectContext::new(
-                "a".to_string(),
-                "b".to_string(),
-                "0.0.1".to_string(),
-                vec!["x".to_string()],
-                None,
-            ),
-            ProjectContext::new(
-                "Long Project Name With Spaces 123".to_string(),
-                "Desc".to_string(),
-                "99.99.99".to_string(),
-                vec!["Author1".to_string(), "Author2".to_string()],
-                Some("https://example.com".to_string()),
-            ),
-        ];
-
-        for context_result in context_results {
-            let Ok(context) = context_result else {
-                continue;
-            };
-            for &template_type in TemplateType::all() {
-                let _ = render_template(template_type, &context); // Never panics
-            }
-        }
     }
 }

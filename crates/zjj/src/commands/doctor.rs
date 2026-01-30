@@ -640,7 +640,7 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!();
 
-    checks.iter().for_each(|check| {
+    for check in checks {
         let symbol = match check.status {
             CheckStatus::Pass => "✓",
             CheckStatus::Warn => "⚠",
@@ -652,13 +652,10 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
         if let Some(ref suggestion) = check.suggestion {
             println!("  → {suggestion}");
         }
-    });
+    }
 
     println!();
-    println!(
-        "Health: {} passed, {} warning(s), {} error(s)",
-        passed, warnings, errors
-    );
+    println!("Health: {passed} passed, {warnings} warning(s), {errors} error(s)");
 
     let auto_fixable = checks.iter().filter(|c| c.auto_fixable).count();
     if auto_fixable > 0 {
@@ -1076,20 +1073,20 @@ mod tests {
 
         let summary = parsed
             .get("summary")
-            .expect("summary field missing");
+            .ok_or_else(|| anyhow::anyhow!("summary field missing"))?;
 
         assert_eq!(
-            summary.get("passed").and_then(|v| v.as_u64()),
+            summary.get("passed").and_then(serde_json::Value::as_u64),
             Some(8),
             "passed count should match"
         );
         assert_eq!(
-            summary.get("warnings").and_then(|v| v.as_u64()),
+            summary.get("warnings").and_then(serde_json::Value::as_u64),
             Some(2),
             "warnings count should match"
         );
         assert_eq!(
-            summary.get("failed").and_then(|v| v.as_u64()),
+            summary.get("failed").and_then(serde_json::Value::as_u64),
             Some(1),
             "failed count should match"
         );
