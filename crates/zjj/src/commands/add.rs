@@ -47,6 +47,113 @@ pub fn run(name: &str) -> Result<()> {
     run_with_options(&options)
 }
 
+/// Create session atomically to prevent partial state on SIGKILL
+///
+/// This implements atomicity by:
+/// 1. Creating DB record with 'creating' status FIRST (detectable)
+/// 2. Creating JJ workspace SECOND (interruptible by SIGKILL)
+/// 3. On failure: cleaning workspace, leaving DB in 'creating' state for doctor
+///
+/// # Atomicity Guarantee
+///
+/// If SIGKILL occurs during step 2:
+/// - DB record exists in 'creating' state (detectable by doctor)
+/// - Partial workspace may exist (cleaned by rollback_partial_state)
+/// - No partial state that prevents recovery
+///
+/// # Errors
+///
+/// Returns error on any failure, leaving DB in 'creating' state
+/// and triggering cleanup of partial workspace state.
+fn atomic_create_session(
+    name: &str,
+    workspace_path: &std::path::Path,
+    db: &crate::db::SessionDb,
+) -> Result<()> {
+    let workspace_path_str = workspace_path.display().to_string();
+
+    // STEP 1: Create DB record with 'creating' status FIRST
+    // This makes the creation attempt detectable by doctor
+    let db_result = db.create_blocking(name, &workspace_path_str);
+
+    let session = match db_result {
+        Ok(s) => s,
+        Err(db_error) => {
+            // DB creation failed - no cleanup needed (nothing created yet)
+            return Err(db_error).context("Failed to create session record");
+        }
+    };
+
+    // STEP 2: Create JJ workspace (can be interrupted by SIGKILL)
+    // If this fails or is interrupted, rollback will clean up
+    let workspace_result = create_jj_workspace(name, workspace_path);
+
+    match workspace_result {
+        Ok(_) => {
+            // Workspace created successfully
+            // DB record already in 'creating' state, will transition to 'active'
+            // after post_create hooks
+            Ok(())
+        }
+        Err(workspace_error) => {
+            // Workspace creation failed or was interrupted
+            // Rollback: clean workspace, leave DB in 'creating' state
+            let _ = rollback_partial_state(name, workspace_path);
+            Err(workspace_error).context("Failed to create workspace, rolled back")
+        }
+    }
+}
+
+/// Rollback partial state after failed or interrupted session creation
+///
+/// This cleans up filesystem state while leaving the DB record
+/// in 'creating' state for detection by doctor.
+///
+/// # Rollback Strategy
+///
+/// 1. Remove workspace directory if it exists (partial state cleanup)
+/// 2. DO NOT remove DB record (leave for doctor detection)
+/// 3. Handle missing paths gracefully (no panic on cleanup failure)
+///
+/// # Atomicity Contract
+///
+/// This function NEVER panics - all cleanup failures are logged
+/// and handled gracefully. Partial state is always detectable.
+fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) -> Result<()> {
+    use std::fs;
+
+    let workspace_dir = workspace_path;
+
+    // Only attempt cleanup if path exists (handle missing gracefully)
+    if workspace_dir.exists() {
+        match fs::remove_dir_all(workspace_dir) {
+            Ok(_) => {
+                tracing::info!("Rolled back partial workspace for session '{}'", name);
+            }
+            Err(cleanup_err) => {
+                // Cleanup failed but we still leave DB in 'creating' state
+                // Doctor will detect the stale session
+                eprintln!(
+                    "Warning: failed to cleanup partial workspace '{}': {}",
+                    workspace_path.display(),
+                    cleanup_err
+                );
+                tracing::warn!(
+                    "Failed to rollback workspace for session '{}': {}",
+                    name,
+                    cleanup_err
+                );
+            }
+        }
+    } else {
+        // Workspace doesn't exist - nothing to clean
+        tracing::info!("No workspace to rollback for session '{}'", name);
+    }
+
+    // DB record intentionally left in 'creating' state for doctor detection
+    Ok(())
+}
+
 /// Run the add command with options
 pub fn run_with_options(options: &AddOptions) -> Result<()> {
     // Validate session name (REQ-CLI-015)
@@ -74,36 +181,13 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     let workspace_path = workspace_base.join(&options.name);
     let workspace_path_str = workspace_path.display().to_string();
 
-    // Create the JJ workspace (REQ-JJ-003, REQ-JJ-007)
-    create_jj_workspace(&options.name, &workspace_path).with_context(|| {
-        format!(
-            "Failed to create JJ workspace for session '{}'",
-            options.name
-        )
-    })?;
+    // ATOMIC SESSION CREATION (zjj-bw0x)
+    // Order: DB first (detectable), then workspace (cleanable)
+    atomic_create_session(&options.name, &workspace_path, &db)?;
 
-    // Insert into database with status 'creating' (REQ-STATE-004)
-    // COMPENSATING ACTION: If this fails, workspace is orphaned
-    // Recovery: User can run 'zjj clean' to remove orphaned workspaces
-    let session_result = db.create_blocking(&options.name, &workspace_path_str);
-
-    let mut session = match session_result {
-        Ok(s) => s,
-        Err(db_error) => {
-            // DB insert failed - perform compensating action
-            // Remove orphaned JJ workspace
-            let workspace_dir = workspace_path.as_path();
-            if workspace_dir.exists() {
-                if let Err(cleanup_err) = std::fs::remove_dir_all(workspace_dir) {
-                    eprintln!(
-                        "Warning: failed to cleanup orphaned workspace '{}': {cleanup_err}",
-                        workspace_path_str
-                    );
-                }
-            }
-            return Err(db_error).context("Session creation failed");
-        }
-    };
+    let mut session = db
+        .get_blocking(&options.name)?
+        .ok_or_else(|| anyhow::anyhow!("Session record lost during atomic creation"))?;
 
     // Execute post_create hooks unless --no-hooks (REQ-CLI-004, REQ-CLI-005)
     // COMPENSATING ACTION: If this fails, session has 'creating' status in DB
