@@ -14,7 +14,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -34,7 +34,7 @@ use zjj_core::{
 
 use crate::{
     commands::get_session_db,
-    session::{Session, SessionStatus},
+    session::{Session, SessionStatus, SessionUpdate},
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -67,6 +67,23 @@ struct DashboardApp {
     confirm_dialog: Option<ConfirmDialog>,
     /// Input dialog state
     input_dialog: Option<InputDialog>,
+    /// Drag state for mouse interactions
+    drag_state: Option<DragState>,
+    /// Cached column bounds for mouse detection
+    column_bounds: Vec<Rect>,
+}
+
+/// Drag state tracking for mouse drag-and-drop
+#[derive(Debug, Clone)]
+struct DragState {
+    /// Column where drag started
+    start_column: usize,
+    /// Row where drag started
+    start_row: usize,
+    /// Current column under cursor
+    current_column: usize,
+    /// Current row under cursor
+    current_row: usize,
 }
 
 /// Confirmation dialog for destructive actions
@@ -108,7 +125,12 @@ pub fn run() -> Result<()> {
     // Setup terminal
     enable_raw_mode().context("Failed to enable raw mode")?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen).context("Failed to enter alternate screen")?;
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        crossterm::event::EnableMouseCapture
+    )
+    .context("Failed to enter alternate screen or enable mouse")?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).context("Failed to create terminal")?;
@@ -136,8 +158,12 @@ pub fn run() -> Result<()> {
 
     // Cleanup terminal
     disable_raw_mode().context("Failed to disable raw mode")?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)
-        .context("Failed to leave alternate screen")?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        crossterm::event::DisableMouseCapture
+    )
+    .context("Failed to leave alternate screen or disable mouse")?;
     terminal.show_cursor().context("Failed to show cursor")?;
 
     result
@@ -158,7 +184,9 @@ fn run_app(
 
     loop {
         // Render UI
-        terminal.draw(|f| ui(f, app))?;
+        terminal.draw(|f| {
+            ui(f, app);
+        })?;
 
         // Check for quit
         if app.should_quit {
@@ -167,11 +195,19 @@ fn run_app(
 
         // Handle events with timeout
         if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                handle_key_event(app, key)?;
-            } else if let Event::Resize(width, height) = event::read()? {
-                app.terminal_width = width;
-                terminal.resize(Rect::new(0, 0, width, height))?;
+            let event = event::read()?;
+            match event {
+                Event::Key(key) => {
+                    handle_key_event(app, key)?;
+                }
+                Event::Mouse(mouse) => {
+                    handle_mouse_event(app, mouse)?;
+                }
+                Event::Resize(width, height) => {
+                    app.terminal_width = width;
+                    terminal.resize(Rect::new(0, 0, width, height))?;
+                }
+                _ => {}
             }
         }
 
@@ -341,12 +377,171 @@ fn handle_confirm_dialog(
     Ok(())
 }
 
+/// Handle mouse events for drag-and-drop
+fn handle_mouse_event(app: &mut DashboardApp, mouse: MouseEvent) -> Result<()> {
+    // Ignore mouse events if dialog is open
+    if app.input_dialog.is_some() || app.confirm_dialog.is_some() {
+        return Ok(());
+    }
+
+    match mouse.kind {
+        MouseEventKind::Down(button) => {
+            if button == crossterm::event::MouseButton::Left {
+                handle_mouse_down(app, mouse.column, mouse.row)?;
+            }
+        }
+        MouseEventKind::Drag(button) => {
+            if button == crossterm::event::MouseButton::Left {
+                handle_mouse_drag(app, mouse.column, mouse.row)?;
+            }
+        }
+        MouseEventKind::Up(button) => {
+            if button == crossterm::event::MouseButton::Left {
+                handle_mouse_up(app)?;
+            }
+        }
+        MouseEventKind::ScrollDown => {
+            // Scroll down in current column
+            app.move_down();
+        }
+        MouseEventKind::ScrollUp => {
+            // Scroll up in current column
+            app.move_up();
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
+/// Handle mouse down (start drag)
+fn handle_mouse_down(app: &mut DashboardApp, column: u16, row: u16) -> Result<()> {
+    // Find which column was clicked
+    if let Some((clicked_column, _)) = find_column_at_position(app, column, row) {
+        // Find which row was clicked
+        if let Some(clicked_row) = find_row_at_position(app, clicked_column, row) {
+            // Start drag
+            app.selected_column = clicked_column;
+            app.selected_row = clicked_row;
+            app.drag_state = Some(DragState {
+                start_column: clicked_column,
+                start_row: clicked_row,
+                current_column: clicked_column,
+                current_row: clicked_row,
+            });
+        }
+    }
+
+    Ok(())
+}
+
+/// Handle mouse drag (update position)
+fn handle_mouse_drag(app: &mut DashboardApp, column: u16, row: u16) -> Result<()> {
+    if let Some(drag_state) = app.drag_state.take() {
+        // Find which column we're over
+        let (new_column, new_row) = find_column_at_position(app, column, row)
+            .and_then(|(col, _)| Some((col, find_row_at_position(app, col, row).unwrap_or(0))))
+            .unwrap_or((drag_state.current_column, drag_state.current_row));
+
+        app.drag_state = Some(DragState {
+            start_column: drag_state.start_column,
+            start_row: drag_state.start_row,
+            current_column: new_column,
+            current_row: new_row,
+        });
+    }
+
+    Ok(())
+}
+
+/// Handle mouse up (end drag and update status)
+fn handle_mouse_up(app: &mut DashboardApp) -> Result<()> {
+    if let Some(drag_state) = app.drag_state.take() {
+        // Check if we dropped in a different column
+        if drag_state.current_column != drag_state.start_column {
+            // Get session being dragged
+            if let Some(session_data) =
+                app.sessions_by_status[drag_state.start_column].get(drag_state.start_row)
+            {
+                let session_name = session_data.session.name.clone();
+                let new_status = match drag_state.current_column {
+                    0 => SessionStatus::Creating,
+                    1 => SessionStatus::Active,
+                    2 => SessionStatus::Paused,
+                    3 => SessionStatus::Completed,
+                    4 => SessionStatus::Failed,
+                    _ => return Ok(()),
+                };
+
+                // Update session status
+                update_session_status(&session_name, new_status)?;
+                app.refresh_sessions()?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Find which column is at given screen position
+fn find_column_at_position(app: &DashboardApp, x: u16, y: u16) -> Option<(usize, Rect)> {
+    if app.column_bounds.is_empty() {
+        return None;
+    }
+
+    for (idx, bounds) in app.column_bounds.iter().enumerate() {
+        if x >= bounds.x
+            && x < bounds.x + bounds.width
+            && y >= bounds.y
+            && y < bounds.y + bounds.height
+        {
+            return Some((idx, *bounds));
+        }
+    }
+
+    None
+}
+
+/// Find which row is at given position within a column
+fn find_row_at_position(app: &DashboardApp, column_idx: usize, y: u16) -> Option<usize> {
+    if y < 3 {
+        // Account for column header
+        return Some(0);
+    }
+
+    let sessions = &app.sessions_by_status[column_idx];
+    if sessions.is_empty() {
+        return None;
+    }
+
+    // Each row is approximately 1 line tall
+    let row_idx = (y - 3) as usize;
+    if row_idx < sessions.len() {
+        Some(row_idx)
+    } else {
+        Some(sessions.len().saturating_sub(1))
+    }
+}
+
+/// Update session status in database
+fn update_session_status(name: &str, new_status: SessionStatus) -> Result<()> {
+    let db = get_session_db()?;
+    let update = SessionUpdate {
+        status: Some(new_status),
+        branch: None,
+        last_synced: None,
+        metadata: None,
+    };
+    db.update_blocking(name, update)?;
+    Ok(())
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // UI RENDERING
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Render the UI
-fn ui(f: &mut Frame, app: &DashboardApp) {
+fn ui(f: &mut Frame, app: &mut DashboardApp) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(3)])
@@ -369,7 +564,7 @@ fn ui(f: &mut Frame, app: &DashboardApp) {
 }
 
 /// Render kanban board
-fn render_kanban(f: &mut Frame, app: &DashboardApp, area: Rect) {
+fn render_kanban(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
     let is_wide = area.width >= 120;
 
     if is_wide {
@@ -380,7 +575,7 @@ fn render_kanban(f: &mut Frame, app: &DashboardApp, area: Rect) {
 }
 
 /// Render kanban board horizontally (wide screens)
-fn render_kanban_horizontal(f: &mut Frame, app: &DashboardApp, area: Rect) {
+fn render_kanban_horizontal(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
     let columns = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -394,6 +589,9 @@ fn render_kanban_horizontal(f: &mut Frame, app: &DashboardApp, area: Rect) {
 
     let column_titles = ["Creating", "Active", "Paused", "Completed", "Failed"];
 
+    // Store column bounds for mouse detection
+    app.column_bounds = columns.to_vec();
+
     column_titles
         .iter()
         .enumerate()
@@ -401,10 +599,13 @@ fn render_kanban_horizontal(f: &mut Frame, app: &DashboardApp, area: Rect) {
 }
 
 /// Render kanban board vertically (narrow screens)
-fn render_kanban_vertical(f: &mut Frame, app: &DashboardApp, area: Rect) {
+fn render_kanban_vertical(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
     // Just show the selected column
     let column_titles = ["Creating", "Active", "Paused", "Completed", "Failed"];
     let title = column_titles[app.selected_column];
+
+    // Store column bounds for mouse detection
+    app.column_bounds = vec![area];
 
     render_column(f, app, area, app.selected_column, title);
 }
@@ -414,17 +615,31 @@ fn render_column(f: &mut Frame, app: &DashboardApp, area: Rect, column_idx: usiz
     let sessions = &app.sessions_by_status[column_idx];
     let is_selected = column_idx == app.selected_column;
 
+    // Check if this column is being dragged over
+    let is_drag_target = app.drag_state.as_ref().map_or(false, |drag| {
+        drag.current_column == column_idx && drag.current_column != drag.start_column
+    });
+
     let items: Vec<ListItem> = sessions
         .iter()
         .enumerate()
         .map(|(idx, session_data)| {
             let is_row_selected = is_selected && idx == app.selected_row;
-            format_session_item(session_data, is_row_selected)
+            // Check if this session is being dragged
+            let is_being_dragged = app.drag_state.as_ref().map_or(false, |drag| {
+                drag.start_column == column_idx && drag.start_row == idx
+            });
+            format_session_item(session_data, is_row_selected, is_being_dragged)
         })
         .collect();
 
     let border_style = if is_selected {
         Style::default().fg(Color::Cyan)
+    } else if is_drag_target {
+        // Highlight column when dragging over it
+        Style::default()
+            .fg(Color::Green)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default()
     };
@@ -442,7 +657,11 @@ fn render_column(f: &mut Frame, app: &DashboardApp, area: Rect, column_idx: usiz
 }
 
 /// Format a session as a list item
-fn format_session_item(session_data: &SessionData, is_selected: bool) -> ListItem<'_> {
+fn format_session_item(
+    session_data: &SessionData,
+    is_selected: bool,
+    is_being_dragged: bool,
+) -> ListItem<'_> {
     let session = &session_data.session;
     let changes_str = session_data
         .changes
@@ -460,18 +679,20 @@ fn format_session_item(session_data: &SessionData, is_selected: bool) -> ListIte
 
     let branch = session.branch.as_deref().unwrap_or("-");
 
+    let name_style = if is_being_dragged {
+        // Dim the dragged session
+        Style::default().fg(Color::DarkGray)
+    } else if is_selected {
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default()
+    };
+
     let line = Line::from(vec![
-        Span::styled(
-            format!("{:<15}", session.name),
-            if is_selected {
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            },
-        ),
-        Span::raw(format!(" {branch} ")),
+        Span::styled(format!("{:<15}", session.name), name_style),
+        Span::styled(format!(" {branch} "), Style::default().fg(Color::DarkGray)),
         Span::styled(
             format!("Δ{changes_str} "),
             Style::default().fg(Color::Green),
@@ -487,6 +708,8 @@ fn render_status_bar(f: &mut Frame, app: &DashboardApp, area: Rect) {
     let help_text = vec![
         Span::raw("hjkl/arrows:"),
         Span::styled(" navigate ", Style::default().fg(Color::Gray)),
+        Span::raw("Mouse:"),
+        Span::styled(" drag-drop ", Style::default().fg(Color::Gray)),
         Span::raw("Enter:"),
         Span::styled(" focus ", Style::default().fg(Color::Gray)),
         Span::raw("d:"),
@@ -593,6 +816,8 @@ impl DashboardApp {
             should_quit: false,
             confirm_dialog: None,
             input_dialog: None,
+            drag_state: None,
+            column_bounds: vec![],
         };
 
         app.refresh_sessions()?;
