@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
 pub enum RecoveryPolicy {
     Silent,
     #[default]
@@ -300,14 +301,6 @@ pub fn load_config() -> Result<Config> {
     // 1. Start with built-in defaults
     let mut config = Config::default();
 
-    // 2. Load global config if exists
-    if let Some(global_path) = global_config_path() {
-        if global_path.exists() {
-            let global = load_toml_file(&global_path)?;
-            config.merge(global);
-        }
-    }
-
     // 3. Load project config if exists
     if let Ok(project_path) = project_config_path() {
         if project_path.exists() {
@@ -337,11 +330,6 @@ pub fn load_config() -> Result<Config> {
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Get path to global config file
-fn global_config_path() -> Option<PathBuf> {
-    directories::ProjectDirs::from("", "", "zjj")
-        .map(|proj_dirs| proj_dirs.config_dir().join("config.toml"))
-}
 
 /// Get path to project config file
 ///
@@ -883,14 +871,6 @@ mod tests {
         );
     }
 
-    // Additional tests for helper functions
-    #[test]
-    fn test_global_config_path() {
-        let path = global_config_path();
-        // Should return Some path to ~/.config/zjj/config.toml
-        // or None on systems without home directory
-        assert!(path.is_some() || path.is_none());
-    }
 
     #[test]
     fn test_project_config_path() {

@@ -346,6 +346,7 @@ fn generate_suggestions(
     suggestions
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn output_context(context: &ContextOutput, format: OutputFormat) -> Result<()> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("context-response", "single", context);

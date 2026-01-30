@@ -43,7 +43,10 @@ pub fn log_recovery(message: &str) -> Result<()> {
 pub fn should_log_recovery() -> bool {
     // Check ZJJ_RECOVERY_LOG env var first
     if let Ok(value) = std::env::var("ZJJ_RECOVERY_LOG") {
-        return value.parse().unwrap_or(true);
+        return match value.to_lowercase().as_str() {
+            "false" | "0" | "no" => false,
+            _ => true, // Default to logging for any other value (including true/1/yes)
+        };
     }
 
     // Default to logging recovery actions

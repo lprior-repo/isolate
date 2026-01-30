@@ -20,9 +20,10 @@ use commands::{
 };
 
 /// Generate JSON OUTPUT documentation for command help
-/// These strings document the SchemaEnvelope structure used in JSON output
+/// These strings document the `SchemaEnvelope` structure used in JSON output
+#[allow(dead_code)]
 mod json_docs {
-    pub fn add() -> &'static str {
+    pub const fn add() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -37,7 +38,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn list() -> &'static str {
+    pub const fn list() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps sessions in a SchemaEnvelopeArray:
   {
@@ -58,7 +59,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn remove() -> &'static str {
+    pub const fn remove() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -71,7 +72,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn focus() -> &'static str {
+    pub const fn focus() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -85,7 +86,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn status() -> &'static str {
+    pub const fn status() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps sessions in a SchemaEnvelope:
   {
@@ -121,7 +122,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn sync() -> &'static str {
+    pub const fn sync() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -136,7 +137,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn init() -> &'static str {
+    pub const fn init() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -152,7 +153,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn spawn() -> &'static str {
+    pub const fn spawn() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -169,7 +170,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn done() -> &'static str {
+    pub const fn done() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -184,7 +185,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn diff() -> &'static str {
+    pub const fn diff() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -205,7 +206,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn config() -> &'static str {
+    pub const fn config() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -219,7 +220,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn clean() -> &'static str {
+    pub const fn clean() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -232,7 +233,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn introspect() -> &'static str {
+    pub const fn introspect() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -246,7 +247,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn doctor() -> &'static str {
+    pub const fn doctor() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -271,7 +272,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn query() -> &'static str {
+    pub const fn query() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used (default), output wraps the response in a SchemaEnvelope:
   {
@@ -284,7 +285,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn context() -> &'static str {
+    pub const fn context() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used (default when not TTY), output wraps the response in a SchemaEnvelope:
   {
@@ -300,7 +301,7 @@ mod json_docs {
   }"#
     }
 
-    pub fn checkpoint() -> &'static str {
+    pub const fn checkpoint() -> &'static str {
         r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {

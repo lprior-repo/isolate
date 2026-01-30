@@ -96,7 +96,7 @@ mod tests {
     }
 
     #[test]
-    fn test_agent_info_serialization() {
+    fn test_agent_info_serialization() -> Result<(), anyhow::Error> {
         let info = AgentInfo {
             agent_id: "agent-1".to_string(),
             registered_at: Utc::now(),
@@ -107,28 +107,30 @@ mod tests {
             stale: false,
         };
 
-        let json = serde_json::to_string(&info).expect("serialization failed");
-        let parsed: AgentInfo = serde_json::from_str(&json).expect("deserialization failed");
+        let json = serde_json::to_string(&info)?;
+        let parsed: AgentInfo = serde_json::from_str(&json)?;
 
         assert_eq!(parsed.agent_id, info.agent_id);
         assert_eq!(parsed.current_session, info.current_session);
         assert_eq!(parsed.actions_count, info.actions_count);
         assert_eq!(parsed.stale, info.stale);
+        Ok(())
     }
 
     #[test]
-    fn test_lock_summary_serialization() {
+    fn test_lock_summary_serialization() -> Result<(), anyhow::Error> {
         let lock = LockSummary {
             session: "session-1".to_string(),
             holder: "agent-1".to_string(),
             expires_at: Utc::now(),
         };
 
-        let json = serde_json::to_string(&lock).expect("serialization failed");
-        let parsed: LockSummary = serde_json::from_str(&json).expect("deserialization failed");
+        let json = serde_json::to_string(&lock)?;
+        let parsed: LockSummary = serde_json::from_str(&json)?;
 
         assert_eq!(parsed.session, lock.session);
         assert_eq!(parsed.holder, lock.holder);
+        Ok(())
     }
 
     #[test]
@@ -169,7 +171,7 @@ mod tests {
     }
 
     #[test]
-    fn test_agents_output_serialization() {
+    fn test_agents_output_serialization() -> Result<(), anyhow::Error> {
         let output = AgentsOutput {
             agents: vec![],
             locks: vec![],
@@ -177,10 +179,11 @@ mod tests {
             total_stale: 0,
         };
 
-        let json = serde_json::to_string(&output).expect("serialization failed");
-        let parsed: AgentsOutput = serde_json::from_str(&json).expect("deserialization failed");
+        let json = serde_json::to_string(&output)?;
+        let parsed: AgentsOutput = serde_json::from_str(&json)?;
 
         assert_eq!(parsed.total_active, 0);
         assert_eq!(parsed.total_stale, 0);
+        Ok(())
     }
 }

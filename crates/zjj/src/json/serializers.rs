@@ -1,7 +1,6 @@
 //! JSON output structures for zjj commands
 
 use serde::Serialize;
-use zjj_core::json::ErrorDetail;
 
 use crate::json::error::SyncError;
 

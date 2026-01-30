@@ -3,6 +3,12 @@
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
+use zjj_core::{
+    templates::{
+        askama::{render_template, ProjectContext, TemplateType},
+        MOON_TASKS, MOON_TOOLCHAIN, MOON_WORKSPACE,
+    },
+};
 
 /// Repo-level AI instructions for when working on zjj itself
 pub(super) const REPO_AI_INSTRUCTIONS: &str = r"# ZJJ Repository - AI Agent Instructions
@@ -100,6 +106,10 @@ command = "claude"
 [session]
 auto_commit = false
 commit_prefix = "wip:"
+
+[recovery]
+policy = "warn"
+log_recovered = true
 "#;
 
 /// Create .jjignore to prevent .zjj directory from being tracked
@@ -200,6 +210,88 @@ pub(super) fn create_repo_ai_instructions(repo_root: &Path) -> Result<()> {
     if !ai_path.exists() {
         fs::write(&ai_path, REPO_AI_INSTRUCTIONS)
             .context("Failed to create .ai-instructions.md")?;
+    }
+
+    Ok(())
+}
+
+fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
+    let project_name = repo_root
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("new-project")
+        .to_string();
+
+    Ok(ProjectContext::new(
+        project_name,
+        "A new project".to_string(),
+        "0.1.0".to_string(),
+        vec!["Your Name".to_string()],
+        None,
+    )?)
+}
+
+/// Create AGENTS.md file
+pub(super) fn create_agents_md(repo_root: &Path) -> Result<()> {
+    let context = get_project_context(repo_root)?;
+    let rendered_content = render_template(TemplateType::AgentsMd, &context)?;
+    let path = repo_root.join("AGENTS.md");
+    if !path.exists() {
+        fs::write(&path, rendered_content).context("Failed to create AGENTS.md")?;
+    }
+    Ok(())
+}
+
+
+
+/// Create CLAUDE.md file
+pub(super) fn create_claude_md(repo_root: &Path) -> Result<()> {
+    let context = get_project_context(repo_root)?;
+    let rendered_content = render_template(TemplateType::ClaudeMd, &context)?;
+    let path = repo_root.join("CLAUDE.md");
+    if !path.exists() {
+        fs::write(&path, rendered_content).context("Failed to create CLAUDE.md")?;
+    }
+    Ok(())
+}
+
+pub(super) fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
+    let moon_dir = repo_root.join(".moon");
+    fs::create_dir_all(&moon_dir).context("Failed to create .moon directory")?;
+
+    let workspace_path = moon_dir.join("workspace.yml");
+    if !workspace_path.exists() {
+        fs::write(&workspace_path, MOON_WORKSPACE)
+            .context("Failed to create .moon/workspace.yml")?;
+    }
+
+    let toolchain_path = moon_dir.join("toolchain.yml");
+    if !toolchain_path.exists() {
+        fs::write(&toolchain_path, MOON_TOOLCHAIN)
+            .context("Failed to create .moon/toolchain.yml")?;
+    }
+
+    let tasks_path = moon_dir.join("tasks.yml");
+    if !tasks_path.exists() {
+        fs::write(&tasks_path, MOON_TASKS).context("Failed to create .moon/tasks.yml")?;
+    }
+
+    Ok(())
+}
+
+pub(super) fn create_docs(repo_root: &Path) -> Result<()> {
+    let docs_dir = repo_root.join("docs");
+    fs::create_dir_all(&docs_dir).context("Failed to create docs directory")?;
+
+    let context = get_project_context(repo_root)?;
+
+    for template_type in TemplateType::docs() {
+        let rendered = render_template(*template_type, &context)?;
+        let path = docs_dir.join(template_type.as_str());
+        if !path.exists() {
+            fs::write(&path, rendered)
+                .with_context(|| format!("Failed to create {}", path.display()))?;
+        }
     }
 
     Ok(())
