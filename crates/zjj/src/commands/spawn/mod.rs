@@ -10,8 +10,12 @@
 //! 7. On success: merges to main and cleans up
 //! 8. On failure: cleans up without merging
 
+pub mod heartbeat;
+pub mod rollback;
 pub mod types;
 
+pub use heartbeat::{write_heartbeat_instructions, HeartbeatMonitor};
+pub use rollback::{SignalHandler, TransactionTracker};
 pub use types::{SpawnArgs, SpawnOptions};
 
 /// AI instructions placed in spawned workspace
@@ -74,20 +78,37 @@ fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
     // Phase 2: Validate bead status
     validate_bead_status(&options.bead_id)?;
 
-    // Phase 3: Create workspace
+    // Initialize transaction tracker
     let workspace_path = create_workspace(&root, &options.bead_id)?;
 
-    // Phase 4: Update bead status to in_progress
-    update_bead_status(&options.bead_id, "in_progress").map_err(|e| SpawnError::DatabaseError {
-        reason: e.to_string(),
-    })?;
+    let tracker = TransactionTracker::new(&options.bead_id, &workspace_path)?;
 
-    // Phase 5: Spawn agent
+    // Register signal handlers for graceful shutdown
+    let signal_handler = SignalHandler::new(Some(tracker.clone()));
+    signal_handler.register()?;
+
+    // Phase 3: Create workspace
+    tracker.mark_workspace_created();
+
+    // Phase 4: Update bead status to in_progress
+    update_bead_status(&options.bead_id, "in_progress").map_err(|e| {
+        tracker.rollback();
+        SpawnError::DatabaseError {
+            reason: e.to_string(),
+        }
+    })?;
+    tracker.mark_bead_status_updated();
+
+    // Phase 5: Spawn agent with transaction tracking
     let (pid, exit_code) = if options.background {
         spawn_agent_background(&workspace_path, options)?
     } else {
         spawn_agent_foreground(&workspace_path, options)?
     };
+
+    if let Some(pid) = pid {
+        tracker.mark_agent_spawned(pid);
+    }
 
     // Phase 6-8: Handle completion
     let (merged, cleaned, status) = match exit_code {
@@ -225,6 +246,9 @@ fn create_workspace_discoverability(workspace_path: &Path) -> Result<(), SpawnEr
         }
     })?;
 
+    // Write heartbeat monitoring instructions
+    write_heartbeat_instructions(workspace_path)?;
+
     Ok(())
 }
 
@@ -264,6 +288,9 @@ fn spawn_agent_foreground(
     workspace_path: &Path,
     options: &SpawnOptions,
 ) -> Result<(Option<u32>, Option<i32>), SpawnError> {
+    let heartbeat = HeartbeatMonitor::with_defaults(workspace_path);
+    heartbeat.initialize()?;
+
     let mut cmd = Command::new(&options.agent_command);
     cmd.args(&options.agent_args)
         .current_dir(workspace_path)
@@ -286,6 +313,8 @@ fn spawn_agent_foreground(
 
     let exit_code = status.code();
 
+    heartbeat.cleanup()?;
+
     Ok((pid, exit_code))
 }
 
@@ -294,6 +323,9 @@ fn spawn_agent_background(
     workspace_path: &Path,
     options: &SpawnOptions,
 ) -> Result<(Option<u32>, Option<i32>), SpawnError> {
+    let heartbeat = HeartbeatMonitor::with_defaults(workspace_path);
+    heartbeat.initialize()?;
+
     let mut cmd = Command::new(&options.agent_command);
     cmd.args(&options.agent_args)
         .current_dir(workspace_path)
@@ -349,7 +381,18 @@ fn handle_failure(
         cleanup_workspace(workspace_path)?
     };
 
-    // Leave bead as in_progress for retry
+    // Reset bead status from in_progress to open for retry
+    let bead_id = workspace_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| SpawnError::BeadNotFound {
+            bead_id: "unknown".to_string(),
+        })?;
+
+    update_bead_status(bead_id, "open").map_err(|e| SpawnError::DatabaseError {
+        reason: e.to_string(),
+    })?;
+
     Ok((false, cleaned, SpawnStatus::Failed))
 }
 
