@@ -20,7 +20,6 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use zjj_core::{log_recovery, OutputFormat, RecoveryPolicy};
 
 use crate::{
@@ -47,7 +46,7 @@ pub fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, UndoError
         Err(e) => {
             output_error(e, options.format)?;
             Ok(match e {
-                UndoError::AlreadyPushedToRemote => UndoExitCode::AlreadyPushed,
+                UndoError::AlreadyPushedToRemote { .. } => UndoExitCode::AlreadyPushed,
                 UndoError::NoUndoHistory => UndoExitCode::NoHistory,
                 UndoError::InvalidState { .. } => UndoExitCode::InvalidState,
                 _ => UndoExitCode::OtherError,
@@ -130,7 +129,6 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
         .into_iter()
         .rev()
         .collect::<Vec<_>>()
-        .ok_or_else(|| UndoError::NoUndoHistory)
 }
 
 /// Get the last (most recent) undo entry
@@ -271,6 +269,14 @@ struct UndoEntry {
     timestamp: u64,
     pushed_to_remote: bool,
     status: String,
+}
+
+impl From<serde_json::Error> for UndoError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::SerializationError {
+            reason: error.to_string(),
+        }
+    }
 }
 
 #[cfg(test)]
