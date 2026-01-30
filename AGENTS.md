@@ -241,4 +241,4 @@ bv --robot-triage --robot-triage-by-track
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 - Always use Moon for builds (never raw cargo)
-
+- YOU ARE TO NEVER TOUCH CLIPPY SETTINGS EVER
