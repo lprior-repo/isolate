@@ -22,7 +22,7 @@ use std::{
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput};
+pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput, UndoEntry};
 
 use crate::{
     cli::jj_root,

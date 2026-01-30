@@ -46,7 +46,7 @@ pub fn run_with_options(options: &RevertOptions) -> Result<RevertExitCode, Rever
             output_error(e, options.format)?;
             Ok(match e {
                 RevertError::SessionNotFound { .. } => RevertExitCode::SessionNotFound,
-                RevertError::AlreadyPushedToRemote => RevertExitCode::AlreadyPushed,
+                RevertError::AlreadyPushedToRemote { .. } => RevertExitCode::AlreadyPushed,
                 RevertError::InvalidState { .. } => RevertExitCode::InvalidState,
                 _ => RevertExitCode::OtherError,
             })
@@ -127,7 +127,6 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
             }
         })
         .collect::<Vec<_>>()
-        .ok_or_else(|| RevertError::NoUndoHistory)
 }
 
 /// Find specific session entry in history
@@ -251,6 +250,14 @@ struct UndoEntry {
     timestamp: u64,
     pushed_to_remote: bool,
     status: String,
+}
+
+impl From<serde_json::Error> for RevertError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::SerializationError {
+            reason: error.to_string(),
+        }
+    }
 }
 
 #[cfg(test)]
