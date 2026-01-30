@@ -278,38 +278,6 @@ impl SessionDb {
             .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
         rt.block_on(self.list(status_filter))
     }
-
-    /// Blocking version of transaction wrapper
-    ///
-    /// Executes multiple database operations in a single transaction with blocking semantics.
-    /// If the closure returns an error, the transaction is rolled back.
-    /// This is used for session creation where multiple DB operations must be atomic.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - Closure that receives a reference to SessionDb and performs operations
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use zjj::{session::SessionUpdate, SessionDb};
-    /// # fn example(db: &SessionDb) -> zjj_core::Result<()> {
-    /// db.transaction_blocking(|db_ref| {
-    ///     db_ref.create_blocking("my-session", "/path")?;
-    ///     db_ref.update_blocking("my-session", SessionUpdate { ... })?;
-    ///     Ok(())
-    /// })?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn transaction_blocking<F, R>(&self, f: F) -> Result<R>
-    where
-        F: FnOnce(&SessionDb) -> Result<R>,
-    {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(self.transaction(f))
-    }
 }
 
 // === PURE FUNCTIONS (Functional Core) ===

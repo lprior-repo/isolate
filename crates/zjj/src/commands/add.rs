@@ -75,90 +75,77 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     let workspace_path_str = workspace_path.display().to_string();
 
     // Create the JJ workspace (REQ-JJ-003, REQ-JJ-007)
-    // Track workspace creation for cleanup on failure
-    let workspace_created = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    create_jj_workspace(&options.name, &workspace_path).with_context(|| {
+        format!(
+            "Failed to create JJ workspace for session '{}'",
+            options.name
+        )
+    })?;
 
-    let create_workspace_result = create_jj_workspace(&options.name, &workspace_path);
-    match create_workspace_result {
-        Ok(()) => {
-            workspace_created.store(true, std::sync::atomic::Ordering::SeqCst);
-        }
-        Err(e) => {
-            // Workspace creation failed - no cleanup needed, just return error
-            return Err(e).with_context(|| {
-                format!(
-                    "Failed to create JJ workspace for session '{}'",
-                    options.name
-                )
-            });
-        }
-    }
+    // Insert into database with status 'creating' (REQ-STATE-004)
+    // COMPENSATING ACTION: If this fails, workspace is orphaned
+    // Recovery: User can run 'zjj clean' to remove orphaned workspaces
+    let session_result = db.create_blocking(&options.name, &workspace_path_str);
 
-    // Wrap database operations in a single transaction (REQ-DB-TX-001)
-    // This ensures atomicity: session creation + hook execution + status update
-    // If any DB operation fails, all DB changes roll back
-    let session_result: Result<Session> = db.transaction_blocking(|db_ref| {
-        // Note: This is a synchronous closure, but we're inside blocking context
-        let db_ref = db_ref.clone();
-
-        // Insert into database with status 'creating' (REQ-STATE-004)
-        let session = db_ref.create_blocking(&options.name, &workspace_path_str)?;
-
-        // Execute post_create hooks unless --no-hooks (REQ-CLI-004, REQ-CLI-005)
-        if !options.no_hooks {
-            if let Err(e) = execute_post_create_hooks(&workspace_path_str) {
-                // Hook failure → status 'failed' (REQ-HOOKS-003)
-                // This update is still within the same transaction
-                let _ = db_ref.update_blocking(
-                    &options.name,
-                    SessionUpdate {
-                        status: Some(SessionStatus::Failed),
-                        ..Default::default()
-                    },
-                );
-                return Err(e).context("post_create hook failed");
-            }
-        }
-
-        // Transition to 'active' status after successful creation (REQ-STATE-004)
-        db_ref.update_blocking(
-            &options.name,
-            SessionUpdate {
-                status: Some(SessionStatus::Active),
-                ..Default::default()
-            },
-        )?;
-
-        Ok(session)
-    });
-
-    // Handle transaction result with compensating actions
-    let session = match session_result {
-        Ok(mut session) => {
-            session.status = SessionStatus::Active;
-            session
-        }
+    let mut session = match session_result {
+        Ok(s) => s,
         Err(db_error) => {
-            // DB transaction failed - perform cleanup
-            if workspace_created.load(std::sync::atomic::Ordering::SeqCst) {
-                // Compensating action: remove orphaned JJ workspace
-                let workspace_dir = workspace_path.as_path();
-                if workspace_dir.exists() {
-                    if let Err(cleanup_err) = std::fs::remove_dir_all(workspace_dir) {
-                        eprintln!(
-                            "Warning: failed to cleanup orphaned workspace '{}': {cleanup_err}",
-                            workspace_path_str
-                        );
-                    }
+            // DB insert failed - perform compensating action
+            // Remove orphaned JJ workspace
+            let workspace_dir = workspace_path.as_path();
+            if workspace_dir.exists() {
+                if let Err(cleanup_err) = std::fs::remove_dir_all(workspace_dir) {
+                    eprintln!(
+                        "Warning: failed to cleanup orphaned workspace '{}': {cleanup_err}",
+                        workspace_path_str
+                    );
                 }
             }
             return Err(db_error).context("Session creation failed");
         }
     };
 
+    // Execute post_create hooks unless --no-hooks (REQ-CLI-004, REQ-CLI-005)
+    // COMPENSATING ACTION: If this fails, session has 'creating' status in DB
+    // Recovery: User can retry with 'zjj done' to complete or 'zjj remove' to clean up
+    if !options.no_hooks {
+        if let Err(e) = execute_post_create_hooks(&workspace_path_str) {
+            // Hook failure → status 'failed' (REQ-HOOKS-003)
+            // Attempt to mark session as failed (may also fail)
+            let _ = db.update_blocking(
+                &options.name,
+                SessionUpdate {
+                    status: Some(SessionStatus::Failed),
+                    ..Default::default()
+                },
+            );
+            return Err(e).context("post_create hook failed");
+        }
+    }
+
+    // Transition to 'active' status after successful creation (REQ-STATE-004)
+    // COMPENSATING ACTION: If this fails, session has 'creating' status in DB
+    // Recovery: User can retry with 'zjj done' to complete or 'zjj remove' to clean up
+    match db.update_blocking(
+        &options.name,
+        SessionUpdate {
+            status: Some(SessionStatus::Active),
+            ..Default::default()
+        },
+    ) {
+        Ok(()) => {
+            session.status = SessionStatus::Active;
+        }
+        Err(db_error) => {
+            // Status update failed - session left in 'creating' state
+            // Workspace and DB record both exist but inconsistent
+            return Err(db_error).context("Failed to activate session");
+        }
+    }
+
     // Open Zellij tab unless --no-open (REQ-CLI-003)
-    // Note: Zellij creation is external to the DB transaction
-    // If it fails, we update session status to 'failed' as compensating action
+    // COMPENSATING ACTION: If this fails, session has 'active' status but Zellij tab doesn't exist
+    // Recovery: User can manually create tab or run 'zjj focus <name>'
     if options.no_open {
         output_result(
             &options.name,
