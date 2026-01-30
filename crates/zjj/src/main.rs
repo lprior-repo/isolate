@@ -16,7 +16,7 @@ mod session;
 
 use commands::{
     add, agents, attach, checkpoint, clean, config, context, dashboard, diff, doctor, done, focus,
-    init, introspect, list, query, remove, revert, spawn, status, sync, undo,
+    init, introspect, list, pane, query, remove, revert, spawn, status, sync, undo,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -954,6 +954,69 @@ fn cmd_revert() -> ClapCommand {
         )
 }
 
+fn cmd_pane() -> ClapCommand {
+    ClapCommand::new("pane")
+        .about("Pane focus and navigation within sessions")
+        .long_about(
+            "Manage pane focus and navigation within Zellij sessions.\n\
+            Provides commands to focus specific panes, list all panes, cycle through panes,\n\
+            and navigate in directions (up/down/left/right).\n\n\
+            Works only when inside a Zellij session.",
+        )
+        .subcommand_required(true)
+        .subcommand(
+            ClapCommand::new("focus")
+                .about("Focus a specific pane")
+                .arg(Arg::new("session").required(true).help("Session name"))
+                .arg(
+                    Arg::new("pane")
+                        .required(false)
+                        .help("Pane ID or name (omit for list)"),
+                )
+                .arg(
+                    Arg::new("direction")
+                        .long("direction")
+                        .value_name("DIR")
+                        .help("Direction to navigate (up, down, left, right)"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("list")
+                .about("List all panes in a session")
+                .arg(Arg::new("session").required(true).help("Session name"))
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("next")
+                .about("Cycle to next pane")
+                .arg(Arg::new("session").required(true).help("Session name"))
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .global(true)
+                .help("Output as JSON"),
+        )
+}
+
 fn build_cli() -> ClapCommand {
     ClapCommand::new("zjj")
         .version(env!("CARGO_PKG_VERSION"))
@@ -974,6 +1037,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_agents())
         .subcommand(cmd_attach())
         .subcommand(cmd_list())
+        .subcommand(cmd_pane())
         .subcommand(cmd_remove())
         .subcommand(cmd_focus())
         .subcommand(cmd_status())
@@ -1324,6 +1388,45 @@ fn handle_undo(sub_m: &clap::ArgMatches) -> Result<()> {
     }
 }
 
+fn handle_pane(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    match sub_m.subcommand() {
+        Some(("focus", focus_m)) => {
+            let session = focus_m
+                .get_one::<String>("session")
+                .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+            let pane_identifier = focus_m.get_one::<String>("pane").map(String::as_str);
+            let direction = focus_m.get_one::<String>("direction").map(String::as_str);
+
+            let options = pane::PaneFocusOptions { format };
+
+            if let Some(dir_str) = direction {
+                let dir = pane::Direction::parse(dir_str)?;
+                pane::pane_navigate(session, dir, &options)
+            } else {
+                pane::pane_focus(session, pane_identifier, &options)
+            }
+        }
+        Some(("list", list_m)) => {
+            let session = list_m
+                .get_one::<String>("session")
+                .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+            let options = pane::PaneListOptions { format };
+            pane::pane_list(session, &options)
+        }
+        Some(("next", next_m)) => {
+            let session = next_m
+                .get_one::<String>("session")
+                .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+            let options = pane::PaneNextOptions { format };
+            pane::pane_next(session, &options)
+        }
+        _ => anyhow::bail!("Unknown pane subcommand"),
+    }
+}
+
 fn handle_revert(sub_m: &clap::ArgMatches) -> Result<()> {
     let name = sub_m
         .get_one::<String>("name")
@@ -1433,6 +1536,7 @@ fn run_cli() -> Result<()> {
         Some(("add", sub_m)) => handle_add(sub_m),
         Some(("agents", sub_m)) => handle_agents(sub_m),
         Some(("list", sub_m)) => handle_list(sub_m),
+        Some(("pane", sub_m)) => handle_pane(sub_m),
         Some(("remove", sub_m)) => handle_remove(sub_m),
         Some(("focus", sub_m)) => handle_focus(sub_m),
         Some(("status", sub_m)) => handle_status(sub_m),
