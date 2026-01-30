@@ -59,6 +59,9 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
                 println!("{}", serde_json::to_string(&envelope)?);
             } else {
                 println!("Synced session '{name}' with main");
+                println!();
+                println!("NEXT: Continue working, or if done:");
+                println!("  zjj done          # Merge to main + cleanup");
             }
             Ok(())
         }

@@ -106,6 +106,7 @@ fn run_all_checks() -> Vec<DoctorCheck> {
         check_orphaned_workspaces(),
         check_stale_sessions(),
         check_beads(),
+        check_workflow_violations(),
     ]
 }
 
@@ -581,6 +582,75 @@ fn check_stale_sessions() -> DoctorCheck {
             auto_fixable: false,
             details: Some(details),
         }
+    }
+}
+
+/// Check for workflow violations that may confuse AI agents
+fn check_workflow_violations() -> DoctorCheck {
+    let db = match get_session_db() {
+        Ok(db) => db,
+        Err(_) => {
+            return DoctorCheck {
+                name: "Workflow Health".to_string(),
+                status: CheckStatus::Pass,
+                message: "No session database".to_string(),
+                suggestion: None,
+                auto_fixable: false,
+                details: None,
+            };
+        }
+    };
+
+    let sessions = db.list_blocking(None).unwrap_or_default();
+    let active_sessions: Vec<_> = sessions
+        .iter()
+        .filter(|s| s.status == SessionStatus::Active)
+        .collect();
+
+    // Check if we're on main but have active workspaces
+    let current_dir = std::env::current_dir().ok();
+    let on_main = current_dir
+        .as_ref()
+        .map(|p| !p.to_string_lossy().contains(".zjj/workspaces"))
+        .unwrap_or(true);
+
+    if on_main && !active_sessions.is_empty() {
+        let session_names: Vec<_> = active_sessions.iter().map(|s| s.name.clone()).collect();
+        return DoctorCheck {
+            name: "Workflow Health".to_string(),
+            status: CheckStatus::Warn,
+            message: format!(
+                "On main branch but {} active workspace(s) exist",
+                active_sessions.len()
+            ),
+            suggestion: Some(format!(
+                "Work should happen in isolated workspaces. Run: zjj attach {}",
+                session_names.first().map(String::as_str).unwrap_or("<name>")
+            )),
+            auto_fixable: false,
+            details: Some(serde_json::json!({
+                "active_workspaces": session_names,
+                "on_main": true,
+                "workflow_violation": "working_on_main_with_workspaces"
+            })),
+        };
+    }
+
+    DoctorCheck {
+        name: "Workflow Health".to_string(),
+        status: CheckStatus::Pass,
+        message: if active_sessions.is_empty() {
+            "No active sessions - ready for new work".to_string()
+        } else {
+            format!("{} active session(s) - work in progress", active_sessions.len())
+        },
+        suggestion: if active_sessions.is_empty() {
+            Some("Start work: zjj spawn <bead-id>".to_string())
+        } else {
+            None
+        },
+        auto_fixable: false,
+        details: None,
     }
 }
 
