@@ -17,9 +17,11 @@ pub mod introspect;
 pub mod list;
 pub mod query;
 pub mod remove;
+pub mod revert;
 pub mod spawn;
 pub mod status;
 pub mod sync;
+pub mod undo;
 
 use std::{
     path::{Path, PathBuf},

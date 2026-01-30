@@ -1,4 +1,4 @@
-//! Types for the done command
+//! Types for done command
 //!
 //! This module provides zero-panic, type-safe types for completing work in a workspace.
 
@@ -7,7 +7,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use zjj_core::OutputFormat;
 
-/// CLI arguments for the done command (parsed in main.rs)
+/// CLI arguments for done command (parsed in main.rs)
 #[derive(Debug, Clone)]
 #[expect(clippy::struct_excessive_bools)] // CLI flags: >3 bools is appropriate for independent options
 pub struct DoneArgs {
@@ -16,6 +16,9 @@ pub struct DoneArgs {
 
     /// Keep workspace after merge
     pub keep_workspace: bool,
+
+    /// Skip workspace retention (cleanup immediately)
+    pub no_keep: bool,
 
     /// Squash all commits into one
     pub squash: bool,
@@ -36,6 +39,7 @@ impl DoneArgs {
         DoneOptions {
             message: self.message.clone(),
             keep_workspace: self.keep_workspace,
+            no_keep: self.no_keep,
             squash: self.squash,
             dry_run: self.dry_run,
             no_bead_update: self.no_bead_update,
@@ -44,19 +48,20 @@ impl DoneArgs {
     }
 }
 
-/// Internal options for the done command
+/// Internal options for done command
 #[derive(Debug, Clone)]
 #[expect(clippy::struct_excessive_bools)]
 pub struct DoneOptions {
     pub message: Option<String>,
     pub keep_workspace: bool,
+    pub no_keep: bool,
     pub squash: bool,
     pub dry_run: bool,
     pub no_bead_update: bool,
     pub format: OutputFormat,
 }
 
-/// Output from the done command
+/// Output from done command
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[expect(clippy::struct_excessive_bools)]
 pub struct DoneOutput {
@@ -67,9 +72,21 @@ pub struct DoneOutput {
     pub merged: bool,
     pub cleaned: bool,
     pub bead_closed: bool,
+    pub pushed_to_remote: bool,
     pub dry_run: bool,
     pub preview: Option<DonePreview>,
     pub error: Option<String>,
+}
+
+/// Undo entry for history log
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UndoEntry {
+    pub session_name: String,
+    pub commit_id: String,
+    pub pre_merge_commit_id: String,
+    pub timestamp: u64,
+    pub pushed_to_remote: bool,
+    pub status: String,
 }
 
 /// Preview information for dry-run mode
@@ -91,7 +108,7 @@ pub struct CommitInfo {
     pub timestamp: String,
 }
 
-/// Phase of the done operation
+/// Phase of done operation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DonePhase {
     ValidatingLocation,
@@ -223,7 +240,7 @@ impl DoneError {
     }
 }
 
-/// Exit codes for the done command
+/// Exit codes for done command
 #[derive(Debug, Clone, Copy)]
 pub enum DoneExitCode {
     Success = 0,
@@ -241,6 +258,7 @@ mod tests {
         let args = DoneArgs {
             message: Some("test commit".to_string()),
             keep_workspace: true,
+            no_keep: false,
             squash: false,
             dry_run: false,
             no_bead_update: false,
@@ -251,6 +269,7 @@ mod tests {
 
         assert_eq!(opts.message, Some("test commit".to_string()));
         assert!(opts.keep_workspace);
+        assert!(!opts.no_keep);
         assert!(!opts.squash);
         assert!(!opts.dry_run);
         assert!(matches!(opts.format, OutputFormat::Json));

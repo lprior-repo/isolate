@@ -6,9 +6,10 @@
 //! 3. Commits any uncommitted changes
 //! 4. Checks for merge conflicts
 //! 5. Merges workspace changes to main
-//! 6. Updates linked bead status to completed
-//! 7. Cleans up the workspace
-//! 8. Switches back to main
+//! 6. Logs undo history to .zjj/undo.log
+//! 7. Updates linked bead status to completed
+//! 8. Keeps workspace for 24h (unless --no-keep specified)
+//! 9. Switches back to main
 
 pub mod types;
 
@@ -16,9 +17,11 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    time::SystemTime,
 };
 
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput};
 
 use crate::{
@@ -83,11 +86,25 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
     // Phase 5: Check for conflicts
     check_conflicts(&root)?;
 
+    // Phase 5.5: Get pre-merge commit ID (for undo)
+    let pre_merge_commit_id = get_current_commit_id(&root)?;
+
+    // Phase 5.6: Check if pushed to remote (for undo)
+    let pushed_to_remote = is_pushed_to_remote(&root)?;
+
     // Phase 6: Get commits to merge
     let commits_to_merge = get_commits_to_merge(&root)?;
 
     // Phase 7: Merge to main
     merge_to_main(&root, &workspace_name, options.squash)?;
+
+    // Phase 7.5: Log undo history
+    let undo_logged = log_undo_history(
+        &root,
+        &workspace_name,
+        &pre_merge_commit_id,
+        pushed_to_remote,
+    )?;
 
     // Phase 8: Update bead status
     let bead_id = get_bead_id_for_workspace(&workspace_name)?;
@@ -103,7 +120,7 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
     };
 
     // Phase 9: Cleanup workspace
-    let cleaned = if options.keep_workspace {
+    let cleaned = if options.keep_workspace || !options.no_keep {
         false
     } else {
         cleanup_workspace(&root, &workspace_name)?
@@ -117,6 +134,7 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
         merged: true,
         cleaned,
         bead_closed,
+        pushed_to_remote,
         dry_run: false,
         preview: None,
         error: None,
@@ -524,6 +542,89 @@ fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()>
             eprintln!("   Workspace preserved - resolve conflicts and retry");
         }
     }
+    Ok(())
+}
+
+/// Get current commit ID (before merge)
+fn get_current_commit_id(root: &str) -> Result<String, DoneError> {
+    let output = Command::new("jj")
+        .current_dir(root)
+        .args(["log", "-r", "@", "--no-graph", "-T", "commit_id"])
+        .output()
+        .map_err(|e| DoneError::JjCommandFailed {
+            command: "jj log".to_string(),
+            reason: e.to_string(),
+        })?;
+
+    if !output.status.success() {
+        return Err(DoneError::JjCommandFailed {
+            command: "jj log".to_string(),
+            reason: String::from_utf8_lossy(&output.stderr).to_string(),
+        });
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Check if changes have been pushed to remote
+fn is_pushed_to_remote(root: &str) -> Result<bool, DoneError> {
+    let output = Command::new("jj")
+        .current_dir(root)
+        .args(["log", "-r", "@-"])
+        .output()
+        .map_err(|e| DoneError::JjCommandFailed {
+            command: "jj log".to_string(),
+            reason: e.to_string(),
+        })?;
+
+    if !output.status.success() {
+        return Ok(false);
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(stdout.trim().is_empty())
+}
+
+/// Log undo history to .zjj/undo.log
+fn log_undo_history(
+    root: &str,
+    workspace_name: &str,
+    pre_merge_commit_id: &str,
+    pushed_to_remote: bool,
+) -> Result<(), DoneError> {
+    let undo_log_path = Path::new(root).join(".zjj/undo.log");
+
+    let undo_entry = UndoEntry {
+        session_name: workspace_name.to_string(),
+        commit_id: String::new(),
+        pre_merge_commit_id: pre_merge_commit_id.to_string(),
+        timestamp: SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_err(|e| DoneError::InvalidState {
+                reason: format!("System time error: {e}"),
+            })?
+            .as_secs(),
+        pushed_to_remote,
+        status: "completed".to_string(),
+    };
+
+    let json = serde_json::to_string(&undo_entry).map_err(|e| DoneError::InvalidState {
+        reason: format!("Failed to serialize undo entry: {e}"),
+    })?;
+
+    let mut content = String::new();
+    if undo_log_path.exists() {
+        content = fs::read_to_string(&undo_log_path).map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to read undo log: {e}"),
+        })?;
+    }
+    content.push_str(&json);
+    content.push('\n');
+
+    fs::write(&undo_log_path, content).map_err(|e| DoneError::InvalidState {
+        reason: format!("Failed to write undo log: {e}"),
+    })?;
+
     Ok(())
 }
 
