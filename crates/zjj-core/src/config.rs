@@ -330,7 +330,6 @@ pub fn load_config() -> Result<Config> {
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-
 /// Get path to project config file
 ///
 /// # Errors
@@ -870,7 +869,6 @@ mod tests {
             vec!["a".to_string(), "b".to_string(), "c".to_string()]
         );
     }
-
 
     #[test]
     fn test_project_config_path() {

@@ -389,6 +389,12 @@ fn check_state_db() -> DoctorCheck {
 
 /// Check for orphaned workspaces
 fn check_orphaned_workspaces() -> DoctorCheck {
+    // Get list of sessions from DB with their workspace paths
+    let db_sessions = get_session_db()
+        .ok()
+        .and_then(|db| db.list_blocking(None).ok())
+        .unwrap_or_default();
+
     // Get list of JJ workspaces
     let jj_workspaces = jj_root().map_or_else(
         |_| vec![],
@@ -416,24 +422,30 @@ fn check_orphaned_workspaces() -> DoctorCheck {
         },
     );
 
-    // Get list of sessions from DB
-    let session_names = get_session_db()
-        .ok()
-        .and_then(|db| db.list_blocking(None).ok())
-        .map(|sessions| sessions.into_iter().map(|s| s.name).collect::<Vec<_>>())
-        .unwrap_or_default();
+    // Build a set of session names for quick lookup
+    let session_names: std::collections::HashSet<_> =
+        db_sessions.iter().map(|s| s.name.as_str()).collect();
 
     // Find workspaces without sessions (filesystem → DB orphans)
     let filesystem_orphans: Vec<_> = jj_workspaces
         .iter()
-        .filter(|ws| ws.as_str() != "default" && !session_names.contains(*ws))
+        .filter(|ws| ws.as_str() != "default" && !session_names.contains(ws.as_str()))
         .cloned()
         .collect();
 
-    // Find sessions without workspaces (DB → filesystem orphans)
-    let db_orphans: Vec<_> = session_names
+    // Find sessions without valid workspaces (DB → filesystem orphans)
+    // A session is orphaned if:
+    // 1. No workspace with matching name exists in JJ, OR
+    // 2. Workspace exists in JJ but the directory is missing
+    let db_orphans: Vec<_> = db_sessions
         .into_iter()
-        .filter(|session| !jj_workspaces.iter().any(|ws| ws == session.as_str()))
+        .filter(|session| {
+            let has_workspace = jj_workspaces.iter().any(|ws| ws == session.name.as_str());
+            let directory_exists = std::path::Path::new(&session.workspace_path).exists();
+
+            !has_workspace || !directory_exists
+        })
+        .map(|session| session.name)
         .collect();
 
     // Merge both types of orphans
