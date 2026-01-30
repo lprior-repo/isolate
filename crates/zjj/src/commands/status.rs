@@ -122,8 +122,16 @@ fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
             let json = serde_json::to_string_pretty(&envelope)?;
             println!("{json}");
         } else {
-            println!("No sessions found.");
-            println!("Use 'zjj add <name>' to create a session.");
+            println!("📍 WORKFLOW STATE: No active session");
+            println!();
+            println!("Next step: zjj spawn <bead-id> \"task description\"");
+            println!("           └─ Creates isolated workspace + starts work");
+            println!();
+            println!("Full workflow:");
+            println!("  1. zjj spawn <bead-id> \"desc\"  ← YOU ARE HERE");
+            println!("  2. [do work in isolated workspace]");
+            println!("  3. zjj sync");
+            println!("  4. zjj done");
         }
         return Ok(());
     }
@@ -138,6 +146,15 @@ fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
         output_json(&statuses)?;
     } else {
         output_table(&statuses);
+        // Workflow summary
+        let active_count = statuses.iter().filter(|s| s.status == "active").count();
+        if active_count > 0 {
+            println!();
+            println!(
+                "📍 WORKFLOW: {} active session(s). Next: work in workspace, then 'zjj sync' or 'zjj done'",
+                active_count
+            );
+        }
     }
 
     Ok(())

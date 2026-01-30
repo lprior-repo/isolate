@@ -499,6 +499,11 @@ fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<
         if result.bead_closed {
             println!("  Bead status updated to closed");
         }
+        // Post-command workflow guidance
+        println!();
+        println!("NEXT: Start new work with:");
+        println!("  zjj spawn <bead-id>   # Create isolated workspace for new task");
+        println!("  bd ready              # See available work items");
     }
     Ok(())
 }

@@ -473,6 +473,13 @@ fn output_result(result: &SpawnOutput, format: zjj_core::OutputFormat) -> Result
         if result.cleaned {
             println!("  Cleaned up: yes");
         }
+        // Post-command workflow guidance
+        if matches!(result.status, SpawnStatus::Running) {
+            println!();
+            println!("NEXT: Do your work in the workspace, then run:");
+            println!("  zjj sync          # Preview changes / sync with main");
+            println!("  zjj done          # Merge to main + cleanup");
+        }
     }
     Ok(())
 }
