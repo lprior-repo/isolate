@@ -625,7 +625,10 @@ fn check_workflow_violations() -> DoctorCheck {
             ),
             suggestion: Some(format!(
                 "Work should happen in isolated workspaces. Run: zjj attach {}",
-                session_names.first().map(String::as_str).unwrap_or("<name>")
+                session_names
+                    .first()
+                    .map(String::as_str)
+                    .unwrap_or("<name>")
             )),
             auto_fixable: false,
             details: Some(serde_json::json!({
@@ -642,7 +645,10 @@ fn check_workflow_violations() -> DoctorCheck {
         message: if active_sessions.is_empty() {
             "No active sessions - ready for new work".to_string()
         } else {
-            format!("{} active session(s) - work in progress", active_sessions.len())
+            format!(
+                "{} active session(s) - work in progress",
+                active_sessions.len()
+            )
         },
         suggestion: if active_sessions.is_empty() {
             Some("Start work: zjj spawn <bead-id>".to_string())

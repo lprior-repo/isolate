@@ -3,11 +3,9 @@
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
-use zjj_core::{
-    templates::{
-        askama::{render_template, ProjectContext, TemplateType},
-        MOON_TASKS, MOON_TOOLCHAIN, MOON_WORKSPACE,
-    },
+use zjj_core::templates::{
+    askama::{render_template, ProjectContext, TemplateType},
+    MOON_TASKS, MOON_TOOLCHAIN, MOON_WORKSPACE,
 };
 
 /// Repo-level AI instructions for when working on zjj itself
@@ -241,8 +239,6 @@ pub(super) fn create_agents_md(repo_root: &Path) -> Result<()> {
     }
     Ok(())
 }
-
-
 
 /// Create CLAUDE.md file
 pub(super) fn create_claude_md(repo_root: &Path) -> Result<()> {

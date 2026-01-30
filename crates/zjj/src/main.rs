@@ -16,7 +16,7 @@ mod session;
 
 use commands::{
     add, agents, attach, checkpoint, clean, config, context, dashboard, diff, doctor, done, focus,
-    init, introspect, list, query, remove, spawn, status, sync,
+    init, introspect, list, query, remove, revert, spawn, status, sync, undo,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -889,6 +889,63 @@ fn cmd_done() -> ClapCommand {
                 .help("Skip bead status update"),
         )
         .arg(
+            Arg::new("no-keep")
+                .long("no-keep")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip workspace retention (cleanup immediately)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .short('j')
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_undo() -> ClapCommand {
+    ClapCommand::new("undo")
+        .about("Revert last done operation")
+        .long_about(
+            "Reverts the most recent 'zjj done' operation, rolling back to the state before the merge.\n\
+            Works only if changes haven't been pushed to remote.\n\
+            Undo history is kept for 24 hours.",
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .short('j')
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_revert() -> ClapCommand {
+    ClapCommand::new("revert")
+        .about("Revert specific session merge")
+        .long_about(
+            "Reverts a specific session's merge operation, identified by session name.\n\
+            Works only if changes haven't been pushed to remote.\n\
+            Undo history is kept for 24 hours.",
+        )
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Name of session to revert"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
             Arg::new("json")
                 .long("json")
                 .short('j')
@@ -932,6 +989,8 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_done())
         .subcommand(cmd_spawn())
         .subcommand(cmd_checkpoint())
+        .subcommand(cmd_undo())
+        .subcommand(cmd_revert())
 }
 
 /// Format an error for user display (no stack traces)
@@ -1244,11 +1303,58 @@ fn handle_checkpoint(sub_m: &clap::ArgMatches) -> Result<()> {
     }
 }
 
+fn handle_undo(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let args = commands::undo::UndoArgs {
+        dry_run: sub_m.get_flag("dry-run"),
+        format,
+    };
+
+    let options = args.to_options();
+    match undo::run_with_options(&options) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e.into())
+            }
+        }
+    }
+}
+
+fn handle_revert(sub_m: &clap::ArgMatches) -> Result<()> {
+    let name = sub_m
+        .get_one::<String>("name")
+        .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let args = commands::revert::RevertArgs {
+        session_name: name.clone(),
+        dry_run: sub_m.get_flag("dry-run"),
+        format,
+    };
+
+    let options = args.to_options();
+    match revert::run_with_options(&options) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e.into())
+            }
+        }
+    }
+}
+
 fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let args = commands::done::types::DoneArgs {
         message: sub_m.get_one::<String>("message").cloned(),
         keep_workspace: sub_m.get_flag("keep-workspace"),
+        no_keep: sub_m.get_flag("no-keep"),
         squash: sub_m.get_flag("squash"),
         dry_run: sub_m.get_flag("dry-run"),
         no_bead_update: sub_m.get_flag("no-bead-update"),
@@ -1342,6 +1448,8 @@ fn run_cli() -> Result<()> {
         Some(("done", sub_m)) => handle_done(sub_m),
         Some(("spawn", sub_m)) => handle_spawn(sub_m),
         Some(("checkpoint" | "ckpt", sub_m)) => handle_checkpoint(sub_m),
+        Some(("undo", sub_m)) => handle_undo(sub_m),
+        Some(("revert", sub_m)) => handle_revert(sub_m),
         _ => {
             build_cli().print_help()?;
             Ok(())
