@@ -22,7 +22,7 @@ pub struct RevertArgs {
 
 impl RevertArgs {
     /// Convert to `RevertOptions`
-    pub const fn to_options(&self) -> RevertOptions {
+    pub fn to_options(&self) -> RevertOptions {
         RevertOptions {
             session_name: self.session_name.clone(),
             dry_run: self.dry_run,

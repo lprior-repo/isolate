@@ -61,6 +61,38 @@ impl QueryTypeInfo {
                 usage_example: r#"zjj query suggest-name "feature-{n}""#,
                 returns_description: r#"{"pattern": "feature-{n}", "suggested": "feature-3", "next_available_n": 3, "existing_matches": ["feature-1", "feature-2"]}"#,
             },
+            Self {
+                name: "lock-status",
+                description: "Check if a session is locked",
+                requires_arg: true,
+                arg_name: "session_name",
+                usage_example: "zjj query lock-status my-session",
+                returns_description: r#"{"locked": true, "holder": "agent-123", "expires_at": "2024-01-01T12:00:00Z"}"#,
+            },
+            Self {
+                name: "can-spawn",
+                description: "Check if spawning a session is possible",
+                requires_arg: false,
+                arg_name: "bead_id",
+                usage_example: "zjj query can-spawn zjj-abc12",
+                returns_description: r#"{"can_spawn": true, "reason": null, "blockers": []}"#,
+            },
+            Self {
+                name: "pending-merges",
+                description: "List sessions with changes ready to merge",
+                requires_arg: false,
+                arg_name: "",
+                usage_example: "zjj query pending-merges",
+                returns_description: r#"{"sessions": [{"name": "feature-x", "changes": 3}], "count": 1}"#,
+            },
+            Self {
+                name: "location",
+                description: "Quick check of current location (main or workspace)",
+                requires_arg: false,
+                arg_name: "",
+                usage_example: "zjj query location",
+                returns_description: r#"{"type": "workspace", "name": "feature-auth"}"#,
+            },
         ]
     }
 
@@ -140,6 +172,17 @@ pub fn run(query_type: &str, args: Option<&str>) -> Result<()> {
             })?;
             query_suggest_name(pattern)
         }
+        "lock-status" => {
+            let session = args.ok_or_else(|| {
+                QueryTypeInfo::find("lock-status")
+                    .map(|info| anyhow::anyhow!(info.format_error_message()))
+                    .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
+            })?;
+            query_lock_status(session)
+        }
+        "can-spawn" => query_can_spawn(args),
+        "pending-merges" => query_pending_merges(),
+        "location" => query_location(),
         _ => {
             let error_msg = format!(
                 "Error: Unknown query type '{}'\n\n{}",
@@ -381,6 +424,306 @@ fn requires_jj_repo(command: &str) -> bool {
 /// Check if command requires Zellij to be running
 fn requires_zellij(command: &str) -> bool {
     matches!(command, "add" | "focus")
+}
+
+/// Query lock status for a session
+fn query_lock_status(session: &str) -> Result<()> {
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    struct LockStatusResult {
+        session: String,
+        locked: bool,
+        holder: Option<String>,
+        expires_at: Option<String>,
+        error: Option<QueryError>,
+    }
+
+    let result = match get_session_db() {
+        Ok(db) => {
+            // Check if session exists first
+            match db.get_blocking(session) {
+                Ok(Some(_)) => {
+                    // Try to get lock info
+                    // For now, we'll check using a runtime query
+                    let runtime = tokio::runtime::Runtime::new()
+                        .map_err(|e| anyhow::anyhow!("Failed to create runtime: {e}"))?;
+
+                    let data_dir = zjj_data_dir()?;
+                    let db_path = data_dir.join("state.db");
+
+                    let lock_info = runtime.block_on(async {
+                        let pool =
+                            sqlx::SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
+                                .await
+                                .ok()?;
+                        let lock_mgr = zjj_core::coordination::locks::LockManager::new(pool);
+                        lock_mgr.init().await.ok()?;
+                        let all_locks = lock_mgr.get_all_locks().await.ok()?;
+                        all_locks.into_iter().find(|l| l.session == session)
+                    });
+
+                    match lock_info {
+                        Some(lock) => LockStatusResult {
+                            session: session.to_string(),
+                            locked: true,
+                            holder: Some(lock.agent_id.clone()),
+                            expires_at: Some(lock.expires_at.to_rfc3339()),
+                            error: None,
+                        },
+                        None => LockStatusResult {
+                            session: session.to_string(),
+                            locked: false,
+                            holder: None,
+                            expires_at: None,
+                            error: None,
+                        },
+                    }
+                }
+                Ok(None) => LockStatusResult {
+                    session: session.to_string(),
+                    locked: false,
+                    holder: None,
+                    expires_at: None,
+                    error: Some(QueryError {
+                        code: "SESSION_NOT_FOUND".to_string(),
+                        message: format!("Session '{}' not found", session),
+                    }),
+                },
+                Err(e) => LockStatusResult {
+                    session: session.to_string(),
+                    locked: false,
+                    holder: None,
+                    expires_at: None,
+                    error: Some(QueryError {
+                        code: "DATABASE_ERROR".to_string(),
+                        message: format!("Failed to query session: {e}"),
+                    }),
+                },
+            }
+        }
+        Err(e) => {
+            let (code, message) = categorize_db_error(&e);
+            LockStatusResult {
+                session: session.to_string(),
+                locked: false,
+                holder: None,
+                expires_at: None,
+                error: Some(QueryError { code, message }),
+            }
+        }
+    };
+
+    let envelope = SchemaEnvelope::new("query-lock-status", "single", result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
+    Ok(())
+}
+
+/// Query if spawning is possible
+fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    struct CanSpawnResult {
+        can_spawn: bool,
+        bead_id: Option<String>,
+        reason: Option<String>,
+        blockers: Vec<String>,
+    }
+
+    let mut blockers = vec![];
+
+    // Check if we're on main
+    let root = crate::commands::check_in_jj_repo();
+    let on_main = match root {
+        Ok(ref r) => {
+            let location = super::context::detect_location(r);
+            matches!(location.as_ref().ok(), Some(super::context::Location::Main))
+        }
+        Err(_) => false,
+    };
+
+    if !on_main {
+        blockers.push("Not on main branch".to_string());
+    }
+
+    // Check if zjj is initialized
+    if zjj_data_dir().is_err() {
+        blockers.push("ZJJ not initialized".to_string());
+    }
+
+    // Check if bead exists and is ready (if provided)
+    if let Some(bead) = bead_id {
+        // Try to check bead status with bd command
+        let bd_check = std::process::Command::new("bd")
+            .args(["show", bead, "--json"])
+            .output();
+
+        match bd_check {
+            Ok(output) if output.status.success() => {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                if output_str.contains("\"status\":\"in_progress\"") {
+                    blockers.push(format!("Bead '{}' is already in progress", bead));
+                }
+            }
+            Ok(_) => {
+                blockers.push(format!("Bead '{}' not found", bead));
+            }
+            Err(_) => {
+                // bd not available - not a blocker if bead_id wasn't required
+            }
+        }
+    }
+
+    let result = CanSpawnResult {
+        can_spawn: blockers.is_empty(),
+        bead_id: bead_id.map(String::from),
+        reason: if blockers.is_empty() {
+            None
+        } else {
+            Some(blockers.join("; "))
+        },
+        blockers,
+    };
+
+    let envelope = SchemaEnvelope::new("query-can-spawn", "single", result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
+    Ok(())
+}
+
+/// Query sessions with pending changes to merge
+fn query_pending_merges() -> Result<()> {
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    struct SessionWithChanges {
+        name: String,
+        status: String,
+        has_uncommitted: bool,
+    }
+
+    #[derive(Serialize)]
+    struct PendingMergesResult {
+        sessions: Vec<SessionWithChanges>,
+        count: usize,
+        error: Option<QueryError>,
+    }
+
+    let result = match get_session_db() {
+        Ok(db) => match db.list_blocking(None) {
+            Ok(sessions) => {
+                let active_sessions: Vec<SessionWithChanges> = sessions
+                    .into_iter()
+                    .filter(|s| s.status.to_string() == "active")
+                    .map(|s| {
+                        // Check for uncommitted changes
+                        let has_uncommitted = std::process::Command::new("jj")
+                            .args(["status", "--no-pager"])
+                            .current_dir(&s.workspace_path)
+                            .output()
+                            .map(|o| {
+                                let output = String::from_utf8_lossy(&o.stdout);
+                                !output.contains("The working copy is clean")
+                            })
+                            .unwrap_or(false);
+
+                        SessionWithChanges {
+                            name: s.name,
+                            status: s.status.to_string(),
+                            has_uncommitted,
+                        }
+                    })
+                    .collect();
+
+                let count = active_sessions.len();
+                PendingMergesResult {
+                    sessions: active_sessions,
+                    count,
+                    error: None,
+                }
+            }
+            Err(e) => PendingMergesResult {
+                sessions: vec![],
+                count: 0,
+                error: Some(QueryError {
+                    code: "DATABASE_ERROR".to_string(),
+                    message: format!("Failed to list sessions: {e}"),
+                }),
+            },
+        },
+        Err(e) => {
+            let (code, message) = categorize_db_error(&e);
+            PendingMergesResult {
+                sessions: vec![],
+                count: 0,
+                error: Some(QueryError { code, message }),
+            }
+        }
+    };
+
+    let envelope = SchemaEnvelope::new("query-pending-merges", "single", result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
+    Ok(())
+}
+
+/// Query current location (main or workspace)
+fn query_location() -> Result<()> {
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    struct LocationResult {
+        #[serde(rename = "type")]
+        location_type: String,
+        name: Option<String>,
+        path: Option<String>,
+        simple: String,
+        error: Option<QueryError>,
+    }
+
+    let result = match crate::commands::check_in_jj_repo() {
+        Ok(root) => match super::context::detect_location(&root) {
+            Ok(location) => match location {
+                super::context::Location::Main => LocationResult {
+                    location_type: "main".to_string(),
+                    name: None,
+                    path: None,
+                    simple: "main".to_string(),
+                    error: None,
+                },
+                super::context::Location::Workspace { name, path } => LocationResult {
+                    location_type: "workspace".to_string(),
+                    name: Some(name.clone()),
+                    path: Some(path.clone()),
+                    simple: format!("workspace:{name}"),
+                    error: None,
+                },
+            },
+            Err(e) => LocationResult {
+                location_type: "unknown".to_string(),
+                name: None,
+                path: None,
+                simple: "unknown".to_string(),
+                error: Some(QueryError {
+                    code: "LOCATION_DETECTION_FAILED".to_string(),
+                    message: e.to_string(),
+                }),
+            },
+        },
+        Err(e) => LocationResult {
+            location_type: "unknown".to_string(),
+            name: None,
+            path: None,
+            simple: "unknown".to_string(),
+            error: Some(QueryError {
+                code: "NOT_IN_JJ_REPO".to_string(),
+                message: e.to_string(),
+            }),
+        },
+    };
+
+    let envelope = SchemaEnvelope::new("query-location", "single", result);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
+    Ok(())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

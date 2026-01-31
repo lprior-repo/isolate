@@ -16,7 +16,10 @@ use chrono::{DateTime, FixedOffset, Utc};
 use sqlx::SqlitePool;
 use zjj_core::{coordination::locks::LockManager, json::SchemaEnvelope, OutputFormat};
 
-use self::types::{AgentInfo, AgentsArgs, AgentsOutput, LockSummary};
+use self::types::{
+    AgentInfo, AgentStatusOutput, AgentsArgs, AgentsOutput, HeartbeatArgs, HeartbeatOutput,
+    LockSummary, RegisterArgs, RegisterOutput, UnregisterArgs, UnregisterOutput,
+};
 
 /// Run the agents command
 ///
@@ -231,4 +234,257 @@ fn print_human_readable(output: &AgentsOutput) {
             );
         }
     }
+}
+
+// ============================================================================
+// Agent Self-Management Subcommands
+// ============================================================================
+
+/// Register a new agent
+///
+/// # Errors
+///
+/// Returns error if database access fails
+pub fn run_register(args: &RegisterArgs, format: OutputFormat) -> Result<()> {
+    let runtime = tokio::runtime::Runtime::new()?;
+    runtime.block_on(async { run_register_async(args, format).await })
+}
+
+async fn run_register_async(args: &RegisterArgs, format: OutputFormat) -> Result<()> {
+    let pool = get_db_pool().await?;
+
+    // Generate agent ID if not provided
+    let agent_id = args.agent_id.clone().unwrap_or_else(generate_agent_id);
+
+    // Set the environment variable so subsequent commands can use it
+    std::env::set_var("ZJJ_AGENT_ID", &agent_id);
+
+    let now = Utc::now().to_rfc3339();
+
+    // Insert or update agent record
+    sqlx::query(
+        "INSERT INTO agents (agent_id, registered_at, last_seen, current_session, current_command, actions_count)
+         VALUES (?, ?, ?, ?, NULL, 0)
+         ON CONFLICT(agent_id) DO UPDATE SET last_seen = ?, current_session = ?"
+    )
+    .bind(&agent_id)
+    .bind(&now)
+    .bind(&now)
+    .bind(&args.session)
+    .bind(&now)
+    .bind(&args.session)
+    .execute(&pool)
+    .await
+    .map_err(|e| anyhow::anyhow!("Failed to register agent: {e}"))?;
+
+    let output = RegisterOutput {
+        agent_id: agent_id.clone(),
+        session: args.session.clone(),
+        message: format!("Registered agent '{agent_id}'"),
+    };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("agent-register-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("{}", output.message);
+        println!("  Agent ID: {}", output.agent_id);
+        if let Some(ref session) = output.session {
+            println!("  Session: {session}");
+        }
+        println!("\nSet ZJJ_AGENT_ID={} in your environment", output.agent_id);
+    }
+
+    Ok(())
+}
+
+/// Send a heartbeat for the current agent
+///
+/// # Errors
+///
+/// Returns error if no agent ID set or database access fails
+pub fn run_heartbeat(args: &HeartbeatArgs, format: OutputFormat) -> Result<()> {
+    let runtime = tokio::runtime::Runtime::new()?;
+    runtime.block_on(async { run_heartbeat_async(args, format).await })
+}
+
+async fn run_heartbeat_async(args: &HeartbeatArgs, format: OutputFormat) -> Result<()> {
+    let agent_id = std::env::var("ZJJ_AGENT_ID")
+        .map_err(|_| anyhow::anyhow!("No agent registered. Set ZJJ_AGENT_ID or run 'zjj agent register'"))?;
+
+    let pool = get_db_pool().await?;
+    let now = Utc::now();
+    let now_str = now.to_rfc3339();
+
+    // Update last_seen and optionally current_command
+    let result = if let Some(ref command) = args.command {
+        sqlx::query(
+            "UPDATE agents SET last_seen = ?, current_command = ?, actions_count = actions_count + 1 WHERE agent_id = ?"
+        )
+        .bind(&now_str)
+        .bind(command)
+        .bind(&agent_id)
+        .execute(&pool)
+        .await
+    } else {
+        sqlx::query(
+            "UPDATE agents SET last_seen = ?, actions_count = actions_count + 1 WHERE agent_id = ?"
+        )
+        .bind(&now_str)
+        .bind(&agent_id)
+        .execute(&pool)
+        .await
+    };
+
+    result.map_err(|e| anyhow::anyhow!("Failed to send heartbeat: {e}"))?;
+
+    let output = HeartbeatOutput {
+        agent_id: agent_id.clone(),
+        timestamp: now_str,
+        message: format!("Heartbeat sent for agent '{agent_id}'"),
+    };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("agent-heartbeat-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("{}", output.message);
+    }
+
+    Ok(())
+}
+
+/// Get status of the current agent
+///
+/// # Errors
+///
+/// Returns error if database access fails
+pub fn run_status(format: OutputFormat) -> Result<()> {
+    let runtime = tokio::runtime::Runtime::new()?;
+    runtime.block_on(async { run_status_async(format).await })
+}
+
+async fn run_status_async(format: OutputFormat) -> Result<()> {
+    let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
+
+    let output = if let Some(ref id) = agent_id {
+        let pool = get_db_pool().await?;
+        let cutoff = Utc::now() - chrono::Duration::seconds(60);
+
+        let row: Option<(String, String, String, Option<String>, Option<String>, i64)> = sqlx::query_as(
+            "SELECT agent_id, registered_at, last_seen, current_session, current_command, actions_count
+             FROM agents WHERE agent_id = ?"
+        )
+        .bind(id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to query agent: {e}"))?;
+
+        if let Some((agent_id, registered_at, last_seen, current_session, current_command, actions_count)) = row {
+            let registered_at = parse_timestamp(&registered_at)?;
+            let last_seen_dt = parse_timestamp(&last_seen)?;
+            let stale = last_seen_dt < cutoff;
+
+            let agent = AgentInfo {
+                agent_id,
+                registered_at,
+                last_seen: last_seen_dt,
+                current_session,
+                current_command,
+                actions_count: u64::try_from(actions_count).unwrap_or(0),
+                stale,
+            };
+
+            AgentStatusOutput {
+                registered: true,
+                agent: Some(agent),
+                message: format!("Agent '{id}' is registered"),
+            }
+        } else {
+            AgentStatusOutput {
+                registered: false,
+                agent: None,
+                message: format!("Agent '{id}' not found in database"),
+            }
+        }
+    } else {
+        AgentStatusOutput {
+            registered: false,
+            agent: None,
+            message: "No agent registered (ZJJ_AGENT_ID not set)".to_string(),
+        }
+    };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("agent-status-response", "single", &output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("{}", output.message);
+        if let Some(ref agent) = output.agent {
+            println!("  Agent ID: {}", agent.agent_id);
+            println!("  Session: {}", agent.current_session.as_deref().unwrap_or("none"));
+            println!("  Actions: {}", agent.actions_count);
+            println!("  Last seen: {}", agent.last_seen.to_rfc3339());
+            println!("  Status: {}", if agent.stale { "STALE" } else { "active" });
+        }
+    }
+
+    Ok(())
+}
+
+/// Unregister an agent
+///
+/// # Errors
+///
+/// Returns error if no agent ID or database access fails
+pub fn run_unregister(args: &UnregisterArgs, format: OutputFormat) -> Result<()> {
+    let runtime = tokio::runtime::Runtime::new()?;
+    runtime.block_on(async { run_unregister_async(args, format).await })
+}
+
+async fn run_unregister_async(args: &UnregisterArgs, format: OutputFormat) -> Result<()> {
+    let agent_id = args.agent_id.clone()
+        .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
+        .ok_or_else(|| anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --id"))?;
+
+    let pool = get_db_pool().await?;
+
+    // Delete agent record
+    sqlx::query("DELETE FROM agents WHERE agent_id = ?")
+        .bind(&agent_id)
+        .execute(&pool)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to unregister agent: {e}"))?;
+
+    // Clear the environment variable
+    std::env::remove_var("ZJJ_AGENT_ID");
+
+    let output = UnregisterOutput {
+        agent_id: agent_id.clone(),
+        message: format!("Unregistered agent '{agent_id}'"),
+    };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("agent-unregister-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("{}", output.message);
+    }
+
+    Ok(())
+}
+
+/// Generate a unique agent ID
+fn generate_agent_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+
+    // Use PID to make IDs unique across concurrent processes
+    let pid = std::process::id();
+
+    format!("agent-{:08x}-{:04x}", timestamp as u32, pid as u16)
 }

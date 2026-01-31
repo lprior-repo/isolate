@@ -1,7 +1,9 @@
 //! Command implementations
 
+pub mod abort;
 pub mod add;
 pub mod agents;
+pub mod ai;
 pub mod attach;
 pub mod checkpoint;
 pub mod clean;
@@ -22,6 +24,9 @@ pub mod spawn;
 pub mod status;
 pub mod sync;
 pub mod undo;
+pub mod whereami;
+pub mod whoami;
+pub mod work;
 
 use std::{
     path::{Path, PathBuf},

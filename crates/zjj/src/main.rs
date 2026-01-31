@@ -15,8 +15,9 @@ mod selector;
 mod session;
 
 use commands::{
-    add, agents, attach, checkpoint, clean, config, context, dashboard, diff, doctor, done, focus,
-    init, introspect, list, query, remove, revert, spawn, status, sync, undo,
+    abort, add, agents, ai, attach, checkpoint, clean, config, context, dashboard, diff, doctor,
+    done, focus, init, introspect, list, query, remove, revert, spawn, status, sync, undo,
+    whereami, whoami, work,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -402,14 +403,28 @@ fn cmd_add() -> ClapCommand {
                 .conflicts_with("name")
                 .help("Show example JSON output without executing"),
         )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if session already exists (safe for retries)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without creating"),
+        )
 }
 
 fn cmd_agents() -> ClapCommand {
     ClapCommand::new("agents")
-        .about("List all active agents and their locks")
+        .alias("agent")
+        .about("List and manage agents")
         .long_about(
             "Shows all agents that have recently sent heartbeats, along with their current sessions and any locks they hold.\n\n\
-            Agents are considered active if they've sent a heartbeat within the last 60 seconds.",
+            Agents are considered active if they've sent a heartbeat within the last 60 seconds.\n\n\
+            Subcommands allow self-management for AI agents.",
         )
         .arg(
             Arg::new("all")
@@ -427,7 +442,67 @@ fn cmd_agents() -> ClapCommand {
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
+                .global(true)
                 .help("Output as JSON"),
+        )
+        .subcommand(
+            ClapCommand::new("register")
+                .about("Register as an agent")
+                .long_about(
+                    "Register this process as an agent for zjj tracking.\n\n\
+                    Sets ZJJ_AGENT_ID environment variable.\n\
+                    Agent ID is auto-generated if not provided.",
+                )
+                .arg(
+                    Arg::new("id")
+                        .long("id")
+                        .value_name("AGENT_ID")
+                        .help("Agent ID to register (auto-generated if not provided)"),
+                )
+                .arg(
+                    Arg::new("session")
+                        .long("session")
+                        .short('s')
+                        .value_name("SESSION")
+                        .help("Session to associate with this agent"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("heartbeat")
+                .about("Send a heartbeat to indicate agent is alive")
+                .long_about(
+                    "Updates the agent's last_seen timestamp.\n\n\
+                    Requires ZJJ_AGENT_ID to be set (run 'zjj agent register' first).",
+                )
+                .arg(
+                    Arg::new("command")
+                        .long("command")
+                        .short('c')
+                        .value_name("COMMAND")
+                        .help("Current command being executed"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("status")
+                .about("Show current agent status")
+                .long_about(
+                    "Shows the status of the currently registered agent.\n\n\
+                    Uses ZJJ_AGENT_ID environment variable.",
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("unregister")
+                .about("Unregister as an agent")
+                .long_about(
+                    "Remove this agent from zjj tracking.\n\n\
+                    Clears ZJJ_AGENT_ID environment variable.",
+                )
+                .arg(
+                    Arg::new("id")
+                        .long("id")
+                        .value_name("AGENT_ID")
+                        .help("Agent ID to unregister (uses ZJJ_AGENT_ID if not provided)"),
+                ),
         )
 }
 
@@ -504,6 +579,12 @@ fn cmd_remove() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if session doesn't exist (safe for retries)"),
+        )
 }
 
 fn cmd_focus() -> ClapCommand {
@@ -562,12 +643,20 @@ fn cmd_sync() -> ClapCommand {
             "EXAMPLES:\n  \
             zjj sync feature-auth             Sync named session with main\n  \
             zjj sync                          Sync current workspace\n  \
+            zjj sync --all                    Sync all active sessions\n  \
             zjj sync --json                   Get JSON output of sync operation",
         )
         .arg(
             Arg::new("name")
                 .required(false)
                 .help("Session name to sync (syncs current workspace if omitted)"),
+        )
+        .arg(
+            Arg::new("all")
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .conflicts_with("name")
+                .help("Sync all active sessions"),
         )
         .arg(
             Arg::new("json")
@@ -654,6 +743,14 @@ fn cmd_dashboard() -> ClapCommand {
 fn cmd_introspect() -> ClapCommand {
     ClapCommand::new("introspect")
         .about("Discover zjj capabilities and command details")
+        .long_about(
+            "AI-optimized capability discovery.\n\n\
+            Use this to understand:\n  \
+            - Available commands and their arguments\n  \
+            - System state and dependencies\n  \
+            - Environment variables zjj uses\n  \
+            - Common workflow patterns",
+        )
         .arg(
             Arg::new("command")
                 .required(false)
@@ -664,6 +761,24 @@ fn cmd_introspect() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("env-vars")
+                .long("env-vars")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show environment variables zjj reads and sets"),
+        )
+        .arg(
+            Arg::new("workflows")
+                .long("workflows")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show common workflow patterns for AI agents"),
+        )
+        .arg(
+            Arg::new("session-states")
+                .long("session-states")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show valid session state transitions"),
         )
 }
 
@@ -853,9 +968,17 @@ fn cmd_done() -> ClapCommand {
             "EXAMPLES:\n  \
             zjj done                            Complete work and merge to main\n  \
             zjj done -m \"Fix auth bug\"         Use custom commit message\n  \
+            zjj done --workspace feature-x      Complete specific workspace from main\n  \
             zjj done --dry-run                  Preview without executing\n  \
             zjj done --keep-workspace           Keep workspace after merge\n  \
             zjj done --json                     Get JSON output",
+        )
+        .arg(
+            Arg::new("workspace")
+                .short('w')
+                .long("workspace")
+                .value_name("NAME")
+                .help("Workspace to complete (uses current if not specified)"),
         )
         .arg(
             Arg::new("message")
@@ -954,6 +1077,212 @@ fn cmd_revert() -> ClapCommand {
         )
 }
 
+fn cmd_whereami() -> ClapCommand {
+    ClapCommand::new("whereami")
+        .about("Quick location query - returns 'main' or 'workspace:<name>'")
+        .long_about(
+            "AI-optimized command for quick orientation.\n\n\
+            Returns a simple, parseable string:\n  \
+            - 'main' if on main branch\n  \
+            - 'workspace:<name>' if in a workspace\n\n\
+            Use this before operations that depend on location.",
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_whoami() -> ClapCommand {
+    ClapCommand::new("whoami")
+        .about("Agent identity query - returns agent ID or 'unregistered'")
+        .long_about(
+            "AI-optimized command for identity verification.\n\n\
+            Returns:\n  \
+            - Agent ID if registered (from ZJJ_AGENT_ID env var)\n  \
+            - 'unregistered' if no agent registered\n\n\
+            Also shows current session and bead from environment.",
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_work() -> ClapCommand {
+    ClapCommand::new("work")
+        .about("Start working on a task (create workspace + register agent)")
+        .long_about(
+            "Unified workflow start command for AI agents.\n\n\
+            Combines multiple steps:\n  \
+            1. Create workspace (or reuse if --idempotent)\n  \
+            2. Register as agent (unless --no-agent)\n  \
+            3. Set environment variables\n  \
+            4. Output workspace info\n\n\
+            This is the AI-friendly entry point for starting work.",
+        )
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj work feature-auth              Start working on feature-auth\n  \
+            zjj work bug-fix --bead zjj-123    Start work on bead\n  \
+            zjj work test --idempotent         Reuse existing session if exists\n  \
+            zjj work quick --no-zellij         Create workspace without Zellij tab\n  \
+            zjj work --dry-run feature         Preview what would be created",
+        )
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Session name to create/use"),
+        )
+        .arg(
+            Arg::new("bead")
+                .long("bead")
+                .short('b')
+                .value_name("BEAD_ID")
+                .help("Bead ID to associate with this work"),
+        )
+        .arg(
+            Arg::new("agent-id")
+                .long("agent-id")
+                .value_name("ID")
+                .help("Agent ID to register (auto-generated if not provided)"),
+        )
+        .arg(
+            Arg::new("no-zellij")
+                .long("no-zellij")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't create Zellij tab"),
+        )
+        .arg(
+            Arg::new("no-agent")
+                .long("no-agent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't register as agent"),
+        )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if session already exists (safe for retries)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without creating"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_ai() -> ClapCommand {
+    ClapCommand::new("ai")
+        .about("AI-first entry point - start here for AI agents")
+        .long_about(
+            "ZJJ AI Agent Interface\n\n\
+            This is the 'start here' command for AI agents.\n\
+            Provides status, workflows, and guidance for AI-driven work.",
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .global(true)
+                .help("Output as JSON"),
+        )
+        .subcommand(
+            ClapCommand::new("status")
+                .about("AI-optimized status with guided next action")
+                .long_about(
+                    "Shows current state and suggests the next command.\n\n\
+                    Use this to orient yourself before starting work.",
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("workflow")
+                .about("Show the 7-step parallel agent workflow")
+                .long_about(
+                    "Displays the recommended workflow for AI agents:\n\n\
+                    1. Orient (whereami)\n\
+                    2. Register (agent register)\n\
+                    3. Isolate (work <name>)\n\
+                    4. Enter (cd to workspace)\n\
+                    5. Implement (do work)\n\
+                    6. Heartbeat (signal liveness)\n\
+                    7. Complete (done)",
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("quick-start")
+                .about("Minimum commands to be productive")
+                .long_about(
+                    "Shows the essential commands for quick productivity:\n\n\
+                    - whereami: Check location\n\
+                    - work: Start working\n\
+                    - done: Finish work",
+                ),
+        )
+}
+
+fn cmd_abort() -> ClapCommand {
+    ClapCommand::new("abort")
+        .about("Abandon workspace without merging")
+        .long_about(
+            "Opposite of 'zjj done' - discard work without merging.\n\n\
+            Use this when:\n  \
+            - Work is no longer needed\n  \
+            - You want to start fresh\n  \
+            - The approach didn't work out\n\n\
+            Can be run from inside or outside the workspace.",
+        )
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj abort                          Abort current workspace\n  \
+            zjj abort --workspace feature-x    Abort specific workspace\n  \
+            zjj abort --keep-workspace         Remove from zjj but keep files\n  \
+            zjj abort --dry-run                Preview without executing",
+        )
+        .arg(
+            Arg::new("workspace")
+                .long("workspace")
+                .short('w')
+                .value_name("NAME")
+                .help("Workspace to abort (uses current if not specified)"),
+        )
+        .arg(
+            Arg::new("no-bead-update")
+                .long("no-bead-update")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't update bead status"),
+        )
+        .arg(
+            Arg::new("keep-workspace")
+                .long("keep-workspace")
+                .action(clap::ArgAction::SetTrue)
+                .help("Keep workspace files (just remove from zjj tracking)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 fn build_cli() -> ClapCommand {
     ClapCommand::new("zjj")
         .version(env!("CARGO_PKG_VERSION"))
@@ -991,6 +1320,11 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_checkpoint())
         .subcommand(cmd_undo())
         .subcommand(cmd_revert())
+        .subcommand(cmd_whereami())
+        .subcommand(cmd_whoami())
+        .subcommand(cmd_work())
+        .subcommand(cmd_abort())
+        .subcommand(cmd_ai())
 }
 
 /// Format an error for user display (no stack traces)
@@ -1046,6 +1380,8 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
     let template = sub_m.get_one::<String>("template").cloned();
     let no_open = sub_m.get_flag("no-open");
     let json = sub_m.get_flag("json");
+    let idempotent = sub_m.get_flag("idempotent");
+    let dry_run = sub_m.get_flag("dry-run");
 
     let options = add::AddOptions {
         name: name.clone(),
@@ -1053,6 +1389,8 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
         template,
         no_open,
         format: zjj_core::OutputFormat::from_json_flag(json),
+        idempotent,
+        dry_run,
     };
 
     match add::run_with_options(&options) {
@@ -1213,9 +1551,22 @@ fn handle_clean(sub_m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn handle_introspect(sub_m: &clap::ArgMatches) -> Result<()> {
-    let command = sub_m.get_one::<String>("command").map(String::as_str);
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    // Check for special modes first
+    if sub_m.get_flag("env-vars") {
+        return introspect::run_env_vars(format);
+    }
+    if sub_m.get_flag("workflows") {
+        return introspect::run_workflows(format);
+    }
+    if sub_m.get_flag("session-states") {
+        return introspect::run_session_states(format);
+    }
+
+    // Default behavior: introspect command or all
+    let command = sub_m.get_one::<String>("command").map(String::as_str);
     let result = command.map_or_else(
         || introspect::run(format),
         |cmd| introspect::run_command_introspect(cmd, format),
@@ -1316,7 +1667,8 @@ fn handle_undo(sub_m: &clap::ArgMatches) -> Result<()> {
         Ok(_) => Ok(()),
         Err(e) => {
             if format.is_json() {
-                json::output_json_error_and_exit(&e);
+                let anyhow_err: anyhow::Error = e.into();
+                json::output_json_error_and_exit(&anyhow_err);
             } else {
                 Err(e.into())
             }
@@ -1341,7 +1693,8 @@ fn handle_revert(sub_m: &clap::ArgMatches) -> Result<()> {
         Ok(_) => Ok(()),
         Err(e) => {
             if format.is_json() {
-                json::output_json_error_and_exit(&e);
+                let anyhow_err: anyhow::Error = e.into();
+                json::output_json_error_and_exit(&anyhow_err);
             } else {
                 Err(e.into())
             }
@@ -1367,14 +1720,150 @@ fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn handle_agents(sub_m: &clap::ArgMatches) -> Result<()> {
-    let args = agents::types::AgentsArgs {
-        all: sub_m.get_flag("all"),
-        session: sub_m.get_one::<String>("session").cloned(),
+    let format = zjj_core::OutputFormat::from_json_flag(sub_m.get_flag("json"));
+
+    // Check for subcommands first
+    match sub_m.subcommand() {
+        Some(("register", register_m)) => {
+            let args = agents::types::RegisterArgs {
+                agent_id: register_m.get_one::<String>("id").cloned(),
+                session: register_m.get_one::<String>("session").cloned(),
+            };
+            agents::run_register(&args, format)
+        }
+        Some(("heartbeat", heartbeat_m)) => {
+            let args = agents::types::HeartbeatArgs {
+                command: heartbeat_m.get_one::<String>("command").cloned(),
+            };
+            agents::run_heartbeat(&args, format)
+        }
+        Some(("status", _)) => agents::run_status(format),
+        Some(("unregister", unregister_m)) => {
+            let args = agents::types::UnregisterArgs {
+                agent_id: unregister_m.get_one::<String>("id").cloned(),
+            };
+            agents::run_unregister(&args, format)
+        }
+        _ => {
+            // Default: list agents
+            let args = agents::types::AgentsArgs {
+                all: sub_m.get_flag("all"),
+                session: sub_m.get_one::<String>("session").cloned(),
+            };
+            agents::run(&args, format)
+        }
+    }
+}
+
+fn handle_whereami(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let options = whereami::WhereAmIOptions { format };
+    match whereami::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_whoami(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let options = whoami::WhoAmIOptions { format };
+    match whoami::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_work(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let options = work::WorkOptions {
+        name: sub_m
+            .get_one::<String>("name")
+            .ok_or_else(|| anyhow::anyhow!("Name is required"))?
+            .clone(),
+        bead_id: sub_m.get_one::<String>("bead").cloned(),
+        agent_id: sub_m.get_one::<String>("agent-id").cloned(),
+        no_zellij: sub_m.get_flag("no-zellij"),
+        no_agent: sub_m.get_flag("no-agent"),
+        idempotent: sub_m.get_flag("idempotent"),
+        dry_run: sub_m.get_flag("dry-run"),
+        format,
     };
 
-    let format = zjj_core::OutputFormat::from_json_flag(sub_m.get_flag("json"));
-    agents::run(&args, format)?;
-    Ok(())
+    match work::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_abort(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let options = abort::AbortOptions {
+        workspace: sub_m.get_one::<String>("workspace").cloned(),
+        no_bead_update: sub_m.get_flag("no-bead-update"),
+        keep_workspace: sub_m.get_flag("keep-workspace"),
+        dry_run: sub_m.get_flag("dry-run"),
+        format,
+    };
+
+    match abort::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_ai(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let subcommand = match sub_m.subcommand() {
+        Some(("status", _)) => ai::AiSubcommand::Status,
+        Some(("workflow", _)) => ai::AiSubcommand::Workflow,
+        Some(("quick-start", _)) => ai::AiSubcommand::QuickStart,
+        _ => ai::AiSubcommand::Default,
+    };
+
+    let options = ai::AiOptions { subcommand, format };
+
+    match ai::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
 }
 
 /// Execute the CLI and return a Result
@@ -1450,6 +1939,11 @@ fn run_cli() -> Result<()> {
         Some(("checkpoint" | "ckpt", sub_m)) => handle_checkpoint(sub_m),
         Some(("undo", sub_m)) => handle_undo(sub_m),
         Some(("revert", sub_m)) => handle_revert(sub_m),
+        Some(("whereami", sub_m)) => handle_whereami(sub_m),
+        Some(("whoami", sub_m)) => handle_whoami(sub_m),
+        Some(("work", sub_m)) => handle_work(sub_m),
+        Some(("abort", sub_m)) => handle_abort(sub_m),
+        Some(("ai", sub_m)) => handle_ai(sub_m),
         _ => {
             build_cli().print_help()?;
             Ok(())

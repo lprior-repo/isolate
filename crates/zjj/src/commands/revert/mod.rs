@@ -46,7 +46,7 @@ pub fn run_with_options(options: &RevertOptions) -> Result<RevertExitCode, Rever
             output_error(e, options.format)?;
             Ok(match e {
                 RevertError::SessionNotFound { .. } => RevertExitCode::SessionNotFound,
-                RevertError::AlreadyPushedToRemote => RevertExitCode::AlreadyPushed,
+                RevertError::AlreadyPushedToRemote { .. } => RevertExitCode::AlreadyPushed,
                 RevertError::InvalidState { .. } => RevertExitCode::InvalidState,
                 _ => RevertExitCode::OtherError,
             })
@@ -117,7 +117,7 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
             reason: e.to_string(),
         })?;
 
-    content
+    let entries: Vec<UndoEntry> = content
         .lines()
         .filter_map(|line| {
             if line.trim().is_empty() {
@@ -126,8 +126,13 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
                 serde_json::from_str::<UndoEntry>(line).ok()
             }
         })
-        .collect::<Vec<_>>()
-        .ok_or_else(|| RevertError::NoUndoHistory)
+        .collect();
+
+    if entries.is_empty() {
+        Err(RevertError::NoUndoHistory)
+    } else {
+        Ok(entries)
+    }
 }
 
 /// Find specific session entry in history
@@ -209,12 +214,14 @@ fn update_undo_history(
 /// Output result in appropriate format
 fn output_result(result: &RevertOutput, format: OutputFormat) -> Result<(), RevertError> {
     if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(result)?);
+        let json_output = serde_json::to_string_pretty(result)
+            .map_err(|e| RevertError::SerializationError { reason: e.to_string() })?;
+        println!("{json_output}");
     } else if result.dry_run {
-        println!("🔍 Dry-run revert for session: {}", result.session_name);
+        println!("Dry-run revert for session: {}", result.session_name);
         println!("  Commit: {}", result.commit_id);
     } else {
-        println!("✅ Reverted merge from session: {}", result.session_name);
+        println!("Reverted merge from session: {}", result.session_name);
         println!("  Commit: {}", result.commit_id);
         println!();
         println!("NEXT: Verify changes and re-commit if needed:");
@@ -231,9 +238,11 @@ fn output_error(error: &RevertError, format: OutputFormat) -> Result<(), RevertE
             "error": error.to_string(),
             "error_code": error.error_code(),
         });
-        println!("{}", serde_json::to_string_pretty(&error_json)?);
+        let json_output = serde_json::to_string_pretty(&error_json)
+            .map_err(|e| RevertError::SerializationError { reason: e.to_string() })?;
+        println!("{json_output}");
     } else {
-        eprintln!("❌ {error}");
+        eprintln!("Error: {error}");
         if matches!(error, RevertError::AlreadyPushedToRemote { .. }) {
             eprintln!("   Changes have been pushed to remote and cannot be reverted.");
             eprintln!("   Use 'jj revert' to manually revert the commit.");

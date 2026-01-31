@@ -20,8 +20,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-use zjj_core::{log_recovery, OutputFormat, RecoveryPolicy};
+use zjj_core::OutputFormat;
 
 use crate::{
     cli::jj_root,
@@ -47,7 +46,7 @@ pub fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, UndoError
         Err(e) => {
             output_error(e, options.format)?;
             Ok(match e {
-                UndoError::AlreadyPushedToRemote => UndoExitCode::AlreadyPushed,
+                UndoError::AlreadyPushedToRemote { .. } => UndoExitCode::AlreadyPushed,
                 UndoError::NoUndoHistory => UndoExitCode::NoHistory,
                 UndoError::InvalidState { .. } => UndoExitCode::InvalidState,
                 _ => UndoExitCode::OtherError,
@@ -117,7 +116,7 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
         reason: e.to_string(),
     })?;
 
-    content
+    let entries: Vec<UndoEntry> = content
         .lines()
         .filter_map(|line| {
             if line.trim().is_empty() {
@@ -129,8 +128,13 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
-        .collect::<Vec<_>>()
-        .ok_or_else(|| UndoError::NoUndoHistory)
+        .collect();
+
+    if entries.is_empty() {
+        Err(UndoError::NoUndoHistory)
+    } else {
+        Ok(entries)
+    }
 }
 
 /// Get the last (most recent) undo entry
@@ -229,12 +233,14 @@ fn update_undo_history(
 /// Output the result in the appropriate format
 fn output_result(result: &UndoOutput, format: OutputFormat) -> Result<(), UndoError> {
     if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(result)?);
+        let json_output = serde_json::to_string_pretty(result)
+            .map_err(|e| UndoError::SerializationError { reason: e.to_string() })?;
+        println!("{json_output}");
     } else if result.dry_run {
-        println!("🔍 Dry-run undo for session: {}", result.session_name);
+        println!("Dry-run undo for session: {}", result.session_name);
         println!("  Commit: {}", result.commit_id);
     } else {
-        println!("✅ Undone merge from session: {}", result.session_name);
+        println!("Undone merge from session: {}", result.session_name);
         println!("  Commit: {}", result.commit_id);
         println!();
         println!("NEXT: Verify changes and re-commit if needed:");
@@ -251,9 +257,11 @@ fn output_error(error: &UndoError, format: OutputFormat) -> Result<(), UndoError
             "error": error.to_string(),
             "error_code": error.error_code(),
         });
-        println!("{}", serde_json::to_string_pretty(&error_json)?);
+        let json_output = serde_json::to_string_pretty(&error_json)
+            .map_err(|e| UndoError::SerializationError { reason: e.to_string() })?;
+        println!("{json_output}");
     } else {
-        eprintln!("❌ {error}");
+        eprintln!("Error: {error}");
         if matches!(error, UndoError::AlreadyPushedToRemote { .. }) {
             eprintln!("   Changes have been pushed to remote and cannot be undone.");
             eprintln!("   Use 'jj revert' to manually revert the commit.");

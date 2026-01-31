@@ -1081,6 +1081,349 @@ fn get_query_introspection() -> CommandIntrospection {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// AI-FOCUSED INTROSPECTION MODES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Environment variable information
+#[derive(serde::Serialize)]
+pub struct EnvVarInfo {
+    pub name: String,
+    pub description: String,
+    pub direction: String, // "read", "write", or "both"
+    pub default: Option<String>,
+    pub example: String,
+}
+
+/// Output for --env-vars mode
+#[derive(serde::Serialize)]
+pub struct EnvVarsOutput {
+    pub env_vars: Vec<EnvVarInfo>,
+}
+
+/// Workflow step
+#[derive(serde::Serialize)]
+pub struct WorkflowStep {
+    pub step: usize,
+    pub command: String,
+    pub description: String,
+}
+
+/// Workflow pattern
+#[derive(serde::Serialize)]
+pub struct WorkflowPattern {
+    pub name: String,
+    pub description: String,
+    pub steps: Vec<WorkflowStep>,
+}
+
+/// Output for --workflows mode
+#[derive(serde::Serialize)]
+pub struct WorkflowsOutput {
+    pub workflows: Vec<WorkflowPattern>,
+}
+
+/// Session state transition
+#[derive(serde::Serialize)]
+pub struct StateTransition {
+    pub from: String,
+    pub to: String,
+    pub trigger: String,
+}
+
+/// Output for --session-states mode
+#[derive(serde::Serialize)]
+pub struct SessionStatesOutput {
+    pub states: Vec<String>,
+    pub transitions: Vec<StateTransition>,
+}
+
+/// Run introspect with --env-vars flag
+pub fn run_env_vars(format: OutputFormat) -> Result<()> {
+    let env_vars = vec![
+        EnvVarInfo {
+            name: "ZJJ_AGENT_ID".to_string(),
+            description: "Current agent ID for tracking".to_string(),
+            direction: "both".to_string(),
+            default: None,
+            example: "agent-12345678-abcd".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_SESSION".to_string(),
+            description: "Current session name".to_string(),
+            direction: "write".to_string(),
+            default: None,
+            example: "feature-auth".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_WORKSPACE".to_string(),
+            description: "Path to current workspace directory".to_string(),
+            direction: "write".to_string(),
+            default: None,
+            example: "/path/to/.zjj/workspaces/feature-auth".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_BEAD_ID".to_string(),
+            description: "Bead ID associated with current work".to_string(),
+            direction: "both".to_string(),
+            default: None,
+            example: "zjj-abc12".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_ACTIVE".to_string(),
+            description: "Set to 1 when in an active zjj workspace".to_string(),
+            direction: "write".to_string(),
+            default: None,
+            example: "1".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_RECOVERY_POLICY".to_string(),
+            description: "Database recovery behavior: silent, warn, fail-fast".to_string(),
+            direction: "read".to_string(),
+            default: Some("warn".to_string()),
+            example: "fail-fast".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZELLIJ_SESSION_NAME".to_string(),
+            description: "Zellij session name (read by zjj)".to_string(),
+            direction: "read".to_string(),
+            default: None,
+            example: "dev".to_string(),
+        },
+    ];
+
+    let output = EnvVarsOutput { env_vars };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("introspect-env-vars-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("Environment Variables:\n");
+        for var in &output.env_vars {
+            println!("  {} ({}):", var.name, var.direction);
+            println!("    {}", var.description);
+            if let Some(ref default) = var.default {
+                println!("    Default: {}", default);
+            }
+            println!("    Example: {}", var.example);
+            println!();
+        }
+    }
+
+    Ok(())
+}
+
+/// Run introspect with --workflows flag
+pub fn run_workflows(format: OutputFormat) -> Result<()> {
+    let workflows = vec![
+        WorkflowPattern {
+            name: "Quick Work Session".to_string(),
+            description: "Start working on a task, do work, complete".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj work my-task --idempotent".to_string(),
+                    description: "Create workspace (idempotent for retries)".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "cd $(zjj context --field location.path)".to_string(),
+                    description: "Enter workspace directory".to_string(),
+                },
+                WorkflowStep {
+                    step: 3,
+                    command: "# ... do work ...".to_string(),
+                    description: "Implement changes".to_string(),
+                },
+                WorkflowStep {
+                    step: 4,
+                    command: "zjj done".to_string(),
+                    description: "Merge and cleanup".to_string(),
+                },
+            ],
+        },
+        WorkflowPattern {
+            name: "Agent-Managed Workflow".to_string(),
+            description: "Full agent lifecycle with registration".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj agent register".to_string(),
+                    description: "Register as an agent".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "zjj work my-task --bead zjj-abc12".to_string(),
+                    description: "Create workspace for bead".to_string(),
+                },
+                WorkflowStep {
+                    step: 3,
+                    command: "zjj agent heartbeat --command \"implementing\"".to_string(),
+                    description: "Send heartbeat while working".to_string(),
+                },
+                WorkflowStep {
+                    step: 4,
+                    command: "zjj done".to_string(),
+                    description: "Complete work and merge".to_string(),
+                },
+                WorkflowStep {
+                    step: 5,
+                    command: "zjj agent unregister".to_string(),
+                    description: "Deregister agent".to_string(),
+                },
+            ],
+        },
+        WorkflowPattern {
+            name: "Quick Orientation".to_string(),
+            description: "Quickly understand current state".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj whereami".to_string(),
+                    description: "Check location: main or workspace".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "zjj whoami".to_string(),
+                    description: "Check agent identity".to_string(),
+                },
+                WorkflowStep {
+                    step: 3,
+                    command: "zjj query can-spawn".to_string(),
+                    description: "Check if spawning is possible".to_string(),
+                },
+            ],
+        },
+        WorkflowPattern {
+            name: "Abandon Work".to_string(),
+            description: "Discard work without merging".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj abort --dry-run".to_string(),
+                    description: "Preview what will be aborted".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "zjj abort".to_string(),
+                    description: "Abort and cleanup".to_string(),
+                },
+            ],
+        },
+        WorkflowPattern {
+            name: "Sync All Workspaces".to_string(),
+            description: "Keep all workspaces up to date".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj sync --all".to_string(),
+                    description: "Sync all active sessions with main".to_string(),
+                },
+            ],
+        },
+    ];
+
+    let output = WorkflowsOutput { workflows };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("introspect-workflows-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("Workflow Patterns:\n");
+        for workflow in &output.workflows {
+            println!("  {}:", workflow.name);
+            println!("    {}\n", workflow.description);
+            for step in &workflow.steps {
+                println!("    {}. {}", step.step, step.command);
+                println!("       {}", step.description);
+            }
+            println!();
+        }
+    }
+
+    Ok(())
+}
+
+/// Run introspect with --session-states flag
+pub fn run_session_states(format: OutputFormat) -> Result<()> {
+    let states = vec![
+        "creating".to_string(),
+        "active".to_string(),
+        "syncing".to_string(),
+        "merging".to_string(),
+        "completed".to_string(),
+        "failed".to_string(),
+    ];
+
+    let transitions = vec![
+        StateTransition {
+            from: "none".to_string(),
+            to: "creating".to_string(),
+            trigger: "zjj add / zjj work".to_string(),
+        },
+        StateTransition {
+            from: "creating".to_string(),
+            to: "active".to_string(),
+            trigger: "workspace created successfully".to_string(),
+        },
+        StateTransition {
+            from: "creating".to_string(),
+            to: "failed".to_string(),
+            trigger: "workspace creation failed".to_string(),
+        },
+        StateTransition {
+            from: "active".to_string(),
+            to: "syncing".to_string(),
+            trigger: "zjj sync".to_string(),
+        },
+        StateTransition {
+            from: "syncing".to_string(),
+            to: "active".to_string(),
+            trigger: "sync completed".to_string(),
+        },
+        StateTransition {
+            from: "syncing".to_string(),
+            to: "failed".to_string(),
+            trigger: "sync failed (conflicts)".to_string(),
+        },
+        StateTransition {
+            from: "active".to_string(),
+            to: "merging".to_string(),
+            trigger: "zjj done".to_string(),
+        },
+        StateTransition {
+            from: "merging".to_string(),
+            to: "completed".to_string(),
+            trigger: "merge successful".to_string(),
+        },
+        StateTransition {
+            from: "merging".to_string(),
+            to: "failed".to_string(),
+            trigger: "merge failed".to_string(),
+        },
+        StateTransition {
+            from: "active".to_string(),
+            to: "failed".to_string(),
+            trigger: "zjj abort".to_string(),
+        },
+    ];
+
+    let output = SessionStatesOutput { states, transitions };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("introspect-session-states-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("Session States: {}\n", output.states.join(" -> "));
+        println!("Transitions:");
+        for t in &output.transitions {
+            println!("  {} -> {} : {}", t.from, t.to, t.trigger);
+        }
+    }
+
+    Ok(())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
