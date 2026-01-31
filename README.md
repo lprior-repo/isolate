@@ -268,6 +268,30 @@ moon run :ci         # Full CI pipeline
 moon run :quick      # fmt + check (fastest)
 ```
 
+## Documentation
+
+Comprehensive documentation is available in the `/docs` directory:
+
+- **[00_START_HERE.md](docs/00_START_HERE.md)** - 5-minute crash course
+- **[01_ERROR_HANDLING.md](docs/01_ERROR_HANDLING.md)** - Result patterns and error handling
+- **[02_MOON_BUILD.md](docs/02_MOON_BUILD.md)** - Build system and caching
+- **[03_WORKFLOW.md](docs/03_WORKFLOW.md)** - Daily development workflow
+- **[08_BEADS.md](docs/08_BEADS.md)** - Issue tracking with bv
+- **[09_JUJUTSU.md](docs/09_JUJUTSU.md)** - Version control with JJ
+- **[11_ZELLIJ.md](docs/11_ZELLIJ.md)** - Terminal multiplexing and layouts
+- **[INDEX.md](docs/INDEX.md)** - Complete documentation index
+
+### Key Topics
+
+| Topic | Document |
+|-------|----------|
+| Getting Started | [00_START_HERE.md](docs/00_START_HERE.md) |
+| Error Handling | [01_ERROR_HANDLING.md](docs/01_ERROR_HANDLING.md) |
+| Build & Test | [02_MOON_BUILD.md](docs/02_MOON_BUILD.md) |
+| Zellij Layouts | [11_ZELLIJ.md](docs/11_ZELLIJ.md) |
+| JJ Workspaces | [09_JUJUTSU.md](docs/09_JUJUTSU.md) |
+| Issue Triage | [08_BEADS.md](docs/08_BEADS.md) |
+
 ## Contributing
 
 Contributions are welcome! Please follow the existing code style and submit pull requests.
