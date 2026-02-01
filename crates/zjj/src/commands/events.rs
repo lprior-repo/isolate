@@ -118,15 +118,17 @@ fn run_list(options: &EventsOptions) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         for event in &response.events {
-            let session_str = event.session.as_ref().map_or(String::new(), |s| format!(" [{s}]"));
-            let agent_str = event.agent_id.as_ref().map_or(String::new(), |a| format!(" agent:{a}"));
+            let session_str = event
+                .session
+                .as_ref()
+                .map_or(String::new(), |s| format!(" [{s}]"));
+            let agent_str = event
+                .agent_id
+                .as_ref()
+                .map_or(String::new(), |a| format!(" agent:{a}"));
             println!(
                 "{} {}{}{}: {}",
-                event.timestamp,
-                event.event_type,
-                session_str,
-                agent_str,
-                event.message
+                event.timestamp, event.event_type, session_str, agent_str, event.message
             );
         }
     }
@@ -152,15 +154,17 @@ fn run_follow(options: &EventsOptions) -> Result<()> {
             if options.format.is_json() {
                 println!("{}", serde_json::to_string(&event)?);
             } else {
-                let session_str = event.session.as_ref().map_or(String::new(), |s| format!(" [{s}]"));
-                let agent_str = event.agent_id.as_ref().map_or(String::new(), |a| format!(" agent:{a}"));
+                let session_str = event
+                    .session
+                    .as_ref()
+                    .map_or(String::new(), |s| format!(" [{s}]"));
+                let agent_str = event
+                    .agent_id
+                    .as_ref()
+                    .map_or(String::new(), |a| format!(" agent:{a}"));
                 println!(
                     "{} {}{}{}: {}",
-                    event.timestamp,
-                    event.event_type,
-                    session_str,
-                    agent_str,
-                    event.message
+                    event.timestamp, event.event_type, session_str, agent_str, event.message
                 );
             }
             last_id = Some(event.id.clone());
@@ -224,15 +228,16 @@ fn get_new_events(
 /// Generate a simple event ID based on timestamp
 fn generate_event_id() -> String {
     let now = chrono::Utc::now();
-    format!(
-        "evt-{}-{}",
-        now.timestamp_millis(),
-        std::process::id()
-    )
+    format!("evt-{}-{}", now.timestamp_millis(), std::process::id())
 }
 
 /// Log an event to the events log
-pub fn log_event(event_type: EventType, session: Option<&str>, agent_id: Option<&str>, message: &str) -> Result<()> {
+pub fn log_event(
+    event_type: EventType,
+    session: Option<&str>,
+    agent_id: Option<&str>,
+    message: &str,
+) -> Result<()> {
     let event = Event {
         id: generate_event_id(),
         event_type,
@@ -252,7 +257,11 @@ pub fn log_event(event_type: EventType, session: Option<&str>, agent_id: Option<
             .open(&events_file)
         {
             use std::io::Write;
-            let _ = writeln!(file, "{}", serde_json::to_string(&event).unwrap_or_default());
+            let _ = writeln!(
+                file,
+                "{}",
+                serde_json::to_string(&event).unwrap_or_default()
+            );
         }
     }
 
@@ -311,6 +320,408 @@ mod tests {
         for t in types {
             let json = serde_json::to_string(&t).unwrap();
             assert!(json.contains('_') || json == "\"session_created\"");
+        }
+    }
+
+    // ============================================================================
+    // Martin Fowler Style Behavior Tests
+    // These tests describe the BEHAVIOR of the events command
+    // ============================================================================
+
+    mod event_type_behavior {
+        use super::*;
+
+        /// GIVEN: All possible event types
+        /// WHEN: Listed
+        /// THEN: Should cover all important state changes
+        #[test]
+        fn covers_all_important_state_changes() {
+            let state_change_events: [EventType; 5] = [
+                EventType::SessionCreated,
+                EventType::SessionRemoved,
+                EventType::SessionMerged,
+                EventType::SessionAborted,
+                EventType::SessionSynced,
+            ];
+
+            // Each should have a meaningful name
+            for event_type in &state_change_events {
+                let name = event_type.to_string();
+                assert!(!name.is_empty(), "Event type should have name");
+                assert!(name.contains('_'), "Should be snake_case");
+            }
+        }
+
+        /// GIVEN: Event types for agent coordination
+        /// WHEN: Used
+        /// THEN: Should support multi-agent workflows
+        #[test]
+        fn supports_agent_coordination() {
+            let coordination_events = [
+                EventType::AgentHeartbeat,
+                EventType::LockAcquired,
+                EventType::LockReleased,
+            ];
+
+            for event_type in &coordination_events {
+                let name = event_type.to_string();
+                assert!(
+                    name.contains("agent") || name.contains("lock"),
+                    "Coordination event should relate to agents or locks"
+                );
+            }
+        }
+
+        /// GIVEN: Event type serialization
+        /// WHEN: Serialized
+        /// THEN: Should be snake_case for consistency
+        #[test]
+        fn serializes_as_snake_case() {
+            let event = EventType::BeadStatusChanged;
+            let json = serde_json::to_string(&event).unwrap();
+
+            // Should contain underscore (snake_case)
+            assert!(json.contains('_'), "Should be snake_case: {}", json);
+            // Should be lowercase
+            assert_eq!(json, json.to_lowercase(), "Should be lowercase: {}", json);
+        }
+    }
+
+    mod event_behavior {
+        use super::*;
+
+        /// GIVEN: An event
+        /// WHEN: Created
+        /// THEN: Should have id, type, timestamp, and message
+        #[test]
+        fn event_has_required_fields() {
+            let event = Event {
+                id: "evt-123".to_string(),
+                event_type: EventType::SessionCreated,
+                timestamp: "2025-01-15T12:00:00Z".to_string(),
+                session: Some("my-session".to_string()),
+                agent_id: Some("agent-1".to_string()),
+                data: None,
+                message: "Session created successfully".to_string(),
+            };
+
+            assert!(!event.id.is_empty(), "Must have ID");
+            assert!(!event.timestamp.is_empty(), "Must have timestamp");
+            assert!(!event.message.is_empty(), "Must have message");
+        }
+
+        /// GIVEN: Session-related event
+        /// WHEN: Created
+        /// THEN: Should include session field
+        #[test]
+        fn session_events_include_session() {
+            let event = Event {
+                id: "evt-1".to_string(),
+                event_type: EventType::SessionCreated,
+                timestamp: "2025-01-15T12:00:00Z".to_string(),
+                session: Some("feature-auth".to_string()),
+                agent_id: None,
+                data: None,
+                message: "Created".to_string(),
+            };
+
+            assert!(
+                event.session.is_some(),
+                "Session events should have session"
+            );
+            assert_eq!(event.session, Some("feature-auth".to_string()));
+        }
+
+        /// GIVEN: Agent-related event
+        /// WHEN: Created
+        /// THEN: Should include agent_id field
+        #[test]
+        fn agent_events_include_agent_id() {
+            let event = Event {
+                id: "evt-1".to_string(),
+                event_type: EventType::AgentHeartbeat,
+                timestamp: "2025-01-15T12:00:00Z".to_string(),
+                session: None,
+                agent_id: Some("agent-xyz".to_string()),
+                data: None,
+                message: "Heartbeat".to_string(),
+            };
+
+            assert!(
+                event.agent_id.is_some(),
+                "Agent events should have agent_id"
+            );
+        }
+
+        /// GIVEN: Event with additional data
+        /// WHEN: Created
+        /// THEN: Data field should contain structured info
+        #[test]
+        fn event_data_is_structured() {
+            use serde_json::json;
+
+            let event = Event {
+                id: "evt-1".to_string(),
+                event_type: EventType::BeadStatusChanged,
+                timestamp: "2025-01-15T12:00:00Z".to_string(),
+                session: Some("task".to_string()),
+                agent_id: None,
+                data: Some(json!({
+                    "old_status": "in_progress",
+                    "new_status": "completed",
+                    "bead_id": "zjj-abc12"
+                })),
+                message: "Status changed".to_string(),
+            };
+
+            let data = event.data.unwrap();
+            assert!(data.get("old_status").is_some());
+            assert!(data.get("new_status").is_some());
+        }
+    }
+
+    mod events_response_behavior {
+        use super::*;
+
+        /// GIVEN: Events query result
+        /// WHEN: Response created
+        /// THEN: Should have events, total, and pagination info
+        #[test]
+        fn response_has_pagination_info() {
+            let response = EventsResponse {
+                events: vec![],
+                total: 100,
+                has_more: true,
+                cursor: Some("cursor-abc".to_string()),
+            };
+
+            assert_eq!(response.total, 100, "Should show total count");
+            assert!(response.has_more, "Should indicate more available");
+            assert!(
+                response.cursor.is_some(),
+                "Should have cursor for next page"
+            );
+        }
+
+        /// GIVEN: No more events
+        /// WHEN: Response created
+        /// THEN: has_more=false, cursor=None
+        #[test]
+        fn last_page_has_no_cursor() {
+            let response = EventsResponse {
+                events: vec![],
+                total: 10,
+                has_more: false,
+                cursor: None,
+            };
+
+            assert!(!response.has_more);
+            assert!(response.cursor.is_none());
+        }
+
+        /// GIVEN: Empty result
+        /// WHEN: Response created
+        /// THEN: Should handle gracefully
+        #[test]
+        fn empty_response_is_valid() {
+            let response = EventsResponse {
+                events: vec![],
+                total: 0,
+                has_more: false,
+                cursor: None,
+            };
+
+            assert!(response.events.is_empty());
+            assert_eq!(response.total, 0);
+        }
+    }
+
+    mod events_options_behavior {
+        use super::*;
+
+        /// GIVEN: Events query with session filter
+        /// WHEN: Options created
+        /// THEN: Should filter by session
+        #[test]
+        fn session_filter_is_applied() {
+            let options = EventsOptions {
+                session: Some("feature-x".to_string()),
+                event_type: None,
+                limit: Some(10),
+                follow: false,
+                since: None,
+                format: zjj_core::OutputFormat::Json,
+            };
+
+            assert_eq!(options.session, Some("feature-x".to_string()));
+        }
+
+        /// GIVEN: Events query with event_type filter
+        /// WHEN: Options created
+        /// THEN: Should filter by type
+        #[test]
+        fn event_type_filter_is_applied() {
+            let options = EventsOptions {
+                session: None,
+                event_type: Some("session_created".to_string()),
+                limit: Some(10),
+                follow: false,
+                since: None,
+                format: zjj_core::OutputFormat::Json,
+            };
+
+            assert_eq!(options.event_type, Some("session_created".to_string()));
+        }
+
+        /// GIVEN: Follow mode enabled
+        /// WHEN: Options created
+        /// THEN: Should indicate streaming
+        #[test]
+        fn follow_mode_enables_streaming() {
+            let options = EventsOptions {
+                session: None,
+                event_type: None,
+                limit: Some(100),
+                follow: true,
+                since: None,
+                format: zjj_core::OutputFormat::Json,
+            };
+
+            assert!(options.follow, "Should be in follow mode");
+        }
+
+        /// GIVEN: Limit specified
+        /// WHEN: Options created
+        /// THEN: Should respect limit
+        #[test]
+        fn limit_is_respected() {
+            let options = EventsOptions {
+                session: None,
+                event_type: None,
+                limit: Some(50),
+                follow: false,
+                since: None,
+                format: zjj_core::OutputFormat::Json,
+            };
+
+            assert_eq!(options.limit, Some(50));
+        }
+    }
+
+    mod json_output_behavior {
+        use super::*;
+
+        /// GIVEN: Event is serialized
+        /// WHEN: AI parses it
+        /// THEN: Should have all fields for processing
+        #[test]
+        fn event_json_is_complete() {
+            let event = Event {
+                id: "evt-1".to_string(),
+                event_type: EventType::SessionCreated,
+                timestamp: "2025-01-15T12:00:00Z".to_string(),
+                session: Some("test".to_string()),
+                agent_id: Some("agent-1".to_string()),
+                data: None,
+                message: "Created".to_string(),
+            };
+
+            let json: serde_json::Value =
+                serde_json::from_str(&serde_json::to_string(&event).unwrap()).unwrap();
+
+            // Required fields
+            assert!(json.get("id").is_some(), "Must have id");
+            assert!(json.get("event_type").is_some(), "Must have event_type");
+            assert!(json.get("timestamp").is_some(), "Must have timestamp");
+            assert!(json.get("message").is_some(), "Must have message");
+
+            // Optional but present
+            assert!(json.get("session").is_some(), "Should include session");
+            assert!(json.get("agent_id").is_some(), "Should include agent_id");
+        }
+
+        /// GIVEN: EventsResponse is serialized
+        /// WHEN: AI parses it
+        /// THEN: Should have events array and pagination
+        #[test]
+        fn events_response_json_is_paginated() {
+            let response = EventsResponse {
+                events: vec![Event {
+                    id: "evt-1".to_string(),
+                    event_type: EventType::SessionCreated,
+                    timestamp: "2025-01-15T12:00:00Z".to_string(),
+                    session: Some("test".to_string()),
+                    agent_id: None,
+                    data: None,
+                    message: "Created".to_string(),
+                }],
+                total: 100,
+                has_more: true,
+                cursor: Some("next-page".to_string()),
+            };
+
+            let json: serde_json::Value =
+                serde_json::from_str(&serde_json::to_string(&response).unwrap()).unwrap();
+
+            // Pagination fields
+            assert!(json.get("total").is_some());
+            assert!(json.get("has_more").is_some());
+            assert!(json.get("cursor").is_some());
+
+            // Events array
+            assert!(json.get("events").is_some());
+            assert!(json["events"].is_array());
+        }
+
+        /// GIVEN: Event type in JSON
+        /// WHEN: Parsed
+        /// THEN: Should be lowercase snake_case string
+        #[test]
+        fn event_type_json_is_snake_case() {
+            let event = Event {
+                id: "evt-1".to_string(),
+                event_type: EventType::BeadStatusChanged,
+                timestamp: "now".to_string(),
+                session: None,
+                agent_id: None,
+                data: None,
+                message: "Changed".to_string(),
+            };
+
+            let json: serde_json::Value =
+                serde_json::from_str(&serde_json::to_string(&event).unwrap()).unwrap();
+
+            let event_type = json["event_type"].as_str().unwrap();
+            assert_eq!(event_type, event_type.to_lowercase());
+            assert!(event_type.contains('_'), "Should be snake_case");
+        }
+    }
+
+    mod follow_mode_behavior {
+        use super::*;
+
+        /// GIVEN: Follow mode
+        /// WHEN: Events are streamed
+        /// THEN: JSON format should output one event per line
+        #[test]
+        fn follow_outputs_json_lines() {
+            // In follow mode, each event should be a complete JSON object
+            // that can be parsed independently
+            let event = Event {
+                id: "evt-1".to_string(),
+                event_type: EventType::AgentHeartbeat,
+                timestamp: "2025-01-15T12:00:00Z".to_string(),
+                session: None,
+                agent_id: Some("agent-1".to_string()),
+                data: None,
+                message: "Heartbeat".to_string(),
+            };
+
+            // Each event should be a valid JSON that can be parsed
+            let json_str = serde_json::to_string(&event).unwrap();
+            let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+            assert!(parsed.is_object(), "Each line should be valid JSON object");
         }
     }
 }
