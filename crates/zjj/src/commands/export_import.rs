@@ -20,7 +20,6 @@ pub struct ExportOptions {
     /// Output file path (stdout if None)
     pub output: Option<String>,
     /// Include workspace files
-    #[allow(dead_code)]
     pub include_files: bool,
     /// Output format
     pub format: OutputFormat,
