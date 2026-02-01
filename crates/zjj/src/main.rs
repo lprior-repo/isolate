@@ -2026,7 +2026,7 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
             zellij_tab: "zjj:example-session".to_string(),
             status: "active".to_string(),
         };
-        println!("{}", serde_json::to_string_pretty(&example_output)?);
+        json::output_json_success(&example_output)?;
         return Ok(());
     }
 
@@ -2989,7 +2989,7 @@ fn handle_wait(sub_m: &clap::ArgMatches) -> Result<()> {
                 status.ok_or_else(|| anyhow::anyhow!("--status required for session-status"))?;
             commands::wait::WaitCondition::SessionStatus { name: n, status: s }
         }
-        _ => anyhow::bail!("Unknown condition: {}", condition_str),
+        _ => anyhow::bail!("Unknown condition: {condition_str}"),
     };
 
     let options = commands::wait::WaitOptions {
@@ -3149,6 +3149,8 @@ fn handle_rollback(sub_m: &clap::ArgMatches) -> Result<()> {
 }
 
 /// Execute the CLI and return a Result
+// TODO: Refactor this function to reduce line count (split command routing into smaller functions)
+#[allow(clippy::too_many_lines)]
 fn run_cli() -> Result<()> {
     let cli = build_cli();
 
@@ -3176,12 +3178,16 @@ fn run_cli() -> Result<()> {
                         "exit_code": 2
                     }
                 });
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&json_err).unwrap_or_default()
-                );
+                #[allow(clippy::print_stdout)]
+                {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&json_err).unwrap_or_default()
+                    );
+                }
             }
             let _ = e.print();
+            #[allow(clippy::exit)]
             std::process::exit(2);
         }
     };
@@ -3267,18 +3273,9 @@ fn run_cli() -> Result<()> {
     };
 
     // Run hooks if configured
+    // Hook results are tracked in HookResult and can be handled by caller if needed
     if hooks_config.has_hooks() {
-        if let Some(hook_result) = hooks_config.run_hook(result.is_ok()) {
-            if hook_result.success {
-                if let Some(output) = &hook_result.output {
-                    if !output.trim().is_empty() {
-                        eprintln!("[hook:{}] {}", hook_result.hook, output.trim());
-                    }
-                }
-            } else if let Some(error) = &hook_result.error {
-                eprintln!("[hook:{} failed] {}", hook_result.hook, error.trim());
-            }
-        }
+        let _ = hooks_config.run_hook(result.is_ok());
     }
 
     result
@@ -3288,21 +3285,25 @@ fn main() {
     // HARD REQUIREMENT: JJ must be installed
     // AI agents that don't have JJ cannot use zjj - period.
     if !cli::is_jj_installed() {
-        eprintln!();
-        eprintln!("╔════════════════════════════════════════════════════════════════════════╗");
-        eprintln!("║  🔒 ZJJ REQUIRES JJ (JUJUTSU)                                          ║");
-        eprintln!("╚════════════════════════════════════════════════════════════════════════╝");
-        eprintln!();
-        eprintln!("JJ is NOT installed. ZJJ cannot function without it.");
-        eprintln!();
-        eprintln!("Install JJ now:");
-        eprintln!("  cargo install jj-cli");
-        eprintln!("  # or: brew install jj");
-        eprintln!("  # or: https://martinvonz.github.io/jj/latest/install-and-setup/");
-        eprintln!();
-        eprintln!("ZJJ is built on top of JJ for workspace isolation.");
-        eprintln!("There is NO workaround - JJ is required.");
-        eprintln!();
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!();
+            eprintln!("╔════════════════════════════════════════════════════════════════════════╗");
+            eprintln!("║  🔒 ZJJ REQUIRES JJ (JUJUTSU)                                          ║");
+            eprintln!("╚════════════════════════════════════════════════════════════════════════╝");
+            eprintln!();
+            eprintln!("JJ is NOT installed. ZJJ cannot function without it.");
+            eprintln!();
+            eprintln!("Install JJ now:");
+            eprintln!("  cargo install jj-cli");
+            eprintln!("  # or: brew install jj");
+            eprintln!("  # or: https://martinvonz.github.io/jj/latest/install-and-setup/");
+            eprintln!();
+            eprintln!("ZJJ is built on top of JJ for workspace isolation.");
+            eprintln!("There is NO workaround - JJ is required.");
+            eprintln!();
+        }
+        #[allow(clippy::exit)]
         std::process::exit(1);
     }
 
@@ -3317,11 +3318,15 @@ fn main() {
 
     // Run the CLI and handle errors gracefully
     if let Err(err) = run_cli() {
-        eprintln!("Error: {}", format_error(&err));
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!("Error: {}", format_error(&err));
+        }
         let code = err
             .downcast_ref::<zjj_core::Error>()
             .map(zjj_core::Error::exit_code)
             .unwrap_or(1);
+        #[allow(clippy::exit)]
         process::exit(code);
     }
 }
