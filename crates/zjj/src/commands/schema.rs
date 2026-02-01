@@ -514,9 +514,7 @@ mod tests {
     fn test_error_response_schema_valid() -> Result<(), Box<dyn std::error::Error>> {
         let schema = get_error_response_schema();
         assert!(schema.get("$schema").is_some());
-        let props = schema
-            .get("properties")
-            .ok_or("properties field missing")?;
+        let props = schema.get("properties").ok_or("properties field missing")?;
         assert!(props.get("error").is_some());
         Ok(())
     }
@@ -671,9 +669,7 @@ mod tests {
             let schema = get_add_response_schema();
 
             if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
-                let properties = schema
-                    .get("properties")
-                    .ok_or("properties field missing")?;
+                let properties = schema.get("properties").ok_or("properties field missing")?;
 
                 for field in required {
                     if let Some(field_name) = field.as_str() {
@@ -867,8 +863,7 @@ mod tests {
                 base_url: "https://zjj.dev/schemas".to_string(),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&output)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&output)?)?;
 
             assert!(json.get("schemas").is_some(), "Must have schemas array");
             assert!(json.get("base_url").is_some(), "Must have base_url");
