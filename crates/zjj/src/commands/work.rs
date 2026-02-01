@@ -85,8 +85,7 @@ pub fn run(options: &WorkOptions) -> Result<()> {
             return output_existing_workspace(&root, name, options);
         }
         anyhow::bail!(
-            "Already in workspace '{}'. Use 'zjj done' to complete or 'zjj abort' to abandon.",
-            name
+            "Already in workspace '{name}'. Use 'zjj done' to complete or 'zjj abort' to abandon."
         );
     }
 
@@ -209,7 +208,7 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
         workspace_path: workspace_path.clone(),
         zellij_tab: format!("zjj:{}", options.name),
         created: false, // Would be true if executed
-        agent_id: agent_id.clone(),
+        agent_id: agent_id,
         bead_id: options.bead_id.clone(),
         env_vars: vec![
             EnvVar {

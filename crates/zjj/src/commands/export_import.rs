@@ -20,6 +20,7 @@ pub struct ExportOptions {
     /// Output file path (stdout if None)
     pub output: Option<String>,
     /// Include workspace files
+    #[allow(dead_code)]
     pub include_files: bool,
     /// Output format
     pub format: OutputFormat,
@@ -72,7 +73,7 @@ pub fn run_export(options: &ExportOptions) -> Result<()> {
     let sessions: Vec<ExportedSession> = if let Some(session_name) = &options.session {
         let session = db
             .get_blocking(session_name)?
-            .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", session_name))?;
+            .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
         vec![ExportedSession {
             name: session.name,
@@ -270,7 +271,7 @@ mod tests {
             sessions: vec![],
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result).expect("should serialize ExportResult");
         assert!(json.contains("\"version\":\"1.0\""));
         assert!(json.contains("\"count\":2"));
     }
@@ -288,7 +289,7 @@ mod tests {
             metadata: None,
         };
 
-        let json = serde_json::to_string(&session).unwrap();
+        let json = serde_json::to_string(&session).expect("should serialize ExportedSession");
         assert!(json.contains("\"name\":\"test\""));
         assert!(json.contains("\"bead_id\":\"zjj-1234\""));
     }
@@ -306,7 +307,7 @@ mod tests {
             skipped_sessions: vec!["s3".to_string()],
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result).expect("should serialize ExportResult");
         assert!(json.contains("\"imported\":2"));
         assert!(json.contains("\"skipped\":1"));
     }
@@ -329,8 +330,8 @@ mod tests {
             }],
         };
 
-        let json = serde_json::to_string(&original).unwrap();
-        let parsed: ExportResult = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&original).expect("should serialize");
+        let parsed: ExportResult = serde_json::from_str(&json).expect("should deserialize");
 
         assert_eq!(parsed.count, original.count);
         assert_eq!(parsed.sessions.len(), original.sessions.len());

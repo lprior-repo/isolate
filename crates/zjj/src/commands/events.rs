@@ -197,29 +197,26 @@ fn get_recent_events(
             if line.trim().is_empty() {
                 continue;
             }
-            match serde_json::from_str::<Event>(line) {
-                Ok(event) => {
-                    // Apply filters
-                    if let Some(session_filter) = session {
-                        if event.session.as_deref() != Some(session_filter) {
-                            continue;
-                        }
+            if let Ok(event) = serde_json::from_str::<Event>(line) {
+                // Apply filters
+                if let Some(session_filter) = session {
+                    if event.session.as_deref() != Some(session_filter) {
+                        continue;
                     }
-                    if let Some(type_filter) = event_type {
-                        if event.event_type.to_string() != type_filter {
-                            continue;
-                        }
-                    }
-                    if let Some(since_time) = since {
-                        if event.timestamp.as_str() < since_time {
-                            continue;
-                        }
-                    }
-                    events.push(event);
                 }
-                Err(_) => {
-                    // Skip malformed lines
+                if let Some(type_filter) = event_type {
+                    if event.event_type.to_string() != type_filter {
+                        continue;
+                    }
                 }
+                if let Some(since_time) = since {
+                    if event.timestamp.as_str() < since_time {
+                        continue;
+                    }
+                }
+                events.push(event);
+            } else {
+                // Skip malformed lines
             }
         }
     }
@@ -249,32 +246,29 @@ fn get_new_events(
             if line.trim().is_empty() {
                 continue;
             }
-            match serde_json::from_str::<Event>(line) {
-                Ok(event) => {
-                    // Skip until we find the marker
-                    if !found_marker {
-                        if Some(event.id.as_str()) == after_id {
-                            found_marker = true;
-                        }
+            if let Ok(event) = serde_json::from_str::<Event>(line) {
+                // Skip until we find the marker
+                if !found_marker {
+                    if Some(event.id.as_str()) == after_id {
+                        found_marker = true;
+                    }
+                    continue;
+                }
+
+                // Apply filters
+                if let Some(session_filter) = session {
+                    if event.session.as_deref() != Some(session_filter) {
                         continue;
                     }
-
-                    // Apply filters
-                    if let Some(session_filter) = session {
-                        if event.session.as_deref() != Some(session_filter) {
-                            continue;
-                        }
-                    }
-                    if let Some(type_filter) = event_type {
-                        if event.event_type.to_string() != type_filter {
-                            continue;
-                        }
-                    }
-                    events.push(event);
                 }
-                Err(_) => {
-                    // Skip malformed lines
+                if let Some(type_filter) = event_type {
+                    if event.event_type.to_string() != type_filter {
+                        continue;
+                    }
                 }
+                events.push(event);
+            } else {
+                // Skip malformed lines
             }
         }
     }

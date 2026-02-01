@@ -134,7 +134,7 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
             } else if now - entry.timestamp > retention_seconds {
                 (
                     false,
-                    Some(format!("Expired after {} hours", WORKSPACE_RETENTION_HOURS)),
+                    Some(format!("Expired after {WORKSPACE_RETENTION_HOURS} hours")),
                 )
             } else if entry.status == "undone" {
                 (false, Some("Already undone".to_string()))
@@ -222,20 +222,20 @@ fn execute_undo(options: &UndoOptions) -> Result<UndoOutput, UndoError> {
         return Ok(UndoOutput {
             session_name: last_entry.session_name.clone(),
             dry_run: true,
-            commit_id: last_entry.commit_id.clone(),
+            commit_id: last_entry.commit_id,
             pushed_to_remote: false,
             error: None,
         });
     }
 
-    let _revert_result = revert_merge(&root, &last_entry)?;
+    revert_merge(&root, &last_entry)?;
 
     update_undo_history(&root, &history, &last_entry, "undone")?;
 
     Ok(UndoOutput {
         session_name: last_entry.session_name.clone(),
         dry_run: false,
-        commit_id: last_entry.commit_id.clone(),
+        commit_id: last_entry.commit_id,
         pushed_to_remote: false,
         error: None,
     })
@@ -287,7 +287,7 @@ fn get_last_undo_entry(history: &[UndoEntry]) -> Result<UndoEntry, UndoError> {
     history
         .first()
         .cloned()
-        .ok_or_else(|| UndoError::NoUndoHistory)
+        .ok_or(UndoError::NoUndoHistory)
 }
 
 /// Validate that undo is possible (not pushed to remote)

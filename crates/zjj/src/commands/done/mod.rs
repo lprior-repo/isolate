@@ -98,7 +98,7 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
     merge_to_main(&root, &workspace_name, options.squash)?;
 
     // Phase 7.5: Log undo history
-    let _undo_logged = log_undo_history(
+    log_undo_history(
         &root,
         &workspace_name,
         &pre_merge_commit_id,

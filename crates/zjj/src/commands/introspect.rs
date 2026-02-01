@@ -1202,7 +1202,7 @@ pub fn run_env_vars(format: OutputFormat) -> Result<()> {
             println!("  {} ({}):", var.name, var.direction);
             println!("    {}", var.description);
             if let Some(ref default) = var.default {
-                println!("    Default: {}", default);
+                println!("    Default: {default}");
             }
             println!("    Example: {}", var.example);
             println!();
@@ -1213,6 +1213,7 @@ pub fn run_env_vars(format: OutputFormat) -> Result<()> {
 }
 
 /// Run introspect with --workflows flag
+#[allow(clippy::too_many_lines)]
 pub fn run_workflows(format: OutputFormat) -> Result<()> {
     let workflows = vec![
         WorkflowPattern {
@@ -1445,14 +1446,16 @@ pub struct AiWorkflowSummary {
 /// - Available commands
 /// - Recommendations
 /// - Environment info
+#[allow(clippy::too_many_lines)]
 pub fn run_ai() -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     let dependencies = check_dependencies();
     let system_state = get_system_state();
 
     // Determine location
-    let location = match crate::cli::jj_root() {
-        Ok(root) => {
+    let location = crate::cli::jj_root().map_or_else(
+        |_| "not_in_repo".to_string(),
+        |root| {
             let path = std::path::PathBuf::from(&root);
             match crate::commands::context::detect_location(&path) {
                 Ok(crate::commands::context::Location::Main) => "main".to_string(),
@@ -1461,13 +1464,12 @@ pub fn run_ai() -> Result<()> {
                 }
                 Err(_) => "unknown".to_string(),
             }
-        }
-        Err(_) => "not_in_repo".to_string(),
-    };
+        },
+    );
 
     // Check readiness
-    let jj_ok = dependencies.get("jj").map_or(false, |d| d.installed);
-    let zellij_ok = dependencies.get("zellij").map_or(false, |d| d.installed);
+    let jj_ok = dependencies.get("jj").is_some_and(|d| d.installed);
+    let zellij_ok = dependencies.get("zellij").is_some_and(|d| d.installed);
     let ready = jj_ok && zellij_ok && system_state.initialized;
 
     let mut blockers = Vec::new();
@@ -1796,7 +1798,7 @@ mod tests {
     // Tests for New Introspect Modes
     // ============================================================================
 
-    /// Test env_vars output structure
+    /// Test `env_vars` output structure
     #[test]
     fn test_introspect_env_vars_output_structure() {
         // Expected structure for env-vars output
@@ -1814,7 +1816,7 @@ mod tests {
         }
     }
 
-    /// Test env_vars contains required variables
+    /// Test `env_vars` contains required variables
     #[test]
     fn test_introspect_env_vars_contains_core_vars() {
         // Core env vars that must be documented
@@ -1866,7 +1868,7 @@ mod tests {
         }
     }
 
-    /// Test session_states output structure
+    /// Test `session_states` output structure
     #[test]
     fn test_introspect_session_states_output_structure() {
         use serde_json::json;
@@ -1883,7 +1885,7 @@ mod tests {
         assert!(state["transitions"].is_array());
     }
 
-    /// Test session_states contains all valid states
+    /// Test `session_states` contains all valid states
     #[test]
     fn test_introspect_session_states_all_states() {
         // All valid session states
@@ -1940,7 +1942,7 @@ mod tests {
         }
     }
 
-    /// Test env_vars includes usage examples
+    /// Test `env_vars` includes usage examples
     #[test]
     fn test_introspect_env_vars_has_examples() {
         // Each env var should have usage examples

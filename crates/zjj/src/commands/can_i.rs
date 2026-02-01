@@ -470,7 +470,7 @@ fn check_can_claim(resource: Option<&str>) -> CanIResult {
     });
 
     // Check if lock exists
-    let lock_free = resource.map_or(true, |res| {
+    let lock_free = resource.is_none_or(|res| {
         let locks_dir = super::zjj_data_dir().map(|d| d.join("locks")).ok();
         let safe_name: String = res
             .chars()
