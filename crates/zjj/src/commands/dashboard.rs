@@ -387,12 +387,12 @@ fn handle_mouse_event(app: &mut DashboardApp, mouse: MouseEvent) -> Result<()> {
     match mouse.kind {
         MouseEventKind::Down(button) => {
             if button == crossterm::event::MouseButton::Left {
-                handle_mouse_down(app, mouse.column, mouse.row)?;
+                handle_mouse_down(app, mouse.column, mouse.row);
             }
         }
         MouseEventKind::Drag(button) => {
             if button == crossterm::event::MouseButton::Left {
-                handle_mouse_drag(app, mouse.column, mouse.row)?;
+                handle_mouse_drag(app, mouse.column, mouse.row);
             }
         }
         MouseEventKind::Up(button) => {
@@ -415,7 +415,7 @@ fn handle_mouse_event(app: &mut DashboardApp, mouse: MouseEvent) -> Result<()> {
 }
 
 /// Handle mouse down (start drag)
-fn handle_mouse_down(app: &mut DashboardApp, column: u16, row: u16) -> Result<()> {
+fn handle_mouse_down(app: &mut DashboardApp, column: u16, row: u16) {
     // Find which column was clicked
     if let Some((clicked_column, _)) = find_column_at_position(app, column, row) {
         // Find which row was clicked
@@ -431,15 +431,14 @@ fn handle_mouse_down(app: &mut DashboardApp, column: u16, row: u16) -> Result<()
             });
         }
     }
-
-    Ok(())
 }
 
 /// Handle mouse drag (update position)
-fn handle_mouse_drag(app: &mut DashboardApp, column: u16, row: u16) -> Result<()> {
+fn handle_mouse_drag(app: &mut DashboardApp, column: u16, row: u16) {
     if let Some(drag_state) = app.drag_state.take() {
         // Find which column we're over
-        let (new_column, new_row) = find_column_at_position(app, column, row).map(|(col, _)| (col, find_row_at_position(app, col, row).unwrap_or(0)))
+        let (new_column, new_row) = find_column_at_position(app, column, row)
+            .map(|(col, _)| (col, find_row_at_position(app, col, row).unwrap_or(0)))
             .unwrap_or((drag_state.current_column, drag_state.current_row));
 
         app.drag_state = Some(DragState {
@@ -449,8 +448,6 @@ fn handle_mouse_drag(app: &mut DashboardApp, column: u16, row: u16) -> Result<()
             current_row: new_row,
         });
     }
-
-    Ok(())
 }
 
 /// Handle mouse up (end drag and update status)
@@ -625,9 +622,10 @@ fn render_column(f: &mut Frame, app: &DashboardApp, area: Rect, column_idx: usiz
         .map(|(idx, session_data)| {
             let is_row_selected = is_selected && idx == app.selected_row;
             // Check if this session is being dragged
-            let is_being_dragged = app.drag_state.as_ref().is_some_and(|drag| {
-                drag.start_column == column_idx && drag.start_row == idx
-            });
+            let is_being_dragged = app
+                .drag_state
+                .as_ref()
+                .is_some_and(|drag| drag.start_column == column_idx && drag.start_row == idx);
             format_session_item(session_data, is_row_selected, is_being_dragged)
         })
         .collect();

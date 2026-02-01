@@ -716,7 +716,7 @@ mod tests {
     mod schema_options_behavior {
         use super::*;
 
-        /// GIVEN: SchemaOptions with list=true
+        /// GIVEN: `SchemaOptions` with list=true
         /// WHEN: Processed
         /// THEN: Should indicate listing mode
         #[test]
@@ -732,7 +732,7 @@ mod tests {
             assert!(!options.all, "all should be false when just listing");
         }
 
-        /// GIVEN: SchemaOptions with all=true
+        /// GIVEN: `SchemaOptions` with all=true
         /// WHEN: Processed
         /// THEN: Should indicate all schemas requested
         #[test]
@@ -747,7 +747,7 @@ mod tests {
             assert!(options.all, "all should be true");
         }
 
-        /// GIVEN: SchemaOptions with specific schema name
+        /// GIVEN: `SchemaOptions` with specific schema name
         /// WHEN: Processed
         /// THEN: Should request that specific schema
         #[test]
@@ -841,7 +841,7 @@ mod tests {
                 if let Some(id) = schema.get("$id").and_then(|i| i.as_str()) {
                     assert!(
                         id.starts_with("https://zjj.dev/schemas/"),
-                        "Schema $id '{}' should use zjj.dev domain",
+                        "Schema ${id} '{}' should use zjj.dev domain",
                         id
                     );
                 }

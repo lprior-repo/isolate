@@ -91,6 +91,7 @@ pub fn run(options: &CanIOptions) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn check_permission(action: &str, resource: Option<&str>) -> Result<CanIResult> {
     match action {
         "add" | "work" => Ok(check_can_add(resource)),

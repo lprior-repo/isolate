@@ -207,8 +207,8 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
         name: options.name.clone(),
         workspace_path: workspace_path.clone(),
         zellij_tab: format!("zjj:{}", options.name),
-        created: false, // Would be true if executed
-        agent_id: agent_id,
+        created: false,
+        agent_id,
         bead_id: options.bead_id.clone(),
         env_vars: vec![
             EnvVar {
