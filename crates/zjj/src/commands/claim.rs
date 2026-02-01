@@ -512,7 +512,13 @@ mod tests {
 
             assert!(!result.yielded, "Cannot yield others' lock");
             assert!(result.error.is_some(), "Should explain why");
-            assert!(result.error.unwrap().contains("not us"));
+            assert!(
+                result
+                    .error
+                    .as_ref()
+                    .map_or(false, |e| e.contains("not us")),
+                "Error should mention ownership issue"
+            );
         }
 
         /// GIVEN: Resource is not locked

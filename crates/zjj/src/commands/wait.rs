@@ -395,7 +395,13 @@ mod tests {
                 timed_out: false,
                 final_state: Some("status:active".to_string()),
             };
-            assert!(success_output.final_state.unwrap().contains("active"));
+            assert!(
+                success_output
+                    .final_state
+                    .as_ref()
+                    .map_or(false, |s| s.contains("active")),
+                "Success final_state should contain 'active'"
+            );
 
             // Failure case
             let failure_output = WaitOutput {
@@ -405,7 +411,13 @@ mod tests {
                 timed_out: false,
                 final_state: Some("zellij:missing".to_string()),
             };
-            assert!(failure_output.final_state.unwrap().contains("missing"));
+            assert!(
+                failure_output
+                    .final_state
+                    .as_ref()
+                    .map_or(false, |s| s.contains("missing")),
+                "Failure final_state should contain 'missing'"
+            );
         }
     }
 
@@ -449,14 +461,10 @@ mod tests {
             let session_name = "feature-auth-oauth2-integration";
             let condition = WaitCondition::SessionExists(session_name.to_string());
 
-            if let WaitCondition::SessionExists(name) = condition {
-                assert_eq!(
-                    name, session_name,
-                    "Session name should be preserved exactly"
-                );
-            } else {
-                panic!("Expected SessionExists variant");
-            }
+            assert!(
+                matches!(condition, WaitCondition::SessionExists(ref name) if name == session_name),
+                "Session name should be preserved exactly in SessionExists variant"
+            );
         }
     }
 

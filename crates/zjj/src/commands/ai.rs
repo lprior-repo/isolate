@@ -1120,14 +1120,11 @@ mod tests {
             // The default behavior should guide users to available commands
             let default = AiSubcommand::Default;
 
-            // Matching ensures the variant exists
-            match default {
-                AiSubcommand::Default => {
-                    // Default should exist and be used when no subcommand given
-                    assert!(true);
-                }
-                _ => panic!("Expected Default variant"),
-            }
+            // Matching ensures the variant exists and is the expected type
+            assert!(
+                matches!(default, AiSubcommand::Default),
+                "Default variant should be the AiSubcommand::Default"
+            );
         }
     }
 

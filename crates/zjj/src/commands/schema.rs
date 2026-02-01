@@ -687,15 +687,16 @@ mod tests {
         #[test]
         fn error_schema_is_ai_parseable() {
             let schema = get_error_response_schema();
-            let props = schema.get("properties").unwrap();
+            let props = schema.get("properties");
+            assert!(props.is_some(), "Schema must have properties");
+            let props = props.unwrap_or(&serde_json::Value::Null);
 
             // Must have error field
             assert!(props.get("error").is_some(), "Must have error field");
 
-            let error_props = props
-                .get("error")
-                .and_then(|e| e.get("properties"))
-                .expect("error field must have properties");
+            let error_props = props.get("error").and_then(|e| e.get("properties"));
+            assert!(error_props.is_some(), "error field must have properties");
+            let error_props = error_props.unwrap_or(&serde_json::Value::Null);
 
             // Error should have parseable fields
             assert!(
@@ -772,8 +773,9 @@ mod tests {
             let data_props = schema
                 .get("properties")
                 .and_then(|p| p.get("data"))
-                .and_then(|d| d.get("properties"))
-                .expect("Should have data.properties");
+                .and_then(|d| d.get("properties"));
+            assert!(data_props.is_some(), "Should have data.properties");
+            let data_props = data_props.unwrap_or(&serde_json::Value::Null);
 
             // Fields needed for AI decision making
             assert!(
@@ -799,8 +801,9 @@ mod tests {
             let data_props = schema
                 .get("properties")
                 .and_then(|p| p.get("data"))
-                .and_then(|d| d.get("properties"))
-                .expect("Should have data.properties");
+                .and_then(|d| d.get("properties"));
+            assert!(data_props.is_some(), "Should have data.properties");
+            let data_props = data_props.unwrap_or(&serde_json::Value::Null);
 
             // Must have command field
             assert!(
