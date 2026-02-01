@@ -136,11 +136,9 @@ fn output_dry_run(workspace_name: &str, options: &AbortOptions) -> Result<()> {
         if let Some(obj) = envelope.as_object_mut() {
             obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
         }
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize abort dry-run output")?;
+        println!("{json_str}");
     } else {
         println!("[DRY RUN] Would abort session '{}'", workspace_name);
         if !options.keep_workspace {
@@ -181,11 +179,9 @@ fn update_bead_status_to_ready(session: &crate::session::Session) -> bool {
 fn output_result(output: &AbortOutput, format: OutputFormat) -> Result<()> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("abort-response", "single", output);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize abort output")?;
+        println!("{json_str}");
     } else {
         println!("{}", output.message);
         if output.workspace_removed {
@@ -233,5 +229,169 @@ mod tests {
         assert!(!options.no_bead_update);
         assert!(!options.keep_workspace);
         assert!(!options.dry_run);
+    }
+
+    // ============================================================================
+    // Behavior Tests
+    // ============================================================================
+
+    /// Test AbortOutput message format
+    #[test]
+    fn test_abort_output_message_format() {
+        let output = AbortOutput {
+            session_name: "feature-auth".to_string(),
+            workspace_removed: true,
+            bead_updated: false,
+            message: "Aborted session 'feature-auth'".to_string(),
+        };
+
+        assert!(output.message.contains("Aborted"));
+        assert!(output.message.contains(&output.session_name));
+    }
+
+    /// Test workspace_removed flag
+    #[test]
+    fn test_abort_workspace_removed_flag() {
+        // When workspace removed
+        let removed = AbortOutput {
+            session_name: "test".to_string(),
+            workspace_removed: true,
+            bead_updated: false,
+            message: "Aborted".to_string(),
+        };
+        assert!(removed.workspace_removed);
+
+        // When --keep-workspace used
+        let kept = AbortOutput {
+            session_name: "test".to_string(),
+            workspace_removed: false,
+            bead_updated: false,
+            message: "Aborted".to_string(),
+        };
+        assert!(!kept.workspace_removed);
+    }
+
+    /// Test bead_updated flag
+    #[test]
+    fn test_abort_bead_updated_flag() {
+        // When bead updated
+        let updated = AbortOutput {
+            session_name: "test".to_string(),
+            workspace_removed: true,
+            bead_updated: true,
+            message: "Aborted".to_string(),
+        };
+        assert!(updated.bead_updated);
+
+        // When --no-bead-update used
+        let not_updated = AbortOutput {
+            session_name: "test".to_string(),
+            workspace_removed: true,
+            bead_updated: false,
+            message: "Aborted".to_string(),
+        };
+        assert!(!not_updated.bead_updated);
+    }
+
+    /// Test AbortOptions with explicit workspace
+    #[test]
+    fn test_abort_options_explicit_workspace() {
+        let options = AbortOptions {
+            workspace: Some("specific-workspace".to_string()),
+            no_bead_update: false,
+            keep_workspace: false,
+            dry_run: false,
+            format: OutputFormat::Human,
+        };
+
+        assert_eq!(options.workspace, Some("specific-workspace".to_string()));
+    }
+
+    /// Test AbortOptions with keep_workspace
+    #[test]
+    fn test_abort_options_keep_workspace() {
+        let options = AbortOptions {
+            workspace: None,
+            no_bead_update: false,
+            keep_workspace: true,
+            dry_run: false,
+            format: OutputFormat::Human,
+        };
+
+        assert!(options.keep_workspace);
+    }
+
+    /// Test AbortOptions with no_bead_update
+    #[test]
+    fn test_abort_options_no_bead_update() {
+        let options = AbortOptions {
+            workspace: None,
+            no_bead_update: true,
+            keep_workspace: false,
+            dry_run: false,
+            format: OutputFormat::Human,
+        };
+
+        assert!(options.no_bead_update);
+    }
+
+    /// Test AbortOptions dry_run mode
+    #[test]
+    fn test_abort_options_dry_run() {
+        let options = AbortOptions {
+            workspace: None,
+            no_bead_update: false,
+            keep_workspace: false,
+            dry_run: true,
+            format: OutputFormat::Human,
+        };
+
+        assert!(options.dry_run);
+    }
+
+    /// Test AbortOutput JSON serialization
+    #[test]
+    fn test_abort_output_json_complete() {
+        let output = AbortOutput {
+            session_name: "test".to_string(),
+            workspace_removed: true,
+            bead_updated: true,
+            message: "Aborted session 'test'".to_string(),
+        };
+
+        let json_str = serde_json::to_string(&output).unwrap_or_default();
+
+        assert!(json_str.contains("session_name"));
+        assert!(json_str.contains("workspace_removed"));
+        assert!(json_str.contains("bead_updated"));
+        assert!(json_str.contains("message"));
+    }
+
+    /// Test abort is opposite of done
+    #[test]
+    fn test_abort_is_opposite_of_done() {
+        // Abort removes workspace, done merges it
+        let abort_output = AbortOutput {
+            session_name: "test".to_string(),
+            workspace_removed: true, // Key difference
+            bead_updated: false,
+            message: "Aborted".to_string(),
+        };
+
+        // Abort removes the workspace (destroys changes)
+        assert!(abort_output.workspace_removed);
+    }
+
+    /// Test dry_run output structure
+    #[test]
+    fn test_abort_dry_run_output() {
+        let output = AbortOutput {
+            session_name: "test".to_string(),
+            workspace_removed: true, // Would be removed
+            bead_updated: true,      // Would be updated
+            message: "[DRY RUN] Would abort session 'test'".to_string(),
+        };
+
+        assert!(output.message.contains("DRY RUN"));
     }
 }

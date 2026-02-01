@@ -6,7 +6,7 @@
 //!
 //! Also checks environment variables for agent context.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Serialize;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
@@ -71,11 +71,9 @@ pub fn run(options: &WhoAmIOptions) -> Result<()> {
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("whoami-response", "single", &output);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize whoami output")?;
+        println!("{json_str}");
     } else {
         // Simple output - just the identity
         println!("{}", output.simple);
@@ -132,5 +130,131 @@ mod tests {
         let json_str = json.unwrap_or_default();
         assert!(json_str.contains("\"registered\":true"));
         assert!(json_str.contains("\"agent_id\":\"agent-12345\""));
+    }
+
+    // ============================================================================
+    // Behavior Tests
+    // ============================================================================
+
+    /// Test simple output for unregistered agent
+    #[test]
+    fn test_whoami_simple_unregistered() {
+        let output = WhoAmIOutput {
+            registered: false,
+            agent_id: None,
+            current_session: None,
+            current_bead: None,
+            simple: "unregistered".to_string(),
+        };
+
+        assert_eq!(output.simple, "unregistered");
+        assert!(!output.registered);
+    }
+
+    /// Test simple output for registered agent
+    #[test]
+    fn test_whoami_simple_registered() {
+        let output = WhoAmIOutput {
+            registered: true,
+            agent_id: Some("agent-abc123".to_string()),
+            current_session: None,
+            current_bead: None,
+            simple: "agent-abc123".to_string(),
+        };
+
+        // Simple should be the agent_id
+        assert_eq!(output.simple, "agent-abc123");
+        assert!(output.registered);
+    }
+
+    /// Test registered flag consistency with agent_id
+    #[test]
+    fn test_whoami_registered_consistency() {
+        // When registered, agent_id must be Some
+        let registered = WhoAmIOutput {
+            registered: true,
+            agent_id: Some("agent-1".to_string()),
+            current_session: None,
+            current_bead: None,
+            simple: "agent-1".to_string(),
+        };
+        assert!(registered.agent_id.is_some());
+
+        // When not registered, agent_id should be None
+        let unregistered = WhoAmIOutput {
+            registered: false,
+            agent_id: None,
+            current_session: None,
+            current_bead: None,
+            simple: "unregistered".to_string(),
+        };
+        assert!(unregistered.agent_id.is_none());
+    }
+
+    /// Test session and bead context
+    #[test]
+    fn test_whoami_context_fields() {
+        let output = WhoAmIOutput {
+            registered: true,
+            agent_id: Some("agent-1".to_string()),
+            current_session: Some("feature-auth".to_string()),
+            current_bead: Some("zjj-abc12".to_string()),
+            simple: "agent-1".to_string(),
+        };
+
+        assert_eq!(output.current_session, Some("feature-auth".to_string()));
+        assert_eq!(output.current_bead, Some("zjj-abc12".to_string()));
+    }
+
+    /// Test JSON output has all required fields
+    #[test]
+    fn test_whoami_json_all_fields() {
+        let output = WhoAmIOutput {
+            registered: true,
+            agent_id: Some("agent-1".to_string()),
+            current_session: Some("session-1".to_string()),
+            current_bead: Some("bead-1".to_string()),
+            simple: "agent-1".to_string(),
+        };
+
+        let json_str = serde_json::to_string(&output).unwrap_or_default();
+
+        assert!(json_str.contains("registered"));
+        assert!(json_str.contains("agent_id"));
+        assert!(json_str.contains("current_session"));
+        assert!(json_str.contains("current_bead"));
+        assert!(json_str.contains("simple"));
+    }
+
+    /// Test simple field matches agent_id when registered
+    #[test]
+    fn test_whoami_simple_matches_agent_id() {
+        let agent_id = "my-custom-agent-id";
+        let output = WhoAmIOutput {
+            registered: true,
+            agent_id: Some(agent_id.to_string()),
+            current_session: None,
+            current_bead: None,
+            simple: agent_id.to_string(),
+        };
+
+        assert_eq!(output.simple, output.agent_id.unwrap_or_default());
+    }
+
+    /// Test output is deterministic
+    #[test]
+    fn test_whoami_output_deterministic() {
+        let make_output = || WhoAmIOutput {
+            registered: true,
+            agent_id: Some("agent-1".to_string()),
+            current_session: Some("session-1".to_string()),
+            current_bead: None,
+            simple: "agent-1".to_string(),
+        };
+
+        let json1 = serde_json::to_string(&make_output()).unwrap_or_default();
+        let json2 = serde_json::to_string(&make_output()).unwrap_or_default();
+
+        assert_eq!(json1, json2);
     }
 }

@@ -221,11 +221,9 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
         if let Some(obj) = envelope.as_object_mut() {
             obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
         }
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize work dry-run output")?;
+        println!("{json_str}");
     } else {
         println!("[DRY RUN] Would create session '{}'", options.name);
         println!("  Workspace: .zjj/workspaces/{}", options.name);
@@ -281,11 +279,9 @@ fn build_env_vars(
 fn output_result(output: &WorkOutput, format: OutputFormat) -> Result<()> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("work-response", "single", output);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize work output")?;
+        println!("{json_str}");
     } else {
         if output.created {
             println!("Created session '{}'", output.name);
@@ -372,5 +368,189 @@ mod tests {
         // Note: IDs might be the same if generated in same millisecond
         // This is acceptable for our use case
         let _ = id2; // Suppress unused warning
+    }
+
+    // ============================================================================
+    // Behavior Tests
+    // ============================================================================
+
+    /// Test WorkOptions default values
+    #[test]
+    fn test_work_options_defaults() {
+        let options = WorkOptions {
+            name: "test-session".to_string(),
+            bead_id: None,
+            agent_id: None,
+            no_zellij: false,
+            no_agent: false,
+            idempotent: false,
+            dry_run: false,
+            format: zjj_core::OutputFormat::Human,
+        };
+
+        assert!(!options.no_zellij);
+        assert!(!options.no_agent);
+        assert!(!options.idempotent);
+        assert!(!options.dry_run);
+    }
+
+    /// Test WorkOutput created flag
+    #[test]
+    fn test_work_output_created_flag() {
+        // New session
+        let new_output = WorkOutput {
+            name: "test".to_string(),
+            workspace_path: "/path".to_string(),
+            zellij_tab: "zjj:test".to_string(),
+            created: true,
+            agent_id: None,
+            bead_id: None,
+            env_vars: vec![],
+            enter_command: "cd /path".to_string(),
+        };
+        assert!(new_output.created);
+
+        // Existing session (idempotent)
+        let existing_output = WorkOutput {
+            name: "test".to_string(),
+            workspace_path: "/path".to_string(),
+            zellij_tab: "zjj:test".to_string(),
+            created: false,
+            agent_id: None,
+            bead_id: None,
+            env_vars: vec![],
+            enter_command: "cd /path".to_string(),
+        };
+        assert!(!existing_output.created);
+    }
+
+    /// Test zellij tab naming convention
+    #[test]
+    fn test_work_zellij_tab_format() {
+        let output = WorkOutput {
+            name: "feature-auth".to_string(),
+            workspace_path: "/path".to_string(),
+            zellij_tab: "zjj:feature-auth".to_string(),
+            created: true,
+            agent_id: None,
+            bead_id: None,
+            env_vars: vec![],
+            enter_command: "cd /path".to_string(),
+        };
+
+        // Tab should be "zjj:<name>"
+        assert!(output.zellij_tab.starts_with("zjj:"));
+        assert!(output.zellij_tab.ends_with(&output.name));
+    }
+
+    /// Test env_vars contains required variables
+    #[test]
+    fn test_work_env_vars_required() {
+        let path = PathBuf::from("/test/workspace");
+        let vars = build_env_vars("test-session", &path, Some("agent-1"), Some("bead-1"));
+
+        let var_names: Vec<_> = vars.iter().map(|v| v.name.as_str()).collect();
+
+        assert!(var_names.contains(&"ZJJ_SESSION"));
+        assert!(var_names.contains(&"ZJJ_WORKSPACE"));
+        assert!(var_names.contains(&"ZJJ_ACTIVE"));
+        assert!(var_names.contains(&"ZJJ_AGENT_ID"));
+        assert!(var_names.contains(&"ZJJ_BEAD_ID"));
+    }
+
+    /// Test env_vars without agent_id
+    #[test]
+    fn test_work_env_vars_no_agent() {
+        let path = PathBuf::from("/test/workspace");
+        let vars = build_env_vars("test-session", &path, None, None);
+
+        let var_names: Vec<_> = vars.iter().map(|v| v.name.as_str()).collect();
+
+        assert!(var_names.contains(&"ZJJ_SESSION"));
+        assert!(var_names.contains(&"ZJJ_WORKSPACE"));
+        assert!(var_names.contains(&"ZJJ_ACTIVE"));
+        assert!(!var_names.contains(&"ZJJ_AGENT_ID"));
+        assert!(!var_names.contains(&"ZJJ_BEAD_ID"));
+    }
+
+    /// Test enter_command format
+    #[test]
+    fn test_work_enter_command_format() {
+        let output = WorkOutput {
+            name: "test".to_string(),
+            workspace_path: "/home/user/.zjj/workspaces/test".to_string(),
+            zellij_tab: "zjj:test".to_string(),
+            created: true,
+            agent_id: None,
+            bead_id: None,
+            env_vars: vec![],
+            enter_command: "cd /home/user/.zjj/workspaces/test".to_string(),
+        };
+
+        assert!(output.enter_command.starts_with("cd "));
+        assert!(output.enter_command.contains(&output.workspace_path));
+    }
+
+    /// Test WorkOutput JSON serialization includes all fields
+    #[test]
+    fn test_work_output_json_complete() {
+        let output = WorkOutput {
+            name: "test".to_string(),
+            workspace_path: "/path".to_string(),
+            zellij_tab: "zjj:test".to_string(),
+            created: true,
+            agent_id: Some("agent-1".to_string()),
+            bead_id: Some("bead-1".to_string()),
+            env_vars: vec![EnvVar {
+                name: "ZJJ_SESSION".to_string(),
+                value: "test".to_string(),
+            }],
+            enter_command: "cd /path".to_string(),
+        };
+
+        let json_str = serde_json::to_string(&output).unwrap_or_default();
+
+        assert!(json_str.contains("name"));
+        assert!(json_str.contains("workspace_path"));
+        assert!(json_str.contains("zellij_tab"));
+        assert!(json_str.contains("created"));
+        assert!(json_str.contains("agent_id"));
+        assert!(json_str.contains("bead_id"));
+        assert!(json_str.contains("env_vars"));
+        assert!(json_str.contains("enter_command"));
+    }
+
+    /// Test idempotent mode reuses existing session
+    #[test]
+    fn test_work_idempotent_mode() {
+        let options = WorkOptions {
+            name: "existing".to_string(),
+            bead_id: None,
+            agent_id: None,
+            no_zellij: false,
+            no_agent: false,
+            idempotent: true,
+            dry_run: false,
+            format: zjj_core::OutputFormat::Human,
+        };
+
+        assert!(options.idempotent);
+    }
+
+    /// Test dry_run mode
+    #[test]
+    fn test_work_dry_run_mode() {
+        let options = WorkOptions {
+            name: "test".to_string(),
+            bead_id: None,
+            agent_id: None,
+            no_zellij: false,
+            no_agent: false,
+            idempotent: false,
+            dry_run: true,
+            format: zjj_core::OutputFormat::Human,
+        };
+
+        assert!(options.dry_run);
     }
 }

@@ -321,6 +321,7 @@ mod tests {
             merged: true,
             cleaned: true,
             bead_closed: true,
+            pushed_to_remote: false,
             dry_run: false,
             preview: None,
             error: None,

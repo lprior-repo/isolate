@@ -1021,6 +1021,8 @@ mod tests {
             template: None,
             no_open: false,
             format: OutputFormat::Human,
+            idempotent: false,
+            dry_run: false,
         };
 
         assert!(opts.format.is_human());
@@ -1038,6 +1040,8 @@ mod tests {
             template: None,
             no_open: false,
             format: OutputFormat::Json,
+            idempotent: false,
+            dry_run: false,
         };
 
         assert!(opts.format.is_json());
@@ -1058,6 +1062,8 @@ mod tests {
             template: None,
             no_open: false,
             format,
+            idempotent: false,
+            dry_run: false,
         };
 
         // Verify round-trip
@@ -1079,6 +1085,8 @@ mod tests {
             template: None,
             no_open: false,
             format: OutputFormat::Json,
+            idempotent: false,
+            dry_run: false,
         };
 
         // When run_with_options is called:

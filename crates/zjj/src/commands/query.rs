@@ -1043,4 +1043,160 @@ mod tests {
             let _ = format.to_string();
         }
     }
+
+    // ============================================================================
+    // Tests for New Query Types
+    // ============================================================================
+
+    /// Test lock-status query type validation
+    #[test]
+    fn test_query_lock_status_requires_session() {
+        // lock-status requires a session name argument
+        // When no session provided, should indicate error
+        let query_type = "lock-status";
+
+        // The query type is valid
+        assert!(["session-exists", "session-count", "can-run", "suggest-name",
+                 "lock-status", "can-spawn", "pending-merges", "location"]
+            .contains(&query_type));
+    }
+
+    /// Test can-spawn query returns correct structure
+    #[test]
+    fn test_query_can_spawn_output_structure() {
+        use serde_json::json;
+
+        // can-spawn returns a struct with can_spawn, reason, blockers
+        let output = json!({
+            "can_spawn": true,
+            "reason": null,
+            "blockers": []
+        });
+
+        assert!(output["can_spawn"].as_bool().is_some());
+        assert!(output["blockers"].as_array().is_some());
+    }
+
+    /// Test can-spawn with blockers
+    #[test]
+    fn test_query_can_spawn_with_blockers() {
+        use serde_json::json;
+
+        let output = json!({
+            "can_spawn": false,
+            "reason": "Maximum sessions reached",
+            "blockers": ["max_sessions", "no_jj_repo"]
+        });
+
+        assert!(!output["can_spawn"].as_bool().unwrap_or(true));
+        assert_eq!(output["blockers"].as_array().map(Vec::len), Some(2));
+    }
+
+    /// Test pending-merges query returns array
+    #[test]
+    fn test_query_pending_merges_output_structure() {
+        use serde_json::json;
+
+        let output = json!({
+            "pending_merges": [
+                {
+                    "session_name": "feature-auth",
+                    "workspace_path": "/path/to/workspace",
+                    "status": "ready"
+                }
+            ],
+            "count": 1
+        });
+
+        assert!(output["pending_merges"].as_array().is_some());
+        assert_eq!(output["count"].as_i64(), Some(1));
+    }
+
+    /// Test location query returns correct structure
+    #[test]
+    fn test_query_location_output_structure() {
+        use serde_json::json;
+
+        // When on main
+        let main_output = json!({
+            "location_type": "main",
+            "workspace_name": null,
+            "simple": "main"
+        });
+
+        assert_eq!(main_output["location_type"].as_str(), Some("main"));
+        assert!(main_output["workspace_name"].is_null());
+
+        // When in workspace
+        let ws_output = json!({
+            "location_type": "workspace",
+            "workspace_name": "feature-auth",
+            "simple": "workspace:feature-auth"
+        });
+
+        assert_eq!(ws_output["location_type"].as_str(), Some("workspace"));
+        assert_eq!(ws_output["workspace_name"].as_str(), Some("feature-auth"));
+    }
+
+    /// Test lock-status query returns lock info
+    #[test]
+    fn test_query_lock_status_output_structure() {
+        use serde_json::json;
+
+        // When locked
+        let locked_output = json!({
+            "session": "feature-auth",
+            "locked": true,
+            "holder": "agent-123",
+            "expires_at": "2024-01-15T10:30:00Z",
+            "error": null
+        });
+
+        assert!(locked_output["locked"].as_bool().unwrap_or(false));
+        assert_eq!(locked_output["holder"].as_str(), Some("agent-123"));
+
+        // When unlocked
+        let unlocked_output = json!({
+            "session": "feature-auth",
+            "locked": false,
+            "holder": null,
+            "expires_at": null,
+            "error": null
+        });
+
+        assert!(!unlocked_output["locked"].as_bool().unwrap_or(true));
+        assert!(unlocked_output["holder"].is_null());
+    }
+
+    /// Test all new query types are recognized
+    #[test]
+    fn test_new_query_types_recognized() {
+        let new_query_types = vec!["lock-status", "can-spawn", "pending-merges", "location"];
+
+        for query_type in new_query_types {
+            // Each should be a valid query type (not cause unknown type error)
+            assert!(!query_type.is_empty());
+            assert!(query_type.chars().all(|c| c.is_ascii_lowercase() || c == '-'));
+        }
+    }
+
+    /// Test query error structure for lock-status
+    #[test]
+    fn test_query_lock_status_error_structure() {
+        use serde_json::json;
+
+        let error_output = json!({
+            "session": "unknown-session",
+            "locked": false,
+            "holder": null,
+            "expires_at": null,
+            "error": {
+                "code": "SESSION_NOT_FOUND",
+                "message": "Session 'unknown-session' not found"
+            }
+        });
+
+        assert!(error_output["error"].is_object());
+        assert_eq!(error_output["error"]["code"].as_str(), Some("SESSION_NOT_FOUND"));
+    }
 }

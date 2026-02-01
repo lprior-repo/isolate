@@ -2088,6 +2088,8 @@ mod main_tests {
             template: None,
             no_open: false,
             format: OutputFormat::Json,
+            idempotent: false,
+            dry_run: false,
         };
 
         assert_eq!(opts.name, "test");

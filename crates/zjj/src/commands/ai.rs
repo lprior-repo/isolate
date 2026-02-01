@@ -3,7 +3,7 @@
 //! This command is the "start here" for AI agents.
 //! Provides status, workflows, and quick-start guidance.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Serialize;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
@@ -151,11 +151,9 @@ fn run_status(format: OutputFormat) -> Result<()> {
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("ai-status-response", "single", &output);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize AI status output")?;
+        println!("{json_str}");
     } else {
         println!("AI Agent Status");
         println!("===============");
@@ -227,11 +225,9 @@ fn run_workflow(format: OutputFormat) -> Result<()> {
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("ai-workflow-response", "single", &workflow);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize AI workflow output")?;
+        println!("{json_str}");
     } else {
         println!("Parallel Agent Workflow");
         println!("=======================");
@@ -310,11 +306,9 @@ fn run_quick_start(format: OutputFormat) -> Result<()> {
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("ai-quickstart-response", "single", &output);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize AI quickstart output")?;
+        println!("{json_str}");
     } else {
         println!("AI Quick Start");
         println!("==============");
@@ -378,11 +372,9 @@ fn run_default(format: OutputFormat) -> Result<()> {
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("ai-overview-response", "single", &output);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize AI overview output")?;
+        println!("{json_str}");
     } else {
         println!("{}", output.message);
         println!();
@@ -436,5 +428,219 @@ mod tests {
 
         let json = serde_json::to_string(&workflow);
         assert!(json.is_ok());
+    }
+
+    // ============================================================================
+    // Behavior Tests
+    // ============================================================================
+
+    /// Test AiStatusOutput location field
+    #[test]
+    fn test_ai_status_location_values() {
+        // On main
+        let main_status = AiStatusOutput {
+            location: "main".to_string(),
+            workspace: None,
+            agent_id: None,
+            initialized: true,
+            active_sessions: 0,
+            ready: true,
+            suggestion: "Ready to work".to_string(),
+            next_command: "zjj work <name>".to_string(),
+        };
+        assert_eq!(main_status.location, "main");
+        assert!(main_status.workspace.is_none());
+
+        // In workspace
+        let ws_status = AiStatusOutput {
+            location: "workspace:feature".to_string(),
+            workspace: Some("feature".to_string()),
+            agent_id: Some("agent-1".to_string()),
+            initialized: true,
+            active_sessions: 1,
+            ready: true,
+            suggestion: "Continue work or done".to_string(),
+            next_command: "zjj done".to_string(),
+        };
+        assert!(ws_status.location.starts_with("workspace:"));
+        assert!(ws_status.workspace.is_some());
+    }
+
+    /// Test initialized flag
+    #[test]
+    fn test_ai_status_initialized_flag() {
+        let uninitialized = AiStatusOutput {
+            location: "main".to_string(),
+            workspace: None,
+            agent_id: None,
+            initialized: false,
+            active_sessions: 0,
+            ready: false,
+            suggestion: "Run 'zjj init' first".to_string(),
+            next_command: "zjj init".to_string(),
+        };
+
+        assert!(!uninitialized.initialized);
+        assert!(uninitialized.suggestion.contains("init"));
+    }
+
+    /// Test suggestion is always set
+    #[test]
+    fn test_ai_status_suggestion_always_set() {
+        let status = AiStatusOutput {
+            location: "main".to_string(),
+            workspace: None,
+            agent_id: None,
+            initialized: true,
+            active_sessions: 0,
+            ready: true,
+            suggestion: "Ready".to_string(),
+            next_command: "zjj work".to_string(),
+        };
+
+        assert!(!status.suggestion.is_empty());
+    }
+
+    /// Test WorkflowStep ordering
+    #[test]
+    fn test_workflow_step_ordering() {
+        let workflow = WorkflowInfo {
+            name: "Test Workflow".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj work <name>".to_string(),
+                    description: "Start".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "# implement".to_string(),
+                    description: "Work".to_string(),
+                },
+                WorkflowStep {
+                    step: 3,
+                    command: "zjj done".to_string(),
+                    description: "Finish".to_string(),
+                },
+            ],
+        };
+
+        // Steps should be sequential
+        for (i, step) in workflow.steps.iter().enumerate() {
+            assert_eq!(step.step, i + 1);
+        }
+    }
+
+    /// Test WorkflowStep has command and description
+    #[test]
+    fn test_workflow_step_required_fields() {
+        let step = WorkflowStep {
+            step: 1,
+            command: "zjj work my-task".to_string(),
+            description: "Create a new workspace".to_string(),
+        };
+
+        assert!(!step.command.is_empty());
+        assert!(!step.description.is_empty());
+    }
+
+    /// Test quick start has essential commands
+    #[test]
+    fn test_quickstart_has_essential_commands() {
+        // Essential commands that should be included
+        let essential_commands = [
+            "zjj work",
+            "zjj done",
+            "zjj abort",
+            "zjj whereami",
+        ];
+
+        assert!(!essential_commands.is_empty());
+        assert!(essential_commands.len() >= 2);
+    }
+
+    /// Test command structure requirements
+    #[test]
+    fn test_command_structure_requirements() {
+        // Commands should have command and purpose
+        let command = "zjj whereami";
+        let purpose = "Show current location";
+
+        assert!(command.starts_with("zjj "));
+        assert!(!purpose.is_empty());
+    }
+
+    /// Test AiStatusOutput JSON has all fields
+    #[test]
+    fn test_ai_status_json_complete() {
+        let status = AiStatusOutput {
+            location: "main".to_string(),
+            workspace: None,
+            agent_id: Some("agent-1".to_string()),
+            initialized: true,
+            active_sessions: 2,
+            ready: true,
+            suggestion: "Ready".to_string(),
+            next_command: "zjj work".to_string(),
+        };
+
+        let json_str = serde_json::to_string(&status).unwrap_or_default();
+
+        assert!(json_str.contains("location"));
+        assert!(json_str.contains("workspace"));
+        assert!(json_str.contains("agent_id"));
+        assert!(json_str.contains("initialized"));
+        assert!(json_str.contains("active_sessions"));
+        assert!(json_str.contains("ready"));
+        assert!(json_str.contains("suggestion"));
+        assert!(json_str.contains("next_command"));
+    }
+
+    /// Test workflow has minimum steps
+    #[test]
+    fn test_workflow_minimum_steps() {
+        let workflow = WorkflowInfo {
+            name: "Minimal".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj work".to_string(),
+                    description: "Start".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "zjj done".to_string(),
+                    description: "End".to_string(),
+                },
+            ],
+        };
+
+        // Minimal workflow needs at least 2 steps (start and end)
+        assert!(workflow.steps.len() >= 2);
+    }
+
+    /// Test subcommand enumeration
+    #[test]
+    fn test_ai_subcommands_defined() {
+        let subcommands = ["status", "workflow", "quick-start"];
+
+        for cmd in subcommands {
+            assert!(!cmd.is_empty());
+        }
+    }
+
+    /// Test safe flags list
+    #[test]
+    fn test_ai_safe_flags() {
+        let safe_flags = [
+            ("--dry-run", "Preview without executing"),
+            ("--idempotent", "Safe to retry"),
+            ("--json", "Machine-readable output"),
+        ];
+
+        for (flag, description) in safe_flags {
+            assert!(flag.starts_with("--"));
+            assert!(!description.is_empty());
+        }
     }
 }

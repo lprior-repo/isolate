@@ -6,7 +6,7 @@
 //!
 //! This is designed for AI agents that need to quickly orient themselves.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Serialize;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
@@ -56,11 +56,9 @@ pub fn run(options: &WhereAmIOptions) -> Result<()> {
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("whereami-response", "single", &output);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize whereami output")?;
+        println!("{json_str}");
     } else {
         // Simple output for human consumption - just the simple string
         println!("{}", output.simple);
@@ -112,5 +110,118 @@ mod tests {
         assert!(json.is_ok());
         let json_str = json.unwrap_or_default();
         assert!(json_str.contains("\"location_type\":\"main\""));
+    }
+
+    // ============================================================================
+    // Behavior Tests
+    // ============================================================================
+
+    /// Test WhereAmIOutput simple field format for main
+    #[test]
+    fn test_whereami_simple_format_main() {
+        let output = WhereAmIOutput {
+            location_type: "main".to_string(),
+            workspace_name: None,
+            workspace_path: None,
+            simple: "main".to_string(),
+        };
+
+        // Simple format should be just "main"
+        assert_eq!(output.simple, "main");
+        assert!(!output.simple.contains(':'));
+    }
+
+    /// Test WhereAmIOutput simple field format for workspace
+    #[test]
+    fn test_whereami_simple_format_workspace() {
+        let output = WhereAmIOutput {
+            location_type: "workspace".to_string(),
+            workspace_name: Some("feature-auth".to_string()),
+            workspace_path: Some("/path/to/workspace".to_string()),
+            simple: "workspace:feature-auth".to_string(),
+        };
+
+        // Simple format should be "workspace:<name>"
+        assert!(output.simple.starts_with("workspace:"));
+        assert!(output.simple.contains("feature-auth"));
+    }
+
+    /// Test location_type is always valid
+    #[test]
+    fn test_whereami_location_type_valid() {
+        let valid_types = ["main", "workspace"];
+
+        for location_type in valid_types {
+            let output = WhereAmIOutput {
+                location_type: location_type.to_string(),
+                workspace_name: None,
+                workspace_path: None,
+                simple: location_type.to_string(),
+            };
+
+            assert!(valid_types.contains(&output.location_type.as_str()));
+        }
+    }
+
+    /// Test workspace fields are consistent
+    #[test]
+    fn test_whereami_workspace_fields_consistent() {
+        // When on main, workspace fields should be None
+        let main_output = WhereAmIOutput {
+            location_type: "main".to_string(),
+            workspace_name: None,
+            workspace_path: None,
+            simple: "main".to_string(),
+        };
+        assert!(main_output.workspace_name.is_none());
+        assert!(main_output.workspace_path.is_none());
+
+        // When in workspace, both fields should be Some
+        let ws_output = WhereAmIOutput {
+            location_type: "workspace".to_string(),
+            workspace_name: Some("test".to_string()),
+            workspace_path: Some("/path".to_string()),
+            simple: "workspace:test".to_string(),
+        };
+        assert!(ws_output.workspace_name.is_some());
+        assert!(ws_output.workspace_path.is_some());
+    }
+
+    /// Test JSON output contains all required fields
+    #[test]
+    fn test_whereami_json_has_all_fields() {
+        let output = WhereAmIOutput {
+            location_type: "workspace".to_string(),
+            workspace_name: Some("test".to_string()),
+            workspace_path: Some("/path".to_string()),
+            simple: "workspace:test".to_string(),
+        };
+
+        let json_str = serde_json::to_string(&output).unwrap_or_default();
+
+        assert!(json_str.contains("location_type"));
+        assert!(json_str.contains("workspace_name"));
+        assert!(json_str.contains("workspace_path"));
+        assert!(json_str.contains("simple"));
+    }
+
+    /// Test simple output is parseable
+    #[test]
+    fn test_whereami_simple_parseable() {
+        let output = WhereAmIOutput {
+            location_type: "workspace".to_string(),
+            workspace_name: Some("feature-auth".to_string()),
+            workspace_path: Some("/path".to_string()),
+            simple: "workspace:feature-auth".to_string(),
+        };
+
+        // Should be able to parse simple format
+        let parts: Vec<&str> = output.simple.split(':').collect();
+        if parts.len() == 2 {
+            assert_eq!(parts[0], "workspace");
+            assert_eq!(parts[1], "feature-auth");
+        } else {
+            assert_eq!(output.simple, "main");
+        }
     }
 }

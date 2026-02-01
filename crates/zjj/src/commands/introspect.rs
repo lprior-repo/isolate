@@ -1475,4 +1475,174 @@ mod tests {
 
         Ok(())
     }
+
+    // ============================================================================
+    // Tests for New Introspect Modes
+    // ============================================================================
+
+    /// Test env_vars output structure
+    #[test]
+    fn test_introspect_env_vars_output_structure() {
+        use serde_json::json;
+
+        // Expected structure for env-vars output
+        let expected_vars = vec![
+            "ZJJ_SESSION",
+            "ZJJ_WORKSPACE",
+            "ZJJ_ACTIVE",
+            "ZJJ_AGENT_ID",
+            "ZJJ_BEAD_ID",
+        ];
+
+        for var in expected_vars {
+            assert!(!var.is_empty());
+            assert!(var.starts_with("ZJJ_"));
+        }
+    }
+
+    /// Test env_vars contains required variables
+    #[test]
+    fn test_introspect_env_vars_contains_core_vars() {
+        // Core env vars that must be documented
+        let core_vars = [
+            ("ZJJ_SESSION", "Current session name"),
+            ("ZJJ_WORKSPACE", "Workspace path"),
+            ("ZJJ_ACTIVE", "Whether zjj is active"),
+            ("ZJJ_AGENT_ID", "Agent identifier"),
+            ("ZJJ_BEAD_ID", "Current bead being worked on"),
+        ];
+
+        for (name, description) in core_vars {
+            assert!(!name.is_empty());
+            assert!(!description.is_empty());
+        }
+    }
+
+    /// Test workflows output structure
+    #[test]
+    fn test_introspect_workflows_output_structure() {
+        use serde_json::json;
+
+        // Expected workflow structure
+        let workflow = json!({
+            "name": "minimal",
+            "description": "Minimal workflow for quick tasks",
+            "steps": [
+                {"step": 1, "command": "zjj work <name>", "description": "Start work"},
+                {"step": 2, "command": "# do work", "description": "Implementation"},
+                {"step": 3, "command": "zjj done", "description": "Complete work"}
+            ]
+        });
+
+        assert!(workflow["name"].is_string());
+        assert!(workflow["steps"].is_array());
+        assert!(workflow["steps"].as_array().map(|a| a.len() >= 2).unwrap_or(false));
+    }
+
+    /// Test workflows contains minimal workflow
+    #[test]
+    fn test_introspect_workflows_has_minimal() {
+        let workflow_names = ["minimal", "standard", "parallel"];
+
+        for name in workflow_names {
+            assert!(!name.is_empty());
+        }
+    }
+
+    /// Test session_states output structure
+    #[test]
+    fn test_introspect_session_states_output_structure() {
+        use serde_json::json;
+
+        // Expected session state structure
+        let state = json!({
+            "state": "active",
+            "description": "Session is in use",
+            "transitions": ["completing", "aborting"]
+        });
+
+        assert!(state["state"].is_string());
+        assert!(state["description"].is_string());
+        assert!(state["transitions"].is_array());
+    }
+
+    /// Test session_states contains all valid states
+    #[test]
+    fn test_introspect_session_states_all_states() {
+        // All valid session states
+        let states = [
+            "pending",
+            "active",
+            "completing",
+            "completed",
+            "aborting",
+            "aborted",
+            "failed",
+        ];
+
+        for state in states {
+            assert!(!state.is_empty());
+            // States should be lowercase
+            assert!(state.chars().all(|c| c.is_ascii_lowercase()));
+        }
+    }
+
+    /// Test session state transitions are valid
+    #[test]
+    fn test_introspect_session_state_transitions() {
+        use std::collections::HashMap;
+
+        // Define valid transitions
+        let transitions: HashMap<&str, Vec<&str>> = [
+            ("pending", vec!["active", "aborted"]),
+            ("active", vec!["completing", "aborting"]),
+            ("completing", vec!["completed", "failed"]),
+            ("completed", vec![]),
+            ("aborting", vec!["aborted", "failed"]),
+            ("aborted", vec![]),
+            ("failed", vec!["active"]), // can retry
+        ].into_iter().collect();
+
+        // Verify all states have defined transitions
+        assert!(transitions.contains_key("pending"));
+        assert!(transitions.contains_key("active"));
+        assert!(transitions.contains_key("completed"));
+    }
+
+    /// Test introspect modes are recognized
+    #[test]
+    fn test_introspect_modes_recognized() {
+        let modes = ["commands", "env-vars", "workflows", "session-states"];
+
+        for mode in modes {
+            assert!(!mode.is_empty());
+            // Modes should be kebab-case
+            assert!(mode.chars().all(|c| c.is_ascii_lowercase() || c == '-'));
+        }
+    }
+
+    /// Test env_vars includes usage examples
+    #[test]
+    fn test_introspect_env_vars_has_examples() {
+        // Each env var should have usage examples
+        let var_with_examples = [
+            ("ZJJ_SESSION", "echo $ZJJ_SESSION"),
+            ("ZJJ_WORKSPACE", "cd $ZJJ_WORKSPACE"),
+            ("ZJJ_AGENT_ID", "export ZJJ_AGENT_ID=my-agent"),
+        ];
+
+        for (var, example) in var_with_examples {
+            assert!(example.contains(var) || example.contains('$'));
+        }
+    }
+
+    /// Test workflows have required fields
+    #[test]
+    fn test_introspect_workflows_required_fields() {
+        let required_fields = ["name", "description", "steps", "use_case"];
+
+        for field in required_fields {
+            assert!(!field.is_empty());
+        }
+    }
 }

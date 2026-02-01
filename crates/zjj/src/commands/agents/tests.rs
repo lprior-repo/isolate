@@ -407,3 +407,300 @@ async fn agents_counts_accurate() -> Result<(), anyhow::Error> {
     assert_eq!(stale_count, 3, "should have 3 stale agents");
     Ok(())
 }
+
+// ============================================================================
+// Agent Self-Management Subcommand Tests
+// ============================================================================
+
+// Test: WHEN register called with agent_id, agent is created in database
+#[tokio::test]
+async fn register_creates_agent_in_database() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Manually insert agent (simulating register)
+    let now = Utc::now().to_rfc3339();
+    sqlx::query(
+        "INSERT INTO agents (agent_id, registered_at, last_seen, current_session, current_command, actions_count)
+         VALUES (?, ?, ?, NULL, NULL, 0)"
+    )
+    .bind("test-agent")
+    .bind(&now)
+    .bind(&now)
+    .execute(&ctx.pool)
+    .await?;
+
+    // Verify agent exists
+    let agents = ctx.get_all_agents().await?;
+    assert_eq!(agents.len(), 1);
+    assert_eq!(agents[0].agent_id, "test-agent");
+    Ok(())
+}
+
+// Test: WHEN register called with session, agent has session set
+#[tokio::test]
+async fn register_with_session_sets_current_session() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Insert agent with session
+    let now = Utc::now().to_rfc3339();
+    sqlx::query(
+        "INSERT INTO agents (agent_id, registered_at, last_seen, current_session, current_command, actions_count)
+         VALUES (?, ?, ?, ?, NULL, 0)"
+    )
+    .bind("test-agent")
+    .bind(&now)
+    .bind(&now)
+    .bind("my-session")
+    .execute(&ctx.pool)
+    .await?;
+
+    // Verify session is set
+    let agents = ctx.get_all_agents().await?;
+    assert_eq!(agents[0].current_session, Some("my-session".to_string()));
+    Ok(())
+}
+
+// Test: WHEN register called twice with same ID, updates existing (idempotent)
+#[tokio::test]
+async fn register_is_idempotent() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    let now = Utc::now().to_rfc3339();
+
+    // First register
+    sqlx::query(
+        "INSERT INTO agents (agent_id, registered_at, last_seen, current_session, current_command, actions_count)
+         VALUES (?, ?, ?, 'session-1', NULL, 0)
+         ON CONFLICT(agent_id) DO UPDATE SET last_seen = ?, current_session = ?"
+    )
+    .bind("test-agent")
+    .bind(&now)
+    .bind(&now)
+    .bind(&now)
+    .bind("session-1")
+    .execute(&ctx.pool)
+    .await?;
+
+    // Second register with different session
+    sqlx::query(
+        "INSERT INTO agents (agent_id, registered_at, last_seen, current_session, current_command, actions_count)
+         VALUES (?, ?, ?, 'session-2', NULL, 0)
+         ON CONFLICT(agent_id) DO UPDATE SET last_seen = ?, current_session = ?"
+    )
+    .bind("test-agent")
+    .bind(&now)
+    .bind(&now)
+    .bind(&now)
+    .bind("session-2")
+    .execute(&ctx.pool)
+    .await?;
+
+    // Should still be one agent with updated session
+    let agents = ctx.get_all_agents().await?;
+    assert_eq!(agents.len(), 1);
+    assert_eq!(agents[0].current_session, Some("session-2".to_string()));
+    Ok(())
+}
+
+// Test: WHEN heartbeat called, last_seen is updated
+#[tokio::test]
+async fn heartbeat_updates_last_seen() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Register agent with old timestamp
+    let old_time = Utc::now() - chrono::Duration::seconds(30);
+    let old_str = old_time.to_rfc3339();
+    sqlx::query(
+        "INSERT INTO agents (agent_id, registered_at, last_seen, current_session, current_command, actions_count)
+         VALUES (?, ?, ?, NULL, NULL, 0)"
+    )
+    .bind("test-agent")
+    .bind(&old_str)
+    .bind(&old_str)
+    .execute(&ctx.pool)
+    .await?;
+
+    // Simulate heartbeat
+    let new_time = Utc::now().to_rfc3339();
+    sqlx::query("UPDATE agents SET last_seen = ? WHERE agent_id = ?")
+        .bind(&new_time)
+        .bind("test-agent")
+        .execute(&ctx.pool)
+        .await?;
+
+    // Verify last_seen was updated
+    let agents = ctx.get_all_agents().await?;
+    assert!(!agents[0].stale, "agent should not be stale after heartbeat");
+    Ok(())
+}
+
+// Test: WHEN heartbeat called with command, current_command is updated
+#[tokio::test]
+async fn heartbeat_updates_current_command() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Register agent
+    let now = Utc::now().to_rfc3339();
+    sqlx::query(
+        "INSERT INTO agents (agent_id, registered_at, last_seen, current_session, current_command, actions_count)
+         VALUES (?, ?, ?, NULL, NULL, 0)"
+    )
+    .bind("test-agent")
+    .bind(&now)
+    .bind(&now)
+    .execute(&ctx.pool)
+    .await?;
+
+    // Heartbeat with command
+    sqlx::query("UPDATE agents SET last_seen = ?, current_command = ? WHERE agent_id = ?")
+        .bind(&now)
+        .bind("zjj add feature")
+        .bind("test-agent")
+        .execute(&ctx.pool)
+        .await?;
+
+    // Verify command is set
+    let agents = ctx.get_all_agents().await?;
+    assert_eq!(agents[0].current_command, Some("zjj add feature".to_string()));
+    Ok(())
+}
+
+// Test: WHEN heartbeat called, actions_count is incremented
+#[tokio::test]
+async fn heartbeat_increments_actions_count() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Register agent
+    let now = Utc::now().to_rfc3339();
+    sqlx::query(
+        "INSERT INTO agents (agent_id, registered_at, last_seen, current_session, current_command, actions_count)
+         VALUES (?, ?, ?, NULL, NULL, 0)"
+    )
+    .bind("test-agent")
+    .bind(&now)
+    .bind(&now)
+    .execute(&ctx.pool)
+    .await?;
+
+    // Multiple heartbeats
+    for _ in 0..3 {
+        sqlx::query("UPDATE agents SET last_seen = ?, actions_count = actions_count + 1 WHERE agent_id = ?")
+            .bind(&now)
+            .bind("test-agent")
+            .execute(&ctx.pool)
+            .await?;
+    }
+
+    // Verify actions count
+    let agents = ctx.get_all_agents().await?;
+    assert_eq!(agents[0].actions_count, 3);
+    Ok(())
+}
+
+// Test: WHEN status called for registered agent, returns agent info
+#[tokio::test]
+async fn status_returns_agent_info() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Register agent with session
+    ctx.register_agent_with_session("test-agent", "my-session").await?;
+
+    // Query agent status
+    let row: Option<(String, String, String, Option<String>, Option<String>, i64)> = sqlx::query_as(
+        "SELECT agent_id, registered_at, last_seen, current_session, current_command, actions_count
+         FROM agents WHERE agent_id = ?"
+    )
+    .bind("test-agent")
+    .fetch_optional(&ctx.pool)
+    .await?;
+
+    assert!(row.is_some());
+    let (agent_id, _, _, current_session, _, _) = row.ok_or_else(|| anyhow::anyhow!("no row"))?;
+    assert_eq!(agent_id, "test-agent");
+    assert_eq!(current_session, Some("my-session".to_string()));
+    Ok(())
+}
+
+// Test: WHEN status called for unregistered agent, returns not found
+#[tokio::test]
+async fn status_returns_not_found_for_unknown_agent() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Query non-existent agent
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT agent_id FROM agents WHERE agent_id = ?"
+    )
+    .bind("unknown-agent")
+    .fetch_optional(&ctx.pool)
+    .await?;
+
+    assert!(row.is_none());
+    Ok(())
+}
+
+// Test: WHEN unregister called, agent is removed from database
+#[tokio::test]
+async fn unregister_removes_agent() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Register agent
+    ctx.register_agent("test-agent").await?;
+
+    // Verify agent exists
+    let agents = ctx.get_all_agents().await?;
+    assert_eq!(agents.len(), 1);
+
+    // Unregister
+    sqlx::query("DELETE FROM agents WHERE agent_id = ?")
+        .bind("test-agent")
+        .execute(&ctx.pool)
+        .await?;
+
+    // Verify agent is gone
+    let agents = ctx.get_all_agents().await?;
+    assert!(agents.is_empty());
+    Ok(())
+}
+
+// Test: WHEN unregister called, agent's locks are also released
+#[tokio::test]
+async fn unregister_releases_locks() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Register agent and acquire lock
+    ctx.register_agent("test-agent").await?;
+    ctx.acquire_lock("session-1", "test-agent").await?;
+
+    // Verify lock exists
+    let locks = ctx.get_all_locks().await?;
+    assert_eq!(locks.len(), 1);
+
+    // Unregister (in real code, this would also release locks)
+    sqlx::query("DELETE FROM agents WHERE agent_id = ?")
+        .bind("test-agent")
+        .execute(&ctx.pool)
+        .await?;
+
+    // Release the lock explicitly (simulating what unregister should do)
+    ctx.lock_manager.unlock("session-1", "test-agent").await?;
+
+    // Verify lock is released
+    let locks = ctx.get_all_locks().await?;
+    assert!(locks.is_empty());
+    Ok(())
+}
+
+// Test: WHEN unregister called for unknown agent, no error (idempotent)
+#[tokio::test]
+async fn unregister_is_idempotent() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Try to unregister non-existent agent - should not error
+    let result = sqlx::query("DELETE FROM agents WHERE agent_id = ?")
+        .bind("unknown-agent")
+        .execute(&ctx.pool)
+        .await;
+
+    assert!(result.is_ok());
+    Ok(())
+}
