@@ -29,6 +29,17 @@ pub enum Direction {
     Right,
 }
 
+impl std::fmt::Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Up => write!(f, "Up"),
+            Self::Down => write!(f, "Down"),
+            Self::Left => write!(f, "Left"),
+            Self::Right => write!(f, "Right"),
+        }
+    }
+}
+
 impl Direction {
     /// Parse direction from string
     pub fn parse(s: &str) -> Result<Self> {
@@ -335,14 +346,14 @@ pub fn pane_navigate(
     if options.format.is_json() {
         let output = PaneFocusOutput {
             session: session_name.to_string(),
-            pane: format!("{direction:?}"),
-            message: format!("Moved focus {direction:?} in session '{session_name}'"),
+            pane: direction.to_string(),
+            message: format!("Moved focus {direction} in session '{session_name}'"),
         };
         let envelope = SchemaEnvelope::new("pane-navigate-response", "single", output);
         let json_str = serde_json::to_string(&envelope)?;
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        writeln!(std::io::stdout(), "Moved focus {direction:?} in session '{session_name}'")?;
+        writeln!(std::io::stdout(), "Moved focus {direction} in session '{session_name}'")?;
     }
 
     Ok(())

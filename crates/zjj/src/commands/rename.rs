@@ -93,7 +93,9 @@ pub fn run(options: &RenameOptions) -> Result<()> {
     // Perform the rename by creating new session with new name and deleting old
     // 1. Rename JJ workspace directory
     let workspace_path = &session.workspace_path;
-    let new_workspace_path = if !workspace_path.is_empty() {
+    let new_workspace_path = if workspace_path.is_empty() {
+        None
+    } else {
         let old_path = std::path::Path::new(workspace_path);
         let new_path = old_path.parent().map(|p| p.join(&options.new_name));
         if let Some(ref new_path) = new_path {
@@ -102,8 +104,6 @@ pub fn run(options: &RenameOptions) -> Result<()> {
             }
         }
         new_path.map(|p| p.to_string_lossy().to_string())
-    } else {
-        None
     };
 
     // 2. Rename Zellij tab
@@ -131,7 +131,8 @@ pub fn run(options: &RenameOptions) -> Result<()> {
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("rename-response", "single", &result);
-        println!("{}", serde_json::to_string_pretty(&envelope)?);
+        let json_str = serde_json::to_string_pretty(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
     } else {
         writeln!(std::io::stdout(), "✓ Renamed '{}' to '{}'", &options.old_name, &options.new_name)?;
     }
