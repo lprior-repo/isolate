@@ -126,13 +126,7 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
                 serde_json::from_str::<UndoEntry>(line).ok()
             }
         })
-        .collect();
-
-    if entries.is_empty() {
-        Err(RevertError::NoUndoHistory)
-    } else {
-        Ok(entries)
-    }
+        .collect::<Vec<_>>()
 }
 
 /// Find specific session entry in history
@@ -265,6 +259,14 @@ struct UndoEntry {
     timestamp: u64,
     pushed_to_remote: bool,
     status: String,
+}
+
+impl From<serde_json::Error> for RevertError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::SerializationError {
+            reason: error.to_string(),
+        }
+    }
 }
 
 #[cfg(test)]

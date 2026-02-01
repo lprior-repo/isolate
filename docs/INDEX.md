@@ -17,6 +17,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 | **08** | [BEADS](08_BEADS.md) | Issue tracking, triage, graph metrics | 25 min |
 | **09** | [JUJUTSU](09_JUJUTSU.md) | Version control, stacking commits | 20 min |
 | **10** | [MOON CICD INDEXED](10_MOON_CICD_INDEXED.md) | Complete moon task catalog (indexed) | Reference |
+| **11** | [ZELLIJ](11_ZELLIJ.md) | Terminal multiplexing, layouts, tab management | 25 min |
 | **INDEX** | This file | Document map | - |
 
 ## 🚀 Quick Navigation by Task
@@ -80,6 +81,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 - [03_WORKFLOW.md](03_WORKFLOW.md) - Daily workflow integration
 - [08_BEADS.md](08_BEADS.md) - Issue tracking + triage
 - [09_JUJUTSU.md](09_JUJUTSU.md) - Version control
+- [11_ZELLIJ.md](11_ZELLIJ.md) - Terminal multiplexing + layouts
 
 ## 🔑 Key Commands Quick Reference
 
@@ -130,11 +132,11 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 
 ## 📊 Documentation Stats
 
-- **Total Pages**: 11
-- **Total Content**: ~52k tokens
-- **Average Page**: ~4.7k tokens
+- **Total Pages**: 12
+- **Total Content**: ~58k tokens
+- **Average Page**: ~4.8k tokens
 - **Token Efficiency**: Highly optimized for AI + human reading
-- **Latest Addition**: 10_MOON_CICD_INDEXED.md (comprehensive moon task catalog)
+- **Latest Addition**: 11_ZELLIJ.md (terminal multiplexing and layout guide)
 
 ## 🔍 Search Guide
 

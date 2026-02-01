@@ -25,6 +25,7 @@ pub mod focus;
 pub mod init;
 pub mod introspect;
 pub mod list;
+pub mod pane;
 pub mod query;
 pub mod recover;
 pub mod remove;

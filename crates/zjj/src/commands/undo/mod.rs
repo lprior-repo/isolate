@@ -20,7 +20,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use zjj_core::OutputFormat;
+use zjj_core::{log_recovery, OutputFormat, RecoveryPolicy};
 
 use crate::{
     cli::jj_root,
@@ -276,13 +276,7 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
-        .collect();
-
-    if entries.is_empty() {
-        Err(UndoError::NoUndoHistory)
-    } else {
-        Ok(entries)
-    }
+        .collect::<Vec<_>>()
 }
 
 /// Get the last (most recent) undo entry
@@ -432,6 +426,14 @@ struct UndoEntry {
     timestamp: u64,
     pushed_to_remote: bool,
     status: String,
+}
+
+impl From<serde_json::Error> for UndoError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::SerializationError {
+            reason: error.to_string(),
+        }
+    }
 }
 
 #[cfg(test)]

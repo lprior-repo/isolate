@@ -1729,7 +1729,7 @@ fn cmd_wait() -> ClapCommand {
         .arg(
             Arg::new("status")
                 .long("status")
-                .value_name("STATUS")
+            .value_name("STATUS")
                 .help("Status to wait for (with session-status)"),
         )
         .arg(
@@ -3037,7 +3037,49 @@ fn handle_schema(sub_m: &clap::ArgMatches) -> Result<()> {
     }
 }
 
-fn handle_recover(sub_m: &clap::ArgMatches) -> Result<()> {
+fn handle_pane(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    match sub_m.subcommand() {
+        Some(("focus", focus_m)) => {
+            let session = focus_m
+                .get_one::<String>("session")
+                .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+            let pane_identifier = focus_m.get_one::<String>("pane").map(String::as_str);
+            let direction = focus_m.get_one::<String>("direction").map(String::as_str);
+
+            let options = pane::PaneFocusOptions { format };
+
+            if let Some(dir_str) = direction {
+                let dir = pane::Direction::parse(dir_str)?;
+                pane::pane_navigate(session, dir, &options)
+            } else {
+                pane::pane_focus(session, pane_identifier, &options)
+            }
+        }
+        Some(("list", list_m)) => {
+            let session = list_m
+                .get_one::<String>("session")
+                .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+            let options = pane::PaneListOptions { format };
+            pane::pane_list(session, &options)
+        }
+        Some(("next", next_m)) => {
+            let session = next_m
+                .get_one::<String>("session")
+                .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+            let options = pane::PaneNextOptions { format };
+            pane::pane_next(session, &options)
+        }
+        _ => anyhow::bail!("Unknown pane subcommand"),
+    }
+}
+
+fn handle_revert(sub_m: &clap::ArgMatches) -> Result<()> {
+    let name = sub_m
+        .get_one::<String>("name")
+        .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let diagnose_only = sub_m.get_flag("diagnose");
@@ -3171,6 +3213,7 @@ fn run_cli() -> Result<()> {
         Some(("add", sub_m)) => handle_add(sub_m),
         Some(("agents", sub_m)) => handle_agents(sub_m),
         Some(("list", sub_m)) => handle_list(sub_m),
+        Some(("pane", sub_m)) => handle_pane(sub_m),
         Some(("remove", sub_m)) => handle_remove(sub_m),
         Some(("focus", sub_m)) => handle_focus(sub_m),
         Some(("status", sub_m)) => handle_status(sub_m),
