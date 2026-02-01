@@ -114,7 +114,8 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                 errors: Vec::new(),
             };
             let envelope = SchemaEnvelope::new("sync-response", "single", output);
-            println!("{}", serde_json::to_string(&envelope)?);
+            let json_str = serde_json::to_string(&envelope)?;
+            writeln!(std::io::stdout(), "{json_str}")?;
         } else {
             writeln!(std::io::stdout(), "No sessions to sync")?;
         }
