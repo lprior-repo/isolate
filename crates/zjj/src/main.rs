@@ -1245,6 +1245,18 @@ fn cmd_ai() -> ClapCommand {
                     - done: Finish work",
                 ),
         )
+        .subcommand(
+            ClapCommand::new("next")
+                .about("Get single next action with copy-paste command")
+                .long_about(
+                    "Returns the single most important next action.\n\n\
+                    Output includes:\n\
+                    - action: What to do\n\
+                    - command: Copy-paste ready command\n\
+                    - reason: Why this is the next step\n\
+                    - priority: high, medium, or low",
+                ),
+        )
 }
 
 fn cmd_can_i() -> ClapCommand {
@@ -1708,6 +1720,150 @@ fn cmd_import() -> ClapCommand {
         )
 }
 
+fn cmd_wait() -> ClapCommand {
+    ClapCommand::new("wait")
+        .about("Wait for conditions to be met")
+        .long_about(
+            "Block until a condition is met or timeout.\n\n\
+            Use this for:\n  \
+            - Waiting for a session to exist\n  \
+            - Waiting for a session to be unlocked\n  \
+            - Waiting for system to be healthy",
+        )
+        .arg(
+            Arg::new("condition")
+                .required(true)
+                .help("Condition to wait for: session-exists, session-unlocked, healthy, session-status"),
+        )
+        .arg(
+            Arg::new("name")
+                .help("Session name (for session-* conditions)"),
+        )
+        .arg(
+            Arg::new("status")
+                .long("status")
+                .value_name("STATUS")
+                .help("Status to wait for (with session-status)"),
+        )
+        .arg(
+            Arg::new("timeout")
+                .long("timeout")
+                .short('t')
+                .value_name("SECONDS")
+                .default_value("30")
+                .help("Timeout in seconds"),
+        )
+        .arg(
+            Arg::new("interval")
+                .long("interval")
+                .value_name("SECONDS")
+                .default_value("1")
+                .help("Poll interval in seconds"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_schema() -> ClapCommand {
+    ClapCommand::new("schema")
+        .about("Get machine-readable JSON Schema definitions")
+        .long_about(
+            "Provides actual JSON Schema definitions for AI agents to validate against.\n\n\
+            Use 'zjj schema --list' to see available schemas.\n\
+            Use 'zjj schema <name>' to get a specific schema.",
+        )
+        .arg(
+            Arg::new("name")
+                .help("Schema name to get"),
+        )
+        .arg(
+            Arg::new("list")
+                .long("list")
+                .action(clap::ArgAction::SetTrue)
+                .help("List available schemas"),
+        )
+        .arg(
+            Arg::new("all")
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .help("Get all schemas"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_recover() -> ClapCommand {
+    ClapCommand::new("recover")
+        .about("Auto-detect and fix common broken states")
+        .long_about(
+            "Diagnoses and fixes common issues:\n  \
+            - Orphaned sessions\n  \
+            - Stale locks\n  \
+            - Missing workspaces\n  \
+            - Database inconsistencies",
+        )
+        .arg(
+            Arg::new("diagnose")
+                .long("diagnose")
+                .action(clap::ArgAction::SetTrue)
+                .help("Only diagnose, don't fix"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_retry() -> ClapCommand {
+    ClapCommand::new("retry")
+        .about("Retry the last failed command")
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_rollback() -> ClapCommand {
+    ClapCommand::new("rollback")
+        .about("Restore session to a checkpoint")
+        .arg(
+            Arg::new("session")
+                .required(true)
+                .help("Session to rollback"),
+        )
+        .arg(
+            Arg::new("to")
+                .long("to")
+                .required(true)
+                .value_name("CHECKPOINT")
+                .help("Checkpoint to rollback to"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 fn cmd_abort() -> ClapCommand {
     ClapCommand::new("abort")
         .about("Abandon workspace without merging")
@@ -1835,6 +1991,14 @@ fn build_cli() -> ClapCommand {
         // Export/Import
         .subcommand(cmd_export())
         .subcommand(cmd_import())
+        // Wait/Poll commands
+        .subcommand(cmd_wait())
+        // Schema command
+        .subcommand(cmd_schema())
+        // Recovery commands
+        .subcommand(cmd_recover())
+        .subcommand(cmd_retry())
+        .subcommand(cmd_rollback())
 }
 
 /// Format an error for user display (no stack traces)
@@ -2365,6 +2529,7 @@ fn handle_ai(sub_m: &clap::ArgMatches) -> Result<()> {
         Some(("status", _)) => ai::AiSubcommand::Status,
         Some(("workflow", _)) => ai::AiSubcommand::Workflow,
         Some(("quick-start", _)) => ai::AiSubcommand::QuickStart,
+        Some(("next", _)) => ai::AiSubcommand::Next,
         _ => ai::AiSubcommand::Default,
     };
 
@@ -2804,6 +2969,158 @@ fn handle_import(sub_m: &clap::ArgMatches) -> Result<()> {
     }
 }
 
+fn handle_wait(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let condition_str = sub_m
+        .get_one::<String>("condition")
+        .ok_or_else(|| anyhow::anyhow!("Condition is required"))?;
+    let name = sub_m.get_one::<String>("name").cloned();
+    let status = sub_m.get_one::<String>("status").cloned();
+    let timeout: u64 = sub_m
+        .get_one::<String>("timeout")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30);
+    let interval: u64 = sub_m
+        .get_one::<String>("interval")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1);
+
+    let condition = match condition_str.as_str() {
+        "session-exists" => {
+            let n = name.ok_or_else(|| anyhow::anyhow!("Session name required for session-exists"))?;
+            commands::wait::WaitCondition::SessionExists(n)
+        }
+        "session-unlocked" => {
+            let n = name.ok_or_else(|| anyhow::anyhow!("Session name required for session-unlocked"))?;
+            commands::wait::WaitCondition::SessionUnlocked(n)
+        }
+        "healthy" => commands::wait::WaitCondition::Healthy,
+        "session-status" => {
+            let n = name.ok_or_else(|| anyhow::anyhow!("Session name required for session-status"))?;
+            let s = status.ok_or_else(|| anyhow::anyhow!("--status required for session-status"))?;
+            commands::wait::WaitCondition::SessionStatus { name: n, status: s }
+        }
+        _ => anyhow::bail!("Unknown condition: {}", condition_str),
+    };
+
+    let options = commands::wait::WaitOptions {
+        condition,
+        timeout: std::time::Duration::from_secs(timeout),
+        poll_interval: std::time::Duration::from_secs(interval),
+        format,
+    };
+
+    match commands::wait::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_schema(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let schema_name = sub_m.get_one::<String>("name").cloned();
+    let list = sub_m.get_flag("list");
+    let all = sub_m.get_flag("all");
+
+    let options = commands::schema::SchemaOptions {
+        schema_name,
+        list,
+        all,
+        format,
+    };
+
+    match commands::schema::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_recover(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let diagnose_only = sub_m.get_flag("diagnose");
+
+    let options = commands::recover::RecoverOptions {
+        diagnose_only,
+        format,
+    };
+
+    match commands::recover::run_recover(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_retry(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let options = commands::recover::RetryOptions { format };
+
+    match commands::recover::run_retry(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_rollback(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let session = sub_m
+        .get_one::<String>("session")
+        .ok_or_else(|| anyhow::anyhow!("Session is required"))?
+        .clone();
+    let checkpoint = sub_m
+        .get_one::<String>("to")
+        .ok_or_else(|| anyhow::anyhow!("--to checkpoint is required"))?
+        .clone();
+    let dry_run = sub_m.get_flag("dry-run");
+
+    let options = commands::recover::RollbackOptions {
+        session,
+        checkpoint,
+        dry_run,
+        format,
+    };
+
+    match commands::recover::run_rollback(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
 /// Execute the CLI and return a Result
 fn run_cli() -> Result<()> {
     let cli = build_cli();
@@ -2907,6 +3224,14 @@ fn run_cli() -> Result<()> {
         // Export/Import
         Some(("export", sub_m)) => handle_export(sub_m),
         Some(("import", sub_m)) => handle_import(sub_m),
+        // Wait/Poll commands
+        Some(("wait", sub_m)) => handle_wait(sub_m),
+        // Schema command
+        Some(("schema", sub_m)) => handle_schema(sub_m),
+        // Recovery commands
+        Some(("recover", sub_m)) => handle_recover(sub_m),
+        Some(("retry", sub_m)) => handle_retry(sub_m),
+        Some(("rollback", sub_m)) => handle_rollback(sub_m),
         _ => {
             build_cli().print_help()?;
             Ok(())

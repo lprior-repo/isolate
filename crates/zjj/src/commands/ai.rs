@@ -62,6 +62,8 @@ pub enum AiSubcommand {
     Workflow,
     /// Show quick-start guide
     QuickStart,
+    /// Get single next action
+    Next,
     /// Default: show overview
     Default,
 }
@@ -72,6 +74,7 @@ pub fn run(options: &AiOptions) -> Result<()> {
         AiSubcommand::Status => run_status(options.format),
         AiSubcommand::Workflow => run_workflow(options.format),
         AiSubcommand::QuickStart => run_quick_start(options.format),
+        AiSubcommand::Next => run_next(options.format),
         AiSubcommand::Default => run_default(options.format),
     }
 }
@@ -332,6 +335,110 @@ fn run_quick_start(format: OutputFormat) -> Result<()> {
     Ok(())
 }
 
+/// Next action output
+#[derive(Debug, Clone, Serialize)]
+pub struct NextActionOutput {
+    /// What to do
+    pub action: String,
+    /// Command to run (copy-paste ready)
+    pub command: String,
+    /// Why this is the next step
+    pub reason: String,
+    /// Priority: high, medium, low
+    pub priority: String,
+}
+
+/// Run AI next - single next action
+fn run_next(format: OutputFormat) -> Result<()> {
+    let initialized = zjj_data_dir().is_ok();
+    let inside_zellij = is_inside_zellij();
+
+    let (location, workspace) = if let Ok(root) = super::check_in_jj_repo() {
+        match context::detect_location(&root) {
+            Ok(context::Location::Main) => ("main".to_string(), None),
+            Ok(context::Location::Workspace { name, .. }) => {
+                ("workspace".to_string(), Some(name))
+            }
+            Err(_) => ("unknown".to_string(), None),
+        }
+    } else {
+        ("not_in_repo".to_string(), None)
+    };
+
+    // Determine next action based on current state
+    let output = if !initialized && location != "not_in_repo" {
+        NextActionOutput {
+            action: "Initialize ZJJ".to_string(),
+            command: "zjj init".to_string(),
+            reason: "ZJJ is not initialized in this repository".to_string(),
+            priority: "high".to_string(),
+        }
+    } else if location == "not_in_repo" {
+        NextActionOutput {
+            action: "Enter a JJ repository".to_string(),
+            command: "cd <repo> && zjj init".to_string(),
+            reason: "Not currently in a JJ repository".to_string(),
+            priority: "high".to_string(),
+        }
+    } else if let Some(ws) = workspace {
+        NextActionOutput {
+            action: format!("Continue work in '{}'", ws),
+            command: "zjj context --json".to_string(),
+            reason: format!("Currently in workspace '{}' - check context or complete work", ws),
+            priority: "medium".to_string(),
+        }
+    } else {
+        // On main, ready to work
+        let active_sessions = get_session_db()
+            .ok()
+            .and_then(|db| db.list_blocking(None).ok())
+            .map(|sessions| {
+                sessions
+                    .iter()
+                    .filter(|s| s.status.to_string() == "active")
+                    .count()
+            })
+            .unwrap_or(0);
+
+        if active_sessions > 0 {
+            NextActionOutput {
+                action: "Check existing sessions".to_string(),
+                command: "zjj list --json".to_string(),
+                reason: format!("{} active session(s) exist - review or continue work", active_sessions),
+                priority: "medium".to_string(),
+            }
+        } else if inside_zellij {
+            NextActionOutput {
+                action: "Start new work session".to_string(),
+                command: "zjj work <task-name>".to_string(),
+                reason: "Ready to start work - no active sessions".to_string(),
+                priority: "medium".to_string(),
+            }
+        } else {
+            NextActionOutput {
+                action: "Start new work session".to_string(),
+                command: "zjj work <task-name> --no-zellij".to_string(),
+                reason: "Ready to start work (outside Zellij)".to_string(),
+                priority: "medium".to_string(),
+            }
+        }
+    };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("ai-next-response", "single", &output);
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize AI next output")?;
+        println!("{json_str}");
+    } else {
+        println!("Next Action: {}", output.action);
+        println!("Command:     {}", output.command);
+        println!("Reason:      {}", output.reason);
+        println!("Priority:    {}", output.priority);
+    }
+
+    Ok(())
+}
+
 /// Run AI default - overview and help
 fn run_default(format: OutputFormat) -> Result<()> {
     #[derive(Serialize)]
@@ -353,6 +460,10 @@ fn run_default(format: OutputFormat) -> Result<()> {
             SubcommandInfo {
                 command: "zjj ai status".to_string(),
                 description: "Current state with guided next action".to_string(),
+            },
+            SubcommandInfo {
+                command: "zjj ai next".to_string(),
+                description: "Single next action with copy-paste command".to_string(),
             },
             SubcommandInfo {
                 command: "zjj ai workflow".to_string(),
