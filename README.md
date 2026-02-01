@@ -5,6 +5,23 @@
 
 ZJJ is a workspace isolation and setup tool that combines [JJ (Jujutsu)](https://github.com/martinvonz/jj) version control with [Zellij](https://zellij.dev/) terminal multiplexing for focused development sessions.
 
+## Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `zjj add <name>` | Create new session (workspace + Zellij tab) |
+| `zjj add <name> --bead <id>` | Create session associated with bead/issue |
+| `zjj list` | List all active sessions |
+| `zjj list --verbose` | List with workspace paths and bead titles |
+| `zjj status` | Show detailed session status with changes |
+| `zjj whereami` | Show current location (main or workspace) |
+| `zjj switch [name]` | Switch between workspaces (interactive if no name) |
+| `zjj sync [name]` | Sync workspace with main (rebase) |
+| `zjj focus <name>` | Switch to session's Zellij tab |
+| `zjj remove <name>` | Remove session and workspace |
+| `zjj spawn <bead-id>` | Spawn isolated workspace for agent |
+| `zjj done` | Complete work and merge to main |
+
 ## What ZJJ Does
 
 ZJJ creates **isolated workspaces** for parallel development tasks:
@@ -12,6 +29,7 @@ ZJJ creates **isolated workspaces** for parallel development tasks:
 - Seamlessly switch between tasks with `zjj focus`
 - Keep your main branch clean while working on multiple features
 - Built-in agent workflow support with `zjj spawn` and `zjj done`
+- Bead/issue tracking integration for organized development
 
 ## Commands
 
