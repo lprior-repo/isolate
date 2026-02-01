@@ -294,6 +294,60 @@ bd complete BD-123
 bd complete BD-124
 ```
 
+## Syncing Workspaces
+
+`zjj sync` rebases your workspace onto main, keeping your work up to date with the latest changes.
+
+### Basic Usage
+
+```bash
+# Sync current workspace with main
+zjj sync
+
+# Sync specific workspace
+zjj sync feature-auth
+
+# Sync all workspaces
+zjj sync --all
+```
+
+### What It Does
+
+1. Runs: `jj rebase -d main`
+2. Updates `last_synced` timestamp in session database
+3. Shows summary of changes applied
+
+### When to Sync
+
+- **Before starting work**: Ensure you have latest changes
+- **During long-running work**: Stay synchronized with team
+- **Before creating PRs**: Ensure clean rebase onto main
+
+### Example
+
+```bash
+$ zjj sync
+Syncing workspace 'feature-auth' with main...
+Rebasing workspace commits onto main
+Summary: 3 commits rebased, 0 conflicts
+Last synced: 2026-02-01 12:00:00
+```
+
+### Handling Conflicts During Sync
+
+If conflicts occur during rebase:
+
+```bash
+# View conflicts
+jj diff
+
+# Edit conflicted files
+vim conflicted_file.rs
+
+# Continue with rebase (jj tracks resolution automatically)
+jj diff  # Should show no conflicts
+```
+
 ## Handling Conflicts
 
 ### Update with Latest
