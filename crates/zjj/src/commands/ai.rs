@@ -547,7 +547,7 @@ mod tests {
     // Behavior Tests
     // ============================================================================
 
-    /// Test AiStatusOutput location field
+    /// Test `AiStatusOutput` location field
     #[test]
     fn test_ai_status_location_values() {
         // On main
@@ -614,7 +614,7 @@ mod tests {
         assert!(!status.suggestion.is_empty());
     }
 
-    /// Test WorkflowStep ordering
+    /// Test `WorkflowStep` ordering
     #[test]
     fn test_workflow_step_ordering() {
         let workflow = WorkflowInfo {
@@ -644,7 +644,7 @@ mod tests {
         }
     }
 
-    /// Test WorkflowStep has command and description
+    /// Test `WorkflowStep` has command and description
     #[test]
     fn test_workflow_step_required_fields() {
         let step = WorkflowStep {
@@ -678,7 +678,7 @@ mod tests {
         assert!(!purpose.is_empty());
     }
 
-    /// Test AiStatusOutput JSON has all fields
+    /// Test `AiStatusOutput` JSON has all fields
     #[test]
     fn test_ai_status_json_complete() {
         let status = AiStatusOutput {
@@ -809,11 +809,10 @@ mod tests {
         fn when_in_workspace_suggests_context_or_done() {
             let workspace_name = "feature-auth";
             let output = NextActionOutput {
-                action: format!("Continue work in '{}'", workspace_name),
+                action: format!("Continue work in '{workspace_name}'"),
                 command: "zjj context --json".to_string(),
                 reason: format!(
-                    "Currently in workspace '{}' - check context or complete work",
-                    workspace_name
+                    "Currently in workspace '{workspace_name}' - check context or complete work"
                 ),
                 priority: "medium".to_string(),
             };
@@ -842,8 +841,7 @@ mod tests {
                 action: "Check existing sessions".to_string(),
                 command: "zjj list --json".to_string(),
                 reason: format!(
-                    "{} active session(s) exist - review or continue work",
-                    active_count
+                    "{active_count} active session(s) exist - review or continue work"
                 ),
                 priority: "medium".to_string(),
             };
@@ -852,7 +850,7 @@ mod tests {
                 output.command.contains("list"),
                 "Should suggest listing sessions"
             );
-            assert!(output.reason.contains("3"), "Should mention session count");
+            assert!(output.reason.contains('3'), "Should mention session count");
         }
 
         /// GIVEN: System is ready with no active sessions
@@ -968,7 +966,7 @@ mod tests {
 
         /// GIVEN: Agent ID is set in environment
         /// WHEN: Status is checked
-        /// THEN: agent_id should be populated
+        /// THEN: `agent_id` should be populated
         #[test]
         fn agent_id_is_captured_from_environment() {
             let status = AiStatusOutput {
@@ -1038,14 +1036,18 @@ mod tests {
             }
 
             // Verify workflow starts and ends correctly
-            assert!(
-                steps.first().unwrap().command.contains("whereami"),
-                "Workflow starts with orientation"
-            );
-            assert!(
-                steps.last().unwrap().command.contains("done"),
-                "Workflow ends with completion"
-            );
+            if let Some(first) = steps.first() {
+                assert!(
+                    first.command.contains("whereami"),
+                    "Workflow starts with orientation"
+                );
+            }
+            if let Some(last) = steps.last() {
+                assert!(
+                    last.command.contains("done"),
+                    "Workflow ends with completion"
+                );
+            }
         }
 
         /// GIVEN: User is an AI agent
@@ -1090,7 +1092,7 @@ mod tests {
         use super::*;
 
         /// GIVEN: AI agent needs to know available subcommands
-        /// WHEN: They check the AiSubcommand enum
+        /// WHEN: They check the `AiSubcommand` enum
         /// THEN: All expected subcommands should exist
         #[test]
         fn all_ai_subcommands_are_defined() {
@@ -1129,7 +1131,7 @@ mod tests {
         /// WHEN: Status is serialized
         /// THEN: All fields should be present and correctly typed
         #[test]
-        fn json_output_has_complete_schema() {
+        fn json_output_has_complete_schema() -> Result<(), Box<dyn std::error::Error>> {
             let status = AiStatusOutput {
                 location: "main".to_string(),
                 workspace: None,
@@ -1142,7 +1144,7 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&status).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&status)?)?;
 
             // Required fields
             assert!(json.get("location").is_some(), "Must have location");
@@ -1166,13 +1168,14 @@ mod tests {
                 "active_sessions must be number"
             );
             assert!(json["ready"].is_boolean(), "ready must be boolean");
+            Ok(())
         }
 
-        /// GIVEN: NextActionOutput is serialized
+        /// GIVEN: `NextActionOutput` is serialized
         /// WHEN: AI agent parses it
         /// THEN: It should have all fields needed for automation
         #[test]
-        fn next_action_json_is_machine_actionable() {
+        fn next_action_json_is_machine_actionable() -> Result<(), Box<dyn std::error::Error>> {
             let action = NextActionOutput {
                 action: "Start work".to_string(),
                 command: "zjj work my-task".to_string(),
@@ -1181,26 +1184,35 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&action).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&action)?)?;
 
             // Action must be descriptive
-            assert!(json["action"].as_str().unwrap().len() > 0);
+            if let Some(action_str) = json["action"].as_str() {
+                assert!(!action_str.is_empty());
+            } else {
+                panic!("action not a string");
+            }
 
             // Command must be executable
-            let cmd = json["command"].as_str().unwrap();
-            assert!(
-                cmd.starts_with("zjj ") || cmd.starts_with("cd ") || cmd.starts_with("#"),
-                "Command '{}' should be executable or a comment",
-                cmd
-            );
+            if let Some(cmd) = json["command"].as_str() {
+                assert!(
+                    cmd.starts_with("zjj ") || cmd.starts_with("cd ") || cmd.starts_with('#'),
+                    "Command '{cmd}' should be executable or a comment"
+                );
+            } else {
+                panic!("command not a string");
+            }
 
             // Priority must be valid
-            let priority = json["priority"].as_str().unwrap();
-            assert!(
-                ["high", "medium", "low"].contains(&priority),
-                "Priority '{}' must be high, medium, or low",
-                priority
-            );
+            if let Some(priority) = json["priority"].as_str() {
+                assert!(
+                    ["high", "medium", "low"].contains(&priority),
+                    "Priority '{priority}' must be high, medium, or low"
+                );
+            } else {
+                panic!("priority not a string");
+            }
+            Ok(())
         }
     }
 }

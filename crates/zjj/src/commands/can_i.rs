@@ -93,14 +93,14 @@ pub fn run(options: &CanIOptions) -> Result<()> {
 
 fn check_permission(action: &str, resource: Option<&str>) -> Result<CanIResult> {
     match action {
-        "add" | "work" => check_can_add(resource),
-        "remove" => check_can_remove(resource),
-        "done" => check_can_done(resource),
-        "undo" => check_can_undo(),
-        "sync" => check_can_sync(resource),
-        "spawn" => check_can_spawn(resource),
-        "claim" => check_can_claim(resource),
-        "merge" => check_can_merge(resource),
+        "add" | "work" => Ok(check_can_add(resource)),
+        "remove" => Ok(check_can_remove(resource)),
+        "done" => Ok(check_can_done(resource)),
+        "undo" => Ok(check_can_undo()),
+        "sync" => Ok(check_can_sync(resource)),
+        "spawn" => Ok(check_can_spawn(resource)),
+        "claim" => Ok(check_can_claim(resource)),
+        "merge" => Ok(check_can_merge(resource)),
         _ => Ok(CanIResult {
             allowed: true,
             action: action.to_string(),
@@ -112,7 +112,7 @@ fn check_permission(action: &str, resource: Option<&str>) -> Result<CanIResult> 
     }
 }
 
-fn check_can_add(resource: Option<&str>) -> Result<CanIResult> {
+fn check_can_add(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
     // Check if zjj is initialized
@@ -163,17 +163,17 @@ fn check_can_add(resource: Option<&str>) -> Result<CanIResult> {
         vec![]
     };
 
-    Ok(CanIResult {
+    CanIResult {
         allowed,
         action: "add".to_string(),
         resource: resource.map(String::from),
         reason,
         prerequisites,
         fix_commands,
-    })
+    }
 }
 
-fn check_can_remove(resource: Option<&str>) -> Result<CanIResult> {
+fn check_can_remove(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
     let db_result = get_session_db();
@@ -216,17 +216,17 @@ fn check_can_remove(resource: Option<&str>) -> Result<CanIResult> {
         "Session does not exist".to_string()
     };
 
-    Ok(CanIResult {
+    CanIResult {
         allowed,
         action: "remove".to_string(),
         resource: resource.map(String::from),
         reason,
         prerequisites,
         fix_commands: vec![],
-    })
+    }
 }
 
-fn check_can_done(resource: Option<&str>) -> Result<CanIResult> {
+fn check_can_done(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
     let db_result = get_session_db();
@@ -267,17 +267,17 @@ fn check_can_done(resource: Option<&str>) -> Result<CanIResult> {
         "Not in a workspace - specify session or cd to workspace".to_string()
     };
 
-    Ok(CanIResult {
+    CanIResult {
         allowed,
         action: "done".to_string(),
         resource: resource.map(String::from),
         reason,
         prerequisites,
         fix_commands: vec![],
-    })
+    }
 }
 
-fn check_can_undo() -> Result<CanIResult> {
+fn check_can_undo() -> CanIResult {
     let mut prerequisites = Vec::new();
 
     // Check if undo history exists
@@ -303,17 +303,17 @@ fn check_can_undo() -> Result<CanIResult> {
         "No undo history - nothing to undo".to_string()
     };
 
-    Ok(CanIResult {
+    CanIResult {
         allowed,
         action: "undo".to_string(),
         resource: None,
         reason,
         prerequisites,
         fix_commands: vec![],
-    })
+    }
 }
 
-fn check_can_sync(resource: Option<&str>) -> Result<CanIResult> {
+fn check_can_sync(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
     let db_result = get_session_db();
@@ -360,17 +360,17 @@ fn check_can_sync(resource: Option<&str>) -> Result<CanIResult> {
         "No sessions to sync".to_string()
     };
 
-    Ok(CanIResult {
+    CanIResult {
         allowed,
         action: "sync".to_string(),
         resource: resource.map(String::from),
         reason,
         prerequisites,
         fix_commands: vec![],
-    })
+    }
 }
 
-fn check_can_spawn(resource: Option<&str>) -> Result<CanIResult> {
+fn check_can_spawn(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
     let db_result = get_session_db();
@@ -425,23 +425,23 @@ fn check_can_spawn(resource: Option<&str>) -> Result<CanIResult> {
         "Zellij not available".to_string()
     };
 
-    let fix_commands = if !zellij_available {
-        vec!["cargo install zellij".to_string()]
-    } else {
+    let fix_commands = if zellij_available {
         vec![]
+    } else {
+        vec!["cargo install zellij".to_string()]
     };
 
-    Ok(CanIResult {
+    CanIResult {
         allowed,
         action: "spawn".to_string(),
         resource: resource.map(String::from),
         reason,
         prerequisites,
         fix_commands,
-    })
+    }
 }
 
-fn check_can_claim(resource: Option<&str>) -> Result<CanIResult> {
+fn check_can_claim(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
     let db_result = get_session_db();
@@ -470,7 +470,7 @@ fn check_can_claim(resource: Option<&str>) -> Result<CanIResult> {
     });
 
     // Check if lock exists
-    let lock_free = if let Some(res) = resource {
+    let lock_free = resource.map_or(true, |res| {
         let locks_dir = super::zjj_data_dir().map(|d| d.join("locks")).ok();
         let safe_name: String = res
             .chars()
@@ -484,9 +484,8 @@ fn check_can_claim(resource: Option<&str>) -> Result<CanIResult> {
             .collect();
         let lock_path = locks_dir.map(|d| d.join(format!("{safe_name}.lock")));
         lock_path.map(|p| !p.exists()).unwrap_or(true)
-    } else {
-        true
-    };
+    });
+
     prerequisites.push(Prerequisite {
         check: "lock_free".to_string(),
         passed: lock_free,
@@ -508,22 +507,21 @@ fn check_can_claim(resource: Option<&str>) -> Result<CanIResult> {
         "Resource is currently locked".to_string()
     };
 
-    Ok(CanIResult {
+    CanIResult {
         allowed,
         action: "claim".to_string(),
         resource: resource.map(String::from),
         reason,
         prerequisites,
         fix_commands: vec![],
-    })
+    }
 }
 
-fn check_can_merge(resource: Option<&str>) -> Result<CanIResult> {
+fn check_can_merge(resource: Option<&str>) -> CanIResult {
     // Same as done for now
-    check_can_done(resource).map(|mut r| {
-        r.action = "merge".to_string();
-        r
-    })
+    let mut r = check_can_done(resource);
+    r.action = "merge".to_string();
+    r
 }
 
 #[cfg(test)]
@@ -531,7 +529,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_can_i_result_serialization() {
+    fn test_can_i_result_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let result = CanIResult {
             allowed: true,
             action: "add".to_string(),
@@ -541,13 +539,14 @@ mod tests {
             fix_commands: vec![],
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"allowed\":true"));
         assert!(json.contains("\"action\":\"add\""));
+        Ok(())
     }
 
     #[test]
-    fn test_can_i_result_with_prerequisites() {
+    fn test_can_i_result_with_prerequisites() -> Result<(), Box<dyn std::error::Error>> {
         let result = CanIResult {
             allowed: false,
             action: "spawn".to_string(),
@@ -568,20 +567,22 @@ mod tests {
             fix_commands: vec!["cargo install zellij".to_string()],
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"allowed\":false"));
         assert!(json.contains("\"fix_commands\""));
+        Ok(())
     }
 
     #[test]
-    fn test_prerequisite_serialization() {
+    fn test_prerequisite_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let prereq = Prerequisite {
             check: "test_check".to_string(),
             passed: true,
             description: "Test passed".to_string(),
         };
 
-        let json = serde_json::to_string(&prereq).unwrap();
+        let json = serde_json::to_string(&prereq)?;
         assert!(json.contains("\"passed\":true"));
+        Ok(())
     }
 }

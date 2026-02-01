@@ -50,7 +50,7 @@ pub struct WaitOutput {
     pub final_state: Option<String>,
 }
 
-/// Create a WaitOutput for a given result
+/// Create a `WaitOutput` for a given result
 fn make_output(
     success: bool,
     condition: &WaitCondition,
@@ -61,7 +61,7 @@ fn make_output(
     WaitOutput {
         success,
         condition: format_condition(condition),
-        elapsed_ms: start.elapsed().as_millis() as u64,
+        elapsed_ms: u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
         timed_out,
         final_state: state,
     }
@@ -99,16 +99,14 @@ pub fn run(options: &WaitOptions) -> Result<()> {
 fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> {
     match condition {
         WaitCondition::SessionExists(name) => {
-            let db = get_session_db().ok();
-            if let Some(db) = db {
-                match db.get_blocking(name) {
+            get_session_db().ok().map_or_else(
+                || Ok((false, Some("db_unavailable".to_string()))),
+                |db| match db.get_blocking(name) {
                     Ok(Some(session)) => Ok((true, Some(format!("status:{}", session.status)))),
                     Ok(None) => Ok((false, Some("not_found".to_string()))),
                     Err(_) => Ok((false, Some("error".to_string()))),
-                }
-            } else {
-                Ok((false, Some("db_unavailable".to_string())))
-            }
+                },
+            )
         }
 
         WaitCondition::SessionUnlocked(name) => {
@@ -124,7 +122,7 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
                                     .as_ref()
                                     .and_then(|m| m.get("locked_by"))
                                     .is_some();
-                                (!locked, Some(format!("locked:{}", locked)))
+                                (!locked, Some(format!("locked:{locked}")))
                             }
                             None => {
                                 // Session doesn't exist - can't be "unlocked"
@@ -158,20 +156,18 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
         }
 
         WaitCondition::SessionStatus { name, status } => {
-            let db = get_session_db().ok();
-            if let Some(db) = db {
-                match db.get_blocking(name) {
+            get_session_db().ok().map_or_else(
+                || Ok((false, Some("db_unavailable".to_string()))),
+                |db| match db.get_blocking(name) {
                     Ok(Some(session)) => {
                         let current_status = session.status.to_string();
                         let met = current_status == *status;
-                        Ok((met, Some(format!("status:{}", current_status))))
+                        Ok((met, Some(format!("status:{current_status}"))))
                     }
                     Ok(None) => Ok((false, Some("not_found".to_string()))),
                     Err(_) => Ok((false, Some("error".to_string()))),
-                }
-            } else {
-                Ok((false, Some("db_unavailable".to_string())))
-            }
+                },
+            )
         }
     }
 }
@@ -179,11 +175,11 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
 /// Format condition for display
 fn format_condition(condition: &WaitCondition) -> String {
     match condition {
-        WaitCondition::SessionExists(name) => format!("session-exists:{}", name),
-        WaitCondition::SessionUnlocked(name) => format!("session-unlocked:{}", name),
+        WaitCondition::SessionExists(name) => format!("session-exists:{name}"),
+        WaitCondition::SessionUnlocked(name) => format!("session-unlocked:{name}"),
         WaitCondition::Healthy => "healthy".to_string(),
         WaitCondition::SessionStatus { name, status } => {
-            format!("session-status:{}={}", name, status)
+            format!("session-status:{name}={status}")
         }
     }
 }
@@ -207,7 +203,7 @@ fn output_result(output: &WaitOutput, format: OutputFormat) -> Result<()> {
             println!("Failed: {}", output.condition);
         }
         if let Some(ref state) = output.final_state {
-            println!("Final state: {}", state);
+            println!("Final state: {state}");
         }
     }
 
@@ -340,7 +336,7 @@ mod tests {
 
         /// GIVEN: A condition was met successfully
         /// WHEN: Output is generated
-        /// THEN: success should be true and timed_out should be false
+        /// THEN: success should be true and `timed_out` should be false
         #[test]
         fn successful_wait_shows_success() {
             let output = WaitOutput {
@@ -358,7 +354,7 @@ mod tests {
 
         /// GIVEN: Timeout occurred before condition was met
         /// WHEN: Output is generated
-        /// THEN: success should be false and timed_out should be true
+        /// THEN: success should be false and `timed_out` should be true
         #[test]
         fn timeout_shows_failure_and_timed_out() {
             let output = WaitOutput {
@@ -379,7 +375,7 @@ mod tests {
 
         /// GIVEN: Condition failed for non-timeout reason
         /// WHEN: Output is generated
-        /// THEN: success should be false but timed_out should also be false
+        /// THEN: success should be false but `timed_out` should also be false
         #[test]
         fn failure_without_timeout_is_distinct() {
             let output = WaitOutput {
@@ -395,7 +391,7 @@ mod tests {
         }
 
         /// GIVEN: Wait completed
-        /// WHEN: Output includes final_state
+        /// WHEN: Output includes `final_state`
         /// THEN: It should describe why the wait ended
         #[test]
         fn final_state_explains_outcome() {
@@ -411,7 +407,7 @@ mod tests {
                 success_output
                     .final_state
                     .as_ref()
-                    .map_or(false, |s| s.contains("active")),
+                    .is_some_and(|s| s.contains("active")),
                 "Success final_state should contain 'active'"
             );
 
@@ -427,7 +423,7 @@ mod tests {
                 failure_output
                     .final_state
                     .as_ref()
-                    .map_or(false, |s| s.contains("missing")),
+                    .is_some_and(|s| s.contains("missing")),
                 "Failure final_state should contain 'missing'"
             );
         }
@@ -466,7 +462,7 @@ mod tests {
         }
 
         /// GIVEN: A session name
-        /// WHEN: Used in SessionExists condition
+        /// WHEN: Used in `SessionExists` condition
         /// THEN: That exact name should be preserved
         #[test]
         fn session_name_is_preserved_in_condition() {
@@ -530,11 +526,11 @@ mod tests {
     mod json_output_behavior {
         use super::*;
 
-        /// GIVEN: WaitOutput is serialized to JSON
+        /// GIVEN: `WaitOutput` is serialized to JSON
         /// WHEN: AI agent parses it
         /// THEN: All necessary fields should be present
         #[test]
-        fn json_has_all_required_fields() {
+        fn json_has_all_required_fields() -> Result<(), Box<dyn std::error::Error>> {
             let output = WaitOutput {
                 success: true,
                 condition: "healthy".to_string(),
@@ -544,7 +540,7 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&output).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&output)?)?;
 
             // All fields should be present
             assert!(json.get("success").is_some(), "Must have success");
@@ -558,13 +554,14 @@ mod tests {
             assert!(json["condition"].is_string());
             assert!(json["elapsed_ms"].is_number());
             assert!(json["timed_out"].is_boolean());
+            Ok(())
         }
 
-        /// GIVEN: WaitOutput with timeout
+        /// GIVEN: `WaitOutput` with timeout
         /// WHEN: Serialized and parsed
         /// THEN: Can determine why wait failed
         #[test]
-        fn timeout_output_is_diagnosable() {
+        fn timeout_output_is_diagnosable() -> Result<(), Box<dyn std::error::Error>> {
             let output = WaitOutput {
                 success: false,
                 condition: "session-exists:missing".to_string(),
@@ -574,13 +571,18 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&output).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&output)?)?;
 
             // AI can determine the cause
             assert_eq!(json["success"].as_bool(), Some(false));
             assert_eq!(json["timed_out"].as_bool(), Some(true));
-            assert!(json["condition"].as_str().unwrap().contains("missing"));
+            if let Some(condition) = json["condition"].as_str() {
+                assert!(condition.contains("missing"));
+            } else {
+                return Err("condition field missing or not string".into());
+            }
             assert_eq!(json["final_state"].as_str(), Some("not_found"));
+            Ok(())
         }
     }
 }
