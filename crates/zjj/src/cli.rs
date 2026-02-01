@@ -80,8 +80,8 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
         })
         .unwrap_or_else(|| "zjj".to_string());
 
-    // Print a helpful message before attaching
-    eprintln!("Attaching to Zellij session '{session_name}'...");
+    // Print a helpful message before attaching (to stdout, not stderr)
+    println!("Attaching to Zellij session '{session_name}'...");
 
     // We'll attach to or create the Zellij session
     // Using exec to replace the current process
