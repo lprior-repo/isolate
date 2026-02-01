@@ -326,18 +326,18 @@ fn output_table(items: &[SessionStatusInfo]) {
 
     // Display table header
     if is_tty {
-        println!("╭─ SESSIONS ──────────────────────────────────────────────────────────────────────────────────────╮");
+        println!("╭─ SESSIONS ──────────────────────────────────────────────────────────────────────────────────────────────────╮");
         println!(
-            "│ {:<3} {:<18} {:<10} {:<13} {:<18} {:<13} {:<18} │",
-            "", "NAME", "STATUS", "BRANCH", "CHANGES", "DIFF", "BEADS"
+            "│ {:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30} │",
+            "", "NAME", "STATUS", "BRANCH", "CHANGES", "DIFF", "BEADS", "BEAD"
         );
-        println!("├─────────────────────────────────────────────────────────────────────────────────────────────────┤");
+        println!("├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤");
     } else {
         println!(
-            "{:<3} {:<18} {:<10} {:<13} {:<18} {:<13} {:<18}",
-            "", "NAME", "STATUS", "BRANCH", "CHANGES", "DIFF", "BEADS"
+            "{:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30}",
+            "", "NAME", "STATUS", "BRANCH", "CHANGES", "DIFF", "BEADS", "BEAD"
         );
-        println!("{}", "-".repeat(97));
+        println!("{}", "-".repeat(120));
     }
 
     // Display table rows
@@ -348,15 +348,31 @@ fn output_table(items: &[SessionStatusInfo]) {
 
         let marker = if is_current { "▶" } else { " " };
 
+        // Extract bead info from session metadata
+        let bead_info = item.session.metadata
+            .as_ref()
+            .and_then(|m| {
+                let id = m.get("bead_id").and_then(|v| v.as_str()).unwrap_or("");
+                let title = m.get("bead_title").and_then(|v| v.as_str()).unwrap_or("");
+                if id.is_empty() {
+                    None
+                } else {
+                    Some(format!("{}: {}", id, title))
+                }
+            })
+            .unwrap_or_else(|| "-".to_string());
+
         if is_tty {
             println!(
-                "│ {:<3} {:<18} {:<10} {:<13} {:<18} {:<13} {:<18} │",
-                marker, item.name, item.status, item.branch, item.changes.to_string(), item.diff_stats.to_string(), item.beads.to_string()
+                "│ {:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30} │",
+                marker, item.name, item.status, item.branch, item.changes.to_string(),
+                item.diff_stats.to_string(), item.beads.to_string(), bead_info
             );
         } else {
             println!(
-                "{:<3} {:<18} {:<10} {:<13} {:<18} {:<13} {:<18}",
-                marker, item.name, item.status, item.branch, item.changes.to_string(), item.diff_stats.to_string(), item.beads.to_string()
+                "{:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30}",
+                marker, item.name, item.status, item.branch, item.changes.to_string(),
+                item.diff_stats.to_string(), item.beads.to_string(), bead_info
             );
         }
     }
@@ -371,6 +387,7 @@ fn output_table(items: &[SessionStatusInfo]) {
     println!("Legend:");
     println!("  Changes: M=Modified  A=Added  D=Deleted  R=Renamed");
     println!("  Beads:   O=Open  P=in_Progress  B=Blocked  C=Closed");
+    println!("  BEAD:    Associated bead ID and title");
     if current_location.is_some() {
         println!("  ▶ = Current workspace");
     }
