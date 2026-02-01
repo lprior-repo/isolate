@@ -6,7 +6,6 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use zjj_core::{OutputFormat, SchemaEnvelope};
 
-use crate::commands::get_session_db;
 
 /// Options for the events command
 #[derive(Debug, Clone)]
@@ -175,41 +174,62 @@ fn run_follow(options: &EventsOptions) -> Result<()> {
     }
 }
 
+/// Get the events file path
+fn get_events_file_path() -> Result<std::path::PathBuf> {
+    let data_dir = super::zjj_data_dir()?;
+    Ok(data_dir.join("events.jsonl"))
+}
+
 fn get_recent_events(
     session: Option<&str>,
     event_type: Option<&str>,
     limit: usize,
-    _since: Option<&str>,
+    since: Option<&str>,
 ) -> Result<Vec<Event>> {
-    // Try to read from the events log file
-    let db = get_session_db().ok();
+    let events_file = get_events_file_path()?;
 
     let mut events = Vec::new();
 
-    // Generate synthetic events from current state
-    if let Some(db) = db {
-        if let Ok(sessions) = db.list_blocking(None) {
-            for sess in sessions.iter().take(limit) {
-                if session.is_some_and(|s| s != sess.name) {
-                    continue;
-                }
-
-                let event = Event {
-                    id: format!("evt-{}", sess.name),
-                    event_type: EventType::SessionCreated,
-                    timestamp: chrono::Utc::now().to_rfc3339(),
-                    session: Some(sess.name.clone()),
-                    agent_id: None,
-                    data: None,
-                    message: format!("Session '{}' exists", sess.name),
-                };
-
-                if event_type.is_none() || event_type == Some("session_created") {
+    // Read from the events log file if it exists
+    if events_file.exists() {
+        let content = std::fs::read_to_string(&events_file)?;
+        for line in content.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            match serde_json::from_str::<Event>(line) {
+                Ok(event) => {
+                    // Apply filters
+                    if let Some(session_filter) = session {
+                        if event.session.as_deref() != Some(session_filter) {
+                            continue;
+                        }
+                    }
+                    if let Some(type_filter) = event_type {
+                        if event.event_type.to_string() != type_filter {
+                            continue;
+                        }
+                    }
+                    if let Some(since_time) = since {
+                        if event.timestamp < since_time.to_string() {
+                            continue;
+                        }
+                    }
                     events.push(event);
+                }
+                Err(_) => {
+                    // Skip malformed lines
+                    continue;
                 }
             }
         }
     }
+
+    // Sort by timestamp descending (most recent first)
+    events.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+
+    // Apply limit
+    events.truncate(limit);
 
     Ok(events)
 }
@@ -217,12 +237,51 @@ fn get_recent_events(
 fn get_new_events(
     session: Option<&str>,
     event_type: Option<&str>,
-    _after_id: Option<&str>,
+    after_id: Option<&str>,
 ) -> Result<Vec<Event>> {
-    // In a real implementation, this would watch a log file or use inotify
-    // For now, return empty to indicate no new events
-    let _ = (session, event_type);
-    Ok(vec![])
+    let events_file = get_events_file_path()?;
+
+    let mut events = Vec::new();
+    let mut found_marker = after_id.is_none(); // If no marker, include all
+
+    if events_file.exists() {
+        let content = std::fs::read_to_string(&events_file)?;
+        for line in content.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            match serde_json::from_str::<Event>(line) {
+                Ok(event) => {
+                    // Skip until we find the marker
+                    if !found_marker {
+                        if Some(event.id.as_str()) == after_id {
+                            found_marker = true;
+                        }
+                        continue;
+                    }
+
+                    // Apply filters
+                    if let Some(session_filter) = session {
+                        if event.session.as_deref() != Some(session_filter) {
+                            continue;
+                        }
+                    }
+                    if let Some(type_filter) = event_type {
+                        if event.event_type.to_string() != type_filter {
+                            continue;
+                        }
+                    }
+                    events.push(event);
+                }
+                Err(_) => {
+                    // Skip malformed lines
+                    continue;
+                }
+            }
+        }
+    }
+
+    Ok(events)
 }
 
 /// Generate a simple event ID based on timestamp
@@ -232,6 +291,9 @@ fn generate_event_id() -> String {
 }
 
 /// Log an event to the events log
+///
+/// This function appends an event to the events.jsonl file.
+/// Errors are propagated to the caller rather than silently ignored.
 pub fn log_event(
     event_type: EventType,
     session: Option<&str>,
@@ -248,24 +310,36 @@ pub fn log_event(
         message: message.to_string(),
     };
 
-    // Write to events log file
-    if let Ok(data_dir) = super::zjj_data_dir() {
-        let events_file = data_dir.join("events.jsonl");
-        if let Ok(mut file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&events_file)
-        {
-            use std::io::Write;
-            let _ = writeln!(
-                file,
-                "{}",
-                serde_json::to_string(&event).unwrap_or_default()
-            );
-        }
-    }
+    // Get events file path
+    let events_file = get_events_file_path()?;
+
+    // Serialize event
+    let event_json = serde_json::to_string(&event)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize event: {}", e))?;
+
+    // Open file for appending
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&events_file)
+        .map_err(|e| anyhow::anyhow!("Failed to open events file: {}", e))?;
+
+    // Write event
+    use std::io::Write;
+    writeln!(file, "{}", event_json)
+        .map_err(|e| anyhow::anyhow!("Failed to write event: {}", e))?;
 
     Ok(())
+}
+
+/// Log an event, ignoring any errors (for non-critical event logging)
+pub fn log_event_silent(
+    event_type: EventType,
+    session: Option<&str>,
+    agent_id: Option<&str>,
+    message: &str,
+) {
+    let _ = log_event(event_type, session, agent_id, message);
 }
 
 #[cfg(test)]

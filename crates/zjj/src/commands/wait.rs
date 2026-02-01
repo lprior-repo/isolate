@@ -50,37 +50,44 @@ pub struct WaitOutput {
     pub final_state: Option<String>,
 }
 
+/// Create a WaitOutput for a given result
+fn make_output(
+    success: bool,
+    condition: &WaitCondition,
+    start: Instant,
+    timed_out: bool,
+    state: Option<String>,
+) -> WaitOutput {
+    WaitOutput {
+        success,
+        condition: format_condition(condition),
+        elapsed_ms: start.elapsed().as_millis() as u64,
+        timed_out,
+        final_state: state,
+    }
+}
+
 /// Run the wait command
 pub fn run(options: &WaitOptions) -> Result<()> {
     let start = Instant::now();
-    let mut last_state = None;
 
     loop {
         // Check if condition is met
         let (met, state) = check_condition(&options.condition)?;
-        last_state = state;
 
         if met {
-            let output = WaitOutput {
-                success: true,
-                condition: format_condition(&options.condition),
-                elapsed_ms: start.elapsed().as_millis() as u64,
-                timed_out: false,
-                final_state: last_state,
-            };
-            return output_result(&output, options.format);
+            return output_result(
+                &make_output(true, &options.condition, start, false, state),
+                options.format,
+            );
         }
 
         // Check timeout
         if start.elapsed() >= options.timeout {
-            let output = WaitOutput {
-                success: false,
-                condition: format_condition(&options.condition),
-                elapsed_ms: start.elapsed().as_millis() as u64,
-                timed_out: true,
-                final_state: last_state,
-            };
-            return output_result(&output, options.format);
+            return output_result(
+                &make_output(false, &options.condition, start, true, state),
+                options.format,
+            );
         }
 
         // Wait before next poll
@@ -105,27 +112,30 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
         }
 
         WaitCondition::SessionUnlocked(name) => {
-            let db = get_session_db().ok();
-            if let Some(db) = db {
-                match db.get_blocking(name) {
-                    Ok(Some(session)) => {
-                        // Check if session is locked (has an active agent)
-                        let locked = session
-                            .metadata
-                            .as_ref()
-                            .and_then(|m| m.get("locked_by"))
-                            .is_some();
-                        Ok((!locked, Some(format!("locked:{}", locked))))
-                    }
-                    Ok(None) => {
-                        // Session doesn't exist - consider it "unlocked"
-                        Ok((true, Some("not_found".to_string())))
-                    }
-                    Err(_) => Ok((false, Some("error".to_string()))),
-                }
-            } else {
-                Ok((false, Some("db_unavailable".to_string())))
-            }
+            get_session_db()
+                .ok()
+                .map(|db| {
+                    db.get_blocking(name)
+                        .map(|opt| match opt {
+                            Some(session) => {
+                                // Check if session is locked (has an active agent)
+                                let locked = session
+                                    .metadata
+                                    .as_ref()
+                                    .and_then(|m| m.get("locked_by"))
+                                    .is_some();
+                                (!locked, Some(format!("locked:{}", locked)))
+                            }
+                            None => {
+                                // Session doesn't exist - can't be "unlocked"
+                                // This is semantically different from being unlocked
+                                (false, Some("not_found".to_string()))
+                            }
+                        })
+                        .unwrap_or((false, Some("error".to_string())))
+                })
+                .map(Ok)
+                .unwrap_or(Ok((false, Some("db_unavailable".to_string()))))
         }
 
         WaitCondition::Healthy => {

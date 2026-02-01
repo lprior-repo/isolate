@@ -85,113 +85,137 @@ pub enum CommandStatus {
     Skipped,
 }
 
+/// Execute a single batch command and return its result
+fn execute_batch_command(cmd: &BatchCommand, dry_run: bool) -> CommandResult {
+    let start = std::time::Instant::now();
+    let command_str = format!("{} {}", cmd.command, cmd.args.join(" "));
+
+    execute_command(&cmd.command, &cmd.args, dry_run)
+        .map(|output| CommandResult {
+            id: cmd.id.clone(),
+            command: command_str.clone(),
+            success: true,
+            status: CommandStatus::Succeeded,
+            output: Some(output),
+            error: None,
+            duration_ms: Some(start.elapsed().as_millis() as u64),
+        })
+        .unwrap_or_else(|e| CommandResult {
+            id: cmd.id.clone(),
+            command: command_str,
+            success: false,
+            status: CommandStatus::Failed,
+            output: None,
+            error: Some(e.to_string()),
+            duration_ms: Some(start.elapsed().as_millis() as u64),
+        })
+}
+
+/// Create a skipped command result
+fn make_skipped_result(cmd: &BatchCommand) -> CommandResult {
+    CommandResult {
+        id: cmd.id.clone(),
+        command: format!("{} {}", cmd.command, cmd.args.join(" ")),
+        success: false,
+        status: CommandStatus::Skipped,
+        output: None,
+        error: Some("Skipped due to previous error".to_string()),
+        duration_ms: None,
+    }
+}
+
+/// Execute batch commands, returning all results
+fn execute_batch(
+    commands: &[BatchCommand],
+    stop_on_error: bool,
+    dry_run: bool,
+) -> Vec<CommandResult> {
+    commands
+        .iter()
+        .scan(false, |should_skip, cmd| {
+            if *should_skip {
+                Some(make_skipped_result(cmd))
+            } else {
+                let result = execute_batch_command(cmd, dry_run);
+                if !result.success && !cmd.optional && stop_on_error {
+                    *should_skip = true;
+                }
+                Some(result)
+            }
+        })
+        .collect()
+}
+
+/// Compute batch result from command results
+fn compute_batch_result(results: Vec<CommandResult>, dry_run: bool) -> BatchResult {
+    let succeeded = results.iter().filter(|r| r.success).count();
+    let failed = results
+        .iter()
+        .filter(|r| matches!(r.status, CommandStatus::Failed))
+        .count();
+    let skipped = results
+        .iter()
+        .filter(|r| matches!(r.status, CommandStatus::Skipped))
+        .count();
+    let success = results
+        .iter()
+        .all(|r| r.success || matches!(r.status, CommandStatus::Skipped));
+
+    BatchResult {
+        success,
+        total: results.len(),
+        succeeded,
+        failed,
+        skipped,
+        results,
+        dry_run,
+    }
+}
+
+/// Print human-readable batch result
+fn print_batch_human(result: &BatchResult) {
+    println!(
+        "Batch: {} total, {} succeeded, {} failed, {} skipped",
+        result.total, result.succeeded, result.failed, result.skipped
+    );
+    println!();
+
+    for cmd_result in &result.results {
+        let status_icon = match cmd_result.status {
+            CommandStatus::Succeeded => "✓",
+            CommandStatus::Failed => "✗",
+            CommandStatus::Skipped => "○",
+        };
+
+        let id_str = cmd_result
+            .id
+            .as_ref()
+            .map(|id| format!("[{id}] "))
+            .unwrap_or_default();
+        println!("{status_icon} {id_str}{}", cmd_result.command);
+
+        cmd_result.error.as_ref().map(|e| println!("    Error: {e}"));
+        cmd_result.duration_ms.map(|ms| println!("    Duration: {ms}ms"));
+    }
+
+    println!();
+    if result.success {
+        println!("Batch completed successfully");
+    } else {
+        println!("Batch failed");
+    }
+}
+
 /// Run the batch command
 pub fn run(options: &BatchOptions) -> Result<()> {
-    let mut result = BatchResult {
-        success: true,
-        total: options.commands.len(),
-        succeeded: 0,
-        failed: 0,
-        skipped: 0,
-        results: vec![],
-        dry_run: options.dry_run,
-    };
-
-    let mut stop = false;
-
-    for cmd in &options.commands {
-        if stop {
-            result.results.push(CommandResult {
-                id: cmd.id.clone(),
-                command: format!("{} {}", cmd.command, cmd.args.join(" ")),
-                success: false,
-                status: CommandStatus::Skipped,
-                output: None,
-                error: Some("Skipped due to previous error".to_string()),
-                duration_ms: None,
-            });
-            result.skipped += 1;
-            continue;
-        }
-
-        let start = std::time::Instant::now();
-        let exec_result = execute_command(&cmd.command, &cmd.args, options.dry_run);
-        let duration = start.elapsed().as_millis() as u64;
-
-        match exec_result {
-            Ok(output) => {
-                result.results.push(CommandResult {
-                    id: cmd.id.clone(),
-                    command: format!("{} {}", cmd.command, cmd.args.join(" ")),
-                    success: true,
-                    status: CommandStatus::Succeeded,
-                    output: Some(output),
-                    error: None,
-                    duration_ms: Some(duration),
-                });
-                result.succeeded += 1;
-            }
-            Err(e) => {
-                result.results.push(CommandResult {
-                    id: cmd.id.clone(),
-                    command: format!("{} {}", cmd.command, cmd.args.join(" ")),
-                    success: false,
-                    status: CommandStatus::Failed,
-                    output: None,
-                    error: Some(e.to_string()),
-                    duration_ms: Some(duration),
-                });
-                result.failed += 1;
-
-                if !cmd.optional {
-                    result.success = false;
-                    if options.stop_on_error {
-                        stop = true;
-                    }
-                }
-            }
-        }
-    }
+    let results = execute_batch(&options.commands, options.stop_on_error, options.dry_run);
+    let result = compute_batch_result(results, options.dry_run);
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("batch-response", "single", &result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
-        println!(
-            "Batch: {} total, {} succeeded, {} failed, {} skipped",
-            result.total, result.succeeded, result.failed, result.skipped
-        );
-        println!();
-
-        for cmd_result in &result.results {
-            let status_icon = match cmd_result.status {
-                CommandStatus::Succeeded => "✓",
-                CommandStatus::Failed => "✗",
-                CommandStatus::Skipped => "○",
-            };
-
-            let id_str = cmd_result
-                .id
-                .as_ref()
-                .map(|id| format!("[{id}] "))
-                .unwrap_or_default();
-            println!("{status_icon} {id_str}{}", cmd_result.command);
-
-            if let Some(err) = &cmd_result.error {
-                println!("    Error: {err}");
-            }
-
-            if let Some(ms) = cmd_result.duration_ms {
-                println!("    Duration: {ms}ms");
-            }
-        }
-
-        println!();
-        if result.success {
-            println!("Batch completed successfully");
-        } else {
-            println!("Batch failed");
-        }
+        print_batch_human(&result);
     }
 
     if result.success {
@@ -210,20 +234,23 @@ fn execute_command(command: &str, args: &[String], dry_run: bool) -> Result<Stri
         ));
     }
 
-    // Build the command
-    let output = std::process::Command::new("zjj")
+    // Build and execute the command - don't force --json, let user control format
+    std::process::Command::new("zjj")
         .arg(command)
         .args(args)
-        .arg("--json") // Always use JSON for parsing
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to execute command: {e}"))?;
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(anyhow::anyhow!("{stderr}"))
-    }
+        .map_err(|e| anyhow::anyhow!("Failed to execute command: {e}"))
+        .and_then(|output| {
+            if output.status.success() {
+                Ok(String::from_utf8_lossy(&output.stdout).to_string())
+            } else {
+                // Include both stderr and stdout for better error context
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let error_msg = if stderr.is_empty() { stdout } else { stderr };
+                Err(anyhow::anyhow!("{error_msg}"))
+            }
+        })
 }
 
 /// Parse batch commands from JSON input

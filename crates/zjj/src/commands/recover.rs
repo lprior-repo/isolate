@@ -7,7 +7,7 @@
 //! - `zjj rollback <session> --to <checkpoint>` - Restore to checkpoint
 
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use super::get_session_db;
@@ -70,33 +70,41 @@ pub struct RecoverOutput {
     pub status: String,
 }
 
-/// Run the recover command
-pub fn run_recover(options: &RecoverOptions) -> Result<()> {
-    let mut issues = diagnose_issues()?;
-
-    if !options.diagnose_only {
-        fix_issues(&mut issues)?;
-    }
-
-    let fixed_count = issues.iter().filter(|i| i.fixed).count();
-    let remaining_count = issues
+/// Compute status from issues
+fn compute_status(issues: &[Issue]) -> String {
+    let remaining = issues
         .iter()
         .filter(|i| !i.fixed && i.severity != "info")
         .count();
 
-    let status = if remaining_count == 0 {
+    if remaining == 0 {
         "healthy".to_string()
-    } else if remaining_count < issues.len() {
+    } else if remaining < issues.len() {
         "partially_fixed".to_string()
     } else {
         "issues_remaining".to_string()
+    }
+}
+
+/// Run the recover command
+pub fn run_recover(options: &RecoverOptions) -> Result<()> {
+    let issues = diagnose_issues()?;
+
+    // Apply fixes if not diagnose-only mode
+    let issues = if options.diagnose_only {
+        issues
+    } else {
+        fix_issues(issues)
     };
 
     let output = RecoverOutput {
+        fixed_count: issues.iter().filter(|i| i.fixed).count(),
+        remaining_count: issues
+            .iter()
+            .filter(|i| !i.fixed && i.severity != "info")
+            .count(),
+        status: compute_status(&issues),
         issues,
-        fixed_count,
-        remaining_count,
-        status,
     };
 
     if options.format.is_json() {
@@ -196,29 +204,41 @@ fn diagnose_issues() -> Result<Vec<Issue>> {
     Ok(issues)
 }
 
-/// Fix issues where possible
-fn fix_issues(issues: &mut [Issue]) -> Result<()> {
-    for issue in issues.iter_mut() {
-        // Only auto-fix certain issues
-        match issue.code.as_str() {
-            "STALE_CREATING_SESSION" | "ORPHANED_SESSION" => {
-                if let Some(ref cmd) = issue.fix_command {
-                    // Try to run the fix command
+/// Try to fix a single issue, returning updated issue
+fn try_fix_issue(issue: Issue) -> Issue {
+    match issue.code.as_str() {
+        "STALE_CREATING_SESSION" | "ORPHANED_SESSION" => {
+            // Extract session name from fix command and attempt fix
+            issue
+                .fix_command
+                .as_ref()
+                .and_then(|cmd| {
                     let parts: Vec<&str> = cmd.split_whitespace().collect();
-                    if !parts.is_empty() && parts[0] == "zjj" {
-                        // We can't actually run zjj commands from within zjj
-                        // but we mark it as a suggested fix
-                        issue.fixed = false;
-                    }
-                }
-            }
-            _ => {
-                // Other issues require manual intervention
-                issue.fixed = false;
-            }
+                    (parts.len() >= 3 && parts[0] == "zjj" && parts[1] == "remove")
+                        .then(|| parts[2])
+                })
+                .and_then(|session_name| get_session_db().ok().map(|db| (db, session_name)))
+                .map(|(db, session_name)| {
+                    // Attempt delete - success or already-gone both count as fixed
+                    db.delete_blocking(session_name).is_ok()
+                })
+                .map(|fixed| Issue { fixed, ..issue.clone() })
+                .unwrap_or(issue)
         }
+        // These require user intervention - cannot auto-fix
+        "DB_NOT_INITIALIZED" | "JJ_NOT_INSTALLED" | "ZELLIJ_NOT_INSTALLED" | _ => issue,
     }
-    Ok(())
+}
+
+/// Fix issues where possible
+///
+/// Only fixes issues that can be safely auto-fixed:
+/// - STALE_CREATING_SESSION: Removes stale session from database
+/// - ORPHANED_SESSION: Removes orphaned session from database
+/// - DB_NOT_INITIALIZED: Cannot auto-fix (requires zjj init)
+/// - JJ_NOT_INSTALLED, ZELLIJ_NOT_INSTALLED: Cannot auto-fix (requires user action)
+fn fix_issues(issues: Vec<Issue>) -> Vec<Issue> {
+    issues.into_iter().map(try_fix_issue).collect()
 }
 
 /// Print recover output in human format
@@ -274,15 +294,104 @@ pub struct RetryOutput {
     pub message: String,
 }
 
+/// Saved command info for retry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SavedCommand {
+    /// The command that was run
+    command: String,
+    /// Whether it failed
+    failed: bool,
+    /// Timestamp
+    timestamp: String,
+}
+
+/// Get the path to the last command file
+fn get_last_command_path() -> Result<std::path::PathBuf> {
+    let data_dir = super::zjj_data_dir()?;
+    Ok(data_dir.join("last_command.json"))
+}
+
+/// Save the last command for potential retry
+pub fn save_last_command(command: &str, failed: bool) -> Result<()> {
+    let path = get_last_command_path()?;
+    let saved = SavedCommand {
+        command: command.to_string(),
+        failed,
+        timestamp: chrono::Utc::now().to_rfc3339(),
+    };
+    let content = serde_json::to_string_pretty(&saved)?;
+    std::fs::write(&path, content)?;
+    Ok(())
+}
+
 /// Run the retry command
 pub fn run_retry(options: &RetryOptions) -> Result<()> {
-    // In a real implementation, we would store the last command in a file
-    // For now, we'll just explain the feature
-    let output = RetryOutput {
-        has_command: false,
-        command: None,
-        message: "No failed command to retry. Last command history not yet implemented."
-            .to_string(),
+    let path = get_last_command_path()?;
+
+    let output = if path.exists() {
+        match std::fs::read_to_string(&path) {
+            Ok(content) => match serde_json::from_str::<SavedCommand>(&content) {
+                Ok(saved) if saved.failed => {
+                    // Execute the saved command
+                    let parts: Vec<&str> = saved.command.split_whitespace().collect();
+                    if parts.is_empty() {
+                        RetryOutput {
+                            has_command: false,
+                            command: None,
+                            message: "Saved command is empty".to_string(),
+                        }
+                    } else {
+                        // Execute the command
+                        let result = std::process::Command::new(parts[0])
+                            .args(&parts[1..])
+                            .status();
+
+                        match result {
+                            Ok(status) if status.success() => {
+                                // Clear the failed command since retry succeeded
+                                let _ = std::fs::remove_file(&path);
+                                RetryOutput {
+                                    has_command: true,
+                                    command: Some(saved.command.clone()),
+                                    message: format!("Retry succeeded: {}", saved.command),
+                                }
+                            }
+                            Ok(_) => RetryOutput {
+                                has_command: true,
+                                command: Some(saved.command.clone()),
+                                message: format!("Retry failed again: {}", saved.command),
+                            },
+                            Err(e) => RetryOutput {
+                                has_command: true,
+                                command: Some(saved.command.clone()),
+                                message: format!("Failed to execute retry: {}", e),
+                            },
+                        }
+                    }
+                }
+                Ok(_) => RetryOutput {
+                    has_command: false,
+                    command: None,
+                    message: "Last command succeeded, nothing to retry".to_string(),
+                },
+                Err(_) => RetryOutput {
+                    has_command: false,
+                    command: None,
+                    message: "Could not parse last command file".to_string(),
+                },
+            },
+            Err(_) => RetryOutput {
+                has_command: false,
+                command: None,
+                message: "Could not read last command file".to_string(),
+            },
+        }
+    } else {
+        RetryOutput {
+            has_command: false,
+            command: None,
+            message: "No command history found. Run a zjj command first.".to_string(),
+        }
     };
 
     if options.format.is_json() {
@@ -290,12 +399,10 @@ pub fn run_retry(options: &RetryOptions) -> Result<()> {
         let json_str =
             serde_json::to_string_pretty(&envelope).context("Failed to serialize retry output")?;
         println!("{json_str}");
+    } else if output.has_command {
+        println!("{}", output.message);
     } else {
-        if output.has_command {
-            println!("Retrying: {}", output.command.as_deref().unwrap_or(""));
-        } else {
-            println!("{}", output.message);
-        }
+        println!("{}", output.message);
     }
 
     Ok(())
@@ -324,30 +431,104 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
         .get_blocking(&options.session)?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", options.session))?;
 
-    // In a real implementation, we would:
-    // 1. Look up the checkpoint
-    // 2. Restore the JJ state to that checkpoint
-    // 3. Update the session metadata
+    // Get the workspace path from session metadata
+    let workspace_path = session
+        .metadata
+        .as_ref()
+        .and_then(|m| m.get("workspace_path"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Session '{}' has no workspace path", options.session))?;
+
+    let workspace_dir = std::path::Path::new(workspace_path);
+    if !workspace_dir.exists() {
+        anyhow::bail!(
+            "Workspace directory '{}' does not exist",
+            workspace_path
+        );
+    }
+
+    // Verify it's a JJ repository
+    let jj_dir = workspace_dir.join(".jj");
+    if !jj_dir.exists() {
+        anyhow::bail!("'{}' is not a JJ repository", workspace_path);
+    }
 
     let output = if options.dry_run {
-        RollbackOutput {
-            session: options.session.clone(),
-            checkpoint: options.checkpoint.clone(),
-            dry_run: true,
-            success: true,
-            message: format!(
-                "Would rollback session '{}' to checkpoint '{}'",
-                options.session, options.checkpoint
-            ),
+        // Dry run: show what would happen
+        // Check if the checkpoint exists using jj log
+        let check_result = std::process::Command::new("jj")
+            .current_dir(workspace_dir)
+            .args(["log", "-r", &options.checkpoint, "--no-graph", "-T", "change_id"])
+            .output();
+
+        match check_result {
+            Ok(output) if output.status.success() => RollbackOutput {
+                session: options.session.clone(),
+                checkpoint: options.checkpoint.clone(),
+                dry_run: true,
+                success: true,
+                message: format!(
+                    "Would rollback session '{}' to checkpoint '{}' using 'jj edit {}'",
+                    options.session, options.checkpoint, options.checkpoint
+                ),
+            },
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                RollbackOutput {
+                    session: options.session.clone(),
+                    checkpoint: options.checkpoint.clone(),
+                    dry_run: true,
+                    success: false,
+                    message: format!(
+                        "Checkpoint '{}' not found: {}",
+                        options.checkpoint,
+                        stderr.trim()
+                    ),
+                }
+            }
+            Err(e) => RollbackOutput {
+                session: options.session.clone(),
+                checkpoint: options.checkpoint.clone(),
+                dry_run: true,
+                success: false,
+                message: format!("Failed to check checkpoint: {}", e),
+            },
         }
     } else {
-        // For now, just return a message that this is not yet implemented
-        RollbackOutput {
-            session: options.session.clone(),
-            checkpoint: options.checkpoint.clone(),
-            dry_run: false,
-            success: false,
-            message: "Rollback to checkpoints not yet fully implemented. Use 'jj undo' for JJ-level rollback.".to_string(),
+        // Actually perform the rollback using jj edit
+        let result = std::process::Command::new("jj")
+            .current_dir(workspace_dir)
+            .args(["edit", &options.checkpoint])
+            .status();
+
+        match result {
+            Ok(status) if status.success() => RollbackOutput {
+                session: options.session.clone(),
+                checkpoint: options.checkpoint.clone(),
+                dry_run: false,
+                success: true,
+                message: format!(
+                    "Rolled back session '{}' to checkpoint '{}'",
+                    options.session, options.checkpoint
+                ),
+            },
+            Ok(_) => RollbackOutput {
+                session: options.session.clone(),
+                checkpoint: options.checkpoint.clone(),
+                dry_run: false,
+                success: false,
+                message: format!(
+                    "Failed to rollback to checkpoint '{}'. Use 'jj log' to see available commits.",
+                    options.checkpoint
+                ),
+            },
+            Err(e) => RollbackOutput {
+                session: options.session.clone(),
+                checkpoint: options.checkpoint.clone(),
+                dry_run: false,
+                success: false,
+                message: format!("Failed to execute jj edit: {}", e),
+            },
         }
     };
 
@@ -358,6 +539,10 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
         println!("{json_str}");
     } else {
         println!("{}", output.message);
+    }
+
+    if !output.success && !options.dry_run {
+        anyhow::bail!("Rollback failed");
     }
 
     Ok(())
@@ -632,7 +817,10 @@ mod tests {
 
             assert!(output.has_command);
             assert!(output.command.is_some());
-            assert!(output.command.unwrap().contains("zjj"));
+            assert!(
+                output.command.as_ref().map_or(false, |c| c.contains("zjj")),
+                "Command should contain 'zjj'"
+            );
         }
     }
 
@@ -709,8 +897,13 @@ mod tests {
                 fixed: false,
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&issue).unwrap()).unwrap();
+            let json_str = serde_json::to_string(&issue);
+            assert!(json_str.is_ok(), "Should serialize to JSON");
+
+            let json: Result<serde_json::Value, _> =
+                serde_json::from_str(&json_str.unwrap_or_default());
+            assert!(json.is_ok(), "Should parse as JSON Value");
+            let json = json.unwrap_or(serde_json::Value::Null);
 
             // AI needs these fields
             assert!(json.get("code").is_some(), "Need code for categorization");
@@ -725,7 +918,7 @@ mod tests {
             assert!(json.get("fixed").is_some(), "Need fixed for status");
 
             // fix_command should be executable
-            let fix = json["fix_command"].as_str().unwrap();
+            let fix = json["fix_command"].as_str().unwrap_or("");
             assert!(fix.starts_with("zjj "), "Fix should be zjj command");
         }
 
@@ -747,8 +940,13 @@ mod tests {
                 status: "issues_remaining".to_string(),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&output).unwrap()).unwrap();
+            let json_str = serde_json::to_string(&output);
+            assert!(json_str.is_ok(), "Should serialize");
+
+            let json: Result<serde_json::Value, _> =
+                serde_json::from_str(&json_str.unwrap_or_default());
+            assert!(json.is_ok(), "Should parse");
+            let json = json.unwrap_or(serde_json::Value::Null);
 
             // Summary fields
             assert!(json.get("fixed_count").is_some());
