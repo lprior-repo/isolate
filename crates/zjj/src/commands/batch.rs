@@ -197,9 +197,9 @@ fn print_batch_human(result: &BatchResult) {
         if let Some(e) = cmd_result.error.as_ref() {
             println!("    Error: {e}");
         }
-        cmd_result
-            .duration_ms
-            .map(|ms| println!("    Duration: {ms}ms"));
+        if let Some(ms) = cmd_result.duration_ms {
+            println!("    Duration: {ms}ms");
+        }
     }
 
     println!();
@@ -269,8 +269,8 @@ pub fn parse_batch_commands(input: &str) -> Result<Vec<BatchCommand>> {
         .lines()
         .filter(|line| !line.trim().is_empty() && !line.trim().starts_with('#'))
         .enumerate()
-        .map(|(i, line)| {
-            let parts: Vec<&str> = line.trim().split_whitespace().collect();
+        .filter_map(|(i, line)| {
+            let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.is_empty() {
                 return None;
             }
@@ -295,7 +295,6 @@ pub fn parse_batch_commands(input: &str) -> Result<Vec<BatchCommand>> {
                 optional: false,
             })
         })
-        .flatten()
         .collect();
 
     if commands.is_empty() {
@@ -310,48 +309,52 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_batch_commands_json() {
+    fn test_parse_batch_commands_json() -> Result<(), Box<dyn std::error::Error>> {
         let input = r#"[
             {"command": "add", "args": ["test-1"]},
             {"command": "list", "args": []}
         ]"#;
 
-        let commands = parse_batch_commands(input).unwrap();
+        let commands = parse_batch_commands(input)?;
         assert_eq!(commands.len(), 2);
         assert_eq!(commands[0].command, "add");
         assert_eq!(commands[1].command, "list");
+        Ok(())
     }
 
     #[test]
-    fn test_parse_batch_commands_newline() {
+    fn test_parse_batch_commands_newline() -> Result<(), Box<dyn std::error::Error>> {
         let input = "add test-1\nlist\nstatus test-1";
 
-        let commands = parse_batch_commands(input).unwrap();
+        let commands = parse_batch_commands(input)?;
         assert_eq!(commands.len(), 3);
         assert_eq!(commands[0].command, "add");
         assert_eq!(commands[0].args, vec!["test-1"]);
+        Ok(())
     }
 
     #[test]
-    fn test_parse_batch_commands_with_zjj_prefix() {
+    fn test_parse_batch_commands_with_zjj_prefix() -> Result<(), Box<dyn std::error::Error>> {
         let input = "zjj add test-1\nzjj list";
 
-        let commands = parse_batch_commands(input).unwrap();
+        let commands = parse_batch_commands(input)?;
         assert_eq!(commands.len(), 2);
         assert_eq!(commands[0].command, "add");
         assert_eq!(commands[1].command, "list");
+        Ok(())
     }
 
     #[test]
-    fn test_parse_batch_commands_ignores_comments() {
+    fn test_parse_batch_commands_ignores_comments() -> Result<(), Box<dyn std::error::Error>> {
         let input = "# This is a comment\nadd test-1\n# Another comment\nlist";
 
-        let commands = parse_batch_commands(input).unwrap();
+        let commands = parse_batch_commands(input)?;
         assert_eq!(commands.len(), 2);
+        Ok(())
     }
 
     #[test]
-    fn test_batch_result_serialization() {
+    fn test_batch_result_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let result = BatchResult {
             success: true,
             total: 2,
@@ -362,18 +365,20 @@ mod tests {
             dry_run: false,
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"success\":true"));
         assert!(json.contains("\"total\":2"));
+        Ok(())
     }
 
     #[test]
-    fn test_command_status_serialization() {
-        let succeeded = serde_json::to_string(&CommandStatus::Succeeded).unwrap();
+    fn test_command_status_serialization() -> Result<(), Box<dyn std::error::Error>> {
+        let succeeded = serde_json::to_string(&CommandStatus::Succeeded)?;
         assert_eq!(succeeded, "\"succeeded\"");
 
-        let failed = serde_json::to_string(&CommandStatus::Failed).unwrap();
+        let failed = serde_json::to_string(&CommandStatus::Failed)?;
         assert_eq!(failed, "\"failed\"");
+        Ok(())
     }
 
     // ============================================================================
@@ -388,13 +393,13 @@ mod tests {
         /// WHEN: Parsed
         /// THEN: Each command should preserve its structure
         #[test]
-        fn json_input_preserves_command_structure() {
+        fn json_input_preserves_command_structure() -> Result<(), Box<dyn std::error::Error>> {
             let input = r#"[
                 {"command": "add", "args": ["session-1"], "id": "step-1", "optional": false},
                 {"command": "sync", "args": ["session-1"], "id": "step-2", "optional": true}
             ]"#;
 
-            let commands = parse_batch_commands(input).unwrap();
+            let commands = parse_batch_commands(input)?;
 
             assert_eq!(commands[0].command, "add");
             assert_eq!(commands[0].args, vec!["session-1"]);
@@ -403,43 +408,46 @@ mod tests {
 
             assert_eq!(commands[1].command, "sync");
             assert!(commands[1].optional);
+            Ok(())
         }
 
         /// GIVEN: Newline-delimited commands
         /// WHEN: Parsed
         /// THEN: Each line becomes a command with auto-generated ID
         #[test]
-        fn newline_input_generates_command_ids() {
+        fn newline_input_generates_command_ids() -> Result<(), Box<dyn std::error::Error>> {
             let input = "add task-1\nsync task-1\nlist";
 
-            let commands = parse_batch_commands(input).unwrap();
+            let commands = parse_batch_commands(input)?;
 
             assert_eq!(commands.len(), 3);
             assert_eq!(commands[0].id, Some("cmd-1".to_string()));
             assert_eq!(commands[1].id, Some("cmd-2".to_string()));
             assert_eq!(commands[2].id, Some("cmd-3".to_string()));
+            Ok(())
         }
 
         /// GIVEN: Commands with 'zjj' prefix
         /// WHEN: Parsed
         /// THEN: Prefix should be stripped
         #[test]
-        fn zjj_prefix_is_stripped() {
+        fn zjj_prefix_is_stripped() -> Result<(), Box<dyn std::error::Error>> {
             let input = "zjj add task\nzjj list";
 
-            let commands = parse_batch_commands(input).unwrap();
+            let commands = parse_batch_commands(input)?;
 
             assert_eq!(commands[0].command, "add");
             assert_eq!(commands[1].command, "list");
             // 'zjj' should not appear in command
             assert_ne!(commands[0].command, "zjj");
+            Ok(())
         }
 
         /// GIVEN: Input with comments and blank lines
         /// WHEN: Parsed
         /// THEN: Comments and blanks should be ignored
         #[test]
-        fn comments_and_blanks_are_ignored() {
+        fn comments_and_blanks_are_ignored() -> Result<(), Box<dyn std::error::Error>> {
             let input = r"
 # This is a header comment
 add task-1
@@ -450,11 +458,12 @@ list
 # Final comment
 ";
 
-            let commands = parse_batch_commands(input).unwrap();
+            let commands = parse_batch_commands(input)?;
 
             assert_eq!(commands.len(), 2);
             assert_eq!(commands[0].command, "add");
             assert_eq!(commands[1].command, "list");
+            Ok(())
         }
 
         /// GIVEN: Empty input
@@ -465,8 +474,10 @@ list
             let result = parse_batch_commands("");
 
             assert!(result.is_err());
-            let err_msg = result.unwrap_err().to_string();
-            assert!(err_msg.contains("No valid commands"), "Error: {}", err_msg);
+            if let Err(e) = result {
+                let err_msg = e.to_string();
+                assert!(err_msg.contains("No valid commands"), "Error: {err_msg}");
+            }
         }
 
         /// GIVEN: Only comments
@@ -706,7 +717,7 @@ list
         /// WHEN: Serialized
         /// THEN: Should be lowercase strings
         #[test]
-        fn all_statuses_serialize_as_lowercase() {
+        fn all_statuses_serialize_as_lowercase() -> Result<(), Box<dyn std::error::Error>> {
             let statuses = [
                 (CommandStatus::Succeeded, "succeeded"),
                 (CommandStatus::Failed, "failed"),
@@ -714,9 +725,10 @@ list
             ];
 
             for (status, expected) in statuses {
-                let json = serde_json::to_string(&status).unwrap();
-                assert_eq!(json, format!("\"{}\"", expected));
+                let json = serde_json::to_string(&status)?;
+                assert_eq!(json, format!("\"{expected}\""));
             }
+            Ok(())
         }
     }
 
@@ -727,7 +739,7 @@ list
         /// WHEN: AI parses it
         /// THEN: Should have summary and per-command results
         #[test]
-        fn batch_result_json_is_complete() {
+        fn batch_result_json_is_complete() -> Result<(), Box<dyn std::error::Error>> {
             let result = BatchResult {
                 success: true,
                 total: 2,
@@ -747,7 +759,7 @@ list
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             // Summary fields
             assert!(json.get("success").is_some());
@@ -760,13 +772,14 @@ list
             // Results array
             assert!(json.get("results").is_some());
             assert!(json["results"].is_array());
+            Ok(())
         }
 
         /// GIVEN: CommandResult is serialized
         /// WHEN: AI parses it
         /// THEN: Should have enough info for debugging
         #[test]
-        fn command_result_json_is_debuggable() {
+        fn command_result_json_is_debuggable() -> Result<(), Box<dyn std::error::Error>> {
             let result = CommandResult {
                 id: Some("step-1".to_string()),
                 command: "add".to_string(),
@@ -778,7 +791,7 @@ list
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             // All debug fields present
             assert_eq!(json["id"].as_str(), Some("step-1"));
@@ -786,6 +799,7 @@ list
             assert!(json.get("status").is_some());
             assert!(json.get("duration_ms").is_some());
             assert!(json.get("error").is_some());
+            Ok(())
         }
     }
 }

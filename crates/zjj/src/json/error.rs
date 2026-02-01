@@ -33,7 +33,7 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
         println!("{json_str}");
     } else {
         // If JSON serialization fails, output a minimal JSON error to stdout
-        println!(r#"{{"error":{{"message":"{}","exit_code":{}}}}}"#, error, exit_code);
+        println!(r#"{{"error":{{"message":"{error}","exit_code":{exit_code}}}}}"#);
     }
 
     std::process::exit(exit_code);

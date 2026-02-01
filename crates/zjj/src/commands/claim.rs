@@ -12,7 +12,7 @@ use zjj_core::{OutputFormat, SchemaEnvelope};
 /// Options for the claim command
 #[derive(Debug, Clone)]
 pub struct ClaimOptions {
-    /// Resource to claim (e.g., session:name, file:path, bead:id)
+    /// Resource to claim (e.g., session:name, `<file:path>`, bead:id)
     pub resource: String,
     /// Timeout in seconds for the lock
     pub timeout: u64,
@@ -101,7 +101,7 @@ fn current_timestamp() -> Result<u64> {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
-        .map_err(|e| anyhow::anyhow!("System time error: {}", e))
+        .map_err(|e| anyhow::anyhow!("System time error: {e}"))
 }
 
 fn get_agent_id() -> String {
@@ -136,7 +136,7 @@ fn try_atomic_create_lock(path: &std::path::Path, lock_info: &LockInfo) -> Resul
             // File exists - need to check if we can take it
             Ok(false)
         }
-        Err(e) => Err(anyhow::anyhow!("Failed to create lock file: {}", e)),
+        Err(e) => Err(anyhow::anyhow!("Failed to create lock file: {e}")),
     }
 }
 
@@ -194,7 +194,7 @@ fn attempt_claim(
                         holder: None,
                         expires_at: None,
                         previous_holder: None,
-                        error: Some(format!("Failed to write lock: {}", e)),
+                        error: Some(format!("Failed to write lock: {e}")),
                     })
             } else if existing.holder == agent_id {
                 // We already hold it - extend
@@ -213,7 +213,7 @@ fn attempt_claim(
                         holder: Some(agent_id.to_string()),
                         expires_at: None,
                         previous_holder: None,
-                        error: Some(format!("Failed to extend lock: {}", e)),
+                        error: Some(format!("Failed to extend lock: {e}")),
                     })
             } else {
                 // Someone else holds valid lock
@@ -244,7 +244,7 @@ fn attempt_claim(
                     holder: None,
                     expires_at: None,
                     previous_holder: None,
-                    error: Some(format!("Failed to write lock: {}", e)),
+                    error: Some(format!("Failed to write lock: {e}")),
                 })
         })
         .pipe(Ok)
@@ -280,21 +280,20 @@ pub fn run_claim(options: &ClaimOptions) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else if result.claimed {
         println!("✓ Claimed resource '{}'", result.resource);
-        result
-            .holder
-            .as_ref()
-            .map(|h| println!("  Lock holder: {h}"));
-        result
-            .previous_holder
-            .as_ref()
-            .map(|p| println!("  Previous holder: {p} (expired/force-claimed)"));
+        if let Some(h) = &result.holder {
+            println!("  Lock holder: {h}");
+        }
+        if let Some(p) = &result.previous_holder {
+            println!("  Previous holder: {p} (expired/force-claimed)");
+        }
     } else {
         eprintln!("✗ Failed to claim resource '{}'", result.resource);
-        result
-            .holder
-            .as_ref()
-            .map(|h| eprintln!("  Currently held by: {h}"));
-        result.error.as_ref().map(|e| eprintln!("  Error: {e}"));
+        if let Some(h) = &result.holder {
+            eprintln!("  Currently held by: {h}");
+        }
+        if let Some(e) = &result.error {
+            eprintln!("  Error: {e}");
+        }
         anyhow::bail!("Failed to claim resource");
     }
 
@@ -329,7 +328,7 @@ fn attempt_yield(lock_path: &std::path::Path, resource: &str, agent_id: &str) ->
                         yielded: false,
                         resource: resource.to_string(),
                         agent_id: Some(agent_id.to_string()),
-                        error: Some(format!("Failed to remove lock: {}", e)),
+                        error: Some(format!("Failed to remove lock: {e}")),
                     })
             } else {
                 // Someone else holds it
@@ -367,7 +366,9 @@ pub fn run_yield(options: &YieldOptions) -> Result<()> {
         println!("✓ Yielded resource '{}'", result.resource);
     } else {
         eprintln!("✗ Failed to yield resource '{}'", result.resource);
-        result.error.as_ref().map(|e| eprintln!("  Error: {e}"));
+        if let Some(e) = &result.error {
+            eprintln!("  Error: {e}");
+        }
         anyhow::bail!("Failed to yield resource");
     }
 
@@ -379,7 +380,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_claim_result_serialization() {
+    fn test_claim_result_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let result = ClaimResult {
             claimed: true,
             resource: "session:test".to_string(),
@@ -389,13 +390,14 @@ mod tests {
             error: None,
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"claimed\":true"));
         assert!(json.contains("\"resource\":\"session:test\""));
+        Ok(())
     }
 
     #[test]
-    fn test_yield_result_serialization() {
+    fn test_yield_result_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let result = YieldResult {
             yielded: true,
             resource: "session:test".to_string(),
@@ -403,12 +405,13 @@ mod tests {
             error: None,
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"yielded\":true"));
+        Ok(())
     }
 
     #[test]
-    fn test_claim_result_with_error() {
+    fn test_claim_result_with_error() -> Result<(), Box<dyn std::error::Error>> {
         let result = ClaimResult {
             claimed: false,
             resource: "session:test".to_string(),
@@ -418,13 +421,14 @@ mod tests {
             error: Some("Resource is locked".to_string()),
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"claimed\":false"));
         assert!(json.contains("\"error\""));
+        Ok(())
     }
 
     #[test]
-    fn test_lock_info_serialization() {
+    fn test_lock_info_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let lock = LockInfo {
             holder: "agent-1".to_string(),
             resource: "session:test".to_string(),
@@ -432,11 +436,12 @@ mod tests {
             expires_at: 2000,
         };
 
-        let json = serde_json::to_string(&lock).unwrap();
-        let parsed: LockInfo = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&lock)?;
+        let parsed: LockInfo = serde_json::from_str(&json)?;
 
         assert_eq!(parsed.holder, "agent-1");
         assert_eq!(parsed.expires_at, 2000);
+        Ok(())
     }
 
     // ============================================================================
@@ -499,7 +504,7 @@ mod tests {
 
         /// GIVEN: Lock expired
         /// WHEN: New agent claims resource
-        /// THEN: claimed=true, previous_holder=old agent
+        /// THEN: claimed=true, `previous_holder=old` agent
         #[test]
         fn expired_lock_shows_previous_holder() {
             let result = ClaimResult {
@@ -575,7 +580,7 @@ mod tests {
                 result
                     .error
                     .as_ref()
-                    .map_or(false, |e| e.contains("not us")),
+                    .is_some_and(|e| e.contains("not us")),
                 "Error should mention ownership issue"
             );
         }
@@ -605,7 +610,7 @@ mod tests {
 
         /// GIVEN: Lock info
         /// WHEN: Created
-        /// THEN: Should have holder, resource, acquired_at, expires_at
+        /// THEN: Should have holder, resource, `acquired_at`, expires_at
         #[test]
         fn lock_has_all_required_fields() {
             let lock = LockInfo {
@@ -623,7 +628,7 @@ mod tests {
 
         /// GIVEN: Lock with timestamps
         /// WHEN: Checked for expiration
-        /// THEN: expires_at determines if expired
+        /// THEN: `expires_at` determines if expired
         #[test]
         fn expiration_is_based_on_expires_at() {
             let now = 1_609_461_000; // Some time
@@ -651,7 +656,7 @@ mod tests {
         /// WHEN: Read back
         /// THEN: All fields should match
         #[test]
-        fn lock_roundtrips_through_json() {
+        fn lock_roundtrips_through_json() -> Result<(), Box<dyn std::error::Error>> {
             let original = LockInfo {
                 holder: "agent-roundtrip".to_string(),
                 resource: "session:test".to_string(),
@@ -659,13 +664,14 @@ mod tests {
                 expires_at: 1_234_567_900,
             };
 
-            let json = serde_json::to_string(&original).unwrap();
-            let parsed: LockInfo = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&original)?;
+            let parsed: LockInfo = serde_json::from_str(&json)?;
 
             assert_eq!(parsed.holder, original.holder);
             assert_eq!(parsed.resource, original.resource);
             assert_eq!(parsed.acquired_at, original.acquired_at);
             assert_eq!(parsed.expires_at, original.expires_at);
+            Ok(())
         }
     }
 
@@ -697,11 +703,11 @@ mod tests {
     mod json_output_behavior {
         use super::*;
 
-        /// GIVEN: ClaimResult is serialized
+        /// GIVEN: `ClaimResult` is serialized
         /// WHEN: AI parses it
         /// THEN: Should have enough info for decision making
         #[test]
-        fn claim_result_json_is_decision_ready() {
+        fn claim_result_json_is_decision_ready() -> Result<(), Box<dyn std::error::Error>> {
             let result = ClaimResult {
                 claimed: true,
                 resource: "session:task".to_string(),
@@ -712,7 +718,7 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             // Decision field
             assert!(json.get("claimed").is_some(), "Need claimed for decision");
@@ -721,13 +727,14 @@ mod tests {
             // Context fields
             assert!(json.get("resource").is_some(), "Need resource for context");
             assert!(json.get("holder").is_some(), "Need holder for context");
+            Ok(())
         }
 
         /// GIVEN: Failed claim
         /// WHEN: Serialized
         /// THEN: Error should explain why
         #[test]
-        fn failed_claim_json_is_debuggable() {
+        fn failed_claim_json_is_debuggable() -> Result<(), Box<dyn std::error::Error>> {
             let result = ClaimResult {
                 claimed: false,
                 resource: "session:contested".to_string(),
@@ -738,18 +745,19 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             assert_eq!(json["claimed"].as_bool(), Some(false));
             assert!(json.get("error").is_some(), "Failed claims need error");
-            assert!(json["error"].as_str().unwrap().contains("other-agent"));
+            assert!(json["error"].as_str().ok_or("error not string")?.contains("other-agent"));
+            Ok(())
         }
 
-        /// GIVEN: YieldResult is serialized
+        /// GIVEN: `YieldResult` is serialized
         /// WHEN: AI parses it
         /// THEN: Should have clear success indicator
         #[test]
-        fn yield_result_json_has_success_indicator() {
+        fn yield_result_json_has_success_indicator() -> Result<(), Box<dyn std::error::Error>> {
             let result = YieldResult {
                 yielded: true,
                 resource: "session:task".to_string(),
@@ -758,10 +766,11 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             assert!(json.get("yielded").is_some());
             assert!(json["yielded"].is_boolean());
+            Ok(())
         }
     }
 }

@@ -56,6 +56,7 @@ pub struct Event {
     /// Event ID
     pub id: String,
     /// Event type
+    #[allow(clippy::struct_field_names)]
     pub event_type: EventType,
     /// Timestamp (ISO 8601)
     pub timestamp: String,
@@ -210,7 +211,7 @@ fn get_recent_events(
                         }
                     }
                     if let Some(since_time) = since {
-                        if event.timestamp < since_time.to_string() {
+                        if event.timestamp.as_str() < since_time {
                             continue;
                         }
                     }
@@ -218,7 +219,6 @@ fn get_recent_events(
                 }
                 Err(_) => {
                     // Skip malformed lines
-                    continue;
                 }
             }
         }
@@ -274,7 +274,6 @@ fn get_new_events(
                 }
                 Err(_) => {
                     // Skip malformed lines
-                    continue;
                 }
             }
         }
@@ -287,6 +286,7 @@ fn get_new_events(
 ///
 /// Part of the public event logging API. Not yet integrated into command flows,
 /// but available for future use by session/agent coordination features.
+#[allow(clippy::used_underscore_items)]
 fn _generate_event_id() -> String {
     let now = chrono::Utc::now();
     format!("evt-{}-{}", now.timestamp_millis(), std::process::id())
@@ -299,12 +299,15 @@ fn _generate_event_id() -> String {
 ///
 /// Part of the public event logging API. Not yet integrated into command flows,
 /// but available for future use by session/agent coordination features.
+#[allow(clippy::used_underscore_items)]
 pub fn _log_event(
     event_type: EventType,
     session: Option<&str>,
     agent_id: Option<&str>,
     message: &str,
 ) -> Result<()> {
+    use std::io::Write;
+
     let event = Event {
         id: _generate_event_id(),
         event_type,
@@ -320,19 +323,18 @@ pub fn _log_event(
 
     // Serialize event
     let event_json = serde_json::to_string(&event)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize event: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to serialize event: {e}"))?;
 
     // Open file for appending
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(&events_file)
-        .map_err(|e| anyhow::anyhow!("Failed to open events file: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to open events file: {e}"))?;
 
     // Write event
-    use std::io::Write;
-    writeln!(file, "{}", event_json)
-        .map_err(|e| anyhow::anyhow!("Failed to write event: {}", e))?;
+    writeln!(file, "{event_json}")
+        .map_err(|e| anyhow::anyhow!("Failed to write event: {e}"))?;
 
     Ok(())
 }
@@ -341,6 +343,7 @@ pub fn _log_event(
 ///
 /// Part of the public event logging API. Not yet integrated into command flows,
 /// but available for future use by session/agent coordination features.
+#[allow(clippy::used_underscore_items)]
 pub fn _log_event_silent(
     event_type: EventType,
     session: Option<&str>,
@@ -361,7 +364,7 @@ mod tests {
     }
 
     #[test]
-    fn test_event_serialization() {
+    fn test_event_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let event = Event {
             id: "evt-1".to_string(),
             event_type: EventType::SessionCreated,
@@ -372,13 +375,14 @@ mod tests {
             message: "Created session".to_string(),
         };
 
-        let json = serde_json::to_string(&event).unwrap();
+        let json = serde_json::to_string(&event)?;
         assert!(json.contains("\"event_type\":\"session_created\""));
         assert!(json.contains("\"session\":\"test\""));
+        Ok(())
     }
 
     #[test]
-    fn test_events_response_serialization() {
+    fn test_events_response_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let response = EventsResponse {
             events: vec![],
             total: 0,
@@ -386,13 +390,14 @@ mod tests {
             cursor: None,
         };
 
-        let json = serde_json::to_string(&response).unwrap();
+        let json = serde_json::to_string(&response)?;
         assert!(json.contains("\"total\":0"));
         assert!(json.contains("\"has_more\":false"));
+        Ok(())
     }
 
     #[test]
-    fn test_event_types_are_snake_case() {
+    fn test_event_types_are_snake_case() -> Result<(), Box<dyn std::error::Error>> {
         let types = vec![
             EventType::SessionCreated,
             EventType::LockAcquired,
@@ -400,9 +405,10 @@ mod tests {
         ];
 
         for t in types {
-            let json = serde_json::to_string(&t).unwrap();
+            let json = serde_json::to_string(&t)?;
             assert!(json.contains('_') || json == "\"session_created\"");
         }
+        Ok(())
     }
 
     // ============================================================================
@@ -456,16 +462,17 @@ mod tests {
 
         /// GIVEN: Event type serialization
         /// WHEN: Serialized
-        /// THEN: Should be snake_case for consistency
+        /// THEN: Should be `snake_case` for consistency
         #[test]
-        fn serializes_as_snake_case() {
+        fn serializes_as_snake_case() -> Result<(), Box<dyn std::error::Error>> {
             let event = EventType::BeadStatusChanged;
-            let json = serde_json::to_string(&event).unwrap();
+            let json = serde_json::to_string(&event)?;
 
             // Should contain underscore (snake_case)
-            assert!(json.contains('_'), "Should be snake_case: {}", json);
+            assert!(json.contains('_'), "Should be snake_case: {json}");
             // Should be lowercase
-            assert_eq!(json, json.to_lowercase(), "Should be lowercase: {}", json);
+            assert_eq!(json, json.to_lowercase(), "Should be lowercase: {json}");
+            Ok(())
         }
     }
 
@@ -516,7 +523,7 @@ mod tests {
 
         /// GIVEN: Agent-related event
         /// WHEN: Created
-        /// THEN: Should include agent_id field
+        /// THEN: Should include `agent_id` field
         #[test]
         fn agent_events_include_agent_id() {
             let event = Event {
@@ -539,7 +546,7 @@ mod tests {
         /// WHEN: Created
         /// THEN: Data field should contain structured info
         #[test]
-        fn event_data_is_structured() {
+        fn event_data_is_structured() -> Result<(), Box<dyn std::error::Error>> {
             use serde_json::json;
 
             let event = Event {
@@ -556,9 +563,10 @@ mod tests {
                 message: "Status changed".to_string(),
             };
 
-            let data = event.data.unwrap();
+            let data = event.data.as_ref().ok_or("Data field is missing")?;
             assert!(data.get("old_status").is_some());
             assert!(data.get("new_status").is_some());
+            Ok(())
         }
     }
 
@@ -587,7 +595,7 @@ mod tests {
 
         /// GIVEN: No more events
         /// WHEN: Response created
-        /// THEN: has_more=false, cursor=None
+        /// THEN: `has_more=false`, cursor=None
         #[test]
         fn last_page_has_no_cursor() {
             let response = EventsResponse {
@@ -638,7 +646,7 @@ mod tests {
             assert_eq!(options.session, Some("feature-x".to_string()));
         }
 
-        /// GIVEN: Events query with event_type filter
+        /// GIVEN: Events query with `event_type` filter
         /// WHEN: Options created
         /// THEN: Should filter by type
         #[test]
@@ -697,7 +705,7 @@ mod tests {
         /// WHEN: AI parses it
         /// THEN: Should have all fields for processing
         #[test]
-        fn event_json_is_complete() {
+        fn event_json_is_complete() -> Result<(), Box<dyn std::error::Error>> {
             let event = Event {
                 id: "evt-1".to_string(),
                 event_type: EventType::SessionCreated,
@@ -709,7 +717,7 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&event).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&event)?)?;
 
             // Required fields
             assert!(json.get("id").is_some(), "Must have id");
@@ -720,13 +728,14 @@ mod tests {
             // Optional but present
             assert!(json.get("session").is_some(), "Should include session");
             assert!(json.get("agent_id").is_some(), "Should include agent_id");
+            Ok(())
         }
 
-        /// GIVEN: EventsResponse is serialized
+        /// GIVEN: `EventsResponse` is serialized
         /// WHEN: AI parses it
         /// THEN: Should have events array and pagination
         #[test]
-        fn events_response_json_is_paginated() {
+        fn events_response_json_is_paginated() -> Result<(), Box<dyn std::error::Error>> {
             let response = EventsResponse {
                 events: vec![Event {
                     id: "evt-1".to_string(),
@@ -743,7 +752,7 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&response).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&response)?)?;
 
             // Pagination fields
             assert!(json.get("total").is_some());
@@ -753,13 +762,14 @@ mod tests {
             // Events array
             assert!(json.get("events").is_some());
             assert!(json["events"].is_array());
+            Ok(())
         }
 
         /// GIVEN: Event type in JSON
         /// WHEN: Parsed
-        /// THEN: Should be lowercase snake_case string
+        /// THEN: Should be lowercase `snake_case` string
         #[test]
-        fn event_type_json_is_snake_case() {
+        fn event_type_json_is_snake_case() -> Result<(), Box<dyn std::error::Error>> {
             let event = Event {
                 id: "evt-1".to_string(),
                 event_type: EventType::BeadStatusChanged,
@@ -771,11 +781,12 @@ mod tests {
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&event).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&event)?)?;
 
-            let event_type = json["event_type"].as_str().unwrap();
+            let event_type = json["event_type"].as_str().ok_or("event_type is not a string")?;
             assert_eq!(event_type, event_type.to_lowercase());
             assert!(event_type.contains('_'), "Should be snake_case");
+            Ok(())
         }
     }
 
@@ -786,7 +797,7 @@ mod tests {
         /// WHEN: Events are streamed
         /// THEN: JSON format should output one event per line
         #[test]
-        fn follow_outputs_json_lines() {
+        fn follow_outputs_json_lines() -> Result<(), Box<dyn std::error::Error>> {
             // In follow mode, each event should be a complete JSON object
             // that can be parsed independently
             let event = Event {
@@ -800,10 +811,11 @@ mod tests {
             };
 
             // Each event should be a valid JSON that can be parsed
-            let json_str = serde_json::to_string(&event).unwrap();
-            let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+            let json_str = serde_json::to_string(&event)?;
+            let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
 
             assert!(parsed.is_object(), "Each line should be valid JSON object");
+            Ok(())
         }
     }
 }

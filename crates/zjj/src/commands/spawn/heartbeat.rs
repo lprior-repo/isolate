@@ -278,71 +278,68 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_heartbeat_monitor_lifecycle() {
-        let temp = TempDir::new().expect("Failed to create temp dir");
+    fn test_heartbeat_monitor_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
+        let temp = TempDir::new()?;
         let workspace = temp.path();
 
         let monitor = HeartbeatMonitor::with_defaults(workspace);
 
         // Initialize should create heartbeat file
-        monitor
-            .initialize()
-            .expect("Failed to initialize heartbeat");
+        monitor.initialize()?;
         assert!(monitor.heartbeat_path.exists());
 
         // Should be alive after initialization
-        assert!(monitor.is_alive().expect("Failed to check alive"));
+        assert!(monitor.is_alive()?);
 
         // Update heartbeat
-        monitor.update().expect("Failed to update heartbeat");
-        assert!(monitor.is_alive().expect("Failed to check alive"));
+        monitor.update()?;
+        assert!(monitor.is_alive()?);
 
         // Elapsed should be small
-        let elapsed = monitor.elapsed().expect("Failed to get elapsed");
+        let elapsed = monitor.elapsed()?;
         assert!(elapsed < 5);
+        Ok(())
     }
 
     #[test]
-    fn test_heartbeat_monitor_timeout() {
-        let temp = TempDir::new().expect("Failed to create temp dir");
+    fn test_heartbeat_monitor_timeout() -> Result<(), Box<dyn std::error::Error>> {
+        let temp = TempDir::new()?;
         let workspace = temp.path();
 
         let monitor =
             HeartbeatMonitor::new(workspace, Duration::from_secs(1), Duration::from_secs(2));
 
-        monitor
-            .initialize()
-            .expect("Failed to initialize heartbeat");
+        monitor.initialize()?;
 
         // Should be alive initially
-        assert!(monitor.is_alive().expect("Failed to check alive"));
+        assert!(monitor.is_alive()?);
 
         // Write old timestamp to simulate timeout
         let old_timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Failed to get time")
+            .duration_since(UNIX_EPOCH)?
             .as_secs()
             - 10;
 
-        fs::write(&monitor.heartbeat_path, old_timestamp.to_string())
-            .expect("Failed to write old timestamp");
+        fs::write(&monitor.heartbeat_path, old_timestamp.to_string())?;
 
         // Should not be alive after timeout
-        assert!(!monitor.is_alive().expect("Failed to check alive"));
+        assert!(!monitor.is_alive()?);
+        Ok(())
     }
 
     #[test]
-    fn test_write_heartbeat_instructions() {
-        let temp = TempDir::new().expect("Failed to create temp dir");
+    fn test_write_heartbeat_instructions() -> Result<(), Box<dyn std::error::Error>> {
+        let temp = TempDir::new()?;
         let workspace = temp.path();
 
-        write_heartbeat_instructions(workspace).expect("Failed to write instructions");
+        write_heartbeat_instructions(workspace)?;
 
         let instructions_path = workspace.join(".zjj/HEARTBEAT.md");
         assert!(instructions_path.exists());
 
-        let content = fs::read_to_string(&instructions_path).expect("Failed to read instructions");
+        let content = fs::read_to_string(&instructions_path)?;
         assert!(content.contains("Heartbeat Instructions"));
         assert!(content.contains(HEARTBEAT_FILE));
+        Ok(())
     }
 }
