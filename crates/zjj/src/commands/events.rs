@@ -284,8 +284,10 @@ fn get_new_events(
 }
 
 /// Generate a simple event ID based on timestamp
-#[allow(dead_code)]
-fn generate_event_id() -> String {
+///
+/// Part of the public event logging API. Not yet integrated into command flows,
+/// but available for future use by session/agent coordination features.
+fn _generate_event_id() -> String {
     let now = chrono::Utc::now();
     format!("evt-{}-{}", now.timestamp_millis(), std::process::id())
 }
@@ -294,15 +296,17 @@ fn generate_event_id() -> String {
 ///
 /// This function appends an event to the events.jsonl file.
 /// Errors are propagated to the caller rather than silently ignored.
-#[allow(dead_code)]
-pub fn log_event(
+///
+/// Part of the public event logging API. Not yet integrated into command flows,
+/// but available for future use by session/agent coordination features.
+pub fn _log_event(
     event_type: EventType,
     session: Option<&str>,
     agent_id: Option<&str>,
     message: &str,
 ) -> Result<()> {
     let event = Event {
-        id: generate_event_id(),
+        id: _generate_event_id(),
         event_type,
         timestamp: chrono::Utc::now().to_rfc3339(),
         session: session.map(String::from),
@@ -334,14 +338,16 @@ pub fn log_event(
 }
 
 /// Log an event, ignoring any errors (for non-critical event logging)
-#[allow(dead_code)]
-pub fn log_event_silent(
+///
+/// Part of the public event logging API. Not yet integrated into command flows,
+/// but available for future use by session/agent coordination features.
+pub fn _log_event_silent(
     event_type: EventType,
     session: Option<&str>,
     agent_id: Option<&str>,
     message: &str,
 ) {
-    let _ = log_event(event_type, session, agent_id, message);
+    let _ = _log_event(event_type, session, agent_id, message);
 }
 
 #[cfg(test)]
