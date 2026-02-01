@@ -116,7 +116,7 @@ mod tests {
     // Behavior Tests
     // ============================================================================
 
-    /// Test WhereAmIOutput simple field format for main
+    /// Test `WhereAmIOutput` simple field format for main
     #[test]
     fn test_whereami_simple_format_main() {
         let output = WhereAmIOutput {
@@ -131,7 +131,7 @@ mod tests {
         assert!(!output.simple.contains(':'));
     }
 
-    /// Test WhereAmIOutput simple field format for workspace
+    /// Test `WhereAmIOutput` simple field format for workspace
     #[test]
     fn test_whereami_simple_format_workspace() {
         let output = WhereAmIOutput {
@@ -146,7 +146,7 @@ mod tests {
         assert!(output.simple.contains("feature-auth"));
     }
 
-    /// Test location_type is always valid
+    /// Test `location_type` is always valid
     #[test]
     fn test_whereami_location_type_valid() {
         let valid_types = ["main", "workspace"];
@@ -218,8 +218,11 @@ mod tests {
         // Should be able to parse simple format
         let parts: Vec<&str> = output.simple.split(':').collect();
         if parts.len() == 2 {
+            #[allow(clippy::indexing_slicing)]
+            {
             assert_eq!(parts[0], "workspace");
             assert_eq!(parts[1], "feature-auth");
+            }
         } else {
             assert_eq!(output.simple, "main");
         }

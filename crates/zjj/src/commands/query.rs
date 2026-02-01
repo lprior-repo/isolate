@@ -487,7 +487,7 @@ fn query_lock_status(session: &str) -> Result<()> {
                     expires_at: None,
                     error: Some(QueryError {
                         code: "SESSION_NOT_FOUND".to_string(),
-                        message: format!("Session '{}' not found", session),
+                        message: format!("Session '{session}' not found"),
                     }),
                 },
                 Err(e) => LockStatusResult {
@@ -535,13 +535,10 @@ fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
 
     // Check if we're on main
     let root = crate::commands::check_in_jj_repo();
-    let on_main = match root {
-        Ok(ref r) => {
-            let location = super::context::detect_location(r);
-            matches!(location.as_ref().ok(), Some(super::context::Location::Main))
-        }
-        Err(_) => false,
-    };
+    let on_main = root.as_ref().ok().is_some_and(|r| {
+        let location = super::context::detect_location(r);
+        matches!(location.as_ref().ok(), Some(super::context::Location::Main))
+    });
 
     if !on_main {
         blockers.push("Not on main branch".to_string());
@@ -563,11 +560,11 @@ fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
             Ok(output) if output.status.success() => {
                 let output_str = String::from_utf8_lossy(&output.stdout);
                 if output_str.contains("\"status\":\"in_progress\"") {
-                    blockers.push(format!("Bead '{}' is already in progress", bead));
+                    blockers.push(format!("Bead '{bead}' is already in progress"));
                 }
             }
             Ok(_) => {
-                blockers.push(format!("Bead '{}' not found", bead));
+                blockers.push(format!("Bead '{bead}' not found"));
             }
             Err(_) => {
                 // bd not available - not a blocker if bead_id wasn't required
@@ -693,7 +690,7 @@ fn query_location() -> Result<()> {
                 super::context::Location::Workspace { name, path } => LocationResult {
                     location_type: "workspace".to_string(),
                     name: Some(name.clone()),
-                    path: Some(path.clone()),
+                    path: Some(path),
                     simple: format!("workspace:{name}"),
                     error: None,
                 },
