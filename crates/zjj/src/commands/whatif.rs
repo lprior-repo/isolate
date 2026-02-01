@@ -708,36 +708,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_preview_add_creates_result() {
-        let result = preview_add(&["test-session".to_string()]).unwrap();
+    fn test_preview_add_creates_result() -> Result<()> {
+        let result = preview_add(&["test-session".to_string()])?;
         assert_eq!(result.command, "add");
         assert!(!result.steps.is_empty());
         assert!(!result.creates.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn test_preview_remove_shows_deletes() {
-        let result = preview_remove(&["test-session".to_string()]).unwrap();
+    fn test_preview_remove_shows_deletes() -> Result<()> {
+        let result = preview_remove(&["test-session".to_string()])?;
         assert!(!result.deletes.is_empty());
         assert!(!result.warnings.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn test_preview_done_is_reversible() {
-        let result = preview_done(&[]).unwrap();
+    fn test_preview_done_is_reversible() -> Result<()> {
+        let result = preview_done(&[])?;
         assert!(result.reversible);
         assert!(result.undo_command.is_some());
+        Ok(())
     }
 
     #[test]
-    fn test_preview_abort_is_not_reversible() {
-        let result = preview_abort(&[]).unwrap();
+    fn test_preview_abort_is_not_reversible() -> Result<()> {
+        let result = preview_abort(&[])?;
         assert!(!result.reversible);
+        Ok(())
     }
 
     #[test]
-    fn test_preview_unknown_command() {
-        let result = preview_command("unknown", &[]).expect("Should preview unknown command");
+    fn test_preview_unknown_command() -> Result<()> {
+        let result = preview_command("unknown", &[])?;
         assert!(!result.warnings.is_empty());
+        Ok(())
     }
 }
