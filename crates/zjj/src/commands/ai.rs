@@ -994,7 +994,7 @@ mod tests {
         /// THEN: Steps should be sequential and complete
         #[test]
         fn workflow_steps_are_sequential_from_one() {
-            let steps = vec![
+            let steps = [
                 WorkflowStep {
                     step: 1,
                     command: "zjj whereami".to_string(),
