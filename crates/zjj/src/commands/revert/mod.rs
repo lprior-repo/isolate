@@ -117,7 +117,7 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
             reason: e.to_string(),
         })?;
 
-    content
+    let entries: Vec<UndoEntry> = content
         .lines()
         .filter_map(|line| {
             if line.trim().is_empty() {
@@ -208,12 +208,16 @@ fn update_undo_history(
 /// Output result in appropriate format
 fn output_result(result: &RevertOutput, format: OutputFormat) -> Result<(), RevertError> {
     if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(result)?);
+        let json_output =
+            serde_json::to_string_pretty(result).map_err(|e| RevertError::SerializationError {
+                reason: e.to_string(),
+            })?;
+        println!("{json_output}");
     } else if result.dry_run {
-        println!("🔍 Dry-run revert for session: {}", result.session_name);
+        println!("Dry-run revert for session: {}", result.session_name);
         println!("  Commit: {}", result.commit_id);
     } else {
-        println!("✅ Reverted merge from session: {}", result.session_name);
+        println!("Reverted merge from session: {}", result.session_name);
         println!("  Commit: {}", result.commit_id);
         println!();
         println!("NEXT: Verify changes and re-commit if needed:");
@@ -230,9 +234,14 @@ fn output_error(error: &RevertError, format: OutputFormat) -> Result<(), RevertE
             "error": error.to_string(),
             "error_code": error.error_code(),
         });
-        println!("{}", serde_json::to_string_pretty(&error_json)?);
+        let json_output = serde_json::to_string_pretty(&error_json).map_err(|e| {
+            RevertError::SerializationError {
+                reason: e.to_string(),
+            }
+        })?;
+        println!("{json_output}");
     } else {
-        eprintln!("❌ {error}");
+        eprintln!("Error: {error}");
         if matches!(error, RevertError::AlreadyPushedToRemote { .. }) {
             eprintln!("   Changes have been pushed to remote and cannot be reverted.");
             eprintln!("   Use 'jj revert' to manually revert the commit.");

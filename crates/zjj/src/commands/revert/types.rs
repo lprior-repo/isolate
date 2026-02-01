@@ -22,7 +22,7 @@ pub struct RevertArgs {
 
 impl RevertArgs {
     /// Convert to `RevertOptions`
-    pub const fn to_options(&self) -> RevertOptions {
+    pub fn to_options(&self) -> RevertOptions {
         RevertOptions {
             session_name: self.session_name.clone(),
             dry_run: self.dry_run,
@@ -170,5 +170,176 @@ mod tests {
         assert_eq!(output.session_name, "test-session");
         assert_eq!(output.commit_id, "abc123");
         assert!(!output.dry_run);
+    }
+
+    // ── RevertError Display Tests ────────────────────────────────────────
+
+    #[test]
+    fn test_revert_error_not_in_main_display() {
+        let err = RevertError::NotInMain {
+            workspace: "feature-auth".to_string(),
+        };
+        let display = format!("{err}");
+        assert!(display.contains("Not in main branch"));
+        assert!(display.contains("feature-auth"));
+    }
+
+    #[test]
+    fn test_revert_error_session_not_found_display() {
+        let err = RevertError::SessionNotFound {
+            session_name: "missing-session".to_string(),
+        };
+        let display = format!("{err}");
+        assert!(display.contains("not found"));
+        assert!(display.contains("missing-session"));
+    }
+
+    #[test]
+    fn test_revert_error_already_pushed_display() {
+        let err = RevertError::AlreadyPushedToRemote {
+            commit_id: "abc123".to_string(),
+        };
+        let display = format!("{err}");
+        assert!(display.contains("Cannot revert"));
+        assert!(display.contains("pushed to remote"));
+    }
+
+    // ── All RevertError Codes Tests ──────────────────────────────────────
+
+    #[test]
+    fn test_all_revert_error_codes() {
+        assert_eq!(
+            RevertError::NotInMain {
+                workspace: String::new()
+            }
+            .error_code(),
+            "NOT_IN_MAIN"
+        );
+        assert_eq!(
+            RevertError::SessionNotFound {
+                session_name: String::new()
+            }
+            .error_code(),
+            "SESSION_NOT_FOUND"
+        );
+        assert_eq!(RevertError::NoUndoHistory.error_code(), "NO_UNDO_HISTORY");
+        assert_eq!(
+            RevertError::AlreadyPushedToRemote {
+                commit_id: String::new()
+            }
+            .error_code(),
+            "ALREADY_PUSHED_TO_REMOTE"
+        );
+        assert_eq!(
+            RevertError::RebaseFailed {
+                reason: String::new()
+            }
+            .error_code(),
+            "REBASE_FAILED"
+        );
+        assert_eq!(
+            RevertError::JjCommandFailed {
+                command: String::new(),
+                reason: String::new()
+            }
+            .error_code(),
+            "JJ_COMMAND_FAILED"
+        );
+        assert_eq!(
+            RevertError::ReadUndoLogFailed {
+                reason: String::new()
+            }
+            .error_code(),
+            "READ_UNDO_LOG_FAILED"
+        );
+        assert_eq!(
+            RevertError::WriteUndoLogFailed {
+                reason: String::new()
+            }
+            .error_code(),
+            "WRITE_UNDO_LOG_FAILED"
+        );
+        assert_eq!(
+            RevertError::SerializationError {
+                reason: String::new()
+            }
+            .error_code(),
+            "SERIALIZATION_ERROR"
+        );
+        assert_eq!(
+            RevertError::InvalidState {
+                reason: String::new()
+            }
+            .error_code(),
+            "INVALID_STATE"
+        );
+    }
+
+    // ── RevertExitCode Tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_revert_exit_code_values() {
+        assert_eq!(RevertExitCode::Success as i32, 0);
+        assert_eq!(RevertExitCode::AlreadyPushed as i32, 1);
+        assert_eq!(RevertExitCode::SessionNotFound as i32, 2);
+        assert_eq!(RevertExitCode::InvalidState as i32, 3);
+        assert_eq!(RevertExitCode::OtherError as i32, 4);
+    }
+
+    // ── RevertOutput Tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_revert_output_default() {
+        let output = RevertOutput::default();
+        assert!(output.session_name.is_empty());
+        assert!(output.commit_id.is_empty());
+        assert!(!output.dry_run);
+        assert!(!output.pushed_to_remote);
+        assert!(output.error.is_none());
+    }
+
+    #[test]
+    fn test_revert_output_with_error() {
+        let output = RevertOutput {
+            session_name: "test".to_string(),
+            dry_run: false,
+            commit_id: "abc123".to_string(),
+            pushed_to_remote: false,
+            error: Some("failed to revert".to_string()),
+        };
+        assert!(output.error.is_some());
+        assert_eq!(output.error, Some("failed to revert".to_string()));
+    }
+
+    #[test]
+    fn test_revert_output_json_serialization() {
+        let output = RevertOutput {
+            session_name: "test-ws".to_string(),
+            dry_run: true,
+            commit_id: "xyz789".to_string(),
+            pushed_to_remote: false,
+            error: None,
+        };
+        let json = serde_json::to_string(&output);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("test-ws"));
+        assert!(json_str.contains("xyz789"));
+        assert!(json_str.contains("\"dry_run\":true"));
+    }
+
+    // ── RevertOptions Tests ──────────────────────────────────────────────
+
+    #[test]
+    fn test_revert_options_from_args() {
+        let args = RevertArgs {
+            session_name: "session-1".to_string(),
+            dry_run: false,
+            format: OutputFormat::Human,
+        };
+        let opts = args.to_options();
+        assert_eq!(opts.session_name, "session-1");
+        assert!(!opts.dry_run);
+        assert!(!opts.format.is_json());
     }
 }

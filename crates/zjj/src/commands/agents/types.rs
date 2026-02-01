@@ -19,6 +19,75 @@ pub struct AgentsArgs {
     pub session: Option<String>,
 }
 
+/// Arguments for agent register subcommand
+#[derive(Debug, Clone)]
+pub struct RegisterArgs {
+    /// Agent ID to register (auto-generated if not provided)
+    pub agent_id: Option<String>,
+    /// Session to associate with this agent
+    pub session: Option<String>,
+}
+
+/// Arguments for agent heartbeat subcommand
+#[derive(Debug, Clone)]
+pub struct HeartbeatArgs {
+    /// Command being executed (optional)
+    pub command: Option<String>,
+}
+
+/// Arguments for agent status subcommand
+#[derive(Debug, Clone)]
+pub struct StatusArgs {}
+
+/// Arguments for agent unregister subcommand
+#[derive(Debug, Clone)]
+pub struct UnregisterArgs {
+    /// Agent ID to unregister (uses ZJJ_AGENT_ID if not provided)
+    pub agent_id: Option<String>,
+}
+
+/// Output for register command
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegisterOutput {
+    /// The registered agent ID
+    pub agent_id: String,
+    /// Session if specified
+    pub session: Option<String>,
+    /// Message describing what happened
+    pub message: String,
+}
+
+/// Output for heartbeat command
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HeartbeatOutput {
+    /// Agent ID that sent heartbeat
+    pub agent_id: String,
+    /// Timestamp of heartbeat
+    pub timestamp: String,
+    /// Message
+    pub message: String,
+}
+
+/// Output for agent status command
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentStatusOutput {
+    /// Whether agent is registered
+    pub registered: bool,
+    /// Agent info if registered
+    pub agent: Option<AgentInfo>,
+    /// Message
+    pub message: String,
+}
+
+/// Output for unregister command
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnregisterOutput {
+    /// Agent ID that was unregistered
+    pub agent_id: String,
+    /// Message
+    pub message: String,
+}
+
 /// Agent information for output
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentInfo {

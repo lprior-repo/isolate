@@ -24,6 +24,10 @@ pub struct AddOptions {
     pub no_open: bool,
     /// Output format (JSON or Human-readable)
     pub format: OutputFormat,
+    /// Succeed if session already exists (safe for retries)
+    pub idempotent: bool,
+    /// Preview without creating
+    pub dry_run: bool,
 }
 
 impl AddOptions {
@@ -36,6 +40,8 @@ impl AddOptions {
             template: None,
             no_open: false,
             format: OutputFormat::Human,
+            idempotent: false,
+            dry_run: false,
         }
     }
 }
@@ -154,16 +160,18 @@ fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) -> Resul
     Ok(())
 }
 
-/// Run the add command with options
-pub fn run_with_options(options: &AddOptions) -> Result<()> {
+/// Run the add command internally without output (for use by work command)
+///
+/// # Errors
+///
+/// Returns an error if session creation fails
+pub fn run_internal(options: &AddOptions) -> Result<()> {
     // Validate session name (REQ-CLI-015)
-    // Map zjj_core::Error to anyhow::Error while preserving the original error
     validate_session_name(&options.name).map_err(anyhow::Error::new)?;
 
     let db = get_session_db()?;
 
     // Check if session already exists (REQ-ERR-004)
-    // Return zjj_core::Error::ValidationError to get exit code 1
     if db.get_blocking(&options.name)?.is_some() {
         return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
             format!("Session '{}' already exists", options.name),
@@ -176,10 +184,101 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     let cfg = config::load_config().map_err(|e| anyhow::Error::msg(e.to_string()))?;
 
     // Construct workspace path from config's workspace_dir
-    // workspace_dir is already placeholder-substituted (e.g., "../zjj__workspaces")
     let workspace_base = root.join(&cfg.workspace_dir);
     let workspace_path = workspace_base.join(&options.name);
     let workspace_path_str = workspace_path.display().to_string();
+
+    // ATOMIC SESSION CREATION
+    atomic_create_session(&options.name, &workspace_path, &db)?;
+
+    // Execute post_create hooks unless --no-hooks
+    if !options.no_hooks {
+        if let Err(e) = execute_post_create_hooks(&workspace_path_str) {
+            let _ = db.update_blocking(
+                &options.name,
+                SessionUpdate {
+                    status: Some(SessionStatus::Failed),
+                    ..Default::default()
+                },
+            );
+            return Err(e).context("post_create hook failed");
+        }
+    }
+
+    // Transition to 'active' status
+    db.update_blocking(
+        &options.name,
+        SessionUpdate {
+            status: Some(SessionStatus::Active),
+            ..Default::default()
+        },
+    )
+    .context("Failed to activate session")?;
+
+    Ok(())
+}
+
+/// Run the add command with options
+pub fn run_with_options(options: &AddOptions) -> Result<()> {
+    // Validate session name (REQ-CLI-015)
+    // Map zjj_core::Error to anyhow::Error while preserving the original error
+    validate_session_name(&options.name).map_err(anyhow::Error::new)?;
+
+    let db = get_session_db()?;
+    let root = check_prerequisites()?;
+
+    // Load config to get workspace_dir setting early for dry-run
+    let cfg = config::load_config().map_err(|e| anyhow::Error::msg(e.to_string()))?;
+    let workspace_base = root.join(&cfg.workspace_dir);
+    let workspace_path = workspace_base.join(&options.name);
+    let workspace_path_str = workspace_path.display().to_string();
+
+    // Check if session already exists
+    if let Some(existing) = db.get_blocking(&options.name)? {
+        if options.idempotent {
+            // Idempotent mode: return success with existing session info
+            output_result(
+                &options.name,
+                &existing.workspace_path,
+                &existing.zellij_tab,
+                "already exists (idempotent)",
+                options.format,
+            );
+            return Ok(());
+        }
+        // Return zjj_core::Error::ValidationError to get exit code 1
+        return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
+            format!("Session '{}' already exists", options.name),
+        )));
+    }
+
+    // Dry run - just show what would happen
+    if options.dry_run {
+        let zellij_tab = format!("zjj:{}", options.name);
+        if options.format.is_json() {
+            let output = AddOutput {
+                name: options.name.clone(),
+                workspace_path: workspace_path_str.clone(),
+                zellij_tab: zellij_tab.clone(),
+                status: "[DRY RUN] Would create session".to_string(),
+            };
+            let mut envelope =
+                serde_json::to_value(SchemaEnvelope::new("add-response", "single", output))?;
+            if let Some(obj) = envelope.as_object_mut() {
+                obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
+            }
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&envelope)
+                    .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
+            );
+        } else {
+            println!("[DRY RUN] Would create session '{}'", options.name);
+            println!("  Workspace: {}", workspace_path_str);
+            println!("  Zellij tab: {}", zellij_tab);
+        }
+        return Ok(());
+    }
 
     // ATOMIC SESSION CREATION (zjj-bw0x)
     // Order: DB first (detectable), then workspace (cleanable)
@@ -923,6 +1022,8 @@ mod tests {
             template: None,
             no_open: false,
             format: OutputFormat::Human,
+            idempotent: false,
+            dry_run: false,
         };
 
         assert!(opts.format.is_human());
@@ -940,6 +1041,8 @@ mod tests {
             template: None,
             no_open: false,
             format: OutputFormat::Json,
+            idempotent: false,
+            dry_run: false,
         };
 
         assert!(opts.format.is_json());
@@ -960,6 +1063,8 @@ mod tests {
             template: None,
             no_open: false,
             format,
+            idempotent: false,
+            dry_run: false,
         };
 
         // Verify round-trip
@@ -981,6 +1086,8 @@ mod tests {
             template: None,
             no_open: false,
             format: OutputFormat::Json,
+            idempotent: false,
+            dry_run: false,
         };
 
         // When run_with_options is called:

@@ -13,6 +13,9 @@ pub struct UndoArgs {
     /// Preview without executing
     pub dry_run: bool,
 
+    /// List undo history without reverting
+    pub list: bool,
+
     /// Output format
     pub format: OutputFormat,
 }
@@ -22,6 +25,7 @@ impl UndoArgs {
     pub const fn to_options(&self) -> UndoOptions {
         UndoOptions {
             dry_run: self.dry_run,
+            list: self.list,
             format: self.format,
         }
     }
@@ -31,6 +35,7 @@ impl UndoArgs {
 #[derive(Debug, Clone)]
 pub struct UndoOptions {
     pub dry_run: bool,
+    pub list: bool,
     pub format: OutputFormat,
 }
 
@@ -141,13 +146,30 @@ mod tests {
     fn test_undo_args_to_options() {
         let args = UndoArgs {
             dry_run: true,
+            list: false,
             format: OutputFormat::Json,
         };
 
         let opts = args.to_options();
 
         assert!(opts.dry_run);
+        assert!(!opts.list);
         assert!(matches!(opts.format, OutputFormat::Json));
+    }
+
+    #[test]
+    fn test_undo_args_with_list() {
+        let args = UndoArgs {
+            dry_run: false,
+            list: true,
+            format: OutputFormat::Human,
+        };
+
+        let opts = args.to_options();
+
+        assert!(!opts.dry_run);
+        assert!(opts.list);
+        assert!(matches!(opts.format, OutputFormat::Human));
     }
 
     #[test]
@@ -174,5 +196,188 @@ mod tests {
         assert_eq!(output.session_name, "test-session");
         assert_eq!(output.commit_id, "abc123");
         assert!(!output.dry_run);
+    }
+
+    // ── UndoError Display Tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_undo_error_not_in_main_display() {
+        let err = UndoError::NotInMain {
+            workspace: "feature-auth".to_string(),
+        };
+        let display = format!("{err}");
+        assert!(display.contains("Not in main branch"));
+        assert!(display.contains("feature-auth"));
+    }
+
+    #[test]
+    fn test_undo_error_no_history_display() {
+        let err = UndoError::NoUndoHistory;
+        let display = format!("{err}");
+        assert!(display.contains("No undo history"));
+    }
+
+    #[test]
+    fn test_undo_error_already_pushed_display() {
+        let err = UndoError::AlreadyPushedToRemote {
+            commit_id: "abc123".to_string(),
+        };
+        let display = format!("{err}");
+        assert!(display.contains("Cannot undo"));
+        assert!(display.contains("pushed to remote"));
+    }
+
+    #[test]
+    fn test_undo_error_workspace_expired_display() {
+        let err = UndoError::WorkspaceExpired {
+            session_name: "old-session".to_string(),
+            hours: 24,
+        };
+        let display = format!("{err}");
+        assert!(display.contains("expired"));
+        assert!(display.contains("old-session"));
+        assert!(display.contains("24"));
+    }
+
+    #[test]
+    fn test_undo_error_rebase_failed_display() {
+        let err = UndoError::RebaseFailed {
+            reason: "conflict".to_string(),
+        };
+        let display = format!("{err}");
+        assert!(display.contains("Failed to revert"));
+        assert!(display.contains("conflict"));
+    }
+
+    // ── UndoError Code Tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_all_undo_error_codes() {
+        assert_eq!(
+            UndoError::NotInMain {
+                workspace: String::new()
+            }
+            .error_code(),
+            "NOT_IN_MAIN"
+        );
+        assert_eq!(UndoError::NoUndoHistory.error_code(), "NO_UNDO_HISTORY");
+        assert_eq!(
+            UndoError::AlreadyPushedToRemote {
+                commit_id: String::new()
+            }
+            .error_code(),
+            "ALREADY_PUSHED_TO_REMOTE"
+        );
+        assert_eq!(
+            UndoError::WorkspaceExpired {
+                session_name: String::new(),
+                hours: 0
+            }
+            .error_code(),
+            "WORKSPACE_EXPIRED"
+        );
+        assert_eq!(
+            UndoError::RebaseFailed {
+                reason: String::new()
+            }
+            .error_code(),
+            "REBASE_FAILED"
+        );
+        assert_eq!(
+            UndoError::JjCommandFailed {
+                command: String::new(),
+                reason: String::new()
+            }
+            .error_code(),
+            "JJ_COMMAND_FAILED"
+        );
+        assert_eq!(
+            UndoError::ReadUndoLogFailed {
+                reason: String::new()
+            }
+            .error_code(),
+            "READ_UNDO_LOG_FAILED"
+        );
+        assert_eq!(
+            UndoError::WriteUndoLogFailed {
+                reason: String::new()
+            }
+            .error_code(),
+            "WRITE_UNDO_LOG_FAILED"
+        );
+        assert_eq!(
+            UndoError::SerializationError {
+                reason: String::new()
+            }
+            .error_code(),
+            "SERIALIZATION_ERROR"
+        );
+        assert_eq!(
+            UndoError::InvalidState {
+                reason: String::new()
+            }
+            .error_code(),
+            "INVALID_STATE"
+        );
+        assert_eq!(
+            UndoError::SystemTimeError {
+                reason: String::new()
+            }
+            .error_code(),
+            "SYSTEM_TIME_ERROR"
+        );
+    }
+
+    // ── UndoExitCode Tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_undo_exit_code_values() {
+        assert_eq!(UndoExitCode::Success as i32, 0);
+        assert_eq!(UndoExitCode::AlreadyPushed as i32, 1);
+        assert_eq!(UndoExitCode::NoHistory as i32, 2);
+        assert_eq!(UndoExitCode::InvalidState as i32, 3);
+        assert_eq!(UndoExitCode::OtherError as i32, 4);
+    }
+
+    // ── UndoOutput Tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_undo_output_default() {
+        let output = UndoOutput::default();
+        assert!(output.session_name.is_empty());
+        assert!(output.commit_id.is_empty());
+        assert!(!output.dry_run);
+        assert!(!output.pushed_to_remote);
+        assert!(output.error.is_none());
+    }
+
+    #[test]
+    fn test_undo_output_with_error() {
+        let output = UndoOutput {
+            session_name: "test".to_string(),
+            dry_run: false,
+            commit_id: "abc123".to_string(),
+            pushed_to_remote: false,
+            error: Some("failed to undo".to_string()),
+        };
+        assert!(output.error.is_some());
+        assert_eq!(output.error, Some("failed to undo".to_string()));
+    }
+
+    #[test]
+    fn test_undo_output_json_serialization() {
+        let output = UndoOutput {
+            session_name: "test-ws".to_string(),
+            dry_run: true,
+            commit_id: "xyz789".to_string(),
+            pushed_to_remote: false,
+            error: None,
+        };
+        let json = serde_json::to_string(&output);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("test-ws"));
+        assert!(json_str.contains("xyz789"));
+        assert!(json_str.contains("\"dry_run\":true"));
     }
 }
