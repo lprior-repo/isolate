@@ -214,8 +214,10 @@ fn update_undo_history(
 /// Output result in appropriate format
 fn output_result(result: &RevertOutput, format: OutputFormat) -> Result<(), RevertError> {
     if format.is_json() {
-        let json_output = serde_json::to_string_pretty(result)
-            .map_err(|e| RevertError::SerializationError { reason: e.to_string() })?;
+        let json_output =
+            serde_json::to_string_pretty(result).map_err(|e| RevertError::SerializationError {
+                reason: e.to_string(),
+            })?;
         println!("{json_output}");
     } else if result.dry_run {
         println!("Dry-run revert for session: {}", result.session_name);
@@ -238,8 +240,11 @@ fn output_error(error: &RevertError, format: OutputFormat) -> Result<(), RevertE
             "error": error.to_string(),
             "error_code": error.error_code(),
         });
-        let json_output = serde_json::to_string_pretty(&error_json)
-            .map_err(|e| RevertError::SerializationError { reason: e.to_string() })?;
+        let json_output = serde_json::to_string_pretty(&error_json).map_err(|e| {
+            RevertError::SerializationError {
+                reason: e.to_string(),
+            }
+        })?;
         println!("{json_output}");
     } else {
         eprintln!("Error: {error}");

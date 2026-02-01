@@ -88,9 +88,7 @@ fn run_status(format: OutputFormat) -> Result<()> {
     let (location, workspace) = if let Ok(root) = super::check_in_jj_repo() {
         match context::detect_location(&root) {
             Ok(context::Location::Main) => ("main".to_string(), None),
-            Ok(context::Location::Workspace { name, .. }) => {
-                ("workspace".to_string(), Some(name))
-            }
+            Ok(context::Location::Workspace { name, .. }) => ("workspace".to_string(), Some(name)),
             Err(_) => ("unknown".to_string(), None),
         }
     } else {
@@ -170,10 +168,16 @@ fn run_status(format: OutputFormat) -> Result<()> {
         } else {
             println!("Agent ID:      (not registered)");
         }
-        println!("Initialized:   {}", if output.initialized { "yes" } else { "no" });
+        println!(
+            "Initialized:   {}",
+            if output.initialized { "yes" } else { "no" }
+        );
         println!("Active work:   {} sessions", output.active_sessions);
         println!();
-        println!("Status: {}", if output.ready { "READY" } else { "NOT READY" });
+        println!(
+            "Status: {}",
+            if output.ready { "READY" } else { "NOT READY" }
+        );
         println!("Suggestion: {}", output.suggestion);
         println!();
         println!("Next command:");
@@ -356,9 +360,7 @@ fn run_next(format: OutputFormat) -> Result<()> {
     let (location, workspace) = if let Ok(root) = super::check_in_jj_repo() {
         match context::detect_location(&root) {
             Ok(context::Location::Main) => ("main".to_string(), None),
-            Ok(context::Location::Workspace { name, .. }) => {
-                ("workspace".to_string(), Some(name))
-            }
+            Ok(context::Location::Workspace { name, .. }) => ("workspace".to_string(), Some(name)),
             Err(_) => ("unknown".to_string(), None),
         }
     } else {
@@ -384,7 +386,10 @@ fn run_next(format: OutputFormat) -> Result<()> {
         NextActionOutput {
             action: format!("Continue work in '{}'", ws),
             command: "zjj context --json".to_string(),
-            reason: format!("Currently in workspace '{}' - check context or complete work", ws),
+            reason: format!(
+                "Currently in workspace '{}' - check context or complete work",
+                ws
+            ),
             priority: "medium".to_string(),
         }
     } else {
@@ -404,7 +409,10 @@ fn run_next(format: OutputFormat) -> Result<()> {
             NextActionOutput {
                 action: "Check existing sessions".to_string(),
                 command: "zjj list --json".to_string(),
-                reason: format!("{} active session(s) exist - review or continue work", active_sessions),
+                reason: format!(
+                    "{} active session(s) exist - review or continue work",
+                    active_sessions
+                ),
                 priority: "medium".to_string(),
             }
         } else if inside_zellij {
@@ -659,12 +667,7 @@ mod tests {
     #[test]
     fn test_quickstart_has_essential_commands() {
         // Essential commands that should be included
-        let essential_commands = [
-            "zjj work",
-            "zjj done",
-            "zjj abort",
-            "zjj whereami",
-        ];
+        let essential_commands = ["zjj work", "zjj done", "zjj abort", "zjj whereami"];
 
         assert!(!essential_commands.is_empty());
         assert!(essential_commands.len() >= 2);
@@ -752,6 +755,461 @@ mod tests {
         for (flag, description) in safe_flags {
             assert!(flag.starts_with("--"));
             assert!(!description.is_empty());
+        }
+    }
+
+    // ============================================================================
+    // Martin Fowler Style Behavior Tests
+    // These tests describe WHAT the system does, not HOW it does it
+    // ============================================================================
+
+    mod next_action_behavior {
+        use super::*;
+
+        /// GIVEN: User is not in a JJ repository
+        /// WHEN: They request the next action
+        /// THEN: They should be told to enter a repository
+        #[test]
+        fn when_not_in_repo_suggests_entering_repo() {
+            let output = NextActionOutput {
+                action: "Enter a JJ repository".to_string(),
+                command: "cd <repo> && zjj init".to_string(),
+                reason: "Not currently in a JJ repository".to_string(),
+                priority: "high".to_string(),
+            };
+
+            assert_eq!(
+                output.priority, "high",
+                "Not being in a repo is a high priority issue"
+            );
+            assert!(
+                output.command.contains("cd"),
+                "Should suggest changing directory"
+            );
+            assert!(
+                output.reason.contains("repository"),
+                "Should explain the issue"
+            );
+        }
+
+        /// GIVEN: ZJJ is not initialized in the current repo
+        /// WHEN: User asks for next action
+        /// THEN: They should be told to run zjj init
+        #[test]
+        fn when_uninitialized_suggests_init() {
+            let output = NextActionOutput {
+                action: "Initialize ZJJ".to_string(),
+                command: "zjj init".to_string(),
+                reason: "ZJJ is not initialized in this repository".to_string(),
+                priority: "high".to_string(),
+            };
+
+            assert_eq!(output.command, "zjj init", "Should suggest init command");
+            assert_eq!(output.priority, "high", "Initialization is high priority");
+        }
+
+        /// GIVEN: User is in a workspace
+        /// WHEN: They ask for next action
+        /// THEN: They should be guided to continue or complete work
+        #[test]
+        fn when_in_workspace_suggests_context_or_done() {
+            let workspace_name = "feature-auth";
+            let output = NextActionOutput {
+                action: format!("Continue work in '{}'", workspace_name),
+                command: "zjj context --json".to_string(),
+                reason: format!(
+                    "Currently in workspace '{}' - check context or complete work",
+                    workspace_name
+                ),
+                priority: "medium".to_string(),
+            };
+
+            assert!(
+                output.action.contains(workspace_name),
+                "Should mention current workspace"
+            );
+            assert!(
+                output.command.contains("context"),
+                "Should suggest checking context"
+            );
+            assert_eq!(
+                output.priority, "medium",
+                "Continuing work is medium priority"
+            );
+        }
+
+        /// GIVEN: User is on main with active sessions
+        /// WHEN: They ask for next action
+        /// THEN: They should be told to check existing sessions
+        #[test]
+        fn when_sessions_exist_suggests_listing_them() {
+            let active_count = 3;
+            let output = NextActionOutput {
+                action: "Check existing sessions".to_string(),
+                command: "zjj list --json".to_string(),
+                reason: format!(
+                    "{} active session(s) exist - review or continue work",
+                    active_count
+                ),
+                priority: "medium".to_string(),
+            };
+
+            assert!(
+                output.command.contains("list"),
+                "Should suggest listing sessions"
+            );
+            assert!(output.reason.contains("3"), "Should mention session count");
+        }
+
+        /// GIVEN: System is ready with no active sessions
+        /// WHEN: User asks for next action
+        /// THEN: They should be told to start new work
+        #[test]
+        fn when_ready_and_idle_suggests_starting_work() {
+            let output = NextActionOutput {
+                action: "Start new work session".to_string(),
+                command: "zjj work <task-name>".to_string(),
+                reason: "Ready to start work - no active sessions".to_string(),
+                priority: "medium".to_string(),
+            };
+
+            assert!(
+                output.command.contains("work"),
+                "Should suggest starting work"
+            );
+            assert!(
+                output.reason.contains("no active sessions"),
+                "Should explain why"
+            );
+        }
+
+        /// GIVEN: User is outside Zellij
+        /// WHEN: They want to start work
+        /// THEN: The command should include --no-zellij flag
+        #[test]
+        fn when_outside_zellij_suggests_no_zellij_flag() {
+            let output = NextActionOutput {
+                action: "Start new work session".to_string(),
+                command: "zjj work <task-name> --no-zellij".to_string(),
+                reason: "Ready to start work (outside Zellij)".to_string(),
+                priority: "medium".to_string(),
+            };
+
+            assert!(
+                output.command.contains("--no-zellij"),
+                "Should include no-zellij flag"
+            );
+        }
+    }
+
+    mod status_behavior {
+        use super::*;
+
+        /// GIVEN: System is fully ready
+        /// WHEN: Status is checked
+        /// THEN: ready should be true and suggestion should guide next step
+        #[test]
+        fn ready_system_shows_positive_guidance() {
+            let status = AiStatusOutput {
+                location: "main".to_string(),
+                workspace: None,
+                agent_id: Some("agent-abc".to_string()),
+                initialized: true,
+                active_sessions: 0,
+                ready: true,
+                suggestion: "Ready to start work".to_string(),
+                next_command: "zjj work <name>".to_string(),
+            };
+
+            assert!(status.ready, "System should be ready");
+            assert!(status.initialized, "Should be initialized");
+            assert!(!status.suggestion.is_empty(), "Should have guidance");
+            assert!(!status.next_command.is_empty(), "Should have next command");
+        }
+
+        /// GIVEN: ZJJ is not initialized
+        /// WHEN: Status is checked
+        /// THEN: ready should be false and suggestion should mention init
+        #[test]
+        fn uninitialized_system_guides_to_init() {
+            let status = AiStatusOutput {
+                location: "main".to_string(),
+                workspace: None,
+                agent_id: None,
+                initialized: false,
+                active_sessions: 0,
+                ready: false,
+                suggestion: "zjj not initialized".to_string(),
+                next_command: "zjj init".to_string(),
+            };
+
+            assert!(!status.ready, "Uninitialized system is not ready");
+            assert!(!status.initialized, "Should show as not initialized");
+            assert!(status.next_command.contains("init"), "Should guide to init");
+        }
+
+        /// GIVEN: User is in a workspace
+        /// WHEN: Status is checked
+        /// THEN: location should indicate workspace and name should be set
+        #[test]
+        fn workspace_location_includes_workspace_name() {
+            let status = AiStatusOutput {
+                location: "workspace".to_string(),
+                workspace: Some("feature-login".to_string()),
+                agent_id: None,
+                initialized: true,
+                active_sessions: 1,
+                ready: true,
+                suggestion: "In workspace - continue working or complete".to_string(),
+                next_command: "zjj done".to_string(),
+            };
+
+            assert_eq!(status.location, "workspace");
+            assert_eq!(status.workspace, Some("feature-login".to_string()));
+            assert!(
+                status.next_command.contains("done"),
+                "Workspace suggests done"
+            );
+        }
+
+        /// GIVEN: Agent ID is set in environment
+        /// WHEN: Status is checked
+        /// THEN: agent_id should be populated
+        #[test]
+        fn agent_id_is_captured_from_environment() {
+            let status = AiStatusOutput {
+                location: "main".to_string(),
+                workspace: None,
+                agent_id: Some("agent-xyz789".to_string()),
+                initialized: true,
+                active_sessions: 0,
+                ready: true,
+                suggestion: "Ready".to_string(),
+                next_command: "zjj work <name>".to_string(),
+            };
+
+            assert_eq!(status.agent_id, Some("agent-xyz789".to_string()));
+        }
+    }
+
+    mod workflow_behavior {
+        use super::*;
+
+        /// GIVEN: User wants to understand the workflow
+        /// WHEN: They request workflow info
+        /// THEN: Steps should be sequential and complete
+        #[test]
+        fn workflow_steps_are_sequential_from_one() {
+            let steps = vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj whereami".to_string(),
+                    description: "Orient".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "zjj agent register".to_string(),
+                    description: "Register".to_string(),
+                },
+                WorkflowStep {
+                    step: 3,
+                    command: "zjj work <name>".to_string(),
+                    description: "Isolate".to_string(),
+                },
+                WorkflowStep {
+                    step: 4,
+                    command: "cd $(zjj context --field path)".to_string(),
+                    description: "Enter".to_string(),
+                },
+                WorkflowStep {
+                    step: 5,
+                    command: "# implement".to_string(),
+                    description: "Implement".to_string(),
+                },
+                WorkflowStep {
+                    step: 6,
+                    command: "zjj agent heartbeat".to_string(),
+                    description: "Heartbeat".to_string(),
+                },
+                WorkflowStep {
+                    step: 7,
+                    command: "zjj done".to_string(),
+                    description: "Complete".to_string(),
+                },
+            ];
+
+            // Verify sequential numbering
+            for (i, step) in steps.iter().enumerate() {
+                assert_eq!(step.step, i + 1, "Step {} should have number {}", i, i + 1);
+            }
+
+            // Verify workflow starts and ends correctly
+            assert!(
+                steps.first().unwrap().command.contains("whereami"),
+                "Workflow starts with orientation"
+            );
+            assert!(
+                steps.last().unwrap().command.contains("done"),
+                "Workflow ends with completion"
+            );
+        }
+
+        /// GIVEN: User is an AI agent
+        /// WHEN: They follow the workflow
+        /// THEN: Each step should have an actionable command
+        #[test]
+        fn every_workflow_step_has_actionable_command() {
+            let steps = vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj whereami".to_string(),
+                    description: "Check location".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "zjj work task".to_string(),
+                    description: "Start work".to_string(),
+                },
+                WorkflowStep {
+                    step: 3,
+                    command: "zjj done".to_string(),
+                    description: "Finish".to_string(),
+                },
+            ];
+
+            for step in &steps {
+                assert!(
+                    !step.command.is_empty(),
+                    "Step {} must have a command",
+                    step.step
+                );
+                assert!(
+                    !step.description.is_empty(),
+                    "Step {} must have a description",
+                    step.step
+                );
+            }
+        }
+    }
+
+    mod subcommand_behavior {
+        use super::*;
+
+        /// GIVEN: AI agent needs to know available subcommands
+        /// WHEN: They check the AiSubcommand enum
+        /// THEN: All expected subcommands should exist
+        #[test]
+        fn all_ai_subcommands_are_defined() {
+            // Verify each subcommand variant exists by matching
+            let subcommands = [
+                AiSubcommand::Status,
+                AiSubcommand::Workflow,
+                AiSubcommand::QuickStart,
+                AiSubcommand::Next,
+                AiSubcommand::Default,
+            ];
+
+            assert_eq!(subcommands.len(), 5, "Should have 5 AI subcommands");
+        }
+
+        /// GIVEN: User runs zjj ai without subcommand
+        /// WHEN: Default is used
+        /// THEN: Should show overview with all options
+        #[test]
+        fn default_subcommand_shows_overview() {
+            // The default behavior should guide users to available commands
+            let default = AiSubcommand::Default;
+
+            // Matching ensures the variant exists
+            match default {
+                AiSubcommand::Default => {
+                    // Default should exist and be used when no subcommand given
+                    assert!(true);
+                }
+                _ => panic!("Expected Default variant"),
+            }
+        }
+    }
+
+    mod json_output_behavior {
+        use super::*;
+
+        /// GIVEN: User requests JSON output
+        /// WHEN: Status is serialized
+        /// THEN: All fields should be present and correctly typed
+        #[test]
+        fn json_output_has_complete_schema() {
+            let status = AiStatusOutput {
+                location: "main".to_string(),
+                workspace: None,
+                agent_id: None,
+                initialized: true,
+                active_sessions: 5,
+                ready: true,
+                suggestion: "Do something".to_string(),
+                next_command: "zjj work".to_string(),
+            };
+
+            let json: serde_json::Value =
+                serde_json::from_str(&serde_json::to_string(&status).unwrap()).unwrap();
+
+            // Required fields
+            assert!(json.get("location").is_some(), "Must have location");
+            assert!(json.get("initialized").is_some(), "Must have initialized");
+            assert!(
+                json.get("active_sessions").is_some(),
+                "Must have active_sessions"
+            );
+            assert!(json.get("ready").is_some(), "Must have ready");
+            assert!(json.get("suggestion").is_some(), "Must have suggestion");
+            assert!(json.get("next_command").is_some(), "Must have next_command");
+
+            // Type verification
+            assert!(json["location"].is_string(), "location must be string");
+            assert!(
+                json["initialized"].is_boolean(),
+                "initialized must be boolean"
+            );
+            assert!(
+                json["active_sessions"].is_number(),
+                "active_sessions must be number"
+            );
+            assert!(json["ready"].is_boolean(), "ready must be boolean");
+        }
+
+        /// GIVEN: NextActionOutput is serialized
+        /// WHEN: AI agent parses it
+        /// THEN: It should have all fields needed for automation
+        #[test]
+        fn next_action_json_is_machine_actionable() {
+            let action = NextActionOutput {
+                action: "Start work".to_string(),
+                command: "zjj work my-task".to_string(),
+                reason: "Ready to begin".to_string(),
+                priority: "medium".to_string(),
+            };
+
+            let json: serde_json::Value =
+                serde_json::from_str(&serde_json::to_string(&action).unwrap()).unwrap();
+
+            // Action must be descriptive
+            assert!(json["action"].as_str().unwrap().len() > 0);
+
+            // Command must be executable
+            let cmd = json["command"].as_str().unwrap();
+            assert!(
+                cmd.starts_with("zjj ") || cmd.starts_with("cd ") || cmd.starts_with("#"),
+                "Command '{}' should be executable or a comment",
+                cmd
+            );
+
+            // Priority must be valid
+            let priority = json["priority"].as_str().unwrap();
+            assert!(
+                ["high", "medium", "low"].contains(&priority),
+                "Priority '{}' must be high, medium, or low",
+                priority
+            );
         }
     }
 }

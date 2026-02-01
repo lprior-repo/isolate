@@ -309,8 +309,9 @@ pub fn run_heartbeat(args: &HeartbeatArgs, format: OutputFormat) -> Result<()> {
 }
 
 async fn run_heartbeat_async(args: &HeartbeatArgs, format: OutputFormat) -> Result<()> {
-    let agent_id = std::env::var("ZJJ_AGENT_ID")
-        .map_err(|_| anyhow::anyhow!("No agent registered. Set ZJJ_AGENT_ID or run 'zjj agent register'"))?;
+    let agent_id = std::env::var("ZJJ_AGENT_ID").map_err(|_| {
+        anyhow::anyhow!("No agent registered. Set ZJJ_AGENT_ID or run 'zjj agent register'")
+    })?;
 
     let pool = get_db_pool().await?;
     let now = Utc::now();
@@ -328,7 +329,7 @@ async fn run_heartbeat_async(args: &HeartbeatArgs, format: OutputFormat) -> Resu
         .await
     } else {
         sqlx::query(
-            "UPDATE agents SET last_seen = ?, actions_count = actions_count + 1 WHERE agent_id = ?"
+            "UPDATE agents SET last_seen = ?, actions_count = actions_count + 1 WHERE agent_id = ?",
         )
         .bind(&now_str)
         .bind(&agent_id)
@@ -380,7 +381,15 @@ async fn run_status_async(format: OutputFormat) -> Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!("Failed to query agent: {e}"))?;
 
-        if let Some((agent_id, registered_at, last_seen, current_session, current_command, actions_count)) = row {
+        if let Some((
+            agent_id,
+            registered_at,
+            last_seen,
+            current_session,
+            current_command,
+            actions_count,
+        )) = row
+        {
             let registered_at = parse_timestamp(&registered_at)?;
             let last_seen_dt = parse_timestamp(&last_seen)?;
             let stale = last_seen_dt < cutoff;
@@ -422,7 +431,10 @@ async fn run_status_async(format: OutputFormat) -> Result<()> {
         println!("{}", output.message);
         if let Some(ref agent) = output.agent {
             println!("  Agent ID: {}", agent.agent_id);
-            println!("  Session: {}", agent.current_session.as_deref().unwrap_or("none"));
+            println!(
+                "  Session: {}",
+                agent.current_session.as_deref().unwrap_or("none")
+            );
             println!("  Actions: {}", agent.actions_count);
             println!("  Last seen: {}", agent.last_seen.to_rfc3339());
             println!("  Status: {}", if agent.stale { "STALE" } else { "active" });
@@ -443,7 +455,9 @@ pub fn run_unregister(args: &UnregisterArgs, format: OutputFormat) -> Result<()>
 }
 
 async fn run_unregister_async(args: &UnregisterArgs, format: OutputFormat) -> Result<()> {
-    let agent_id = args.agent_id.clone()
+    let agent_id = args
+        .agent_id
+        .clone()
         .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
         .ok_or_else(|| anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --id"))?;
 

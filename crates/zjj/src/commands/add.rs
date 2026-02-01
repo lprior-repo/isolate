@@ -262,7 +262,8 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
                 zellij_tab: zellij_tab.clone(),
                 status: "[DRY RUN] Would create session".to_string(),
             };
-            let mut envelope = serde_json::to_value(SchemaEnvelope::new("add-response", "single", output))?;
+            let mut envelope =
+                serde_json::to_value(SchemaEnvelope::new("add-response", "single", output))?;
             if let Some(obj) = envelope.as_object_mut() {
                 obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
             }

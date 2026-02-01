@@ -84,8 +84,9 @@ pub fn run(options: &AbortOptions) -> Result<()> {
     let workspace_removed = if options.keep_workspace {
         false
     } else if workspace_path.exists() {
-        std::fs::remove_dir_all(workspace_path)
-            .with_context(|| format!("Failed to remove workspace at {}", workspace_path.display()))?;
+        std::fs::remove_dir_all(workspace_path).with_context(|| {
+            format!("Failed to remove workspace at {}", workspace_path.display())
+        })?;
         true
     } else {
         false
@@ -132,7 +133,8 @@ fn output_dry_run(workspace_name: &str, options: &AbortOptions) -> Result<()> {
     };
 
     if options.format.is_json() {
-        let mut envelope = serde_json::to_value(SchemaEnvelope::new("abort-response", "single", &output))?;
+        let mut envelope =
+            serde_json::to_value(SchemaEnvelope::new("abort-response", "single", &output))?;
         if let Some(obj) = envelope.as_object_mut() {
             obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
         }
@@ -179,8 +181,8 @@ fn update_bead_status_to_ready(session: &crate::session::Session) -> bool {
 fn output_result(output: &AbortOutput, format: OutputFormat) -> Result<()> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("abort-response", "single", output);
-        let json_str = serde_json::to_string_pretty(&envelope)
-            .context("Failed to serialize abort output")?;
+        let json_str =
+            serde_json::to_string_pretty(&envelope).context("Failed to serialize abort output")?;
         println!("{json_str}");
     } else {
         println!("{}", output.message);

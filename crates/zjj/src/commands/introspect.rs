@@ -1312,13 +1312,11 @@ pub fn run_workflows(format: OutputFormat) -> Result<()> {
         WorkflowPattern {
             name: "Sync All Workspaces".to_string(),
             description: "Keep all workspaces up to date".to_string(),
-            steps: vec![
-                WorkflowStep {
-                    step: 1,
-                    command: "zjj sync --all".to_string(),
-                    description: "Sync all active sessions with main".to_string(),
-                },
-            ],
+            steps: vec![WorkflowStep {
+                step: 1,
+                command: "zjj sync --all".to_string(),
+                description: "Sync all active sessions with main".to_string(),
+            }],
         },
     ];
 
@@ -1722,7 +1720,10 @@ pub fn run_session_states(format: OutputFormat) -> Result<()> {
         },
     ];
 
-    let output = SessionStatesOutput { states, transitions };
+    let output = SessionStatesOutput {
+        states,
+        transitions,
+    };
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("introspect-session-states-response", "single", output);
@@ -1851,7 +1852,10 @@ mod tests {
 
         assert!(workflow["name"].is_string());
         assert!(workflow["steps"].is_array());
-        assert!(workflow["steps"].as_array().map(|a| a.len() >= 2).unwrap_or(false));
+        assert!(workflow["steps"]
+            .as_array()
+            .map(|a| a.len() >= 2)
+            .unwrap_or(false));
     }
 
     /// Test workflows contains minimal workflow
@@ -1916,7 +1920,9 @@ mod tests {
             ("aborting", vec!["aborted", "failed"]),
             ("aborted", vec![]),
             ("failed", vec!["active"]), // can retry
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
 
         // Verify all states have defined transitions
         assert!(transitions.contains_key("pending"));

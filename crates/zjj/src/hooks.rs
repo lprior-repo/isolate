@@ -2,9 +2,10 @@
 //!
 //! Provides --on-success and --on-failure hooks for command execution.
 
+use std::process::Command;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 
 /// Hook configuration
 #[derive(Debug, Clone, Default)]
@@ -54,7 +55,9 @@ impl HooksConfig {
             ("on_failure", &self.on_failure)
         };
 
-        hook_cmd.as_ref().map(|cmd| run_hook_command(hook_name, cmd))
+        hook_cmd
+            .as_ref()
+            .map(|cmd| run_hook_command(hook_name, cmd))
     }
 }
 
@@ -62,13 +65,9 @@ impl HooksConfig {
 fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
     // Run the command through the shell
     let result = if cfg!(target_os = "windows") {
-        Command::new("cmd")
-            .args(["/C", command])
-            .output()
+        Command::new("cmd").args(["/C", command]).output()
     } else {
-        Command::new("sh")
-            .args(["-c", command])
-            .output()
+        Command::new("sh").args(["-c", command]).output()
     };
 
     match result {
@@ -81,7 +80,11 @@ fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     hook: hook_name.to_string(),
                     success: true,
                     command: command.to_string(),
-                    output: if stdout.is_empty() { None } else { Some(stdout) },
+                    output: if stdout.is_empty() {
+                        None
+                    } else {
+                        Some(stdout)
+                    },
                     error: None,
                 }
             } else {
@@ -89,9 +92,16 @@ fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     hook: hook_name.to_string(),
                     success: false,
                     command: command.to_string(),
-                    output: if stdout.is_empty() { None } else { Some(stdout) },
+                    output: if stdout.is_empty() {
+                        None
+                    } else {
+                        Some(stdout)
+                    },
                     error: Some(if stderr.is_empty() {
-                        format!("Hook exited with code: {}", output.status.code().unwrap_or(-1))
+                        format!(
+                            "Hook exited with code: {}",
+                            output.status.code().unwrap_or(-1)
+                        )
                     } else {
                         stderr
                     }),

@@ -496,15 +496,17 @@ Self::JjCommandError {
         match self {
             Self::ValidationError(msg) => {
                 if msg.contains("name") || msg.contains("session") {
-                    vec![ValidationHint::new("session_name", "alphanumeric with dashes/underscores")
-                        .with_example("feature-auth")
-                        .with_pattern("^[a-zA-Z][a-zA-Z0-9_-]*$")]
+                    vec![ValidationHint::new(
+                        "session_name",
+                        "alphanumeric with dashes/underscores",
+                    )
+                    .with_example("feature-auth")
+                    .with_pattern("^[a-zA-Z][a-zA-Z0-9_-]*$")]
                 } else if msg.contains("empty") {
                     vec![ValidationHint::new("input", "non-empty value")
                         .with_received("(empty string)")]
                 } else {
-                    vec![ValidationHint::new("input", "valid value")
-                        .with_received(msg.clone())]
+                    vec![ValidationHint::new("input", "valid value").with_received(msg.clone())]
                 }
             }
             Self::InvalidConfig(msg) => {
@@ -522,8 +524,7 @@ Self::JjCommandError {
                         .with_example("key = \"value\"")
                         .with_received(msg.clone())]
                 } else {
-                    vec![ValidationHint::new("input", "parseable format")
-                        .with_received(msg.clone())]
+                    vec![ValidationHint::new("input", "parseable format").with_received(msg.clone())]
                 }
             }
             Self::SessionLocked { session, holder } => {
@@ -546,10 +547,7 @@ Self::JjCommandError {
         match self {
             Self::NotFound(msg) => {
                 if msg.contains("session") {
-                    vec![
-                        "zjj list".to_string(),
-                        "zjj add <session-name>".to_string(),
-                    ]
+                    vec!["zjj list".to_string(), "zjj add <session-name>".to_string()]
                 } else {
                     vec!["zjj list".to_string()]
                 }
@@ -562,23 +560,23 @@ Self::JjCommandError {
                 }
             }
             Self::DatabaseError(_) => {
-                vec![
-                    "zjj doctor".to_string(),
-                    "zjj doctor --fix".to_string(),
-                ]
+                vec!["zjj doctor".to_string(), "zjj doctor --fix".to_string()]
             }
-            Self::JjCommandError { is_not_found: true, .. } => {
+            Self::JjCommandError {
+                is_not_found: true, ..
+            } => {
                 vec![
                     "cargo install jj-cli".to_string(),
                     "brew install jj".to_string(),
                 ]
             }
-            Self::JjCommandError { is_not_found: false, operation, .. } => {
+            Self::JjCommandError {
+                is_not_found: false,
+                operation,
+                ..
+            } => {
                 if operation.contains("workspace") {
-                    vec![
-                        "jj workspace list".to_string(),
-                        "zjj doctor".to_string(),
-                    ]
+                    vec!["jj workspace list".to_string(), "zjj doctor".to_string()]
                 } else {
                     vec!["jj status".to_string()]
                 }
@@ -881,22 +879,19 @@ mod tests {
 
     #[test]
     fn test_validation_hint_with_received() {
-        let hint = ValidationHint::new("input", "non-empty")
-            .with_received("(empty)");
+        let hint = ValidationHint::new("input", "non-empty").with_received("(empty)");
         assert_eq!(hint.received, Some("(empty)".to_string()));
     }
 
     #[test]
     fn test_validation_hint_with_example() {
-        let hint = ValidationHint::new("session_name", "valid name")
-            .with_example("feature-auth");
+        let hint = ValidationHint::new("session_name", "valid name").with_example("feature-auth");
         assert_eq!(hint.example, Some("feature-auth".to_string()));
     }
 
     #[test]
     fn test_validation_hint_with_pattern() {
-        let hint = ValidationHint::new("name", "valid pattern")
-            .with_pattern("^[a-z]+$");
+        let hint = ValidationHint::new("name", "valid pattern").with_pattern("^[a-z]+$");
         assert_eq!(hint.pattern, Some("^[a-z]+$".to_string()));
     }
 
@@ -952,30 +947,29 @@ mod tests {
 
     #[test]
     fn test_failure_context_with_working_directory() {
-        let ctx = FailureContext::new()
-            .with_working_directory("/home/user/project");
-        assert_eq!(ctx.working_directory, Some("/home/user/project".to_string()));
+        let ctx = FailureContext::new().with_working_directory("/home/user/project");
+        assert_eq!(
+            ctx.working_directory,
+            Some("/home/user/project".to_string())
+        );
     }
 
     #[test]
     fn test_failure_context_with_workspace() {
-        let ctx = FailureContext::new()
-            .with_workspace("feature-branch");
+        let ctx = FailureContext::new().with_workspace("feature-branch");
         assert_eq!(ctx.current_workspace, Some("feature-branch".to_string()));
     }
 
     #[test]
     fn test_failure_context_with_command() {
-        let ctx = FailureContext::new()
-            .with_command("zjj add", vec!["test-session".to_string()]);
+        let ctx = FailureContext::new().with_command("zjj add", vec!["test-session".to_string()]);
         assert_eq!(ctx.command, Some("zjj add".to_string()));
         assert_eq!(ctx.arguments, vec!["test-session"]);
     }
 
     #[test]
     fn test_failure_context_with_phase() {
-        let ctx = FailureContext::new()
-            .with_phase("workspace_creation");
+        let ctx = FailureContext::new().with_phase("workspace_creation");
         assert_eq!(ctx.phase, Some("workspace_creation".to_string()));
     }
 
@@ -1064,10 +1058,8 @@ mod tests {
     #[test]
     fn test_rich_error_with_context() {
         let err = Error::ValidationError("invalid".into());
-        let ctx = FailureContext::new()
-            .with_working_directory("/tmp");
-        let rich = RichError::from_error(&err)
-            .with_context(ctx);
+        let ctx = FailureContext::new().with_working_directory("/tmp");
+        let rich = RichError::from_error(&err).with_context(ctx);
 
         assert!(rich.context_at_failure.is_some());
     }
@@ -1075,11 +1067,8 @@ mod tests {
     #[test]
     fn test_rich_error_with_validation_hints() {
         let err = Error::ValidationError("invalid name".into());
-        let additional_hints = vec![
-            ValidationHint::new("extra", "extra hint"),
-        ];
-        let rich = RichError::from_error(&err)
-            .with_validation_hints(additional_hints);
+        let additional_hints = vec![ValidationHint::new("extra", "extra hint")];
+        let rich = RichError::from_error(&err).with_validation_hints(additional_hints);
 
         assert!(rich.validation_hints.len() > 1);
     }
@@ -1087,8 +1076,7 @@ mod tests {
     #[test]
     fn test_rich_error_with_fix_commands() {
         let err = Error::Unknown("unknown".into());
-        let rich = RichError::from_error(&err)
-            .with_fix_commands(vec!["zjj doctor".to_string()]);
+        let rich = RichError::from_error(&err).with_fix_commands(vec!["zjj doctor".to_string()]);
 
         assert_eq!(rich.fix_commands, vec!["zjj doctor"]);
     }
@@ -1116,8 +1104,7 @@ mod tests {
     #[test]
     fn test_error_to_rich_error_with_context() {
         let err = Error::IoError("failed".into());
-        let ctx = FailureContext::new()
-            .with_phase("file_read");
+        let ctx = FailureContext::new().with_phase("file_read");
         let rich = err.to_rich_error_with_context(ctx);
 
         assert!(rich.context_at_failure.is_some());

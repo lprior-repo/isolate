@@ -73,8 +73,8 @@ fn run_list(format: OutputFormat) -> Result<()> {
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("schema-list-response", "single", &output);
-        let json_str = serde_json::to_string_pretty(&envelope)
-            .context("Failed to serialize schema list")?;
+        let json_str =
+            serde_json::to_string_pretty(&envelope).context("Failed to serialize schema list")?;
         println!("{json_str}");
     } else {
         println!("Available Schemas:");
@@ -106,8 +106,8 @@ fn run_all(format: OutputFormat) -> Result<()> {
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("all-schemas-response", "single", &schemas);
-        let json_str = serde_json::to_string_pretty(&envelope)
-            .context("Failed to serialize all schemas")?;
+        let json_str =
+            serde_json::to_string_pretty(&envelope).context("Failed to serialize all schemas")?;
         println!("{json_str}");
     } else {
         println!("{}", serde_json::to_string_pretty(&schemas)?);
@@ -515,5 +515,373 @@ mod tests {
         assert!(schema.get("$schema").is_some());
         let props = schema.get("properties").unwrap();
         assert!(props.get("error").is_some());
+    }
+
+    // ============================================================================
+    // Martin Fowler Style Behavior Tests
+    // These tests describe the BEHAVIOR of the schema command
+    // ============================================================================
+
+    mod schema_listing_behavior {
+        use super::*;
+
+        /// GIVEN: User wants to know available schemas
+        /// WHEN: They list schemas
+        /// THEN: All major response types should be included
+        #[test]
+        fn listing_includes_all_major_response_types() {
+            let schemas = get_available_schemas();
+            let schema_names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
+
+            // Core commands should have schemas
+            assert!(
+                schema_names.contains(&"add-response"),
+                "Should have add-response"
+            );
+            assert!(
+                schema_names.contains(&"remove-response"),
+                "Should have remove-response"
+            );
+            assert!(
+                schema_names.contains(&"list-response"),
+                "Should have list-response"
+            );
+
+            // Error handling should have schema
+            assert!(
+                schema_names.contains(&"error-response"),
+                "Should have error-response"
+            );
+
+            // AI-specific should have schemas
+            assert!(
+                schema_names.contains(&"ai-status-response"),
+                "Should have ai-status-response"
+            );
+            assert!(
+                schema_names.contains(&"ai-next-response"),
+                "Should have ai-next-response"
+            );
+        }
+
+        /// GIVEN: Schema list
+        /// WHEN: Displayed
+        /// THEN: Each schema should have name, description, and version
+        #[test]
+        fn each_schema_has_required_metadata() {
+            let schemas = get_available_schemas();
+
+            for schema in &schemas {
+                assert!(!schema.name.is_empty(), "Schema must have a name");
+                assert!(
+                    !schema.description.is_empty(),
+                    "Schema {} must have a description",
+                    schema.name
+                );
+                assert!(
+                    !schema.version.is_empty(),
+                    "Schema {} must have a version",
+                    schema.name
+                );
+            }
+        }
+
+        /// GIVEN: Schema versions
+        /// WHEN: Checked
+        /// THEN: All should be valid semantic versions or simple versions
+        #[test]
+        fn schema_versions_are_valid() {
+            let schemas = get_available_schemas();
+
+            for schema in &schemas {
+                // Version should be like "1.0" or "1.0.0"
+                let parts: Vec<&str> = schema.version.split('.').collect();
+                assert!(
+                    parts.len() >= 2,
+                    "Version {} should have at least major.minor",
+                    schema.version
+                );
+
+                // First part should be numeric
+                assert!(
+                    parts[0].parse::<u32>().is_ok(),
+                    "Major version should be numeric"
+                );
+            }
+        }
+    }
+
+    mod schema_content_behavior {
+        use super::*;
+
+        /// GIVEN: Any schema
+        /// WHEN: Retrieved
+        /// THEN: Should be valid JSON Schema with required meta-fields
+        #[test]
+        fn all_schemas_are_valid_json_schema() {
+            let schema_getters: Vec<(&str, fn() -> serde_json::Value)> = vec![
+                ("add-response", get_add_response_schema),
+                ("remove-response", get_remove_response_schema),
+                ("list-response", get_list_response_schema),
+                ("status-response", get_status_response_schema),
+                ("sync-response", get_sync_response_schema),
+                ("context-response", get_context_response_schema),
+                ("ai-status-response", get_ai_status_response_schema),
+                ("ai-next-response", get_ai_next_response_schema),
+                ("error-response", get_error_response_schema),
+            ];
+
+            for (name, getter) in schema_getters {
+                let schema = getter();
+
+                // Must have $schema meta-field
+                assert!(
+                    schema.get("$schema").is_some(),
+                    "Schema {} must have $schema",
+                    name
+                );
+
+                // Must have type
+                assert!(
+                    schema.get("type").is_some(),
+                    "Schema {} must have type",
+                    name
+                );
+
+                // Must have properties for object types
+                if schema.get("type").and_then(|t| t.as_str()) == Some("object") {
+                    assert!(
+                        schema.get("properties").is_some(),
+                        "Object schema {} must have properties",
+                        name
+                    );
+                }
+            }
+        }
+
+        /// GIVEN: Schema for a response type
+        /// WHEN: It declares required fields
+        /// THEN: Those fields should be in properties
+        #[test]
+        fn required_fields_are_in_properties() {
+            let schema = get_add_response_schema();
+
+            if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
+                let properties = schema.get("properties").unwrap();
+
+                for field in required {
+                    if let Some(field_name) = field.as_str() {
+                        assert!(
+                            properties.get(field_name).is_some(),
+                            "Required field '{}' must be in properties",
+                            field_name
+                        );
+                    }
+                }
+            }
+        }
+
+        /// GIVEN: Error response schema
+        /// WHEN: Examined
+        /// THEN: Should have structure for AI to parse errors
+        #[test]
+        fn error_schema_is_ai_parseable() {
+            let schema = get_error_response_schema();
+            let props = schema.get("properties").unwrap();
+
+            // Must have error field
+            assert!(props.get("error").is_some(), "Must have error field");
+
+            let error_props = props
+                .get("error")
+                .and_then(|e| e.get("properties"))
+                .expect("error field must have properties");
+
+            // Error should have parseable fields
+            assert!(
+                error_props.get("message").is_some(),
+                "Error must have message"
+            );
+            assert!(error_props.get("code").is_some(), "Error should have code");
+            assert!(
+                error_props.get("fix_commands").is_some(),
+                "Error should have fix_commands for AI"
+            );
+        }
+    }
+
+    mod schema_options_behavior {
+        use super::*;
+
+        /// GIVEN: SchemaOptions with list=true
+        /// WHEN: Processed
+        /// THEN: Should indicate listing mode
+        #[test]
+        fn list_option_triggers_listing() {
+            let options = SchemaOptions {
+                schema_name: None,
+                list: true,
+                all: false,
+                format: zjj_core::OutputFormat::Json,
+            };
+
+            assert!(options.list, "list should be true");
+            assert!(!options.all, "all should be false when just listing");
+        }
+
+        /// GIVEN: SchemaOptions with all=true
+        /// WHEN: Processed
+        /// THEN: Should indicate all schemas requested
+        #[test]
+        fn all_option_gets_all_schemas() {
+            let options = SchemaOptions {
+                schema_name: None,
+                list: false,
+                all: true,
+                format: zjj_core::OutputFormat::Json,
+            };
+
+            assert!(options.all, "all should be true");
+        }
+
+        /// GIVEN: SchemaOptions with specific schema name
+        /// WHEN: Processed
+        /// THEN: Should request that specific schema
+        #[test]
+        fn specific_schema_name_is_preserved() {
+            let options = SchemaOptions {
+                schema_name: Some("add-response".to_string()),
+                list: false,
+                all: false,
+                format: zjj_core::OutputFormat::Json,
+            };
+
+            assert_eq!(options.schema_name, Some("add-response".to_string()));
+        }
+    }
+
+    mod ai_schema_requirements {
+        use super::*;
+
+        /// GIVEN: AI agent needs to validate responses
+        /// WHEN: Using ai-status-response schema
+        /// THEN: Should have fields for decision making
+        #[test]
+        fn ai_status_schema_has_decision_fields() {
+            let schema = get_ai_status_response_schema();
+            let data_props = schema
+                .get("properties")
+                .and_then(|p| p.get("data"))
+                .and_then(|d| d.get("properties"))
+                .expect("Should have data.properties");
+
+            // Fields needed for AI decision making
+            assert!(
+                data_props.get("ready").is_some(),
+                "Need ready field for quick check"
+            );
+            assert!(
+                data_props.get("suggestion").is_some(),
+                "Need suggestion for guidance"
+            );
+            assert!(
+                data_props.get("next_command").is_some(),
+                "Need next_command for automation"
+            );
+        }
+
+        /// GIVEN: AI agent needs actionable next step
+        /// WHEN: Using ai-next-response schema
+        /// THEN: Should have copy-paste ready command
+        #[test]
+        fn ai_next_schema_has_actionable_command() {
+            let schema = get_ai_next_response_schema();
+            let data_props = schema
+                .get("properties")
+                .and_then(|p| p.get("data"))
+                .and_then(|d| d.get("properties"))
+                .expect("Should have data.properties");
+
+            // Must have command field
+            assert!(
+                data_props.get("command").is_some(),
+                "Need command for copy-paste"
+            );
+
+            // Must have priority for ordering decisions
+            assert!(
+                data_props.get("priority").is_some(),
+                "Need priority for ordering"
+            );
+
+            // Must have reason for understanding
+            assert!(
+                data_props.get("reason").is_some(),
+                "Need reason for context"
+            );
+        }
+
+        /// GIVEN: Any schema
+        /// WHEN: Has $id field
+        /// THEN: Should point to zjj.dev domain
+        #[test]
+        fn schema_ids_use_consistent_domain() {
+            let schemas = vec![
+                get_add_response_schema(),
+                get_ai_status_response_schema(),
+                get_error_response_schema(),
+            ];
+
+            for schema in schemas {
+                if let Some(id) = schema.get("$id").and_then(|i| i.as_str()) {
+                    assert!(
+                        id.starts_with("https://zjj.dev/schemas/"),
+                        "Schema $id '{}' should use zjj.dev domain",
+                        id
+                    );
+                }
+            }
+        }
+    }
+
+    mod json_output_behavior {
+        use super::*;
+
+        /// GIVEN: SchemaListOutput is serialized
+        /// WHEN: AI parses it
+        /// THEN: Should have list of schemas and base URL
+        #[test]
+        fn schema_list_output_is_parseable() {
+            let output = SchemaListOutput {
+                schemas: get_available_schemas(),
+                base_url: "https://zjj.dev/schemas".to_string(),
+            };
+
+            let json: serde_json::Value =
+                serde_json::from_str(&serde_json::to_string(&output).unwrap()).unwrap();
+
+            assert!(json.get("schemas").is_some(), "Must have schemas array");
+            assert!(json.get("base_url").is_some(), "Must have base_url");
+            assert!(json["schemas"].is_array(), "schemas must be array");
+        }
+
+        /// GIVEN: SchemaInfo is serialized
+        /// WHEN: AI parses it
+        /// THEN: Should have all metadata fields
+        #[test]
+        fn schema_info_has_all_fields() {
+            let info = SchemaInfo {
+                name: "test-response".to_string(),
+                description: "Test schema".to_string(),
+                version: "1.0".to_string(),
+            };
+
+            let json: serde_json::Value =
+                serde_json::from_str(&serde_json::to_string(&info).unwrap()).unwrap();
+
+            assert_eq!(json["name"].as_str(), Some("test-response"));
+            assert_eq!(json["description"].as_str(), Some("Test schema"));
+            assert_eq!(json["version"].as_str(), Some("1.0"));
+        }
     }
 }

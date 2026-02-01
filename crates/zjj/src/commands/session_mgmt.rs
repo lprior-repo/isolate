@@ -6,8 +6,10 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use zjj_core::{OutputFormat, SchemaEnvelope};
 
-use crate::commands::get_session_db;
-use crate::session::{SessionStatus, SessionUpdate};
+use crate::{
+    commands::get_session_db,
+    session::{SessionStatus, SessionUpdate},
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAUSE
@@ -107,7 +109,10 @@ pub fn run_resume(options: &ResumeOptions) -> Result<()> {
             success: false,
             session: options.session.clone(),
             status: session.status.to_string(),
-            error: Some(format!("Session is not paused (status: {})", session.status)),
+            error: Some(format!(
+                "Session is not paused (status: {})",
+                session.status
+            )),
         };
 
         if options.format.is_json() {
@@ -192,7 +197,10 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
             target: options.target.clone(),
             dry_run: options.dry_run,
             workspace_path: None,
-            error: Some(format!("Target session '{}' already exists", options.target)),
+            error: Some(format!(
+                "Target session '{}' already exists",
+                options.target
+            )),
         };
 
         if options.format.is_json() {
@@ -218,7 +226,10 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
             let envelope = SchemaEnvelope::new("clone-response", "single", &result);
             println!("{}", serde_json::to_string_pretty(&envelope)?);
         } else {
-            println!("[dry-run] Would clone '{}' to '{}'", options.source, options.target);
+            println!(
+                "[dry-run] Would clone '{}' to '{}'",
+                options.source, options.target
+            );
         }
         return Ok(());
     }
@@ -237,7 +248,10 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
                 .output()?;
 
             if !output.status.success() {
-                anyhow::bail!("Failed to create workspace: {}", String::from_utf8_lossy(&output.stderr));
+                anyhow::bail!(
+                    "Failed to create workspace: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
             }
         }
 

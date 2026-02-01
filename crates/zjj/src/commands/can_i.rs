@@ -474,7 +474,13 @@ fn check_can_claim(resource: Option<&str>) -> Result<CanIResult> {
         let locks_dir = super::zjj_data_dir().map(|d| d.join("locks")).ok();
         let safe_name: String = res
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         let lock_path = locks_dir.map(|d| d.join(format!("{safe_name}.lock")));
         lock_path.map(|p| !p.exists()).unwrap_or(true)

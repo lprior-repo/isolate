@@ -98,12 +98,10 @@ pub fn run(options: &WorkOptions) -> Result<()> {
     // Check if session already exists
     let data_dir = root.join(".zjj");
     let db_path = data_dir.join("state.db");
-    let session_db = SessionDb::open_blocking(&db_path).context("Failed to open session database")?;
+    let session_db =
+        SessionDb::open_blocking(&db_path).context("Failed to open session database")?;
 
-    let existing = session_db
-        .get_blocking(&options.name)
-        .ok()
-        .flatten();
+    let existing = session_db.get_blocking(&options.name).ok().flatten();
 
     if existing.is_some() {
         if options.idempotent {
@@ -150,7 +148,12 @@ pub fn run(options: &WorkOptions) -> Result<()> {
         created: true,
         agent_id: agent_id.clone(),
         bead_id: options.bead_id.clone(),
-        env_vars: build_env_vars(&options.name, &workspace_path, agent_id.as_deref(), options.bead_id.as_deref()),
+        env_vars: build_env_vars(
+            &options.name,
+            &workspace_path,
+            agent_id.as_deref(),
+            options.bead_id.as_deref(),
+        ),
         enter_command: format!("cd {}", workspace_path.display()),
     };
 
@@ -174,7 +177,12 @@ fn output_existing_workspace(root: &PathBuf, name: &str, options: &WorkOptions) 
         created: false,
         agent_id: agent_id.clone(),
         bead_id: options.bead_id.clone(),
-        env_vars: build_env_vars(name, &workspace_path, agent_id.as_deref(), options.bead_id.as_deref()),
+        env_vars: build_env_vars(
+            name,
+            &workspace_path,
+            agent_id.as_deref(),
+            options.bead_id.as_deref(),
+        ),
         enter_command: format!("cd {}", workspace_path.display()),
     };
 
@@ -217,7 +225,8 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
     };
 
     if options.format.is_json() {
-        let mut envelope = serde_json::to_value(SchemaEnvelope::new("work-response", "single", &output))?;
+        let mut envelope =
+            serde_json::to_value(SchemaEnvelope::new("work-response", "single", &output))?;
         if let Some(obj) = envelope.as_object_mut() {
             obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
         }
@@ -279,8 +288,8 @@ fn build_env_vars(
 fn output_result(output: &WorkOutput, format: OutputFormat) -> Result<()> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("work-response", "single", output);
-        let json_str = serde_json::to_string_pretty(&envelope)
-            .context("Failed to serialize work output")?;
+        let json_str =
+            serde_json::to_string_pretty(&envelope).context("Failed to serialize work output")?;
         println!("{json_str}");
     } else {
         if output.created {
@@ -329,12 +338,10 @@ mod tests {
             created: true,
             agent_id: Some("agent-12345".to_string()),
             bead_id: Some("zjj-abc12".to_string()),
-            env_vars: vec![
-                EnvVar {
-                    name: "ZJJ_SESSION".to_string(),
-                    value: "test-session".to_string(),
-                },
-            ],
+            env_vars: vec![EnvVar {
+                name: "ZJJ_SESSION".to_string(),
+                value: "test-session".to_string(),
+            }],
             enter_command: "cd /path/to/.zjj/workspaces/test-session".to_string(),
         };
 

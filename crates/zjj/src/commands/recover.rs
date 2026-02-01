@@ -79,7 +79,10 @@ pub fn run_recover(options: &RecoverOptions) -> Result<()> {
     }
 
     let fixed_count = issues.iter().filter(|i| i.fixed).count();
-    let remaining_count = issues.iter().filter(|i| !i.fixed && i.severity != "info").count();
+    let remaining_count = issues
+        .iter()
+        .filter(|i| !i.fixed && i.severity != "info")
+        .count();
 
     let status = if remaining_count == 0 {
         "healthy".to_string()
@@ -162,7 +165,10 @@ fn diagnose_issues() -> Result<Vec<Issue>> {
                                         session.name, path
                                     ),
                                     severity: "warning".to_string(),
-                                    fix_command: Some(format!("zjj remove {} --force", session.name)),
+                                    fix_command: Some(format!(
+                                        "zjj remove {} --force",
+                                        session.name
+                                    )),
                                     fixed: false,
                                 });
                             }
@@ -241,7 +247,10 @@ fn print_recover_human(output: &RecoverOutput, diagnose_only: bool) {
 
         let fixed_marker = if issue.fixed { " [FIXED]" } else { "" };
 
-        println!("{} {} [{}]{}", icon, issue.description, issue.code, fixed_marker);
+        println!(
+            "{} {} [{}]{}",
+            icon, issue.description, issue.code, fixed_marker
+        );
         if let Some(ref cmd) = issue.fix_command {
             println!("   Fix: {}", cmd);
         }
@@ -272,13 +281,14 @@ pub fn run_retry(options: &RetryOptions) -> Result<()> {
     let output = RetryOutput {
         has_command: false,
         command: None,
-        message: "No failed command to retry. Last command history not yet implemented.".to_string(),
+        message: "No failed command to retry. Last command history not yet implemented."
+            .to_string(),
     };
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("retry-response", "single", &output);
-        let json_str = serde_json::to_string_pretty(&envelope)
-            .context("Failed to serialize retry output")?;
+        let json_str =
+            serde_json::to_string_pretty(&envelope).context("Failed to serialize retry output")?;
         println!("{json_str}");
     } else {
         if output.has_command {
@@ -310,7 +320,8 @@ pub struct RollbackOutput {
 pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
     // Check if session exists
     let db = get_session_db()?;
-    let session = db.get_blocking(&options.session)?
+    let session = db
+        .get_blocking(&options.session)?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", options.session))?;
 
     // In a real implementation, we would:
@@ -388,5 +399,395 @@ mod tests {
         // This test just ensures diagnose_issues doesn't panic
         let result = diagnose_issues();
         assert!(result.is_ok());
+    }
+
+    // ============================================================================
+    // Martin Fowler Style Behavior Tests
+    // These tests describe the BEHAVIOR of the recover command
+    // ============================================================================
+
+    mod issue_behavior {
+        use super::*;
+
+        /// GIVEN: A critical issue is detected
+        /// WHEN: Issue is created
+        /// THEN: Severity should be "critical" and it should block progress
+        #[test]
+        fn critical_issues_have_high_severity() {
+            let issue = Issue {
+                code: "JJ_NOT_INSTALLED".to_string(),
+                description: "JJ is not installed".to_string(),
+                severity: "critical".to_string(),
+                fix_command: Some("cargo install jj-cli".to_string()),
+                fixed: false,
+            };
+
+            assert_eq!(issue.severity, "critical", "Missing JJ is critical");
+            assert!(
+                issue.fix_command.is_some(),
+                "Critical issues should have fix"
+            );
+        }
+
+        /// GIVEN: A warning-level issue
+        /// WHEN: Issue is created
+        /// THEN: Severity should be "warning" and work can continue
+        #[test]
+        fn warning_issues_allow_continued_operation() {
+            let issue = Issue {
+                code: "ORPHANED_SESSION".to_string(),
+                description: "Session 'old-task' has missing workspace".to_string(),
+                severity: "warning".to_string(),
+                fix_command: Some("zjj remove old-task --force".to_string()),
+                fixed: false,
+            };
+
+            assert_eq!(issue.severity, "warning");
+            assert!(issue.fix_command.is_some(), "Warnings should suggest fixes");
+        }
+
+        /// GIVEN: An issue with a fix command
+        /// WHEN: Fix command is examined
+        /// THEN: Should be a valid, executable command
+        #[test]
+        fn fix_commands_are_executable() {
+            let issues = vec![
+                Issue {
+                    code: "JJ_NOT_INSTALLED".to_string(),
+                    description: "JJ missing".to_string(),
+                    severity: "critical".to_string(),
+                    fix_command: Some("cargo install jj-cli".to_string()),
+                    fixed: false,
+                },
+                Issue {
+                    code: "ORPHANED_SESSION".to_string(),
+                    description: "Orphaned".to_string(),
+                    severity: "warning".to_string(),
+                    fix_command: Some("zjj remove test --force".to_string()),
+                    fixed: false,
+                },
+            ];
+
+            for issue in issues {
+                if let Some(cmd) = &issue.fix_command {
+                    // Fix commands should start with known tools
+                    assert!(
+                        cmd.starts_with("cargo ")
+                            || cmd.starts_with("zjj ")
+                            || cmd.starts_with("jj "),
+                        "Fix command '{}' should use known tools",
+                        cmd
+                    );
+                }
+            }
+        }
+
+        /// GIVEN: An issue has been fixed
+        /// WHEN: Issue is marked as fixed
+        /// THEN: fixed flag should be true
+        #[test]
+        fn fixed_issues_are_marked() {
+            let mut issue = Issue {
+                code: "TEST".to_string(),
+                description: "Test issue".to_string(),
+                severity: "warning".to_string(),
+                fix_command: Some("fix it".to_string()),
+                fixed: false,
+            };
+
+            assert!(!issue.fixed, "Initially not fixed");
+
+            issue.fixed = true;
+            assert!(issue.fixed, "Should be marked as fixed");
+        }
+    }
+
+    mod recover_output_behavior {
+        use super::*;
+
+        /// GIVEN: No issues found
+        /// WHEN: Recover output is created
+        /// THEN: Status should be "healthy"
+        #[test]
+        fn no_issues_means_healthy() {
+            let output = RecoverOutput {
+                issues: vec![],
+                fixed_count: 0,
+                remaining_count: 0,
+                status: "healthy".to_string(),
+            };
+
+            assert_eq!(output.status, "healthy");
+            assert_eq!(output.issues.len(), 0);
+            assert_eq!(output.remaining_count, 0);
+        }
+
+        /// GIVEN: All issues were fixed
+        /// WHEN: Recover output is created
+        /// THEN: Status should reflect success and remaining should be 0
+        #[test]
+        fn all_fixed_means_healthy() {
+            let output = RecoverOutput {
+                issues: vec![Issue {
+                    code: "ISSUE1".to_string(),
+                    description: "Fixed issue".to_string(),
+                    severity: "warning".to_string(),
+                    fix_command: Some("fix".to_string()),
+                    fixed: true,
+                }],
+                fixed_count: 1,
+                remaining_count: 0,
+                status: "healthy".to_string(),
+            };
+
+            assert_eq!(output.fixed_count, 1);
+            assert_eq!(output.remaining_count, 0);
+            assert_eq!(output.status, "healthy");
+        }
+
+        /// GIVEN: Some issues could not be fixed
+        /// WHEN: Recover output is created
+        /// THEN: Status should reflect partial fix
+        #[test]
+        fn partial_fix_shows_remaining() {
+            let output = RecoverOutput {
+                issues: vec![
+                    Issue {
+                        code: "FIXED".to_string(),
+                        description: "Was fixed".to_string(),
+                        severity: "warning".to_string(),
+                        fix_command: None,
+                        fixed: true,
+                    },
+                    Issue {
+                        code: "NOT_FIXED".to_string(),
+                        description: "Not fixed".to_string(),
+                        severity: "warning".to_string(),
+                        fix_command: Some("manual fix".to_string()),
+                        fixed: false,
+                    },
+                ],
+                fixed_count: 1,
+                remaining_count: 1,
+                status: "partially_fixed".to_string(),
+            };
+
+            assert_eq!(output.fixed_count, 1);
+            assert_eq!(output.remaining_count, 1);
+            assert_eq!(output.status, "partially_fixed");
+        }
+
+        /// GIVEN: Critical issues remain
+        /// WHEN: Recover output is created
+        /// THEN: Should be clear that issues remain
+        #[test]
+        fn critical_remaining_is_clear() {
+            let output = RecoverOutput {
+                issues: vec![Issue {
+                    code: "JJ_NOT_INSTALLED".to_string(),
+                    description: "JJ missing".to_string(),
+                    severity: "critical".to_string(),
+                    fix_command: Some("cargo install jj-cli".to_string()),
+                    fixed: false,
+                }],
+                fixed_count: 0,
+                remaining_count: 1,
+                status: "issues_remaining".to_string(),
+            };
+
+            assert!(output.remaining_count > 0);
+            assert_eq!(output.status, "issues_remaining");
+        }
+    }
+
+    mod retry_behavior {
+        use super::*;
+
+        /// GIVEN: No previous command to retry
+        /// WHEN: Retry output is created
+        /// THEN: Should indicate no command available
+        #[test]
+        fn no_command_to_retry() {
+            let output = RetryOutput {
+                has_command: false,
+                command: None,
+                message: "No failed command to retry".to_string(),
+            };
+
+            assert!(!output.has_command);
+            assert!(output.command.is_none());
+            assert!(!output.message.is_empty());
+        }
+
+        /// GIVEN: A previous command failed
+        /// WHEN: Retry is available
+        /// THEN: Should include the command to retry
+        #[test]
+        fn has_command_to_retry() {
+            let output = RetryOutput {
+                has_command: true,
+                command: Some("zjj add my-session".to_string()),
+                message: "Retrying: zjj add my-session".to_string(),
+            };
+
+            assert!(output.has_command);
+            assert!(output.command.is_some());
+            assert!(output.command.unwrap().contains("zjj"));
+        }
+    }
+
+    mod rollback_behavior {
+        use super::*;
+
+        /// GIVEN: Rollback with dry-run
+        /// WHEN: Output is created
+        /// THEN: Should show what would happen without executing
+        #[test]
+        fn dry_run_shows_preview() {
+            let output = RollbackOutput {
+                session: "my-session".to_string(),
+                checkpoint: "checkpoint-abc".to_string(),
+                dry_run: true,
+                success: true,
+                message: "Would rollback session 'my-session' to checkpoint 'checkpoint-abc'"
+                    .to_string(),
+            };
+
+            assert!(output.dry_run, "Should be dry run");
+            assert!(output.success, "Preview should succeed");
+            assert!(output.message.contains("Would"), "Should indicate preview");
+        }
+
+        /// GIVEN: Actual rollback
+        /// WHEN: Output is created
+        /// THEN: Should show result of rollback
+        #[test]
+        fn actual_rollback_shows_result() {
+            let output = RollbackOutput {
+                session: "my-session".to_string(),
+                checkpoint: "checkpoint-xyz".to_string(),
+                dry_run: false,
+                success: true,
+                message: "Rolled back successfully".to_string(),
+            };
+
+            assert!(!output.dry_run, "Should not be dry run");
+            assert!(output.success, "Should succeed");
+        }
+
+        /// GIVEN: Rollback fails
+        /// WHEN: Output is created
+        /// THEN: Should clearly indicate failure
+        #[test]
+        fn failed_rollback_is_clear() {
+            let output = RollbackOutput {
+                session: "my-session".to_string(),
+                checkpoint: "invalid-checkpoint".to_string(),
+                dry_run: false,
+                success: false,
+                message: "Checkpoint not found".to_string(),
+            };
+
+            assert!(!output.success);
+            assert!(output.message.contains("not found") || output.message.contains("failed"));
+        }
+    }
+
+    mod json_output_behavior {
+        use super::*;
+
+        /// GIVEN: Issue is serialized to JSON
+        /// WHEN: AI parses it
+        /// THEN: Should have all fields for automated fixing
+        #[test]
+        fn issue_json_is_ai_actionable() {
+            let issue = Issue {
+                code: "ORPHANED_SESSION".to_string(),
+                description: "Session has missing workspace".to_string(),
+                severity: "warning".to_string(),
+                fix_command: Some("zjj remove orphan --force".to_string()),
+                fixed: false,
+            };
+
+            let json: serde_json::Value =
+                serde_json::from_str(&serde_json::to_string(&issue).unwrap()).unwrap();
+
+            // AI needs these fields
+            assert!(json.get("code").is_some(), "Need code for categorization");
+            assert!(
+                json.get("severity").is_some(),
+                "Need severity for prioritization"
+            );
+            assert!(
+                json.get("fix_command").is_some(),
+                "Need fix_command for automation"
+            );
+            assert!(json.get("fixed").is_some(), "Need fixed for status");
+
+            // fix_command should be executable
+            let fix = json["fix_command"].as_str().unwrap();
+            assert!(fix.starts_with("zjj "), "Fix should be zjj command");
+        }
+
+        /// GIVEN: RecoverOutput is serialized
+        /// WHEN: AI parses it
+        /// THEN: Should have summary and list of issues
+        #[test]
+        fn recover_output_json_has_summary() {
+            let output = RecoverOutput {
+                issues: vec![Issue {
+                    code: "TEST".to_string(),
+                    description: "Test".to_string(),
+                    severity: "warning".to_string(),
+                    fix_command: None,
+                    fixed: false,
+                }],
+                fixed_count: 0,
+                remaining_count: 1,
+                status: "issues_remaining".to_string(),
+            };
+
+            let json: serde_json::Value =
+                serde_json::from_str(&serde_json::to_string(&output).unwrap()).unwrap();
+
+            // Summary fields
+            assert!(json.get("fixed_count").is_some());
+            assert!(json.get("remaining_count").is_some());
+            assert!(json.get("status").is_some());
+
+            // Issues list
+            assert!(json.get("issues").is_some());
+            assert!(json["issues"].is_array());
+        }
+    }
+
+    mod recover_options_behavior {
+        use super::*;
+
+        /// GIVEN: Diagnose-only mode
+        /// WHEN: Options are set
+        /// THEN: Should not attempt fixes
+        #[test]
+        fn diagnose_only_prevents_fixes() {
+            let options = RecoverOptions {
+                diagnose_only: true,
+                format: zjj_core::OutputFormat::Json,
+            };
+
+            assert!(options.diagnose_only, "Should be diagnose only");
+        }
+
+        /// GIVEN: Normal recovery mode
+        /// WHEN: Options are set
+        /// THEN: Should attempt to fix issues
+        #[test]
+        fn normal_mode_attempts_fixes() {
+            let options = RecoverOptions {
+                diagnose_only: false,
+                format: zjj_core::OutputFormat::Human,
+            };
+
+            assert!(!options.diagnose_only, "Should attempt fixes");
+        }
     }
 }

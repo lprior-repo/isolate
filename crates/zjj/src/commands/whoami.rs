@@ -71,8 +71,8 @@ pub fn run(options: &WhoAmIOptions) -> Result<()> {
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("whoami-response", "single", &output);
-        let json_str = serde_json::to_string_pretty(&envelope)
-            .context("Failed to serialize whoami output")?;
+        let json_str =
+            serde_json::to_string_pretty(&envelope).context("Failed to serialize whoami output")?;
         println!("{json_str}");
     } else {
         // Simple output - just the identity

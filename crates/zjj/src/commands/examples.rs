@@ -117,7 +117,9 @@ fn build_examples() -> ExamplesResponse {
                 "zjj work feature-auth".to_string(),
                 "cd \"$(zjj context --field=current_session.workspace_path)\"".to_string(),
             ],
-            expected_output: Some("Created session 'feature-auth'\nRegistered as agent".to_string()),
+            expected_output: Some(
+                "Created session 'feature-auth'\nRegistered as agent".to_string(),
+            ),
             use_case: "workflow".to_string(),
             prerequisites: vec!["zjj init".to_string()],
             notes: None,
@@ -125,9 +127,7 @@ fn build_examples() -> ExamplesResponse {
         Example {
             name: "Complete work and merge".to_string(),
             description: "Finish work and merge to main".to_string(),
-            commands: vec![
-                "zjj done".to_string(),
-            ],
+            commands: vec!["zjj done".to_string()],
             expected_output: Some("Merged 'feature-auth' to main".to_string()),
             use_case: "workflow".to_string(),
             prerequisites: vec!["Must be in a workspace".to_string()],
@@ -136,21 +136,19 @@ fn build_examples() -> ExamplesResponse {
         Example {
             name: "Undo a merge".to_string(),
             description: "Revert the last done operation".to_string(),
-            commands: vec![
-                "zjj undo --dry-run".to_string(),
-                "zjj undo".to_string(),
-            ],
+            commands: vec!["zjj undo --dry-run".to_string(), "zjj undo".to_string()],
             expected_output: Some("Reverted merge of 'feature-auth'".to_string()),
             use_case: "error-handling".to_string(),
-            prerequisites: vec!["Must have undo history".to_string(), "Not pushed to remote".to_string()],
+            prerequisites: vec![
+                "Must have undo history".to_string(),
+                "Not pushed to remote".to_string(),
+            ],
             notes: None,
         },
         Example {
             name: "Check current location".to_string(),
             description: "Quick orientation command for AI agents".to_string(),
-            commands: vec![
-                "zjj whereami".to_string(),
-            ],
+            commands: vec!["zjj whereami".to_string()],
             expected_output: Some("workspace:feature-auth".to_string()),
             use_case: "single-command".to_string(),
             prerequisites: vec![],
@@ -159,10 +157,7 @@ fn build_examples() -> ExamplesResponse {
         Example {
             name: "List all sessions".to_string(),
             description: "View all active sessions with status".to_string(),
-            commands: vec![
-                "zjj list".to_string(),
-                "zjj list --json".to_string(),
-            ],
+            commands: vec!["zjj list".to_string(), "zjj list --json".to_string()],
             expected_output: None,
             use_case: "single-command".to_string(),
             prerequisites: vec!["zjj init".to_string()],
@@ -171,9 +166,7 @@ fn build_examples() -> ExamplesResponse {
         Example {
             name: "Sync workspace with main".to_string(),
             description: "Rebase workspace onto latest main".to_string(),
-            commands: vec![
-                "zjj sync".to_string(),
-            ],
+            commands: vec!["zjj sync".to_string()],
             expected_output: Some("Synced 1 session".to_string()),
             use_case: "single-command".to_string(),
             prerequisites: vec!["Must be in a workspace".to_string()],
@@ -182,10 +175,7 @@ fn build_examples() -> ExamplesResponse {
         Example {
             name: "Run health checks".to_string(),
             description: "Diagnose and fix issues".to_string(),
-            commands: vec![
-                "zjj doctor".to_string(),
-                "zjj doctor --fix".to_string(),
-            ],
+            commands: vec!["zjj doctor".to_string(), "zjj doctor --fix".to_string()],
             expected_output: None,
             use_case: "maintenance".to_string(),
             prerequisites: vec![],
@@ -230,9 +220,7 @@ fn build_examples() -> ExamplesResponse {
         Example {
             name: "AI agent quick start".to_string(),
             description: "Minimal workflow for AI agents".to_string(),
-            commands: vec![
-                "zjj ai quick-start".to_string(),
-            ],
+            commands: vec!["zjj ai quick-start".to_string()],
             expected_output: None,
             use_case: "ai-agent".to_string(),
             prerequisites: vec![],
@@ -301,7 +289,10 @@ fn build_examples() -> ExamplesResponse {
         "safety".to_string(),
     ];
 
-    ExamplesResponse { examples, use_cases }
+    ExamplesResponse {
+        examples,
+        use_cases,
+    }
 }
 
 #[cfg(test)]
@@ -329,7 +320,11 @@ mod tests {
     fn test_all_use_cases_covered() {
         let examples = build_examples();
         for use_case in &examples.use_cases {
-            let count = examples.examples.iter().filter(|e| e.use_case == *use_case).count();
+            let count = examples
+                .examples
+                .iter()
+                .filter(|e| e.use_case == *use_case)
+                .count();
             assert!(count > 0, "Use case {use_case} has no examples");
         }
     }

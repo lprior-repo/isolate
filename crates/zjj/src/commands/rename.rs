@@ -78,7 +78,10 @@ pub fn run(options: &RenameOptions) -> Result<()> {
             let envelope = SchemaEnvelope::new("rename-response", "single", &result);
             println!("{}", serde_json::to_string_pretty(&envelope)?);
         } else {
-            println!("[dry-run] Would rename '{}' to '{}'", options.old_name, options.new_name);
+            println!(
+                "[dry-run] Would rename '{}' to '{}'",
+                options.old_name, options.new_name
+            );
         }
         return Ok(());
     }

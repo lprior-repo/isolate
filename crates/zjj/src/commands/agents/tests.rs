@@ -530,7 +530,10 @@ async fn heartbeat_updates_last_seen() -> Result<(), anyhow::Error> {
 
     // Verify last_seen was updated
     let agents = ctx.get_all_agents().await?;
-    assert!(!agents[0].stale, "agent should not be stale after heartbeat");
+    assert!(
+        !agents[0].stale,
+        "agent should not be stale after heartbeat"
+    );
     Ok(())
 }
 
@@ -561,7 +564,10 @@ async fn heartbeat_updates_current_command() -> Result<(), anyhow::Error> {
 
     // Verify command is set
     let agents = ctx.get_all_agents().await?;
-    assert_eq!(agents[0].current_command, Some("zjj add feature".to_string()));
+    assert_eq!(
+        agents[0].current_command,
+        Some("zjj add feature".to_string())
+    );
     Ok(())
 }
 
@@ -584,11 +590,13 @@ async fn heartbeat_increments_actions_count() -> Result<(), anyhow::Error> {
 
     // Multiple heartbeats
     for _ in 0..3 {
-        sqlx::query("UPDATE agents SET last_seen = ?, actions_count = actions_count + 1 WHERE agent_id = ?")
-            .bind(&now)
-            .bind("test-agent")
-            .execute(&ctx.pool)
-            .await?;
+        sqlx::query(
+            "UPDATE agents SET last_seen = ?, actions_count = actions_count + 1 WHERE agent_id = ?",
+        )
+        .bind(&now)
+        .bind("test-agent")
+        .execute(&ctx.pool)
+        .await?;
     }
 
     // Verify actions count
@@ -603,7 +611,8 @@ async fn status_returns_agent_info() -> Result<(), anyhow::Error> {
     let ctx = TestContext::new().await?;
 
     // Register agent with session
-    ctx.register_agent_with_session("test-agent", "my-session").await?;
+    ctx.register_agent_with_session("test-agent", "my-session")
+        .await?;
 
     // Query agent status
     let row: Option<(String, String, String, Option<String>, Option<String>, i64)> = sqlx::query_as(
@@ -627,12 +636,10 @@ async fn status_returns_not_found_for_unknown_agent() -> Result<(), anyhow::Erro
     let ctx = TestContext::new().await?;
 
     // Query non-existent agent
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT agent_id FROM agents WHERE agent_id = ?"
-    )
-    .bind("unknown-agent")
-    .fetch_optional(&ctx.pool)
-    .await?;
+    let row: Option<(String,)> = sqlx::query_as("SELECT agent_id FROM agents WHERE agent_id = ?")
+        .bind("unknown-agent")
+        .fetch_optional(&ctx.pool)
+        .await?;
 
     assert!(row.is_none());
     Ok(())

@@ -1056,9 +1056,17 @@ mod tests {
         let query_type = "lock-status";
 
         // The query type is valid
-        assert!(["session-exists", "session-count", "can-run", "suggest-name",
-                 "lock-status", "can-spawn", "pending-merges", "location"]
-            .contains(&query_type));
+        assert!([
+            "session-exists",
+            "session-count",
+            "can-run",
+            "suggest-name",
+            "lock-status",
+            "can-spawn",
+            "pending-merges",
+            "location"
+        ]
+        .contains(&query_type));
     }
 
     /// Test can-spawn query returns correct structure
@@ -1176,7 +1184,9 @@ mod tests {
         for query_type in new_query_types {
             // Each should be a valid query type (not cause unknown type error)
             assert!(!query_type.is_empty());
-            assert!(query_type.chars().all(|c| c.is_ascii_lowercase() || c == '-'));
+            assert!(query_type
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c == '-'));
         }
     }
 
@@ -1197,6 +1207,9 @@ mod tests {
         });
 
         assert!(error_output["error"].is_object());
-        assert_eq!(error_output["error"]["code"].as_str(), Some("SESSION_NOT_FOUND"));
+        assert_eq!(
+            error_output["error"]["code"].as_str(),
+            Some("SESSION_NOT_FOUND")
+        );
     }
 }

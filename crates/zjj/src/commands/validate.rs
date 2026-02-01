@@ -160,10 +160,13 @@ fn validate_add_args(command: &str, args: &[String]) -> ValidationResult {
             result.suggestions.push(sugg.clone());
         }
         result.hints.push(
-            ValidationHint::new("name", "alphanumeric with dashes/underscores, starting with letter")
-                .with_received(name.clone())
-                .with_example("feature-auth")
-                .with_pattern("^[a-zA-Z][a-zA-Z0-9_-]*$"),
+            ValidationHint::new(
+                "name",
+                "alphanumeric with dashes/underscores, starting with letter",
+            )
+            .with_received(name.clone())
+            .with_example("feature-auth")
+            .with_pattern("^[a-zA-Z][a-zA-Z0-9_-]*$"),
         );
     }
 
@@ -181,7 +184,9 @@ fn validate_add_args(command: &str, args: &[String]) -> ValidationResult {
 
     // Warn about very long names
     if name.len() > 50 {
-        result.warnings.push("Session name is very long (>50 chars), may cause display issues".to_string());
+        result
+            .warnings
+            .push("Session name is very long (>50 chars), may cause display issues".to_string());
     }
 
     result
@@ -201,7 +206,9 @@ fn validate_remove_args(args: &[String]) -> ValidationResult {
     if args.is_empty() {
         result.valid = false;
         result.errors.push("Session name is required".to_string());
-        result.hints.push(ValidationHint::new("name", "existing session name"));
+        result
+            .hints
+            .push(ValidationHint::new("name", "existing session name"));
         return result;
     }
 
@@ -214,7 +221,9 @@ fn validate_remove_args(args: &[String]) -> ValidationResult {
         suggestion: Some("Use --idempotent for safe retries".to_string()),
     });
 
-    result.warnings.push("This operation is destructive. Use --dry-run to preview.".to_string());
+    result
+        .warnings
+        .push("This operation is destructive. Use --dry-run to preview.".to_string());
 
     result
 }
@@ -231,7 +240,9 @@ fn validate_focus_args(args: &[String]) -> ValidationResult {
     };
 
     if args.is_empty() {
-        result.suggestions.push("No name provided - will use interactive selection".to_string());
+        result
+            .suggestions
+            .push("No name provided - will use interactive selection".to_string());
         return result;
     }
 
@@ -278,8 +289,16 @@ fn validate_spawn_args(args: &[String]) -> ValidationResult {
         name: "bead_id".to_string(),
         value: bead_id.clone(),
         valid,
-        error: if valid { None } else { Some("Invalid bead ID format".to_string()) },
-        suggestion: if valid { None } else { Some("Use format: prefix-id (e.g., zjj-abc12)".to_string()) },
+        error: if valid {
+            None
+        } else {
+            Some("Invalid bead ID format".to_string())
+        },
+        suggestion: if valid {
+            None
+        } else {
+            Some("Use format: prefix-id (e.g., zjj-abc12)".to_string())
+        },
     });
 
     if !valid {
@@ -310,7 +329,11 @@ fn validate_bead_id_format(id: &str) -> bool {
     }
 
     // Suffix must be lowercase alphanumeric
-    if suffix.is_empty() || !suffix.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) {
+    if suffix.is_empty()
+        || !suffix
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+    {
         return false;
     }
 
@@ -344,7 +367,9 @@ fn validate_session_name(name: &str) -> ArgValidation {
         };
     }
 
-    let valid_chars = name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    let valid_chars = name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
     if !valid_chars {
         return ArgValidation {
             name: "name".to_string(),

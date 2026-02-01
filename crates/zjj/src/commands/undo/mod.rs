@@ -76,8 +76,11 @@ fn run_list(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
                     total: 0,
                     can_undo: false,
                 };
-                let json = serde_json::to_string_pretty(&output)
-                    .map_err(|e| UndoError::SerializationError { reason: e.to_string() })?;
+                let json = serde_json::to_string_pretty(&output).map_err(|e| {
+                    UndoError::SerializationError {
+                        reason: e.to_string(),
+                    }
+                })?;
                 println!("{json}");
             } else {
                 println!("No undo history available.");
@@ -116,7 +119,9 @@ struct UndoHistoryEntry {
 fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), UndoError> {
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .map_err(|e| UndoError::SystemTimeError { reason: e.to_string() })?
+        .map_err(|e| UndoError::SystemTimeError {
+            reason: e.to_string(),
+        })?
         .as_secs();
 
     let retention_seconds = WORKSPACE_RETENTION_HOURS * 3600;
@@ -127,7 +132,10 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
             let (can_undo, reason) = if entry.pushed_to_remote {
                 (false, Some("Already pushed to remote".to_string()))
             } else if now - entry.timestamp > retention_seconds {
-                (false, Some(format!("Expired after {} hours", WORKSPACE_RETENTION_HOURS)))
+                (
+                    false,
+                    Some(format!("Expired after {} hours", WORKSPACE_RETENTION_HOURS)),
+                )
             } else if entry.status == "undone" {
                 (false, Some("Already undone".to_string()))
             } else {
@@ -159,8 +167,10 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
             can_undo: can_undo_any,
             entries,
         };
-        let json = serde_json::to_string_pretty(&output)
-            .map_err(|e| UndoError::SerializationError { reason: e.to_string() })?;
+        let json =
+            serde_json::to_string_pretty(&output).map_err(|e| UndoError::SerializationError {
+                reason: e.to_string(),
+            })?;
         println!("{json}");
     } else {
         println!("Undo History ({} entries):", entries.len());
@@ -371,8 +381,10 @@ fn update_undo_history(
 /// Output the result in the appropriate format
 fn output_result(result: &UndoOutput, format: OutputFormat) -> Result<(), UndoError> {
     if format.is_json() {
-        let json_output = serde_json::to_string_pretty(result)
-            .map_err(|e| UndoError::SerializationError { reason: e.to_string() })?;
+        let json_output =
+            serde_json::to_string_pretty(result).map_err(|e| UndoError::SerializationError {
+                reason: e.to_string(),
+            })?;
         println!("{json_output}");
     } else if result.dry_run {
         println!("Dry-run undo for session: {}", result.session_name);
@@ -395,8 +407,11 @@ fn output_error(error: &UndoError, format: OutputFormat) -> Result<(), UndoError
             "error": error.to_string(),
             "error_code": error.error_code(),
         });
-        let json_output = serde_json::to_string_pretty(&error_json)
-            .map_err(|e| UndoError::SerializationError { reason: e.to_string() })?;
+        let json_output = serde_json::to_string_pretty(&error_json).map_err(|e| {
+            UndoError::SerializationError {
+                reason: e.to_string(),
+            }
+        })?;
         println!("{json_output}");
     } else {
         eprintln!("Error: {error}");

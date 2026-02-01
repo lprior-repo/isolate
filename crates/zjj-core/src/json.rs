@@ -409,7 +409,11 @@ impl HateoasLink {
 
     /// Create an action link (mutating operation)
     #[must_use]
-    pub fn action(rel: impl Into<String>, command: impl Into<String>, title: impl Into<String>) -> Self {
+    pub fn action(
+        rel: impl Into<String>,
+        command: impl Into<String>,
+        title: impl Into<String>,
+    ) -> Self {
         Self {
             rel: rel.into(),
             href: command.into(),
@@ -998,8 +1002,8 @@ mod tests {
     #[test]
     fn test_hateoas_link_serialization() -> crate::Result<()> {
         let link = HateoasLink::action("sync", "zjj sync test", "Sync session");
-        let json = serde_json::to_string(&link)
-            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+        let json =
+            serde_json::to_string(&link).map_err(|e| crate::Error::ParseError(e.to_string()))?;
 
         assert!(json.contains("\"rel\":\"sync\""));
         assert!(json.contains("\"href\":\"zjj sync test\""));
@@ -1045,8 +1049,8 @@ mod tests {
             commits: vec!["abc123".to_string()],
             ..Default::default()
         };
-        let json = serde_json::to_string(&related)
-            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+        let json =
+            serde_json::to_string(&related).map_err(|e| crate::Error::ParseError(e.to_string()))?;
 
         assert!(json.contains("\"sessions\":[\"s1\"]"));
         assert!(json.contains("\"beads\":[\"zjj-1234\"]"));
@@ -1109,8 +1113,8 @@ mod tests {
             .with_duration(50)
             .with_undo("zjj undo")
             .with_agent("agent-x");
-        let json = serde_json::to_string(&meta)
-            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+        let json =
+            serde_json::to_string(&meta).map_err(|e| crate::Error::ParseError(e.to_string()))?;
 
         assert!(json.contains("\"command\":\"add test\""));
         assert!(json.contains("\"duration_ms\":50"));
@@ -1127,9 +1131,13 @@ mod tests {
     #[test]
     fn test_schema_envelope_with_links() {
         #[derive(Serialize, Deserialize)]
-        struct TestData { name: String }
+        struct TestData {
+            name: String,
+        }
 
-        let data = TestData { name: "test".to_string() };
+        let data = TestData {
+            name: "test".to_string(),
+        };
         let envelope = SchemaEnvelope::new("test-response", "single", data)
             .add_link(HateoasLink::self_link("zjj status test"))
             .add_link(HateoasLink::related("list", "zjj list"));
@@ -1142,16 +1150,19 @@ mod tests {
     #[test]
     fn test_schema_envelope_with_related() {
         #[derive(Serialize, Deserialize)]
-        struct TestData { id: String }
+        struct TestData {
+            id: String,
+        }
 
-        let data = TestData { id: "abc".to_string() };
+        let data = TestData {
+            id: "abc".to_string(),
+        };
         let related = RelatedResources {
             sessions: vec!["s1".to_string()],
             beads: vec!["zjj-001".to_string()],
             ..Default::default()
         };
-        let envelope = SchemaEnvelope::new("test-response", "single", data)
-            .with_related(related);
+        let envelope = SchemaEnvelope::new("test-response", "single", data).with_related(related);
 
         assert!(envelope.related.is_some());
         let r = envelope.related.as_ref();
@@ -1165,12 +1176,13 @@ mod tests {
     #[test]
     fn test_schema_envelope_with_meta() {
         #[derive(Serialize, Deserialize)]
-        struct TestData { value: i32 }
+        struct TestData {
+            value: i32,
+        }
 
         let data = TestData { value: 42 };
         let meta = ResponseMeta::new("test").with_duration(100);
-        let envelope = SchemaEnvelope::new("test-response", "single", data)
-            .with_meta(meta);
+        let envelope = SchemaEnvelope::new("test-response", "single", data).with_meta(meta);
 
         assert!(envelope.meta.is_some());
         if let Some(m) = envelope.meta {
@@ -1182,11 +1194,14 @@ mod tests {
     #[test]
     fn test_schema_envelope_as_error() {
         #[derive(Serialize, Deserialize)]
-        struct TestData { error: String }
+        struct TestData {
+            error: String,
+        }
 
-        let data = TestData { error: "failed".to_string() };
-        let envelope = SchemaEnvelope::new("error-response", "single", data)
-            .as_error();
+        let data = TestData {
+            error: "failed".to_string(),
+        };
+        let envelope = SchemaEnvelope::new("error-response", "single", data).as_error();
 
         assert!(!envelope.success);
     }
@@ -1196,14 +1211,15 @@ mod tests {
         use crate::fix::Fix;
 
         #[derive(Serialize, Deserialize)]
-        struct TestData { status: String }
+        struct TestData {
+            status: String,
+        }
 
-        let data = TestData { status: "error".to_string() };
-        let fixes = vec![
-            Fix::safe("Try again", vec!["zjj retry".to_string()]),
-        ];
-        let envelope = SchemaEnvelope::new("error-response", "single", data)
-            .with_fixes(fixes);
+        let data = TestData {
+            status: "error".to_string(),
+        };
+        let fixes = vec![Fix::safe("Try again", vec!["zjj retry".to_string()])];
+        let envelope = SchemaEnvelope::new("error-response", "single", data).with_fixes(fixes);
 
         assert_eq!(envelope.fixes.len(), 1);
     }
@@ -1211,9 +1227,13 @@ mod tests {
     #[test]
     fn test_schema_envelope_full_serialization() -> crate::Result<()> {
         #[derive(Serialize, Deserialize)]
-        struct TestData { name: String }
+        struct TestData {
+            name: String,
+        }
 
-        let data = TestData { name: "test-session".to_string() };
+        let data = TestData {
+            name: "test-session".to_string(),
+        };
         let envelope = SchemaEnvelope::new("session-response", "single", data)
             .add_link(HateoasLink::self_link("zjj status test-session"))
             .with_related(RelatedResources {
@@ -1252,8 +1272,7 @@ mod tests {
     fn test_schema_envelope_array_with_meta() {
         let data = vec![1, 2, 3];
         let meta = ResponseMeta::new("list").with_duration(10);
-        let envelope = SchemaEnvelopeArray::new("numbers-response", data)
-            .with_meta(meta);
+        let envelope = SchemaEnvelopeArray::new("numbers-response", data).with_meta(meta);
 
         assert!(envelope.meta.is_some());
         assert_eq!(envelope.data.len(), 3);
@@ -1261,7 +1280,7 @@ mod tests {
 
     #[test]
     fn test_schema_envelope_array_with_next() {
-        use crate::hints::{NextAction, ActionRisk};
+        use crate::hints::{ActionRisk, NextAction};
 
         let data: Vec<String> = vec![];
         let next = vec![NextAction {
@@ -1270,8 +1289,7 @@ mod tests {
             risk: ActionRisk::Safe,
             description: None,
         }];
-        let envelope = SchemaEnvelopeArray::new("empty-list", data)
-            .with_next(next);
+        let envelope = SchemaEnvelopeArray::new("empty-list", data).with_next(next);
 
         assert_eq!(envelope.next.len(), 1);
         assert!(envelope.data.is_empty());

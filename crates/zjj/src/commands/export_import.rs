@@ -189,7 +189,9 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
                 continue;
             } else {
                 result.failed += 1;
-                result.errors.push(format!("Session '{}' already exists", session.name));
+                result
+                    .errors
+                    .push(format!("Session '{}' already exists", session.name));
                 result.success = false;
                 continue;
             }
@@ -212,7 +214,9 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
             }
             Err(e) => {
                 result.failed += 1;
-                result.errors.push(format!("Failed to import '{}': {}", session.name, e));
+                result
+                    .errors
+                    .push(format!("Failed to import '{}': {}", session.name, e));
                 result.success = false;
             }
         }

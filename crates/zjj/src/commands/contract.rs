@@ -155,7 +155,10 @@ fn print_contract_human(contract: &CommandContract) {
     if !contract.flags.is_empty() {
         println!("  Flags:");
         for flag in &contract.flags {
-            let short = flag.short.as_ref().map_or(String::new(), |s| format!("-{s}, "));
+            let short = flag
+                .short
+                .as_ref()
+                .map_or(String::new(), |s| format!("-{s}, "));
             println!("    {short}--{}: {}", flag.name, flag.description);
         }
         println!();
@@ -275,7 +278,11 @@ fn build_add_contract() -> CommandContract {
             description: "Zellij layout template".to_string(),
             pattern: None,
             default: Some("standard".to_string()),
-            examples: vec!["minimal".to_string(), "standard".to_string(), "full".to_string()],
+            examples: vec![
+                "minimal".to_string(),
+                "standard".to_string(),
+                "full".to_string(),
+            ],
         }],
         flags: vec![
             FlagContract {
@@ -309,7 +316,11 @@ fn build_add_contract() -> CommandContract {
             "Creates Zellij tab".to_string(),
             "Updates session database".to_string(),
         ],
-        related_commands: vec!["focus".to_string(), "remove".to_string(), "work".to_string()],
+        related_commands: vec![
+            "focus".to_string(),
+            "remove".to_string(),
+            "work".to_string(),
+        ],
         examples: vec![
             "zjj add feature-auth".to_string(),
             "zjj add bugfix-123 --no-open".to_string(),
@@ -609,10 +620,7 @@ fn build_undo_contract() -> CommandContract {
             "Recreates workspace".to_string(),
         ],
         related_commands: vec!["done".to_string(), "revert".to_string()],
-        examples: vec![
-            "zjj undo".to_string(),
-            "zjj undo --dry-run".to_string(),
-        ],
+        examples: vec!["zjj undo".to_string(), "zjj undo --dry-run".to_string()],
         reversible: true,
         undo_command: Some("zjj done".to_string()),
         prerequisites: vec![
@@ -862,7 +870,10 @@ fn build_whereami_contract() -> CommandContract {
         output_schema: "zjj://whereami-response/v1".to_string(),
         side_effects: vec![],
         related_commands: vec!["whoami".to_string(), "context".to_string()],
-        examples: vec!["zjj whereami".to_string(), "zjj whereami --json".to_string()],
+        examples: vec![
+            "zjj whereami".to_string(),
+            "zjj whereami --json".to_string(),
+        ],
         reversible: false,
         undo_command: None,
         prerequisites: vec![],
@@ -957,7 +968,10 @@ fn build_context_contract() -> CommandContract {
             description: "Extract single field".to_string(),
             pattern: None,
             default: None,
-            examples: vec!["repository.branch".to_string(), "sessions[0].name".to_string()],
+            examples: vec![
+                "repository.branch".to_string(),
+                "sessions[0].name".to_string(),
+            ],
         }],
         flags: vec![
             FlagContract {

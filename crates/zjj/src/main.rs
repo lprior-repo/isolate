@@ -1565,11 +1565,7 @@ fn cmd_rename() -> ClapCommand {
                 .required(true)
                 .help("Current session name"),
         )
-        .arg(
-            Arg::new("new_name")
-                .required(true)
-                .help("New session name"),
-        )
+        .arg(Arg::new("new_name").required(true).help("New session name"))
         .arg(
             Arg::new("json")
                 .long("json")
@@ -1695,11 +1691,7 @@ fn cmd_import() -> ClapCommand {
             - Skip existing sessions (--skip-existing)\n  \
             - Dry-run to preview (--dry-run)",
         )
-        .arg(
-            Arg::new("file")
-                .required(true)
-                .help("Import file to read"),
-        )
+        .arg(Arg::new("file").required(true).help("Import file to read"))
         .arg(
             Arg::new("skip-existing")
                 .long("skip-existing")
@@ -1730,15 +1722,10 @@ fn cmd_wait() -> ClapCommand {
             - Waiting for a session to be unlocked\n  \
             - Waiting for system to be healthy",
         )
-        .arg(
-            Arg::new("condition")
-                .required(true)
-                .help("Condition to wait for: session-exists, session-unlocked, healthy, session-status"),
-        )
-        .arg(
-            Arg::new("name")
-                .help("Session name (for session-* conditions)"),
-        )
+        .arg(Arg::new("condition").required(true).help(
+            "Condition to wait for: session-exists, session-unlocked, healthy, session-status",
+        ))
+        .arg(Arg::new("name").help("Session name (for session-* conditions)"))
         .arg(
             Arg::new("status")
                 .long("status")
@@ -1776,10 +1763,7 @@ fn cmd_schema() -> ClapCommand {
             Use 'zjj schema --list' to see available schemas.\n\
             Use 'zjj schema <name>' to get a specific schema.",
         )
-        .arg(
-            Arg::new("name")
-                .help("Schema name to get"),
-        )
+        .arg(Arg::new("name").help("Schema name to get"))
         .arg(
             Arg::new("list")
                 .long("list")
@@ -2988,17 +2972,21 @@ fn handle_wait(sub_m: &clap::ArgMatches) -> Result<()> {
 
     let condition = match condition_str.as_str() {
         "session-exists" => {
-            let n = name.ok_or_else(|| anyhow::anyhow!("Session name required for session-exists"))?;
+            let n =
+                name.ok_or_else(|| anyhow::anyhow!("Session name required for session-exists"))?;
             commands::wait::WaitCondition::SessionExists(n)
         }
         "session-unlocked" => {
-            let n = name.ok_or_else(|| anyhow::anyhow!("Session name required for session-unlocked"))?;
+            let n =
+                name.ok_or_else(|| anyhow::anyhow!("Session name required for session-unlocked"))?;
             commands::wait::WaitCondition::SessionUnlocked(n)
         }
         "healthy" => commands::wait::WaitCondition::Healthy,
         "session-status" => {
-            let n = name.ok_or_else(|| anyhow::anyhow!("Session name required for session-status"))?;
-            let s = status.ok_or_else(|| anyhow::anyhow!("--status required for session-status"))?;
+            let n =
+                name.ok_or_else(|| anyhow::anyhow!("Session name required for session-status"))?;
+            let s =
+                status.ok_or_else(|| anyhow::anyhow!("--status required for session-status"))?;
             commands::wait::WaitCondition::SessionStatus { name: n, status: s }
         }
         _ => anyhow::bail!("Unknown condition: {}", condition_str),

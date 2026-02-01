@@ -431,8 +431,9 @@ fn extract_and_print_field(context: &ContextOutput, field_path: &str) -> Result<
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Utc;
+
+    use super::*;
 
     // ── ContextOutput Tests ──────────────────────────────────────────────
 
@@ -515,7 +516,9 @@ mod tests {
             path: "/path".to_string(),
         };
         let cloned = location.clone();
-        assert!(matches!(cloned, Location::Workspace { name, path } if name == "test" && path == "/path"));
+        assert!(
+            matches!(cloned, Location::Workspace { name, path } if name == "test" && path == "/path")
+        );
     }
 
     // ── SessionContext Tests ─────────────────────────────────────────────

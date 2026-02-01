@@ -36,7 +36,9 @@ impl std::str::FromStr for Shell {
             "fish" => Ok(Shell::Fish),
             "powershell" | "ps" | "pwsh" => Ok(Shell::PowerShell),
             "elvish" => Ok(Shell::Elvish),
-            _ => anyhow::bail!("Unknown shell: {s}. Supported: bash, zsh, fish, powershell, elvish"),
+            _ => {
+                anyhow::bail!("Unknown shell: {s}. Supported: bash, zsh, fish, powershell, elvish")
+            }
         }
     }
 }
@@ -210,7 +212,8 @@ _zjj_sessions() {
 }
 
 _zjj "$@"
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn generate_fish_completions() -> String {
@@ -340,7 +343,8 @@ set edit:completion:arg-completer[zjj] = {|@words|
         }
     }
 }
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn get_install_instructions(shell: Shell) -> String {
@@ -362,7 +366,10 @@ mod tests {
         assert!(matches!("bash".parse::<Shell>().unwrap(), Shell::Bash));
         assert!(matches!("zsh".parse::<Shell>().unwrap(), Shell::Zsh));
         assert!(matches!("fish".parse::<Shell>().unwrap(), Shell::Fish));
-        assert!(matches!("powershell".parse::<Shell>().unwrap(), Shell::PowerShell));
+        assert!(matches!(
+            "powershell".parse::<Shell>().unwrap(),
+            Shell::PowerShell
+        ));
     }
 
     #[test]
