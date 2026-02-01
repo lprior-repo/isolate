@@ -22,6 +22,7 @@ pub use serializers::{AddOutput, FocusOutput, RemoveOutput, SyncOutput};
 ///
 /// Returns an error if serialization fails
 #[allow(dead_code)]
+#[allow(clippy::print_stdout)]
 pub fn output_json_success<T: serde::Serialize>(data: &T) -> Result<(), anyhow::Error> {
     let json_str = serde_json::to_string_pretty(data)
         .map_err(|e| anyhow::anyhow!("Failed to serialize JSON: {e}"))?;
