@@ -1,4 +1,4 @@
-//! WhatIf command - Preview what a command would do
+//! `WhatIf` command - Preview what a command would do
 //!
 //! Provides detailed preview of command effects without execution.
 

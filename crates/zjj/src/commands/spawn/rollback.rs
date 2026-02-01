@@ -241,7 +241,7 @@ impl TransactionTracker {
 
         let kill_result = Command::new("kill").args(["-0", &pid.to_string()]).output();
 
-        if kill_result.is_ok() && kill_result.as_ref().map_or(false, |o| o.status.success()) {
+        if kill_result.is_ok() && kill_result.as_ref().is_ok_and(|o| o.status.success()) {
             // Still running, force kill
             let _ = Command::new("kill")
                 .args(["-KILL", &pid.to_string()])
@@ -252,7 +252,7 @@ impl TransactionTracker {
         Ok(())
     }
 
-    /// Reset bead status from 'in_progress' to 'open'
+    /// Reset bead status from '`in_progress`' to 'open'
     ///
     /// # Errors
     /// Returns `SpawnError::DatabaseError` if status update fails or JSON parsing fails.
@@ -280,7 +280,7 @@ impl TransactionTracker {
                 let is_target_bead = json
                     .get("id")
                     .and_then(serde_json::Value::as_str)
-                    .map_or(false, |id| id == self.bead_id);
+                    .is_some_and(|id| id == self.bead_id);
 
                 let updated = if is_target_bead {
                     json["status"] = serde_json::json!("open");
@@ -392,7 +392,7 @@ impl SignalHandler {
     ///
     /// # Arguments
     /// * `tracker` - Optional transaction tracker for rollback
-    pub fn new(tracker: Option<TransactionTracker>) -> Self {
+    pub const fn new(tracker: Option<TransactionTracker>) -> Self {
         Self { tracker }
     }
 

@@ -71,20 +71,20 @@ fn execute_revert(options: &RevertOptions) -> Result<RevertOutput, RevertError> 
         return Ok(RevertOutput {
             session_name: options.session_name.clone(),
             dry_run: true,
-            commit_id: entry.commit_id.clone(),
+            commit_id: entry.commit_id,
             pushed_to_remote: false,
             error: None,
         });
     }
 
-    let _revert_result = revert_merge(&root, &entry)?;
+    revert_merge(&root, &entry)?;
 
     update_undo_history(&root, &history, &entry, "reverted")?;
 
     Ok(RevertOutput {
         session_name: options.session_name.clone(),
         dry_run: false,
-        commit_id: entry.commit_id.clone(),
+        commit_id: entry.commit_id,
         pushed_to_remote: false,
         error: None,
     })

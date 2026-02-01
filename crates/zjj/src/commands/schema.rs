@@ -131,8 +131,7 @@ fn run_single(name: &str, format: OutputFormat) -> Result<()> {
         "error-response" => get_error_response_schema(),
         _ => {
             anyhow::bail!(
-                "Unknown schema: {}. Use 'zjj schema --list' to see available schemas.",
-                name
+                "Unknown schema: {name}. Use 'zjj schema --list' to see available schemas."
             );
         }
     };
@@ -140,7 +139,7 @@ fn run_single(name: &str, format: OutputFormat) -> Result<()> {
     if format.is_json() {
         println!("{}", serde_json::to_string_pretty(&schema)?);
     } else {
-        println!("Schema: {}\n", name);
+        println!("Schema: {name}\n");
         println!("{}", serde_json::to_string_pretty(&schema)?);
     }
 

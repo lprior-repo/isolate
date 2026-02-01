@@ -236,10 +236,10 @@ fn try_fix_issue(issue: Issue) -> Issue {
 /// Fix issues where possible
 ///
 /// Only fixes issues that can be safely auto-fixed:
-/// - STALE_CREATING_SESSION: Removes stale session from database
-/// - ORPHANED_SESSION: Removes orphaned session from database
-/// - DB_NOT_INITIALIZED: Cannot auto-fix (requires zjj init)
-/// - JJ_NOT_INSTALLED, ZELLIJ_NOT_INSTALLED: Cannot auto-fix (requires user action)
+/// - `STALE_CREATING_SESSION`: Removes stale session from database
+/// - `ORPHANED_SESSION`: Removes orphaned session from database
+/// - `DB_NOT_INITIALIZED`: Cannot auto-fix (requires zjj init)
+/// - `JJ_NOT_INSTALLED`, `ZELLIJ_NOT_INSTALLED`: Cannot auto-fix (requires user action)
 fn fix_issues(issues: Vec<Issue>) -> Vec<Issue> {
     issues.into_iter().map(try_fix_issue).collect()
 }
@@ -275,7 +275,7 @@ fn print_recover_human(output: &RecoverOutput, diagnose_only: bool) {
             icon, issue.description, issue.code, fixed_marker
         );
         if let Some(ref cmd) = issue.fix_command {
-            println!("   Fix: {}", cmd);
+            println!("   Fix: {cmd}");
         }
         println!();
     }
@@ -368,7 +368,7 @@ pub fn run_retry(options: &RetryOptions) -> Result<()> {
                             Err(e) => RetryOutput {
                                 has_command: true,
                                 command: Some(saved.command.clone()),
-                                message: format!("Failed to execute retry: {}", e),
+                                message: format!("Failed to execute retry: {e}"),
                             },
                         }
                     }
@@ -445,13 +445,13 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
 
     let workspace_dir = std::path::Path::new(workspace_path);
     if !workspace_dir.exists() {
-        anyhow::bail!("Workspace directory '{}' does not exist", workspace_path);
+        anyhow::bail!("Workspace directory '{workspace_path}' does not exist");
     }
 
     // Verify it's a JJ repository
     let jj_dir = workspace_dir.join(".jj");
     if !jj_dir.exists() {
-        anyhow::bail!("'{}' is not a JJ repository", workspace_path);
+        anyhow::bail!("'{workspace_path}' is not a JJ repository");
     }
 
     let output = if options.dry_run {
@@ -499,7 +499,7 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
                 checkpoint: options.checkpoint.clone(),
                 dry_run: true,
                 success: false,
-                message: format!("Failed to check checkpoint: {}", e),
+                message: format!("Failed to check checkpoint: {e}"),
             },
         }
     } else {
@@ -535,7 +535,7 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
                 checkpoint: options.checkpoint.clone(),
                 dry_run: false,
                 success: false,
-                message: format!("Failed to execute jj edit: {}", e),
+                message: format!("Failed to execute jj edit: {e}"),
             },
         }
     };

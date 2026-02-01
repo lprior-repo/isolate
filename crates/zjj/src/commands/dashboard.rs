@@ -439,8 +439,7 @@ fn handle_mouse_down(app: &mut DashboardApp, column: u16, row: u16) -> Result<()
 fn handle_mouse_drag(app: &mut DashboardApp, column: u16, row: u16) -> Result<()> {
     if let Some(drag_state) = app.drag_state.take() {
         // Find which column we're over
-        let (new_column, new_row) = find_column_at_position(app, column, row)
-            .and_then(|(col, _)| Some((col, find_row_at_position(app, col, row).unwrap_or(0))))
+        let (new_column, new_row) = find_column_at_position(app, column, row).map(|(col, _)| (col, find_row_at_position(app, col, row).unwrap_or(0)))
             .unwrap_or((drag_state.current_column, drag_state.current_row));
 
         app.drag_state = Some(DragState {
@@ -616,7 +615,7 @@ fn render_column(f: &mut Frame, app: &DashboardApp, area: Rect, column_idx: usiz
     let is_selected = column_idx == app.selected_column;
 
     // Check if this column is being dragged over
-    let is_drag_target = app.drag_state.as_ref().map_or(false, |drag| {
+    let is_drag_target = app.drag_state.as_ref().is_some_and(|drag| {
         drag.current_column == column_idx && drag.current_column != drag.start_column
     });
 
@@ -626,7 +625,7 @@ fn render_column(f: &mut Frame, app: &DashboardApp, area: Rect, column_idx: usiz
         .map(|(idx, session_data)| {
             let is_row_selected = is_selected && idx == app.selected_row;
             // Check if this session is being dragged
-            let is_being_dragged = app.drag_state.as_ref().map_or(false, |drag| {
+            let is_being_dragged = app.drag_state.as_ref().is_some_and(|drag| {
                 drag.start_column == column_idx && drag.start_row == idx
             });
             format_session_item(session_data, is_row_selected, is_being_dragged)

@@ -378,11 +378,11 @@ mod tests {
     // Test: Direction::parse should reject invalid inputs with clear error message
     #[test]
     fn test_direction_parse_valid() {
-        assert_eq!(Direction::parse("up").unwrap(), Direction::Up);
-        assert_eq!(Direction::parse("UP").unwrap(), Direction::Up);
-        assert_eq!(Direction::parse("Down").unwrap(), Direction::Down);
-        assert_eq!(Direction::parse("LEFT").unwrap(), Direction::Left);
-        assert_eq!(Direction::parse("Right").unwrap(), Direction::Right);
+        assert_eq!(Direction::parse("up").expect("should parse up"), Direction::Up);
+        assert_eq!(Direction::parse("UP").expect("should parse UP"), Direction::Up);
+        assert_eq!(Direction::parse("Down").expect("should parse Down"), Direction::Down);
+        assert_eq!(Direction::parse("LEFT").expect("should parse LEFT"), Direction::Left);
+        assert_eq!(Direction::parse("Right").expect("should parse Right"), Direction::Right);
     }
 
     // Red Queen Attack: Diagonal direction (not supported)
@@ -393,7 +393,7 @@ mod tests {
     fn test_direction_parse_invalid() {
         let result = Direction::parse("diagonal");
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err = result.expect_err("should return error");
         assert!(err.to_string().contains("Invalid direction"));
         assert!(err
             .to_string()

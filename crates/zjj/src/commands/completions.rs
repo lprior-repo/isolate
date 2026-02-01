@@ -18,6 +18,7 @@ pub struct CompletionsOptions {
 /// Supported shells
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[allow(clippy::enum_variant_names)]
 pub enum Shell {
     Bash,
     Zsh,
@@ -31,11 +32,11 @@ impl std::str::FromStr for Shell {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "bash" => Ok(Shell::Bash),
-            "zsh" => Ok(Shell::Zsh),
-            "fish" => Ok(Shell::Fish),
-            "powershell" | "ps" | "pwsh" => Ok(Shell::PowerShell),
-            "elvish" => Ok(Shell::Elvish),
+            "bash" => Ok(Self::Bash),
+            "zsh" => Ok(Self::Zsh),
+            "fish" => Ok(Self::Fish),
+            "powershell" | "ps" | "pwsh" => Ok(Self::PowerShell),
+            "elvish" => Ok(Self::Elvish),
             _ => {
                 anyhow::bail!("Unknown shell: {s}. Supported: bash, zsh, fish, powershell, elvish")
             }
@@ -62,7 +63,7 @@ pub fn run(options: &CompletionsOptions) -> Result<()> {
     if options.format.is_json() {
         let response = CompletionsResponse {
             shell: options.shell,
-            script: script.clone(),
+            script,
             install_instructions: install,
         };
         let envelope = SchemaEnvelope::new("completions-response", "single", &response);
@@ -374,7 +375,10 @@ mod tests {
 
     #[test]
     fn test_shell_from_str_case_insensitive() {
-        assert!(matches!("BASH".parse::<Shell>().unwrap(), Shell::Bash));
+        assert!(matches!(
+            "BASH".parse::<Shell>().expect("ZSH should parse"),
+            Shell::Bash
+        ));
         assert!(matches!("ZSH".parse::<Shell>().unwrap(), Shell::Zsh));
     }
 

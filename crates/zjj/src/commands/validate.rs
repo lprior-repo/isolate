@@ -357,7 +357,7 @@ fn validate_session_name(name: &str) -> ArgValidation {
     }
 
     let first_char = name.chars().next();
-    if !first_char.map_or(false, |c| c.is_ascii_alphabetic()) {
+    if !first_char.is_some_and(|c| c.is_ascii_alphabetic()) {
         return ArgValidation {
             name: "name".to_string(),
             value: name.to_string(),

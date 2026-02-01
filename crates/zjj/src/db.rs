@@ -704,9 +704,9 @@ fn build_session(
 /// Attempt database recovery (Railway pattern: error → recovery → retry)
 ///
 /// This is a pure function composition that encapsulates the recovery workflow:
-/// 1. Check if recovery is allowed (can_recover_database)
-/// 2. If allowed, perform recovery (recover_database)
-/// 3. Retry connection (create_connection_pool)
+/// 1. Check if recovery is allowed (`can_recover_database`)
+/// 2. If allowed, perform recovery (`recover_database`)
+/// 3. Retry connection (`create_connection_pool`)
 /// 4. If recovery fails or is not allowed, return helpful error
 async fn attempt_database_recovery(
     path: &Path,

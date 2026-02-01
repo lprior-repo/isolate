@@ -151,8 +151,7 @@ fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
         if active_count > 0 {
             println!();
             println!(
-                "📍 WORKFLOW: {} active session(s). Next: work in workspace, then 'zjj sync' or 'zjj done'",
-                active_count
+                "📍 WORKFLOW: {active_count} active session(s). Next: work in workspace, then 'zjj sync' or 'zjj done'"
             );
         }
     }
