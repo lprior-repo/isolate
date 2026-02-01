@@ -136,12 +136,10 @@ fn run_single(name: &str, format: OutputFormat) -> Result<()> {
         }
     };
 
-    if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(&schema)?);
-    } else {
+    if !format.is_json() {
         println!("Schema: {name}\n");
-        println!("{}", serde_json::to_string_pretty(&schema)?);
     }
+    println!("{}", serde_json::to_string_pretty(&schema)?);
 
     Ok(())
 }
@@ -638,23 +636,20 @@ mod tests {
                 // Must have $schema meta-field
                 assert!(
                     schema.get("$schema").is_some(),
-                    "Schema {} must have $schema",
-                    name
+                    "Schema {name} must have $schema"
                 );
 
                 // Must have type
                 assert!(
                     schema.get("type").is_some(),
-                    "Schema {} must have type",
-                    name
+                    "Schema {name} must have type"
                 );
 
                 // Must have properties for object types
                 if schema.get("type").and_then(|t| t.as_str()) == Some("object") {
                     assert!(
                         schema.get("properties").is_some(),
-                        "Object schema {} must have properties",
-                        name
+                        "Object schema {name} must have properties"
                     );
                 }
             }
@@ -674,8 +669,7 @@ mod tests {
                     if let Some(field_name) = field.as_str() {
                         assert!(
                             properties.get(field_name).is_some(),
-                            "Required field '{}' must be in properties",
-                            field_name
+                            "Required field {field_name} must be in properties"
                         );
                     }
                 }
@@ -841,8 +835,7 @@ mod tests {
                 if let Some(id) = schema.get("$id").and_then(|i| i.as_str()) {
                     assert!(
                         id.starts_with("https://zjj.dev/schemas/"),
-                        "Schema ${id} '{}' should use zjj.dev domain",
-                        id
+                        "Schema {id} '{id}' should use zjj.dev domain"
                     );
                 }
             }
@@ -850,6 +843,7 @@ mod tests {
     }
 
     mod json_output_behavior {
+        #![allow(clippy::uninlined_format_args)]
         use super::*;
 
         /// GIVEN: `SchemaListOutput` is serialized

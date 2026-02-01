@@ -377,12 +377,28 @@ mod tests {
     // Severity: P2 (UX issue)
     // Test: Direction::parse should reject invalid inputs with clear error message
     #[test]
-    fn test_direction_parse_valid() {
-        assert_eq!(Direction::parse("up").expect("should parse up"), Direction::Up);
-        assert_eq!(Direction::parse("UP").expect("should parse UP"), Direction::Up);
-        assert_eq!(Direction::parse("Down").expect("should parse Down"), Direction::Down);
-        assert_eq!(Direction::parse("LEFT").expect("should parse LEFT"), Direction::Left);
-        assert_eq!(Direction::parse("Right").expect("should parse Right"), Direction::Right);
+    fn test_direction_parse_valid() -> anyhow::Result<()> {
+        assert_eq!(
+            Direction::parse("up")?,
+            Direction::Up
+        );
+        assert_eq!(
+            Direction::parse("UP")?,
+            Direction::Up
+        );
+        assert_eq!(
+            Direction::parse("Down")?,
+            Direction::Down
+        );
+        assert_eq!(
+            Direction::parse("LEFT")?,
+            Direction::Left
+        );
+        assert_eq!(
+            Direction::parse("Right")?,
+            Direction::Right
+        );
+        Ok(())
     }
 
     // Red Queen Attack: Diagonal direction (not supported)
@@ -393,11 +409,12 @@ mod tests {
     fn test_direction_parse_invalid() {
         let result = Direction::parse("diagonal");
         assert!(result.is_err());
-        let err = result.expect_err("should return error");
-        assert!(err.to_string().contains("Invalid direction"));
-        assert!(err
-            .to_string()
-            .contains("Valid values: up, down, left, right"));
+        if let Err(err) = result {
+            assert!(err.to_string().contains("Invalid direction"));
+            assert!(err
+                .to_string()
+                .contains("Valid values: up, down, left, right"));
+        }
     }
 
     // Red Queen Attack: Empty direction
@@ -408,10 +425,9 @@ mod tests {
     fn test_direction_parse_empty() {
         let result = Direction::parse("");
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid direction"));
+        if let Err(err) = result {
+            assert!(err.to_string().contains("Invalid direction"));
+        }
     }
 
     // Red Queen Attack: Non-standard direction
@@ -422,9 +438,10 @@ mod tests {
     fn test_direction_parse_non_standard() {
         let result = Direction::parse("sideways");
         assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("sideways"));
-        assert!(err.to_string().contains("Valid values"));
+        if let Err(err) = result {
+            assert!(err.to_string().contains("sideways"));
+            assert!(err.to_string().contains("Valid values"));
+        }
     }
 
     // Red Queen Attack: Direction to Zellij argument mapping
@@ -444,13 +461,14 @@ mod tests {
     // Severity: P2 (UX issue)
     // Test: Users might type uppercase directions
     #[test]
-    fn test_direction_case_insensitive() {
-        assert_eq!(Direction::parse("UP").unwrap(), Direction::Up);
-        assert_eq!(Direction::parse("DOWN").unwrap(), Direction::Down);
-        assert_eq!(Direction::parse("LEFT").unwrap(), Direction::Left);
-        assert_eq!(Direction::parse("RIGHT").unwrap(), Direction::Right);
-        assert_eq!(Direction::parse("Up").unwrap(), Direction::Up);
-        assert_eq!(Direction::parse("DoWn").unwrap(), Direction::Down);
+    fn test_direction_case_insensitive() -> anyhow::Result<()> {
+        assert_eq!(Direction::parse("UP")?, Direction::Up);
+        assert_eq!(Direction::parse("DOWN")?, Direction::Down);
+        assert_eq!(Direction::parse("LEFT")?, Direction::Left);
+        assert_eq!(Direction::parse("RIGHT")?, Direction::Right);
+        assert_eq!(Direction::parse("Up")?, Direction::Up);
+        assert_eq!(Direction::parse("DoWn")?, Direction::Down);
+        Ok(())
     }
 
     // Red Queen Attack: PaneInfo serialization
@@ -458,7 +476,7 @@ mod tests {
     // Severity: P1 (Broken contract)
     // Test: PaneInfo should serialize to valid JSON
     #[test]
-    fn test_pane_info_serialization() {
+    fn test_pane_info_serialization() -> anyhow::Result<()> {
         let pane = PaneInfo {
             id: "1".to_string(),
             title: "Main".to_string(),
@@ -466,15 +484,14 @@ mod tests {
             command: Some("bash".to_string()),
         };
 
-        let json = serde_json::to_string(&pane);
-        assert!(json.is_ok());
-        let json_str = json.unwrap();
+        let json_str = serde_json::to_string(&pane)?;
 
         // Verify JSON contains all required fields
         assert!(json_str.contains("\"id\""));
         assert!(json_str.contains("\"title\""));
         assert!(json_str.contains("\"focused\""));
         assert!(json_str.contains("\"command\""));
+        Ok(())
     }
 
     // Red Queen Attack: PaneInfo with None command
@@ -482,7 +499,7 @@ mod tests {
     // Severity: P1 (Broken contract)
     // Test: command field should be skipped when None
     #[test]
-    fn test_pane_info_without_command_serialization() {
+    fn test_pane_info_without_command_serialization() -> anyhow::Result<()> {
         let pane = PaneInfo {
             id: "2".to_string(),
             title: "Sidebar".to_string(),
@@ -490,12 +507,13 @@ mod tests {
             command: None,
         };
 
-        let json = serde_json::to_string(&pane).unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&pane)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json)?;
 
         // command field should be omitted (null or absent)
         let command = parsed.get("command");
-        assert!(command.is_none() || command.unwrap().is_null());
+        assert!(command.is_none() || command.is_some_and(serde_json::Value::is_null));
+        Ok(())
     }
 
     // Red Queen Attack: PaneFocusOutput with SchemaEnvelope
@@ -503,7 +521,7 @@ mod tests {
     // Severity: P1 (Broken contract)
     // Test: Output should wrap in SchemaEnvelope for consistency
     #[test]
-    fn test_pane_focus_output_wrapped_in_envelope() {
+    fn test_pane_focus_output_wrapped_in_envelope() -> anyhow::Result<()> {
         let output = PaneFocusOutput {
             session: "test-session".to_string(),
             pane: "1".to_string(),
@@ -511,13 +529,14 @@ mod tests {
         };
 
         let envelope = SchemaEnvelope::new("pane-focus-response", "single", output);
-        let json = serde_json::to_string(&envelope).unwrap();
+        let json = serde_json::to_string(&envelope)?;
 
         // Verify SchemaEnvelope fields are present
         assert!(json.contains("\"$schema\""));
         assert!(json.contains("\"_schema_version\""));
         assert!(json.contains("\"schema_type\""));
         assert!(json.contains("pane-focus-response"));
+        Ok(())
     }
 
     // Red Queen Attack: PaneListOutput with panes
@@ -525,7 +544,7 @@ mod tests {
     // Severity: P1 (Broken contract)
     // Test: Should serialize list of panes correctly
     #[test]
-    fn test_pane_list_output_serialization() {
+    fn test_pane_list_output_serialization() -> anyhow::Result<()> {
         let output = PaneListOutput {
             session: "my-session".to_string(),
             panes: vec![
@@ -546,11 +565,12 @@ mod tests {
         };
 
         let envelope = SchemaEnvelope::new("pane-list-response", "single", output);
-        let json = serde_json::to_string(&envelope).unwrap();
+        let json = serde_json::to_string(&envelope)?;
 
         // Verify panes array is present
         assert!(json.contains("\"panes\""));
         assert!(json.contains("\"focused\""));
+        Ok(())
     }
 
     // Red Queen Attack: PaneNextOutput serialization
@@ -558,16 +578,17 @@ mod tests {
     // Severity: P1 (Broken contract)
     // Test: Should serialize next operation response
     #[test]
-    fn test_pane_next_output_serialization() {
+    fn test_pane_next_output_serialization() -> anyhow::Result<()> {
         let output = PaneNextOutput {
             session: "test".to_string(),
             message: "Moved to next pane".to_string(),
         };
 
         let envelope = SchemaEnvelope::new("pane-next-response", "single", output);
-        let json = serde_json::to_string(&envelope).unwrap();
+        let json = serde_json::to_string(&envelope)?;
 
         assert!(json.contains("\"session\""));
         assert!(json.contains("\"message\""));
+        Ok(())
     }
 }

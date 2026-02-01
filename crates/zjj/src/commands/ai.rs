@@ -1183,31 +1183,28 @@ mod tests {
             let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&action)?)?;
 
             // Action must be descriptive
-            if let Some(action_str) = json["action"].as_str() {
-                assert!(!action_str.is_empty());
-            } else {
-                panic!("action not a string");
-            }
+            let action_str = json["action"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("action not a string"))?;
+            assert!(!action_str.is_empty());
 
             // Command must be executable
-            if let Some(cmd) = json["command"].as_str() {
-                assert!(
-                    cmd.starts_with("zjj ") || cmd.starts_with("cd ") || cmd.starts_with('#'),
-                    "Command '{cmd}' should be executable or a comment"
-                );
-            } else {
-                panic!("command not a string");
-            }
+            let cmd = json["command"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("command not a string"))?;
+            assert!(
+                cmd.starts_with("zjj ") || cmd.starts_with("cd ") || cmd.starts_with('#'),
+                "Command '{cmd}' should be executable or a comment"
+            );
 
             // Priority must be valid
-            if let Some(priority) = json["priority"].as_str() {
-                assert!(
-                    ["high", "medium", "low"].contains(&priority),
-                    "Priority '{priority}' must be high, medium, or low"
-                );
-            } else {
-                panic!("priority not a string");
-            }
+            let priority = json["priority"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("priority not a string"))?;
+            assert!(
+                ["high", "medium", "low"].contains(&priority),
+                "Priority '{priority}' must be high, medium, or low"
+            );
             Ok(())
         }
     }

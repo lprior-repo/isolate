@@ -236,7 +236,7 @@ mod tests {
     // Behavior Tests
     // ============================================================================
 
-    /// Test AbortOutput message format
+    /// Test `AbortOutput` message format
     #[test]
     fn test_abort_output_message_format() {
         let output = AbortOutput {
@@ -250,7 +250,7 @@ mod tests {
         assert!(output.message.contains(&output.session_name));
     }
 
-    /// Test workspace_removed flag
+    /// Test `workspace_removed` flag
     #[test]
     fn test_abort_workspace_removed_flag() {
         // When workspace removed
@@ -272,7 +272,7 @@ mod tests {
         assert!(!kept.workspace_removed);
     }
 
-    /// Test bead_updated flag
+    /// Test `bead_updated` flag
     #[test]
     fn test_abort_bead_updated_flag() {
         // When bead updated
@@ -294,7 +294,7 @@ mod tests {
         assert!(!not_updated.bead_updated);
     }
 
-    /// Test AbortOptions with explicit workspace
+    /// Test `AbortOptions` with explicit workspace
     #[test]
     fn test_abort_options_explicit_workspace() {
         let options = AbortOptions {
@@ -308,7 +308,7 @@ mod tests {
         assert_eq!(options.workspace, Some("specific-workspace".to_string()));
     }
 
-    /// Test AbortOptions with keep_workspace
+    /// Test `AbortOptions` with `keep_workspace`
     #[test]
     fn test_abort_options_keep_workspace() {
         let options = AbortOptions {
@@ -322,7 +322,7 @@ mod tests {
         assert!(options.keep_workspace);
     }
 
-    /// Test AbortOptions with no_bead_update
+    /// Test `AbortOptions` with `no_bead_update`
     #[test]
     fn test_abort_options_no_bead_update() {
         let options = AbortOptions {
@@ -336,7 +336,7 @@ mod tests {
         assert!(options.no_bead_update);
     }
 
-    /// Test AbortOptions dry_run mode
+    /// Test `AbortOptions` `dry_run` mode
     #[test]
     fn test_abort_options_dry_run() {
         let options = AbortOptions {
@@ -350,7 +350,7 @@ mod tests {
         assert!(options.dry_run);
     }
 
-    /// Test AbortOutput JSON serialization
+    /// Test `AbortOutput` JSON serialization
     #[test]
     fn test_abort_output_json_complete() {
         let output = AbortOutput {
@@ -383,7 +383,7 @@ mod tests {
         assert!(abort_output.workspace_removed);
     }
 
-    /// Test dry_run output structure
+    /// Test `dry_run` output structure
     #[test]
     fn test_abort_dry_run_output() {
         let output = AbortOutput {

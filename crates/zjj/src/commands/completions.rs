@@ -363,23 +363,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_shell_from_str() {
-        assert!(matches!("bash".parse::<Shell>().unwrap(), Shell::Bash));
-        assert!(matches!("zsh".parse::<Shell>().unwrap(), Shell::Zsh));
-        assert!(matches!("fish".parse::<Shell>().unwrap(), Shell::Fish));
+    fn test_shell_from_str() -> anyhow::Result<()> {
+        assert!(matches!("bash".parse::<Shell>()?, Shell::Bash));
+        assert!(matches!("zsh".parse::<Shell>()?, Shell::Zsh));
+        assert!(matches!("fish".parse::<Shell>()?, Shell::Fish));
         assert!(matches!(
-            "powershell".parse::<Shell>().unwrap(),
+            "powershell".parse::<Shell>()?,
             Shell::PowerShell
         ));
+        Ok(())
     }
 
     #[test]
-    fn test_shell_from_str_case_insensitive() {
+    fn test_shell_from_str_case_insensitive() -> anyhow::Result<()> {
         assert!(matches!(
-            "BASH".parse::<Shell>().expect("ZSH should parse"),
+            "BASH".parse::<Shell>()?,
             Shell::Bash
         ));
-        assert!(matches!("ZSH".parse::<Shell>().unwrap(), Shell::Zsh));
+        assert!(matches!("ZSH".parse::<Shell>()?, Shell::Zsh));
+        Ok(())
     }
 
     #[test]

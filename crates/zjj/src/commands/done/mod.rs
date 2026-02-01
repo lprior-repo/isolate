@@ -611,12 +611,13 @@ fn log_undo_history(
         reason: format!("Failed to serialize undo entry: {e}"),
     })?;
 
-    let mut content = String::new();
-    if undo_log_path.exists() {
-        content = fs::read_to_string(&undo_log_path).map_err(|e| DoneError::InvalidState {
+    let mut content = if undo_log_path.exists() {
+        fs::read_to_string(&undo_log_path).map_err(|e| DoneError::InvalidState {
             reason: format!("Failed to read undo log: {e}"),
-        })?;
-    }
+        })?
+    } else {
+        String::new()
+    };
     content.push_str(&json);
     content.push('\n');
 

@@ -107,9 +107,8 @@ pub fn run(options: &ExamplesOptions) -> Result<()> {
     Ok(())
 }
 
-fn build_examples() -> ExamplesResponse {
-    let examples = vec![
-        // Basic workflow
+fn workflow_examples() -> Vec<Example> {
+    vec![
         Example {
             name: "Start working on a feature".to_string(),
             description: "Create a workspace and start coding".to_string(),
@@ -133,18 +132,11 @@ fn build_examples() -> ExamplesResponse {
             prerequisites: vec!["Must be in a workspace".to_string()],
             notes: Some("Use --dry-run to preview first".to_string()),
         },
-        Example {
-            name: "Undo a merge".to_string(),
-            description: "Revert the last done operation".to_string(),
-            commands: vec!["zjj undo --dry-run".to_string(), "zjj undo".to_string()],
-            expected_output: Some("Reverted merge of 'feature-auth'".to_string()),
-            use_case: "error-handling".to_string(),
-            prerequisites: vec![
-                "Must have undo history".to_string(),
-                "Not pushed to remote".to_string(),
-            ],
-            notes: None,
-        },
+    ]
+}
+
+fn single_command_examples() -> Vec<Example> {
+    vec![
         Example {
             name: "Check current location".to_string(),
             description: "Quick orientation command for AI agents".to_string(),
@@ -172,38 +164,22 @@ fn build_examples() -> ExamplesResponse {
             prerequisites: vec!["Must be in a workspace".to_string()],
             notes: None,
         },
+    ]
+}
+
+fn error_handling_examples() -> Vec<Example> {
+    vec![
         Example {
-            name: "Run health checks".to_string(),
-            description: "Diagnose and fix issues".to_string(),
-            commands: vec!["zjj doctor".to_string(), "zjj doctor --fix".to_string()],
-            expected_output: None,
-            use_case: "maintenance".to_string(),
-            prerequisites: vec![],
+            name: "Undo a merge".to_string(),
+            description: "Revert the last done operation".to_string(),
+            commands: vec!["zjj undo --dry-run".to_string(), "zjj undo".to_string()],
+            expected_output: Some("Reverted merge of 'feature-auth'".to_string()),
+            use_case: "error-handling".to_string(),
+            prerequisites: vec![
+                "Must have undo history".to_string(),
+                "Not pushed to remote".to_string(),
+            ],
             notes: None,
-        },
-        Example {
-            name: "Spawn automated agent".to_string(),
-            description: "Run an AI agent on a bead".to_string(),
-            commands: vec![
-                "zjj spawn zjj-abc12".to_string(),
-                "zjj spawn zjj-xyz34 --background".to_string(),
-            ],
-            expected_output: None,
-            use_case: "automation".to_string(),
-            prerequisites: vec!["Bead must exist".to_string()],
-            notes: Some("Agent runs in Zellij tab".to_string()),
-        },
-        Example {
-            name: "Get full context (AI agent)".to_string(),
-            description: "Get complete environment context for AI".to_string(),
-            commands: vec![
-                "zjj context --json".to_string(),
-                "zjj context --field=repository.branch".to_string(),
-            ],
-            expected_output: None,
-            use_case: "ai-agent".to_string(),
-            prerequisites: vec![],
-            notes: Some("Use --no-beads --no-health for faster response".to_string()),
         },
         Example {
             name: "Abort work without merging".to_string(),
@@ -217,6 +193,52 @@ fn build_examples() -> ExamplesResponse {
             prerequisites: vec!["Must be in a workspace".to_string()],
             notes: None,
         },
+    ]
+}
+
+fn automation_examples() -> Vec<Example> {
+    vec![
+        Example {
+            name: "Spawn automated agent".to_string(),
+            description: "Run an AI agent on a bead".to_string(),
+            commands: vec![
+                "zjj spawn zjj-abc12".to_string(),
+                "zjj spawn zjj-xyz34 --background".to_string(),
+            ],
+            expected_output: None,
+            use_case: "automation".to_string(),
+            prerequisites: vec!["Bead must exist".to_string()],
+            notes: Some("Agent runs in Zellij tab".to_string()),
+        },
+        Example {
+            name: "Idempotent operations".to_string(),
+            description: "Safe for retries".to_string(),
+            commands: vec![
+                "zjj work feature-auth --idempotent".to_string(),
+                "zjj remove old-session --idempotent".to_string(),
+            ],
+            expected_output: None,
+            use_case: "automation".to_string(),
+            prerequisites: vec![],
+            notes: Some("Returns success even if already done".to_string()),
+        },
+    ]
+}
+
+fn ai_agent_examples() -> Vec<Example> {
+    vec![
+        Example {
+            name: "Get full context (AI agent)".to_string(),
+            description: "Get complete environment context for AI".to_string(),
+            commands: vec![
+                "zjj context --json".to_string(),
+                "zjj context --field=repository.branch".to_string(),
+            ],
+            expected_output: None,
+            use_case: "ai-agent".to_string(),
+            prerequisites: vec![],
+            notes: Some("Use --no-beads --no-health for faster response".to_string()),
+        },
         Example {
             name: "AI agent quick start".to_string(),
             description: "Minimal workflow for AI agents".to_string(),
@@ -226,18 +248,26 @@ fn build_examples() -> ExamplesResponse {
             prerequisites: vec![],
             notes: None,
         },
-        Example {
-            name: "Register as agent".to_string(),
-            description: "Register for multi-agent coordination".to_string(),
-            commands: vec![
-                "zjj agent register".to_string(),
-                "zjj agent heartbeat".to_string(),
-            ],
-            expected_output: None,
-            use_case: "multi-agent".to_string(),
-            prerequisites: vec![],
-            notes: Some("Sets ZJJ_AGENT_ID environment variable".to_string()),
-        },
+    ]
+}
+
+fn multi_agent_examples() -> Vec<Example> {
+    vec![Example {
+        name: "Register as agent".to_string(),
+        description: "Register for multi-agent coordination".to_string(),
+        commands: vec![
+            "zjj agent register".to_string(),
+            "zjj agent heartbeat".to_string(),
+        ],
+        expected_output: None,
+        use_case: "multi-agent".to_string(),
+        prerequisites: vec![],
+        notes: Some("Sets ZJJ_AGENT_ID environment variable".to_string()),
+    }]
+}
+
+fn safety_examples() -> Vec<Example> {
+    vec![
         Example {
             name: "Create checkpoint".to_string(),
             description: "Save current state for rollback".to_string(),
@@ -252,18 +282,6 @@ fn build_examples() -> ExamplesResponse {
             notes: None,
         },
         Example {
-            name: "Idempotent operations".to_string(),
-            description: "Safe for retries".to_string(),
-            commands: vec![
-                "zjj work feature-auth --idempotent".to_string(),
-                "zjj remove old-session --idempotent".to_string(),
-            ],
-            expected_output: None,
-            use_case: "automation".to_string(),
-            prerequisites: vec![],
-            notes: Some("Returns success even if already done".to_string()),
-        },
-        Example {
             name: "Dry-run preview".to_string(),
             description: "Preview operations without executing".to_string(),
             commands: vec![
@@ -276,7 +294,31 @@ fn build_examples() -> ExamplesResponse {
             prerequisites: vec![],
             notes: Some("No side effects, just shows what would happen".to_string()),
         },
-    ];
+    ]
+}
+
+fn maintenance_examples() -> Vec<Example> {
+    vec![Example {
+        name: "Run health checks".to_string(),
+        description: "Diagnose and fix issues".to_string(),
+        commands: vec!["zjj doctor".to_string(), "zjj doctor --fix".to_string()],
+        expected_output: None,
+        use_case: "maintenance".to_string(),
+        prerequisites: vec![],
+        notes: None,
+    }]
+}
+
+fn build_examples() -> ExamplesResponse {
+    let mut examples = Vec::new();
+    examples.extend(workflow_examples());
+    examples.extend(single_command_examples());
+    examples.extend(error_handling_examples());
+    examples.extend(automation_examples());
+    examples.extend(ai_agent_examples());
+    examples.extend(multi_agent_examples());
+    examples.extend(safety_examples());
+    examples.extend(maintenance_examples());
 
     let use_cases = vec![
         "workflow".to_string(),

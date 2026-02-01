@@ -217,7 +217,8 @@ pub(super) fn create_repo_ai_instructions(repo_root: &Path) -> Result<()> {
 ///
 /// Part of the template rendering system. Not yet used but available for
 /// future init scaffolding features.
-fn _get_project_context(repo_root: &Path) -> Result<ProjectContext> {
+#[allow(dead_code)]
+fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
     let project_name = repo_root
         .file_name()
         .and_then(|s| s.to_str())
@@ -237,8 +238,9 @@ fn _get_project_context(repo_root: &Path) -> Result<ProjectContext> {
 ///
 /// Part of the template rendering system. Not yet used but available for
 /// future init scaffolding features.
-pub(super) fn _create_agents_md(repo_root: &Path) -> Result<()> {
-    let context = _get_project_context(repo_root)?;
+#[allow(dead_code)]
+pub(super) fn create_agents_md(repo_root: &Path) -> Result<()> {
+    let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::AgentsMd, &context)?;
     let path = repo_root.join("AGENTS.md");
     if !path.exists() {
@@ -251,8 +253,9 @@ pub(super) fn _create_agents_md(repo_root: &Path) -> Result<()> {
 ///
 /// Part of the template rendering system. Not yet used but available for
 /// future init scaffolding features.
-pub(super) fn _create_claude_md(repo_root: &Path) -> Result<()> {
-    let context = _get_project_context(repo_root)?;
+#[allow(dead_code)]
+pub(super) fn create_claude_md(repo_root: &Path) -> Result<()> {
+    let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::ClaudeMd, &context)?;
     let path = repo_root.join("CLAUDE.md");
     if !path.exists() {
@@ -293,11 +296,12 @@ pub(super) fn _create_moon_pipeline(repo_root: &Path) -> Result<()> {
 ///
 /// Part of the template rendering system. Not yet used but available for
 /// future init scaffolding features.
-pub(super) fn _create_docs(repo_root: &Path) -> Result<()> {
+#[allow(dead_code)]
+pub(super) fn create_docs(repo_root: &Path) -> Result<()> {
     let docs_dir = repo_root.join("docs");
     fs::create_dir_all(&docs_dir).context("Failed to create docs directory")?;
 
-    let context = _get_project_context(repo_root)?;
+    let context = get_project_context(repo_root)?;
 
     for template_type in TemplateType::docs() {
         let rendered = render_template(*template_type, &context)?;

@@ -8,7 +8,7 @@
 //!
 //! This is the AI-friendly entry point for starting work.
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -47,6 +47,7 @@ pub struct EnvVar {
 
 /// Options for work command
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct WorkOptions {
     /// Session name to create/use
     pub name: String,
@@ -160,7 +161,7 @@ pub fn run(options: &WorkOptions) -> Result<()> {
 }
 
 /// Output result for an existing workspace (idempotent mode)
-fn output_existing_workspace(root: &PathBuf, name: &str, options: &WorkOptions) -> Result<()> {
+fn output_existing_workspace(root: &Path, name: &str, options: &WorkOptions) -> Result<()> {
     let workspace_path = root.join(".zjj/workspaces").join(name);
 
     let agent_id = if options.no_agent {
@@ -247,7 +248,7 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
 /// Build environment variables for the workspace
 fn build_env_vars(
     name: &str,
-    workspace_path: &PathBuf,
+    workspace_path: &Path,
     agent_id: Option<&str>,
     bead_id: Option<&str>,
 ) -> Vec<EnvVar> {
@@ -312,6 +313,7 @@ fn output_result(output: &WorkOutput, format: OutputFormat) -> Result<()> {
 }
 
 /// Generate a short random ID
+#[allow(clippy::cast_possible_truncation)]
 fn generate_short_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -319,15 +321,17 @@ fn generate_short_id() -> String {
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_millis());
 
-    // Use last 8 hex chars of timestamp + random suffix
+    // Use last 8 hex chars of timestamp + random suffix (truncation intentional)
     format!("{:08x}", timestamp as u32)
 }
 
 #[cfg(test)]
+#[allow(clippy::cast_possible_truncation)]
 mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
     fn test_work_output_serializes() {
         let output = WorkOutput {
             name: "test-session".to_string(),
@@ -352,8 +356,8 @@ mod tests {
 
     #[test]
     fn test_build_env_vars() {
-        let path = PathBuf::from("/test/path");
-        let vars = build_env_vars("test", &path, Some("agent-1"), Some("bead-1"));
+        let path = Path::new("/test/path");
+        let vars = build_env_vars("test", path, Some("agent-1"), Some("bead-1"));
 
         assert!(vars.iter().any(|v| v.name == "ZJJ_SESSION"));
         assert!(vars.iter().any(|v| v.name == "ZJJ_WORKSPACE"));
@@ -451,8 +455,8 @@ mod tests {
     /// Test `env_vars` contains required variables
     #[test]
     fn test_work_env_vars_required() {
-        let path = PathBuf::from("/test/workspace");
-        let vars = build_env_vars("test-session", &path, Some("agent-1"), Some("bead-1"));
+        let path = Path::new("/test/workspace");
+        let vars = build_env_vars("test-session", path, Some("agent-1"), Some("bead-1"));
 
         let var_names: Vec<_> = vars.iter().map(|v| v.name.as_str()).collect();
 
@@ -466,8 +470,8 @@ mod tests {
     /// Test `env_vars` without `agent_id`
     #[test]
     fn test_work_env_vars_no_agent() {
-        let path = PathBuf::from("/test/workspace");
-        let vars = build_env_vars("test-session", &path, None, None);
+        let path = Path::new("/test/workspace");
+        let vars = build_env_vars("test-session", path, None, None);
 
         let var_names: Vec<_> = vars.iter().map(|v| v.name.as_str()).collect();
 
