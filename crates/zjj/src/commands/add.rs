@@ -23,6 +23,8 @@ pub struct AddOptions {
     pub template: Option<String>,
     /// Create workspace but don't open Zellij tab
     pub no_open: bool,
+    /// Skip Zellij integration entirely (for non-TTY environments)
+    pub no_zellij: bool,
     /// Output format (JSON or Human-readable)
     pub format: OutputFormat,
     /// Succeed if session already exists (safe for retries)
@@ -40,6 +42,7 @@ impl AddOptions {
             no_hooks: false,
             template: None,
             no_open: false,
+            no_zellij: false,
             format: OutputFormat::Human,
             idempotent: false,
             dry_run: false,
@@ -327,10 +330,10 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
         }
     }
 
-    // Open Zellij tab unless --no-open (REQ-CLI-003)
+    // Open Zellij tab unless --no-open or --no-zellij (REQ-CLI-003)
     // COMPENSATING ACTION: If this fails, session has 'active' status but Zellij tab doesn't exist
     // Recovery: User can manually create tab or run 'zjj focus <name>'
-    if options.no_open {
+    if options.no_open || options.no_zellij {
         output_result(
             &options.name,
             &workspace_path_str,
@@ -1022,6 +1025,7 @@ mod tests {
             no_hooks: false,
             template: None,
             no_open: false,
+            no_zellij: false,
             format: OutputFormat::Human,
             idempotent: false,
             dry_run: false,
@@ -1041,6 +1045,7 @@ mod tests {
             no_hooks: false,
             template: None,
             no_open: false,
+            no_zellij: false,
             format: OutputFormat::Json,
             idempotent: false,
             dry_run: false,
@@ -1066,6 +1071,7 @@ mod tests {
             format,
             idempotent: false,
             dry_run: false,
+            no_zellij: false,
         };
 
         // Verify round-trip
@@ -1086,6 +1092,7 @@ mod tests {
             no_hooks: false,
             template: None,
             no_open: false,
+            no_zellij: false,
             format: OutputFormat::Json,
             idempotent: false,
             dry_run: false,

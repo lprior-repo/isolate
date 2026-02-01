@@ -18,8 +18,8 @@ mod session;
 use commands::{
     abort, add, agents, ai, attach, batch, can_i, checkpoint, claim, clean, completions, config,
     context, contract, dashboard, diff, doctor, done, events, examples, export_import, focus, init,
-    introspect, list, pane, query, remove, rename, revert, session_mgmt, spawn, status, sync, undo,
-    validate, whatif, whereami, whoami, work,
+    introspect, list, pane, query, remove, rename, revert, session_mgmt, spawn, status, switch,
+    sync, undo, validate, whatif, whereami, whoami, work,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -417,6 +417,12 @@ fn cmd_add() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Preview without creating"),
         )
+        .arg(
+            Arg::new("no-zellij")
+                .long("no-zellij")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip Zellij integration (for non-TTY environments)"),
+        )
 }
 
 fn cmd_agents() -> ClapCommand {
@@ -614,6 +620,12 @@ fn cmd_focus() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("no-zellij")
+                .long("no-zellij")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip Zellij integration (for non-TTY environments)"),
+        )
 }
 
 fn cmd_status() -> ClapCommand {
@@ -635,6 +647,39 @@ fn cmd_status() -> ClapCommand {
                 .long("watch")
                 .action(clap::ArgAction::SetTrue)
                 .help("Continuously update status (1s refresh)"),
+        )
+}
+
+fn cmd_switch() -> ClapCommand {
+    ClapCommand::new("switch")
+        .about("Switch to a different workspace")
+        .long_about(
+            "Navigate between workspaces when inside Zellij.\n\n\
+            Use this for quick workspace switching. Similar to 'zjj focus' but \
+            emphasizes navigation between existing sessions.",
+        )
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj switch feature-auth           Switch to named session\n  \
+            zjj switch                        Interactive session selection\n  \
+            zjj switch test --show-context    Switch and show session details",
+        )
+        .arg(
+            Arg::new("name")
+                .required(false)
+                .help("Name of the session to switch to (interactive if omitted)"),
+        )
+        .arg(
+            Arg::new("show-context")
+                .long("show-context")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show session details after switching"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
         )
 }
 
@@ -1936,6 +1981,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_list())
         .subcommand(cmd_remove())
         .subcommand(cmd_focus())
+        .subcommand(cmd_switch())
         .subcommand(cmd_status())
         .subcommand(cmd_sync())
         .subcommand(cmd_diff())
@@ -2037,6 +2083,7 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
     let no_hooks = sub_m.get_flag("no-hooks");
     let template = sub_m.get_one::<String>("template").cloned();
     let no_open = sub_m.get_flag("no-open");
+    let no_zellij = sub_m.get_flag("no-zellij");
     let json = sub_m.get_flag("json");
     let idempotent = sub_m.get_flag("idempotent");
     let dry_run = sub_m.get_flag("dry-run");
@@ -2046,6 +2093,7 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
         no_hooks,
         template,
         no_open,
+        no_zellij,
         format: zjj_core::OutputFormat::from_json_flag(json),
         idempotent,
         dry_run,
@@ -2101,8 +2149,9 @@ fn handle_remove(sub_m: &clap::ArgMatches) -> Result<()> {
 fn handle_focus(sub_m: &clap::ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let json = sub_m.get_flag("json");
+    let no_zellij = sub_m.get_flag("no-zellij");
     let format = zjj_core::OutputFormat::from_json_flag(json);
-    let options = focus::FocusOptions { format };
+    let options = focus::FocusOptions { format, no_zellij };
 
     // Pass name as Option<&str> to run_with_options
     // If name is None, focus::run_with_options will trigger interactive selection
@@ -2124,6 +2173,28 @@ fn handle_status(sub_m: &clap::ArgMatches) -> Result<()> {
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let watch = sub_m.get_flag("watch");
     match status::run(name, format, watch) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_switch(sub_m: &clap::ArgMatches) -> Result<()> {
+    let name = sub_m.get_one::<String>("name").map(String::as_str);
+    let json = sub_m.get_flag("json");
+    let show_context = sub_m.get_flag("show-context");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let options = switch::SwitchOptions {
+        format,
+        show_context,
+    };
+
+    match switch::run_with_options(name, &options) {
         Ok(()) => Ok(()),
         Err(e) => {
             if format.is_json() {
@@ -3219,6 +3290,7 @@ fn run_cli() -> Result<()> {
         Some(("pane", sub_m)) => handle_pane(sub_m),
         Some(("remove", sub_m)) => handle_remove(sub_m),
         Some(("focus", sub_m)) => handle_focus(sub_m),
+        Some(("switch", sub_m)) => handle_switch(sub_m),
         Some(("status", sub_m)) => handle_status(sub_m),
         Some(("sync", sub_m)) => handle_sync(sub_m),
         Some(("diff", sub_m)) => handle_diff(sub_m),
@@ -3425,6 +3497,7 @@ mod main_tests {
             no_hooks: false,
             template: None,
             no_open: false,
+            no_zellij: false,
             format: OutputFormat::Json,
             idempotent: false,
             dry_run: false,

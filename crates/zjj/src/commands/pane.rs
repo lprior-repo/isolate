@@ -378,26 +378,11 @@ mod tests {
     // Test: Direction::parse should reject invalid inputs with clear error message
     #[test]
     fn test_direction_parse_valid() -> anyhow::Result<()> {
-        assert_eq!(
-            Direction::parse("up")?,
-            Direction::Up
-        );
-        assert_eq!(
-            Direction::parse("UP")?,
-            Direction::Up
-        );
-        assert_eq!(
-            Direction::parse("Down")?,
-            Direction::Down
-        );
-        assert_eq!(
-            Direction::parse("LEFT")?,
-            Direction::Left
-        );
-        assert_eq!(
-            Direction::parse("Right")?,
-            Direction::Right
-        );
+        assert_eq!(Direction::parse("up")?, Direction::Up);
+        assert_eq!(Direction::parse("UP")?, Direction::Up);
+        assert_eq!(Direction::parse("Down")?, Direction::Down);
+        assert_eq!(Direction::parse("LEFT")?, Direction::Left);
+        assert_eq!(Direction::parse("Right")?, Direction::Right);
         Ok(())
     }
 

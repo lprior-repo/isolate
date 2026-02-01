@@ -143,10 +143,11 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
             };
 
             // Convert timestamp to human-readable format
-            let datetime = chrono::DateTime::from_timestamp(entry.timestamp.cast_signed(), 0).map_or_else(
-                || entry.timestamp.to_string(),
-                |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-            );
+            let datetime = chrono::DateTime::from_timestamp(entry.timestamp.cast_signed(), 0)
+                .map_or_else(
+                    || entry.timestamp.to_string(),
+                    |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                );
 
             UndoHistoryEntry {
                 session_name: entry.session_name.clone(),
