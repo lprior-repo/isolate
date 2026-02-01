@@ -369,10 +369,185 @@ pub trait JsonSerializable: Serialize {
 // Implement for all Serialize types
 impl<T: Serialize> JsonSerializable for T {}
 
+/// HATEOAS-style link for API discoverability
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HateoasLink {
+    /// Link relation type (e.g., "self", "next", "parent")
+    pub rel: String,
+    /// The command or action to take
+    pub href: String,
+    /// HTTP-like method hint ("GET" for read, "POST" for mutate)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+    /// Human-readable description
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+impl HateoasLink {
+    /// Create a self-reference link
+    #[must_use]
+    pub fn self_link(command: impl Into<String>) -> Self {
+        Self {
+            rel: "self".to_string(),
+            href: command.into(),
+            method: Some("GET".to_string()),
+            title: None,
+        }
+    }
+
+    /// Create a related resource link
+    #[must_use]
+    pub fn related(rel: impl Into<String>, command: impl Into<String>) -> Self {
+        Self {
+            rel: rel.into(),
+            href: command.into(),
+            method: Some("GET".to_string()),
+            title: None,
+        }
+    }
+
+    /// Create an action link (mutating operation)
+    #[must_use]
+    pub fn action(rel: impl Into<String>, command: impl Into<String>, title: impl Into<String>) -> Self {
+        Self {
+            rel: rel.into(),
+            href: command.into(),
+            method: Some("POST".to_string()),
+            title: Some(title.into()),
+        }
+    }
+
+    /// Add a title to this link
+    #[must_use]
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+}
+
+/// Related resource information for cross-referencing
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RelatedResources {
+    /// Related sessions
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub sessions: Vec<String>,
+    /// Related beads/issues
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub beads: Vec<String>,
+    /// Related workspaces
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub workspaces: Vec<String>,
+    /// Related commits
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub commits: Vec<String>,
+    /// Parent resource (if applicable)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
+    /// Child resources
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub children: Vec<String>,
+}
+
+impl RelatedResources {
+    /// Check if there are any related resources
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.sessions.is_empty()
+            && self.beads.is_empty()
+            && self.workspaces.is_empty()
+            && self.commits.is_empty()
+            && self.parent.is_none()
+            && self.children.is_empty()
+    }
+}
+
+/// Response metadata for debugging and tracing
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ResponseMeta {
+    /// Command that generated this response
+    pub command: String,
+    /// Timestamp of response generation (ISO 8601)
+    pub timestamp: String,
+    /// Duration of command execution in milliseconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
+    /// Whether this was a dry-run
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dry_run: Option<bool>,
+    /// Whether the operation is reversible
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reversible: Option<bool>,
+    /// Command to undo this operation (if reversible)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub undo_command: Option<String>,
+    /// Request ID for tracing
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    /// Agent ID if executed by an agent
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+}
+
+impl ResponseMeta {
+    /// Create new metadata for a command
+    #[must_use]
+    pub fn new(command: impl Into<String>) -> Self {
+        Self {
+            command: command.into(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            duration_ms: None,
+            dry_run: None,
+            reversible: None,
+            undo_command: None,
+            request_id: None,
+            agent_id: None,
+        }
+    }
+
+    /// Set duration
+    #[must_use]
+    pub const fn with_duration(mut self, ms: u64) -> Self {
+        self.duration_ms = Some(ms);
+        self
+    }
+
+    /// Mark as dry run
+    #[must_use]
+    pub const fn as_dry_run(mut self) -> Self {
+        self.dry_run = Some(true);
+        self
+    }
+
+    /// Mark as reversible with undo command
+    #[must_use]
+    pub fn with_undo(mut self, undo_cmd: impl Into<String>) -> Self {
+        self.reversible = Some(true);
+        self.undo_command = Some(undo_cmd.into());
+        self
+    }
+
+    /// Set agent ID
+    #[must_use]
+    pub fn with_agent(mut self, agent_id: impl Into<String>) -> Self {
+        self.agent_id = Some(agent_id.into());
+        self
+    }
+
+    /// Set request ID
+    #[must_use]
+    pub fn with_request_id(mut self, request_id: impl Into<String>) -> Self {
+        self.request_id = Some(request_id.into());
+        self
+    }
+}
+
 /// Generic schema envelope for protocol-compliant JSON responses
 ///
 /// Wraps response data with schema metadata (`$schema`, `_schema_version`) for AI-first CLI design.
 /// All JSON outputs should be wrapped with this envelope to conform to `ResponseEnvelope` pattern.
+///
+/// Includes HATEOAS-style navigation with `_links`, `_related`, and `_meta` blocks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaEnvelope<T> {
     /// JSON Schema reference (e.g., `zjj://status-response/v1`)
@@ -394,6 +569,15 @@ pub struct SchemaEnvelope<T> {
     /// Available fixes for errors (empty for success responses)
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub fixes: Vec<Fix>,
+    /// HATEOAS-style navigation links
+    #[serde(rename = "_links", skip_serializing_if = "Vec::is_empty", default)]
+    pub links: Vec<HateoasLink>,
+    /// Related resources for cross-referencing
+    #[serde(rename = "_related", skip_serializing_if = "Option::is_none")]
+    pub related: Option<RelatedResources>,
+    /// Response metadata for debugging and tracing
+    #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
+    pub meta: Option<ResponseMeta>,
 }
 
 impl<T> SchemaEnvelope<T> {
@@ -418,6 +602,9 @@ impl<T> SchemaEnvelope<T> {
             data,
             next: Vec::new(),
             fixes: Vec::new(),
+            links: Vec::new(),
+            related: None,
+            meta: None,
         }
     }
 
@@ -431,7 +618,54 @@ impl<T> SchemaEnvelope<T> {
             data,
             next,
             fixes: Vec::new(),
+            links: Vec::new(),
+            related: None,
+            meta: None,
         }
+    }
+
+    /// Add HATEOAS links to envelope
+    #[must_use]
+    pub fn with_links(mut self, links: Vec<HateoasLink>) -> Self {
+        self.links = links;
+        self
+    }
+
+    /// Add a single link
+    #[must_use]
+    pub fn add_link(mut self, link: HateoasLink) -> Self {
+        self.links.push(link);
+        self
+    }
+
+    /// Add related resources
+    #[must_use]
+    pub fn with_related(mut self, related: RelatedResources) -> Self {
+        if !related.is_empty() {
+            self.related = Some(related);
+        }
+        self
+    }
+
+    /// Add response metadata
+    #[must_use]
+    pub fn with_meta(mut self, meta: ResponseMeta) -> Self {
+        self.meta = Some(meta);
+        self
+    }
+
+    /// Add fixes to envelope
+    #[must_use]
+    pub fn with_fixes(mut self, fixes: Vec<Fix>) -> Self {
+        self.fixes = fixes;
+        self
+    }
+
+    /// Mark as failed response
+    #[must_use]
+    pub const fn as_error(mut self) -> Self {
+        self.success = false;
+        self
     }
 }
 
@@ -460,6 +694,15 @@ pub struct SchemaEnvelopeArray<T> {
     /// Available fixes for errors (empty for success responses)
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub fixes: Vec<Fix>,
+    /// HATEOAS-style navigation links
+    #[serde(rename = "_links", skip_serializing_if = "Vec::is_empty", default)]
+    pub links: Vec<HateoasLink>,
+    /// Related resources for cross-referencing
+    #[serde(rename = "_related", skip_serializing_if = "Option::is_none")]
+    pub related: Option<RelatedResources>,
+    /// Response metadata for debugging and tracing
+    #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
+    pub meta: Option<ResponseMeta>,
 }
 
 impl<T> SchemaEnvelopeArray<T> {
@@ -483,7 +726,40 @@ impl<T> SchemaEnvelopeArray<T> {
             data,
             next: Vec::new(),
             fixes: Vec::new(),
+            links: Vec::new(),
+            related: None,
+            meta: None,
         }
+    }
+
+    /// Add HATEOAS links
+    #[must_use]
+    pub fn with_links(mut self, links: Vec<HateoasLink>) -> Self {
+        self.links = links;
+        self
+    }
+
+    /// Add related resources
+    #[must_use]
+    pub fn with_related(mut self, related: RelatedResources) -> Self {
+        if !related.is_empty() {
+            self.related = Some(related);
+        }
+        self
+    }
+
+    /// Add response metadata
+    #[must_use]
+    pub fn with_meta(mut self, meta: ResponseMeta) -> Self {
+        self.meta = Some(meta);
+        self
+    }
+
+    /// Add next actions
+    #[must_use]
+    pub fn with_next(mut self, next: Vec<NextAction>) -> Self {
+        self.next = next;
+        self
     }
 }
 
@@ -681,5 +957,323 @@ mod tests {
         if let Some(sugg) = detail.suggestion {
             assert!(sugg.contains("list"));
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // HATEOAS LINK TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_hateoas_link_self() {
+        let link = HateoasLink::self_link("zjj status test");
+        assert_eq!(link.rel, "self");
+        assert_eq!(link.href, "zjj status test");
+        assert_eq!(link.method, Some("GET".to_string()));
+        assert!(link.title.is_none());
+    }
+
+    #[test]
+    fn test_hateoas_link_related() {
+        let link = HateoasLink::related("parent", "zjj list");
+        assert_eq!(link.rel, "parent");
+        assert_eq!(link.href, "zjj list");
+        assert_eq!(link.method, Some("GET".to_string()));
+    }
+
+    #[test]
+    fn test_hateoas_link_action() {
+        let link = HateoasLink::action("remove", "zjj remove test", "Delete session");
+        assert_eq!(link.rel, "remove");
+        assert_eq!(link.href, "zjj remove test");
+        assert_eq!(link.method, Some("POST".to_string()));
+        assert_eq!(link.title, Some("Delete session".to_string()));
+    }
+
+    #[test]
+    fn test_hateoas_link_with_title() {
+        let link = HateoasLink::self_link("zjj status").with_title("Get current status");
+        assert_eq!(link.title, Some("Get current status".to_string()));
+    }
+
+    #[test]
+    fn test_hateoas_link_serialization() -> crate::Result<()> {
+        let link = HateoasLink::action("sync", "zjj sync test", "Sync session");
+        let json = serde_json::to_string(&link)
+            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+
+        assert!(json.contains("\"rel\":\"sync\""));
+        assert!(json.contains("\"href\":\"zjj sync test\""));
+        assert!(json.contains("\"method\":\"POST\""));
+        assert!(json.contains("\"title\":\"Sync session\""));
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RELATED RESOURCES TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_related_resources_empty() {
+        let related = RelatedResources::default();
+        assert!(related.is_empty());
+    }
+
+    #[test]
+    fn test_related_resources_with_sessions() {
+        let related = RelatedResources {
+            sessions: vec!["session-1".to_string(), "session-2".to_string()],
+            ..Default::default()
+        };
+        assert!(!related.is_empty());
+        assert_eq!(related.sessions.len(), 2);
+    }
+
+    #[test]
+    fn test_related_resources_with_parent() {
+        let related = RelatedResources {
+            parent: Some("main".to_string()),
+            ..Default::default()
+        };
+        assert!(!related.is_empty());
+    }
+
+    #[test]
+    fn test_related_resources_serialization() -> crate::Result<()> {
+        let related = RelatedResources {
+            sessions: vec!["s1".to_string()],
+            beads: vec!["zjj-1234".to_string()],
+            commits: vec!["abc123".to_string()],
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&related)
+            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+
+        assert!(json.contains("\"sessions\":[\"s1\"]"));
+        assert!(json.contains("\"beads\":[\"zjj-1234\"]"));
+        assert!(json.contains("\"commits\":[\"abc123\"]"));
+        // Empty fields should be omitted
+        assert!(!json.contains("\"workspaces\""));
+        assert!(!json.contains("\"parent\""));
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RESPONSE META TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_response_meta_new() {
+        let meta = ResponseMeta::new("status");
+        assert_eq!(meta.command, "status");
+        assert!(!meta.timestamp.is_empty());
+        assert!(meta.duration_ms.is_none());
+        assert!(meta.dry_run.is_none());
+        assert!(meta.reversible.is_none());
+        assert!(meta.undo_command.is_none());
+    }
+
+    #[test]
+    fn test_response_meta_with_duration() {
+        let meta = ResponseMeta::new("add").with_duration(150);
+        assert_eq!(meta.duration_ms, Some(150));
+    }
+
+    #[test]
+    fn test_response_meta_as_dry_run() {
+        let meta = ResponseMeta::new("remove").as_dry_run();
+        assert_eq!(meta.dry_run, Some(true));
+    }
+
+    #[test]
+    fn test_response_meta_with_undo() {
+        let meta = ResponseMeta::new("remove test").with_undo("zjj undo");
+        assert_eq!(meta.reversible, Some(true));
+        assert_eq!(meta.undo_command, Some("zjj undo".to_string()));
+    }
+
+    #[test]
+    fn test_response_meta_with_agent() {
+        let meta = ResponseMeta::new("work").with_agent("agent-001");
+        assert_eq!(meta.agent_id, Some("agent-001".to_string()));
+    }
+
+    #[test]
+    fn test_response_meta_with_request_id() {
+        let meta = ResponseMeta::new("status").with_request_id("req-123");
+        assert_eq!(meta.request_id, Some("req-123".to_string()));
+    }
+
+    #[test]
+    fn test_response_meta_serialization() -> crate::Result<()> {
+        let meta = ResponseMeta::new("add test")
+            .with_duration(50)
+            .with_undo("zjj undo")
+            .with_agent("agent-x");
+        let json = serde_json::to_string(&meta)
+            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+
+        assert!(json.contains("\"command\":\"add test\""));
+        assert!(json.contains("\"duration_ms\":50"));
+        assert!(json.contains("\"reversible\":true"));
+        assert!(json.contains("\"undo_command\":\"zjj undo\""));
+        assert!(json.contains("\"agent_id\":\"agent-x\""));
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCHEMA ENVELOPE WITH HATEOAS TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_schema_envelope_with_links() {
+        #[derive(Serialize, Deserialize)]
+        struct TestData { name: String }
+
+        let data = TestData { name: "test".to_string() };
+        let envelope = SchemaEnvelope::new("test-response", "single", data)
+            .add_link(HateoasLink::self_link("zjj status test"))
+            .add_link(HateoasLink::related("list", "zjj list"));
+
+        assert_eq!(envelope.links.len(), 2);
+        assert_eq!(envelope.links[0].rel, "self");
+        assert_eq!(envelope.links[1].rel, "list");
+    }
+
+    #[test]
+    fn test_schema_envelope_with_related() {
+        #[derive(Serialize, Deserialize)]
+        struct TestData { id: String }
+
+        let data = TestData { id: "abc".to_string() };
+        let related = RelatedResources {
+            sessions: vec!["s1".to_string()],
+            beads: vec!["zjj-001".to_string()],
+            ..Default::default()
+        };
+        let envelope = SchemaEnvelope::new("test-response", "single", data)
+            .with_related(related);
+
+        assert!(envelope.related.is_some());
+        let r = envelope.related.as_ref();
+        assert!(r.is_some());
+        if let Some(rel) = r {
+            assert_eq!(rel.sessions.len(), 1);
+            assert_eq!(rel.beads.len(), 1);
+        }
+    }
+
+    #[test]
+    fn test_schema_envelope_with_meta() {
+        #[derive(Serialize, Deserialize)]
+        struct TestData { value: i32 }
+
+        let data = TestData { value: 42 };
+        let meta = ResponseMeta::new("test").with_duration(100);
+        let envelope = SchemaEnvelope::new("test-response", "single", data)
+            .with_meta(meta);
+
+        assert!(envelope.meta.is_some());
+        if let Some(m) = envelope.meta {
+            assert_eq!(m.command, "test");
+            assert_eq!(m.duration_ms, Some(100));
+        }
+    }
+
+    #[test]
+    fn test_schema_envelope_as_error() {
+        #[derive(Serialize, Deserialize)]
+        struct TestData { error: String }
+
+        let data = TestData { error: "failed".to_string() };
+        let envelope = SchemaEnvelope::new("error-response", "single", data)
+            .as_error();
+
+        assert!(!envelope.success);
+    }
+
+    #[test]
+    fn test_schema_envelope_with_fixes() {
+        use crate::fix::Fix;
+
+        #[derive(Serialize, Deserialize)]
+        struct TestData { status: String }
+
+        let data = TestData { status: "error".to_string() };
+        let fixes = vec![
+            Fix::safe("Try again", vec!["zjj retry".to_string()]),
+        ];
+        let envelope = SchemaEnvelope::new("error-response", "single", data)
+            .with_fixes(fixes);
+
+        assert_eq!(envelope.fixes.len(), 1);
+    }
+
+    #[test]
+    fn test_schema_envelope_full_serialization() -> crate::Result<()> {
+        #[derive(Serialize, Deserialize)]
+        struct TestData { name: String }
+
+        let data = TestData { name: "test-session".to_string() };
+        let envelope = SchemaEnvelope::new("session-response", "single", data)
+            .add_link(HateoasLink::self_link("zjj status test-session"))
+            .with_related(RelatedResources {
+                beads: vec!["zjj-1".to_string()],
+                ..Default::default()
+            })
+            .with_meta(ResponseMeta::new("status test-session").with_duration(25));
+
+        let json = serde_json::to_string_pretty(&envelope)
+            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+
+        assert!(json.contains("\"$schema\":"));
+        assert!(json.contains("\"_schema_version\":"));
+        assert!(json.contains("\"_links\":"));
+        assert!(json.contains("\"_related\":"));
+        assert!(json.contains("\"_meta\":"));
+        assert!(json.contains("\"name\":\"test-session\""));
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCHEMA ENVELOPE ARRAY WITH HATEOAS TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_schema_envelope_array_with_links() {
+        let data = vec!["item1".to_string(), "item2".to_string()];
+        let envelope = SchemaEnvelopeArray::new("list-response", data)
+            .with_links(vec![HateoasLink::self_link("zjj list")]);
+
+        assert_eq!(envelope.links.len(), 1);
+        assert_eq!(envelope.data.len(), 2);
+    }
+
+    #[test]
+    fn test_schema_envelope_array_with_meta() {
+        let data = vec![1, 2, 3];
+        let meta = ResponseMeta::new("list").with_duration(10);
+        let envelope = SchemaEnvelopeArray::new("numbers-response", data)
+            .with_meta(meta);
+
+        assert!(envelope.meta.is_some());
+        assert_eq!(envelope.data.len(), 3);
+    }
+
+    #[test]
+    fn test_schema_envelope_array_with_next() {
+        use crate::hints::{NextAction, ActionRisk};
+
+        let data: Vec<String> = vec![];
+        let next = vec![NextAction {
+            action: "Create first item".to_string(),
+            commands: vec!["zjj add item".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        }];
+        let envelope = SchemaEnvelopeArray::new("empty-list", data)
+            .with_next(next);
+
+        assert_eq!(envelope.next.len(), 1);
+        assert!(envelope.data.is_empty());
     }
 }

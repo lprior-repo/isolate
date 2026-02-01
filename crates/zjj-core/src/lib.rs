@@ -40,10 +40,12 @@ pub mod watcher;
 pub mod zellij;
 
 pub use config::RecoveryPolicy;
-pub use error::Error;
+pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
 pub use hints::{ActionRisk, CommandContext, NextAction};
-pub use json::ErrorCode;
+pub use json::{
+    ErrorCode, HateoasLink, RelatedResources, ResponseMeta, SchemaEnvelope, SchemaEnvelopeArray,
+};
 pub use output_format::OutputFormat;
 pub use recovery::{log_recovery, should_log_recovery};
 pub use result::{Result, ResultExt};

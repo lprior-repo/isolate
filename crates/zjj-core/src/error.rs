@@ -1,5 +1,237 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
+/// Validation hint for explaining what was expected vs received
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidationHint {
+    /// The field or parameter that failed validation
+    pub field: String,
+    /// What was expected
+    pub expected: String,
+    /// What was actually received (if applicable)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub received: Option<String>,
+    /// Example of valid input
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub example: Option<String>,
+    /// Regular expression pattern for valid input (if applicable)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
+}
+
+impl ValidationHint {
+    /// Create a new validation hint
+    #[must_use]
+    pub fn new(field: impl Into<String>, expected: impl Into<String>) -> Self {
+        Self {
+            field: field.into(),
+            expected: expected.into(),
+            received: None,
+            example: None,
+            pattern: None,
+        }
+    }
+
+    /// Add what was received
+    #[must_use]
+    pub fn with_received(mut self, received: impl Into<String>) -> Self {
+        self.received = Some(received.into());
+        self
+    }
+
+    /// Add an example
+    #[must_use]
+    pub fn with_example(mut self, example: impl Into<String>) -> Self {
+        self.example = Some(example.into());
+        self
+    }
+
+    /// Add a pattern
+    #[must_use]
+    pub fn with_pattern(mut self, pattern: impl Into<String>) -> Self {
+        self.pattern = Some(pattern.into());
+        self
+    }
+}
+
+/// Context captured at the moment of failure
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FailureContext {
+    /// Working directory at failure
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub working_directory: Option<String>,
+    /// Current JJ workspace/branch
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_workspace: Option<String>,
+    /// Active sessions at failure time
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub active_sessions: Vec<String>,
+    /// Environment variables relevant to failure
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub relevant_env: Vec<(String, String)>,
+    /// Command that was being executed
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    /// Arguments to the command
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub arguments: Vec<String>,
+    /// Timestamp of failure (ISO 8601)
+    pub timestamp: String,
+    /// Stack trace or phase when failure occurred
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phase: Option<String>,
+}
+
+impl Default for FailureContext {
+    fn default() -> Self {
+        Self {
+            working_directory: None,
+            current_workspace: None,
+            active_sessions: Vec::new(),
+            relevant_env: Vec::new(),
+            command: None,
+            arguments: Vec::new(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            phase: None,
+        }
+    }
+}
+
+impl FailureContext {
+    /// Create a new failure context with current timestamp
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set working directory
+    #[must_use]
+    pub fn with_working_directory(mut self, dir: impl Into<String>) -> Self {
+        self.working_directory = Some(dir.into());
+        self
+    }
+
+    /// Set current workspace
+    #[must_use]
+    pub fn with_workspace(mut self, workspace: impl Into<String>) -> Self {
+        self.current_workspace = Some(workspace.into());
+        self
+    }
+
+    /// Add active sessions
+    #[must_use]
+    pub fn with_active_sessions(mut self, sessions: Vec<String>) -> Self {
+        self.active_sessions = sessions;
+        self
+    }
+
+    /// Set the command and arguments
+    #[must_use]
+    pub fn with_command(mut self, cmd: impl Into<String>, args: Vec<String>) -> Self {
+        self.command = Some(cmd.into());
+        self.arguments = args;
+        self
+    }
+
+    /// Set the phase where failure occurred
+    #[must_use]
+    pub fn with_phase(mut self, phase: impl Into<String>) -> Self {
+        self.phase = Some(phase.into());
+        self
+    }
+
+    /// Add relevant environment variable
+    #[must_use]
+    pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.relevant_env.push((key.into(), value.into()));
+        self
+    }
+
+    /// Capture current working directory from environment
+    #[must_use]
+    pub fn capture_cwd(mut self) -> Self {
+        if let Ok(cwd) = std::env::current_dir() {
+            self.working_directory = Some(cwd.to_string_lossy().to_string());
+        }
+        self
+    }
+}
+
+/// Rich error information for AI-first CLI
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RichError {
+    /// The underlying error
+    #[serde(flatten)]
+    pub error: RichErrorInfo,
+    /// Validation hints (what was expected vs received)
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub validation_hints: Vec<ValidationHint>,
+    /// Context captured at failure
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_at_failure: Option<FailureContext>,
+    /// Fix commands that can resolve this error
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub fix_commands: Vec<String>,
+}
+
+/// Serializable error info (subset of Error for JSON output)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RichErrorInfo {
+    /// Error code (SCREAMING_SNAKE_CASE)
+    pub code: String,
+    /// Human-readable message
+    pub message: String,
+    /// Exit code
+    pub exit_code: i32,
+    /// Structured context
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+    /// Suggestion for resolution
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggestion: Option<String>,
+}
+
+impl RichError {
+    /// Create a RichError from an Error with optional context
+    #[must_use]
+    pub fn from_error(error: &Error) -> Self {
+        Self {
+            error: RichErrorInfo {
+                code: error.code().to_string(),
+                message: error.to_string(),
+                exit_code: error.exit_code(),
+                details: error.context_map(),
+                suggestion: error.suggestion(),
+            },
+            validation_hints: error.validation_hints(),
+            context_at_failure: None,
+            fix_commands: error.fix_commands(),
+        }
+    }
+
+    /// Add failure context
+    #[must_use]
+    pub fn with_context(mut self, context: FailureContext) -> Self {
+        self.context_at_failure = Some(context);
+        self
+    }
+
+    /// Add additional fix commands
+    #[must_use]
+    pub fn with_fix_commands(mut self, commands: Vec<String>) -> Self {
+        self.fix_commands = commands;
+        self
+    }
+
+    /// Add additional validation hints
+    #[must_use]
+    pub fn with_validation_hints(mut self, hints: Vec<ValidationHint>) -> Self {
+        self.validation_hints.extend(hints);
+        self
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Error {
     InvalidConfig(String),
@@ -255,6 +487,141 @@ Self::JjCommandError {
             Self::SessionLocked { .. } | Self::NotLockHolder { .. } => 5,
         }
     }
+
+    /// Returns validation hints that explain what was expected vs received.
+    ///
+    /// Validation hints provide structured guidance for fixing input errors.
+    #[must_use]
+    pub fn validation_hints(&self) -> Vec<ValidationHint> {
+        match self {
+            Self::ValidationError(msg) => {
+                if msg.contains("name") || msg.contains("session") {
+                    vec![ValidationHint::new("session_name", "alphanumeric with dashes/underscores")
+                        .with_example("feature-auth")
+                        .with_pattern("^[a-zA-Z][a-zA-Z0-9_-]*$")]
+                } else if msg.contains("empty") {
+                    vec![ValidationHint::new("input", "non-empty value")
+                        .with_received("(empty string)")]
+                } else {
+                    vec![ValidationHint::new("input", "valid value")
+                        .with_received(msg.clone())]
+                }
+            }
+            Self::InvalidConfig(msg) => {
+                vec![ValidationHint::new("config", "valid TOML configuration")
+                    .with_example("[zjj]\nworkspace_dir = \"./workspaces\"")
+                    .with_received(msg.clone())]
+            }
+            Self::ParseError(msg) => {
+                if msg.contains("JSON") || msg.contains("json") {
+                    vec![ValidationHint::new("input", "valid JSON")
+                        .with_example("{\"key\": \"value\"}")
+                        .with_received(msg.clone())]
+                } else if msg.contains("TOML") || msg.contains("toml") {
+                    vec![ValidationHint::new("input", "valid TOML")
+                        .with_example("key = \"value\"")
+                        .with_received(msg.clone())]
+                } else {
+                    vec![ValidationHint::new("input", "parseable format")
+                        .with_received(msg.clone())]
+                }
+            }
+            Self::SessionLocked { session, holder } => {
+                vec![ValidationHint::new("session", "unlocked session")
+                    .with_received(format!("'{session}' locked by '{holder}'"))]
+            }
+            Self::NotLockHolder { session, agent_id } => {
+                vec![ValidationHint::new("agent_id", "lock holder for session")
+                    .with_received(format!("'{agent_id}' for session '{session}'"))]
+            }
+            _ => vec![],
+        }
+    }
+
+    /// Returns fix commands that can potentially resolve this error.
+    ///
+    /// These are copy-pastable shell commands that AI agents can execute.
+    #[must_use]
+    pub fn fix_commands(&self) -> Vec<String> {
+        match self {
+            Self::NotFound(msg) => {
+                if msg.contains("session") {
+                    vec![
+                        "zjj list".to_string(),
+                        "zjj add <session-name>".to_string(),
+                    ]
+                } else {
+                    vec!["zjj list".to_string()]
+                }
+            }
+            Self::ValidationError(msg) => {
+                if msg.contains("name") {
+                    vec!["zjj add my-valid-session".to_string()]
+                } else {
+                    vec![]
+                }
+            }
+            Self::DatabaseError(_) => {
+                vec![
+                    "zjj doctor".to_string(),
+                    "zjj doctor --fix".to_string(),
+                ]
+            }
+            Self::JjCommandError { is_not_found: true, .. } => {
+                vec![
+                    "cargo install jj-cli".to_string(),
+                    "brew install jj".to_string(),
+                ]
+            }
+            Self::JjCommandError { is_not_found: false, operation, .. } => {
+                if operation.contains("workspace") {
+                    vec![
+                        "jj workspace list".to_string(),
+                        "zjj doctor".to_string(),
+                    ]
+                } else {
+                    vec!["jj status".to_string()]
+                }
+            }
+            Self::SessionLocked { session, .. } => {
+                vec![
+                    format!("zjj agent status {session}"),
+                    format!("zjj yield {session}"),
+                ]
+            }
+            Self::NotLockHolder { session, .. } => {
+                vec![
+                    format!("zjj claim {session}"),
+                    format!("zjj agent status {session}"),
+                ]
+            }
+            Self::HookFailed { hook_type, .. } => {
+                vec![
+                    format!("zjj config get hooks.{hook_type}"),
+                    "zjj config list hooks".to_string(),
+                ]
+            }
+            Self::InvalidConfig(_) => {
+                vec![
+                    "zjj config list".to_string(),
+                    "zjj config reset".to_string(),
+                ]
+            }
+            _ => vec![],
+        }
+    }
+
+    /// Convert to RichError with optional failure context
+    #[must_use]
+    pub fn to_rich_error(&self) -> RichError {
+        RichError::from_error(self)
+    }
+
+    /// Convert to RichError with captured failure context
+    #[must_use]
+    pub fn to_rich_error_with_context(&self, context: FailureContext) -> RichError {
+        RichError::from_error(self).with_context(context)
+    }
 }
 
 #[cfg(test)]
@@ -497,5 +864,265 @@ mod tests {
     fn test_unknown_error_maps_to_exit_code_4() {
         let err = Error::Unknown("unknown error".into());
         assert_eq!(err.exit_code(), 4);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VALIDATION HINT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_validation_hint_new() {
+        let hint = ValidationHint::new("session_name", "alphanumeric");
+        assert_eq!(hint.field, "session_name");
+        assert_eq!(hint.expected, "alphanumeric");
+        assert!(hint.received.is_none());
+        assert!(hint.example.is_none());
+    }
+
+    #[test]
+    fn test_validation_hint_with_received() {
+        let hint = ValidationHint::new("input", "non-empty")
+            .with_received("(empty)");
+        assert_eq!(hint.received, Some("(empty)".to_string()));
+    }
+
+    #[test]
+    fn test_validation_hint_with_example() {
+        let hint = ValidationHint::new("session_name", "valid name")
+            .with_example("feature-auth");
+        assert_eq!(hint.example, Some("feature-auth".to_string()));
+    }
+
+    #[test]
+    fn test_validation_hint_with_pattern() {
+        let hint = ValidationHint::new("name", "valid pattern")
+            .with_pattern("^[a-z]+$");
+        assert_eq!(hint.pattern, Some("^[a-z]+$".to_string()));
+    }
+
+    #[test]
+    fn test_validation_hint_serialization() {
+        let hint = ValidationHint::new("field", "expected")
+            .with_received("received")
+            .with_example("example");
+        let json = serde_json::to_string(&hint);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("\"field\":\"field\""));
+        assert!(json_str.contains("\"expected\":\"expected\""));
+        assert!(json_str.contains("\"received\":\"received\""));
+    }
+
+    #[test]
+    fn test_validation_error_returns_hints() {
+        let err = Error::ValidationError("invalid session name".into());
+        let hints = err.validation_hints();
+        assert!(!hints.is_empty());
+        assert!(hints[0].example.is_some());
+    }
+
+    #[test]
+    fn test_empty_validation_error_returns_hints() {
+        let err = Error::ValidationError("value cannot be empty".into());
+        let hints = err.validation_hints();
+        assert!(!hints.is_empty());
+    }
+
+    #[test]
+    fn test_session_locked_returns_hints() {
+        let err = Error::SessionLocked {
+            session: "test".to_string(),
+            holder: "agent-1".to_string(),
+        };
+        let hints = err.validation_hints();
+        assert!(!hints.is_empty());
+        assert!(hints[0].received.is_some());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FAILURE CONTEXT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_failure_context_new() {
+        let ctx = FailureContext::new();
+        assert!(!ctx.timestamp.is_empty());
+        assert!(ctx.working_directory.is_none());
+    }
+
+    #[test]
+    fn test_failure_context_with_working_directory() {
+        let ctx = FailureContext::new()
+            .with_working_directory("/home/user/project");
+        assert_eq!(ctx.working_directory, Some("/home/user/project".to_string()));
+    }
+
+    #[test]
+    fn test_failure_context_with_workspace() {
+        let ctx = FailureContext::new()
+            .with_workspace("feature-branch");
+        assert_eq!(ctx.current_workspace, Some("feature-branch".to_string()));
+    }
+
+    #[test]
+    fn test_failure_context_with_command() {
+        let ctx = FailureContext::new()
+            .with_command("zjj add", vec!["test-session".to_string()]);
+        assert_eq!(ctx.command, Some("zjj add".to_string()));
+        assert_eq!(ctx.arguments, vec!["test-session"]);
+    }
+
+    #[test]
+    fn test_failure_context_with_phase() {
+        let ctx = FailureContext::new()
+            .with_phase("workspace_creation");
+        assert_eq!(ctx.phase, Some("workspace_creation".to_string()));
+    }
+
+    #[test]
+    fn test_failure_context_with_env() {
+        let ctx = FailureContext::new()
+            .with_env("ZELLIJ_SESSION", "main")
+            .with_env("JJ_USER", "test");
+        assert_eq!(ctx.relevant_env.len(), 2);
+    }
+
+    #[test]
+    fn test_failure_context_serialization() {
+        let ctx = FailureContext::new()
+            .with_working_directory("/tmp")
+            .with_command("test", vec![]);
+        let json = serde_json::to_string(&ctx);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("\"working_directory\":\"/tmp\""));
+        assert!(json_str.contains("\"timestamp\":"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIX COMMANDS TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_not_found_error_returns_fix_commands() {
+        let err = Error::NotFound("session 'test' not found".into());
+        let commands = err.fix_commands();
+        assert!(!commands.is_empty());
+        assert!(commands.iter().any(|c| c.contains("zjj list")));
+    }
+
+    #[test]
+    fn test_validation_error_returns_fix_commands() {
+        let err = Error::ValidationError("invalid session name".into());
+        let commands = err.fix_commands();
+        assert!(!commands.is_empty());
+    }
+
+    #[test]
+    fn test_database_error_returns_fix_commands() {
+        let err = Error::DatabaseError("corrupted".into());
+        let commands = err.fix_commands();
+        assert!(commands.iter().any(|c| c.contains("doctor")));
+    }
+
+    #[test]
+    fn test_jj_not_found_returns_install_commands() {
+        let err = Error::JjCommandError {
+            operation: "init".to_string(),
+            source: "not found".to_string(),
+            is_not_found: true,
+        };
+        let commands = err.fix_commands();
+        assert!(commands.iter().any(|c| c.contains("cargo install")));
+        assert!(commands.iter().any(|c| c.contains("brew install")));
+    }
+
+    #[test]
+    fn test_session_locked_returns_fix_commands() {
+        let err = Error::SessionLocked {
+            session: "test".to_string(),
+            holder: "agent-1".to_string(),
+        };
+        let commands = err.fix_commands();
+        assert!(commands.iter().any(|c| c.contains("agent status")));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RICH ERROR TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_rich_error_from_error() {
+        let err = Error::NotFound("session not found".into());
+        let rich = RichError::from_error(&err);
+
+        assert_eq!(rich.error.code, "NOT_FOUND");
+        assert_eq!(rich.error.exit_code, 2);
+        assert!(!rich.fix_commands.is_empty());
+    }
+
+    #[test]
+    fn test_rich_error_with_context() {
+        let err = Error::ValidationError("invalid".into());
+        let ctx = FailureContext::new()
+            .with_working_directory("/tmp");
+        let rich = RichError::from_error(&err)
+            .with_context(ctx);
+
+        assert!(rich.context_at_failure.is_some());
+    }
+
+    #[test]
+    fn test_rich_error_with_validation_hints() {
+        let err = Error::ValidationError("invalid name".into());
+        let additional_hints = vec![
+            ValidationHint::new("extra", "extra hint"),
+        ];
+        let rich = RichError::from_error(&err)
+            .with_validation_hints(additional_hints);
+
+        assert!(rich.validation_hints.len() > 1);
+    }
+
+    #[test]
+    fn test_rich_error_with_fix_commands() {
+        let err = Error::Unknown("unknown".into());
+        let rich = RichError::from_error(&err)
+            .with_fix_commands(vec!["zjj doctor".to_string()]);
+
+        assert_eq!(rich.fix_commands, vec!["zjj doctor"]);
+    }
+
+    #[test]
+    fn test_rich_error_serialization() {
+        let err = Error::NotFound("test".into());
+        let rich = RichError::from_error(&err);
+        let json = serde_json::to_string_pretty(&rich);
+
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("\"code\":\"NOT_FOUND\""));
+        assert!(json_str.contains("\"fix_commands\":"));
+    }
+
+    #[test]
+    fn test_error_to_rich_error() {
+        let err = Error::DatabaseError("failed".into());
+        let rich = err.to_rich_error();
+
+        assert_eq!(rich.error.code, "DATABASE_ERROR");
+    }
+
+    #[test]
+    fn test_error_to_rich_error_with_context() {
+        let err = Error::IoError("failed".into());
+        let ctx = FailureContext::new()
+            .with_phase("file_read");
+        let rich = err.to_rich_error_with_context(ctx);
+
+        assert!(rich.context_at_failure.is_some());
+        if let Some(c) = rich.context_at_failure {
+            assert_eq!(c.phase, Some("file_read".to_string()));
+        }
     }
 }

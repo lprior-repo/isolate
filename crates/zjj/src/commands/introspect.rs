@@ -1343,6 +1343,321 @@ pub fn run_workflows(format: OutputFormat) -> Result<()> {
     Ok(())
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AI-OPTIMIZED INTROSPECTION MODE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// AI-optimized introspection output
+#[derive(serde::Serialize)]
+pub struct AiIntrospectOutput {
+    /// ZJJ version
+    pub zjj_version: String,
+    /// Quick summary for AI decision-making
+    pub quick_ref: AiQuickRef,
+    /// System readiness
+    pub system: AiSystemInfo,
+    /// Available commands grouped by category
+    pub commands: AiCommandGroups,
+    /// Recommended next actions
+    pub recommendations: Vec<AiRecommendation>,
+    /// Key environment variables
+    pub env_vars: Vec<EnvVarInfo>,
+    /// Common workflow patterns (condensed)
+    pub workflows: Vec<AiWorkflowSummary>,
+}
+
+/// Quick reference for AI agents
+#[derive(serde::Serialize)]
+pub struct AiQuickRef {
+    /// Whether zjj is ready to use
+    pub ready: bool,
+    /// Blocking issues if not ready
+    pub blockers: Vec<String>,
+    /// Current location (main or workspace)
+    pub location: String,
+    /// Active session count
+    pub active_sessions: usize,
+    /// Agent ID if registered
+    pub agent_id: Option<String>,
+}
+
+/// System information for AI
+#[derive(serde::Serialize)]
+pub struct AiSystemInfo {
+    /// Whether zjj is initialized
+    pub initialized: bool,
+    /// Whether in a JJ repo
+    pub jj_repo: bool,
+    /// Dependencies status
+    pub dependencies: AiDependencies,
+}
+
+/// Dependency status for AI
+#[derive(serde::Serialize)]
+pub struct AiDependencies {
+    /// JJ installed and version
+    pub jj: Option<String>,
+    /// Zellij installed and version
+    pub zellij: Option<String>,
+    /// Missing required dependencies
+    pub missing: Vec<String>,
+}
+
+/// Command groups for AI
+#[derive(serde::Serialize)]
+pub struct AiCommandGroups {
+    /// Session management commands
+    pub session: Vec<String>,
+    /// Version control commands
+    pub version_control: Vec<String>,
+    /// Agent management commands
+    pub agent: Vec<String>,
+    /// Introspection commands
+    pub introspection: Vec<String>,
+}
+
+/// AI-friendly recommendation
+#[derive(serde::Serialize)]
+pub struct AiRecommendation {
+    /// Action to take
+    pub action: String,
+    /// Command to run
+    pub command: String,
+    /// Why this is recommended
+    pub reason: String,
+    /// Priority: high, medium, low
+    pub priority: String,
+}
+
+/// Condensed workflow for AI
+#[derive(serde::Serialize)]
+pub struct AiWorkflowSummary {
+    /// Workflow name
+    pub name: String,
+    /// When to use this workflow
+    pub use_when: String,
+    /// Commands in sequence
+    pub commands: Vec<String>,
+}
+
+/// Run introspect with --ai flag
+///
+/// Provides a comprehensive, AI-optimized output combining:
+/// - System readiness
+/// - Available commands
+/// - Recommendations
+/// - Environment info
+pub fn run_ai() -> Result<()> {
+    let version = env!("CARGO_PKG_VERSION");
+    let dependencies = check_dependencies();
+    let system_state = get_system_state();
+
+    // Determine location
+    let location = match crate::cli::jj_root() {
+        Ok(root) => {
+            let path = std::path::PathBuf::from(&root);
+            match crate::commands::context::detect_location(&path) {
+                Ok(crate::commands::context::Location::Main) => "main".to_string(),
+                Ok(crate::commands::context::Location::Workspace { name, .. }) => {
+                    format!("workspace:{name}")
+                }
+                Err(_) => "unknown".to_string(),
+            }
+        }
+        Err(_) => "not_in_repo".to_string(),
+    };
+
+    // Check readiness
+    let jj_ok = dependencies.get("jj").map_or(false, |d| d.installed);
+    let zellij_ok = dependencies.get("zellij").map_or(false, |d| d.installed);
+    let ready = jj_ok && zellij_ok && system_state.initialized;
+
+    let mut blockers = Vec::new();
+    if !jj_ok {
+        blockers.push("JJ not installed".to_string());
+    }
+    if !zellij_ok {
+        blockers.push("Zellij not installed".to_string());
+    }
+    if !system_state.initialized {
+        blockers.push("ZJJ not initialized (run 'zjj init')".to_string());
+    }
+
+    // Get agent ID from environment
+    let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
+
+    // Build dependency info
+    let jj_version = dependencies.get("jj").and_then(|d| d.version.clone());
+    let zellij_version = dependencies.get("zellij").and_then(|d| d.version.clone());
+
+    let mut missing_deps = Vec::new();
+    if !jj_ok {
+        missing_deps.push("jj".to_string());
+    }
+    if !zellij_ok {
+        missing_deps.push("zellij".to_string());
+    }
+
+    // Build recommendations
+    let mut recommendations = Vec::new();
+
+    if !system_state.initialized && system_state.jj_repo {
+        recommendations.push(AiRecommendation {
+            action: "Initialize ZJJ".to_string(),
+            command: "zjj init".to_string(),
+            reason: "ZJJ is not initialized in this repository".to_string(),
+            priority: "high".to_string(),
+        });
+    }
+
+    if ready && system_state.active_sessions == 0 {
+        recommendations.push(AiRecommendation {
+            action: "Create first session".to_string(),
+            command: "zjj work <task-name>".to_string(),
+            reason: "No active sessions - ready to start work".to_string(),
+            priority: "medium".to_string(),
+        });
+    }
+
+    if ready && location.starts_with("workspace:") {
+        recommendations.push(AiRecommendation {
+            action: "Check current context".to_string(),
+            command: "zjj context".to_string(),
+            reason: "In a workspace - get full context".to_string(),
+            priority: "low".to_string(),
+        });
+    }
+
+    if agent_id.is_none() && ready {
+        recommendations.push(AiRecommendation {
+            action: "Register as agent".to_string(),
+            command: "zjj agent register".to_string(),
+            reason: "Enable agent tracking for multi-agent coordination".to_string(),
+            priority: "low".to_string(),
+        });
+    }
+
+    // Build env vars (condensed)
+    let env_vars = vec![
+        EnvVarInfo {
+            name: "ZJJ_AGENT_ID".to_string(),
+            description: "Agent identifier for tracking".to_string(),
+            direction: "both".to_string(),
+            default: None,
+            example: "agent-12345678".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_SESSION".to_string(),
+            description: "Current session name (set by zjj)".to_string(),
+            direction: "write".to_string(),
+            default: None,
+            example: "feature-auth".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_BEAD_ID".to_string(),
+            description: "Associated bead ID".to_string(),
+            direction: "both".to_string(),
+            default: None,
+            example: "zjj-abc12".to_string(),
+        },
+    ];
+
+    // Build workflows (condensed)
+    let workflows = vec![
+        AiWorkflowSummary {
+            name: "Quick Task".to_string(),
+            use_when: "Working on a single task".to_string(),
+            commands: vec![
+                "zjj work <name>".to_string(),
+                "# do work".to_string(),
+                "zjj done".to_string(),
+            ],
+        },
+        AiWorkflowSummary {
+            name: "Agent Workflow".to_string(),
+            use_when: "Multi-agent coordination".to_string(),
+            commands: vec![
+                "zjj agent register".to_string(),
+                "zjj work <name> --bead <id>".to_string(),
+                "zjj agent heartbeat".to_string(),
+                "zjj done".to_string(),
+                "zjj agent unregister".to_string(),
+            ],
+        },
+        AiWorkflowSummary {
+            name: "Orientation".to_string(),
+            use_when: "Understanding current state".to_string(),
+            commands: vec![
+                "zjj whereami".to_string(),
+                "zjj whoami".to_string(),
+                "zjj list".to_string(),
+            ],
+        },
+    ];
+
+    let output = AiIntrospectOutput {
+        zjj_version: version.to_string(),
+        quick_ref: AiQuickRef {
+            ready,
+            blockers,
+            location,
+            active_sessions: system_state.active_sessions,
+            agent_id,
+        },
+        system: AiSystemInfo {
+            initialized: system_state.initialized,
+            jj_repo: system_state.jj_repo,
+            dependencies: AiDependencies {
+                jj: jj_version,
+                zellij: zellij_version,
+                missing: missing_deps,
+            },
+        },
+        commands: AiCommandGroups {
+            session: vec![
+                "add".to_string(),
+                "remove".to_string(),
+                "list".to_string(),
+                "focus".to_string(),
+                "work".to_string(),
+                "done".to_string(),
+                "abort".to_string(),
+            ],
+            version_control: vec![
+                "sync".to_string(),
+                "diff".to_string(),
+                "checkpoint".to_string(),
+                "undo".to_string(),
+                "revert".to_string(),
+            ],
+            agent: vec![
+                "agent register".to_string(),
+                "agent unregister".to_string(),
+                "agent heartbeat".to_string(),
+                "agent list".to_string(),
+                "spawn".to_string(),
+            ],
+            introspection: vec![
+                "introspect".to_string(),
+                "introspect --ai".to_string(),
+                "context".to_string(),
+                "whereami".to_string(),
+                "whoami".to_string(),
+                "doctor".to_string(),
+                "query".to_string(),
+            ],
+        },
+        recommendations,
+        env_vars,
+        workflows,
+    };
+
+    let envelope = SchemaEnvelope::new("introspect-ai-response", "single", output);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
+
+    Ok(())
+}
+
 /// Run introspect with --session-states flag
 pub fn run_session_states(format: OutputFormat) -> Result<()> {
     let states = vec![

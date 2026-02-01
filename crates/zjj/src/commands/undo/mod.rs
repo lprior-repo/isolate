@@ -36,6 +36,11 @@ const WORKSPACE_RETENTION_HOURS: u64 = 24;
 
 /// Run the undo command with options
 pub fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
+    // Handle list mode
+    if options.list {
+        return run_list(options);
+    }
+
     let result = execute_undo(options);
 
     match &result {
@@ -53,6 +58,139 @@ pub fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, UndoError
             })
         }
     }
+}
+
+/// List undo history
+fn run_list(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
+    let root = jj_root().map_err(|e| UndoError::JjCommandFailed {
+        command: "jj root".to_string(),
+        reason: e.to_string(),
+    })?;
+
+    let history = match read_undo_history(&root) {
+        Ok(h) => h,
+        Err(UndoError::NoUndoHistory) => {
+            if options.format.is_json() {
+                let output = UndoHistoryOutput {
+                    entries: vec![],
+                    total: 0,
+                    can_undo: false,
+                };
+                let json = serde_json::to_string_pretty(&output)
+                    .map_err(|e| UndoError::SerializationError { reason: e.to_string() })?;
+                println!("{json}");
+            } else {
+                println!("No undo history available.");
+            }
+            return Ok(UndoExitCode::Success);
+        }
+        Err(e) => return Err(e),
+    };
+
+    output_history(&history, options.format)?;
+    Ok(UndoExitCode::Success)
+}
+
+/// Output for undo history listing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct UndoHistoryOutput {
+    entries: Vec<UndoHistoryEntry>,
+    total: usize,
+    can_undo: bool,
+}
+
+/// A single entry in the undo history for display
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct UndoHistoryEntry {
+    session_name: String,
+    commit_id: String,
+    timestamp: String,
+    status: String,
+    pushed_to_remote: bool,
+    can_undo: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason_cannot_undo: Option<String>,
+}
+
+/// Output history in the appropriate format
+fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), UndoError> {
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_err(|e| UndoError::SystemTimeError { reason: e.to_string() })?
+        .as_secs();
+
+    let retention_seconds = WORKSPACE_RETENTION_HOURS * 3600;
+
+    let entries: Vec<UndoHistoryEntry> = history
+        .iter()
+        .map(|entry| {
+            let (can_undo, reason) = if entry.pushed_to_remote {
+                (false, Some("Already pushed to remote".to_string()))
+            } else if now - entry.timestamp > retention_seconds {
+                (false, Some(format!("Expired after {} hours", WORKSPACE_RETENTION_HOURS)))
+            } else if entry.status == "undone" {
+                (false, Some("Already undone".to_string()))
+            } else {
+                (true, None)
+            };
+
+            // Convert timestamp to human-readable format
+            let datetime = chrono::DateTime::from_timestamp(entry.timestamp as i64, 0)
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                .unwrap_or_else(|| entry.timestamp.to_string());
+
+            UndoHistoryEntry {
+                session_name: entry.session_name.clone(),
+                commit_id: entry.commit_id.clone(),
+                timestamp: datetime,
+                status: entry.status.clone(),
+                pushed_to_remote: entry.pushed_to_remote,
+                can_undo,
+                reason_cannot_undo: reason,
+            }
+        })
+        .collect();
+
+    let can_undo_any = entries.iter().any(|e| e.can_undo);
+
+    if format.is_json() {
+        let output = UndoHistoryOutput {
+            total: entries.len(),
+            can_undo: can_undo_any,
+            entries,
+        };
+        let json = serde_json::to_string_pretty(&output)
+            .map_err(|e| UndoError::SerializationError { reason: e.to_string() })?;
+        println!("{json}");
+    } else {
+        println!("Undo History ({} entries):", entries.len());
+        println!();
+
+        for (i, entry) in entries.iter().enumerate() {
+            let status_indicator = if entry.can_undo { "✓" } else { "✗" };
+            let index = i + 1;
+
+            println!(
+                "{index}. [{status_indicator}] {} ({})",
+                entry.session_name, entry.status
+            );
+            println!("      Commit: {}", entry.commit_id);
+            println!("      Time:   {}", entry.timestamp);
+
+            if let Some(reason) = &entry.reason_cannot_undo {
+                println!("      Cannot undo: {reason}");
+            }
+            println!();
+        }
+
+        if can_undo_any {
+            println!("Run 'zjj undo' to revert the most recent undoable entry.");
+        } else {
+            println!("No entries can be undone.");
+        }
+    }
+
+    Ok(())
 }
 
 /// Core undo logic using Railway-Oriented Programming
@@ -296,5 +434,73 @@ mod tests {
         };
         assert_eq!(output.session_name, "test-session");
         assert!(!output.dry_run);
+    }
+
+    #[test]
+    fn test_undo_history_entry_can_undo() {
+        let entry = UndoHistoryEntry {
+            session_name: "test".to_string(),
+            commit_id: "abc123".to_string(),
+            timestamp: "2025-01-01 00:00:00 UTC".to_string(),
+            status: "pending".to_string(),
+            pushed_to_remote: false,
+            can_undo: true,
+            reason_cannot_undo: None,
+        };
+
+        assert!(entry.can_undo);
+        assert!(entry.reason_cannot_undo.is_none());
+    }
+
+    #[test]
+    fn test_undo_history_entry_cannot_undo_pushed() {
+        let entry = UndoHistoryEntry {
+            session_name: "test".to_string(),
+            commit_id: "abc123".to_string(),
+            timestamp: "2025-01-01 00:00:00 UTC".to_string(),
+            status: "pending".to_string(),
+            pushed_to_remote: true,
+            can_undo: false,
+            reason_cannot_undo: Some("Already pushed to remote".to_string()),
+        };
+
+        assert!(!entry.can_undo);
+        assert!(entry.reason_cannot_undo.is_some());
+    }
+
+    #[test]
+    fn test_undo_history_output_serialization() {
+        let output = UndoHistoryOutput {
+            entries: vec![],
+            total: 0,
+            can_undo: false,
+        };
+
+        let json = serde_json::to_string(&output);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("\"total\":0"));
+        assert!(json_str.contains("\"can_undo\":false"));
+    }
+
+    #[test]
+    fn test_undo_history_entry_serialization() {
+        let entry = UndoHistoryEntry {
+            session_name: "feature-auth".to_string(),
+            commit_id: "xyz789".to_string(),
+            timestamp: "2025-01-15 12:00:00 UTC".to_string(),
+            status: "pending".to_string(),
+            pushed_to_remote: false,
+            can_undo: true,
+            reason_cannot_undo: None,
+        };
+
+        let json = serde_json::to_string(&entry);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("\"session_name\":\"feature-auth\""));
+        assert!(json_str.contains("\"can_undo\":true"));
+        // reason_cannot_undo should be skipped when None
+        assert!(!json_str.contains("reason_cannot_undo"));
     }
 }

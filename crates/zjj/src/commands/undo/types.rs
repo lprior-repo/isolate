@@ -13,6 +13,9 @@ pub struct UndoArgs {
     /// Preview without executing
     pub dry_run: bool,
 
+    /// List undo history without reverting
+    pub list: bool,
+
     /// Output format
     pub format: OutputFormat,
 }
@@ -22,6 +25,7 @@ impl UndoArgs {
     pub const fn to_options(&self) -> UndoOptions {
         UndoOptions {
             dry_run: self.dry_run,
+            list: self.list,
             format: self.format,
         }
     }
@@ -31,6 +35,7 @@ impl UndoArgs {
 #[derive(Debug, Clone)]
 pub struct UndoOptions {
     pub dry_run: bool,
+    pub list: bool,
     pub format: OutputFormat,
 }
 
@@ -141,13 +146,30 @@ mod tests {
     fn test_undo_args_to_options() {
         let args = UndoArgs {
             dry_run: true,
+            list: false,
             format: OutputFormat::Json,
         };
 
         let opts = args.to_options();
 
         assert!(opts.dry_run);
+        assert!(!opts.list);
         assert!(matches!(opts.format, OutputFormat::Json));
+    }
+
+    #[test]
+    fn test_undo_args_with_list() {
+        let args = UndoArgs {
+            dry_run: false,
+            list: true,
+            format: OutputFormat::Human,
+        };
+
+        let opts = args.to_options();
+
+        assert!(!opts.dry_run);
+        assert!(opts.list);
+        assert!(matches!(opts.format, OutputFormat::Human));
     }
 
     #[test]
