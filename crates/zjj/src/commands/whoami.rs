@@ -167,7 +167,7 @@ mod tests {
         assert!(output.registered);
     }
 
-    /// Test registered flag consistency with agent_id
+    /// Test registered flag consistency with `agent_id`
     #[test]
     fn test_whoami_registered_consistency() {
         // When registered, agent_id must be Some
@@ -226,7 +226,7 @@ mod tests {
         assert!(json_str.contains("simple"));
     }
 
-    /// Test simple field matches agent_id when registered
+    /// Test simple field matches `agent_id` when registered
     #[test]
     fn test_whoami_simple_matches_agent_id() {
         let agent_id = "my-custom-agent-id";

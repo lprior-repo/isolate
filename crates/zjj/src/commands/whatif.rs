@@ -737,7 +737,7 @@ mod tests {
 
     #[test]
     fn test_preview_unknown_command() {
-        let result = preview_command("unknown", &[]).unwrap();
+        let result = preview_command("unknown", &[]).expect("Should preview unknown command");
         assert!(!result.warnings.is_empty());
     }
 }
