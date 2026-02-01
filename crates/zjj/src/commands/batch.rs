@@ -98,7 +98,7 @@ fn execute_batch_command(cmd: &BatchCommand, dry_run: bool) -> CommandResult {
             status: CommandStatus::Succeeded,
             output: Some(output),
             error: None,
-            duration_ms: Some(start.elapsed().as_millis() as u64),
+            duration_ms: Some(u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX)),
         })
         .unwrap_or_else(|e| CommandResult {
             id: cmd.id.clone(),
@@ -107,7 +107,7 @@ fn execute_batch_command(cmd: &BatchCommand, dry_run: bool) -> CommandResult {
             status: CommandStatus::Failed,
             output: None,
             error: Some(e.to_string()),
-            duration_ms: Some(start.elapsed().as_millis() as u64),
+            duration_ms: Some(u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX)),
         })
 }
 
@@ -194,8 +194,12 @@ fn print_batch_human(result: &BatchResult) {
             .unwrap_or_default();
         println!("{status_icon} {id_str}{}", cmd_result.command);
 
-        cmd_result.error.as_ref().map(|e| println!("    Error: {e}"));
-        cmd_result.duration_ms.map(|ms| println!("    Duration: {ms}ms"));
+        if let Some(e) = cmd_result.error.as_ref() {
+            println!("    Error: {e}");
+        }
+        cmd_result
+            .duration_ms
+            .map(|ms| println!("    Duration: {ms}ms"));
     }
 
     println!();
@@ -436,7 +440,7 @@ mod tests {
         /// THEN: Comments and blanks should be ignored
         #[test]
         fn comments_and_blanks_are_ignored() {
-            let input = r#"
+            let input = r"
 # This is a header comment
 add task-1
 
@@ -444,7 +448,7 @@ add task-1
 list
 
 # Final comment
-"#;
+";
 
             let commands = parse_batch_commands(input).unwrap();
 

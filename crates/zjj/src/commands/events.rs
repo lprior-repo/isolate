@@ -6,7 +6,6 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use zjj_core::{OutputFormat, SchemaEnvelope};
 
-
 /// Options for the events command
 #[derive(Debug, Clone)]
 pub struct EventsOptions {
@@ -285,6 +284,7 @@ fn get_new_events(
 }
 
 /// Generate a simple event ID based on timestamp
+#[allow(dead_code)]
 fn generate_event_id() -> String {
     let now = chrono::Utc::now();
     format!("evt-{}-{}", now.timestamp_millis(), std::process::id())
@@ -294,6 +294,7 @@ fn generate_event_id() -> String {
 ///
 /// This function appends an event to the events.jsonl file.
 /// Errors are propagated to the caller rather than silently ignored.
+#[allow(dead_code)]
 pub fn log_event(
     event_type: EventType,
     session: Option<&str>,
@@ -333,6 +334,7 @@ pub fn log_event(
 }
 
 /// Log an event, ignoring any errors (for non-critical event logging)
+#[allow(dead_code)]
 pub fn log_event_silent(
     event_type: EventType,
     session: Option<&str>,

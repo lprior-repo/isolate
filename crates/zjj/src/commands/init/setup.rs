@@ -213,6 +213,7 @@ pub(super) fn create_repo_ai_instructions(repo_root: &Path) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
     let project_name = repo_root
         .file_name()
@@ -230,6 +231,7 @@ fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
 }
 
 /// Create AGENTS.md file
+#[allow(dead_code)]
 pub(super) fn create_agents_md(repo_root: &Path) -> Result<()> {
     let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::AgentsMd, &context)?;
@@ -241,6 +243,7 @@ pub(super) fn create_agents_md(repo_root: &Path) -> Result<()> {
 }
 
 /// Create CLAUDE.md file
+#[allow(dead_code)]
 pub(super) fn create_claude_md(repo_root: &Path) -> Result<()> {
     let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::ClaudeMd, &context)?;
@@ -251,6 +254,7 @@ pub(super) fn create_claude_md(repo_root: &Path) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub(super) fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
     let moon_dir = repo_root.join(".moon");
     fs::create_dir_all(&moon_dir).context("Failed to create .moon directory")?;
@@ -275,6 +279,7 @@ pub(super) fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub(super) fn create_docs(repo_root: &Path) -> Result<()> {
     let docs_dir = repo_root.join("docs");
     fs::create_dir_all(&docs_dir).context("Failed to create docs directory")?;

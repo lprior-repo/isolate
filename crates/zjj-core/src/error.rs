@@ -178,7 +178,7 @@ pub struct RichError {
 /// Serializable error info (subset of Error for JSON output)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RichErrorInfo {
-    /// Error code (SCREAMING_SNAKE_CASE)
+    /// Error code (`SCREAMING_SNAKE_CASE`)
     pub code: String,
     /// Human-readable message
     pub message: String,
@@ -193,7 +193,7 @@ pub struct RichErrorInfo {
 }
 
 impl RichError {
-    /// Create a RichError from an Error with optional context
+    /// Create a `RichError` from an Error with optional context
     #[must_use]
     pub fn from_error(error: &Error) -> Self {
         Self {
@@ -609,13 +609,13 @@ Self::JjCommandError {
         }
     }
 
-    /// Convert to RichError with optional failure context
+    /// Convert to `RichError` with optional failure context
     #[must_use]
     pub fn to_rich_error(&self) -> RichError {
         RichError::from_error(self)
     }
 
-    /// Convert to RichError with captured failure context
+    /// Convert to `RichError` with captured failure context
     #[must_use]
     pub fn to_rich_error_with_context(&self, context: FailureContext) -> RichError {
         RichError::from_error(self).with_context(context)

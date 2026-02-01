@@ -119,9 +119,8 @@ pub fn run_resume(options: &ResumeOptions) -> Result<()> {
             let envelope = SchemaEnvelope::new("resume-response", "single", &result);
             println!("{}", serde_json::to_string_pretty(&envelope)?);
             return Ok(());
-        } else {
-            anyhow::bail!("Session is not paused (status: {})", session.status);
         }
+        anyhow::bail!("Session is not paused (status: {})", session.status);
     }
 
     // Update status to active
@@ -207,9 +206,8 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
             let envelope = SchemaEnvelope::new("clone-response", "single", &result);
             println!("{}", serde_json::to_string_pretty(&envelope)?);
             return Ok(());
-        } else {
-            anyhow::bail!("Target session '{}' already exists", options.target);
         }
+        anyhow::bail!("Target session '{}' already exists", options.target);
     }
 
     if options.dry_run {

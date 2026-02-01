@@ -116,10 +116,7 @@ fn read_lock(path: &std::path::Path) -> Option<LockInfo> {
 }
 
 /// Attempt to acquire lock using atomic file creation
-fn try_atomic_create_lock(
-    path: &std::path::Path,
-    lock_info: &LockInfo,
-) -> Result<bool> {
+fn try_atomic_create_lock(path: &std::path::Path, lock_info: &LockInfo) -> Result<bool> {
     let content = serde_json::to_string_pretty(lock_info)?;
 
     // Try atomic create (will fail if file exists)
@@ -283,7 +280,10 @@ pub fn run_claim(options: &ClaimOptions) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else if result.claimed {
         println!("✓ Claimed resource '{}'", result.resource);
-        result.holder.as_ref().map(|h| println!("  Lock holder: {h}"));
+        result
+            .holder
+            .as_ref()
+            .map(|h| println!("  Lock holder: {h}"));
         result
             .previous_holder
             .as_ref()
@@ -384,7 +384,7 @@ mod tests {
             claimed: true,
             resource: "session:test".to_string(),
             holder: Some("agent-1".to_string()),
-            expires_at: Some(1234567890),
+            expires_at: Some(1_234_567_890),
             previous_holder: None,
             error: None,
         };
@@ -456,7 +456,7 @@ mod tests {
                 claimed: true,
                 resource: "session:my-task".to_string(),
                 holder: Some("agent-abc".to_string()),
-                expires_at: Some(1234567890),
+                expires_at: Some(1_234_567_890),
                 previous_holder: None,
                 error: None,
             };
@@ -483,7 +483,7 @@ mod tests {
                 claimed: false,
                 resource: "session:contested".to_string(),
                 holder: Some("agent-xyz".to_string()),
-                expires_at: Some(1234567890),
+                expires_at: Some(1_234_567_890),
                 previous_holder: None,
                 error: Some("Resource is locked by agent-xyz".to_string()),
             };
@@ -506,7 +506,7 @@ mod tests {
                 claimed: true,
                 resource: "session:expired-lock".to_string(),
                 holder: Some("agent-new".to_string()),
-                expires_at: Some(9999999999),
+                expires_at: Some(9_999_999_999),
                 previous_holder: Some("agent-old".to_string()),
                 error: None,
             };
@@ -528,8 +528,8 @@ mod tests {
                 claimed: true,
                 resource: "session:my-lock".to_string(),
                 holder: Some("agent-me".to_string()),
-                expires_at: Some(2000000000), // Extended
-                previous_holder: None,        // Still us, no "previous"
+                expires_at: Some(2_000_000_000), // Extended
+                previous_holder: None,           // Still us, no "previous"
                 error: None,
             };
 
@@ -611,8 +611,8 @@ mod tests {
             let lock = LockInfo {
                 holder: "agent-123".to_string(),
                 resource: "session:feature-x".to_string(),
-                acquired_at: 1609459200, // 2021-01-01 00:00:00 UTC
-                expires_at: 1609462800,  // 2021-01-01 01:00:00 UTC
+                acquired_at: 1_609_459_200, // 2021-01-01 00:00:00 UTC
+                expires_at: 1_609_462_800,  // 2021-01-01 01:00:00 UTC
             };
 
             assert!(!lock.holder.is_empty(), "Must have holder");
@@ -626,14 +626,14 @@ mod tests {
         /// THEN: expires_at determines if expired
         #[test]
         fn expiration_is_based_on_expires_at() {
-            let now = 1609461000; // Some time
+            let now = 1_609_461_000; // Some time
 
             // Not expired
             let active_lock = LockInfo {
                 holder: "agent".to_string(),
                 resource: "res".to_string(),
-                acquired_at: 1609459200,
-                expires_at: 1609462800,
+                acquired_at: 1_609_459_200,
+                expires_at: 1_609_462_800,
             };
             assert!(active_lock.expires_at > now, "Should not be expired");
 
@@ -641,8 +641,8 @@ mod tests {
             let expired_lock = LockInfo {
                 holder: "agent".to_string(),
                 resource: "res".to_string(),
-                acquired_at: 1609459200,
-                expires_at: 1609459300,
+                acquired_at: 1_609_459_200,
+                expires_at: 1_609_459_300,
             };
             assert!(expired_lock.expires_at < now, "Should be expired");
         }
@@ -655,8 +655,8 @@ mod tests {
             let original = LockInfo {
                 holder: "agent-roundtrip".to_string(),
                 resource: "session:test".to_string(),
-                acquired_at: 1234567890,
-                expires_at: 1234567900,
+                acquired_at: 1_234_567_890,
+                expires_at: 1_234_567_900,
             };
 
             let json = serde_json::to_string(&original).unwrap();
@@ -670,8 +670,6 @@ mod tests {
     }
 
     mod resource_naming_behavior {
-        use super::*;
-
         /// GIVEN: Resource names
         /// WHEN: Used in claims
         /// THEN: Should follow consistent naming convention
@@ -708,7 +706,7 @@ mod tests {
                 claimed: true,
                 resource: "session:task".to_string(),
                 holder: Some("agent-1".to_string()),
-                expires_at: Some(9999999999),
+                expires_at: Some(9_999_999_999),
                 previous_holder: None,
                 error: None,
             };
@@ -734,7 +732,7 @@ mod tests {
                 claimed: false,
                 resource: "session:contested".to_string(),
                 holder: Some("other-agent".to_string()),
-                expires_at: Some(1234567890),
+                expires_at: Some(1_234_567_890),
                 previous_holder: None,
                 error: Some("Resource locked by other-agent".to_string()),
             };

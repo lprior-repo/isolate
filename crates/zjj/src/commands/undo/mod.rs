@@ -20,7 +20,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use zjj_core::{log_recovery, OutputFormat, RecoveryPolicy};
+use zjj_core::OutputFormat;
 
 use crate::{
     cli::jj_root,
@@ -227,7 +227,7 @@ fn execute_undo(options: &UndoOptions) -> Result<UndoOutput, UndoError> {
         });
     }
 
-    let revert_result = revert_merge(&root, &last_entry)?;
+    let _revert_result = revert_merge(&root, &last_entry)?;
 
     update_undo_history(&root, &history, &last_entry, "undone")?;
 
@@ -276,7 +276,9 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
-        .collect::<Vec<_>>()
+        .collect();
+
+    Ok(entries)
 }
 
 /// Get the last (most recent) undo entry
@@ -288,7 +290,7 @@ fn get_last_undo_entry(history: &[UndoEntry]) -> Result<UndoEntry, UndoError> {
 }
 
 /// Validate that undo is possible (not pushed to remote)
-fn validate_undo_possible(root: &str, entry: &UndoEntry) -> Result<(), UndoError> {
+fn validate_undo_possible(_root: &str, entry: &UndoEntry) -> Result<(), UndoError> {
     if entry.pushed_to_remote {
         return Err(UndoError::AlreadyPushedToRemote {
             commit_id: entry.commit_id.clone(),

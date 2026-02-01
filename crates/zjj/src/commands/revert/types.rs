@@ -52,16 +52,36 @@ pub struct RevertOutput {
 /// Revert operation error (zero-panic, no unwraps)
 #[derive(Debug, Clone)]
 pub enum RevertError {
-    NotInMain { workspace: String },
-    SessionNotFound { session_name: String },
+    NotInMain {
+        workspace: String,
+    },
+    SessionNotFound {
+        session_name: String,
+    },
+    #[allow(dead_code)]
     NoUndoHistory,
-    AlreadyPushedToRemote { commit_id: String },
-    RebaseFailed { reason: String },
-    JjCommandFailed { command: String, reason: String },
-    ReadUndoLogFailed { reason: String },
-    WriteUndoLogFailed { reason: String },
-    SerializationError { reason: String },
-    InvalidState { reason: String },
+    AlreadyPushedToRemote {
+        commit_id: String,
+    },
+    RebaseFailed {
+        reason: String,
+    },
+    JjCommandFailed {
+        command: String,
+        reason: String,
+    },
+    ReadUndoLogFailed {
+        reason: String,
+    },
+    WriteUndoLogFailed {
+        reason: String,
+    },
+    SerializationError {
+        reason: String,
+    },
+    InvalidState {
+        reason: String,
+    },
 }
 
 impl fmt::Display for RevertError {

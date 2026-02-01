@@ -28,9 +28,12 @@ const DEFAULT_HEARTBEAT_TIMEOUT: u64 = 120;
 
 /// Heartbeat monitor for tracking agent liveness
 pub struct HeartbeatMonitor {
+    #[allow(dead_code)]
     workspace_path: PathBuf,
     heartbeat_path: PathBuf,
+    #[allow(dead_code)]
     interval: Duration,
+    #[allow(dead_code)]
     timeout: Duration,
 }
 
@@ -117,6 +120,7 @@ impl HeartbeatMonitor {
     ///
     /// # Errors
     /// Returns `SpawnError::WorkspaceCreationFailed` if unable to read heartbeat.
+    #[allow(dead_code)]
     pub fn is_alive(&self) -> Result<bool, SpawnError> {
         if !self.heartbeat_path.exists() {
             return Ok(false);
@@ -153,6 +157,7 @@ impl HeartbeatMonitor {
     ///
     /// # Errors
     /// Returns `SpawnError::WorkspaceCreationFailed` if unable to read heartbeat.
+    #[allow(dead_code)]
     pub fn elapsed(&self) -> Result<u64, SpawnError> {
         if !self.heartbeat_path.exists() {
             return Ok(u64::MAX);

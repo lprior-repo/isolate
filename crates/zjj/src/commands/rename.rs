@@ -60,9 +60,8 @@ pub fn run(options: &RenameOptions) -> Result<()> {
             let envelope = SchemaEnvelope::new("rename-response", "single", &result);
             println!("{}", serde_json::to_string_pretty(&envelope)?);
             return Ok(());
-        } else {
-            anyhow::bail!("Session '{}' already exists", options.new_name);
         }
+        anyhow::bail!("Session '{}' already exists", options.new_name);
     }
 
     if options.dry_run {

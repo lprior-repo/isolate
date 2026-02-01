@@ -85,15 +85,14 @@ fn run_status(format: OutputFormat) -> Result<()> {
     let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
     let inside_zellij = is_inside_zellij();
 
-    let (location, workspace) = if let Ok(root) = super::check_in_jj_repo() {
-        match context::detect_location(&root) {
+    let (location, workspace) = super::check_in_jj_repo().map_or_else(
+        |_| ("not_in_repo".to_string(), None),
+        |root| match context::detect_location(&root) {
             Ok(context::Location::Main) => ("main".to_string(), None),
             Ok(context::Location::Workspace { name, .. }) => ("workspace".to_string(), Some(name)),
             Err(_) => ("unknown".to_string(), None),
-        }
-    } else {
-        ("not_in_repo".to_string(), None)
-    };
+        },
+    );
 
     let active_sessions = get_session_db()
         .ok()
@@ -161,10 +160,10 @@ fn run_status(format: OutputFormat) -> Result<()> {
         println!();
         println!("Location:      {}", output.location);
         if let Some(ref ws) = output.workspace {
-            println!("Workspace:     {}", ws);
+            println!("Workspace:     {ws}");
         }
         if let Some(ref agent) = output.agent_id {
-            println!("Agent ID:      {}", agent);
+            println!("Agent ID:      {agent}");
         } else {
             println!("Agent ID:      (not registered)");
         }
@@ -357,15 +356,14 @@ fn run_next(format: OutputFormat) -> Result<()> {
     let initialized = zjj_data_dir().is_ok();
     let inside_zellij = is_inside_zellij();
 
-    let (location, workspace) = if let Ok(root) = super::check_in_jj_repo() {
-        match context::detect_location(&root) {
+    let (location, workspace) = super::check_in_jj_repo().map_or_else(
+        |_| ("not_in_repo".to_string(), None),
+        |root| match context::detect_location(&root) {
             Ok(context::Location::Main) => ("main".to_string(), None),
             Ok(context::Location::Workspace { name, .. }) => ("workspace".to_string(), Some(name)),
             Err(_) => ("unknown".to_string(), None),
-        }
-    } else {
-        ("not_in_repo".to_string(), None)
-    };
+        },
+    );
 
     // Determine next action based on current state
     let output = if !initialized && location != "not_in_repo" {
@@ -384,12 +382,9 @@ fn run_next(format: OutputFormat) -> Result<()> {
         }
     } else if let Some(ws) = workspace {
         NextActionOutput {
-            action: format!("Continue work in '{}'", ws),
+            action: format!("Continue work in '{ws}'"),
             command: "zjj context --json".to_string(),
-            reason: format!(
-                "Currently in workspace '{}' - check context or complete work",
-                ws
-            ),
+            reason: format!("Currently in workspace '{ws}' - check context or complete work"),
             priority: "medium".to_string(),
         }
     } else {
@@ -410,8 +405,7 @@ fn run_next(format: OutputFormat) -> Result<()> {
                 action: "Check existing sessions".to_string(),
                 command: "zjj list --json".to_string(),
                 reason: format!(
-                    "{} active session(s) exist - review or continue work",
-                    active_sessions
+                    "{active_sessions} active session(s) exist - review or continue work"
                 ),
                 priority: "medium".to_string(),
             }
@@ -504,7 +498,7 @@ fn run_default(format: OutputFormat) -> Result<()> {
         println!();
         println!("QUICK COMMANDS:");
         for cmd in &output.quick_commands {
-            println!("  {}", cmd);
+            println!("  {cmd}");
         }
         println!();
         println!("Run 'zjj ai status' to get started.");

@@ -456,7 +456,7 @@ pub struct RelatedResources {
 impl RelatedResources {
     /// Check if there are any related resources
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.sessions.is_empty()
             && self.beads.is_empty()
             && self.workspaces.is_empty()

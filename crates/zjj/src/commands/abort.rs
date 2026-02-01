@@ -56,8 +56,7 @@ pub fn run(options: &AbortOptions) -> Result<()> {
 
     // Determine which workspace to abort
     let workspace_name = match (&options.workspace, &location) {
-        (Some(name), _) => name.clone(),
-        (None, context::Location::Workspace { name, .. }) => name.clone(),
+        (Some(name), _) | (None, context::Location::Workspace { name, .. }) => name.clone(),
         (None, context::Location::Main) => {
             anyhow::bail!(
                 "Not in a workspace. Use --workspace <name> to specify which workspace to abort."
@@ -76,7 +75,7 @@ pub fn run(options: &AbortOptions) -> Result<()> {
     // Find the session
     let session = db
         .get_blocking(&workspace_name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", workspace_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Session '{workspace_name}' not found"))?;
 
     let workspace_path = std::path::Path::new(&session.workspace_path);
 
@@ -107,17 +106,17 @@ pub fn run(options: &AbortOptions) -> Result<()> {
         .context("Failed to delete session")?;
 
     // Update bead status if applicable
-    let bead_updated = if !options.no_bead_update {
-        update_bead_status_to_ready(&session)
-    } else {
+    let bead_updated = if options.no_bead_update {
         false
+    } else {
+        update_bead_status_to_ready(&session)
     };
 
     let output = AbortOutput {
         session_name: workspace_name.clone(),
         workspace_removed,
         bead_updated,
-        message: format!("Aborted session '{}'", workspace_name),
+        message: format!("Aborted session '{workspace_name}'"),
     };
 
     output_result(&output, options.format)
@@ -129,7 +128,7 @@ fn output_dry_run(workspace_name: &str, options: &AbortOptions) -> Result<()> {
         session_name: workspace_name.to_string(),
         workspace_removed: !options.keep_workspace,
         bead_updated: !options.no_bead_update,
-        message: format!("[DRY RUN] Would abort session '{}'", workspace_name),
+        message: format!("[DRY RUN] Would abort session '{workspace_name}'"),
     };
 
     if options.format.is_json() {
@@ -142,7 +141,7 @@ fn output_dry_run(workspace_name: &str, options: &AbortOptions) -> Result<()> {
             .context("Failed to serialize abort dry-run output")?;
         println!("{json_str}");
     } else {
-        println!("[DRY RUN] Would abort session '{}'", workspace_name);
+        println!("[DRY RUN] Would abort session '{workspace_name}'");
         if !options.keep_workspace {
             println!("  Would remove workspace files");
         }
