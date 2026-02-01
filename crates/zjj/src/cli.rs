@@ -26,6 +26,15 @@ pub fn is_inside_zellij() -> bool {
     std::env::var("ZELLIJ").is_ok()
 }
 
+/// Check if we're running in a terminal (TTY)
+/// Uses `std::io::IsTerminal` (Rust 1.70+)
+pub fn is_terminal() -> bool {
+    use std::io::IsTerminal;
+    std::io::stdin().is_terminal()
+        && std::io::stdout().is_terminal()
+        && std::io::stderr().is_terminal()
+}
+
 /// Check if current directory is a JJ repository
 pub fn is_jj_repo() -> Result<bool> {
     let result = Command::new("jj")
@@ -64,6 +73,14 @@ pub fn is_zellij_installed() -> bool {
 /// This function will exec into Zellij, replacing the current process
 #[cfg(unix)]
 pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
+    // Check if running in a TTY
+    if !is_terminal() {
+        anyhow::bail!(
+            "Cannot launch Zellij in non-interactive environment.\n\
+             Use --no-zellij flag to skip Zellij integration."
+        );
+    }
+
     // Check if Zellij is installed
     if !is_zellij_installed() {
         anyhow::bail!("Zellij is not installed. Please install it first.");

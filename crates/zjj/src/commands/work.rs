@@ -119,6 +119,7 @@ pub fn run(options: &WorkOptions) -> Result<()> {
         no_hooks: false,
         template: None,
         no_open: options.no_zellij,
+        no_zellij: options.no_zellij,
         format: OutputFormat::Human, // We'll handle our own output
         idempotent: false,
         dry_run: false,

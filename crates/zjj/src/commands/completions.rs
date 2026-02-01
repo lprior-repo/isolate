@@ -367,19 +367,13 @@ mod tests {
         assert!(matches!("bash".parse::<Shell>()?, Shell::Bash));
         assert!(matches!("zsh".parse::<Shell>()?, Shell::Zsh));
         assert!(matches!("fish".parse::<Shell>()?, Shell::Fish));
-        assert!(matches!(
-            "powershell".parse::<Shell>()?,
-            Shell::PowerShell
-        ));
+        assert!(matches!("powershell".parse::<Shell>()?, Shell::PowerShell));
         Ok(())
     }
 
     #[test]
     fn test_shell_from_str_case_insensitive() -> anyhow::Result<()> {
-        assert!(matches!(
-            "BASH".parse::<Shell>()?,
-            Shell::Bash
-        ));
+        assert!(matches!("BASH".parse::<Shell>()?, Shell::Bash));
         assert!(matches!("ZSH".parse::<Shell>()?, Shell::Zsh));
         Ok(())
     }

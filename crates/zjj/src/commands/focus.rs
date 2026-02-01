@@ -14,6 +14,8 @@ use crate::{
 pub struct FocusOptions {
     /// Output format
     pub format: OutputFormat,
+    /// Skip Zellij integration entirely (for non-TTY environments)
+    pub no_zellij: bool,
 }
 
 /// Run the focus command with options
@@ -52,7 +54,23 @@ pub fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()
 
     let zellij_tab = session.zellij_tab;
 
-    if is_inside_zellij() {
+    if options.no_zellij {
+        // Skip Zellij integration - just print info
+        if options.format.is_json() {
+            let output = FocusOutput {
+                name: resolved_name.clone(),
+                zellij_tab: zellij_tab.clone(),
+                message: format!(
+                    "Session '{resolved_name}' is in tab '{zellij_tab}' (Zellij disabled)"
+                ),
+            };
+            let envelope = SchemaEnvelope::new("focus-response", "single", output);
+            println!("{}", serde_json::to_string(&envelope)?);
+        } else {
+            println!("Session '{resolved_name}' is in tab '{zellij_tab}'");
+            println!("Workspace path: {}", session.workspace_path);
+        }
+    } else if is_inside_zellij() {
         // Inside Zellij: Switch to the tab
         run_command("zellij", &["action", "go-to-tab-name", &zellij_tab])?;
 

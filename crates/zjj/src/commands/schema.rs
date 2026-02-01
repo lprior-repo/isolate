@@ -640,10 +640,7 @@ mod tests {
                 );
 
                 // Must have type
-                assert!(
-                    schema.get("type").is_some(),
-                    "Schema {name} must have type"
-                );
+                assert!(schema.get("type").is_some(), "Schema {name} must have type");
 
                 // Must have properties for object types
                 if schema.get("type").and_then(|t| t.as_str()) == Some("object") {

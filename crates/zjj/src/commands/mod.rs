@@ -35,6 +35,7 @@ pub mod schema;
 pub mod session_mgmt;
 pub mod spawn;
 pub mod status;
+pub mod switch;
 pub mod sync;
 pub mod undo;
 pub mod validate;
