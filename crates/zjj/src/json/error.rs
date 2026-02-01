@@ -32,7 +32,8 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
     if let Ok(json_str) = serde_json::to_string_pretty(&json_error) {
         println!("{json_str}");
     } else {
-        eprintln!("Error: {error}");
+        // If JSON serialization fails, output a minimal JSON error to stdout
+        println!(r#"{{"error":{{"message":"{}","exit_code":{}}}}}"#, error, exit_code);
     }
 
     std::process::exit(exit_code);
