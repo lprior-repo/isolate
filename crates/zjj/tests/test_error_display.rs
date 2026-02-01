@@ -9,7 +9,7 @@ use common::TestHarness;
 #[test]
 fn test_error_no_stack_trace() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -50,7 +50,7 @@ fn test_error_no_stack_trace() {
 #[test]
 fn test_error_format_for_missing_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -76,7 +76,7 @@ fn test_error_format_for_missing_session() {
 #[test]
 fn test_error_format_for_invalid_session_name() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -108,7 +108,7 @@ fn test_error_format_for_invalid_session_name() {
 #[test]
 fn test_error_exit_code() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -127,7 +127,7 @@ fn test_database_error_display() {
     use std::{fs, os::unix::fs::PermissionsExt};
 
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);

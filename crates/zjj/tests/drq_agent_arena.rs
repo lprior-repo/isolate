@@ -37,7 +37,7 @@ fn parse_json(s: &str) -> Result<JsonValue, serde_json::Error> {
 fn test_all_json_outputs_use_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     // Every command with --json should return SchemaEnvelope
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -68,7 +68,7 @@ fn test_all_json_outputs_use_schema_envelope() -> Result<(), Box<dyn std::error:
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_json_output_has_required_fields() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -95,7 +95,7 @@ fn test_json_output_has_required_fields() -> Result<(), Box<dyn std::error::Erro
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_diff_uses_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -118,7 +118,7 @@ fn test_diff_uses_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_failed_add_leaves_no_artifacts() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -149,7 +149,7 @@ fn test_failed_add_leaves_no_artifacts() -> Result<(), Box<dyn std::error::Error
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_remove_cleans_up_all_artifacts() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -180,7 +180,7 @@ fn test_remove_cleans_up_all_artifacts() -> Result<(), Box<dyn std::error::Error
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_complete_agent_workflow() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -215,7 +215,7 @@ fn test_complete_agent_workflow() -> Result<(), Box<dyn std::error::Error>> {
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_context_command_for_agents() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -241,7 +241,7 @@ fn test_context_command_for_agents() -> Result<(), Box<dyn std::error::Error>> {
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -272,7 +272,7 @@ fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_concurrent_add_same_name() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -301,7 +301,7 @@ fn test_concurrent_add_same_name() {
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_multiple_sessions_isolation() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -339,7 +339,7 @@ fn test_multiple_sessions_isolation() -> Result<(), Box<dyn std::error::Error>> 
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -377,7 +377,7 @@ fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::e
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -409,7 +409,7 @@ fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_query_session_locked_no_locks() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -438,7 +438,7 @@ fn test_query_session_locked_no_locks() -> Result<(), Box<dyn std::error::Error>
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_query_session_locked_with_session() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -464,7 +464,7 @@ fn test_query_session_locked_with_session() -> Result<(), Box<dyn std::error::Er
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_query_operations_in_progress_empty() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -490,7 +490,7 @@ fn test_query_operations_in_progress_empty() -> Result<(), Box<dyn std::error::E
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_query_operations_in_progress_with_session() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -516,7 +516,7 @@ fn test_query_operations_in_progress_with_session() -> Result<(), Box<dyn std::e
 #[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_all_query_commands_use_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 

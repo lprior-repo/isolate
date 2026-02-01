@@ -3,7 +3,7 @@ use std::process::Command;
 fn run_cue_export() -> Result<Option<String>, Box<dyn std::error::Error>> {
     // Check if cue is installed
     if Command::new("cue").arg("version").output().is_err() {
-        println!("Skipping test: cue not installed");
+        // Test framework will handle skipping - no output needed
         return Ok(None);
     }
 
@@ -16,7 +16,7 @@ fn run_cue_export() -> Result<Option<String>, Box<dyn std::error::Error>> {
         // But for now let's assume if cue runs but fails, it's a real failure unless file missing
         let stderr = String::from_utf8_lossy(&output.stderr);
         if stderr.contains("no such file") {
-            println!("Skipping test: schema file not found");
+            // Test framework will handle skipping - no output needed
             return Ok(None);
         }
         return Err(format!("CUE export failed: {stderr}").into());

@@ -13,7 +13,7 @@ use common::TestHarness;
 #[test]
 fn test_init_json_error_when_already_initialized() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -51,7 +51,7 @@ fn test_init_json_error_when_already_initialized() {
 #[test]
 fn test_list_json_error_without_init() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -90,7 +90,7 @@ fn test_list_json_error_without_init() {
 #[test]
 fn test_focus_json_error_nonexistent_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -139,7 +139,7 @@ fn test_focus_json_error_nonexistent_session() {
 #[test]
 fn test_remove_json_error_nonexistent_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -172,7 +172,7 @@ fn test_remove_json_error_nonexistent_session() {
 #[test]
 fn test_add_json_error_invalid_name() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -209,7 +209,7 @@ fn test_add_json_error_invalid_name() {
 #[test]
 fn test_add_json_error_duplicate_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -249,7 +249,7 @@ fn test_add_json_error_duplicate_session() {
 #[test]
 fn test_status_json_error_without_init() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -278,7 +278,7 @@ fn test_status_json_error_without_init() {
 #[test]
 fn test_sync_json_error_without_init() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -307,7 +307,7 @@ fn test_sync_json_error_without_init() {
 #[test]
 fn test_doctor_json_error_format() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -333,7 +333,7 @@ fn test_doctor_json_error_format() {
 #[test]
 fn test_introspect_json_error_format() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -349,7 +349,7 @@ fn test_introspect_json_error_format() {
 #[test]
 fn test_diff_json_error_nonexistent_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);

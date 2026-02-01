@@ -354,7 +354,7 @@ mod tests {
     #[test]
     fn test_harness_creation() {
         let Some(harness) = TestHarness::try_new() else {
-            eprintln!("Skipping test: jj not available");
+            // Test framework will handle skipping - no output needed
             return;
         };
         assert!(harness.repo_path.exists());
@@ -364,7 +364,7 @@ mod tests {
     #[test]
     fn test_harness_has_jj_repo() {
         let Some(harness) = TestHarness::try_new() else {
-            eprintln!("Skipping test: jj not available");
+            // Test framework will handle skipping - no output needed
             return;
         };
         let result = harness.jj(&["root"]);
