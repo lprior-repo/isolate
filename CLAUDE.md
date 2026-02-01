@@ -47,13 +47,6 @@ crates/
   zjj/          # CLI binary (MVP: init, add, list, remove, focus)
 ```
 
-### MVP Commands
-1. `zjj init` - Initialize zjj in a JJ repository
-2. `zjj add <name>` - Create session with JJ workspace + Zellij tab
-3. `zjj list` - Show all sessions
-4. `zjj remove <name>` - Cleanup session and workspace
-5. `zjj focus <name>` - Switch to session's Zellij tab
-
 ### Key Decisions
 - **Sync strategy**: Rebase (`jj rebase -d main`)
 - **Zellij tab naming**: `zjj:<session-name>`
