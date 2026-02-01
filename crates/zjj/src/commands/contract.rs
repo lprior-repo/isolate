@@ -108,17 +108,18 @@ pub fn run(options: &ContractOptions) -> Result<()> {
             print_contract_human(&contract);
         }
         return Ok(());
-    } else if options.format.is_json() {
+    }
+
+    if options.format.is_json() {
         let envelope = SchemaEnvelope::new("contracts-response", "single", contracts);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
-        return Ok(());
     } else {
         for contract in &contracts.commands {
             print_contract_human(contract);
             println!();
         }
-        return Ok(());
-    };
+    }
+    Ok(())
 }
 
 fn print_contract_human(contract: &CommandContract) {
