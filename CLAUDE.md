@@ -88,6 +88,16 @@ moon run :build       # Release build
 moon run :install     # Install to ~/.local/bin
 ```
 
+### Zellij (Terminal Multiplexing)
+```bash
+zjj add <name>        # Create session + Zellij tab
+zjj focus <name>      # Switch to session tab
+zjj remove <name>     # Close tab + workspace
+zjj list              # Show all sessions
+```
+
+**See [docs/11_ZELLIJ.md](docs/11_ZELLIJ.md) for complete layout configuration, KDL syntax, templates, and troubleshooting.**
+
 ## Hyper-Fast CI/CD Pipeline
 
 This project uses **Moon + bazel-remote** for 98.5% faster builds:
