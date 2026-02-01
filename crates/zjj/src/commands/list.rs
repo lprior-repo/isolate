@@ -39,7 +39,7 @@ impl std::fmt::Display for BeadCounts {
 }
 
 /// Run the list command
-pub fn run(all: bool, format: OutputFormat, bead: Option<&str>, agent: Option<&str>) -> Result<()> {
+pub fn run(all: bool, verbose: bool, format: OutputFormat, bead: Option<&str>, agent: Option<&str>) -> Result<()> {
     // Execute in a closure to allow ? operator while catching errors for JSON mode
     let result = (|| -> Result<()> {
         let db = get_session_db()?;
@@ -110,7 +110,7 @@ pub fn run(all: bool, format: OutputFormat, bead: Option<&str>, agent: Option<&s
         if format.is_json() {
             output_json(&items)?;
         } else {
-            output_table(&items);
+            output_table(&items, verbose);
         }
 
         Ok(())
@@ -194,18 +194,48 @@ fn get_beads_count() -> Result<BeadCounts> {
 }
 
 /// Output sessions as formatted table
-fn output_table(items: &[SessionListItem]) {
-    println!(
-        "{:<20} {:<12} {:<15} {:<10} {:<12}",
-        "NAME", "STATUS", "BRANCH", "CHANGES", "BEADS"
-    );
-    println!("{}", "-".repeat(70));
+fn output_table(items: &[SessionListItem], verbose: bool) {
+    if verbose {
+        // Verbose mode: show workspace path and bead title
+        println!(
+            "{:<20} {:<12} {:<15} {:<30} {:<40}",
+            "NAME", "STATUS", "BRANCH", "BEAD", "WORKSPACE_PATH"
+        );
+        println!("{}", "-".repeat(120));
 
-    for item in items {
+        for item in items {
+            let bead_info = item.session.metadata
+                .as_ref()
+                .and_then(|m| {
+                    let id = m.get("bead_id").and_then(|v| v.as_str()).unwrap_or("");
+                    let title = m.get("bead_title").and_then(|v| v.as_str()).unwrap_or("");
+                    if id.is_empty() {
+                        None
+                    } else {
+                        Some(format!("{}: {}", id, title))
+                    }
+                })
+                .unwrap_or_else(|| "-".to_string());
+
+            println!(
+                "{:<20} {:<12} {:<15} {:<30} {:<40}",
+                item.name, item.status, item.branch, bead_info, item.session.workspace_path
+            );
+        }
+    } else {
+        // Normal mode: show standard columns
         println!(
             "{:<20} {:<12} {:<15} {:<10} {:<12}",
-            item.name, item.status, item.branch, item.changes, item.beads
+            "NAME", "STATUS", "BRANCH", "CHANGES", "BEADS"
         );
+        println!("{}", "-".repeat(70));
+
+        for item in items {
+            println!(
+                "{:<20} {:<12} {:<15} {:<10} {:<12}",
+                item.name, item.status, item.branch, item.changes, item.beads
+            );
+        }
     }
 }
 
@@ -314,7 +344,8 @@ mod tests {
         }];
 
         // This test just verifies the function doesn't panic
-        output_table(&items);
+        output_table(&items, false);
+        output_table(&items, true);
     }
 
     #[tokio::test]

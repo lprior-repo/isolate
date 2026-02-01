@@ -17,6 +17,8 @@ use crate::{
 pub struct AddOptions {
     /// Session name
     pub name: String,
+    /// Optional bead/issue ID to associate with this session
+    pub bead_id: Option<String>,
     /// Skip executing hooks
     pub no_hooks: bool,
     /// Template name to use for layout
@@ -57,6 +59,49 @@ pub fn run(name: &str) -> Result<()> {
     run_with_options(&options)
 }
 
+/// Query bead metadata from .beads/beads.db
+///
+/// Returns JSON metadata with bead_id, title, and status information.
+/// Returns empty JSON object if bead not found or database doesn't exist.
+fn query_bead_metadata(bead_id: &str) -> Result<serde_json::Value> {
+    let beads_db = Path::new(".beads/beads.db");
+    if !beads_db.exists() {
+        return Ok(serde_json::json!({}));
+    }
+
+    let rt = tokio::runtime::Runtime::new()
+        .context("Failed to create async runtime")?;
+
+    rt.block_on(async {
+        let connection_string = format!("sqlite:{}", beads_db.display());
+        let pool = sqlx::SqlitePool::connect(&connection_string)
+            .await
+            .context("Failed to connect to beads database")?;
+
+        let result: Option<(String,)> = sqlx::query_as(
+            "SELECT title FROM issues WHERE id = ?1"
+        )
+        .bind(bead_id)
+        .fetch_optional(&pool)
+        .await
+        .context("Failed to query bead from database")?;
+
+        let title = result.map(|r| r.0).unwrap_or_else(|| "Unknown".to_string());
+
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        Ok(serde_json::json!({
+            "bead_id": bead_id,
+            "bead_title": title,
+            "bead_status": "in_progress",
+            "cached_at": timestamp
+        }))
+    })
+}
+
 /// Create session atomically to prevent partial state on SIGKILL
 ///
 /// This implements atomicity by:
@@ -79,6 +124,7 @@ fn atomic_create_session(
     name: &str,
     workspace_path: &std::path::Path,
     db: &crate::db::SessionDb,
+    bead_metadata: Option<serde_json::Value>,
 ) -> Result<()> {
     let workspace_path_str = workspace_path.display().to_string();
 
@@ -93,6 +139,15 @@ fn atomic_create_session(
             return Err(db_error).context("Failed to create session record");
         }
     };
+
+    // Update session with bead metadata if provided
+    if let Some(metadata) = bead_metadata {
+        db.update_blocking(name, SessionUpdate {
+            metadata: Some(metadata),
+            ..Default::default()
+        })
+        .context("Failed to update session metadata")?;
+    }
 
     // STEP 2: Create JJ workspace (can be interrupted by SIGKILL)
     // If this fails or is interrupted, rollback will clean up
@@ -183,6 +238,12 @@ pub fn run_internal(options: &AddOptions) -> Result<()> {
 
     let root = check_prerequisites()?;
 
+    // Query bead metadata if bead_id provided
+    let bead_metadata = options.bead_id
+        .as_ref()
+        .map(|bead_id| query_bead_metadata(bead_id))
+        .transpose()?;
+
     // Load config to get workspace_dir setting
     let cfg = config::load_config().map_err(|e| anyhow::Error::msg(e.to_string()))?;
 
@@ -192,7 +253,7 @@ pub fn run_internal(options: &AddOptions) -> Result<()> {
     let workspace_path_str = workspace_path.display().to_string();
 
     // ATOMIC SESSION CREATION
-    atomic_create_session(&options.name, &workspace_path, &db)?;
+    atomic_create_session(&options.name, &workspace_path, &db, bead_metadata)?;
 
     // Execute post_create hooks unless --no-hooks
     if !options.no_hooks {
@@ -230,6 +291,12 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 
     let db = get_session_db()?;
     let root = check_prerequisites()?;
+
+    // Query bead metadata if bead_id provided
+    let bead_metadata = options.bead_id
+        .as_ref()
+        .map(|bead_id| query_bead_metadata(bead_id))
+        .transpose()?;
 
     // Load config to get workspace_dir setting early for dry-run
     let cfg = config::load_config().map_err(|e| anyhow::Error::msg(e.to_string()))?;
@@ -286,7 +353,7 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 
     // ATOMIC SESSION CREATION (zjj-bw0x)
     // Order: DB first (detectable), then workspace (cleanable)
-    atomic_create_session(&options.name, &workspace_path, &db)?;
+    atomic_create_session(&options.name, &workspace_path, &db, bead_metadata)?;
 
     let mut session = db
         .get_blocking(&options.name)?

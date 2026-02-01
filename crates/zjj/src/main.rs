@@ -365,6 +365,7 @@ fn cmd_add() -> ClapCommand {
             zjj add bugfix-123 --no-open       Create without opening Zellij tab\n  \
             zjj add experiment -t minimal      Use minimal layout template\n  \
             zjj add quick-test --no-hooks      Skip post-create hooks\n  \
+            zjj add work --bead zjj-abc123     Associate with bead zjj-abc123\n  \
             zjj add --example-json            Show example JSON output",
         )
         .arg(
@@ -372,6 +373,13 @@ fn cmd_add() -> ClapCommand {
                 .required_unless_present("example-json")
                 .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Name for the new session (must start with a letter)"),
+        )
+        .arg(
+            Arg::new("bead")
+                .long("bead")
+                .short('b')
+                .value_name("BEAD_ID")
+                .help("Associate this session with a bead/issue ID"),
         )
         .arg(
             Arg::new("no-hooks")
@@ -522,6 +530,13 @@ fn cmd_list() -> ClapCommand {
                 .long("all")
                 .action(clap::ArgAction::SetTrue)
                 .help("Include completed and failed sessions"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .action(clap::ArgAction::SetTrue)
+                .help("Show verbose output with workspace paths and bead titles"),
         )
         .arg(
             Arg::new("json")
@@ -2080,6 +2095,7 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
 
+    let bead_id = sub_m.get_one::<String>("bead").cloned();
     let no_hooks = sub_m.get_flag("no-hooks");
     let template = sub_m.get_one::<String>("template").cloned();
     let no_open = sub_m.get_flag("no-open");
@@ -2090,6 +2106,7 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
 
     let options = add::AddOptions {
         name: name.clone(),
+        bead_id,
         no_hooks,
         template,
         no_open,
@@ -2115,11 +2132,12 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
 
 fn handle_list(sub_m: &clap::ArgMatches) -> Result<()> {
     let all = sub_m.get_flag("all");
+    let verbose = sub_m.get_flag("verbose");
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let bead = sub_m.get_one::<String>("bead").cloned();
     let agent = sub_m.get_one::<String>("agent").map(String::as_str);
-    list::run(all, format, bead.as_deref(), agent)
+    list::run(all, verbose, format, bead.as_deref(), agent)
 }
 
 fn handle_remove(sub_m: &clap::ArgMatches) -> Result<()> {
