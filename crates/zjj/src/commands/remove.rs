@@ -55,9 +55,10 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
                 message: "Removal cancelled".to_string(),
             };
             let envelope = SchemaEnvelope::new("remove-response", "single", output);
-            println!("{}", serde_json::to_string(&envelope)?);
+            let json_str = serde_json::to_string(&envelope)?;
+            writeln!(std::io::stdout(), "{json_str}")?;
         } else {
-            println!("Removal cancelled");
+            writeln!(std::io::stdout(), "Removal cancelled")?;
         }
         return Ok(());
     }
@@ -101,7 +102,7 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
         let envelope = SchemaEnvelope::new("remove-response", "single", output);
         println!("{}", serde_json::to_string(&envelope)?);
     } else {
-        println!("Removed session '{name}'");
+        writeln!(std::io::stdout(), "Removed session '{name}'")?;
     }
 
     Ok(())
@@ -109,7 +110,7 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
 
 /// Prompt user for confirmation
 fn confirm_removal(name: &str) -> Result<bool> {
-    print!("Remove session '{name}' and its workspace? [y/N] ");
+    write!(io::stdout(), "Remove session '{name}' and its workspace? [y/N] ")?;
     io::stdout().flush()?;
 
     let mut response = String::new();

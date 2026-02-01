@@ -12,7 +12,7 @@
 //! - Cycling to the next pane
 //! - Directional navigation (up, down, left, right)
 
-use std::process::Command;
+use std::{io::Write, process::Command};
 
 use anyhow::Result;
 use serde::Serialize;
@@ -38,19 +38,18 @@ impl Direction {
             "left" => Ok(Self::Left),
             "right" => Ok(Self::Right),
             _ => Err(anyhow::anyhow!(
-                "Invalid direction: '{}'. Valid values: up, down, left, right",
-                s
+                "Invalid direction: '{s}'. Valid values: up, down, left, right"
             )),
         }
     }
 
     /// Get Zellij action argument for this direction
-    fn as_zellij_arg(&self) -> &'static str {
+    const fn as_zellij_arg(self) -> &'static str {
         match self {
-            Direction::Up => "move-focus up",
-            Direction::Down => "move-focus down",
-            Direction::Left => "move-focus left",
-            Direction::Right => "move-focus right",
+            Self::Up => "move-focus up",
+            Self::Down => "move-focus down",
+            Self::Left => "move-focus left",
+            Self::Right => "move-focus right",
         }
     }
 }
@@ -134,7 +133,7 @@ pub fn pane_focus(
     let db = get_session_db()?;
     let session = db
         .get_blocking(session_name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", session_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
 
@@ -151,8 +150,7 @@ pub fn pane_focus(
             ));
         }
         return Err(anyhow::anyhow!(
-            "Pane identifier is required. Use 'zjj pane list {}' to see available panes.",
-            session_name
+            "Pane identifier is required. Use 'zjj pane list {session_name}' to see available panes."
         ));
     };
 
@@ -160,21 +158,17 @@ pub fn pane_focus(
     let output = Command::new("zellij")
         .args(["action", "focus-pane-id", &pane_id])
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         if options.format.is_json() {
             output_json_error_and_exit(&anyhow::anyhow!(
-                "Failed to focus pane '{}': {}",
-                pane_id,
-                stderr
+                "Failed to focus pane '{pane_id}': {stderr}"
             ));
         }
         return Err(anyhow::anyhow!(
-            "Failed to focus pane '{}': {}",
-            pane_id,
-            stderr
+            "Failed to focus pane '{pane_id}': {stderr}"
         ));
     }
 
@@ -182,12 +176,13 @@ pub fn pane_focus(
         let output = PaneFocusOutput {
             session: session_name.to_string(),
             pane: pane_id.clone(),
-            message: format!("Focused pane '{}' in session '{}'", pane_id, session_name),
+            message: format!("Focused pane '{pane_id}' in session '{session_name}'"),
         };
         let envelope = SchemaEnvelope::new("pane-focus-response", "single", output);
-        println!("{}", serde_json::to_string(&envelope)?);
+        let json_str = serde_json::to_string(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        println!("Focused pane '{}' in session '{}'", pane_id, session_name);
+        writeln!(std::io::stdout(), "Focused pane '{pane_id}' in session '{session_name}'")?;
     }
 
     Ok(())
@@ -200,7 +195,7 @@ pub fn pane_list(session_name: &str, options: &PaneListOptions) -> Result<()> {
     let db = get_session_db()?;
     let session = db
         .get_blocking(session_name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", session_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
 
@@ -211,11 +206,11 @@ pub fn pane_list(session_name: &str, options: &PaneListOptions) -> Result<()> {
     let output = Command::new("zellij")
         .args(["action", "list-pane-ids"])
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow::anyhow!("Failed to list panes: {}", stderr));
+        return Err(anyhow::anyhow!("Failed to list panes: {stderr}"));
     }
 
     let panes_output = String::from_utf8_lossy(&output.stdout);
@@ -246,12 +241,14 @@ pub fn pane_list(session_name: &str, options: &PaneListOptions) -> Result<()> {
             focused,
         };
         let envelope = SchemaEnvelope::new("pane-list-response", "single", output);
-        println!("{}", serde_json::to_string(&envelope)?);
+        let json_str = serde_json::to_string(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        println!("Panes in session '{}':", session_name);
+        let mut stdout = std::io::stdout();
+        writeln!(stdout, "Panes in session '{session_name}':")?;
         for pane in &panes {
             let focused_mark = if pane.focused { "*" } else { " " };
-            println!(" {} {} - {}", focused_mark, pane.id, pane.title);
+            writeln!(stdout, " {focused_mark} {} - {}", pane.id, pane.title)?;
         }
     }
 
@@ -265,7 +262,7 @@ pub fn pane_next(session_name: &str, options: &PaneNextOptions) -> Result<()> {
     let db = get_session_db()?;
     let session = db
         .get_blocking(session_name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", session_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
 
@@ -276,25 +273,26 @@ pub fn pane_next(session_name: &str, options: &PaneNextOptions) -> Result<()> {
     let output = Command::new("zellij")
         .args(["action", "move-focus-or-tab"])
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         if options.format.is_json() {
-            output_json_error_and_exit(&anyhow::anyhow!("Failed to move to next pane: {}", stderr));
+            output_json_error_and_exit(&anyhow::anyhow!("Failed to move to next pane: {stderr}"));
         }
-        return Err(anyhow::anyhow!("Failed to move to next pane: {}", stderr));
+        return Err(anyhow::anyhow!("Failed to move to next pane: {stderr}"));
     }
 
     if options.format.is_json() {
         let output = PaneNextOutput {
             session: session_name.to_string(),
-            message: format!("Moved to next pane in session '{}'", session_name),
+            message: format!("Moved to next pane in session '{session_name}'"),
         };
         let envelope = SchemaEnvelope::new("pane-next-response", "single", output);
-        println!("{}", serde_json::to_string(&envelope)?);
+        let json_str = serde_json::to_string(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        println!("Moved to next pane in session '{}'", session_name);
+        writeln!(std::io::stdout(), "Moved to next pane in session '{session_name}'")?;
     }
 
     Ok(())
@@ -311,7 +309,7 @@ pub fn pane_navigate(
     let db = get_session_db()?;
     let session = db
         .get_blocking(session_name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", session_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
 
@@ -324,26 +322,27 @@ pub fn pane_navigate(
         .args(["action"])
         .arg(direction_arg)
         .output()
-        .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         if options.format.is_json() {
-            output_json_error_and_exit(&anyhow::anyhow!("Failed to move focus: {}", stderr));
+            output_json_error_and_exit(&anyhow::anyhow!("Failed to move focus: {stderr}"));
         }
-        return Err(anyhow::anyhow!("Failed to move focus: {}", stderr));
+        return Err(anyhow::anyhow!("Failed to move focus: {stderr}"));
     }
 
     if options.format.is_json() {
         let output = PaneFocusOutput {
             session: session_name.to_string(),
-            pane: format!("{:?}", direction),
-            message: format!("Moved focus {:?} in session '{}'", direction, session_name),
+            pane: format!("{direction:?}"),
+            message: format!("Moved focus {direction:?} in session '{session_name}'"),
         };
         let envelope = SchemaEnvelope::new("pane-navigate-response", "single", output);
-        println!("{}", serde_json::to_string(&envelope)?);
+        let json_str = serde_json::to_string(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        println!("Moved focus {:?} in session '{}'", direction, session_name);
+        writeln!(std::io::stdout(), "Moved focus {direction:?} in session '{session_name}'")?;
     }
 
     Ok(())

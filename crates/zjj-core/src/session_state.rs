@@ -830,8 +830,8 @@ mod tests {
         assert!(result.is_ok(), "activate should succeed");
         let Some(manager) = result.ok() else { return };
         assert_eq!(manager.history().len(), 1);
-        assert_eq!(manager.history()[0].from, SessionState::Created);
-        assert_eq!(manager.history()[0].to, SessionState::Active);
+        assert_eq!(manager.history().first().map(|h| h.from), Some(SessionState::Created));
+        assert_eq!(manager.history().first().map(|h| h.to), Some(SessionState::Active));
     }
 
     #[test]
@@ -844,10 +844,10 @@ mod tests {
         assert!(result.is_ok(), "sync should succeed");
         let Some(manager) = result.ok() else { return };
         assert_eq!(manager.history().len(), 2);
-        assert_eq!(manager.history()[0].from, SessionState::Created);
-        assert_eq!(manager.history()[0].to, SessionState::Active);
-        assert_eq!(manager.history()[1].from, SessionState::Active);
-        assert_eq!(manager.history()[1].to, SessionState::Syncing);
+        assert_eq!(manager.history().first().map(|h| h.from), Some(SessionState::Created));
+        assert_eq!(manager.history().first().map(|h| h.to), Some(SessionState::Active));
+        assert_eq!(manager.history().get(1).map(|h| h.from), Some(SessionState::Active));
+        assert_eq!(manager.history().get(1).map(|h| h.to), Some(SessionState::Syncing));
     }
 
     #[test]
@@ -856,7 +856,7 @@ mod tests {
         let result = manager.activate("initialization reason");
         assert!(result.is_ok(), "activate should succeed");
         let Some(manager) = result.ok() else { return };
-        assert_eq!(manager.history()[0].reason, "initialization reason");
+        assert_eq!(manager.history().first().map(|h| h.reason.as_str()), Some("initialization reason"));
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

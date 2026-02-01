@@ -164,178 +164,120 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_creates_agent() {
-        let pool = test_pool().await.unwrap_or_else(|_| {
-            // This is test code; if we can't create a pool, the test infrastructure is broken
-            std::process::exit(1);
-        });
-        let registry = AgentRegistry::new(pool, 60)
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+    async fn test_register_creates_agent() -> Result<(), Error> {
+        let pool = test_pool().await?;
+        let registry = AgentRegistry::new(pool, 60).await?;
 
-        let result = registry.register("agent-1").await;
-        assert!(result.is_ok());
+        registry.register("agent-1").await?;
 
-        let active = registry
-            .get_active()
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        let active = registry.get_active().await?;
         assert_eq!(active.len(), 1);
-        assert_eq!(active[0].agent_id, "agent-1");
+        assert_eq!(active.first().map(|a| a.agent_id.as_str()), Some("agent-1"));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_heartbeat_updates_last_seen() {
-        let pool = test_pool().await.unwrap_or_else(|_| std::process::exit(1));
-        let registry = AgentRegistry::new(pool, 60)
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+    async fn test_heartbeat_updates_last_seen() -> Result<(), Error> {
+        let pool = test_pool().await?;
+        let registry = AgentRegistry::new(pool, 60).await?;
 
-        registry
-            .register("agent-1")
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        registry.register("agent-1").await?;
 
-        let before = registry
-            .get_active()
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
-        let before_ts = before[0].last_seen;
+        let before = registry.get_active().await?;
+        let before_ts = before.first().ok_or_else(|| Error::NotFound("No agents found".to_string()))?.last_seen;
 
         // Small delay to ensure timestamp differs
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
-        registry
-            .heartbeat("agent-1")
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        registry.heartbeat("agent-1").await?;
 
-        let after = registry
-            .get_active()
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
-        assert!(after[0].last_seen >= before_ts);
+        let after = registry.get_active().await?;
+        let after_ts = after.first().ok_or_else(|| Error::NotFound("No agents found".to_string()))?.last_seen;
+        assert!(after_ts >= before_ts);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_heartbeat_unknown_agent_returns_error() {
-        let pool = test_pool().await.unwrap_or_else(|_| std::process::exit(1));
-        let registry = AgentRegistry::new(pool, 60)
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+    async fn test_heartbeat_unknown_agent_returns_error() -> Result<(), Error> {
+        let pool = test_pool().await?;
+        let registry = AgentRegistry::new(pool, 60).await?;
 
         let result = registry.heartbeat("nonexistent").await;
         assert!(result.is_err());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_stale_agent_not_in_active_list() {
-        let pool = test_pool().await.unwrap_or_else(|_| std::process::exit(1));
+    async fn test_stale_agent_not_in_active_list() -> Result<(), Error> {
+        let pool = test_pool().await?;
         // Use 0 second timeout so everything is immediately stale
-        let registry = AgentRegistry::new(pool, 0)
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        let registry = AgentRegistry::new(pool, 0).await?;
 
-        registry
-            .register("agent-1")
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        registry.register("agent-1").await?;
 
         // Small delay to ensure agent becomes stale
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
-        let active = registry
-            .get_active()
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        let active = registry.get_active().await?;
         assert!(active.is_empty());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_stale_agent_restored_by_heartbeat() {
-        let pool = test_pool().await.unwrap_or_else(|_| std::process::exit(1));
+    async fn test_stale_agent_restored_by_heartbeat() -> Result<(), Error> {
+        let pool = test_pool().await?;
         // Short timeout
-        let registry = AgentRegistry::new(pool, 1)
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        let registry = AgentRegistry::new(pool, 1).await?;
 
-        registry
-            .register("agent-1")
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        registry.register("agent-1").await?;
 
         // Wait for staleness
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
-        let stale = registry
-            .get_active()
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        let stale = registry.get_active().await?;
         assert!(stale.is_empty());
 
         // Re-heartbeat restores
-        registry
-            .heartbeat("agent-1")
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        registry.heartbeat("agent-1").await?;
 
-        let active = registry
-            .get_active()
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        let active = registry.get_active().await?;
         assert_eq!(active.len(), 1);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_unregister_removes_agent() {
-        let pool = test_pool().await.unwrap_or_else(|_| std::process::exit(1));
-        let registry = AgentRegistry::new(pool, 60)
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+    async fn test_unregister_removes_agent() -> Result<(), Error> {
+        let pool = test_pool().await?;
+        let registry = AgentRegistry::new(pool, 60).await?;
 
-        registry
-            .register("agent-1")
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
-        let result = registry.unregister("agent-1").await;
-        assert!(result.is_ok());
+        registry.register("agent-1").await?;
+        registry.unregister("agent-1").await?;
 
-        let active = registry
-            .get_active()
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        let active = registry.get_active().await?;
         assert!(active.is_empty());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_unregister_unknown_agent_returns_error() {
-        let pool = test_pool().await.unwrap_or_else(|_| std::process::exit(1));
-        let registry = AgentRegistry::new(pool, 60)
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+    async fn test_unregister_unknown_agent_returns_error() -> Result<(), Error> {
+        let pool = test_pool().await?;
+        let registry = AgentRegistry::new(pool, 60).await?;
 
         let result = registry.unregister("nonexistent").await;
         assert!(result.is_err());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_register_idempotent() {
-        let pool = test_pool().await.unwrap_or_else(|_| std::process::exit(1));
-        let registry = AgentRegistry::new(pool, 60)
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+    async fn test_register_idempotent() -> Result<(), Error> {
+        let pool = test_pool().await?;
+        let registry = AgentRegistry::new(pool, 60).await?;
 
-        registry
-            .register("agent-1")
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
-        let result = registry.register("agent-1").await;
-        assert!(result.is_ok());
+        registry.register("agent-1").await?;
+        registry.register("agent-1").await?;
 
-        let active = registry
-            .get_active()
-            .await
-            .unwrap_or_else(|_| std::process::exit(1));
+        let active = registry.get_active().await?;
         assert_eq!(active.len(), 1);
+        Ok(())
     }
 }

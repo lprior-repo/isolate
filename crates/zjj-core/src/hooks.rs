@@ -106,13 +106,17 @@ impl HookRunner {
                 .iter()
                 .enumerate()
                 .try_fold(Vec::new(), |mut acc, (index, hook_cmd)| {
-                    eprintln!(
-                        "Running {} hook {}/{}: {}",
-                        hook_type.event_name(),
-                        index + 1,
-                        num_hooks,
-                        hook_cmd
-                    );
+                    // Allow eprintln for user feedback (not debug output)
+                    #[allow(clippy::print_stderr)]
+                    {
+                        eprintln!(
+                            "Running {} hook {}/{}: {}",
+                            hook_type.event_name(),
+                            index + 1,
+                            num_hooks,
+                            hook_cmd
+                        );
+                    }
 
                     let result = Self::execute_hook(&shell, hook_cmd, workspace_path)?;
 
@@ -235,8 +239,9 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
-            assert!(results[0].success);
-            assert!(results[0].stdout.contains("Hello"));
+            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            assert!(first.success);
+            assert!(first.stdout.contains("Hello"));
         } else {
             return Err(Error::InvalidConfig(
                 "Expected Success, got NoHooks".to_string(),
@@ -260,10 +265,12 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 2);
-            assert!(results[0].success);
-            assert!(results[0].stdout.contains('A'));
-            assert!(results[1].success);
-            assert!(results[1].stdout.contains('B'));
+            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            assert!(first.success);
+            assert!(first.stdout.contains('A'));
+            let second = results.get(1).ok_or_else(|| Error::InvalidConfig("Expected at least two results".to_string()))?;
+            assert!(second.success);
+            assert!(second.stdout.contains('B'));
         } else {
             return Err(Error::InvalidConfig(
                 "Expected Success, got NoHooks".to_string(),
@@ -348,8 +355,9 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
-            assert!(results[0].success);
-            let output = results[0].stdout.trim();
+            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            assert!(first.success);
+            let output = first.stdout.trim();
             let expected = workspace.path().to_string_lossy();
             assert_eq!(output, expected.as_ref());
         } else {
@@ -375,8 +383,9 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
-            assert!(results[0].success);
-            assert!(results[0].stderr.contains("error"));
+            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            assert!(first.success);
+            assert!(first.stderr.contains("error"));
         } else {
             return Err(Error::InvalidConfig(
                 "Expected Success, got NoHooks".to_string(),
@@ -405,8 +414,9 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
-            assert!(results[0].success);
-            let output = results[0].stdout.trim();
+            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            assert!(first.success);
+            let output = first.stdout.trim();
             assert!(output.ends_with("subdir"));
         } else {
             return Err(Error::InvalidConfig(
@@ -430,7 +440,8 @@ mod tests {
         // Test post_create
         let result = runner.run(HookType::PostCreate, workspace.path())?;
         if let HookResult::Success(results) = result {
-            assert!(results[0].stdout.contains("post_create"));
+            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            assert!(first.stdout.contains("post_create"));
         } else {
             return Err(Error::InvalidConfig(
                 "Expected Success for post_create".to_string(),
@@ -440,7 +451,8 @@ mod tests {
         // Test pre_remove
         let result = runner.run(HookType::PreRemove, workspace.path())?;
         if let HookResult::Success(results) = result {
-            assert!(results[0].stdout.contains("pre_remove"));
+            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            assert!(first.stdout.contains("pre_remove"));
         } else {
             return Err(Error::InvalidConfig(
                 "Expected Success for pre_remove".to_string(),
@@ -450,7 +462,8 @@ mod tests {
         // Test post_merge
         let result = runner.run(HookType::PostMerge, workspace.path())?;
         if let HookResult::Success(results) = result {
-            assert!(results[0].stdout.contains("post_merge"));
+            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            assert!(first.stdout.contains("post_merge"));
         } else {
             return Err(Error::InvalidConfig(
                 "Expected Success for post_merge".to_string(),

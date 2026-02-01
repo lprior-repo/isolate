@@ -2,6 +2,8 @@
 //!
 //! Additional session lifecycle management operations.
 
+use std::io::Write;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use zjj_core::{OutputFormat, SchemaEnvelope};
@@ -41,7 +43,7 @@ pub fn run_pause(options: &PauseOptions) -> Result<()> {
     // Check session exists
     let session = db
         .get_blocking(&options.session)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", options.session))?;
+        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", &options.session))?;
 
     let prev_status = session.status.to_string();
 
@@ -63,10 +65,11 @@ pub fn run_pause(options: &PauseOptions) -> Result<()> {
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("pause-response", "single", &result);
-        println!("{}", serde_json::to_string_pretty(&envelope)?);
+        let json_str = serde_json::to_string_pretty(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        println!("✓ Paused session '{}'", options.session);
-        println!("  Previous status: {prev_status}");
+        writeln!(std::io::stdout(), "✓ Paused session '{}'", &options.session)?;
+        writeln!(std::io::stdout(), "  Previous status: {prev_status}")?;
     }
 
     Ok(())
@@ -102,7 +105,7 @@ pub fn run_resume(options: &ResumeOptions) -> Result<()> {
     // Check session exists
     let session = db
         .get_blocking(&options.session)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", options.session))?;
+        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", &options.session))?;
 
     if session.status != SessionStatus::Paused {
         let result = ResumeResult {
@@ -117,7 +120,8 @@ pub fn run_resume(options: &ResumeOptions) -> Result<()> {
 
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("resume-response", "single", &result);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
+            let json_str = serde_json::to_string_pretty(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
             return Ok(());
         }
         anyhow::bail!("Session is not paused (status: {})", session.status);
@@ -141,9 +145,10 @@ pub fn run_resume(options: &ResumeOptions) -> Result<()> {
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("resume-response", "single", &result);
-        println!("{}", serde_json::to_string_pretty(&envelope)?);
+        let json_str = serde_json::to_string_pretty(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        println!("✓ Resumed session '{}'", options.session);
+        writeln!(std::io::stdout(), "✓ Resumed session '{}'", &options.session)?;
     }
 
     Ok(())
@@ -186,7 +191,7 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
     // Check source exists
     let source_session = db
         .get_blocking(&options.source)?
-        .ok_or_else(|| anyhow::anyhow!("Source session '{}' not found", options.source))?;
+        .ok_or_else(|| anyhow::anyhow!("Source session '{}' not found", &options.source))?;
 
     // Check target doesn't exist
     if db.get_blocking(&options.target)?.is_some() {
@@ -198,16 +203,17 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
             workspace_path: None,
             error: Some(format!(
                 "Target session '{}' already exists",
-                options.target
+                &options.target
             )),
         };
 
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("clone-response", "single", &result);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
+            let json_str = serde_json::to_string_pretty(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
             return Ok(());
         }
-        anyhow::bail!("Target session '{}' already exists", options.target);
+        anyhow::bail!("Target session '{}' already exists", &options.target);
     }
 
     if options.dry_run {
@@ -222,19 +228,23 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
 
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("clone-response", "single", &result);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
+            let json_str = serde_json::to_string_pretty(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
         } else {
-            println!(
+            writeln!(
+                std::io::stdout(),
                 "[dry-run] Would clone '{}' to '{}'",
-                options.source, options.target
-            );
+                &options.source, &options.target
+            )?;
         }
         return Ok(());
     }
 
     // Create new workspace from source
     let source_path = &source_session.workspace_path;
-    let new_workspace_path = if !source_path.is_empty() {
+    let new_workspace_path = if source_path.is_empty() {
+        None
+    } else {
         let source_path = std::path::Path::new(source_path);
         let new_path = source_path.parent().map(|p| p.join(&options.target));
 
@@ -254,8 +264,6 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
         }
 
         new_path.map(|p| p.to_string_lossy().to_string())
-    } else {
-        None
     };
 
     // Create session in database
@@ -275,11 +283,12 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("clone-response", "single", &result);
-        println!("{}", serde_json::to_string_pretty(&envelope)?);
+        let json_str = serde_json::to_string_pretty(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        println!("✓ Cloned '{}' to '{}'", options.source, options.target);
+        writeln!(std::io::stdout(), "✓ Cloned '{}' to '{}'", &options.source, &options.target)?;
         if let Some(path) = new_workspace_path {
-            println!("  Workspace: {path}");
+            writeln!(std::io::stdout(), "  Workspace: {path}")?;
         }
     }
 

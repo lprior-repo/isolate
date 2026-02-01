@@ -312,10 +312,14 @@ mod tests {
         let error_with_fixes = ErrorWithFixes::new(error, fix);
 
         assert_eq!(error_with_fixes.fixes().len(), 1);
-        assert_eq!(
-            error_with_fixes.fixes()[0].description,
-            "Use different name"
-        );
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert_eq!(
+                error_with_fixes.fixes()[0].description,
+                "Use different name"
+            );
+        }
     }
 
     #[test]
@@ -332,8 +336,12 @@ mod tests {
         let error_with_fixes = ErrorWithFixes::with_fixes(error, fixes);
 
         assert_eq!(error_with_fixes.fixes().len(), 2);
-        assert!(error_with_fixes.fixes()[0].automatic);
-        assert!(!error_with_fixes.fixes()[1].automatic);
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(error_with_fixes.fixes()[0].automatic);
+            assert!(!error_with_fixes.fixes()[1].automatic);
+        }
     }
 
     #[test]
