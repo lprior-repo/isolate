@@ -40,6 +40,7 @@ pub struct SchemaInfo {
 
 /// All schemas output
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct AllSchemasOutput {
     pub schemas: serde_json::Value,
 }

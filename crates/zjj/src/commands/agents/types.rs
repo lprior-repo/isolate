@@ -37,12 +37,13 @@ pub struct HeartbeatArgs {
 
 /// Arguments for agent status subcommand
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct StatusArgs {}
 
 /// Arguments for agent unregister subcommand
 #[derive(Debug, Clone)]
 pub struct UnregisterArgs {
-    /// Agent ID to unregister (uses ZJJ_AGENT_ID if not provided)
+    /// Agent ID to unregister (uses `ZJJ_AGENT_ID` if not provided)
     pub agent_id: Option<String>,
 }
 

@@ -119,6 +119,7 @@ fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
 }
 
 /// Wrapper to execute a command with hooks
+#[allow(dead_code)]
 pub fn with_hooks<F>(hooks: &HooksConfig, f: F) -> Result<()>
 where
     F: FnOnce() -> Result<()>,

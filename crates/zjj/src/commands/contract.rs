@@ -94,7 +94,7 @@ pub struct ContractsResponse {
 pub fn run(options: &ContractOptions) -> Result<()> {
     let contracts = build_all_contracts();
 
-    let response = if let Some(cmd_name) = &options.command {
+    let _response = if let Some(cmd_name) = &options.command {
         let contract = contracts
             .commands
             .into_iter()

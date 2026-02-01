@@ -222,7 +222,10 @@ fn try_fix_issue(issue: Issue) -> Issue {
                     // Attempt delete - success or already-gone both count as fixed
                     db.delete_blocking(session_name).is_ok()
                 })
-                .map(|fixed| Issue { fixed, ..issue.clone() })
+                .map(|fixed| Issue {
+                    fixed,
+                    ..issue.clone()
+                })
                 .unwrap_or(issue)
         }
         // These require user intervention - cannot auto-fix
@@ -312,6 +315,7 @@ fn get_last_command_path() -> Result<std::path::PathBuf> {
 }
 
 /// Save the last command for potential retry
+#[allow(dead_code)]
 pub fn save_last_command(command: &str, failed: bool) -> Result<()> {
     let path = get_last_command_path()?;
     let saved = SavedCommand {
@@ -441,10 +445,7 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
 
     let workspace_dir = std::path::Path::new(workspace_path);
     if !workspace_dir.exists() {
-        anyhow::bail!(
-            "Workspace directory '{}' does not exist",
-            workspace_path
-        );
+        anyhow::bail!("Workspace directory '{}' does not exist", workspace_path);
     }
 
     // Verify it's a JJ repository
@@ -458,7 +459,14 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
         // Check if the checkpoint exists using jj log
         let check_result = std::process::Command::new("jj")
             .current_dir(workspace_dir)
-            .args(["log", "-r", &options.checkpoint, "--no-graph", "-T", "change_id"])
+            .args([
+                "log",
+                "-r",
+                &options.checkpoint,
+                "--no-graph",
+                "-T",
+                "change_id",
+            ])
             .output();
 
         match check_result {

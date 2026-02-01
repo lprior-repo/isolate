@@ -18,7 +18,7 @@ use std::{
 
 use tokio::signal::unix::{signal, SignalKind};
 
-use super::types::{SpawnError, SpawnPhase};
+use super::types::SpawnError;
 
 /// Completed phases in a transaction
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -75,6 +75,7 @@ impl CompletedPhases {
 #[derive(Clone)]
 pub struct TransactionTracker {
     bead_id: String,
+    #[allow(dead_code)]
     workspace_path: PathBuf,
     completed_phases: Arc<Mutex<CompletedPhases>>,
     agent_pid: Arc<Mutex<Option<u32>>>,
@@ -101,34 +102,83 @@ impl TransactionTracker {
     }
 
     /// Mark workspace creation phase as completed
-    pub fn mark_workspace_created(&self) {
-        let mut phases = self.completed_phases.lock().expect("mutex lock poisoned");
-        *phases = phases.workspace_created();
+    ///
+    /// # Errors
+    /// Returns `SpawnError::AgentSpawnFailed` if mutex is poisoned.
+    pub fn mark_workspace_created(&self) -> Result<(), SpawnError> {
+        self.completed_phases
+            .lock()
+            .map(|mut phases| {
+                *phases = phases.workspace_created();
+            })
+            .map_err(|e| SpawnError::AgentSpawnFailed {
+                reason: format!("Mutex lock poisoned: {e}"),
+            })
     }
 
     /// Mark bead status update phase as completed
-    pub fn mark_bead_status_updated(&self) {
-        let mut phases = self.completed_phases.lock().expect("mutex lock poisoned");
-        *phases = phases.bead_status_updated();
+    ///
+    /// # Errors
+    /// Returns `SpawnError::AgentSpawnFailed` if mutex is poisoned.
+    pub fn mark_bead_status_updated(&self) -> Result<(), SpawnError> {
+        self.completed_phases
+            .lock()
+            .map(|mut phases| {
+                *phases = phases.bead_status_updated();
+            })
+            .map_err(|e| SpawnError::AgentSpawnFailed {
+                reason: format!("Mutex lock poisoned: {e}"),
+            })
     }
 
     /// Mark agent spawn phase as completed
-    pub fn mark_agent_spawned(&self, pid: u32) {
-        {
-            let mut phases = self.completed_phases.lock().expect("mutex lock poisoned");
-            *phases = phases.agent_spawned();
-        }
-        *self.agent_pid.lock().expect("mutex lock poisoned") = Some(pid);
+    ///
+    /// # Errors
+    /// Returns `SpawnError::AgentSpawnFailed` if mutex is poisoned.
+    pub fn mark_agent_spawned(&self, pid: u32) -> Result<(), SpawnError> {
+        self.completed_phases
+            .lock()
+            .map(|mut phases| {
+                *phases = phases.agent_spawned();
+            })
+            .map_err(|e| SpawnError::AgentSpawnFailed {
+                reason: format!("Mutex lock poisoned (phases): {e}"),
+            })?;
+
+        self.agent_pid
+            .lock()
+            .map(|mut agent_pid| {
+                *agent_pid = Some(pid);
+            })
+            .map_err(|e| SpawnError::AgentSpawnFailed {
+                reason: format!("Mutex lock poisoned (agent_pid): {e}"),
+            })
     }
 
     /// Get the current completed phases
-    pub fn completed_phases(&self) -> CompletedPhases {
-        *self.completed_phases.lock().expect("mutex lock poisoned")
+    ///
+    /// # Errors
+    /// Returns `SpawnError::AgentSpawnFailed` if mutex is poisoned.
+    pub fn completed_phases(&self) -> Result<CompletedPhases, SpawnError> {
+        self.completed_phases
+            .lock()
+            .map(|phases| *phases)
+            .map_err(|e| SpawnError::AgentSpawnFailed {
+                reason: format!("Mutex lock poisoned: {e}"),
+            })
     }
 
     /// Get the agent PID if spawned
-    pub fn agent_pid(&self) -> Option<u32> {
-        *self.agent_pid.lock().expect("mutex lock poisoned")
+    ///
+    /// # Errors
+    /// Returns `SpawnError::AgentSpawnFailed` if mutex is poisoned.
+    pub fn agent_pid(&self) -> Result<Option<u32>, SpawnError> {
+        self.agent_pid
+            .lock()
+            .map(|pid| *pid)
+            .map_err(|e| SpawnError::AgentSpawnFailed {
+                reason: format!("Mutex lock poisoned: {e}"),
+            })
     }
 
     /// Rollback all completed phases
@@ -139,7 +189,7 @@ impl TransactionTracker {
     /// # Errors
     /// Returns `SpawnError` if any rollback step fails.
     pub fn rollback(&self) -> Result<(), SpawnError> {
-        let phases = self.completed_phases();
+        let phases = self.completed_phases()?;
 
         if !phases.needs_rollback() {
             return Ok(());
@@ -171,11 +221,13 @@ impl TransactionTracker {
     /// # Errors
     /// Returns `SpawnError::AgentSpawnFailed` if termination fails.
     fn terminate_agent(&self) -> Result<(), SpawnError> {
-        let pid = self
-            .agent_pid()
-            .ok_or_else(|| SpawnError::AgentSpawnFailed {
-                reason: "No agent PID recorded".to_string(),
-            })?;
+        let pid_opt = self.agent_pid().map_err(|_| SpawnError::AgentSpawnFailed {
+            reason: "No agent PID recorded".to_string(),
+        })?;
+
+        let pid = pid_opt.ok_or_else(|| SpawnError::AgentSpawnFailed {
+            reason: "No PID available".to_string(),
+        })?;
 
         eprintln!("Terminating agent process (PID: {pid})...");
 
@@ -203,7 +255,7 @@ impl TransactionTracker {
     /// Reset bead status from 'in_progress' to 'open'
     ///
     /// # Errors
-    /// Returns `SpawnError::DatabaseError` if status update fails.
+    /// Returns `SpawnError::DatabaseError` if status update fails or JSON parsing fails.
     fn reset_bead_status(&self) -> Result<(), SpawnError> {
         eprintln!("Resetting bead '{}' status to 'open'...", self.bead_id);
 
@@ -212,25 +264,40 @@ impl TransactionTracker {
             reason: format!("Failed to read beads database: {e}"),
         })?;
 
-        let mut new_content = String::new();
-        let mut updated = false;
+        // Functional transformation using try_fold with Railway-Oriented Programming
+        // Accumulates both the new content string and updated flag immutably
+        let (new_content, updated) = content.lines().try_fold(
+            (String::new(), false),
+            |(mut acc, updated), line| -> Result<(String, bool), SpawnError> {
+                // Parse JSON line, propagating errors instead of silently ignoring
+                let mut json = serde_json::from_str::<serde_json::Value>(line).map_err(|e| {
+                    SpawnError::DatabaseError {
+                        reason: format!("Failed to parse beads JSON line: {e}"),
+                    }
+                })?;
 
-        for line in content.lines() {
-            if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(line) {
-                if json
+                // Check if this bead matches our ID and update status if so
+                let is_target_bead = json
                     .get("id")
-                    .and_then(|i| i.as_str())
-                    .map(|i| i == &self.bead_id)
-                    .unwrap_or(false)
-                {
-                    json["status"] = serde_json::json!("open");
-                    updated = true;
-                }
-                new_content.push_str(&json.to_string());
-                new_content.push('\n');
-            }
-        }
+                    .and_then(serde_json::Value::as_str)
+                    .map_or(false, |id| id == self.bead_id);
 
+                let updated = if is_target_bead {
+                    json["status"] = serde_json::json!("open");
+                    true
+                } else {
+                    updated
+                };
+
+                // Append serialized JSON line to accumulator
+                acc.push_str(&json.to_string());
+                acc.push('\n');
+
+                Ok((acc, updated))
+            },
+        )?;
+
+        // Only write if we actually updated a bead
         if updated {
             std::fs::write(beads_db, new_content).map_err(|e| SpawnError::DatabaseError {
                 reason: format!("Failed to write beads database: {e}"),
@@ -296,13 +363,16 @@ impl TransactionTracker {
 
 impl Drop for TransactionTracker {
     fn drop(&mut self) {
-        let phases = self.completed_phases();
-
         // Only auto-rollback if we have uncommitted work and are being dropped
         // unexpectedly (not normal completion path)
-        if phases.needs_rollback() {
-            if let Err(e) = self.rollback() {
-                eprintln!("WARNING: Failed to rollback during cleanup: {e}");
+        //
+        // Note: If mutex is poisoned during Drop, we cannot safely rollback.
+        // This is acceptable as Drop is a best-effort cleanup path.
+        if let Ok(phases) = self.completed_phases() {
+            if phases.needs_rollback() {
+                if let Err(e) = self.rollback() {
+                    eprintln!("WARNING: Failed to rollback during cleanup: {e}");
+                }
             }
         }
     }
@@ -333,31 +403,41 @@ impl SignalHandler {
     pub fn register(&self) -> Result<(), SpawnError> {
         let tracker = self.tracker.clone();
 
-        tokio::spawn(async move {
-            let mut sigint =
-                signal(SignalKind::interrupt()).expect("Failed to setup SIGINT handler");
-            let mut sigterm =
-                signal(SignalKind::terminate()).expect("Failed to setup SIGTERM handler");
+        // Setup signal handlers before spawning async task
+        // This ensures we fail early if signal registration fails
+        let sigint_result = signal(SignalKind::interrupt());
+        let sigterm_result = signal(SignalKind::terminate());
 
-            tokio::select! {
-                _ = sigint.recv() => {
-                    eprintln!("\nReceived SIGINT, performing cleanup...");
-                }
-                _ = sigterm.recv() => {
-                    eprintln!("Received SIGTERM, performing cleanup...");
-                }
+        match (sigint_result, sigterm_result) {
+            (Ok(mut sigint), Ok(mut sigterm)) => {
+                tokio::spawn(async move {
+                    tokio::select! {
+                        _ = sigint.recv() => {
+                            eprintln!("\nReceived SIGINT, performing cleanup...");
+                        }
+                        _ = sigterm.recv() => {
+                            eprintln!("Received SIGTERM, performing cleanup...");
+                        }
+                    }
+
+                    if let Some(t) = tracker {
+                        if let Err(e) = t.rollback() {
+                            eprintln!("Cleanup failed: {e}");
+                            std::process::exit(1);
+                        }
+                    }
+                    std::process::exit(130);
+                });
+
+                Ok(())
             }
-
-            if let Some(t) = tracker {
-                if let Err(e) = t.rollback() {
-                    eprintln!("Cleanup failed: {e}");
-                    std::process::exit(1);
-                }
-            }
-            std::process::exit(130);
-        });
-
-        Ok(())
+            (Err(e), _) => Err(SpawnError::AgentSpawnFailed {
+                reason: format!("Failed to setup SIGINT handler: {e}"),
+            }),
+            (_, Err(e)) => Err(SpawnError::AgentSpawnFailed {
+                reason: format!("Failed to setup SIGTERM handler: {e}"),
+            }),
+        }
     }
 }
 

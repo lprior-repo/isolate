@@ -5,7 +5,7 @@ use zjj_core::{config, jj, json::SchemaEnvelope, OutputFormat};
 
 /// JSON output structure for add command
 ///
-/// Re-exported from crate::json::serializers
+/// Re-exported from `crate::json::serializers`
 use crate::json::AddOutput;
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij, run_command},
@@ -13,6 +13,7 @@ use crate::{
     session::{validate_session_name, SessionStatus, SessionUpdate},
 };
 /// Options for the add command
+#[allow(clippy::struct_excessive_bools)]
 pub struct AddOptions {
     /// Session name
     pub name: String,
@@ -64,7 +65,7 @@ pub fn run(name: &str) -> Result<()> {
 ///
 /// If SIGKILL occurs during step 2:
 /// - DB record exists in 'creating' state (detectable by doctor)
-/// - Partial workspace may exist (cleaned by rollback_partial_state)
+/// - Partial workspace may exist (cleaned by `rollback_partial_state`)
 /// - No partial state that prevents recovery
 ///
 /// # Errors
@@ -82,7 +83,7 @@ fn atomic_create_session(
     // This makes the creation attempt detectable by doctor
     let db_result = db.create_blocking(name, &workspace_path_str);
 
-    let session = match db_result {
+    let _session = match db_result {
         Ok(s) => s,
         Err(db_error) => {
             // DB creation failed - no cleanup needed (nothing created yet)
@@ -95,7 +96,7 @@ fn atomic_create_session(
     let workspace_result = create_jj_workspace(name, workspace_path);
 
     match workspace_result {
-        Ok(_) => {
+        Ok(()) => {
             // Workspace created successfully
             // DB record already in 'creating' state, will transition to 'active'
             // after post_create hooks
@@ -104,7 +105,7 @@ fn atomic_create_session(
         Err(workspace_error) => {
             // Workspace creation failed or was interrupted
             // Rollback: clean workspace, leave DB in 'creating' state
-            let _ = rollback_partial_state(name, workspace_path);
+            rollback_partial_state(name, workspace_path);
             Err(workspace_error).context("Failed to create workspace, rolled back")
         }
     }
@@ -125,7 +126,7 @@ fn atomic_create_session(
 ///
 /// This function NEVER panics - all cleanup failures are logged
 /// and handled gracefully. Partial state is always detectable.
-fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) -> Result<()> {
+fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) {
     use std::fs;
 
     let workspace_dir = workspace_path;
@@ -133,7 +134,7 @@ fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) -> Resul
     // Only attempt cleanup if path exists (handle missing gracefully)
     if workspace_dir.exists() {
         match fs::remove_dir_all(workspace_dir) {
-            Ok(_) => {
+            Ok(()) => {
                 tracing::info!("Rolled back partial workspace for session '{}'", name);
             }
             Err(cleanup_err) => {
@@ -157,7 +158,6 @@ fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) -> Resul
     }
 
     // DB record intentionally left in 'creating' state for doctor detection
-    Ok(())
 }
 
 /// Run the add command internally without output (for use by work command)
@@ -219,6 +219,7 @@ pub fn run_internal(options: &AddOptions) -> Result<()> {
 }
 
 /// Run the add command with options
+#[allow(clippy::too_many_lines)]
 pub fn run_with_options(options: &AddOptions) -> Result<()> {
     // Validate session name (REQ-CLI-015)
     // Map zjj_core::Error to anyhow::Error while preserving the original error
@@ -258,8 +259,8 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
         if options.format.is_json() {
             let output = AddOutput {
                 name: options.name.clone(),
-                workspace_path: workspace_path_str.clone(),
-                zellij_tab: zellij_tab.clone(),
+                workspace_path: workspace_path_str,
+                zellij_tab,
                 status: "[DRY RUN] Would create session".to_string(),
             };
             let mut envelope =
@@ -274,8 +275,8 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
             );
         } else {
             println!("[DRY RUN] Would create session '{}'", options.name);
-            println!("  Workspace: {}", workspace_path_str);
-            println!("  Zellij tab: {}", zellij_tab);
+            println!("  Workspace: {workspace_path_str}");
+            println!("  Zellij tab: {zellij_tab}");
         }
         return Ok(());
     }

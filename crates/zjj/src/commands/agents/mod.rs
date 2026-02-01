@@ -500,5 +500,9 @@ fn generate_agent_id() -> String {
     // Use PID to make IDs unique across concurrent processes
     let pid = std::process::id();
 
-    format!("agent-{:08x}-{:04x}", timestamp as u32, pid as u16)
+    format!(
+        "agent-{:08x}-{:04x}",
+        u32::try_from(timestamp).unwrap_or(u32::MAX),
+        u16::try_from(pid).unwrap_or(u16::MAX)
+    )
 }

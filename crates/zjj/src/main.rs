@@ -18,7 +18,7 @@ mod session;
 use commands::{
     abort, add, agents, ai, attach, batch, can_i, checkpoint, claim, clean, completions, config,
     context, contract, dashboard, diff, doctor, done, events, examples, export_import, focus, init,
-    introspect, list, query, remove, rename, revert, session_mgmt, spawn, status, sync, undo,
+    introspect, list, pane, query, remove, rename, revert, session_mgmt, spawn, status, sync, undo,
     validate, whatif, whereami, whoami, work,
 };
 
@@ -1729,7 +1729,7 @@ fn cmd_wait() -> ClapCommand {
         .arg(
             Arg::new("status")
                 .long("status")
-            .value_name("STATUS")
+                .value_name("STATUS")
                 .help("Status to wait for (with session-status)"),
         )
         .arg(
@@ -3076,10 +3076,7 @@ fn handle_pane(sub_m: &clap::ArgMatches) -> Result<()> {
     }
 }
 
-fn handle_revert(sub_m: &clap::ArgMatches) -> Result<()> {
-    let name = sub_m
-        .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+fn handle_recover(sub_m: &clap::ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let diagnose_only = sub_m.get_flag("diagnose");

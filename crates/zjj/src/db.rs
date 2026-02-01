@@ -13,7 +13,7 @@
 use std::{io::Read, path::Path, str::FromStr, time::SystemTime};
 
 use num_traits::cast::ToPrimitive;
-use sqlx::{Row, SqlitePool, Transaction};
+use sqlx::{Row, SqlitePool};
 use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result};
 
 use crate::session::{Session, SessionStatus, SessionUpdate};

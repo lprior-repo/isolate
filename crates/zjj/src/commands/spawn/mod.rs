@@ -88,16 +88,16 @@ fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
     signal_handler.register()?;
 
     // Phase 3: Create workspace
-    tracker.mark_workspace_created();
+    tracker.mark_workspace_created()?;
 
     // Phase 4: Update bead status to in_progress
     update_bead_status(&options.bead_id, "in_progress").map_err(|e| {
-        tracker.rollback();
+        let _ = tracker.rollback(); // Ignore rollback errors in error path
         SpawnError::DatabaseError {
             reason: e.to_string(),
         }
     })?;
-    tracker.mark_bead_status_updated();
+    tracker.mark_bead_status_updated()?;
 
     // Phase 5: Spawn agent with transaction tracking
     let (pid, exit_code) = if options.background {
@@ -107,7 +107,7 @@ fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
     };
 
     if let Some(pid) = pid {
-        tracker.mark_agent_spawned(pid);
+        tracker.mark_agent_spawned(pid)?;
     }
 
     // Phase 6-8: Handle completion

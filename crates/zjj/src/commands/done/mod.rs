@@ -21,7 +21,6 @@ use std::{
 };
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput, UndoEntry};
 
 use crate::{
@@ -99,7 +98,7 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
     merge_to_main(&root, &workspace_name, options.squash)?;
 
     // Phase 7.5: Log undo history
-    let undo_logged = log_undo_history(
+    let _undo_logged = log_undo_history(
         &root,
         &workspace_name,
         &pre_merge_commit_id,
@@ -813,7 +812,7 @@ mod tests {
             session_name: "test-session".to_string(),
             commit_id: "abc123".to_string(),
             pre_merge_commit_id: "def456".to_string(),
-            timestamp: 1706270400,
+            timestamp: 1_706_270_400,
             pushed_to_remote: false,
             status: "completed".to_string(),
         };

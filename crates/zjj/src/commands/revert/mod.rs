@@ -16,7 +16,6 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    time::SystemTime,
 };
 
 use serde::{Deserialize, Serialize};
@@ -78,7 +77,7 @@ fn execute_revert(options: &RevertOptions) -> Result<RevertOutput, RevertError> 
         });
     }
 
-    let revert_result = revert_merge(&root, &entry)?;
+    let _revert_result = revert_merge(&root, &entry)?;
 
     update_undo_history(&root, &history, &entry, "reverted")?;
 
@@ -126,7 +125,9 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
                 serde_json::from_str::<UndoEntry>(line).ok()
             }
         })
-        .collect::<Vec<_>>()
+        .collect();
+
+    Ok(entries)
 }
 
 /// Find specific session entry in history

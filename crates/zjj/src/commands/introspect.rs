@@ -1799,8 +1799,6 @@ mod tests {
     /// Test env_vars output structure
     #[test]
     fn test_introspect_env_vars_output_structure() {
-        use serde_json::json;
-
         // Expected structure for env-vars output
         let expected_vars = vec![
             "ZJJ_SESSION",

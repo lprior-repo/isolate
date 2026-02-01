@@ -315,7 +315,7 @@ Register-ArgumentCompleter -CommandName zjj -ScriptBlock {
 }
 
 fn generate_elvish_completions() -> String {
-    r#"# zjj elvish completion
+    r"# zjj elvish completion
 
 set edit:completion:arg-completer[zjj] = {|@words|
     var commands = [
@@ -343,7 +343,7 @@ set edit:completion:arg-completer[zjj] = {|@words|
         }
     }
 }
-"#
+"
     .to_string()
 }
 

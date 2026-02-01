@@ -20,6 +20,7 @@ pub struct ExportOptions {
     /// Output file path (stdout if None)
     pub output: Option<String>,
     /// Include workspace files
+    #[allow(dead_code)]
     pub include_files: bool,
     /// Output format
     pub format: OutputFormat,
@@ -187,14 +188,13 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
                 result.skipped += 1;
                 result.skipped_sessions.push(session.name.clone());
                 continue;
-            } else {
-                result.failed += 1;
-                result
-                    .errors
-                    .push(format!("Session '{}' already exists", session.name));
-                result.success = false;
-                continue;
             }
+            result.failed += 1;
+            result
+                .errors
+                .push(format!("Session '{}' already exists", session.name));
+            result.success = false;
+            continue;
         }
 
         if options.dry_run {
