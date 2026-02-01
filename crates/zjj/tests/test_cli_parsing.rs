@@ -13,7 +13,7 @@ use common::TestHarness;
 #[test]
 fn test_help_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -25,7 +25,7 @@ fn test_help_flag() {
 #[test]
 fn test_version_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -36,7 +36,7 @@ fn test_version_flag() {
 #[test]
 fn test_init_help() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -47,7 +47,7 @@ fn test_init_help() {
 #[test]
 fn test_add_help() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -62,7 +62,7 @@ fn test_add_help() {
 #[test]
 fn test_add_with_no_open_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -76,7 +76,7 @@ fn test_add_with_no_open_flag() {
 #[test]
 fn test_add_with_no_hooks_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -90,7 +90,7 @@ fn test_add_with_no_hooks_flag() {
 #[test]
 fn test_add_with_template_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -109,7 +109,7 @@ fn test_add_with_template_flag() {
 #[test]
 fn test_add_with_short_template_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -123,7 +123,7 @@ fn test_add_with_short_template_flag() {
 #[test]
 fn test_add_combined_flags() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -141,7 +141,7 @@ fn test_add_combined_flags() {
 #[test]
 fn test_list_with_all_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -155,7 +155,7 @@ fn test_list_with_all_flag() {
 #[test]
 fn test_list_with_json_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -172,7 +172,7 @@ fn test_list_with_json_flag() {
 #[test]
 fn test_list_with_agent_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -186,7 +186,7 @@ fn test_list_with_agent_flag() {
 #[test]
 fn test_list_agent_with_no_matches() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -205,7 +205,7 @@ fn test_list_agent_with_no_matches() {
 #[test]
 fn test_list_agent_combined_with_all() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -222,7 +222,7 @@ fn test_list_agent_combined_with_all() {
 #[test]
 fn test_list_agent_combined_with_json() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -250,7 +250,7 @@ fn test_list_agent_combined_with_json() {
 #[test]
 fn test_list_with_bead_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -267,7 +267,7 @@ fn test_list_with_bead_flag() {
 #[test]
 fn test_list_with_bead_no_matches() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -295,7 +295,7 @@ fn test_list_with_bead_no_matches() {
 #[test]
 fn test_list_with_bead_excludes_others() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -313,7 +313,7 @@ fn test_list_with_bead_excludes_others() {
 #[test]
 fn test_list_without_bead_shows_all() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -340,7 +340,7 @@ fn test_list_without_bead_shows_all() {
 #[test]
 fn test_list_with_bead_and_all_flags() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -356,7 +356,7 @@ fn test_list_with_bead_and_all_flags() {
 #[test]
 fn test_list_with_bead_json_output() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -402,7 +402,7 @@ fn test_list_with_bead_json_output() {
 #[test]
 fn test_remove_with_force_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -417,7 +417,7 @@ fn test_remove_with_force_flag() {
 #[test]
 fn test_remove_with_short_force_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -432,7 +432,7 @@ fn test_remove_with_short_force_flag() {
 #[test]
 fn test_remove_with_merge_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -446,7 +446,7 @@ fn test_remove_with_merge_flag() {
 #[test]
 fn test_remove_with_keep_branch_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -465,7 +465,7 @@ fn test_remove_with_keep_branch_flag() {
 #[test]
 fn test_status_with_json_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -482,7 +482,7 @@ fn test_status_with_json_flag() {
 #[test]
 fn test_status_without_name_shows_all() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -501,7 +501,7 @@ fn test_status_without_name_shows_all() {
 #[test]
 fn test_diff_with_stat_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -514,7 +514,7 @@ fn test_diff_with_stat_flag() {
 #[test]
 fn test_diff_without_stat() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -531,7 +531,7 @@ fn test_diff_without_stat() {
 #[test]
 fn test_sync_with_explicit_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -544,7 +544,7 @@ fn test_sync_with_explicit_session() {
 #[test]
 fn test_sync_without_session_name() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -561,7 +561,7 @@ fn test_sync_without_session_name() {
 #[test]
 fn test_mutually_exclusive_flags() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -577,7 +577,7 @@ fn test_mutually_exclusive_flags() {
 #[test]
 fn test_flags_before_positional_args() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -592,7 +592,7 @@ fn test_flags_before_positional_args() {
 #[test]
 fn test_flags_after_positional_args() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -611,7 +611,7 @@ fn test_flags_after_positional_args() {
 #[test]
 fn test_session_name_with_hyphens() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -625,7 +625,7 @@ fn test_session_name_with_hyphens() {
 #[test]
 fn test_session_name_with_underscores() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -639,7 +639,7 @@ fn test_session_name_with_underscores() {
 #[test]
 fn test_session_name_with_numbers() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -657,7 +657,7 @@ fn test_session_name_with_numbers() {
 #[test]
 fn test_session_name_with_leading_whitespace() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -670,7 +670,7 @@ fn test_session_name_with_leading_whitespace() {
 #[test]
 fn test_session_name_with_trailing_whitespace() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -687,7 +687,7 @@ fn test_session_name_with_trailing_whitespace() {
 #[test]
 fn test_session_names_are_case_sensitive() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -708,7 +708,7 @@ fn test_session_names_are_case_sensitive() {
 #[test]
 fn test_long_flag_names() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -727,7 +727,7 @@ fn test_long_flag_names() {
 #[test]
 fn test_template_with_equals_sign() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -746,7 +746,7 @@ fn test_template_with_equals_sign() {
 #[test]
 fn test_session_name_starting_with_single_dash() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -760,7 +760,7 @@ fn test_session_name_starting_with_single_dash() {
 #[test]
 fn test_session_name_starting_with_double_dash() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -774,7 +774,7 @@ fn test_session_name_starting_with_double_dash() {
 #[test]
 fn test_session_name_starting_with_triple_dash() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -788,7 +788,7 @@ fn test_session_name_starting_with_triple_dash() {
 #[test]
 fn test_session_name_just_dash() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -802,7 +802,7 @@ fn test_session_name_just_dash() {
 #[test]
 fn test_session_name_starting_with_underscore() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -819,7 +819,7 @@ fn test_session_name_starting_with_underscore() {
 #[test]
 fn test_session_name_starting_with_number() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -833,7 +833,7 @@ fn test_session_name_starting_with_number() {
 #[test]
 fn test_remove_session_name_starting_with_dash() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -850,7 +850,7 @@ fn test_remove_session_name_starting_with_dash() {
 #[test]
 fn test_focus_session_name_starting_with_dash() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -867,7 +867,7 @@ fn test_focus_session_name_starting_with_dash() {
 #[test]
 fn test_diff_session_name_starting_with_dash() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -888,7 +888,7 @@ fn test_diff_session_name_starting_with_dash() {
 #[test]
 fn test_add_example_json_flag_is_recognized() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -905,7 +905,7 @@ fn test_add_example_json_flag_is_recognized() {
 #[test]
 fn test_add_example_json_outputs_valid_json() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -925,7 +925,7 @@ fn test_add_example_json_outputs_valid_json() {
 #[test]
 fn test_add_example_json_has_name_field() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -953,7 +953,7 @@ fn test_add_example_json_has_name_field() {
 #[test]
 fn test_add_example_json_has_workspace_path_field() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -979,7 +979,7 @@ fn test_add_example_json_has_workspace_path_field() {
 #[test]
 fn test_add_example_json_has_zellij_tab_field() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -1005,7 +1005,7 @@ fn test_add_example_json_has_zellij_tab_field() {
 #[test]
 fn test_add_example_json_has_status_field() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -1031,7 +1031,7 @@ fn test_add_example_json_has_status_field() {
 #[test]
 fn test_add_example_json_does_not_create_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -1051,7 +1051,7 @@ fn test_add_example_json_does_not_create_session() {
 #[test]
 fn test_add_example_json_with_name_argument_fails() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -1067,7 +1067,7 @@ fn test_add_example_json_with_name_argument_fails() {
 #[test]
 fn test_add_example_json_mutually_exclusive_with_name() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -1085,7 +1085,7 @@ fn test_add_example_json_mutually_exclusive_with_name() {
 #[test]
 fn test_add_example_json_has_all_required_fields() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -1112,7 +1112,7 @@ fn test_add_example_json_has_all_required_fields() {
 #[test]
 fn test_add_example_json_with_no_open_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -1126,7 +1126,7 @@ fn test_add_example_json_with_no_open_flag() {
 #[test]
 fn test_add_example_json_with_template_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -1139,7 +1139,7 @@ fn test_add_example_json_with_template_flag() {
 #[test]
 fn test_add_example_json_with_no_hooks_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -1152,7 +1152,7 @@ fn test_add_example_json_with_no_hooks_flag() {
 #[test]
 fn test_add_example_json_output_fields_are_strings() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);

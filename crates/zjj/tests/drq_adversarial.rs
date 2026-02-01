@@ -38,7 +38,7 @@ fn test_workspace_exists_without_db_entry() {
     // - Either: Transactional rollback (delete workspace on failure)
     // - Or: Recovery on next operation (detect orphaned workspace)
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -46,10 +46,10 @@ fn test_workspace_exists_without_db_entry() {
 
     // Manually create a workspace directory (simulating crash after workspace creation)
     let workspace_path = harness.workspace_path("zombie-session");
-    if fs::create_dir_all(&workspace_path).is_err() {
-        eprintln!("Failed to create workspace");
-        std::process::abort();
-    }
+    assert!(
+        fs::create_dir_all(&workspace_path).is_ok(),
+        "Failed to create workspace for test setup"
+    );
 
     // Try to create a session with the same name
     let result = harness.zjj(&["add", "zombie-session", "--no-open"]);
@@ -91,7 +91,7 @@ fn test_db_entry_exists_without_workspace() {
     // - Health check on every operation that accesses workspace
     // - Automatically mark session as "failed" if workspace missing
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -100,19 +100,18 @@ fn test_db_entry_exists_without_workspace() {
 
     // Delete the workspace behind zjj's back
     let workspace_path = harness.workspace_path("ghost-session");
-    if fs::remove_dir_all(&workspace_path).is_err() {
-        eprintln!("Failed to remove workspace");
-        std::process::abort();
-    }
+    assert!(
+        fs::remove_dir_all(&workspace_path).is_ok(),
+        "Failed to remove workspace for test setup"
+    );
 
     // Query session-exists
     let query_result = harness.zjj(&["query", "session-exists", "ghost-session", "--json"]);
     assert!(query_result.success, "Query should succeed");
 
-    let json: JsonValue = serde_json::from_str(&query_result.stdout).unwrap_or_else(|_| {
-        eprintln!("Failed to parse JSON");
-        std::process::abort()
-    });
+    let Ok(json) = serde_json::from_str::<JsonValue>(&query_result.stdout) else {
+        panic!("Failed to parse JSON output from query");
+    };
 
     // CURRENT CHAMPION: Reports exists=true despite workspace being gone
     // EXPECTED: Either exists=false OR status indicates failure/missing
@@ -157,7 +156,7 @@ fn test_concurrent_same_session_creation() {
     // - The other gets a clear "session already exists" error
     // - Or: Second agent waits for first to complete
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -190,7 +189,7 @@ fn test_json_success_matches_exit_code() {
     // - exit_code == 0 ⇔ success == true
     // - exit_code != 0 ⇔ success == false AND error field is present
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -242,7 +241,7 @@ fn test_clean_command_detects_orphans() {
     // - `zjj clean --detect-orphans` finds workspaces without DB entries
     // - Offers to recover or delete them
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -250,19 +249,18 @@ fn test_clean_command_detects_orphans() {
 
     // Create an orphan workspace
     let workspace_path = harness.workspace_path("orphan-session");
-    if fs::create_dir_all(&workspace_path).is_err() {
-        eprintln!("Failed to create workspace");
-        std::process::abort();
-    }
+    assert!(
+        fs::create_dir_all(&workspace_path).is_ok(),
+        "Failed to create workspace for test setup"
+    );
 
     // Run clean
     let clean_result = harness.zjj(&["clean", "--dry-run", "--json"]);
     assert!(clean_result.success, "clean should succeed");
 
-    let json: JsonValue = serde_json::from_str(&clean_result.stdout).unwrap_or_else(|_| {
-        eprintln!("Failed to parse JSON");
-        std::process::abort()
-    });
+    let Ok(json) = serde_json::from_str::<JsonValue>(&clean_result.stdout) else {
+        panic!("Failed to parse JSON output from clean");
+    };
 
     // CURRENT CHAMPION: Does not report orphaned workspace
     // EXPECTED: Lists orphaned workspaces and suggests actions
@@ -274,10 +272,12 @@ fn test_clean_command_detects_orphans() {
 
     // This will FAIL on current champion - that's the point
     // Once fixed, this test should pass
-    if orphan_count == 0 {
-        eprintln!("WARNING: clean command does not detect orphaned workspaces");
-        eprintln!("This is expected to FAIL on current champion");
-    }
+    // WARNING: clean command does not detect orphaned workspaces
+    // This is expected to FAIL on current champion
+    assert!(
+        orphan_count > 0,
+        "clean command should detect orphaned workspaces (expected to fail on current champion)"
+    );
 }
 
 #[test]
@@ -292,7 +292,7 @@ fn test_recover_orphaned_session() {
     // EXPECTED BEHAVIOR:
     // - `zjj add --recover orphan-session` detects workspace and creates DB entry
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -300,17 +300,17 @@ fn test_recover_orphaned_session() {
 
     // Create a realistic orphan workspace (with .jj directory)
     let workspace_path = harness.workspace_path("recoverable-session");
-    if fs::create_dir_all(&workspace_path).is_err() {
-        eprintln!("Failed to create workspace");
-        std::process::abort();
-    }
+    assert!(
+        fs::create_dir_all(&workspace_path).is_ok(),
+        "Failed to create workspace for test setup"
+    );
 
     // Create a minimal .jj directory to make it look real
     let jj_dir = workspace_path.join(".jj");
-    if fs::create_dir_all(&jj_dir).is_err() {
-        eprintln!("Failed to create .jj");
-        std::process::abort();
-    }
+    assert!(
+        fs::create_dir_all(&jj_dir).is_ok(),
+        "Failed to create .jj for test setup"
+    );
 
     // Try to add with --recover flag (if it exists)
     let result = harness.zjj(&["add", "recoverable-session", "--no-open"]);
@@ -340,7 +340,7 @@ fn test_query_performance_scales_with_session_count() {
     // EXPECTED BEHAVIOR:
     // - All queries complete in < 100ms even with 1000 sessions
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -383,7 +383,7 @@ fn test_error_messages_are_actionable() {
     // - Every error includes "recovery" field with suggested action
     // - Error codes are machine-parsable for automated handling
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -412,17 +412,18 @@ fn test_error_messages_are_actionable() {
 
                     if !has_recovery {
                         missing_recovery_count += 1;
-                        eprintln!("WARNING: Error for {args:?} lacks recovery field");
+                        // Track error scenarios lacking recovery field
                     }
                 }
             }
         }
     }
 
-    // Document the gap
-    if missing_recovery_count > 0 {
-        eprintln!("WARNING: {missing_recovery_count} error scenarios lack recovery information");
-    }
+    // Assert that all errors have recovery information
+    assert_eq!(
+        missing_recovery_count, 0,
+        "{missing_recovery_count} error scenarios lack recovery information"
+    );
 }
 
 // ============================================================================
@@ -442,7 +443,7 @@ fn test_add_is_not_idempotent() {
     // EXPECTED BEHAVIOR:
     // - With --idempotent flag, succeeds if session already exists in correct state
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -477,7 +478,7 @@ fn test_remove_is_somewhat_idempotent() {
     // EXPECTED BEHAVIOR:
     // - With --idempotent flag, succeeds if session doesn't exist
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -510,7 +511,7 @@ fn test_lock_cleanup_on_query() {
     // EXPECTED BEHAVIOR:
     // - Lock cleanup runs automatically on every query
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 

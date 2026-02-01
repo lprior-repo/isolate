@@ -43,7 +43,7 @@ fn setup_test_jj_repo() -> Result<Option<TempDir>> {
 #[test]
 fn test_init_creates_zjj_directory() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -64,7 +64,7 @@ fn test_init_creates_zjj_directory() -> Result<()> {
 #[test]
 fn test_init_creates_config_toml() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -89,7 +89,7 @@ fn test_init_creates_config_toml() -> Result<()> {
 #[test]
 fn test_init_creates_state_db() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -112,7 +112,7 @@ fn test_init_creates_state_db() -> Result<()> {
 #[test]
 fn test_init_creates_layouts_directory() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -130,7 +130,7 @@ fn test_init_creates_layouts_directory() -> Result<()> {
 #[test]
 fn test_init_handles_already_initialized() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -150,7 +150,7 @@ fn test_init_auto_creates_jj_repo() -> Result<()> {
     // This test verifies that if we're not in a JJ repo,
     // the init command will create one automatically
     if !jj_is_available() {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     }
 

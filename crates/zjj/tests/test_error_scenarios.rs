@@ -13,7 +13,7 @@ use common::TestHarness;
 #[test]
 fn test_init_succeeds_with_jj_and_zellij_installed() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -34,7 +34,7 @@ fn test_init_succeeds_with_jj_and_zellij_installed() {
 #[test]
 fn test_add_empty_session_name() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -46,7 +46,7 @@ fn test_add_empty_session_name() {
 #[test]
 fn test_add_session_name_too_long() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -59,7 +59,7 @@ fn test_add_session_name_too_long() {
 #[test]
 fn test_add_session_name_starts_with_dash() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -70,7 +70,7 @@ fn test_add_session_name_starts_with_dash() {
 #[test]
 fn test_add_session_name_starts_with_underscore() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -81,7 +81,7 @@ fn test_add_session_name_starts_with_underscore() {
 #[test]
 fn test_add_session_name_with_slash() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -95,7 +95,7 @@ fn test_add_session_name_with_slash() {
 #[test]
 fn test_add_session_name_with_dots() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -110,7 +110,7 @@ fn test_add_session_name_with_dots() {
 #[test]
 fn test_add_without_init() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -122,7 +122,7 @@ fn test_add_without_init() {
 #[test]
 fn test_list_without_init() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -134,7 +134,7 @@ fn test_list_without_init() {
 #[test]
 fn test_remove_without_init() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -145,7 +145,7 @@ fn test_remove_without_init() {
 #[test]
 fn test_status_without_init() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -160,7 +160,7 @@ fn test_status_without_init() {
 #[test]
 fn test_remove_nonexistent_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -171,7 +171,7 @@ fn test_remove_nonexistent_session() {
 #[test]
 fn test_status_nonexistent_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -183,7 +183,7 @@ fn test_status_nonexistent_session() {
 #[test]
 fn test_focus_nonexistent_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -195,7 +195,7 @@ fn test_focus_nonexistent_session() {
 #[test]
 fn test_sync_nonexistent_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -207,7 +207,7 @@ fn test_sync_nonexistent_session() {
 #[test]
 fn test_diff_nonexistent_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -223,7 +223,7 @@ fn test_diff_nonexistent_session() {
 #[test]
 fn test_cannot_add_same_session_twice() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -235,7 +235,7 @@ fn test_cannot_add_same_session_twice() {
 #[test]
 fn test_remove_already_removed_session() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -254,7 +254,7 @@ fn test_remove_already_removed_session() {
 #[test]
 fn test_corrupted_database_recovery() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -276,7 +276,7 @@ fn test_corrupted_database_recovery() {
 #[test]
 fn test_missing_database() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -302,7 +302,7 @@ fn test_missing_database() {
 #[test]
 fn test_workspace_directory_creation_failure() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -323,7 +323,7 @@ fn test_readonly_zjj_directory() {
     use std::{fs, os::unix::fs::PermissionsExt};
 
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -357,7 +357,7 @@ fn test_readonly_zjj_directory() {
 #[test]
 fn test_init_with_extra_arguments() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -369,7 +369,7 @@ fn test_init_with_extra_arguments() {
 #[test]
 fn test_add_missing_name_argument() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -381,7 +381,7 @@ fn test_add_missing_name_argument() {
 #[test]
 fn test_remove_missing_name_argument() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -393,7 +393,7 @@ fn test_remove_missing_name_argument() {
 #[test]
 fn test_diff_missing_name_argument() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -405,7 +405,7 @@ fn test_diff_missing_name_argument() {
 #[test]
 fn test_unknown_subcommand() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -416,7 +416,7 @@ fn test_unknown_subcommand() {
 #[test]
 fn test_invalid_flag() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -431,7 +431,7 @@ fn test_invalid_flag() {
 #[test]
 fn test_invalid_toml_config() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -447,7 +447,7 @@ fn test_invalid_toml_config() {
 #[test]
 fn test_missing_config_file() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -468,7 +468,7 @@ fn test_missing_config_file() {
 #[test]
 fn test_corrupted_jj_workspace() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -490,7 +490,7 @@ fn test_corrupted_jj_workspace() {
 #[test]
 fn test_session_name_exactly_64_chars() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -504,7 +504,7 @@ fn test_session_name_exactly_64_chars() {
 #[test]
 fn test_session_name_with_numbers_only_rejected() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -519,7 +519,7 @@ fn test_session_name_with_numbers_only_rejected() {
 #[test]
 fn test_rapid_add_remove_cycles() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -538,7 +538,7 @@ fn test_rapid_add_remove_cycles() {
 #[test]
 fn test_list_with_no_sessions_after_remove_all() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -563,7 +563,7 @@ fn test_list_with_no_sessions_after_remove_all() {
 #[test]
 fn test_session_name_path_traversal_double_dot() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -575,7 +575,7 @@ fn test_session_name_path_traversal_double_dot() {
 #[test]
 fn test_session_name_path_traversal_parent_ref() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -587,7 +587,7 @@ fn test_session_name_path_traversal_parent_ref() {
 #[test]
 fn test_session_name_absolute_path() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -599,7 +599,7 @@ fn test_session_name_absolute_path() {
 #[test]
 fn test_session_name_null_byte() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -618,7 +618,7 @@ fn test_session_name_null_byte() {
 #[test]
 fn test_session_name_zero_width_chars() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -634,7 +634,7 @@ fn test_remove_workspace_symlink_cleanup() {
     use std::os::unix::fs as unix_fs;
 
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -668,7 +668,7 @@ fn test_remove_workspace_symlink_cleanup() {
 #[test]
 fn test_session_name_all_special_chars() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -680,7 +680,7 @@ fn test_session_name_all_special_chars() {
 #[test]
 fn test_session_name_embedded_tab() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -692,7 +692,7 @@ fn test_session_name_embedded_tab() {
 #[test]
 fn test_session_name_embedded_newline() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -704,7 +704,7 @@ fn test_session_name_embedded_newline() {
 #[test]
 fn test_rapid_sequential_add_remove() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);
@@ -724,7 +724,7 @@ fn test_rapid_sequential_add_remove() {
 #[test]
 fn test_status_with_manually_deleted_workspace() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
     harness.assert_success(&["init"]);

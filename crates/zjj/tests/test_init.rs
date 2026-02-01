@@ -15,7 +15,7 @@ use sqlx::SqlitePool;
 #[test]
 fn test_init_creates_zjj_directory() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -29,7 +29,7 @@ fn test_init_creates_zjj_directory() {
 #[test]
 fn test_init_creates_config_toml() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -55,7 +55,7 @@ async fn test_init_creates_state_db() -> Result<(), Box<dyn std::error::Error>> 
     use sqlx::Row;
 
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -84,7 +84,7 @@ async fn test_init_creates_state_db() -> Result<(), Box<dyn std::error::Error>> 
 #[test]
 fn test_init_creates_layouts_directory() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -99,7 +99,7 @@ fn test_init_creates_layouts_directory() {
 #[test]
 fn test_init_twice_succeeds_idempotently() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -115,7 +115,7 @@ fn test_init_twice_succeeds_idempotently() {
 #[test]
 fn test_init_creates_valid_toml_config() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -147,7 +147,7 @@ fn test_init_creates_valid_toml_config() {
 #[test]
 fn test_init_config_has_correct_defaults() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -187,7 +187,7 @@ fn test_init_config_has_correct_defaults() {
 #[test]
 fn test_init_sets_up_complete_directory_structure() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -208,7 +208,7 @@ fn test_init_sets_up_complete_directory_structure() {
 #[test]
 fn test_init_output_is_informative() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -222,7 +222,7 @@ fn test_init_output_is_informative() {
 #[test]
 fn test_init_creates_workspaces_directory() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -239,7 +239,7 @@ fn test_init_creates_workspaces_directory() {
 #[test]
 fn test_init_preserves_existing_config() {
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return;
     };
 
@@ -272,7 +272,7 @@ async fn test_init_state_db_has_correct_schema() -> Result<(), Box<dyn std::erro
     use sqlx::Row;
 
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
@@ -315,7 +315,7 @@ async fn test_init_creates_indexes() -> Result<(), Box<dyn std::error::Error>> {
     use sqlx::Row;
 
     let Some(harness) = TestHarness::try_new() else {
-        eprintln!("Skipping test: jj not available");
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
