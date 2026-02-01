@@ -193,7 +193,10 @@ pub fn pane_focus(
         let json_str = serde_json::to_string(&envelope)?;
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        writeln!(std::io::stdout(), "Focused pane '{pane_id}' in session '{session_name}'")?;
+        writeln!(
+            std::io::stdout(),
+            "Focused pane '{pane_id}' in session '{session_name}'"
+        )?;
     }
 
     Ok(())
@@ -303,7 +306,10 @@ pub fn pane_next(session_name: &str, options: &PaneNextOptions) -> Result<()> {
         let json_str = serde_json::to_string(&envelope)?;
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        writeln!(std::io::stdout(), "Moved to next pane in session '{session_name}'")?;
+        writeln!(
+            std::io::stdout(),
+            "Moved to next pane in session '{session_name}'"
+        )?;
     }
 
     Ok(())
@@ -353,7 +359,10 @@ pub fn pane_navigate(
         let json_str = serde_json::to_string(&envelope)?;
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        writeln!(std::io::stdout(), "Moved focus {direction} in session '{session_name}'")?;
+        writeln!(
+            std::io::stdout(),
+            "Moved focus {direction} in session '{session_name}'"
+        )?;
     }
 
     Ok(())

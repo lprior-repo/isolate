@@ -111,7 +111,10 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
 
 /// Prompt user for confirmation
 fn confirm_removal(name: &str) -> Result<bool> {
-    write!(io::stdout(), "Remove session '{name}' and its workspace? [y/N] ")?;
+    write!(
+        io::stdout(),
+        "Remove session '{name}' and its workspace? [y/N] "
+    )?;
     io::stdout().flush()?;
 
     let mut response = String::new();

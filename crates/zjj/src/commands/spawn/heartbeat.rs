@@ -315,10 +315,7 @@ mod tests {
         assert!(monitor.is_alive()?);
 
         // Write old timestamp to simulate timeout
-        let old_timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_secs()
-            - 10;
+        let old_timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() - 10;
 
         fs::write(&monitor.heartbeat_path, old_timestamp.to_string())?;
 

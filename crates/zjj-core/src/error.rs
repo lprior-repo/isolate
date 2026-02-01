@@ -288,7 +288,9 @@ impl fmt::Display for Error {
                 write!(
                     f,
                     "Hook '{hook_type}' failed: {command}\nExit code: {}\nStderr: {stderr}",
-                    exit_code.map(|c| c.to_string()).unwrap_or_else(|| "None".to_string())
+                    exit_code
+                        .map(|c| c.to_string())
+                        .unwrap_or_else(|| "None".to_string())
                 )
             }
             Self::HookExecutionFailed { command, source } => {
@@ -1096,12 +1098,10 @@ mod tests {
         let rich = RichError::from_error(&err);
 
         // Functional approach: Serialize → Parse → Validate structure
-        let result = serde_json::to_string_pretty(&rich)
-            .and_then(|json_str| {
-                // Parse JSON to verify structure (not fragile string matching)
-                serde_json::from_str::<serde_json::Value>(&json_str)
-                    .map(|value| (json_str, value))
-            });
+        let result = serde_json::to_string_pretty(&rich).and_then(|json_str| {
+            // Parse JSON to verify structure (not fragile string matching)
+            serde_json::from_str::<serde_json::Value>(&json_str).map(|value| (json_str, value))
+        });
 
         assert!(result.is_ok(), "JSON serialization should succeed");
 
@@ -1119,7 +1119,10 @@ mod tests {
             "code field should be NOT_FOUND"
         );
         assert!(
-            parsed.get("fix_commands").and_then(|v| v.as_array()).is_some(),
+            parsed
+                .get("fix_commands")
+                .and_then(|v| v.as_array())
+                .is_some(),
             "fix_commands field should be an array"
         );
 

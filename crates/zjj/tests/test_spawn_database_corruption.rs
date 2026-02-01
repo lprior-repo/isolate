@@ -4,8 +4,9 @@
 
 mod common;
 
-use common::TestHarness;
 use std::fs;
+
+use common::TestHarness;
 
 // ============================================================================
 // Bead Database Corruption Tests (Red Queen - src-ds1)

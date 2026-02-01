@@ -121,7 +121,7 @@ pub fn run_resume(options: &ResumeOptions) -> Result<()> {
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("resume-response", "single", &result);
             let json_str = serde_json::to_string_pretty(&envelope)?;
-        writeln!(std::io::stdout(), "{json_str}")?;
+            writeln!(std::io::stdout(), "{json_str}")?;
             return Ok(());
         }
         anyhow::bail!("Session is not paused (status: {})", session.status);
@@ -148,7 +148,11 @@ pub fn run_resume(options: &ResumeOptions) -> Result<()> {
         let json_str = serde_json::to_string_pretty(&envelope)?;
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        writeln!(std::io::stdout(), "✓ Resumed session '{}'", &options.session)?;
+        writeln!(
+            std::io::stdout(),
+            "✓ Resumed session '{}'",
+            &options.session
+        )?;
     }
 
     Ok(())
@@ -210,7 +214,7 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("clone-response", "single", &result);
             let json_str = serde_json::to_string_pretty(&envelope)?;
-        writeln!(std::io::stdout(), "{json_str}")?;
+            writeln!(std::io::stdout(), "{json_str}")?;
             return Ok(());
         }
         anyhow::bail!("Target session '{}' already exists", &options.target);
@@ -229,12 +233,13 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("clone-response", "single", &result);
             let json_str = serde_json::to_string_pretty(&envelope)?;
-        writeln!(std::io::stdout(), "{json_str}")?;
+            writeln!(std::io::stdout(), "{json_str}")?;
         } else {
             writeln!(
                 std::io::stdout(),
                 "[dry-run] Would clone '{}' to '{}'",
-                &options.source, &options.target
+                &options.source,
+                &options.target
             )?;
         }
         return Ok(());
@@ -286,7 +291,12 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
         let json_str = serde_json::to_string_pretty(&envelope)?;
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        writeln!(std::io::stdout(), "✓ Cloned '{}' to '{}'", &options.source, &options.target)?;
+        writeln!(
+            std::io::stdout(),
+            "✓ Cloned '{}' to '{}'",
+            &options.source,
+            &options.target
+        )?;
         if let Some(path) = new_workspace_path {
             writeln!(std::io::stdout(), "  Workspace: {path}")?;
         }
@@ -300,7 +310,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_pause_result_serialization() {
+    fn test_pause_result_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let result = PauseResult {
             success: true,
             session: "test".to_string(),
@@ -308,13 +318,14 @@ mod tests {
             error: None,
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"success\":true"));
         assert!(json.contains("\"status\":\"paused\""));
+        Ok(())
     }
 
     #[test]
-    fn test_resume_result_serialization() {
+    fn test_resume_result_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let result = ResumeResult {
             success: true,
             session: "test".to_string(),
@@ -322,12 +333,13 @@ mod tests {
             error: None,
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"status\":\"active\""));
+        Ok(())
     }
 
     #[test]
-    fn test_clone_result_serialization() {
+    fn test_clone_result_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let result = CloneResult {
             success: true,
             source: "orig".to_string(),
@@ -337,8 +349,9 @@ mod tests {
             error: None,
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"source\":\"orig\""));
         assert!(json.contains("\"target\":\"copy\""));
+        Ok(())
     }
 }

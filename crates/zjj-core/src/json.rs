@@ -1143,8 +1143,14 @@ mod tests {
             .add_link(HateoasLink::related("list", "zjj list"));
 
         assert_eq!(envelope.links.len(), 2);
-        assert_eq!(envelope.links.first().map(|l| &l.rel), Some(&"self".to_string()));
-        assert_eq!(envelope.links.get(1).map(|l| &l.rel), Some(&"list".to_string()));
+        assert_eq!(
+            envelope.links.first().map(|l| &l.rel),
+            Some(&"self".to_string())
+        );
+        assert_eq!(
+            envelope.links.get(1).map(|l| &l.rel),
+            Some(&"list".to_string())
+        );
     }
 
     #[test]
@@ -1255,17 +1261,28 @@ mod tests {
         // Validate structure via parsed JSON (immutable, composable checks)
         let checks = [
             (parsed.get("$schema").is_some(), "$schema field missing"),
-            (parsed.get("_schema_version").is_some(), "_schema_version field missing"),
-            (parsed.get("_links").and_then(|v| v.as_array()).is_some(), "_links should be array"),
+            (
+                parsed.get("_schema_version").is_some(),
+                "_schema_version field missing",
+            ),
+            (
+                parsed.get("_links").and_then(|v| v.as_array()).is_some(),
+                "_links should be array",
+            ),
             (parsed.get("_related").is_some(), "_related field missing"),
             (parsed.get("_meta").is_some(), "_meta field missing"),
-            (parsed.get("name").and_then(|v| v.as_str()) == Some("test-session"),
-             "name field should be 'test-session'"),
+            (
+                parsed.get("name").and_then(|v| v.as_str()) == Some("test-session"),
+                "name field should be 'test-session'",
+            ),
         ];
 
         // Functional validation: all checks must pass (Railway pattern)
         for (passed, msg) in &checks {
-            assert!(passed, "Schema validation failed: {msg}\n\nJSON:\n{json_str}");
+            assert!(
+                passed,
+                "Schema validation failed: {msg}\n\nJSON:\n{json_str}"
+            );
         }
 
         Ok(())

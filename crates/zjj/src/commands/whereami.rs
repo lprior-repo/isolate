@@ -220,8 +220,8 @@ mod tests {
         if parts.len() == 2 {
             #[allow(clippy::indexing_slicing)]
             {
-            assert_eq!(parts[0], "workspace");
-            assert_eq!(parts[1], "feature-auth");
+                assert_eq!(parts[0], "workspace");
+                assert_eq!(parts[1], "feature-auth");
             }
         } else {
             assert_eq!(output.simple, "main");

@@ -758,8 +758,7 @@ list
                 dry_run: false,
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             // Summary fields
             assert!(json.get("success").is_some());
@@ -790,8 +789,7 @@ list
                 error: Some("Session exists".to_string()),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             // All debug fields present
             assert_eq!(json["id"].as_str(), Some("step-1"));
