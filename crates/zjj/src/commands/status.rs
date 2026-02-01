@@ -312,17 +312,67 @@ struct StatusResponseData {
 
 /// Output sessions as formatted table
 fn output_table(items: &[SessionStatusInfo]) {
-    println!(
-        "{:<20} {:<12} {:<15} {:<20} {:<15} {:<20}",
-        "NAME", "STATUS", "BRANCH", "CHANGES", "DIFF", "BEADS"
-    );
-    println!("{}", "-".repeat(105));
+    // Detect TTY for formatting choice
+    let is_tty = atty::is(atty::Stream::Stdout);
 
-    for item in items {
+    // Detect current workspace location (handle errors gracefully)
+    let current_location = zjj_core::jj::check_in_jj_repo()
+        .ok()
+        .and_then(|root| crate::commands::context::detect_location(&root).ok())
+        .and_then(|loc| match loc {
+            crate::commands::context::Location::Workspace { name, .. } => Some(name),
+            _ => None,
+        });
+
+    // Display table header
+    if is_tty {
+        println!("╭─ SESSIONS ──────────────────────────────────────────────────────────────────────────────────────╮");
         println!(
-            "{:<20} {:<12} {:<15} {:<20} {:<15} {:<20}",
-            item.name, item.status, item.branch, item.changes, item.diff_stats, item.beads
+            "│ {:<3} {:<18} {:<10} {:<13} {:<18} {:<13} {:<18} │",
+            "", "NAME", "STATUS", "BRANCH", "CHANGES", "DIFF", "BEADS"
         );
+        println!("├─────────────────────────────────────────────────────────────────────────────────────────────────┤");
+    } else {
+        println!(
+            "{:<3} {:<18} {:<10} {:<13} {:<18} {:<13} {:<18}",
+            "", "NAME", "STATUS", "BRANCH", "CHANGES", "DIFF", "BEADS"
+        );
+        println!("{}", "-".repeat(97));
+    }
+
+    // Display table rows
+    for item in items {
+        let is_current = current_location
+            .as_ref()
+            .map_or(false, |current| current == &item.name);
+
+        let marker = if is_current { "▶" } else { " " };
+
+        if is_tty {
+            println!(
+                "│ {:<3} {:<18} {:<10} {:<13} {:<18} {:<13} {:<18} │",
+                marker, item.name, item.status, item.branch, item.changes.to_string(), item.diff_stats.to_string(), item.beads.to_string()
+            );
+        } else {
+            println!(
+                "{:<3} {:<18} {:<10} {:<13} {:<18} {:<13} {:<18}",
+                marker, item.name, item.status, item.branch, item.changes.to_string(), item.diff_stats.to_string(), item.beads.to_string()
+            );
+        }
+    }
+
+    // Display table footer
+    if is_tty {
+        println!("╰─────────────────────────────────────────────────────────────────────────────────────────────────╯");
+    }
+
+    // Display legend
+    println!();
+    println!("Legend:");
+    println!("  Changes: M=Modified  A=Added  D=Deleted  R=Renamed");
+    println!("  Beads:   O=Open  P=in_Progress  B=Blocked  C=Closed");
+    if current_location.is_some() {
+        println!("  ▶ = Current workspace");
     }
 }
 
