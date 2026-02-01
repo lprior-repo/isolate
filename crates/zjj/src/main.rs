@@ -3512,6 +3512,7 @@ mod main_tests {
 
         let opts = AddOptions {
             name: "test".to_string(),
+            bead_id: None,
             no_hooks: false,
             template: None,
             no_open: false,

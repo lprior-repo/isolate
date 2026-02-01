@@ -1,5 +1,7 @@
 //! Create a new session with JJ workspace + Zellij tab
 
+use std::path::Path;
+
 use anyhow::{Context, Result};
 use zjj_core::{config, jj, json::SchemaEnvelope, OutputFormat};
 
@@ -41,6 +43,7 @@ impl AddOptions {
     pub const fn new(name: String) -> Self {
         Self {
             name,
+            bead_id: None,
             no_hooks: false,
             template: None,
             no_open: false,
@@ -1089,6 +1092,7 @@ mod tests {
 
         let opts = AddOptions {
             name: "test".to_string(),
+            bead_id: None,
             no_hooks: false,
             template: None,
             no_open: false,
@@ -1109,6 +1113,7 @@ mod tests {
 
         let opts = AddOptions {
             name: "test".to_string(),
+            bead_id: None,
             no_hooks: false,
             template: None,
             no_open: false,
@@ -1132,6 +1137,7 @@ mod tests {
 
         let opts = AddOptions {
             name: "session".to_string(),
+            bead_id: None,
             no_hooks: false,
             template: None,
             no_open: false,
@@ -1156,6 +1162,7 @@ mod tests {
 
         let opts = AddOptions {
             name: "test".to_string(),
+            bead_id: None,
             no_hooks: false,
             template: None,
             no_open: false,
