@@ -649,4 +649,196 @@ mod tests {
         assert_eq!(err.phase(), DonePhase::CommittingChanges);
         assert_eq!(err.error_code(), "COMMIT_FAILED");
     }
+
+    // ── DoneOutput Tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_done_output_dry_run() {
+        let output = DoneOutput {
+            workspace_name: "test".to_string(),
+            dry_run: true,
+            preview: Some(types::DonePreview {
+                uncommitted_files: vec!["file.txt".to_string()],
+                commits_to_merge: vec![],
+                potential_conflicts: vec![],
+                bead_to_close: None,
+                workspace_path: "/path".to_string(),
+            }),
+            ..Default::default()
+        };
+        assert!(output.dry_run);
+        assert!(output.preview.is_some());
+    }
+
+    #[test]
+    fn test_done_output_successful_merge() {
+        let output = DoneOutput {
+            workspace_name: "feature-auth".to_string(),
+            bead_id: Some("zjj-abc123".to_string()),
+            files_committed: 3,
+            commits_merged: 2,
+            merged: true,
+            cleaned: true,
+            bead_closed: true,
+            pushed_to_remote: false,
+            dry_run: false,
+            preview: None,
+            error: None,
+        };
+        assert!(output.merged);
+        assert!(output.bead_closed);
+        assert_eq!(output.commits_merged, 2);
+    }
+
+    #[test]
+    fn test_done_output_serialization() {
+        let output = DoneOutput {
+            workspace_name: "test".to_string(),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&output);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("workspace_name"));
+        assert!(json_str.contains("merged"));
+    }
+
+    // ── DoneError Tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_done_error_not_in_workspace() {
+        let err = DoneError::NotInWorkspace {
+            current_location: "/home/user/project".to_string(),
+        };
+        assert_eq!(err.error_code(), "NOT_IN_WORKSPACE");
+        assert_eq!(err.phase(), DonePhase::ValidatingLocation);
+        assert!(!err.is_recoverable());
+    }
+
+    #[test]
+    fn test_done_error_not_a_jj_repo() {
+        let err = DoneError::NotAJjRepo;
+        assert_eq!(err.error_code(), "NOT_A_JJ_REPO");
+        assert_eq!(err.phase(), DonePhase::ValidatingLocation);
+    }
+
+    #[test]
+    fn test_done_error_merge_conflict() {
+        let err = DoneError::MergeConflict {
+            conflicts: vec!["file1.txt".to_string(), "file2.txt".to_string()],
+        };
+        assert_eq!(err.error_code(), "MERGE_CONFLICT");
+        assert_eq!(err.phase(), DonePhase::MergingToMain);
+        assert!(err.is_recoverable());
+    }
+
+    #[test]
+    fn test_done_error_merge_failed() {
+        let err = DoneError::MergeFailed {
+            reason: "rebase failed".to_string(),
+        };
+        assert_eq!(err.error_code(), "MERGE_FAILED");
+        assert!(!err.is_recoverable());
+    }
+
+    #[test]
+    fn test_done_error_cleanup_failed() {
+        let err = DoneError::CleanupFailed {
+            reason: "permission denied".to_string(),
+        };
+        assert_eq!(err.error_code(), "CLEANUP_FAILED");
+        assert_eq!(err.phase(), DonePhase::CleaningWorkspace);
+    }
+
+    #[test]
+    fn test_done_error_bead_update_failed() {
+        let err = DoneError::BeadUpdateFailed {
+            reason: "db error".to_string(),
+        };
+        assert_eq!(err.error_code(), "BEAD_UPDATE_FAILED");
+        assert_eq!(err.phase(), DonePhase::UpdatingBeadStatus);
+    }
+
+    #[test]
+    fn test_done_error_jj_command_failed() {
+        let err = DoneError::JjCommandFailed {
+            command: "jj status".to_string(),
+            reason: "not found".to_string(),
+        };
+        assert_eq!(err.error_code(), "JJ_COMMAND_FAILED");
+        assert_eq!(err.phase(), DonePhase::MergingToMain);
+    }
+
+    #[test]
+    fn test_done_error_invalid_state() {
+        let err = DoneError::InvalidState {
+            reason: "corrupted".to_string(),
+        };
+        assert_eq!(err.error_code(), "INVALID_STATE");
+        assert_eq!(err.phase(), DonePhase::ValidatingLocation);
+    }
+
+    #[test]
+    fn test_done_error_display_formats() {
+        let err1 = DoneError::NotInWorkspace {
+            current_location: "main".to_string(),
+        };
+        let display = format!("{err1}");
+        assert!(display.contains("Not in a workspace"));
+        assert!(display.contains("main"));
+
+        let err2 = DoneError::MergeConflict {
+            conflicts: vec!["a.txt".to_string(), "b.txt".to_string()],
+        };
+        let display2 = format!("{err2}");
+        assert!(display2.contains("conflict"));
+        assert!(display2.contains("a.txt"));
+    }
+
+    // ── DoneExitCode Tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_done_exit_code_values() {
+        assert_eq!(DoneExitCode::Success as i32, 0);
+        assert_eq!(DoneExitCode::MergeConflict as i32, 1);
+        assert_eq!(DoneExitCode::NotInWorkspace as i32, 2);
+        assert_eq!(DoneExitCode::OtherError as i32, 3);
+    }
+
+    // ── UndoEntry Tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_undo_entry_serialization() {
+        let entry = UndoEntry {
+            session_name: "test-session".to_string(),
+            commit_id: "abc123".to_string(),
+            pre_merge_commit_id: "def456".to_string(),
+            timestamp: 1706270400,
+            pushed_to_remote: false,
+            status: "completed".to_string(),
+        };
+        let json = serde_json::to_string(&entry);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("test-session"));
+        assert!(json_str.contains("abc123"));
+        assert!(json_str.contains("pre_merge_commit_id"));
+    }
+
+    #[test]
+    fn test_undo_entry_deserialization() {
+        let json = r#"{"session_name":"ws1","commit_id":"c1","pre_merge_commit_id":"pm1","timestamp":123,"pushed_to_remote":false,"status":"completed"}"#;
+        let entry: Result<UndoEntry, _> = serde_json::from_str(json);
+        assert!(entry.is_ok());
+        let entry = entry.unwrap_or_else(|_| UndoEntry {
+            session_name: String::new(),
+            commit_id: String::new(),
+            pre_merge_commit_id: String::new(),
+            timestamp: 0,
+            pushed_to_remote: false,
+            status: String::new(),
+        });
+        assert_eq!(entry.session_name, "ws1");
+        assert_eq!(entry.timestamp, 123);
+    }
 }

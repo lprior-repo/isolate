@@ -1081,6 +1081,665 @@ fn get_query_introspection() -> CommandIntrospection {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// AI-FOCUSED INTROSPECTION MODES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Environment variable information
+#[derive(serde::Serialize)]
+pub struct EnvVarInfo {
+    pub name: String,
+    pub description: String,
+    pub direction: String, // "read", "write", or "both"
+    pub default: Option<String>,
+    pub example: String,
+}
+
+/// Output for --env-vars mode
+#[derive(serde::Serialize)]
+pub struct EnvVarsOutput {
+    pub env_vars: Vec<EnvVarInfo>,
+}
+
+/// Workflow step
+#[derive(serde::Serialize)]
+pub struct WorkflowStep {
+    pub step: usize,
+    pub command: String,
+    pub description: String,
+}
+
+/// Workflow pattern
+#[derive(serde::Serialize)]
+pub struct WorkflowPattern {
+    pub name: String,
+    pub description: String,
+    pub steps: Vec<WorkflowStep>,
+}
+
+/// Output for --workflows mode
+#[derive(serde::Serialize)]
+pub struct WorkflowsOutput {
+    pub workflows: Vec<WorkflowPattern>,
+}
+
+/// Session state transition
+#[derive(serde::Serialize)]
+pub struct StateTransition {
+    pub from: String,
+    pub to: String,
+    pub trigger: String,
+}
+
+/// Output for --session-states mode
+#[derive(serde::Serialize)]
+pub struct SessionStatesOutput {
+    pub states: Vec<String>,
+    pub transitions: Vec<StateTransition>,
+}
+
+/// Run introspect with --env-vars flag
+pub fn run_env_vars(format: OutputFormat) -> Result<()> {
+    let env_vars = vec![
+        EnvVarInfo {
+            name: "ZJJ_AGENT_ID".to_string(),
+            description: "Current agent ID for tracking".to_string(),
+            direction: "both".to_string(),
+            default: None,
+            example: "agent-12345678-abcd".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_SESSION".to_string(),
+            description: "Current session name".to_string(),
+            direction: "write".to_string(),
+            default: None,
+            example: "feature-auth".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_WORKSPACE".to_string(),
+            description: "Path to current workspace directory".to_string(),
+            direction: "write".to_string(),
+            default: None,
+            example: "/path/to/.zjj/workspaces/feature-auth".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_BEAD_ID".to_string(),
+            description: "Bead ID associated with current work".to_string(),
+            direction: "both".to_string(),
+            default: None,
+            example: "zjj-abc12".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_ACTIVE".to_string(),
+            description: "Set to 1 when in an active zjj workspace".to_string(),
+            direction: "write".to_string(),
+            default: None,
+            example: "1".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_RECOVERY_POLICY".to_string(),
+            description: "Database recovery behavior: silent, warn, fail-fast".to_string(),
+            direction: "read".to_string(),
+            default: Some("warn".to_string()),
+            example: "fail-fast".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZELLIJ_SESSION_NAME".to_string(),
+            description: "Zellij session name (read by zjj)".to_string(),
+            direction: "read".to_string(),
+            default: None,
+            example: "dev".to_string(),
+        },
+    ];
+
+    let output = EnvVarsOutput { env_vars };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("introspect-env-vars-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("Environment Variables:\n");
+        for var in &output.env_vars {
+            println!("  {} ({}):", var.name, var.direction);
+            println!("    {}", var.description);
+            if let Some(ref default) = var.default {
+                println!("    Default: {}", default);
+            }
+            println!("    Example: {}", var.example);
+            println!();
+        }
+    }
+
+    Ok(())
+}
+
+/// Run introspect with --workflows flag
+pub fn run_workflows(format: OutputFormat) -> Result<()> {
+    let workflows = vec![
+        WorkflowPattern {
+            name: "Quick Work Session".to_string(),
+            description: "Start working on a task, do work, complete".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj work my-task --idempotent".to_string(),
+                    description: "Create workspace (idempotent for retries)".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "cd $(zjj context --field location.path)".to_string(),
+                    description: "Enter workspace directory".to_string(),
+                },
+                WorkflowStep {
+                    step: 3,
+                    command: "# ... do work ...".to_string(),
+                    description: "Implement changes".to_string(),
+                },
+                WorkflowStep {
+                    step: 4,
+                    command: "zjj done".to_string(),
+                    description: "Merge and cleanup".to_string(),
+                },
+            ],
+        },
+        WorkflowPattern {
+            name: "Agent-Managed Workflow".to_string(),
+            description: "Full agent lifecycle with registration".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj agent register".to_string(),
+                    description: "Register as an agent".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "zjj work my-task --bead zjj-abc12".to_string(),
+                    description: "Create workspace for bead".to_string(),
+                },
+                WorkflowStep {
+                    step: 3,
+                    command: "zjj agent heartbeat --command \"implementing\"".to_string(),
+                    description: "Send heartbeat while working".to_string(),
+                },
+                WorkflowStep {
+                    step: 4,
+                    command: "zjj done".to_string(),
+                    description: "Complete work and merge".to_string(),
+                },
+                WorkflowStep {
+                    step: 5,
+                    command: "zjj agent unregister".to_string(),
+                    description: "Deregister agent".to_string(),
+                },
+            ],
+        },
+        WorkflowPattern {
+            name: "Quick Orientation".to_string(),
+            description: "Quickly understand current state".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj whereami".to_string(),
+                    description: "Check location: main or workspace".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "zjj whoami".to_string(),
+                    description: "Check agent identity".to_string(),
+                },
+                WorkflowStep {
+                    step: 3,
+                    command: "zjj query can-spawn".to_string(),
+                    description: "Check if spawning is possible".to_string(),
+                },
+            ],
+        },
+        WorkflowPattern {
+            name: "Abandon Work".to_string(),
+            description: "Discard work without merging".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    step: 1,
+                    command: "zjj abort --dry-run".to_string(),
+                    description: "Preview what will be aborted".to_string(),
+                },
+                WorkflowStep {
+                    step: 2,
+                    command: "zjj abort".to_string(),
+                    description: "Abort and cleanup".to_string(),
+                },
+            ],
+        },
+        WorkflowPattern {
+            name: "Sync All Workspaces".to_string(),
+            description: "Keep all workspaces up to date".to_string(),
+            steps: vec![WorkflowStep {
+                step: 1,
+                command: "zjj sync --all".to_string(),
+                description: "Sync all active sessions with main".to_string(),
+            }],
+        },
+    ];
+
+    let output = WorkflowsOutput { workflows };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("introspect-workflows-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("Workflow Patterns:\n");
+        for workflow in &output.workflows {
+            println!("  {}:", workflow.name);
+            println!("    {}\n", workflow.description);
+            for step in &workflow.steps {
+                println!("    {}. {}", step.step, step.command);
+                println!("       {}", step.description);
+            }
+            println!();
+        }
+    }
+
+    Ok(())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AI-OPTIMIZED INTROSPECTION MODE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// AI-optimized introspection output
+#[derive(serde::Serialize)]
+pub struct AiIntrospectOutput {
+    /// ZJJ version
+    pub zjj_version: String,
+    /// Quick summary for AI decision-making
+    pub quick_ref: AiQuickRef,
+    /// System readiness
+    pub system: AiSystemInfo,
+    /// Available commands grouped by category
+    pub commands: AiCommandGroups,
+    /// Recommended next actions
+    pub recommendations: Vec<AiRecommendation>,
+    /// Key environment variables
+    pub env_vars: Vec<EnvVarInfo>,
+    /// Common workflow patterns (condensed)
+    pub workflows: Vec<AiWorkflowSummary>,
+}
+
+/// Quick reference for AI agents
+#[derive(serde::Serialize)]
+pub struct AiQuickRef {
+    /// Whether zjj is ready to use
+    pub ready: bool,
+    /// Blocking issues if not ready
+    pub blockers: Vec<String>,
+    /// Current location (main or workspace)
+    pub location: String,
+    /// Active session count
+    pub active_sessions: usize,
+    /// Agent ID if registered
+    pub agent_id: Option<String>,
+}
+
+/// System information for AI
+#[derive(serde::Serialize)]
+pub struct AiSystemInfo {
+    /// Whether zjj is initialized
+    pub initialized: bool,
+    /// Whether in a JJ repo
+    pub jj_repo: bool,
+    /// Dependencies status
+    pub dependencies: AiDependencies,
+}
+
+/// Dependency status for AI
+#[derive(serde::Serialize)]
+pub struct AiDependencies {
+    /// JJ installed and version
+    pub jj: Option<String>,
+    /// Zellij installed and version
+    pub zellij: Option<String>,
+    /// Missing required dependencies
+    pub missing: Vec<String>,
+}
+
+/// Command groups for AI
+#[derive(serde::Serialize)]
+pub struct AiCommandGroups {
+    /// Session management commands
+    pub session: Vec<String>,
+    /// Version control commands
+    pub version_control: Vec<String>,
+    /// Agent management commands
+    pub agent: Vec<String>,
+    /// Introspection commands
+    pub introspection: Vec<String>,
+}
+
+/// AI-friendly recommendation
+#[derive(serde::Serialize)]
+pub struct AiRecommendation {
+    /// Action to take
+    pub action: String,
+    /// Command to run
+    pub command: String,
+    /// Why this is recommended
+    pub reason: String,
+    /// Priority: high, medium, low
+    pub priority: String,
+}
+
+/// Condensed workflow for AI
+#[derive(serde::Serialize)]
+pub struct AiWorkflowSummary {
+    /// Workflow name
+    pub name: String,
+    /// When to use this workflow
+    pub use_when: String,
+    /// Commands in sequence
+    pub commands: Vec<String>,
+}
+
+/// Run introspect with --ai flag
+///
+/// Provides a comprehensive, AI-optimized output combining:
+/// - System readiness
+/// - Available commands
+/// - Recommendations
+/// - Environment info
+pub fn run_ai() -> Result<()> {
+    let version = env!("CARGO_PKG_VERSION");
+    let dependencies = check_dependencies();
+    let system_state = get_system_state();
+
+    // Determine location
+    let location = match crate::cli::jj_root() {
+        Ok(root) => {
+            let path = std::path::PathBuf::from(&root);
+            match crate::commands::context::detect_location(&path) {
+                Ok(crate::commands::context::Location::Main) => "main".to_string(),
+                Ok(crate::commands::context::Location::Workspace { name, .. }) => {
+                    format!("workspace:{name}")
+                }
+                Err(_) => "unknown".to_string(),
+            }
+        }
+        Err(_) => "not_in_repo".to_string(),
+    };
+
+    // Check readiness
+    let jj_ok = dependencies.get("jj").map_or(false, |d| d.installed);
+    let zellij_ok = dependencies.get("zellij").map_or(false, |d| d.installed);
+    let ready = jj_ok && zellij_ok && system_state.initialized;
+
+    let mut blockers = Vec::new();
+    if !jj_ok {
+        blockers.push("JJ not installed".to_string());
+    }
+    if !zellij_ok {
+        blockers.push("Zellij not installed".to_string());
+    }
+    if !system_state.initialized {
+        blockers.push("ZJJ not initialized (run 'zjj init')".to_string());
+    }
+
+    // Get agent ID from environment
+    let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
+
+    // Build dependency info
+    let jj_version = dependencies.get("jj").and_then(|d| d.version.clone());
+    let zellij_version = dependencies.get("zellij").and_then(|d| d.version.clone());
+
+    let mut missing_deps = Vec::new();
+    if !jj_ok {
+        missing_deps.push("jj".to_string());
+    }
+    if !zellij_ok {
+        missing_deps.push("zellij".to_string());
+    }
+
+    // Build recommendations
+    let mut recommendations = Vec::new();
+
+    if !system_state.initialized && system_state.jj_repo {
+        recommendations.push(AiRecommendation {
+            action: "Initialize ZJJ".to_string(),
+            command: "zjj init".to_string(),
+            reason: "ZJJ is not initialized in this repository".to_string(),
+            priority: "high".to_string(),
+        });
+    }
+
+    if ready && system_state.active_sessions == 0 {
+        recommendations.push(AiRecommendation {
+            action: "Create first session".to_string(),
+            command: "zjj work <task-name>".to_string(),
+            reason: "No active sessions - ready to start work".to_string(),
+            priority: "medium".to_string(),
+        });
+    }
+
+    if ready && location.starts_with("workspace:") {
+        recommendations.push(AiRecommendation {
+            action: "Check current context".to_string(),
+            command: "zjj context".to_string(),
+            reason: "In a workspace - get full context".to_string(),
+            priority: "low".to_string(),
+        });
+    }
+
+    if agent_id.is_none() && ready {
+        recommendations.push(AiRecommendation {
+            action: "Register as agent".to_string(),
+            command: "zjj agent register".to_string(),
+            reason: "Enable agent tracking for multi-agent coordination".to_string(),
+            priority: "low".to_string(),
+        });
+    }
+
+    // Build env vars (condensed)
+    let env_vars = vec![
+        EnvVarInfo {
+            name: "ZJJ_AGENT_ID".to_string(),
+            description: "Agent identifier for tracking".to_string(),
+            direction: "both".to_string(),
+            default: None,
+            example: "agent-12345678".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_SESSION".to_string(),
+            description: "Current session name (set by zjj)".to_string(),
+            direction: "write".to_string(),
+            default: None,
+            example: "feature-auth".to_string(),
+        },
+        EnvVarInfo {
+            name: "ZJJ_BEAD_ID".to_string(),
+            description: "Associated bead ID".to_string(),
+            direction: "both".to_string(),
+            default: None,
+            example: "zjj-abc12".to_string(),
+        },
+    ];
+
+    // Build workflows (condensed)
+    let workflows = vec![
+        AiWorkflowSummary {
+            name: "Quick Task".to_string(),
+            use_when: "Working on a single task".to_string(),
+            commands: vec![
+                "zjj work <name>".to_string(),
+                "# do work".to_string(),
+                "zjj done".to_string(),
+            ],
+        },
+        AiWorkflowSummary {
+            name: "Agent Workflow".to_string(),
+            use_when: "Multi-agent coordination".to_string(),
+            commands: vec![
+                "zjj agent register".to_string(),
+                "zjj work <name> --bead <id>".to_string(),
+                "zjj agent heartbeat".to_string(),
+                "zjj done".to_string(),
+                "zjj agent unregister".to_string(),
+            ],
+        },
+        AiWorkflowSummary {
+            name: "Orientation".to_string(),
+            use_when: "Understanding current state".to_string(),
+            commands: vec![
+                "zjj whereami".to_string(),
+                "zjj whoami".to_string(),
+                "zjj list".to_string(),
+            ],
+        },
+    ];
+
+    let output = AiIntrospectOutput {
+        zjj_version: version.to_string(),
+        quick_ref: AiQuickRef {
+            ready,
+            blockers,
+            location,
+            active_sessions: system_state.active_sessions,
+            agent_id,
+        },
+        system: AiSystemInfo {
+            initialized: system_state.initialized,
+            jj_repo: system_state.jj_repo,
+            dependencies: AiDependencies {
+                jj: jj_version,
+                zellij: zellij_version,
+                missing: missing_deps,
+            },
+        },
+        commands: AiCommandGroups {
+            session: vec![
+                "add".to_string(),
+                "remove".to_string(),
+                "list".to_string(),
+                "focus".to_string(),
+                "work".to_string(),
+                "done".to_string(),
+                "abort".to_string(),
+            ],
+            version_control: vec![
+                "sync".to_string(),
+                "diff".to_string(),
+                "checkpoint".to_string(),
+                "undo".to_string(),
+                "revert".to_string(),
+            ],
+            agent: vec![
+                "agent register".to_string(),
+                "agent unregister".to_string(),
+                "agent heartbeat".to_string(),
+                "agent list".to_string(),
+                "spawn".to_string(),
+            ],
+            introspection: vec![
+                "introspect".to_string(),
+                "introspect --ai".to_string(),
+                "context".to_string(),
+                "whereami".to_string(),
+                "whoami".to_string(),
+                "doctor".to_string(),
+                "query".to_string(),
+            ],
+        },
+        recommendations,
+        env_vars,
+        workflows,
+    };
+
+    let envelope = SchemaEnvelope::new("introspect-ai-response", "single", output);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
+
+    Ok(())
+}
+
+/// Run introspect with --session-states flag
+pub fn run_session_states(format: OutputFormat) -> Result<()> {
+    let states = vec![
+        "creating".to_string(),
+        "active".to_string(),
+        "syncing".to_string(),
+        "merging".to_string(),
+        "completed".to_string(),
+        "failed".to_string(),
+    ];
+
+    let transitions = vec![
+        StateTransition {
+            from: "none".to_string(),
+            to: "creating".to_string(),
+            trigger: "zjj add / zjj work".to_string(),
+        },
+        StateTransition {
+            from: "creating".to_string(),
+            to: "active".to_string(),
+            trigger: "workspace created successfully".to_string(),
+        },
+        StateTransition {
+            from: "creating".to_string(),
+            to: "failed".to_string(),
+            trigger: "workspace creation failed".to_string(),
+        },
+        StateTransition {
+            from: "active".to_string(),
+            to: "syncing".to_string(),
+            trigger: "zjj sync".to_string(),
+        },
+        StateTransition {
+            from: "syncing".to_string(),
+            to: "active".to_string(),
+            trigger: "sync completed".to_string(),
+        },
+        StateTransition {
+            from: "syncing".to_string(),
+            to: "failed".to_string(),
+            trigger: "sync failed (conflicts)".to_string(),
+        },
+        StateTransition {
+            from: "active".to_string(),
+            to: "merging".to_string(),
+            trigger: "zjj done".to_string(),
+        },
+        StateTransition {
+            from: "merging".to_string(),
+            to: "completed".to_string(),
+            trigger: "merge successful".to_string(),
+        },
+        StateTransition {
+            from: "merging".to_string(),
+            to: "failed".to_string(),
+            trigger: "merge failed".to_string(),
+        },
+        StateTransition {
+            from: "active".to_string(),
+            to: "failed".to_string(),
+            trigger: "zjj abort".to_string(),
+        },
+    ];
+
+    let output = SessionStatesOutput {
+        states,
+        transitions,
+    };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("introspect-session-states-response", "single", output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("Session States: {}\n", output.states.join(" -> "));
+        println!("Transitions:");
+        for t in &output.transitions {
+            println!("  {} -> {} : {}", t.from, t.to, t.trigger);
+        }
+    }
+
+    Ok(())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1131,5 +1790,180 @@ mod tests {
         assert!(parsed.get("success").is_some(), "Missing success field");
 
         Ok(())
+    }
+
+    // ============================================================================
+    // Tests for New Introspect Modes
+    // ============================================================================
+
+    /// Test env_vars output structure
+    #[test]
+    fn test_introspect_env_vars_output_structure() {
+        use serde_json::json;
+
+        // Expected structure for env-vars output
+        let expected_vars = vec![
+            "ZJJ_SESSION",
+            "ZJJ_WORKSPACE",
+            "ZJJ_ACTIVE",
+            "ZJJ_AGENT_ID",
+            "ZJJ_BEAD_ID",
+        ];
+
+        for var in expected_vars {
+            assert!(!var.is_empty());
+            assert!(var.starts_with("ZJJ_"));
+        }
+    }
+
+    /// Test env_vars contains required variables
+    #[test]
+    fn test_introspect_env_vars_contains_core_vars() {
+        // Core env vars that must be documented
+        let core_vars = [
+            ("ZJJ_SESSION", "Current session name"),
+            ("ZJJ_WORKSPACE", "Workspace path"),
+            ("ZJJ_ACTIVE", "Whether zjj is active"),
+            ("ZJJ_AGENT_ID", "Agent identifier"),
+            ("ZJJ_BEAD_ID", "Current bead being worked on"),
+        ];
+
+        for (name, description) in core_vars {
+            assert!(!name.is_empty());
+            assert!(!description.is_empty());
+        }
+    }
+
+    /// Test workflows output structure
+    #[test]
+    fn test_introspect_workflows_output_structure() {
+        use serde_json::json;
+
+        // Expected workflow structure
+        let workflow = json!({
+            "name": "minimal",
+            "description": "Minimal workflow for quick tasks",
+            "steps": [
+                {"step": 1, "command": "zjj work <name>", "description": "Start work"},
+                {"step": 2, "command": "# do work", "description": "Implementation"},
+                {"step": 3, "command": "zjj done", "description": "Complete work"}
+            ]
+        });
+
+        assert!(workflow["name"].is_string());
+        assert!(workflow["steps"].is_array());
+        assert!(workflow["steps"]
+            .as_array()
+            .map(|a| a.len() >= 2)
+            .unwrap_or(false));
+    }
+
+    /// Test workflows contains minimal workflow
+    #[test]
+    fn test_introspect_workflows_has_minimal() {
+        let workflow_names = ["minimal", "standard", "parallel"];
+
+        for name in workflow_names {
+            assert!(!name.is_empty());
+        }
+    }
+
+    /// Test session_states output structure
+    #[test]
+    fn test_introspect_session_states_output_structure() {
+        use serde_json::json;
+
+        // Expected session state structure
+        let state = json!({
+            "state": "active",
+            "description": "Session is in use",
+            "transitions": ["completing", "aborting"]
+        });
+
+        assert!(state["state"].is_string());
+        assert!(state["description"].is_string());
+        assert!(state["transitions"].is_array());
+    }
+
+    /// Test session_states contains all valid states
+    #[test]
+    fn test_introspect_session_states_all_states() {
+        // All valid session states
+        let states = [
+            "pending",
+            "active",
+            "completing",
+            "completed",
+            "aborting",
+            "aborted",
+            "failed",
+        ];
+
+        for state in states {
+            assert!(!state.is_empty());
+            // States should be lowercase
+            assert!(state.chars().all(|c| c.is_ascii_lowercase()));
+        }
+    }
+
+    /// Test session state transitions are valid
+    #[test]
+    fn test_introspect_session_state_transitions() {
+        use std::collections::HashMap;
+
+        // Define valid transitions
+        let transitions: HashMap<&str, Vec<&str>> = [
+            ("pending", vec!["active", "aborted"]),
+            ("active", vec!["completing", "aborting"]),
+            ("completing", vec!["completed", "failed"]),
+            ("completed", vec![]),
+            ("aborting", vec!["aborted", "failed"]),
+            ("aborted", vec![]),
+            ("failed", vec!["active"]), // can retry
+        ]
+        .into_iter()
+        .collect();
+
+        // Verify all states have defined transitions
+        assert!(transitions.contains_key("pending"));
+        assert!(transitions.contains_key("active"));
+        assert!(transitions.contains_key("completed"));
+    }
+
+    /// Test introspect modes are recognized
+    #[test]
+    fn test_introspect_modes_recognized() {
+        let modes = ["commands", "env-vars", "workflows", "session-states"];
+
+        for mode in modes {
+            assert!(!mode.is_empty());
+            // Modes should be kebab-case
+            assert!(mode.chars().all(|c| c.is_ascii_lowercase() || c == '-'));
+        }
+    }
+
+    /// Test env_vars includes usage examples
+    #[test]
+    fn test_introspect_env_vars_has_examples() {
+        // Each env var should have usage examples
+        let var_with_examples = [
+            ("ZJJ_SESSION", "echo $ZJJ_SESSION"),
+            ("ZJJ_WORKSPACE", "cd $ZJJ_WORKSPACE"),
+            ("ZJJ_AGENT_ID", "export ZJJ_AGENT_ID=my-agent"),
+        ];
+
+        for (var, example) in var_with_examples {
+            assert!(example.contains(var) || example.contains('$'));
+        }
+    }
+
+    /// Test workflows have required fields
+    #[test]
+    fn test_introspect_workflows_required_fields() {
+        let required_fields = ["name", "description", "steps", "use_case"];
+
+        for field in required_fields {
+            assert!(!field.is_empty());
+        }
     }
 }

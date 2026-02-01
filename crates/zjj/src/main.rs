@@ -10,13 +10,16 @@ use clap::{Arg, Command as ClapCommand};
 mod cli;
 mod commands;
 mod db;
+mod hooks;
 mod json;
 mod selector;
 mod session;
 
 use commands::{
-    add, agents, attach, checkpoint, clean, config, context, dashboard, diff, doctor, done, focus,
-    init, introspect, list, pane, query, remove, revert, spawn, status, sync, undo,
+    abort, add, agents, ai, attach, batch, can_i, checkpoint, claim, clean, completions, config,
+    context, contract, dashboard, diff, doctor, done, events, examples, export_import, focus, init,
+    introspect, list, query, remove, rename, revert, session_mgmt, spawn, status, sync, undo,
+    validate, whatif, whereami, whoami, work,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -402,14 +405,28 @@ fn cmd_add() -> ClapCommand {
                 .conflicts_with("name")
                 .help("Show example JSON output without executing"),
         )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if session already exists (safe for retries)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without creating"),
+        )
 }
 
 fn cmd_agents() -> ClapCommand {
     ClapCommand::new("agents")
-        .about("List all active agents and their locks")
+        .alias("agent")
+        .about("List and manage agents")
         .long_about(
             "Shows all agents that have recently sent heartbeats, along with their current sessions and any locks they hold.\n\n\
-            Agents are considered active if they've sent a heartbeat within the last 60 seconds.",
+            Agents are considered active if they've sent a heartbeat within the last 60 seconds.\n\n\
+            Subcommands allow self-management for AI agents.",
         )
         .arg(
             Arg::new("all")
@@ -427,7 +444,67 @@ fn cmd_agents() -> ClapCommand {
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
+                .global(true)
                 .help("Output as JSON"),
+        )
+        .subcommand(
+            ClapCommand::new("register")
+                .about("Register as an agent")
+                .long_about(
+                    "Register this process as an agent for zjj tracking.\n\n\
+                    Sets ZJJ_AGENT_ID environment variable.\n\
+                    Agent ID is auto-generated if not provided.",
+                )
+                .arg(
+                    Arg::new("id")
+                        .long("id")
+                        .value_name("AGENT_ID")
+                        .help("Agent ID to register (auto-generated if not provided)"),
+                )
+                .arg(
+                    Arg::new("session")
+                        .long("session")
+                        .short('s')
+                        .value_name("SESSION")
+                        .help("Session to associate with this agent"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("heartbeat")
+                .about("Send a heartbeat to indicate agent is alive")
+                .long_about(
+                    "Updates the agent's last_seen timestamp.\n\n\
+                    Requires ZJJ_AGENT_ID to be set (run 'zjj agent register' first).",
+                )
+                .arg(
+                    Arg::new("command")
+                        .long("command")
+                        .short('c')
+                        .value_name("COMMAND")
+                        .help("Current command being executed"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("status")
+                .about("Show current agent status")
+                .long_about(
+                    "Shows the status of the currently registered agent.\n\n\
+                    Uses ZJJ_AGENT_ID environment variable.",
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("unregister")
+                .about("Unregister as an agent")
+                .long_about(
+                    "Remove this agent from zjj tracking.\n\n\
+                    Clears ZJJ_AGENT_ID environment variable.",
+                )
+                .arg(
+                    Arg::new("id")
+                        .long("id")
+                        .value_name("AGENT_ID")
+                        .help("Agent ID to unregister (uses ZJJ_AGENT_ID if not provided)"),
+                ),
         )
 }
 
@@ -504,6 +581,12 @@ fn cmd_remove() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if session doesn't exist (safe for retries)"),
+        )
 }
 
 fn cmd_focus() -> ClapCommand {
@@ -562,12 +645,20 @@ fn cmd_sync() -> ClapCommand {
             "EXAMPLES:\n  \
             zjj sync feature-auth             Sync named session with main\n  \
             zjj sync                          Sync current workspace\n  \
+            zjj sync --all                    Sync all active sessions\n  \
             zjj sync --json                   Get JSON output of sync operation",
         )
         .arg(
             Arg::new("name")
                 .required(false)
                 .help("Session name to sync (syncs current workspace if omitted)"),
+        )
+        .arg(
+            Arg::new("all")
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .conflicts_with("name")
+                .help("Sync all active sessions"),
         )
         .arg(
             Arg::new("json")
@@ -654,6 +745,14 @@ fn cmd_dashboard() -> ClapCommand {
 fn cmd_introspect() -> ClapCommand {
     ClapCommand::new("introspect")
         .about("Discover zjj capabilities and command details")
+        .long_about(
+            "AI-optimized capability discovery.\n\n\
+            Use this to understand:\n  \
+            - Available commands and their arguments\n  \
+            - System state and dependencies\n  \
+            - Environment variables zjj uses\n  \
+            - Common workflow patterns",
+        )
         .arg(
             Arg::new("command")
                 .required(false)
@@ -664,6 +763,30 @@ fn cmd_introspect() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("ai")
+                .long("ai")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI-optimized output: combines capabilities, state, and recommendations"),
+        )
+        .arg(
+            Arg::new("env-vars")
+                .long("env-vars")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show environment variables zjj reads and sets"),
+        )
+        .arg(
+            Arg::new("workflows")
+                .long("workflows")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show common workflow patterns for AI agents"),
+        )
+        .arg(
+            Arg::new("session-states")
+                .long("session-states")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show valid session state transitions"),
         )
 }
 
@@ -853,9 +976,17 @@ fn cmd_done() -> ClapCommand {
             "EXAMPLES:\n  \
             zjj done                            Complete work and merge to main\n  \
             zjj done -m \"Fix auth bug\"         Use custom commit message\n  \
+            zjj done --workspace feature-x      Complete specific workspace from main\n  \
             zjj done --dry-run                  Preview without executing\n  \
             zjj done --keep-workspace           Keep workspace after merge\n  \
             zjj done --json                     Get JSON output",
+        )
+        .arg(
+            Arg::new("workspace")
+                .short('w')
+                .long("workspace")
+                .value_name("NAME")
+                .help("Workspace to complete (uses current if not specified)"),
         )
         .arg(
             Arg::new("message")
@@ -912,6 +1043,13 @@ fn cmd_undo() -> ClapCommand {
             Undo history is kept for 24 hours.",
         )
         .arg(
+            Arg::new("list")
+                .long("list")
+                .short('l')
+                .action(clap::ArgAction::SetTrue)
+                .help("List undo history without reverting"),
+        )
+        .arg(
             Arg::new("dry-run")
                 .long("dry-run")
                 .action(clap::ArgAction::SetTrue)
@@ -954,65 +1092,809 @@ fn cmd_revert() -> ClapCommand {
         )
 }
 
-fn cmd_pane() -> ClapCommand {
-    ClapCommand::new("pane")
-        .about("Pane focus and navigation within sessions")
+fn cmd_whereami() -> ClapCommand {
+    ClapCommand::new("whereami")
+        .about("Quick location query - returns 'main' or 'workspace:<name>'")
         .long_about(
-            "Manage pane focus and navigation within Zellij sessions.\n\
-            Provides commands to focus specific panes, list all panes, cycle through panes,\n\
-            and navigate in directions (up/down/left/right).\n\n\
-            Works only when inside a Zellij session.",
+            "AI-optimized command for quick orientation.\n\n\
+            Returns a simple, parseable string:\n  \
+            - 'main' if on main branch\n  \
+            - 'workspace:<name>' if in a workspace\n\n\
+            Use this before operations that depend on location.",
         )
-        .subcommand_required(true)
-        .subcommand(
-            ClapCommand::new("focus")
-                .about("Focus a specific pane")
-                .arg(Arg::new("session").required(true).help("Session name"))
-                .arg(
-                    Arg::new("pane")
-                        .required(false)
-                        .help("Pane ID or name (omit for list)"),
-                )
-                .arg(
-                    Arg::new("direction")
-                        .long("direction")
-                        .value_name("DIR")
-                        .help("Direction to navigate (up, down, left, right)"),
-                )
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
         )
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List all panes in a session")
-                .arg(Arg::new("session").required(true).help("Session name"))
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
+}
+
+fn cmd_whoami() -> ClapCommand {
+    ClapCommand::new("whoami")
+        .about("Agent identity query - returns agent ID or 'unregistered'")
+        .long_about(
+            "AI-optimized command for identity verification.\n\n\
+            Returns:\n  \
+            - Agent ID if registered (from ZJJ_AGENT_ID env var)\n  \
+            - 'unregistered' if no agent registered\n\n\
+            Also shows current session and bead from environment.",
         )
-        .subcommand(
-            ClapCommand::new("next")
-                .about("Cycle to next pane")
-                .arg(Arg::new("session").required(true).help("Session name"))
-                .arg(
-                    Arg::new("json")
-                        .long("json")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Output as JSON"),
-                ),
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_work() -> ClapCommand {
+    ClapCommand::new("work")
+        .about("Start working on a task (create workspace + register agent)")
+        .long_about(
+            "Unified workflow start command for AI agents.\n\n\
+            Combines multiple steps:\n  \
+            1. Create workspace (or reuse if --idempotent)\n  \
+            2. Register as agent (unless --no-agent)\n  \
+            3. Set environment variables\n  \
+            4. Output workspace info\n\n\
+            This is the AI-friendly entry point for starting work.",
+        )
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj work feature-auth              Start working on feature-auth\n  \
+            zjj work bug-fix --bead zjj-123    Start work on bead\n  \
+            zjj work test --idempotent         Reuse existing session if exists\n  \
+            zjj work quick --no-zellij         Create workspace without Zellij tab\n  \
+            zjj work --dry-run feature         Preview what would be created",
+        )
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Session name to create/use"),
+        )
+        .arg(
+            Arg::new("bead")
+                .long("bead")
+                .short('b')
+                .value_name("BEAD_ID")
+                .help("Bead ID to associate with this work"),
+        )
+        .arg(
+            Arg::new("agent-id")
+                .long("agent-id")
+                .value_name("ID")
+                .help("Agent ID to register (auto-generated if not provided)"),
+        )
+        .arg(
+            Arg::new("no-zellij")
+                .long("no-zellij")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't create Zellij tab"),
+        )
+        .arg(
+            Arg::new("no-agent")
+                .long("no-agent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't register as agent"),
+        )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if session already exists (safe for retries)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without creating"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_ai() -> ClapCommand {
+    ClapCommand::new("ai")
+        .about("AI-first entry point - start here for AI agents")
+        .long_about(
+            "ZJJ AI Agent Interface\n\n\
+            This is the 'start here' command for AI agents.\n\
+            Provides status, workflows, and guidance for AI-driven work.",
         )
         .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .global(true)
+                .help("Output as JSON"),
+        )
+        .subcommand(
+            ClapCommand::new("status")
+                .about("AI-optimized status with guided next action")
+                .long_about(
+                    "Shows current state and suggests the next command.\n\n\
+                    Use this to orient yourself before starting work.",
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("workflow")
+                .about("Show the 7-step parallel agent workflow")
+                .long_about(
+                    "Displays the recommended workflow for AI agents:\n\n\
+                    1. Orient (whereami)\n\
+                    2. Register (agent register)\n\
+                    3. Isolate (work <name>)\n\
+                    4. Enter (cd to workspace)\n\
+                    5. Implement (do work)\n\
+                    6. Heartbeat (signal liveness)\n\
+                    7. Complete (done)",
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("quick-start")
+                .about("Minimum commands to be productive")
+                .long_about(
+                    "Shows the essential commands for quick productivity:\n\n\
+                    - whereami: Check location\n\
+                    - work: Start working\n\
+                    - done: Finish work",
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("next")
+                .about("Get single next action with copy-paste command")
+                .long_about(
+                    "Returns the single most important next action.\n\n\
+                    Output includes:\n\
+                    - action: What to do\n\
+                    - command: Copy-paste ready command\n\
+                    - reason: Why this is the next step\n\
+                    - priority: high, medium, or low",
+                ),
+        )
+}
+
+fn cmd_can_i() -> ClapCommand {
+    ClapCommand::new("can-i")
+        .about("Check if an action is permitted")
+        .long_about(
+            "Checks preconditions before attempting operations.\n\n\
+            Returns whether an action is allowed, and if not, what prerequisites are missing.\n\
+            Useful for AI agents to check before executing commands.",
+        )
+        .arg(
+            Arg::new("action")
+                .required(true)
+                .help("Action to check (add, remove, done, undo, sync, spawn, claim, merge)"),
+        )
+        .arg(
+            Arg::new("resource")
+                .required(false)
+                .help("Resource to check (session name, bead ID, etc.)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_contract() -> ClapCommand {
+    ClapCommand::new("contract")
+        .about("Show command contracts for AI integration")
+        .long_about(
+            "Displays structured contracts for commands, including:\n  \
+            - Input/output schemas\n  \
+            - Argument types and constraints\n  \
+            - Flags and their effects\n  \
+            - Side effects and rollback information\n\n\
+            Useful for AI agents to understand command capabilities.",
+        )
+        .arg(
+            Arg::new("command")
+                .required(false)
+                .help("Command to show contract for (shows all if omitted)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_examples() -> ClapCommand {
+    ClapCommand::new("examples")
+        .about("Show usage examples for commands")
+        .long_about(
+            "Provides copy-pastable examples for AI agents and users.\n\n\
+            Filter by command or use case to find relevant examples.",
+        )
+        .arg(
+            Arg::new("command")
+                .required(false)
+                .help("Filter examples for specific command"),
+        )
+        .arg(
+            Arg::new("use-case")
+                .long("use-case")
+                .value_name("CASE")
+                .help("Filter by use case (workflow, single-command, error-handling, etc.)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_validate() -> ClapCommand {
+    ClapCommand::new("validate")
+        .about("Pre-validate inputs before execution")
+        .long_about(
+            "Validates inputs without executing commands.\n\n\
+            Use this to check:\n  \
+            - Session name format\n  \
+            - Bead ID format\n  \
+            - Required arguments\n  \
+            - Reserved names\n\n\
+            Returns structured validation results for AI agents.",
+        )
+        .arg(
+            Arg::new("command")
+                .required(true)
+                .help("Command to validate inputs for"),
+        )
+        .arg(
+            Arg::new("args")
+                .action(clap::ArgAction::Append)
+                .num_args(0..)
+                .help("Arguments to validate"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_whatif() -> ClapCommand {
+    ClapCommand::new("whatif")
+        .about("Preview command effects without executing")
+        .long_about(
+            "Shows what a command would do without actually doing it.\n\n\
+            More detailed than --dry-run, includes:\n  \
+            - Steps that would be executed\n  \
+            - Resource changes (files, sessions)\n  \
+            - Prerequisite checks\n  \
+            - Reversibility information",
+        )
+        .arg(
+            Arg::new("command")
+                .required(true)
+                .help("Command to preview"),
+        )
+        .arg(
+            Arg::new("args")
+                .action(clap::ArgAction::Append)
+                .num_args(0..)
+                .help("Command arguments"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_claim() -> ClapCommand {
+    ClapCommand::new("claim")
+        .about("Acquire exclusive lock on a resource")
+        .long_about(
+            "Claims exclusive access to a resource for multi-agent coordination.\n\n\
+            Resources can be:\n  \
+            - Sessions\n  \
+            - Files\n  \
+            - Beads\n\n\
+            Use 'zjj yield' to release the lock when done.",
+        )
+        .arg(
+            Arg::new("resource")
+                .required(true)
+                .help("Resource to claim (e.g., session:name, file:path, bead:id)"),
+        )
+        .arg(
+            Arg::new("timeout")
+                .long("timeout")
+                .short('t')
+                .value_name("SECONDS")
+                .default_value("60")
+                .help("Lock timeout in seconds"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_yield() -> ClapCommand {
+    ClapCommand::new("yield")
+        .about("Release exclusive lock on a resource")
+        .long_about(
+            "Releases a previously claimed resource.\n\n\
+            Use this when done with exclusive access to allow other agents to proceed.",
+        )
+        .arg(
+            Arg::new("resource")
+                .required(true)
+                .help("Resource to release (e.g., session:name, file:path, bead:id)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_batch() -> ClapCommand {
+    ClapCommand::new("batch")
+        .about("Execute multiple commands in a batch")
+        .long_about(
+            "Runs multiple commands in sequence or from a file.\n\n\
+            Features:\n  \
+            - Transactional mode (roll back on failure)\n  \
+            - Stop-on-error control\n  \
+            - Combined results output",
+        )
+        .arg(
+            Arg::new("file")
+                .short('f')
+                .long("file")
+                .value_name("FILE")
+                .help("File containing commands (one per line)"),
+        )
+        .arg(
+            Arg::new("commands")
+                .action(clap::ArgAction::Append)
+                .num_args(0..)
+                .help("Commands to execute (semicolon-separated)"),
+        )
+        .arg(
+            Arg::new("stop-on-error")
+                .long("stop-on-error")
+                .action(clap::ArgAction::SetTrue)
+                .help("Stop execution on first error"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_events() -> ClapCommand {
+    ClapCommand::new("events")
+        .about("View or stream session events")
+        .long_about(
+            "Shows events from the session event log.\n\n\
+            Use --follow for real-time streaming of events.",
+        )
+        .arg(
+            Arg::new("session")
+                .short('s')
+                .long("session")
+                .value_name("NAME")
+                .help("Filter events by session"),
+        )
+        .arg(
+            Arg::new("type")
+                .short('t')
+                .long("type")
+                .value_name("TYPE")
+                .help("Filter by event type (created, merged, aborted, etc.)"),
+        )
+        .arg(
+            Arg::new("limit")
+                .short('n')
+                .long("limit")
+                .value_name("COUNT")
+                .default_value("50")
+                .help("Maximum events to show"),
+        )
+        .arg(
+            Arg::new("follow")
+                .short('f')
+                .long("follow")
+                .action(clap::ArgAction::SetTrue)
+                .help("Stream events in real-time"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_completions() -> ClapCommand {
+    ClapCommand::new("completions")
+        .about("Generate shell completions")
+        .long_about(
+            "Generates shell completion scripts for bash, zsh, fish, powershell, and elvish.\n\n\
+            Usage:\n  \
+            zjj completions bash > ~/.local/share/bash-completion/completions/zjj\n  \
+            zjj completions zsh > ~/.zsh/completions/_zjj",
+        )
+        .arg(
+            Arg::new("shell")
+                .required(true)
+                .help("Shell to generate completions for (bash, zsh, fish, powershell, elvish)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_rename() -> ClapCommand {
+    ClapCommand::new("rename")
+        .about("Rename a session")
+        .long_about(
+            "Renames an existing session, updating:\n  \
+            - Session database entry\n  \
+            - Workspace directory\n  \
+            - Zellij tab name",
+        )
+        .arg(
+            Arg::new("old_name")
+                .required(true)
+                .help("Current session name"),
+        )
+        .arg(Arg::new("new_name").required(true).help("New session name"))
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_pause() -> ClapCommand {
+    ClapCommand::new("pause")
+        .about("Pause a session")
+        .long_about(
+            "Marks a session as paused.\n\n\
+            Paused sessions:\n  \
+            - Are excluded from sync operations\n  \
+            - Keep their workspace intact\n  \
+            - Can be resumed with 'zjj resume'",
+        )
+        .arg(
+            Arg::new("name")
+                .required(false)
+                .help("Session name (uses current if not specified)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_resume() -> ClapCommand {
+    ClapCommand::new("resume")
+        .about("Resume a paused session")
+        .long_about(
+            "Reactivates a paused session.\n\n\
+            The session will be included in sync operations again.",
+        )
+        .arg(
+            Arg::new("name")
+                .required(false)
+                .help("Session name (uses current if not specified)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_clone() -> ClapCommand {
+    ClapCommand::new("clone")
+        .about("Clone an existing session")
+        .long_about(
+            "Creates a new session based on an existing one.\n\n\
+            The clone:\n  \
+            - Copies the current workspace state\n  \
+            - Gets a new session entry\n  \
+            - Can be modified independently",
+        )
+        .arg(
+            Arg::new("source")
+                .required(true)
+                .help("Source session to clone"),
+        )
+        .arg(
+            Arg::new("dest")
+                .required(true)
+                .help("Name for the new session"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_export() -> ClapCommand {
+    ClapCommand::new("export")
+        .about("Export session configurations")
+        .long_about(
+            "Exports session data for backup or transfer.\n\n\
+            Can export:\n  \
+            - All sessions (default)\n  \
+            - Specific session (--session)",
+        )
+        .arg(
+            Arg::new("session")
+                .short('s')
+                .long("session")
+                .value_name("NAME")
+                .help("Export specific session only"),
+        )
+        .arg(
+            Arg::new("output")
+                .short('o')
+                .long("output")
+                .value_name("FILE")
+                .help("Output file (stdout if not specified)"),
+        )
+        .arg(
+            Arg::new("include-files")
+                .long("include-files")
+                .action(clap::ArgAction::SetTrue)
+                .help("Include workspace files in export"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_import() -> ClapCommand {
+    ClapCommand::new("import")
+        .about("Import session configurations")
+        .long_about(
+            "Imports session data from an export file.\n\n\
+            Options:\n  \
+            - Skip existing sessions (--skip-existing)\n  \
+            - Dry-run to preview (--dry-run)",
+        )
+        .arg(Arg::new("file").required(true).help("Import file to read"))
+        .arg(
+            Arg::new("skip-existing")
+                .long("skip-existing")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip sessions that already exist"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without importing"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_wait() -> ClapCommand {
+    ClapCommand::new("wait")
+        .about("Wait for conditions to be met")
+        .long_about(
+            "Block until a condition is met or timeout.\n\n\
+            Use this for:\n  \
+            - Waiting for a session to exist\n  \
+            - Waiting for a session to be unlocked\n  \
+            - Waiting for system to be healthy",
+        )
+        .arg(Arg::new("condition").required(true).help(
+            "Condition to wait for: session-exists, session-unlocked, healthy, session-status",
+        ))
+        .arg(Arg::new("name").help("Session name (for session-* conditions)"))
+        .arg(
+            Arg::new("status")
+                .long("status")
+            .value_name("STATUS")
+                .help("Status to wait for (with session-status)"),
+        )
+        .arg(
+            Arg::new("timeout")
+                .long("timeout")
+                .short('t')
+                .value_name("SECONDS")
+                .default_value("30")
+                .help("Timeout in seconds"),
+        )
+        .arg(
+            Arg::new("interval")
+                .long("interval")
+                .value_name("SECONDS")
+                .default_value("1")
+                .help("Poll interval in seconds"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_schema() -> ClapCommand {
+    ClapCommand::new("schema")
+        .about("Get machine-readable JSON Schema definitions")
+        .long_about(
+            "Provides actual JSON Schema definitions for AI agents to validate against.\n\n\
+            Use 'zjj schema --list' to see available schemas.\n\
+            Use 'zjj schema <name>' to get a specific schema.",
+        )
+        .arg(Arg::new("name").help("Schema name to get"))
+        .arg(
+            Arg::new("list")
+                .long("list")
+                .action(clap::ArgAction::SetTrue)
+                .help("List available schemas"),
+        )
+        .arg(
+            Arg::new("all")
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .help("Get all schemas"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_recover() -> ClapCommand {
+    ClapCommand::new("recover")
+        .about("Auto-detect and fix common broken states")
+        .long_about(
+            "Diagnoses and fixes common issues:\n  \
+            - Orphaned sessions\n  \
+            - Stale locks\n  \
+            - Missing workspaces\n  \
+            - Database inconsistencies",
+        )
+        .arg(
+            Arg::new("diagnose")
+                .long("diagnose")
+                .action(clap::ArgAction::SetTrue)
+                .help("Only diagnose, don't fix"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_retry() -> ClapCommand {
+    ClapCommand::new("retry")
+        .about("Retry the last failed command")
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_rollback() -> ClapCommand {
+    ClapCommand::new("rollback")
+        .about("Restore session to a checkpoint")
+        .arg(
+            Arg::new("session")
+                .required(true)
+                .help("Session to rollback"),
+        )
+        .arg(
+            Arg::new("to")
+                .long("to")
+                .required(true)
+                .value_name("CHECKPOINT")
+                .help("Checkpoint to rollback to"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+fn cmd_abort() -> ClapCommand {
+    ClapCommand::new("abort")
+        .about("Abandon workspace without merging")
+        .long_about(
+            "Opposite of 'zjj done' - discard work without merging.\n\n\
+            Use this when:\n  \
+            - Work is no longer needed\n  \
+            - You want to start fresh\n  \
+            - The approach didn't work out\n\n\
+            Can be run from inside or outside the workspace.",
+        )
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj abort                          Abort current workspace\n  \
+            zjj abort --workspace feature-x    Abort specific workspace\n  \
+            zjj abort --keep-workspace         Remove from zjj but keep files\n  \
+            zjj abort --dry-run                Preview without executing",
+        )
+        .arg(
+            Arg::new("workspace")
+                .long("workspace")
+                .short('w')
+                .value_name("NAME")
+                .help("Workspace to abort (uses current if not specified)"),
+        )
+        .arg(
+            Arg::new("no-bead-update")
+                .long("no-bead-update")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't update bead status"),
+        )
+        .arg(
+            Arg::new("keep-workspace")
+                .long("keep-workspace")
+                .action(clap::ArgAction::SetTrue)
+                .help("Keep workspace files (just remove from zjj tracking)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
 }
@@ -1031,13 +1913,27 @@ fn build_cli() -> ClapCommand {
               zjj focus <name>  Switch Zellij tab (inside Zellij)\n  \
               zjj done          Merge workspace to main and clean up",
         )
+        // Global hook arguments
+        .arg(
+            Arg::new("on-success")
+                .long("on-success")
+                .global(true)
+                .value_name("CMD")
+                .help("Command to run after successful execution"),
+        )
+        .arg(
+            Arg::new("on-failure")
+                .long("on-failure")
+                .global(true)
+                .value_name("CMD")
+                .help("Command to run after failed execution"),
+        )
         .subcommand_required(true)
         .subcommand(cmd_init())
         .subcommand(cmd_add())
         .subcommand(cmd_agents())
         .subcommand(cmd_attach())
         .subcommand(cmd_list())
-        .subcommand(cmd_pane())
         .subcommand(cmd_remove())
         .subcommand(cmd_focus())
         .subcommand(cmd_status())
@@ -1055,6 +1951,38 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_checkpoint())
         .subcommand(cmd_undo())
         .subcommand(cmd_revert())
+        .subcommand(cmd_whereami())
+        .subcommand(cmd_whoami())
+        .subcommand(cmd_work())
+        .subcommand(cmd_abort())
+        .subcommand(cmd_ai())
+        // AI-first commands
+        .subcommand(cmd_can_i())
+        .subcommand(cmd_contract())
+        .subcommand(cmd_examples())
+        .subcommand(cmd_validate())
+        .subcommand(cmd_whatif())
+        .subcommand(cmd_claim())
+        .subcommand(cmd_yield())
+        .subcommand(cmd_batch())
+        .subcommand(cmd_events())
+        .subcommand(cmd_completions())
+        // Session management
+        .subcommand(cmd_rename())
+        .subcommand(cmd_pause())
+        .subcommand(cmd_resume())
+        .subcommand(cmd_clone())
+        // Export/Import
+        .subcommand(cmd_export())
+        .subcommand(cmd_import())
+        // Wait/Poll commands
+        .subcommand(cmd_wait())
+        // Schema command
+        .subcommand(cmd_schema())
+        // Recovery commands
+        .subcommand(cmd_recover())
+        .subcommand(cmd_retry())
+        .subcommand(cmd_rollback())
 }
 
 /// Format an error for user display (no stack traces)
@@ -1110,6 +2038,8 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
     let template = sub_m.get_one::<String>("template").cloned();
     let no_open = sub_m.get_flag("no-open");
     let json = sub_m.get_flag("json");
+    let idempotent = sub_m.get_flag("idempotent");
+    let dry_run = sub_m.get_flag("dry-run");
 
     let options = add::AddOptions {
         name: name.clone(),
@@ -1117,6 +2047,8 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
         template,
         no_open,
         format: zjj_core::OutputFormat::from_json_flag(json),
+        idempotent,
+        dry_run,
     };
 
     match add::run_with_options(&options) {
@@ -1277,9 +2209,27 @@ fn handle_clean(sub_m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn handle_introspect(sub_m: &clap::ArgMatches) -> Result<()> {
-    let command = sub_m.get_one::<String>("command").map(String::as_str);
     let json = sub_m.get_flag("json");
-    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let ai_mode = sub_m.get_flag("ai");
+    // --ai implies JSON output
+    let format = zjj_core::OutputFormat::from_json_flag(json || ai_mode);
+
+    // Check for special modes first
+    if ai_mode {
+        return introspect::run_ai();
+    }
+    if sub_m.get_flag("env-vars") {
+        return introspect::run_env_vars(format);
+    }
+    if sub_m.get_flag("workflows") {
+        return introspect::run_workflows(format);
+    }
+    if sub_m.get_flag("session-states") {
+        return introspect::run_session_states(format);
+    }
+
+    // Default behavior: introspect command or all
+    let command = sub_m.get_one::<String>("command").map(String::as_str);
     let result = command.map_or_else(
         || introspect::run(format),
         |cmd| introspect::run_command_introspect(cmd, format),
@@ -1372,6 +2322,7 @@ fn handle_undo(sub_m: &clap::ArgMatches) -> Result<()> {
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let args = commands::undo::UndoArgs {
         dry_run: sub_m.get_flag("dry-run"),
+        list: sub_m.get_flag("list"),
         format,
     };
 
@@ -1380,9 +2331,707 @@ fn handle_undo(sub_m: &clap::ArgMatches) -> Result<()> {
         Ok(_) => Ok(()),
         Err(e) => {
             if format.is_json() {
-                json::output_json_error_and_exit(&e);
+                let anyhow_err: anyhow::Error = e.into();
+                json::output_json_error_and_exit(&anyhow_err);
             } else {
                 Err(e.into())
+            }
+        }
+    }
+}
+
+fn handle_revert(sub_m: &clap::ArgMatches) -> Result<()> {
+    let name = sub_m
+        .get_one::<String>("name")
+        .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let args = commands::revert::RevertArgs {
+        session_name: name.clone(),
+        dry_run: sub_m.get_flag("dry-run"),
+        format,
+    };
+
+    let options = args.to_options();
+    match revert::run_with_options(&options) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                let anyhow_err: anyhow::Error = e.into();
+                json::output_json_error_and_exit(&anyhow_err);
+            } else {
+                Err(e.into())
+            }
+        }
+    }
+}
+
+fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let args = commands::done::types::DoneArgs {
+        message: sub_m.get_one::<String>("message").cloned(),
+        keep_workspace: sub_m.get_flag("keep-workspace"),
+        no_keep: sub_m.get_flag("no-keep"),
+        squash: sub_m.get_flag("squash"),
+        dry_run: sub_m.get_flag("dry-run"),
+        no_bead_update: sub_m.get_flag("no-bead-update"),
+        format: zjj_core::OutputFormat::from_json_flag(json),
+    };
+
+    let options = args.to_options();
+    done::run_with_options(&options)?;
+    Ok(())
+}
+
+fn handle_agents(sub_m: &clap::ArgMatches) -> Result<()> {
+    let format = zjj_core::OutputFormat::from_json_flag(sub_m.get_flag("json"));
+
+    // Check for subcommands first
+    match sub_m.subcommand() {
+        Some(("register", register_m)) => {
+            let args = agents::types::RegisterArgs {
+                agent_id: register_m.get_one::<String>("id").cloned(),
+                session: register_m.get_one::<String>("session").cloned(),
+            };
+            agents::run_register(&args, format)
+        }
+        Some(("heartbeat", heartbeat_m)) => {
+            let args = agents::types::HeartbeatArgs {
+                command: heartbeat_m.get_one::<String>("command").cloned(),
+            };
+            agents::run_heartbeat(&args, format)
+        }
+        Some(("status", _)) => agents::run_status(format),
+        Some(("unregister", unregister_m)) => {
+            let args = agents::types::UnregisterArgs {
+                agent_id: unregister_m.get_one::<String>("id").cloned(),
+            };
+            agents::run_unregister(&args, format)
+        }
+        _ => {
+            // Default: list agents
+            let args = agents::types::AgentsArgs {
+                all: sub_m.get_flag("all"),
+                session: sub_m.get_one::<String>("session").cloned(),
+            };
+            agents::run(&args, format)
+        }
+    }
+}
+
+fn handle_whereami(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let options = whereami::WhereAmIOptions { format };
+    match whereami::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_whoami(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let options = whoami::WhoAmIOptions { format };
+    match whoami::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_work(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let options = work::WorkOptions {
+        name: sub_m
+            .get_one::<String>("name")
+            .ok_or_else(|| anyhow::anyhow!("Name is required"))?
+            .clone(),
+        bead_id: sub_m.get_one::<String>("bead").cloned(),
+        agent_id: sub_m.get_one::<String>("agent-id").cloned(),
+        no_zellij: sub_m.get_flag("no-zellij"),
+        no_agent: sub_m.get_flag("no-agent"),
+        idempotent: sub_m.get_flag("idempotent"),
+        dry_run: sub_m.get_flag("dry-run"),
+        format,
+    };
+
+    match work::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_abort(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let options = abort::AbortOptions {
+        workspace: sub_m.get_one::<String>("workspace").cloned(),
+        no_bead_update: sub_m.get_flag("no-bead-update"),
+        keep_workspace: sub_m.get_flag("keep-workspace"),
+        dry_run: sub_m.get_flag("dry-run"),
+        format,
+    };
+
+    match abort::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_ai(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let subcommand = match sub_m.subcommand() {
+        Some(("status", _)) => ai::AiSubcommand::Status,
+        Some(("workflow", _)) => ai::AiSubcommand::Workflow,
+        Some(("quick-start", _)) => ai::AiSubcommand::QuickStart,
+        Some(("next", _)) => ai::AiSubcommand::Next,
+        _ => ai::AiSubcommand::Default,
+    };
+
+    let options = ai::AiOptions { subcommand, format };
+
+    match ai::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_can_i(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let action = sub_m
+        .get_one::<String>("action")
+        .ok_or_else(|| anyhow::anyhow!("Action is required"))?
+        .clone();
+    let resource = sub_m.get_one::<String>("resource").cloned();
+
+    let options = can_i::CanIOptions {
+        action,
+        resource,
+        format,
+    };
+    match can_i::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_contract(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let command = sub_m.get_one::<String>("command").cloned();
+
+    let options = contract::ContractOptions { command, format };
+    match contract::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_examples(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let command = sub_m.get_one::<String>("command").cloned();
+    let use_case = sub_m.get_one::<String>("use-case").cloned();
+
+    let options = examples::ExamplesOptions {
+        command,
+        use_case,
+        format,
+    };
+    match examples::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_validate(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let command = sub_m
+        .get_one::<String>("command")
+        .ok_or_else(|| anyhow::anyhow!("Command is required"))?
+        .clone();
+    let args: Vec<String> = sub_m
+        .get_many::<String>("args")
+        .map(|v| v.cloned().collect())
+        .unwrap_or_default();
+
+    let options = validate::ValidateOptions {
+        command,
+        args,
+        format,
+    };
+    match validate::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_whatif(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let command = sub_m
+        .get_one::<String>("command")
+        .ok_or_else(|| anyhow::anyhow!("Command is required"))?
+        .clone();
+    let args: Vec<String> = sub_m
+        .get_many::<String>("args")
+        .map(|v| v.cloned().collect())
+        .unwrap_or_default();
+
+    let options = whatif::WhatIfOptions {
+        command,
+        args,
+        format,
+    };
+    match whatif::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_claim(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let resource = sub_m
+        .get_one::<String>("resource")
+        .ok_or_else(|| anyhow::anyhow!("Resource is required"))?
+        .clone();
+    let timeout: u64 = sub_m
+        .get_one::<String>("timeout")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(60);
+
+    let options = claim::ClaimOptions {
+        resource,
+        timeout,
+        format,
+    };
+    match claim::run_claim(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_yield(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let resource = sub_m
+        .get_one::<String>("resource")
+        .ok_or_else(|| anyhow::anyhow!("Resource is required"))?
+        .clone();
+
+    let options = claim::YieldOptions { resource, format };
+    match claim::run_yield(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let file = sub_m.get_one::<String>("file").cloned();
+    let stop_on_error = sub_m.get_flag("stop-on-error");
+
+    // Get commands from file or arguments
+    let commands = if let Some(file_path) = file {
+        let content = std::fs::read_to_string(&file_path)
+            .map_err(|e| anyhow::anyhow!("Failed to read file: {e}"))?;
+        batch::parse_batch_commands(&content)?
+    } else {
+        let raw_commands: Vec<String> = sub_m
+            .get_many::<String>("commands")
+            .map(|v| v.cloned().collect())
+            .unwrap_or_default();
+        if raw_commands.is_empty() {
+            anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
+        }
+        // Join and parse as newline-separated
+        batch::parse_batch_commands(&raw_commands.join("\n"))?
+    };
+
+    let options = batch::BatchOptions {
+        commands,
+        stop_on_error,
+        dry_run: false,
+        format,
+    };
+    match batch::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_events(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let session = sub_m.get_one::<String>("session").cloned();
+    let event_type = sub_m.get_one::<String>("type").cloned();
+    let limit: Option<usize> = sub_m
+        .get_one::<String>("limit")
+        .and_then(|s| s.parse().ok());
+    let follow = sub_m.get_flag("follow");
+
+    let options = events::EventsOptions {
+        session,
+        event_type,
+        limit,
+        follow,
+        since: None,
+        format,
+    };
+    match events::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_completions(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let shell_str = sub_m
+        .get_one::<String>("shell")
+        .ok_or_else(|| anyhow::anyhow!("Shell is required"))?;
+    let shell: completions::Shell = shell_str.parse()?;
+
+    let options = completions::CompletionsOptions { shell, format };
+    match completions::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_rename(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let old_name = sub_m
+        .get_one::<String>("old_name")
+        .ok_or_else(|| anyhow::anyhow!("Old name is required"))?
+        .clone();
+    let new_name = sub_m
+        .get_one::<String>("new_name")
+        .ok_or_else(|| anyhow::anyhow!("New name is required"))?
+        .clone();
+
+    let options = rename::RenameOptions {
+        old_name,
+        new_name,
+        dry_run: false,
+        format,
+    };
+    match rename::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_pause(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let session = sub_m
+        .get_one::<String>("name")
+        .cloned()
+        .unwrap_or_else(|| "default".to_string());
+
+    let options = session_mgmt::PauseOptions { session, format };
+    match session_mgmt::run_pause(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_resume(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let session = sub_m
+        .get_one::<String>("name")
+        .cloned()
+        .unwrap_or_else(|| "default".to_string());
+
+    let options = session_mgmt::ResumeOptions { session, format };
+    match session_mgmt::run_resume(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_clone(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let source = sub_m
+        .get_one::<String>("source")
+        .ok_or_else(|| anyhow::anyhow!("Source session is required"))?
+        .clone();
+    let target = sub_m
+        .get_one::<String>("dest")
+        .ok_or_else(|| anyhow::anyhow!("Destination name is required"))?
+        .clone();
+
+    let options = session_mgmt::CloneOptions {
+        source,
+        target,
+        dry_run: false,
+        format,
+    };
+    match session_mgmt::run_clone(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_export(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let session = sub_m.get_one::<String>("session").cloned();
+    let output = sub_m.get_one::<String>("output").cloned();
+    let include_files = sub_m.get_flag("include-files");
+
+    let options = export_import::ExportOptions {
+        session,
+        output,
+        include_files,
+        format,
+    };
+    match export_import::run_export(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_import(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let input = sub_m
+        .get_one::<String>("file")
+        .ok_or_else(|| anyhow::anyhow!("Import file is required"))?
+        .clone();
+    let skip_existing = sub_m.get_flag("skip-existing");
+    let dry_run = sub_m.get_flag("dry-run");
+
+    let options = export_import::ImportOptions {
+        input,
+        skip_existing,
+        dry_run,
+        format,
+    };
+    match export_import::run_import(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_wait(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let condition_str = sub_m
+        .get_one::<String>("condition")
+        .ok_or_else(|| anyhow::anyhow!("Condition is required"))?;
+    let name = sub_m.get_one::<String>("name").cloned();
+    let status = sub_m.get_one::<String>("status").cloned();
+    let timeout: u64 = sub_m
+        .get_one::<String>("timeout")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30);
+    let interval: u64 = sub_m
+        .get_one::<String>("interval")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1);
+
+    let condition = match condition_str.as_str() {
+        "session-exists" => {
+            let n =
+                name.ok_or_else(|| anyhow::anyhow!("Session name required for session-exists"))?;
+            commands::wait::WaitCondition::SessionExists(n)
+        }
+        "session-unlocked" => {
+            let n =
+                name.ok_or_else(|| anyhow::anyhow!("Session name required for session-unlocked"))?;
+            commands::wait::WaitCondition::SessionUnlocked(n)
+        }
+        "healthy" => commands::wait::WaitCondition::Healthy,
+        "session-status" => {
+            let n =
+                name.ok_or_else(|| anyhow::anyhow!("Session name required for session-status"))?;
+            let s =
+                status.ok_or_else(|| anyhow::anyhow!("--status required for session-status"))?;
+            commands::wait::WaitCondition::SessionStatus { name: n, status: s }
+        }
+        _ => anyhow::bail!("Unknown condition: {}", condition_str),
+    };
+
+    let options = commands::wait::WaitOptions {
+        condition,
+        timeout: std::time::Duration::from_secs(timeout),
+        poll_interval: std::time::Duration::from_secs(interval),
+        format,
+    };
+
+    match commands::wait::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+fn handle_schema(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let schema_name = sub_m.get_one::<String>("name").cloned();
+    let list = sub_m.get_flag("list");
+    let all = sub_m.get_flag("all");
+
+    let options = commands::schema::SchemaOptions {
+        schema_name,
+        list,
+        all,
+        format,
+    };
+
+    match commands::schema::run(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
             }
         }
     }
@@ -1433,51 +3082,73 @@ fn handle_revert(sub_m: &clap::ArgMatches) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
-    let args = commands::revert::RevertArgs {
-        session_name: name.clone(),
-        dry_run: sub_m.get_flag("dry-run"),
+    let diagnose_only = sub_m.get_flag("diagnose");
+
+    let options = commands::recover::RecoverOptions {
+        diagnose_only,
         format,
     };
 
-    let options = args.to_options();
-    match revert::run_with_options(&options) {
-        Ok(_) => Ok(()),
+    match commands::recover::run_recover(&options) {
+        Ok(()) => Ok(()),
         Err(e) => {
             if format.is_json() {
                 json::output_json_error_and_exit(&e);
             } else {
-                Err(e.into())
+                Err(e)
             }
         }
     }
 }
 
-fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
+fn handle_retry(sub_m: &clap::ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
-    let args = commands::done::types::DoneArgs {
-        message: sub_m.get_one::<String>("message").cloned(),
-        keep_workspace: sub_m.get_flag("keep-workspace"),
-        no_keep: sub_m.get_flag("no-keep"),
-        squash: sub_m.get_flag("squash"),
-        dry_run: sub_m.get_flag("dry-run"),
-        no_bead_update: sub_m.get_flag("no-bead-update"),
-        format: zjj_core::OutputFormat::from_json_flag(json),
-    };
+    let format = zjj_core::OutputFormat::from_json_flag(json);
 
-    let options = args.to_options();
-    done::run_with_options(&options)?;
-    Ok(())
+    let options = commands::recover::RetryOptions { format };
+
+    match commands::recover::run_retry(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
 }
 
-fn handle_agents(sub_m: &clap::ArgMatches) -> Result<()> {
-    let args = agents::types::AgentsArgs {
-        all: sub_m.get_flag("all"),
-        session: sub_m.get_one::<String>("session").cloned(),
+fn handle_rollback(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+    let session = sub_m
+        .get_one::<String>("session")
+        .ok_or_else(|| anyhow::anyhow!("Session is required"))?
+        .clone();
+    let checkpoint = sub_m
+        .get_one::<String>("to")
+        .ok_or_else(|| anyhow::anyhow!("--to checkpoint is required"))?
+        .clone();
+    let dry_run = sub_m.get_flag("dry-run");
+
+    let options = commands::recover::RollbackOptions {
+        session,
+        checkpoint,
+        dry_run,
+        format,
     };
 
-    let format = zjj_core::OutputFormat::from_json_flag(sub_m.get_flag("json"));
-    agents::run(&args, format)?;
-    Ok(())
+    match commands::recover::run_rollback(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
 }
 
 /// Execute the CLI and return a Result
@@ -1518,7 +3189,13 @@ fn run_cli() -> Result<()> {
         }
     };
 
-    match matches.subcommand() {
+    // Extract global hook arguments
+    let on_success = matches.get_one::<String>("on-success").cloned();
+    let on_failure = matches.get_one::<String>("on-failure").cloned();
+    let hooks_config = hooks::HooksConfig::from_args(on_success, on_failure);
+
+    // Run the command with hooks if configured
+    let result = match matches.subcommand() {
         Some(("init", sub_m)) => handle_init(sub_m),
         Some(("attach", sub_m)) => {
             let options = attach::AttachOptions::from_matches(sub_m)?;
@@ -1554,11 +3231,60 @@ fn run_cli() -> Result<()> {
         Some(("checkpoint" | "ckpt", sub_m)) => handle_checkpoint(sub_m),
         Some(("undo", sub_m)) => handle_undo(sub_m),
         Some(("revert", sub_m)) => handle_revert(sub_m),
+        Some(("whereami", sub_m)) => handle_whereami(sub_m),
+        Some(("whoami", sub_m)) => handle_whoami(sub_m),
+        Some(("work", sub_m)) => handle_work(sub_m),
+        Some(("abort", sub_m)) => handle_abort(sub_m),
+        Some(("ai", sub_m)) => handle_ai(sub_m),
+        // AI-first commands
+        Some(("can-i", sub_m)) => handle_can_i(sub_m),
+        Some(("contract", sub_m)) => handle_contract(sub_m),
+        Some(("examples", sub_m)) => handle_examples(sub_m),
+        Some(("validate", sub_m)) => handle_validate(sub_m),
+        Some(("whatif", sub_m)) => handle_whatif(sub_m),
+        Some(("claim", sub_m)) => handle_claim(sub_m),
+        Some(("yield", sub_m)) => handle_yield(sub_m),
+        Some(("batch", sub_m)) => handle_batch(sub_m),
+        Some(("events", sub_m)) => handle_events(sub_m),
+        Some(("completions", sub_m)) => handle_completions(sub_m),
+        // Session management
+        Some(("rename", sub_m)) => handle_rename(sub_m),
+        Some(("pause", sub_m)) => handle_pause(sub_m),
+        Some(("resume", sub_m)) => handle_resume(sub_m),
+        Some(("clone", sub_m)) => handle_clone(sub_m),
+        // Export/Import
+        Some(("export", sub_m)) => handle_export(sub_m),
+        Some(("import", sub_m)) => handle_import(sub_m),
+        // Wait/Poll commands
+        Some(("wait", sub_m)) => handle_wait(sub_m),
+        // Schema command
+        Some(("schema", sub_m)) => handle_schema(sub_m),
+        // Recovery commands
+        Some(("recover", sub_m)) => handle_recover(sub_m),
+        Some(("retry", sub_m)) => handle_retry(sub_m),
+        Some(("rollback", sub_m)) => handle_rollback(sub_m),
         _ => {
             build_cli().print_help()?;
             Ok(())
         }
+    };
+
+    // Run hooks if configured
+    if hooks_config.has_hooks() {
+        if let Some(hook_result) = hooks_config.run_hook(result.is_ok()) {
+            if hook_result.success {
+                if let Some(output) = &hook_result.output {
+                    if !output.trim().is_empty() {
+                        eprintln!("[hook:{}] {}", hook_result.hook, output.trim());
+                    }
+                }
+            } else if let Some(error) = &hook_result.error {
+                eprintln!("[hook:{} failed] {}", hook_result.hook, error.trim());
+            }
+        }
     }
+
+    result
 }
 
 fn main() {
@@ -1698,6 +3424,8 @@ mod main_tests {
             template: None,
             no_open: false,
             format: OutputFormat::Json,
+            idempotent: false,
+            dry_run: false,
         };
 
         assert_eq!(opts.name, "test");

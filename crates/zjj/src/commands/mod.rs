@@ -1,28 +1,48 @@
 //! Command implementations
 
+pub mod abort;
 pub mod add;
 pub mod agents;
+pub mod ai;
 pub mod attach;
+pub mod batch;
+pub mod can_i;
 pub mod checkpoint;
+pub mod claim;
 pub mod clean;
+pub mod completions;
 pub mod config;
 pub mod context;
+pub mod contract;
 pub mod dashboard;
 pub mod diff;
 pub mod doctor;
 pub mod done;
+pub mod events;
+pub mod examples;
+pub mod export_import;
 pub mod focus;
 pub mod init;
 pub mod introspect;
 pub mod list;
 pub mod pane;
 pub mod query;
+pub mod recover;
 pub mod remove;
+pub mod rename;
 pub mod revert;
+pub mod schema;
+pub mod session_mgmt;
 pub mod spawn;
 pub mod status;
 pub mod sync;
 pub mod undo;
+pub mod validate;
+pub mod wait;
+pub mod whatif;
+pub mod whereami;
+pub mod whoami;
+pub mod work;
 
 use std::{
     path::{Path, PathBuf},
