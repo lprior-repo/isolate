@@ -318,8 +318,7 @@ fn generate_short_id() -> String {
 
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_millis());
 
     // Use last 8 hex chars of timestamp + random suffix
     format!("{:08x}", timestamp as u32)
@@ -381,7 +380,7 @@ mod tests {
     // Behavior Tests
     // ============================================================================
 
-    /// Test WorkOptions default values
+    /// Test `WorkOptions` default values
     #[test]
     fn test_work_options_defaults() {
         let options = WorkOptions {
@@ -401,7 +400,7 @@ mod tests {
         assert!(!options.dry_run);
     }
 
-    /// Test WorkOutput created flag
+    /// Test `WorkOutput` created flag
     #[test]
     fn test_work_output_created_flag() {
         // New session
@@ -450,7 +449,7 @@ mod tests {
         assert!(output.zellij_tab.ends_with(&output.name));
     }
 
-    /// Test env_vars contains required variables
+    /// Test `env_vars` contains required variables
     #[test]
     fn test_work_env_vars_required() {
         let path = PathBuf::from("/test/workspace");
@@ -465,7 +464,7 @@ mod tests {
         assert!(var_names.contains(&"ZJJ_BEAD_ID"));
     }
 
-    /// Test env_vars without agent_id
+    /// Test `env_vars` without `agent_id`
     #[test]
     fn test_work_env_vars_no_agent() {
         let path = PathBuf::from("/test/workspace");
@@ -480,7 +479,7 @@ mod tests {
         assert!(!var_names.contains(&"ZJJ_BEAD_ID"));
     }
 
-    /// Test enter_command format
+    /// Test `enter_command` format
     #[test]
     fn test_work_enter_command_format() {
         let output = WorkOutput {
@@ -498,7 +497,7 @@ mod tests {
         assert!(output.enter_command.contains(&output.workspace_path));
     }
 
-    /// Test WorkOutput JSON serialization includes all fields
+    /// Test `WorkOutput` JSON serialization includes all fields
     #[test]
     fn test_work_output_json_complete() {
         let output = WorkOutput {
@@ -544,7 +543,7 @@ mod tests {
         assert!(options.idempotent);
     }
 
-    /// Test dry_run mode
+    /// Test `dry_run` mode
     #[test]
     fn test_work_dry_run_mode() {
         let options = WorkOptions {

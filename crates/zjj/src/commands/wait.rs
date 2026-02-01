@@ -114,7 +114,7 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
         WaitCondition::SessionUnlocked(name) => {
             get_session_db()
                 .ok()
-                .map(|db| {
+                .and_then(|db| {
                     db.get_blocking(name)
                         .map(|opt| match opt {
                             Some(session) => {
@@ -132,10 +132,12 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
                                 (false, Some("not_found".to_string()))
                             }
                         })
-                        .unwrap_or((false, Some("error".to_string())))
+                        .ok()
                 })
-                .map(Ok)
-                .unwrap_or(Ok((false, Some("db_unavailable".to_string()))))
+                .map_or_else(
+                    || Ok((false, Some("db_unavailable".to_string()))),
+                    Ok,
+                )
         }
 
         WaitCondition::Healthy => {
