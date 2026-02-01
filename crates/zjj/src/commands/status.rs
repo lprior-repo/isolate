@@ -321,7 +321,7 @@ fn output_table(items: &[SessionStatusInfo]) {
         .and_then(|root| crate::commands::context::detect_location(&root).ok())
         .and_then(|loc| match loc {
             crate::commands::context::Location::Workspace { name, .. } => Some(name),
-            _ => None,
+            crate::commands::context::Location::Main => None,
         });
 
     // Display table header
@@ -344,12 +344,14 @@ fn output_table(items: &[SessionStatusInfo]) {
     for item in items {
         let is_current = current_location
             .as_ref()
-            .map_or(false, |current| current == &item.name);
+            .is_some_and(|current| current == &item.name);
 
         let marker = if is_current { "▶" } else { " " };
 
         // Extract bead info from session metadata
-        let bead_info = item.session.metadata
+        let bead_info = item
+            .session
+            .metadata
             .as_ref()
             .and_then(|m| {
                 let id = m.get("bead_id").and_then(|v| v.as_str()).unwrap_or("");
@@ -357,7 +359,7 @@ fn output_table(items: &[SessionStatusInfo]) {
                 if id.is_empty() {
                     None
                 } else {
-                    Some(format!("{}: {}", id, title))
+                    Some(format!("{id}: {title}"))
                 }
             })
             .unwrap_or_else(|| "-".to_string());
@@ -365,14 +367,26 @@ fn output_table(items: &[SessionStatusInfo]) {
         if is_tty {
             println!(
                 "│ {:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30} │",
-                marker, item.name, item.status, item.branch, item.changes.to_string(),
-                item.diff_stats.to_string(), item.beads.to_string(), bead_info
+                marker,
+                item.name,
+                item.status,
+                item.branch,
+                item.changes.to_string(),
+                item.diff_stats.to_string(),
+                item.beads.to_string(),
+                bead_info
             );
         } else {
             println!(
                 "{:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30}",
-                marker, item.name, item.status, item.branch, item.changes.to_string(),
-                item.diff_stats.to_string(), item.beads.to_string(), bead_info
+                marker,
+                item.name,
+                item.status,
+                item.branch,
+                item.changes.to_string(),
+                item.diff_stats.to_string(),
+                item.beads.to_string(),
+                bead_info
             );
         }
     }

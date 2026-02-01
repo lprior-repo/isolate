@@ -432,7 +432,7 @@ impl Error {
                 "session": session,
                 "agent_id": agent_id
             })),
-            _ => None,
+            Self::ParseError(_) | Self::Unknown(_) => None,
         }
     }
 
@@ -460,7 +460,15 @@ Self::JjCommandError {
              Self::HookExecutionFailed { .. } => {
                  Some("Ensure the hook command exists and is executable".to_string())
              }
-             _ => None,
+             Self::InvalidConfig(_)
+             | Self::IoError(_)
+             | Self::ParseError(_)
+             | Self::ValidationError(_)
+             | Self::Command(_)
+             | Self::JjCommandError { .. }
+             | Self::SessionLocked { .. }
+             | Self::NotLockHolder { .. }
+             | Self::Unknown(_) => None,
          }
     }
 
@@ -538,7 +546,14 @@ Self::JjCommandError {
                 vec![ValidationHint::new("agent_id", "lock holder for session")
                     .with_received(format!("'{agent_id}' for session '{session}'"))]
             }
-            _ => vec![],
+            Self::IoError(_)
+            | Self::NotFound(_)
+            | Self::DatabaseError(_)
+            | Self::Command(_)
+            | Self::HookFailed { .. }
+            | Self::HookExecutionFailed { .. }
+            | Self::JjCommandError { .. }
+            | Self::Unknown(_) => vec![],
         }
     }
 
@@ -667,7 +682,7 @@ mod tests {
         let display = err.to_string();
         assert!(display.contains("Hook 'post_create' failed"));
         assert!(display.contains("npm install"));
-        assert!(display.contains("Exit code: Some(1)"));
+        assert!(display.contains("Exit code: 1"));
         assert!(display.contains("Package not found"));
     }
 

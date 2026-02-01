@@ -113,10 +113,16 @@ async fn get_agents(pool: &SqlitePool, args: &AgentsArgs) -> Result<Vec<AgentInf
         query_builder = query_builder.bind(session);
     }
 
-    let rows = query_builder
-        .fetch_all(pool)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to query agents: {e}"))?;
+    let rows = match query_builder.fetch_all(pool).await {
+        Ok(rows) => rows,
+        Err(e) => {
+            // If agents table doesn't exist yet, return empty list
+            if e.to_string().contains("no such table") {
+                return Ok(Vec::new());
+            }
+            return Err(anyhow::anyhow!("Failed to query agents: {e}"));
+        }
+    };
 
     // Transform rows into AgentInfo, computing staleness
     let agents: Result<Vec<AgentInfo>, _> = rows
@@ -160,10 +166,16 @@ async fn get_agents(pool: &SqlitePool, args: &AgentsArgs) -> Result<Vec<AgentInf
 
 /// Get all active locks from the lock manager
 async fn get_locks(lock_mgr: &LockManager) -> Result<Vec<LockSummary>> {
-    let locks = lock_mgr
-        .get_all_locks()
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to query locks: {e}"))?;
+    let locks = match lock_mgr.get_all_locks().await {
+        Ok(locks) => locks,
+        Err(e) => {
+            // If locks table doesn't exist yet, return empty list
+            if e.to_string().contains("no such table") {
+                return Ok(Vec::new());
+            }
+            return Err(anyhow::anyhow!("Failed to query locks: {e}"));
+        }
+    };
 
     Ok(locks
         .into_iter()
