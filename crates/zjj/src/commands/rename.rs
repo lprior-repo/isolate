@@ -2,6 +2,8 @@
 //!
 //! Renames a session while preserving all state.
 
+use std::io::Write;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use zjj_core::{OutputFormat, SchemaEnvelope};
@@ -44,7 +46,7 @@ pub fn run(options: &RenameOptions) -> Result<()> {
     // Check old session exists
     let session = db
         .get_blocking(&options.old_name)?
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", options.old_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", &options.old_name))?;
 
     // Check new name doesn't exist
     if db.get_blocking(&options.new_name)?.is_some() {
@@ -53,15 +55,16 @@ pub fn run(options: &RenameOptions) -> Result<()> {
             old_name: options.old_name.clone(),
             new_name: options.new_name.clone(),
             dry_run: options.dry_run,
-            error: Some(format!("Session '{}' already exists", options.new_name)),
+            error: Some(format!("Session '{}' already exists", &options.new_name)),
         };
 
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("rename-response", "single", &result);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
+            let json_str = serde_json::to_string_pretty(&envelope)?;
+            writeln!(std::io::stdout(), "{json_str}")?;
             return Ok(());
         }
-        anyhow::bail!("Session '{}' already exists", options.new_name);
+        anyhow::bail!("Session '{}' already exists", &options.new_name);
     }
 
     if options.dry_run {
@@ -75,12 +78,14 @@ pub fn run(options: &RenameOptions) -> Result<()> {
 
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("rename-response", "single", &result);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
+            let json_str = serde_json::to_string_pretty(&envelope)?;
+            writeln!(std::io::stdout(), "{json_str}")?;
         } else {
-            println!(
+            writeln!(
+                std::io::stdout(),
                 "[dry-run] Would rename '{}' to '{}'",
-                options.old_name, options.new_name
-            );
+                &options.old_name, &options.new_name
+            )?;
         }
         return Ok(());
     }
@@ -128,7 +133,7 @@ pub fn run(options: &RenameOptions) -> Result<()> {
         let envelope = SchemaEnvelope::new("rename-response", "single", &result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
-        println!("✓ Renamed '{}' to '{}'", options.old_name, options.new_name);
+        writeln!(std::io::stdout(), "✓ Renamed '{}' to '{}'", &options.old_name, &options.new_name)?;
     }
 
     Ok(())

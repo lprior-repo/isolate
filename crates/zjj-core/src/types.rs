@@ -860,8 +860,8 @@ mod tests {
     #[test]
     fn test_session_json_schema() {
         let schema = Session::json_schema();
-        assert_eq!(schema["type"], "object");
-        assert_eq!(schema["title"], "Session");
-        assert!(schema["properties"].is_object());
+        assert_eq!(schema.get("type").and_then(|v| v.as_str()), Some("object"));
+        assert_eq!(schema.get("title").and_then(|v| v.as_str()), Some("Session"));
+        assert!(schema.get("properties").and_then(|v| v.as_object()).is_some());
     }
 }

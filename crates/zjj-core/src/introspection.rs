@@ -511,8 +511,12 @@ pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestN
         ));
     }
 
-    let prefix = parts[0];
-    let suffix = parts[1];
+    let prefix = parts.first().ok_or_else(|| Error::ValidationError(
+        "Pattern parts missing".into(),
+    ))?;
+    let suffix = parts.get(1).ok_or_else(|| Error::ValidationError(
+        "Pattern parts missing suffix".into(),
+    ))?;
 
     // Find all numbers used in matching names
     let mut used_numbers = Vec::new();
@@ -520,7 +524,10 @@ pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestN
 
     for name in existing_names {
         if name.starts_with(prefix) && name.ends_with(suffix) {
-            let num_part = &name[prefix.len()..name.len() - suffix.len()];
+            // Functional: safe substring extraction
+            let num_part = name
+                .get(prefix.len()..name.len().saturating_sub(suffix.len()))
+                .unwrap_or("");
             if let Ok(n) = num_part.parse::<usize>() {
                 used_numbers.push(n);
                 matching.push(name.clone());
@@ -1047,9 +1054,13 @@ mod tests {
 
         assert_eq!(add_introspection.command, "add");
         assert!(!add_introspection.arguments.is_empty());
-        assert_eq!(add_introspection.arguments[0].name, "name");
-        assert!(add_introspection.arguments[0].required);
-        let validation = &add_introspection.arguments[0].validation;
+
+        // Safe to unwrap after checking is_empty
+        #[allow(clippy::indexing_slicing)]
+        let first_arg = &add_introspection.arguments[0];
+        assert_eq!(first_arg.name, "name");
+        assert!(first_arg.required);
+        let validation = &first_arg.validation;
         assert!(validation.is_some());
         assert_eq!(validation.as_deref(), Some("^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"));
     }
@@ -1385,10 +1396,16 @@ mod tests {
             .collect();
 
         // Verify correct validation outcomes
-        assert!(results[0].1, "valid-name should pass");
-        assert!(results[1].1, "another_session should pass");
-        assert!(!results[2].1, "0invalid should fail");
-        assert!(!results[3].1, "empty should fail");
+        assert_eq!(results.len(), 4, "Expected 4 results");
+
+        // Safe to index after checking length
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(results[0].1, "valid-name should pass");
+            assert!(results[1].1, "another_session should pass");
+            assert!(!results[2].1, "0invalid should fail");
+            assert!(!results[3].1, "empty should fail");
+        }
 
         // Count valid names using functional filter
         let valid_count = results.iter().filter(|(_, is_valid)| *is_valid).count();

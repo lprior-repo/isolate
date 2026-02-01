@@ -1143,8 +1143,8 @@ mod tests {
             .add_link(HateoasLink::related("list", "zjj list"));
 
         assert_eq!(envelope.links.len(), 2);
-        assert_eq!(envelope.links[0].rel, "self");
-        assert_eq!(envelope.links[1].rel, "list");
+        assert_eq!(envelope.links.first().map(|l| &l.rel), Some(&"self".to_string()));
+        assert_eq!(envelope.links.get(1).map(|l| &l.rel), Some(&"list".to_string()));
     }
 
     #[test]
@@ -1165,9 +1165,7 @@ mod tests {
         let envelope = SchemaEnvelope::new("test-response", "single", data).with_related(related);
 
         assert!(envelope.related.is_some());
-        let r = envelope.related.as_ref();
-        assert!(r.is_some());
-        if let Some(rel) = r {
+        if let Some(rel) = envelope.related.as_ref() {
             assert_eq!(rel.sessions.len(), 1);
             assert_eq!(rel.beads.len(), 1);
         }
@@ -1242,15 +1240,34 @@ mod tests {
             })
             .with_meta(ResponseMeta::new("status test-session").with_duration(25));
 
-        let json = serde_json::to_string_pretty(&envelope)
-            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+        // Functional approach: Serialize → Parse → Validate structure
+        let result = serde_json::to_string_pretty(&envelope)
+            .map_err(|e| crate::Error::ParseError(e.to_string()))
+            .and_then(|json_str| {
+                // Parse JSON to verify structure (type-safe, not fragile string matching)
+                serde_json::from_str::<serde_json::Value>(&json_str)
+                    .map(|value| (json_str, value))
+                    .map_err(|e| crate::Error::ParseError(format!("Failed to parse JSON: {e}")))
+            });
 
-        assert!(json.contains("\"$schema\":"));
-        assert!(json.contains("\"_schema_version\":"));
-        assert!(json.contains("\"_links\":"));
-        assert!(json.contains("\"_related\":"));
-        assert!(json.contains("\"_meta\":"));
-        assert!(json.contains("\"name\":\"test-session\""));
+        let (json_str, parsed) = result?;
+
+        // Validate structure via parsed JSON (immutable, composable checks)
+        let checks = [
+            (parsed.get("$schema").is_some(), "$schema field missing"),
+            (parsed.get("_schema_version").is_some(), "_schema_version field missing"),
+            (parsed.get("_links").and_then(|v| v.as_array()).is_some(), "_links should be array"),
+            (parsed.get("_related").is_some(), "_related field missing"),
+            (parsed.get("_meta").is_some(), "_meta field missing"),
+            (parsed.get("name").and_then(|v| v.as_str()) == Some("test-session"),
+             "name field should be 'test-session'"),
+        ];
+
+        // Functional validation: all checks must pass (Railway pattern)
+        for (passed, msg) in &checks {
+            assert!(passed, "Schema validation failed: {msg}\n\nJSON:\n{json_str}");
+        }
+
         Ok(())
     }
 

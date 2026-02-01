@@ -161,11 +161,8 @@ impl FileWatcher {
 pub async fn query_beads_status(pool: &SqlitePool, workspace_path: &Path) -> Result<BeadsStatus> {
     let beads_db = workspace_path.join(".beads/beads.db");
 
+    // If beads database doesn't exist, it will be created when needed
     if !beads_db.exists() {
-        eprintln!(
-            "Warning: Beads database not found at {}. It will be created when needed.",
-            beads_db.display()
-        );
         return Ok(BeadsStatus::NoBeads);
     }
 

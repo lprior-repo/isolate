@@ -179,7 +179,9 @@ impl TypeContract {
         });
 
         if !self.examples.is_empty() {
-            schema["examples"] = serde_json::json!(self.examples);
+            if let Some(obj) = schema.as_object_mut() {
+                obj.insert("examples".to_string(), serde_json::json!(self.examples));
+            }
         }
 
         // Add field schemas
@@ -194,12 +196,14 @@ impl TypeContract {
             }
         }
 
-        if !properties.is_empty() {
-            schema["properties"] = serde_json::Value::Object(properties);
-        }
+        if let Some(obj) = schema.as_object_mut() {
+            if !properties.is_empty() {
+                obj.insert("properties".to_string(), serde_json::Value::Object(properties));
+            }
 
-        if !required.is_empty() {
-            schema["required"] = serde_json::json!(required);
+            if !required.is_empty() {
+                obj.insert("required".to_string(), serde_json::json!(required));
+            }
         }
 
         schema
@@ -225,49 +229,54 @@ impl FieldContract {
             "description": self.description,
         });
 
-        // Add type information
-        schema["type"] = match self.field_type.as_str() {
-            "u32" | "u64" | "i32" | "i64" | "usize" => serde_json::json!("integer"),
-            "bool" => serde_json::json!("boolean"),
-            "Vec<String>" => serde_json::json!("array"),
-            _ => serde_json::json!("string"), // "String" and unknown types default to string
-        };
+        // Add type information using safe object mutation
+        if let Some(obj) = schema.as_object_mut() {
+            obj.insert(
+                "type".to_string(),
+                match self.field_type.as_str() {
+                    "u32" | "u64" | "i32" | "i64" | "usize" => serde_json::json!("integer"),
+                    "bool" => serde_json::json!("boolean"),
+                    "Vec<String>" => serde_json::json!("array"),
+                    _ => serde_json::json!("string"), // "String" and unknown types default to string
+                },
+            );
 
-        // Add constraints
-        for constraint in &self.constraints {
-            match constraint {
-                Constraint::Regex { pattern, .. } => {
-                    schema["pattern"] = serde_json::json!(pattern);
-                }
-                Constraint::Range { min, max, .. } => {
-                    if let Some(min_val) = min {
-                        schema["minimum"] = serde_json::json!(min_val);
+            // Add constraints
+            for constraint in &self.constraints {
+                match constraint {
+                    Constraint::Regex { pattern, .. } => {
+                        obj.insert("pattern".to_string(), serde_json::json!(pattern));
                     }
-                    if let Some(max_val) = max {
-                        schema["maximum"] = serde_json::json!(max_val);
+                    Constraint::Range { min, max, .. } => {
+                        if let Some(min_val) = min {
+                            obj.insert("minimum".to_string(), serde_json::json!(min_val));
+                        }
+                        if let Some(max_val) = max {
+                            obj.insert("maximum".to_string(), serde_json::json!(max_val));
+                        }
                     }
-                }
-                Constraint::Length { min, max } => {
-                    if let Some(min_len) = min {
-                        schema["minLength"] = serde_json::json!(min_len);
+                    Constraint::Length { min, max } => {
+                        if let Some(min_len) = min {
+                            obj.insert("minLength".to_string(), serde_json::json!(min_len));
+                        }
+                        if let Some(max_len) = max {
+                            obj.insert("maxLength".to_string(), serde_json::json!(max_len));
+                        }
                     }
-                    if let Some(max_len) = max {
-                        schema["maxLength"] = serde_json::json!(max_len);
+                    Constraint::Enum { values } => {
+                        obj.insert("enum".to_string(), serde_json::json!(values));
                     }
+                    _ => {}
                 }
-                Constraint::Enum { values } => {
-                    schema["enum"] = serde_json::json!(values);
-                }
-                _ => {}
             }
-        }
 
-        if let Some(default) = &self.default {
-            schema["default"] = serde_json::json!(default);
-        }
+            if let Some(default) = &self.default {
+                obj.insert("default".to_string(), serde_json::json!(default));
+            }
 
-        if !self.examples.is_empty() {
-            schema["examples"] = serde_json::json!(self.examples);
+            if !self.examples.is_empty() {
+                obj.insert("examples".to_string(), serde_json::json!(self.examples));
+            }
         }
 
         schema
@@ -691,9 +700,13 @@ mod tests {
             .build();
 
         let schema = contract.to_json_schema();
-        assert_eq!(schema["type"], "object");
-        assert_eq!(schema["title"], "Session");
-        assert!(schema["properties"].is_object());
-        assert!(schema["required"].is_array());
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert_eq!(schema["type"], "object");
+            assert_eq!(schema["title"], "Session");
+            assert!(schema["properties"].is_object());
+            assert!(schema["required"].is_array());
+        }
     }
 }

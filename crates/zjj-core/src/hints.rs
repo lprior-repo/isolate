@@ -815,7 +815,11 @@ mod tests {
 
         let hints = generate_hints(&state).unwrap_or_default();
         assert!(!hints.is_empty());
-        assert!(hints[0].message.contains("first parallel workspace"));
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(hints[0].message.contains("first parallel workspace"));
+        }
     }
 
     #[test]
@@ -867,23 +871,35 @@ mod tests {
     fn test_hints_for_error_session_exists() {
         let hints = hints_for_error("SESSION_ALREADY_EXISTS", "Session 'test' already exists");
         assert_eq!(hints.len(), 3);
-        assert!(hints[0].message.contains("different name"));
-        assert!(hints[1].message.contains("Switch"));
-        assert!(hints[2].message.contains("Remove"));
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(hints[0].message.contains("different name"));
+            assert!(hints[1].message.contains("Switch"));
+            assert!(hints[2].message.contains("Remove"));
+        }
     }
 
     #[test]
     fn test_hints_for_error_zellij_not_running() {
         let hints = hints_for_error("ZELLIJ_NOT_RUNNING", "Zellij is not running");
         assert!(!hints.is_empty());
-        assert!(hints[0].message.contains("Start Zellij"));
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(hints[0].message.contains("Start Zellij"));
+        }
     }
 
     #[test]
     fn test_hints_for_error_not_initialized() {
         let hints = hints_for_error("NOT_INITIALIZED", "zjj not initialized");
         assert!(!hints.is_empty());
-        assert!(hints[0].message.contains("Initialize"));
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(hints[0].message.contains("Initialize"));
+        }
     }
 
     #[test]
@@ -896,7 +912,11 @@ mod tests {
 
         let actions = suggest_next_actions(&state);
         assert_eq!(actions.len(), 1);
-        assert_eq!(actions[0].action, "Initialize zjj");
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert_eq!(actions[0].action, "Initialize zjj");
+        }
     }
 
     #[test]

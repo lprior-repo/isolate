@@ -287,7 +287,8 @@ impl fmt::Display for Error {
             } => {
                 write!(
                     f,
-                    "Hook '{hook_type}' failed: {command}\nExit code: {exit_code:?}\nStderr: {stderr}"
+                    "Hook '{hook_type}' failed: {command}\nExit code: {}\nStderr: {stderr}",
+                    exit_code.map(|c| c.to_string()).unwrap_or_else(|| "None".to_string())
                 )
             }
             Self::HookExecutionFailed { command, source } => {
@@ -913,7 +914,11 @@ mod tests {
         let err = Error::ValidationError("invalid session name".into());
         let hints = err.validation_hints();
         assert!(!hints.is_empty());
-        assert!(hints[0].example.is_some());
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(hints[0].example.is_some());
+        }
     }
 
     #[test]
@@ -931,7 +936,11 @@ mod tests {
         };
         let hints = err.validation_hints();
         assert!(!hints.is_empty());
-        assert!(hints[0].received.is_some());
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(hints[0].received.is_some());
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1085,12 +1094,37 @@ mod tests {
     fn test_rich_error_serialization() {
         let err = Error::NotFound("test".into());
         let rich = RichError::from_error(&err);
-        let json = serde_json::to_string_pretty(&rich);
 
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
-        assert!(json_str.contains("\"code\":\"NOT_FOUND\""));
-        assert!(json_str.contains("\"fix_commands\":"));
+        // Functional approach: Serialize → Parse → Validate structure
+        let result = serde_json::to_string_pretty(&rich)
+            .and_then(|json_str| {
+                // Parse JSON to verify structure (not fragile string matching)
+                serde_json::from_str::<serde_json::Value>(&json_str)
+                    .map(|value| (json_str, value))
+            });
+
+        assert!(result.is_ok(), "JSON serialization should succeed");
+
+        // Extract result or fail test with error message
+        let Ok((json_str, parsed)) = result else {
+            // In tests, we don't need panic! - just return early after assertion
+            assert!(result.is_ok(), "Failed to serialize/parse RichError");
+            return;
+        };
+
+        // Validate structure via parsed JSON (type-safe, not string matching)
+        assert_eq!(
+            parsed.get("code").and_then(|v| v.as_str()),
+            Some("NOT_FOUND"),
+            "code field should be NOT_FOUND"
+        );
+        assert!(
+            parsed.get("fix_commands").and_then(|v| v.as_array()).is_some(),
+            "fix_commands field should be an array"
+        );
+
+        // Verify JSON is pretty-printed (has newlines)
+        assert!(json_str.contains('\n'), "JSON should be pretty-printed");
     }
 
     #[test]

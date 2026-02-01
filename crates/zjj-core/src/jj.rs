@@ -193,8 +193,12 @@ fn parse_workspace_list(output: &str) -> Result<Vec<WorkspaceInfo>> {
                 )));
             }
 
-            let name = parts[0].trim().to_string();
-            let rest = parts[1].trim();
+            let name = parts.first().ok_or_else(|| Error::ParseError(
+                "Missing workspace name in list output".to_string(),
+            ))?.trim().to_string();
+            let rest = parts.get(1).ok_or_else(|| Error::ParseError(
+                "Missing workspace path in list output".to_string(),
+            ))?.trim();
 
             let (path_str, is_stale) = rest
                 .strip_suffix("(stale)")
@@ -409,10 +413,15 @@ mod tests {
 
         let workspaces = result.unwrap_or_default();
         assert_eq!(workspaces.len(), 3);
-        assert_eq!(workspaces[0].name, "default");
-        assert!(!workspaces[0].is_stale);
-        assert_eq!(workspaces[2].name, "stale-ws");
-        assert!(workspaces[2].is_stale);
+
+        // Safe to index after checking length
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert_eq!(workspaces[0].name, "default");
+            assert!(!workspaces[0].is_stale);
+            assert_eq!(workspaces[2].name, "stale-ws");
+            assert!(workspaces[2].is_stale);
+        }
     }
 
     #[test]

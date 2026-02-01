@@ -219,42 +219,40 @@ pub async fn find_pending_restores(db: &SqlitePool) -> Result<Vec<String>> {
 mod tests {
     use super::*;
 
-    async fn test_pool() -> SqlitePool {
+    async fn test_pool() -> Result<SqlitePool> {
         let pool = SqlitePool::connect("sqlite::memory:")
             .await
-            .unwrap_or_else(|_e| {
-                // This is test-only code; in production we never unwrap.
-                // But we need a pool to test with.
-                std::process::exit(1);
-            });
+            .map_err(|e| Error::DatabaseError(format!("Failed to connect to test database: {e}")))?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
         // Ensure table exists - ignore error in test setup
         let _ = auto_cp.ensure_table().await;
-        pool
+        Ok(pool)
     }
 
     #[tokio::test]
-    async fn safe_operation_returns_none() {
-        let pool = test_pool().await;
+    async fn safe_operation_returns_none() -> Result<()> {
+        let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool);
         let guard = auto_cp.guard_if_risky(OperationRisk::Safe).await;
         assert!(guard.is_ok());
         assert!(guard.unwrap_or(None).is_none());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn risky_operation_returns_guard() {
-        let pool = test_pool().await;
+    async fn risky_operation_returns_guard() -> Result<()> {
+        let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool);
         let guard = auto_cp.guard_if_risky(OperationRisk::Risky).await;
         assert!(guard.is_ok());
         let guard = guard.unwrap_or(None);
         assert!(guard.is_some());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn committed_guard_state_is_committed() {
-        let pool = test_pool().await;
+    async fn committed_guard_state_is_committed() -> Result<()> {
+        let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
         let guard = auto_cp
             .guard_if_risky(OperationRisk::Risky)
@@ -272,11 +270,12 @@ mod tests {
                     .unwrap_or(None);
             assert_eq!(row.map(|(s,)| s), Some("committed".to_string()));
         }
+        Ok(())
     }
 
     #[tokio::test]
-    async fn dropped_guard_leaves_pending() {
-        let pool = test_pool().await;
+    async fn dropped_guard_leaves_pending() -> Result<()> {
+        let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
 
         let checkpoint_id;
@@ -293,11 +292,12 @@ mod tests {
             let pending = find_pending_restores(&pool).await.unwrap_or_default();
             assert!(pending.contains(&checkpoint_id));
         }
+        Ok(())
     }
 
     #[tokio::test]
-    async fn rollback_marks_needs_restore() {
-        let pool = test_pool().await;
+    async fn rollback_marks_needs_restore() -> Result<()> {
+        let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
         let guard = auto_cp
             .guard_if_risky(OperationRisk::Risky)
@@ -315,6 +315,7 @@ mod tests {
                     .unwrap_or(None);
             assert_eq!(row.map(|(s,)| s), Some("needs_restore".to_string()));
         }
+        Ok(())
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! Sync a session's workspace with main branch
 
-use std::{path::Path, time::SystemTime};
+use std::{io::Write, path::Path, time::SystemTime};
 
 use anyhow::{Context, Result};
 use zjj_core::{
@@ -56,12 +56,14 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
                     errors: Vec::new(),
                 };
                 let envelope = SchemaEnvelope::new("sync-response", "single", output);
-                println!("{}", serde_json::to_string(&envelope)?);
+                let json_str = serde_json::to_string(&envelope)?;
+                writeln!(std::io::stdout(), "{json_str}")?;
             } else {
-                println!("Synced session '{name}' with main");
-                println!();
-                println!("NEXT: Continue working, or if done:");
-                println!("  zjj done          # Merge to main + cleanup");
+                let mut stdout = std::io::stdout();
+                writeln!(stdout, "Synced session '{name}' with main")?;
+                writeln!(stdout)?;
+                writeln!(stdout, "NEXT: Continue working, or if done:")?;
+                writeln!(stdout, "  zjj done          # Merge to main + cleanup")?;
             }
             Ok(())
         }
@@ -85,9 +87,10 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
                     }],
                 };
                 let envelope = SchemaEnvelope::new("sync-response", "single", output);
-                println!("{}", serde_json::to_string(&envelope)?);
+                let json_str = serde_json::to_string(&envelope)?;
+                writeln!(std::io::stdout(), "{json_str}")?;
             } else {
-                println!("Error syncing session '{name}': {e}");
+                writeln!(std::io::stdout(), "Error syncing session '{name}': {e}")?;
             }
             Err(e)
         }
@@ -113,7 +116,7 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
             let envelope = SchemaEnvelope::new("sync-response", "single", output);
             println!("{}", serde_json::to_string(&envelope)?);
         } else {
-            println!("No sessions to sync");
+            writeln!(std::io::stdout(), "No sessions to sync")?;
         }
         return Ok(());
     }
@@ -154,25 +157,27 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                 .collect(),
         };
         let envelope = SchemaEnvelope::new("sync-response", "single", output);
-        println!("{}", serde_json::to_string(&envelope)?);
+        let json_str = serde_json::to_string(&envelope)?;
+        writeln!(std::io::stdout(), "{json_str}")?;
     } else {
         // Original text output
-        println!("Syncing {} session(s)...", sessions.len());
+        writeln!(std::io::stdout(), "Syncing {} session(s)...", sessions.len())?;
 
         // Use functional pattern: map to Results with side effects, partition into
         // successes/failures
         let (successes, errors): (Vec<_>, Vec<_>) = sessions
             .iter()
             .map(|session| {
-                print!("Syncing '{}' ... ", session.name);
+                write!(std::io::stdout(), "Syncing '{}' ... ", &session.name).ok();
+                std::io::stdout().flush().ok();
 
                 sync_session_internal(&db, &session.name, &session.workspace_path)
                     .map(|()| {
-                        println!("OK");
+                        writeln!(std::io::stdout(), "OK").ok();
                         session.name.clone()
                     })
                     .map_err(|e| {
-                        println!("FAILED: {e}");
+                        writeln!(std::io::stdout(), "FAILED: {e}").ok();
                         (session.name.clone(), e)
                     })
             })
@@ -181,17 +186,18 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
         let success_count = successes.len();
         let failure_count = errors.len();
 
-        println!();
-        println!("Summary: {success_count} succeeded, {failure_count} failed");
+        let mut stdout = std::io::stdout();
+        writeln!(stdout)?;
+        writeln!(stdout, "Summary: {success_count} succeeded, {failure_count} failed")?;
 
         if !errors.is_empty() {
-            println!("\nErrors:");
+            writeln!(stdout, "\nErrors:")?;
             errors
                 .into_iter()
                 .filter_map(Result::err)
-                .for_each(|(name, error)| {
-                    println!("  {name}: {error}");
-                });
+                .try_for_each(|(name, error)| {
+                    writeln!(stdout, "  {name}: {error}")
+                })?;
         }
     }
     Ok(())
