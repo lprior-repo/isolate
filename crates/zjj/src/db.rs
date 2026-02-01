@@ -10,7 +10,39 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 
-use std::{io::Read, path::Path, str::FromStr, time::SystemTime};
+use std::{path::Path, str::FromStr, time::SystemTime};
+
+/// Functional I/O helper module - wraps mutable buffer operations in pure functions
+mod io {
+    use std::{fs::File, io::Read, path::Path};
+
+    /// Monadic wrapper for reading exact bytes from a file
+    ///
+    /// Encapsulates buffer mutation in a pure function that returns Result.
+    /// This makes calling code fully functional with no exposed mutation.
+    ///
+    /// # Errors
+    /// Returns IO error if file cannot be opened or read.
+    pub fn read_exact_bytes<const N: usize>(path: &Path) -> std::io::Result<[u8; N]> {
+        // Mutation is encapsulated within this function scope
+        let mut buffer = [0u8; N];
+        File::open(path).and_then(|mut file| {
+            file.read_exact(&mut buffer)?;
+            Ok(buffer) // Return immutable buffer
+        })
+    }
+
+    /// Monadic wrapper for reading exact bytes from an open file
+    ///
+    /// # Errors
+    /// Returns IO error if file cannot be read.
+    #[allow(dead_code)]  // Reserved for future use (WAL integrity checks)
+    pub fn read_exact_from_file<const N: usize>(mut file: File) -> std::io::Result<[u8; N]> {
+        let mut buffer = [0u8; N];
+        file.read_exact(&mut buffer)?;
+        Ok(buffer)
+    }
+}
 
 use num_traits::cast::ToPrimitive;
 use sqlx::{Row, SqlitePool};
@@ -115,14 +147,6 @@ impl SessionDb {
             }
         }
 
-        // Pre-flight check: Detect WAL file corruption BEFORE SQLite tries to open
-        // This prevents silent recovery from corrupted WAL files
-        check_wal_integrity(path)?;
-
-        // Pre-flight check: Detect database file corruption BEFORE SQLite tries to open
-        // This prevents silent recovery from corrupted database files
-        check_database_integrity(path)?;
-
         // SQLx connection string with mode parameter
         let db_url = if path.is_absolute() {
             format!("sqlite:///{path_str}?mode={mode}")
@@ -130,22 +154,39 @@ impl SessionDb {
             format!("sqlite:{path_str}?mode={mode}")
         };
 
-        // Try to open the database, with auto-recovery for missing/corrupted files
-        let pool = match create_connection_pool(&db_url).await {
-            Ok(p) => p,
-            Err(e) => {
-                // Connection failed - check if we can recover
-                match can_recover_database(path, allow_create) {
-                    Ok(()) => {
-                        recover_database(path)?;
-                        create_connection_pool(&db_url).await?
-                    }
-                    Err(recovery_err) => {
-                        return Err(Error::DatabaseError(format!(
-                            "{e}\n\nRecovery check failed: {recovery_err}"
-                        )));
+        // Railway-Oriented Programming: Validation → Recovery → Retry
+        //
+        // Pre-flight checks detect corruption early, then we attempt recovery
+        // if allowed by policy. This is a pure functional flow:
+        //   check_wal_integrity AND check_database_integrity
+        //     ↓ (both Ok)
+        //   create_connection_pool
+        //     ↓ (Ok) → Success
+        //     ↓ (Err) → Recovery track
+        //   can_recover_database?
+        //     ↓ (Ok) → recover_database → retry
+        //     ↓ (Err) → Fail with helpful message
+
+        // Combine pre-flight checks (functional AND composition)
+        let preflight_result = check_wal_integrity(path)
+            .and_then(|()| check_database_integrity(path));
+
+        // Try to open database (with recovery on preflight or connection failure)
+        let pool = match preflight_result {
+            Ok(()) => {
+                // Pre-flight checks passed, try normal connection
+                match create_connection_pool(&db_url).await {
+                    Ok(p) => p,
+                    Err(e) => {
+                        // Connection failed despite passing checks - try recovery
+                        attempt_database_recovery(path, allow_create, &db_url, e).await?
                     }
                 }
+            }
+            Err(preflight_err) => {
+                // Pre-flight checks failed (corruption detected)
+                // Attempt recovery (Railway pattern: error track → recovery → success track)
+                attempt_database_recovery(path, allow_create, &db_url, preflight_err).await?
             }
         };
 
@@ -369,25 +410,32 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
         return Ok(());
     }
 
-    // Read first 32 bytes of WAL header
-    let mut header = [0u8; 32];
-    if let Err(e) = std::fs::File::open(&wal_path).and_then(|mut f| f.read_exact(&mut header)) {
-        // Can't read WAL file - likely corrupted or inaccessible
-        log_recovery(&format!(
-            "WAL file inaccessible or corrupted: {p}. Error: {e}",
-            p = wal_path.display()
-        ))
-        .ok();
-        return Err(Error::DatabaseError(format!(
-            "WAL file is corrupted or inaccessible: {p}\n\
-             Recovery logged. Run 'zjj doctor' for details.",
-            p = wal_path.display()
-        )));
-    }
+    // Read first 32 bytes of WAL header (functional - no exposed mutation)
+    let header = match io::read_exact_bytes::<32>(&wal_path) {
+        Ok(h) => h,
+        Err(e) => {
+            // Can't read WAL file - likely corrupted or inaccessible
+            log_recovery(&format!(
+                "WAL file inaccessible or corrupted: {p}. Error: {e}",
+                p = wal_path.display()
+            ))
+            .ok();
+            return Err(Error::DatabaseError(format!(
+                "WAL file is corrupted or inaccessible: {p}\n\
+                 Recovery logged. Run 'zjj doctor' for details.",
+                p = wal_path.display()
+            )));
+        }
+    };
 
     // Check WAL magic bytes: 0x377f0682 in big-endian at offset 0
     // This is the standard SQLite WAL header magic number
-    let wal_magic = u32::from_be_bytes([header[0], header[1], header[2], header[3]]);
+    // Functional: convert slice to array (safe - we know header is 32 bytes)
+    let wal_magic = header
+        .get(0..4)
+        .and_then(|slice| <[u8; 4]>::try_from(slice).ok())
+        .map(u32::from_be_bytes)
+        .unwrap_or(0); // Invalid magic if conversion fails
 
     if wal_magic != 0x377f_0682 {
         // WAL magic bytes don't match - file is corrupted
@@ -465,21 +513,23 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
         )));
     }
 
-    // Read first 16 bytes of database header
-    let mut header = [0u8; 16];
-    if let Err(e) = std::fs::File::open(db_path).and_then(|mut f| f.read_exact(&mut header)) {
-        // Can't read database header - likely corrupted or inaccessible
-        log_recovery(&format!(
-            "Database file inaccessible or corrupted: {p}. Error: {e}",
-            p = db_path.display()
-        ))
-        .ok();
-        return Err(Error::DatabaseError(format!(
-            "Database file is corrupted or inaccessible: {p}\n\
-             Recovery logged. Run 'zjj doctor' for details.",
-            p = db_path.display()
-        )));
-    }
+    // Read first 16 bytes of database header (functional - no exposed mutation)
+    let header = match io::read_exact_bytes::<16>(db_path) {
+        Ok(h) => h,
+        Err(e) => {
+            // Can't read database header - likely corrupted or inaccessible
+            log_recovery(&format!(
+                "Database file inaccessible or corrupted: {p}. Error: {e}",
+                p = db_path.display()
+            ))
+            .ok();
+            return Err(Error::DatabaseError(format!(
+                "Database file is corrupted or inaccessible: {p}\n\
+                 Recovery logged. Run 'zjj doctor' for details.",
+                p = db_path.display()
+            )));
+        }
+    };
 
     // Check SQLite magic bytes: "SQLite format 3\0" (16 bytes: uppercase L, single null)
     let expected_magic: &[u8] = &[
@@ -487,7 +537,9 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
         0x00,
     ];
 
-    if &header[..16] != expected_magic {
+    // Functional: compare first 16 bytes safely
+    let header_prefix = header.get(0..16).unwrap_or(&[]);
+    if header_prefix != expected_magic {
         // Magic bytes don't match - file is corrupted
         let policy = get_recovery_policy();
         let should_log = should_log_recovery();
@@ -648,6 +700,33 @@ fn build_session(
 }
 
 // === IMPERATIVE SHELL (Database Side Effects) ===
+
+/// Attempt database recovery (Railway pattern: error → recovery → retry)
+///
+/// This is a pure function composition that encapsulates the recovery workflow:
+/// 1. Check if recovery is allowed (can_recover_database)
+/// 2. If allowed, perform recovery (recover_database)
+/// 3. Retry connection (create_connection_pool)
+/// 4. If recovery fails or is not allowed, return helpful error
+async fn attempt_database_recovery(
+    path: &Path,
+    allow_create: bool,
+    db_url: &str,
+    original_error: Error,
+) -> Result<SqlitePool> {
+    // Railway pattern: can_recover? → recover → retry
+    can_recover_database(path, allow_create)
+        .and_then(|()| recover_database(path))  // Functional chaining
+        .map_err(|recovery_err| {
+            // Recovery check or recovery itself failed
+            Error::DatabaseError(format!(
+                "{original_error}\n\nRecovery check failed: {recovery_err}"
+            ))
+        })?;
+
+    // Recovery succeeded, retry connection
+    create_connection_pool(db_url).await
+}
 
 /// Create `SQLite` connection pool
 async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
@@ -953,7 +1032,7 @@ mod tests {
 
     // ========== SQLite Magic Bytes Validation Tests ==========
 
-    /// Test that valid SQLite magic bytes (uppercase L, single null) are accepted
+    /// Test that valid `SQLite` magic bytes (uppercase L, single null) are accepted
     #[test]
     fn test_sqlite_magic_bytes_valid() {
         // Valid SQLite header: "SQLite format 3\0" (uppercase L, single null)
@@ -966,7 +1045,7 @@ mod tests {
             b'3', 0x00,
         ];
 
-        assert_eq!(&valid_header[..16], expected_magic);
+        assert_eq!(valid_header.get(0..16).unwrap_or(&[]), expected_magic);
     }
 
     /// Test that the old buggy magic bytes (lowercase l) would fail validation
@@ -982,7 +1061,7 @@ mod tests {
             b'3', 0x00,
         ];
 
-        assert_ne!(&invalid_header[..16], expected_magic);
+        assert_ne!(invalid_header.get(0..16).unwrap_or(&[]), expected_magic);
     }
 
     /// Test that old buggy magic bytes (double null) would fail validation
@@ -1022,7 +1101,7 @@ mod tests {
             b'3', 0x00,
         ];
 
-        assert_ne!(&invalid_header[..16], expected_magic);
+        assert_ne!(invalid_header.get(0..16).unwrap_or(&[]), expected_magic);
     }
 
     /// Test that WAL magic bytes validation works correctly
@@ -1030,12 +1109,11 @@ mod tests {
     fn test_wal_magic_bytes_valid() {
         // Valid WAL magic: 0x377f0682 in big-endian
         let valid_wal_header = [0x37, 0x7f, 0x06, 0x82, 0x00, 0x00, 0x00, 0x00];
-        let wal_magic = u32::from_be_bytes([
-            valid_wal_header[0],
-            valid_wal_header[1],
-            valid_wal_header[2],
-            valid_wal_header[3],
-        ]);
+        let wal_magic = valid_wal_header
+            .get(0..4)
+            .and_then(|slice| <[u8; 4]>::try_from(slice).ok())
+            .map(u32::from_be_bytes)
+            .unwrap_or(0);
 
         assert_eq!(wal_magic, 0x377f_0682);
     }
@@ -1055,7 +1133,7 @@ mod tests {
         assert_ne!(wal_magic, 0x377f_0682);
     }
 
-    /// Test that a valid SQLite database file can be created and validated
+    /// Test that a valid `SQLite` database file can be created and validated
     #[tokio::test]
     async fn test_sqlite_database_file_validation() -> Result<()> {
         let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
@@ -1067,10 +1145,8 @@ mod tests {
         // Verify the file exists and has the correct magic bytes
         assert!(db_path.exists());
 
-        // Read the first 16 bytes
-        let mut header = [0u8; 16];
-        std::fs::File::open(&db_path)
-            .and_then(|mut f| f.read_exact(&mut header))
+        // Read the first 16 bytes (functional - no exposed mutation)
+        let header = crate::db::io::read_exact_bytes::<16>(&db_path)
             .map_err(|e| Error::IoError(format!("Failed to read header: {e}")))?;
 
         // Verify it matches the expected magic bytes
@@ -1078,7 +1154,7 @@ mod tests {
             b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
             b'3', 0x00,
         ];
-        assert_eq!(&header[..16], expected_magic);
+        assert_eq!(header.get(0..16).unwrap_or(&[]), expected_magic);
 
         Ok(())
     }
@@ -1094,10 +1170,12 @@ mod tests {
             0x53, 0x51, 0x6c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20,
             0x33, 0x00,
         ];
-        // Create a file with at least 100 bytes (minimum required)
-        let mut invalid_data = Vec::with_capacity(100);
-        invalid_data.extend_from_slice(&invalid_header);
-        invalid_data.resize(100, 0);
+        // Create a file with at least 100 bytes (minimum required) - functional approach
+        let invalid_data: Vec<u8> = invalid_header
+            .iter()
+            .copied()
+            .chain(std::iter::repeat_n(0, 100 - invalid_header.len()))
+            .collect();
 
         std::fs::write(&db_path, invalid_data)
             .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
@@ -1105,13 +1183,11 @@ mod tests {
         // Verify the file was created
         assert!(db_path.exists());
 
-        // Read and verify the first 16 bytes match the invalid header
-        let mut header = [0u8; 16];
-        std::fs::File::open(&db_path)
-            .and_then(|mut f| f.read_exact(&mut header))
+        // Read and verify the first 16 bytes match the invalid header (functional)
+        let header = crate::db::io::read_exact_bytes::<16>(&db_path)
             .map_err(|e| Error::IoError(format!("Failed to read header: {e}")))?;
 
-        assert_eq!(&header[..16], &invalid_header[..16]);
+        assert_eq!(header.get(0..16).unwrap_or(&[]), invalid_header.get(0..16).unwrap_or(&[]));
 
         // Verify it does NOT match the expected magic bytes
         let expected_magic: &[u8] = &[

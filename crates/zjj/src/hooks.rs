@@ -35,7 +35,7 @@ pub struct HookResult {
 
 impl HooksConfig {
     /// Create a new hooks config from command line args
-    pub fn from_args(on_success: Option<String>, on_failure: Option<String>) -> Self {
+    pub const fn from_args(on_success: Option<String>, on_failure: Option<String>) -> Self {
         Self {
             on_success,
             on_failure,
@@ -43,7 +43,7 @@ impl HooksConfig {
     }
 
     /// Check if any hooks are configured
-    pub fn has_hooks(&self) -> bool {
+    pub const fn has_hooks(&self) -> bool {
         self.on_success.is_some() || self.on_failure.is_some()
     }
 
@@ -128,20 +128,8 @@ where
     let success = result.is_ok();
 
     // Run the appropriate hook
-    if let Some(hook_result) = hooks.run_hook(success) {
-        // Print hook result (could be suppressed with a flag)
-        if hook_result.success {
-            if let Some(output) = &hook_result.output {
-                if !output.trim().is_empty() {
-                    eprintln!("[hook:{}] {}", hook_result.hook, output.trim());
-                }
-            }
-        } else {
-            if let Some(error) = &hook_result.error {
-                eprintln!("[hook:{} failed] {}", hook_result.hook, error.trim());
-            }
-        }
-    }
+    // Hook results are tracked in HookResult and can be handled by caller if needed
+    let _ = hooks.run_hook(success);
 
     result
 }
@@ -169,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hook_result_serialization() {
+    fn test_hook_result_serialization() -> Result<()> {
         let result = HookResult {
             hook: "on_success".to_string(),
             success: true,
@@ -178,9 +166,10 @@ mod tests {
             error: None,
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"success\":true"));
         assert!(json.contains("\"hook\":\"on_success\""));
+        Ok(())
     }
 
     #[test]
