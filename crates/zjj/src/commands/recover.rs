@@ -88,7 +88,7 @@ fn compute_status(issues: &[Issue]) -> String {
 
 /// Run the recover command
 pub fn run_recover(options: &RecoverOptions) -> Result<()> {
-    let issues = diagnose_issues()?;
+    let issues = diagnose_issues();
 
     // Apply fixes if not diagnose-only mode
     let issues = if options.diagnose_only {
@@ -120,7 +120,7 @@ pub fn run_recover(options: &RecoverOptions) -> Result<()> {
 }
 
 /// Diagnose issues
-fn diagnose_issues() -> Result<Vec<Issue>> {
+fn diagnose_issues() -> Vec<Issue> {
     let mut issues = Vec::new();
 
     // Check JJ
@@ -201,7 +201,7 @@ fn diagnose_issues() -> Result<Vec<Issue>> {
         }
     }
 
-    Ok(issues)
+    issues
 }
 
 /// Try to fix a single issue, returning updated issue
@@ -228,8 +228,8 @@ fn try_fix_issue(issue: Issue) -> Issue {
                 })
                 .unwrap_or(issue)
         }
-        // These require user intervention - cannot auto-fix
-        "DB_NOT_INITIALIZED" | "JJ_NOT_INSTALLED" | "ZELLIJ_NOT_INSTALLED" | _ => issue,
+        // All other issues require user intervention - cannot auto-fix
+        _ => issue,
     }
 }
 
@@ -329,6 +329,7 @@ pub fn save_last_command(command: &str, failed: bool) -> Result<()> {
 }
 
 /// Run the retry command
+#[allow(clippy::option_if_let_else)]
 pub fn run_retry(options: &RetryOptions) -> Result<()> {
     let path = get_last_command_path()?;
 
@@ -403,8 +404,6 @@ pub fn run_retry(options: &RetryOptions) -> Result<()> {
         let json_str =
             serde_json::to_string_pretty(&envelope).context("Failed to serialize retry output")?;
         println!("{json_str}");
-    } else if output.has_command {
-        println!("{}", output.message);
     } else {
         println!("{}", output.message);
     }
@@ -428,6 +427,7 @@ pub struct RollbackOutput {
 }
 
 /// Run the rollback command
+#[allow(clippy::too_many_lines)]
 pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
     // Check if session exists
     let db = get_session_db()?;
@@ -590,8 +590,8 @@ mod tests {
     #[test]
     fn test_diagnose_includes_jj_check() {
         // This test just ensures diagnose_issues doesn't panic
-        let result = diagnose_issues();
-        assert!(result.is_ok());
+        let _result = diagnose_issues();
+        // No assertion needed - if it doesn't panic, test passes
     }
 
     // ============================================================================
@@ -668,8 +668,7 @@ mod tests {
                         cmd.starts_with("cargo ")
                             || cmd.starts_with("zjj ")
                             || cmd.starts_with("jj "),
-                        "Fix command '{}' should use known tools",
-                        cmd
+                        "Fix command '{cmd}' should use known tools"
                     );
                 }
             }
@@ -826,7 +825,7 @@ mod tests {
             assert!(output.has_command);
             assert!(output.command.is_some());
             assert!(
-                output.command.as_ref().map_or(false, |c| c.contains("zjj")),
+                output.command.as_ref().is_some_and(|c| c.contains("zjj")),
                 "Command should contain 'zjj'"
             );
         }
@@ -930,7 +929,7 @@ mod tests {
             assert!(fix.starts_with("zjj "), "Fix should be zjj command");
         }
 
-        /// GIVEN: RecoverOutput is serialized
+        /// GIVEN: `RecoverOutput` is serialized
         /// WHEN: AI parses it
         /// THEN: Should have summary and list of issues
         #[test]

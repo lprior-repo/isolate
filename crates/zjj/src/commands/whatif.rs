@@ -230,6 +230,7 @@ fn preview_command(command: &str, args: &[String]) -> Result<WhatIfResult> {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn preview_add(args: &[String]) -> Result<WhatIfResult> {
     let name = args.first().map(String::as_str).unwrap_or("<name>");
 
@@ -335,6 +336,7 @@ fn preview_work(args: &[String]) -> Result<WhatIfResult> {
     Ok(result)
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn preview_remove(args: &[String]) -> Result<WhatIfResult> {
     let name = args.first().map(String::as_str).unwrap_or("<name>");
 
@@ -416,6 +418,7 @@ fn preview_remove(args: &[String]) -> Result<WhatIfResult> {
     })
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn preview_done(args: &[String]) -> Result<WhatIfResult> {
     let workspace = args.first().map(String::as_str).unwrap_or("<current>");
 
@@ -514,6 +517,7 @@ fn preview_done(args: &[String]) -> Result<WhatIfResult> {
     })
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn preview_abort(args: &[String]) -> Result<WhatIfResult> {
     let workspace = args.first().map(String::as_str).unwrap_or("<current>");
 
@@ -575,6 +579,7 @@ fn preview_abort(args: &[String]) -> Result<WhatIfResult> {
     })
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn preview_sync(args: &[String]) -> Result<WhatIfResult> {
     let target = args.first().map(String::as_str).unwrap_or("<current>");
 
@@ -616,6 +621,7 @@ fn preview_sync(args: &[String]) -> Result<WhatIfResult> {
     })
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn preview_spawn(args: &[String]) -> Result<WhatIfResult> {
     let bead_id = args.first().map(String::as_str).unwrap_or("<bead-id>");
 

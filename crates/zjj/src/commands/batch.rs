@@ -586,7 +586,7 @@ list
 
         /// GIVEN: Dry run mode
         /// WHEN: Result is created
-        /// THEN: dry_run=true and no side effects
+        /// THEN: `dry_run=true` and no side effects
         #[test]
         fn dry_run_is_indicated() {
             let result = BatchResult {
@@ -670,7 +670,7 @@ list
 
         /// GIVEN: Command was skipped
         /// WHEN: Result is created
-        /// THEN: status=skipped, duration_ms=None
+        /// THEN: `status=skipped`, `duration_ms=None`
         #[test]
         fn skipped_has_no_duration() {
             let result = CommandResult {
@@ -735,7 +735,7 @@ list
     mod json_output_behavior {
         use super::*;
 
-        /// GIVEN: BatchResult is serialized
+        /// GIVEN: `BatchResult` is serialized
         /// WHEN: AI parses it
         /// THEN: Should have summary and per-command results
         #[test]
@@ -774,7 +774,7 @@ list
             Ok(())
         }
 
-        /// GIVEN: CommandResult is serialized
+        /// GIVEN: `CommandResult` is serialized
         /// WHEN: AI parses it
         /// THEN: Should have enough info for debugging
         #[test]

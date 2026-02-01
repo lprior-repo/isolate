@@ -515,9 +515,8 @@ mod tests {
             name: "test".to_string(),
             path: "/path".to_string(),
         };
-        let cloned = location.clone();
         assert!(
-            matches!(cloned, Location::Workspace { name, path } if name == "test" && path == "/path")
+            matches!(location, Location::Workspace { name, path } if name == "test" && path == "/path")
         );
     }
 

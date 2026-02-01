@@ -48,22 +48,22 @@ impl CompletedPhases {
     }
 
     /// Check if any work needs rollback
-    pub const fn needs_rollback(&self) -> bool {
+    pub const fn needs_rollback(self) -> bool {
         self.workspace_created || self.bead_status_updated || self.agent_spawned
     }
 
     /// Check if workspace was created (needs abandon)
-    pub const fn has_workspace(&self) -> bool {
+    pub const fn has_workspace(self) -> bool {
         self.workspace_created
     }
 
     /// Check if bead status was updated (needs reset)
-    pub const fn has_bead_update(&self) -> bool {
+    pub const fn has_bead_update(self) -> bool {
         self.bead_status_updated
     }
 
     /// Check if agent was spawned (needs termination)
-    pub const fn has_agent(&self) -> bool {
+    pub const fn has_agent(self) -> bool {
         self.agent_spawned
     }
 }

@@ -598,6 +598,7 @@ fn check_stale_sessions() -> DoctorCheck {
 }
 
 /// Check for workflow violations that may confuse AI agents
+#[allow(clippy::manual_let_else)]
 fn check_workflow_violations() -> DoctorCheck {
     let db = match get_session_db() {
         Ok(db) => db,

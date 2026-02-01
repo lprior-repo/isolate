@@ -607,7 +607,7 @@ mod tests {
 
         /// GIVEN: Lock info
         /// WHEN: Created
-        /// THEN: Should have holder, resource, `acquired_at`, expires_at
+        /// THEN: Should have holder, resource, `acquired_at`, `expires_at`
         #[test]
         fn lock_has_all_required_fields() {
             let lock = LockInfo {

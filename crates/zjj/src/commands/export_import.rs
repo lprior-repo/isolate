@@ -263,7 +263,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_export_result_serialization() {
+    fn test_export_result_serialization() -> anyhow::Result<()> {
         let result = ExportResult {
             version: "1.0".to_string(),
             exported_at: "2025-01-01T00:00:00Z".to_string(),
@@ -271,13 +271,14 @@ mod tests {
             sessions: vec![],
         };
 
-        let json = serde_json::to_string(&result).expect("should serialize ExportResult");
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"version\":\"1.0\""));
         assert!(json.contains("\"count\":2"));
+        Ok(())
     }
 
     #[test]
-    fn test_exported_session_serialization() {
+    fn test_exported_session_serialization() -> anyhow::Result<()> {
         let session = ExportedSession {
             name: "test".to_string(),
             status: "active".to_string(),
@@ -289,13 +290,14 @@ mod tests {
             metadata: None,
         };
 
-        let json = serde_json::to_string(&session).expect("should serialize ExportedSession");
+        let json = serde_json::to_string(&session)?;
         assert!(json.contains("\"name\":\"test\""));
         assert!(json.contains("\"bead_id\":\"zjj-1234\""));
+        Ok(())
     }
 
     #[test]
-    fn test_import_result_serialization() {
+    fn test_import_result_serialization() -> anyhow::Result<()> {
         let result = ImportResult {
             success: true,
             imported: 2,
@@ -307,13 +309,14 @@ mod tests {
             skipped_sessions: vec!["s3".to_string()],
         };
 
-        let json = serde_json::to_string(&result).expect("should serialize ExportResult");
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"imported\":2"));
         assert!(json.contains("\"skipped\":1"));
+        Ok(())
     }
 
     #[test]
-    fn test_export_import_roundtrip() {
+    fn test_export_import_roundtrip() -> anyhow::Result<()> {
         let original = ExportResult {
             version: "1.0".to_string(),
             exported_at: "2025-01-01T00:00:00Z".to_string(),
@@ -330,10 +333,11 @@ mod tests {
             }],
         };
 
-        let json = serde_json::to_string(&original).expect("should serialize");
-        let parsed: ExportResult = serde_json::from_str(&json).expect("should deserialize");
+        let json = serde_json::to_string(&original)?;
+        let parsed: ExportResult = serde_json::from_str(&json)?;
 
         assert_eq!(parsed.count, original.count);
         assert_eq!(parsed.sessions.len(), original.sessions.len());
+        Ok(())
     }
 }

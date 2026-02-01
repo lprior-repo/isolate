@@ -143,7 +143,7 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
             };
 
             // Convert timestamp to human-readable format
-            let datetime = chrono::DateTime::from_timestamp(entry.timestamp as i64, 0).map_or_else(
+            let datetime = chrono::DateTime::from_timestamp(entry.timestamp.cast_signed(), 0).map_or_else(
                 || entry.timestamp.to_string(),
                 |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
             );
@@ -284,10 +284,7 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
 
 /// Get the last (most recent) undo entry
 fn get_last_undo_entry(history: &[UndoEntry]) -> Result<UndoEntry, UndoError> {
-    history
-        .first()
-        .cloned()
-        .ok_or(UndoError::NoUndoHistory)
+    history.first().cloned().ok_or(UndoError::NoUndoHistory)
 }
 
 /// Validate that undo is possible (not pushed to remote)
