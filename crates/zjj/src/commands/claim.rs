@@ -577,10 +577,7 @@ mod tests {
             assert!(!result.yielded, "Cannot yield others' lock");
             assert!(result.error.is_some(), "Should explain why");
             assert!(
-                result
-                    .error
-                    .as_ref()
-                    .is_some_and(|e| e.contains("not us")),
+                result.error.as_ref().is_some_and(|e| e.contains("not us")),
                 "Error should mention ownership issue"
             );
         }
@@ -717,8 +714,7 @@ mod tests {
                 error: None,
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             // Decision field
             assert!(json.get("claimed").is_some(), "Need claimed for decision");
@@ -744,12 +740,14 @@ mod tests {
                 error: Some("Resource locked by other-agent".to_string()),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             assert_eq!(json["claimed"].as_bool(), Some(false));
             assert!(json.get("error").is_some(), "Failed claims need error");
-            assert!(json["error"].as_str().ok_or("error not string")?.contains("other-agent"));
+            assert!(json["error"]
+                .as_str()
+                .ok_or("error not string")?
+                .contains("other-agent"));
             Ok(())
         }
 
@@ -765,8 +763,7 @@ mod tests {
                 error: None,
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&result)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&result)?)?;
 
             assert!(json.get("yielded").is_some());
             assert!(json["yielded"].is_boolean());

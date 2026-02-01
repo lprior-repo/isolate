@@ -84,7 +84,8 @@ pub fn run(options: &RenameOptions) -> Result<()> {
             writeln!(
                 std::io::stdout(),
                 "[dry-run] Would rename '{}' to '{}'",
-                &options.old_name, &options.new_name
+                &options.old_name,
+                &options.new_name
             )?;
         }
         return Ok(());
@@ -134,7 +135,12 @@ pub fn run(options: &RenameOptions) -> Result<()> {
         let json_str = serde_json::to_string_pretty(&envelope)?;
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
-        writeln!(std::io::stdout(), "✓ Renamed '{}' to '{}'", &options.old_name, &options.new_name)?;
+        writeln!(
+            std::io::stdout(),
+            "✓ Renamed '{}' to '{}'",
+            &options.old_name,
+            &options.new_name
+        )?;
     }
 
     Ok(())
@@ -145,7 +151,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_rename_result_serialization() {
+    fn test_rename_result_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let result = RenameResult {
             success: true,
             old_name: "old".to_string(),
@@ -154,14 +160,15 @@ mod tests {
             error: None,
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"success\":true"));
         assert!(json.contains("\"old_name\":\"old\""));
         assert!(json.contains("\"new_name\":\"new\""));
+        Ok(())
     }
 
     #[test]
-    fn test_rename_result_with_error() {
+    fn test_rename_result_with_error() -> Result<(), Box<dyn std::error::Error>> {
         let result = RenameResult {
             success: false,
             old_name: "old".to_string(),
@@ -170,8 +177,9 @@ mod tests {
             error: Some("Session exists".to_string()),
         };
 
-        let json = serde_json::to_string(&result).unwrap();
+        let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"success\":false"));
         assert!(json.contains("\"error\":"));
+        Ok(())
     }
 }

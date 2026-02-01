@@ -162,7 +162,11 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
         // Original text output
-        writeln!(std::io::stdout(), "Syncing {} session(s)...", sessions.len())?;
+        writeln!(
+            std::io::stdout(),
+            "Syncing {} session(s)...",
+            sessions.len()
+        )?;
 
         // Use functional pattern: map to Results with side effects, partition into
         // successes/failures
@@ -189,16 +193,17 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
 
         let mut stdout = std::io::stdout();
         writeln!(stdout)?;
-        writeln!(stdout, "Summary: {success_count} succeeded, {failure_count} failed")?;
+        writeln!(
+            stdout,
+            "Summary: {success_count} succeeded, {failure_count} failed"
+        )?;
 
         if !errors.is_empty() {
             writeln!(stdout, "\nErrors:")?;
             errors
                 .into_iter()
                 .filter_map(Result::err)
-                .try_for_each(|(name, error)| {
-                    writeln!(stdout, "  {name}: {error}")
-                })?;
+                .try_for_each(|(name, error)| writeln!(stdout, "  {name}: {error}"))?;
         }
     }
     Ok(())

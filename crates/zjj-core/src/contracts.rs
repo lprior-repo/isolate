@@ -198,7 +198,10 @@ impl TypeContract {
 
         if let Some(obj) = schema.as_object_mut() {
             if !properties.is_empty() {
-                obj.insert("properties".to_string(), serde_json::Value::Object(properties));
+                obj.insert(
+                    "properties".to_string(),
+                    serde_json::Value::Object(properties),
+                );
             }
 
             if !required.is_empty() {
@@ -237,7 +240,8 @@ impl FieldContract {
                     "u32" | "u64" | "i32" | "i64" | "usize" => serde_json::json!("integer"),
                     "bool" => serde_json::json!("boolean"),
                     "Vec<String>" => serde_json::json!("array"),
-                    _ => serde_json::json!("string"), // "String" and unknown types default to string
+                    _ => serde_json::json!("string"), /* "String" and unknown types default to
+                                                       * string */
                 },
             );
 

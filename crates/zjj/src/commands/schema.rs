@@ -511,11 +511,14 @@ mod tests {
     }
 
     #[test]
-    fn test_error_response_schema_valid() {
+    fn test_error_response_schema_valid() -> Result<(), Box<dyn std::error::Error>> {
         let schema = get_error_response_schema();
         assert!(schema.get("$schema").is_some());
-        let props = schema.get("properties").unwrap();
+        let props = schema
+            .get("properties")
+            .ok_or("properties field missing")?;
         assert!(props.get("error").is_some());
+        Ok(())
     }
 
     // ============================================================================
@@ -664,11 +667,13 @@ mod tests {
         /// WHEN: It declares required fields
         /// THEN: Those fields should be in properties
         #[test]
-        fn required_fields_are_in_properties() {
+        fn required_fields_are_in_properties() -> Result<(), Box<dyn std::error::Error>> {
             let schema = get_add_response_schema();
 
             if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
-                let properties = schema.get("properties").unwrap();
+                let properties = schema
+                    .get("properties")
+                    .ok_or("properties field missing")?;
 
                 for field in required {
                     if let Some(field_name) = field.as_str() {
@@ -680,6 +685,7 @@ mod tests {
                     }
                 }
             }
+            Ok(())
         }
 
         /// GIVEN: Error response schema
@@ -851,41 +857,42 @@ mod tests {
     mod json_output_behavior {
         use super::*;
 
-        /// GIVEN: SchemaListOutput is serialized
+        /// GIVEN: `SchemaListOutput` is serialized
         /// WHEN: AI parses it
         /// THEN: Should have list of schemas and base URL
         #[test]
-        fn schema_list_output_is_parseable() {
+        fn schema_list_output_is_parseable() -> Result<(), Box<dyn std::error::Error>> {
             let output = SchemaListOutput {
                 schemas: get_available_schemas(),
                 base_url: "https://zjj.dev/schemas".to_string(),
             };
 
             let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&output).unwrap()).unwrap();
+                serde_json::from_str(&serde_json::to_string(&output)?)?;
 
             assert!(json.get("schemas").is_some(), "Must have schemas array");
             assert!(json.get("base_url").is_some(), "Must have base_url");
             assert!(json["schemas"].is_array(), "schemas must be array");
+            Ok(())
         }
 
-        /// GIVEN: SchemaInfo is serialized
+        /// GIVEN: `SchemaInfo` is serialized
         /// WHEN: AI parses it
         /// THEN: Should have all metadata fields
         #[test]
-        fn schema_info_has_all_fields() {
+        fn schema_info_has_all_fields() -> Result<(), Box<dyn std::error::Error>> {
             let info = SchemaInfo {
                 name: "test-response".to_string(),
                 description: "Test schema".to_string(),
                 version: "1.0".to_string(),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&info).unwrap()).unwrap();
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&info)?)?;
 
             assert_eq!(json["name"].as_str(), Some("test-response"));
             assert_eq!(json["description"].as_str(), Some("Test schema"));
             assert_eq!(json["version"].as_str(), Some("1.0"));
+            Ok(())
         }
     }
 }

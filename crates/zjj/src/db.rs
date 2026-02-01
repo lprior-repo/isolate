@@ -36,7 +36,7 @@ mod io {
     ///
     /// # Errors
     /// Returns IO error if file cannot be read.
-    #[allow(dead_code)]  // Reserved for future use (WAL integrity checks)
+    #[allow(dead_code)] // Reserved for future use (WAL integrity checks)
     pub fn read_exact_from_file<const N: usize>(mut file: File) -> std::io::Result<[u8; N]> {
         let mut buffer = [0u8; N];
         file.read_exact(&mut buffer)?;
@@ -168,8 +168,8 @@ impl SessionDb {
         //     ↓ (Err) → Fail with helpful message
 
         // Combine pre-flight checks (functional AND composition)
-        let preflight_result = check_wal_integrity(path)
-            .and_then(|()| check_database_integrity(path));
+        let preflight_result =
+            check_wal_integrity(path).and_then(|()| check_database_integrity(path));
 
         // Try to open database (with recovery on preflight or connection failure)
         let pool = match preflight_result {
@@ -1187,7 +1187,10 @@ mod tests {
         let header = crate::db::io::read_exact_bytes::<16>(&db_path)
             .map_err(|e| Error::IoError(format!("Failed to read header: {e}")))?;
 
-        assert_eq!(header.get(0..16).unwrap_or(&[]), invalid_header.get(0..16).unwrap_or(&[]));
+        assert_eq!(
+            header.get(0..16).unwrap_or(&[]),
+            invalid_header.get(0..16).unwrap_or(&[])
+        );
 
         // Verify it does NOT match the expected magic bytes
         let expected_magic: &[u8] = &[

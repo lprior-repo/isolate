@@ -98,16 +98,14 @@ pub fn run(options: &WaitOptions) -> Result<()> {
 /// Check if a condition is met
 fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> {
     match condition {
-        WaitCondition::SessionExists(name) => {
-            get_session_db().ok().map_or_else(
-                || Ok((false, Some("db_unavailable".to_string()))),
-                |db| match db.get_blocking(name) {
-                    Ok(Some(session)) => Ok((true, Some(format!("status:{}", session.status)))),
-                    Ok(None) => Ok((false, Some("not_found".to_string()))),
-                    Err(_) => Ok((false, Some("error".to_string()))),
-                },
-            )
-        }
+        WaitCondition::SessionExists(name) => get_session_db().ok().map_or_else(
+            || Ok((false, Some("db_unavailable".to_string()))),
+            |db| match db.get_blocking(name) {
+                Ok(Some(session)) => Ok((true, Some(format!("status:{}", session.status)))),
+                Ok(None) => Ok((false, Some("not_found".to_string()))),
+                Err(_) => Ok((false, Some("error".to_string()))),
+            },
+        ),
 
         WaitCondition::SessionUnlocked(name) => {
             get_session_db()
@@ -132,10 +130,7 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
                         })
                         .ok()
                 })
-                .map_or_else(
-                    || Ok((false, Some("db_unavailable".to_string()))),
-                    Ok,
-                )
+                .map_or_else(|| Ok((false, Some("db_unavailable".to_string()))), Ok)
         }
 
         WaitCondition::Healthy => {
@@ -155,20 +150,18 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
             Ok((healthy, Some(state)))
         }
 
-        WaitCondition::SessionStatus { name, status } => {
-            get_session_db().ok().map_or_else(
-                || Ok((false, Some("db_unavailable".to_string()))),
-                |db| match db.get_blocking(name) {
-                    Ok(Some(session)) => {
-                        let current_status = session.status.to_string();
-                        let met = current_status == *status;
-                        Ok((met, Some(format!("status:{current_status}"))))
-                    }
-                    Ok(None) => Ok((false, Some("not_found".to_string()))),
-                    Err(_) => Ok((false, Some("error".to_string()))),
-                },
-            )
-        }
+        WaitCondition::SessionStatus { name, status } => get_session_db().ok().map_or_else(
+            || Ok((false, Some("db_unavailable".to_string()))),
+            |db| match db.get_blocking(name) {
+                Ok(Some(session)) => {
+                    let current_status = session.status.to_string();
+                    let met = current_status == *status;
+                    Ok((met, Some(format!("status:{current_status}"))))
+                }
+                Ok(None) => Ok((false, Some("not_found".to_string()))),
+                Err(_) => Ok((false, Some("error".to_string()))),
+            },
+        ),
     }
 }
 
@@ -539,8 +532,7 @@ mod tests {
                 final_state: Some("all:ok".to_string()),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&output)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&output)?)?;
 
             // All fields should be present
             assert!(json.get("success").is_some(), "Must have success");
@@ -570,8 +562,7 @@ mod tests {
                 final_state: Some("not_found".to_string()),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&output)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&output)?)?;
 
             // AI can determine the cause
             assert_eq!(json["success"].as_bool(), Some(false));

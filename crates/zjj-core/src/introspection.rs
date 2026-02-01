@@ -511,12 +511,12 @@ pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestN
         ));
     }
 
-    let prefix = parts.first().ok_or_else(|| Error::ValidationError(
-        "Pattern parts missing".into(),
-    ))?;
-    let suffix = parts.get(1).ok_or_else(|| Error::ValidationError(
-        "Pattern parts missing suffix".into(),
-    ))?;
+    let prefix = parts
+        .first()
+        .ok_or_else(|| Error::ValidationError("Pattern parts missing".into()))?;
+    let suffix = parts
+        .get(1)
+        .ok_or_else(|| Error::ValidationError("Pattern parts missing suffix".into()))?;
 
     // Find all numbers used in matching names
     let mut used_numbers = Vec::new();

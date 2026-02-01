@@ -220,9 +220,9 @@ mod tests {
     use super::*;
 
     async fn test_pool() -> Result<SqlitePool> {
-        let pool = SqlitePool::connect("sqlite::memory:")
-            .await
-            .map_err(|e| Error::DatabaseError(format!("Failed to connect to test database: {e}")))?;
+        let pool = SqlitePool::connect("sqlite::memory:").await.map_err(|e| {
+            Error::DatabaseError(format!("Failed to connect to test database: {e}"))
+        })?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
         // Ensure table exists - ignore error in test setup
         let _ = auto_cp.ensure_table().await;

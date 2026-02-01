@@ -333,8 +333,7 @@ pub fn _log_event(
         .map_err(|e| anyhow::anyhow!("Failed to open events file: {e}"))?;
 
     // Write event
-    writeln!(file, "{event_json}")
-        .map_err(|e| anyhow::anyhow!("Failed to write event: {e}"))?;
+    writeln!(file, "{event_json}").map_err(|e| anyhow::anyhow!("Failed to write event: {e}"))?;
 
     Ok(())
 }
@@ -716,8 +715,7 @@ mod tests {
                 message: "Created".to_string(),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&event)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&event)?)?;
 
             // Required fields
             assert!(json.get("id").is_some(), "Must have id");
@@ -751,8 +749,7 @@ mod tests {
                 cursor: Some("next-page".to_string()),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&response)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&response)?)?;
 
             // Pagination fields
             assert!(json.get("total").is_some());
@@ -780,10 +777,11 @@ mod tests {
                 message: "Changed".to_string(),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&event)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&event)?)?;
 
-            let event_type = json["event_type"].as_str().ok_or("event_type is not a string")?;
+            let event_type = json["event_type"]
+                .as_str()
+                .ok_or("event_type is not a string")?;
             assert_eq!(event_type, event_type.to_lowercase());
             assert!(event_type.contains('_'), "Should be snake_case");
             Ok(())

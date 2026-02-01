@@ -840,9 +840,7 @@ mod tests {
             let output = NextActionOutput {
                 action: "Check existing sessions".to_string(),
                 command: "zjj list --json".to_string(),
-                reason: format!(
-                    "{active_count} active session(s) exist - review or continue work"
-                ),
+                reason: format!("{active_count} active session(s) exist - review or continue work"),
                 priority: "medium".to_string(),
             };
 
@@ -1143,8 +1141,7 @@ mod tests {
                 next_command: "zjj work".to_string(),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&status)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&status)?)?;
 
             // Required fields
             assert!(json.get("location").is_some(), "Must have location");
@@ -1183,8 +1180,7 @@ mod tests {
                 priority: "medium".to_string(),
             };
 
-            let json: serde_json::Value =
-                serde_json::from_str(&serde_json::to_string(&action)?)?;
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&action)?)?;
 
             // Action must be descriptive
             if let Some(action_str) = json["action"].as_str() {

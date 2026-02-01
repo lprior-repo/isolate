@@ -184,7 +184,10 @@ mod tests {
         registry.register("agent-1").await?;
 
         let before = registry.get_active().await?;
-        let before_ts = before.first().ok_or_else(|| Error::NotFound("No agents found".to_string()))?.last_seen;
+        let before_ts = before
+            .first()
+            .ok_or_else(|| Error::NotFound("No agents found".to_string()))?
+            .last_seen;
 
         // Small delay to ensure timestamp differs
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -192,7 +195,10 @@ mod tests {
         registry.heartbeat("agent-1").await?;
 
         let after = registry.get_active().await?;
-        let after_ts = after.first().ok_or_else(|| Error::NotFound("No agents found".to_string()))?.last_seen;
+        let after_ts = after
+            .first()
+            .ok_or_else(|| Error::NotFound("No agents found".to_string()))?
+            .last_seen;
         assert!(after_ts >= before_ts);
         Ok(())
     }

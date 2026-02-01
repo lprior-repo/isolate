@@ -193,12 +193,19 @@ fn parse_workspace_list(output: &str) -> Result<Vec<WorkspaceInfo>> {
                 )));
             }
 
-            let name = parts.first().ok_or_else(|| Error::ParseError(
-                "Missing workspace name in list output".to_string(),
-            ))?.trim().to_string();
-            let rest = parts.get(1).ok_or_else(|| Error::ParseError(
-                "Missing workspace path in list output".to_string(),
-            ))?.trim();
+            let name = parts
+                .first()
+                .ok_or_else(|| {
+                    Error::ParseError("Missing workspace name in list output".to_string())
+                })?
+                .trim()
+                .to_string();
+            let rest = parts
+                .get(1)
+                .ok_or_else(|| {
+                    Error::ParseError("Missing workspace path in list output".to_string())
+                })?
+                .trim();
 
             let (path_str, is_stale) = rest
                 .strip_suffix("(stale)")

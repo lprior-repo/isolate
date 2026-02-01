@@ -239,7 +239,9 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
-            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            let first = results
+                .first()
+                .ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
             assert!(first.success);
             assert!(first.stdout.contains("Hello"));
         } else {
@@ -265,10 +267,14 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 2);
-            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            let first = results
+                .first()
+                .ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
             assert!(first.success);
             assert!(first.stdout.contains('A'));
-            let second = results.get(1).ok_or_else(|| Error::InvalidConfig("Expected at least two results".to_string()))?;
+            let second = results
+                .get(1)
+                .ok_or_else(|| Error::InvalidConfig("Expected at least two results".to_string()))?;
             assert!(second.success);
             assert!(second.stdout.contains('B'));
         } else {
@@ -355,7 +361,9 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
-            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            let first = results
+                .first()
+                .ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
             assert!(first.success);
             let output = first.stdout.trim();
             let expected = workspace.path().to_string_lossy();
@@ -383,7 +391,9 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
-            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            let first = results
+                .first()
+                .ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
             assert!(first.success);
             assert!(first.stderr.contains("error"));
         } else {
@@ -414,7 +424,9 @@ mod tests {
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
-            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            let first = results
+                .first()
+                .ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
             assert!(first.success);
             let output = first.stdout.trim();
             assert!(output.ends_with("subdir"));
@@ -440,7 +452,9 @@ mod tests {
         // Test post_create
         let result = runner.run(HookType::PostCreate, workspace.path())?;
         if let HookResult::Success(results) = result {
-            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            let first = results
+                .first()
+                .ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
             assert!(first.stdout.contains("post_create"));
         } else {
             return Err(Error::InvalidConfig(
@@ -451,7 +465,9 @@ mod tests {
         // Test pre_remove
         let result = runner.run(HookType::PreRemove, workspace.path())?;
         if let HookResult::Success(results) = result {
-            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            let first = results
+                .first()
+                .ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
             assert!(first.stdout.contains("pre_remove"));
         } else {
             return Err(Error::InvalidConfig(
@@ -462,7 +478,9 @@ mod tests {
         // Test post_merge
         let result = runner.run(HookType::PostMerge, workspace.path())?;
         if let HookResult::Success(results) = result {
-            let first = results.first().ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
+            let first = results
+                .first()
+                .ok_or_else(|| Error::InvalidConfig("Expected at least one result".to_string()))?;
             assert!(first.stdout.contains("post_merge"));
         } else {
             return Err(Error::InvalidConfig(
