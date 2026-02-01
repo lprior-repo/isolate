@@ -116,6 +116,7 @@ pub fn run(options: &WorkOptions) -> Result<()> {
     // Create the session using add command infrastructure
     let add_options = add::AddOptions {
         name: options.name.clone(),
+        bead_id: None,
         no_hooks: false,
         template: None,
         no_open: options.no_zellij,
