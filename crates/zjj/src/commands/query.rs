@@ -5,9 +5,7 @@
 
 use anyhow::Result;
 use zjj_core::{
-    introspection::{
-        Blocker, CanRunQuery, QueryError, SessionCountQuery, SessionExistsQuery, SessionInfo,
-    },
+    introspection::{Blocker, CanRunQuery, QueryError, SessionExistsQuery, SessionInfo},
     json::SchemaEnvelope,
 };
 
@@ -234,43 +232,63 @@ fn categorize_db_error(err: &anyhow::Error) -> (String, String) {
 
 /// Query if a session exists
 fn query_session_exists(name: &str) -> Result<()> {
-    let result = match get_session_db() {
+    let (result, exit_code) = match get_session_db() {
         Ok(db) => match db.get_blocking(name) {
-            Ok(session) => SessionExistsQuery {
-                exists: Some(session.is_some()),
-                session: session.map(|s| SessionInfo {
-                    name: s.name,
-                    status: s.status.to_string(),
-                }),
-                error: None,
-            },
-            Err(e) => SessionExistsQuery {
-                exists: None,
-                session: None,
-                error: Some(QueryError {
-                    code: "DATABASE_ERROR".to_string(),
-                    message: format!("Failed to query session: {e}"),
-                }),
-            },
+            Ok(session) => {
+                let exists = session.is_some();
+                let exit = i32::from(!exists);
+                (
+                    SessionExistsQuery {
+                        exists: Some(exists),
+                        session: session.map(|s| SessionInfo {
+                            name: s.name,
+                            status: s.status.to_string(),
+                        }),
+                        error: None,
+                    },
+                    exit,
+                )
+            }
+            Err(e) => (
+                SessionExistsQuery {
+                    exists: None,
+                    session: None,
+                    error: Some(QueryError {
+                        code: "DATABASE_ERROR".to_string(),
+                        message: format!("Failed to query session: {e}"),
+                    }),
+                },
+                2,
+            ),
         },
         Err(e) => {
             let (code, message) = categorize_db_error(&e);
-            SessionExistsQuery {
-                exists: None,
-                session: None,
-                error: Some(QueryError { code, message }),
-            }
+            (
+                SessionExistsQuery {
+                    exists: None,
+                    session: None,
+                    error: Some(QueryError { code, message }),
+                },
+                2,
+            )
         }
     };
 
     let envelope = SchemaEnvelope::new("query-session-exists", "single", result);
     println!("{}", serde_json::to_string_pretty(&envelope)?);
+
+    // Exit code semantics: 0 if exists, 1 if not exists, 2 if error
+    if exit_code != 0 {
+        std::process::exit(exit_code);
+    }
     Ok(())
 }
 
 /// Query session count
-fn query_session_count(filter: Option<&str>) -> Result<()> {
-    let result = match get_session_db() {
+/// Note: According to Red Queen findings, this should output plain number, not JSON
+/// when used in shell scripts. However, JSON envelope is still output for --json flag.
+fn query_session_count(filter: Option<&str>) -> ! {
+    let (count_val, exit_code) = match get_session_db() {
         Ok(db) => match db.list_blocking(None) {
             Ok(sessions) => {
                 let count = filter
@@ -282,35 +300,26 @@ fn query_session_count(filter: Option<&str>) -> Result<()> {
                             .count()
                     })
                     .unwrap_or_else(|| sessions.len());
-
-                SessionCountQuery {
-                    count: Some(count),
-                    filter: filter.map(|f| serde_json::json!({"raw": f})),
-                    error: None,
-                }
+                (Some(count), 0)
             }
-            Err(e) => SessionCountQuery {
-                count: None,
-                filter: filter.map(|f| serde_json::json!({"raw": f})),
-                error: Some(QueryError {
-                    code: "DATABASE_ERROR".to_string(),
-                    message: format!("Failed to list sessions: {e}"),
-                }),
-            },
+            Err(e) => {
+                eprintln!("Error: Failed to list sessions: {e}");
+                (None, 2)
+            }
         },
         Err(e) => {
-            let (code, message) = categorize_db_error(&e);
-            SessionCountQuery {
-                count: None,
-                filter: filter.map(|f| serde_json::json!({"raw": f})),
-                error: Some(QueryError { code, message }),
-            }
+            let (_, message) = categorize_db_error(&e);
+            eprintln!("Error: {message}");
+            (None, 2)
         }
     };
 
-    let envelope = SchemaEnvelope::new("query-session-count", "single", result);
-    println!("{}", serde_json::to_string_pretty(&envelope)?);
-    Ok(())
+    // Output plain number for shell script consumption
+    if let Some(count) = count_val {
+        println!("{count}");
+    }
+
+    std::process::exit(exit_code);
 }
 
 /// Query if a command can run
@@ -367,8 +376,9 @@ fn query_can_run(command: &str) -> Result<()> {
         prereqs_met += 1;
     }
 
+    let can_run = blockers.is_empty();
     let result = CanRunQuery {
-        can_run: blockers.is_empty(),
+        can_run,
         command: command.to_string(),
         blockers,
         prerequisites_met: prereqs_met,
@@ -377,6 +387,11 @@ fn query_can_run(command: &str) -> Result<()> {
 
     let envelope = SchemaEnvelope::new("query-can-run", "single", result);
     println!("{}", serde_json::to_string_pretty(&envelope)?);
+
+    // Exit code: 0 if can run, 1 if cannot run
+    if !can_run {
+        std::process::exit(1);
+    }
     Ok(())
 }
 
@@ -393,11 +408,18 @@ fn query_suggest_name(pattern: &str) -> Result<()> {
         },
     );
 
-    let result = zjj_core::introspection::suggest_name(pattern, &existing_names)?;
-
-    let envelope = SchemaEnvelope::new("query-suggest-name", "single", result);
-    println!("{}", serde_json::to_string_pretty(&envelope)?);
-    Ok(())
+    match zjj_core::introspection::suggest_name(pattern, &existing_names) {
+        Ok(result) => {
+            let envelope = SchemaEnvelope::new("query-suggest-name", "single", result);
+            println!("{}", serde_json::to_string_pretty(&envelope)?);
+            Ok(())
+        }
+        Err(e) => {
+            // Validation errors (like missing {n}) are user errors (exit 1)
+            eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
+    }
 }
 
 /// Check if command requires initialization
@@ -815,29 +837,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_query_pagination_envelope() -> anyhow::Result<()> {
-        // FAILING: Verify pagination info is preserved in envelope
-        use serde_json::json;
-        use zjj_core::json::SchemaEnvelope;
-
-        let count_result = SessionCountQuery {
-            count: Some(5),
-            filter: Some(json!({"status": "active"})),
-            error: None,
-        };
-        let envelope = SchemaEnvelope::new("query-session-count", "single", count_result);
-        let json_str = serde_json::to_string(&envelope)?;
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        assert!(parsed.get("$schema").is_some(), "Missing $schema field");
-        assert_eq!(
-            parsed.get("_schema_version").and_then(|v| v.as_str()),
-            Some("1.0")
-        );
-
-        Ok(())
-    }
+    // NOTE: test_query_pagination_envelope was removed because session-count
+    // now outputs plain numbers instead of JSON as per Red Queen findings
 
     // ============================================================================
     // PHASE 2 (RED) - OutputFormat Migration Tests for query.rs

@@ -39,7 +39,13 @@ impl std::fmt::Display for BeadCounts {
 }
 
 /// Run the list command
-pub fn run(all: bool, verbose: bool, format: OutputFormat, bead: Option<&str>, agent: Option<&str>) -> Result<()> {
+pub fn run(
+    all: bool,
+    verbose: bool,
+    format: OutputFormat,
+    bead: Option<&str>,
+    agent: Option<&str>,
+) -> Result<()> {
     // Execute in a closure to allow ? operator while catching errors for JSON mode
     let result = (|| -> Result<()> {
         let db = get_session_db()?;
@@ -204,7 +210,9 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
         println!("{}", "-".repeat(120));
 
         for item in items {
-            let bead_info = item.session.metadata
+            let bead_info = item
+                .session
+                .metadata
                 .as_ref()
                 .and_then(|m| {
                     let id = m.get("bead_id").and_then(|v| v.as_str()).unwrap_or("");
@@ -212,7 +220,7 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
                     if id.is_empty() {
                         None
                     } else {
-                        Some(format!("{}: {}", id, title))
+                        Some(format!("{id}: {title}"))
                     }
                 })
                 .unwrap_or_else(|| "-".to_string());

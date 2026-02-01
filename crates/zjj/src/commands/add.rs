@@ -64,7 +64,7 @@ pub fn run(name: &str) -> Result<()> {
 
 /// Query bead metadata from .beads/beads.db
 ///
-/// Returns JSON metadata with bead_id, title, and status information.
+/// Returns JSON metadata with `bead_id`, title, and status information.
 /// Returns empty JSON object if bead not found or database doesn't exist.
 fn query_bead_metadata(bead_id: &str) -> Result<serde_json::Value> {
     let beads_db = Path::new(".beads/beads.db");
@@ -72,8 +72,7 @@ fn query_bead_metadata(bead_id: &str) -> Result<serde_json::Value> {
         return Ok(serde_json::json!({}));
     }
 
-    let rt = tokio::runtime::Runtime::new()
-        .context("Failed to create async runtime")?;
+    let rt = tokio::runtime::Runtime::new().context("Failed to create async runtime")?;
 
     rt.block_on(async {
         let connection_string = format!("sqlite:{}", beads_db.display());
@@ -81,13 +80,11 @@ fn query_bead_metadata(bead_id: &str) -> Result<serde_json::Value> {
             .await
             .context("Failed to connect to beads database")?;
 
-        let result: Option<(String,)> = sqlx::query_as(
-            "SELECT title FROM issues WHERE id = ?1"
-        )
-        .bind(bead_id)
-        .fetch_optional(&pool)
-        .await
-        .context("Failed to query bead from database")?;
+        let result: Option<(String,)> = sqlx::query_as("SELECT title FROM issues WHERE id = ?1")
+            .bind(bead_id)
+            .fetch_optional(&pool)
+            .await
+            .context("Failed to query bead from database")?;
 
         let title = result.map(|r| r.0).unwrap_or_else(|| "Unknown".to_string());
 
@@ -145,10 +142,13 @@ fn atomic_create_session(
 
     // Update session with bead metadata if provided
     if let Some(metadata) = bead_metadata {
-        db.update_blocking(name, SessionUpdate {
-            metadata: Some(metadata),
-            ..Default::default()
-        })
+        db.update_blocking(
+            name,
+            SessionUpdate {
+                metadata: Some(metadata),
+                ..Default::default()
+            },
+        )
         .context("Failed to update session metadata")?;
     }
 
@@ -242,7 +242,8 @@ pub fn run_internal(options: &AddOptions) -> Result<()> {
     let root = check_prerequisites()?;
 
     // Query bead metadata if bead_id provided
-    let bead_metadata = options.bead_id
+    let bead_metadata = options
+        .bead_id
         .as_ref()
         .map(|bead_id| query_bead_metadata(bead_id))
         .transpose()?;
@@ -296,7 +297,8 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     let root = check_prerequisites()?;
 
     // Query bead metadata if bead_id provided
-    let bead_metadata = options.bead_id
+    let bead_metadata = options
+        .bead_id
         .as_ref()
         .map(|bead_id| query_bead_metadata(bead_id))
         .transpose()?;

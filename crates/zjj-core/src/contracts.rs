@@ -270,7 +270,10 @@ impl FieldContract {
                     Constraint::Enum { values } => {
                         obj.insert("enum".to_string(), serde_json::json!(values));
                     }
-                    _ => {}
+                    Constraint::PathExists { .. }
+                    | Constraint::PathAbsolute
+                    | Constraint::Unique
+                    | Constraint::Custom { .. } => {}
                 }
             }
 
@@ -342,7 +345,11 @@ impl Constraint {
                     )));
                 }
             }
-            _ => {}
+            Self::Range { .. }
+            | Self::PathExists { .. }
+            | Self::PathAbsolute
+            | Self::Unique
+            | Self::Custom { .. } => {}
         }
         Ok(())
     }
@@ -410,7 +417,12 @@ impl Constraint {
                     )));
                 }
             }
-            _ => {}
+            Self::Regex { .. }
+            | Self::Range { .. }
+            | Self::Length { .. }
+            | Self::Enum { .. }
+            | Self::Unique
+            | Self::Custom { .. } => {}
         }
         Ok(())
     }
