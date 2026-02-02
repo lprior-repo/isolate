@@ -2,6 +2,8 @@
 
 pub mod abort;
 pub mod add;
+#[cfg(test)]
+mod add_behavior_tests;
 pub mod agents;
 pub mod ai;
 pub mod attach;
@@ -36,10 +38,6 @@ pub mod session_mgmt;
 pub mod spawn;
 #[cfg(test)]
 mod spawn_behavior_tests;
-#[cfg(test)]
-mod add_behavior_tests;
-#[cfg(test)]
-mod done_behavior_tests;
 pub mod status;
 pub mod switch;
 pub mod sync;
