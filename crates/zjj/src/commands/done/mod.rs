@@ -11,7 +11,12 @@
 //! 8. Keeps workspace for 24h (unless --no-keep specified)
 //! 9. Switches back to main
 
+pub mod bead;
+pub mod executor;
+pub mod filesystem;
+pub mod newtypes;
 pub mod types;
+pub mod validation;
 
 use std::{
     fs,
