@@ -272,8 +272,8 @@ const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
         ErrorCode::ConfigNotFound => Some("Run 'zjj init' to create default configuration"),
         ErrorCode::HookFailed => Some("Check hook scripts in .zjj/hooks/, or use --no-hooks to skip"),
         ErrorCode::SpawnNotOnMain => Some("Switch to main branch: jj checkout main"),
-        ErrorCode::SpawnInvalidBeadStatus => Some("Check bead status with: bd show <bead-id>"),
-        ErrorCode::SpawnBeadNotFound => Some("List available beads with: bd ready"),
+        ErrorCode::SpawnInvalidBeadStatus => Some("Check bead status with: br show <bead-id>"),
+        ErrorCode::SpawnBeadNotFound => Some("List available beads with: br ready"),
         ErrorCode::SpawnWorkspaceCreationFailed => {
             Some("Check disk space and permissions, or run: zjj doctor")
         }
@@ -287,7 +287,7 @@ const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
             Some("Resolve conflicts manually in workspace, or use: jj abandon")
         }
         ErrorCode::SpawnCleanupFailed => Some("Manually clean workspace: rm -rf .zjj/workspaces/<bead-id>"),
-        ErrorCode::SpawnDatabaseError => Some("Run: bd sync or zjj doctor --fix"),
+        ErrorCode::SpawnDatabaseError => Some("Run: br sync or zjj doctor --fix"),
         ErrorCode::SpawnJjCommandFailed => {
             Some("Check JJ is working: jj status, or run: zjj doctor")
         }

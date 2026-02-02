@@ -62,12 +62,12 @@ cargo test         # ❌ Wrong
 ### Starting Work
 
 ```bash
-bd claim <issue>   # Claim issue
+br claim <issue>   # Claim issue
 # Make changes
 moon run :test     # Test locally
 jj describe -m "feat: description"  # Commit
 jj git push        # Push
-bd complete <id>   # Close issue
+br complete <id>   # Close issue
 ```
 
 ## Error Handling at a Glance
@@ -116,10 +116,10 @@ cargo build --dev
 
 ```bash
 # View issues
-bd list
+br list
 
 # Claim an issue
-bd claim BD-123
+br claim BD-123
 
 # Make changes (tracked automatically)
 # Your changes are tracked automatically
@@ -138,7 +138,7 @@ jj new
 jj git push
 
 # Close issue
-bd complete BD-123
+br complete BD-123
 ```
 
 ## The Compiler is Your Friend

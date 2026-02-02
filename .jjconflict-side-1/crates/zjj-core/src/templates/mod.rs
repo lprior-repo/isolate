@@ -12,7 +12,7 @@ This project uses **Beads** for triage, **ZJJ** for isolation, and **Moon** for 
 
 ## Core Workflow (The Loop)
 
-1. **Triage & Pull**: Use `bv --robot-triage` to find the highest-impact bead. Claim it with `bd claim <bead-id>`.
+1. **Triage & Pull**: Use `bv --robot-triage` to find the highest-impact bead. Claim it with `br claim <bead-id>`.
 2. **Isolate**: Invoke `zjj spawn <bead-id>`. This provisions an isolated workspace at `.zjj/workspaces/<bead-id>/`.
 3. **Execute Skills**:
    - **tdd15**: Drive development through small, failing tests.

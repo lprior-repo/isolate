@@ -88,8 +88,8 @@ All ZJJ documentation in one place, token-efficient and searchable.
 ### Beads (Issues)
 ```bash
 bv --robot-triage        # Get recommendations
-bd claim BD-123          # Start working
-bd complete BD-123       # Mark done
+br claim BD-123          # Start working
+br complete BD-123       # Mark done
 ```
 
 ### Moon (Build)
