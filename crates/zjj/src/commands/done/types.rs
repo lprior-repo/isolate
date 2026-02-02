@@ -26,6 +26,9 @@ pub struct DoneArgs {
     /// Preview without executing
     pub dry_run: bool,
 
+    /// Detect conflicts before merging
+    pub detect_conflicts: bool,
+
     /// Skip bead status update
     pub no_bead_update: bool,
 
@@ -42,6 +45,7 @@ impl DoneArgs {
             no_keep: self.no_keep,
             squash: self.squash,
             dry_run: self.dry_run,
+            detect_conflicts: self.detect_conflicts,
             no_bead_update: self.no_bead_update,
             format: self.format,
         }
@@ -57,6 +61,7 @@ pub struct DoneOptions {
     pub no_keep: bool,
     pub squash: bool,
     pub dry_run: bool,
+    pub detect_conflicts: bool,
     pub no_bead_update: bool,
     pub format: OutputFormat,
 }
@@ -204,6 +209,32 @@ impl fmt::Display for DoneError {
 
 impl std::error::Error for DoneError {}
 
+/// Error conversions from trait abstractions
+impl From<crate::commands::done::executor::ExecutorError> for DoneError {
+    fn from(err: crate::commands::done::executor::ExecutorError) -> Self {
+        Self::JjCommandFailed {
+            command: "jj".to_string(),
+            reason: err.to_string(),
+        }
+    }
+}
+
+impl From<crate::commands::done::bead::BeadError> for DoneError {
+    fn from(err: crate::commands::done::bead::BeadError) -> Self {
+        Self::BeadUpdateFailed {
+            reason: err.to_string(),
+        }
+    }
+}
+
+impl From<crate::commands::done::filesystem::FsError> for DoneError {
+    fn from(err: crate::commands::done::filesystem::FsError) -> Self {
+        Self::InvalidState {
+            reason: err.to_string(),
+        }
+    }
+}
+
 impl DoneError {
     pub const fn phase(&self) -> DonePhase {
         match self {
@@ -261,6 +292,7 @@ mod tests {
             no_keep: false,
             squash: false,
             dry_run: false,
+            detect_conflicts: false,
             no_bead_update: false,
             format: OutputFormat::Json,
         };

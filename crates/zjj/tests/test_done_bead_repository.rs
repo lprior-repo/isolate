@@ -4,6 +4,7 @@
 //! They define the behavior we want from the BeadRepository trait.
 
 #[cfg(test)]
+#[allow(clippy::should_panic_without_expect)]
 mod bead_repository_tests {
     // This will fail because the module doesn't exist yet
     // use zjj::commands::done::bead::*;

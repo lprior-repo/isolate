@@ -18,7 +18,7 @@ use thiserror::Error;
 use super::newtypes::JjOutput;
 
 /// Errors from JJ command execution
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq, Eq, Clone)]
 pub enum ExecutorError {
     #[error("JJ command not found: {0}")]
     CommandNotFound(String),
@@ -118,7 +118,7 @@ impl MockJjExecutor {
     }
 
     /// Configure expected output for specific args
-    pub fn expect(&mut self, args: &[&str], output: Result<String, ExecutorError>) {
+    pub fn expect(&self, args: &[&str], output: Result<String, ExecutorError>) {
         let key = args.join(" ");
         if let Ok(mut responses) = self.responses.lock() {
             responses.insert(key, output);
@@ -131,7 +131,7 @@ impl MockJjExecutor {
     }
 
     /// Simulate a command failure
-    pub fn fail_next(&mut self, args: &[&str], code: i32, stderr: String) {
+    pub fn fail_next(&self, args: &[&str], code: i32, stderr: String) {
         let key = args.join(" ");
         if let Ok(mut responses) = self.responses.lock() {
             responses.insert(key, Err(ExecutorError::CommandFailed { code, stderr }));

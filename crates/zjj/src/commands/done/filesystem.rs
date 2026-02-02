@@ -45,6 +45,9 @@ pub trait FileSystem {
 
     /// Remove a file
     fn remove_file(&self, path: &Path) -> Result<(), FsError>;
+
+    /// Remove a directory and all its contents
+    fn remove_dir_all(&self, path: &Path) -> Result<(), FsError>;
 }
 
 /// Real filesystem implementation
@@ -87,6 +90,18 @@ impl FileSystem for RealFileSystem {
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         fs::remove_file(path).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                FsError::NotFound(path.display().to_string())
+            } else if e.kind() == std::io::ErrorKind::PermissionDenied {
+                FsError::PermissionDenied(path.display().to_string())
+            } else {
+                FsError::IoError(e.to_string())
+            }
+        })
+    }
+
+    fn remove_dir_all(&self, path: &Path) -> Result<(), FsError> {
+        fs::remove_dir_all(path).map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 FsError::NotFound(path.display().to_string())
             } else if e.kind() == std::io::ErrorKind::PermissionDenied {
@@ -154,6 +169,18 @@ impl FileSystem for InMemoryFileSystem {
             .map_err(|e| FsError::IoError(format!("Lock poisoned: {}", e)))?
             .remove(&key)
             .ok_or_else(|| FsError::NotFound(key))?;
+        Ok(())
+    }
+
+    fn remove_dir_all(&self, path: &Path) -> Result<(), FsError> {
+        let prefix = path.display().to_string();
+        let mut files = self
+            .files
+            .lock()
+            .map_err(|e| FsError::IoError(format!("Lock poisoned: {}", e)))?;
+
+        // Remove all files that start with this path prefix
+        files.retain(|k, _| !k.starts_with(&prefix));
         Ok(())
     }
 }

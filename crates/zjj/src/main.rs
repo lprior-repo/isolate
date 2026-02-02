@@ -1039,6 +1039,7 @@ fn cmd_done() -> ClapCommand {
             zjj done --workspace feature-x      Complete specific workspace from main\n  \
             zjj done --dry-run                  Preview without executing\n  \
             zjj done --keep-workspace           Keep workspace after merge\n  \
+            zjj done --detect-conflicts         Check for conflicts before merging\n  \
             zjj done --json                     Get JSON output",
         )
         .arg(
@@ -1072,6 +1073,12 @@ fn cmd_done() -> ClapCommand {
                 .long("dry-run")
                 .action(clap::ArgAction::SetTrue)
                 .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("detect-conflicts")
+                .long("detect-conflicts")
+                .action(clap::ArgAction::SetTrue)
+                .help("Check for conflicts before merging"),
         )
         .arg(
             Arg::new("no-bead-update")
@@ -2463,6 +2470,7 @@ fn handle_done(sub_m: &clap::ArgMatches) -> Result<()> {
         no_keep: sub_m.get_flag("no-keep"),
         squash: sub_m.get_flag("squash"),
         dry_run: sub_m.get_flag("dry-run"),
+        detect_conflicts: sub_m.get_flag("detect-conflicts"),
         no_bead_update: sub_m.get_flag("no-bead-update"),
         format: zjj_core::OutputFormat::from_json_flag(json),
     };
