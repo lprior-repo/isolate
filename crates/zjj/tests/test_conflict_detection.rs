@@ -23,7 +23,7 @@ fn test_detect_conflicts_no_conflicts_succeeds() {
     harness.assert_success(&["add", "feature-no-conflict", "--no-open"]);
 
     // Make a change in workspace
-    harness.create_file("feature-file.txt", "feature content");
+    let _ = harness.create_file("feature-file.txt", "feature content");
     harness.jj(&["commit", "-m", "Add feature file"]);
 
     // WHEN: User runs "zjj done --detect-conflicts" (in workspace)
@@ -85,7 +85,7 @@ fn test_detect_conflicts_found_reports_details() {
     harness.assert_success(&["init"]);
 
     // Create base commit on trunk
-    harness.create_file("shared.txt", "original content");
+    let _ = harness.create_file("shared.txt", "original content");
     harness.jj(&["commit", "-m", "base commit"]);
 
     // Switch to feature workspace
@@ -99,7 +99,7 @@ fn test_detect_conflicts_found_reports_details() {
     ]);
 
     // Edit same file in feature (creates conflict potential)
-    harness.create_file("shared.txt", "different content");
+    let _ = harness.create_file("shared.txt", "different content");
     harness.jj(&["commit", "-m", "feature change"]);
 
     // WHEN: User runs "zjj done --detect-conflicts"
@@ -145,7 +145,7 @@ fn test_detect_conflicts_dry_run_preserves_workspace() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "preserve-test", "--no-open"]);
 
-    harness.create_file("marker.txt", "original content");
+    let _ = harness.create_file("marker.txt", "original content");
     harness.jj(&["commit", "-m", "add marker"]);
 
     harness.jj(&[
