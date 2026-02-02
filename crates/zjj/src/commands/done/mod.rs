@@ -387,14 +387,14 @@ fn get_bead_id_for_workspace(
 
     let workspace =
         WorkspaceName::new(workspace_name.to_string()).map_err(|e| DoneError::InvalidState {
-            reason: format!("Invalid workspace name: {}", e),
+            reason: e.to_string(),
         })?;
 
     bead_repo
         .find_by_workspace(&workspace)
         .map(|opt| opt.map(|id| id.as_str().to_string()))
         .map_err(|e| DoneError::BeadUpdateFailed {
-            reason: format!("Failed to find bead: {}", e),
+            reason: e.to_string(),
         })
 }
 
@@ -408,13 +408,13 @@ fn update_bead_status(
 
     let bead_id_newtype =
         BeadId::new(bead_id.to_string()).map_err(|e| DoneError::BeadUpdateFailed {
-            reason: format!("Invalid bead ID: {}", e),
+            reason: e.to_string(),
         })?;
 
     bead_repo
         .update_status(&bead_id_newtype, new_status)
         .map_err(|e| DoneError::BeadUpdateFailed {
-            reason: format!("Failed to update bead: {}", e),
+            reason: e.to_string(),
         })
 }
 
@@ -430,7 +430,7 @@ fn cleanup_workspace(
         filesystem
             .remove_dir_all(&workspace_path)
             .map_err(|e| DoneError::CleanupFailed {
-                reason: format!("Failed to remove workspace {workspace_name}: {e}"),
+                reason: e.to_string(),("Failed to remove workspace {workspace_name}: {e}"),
             })?;
         Ok(true)
     } else {
@@ -547,7 +547,7 @@ fn log_undo_history(
         timestamp: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .map_err(|e| DoneError::InvalidState {
-                reason: format!("System time error: {e}"),
+                reason: e.to_string(),("System time error: {e}"),
             })?
             .as_secs(),
         pushed_to_remote,
@@ -555,14 +555,14 @@ fn log_undo_history(
     };
 
     let json = serde_json::to_string(&undo_entry).map_err(|e| DoneError::InvalidState {
-        reason: format!("Failed to serialize undo entry: {e}"),
+        reason: e.to_string(),("Failed to serialize undo entry: {e}"),
     })?;
 
     let mut content = if undo_log_path.exists() {
         filesystem
             .read_to_string(&undo_log_path)
             .map_err(|e| DoneError::InvalidState {
-                reason: format!("Failed to read undo log: {e}"),
+                reason: e.to_string(),("Failed to read undo log: {e}"),
             })?
     } else {
         String::new()
@@ -573,7 +573,7 @@ fn log_undo_history(
     filesystem
         .write(&undo_log_path, &content)
         .map_err(|e| DoneError::InvalidState {
-            reason: format!("Failed to write undo log: {e}"),
+            reason: e.to_string(),("Failed to write undo log: {e}"),
         })?;
 
     Ok(())

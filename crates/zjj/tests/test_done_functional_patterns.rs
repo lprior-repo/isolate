@@ -6,8 +6,9 @@
 //! - Zero panics
 //! - Immutability by default
 
+#![allow(clippy::panic, clippy::doc_markdown)]
+
 #[cfg(test)]
-#[allow(clippy::should_panic_without_expect)]
 mod functional_patterns_tests {
     #[test]
     #[should_panic]
