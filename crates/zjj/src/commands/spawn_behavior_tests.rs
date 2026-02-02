@@ -99,7 +99,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear "bead not found" error
         assert!(result.is_err(), "Should fail for nonexistent bead");
-        let err = match result {
+        let err: SpawnError = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -137,7 +137,7 @@ mod brutal_edge_cases {
 
         // Then: Returns error about invalid status
         assert!(result.is_err(), "Should reject bead already in_progress");
-        let err = match result {
+        let err: SpawnError = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -174,7 +174,7 @@ mod brutal_edge_cases {
 
         // Then: Returns error about invalid status
         assert!(result.is_err(), "Should reject closed bead");
-        let err = match result {
+        let err: SpawnError = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -212,7 +212,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear command-not-found error
         assert!(result.is_err(), "Should fail for nonexistent command");
-        let err = match result {
+        let err: SpawnError = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -381,7 +381,7 @@ mod brutal_edge_cases {
                 // Success means it handled the orphaned workspace
                 assert!(true, "Successfully reconciled orphaned JJ workspace");
             }
-            Err(e) => {
+            Err(e: SpawnError) => {
                 // Error should mention workspace conflict
                 assert!(
                     e.to_string().contains("workspace")

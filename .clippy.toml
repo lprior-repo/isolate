@@ -6,8 +6,9 @@ cognitive-complexity-threshold = 20
 too-many-arguments-threshold = 5
 type-complexity-threshold = 250
 
-# Enforcement: No panics allowed
-allow-panic-in-tests = false
+# Enforcement: No panics allowed in production code
+# Allow panics in RED tests (Phase 4 TDD placeholders)
+allow-panic-in-tests = true
 allow-unwrap-in-tests = false
 allow-expect-in-tests = false
 
