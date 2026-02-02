@@ -789,6 +789,18 @@ fn cmd_clean() -> ClapCommand {
                 .help("List stale sessions without removing"),
         )
         .arg(
+            Arg::new("periodic")
+                .long("periodic")
+                .action(clap::ArgAction::SetTrue)
+                .help("Run as periodic cleanup daemon (1hr interval)"),
+        )
+        .arg(
+            Arg::new("age-threshold")
+                .long("age-threshold")
+                .value_name("SECONDS")
+                .help("Age threshold for periodic cleanup (default: 7200 = 2hr)"),
+        )
+        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
@@ -2459,12 +2471,18 @@ fn handle_config(sub_m: &clap::ArgMatches) -> Result<()> {
 fn handle_clean(sub_m: &clap::ArgMatches) -> Result<()> {
     let force = sub_m.get_flag("force");
     let dry_run = sub_m.get_flag("dry-run");
+    let periodic = sub_m.get_flag("periodic");
     let json = sub_m.get_flag("json");
+    let age_threshold = sub_m
+        .get_one::<String>("age-threshold")
+        .and_then(|s| s.parse::<u64>().ok());
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let options = clean::CleanOptions {
         force,
         dry_run,
         format,
+        periodic,
+        age_threshold,
     };
     clean::run_with_options(&options)
 }

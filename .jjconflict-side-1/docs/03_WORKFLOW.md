@@ -8,10 +8,10 @@ Integration of issue tracking, version control, and build system.
 
 ```bash
 # View available issues
-bd list
+br list
 
 # Claim issue
-bd claim BD-123
+br claim BD-123
 
 # Pull latest
 jj git fetch --all-remotes
@@ -63,10 +63,10 @@ jj log -r @
 
 ```bash
 # Mark complete
-bd complete BD-123 --commit-hash <hash>
+br complete BD-123 --commit-hash <hash>
 
 # Or resolve (pending review)
-bd resolve BD-123
+br resolve BD-123
 ```
 
 ## Beads (Issue Tracking)
@@ -75,25 +75,25 @@ bd resolve BD-123
 
 ```bash
 # Feature
-bd add --title "Feature: X" --priority high --label feature
+br add --title "Feature: X" --priority high --label feature
 
 # Bug
-bd add --title "Bug: X fails on Y" --priority high --label bug \
+br add --title "Bug: X fails on Y" --priority high --label bug \
   --description "Steps: 1. Do X 2. See Y"
 
 # Chore
-bd add --title "Chore: refactor X" --label chore
+br add --title "Chore: refactor X" --label chore
 ```
 
 ### Managing Issues
 
 ```bash
-bd list                           # Show all open
-bd list --filter "assigned:me"    # My issues
-bd claim BD-123                   # Start working
-bd resolve BD-123                 # Mark ready for review
-bd complete BD-123                # Mark done
-bd unresolved BD-123              # Reopen
+br list                           # Show all open
+br list --filter "assigned:me"    # My issues
+br claim BD-123                   # Start working
+br resolve BD-123                 # Mark ready for review
+br complete BD-123                # Mark done
+br unresolved BD-123              # Reopen
 ```
 
 ### Labels
@@ -222,10 +222,10 @@ moon run :quick --log debug
 jj git fetch --all-remotes
 
 # See available work
-bd list
+br list
 
 # Pick an issue
-bd claim BD-123
+br claim BD-123
 ```
 
 ### During Work
@@ -262,25 +262,25 @@ jj new
 jj git push
 
 # Close completed issues
-bd complete BD-123
-bd complete BD-124
+br complete BD-123
+br complete BD-124
 
 # Review what you're working on
-bd claim --show BD-125
+br claim --show BD-125
 ```
 
 ## Multi-Issue Workflow
 
 ```bash
 # Claim first issue
-bd claim BD-123
+br claim BD-123
 
 # Make changes, commit
 jj describe -m "fix: issue 123"
 jj new
 
 # Claim second issue
-bd claim BD-124
+br claim BD-124
 
 # Make changes, commit
 jj describe -m "feat: issue 124"
@@ -290,8 +290,8 @@ jj new
 jj git push
 
 # Close both
-bd complete BD-123
-bd complete BD-124
+br complete BD-123
+br complete BD-124
 ```
 
 ## Syncing Workspaces
@@ -381,15 +381,15 @@ jj git push
 moon run :ci
 
 # 2. File remaining work
-bd add --title "Follow-up: X" --label chore
+br add --title "Follow-up: X" --label chore
 
 # 3. Commit final changes
 jj describe -m "chore: final cleanup"
 jj new
 
 # 4. Update Beads
-bd complete BD-123
-bd complete BD-124
+br complete BD-123
+br complete BD-124
 
 # 5. Push everything
 jj git fetch --all-remotes

@@ -288,11 +288,11 @@ Closes BD-123"
 # While working on BD-123
 jj log              # See your commits
 jj git push         # Push progress
-bd claim BD-123     # Still claimed in Beads
+br claim BD-123     # Still claimed in Beads
 
 # When done
 jj git push         # Final push
-bd complete BD-123  # Close in Beads
+br complete BD-123  # Close in Beads
 ```
 
 ## Troubleshooting
