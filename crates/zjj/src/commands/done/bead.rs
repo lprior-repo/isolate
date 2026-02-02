@@ -67,7 +67,7 @@ impl MockBeadRepository {
     }
 
     /// Add a bead for testing
-    pub fn add_bead(&mut self, id: String, workspace: String, status: String) {
+    pub fn add_bead(&self, id: String, workspace: String, status: String) {
         if let Ok(mut beads) = self.beads.lock() {
             beads.insert(
                 id.clone(),

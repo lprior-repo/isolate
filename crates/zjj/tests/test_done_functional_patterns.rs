@@ -7,6 +7,7 @@
 //! - Immutability by default
 
 #[cfg(test)]
+#[allow(clippy::should_panic_without_expect)]
 mod functional_patterns_tests {
     #[test]
     #[should_panic]

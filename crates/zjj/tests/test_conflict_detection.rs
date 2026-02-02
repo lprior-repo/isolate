@@ -27,13 +27,10 @@ fn test_detect_conflicts_no_conflicts_succeeds() {
     harness.jj(&["commit", "-m", "Add feature file"]);
 
     // WHEN: User runs "zjj done --detect-conflicts" (in workspace)
-    harness.jj(&[
-        "workspace",
-        "add",
-        "--name",
-        "feature-no-conflict",
-        "feature-no-conflict",
-    ]);
+    // JJ workspaces are created directly in the repo root by zjj add
+    // We need to change to the workspace directory
+    let workspace_path = harness.workspace_path("feature-no-conflict");
+    std::env::set_current_dir(&workspace_path).unwrap();
 
     let result = harness.zjj(&["done", "--detect-conflicts"]);
 
@@ -103,6 +100,10 @@ fn test_detect_conflicts_found_reports_details() {
     harness.jj(&["commit", "-m", "feature change"]);
 
     // WHEN: User runs "zjj done --detect-conflicts"
+    // JJ workspaces are created directly in the repo root by zjj add
+    // We need to change to the workspace directory
+    let workspace_path = harness.workspace_path("conflicting-feature");
+    std::env::set_current_dir(&workspace_path).unwrap();
     let result = harness.zjj(&["done", "--detect-conflicts", "--dry-run"]);
 
     // THEN: Output lists conflicting files

@@ -31,6 +31,8 @@ pub struct TestHarness {
     pub repo_path: PathBuf,
     /// Path to the zjj binary
     zjj_bin: PathBuf,
+    /// Current working directory for commands (defaults to repo_path)
+    current_dir: PathBuf,
 }
 
 impl TestHarness {
@@ -84,8 +86,9 @@ impl TestHarness {
 
         Ok(Self {
             _temp_dir: temp_dir,
-            repo_path,
+            repo_path: repo_path.clone(),
             zjj_bin,
+            current_dir: repo_path,
         })
     }
 
@@ -99,7 +102,7 @@ impl TestHarness {
     pub fn zjj(&self, args: &[&str]) -> CommandResult {
         let output = Command::new(&self.zjj_bin)
             .args(args)
-            .current_dir(&self.repo_path)
+            .current_dir(&self.current_dir)
             .env("NO_COLOR", "1") // Disable color codes
             .env("ZJJ_TEST_MODE", "1") // Signal we're in test mode
             .output()
@@ -140,29 +143,10 @@ impl TestHarness {
 
     /// Get the workspace path for a session
     ///
-    /// By default, zjj creates workspaces at `../{repo}__workspaces/{session}`
-    /// where `{repo}` is the repository directory name.
+    /// JJ workspaces are stored as named directories in the repo root
     pub fn workspace_path(&self, session: &str) -> PathBuf {
-        // Get the repo directory name (e.g., "test-repo")
-        let repo_name = self
-            .repo_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("repo");
-
-        // Workspace is at ../repo__workspaces/session relative to repo_path
-        self.repo_path
-            .parent()
-            .map(|parent| {
-                parent
-                    .join(format!("{repo_name}__workspaces"))
-                    .join(session)
-            })
-            .unwrap_or_else(|| {
-                self.repo_path
-                    .join(format!("{repo_name}__workspaces"))
-                    .join(session)
-            })
+        // JJ stores workspaces as named directories in the repo root
+        self.repo_path.join(session)
     }
 
     /// Assert that a workspace exists
@@ -178,6 +162,16 @@ impl TestHarness {
             !path.exists(),
             "Workspace should not exist: {}",
             path.display()
+        );
+    }
+
+    /// Switch to a workspace directory for running commands
+    pub fn switch_to_workspace(&self, session: &str) {
+        let workspace_path = self.workspace_path(session);
+        assert!(
+            workspace_path.exists(),
+            "Workspace should exist: {}",
+            workspace_path.display()
         );
     }
 

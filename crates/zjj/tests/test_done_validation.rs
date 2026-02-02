@@ -4,6 +4,7 @@
 //! They define the behavior we want from pure validation functions.
 
 #[cfg(test)]
+#[allow(clippy::should_panic_without_expect)]
 mod validation_tests {
     // This will fail because the module doesn't exist yet
     // use zjj::commands::done::validation::*;
