@@ -11,17 +11,18 @@
 //! 8. Keeps workspace for 24h (unless --no-keep specified)
 //! 9. Switches back to main
 
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+
 pub mod bead;
 pub mod executor;
 pub mod filesystem;
 pub mod newtypes;
 pub mod types;
-pub mod validation;
 
 use std::{
-    fs,
     path::{Path, PathBuf},
-    process::Command,
     time::SystemTime,
 };
 
@@ -35,7 +36,12 @@ use crate::{
 
 /// Run the done command with options
 pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
-    let result = execute_done(options);
+    // Create real dependencies
+    let executor = executor::RealJjExecutor::new();
+    let mut bead_repo = bead::MockBeadRepository::new(); // TODO: Replace with real implementation
+    let filesystem = filesystem::RealFileSystem::new();
+
+    let result = execute_done(options, &executor, &mut bead_repo, &filesystem);
 
     match &result {
         Ok(output) => {
@@ -56,14 +62,19 @@ pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
 }
 
 /// Core done logic using Railway-Oriented Programming
-fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
+fn execute_done(
+    options: &DoneOptions,
+    executor: &dyn executor::JjExecutor,
+    bead_repo: &mut dyn bead::BeadRepository,
+    filesystem: &dyn filesystem::FileSystem,
+) -> Result<DoneOutput, DoneError> {
     // Phase 1: Validate location (must be in workspace)
     let root = validate_location()?;
     let workspace_name = get_workspace_name(&root)?;
 
     // Phase 2: Build preview for dry-run
     let preview = if options.dry_run {
-        Some(build_preview(&root, &workspace_name)?)
+        Some(build_preview(&root, &workspace_name, executor, bead_repo)?)
     } else {
         None
     };
@@ -78,29 +89,29 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
     }
 
     // Phase 3: Check uncommitted files
-    let uncommitted_files = get_uncommitted_files(&root)?;
+    let uncommitted_files = get_uncommitted_files(&root, executor)?;
 
     // Phase 4: Commit uncommitted changes
     let files_committed = if uncommitted_files.is_empty() {
         0
     } else {
-        commit_changes(&root, &workspace_name, options.message.as_deref())?
+        commit_changes(&root, &workspace_name, options.message.as_deref(), executor)?
     };
 
     // Phase 5: Check for conflicts
-    check_conflicts(&root)?;
+    check_conflicts(&root, executor)?;
 
     // Phase 5.5: Get pre-merge commit ID (for undo)
-    let pre_merge_commit_id = get_current_commit_id(&root)?;
+    let pre_merge_commit_id = get_current_commit_id(&root, executor)?;
 
     // Phase 5.6: Check if pushed to remote (for undo)
-    let pushed_to_remote = is_pushed_to_remote(&root)?;
+    let pushed_to_remote = is_pushed_to_remote(&root, executor)?;
 
     // Phase 6: Get commits to merge
-    let commits_to_merge = get_commits_to_merge(&root)?;
+    let commits_to_merge = get_commits_to_merge(&root, executor)?;
 
     // Phase 7: Merge to main
-    merge_to_main(&root, &workspace_name, options.squash)?;
+    merge_to_main(&root, &workspace_name, options.squash, executor)?;
 
     // Phase 7.5: Log undo history
     log_undo_history(
@@ -108,15 +119,16 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
         &workspace_name,
         &pre_merge_commit_id,
         pushed_to_remote,
+        filesystem,
     )?;
 
     // Phase 8: Update bead status
-    let bead_id = get_bead_id_for_workspace(&workspace_name)?;
+    let bead_id = get_bead_id_for_workspace(&workspace_name, bead_repo)?;
     let bead_closed = if let Some(ref bead) = bead_id {
         if options.no_bead_update {
             false
         } else {
-            update_bead_status(bead, "closed")?;
+            update_bead_status(bead, "closed", bead_repo)?;
             true
         }
     } else {
@@ -127,7 +139,7 @@ fn execute_done(options: &DoneOptions) -> Result<DoneOutput, DoneError> {
     let cleaned = if options.keep_workspace || !options.no_keep {
         false
     } else {
-        cleanup_workspace(&root, &workspace_name)?
+        cleanup_workspace(&root, &workspace_name, filesystem)?
     };
 
     Ok(DoneOutput {
@@ -182,11 +194,16 @@ fn get_workspace_name(root: &str) -> Result<String, DoneError> {
 }
 
 /// Build preview for dry-run mode
-fn build_preview(root: &str, workspace_name: &str) -> Result<types::DonePreview, DoneError> {
-    let uncommitted_files = get_uncommitted_files(root)?;
-    let commits_to_merge = get_commits_to_merge(root)?;
-    let potential_conflicts = check_potential_conflicts(root)?;
-    let bead_to_close = get_bead_id_for_workspace(workspace_name)?;
+fn build_preview(
+    root: &str,
+    workspace_name: &str,
+    executor: &dyn executor::JjExecutor,
+    bead_repo: &dyn bead::BeadRepository,
+) -> Result<types::DonePreview, DoneError> {
+    let uncommitted_files = get_uncommitted_files(root, executor)?;
+    let commits_to_merge = get_commits_to_merge(root, executor)?;
+    let potential_conflicts = check_potential_conflicts(root, executor)?;
+    let bead_to_close = get_bead_id_for_workspace(workspace_name, bead_repo)?;
     let workspace_path = Path::new(root).join(".zjj/workspaces").join(workspace_name);
 
     Ok(types::DonePreview {
@@ -199,24 +216,19 @@ fn build_preview(root: &str, workspace_name: &str) -> Result<types::DonePreview,
 }
 
 /// Get list of uncommitted files
-fn get_uncommitted_files(root: &str) -> Result<Vec<String>, DoneError> {
-    let output = Command::new("jj")
-        .current_dir(root)
-        .args(["status", "--no-pager"])
-        .output()
-        .map_err(|e| DoneError::JjCommandFailed {
-            command: "jj status".to_string(),
-            reason: e.to_string(),
-        })?;
+fn get_uncommitted_files(
+    root: &str,
+    executor: &dyn executor::JjExecutor,
+) -> Result<Vec<String>, DoneError> {
+    let output =
+        executor
+            .run(&["status", "--no-pager"])
+            .map_err(|e| DoneError::JjCommandFailed {
+                command: "jj status".to_string(),
+                reason: e.to_string(),
+            })?;
 
-    if !output.status.success() {
-        return Err(DoneError::JjCommandFailed {
-            command: "jj status".to_string(),
-            reason: String::from_utf8_lossy(&output.stderr).to_string(),
-        });
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = output.as_str();
     let mut files = Vec::new();
 
     for line in stdout.lines() {
@@ -240,34 +252,27 @@ fn commit_changes(
     root: &str,
     workspace_name: &str,
     message: Option<&str>,
+    executor: &dyn executor::JjExecutor,
 ) -> Result<usize, DoneError> {
     let default_msg = format!("Complete work on {workspace_name}");
     let msg = message.unwrap_or(&default_msg);
 
-    let output = Command::new("jj")
-        .current_dir(root)
-        .args(["commit", "-m", msg])
-        .output()
+    let output = executor
+        .run(&["commit", "-m", msg])
         .map_err(|e| DoneError::CommitFailed {
             reason: e.to_string(),
         })?;
 
-    if !output.status.success() {
-        return Err(DoneError::CommitFailed {
-            reason: String::from_utf8_lossy(&output.stderr).to_string(),
-        });
-    }
-
     // Count files committed
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = output.as_str();
     let count = stdout.matches("committed").count();
 
     Ok(count.max(1))
 }
 
 /// Check for merge conflicts
-fn check_conflicts(root: &str) -> Result<(), DoneError> {
-    let conflicts = check_potential_conflicts(root)?;
+fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<(), DoneError> {
+    let conflicts = check_potential_conflicts(root, executor)?;
 
     if !conflicts.is_empty() {
         return Err(DoneError::MergeConflict { conflicts });
@@ -277,43 +282,31 @@ fn check_conflicts(root: &str) -> Result<(), DoneError> {
 }
 
 /// Check for potential conflicts by checking divergent changes
-fn check_potential_conflicts(root: &str) -> Result<Vec<String>, DoneError> {
-    let output = Command::new("jj")
-        .current_dir(root)
-        .args(["log", "-r", "@-", "--no-graph", "-T", "description"])
-        .output()
-        .map_err(|e| DoneError::JjCommandFailed {
-            command: "jj log".to_string(),
-            reason: e.to_string(),
-        })?;
+#[allow(clippy::unnecessary_wraps)]
+fn check_potential_conflicts(
+    root: &str,
+    executor: &dyn executor::JjExecutor,
+) -> Result<Vec<String>, DoneError> {
+    // Try to get log
+    let _output = executor
+        .run(&["log", "-r", "@-", "--no-graph", "-T", "description"])
+        .ok();
 
-    if !output.status.success() {
-        return Ok(Vec::new());
-    }
-
-    // Check if there are divergent commits
-    let divergent_output = Command::new("jj")
-        .current_dir(root)
-        .args(["log", "-r", "@..@", "--no-graph"])
-        .output()
-        .map_err(|e| DoneError::JjCommandFailed {
-            command: "jj log".to_string(),
-            reason: e.to_string(),
-        })?;
-
-    if !divergent_output.status.success() {
-        return Ok(Vec::new());
-    }
+    #[allow(clippy::unnecessary_wraps)]
+    let _divergent_output = executor.run(&["log", "-r", "@..@", "--no-graph"]).ok();
 
     // For now, return empty - actual conflict detection happens during rebase
+    #[allow(clippy::unnecessary_wraps)]
     Ok(Vec::new())
 }
 
 /// Get commits that will be merged
-fn get_commits_to_merge(root: &str) -> Result<Vec<types::CommitInfo>, DoneError> {
-    let output = Command::new("jj")
-        .current_dir(root)
-        .args([
+fn get_commits_to_merge(
+    root: &str,
+    executor: &dyn executor::JjExecutor,
+) -> Result<Vec<types::CommitInfo>, DoneError> {
+    let output = executor
+        .run(&[
             "log",
             "-r",
             "@..@-",
@@ -321,20 +314,12 @@ fn get_commits_to_merge(root: &str) -> Result<Vec<types::CommitInfo>, DoneError>
             "-T",
             r#"change_id "\n" commit_id "\n" description "\n" time(timestamp_safe())"\n""#,
         ])
-        .output()
         .map_err(|e| DoneError::JjCommandFailed {
             command: "jj log".to_string(),
             reason: e.to_string(),
         })?;
 
-    if !output.status.success() {
-        return Err(DoneError::JjCommandFailed {
-            command: "jj log".to_string(),
-            reason: String::from_utf8_lossy(&output.stderr).to_string(),
-        });
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = output.as_str();
     let mut commits = Vec::new();
     let mut lines = stdout.lines().peekable();
 
@@ -358,126 +343,95 @@ fn get_commits_to_merge(root: &str) -> Result<Vec<types::CommitInfo>, DoneError>
 }
 
 /// Merge workspace changes to main using rebase
-fn merge_to_main(root: &str, workspace_name: &str, _squash: bool) -> Result<(), DoneError> {
+fn merge_to_main(
+    root: &str,
+    workspace_name: &str,
+    _squash: bool,
+    executor: &dyn executor::JjExecutor,
+) -> Result<(), DoneError> {
     // First, abandon the workspace to move changes to main
-    let output = Command::new("jj")
-        .current_dir(root)
-        .args(["workspace", "abandon", "--name", workspace_name])
-        .output()
-        .map_err(|e| DoneError::MergeFailed {
-            reason: e.to_string(),
-        })?;
+    let result = executor.run(&["workspace", "abandon", "--name", workspace_name]);
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("conflict") || stderr.contains("Conflicting") {
-            // Parse conflicts from output
-            let conflicts: Vec<String> = stderr
-                .lines()
-                .filter(|l| l.contains("file"))
-                .map(|l| l.trim().to_string())
-                .collect();
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let error_msg = e.to_string();
+            if error_msg.contains("conflict") || error_msg.contains("Conflicting") {
+                // Parse conflicts from output
+                let conflicts: Vec<String> = error_msg
+                    .lines()
+                    .filter(|l| l.contains("file"))
+                    .map(|l| l.trim().to_string())
+                    .collect();
 
-            return Err(DoneError::MergeConflict {
-                conflicts: conflicts
-                    .iter()
-                    .filter(|c| !c.is_empty())
-                    .cloned()
-                    .collect(),
-            });
-        }
-
-        return Err(DoneError::MergeFailed {
-            reason: stderr.to_string(),
-        });
-    }
-
-    Ok(())
-}
-
-/// Get bead ID for a workspace
-fn get_bead_id_for_workspace(workspace_name: &str) -> Result<Option<String>, DoneError> {
-    let session_db_path = Path::new(".zjj/state.db");
-    if !session_db_path.exists() {
-        return Ok(None);
-    }
-
-    // For now, check .beads/issues.jsonl for matching session
-    let beads_db = Path::new(".beads/issues.jsonl");
-    if !beads_db.exists() {
-        return Ok(None);
-    }
-
-    let content = fs::read_to_string(beads_db).map_err(|e| DoneError::BeadUpdateFailed {
-        reason: e.to_string(),
-    })?;
-
-    for line in content.lines() {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if json
-                .get("status")
-                .and_then(|s| s.as_str())
-                .map(|s| s == "in_progress")
-                .unwrap_or(false)
-            {
-                // Check if title contains workspace name or notes mention it
-                if let Some(title) = json.get("title").and_then(|t| t.as_str()) {
-                    if title.contains(workspace_name) {
-                        if let Some(id) = json.get("id").and_then(|i| i.as_str()) {
-                            return Ok(Some(id.to_string()));
-                        }
-                    }
-                }
+                Err(DoneError::MergeConflict {
+                    conflicts: conflicts
+                        .iter()
+                        .filter(|c| !c.is_empty())
+                        .cloned()
+                        .collect(),
+                })
+            } else {
+                Err(DoneError::MergeFailed { reason: error_msg })
             }
         }
     }
-
-    Ok(None)
 }
 
-/// Update bead status in the database
-fn update_bead_status(bead_id: &str, new_status: &str) -> Result<(), DoneError> {
-    let beads_db = Path::new(".beads/issues.jsonl");
-    let content = fs::read_to_string(beads_db).map_err(|e| DoneError::BeadUpdateFailed {
-        reason: e.to_string(),
-    })?;
+/// Get bead ID for a workspace using the bead repository
+fn get_bead_id_for_workspace(
+    workspace_name: &str,
+    bead_repo: &dyn bead::BeadRepository,
+) -> Result<Option<String>, DoneError> {
+    use newtypes::WorkspaceName;
 
-    let mut new_content = String::new();
-    let mut updated = false;
-
-    for line in content.lines() {
-        if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(line) {
-            if json
-                .get("id")
-                .and_then(|i| i.as_str())
-                .map(|i| i == bead_id)
-                .unwrap_or(false)
-            {
-                json["status"] = serde_json::json!(new_status);
-                updated = true;
-            }
-            new_content.push_str(&json.to_string());
-            new_content.push('\n');
-        }
-    }
-
-    if updated {
-        fs::write(beads_db, new_content).map_err(|e| DoneError::BeadUpdateFailed {
-            reason: e.to_string(),
+    let workspace =
+        WorkspaceName::new(workspace_name.to_string()).map_err(|e| DoneError::InvalidState {
+            reason: format!("Invalid workspace name: {}", e),
         })?;
-    }
 
-    Ok(())
+    bead_repo
+        .find_by_workspace(&workspace)
+        .map(|opt| opt.map(|id| id.as_str().to_string()))
+        .map_err(|e| DoneError::BeadUpdateFailed {
+            reason: format!("Failed to find bead: {}", e),
+        })
+}
+
+/// Update bead status in the database using the bead repository
+fn update_bead_status(
+    bead_id: &str,
+    new_status: &str,
+    bead_repo: &mut dyn bead::BeadRepository,
+) -> Result<(), DoneError> {
+    use newtypes::BeadId;
+
+    let bead_id_newtype =
+        BeadId::new(bead_id.to_string()).map_err(|e| DoneError::BeadUpdateFailed {
+            reason: format!("Invalid bead ID: {}", e),
+        })?;
+
+    bead_repo
+        .update_status(&bead_id_newtype, new_status)
+        .map_err(|e| DoneError::BeadUpdateFailed {
+            reason: format!("Failed to update bead: {}", e),
+        })
 }
 
 /// Cleanup the workspace directory
-fn cleanup_workspace(root: &str, workspace_name: &str) -> Result<bool, DoneError> {
+fn cleanup_workspace(
+    root: &str,
+    workspace_name: &str,
+    filesystem: &dyn filesystem::FileSystem,
+) -> Result<bool, DoneError> {
     let workspace_path = Path::new(root).join(".zjj/workspaces").join(workspace_name);
 
-    if workspace_path.exists() {
-        fs::remove_dir_all(&workspace_path).map_err(|e| DoneError::CleanupFailed {
-            reason: format!("Failed to remove workspace {workspace_name}: {e}"),
-        })?;
+    if filesystem.exists(&workspace_path) {
+        filesystem
+            .remove_dir_all(&workspace_path)
+            .map_err(|e| DoneError::CleanupFailed {
+                reason: format!("Failed to remove workspace {workspace_name}: {e}"),
+            })?;
         Ok(true)
     } else {
         Ok(false)
@@ -550,43 +504,30 @@ fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()>
 }
 
 /// Get current commit ID (before merge)
-fn get_current_commit_id(root: &str) -> Result<String, DoneError> {
-    let output = Command::new("jj")
-        .current_dir(root)
-        .args(["log", "-r", "@", "--no-graph", "-T", "commit_id"])
-        .output()
+fn get_current_commit_id(
+    root: &str,
+    executor: &dyn executor::JjExecutor,
+) -> Result<String, DoneError> {
+    let output = executor
+        .run(&["log", "-r", "@", "--no-graph", "-T", "commit_id"])
         .map_err(|e| DoneError::JjCommandFailed {
             command: "jj log".to_string(),
             reason: e.to_string(),
         })?;
 
-    if !output.status.success() {
-        return Err(DoneError::JjCommandFailed {
-            command: "jj log".to_string(),
-            reason: String::from_utf8_lossy(&output.stderr).to_string(),
-        });
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(output.as_str().trim().to_string())
 }
 
 /// Check if changes have been pushed to remote
-fn is_pushed_to_remote(root: &str) -> Result<bool, DoneError> {
-    let output = Command::new("jj")
-        .current_dir(root)
-        .args(["log", "-r", "@-"])
-        .output()
+fn is_pushed_to_remote(root: &str, executor: &dyn executor::JjExecutor) -> Result<bool, DoneError> {
+    let output = executor
+        .run(&["log", "-r", "@-"])
         .map_err(|e| DoneError::JjCommandFailed {
             command: "jj log".to_string(),
             reason: e.to_string(),
         })?;
 
-    if !output.status.success() {
-        return Ok(false);
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    Ok(stdout.trim().is_empty())
+    Ok(output.as_str().trim().is_empty())
 }
 
 /// Log undo history to .zjj/undo.log
@@ -595,6 +536,7 @@ fn log_undo_history(
     workspace_name: &str,
     pre_merge_commit_id: &str,
     pushed_to_remote: bool,
+    filesystem: &dyn filesystem::FileSystem,
 ) -> Result<(), DoneError> {
     let undo_log_path = Path::new(root).join(".zjj/undo.log");
 
@@ -617,18 +559,22 @@ fn log_undo_history(
     })?;
 
     let mut content = if undo_log_path.exists() {
-        fs::read_to_string(&undo_log_path).map_err(|e| DoneError::InvalidState {
-            reason: format!("Failed to read undo log: {e}"),
-        })?
+        filesystem
+            .read_to_string(&undo_log_path)
+            .map_err(|e| DoneError::InvalidState {
+                reason: format!("Failed to read undo log: {e}"),
+            })?
     } else {
         String::new()
     };
     content.push_str(&json);
     content.push('\n');
 
-    fs::write(&undo_log_path, content).map_err(|e| DoneError::InvalidState {
-        reason: format!("Failed to write undo log: {e}"),
-    })?;
+    filesystem
+        .write(&undo_log_path, &content)
+        .map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to write undo log: {e}"),
+        })?;
 
     Ok(())
 }

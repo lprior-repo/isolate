@@ -17,7 +17,7 @@ mod brutal_edge_cases {
     };
 
     use tempfile::TempDir;
-    use zjj::commands::spawn::{execute_spawn, SpawnOptions};
+    use zjj::commands::spawn::{execute_spawn, SpawnError, SpawnOptions, SpawnOutput};
     use zjj_core::OutputFormat;
 
     /// Helper to create default SpawnOptions for testing
@@ -257,7 +257,7 @@ mod brutal_edge_cases {
                 );
                 assert_eq!(output.exit_code, Some(1), "Exit code should be 1");
             }
-            Err(e) => {
+            Err(e: SpawnError) => {
                 // Also acceptable if it returns error
                 assert!(
                     e.to_string().contains("exit") || e.to_string().contains("failed"),
@@ -336,7 +336,7 @@ mod brutal_edge_cases {
                     "Old workspace should be cleaned before spawn"
                 );
             }
-            Err(e) => {
+            Err(e: SpawnError) => {
                 // If it fails, error should mention conflict
                 assert!(
                     e.to_string().contains("exists")
@@ -401,7 +401,7 @@ mod brutal_edge_cases {
     #[test]
     fn given_sigterm_during_spawn_when_interrupted_then_rolls_back() {
         // Given: A long-running spawn operation
-        let repo = TestRepo::new().unwrap_or_else(|_| panic!("Failed to create test repo"));
+        let _repo = TestRepo::new().unwrap_or_else(|_| panic!("Failed to create test repo"));
 
         // This test documents that SIGTERM should trigger rollback
         // Real implementation should:
@@ -472,8 +472,14 @@ mod brutal_edge_cases {
         let _ = std::env::set_current_dir(PathBuf::from(".")).ok();
 
         // Then: Exactly one succeeds, one fails
-        let success_count = [&result1, &result2].iter().filter(|r| r.is_ok()).count();
-        let failure_count = [&result1, &result2].iter().filter(|r| r.is_err()).count();
+        let success_count = [&result1, &result2]
+            .iter()
+            .filter(|r: &&Result<SpawnOutput, SpawnError>| r.is_ok())
+            .count();
+        let failure_count = [&result1, &result2]
+            .iter()
+            .filter(|r: &&Result<SpawnOutput, SpawnError>| r.is_err())
+            .count();
 
         assert!(
             success_count <= 1,
@@ -485,8 +491,14 @@ mod brutal_edge_cases {
         );
 
         // And: Failure mentions conflict or already in progress
-        if let Some(err_result) = [&result1, &result2].iter().find(|r| r.is_err()) {
-            let err = err_result.as_ref().unwrap_err();
+        if let Some(err_result) = [&result1, &result2]
+            .iter()
+            .find(|r: &&Result<SpawnOutput, SpawnError>| r.is_err())
+        {
+            let err: SpawnError = match err_result {
+                Err(e) => e,
+                Ok(_) => unreachable!(),
+            };
             assert!(
                 err.to_string().contains("in_progress")
                     || err.to_string().contains("conflict")
