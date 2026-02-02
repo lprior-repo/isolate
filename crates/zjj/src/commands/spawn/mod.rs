@@ -16,7 +16,7 @@ pub mod types;
 
 pub use heartbeat::{write_heartbeat_instructions, HeartbeatMonitor};
 pub use rollback::{SignalHandler, TransactionTracker};
-pub use types::{SpawnArgs, SpawnOptions};
+pub use types::{SpawnArgs, SpawnError, SpawnOptions, SpawnOutput};
 
 /// AI instructions placed in spawned workspace
 const AI_INSTRUCTIONS: &str = r"# AI Agent - You Are in a ZJJ Workspace
@@ -55,7 +55,7 @@ Check the project's README or CLAUDE.md for the correct build commands.
 use std::{fs, io::Write, path::Path, process::Command};
 
 use anyhow::{Context, Result};
-use types::{SpawnError, SpawnOutput, SpawnStatus};
+use types::SpawnStatus;
 use zjj_core::json::SchemaEnvelope;
 
 use crate::cli::jj_root;

@@ -10,6 +10,7 @@
 mod brutal_edge_cases {
     use std::path::{Path, PathBuf};
 
+    use anyhow::Error;
     use tempfile::TempDir;
     use zjj::commands::add::{execute_add, types::AddOptions};
     use zjj_core::OutputFormat;
@@ -86,7 +87,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error
         assert!(result.is_err(), "Should fail for empty session name");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -125,7 +126,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error
         assert!(result.is_err(), "Should fail for too-long session name");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -164,7 +165,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error
         assert!(result.is_err(), "Should fail for session name with newline");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -210,7 +211,7 @@ mod brutal_edge_cases {
             result.is_err(),
             "Should fail for session name with null byte"
         );
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -263,7 +264,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear duplicate error
         assert!(result.is_err(), "Should fail for duplicate session name");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -304,7 +305,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error
         assert!(result.is_err(), "Should fail for path traversal attempt");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -343,7 +344,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error
         assert!(result.is_err(), "Should fail for absolute path");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -384,7 +385,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error
         assert!(result.is_err(), "Should fail for dots-only name");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -419,7 +420,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error
         assert!(result.is_err(), "Should fail for slash prefix");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -460,7 +461,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error (should trim)
         assert!(result.is_err(), "Should fail for leading whitespace");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -497,7 +498,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error (should trim)
         assert!(result.is_err(), "Should fail for trailing whitespace");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
@@ -534,7 +535,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear validation error
         assert!(result.is_err(), "Should fail for whitespace-only name");
-        let err = match result {
+        let err: anyhow::Error = match result {
             Err(e) => e,
             Ok(_) => panic!("Expected error but got success"),
         };
