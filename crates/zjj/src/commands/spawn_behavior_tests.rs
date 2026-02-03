@@ -257,7 +257,7 @@ mod brutal_edge_cases {
                 );
                 assert_eq!(output.exit_code, Some(1), "Exit code should be 1");
             }
-            Err(e: SpawnError) => {
+            Err(e) => {
                 // Also acceptable if it returns error
                 assert!(
                     e.to_string().contains("exit") || e.to_string().contains("failed"),
@@ -336,7 +336,7 @@ mod brutal_edge_cases {
                     "Old workspace should be cleaned before spawn"
                 );
             }
-            Err(e: SpawnError) => {
+            Err(e) => {
                 // If it fails, error should mention conflict
                 assert!(
                     e.to_string().contains("exists")
@@ -381,7 +381,7 @@ mod brutal_edge_cases {
                 // Success means it handled the orphaned workspace
                 assert!(true, "Successfully reconciled orphaned JJ workspace");
             }
-            Err(e: SpawnError) => {
+            Err(e) => {
                 // Error should mention workspace conflict
                 assert!(
                     e.to_string().contains("workspace")
