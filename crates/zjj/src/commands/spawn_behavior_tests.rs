@@ -17,8 +17,9 @@ mod brutal_edge_cases {
     };
 
     use tempfile::TempDir;
-    use crate::commands::spawn::{execute_spawn, SpawnError, SpawnOptions, SpawnOutput};
     use zjj_core::OutputFormat;
+
+    use crate::commands::spawn::{execute_spawn, SpawnError, SpawnOptions, SpawnOutput};
 
     /// Helper to create default SpawnOptions for testing
     fn test_spawn_options(bead_id: &str, command: &str, args: Vec<String>) -> SpawnOptions {
@@ -257,12 +258,13 @@ mod brutal_edge_cases {
                 );
                 assert_eq!(output.exit_code, Some(1), "Exit code should be 1");
             }
-            Err(e: SpawnError) => {
+            Err(e) => {
                 // Also acceptable if it returns error
+                let err: &SpawnError = &e;
                 assert!(
-                    e.to_string().contains("exit") || e.to_string().contains("failed"),
+                    err.to_string().contains("exit") || err.to_string().contains("failed"),
                     "Error should mention exit/failure: {}",
-                    e
+                    err
                 );
             }
         }
@@ -336,14 +338,15 @@ mod brutal_edge_cases {
                     "Old workspace should be cleaned before spawn"
                 );
             }
-            Err(e: SpawnError) => {
+            Err(e) => {
                 // If it fails, error should mention conflict
+                let err: &SpawnError = &e;
                 assert!(
-                    e.to_string().contains("exists")
-                        || e.to_string().contains("conflict")
-                        || e.to_string().contains("workspace"),
+                    err.to_string().contains("exists")
+                        || err.to_string().contains("conflict")
+                        || err.to_string().contains("workspace"),
                     "Error should indicate workspace conflict: {}",
-                    e
+                    err
                 );
             }
         }
@@ -381,14 +384,15 @@ mod brutal_edge_cases {
                 // Success means it handled the orphaned workspace
                 assert!(true, "Successfully reconciled orphaned JJ workspace");
             }
-            Err(e: SpawnError) => {
+            Err(e) => {
                 // Error should mention workspace conflict
+                let err: &SpawnError = &e;
                 assert!(
-                    e.to_string().contains("workspace")
-                        || e.to_string().contains("exists")
-                        || e.to_string().contains("conflict"),
+                    err.to_string().contains("workspace")
+                        || err.to_string().contains("exists")
+                        || err.to_string().contains("conflict"),
                     "Error should indicate workspace inconsistency: {}",
-                    e
+                    err
                 );
             }
         }
