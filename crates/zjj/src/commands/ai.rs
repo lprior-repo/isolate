@@ -692,7 +692,10 @@ mod tests {
             next_command: "zjj work".to_string(),
         };
 
-        let json_str = serde_json::to_string(&status).unwrap_or_default();
+        let json_str = match serde_json::to_string(&status) {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
 
         assert!(json_str.contains("location"));
         assert!(json_str.contains("workspace"));

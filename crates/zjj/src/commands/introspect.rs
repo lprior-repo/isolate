@@ -68,16 +68,16 @@ fn check_dependencies() -> HashMap<String, DependencyInfo> {
     };
 
     // Beads (optional)
-    let beads_installed = is_command_available("bd");
+    let beads_installed = is_command_available("br");
     let beads_info = DependencyInfo {
         required: false,
         installed: beads_installed,
         version: if beads_installed {
-            get_command_version("bd")
+            get_command_version("br")
         } else {
             None
         },
-        command: "bd".to_string(),
+        command: "br".to_string(),
     };
 
     HashMap::new()
@@ -183,7 +183,7 @@ fn print_human_readable(output: &IntrospectOutput) {
             .version
             .as_ref()
             .map(|v| format!(" - {v}"))
-            .unwrap_or_default();
+            .map_or(String::new(), |value| value);
         println!("  {status} {name}{required}{version}");
     }
     println!();
@@ -356,7 +356,7 @@ pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
                 .short
                 .as_ref()
                 .map(|s| format!("-{s}, "))
-                .unwrap_or_default();
+                .map_or(String::new(), |value| value);
             let _ = write!(output, "\n    {short}--{}", flag.long);
             let _ = write!(output, "\n      Type: {}", flag.flag_type);
             let _ = write!(output, "\n      Description: {}", flag.description);
@@ -399,7 +399,7 @@ fn capitalize_category(category: &str) -> String {
             chars
                 .next()
                 .map(|first| first.to_uppercase().chain(chars).collect::<String>())
-                .unwrap_or_default()
+                .map_or(String::new(), |value| value)
         })
         .collect::<Vec<_>>()
         .join(" ")
@@ -528,7 +528,7 @@ fn create_list_error_conditions() -> Vec<ErrorCondition> {
         create_error_condition(
             "NO_MATCHING_SESSIONS",
             "No sessions match the specified filter criteria (bead, agent, status, etc.)",
-            "Review filter parameters: check bead IDs with 'bd list' or agent names, try with fewer restrictions",
+            "Review filter parameters: check bead IDs with 'br list' or agent names, try with fewer restrictions",
         ),
     ]
 }

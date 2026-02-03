@@ -560,7 +560,10 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
 pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
     match error_code {
         "SESSION_ALREADY_EXISTS" => {
-            let session_name = extract_session_name(error_msg).unwrap_or("session");
+            let session_name = match extract_session_name(error_msg) {
+                Some(value) => value,
+                None => "session",
+            };
             vec![
                 Hint::suggestion("Use a different name for the new session")
                     .with_command(format!("zjj add {session_name}-v2"))
@@ -759,7 +762,7 @@ pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vec<Hint> {
     if beads.total() == 0 {
         hints.push(
             Hint::info(format!("Session '{session_name}' has no beads issues"))
-                .with_command("bd new")
+                .with_command("br new")
                 .with_rationale("Track your work with beads for better organization"),
         );
     }
@@ -813,7 +816,10 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = generate_hints(&state).unwrap_or_default();
+        let hints = match generate_hints(&state) {
+            Ok(value) => value,
+            Err(_) => Vec::new(),
+        };
         assert!(!hints.is_empty());
 
         #[allow(clippy::indexing_slicing)]
@@ -833,7 +839,10 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = generate_hints(&state).unwrap_or_default();
+        let hints = match generate_hints(&state) {
+            Ok(value) => value,
+            Err(_) => Vec::new(),
+        };
         assert!(hints
             .iter()
             .any(|h| h.message.contains("consider removing")));
@@ -847,7 +856,10 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = generate_hints(&state).unwrap_or_default();
+        let hints = match generate_hints(&state) {
+            Ok(value) => value,
+            Err(_) => Vec::new(),
+        };
         assert!(hints.iter().any(|h| h.hint_type == HintType::Warning));
     }
 
@@ -863,7 +875,10 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = generate_hints(&state).unwrap_or_default();
+        let hints = match generate_hints(&state) {
+            Ok(value) => value,
+            Err(_) => Vec::new(),
+        };
         assert!(hints.iter().any(|h| h.message.contains("dashboard")));
     }
 
@@ -1153,11 +1168,20 @@ mod tests {
 
     #[test]
     fn test_action_risk_serialization() {
-        let safe_json = serde_json::to_string(&ActionRisk::Safe).unwrap_or_default();
+        let safe_json = match serde_json::to_string(&ActionRisk::Safe) {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
         assert_eq!(safe_json, "\"safe\"");
-        let medium_json = serde_json::to_string(&ActionRisk::Medium).unwrap_or_default();
+        let medium_json = match serde_json::to_string(&ActionRisk::Medium) {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
         assert_eq!(medium_json, "\"medium\"");
-        let high_json = serde_json::to_string(&ActionRisk::High).unwrap_or_default();
+        let high_json = match serde_json::to_string(&ActionRisk::High) {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
         assert_eq!(high_json, "\"high\"");
     }
 
@@ -1169,7 +1193,10 @@ mod tests {
             risk: ActionRisk::Medium,
             description: Some("A test action".to_string()),
         };
-        let json = serde_json::to_string(&action).unwrap_or_default();
+        let json = match serde_json::to_string(&action) {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
         assert!(json.contains("\"risk\":\"medium\""));
         assert!(json.contains("\"description\":\"A test action\""));
     }
@@ -1182,7 +1209,10 @@ mod tests {
             risk: ActionRisk::Safe,
             description: None,
         };
-        let json = serde_json::to_string(&action).unwrap_or_default();
+        let json = match serde_json::to_string(&action) {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
         assert!(!json.contains("description"));
     }
 

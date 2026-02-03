@@ -495,8 +495,10 @@ mod tests {
         };
 
         let json = serde_json::to_string(&output);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("\"total\":0"));
         assert!(json_str.contains("\"can_undo\":false"));
     }
@@ -514,8 +516,10 @@ mod tests {
         };
 
         let json = serde_json::to_string(&entry);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("\"session_name\":\"feature-auth\""));
         assert!(json_str.contains("\"can_undo\":true"));
         // reason_cannot_undo should be skipped when None

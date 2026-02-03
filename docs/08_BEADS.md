@@ -11,17 +11,17 @@ Beads stores issues in `.beads/beads.jsonl`. Each bead (issue) is a node in a de
 ### Basic Issue
 
 ```bash
-bd add --title "Feature: implement X"
+br add --title "Feature: implement X"
 
 # With description
-bd add --title "Bug: Y fails on Z" \
+br add --title "Bug: Y fails on Z" \
   --description "Steps to reproduce:
 1. Do X
 2. Observe Y
 3. Should see Z instead"
 
 # With priority and labels
-bd add --title "Feature: add validation" \
+br add --title "Feature: add validation" \
   --priority high \
   --label feature \
   --label "p0"
@@ -31,18 +31,18 @@ bd add --title "Feature: add validation" \
 
 **Feature**:
 ```bash
-bd add --title "Feature: description" --label feature --priority high
+br add --title "Feature: description" --label feature --priority high
 ```
 
 **Bug**:
 ```bash
-bd add --title "Bug: what fails" --label bug --priority high \
+br add --title "Bug: what fails" --label bug --priority high \
   --description "Steps: 1. ... 2. ... Expected: ... Actual: ..."
 ```
 
 **Chore**:
 ```bash
-bd add --title "Chore: refactor X" --label chore --priority medium
+br add --title "Chore: refactor X" --label chore --priority medium
 ```
 
 ## Managing Issues
@@ -50,33 +50,33 @@ bd add --title "Chore: refactor X" --label chore --priority medium
 ### List & Filter
 
 ```bash
-bd list                              # All open issues
-bd list --filter "status:open"       # Only open
-bd list --filter "assigned:me"       # My issues
-bd list --filter "label:feature"     # By label
-bd list --filter "priority:high"     # By priority
+br list                              # All open issues
+br list --filter "status:open"       # Only open
+br list --filter "assigned:me"       # My issues
+br list --filter "label:feature"     # By label
+br list --filter "priority:high"     # By priority
 ```
 
 ### Claiming Issues
 
 ```bash
-bd claim BD-123          # Start working
-bd claim BD-123 --show   # See details
+br claim BD-123          # Start working
+br claim BD-123 --show   # See details
 ```
 
 ### Updating Status
 
 ```bash
-bd resolve BD-123        # Mark ready for review
-bd complete BD-123       # Mark done
-bd unresolved BD-123     # Reopen
+br resolve BD-123        # Mark ready for review
+br complete BD-123       # Mark done
+br unresolved BD-123     # Reopen
 ```
 
 ### Adding Dependencies
 
 ```bash
-bd link BD-123 BD-124    # BD-123 blocks BD-124
-bd unlink BD-123 BD-124  # Remove dependency
+br link BD-123 BD-124    # BD-123 blocks BD-124
+br unlink BD-123 BD-124  # Remove dependency
 ```
 
 ## Using `bv` for Triage
@@ -214,7 +214,7 @@ bv --robot-triage
 bv --robot-next
 
 # Claim it
-bd claim BD-123
+br claim BD-123
 ```
 
 ### During Work: Track Progress
@@ -224,7 +224,7 @@ bd claim BD-123
 bv --robot-plan --label core
 
 # Update as you finish
-bd complete BD-123
+br complete BD-123
 ```
 
 ### End of Day: Health Check
@@ -265,7 +265,7 @@ Good reasons to link issues:
 - "BD-124 requires output from BD-123"
 
 ```bash
-bd link BD-123 BD-124  # BD-123 blocks BD-124
+br link BD-123 BD-124  # BD-123 blocks BD-124
 ```
 
 ### Checking for Cycles
@@ -309,40 +309,40 @@ bv --robot-insights | jq '.CriticalPath'  # Longest dependency chain
 
 ```bash
 # Create epic
-bd add --title "Epic: feature X" --label epic --priority high
+br add --title "Epic: feature X" --label epic --priority high
 
 # Break into tasks
-bd add --title "Feature: part 1" --label feature --priority high
-bd add --title "Feature: part 2" --label feature --priority high
-bd add --title "Tests: feature X" --label testing
+br add --title "Feature: part 1" --label feature --priority high
+br add --title "Feature: part 2" --label feature --priority high
+br add --title "Tests: feature X" --label testing
 
 # Link to epic
-bd link BD-epic BD-part1
-bd link BD-epic BD-part2
-bd link BD-epic BD-tests
+br link BD-epic BD-part1
+br link BD-epic BD-part2
+br link BD-epic BD-tests
 
 # Triage
 bv --robot-plan
 
 # Work
-bd claim BD-part1
+br claim BD-part1
 # ... implement ...
-bd complete BD-part1
+br complete BD-part1
 ```
 
 ### Bug Triage
 
 ```bash
 # Report bug
-bd add --title "Bug: X fails" --label bug --priority high
+br add --title "Bug: X fails" --label bug --priority high
 
 # Find impact
 bv --robot-insights | jq '.PageRank[] | select(.id == "BD-123")'
 
 # Estimate effort
-bd claim BD-123
+br claim BD-123
 # ... investigate ...
-bd resolve BD-123  # Ready for review
+br resolve BD-123  # Ready for review
 ```
 
 ## Performance Notes
@@ -354,12 +354,12 @@ bd resolve BD-123  # Ready for review
 
 ## Integration with Development
 
-1. **Create issue** → `bd add ...`
-2. **Claim issue** → `bd claim BD-123`
+1. **Create issue** → `br add ...`
+2. **Claim issue** → `br claim BD-123`
 3. **Make branch** → `jj bookmark set feature/...` (implicit in ZJJ)
 4. **Work** → Edit files, commit with `jj describe`
 5. **Push** → `jj git push`
-6. **Close** → `bd complete BD-123`
+6. **Close** → `br complete BD-123`
 
 All connected through Beads dependency graph and tracked by `bv`.
 

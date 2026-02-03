@@ -20,7 +20,7 @@
 //! size = "70%"
 //!
 //! [hooks]
-//! post_create = ["bd sync", "npm install"]
+//! post_create = ["br sync", "npm install"]
 //! ```
 
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
@@ -874,7 +874,10 @@ mod tests {
     fn test_project_config_path() {
         let result = project_config_path();
         assert!(result.is_ok());
-        let path = result.unwrap_or_default();
+        let Ok(path) = result else {
+            assert!(false, "project_config_path failed");
+            return;
+        };
         assert!(path.ends_with("config.toml"));
     }
 

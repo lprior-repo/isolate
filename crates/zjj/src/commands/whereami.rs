@@ -107,8 +107,10 @@ mod tests {
         };
 
         let json = serde_json::to_string(&output);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("\"location_type\":\"main\""));
     }
 
@@ -197,7 +199,10 @@ mod tests {
             simple: "workspace:test".to_string(),
         };
 
-        let json_str = serde_json::to_string(&output).unwrap_or_default();
+        let json_str = match serde_json::to_string(&output) {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
 
         assert!(json_str.contains("location_type"));
         assert!(json_str.contains("workspace_name"));

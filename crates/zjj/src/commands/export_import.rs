@@ -206,7 +206,10 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
         // Create the session
         match db.create_blocking(
             &session.name,
-            session.workspace_path.as_deref().unwrap_or_default(),
+            match session.workspace_path.as_deref() {
+                Some(value) => value,
+                None => "",
+            },
         ) {
             Ok(_) => {
                 result.imported += 1;

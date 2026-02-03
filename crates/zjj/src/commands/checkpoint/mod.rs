@@ -360,8 +360,10 @@ mod tests {
             checkpoint_id: "chk-abc123".to_string(),
         };
         let json = serde_json::to_string(&response);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("Created"));
         assert!(json_str.contains("chk-abc123"));
     }
@@ -372,8 +374,10 @@ mod tests {
             checkpoint_id: "chk-def456".to_string(),
         };
         let json = serde_json::to_string(&response);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("Restored"));
         assert!(json_str.contains("chk-def456"));
     }
@@ -384,8 +388,10 @@ mod tests {
             checkpoints: vec![],
         };
         let json = serde_json::to_string(&response);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("List"));
         assert!(json_str.contains("checkpoints"));
     }
@@ -409,8 +415,10 @@ mod tests {
             ],
         };
         let json = serde_json::to_string(&response);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("chk-1"));
         assert!(json_str.contains("chk-2"));
         assert!(json_str.contains("first checkpoint"));
@@ -491,7 +499,10 @@ mod tests {
     fn test_generate_checkpoint_id_format() {
         let id_result = generate_checkpoint_id();
         assert!(id_result.is_ok());
-        let id = id_result.unwrap_or_default();
+        let Ok(id) = id_result else {
+            assert!(false, "id generation failed");
+            return;
+        };
         assert!(id.starts_with("chk-"));
         // Should be a valid hex string after the prefix
         let hex_part = &id[4..];
@@ -500,10 +511,16 @@ mod tests {
 
     #[test]
     fn test_generate_checkpoint_id_uniqueness() {
-        let id1 = generate_checkpoint_id().unwrap_or_default();
+        let id1 = match generate_checkpoint_id() {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
         // Sleep briefly to ensure different timestamp
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let id2 = generate_checkpoint_id().unwrap_or_default();
+        let id2 = match generate_checkpoint_id() {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
         // IDs should be different (based on timestamp)
         assert_ne!(id1, id2);
     }
