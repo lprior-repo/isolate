@@ -2,6 +2,13 @@
 //!
 //! This module provides utilities for setting up test environments,
 //! running zjj commands, and making assertions about the results.
+//!
+//! ## Design Notes
+//!
+//! The `TestHarness` provides test isolation by:
+//! - Creating a temporary directory for each test
+//! - Configuring workspace_dir to be inside the repo (not the default sibling directory)
+//! - Providing helper methods for common assertions
 
 #![allow(dead_code)]
 #![allow(clippy::unused_self)]
@@ -10,6 +17,9 @@ use std::{path::PathBuf, process::Command};
 
 use anyhow::{Context, Result};
 use tempfile::TempDir;
+
+/// Test configuration: workspaces are created inside the repo at this relative path
+const TEST_WORKSPACE_DIR: &str = "workspaces";
 
 /// Check if jj is available in PATH
 pub fn jj_is_available() -> bool {
@@ -99,12 +109,16 @@ impl TestHarness {
     }
 
     /// Run a zjj command and return the result
+    ///
+    /// Sets `ZJJ_WORKSPACE_DIR` to ensure workspaces are created inside the
+    /// test repo for proper isolation and cleanup.
     pub fn zjj(&self, args: &[&str]) -> CommandResult {
         let output = Command::new(&self.zjj_bin)
             .args(args)
             .current_dir(&self.current_dir)
             .env("NO_COLOR", "1") // Disable color codes
             .env("ZJJ_TEST_MODE", "1") // Signal we're in test mode
+            .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR) // Use test-specific workspace dir
             .output()
             .map_or_else(
                 |_| CommandResult {
@@ -143,10 +157,15 @@ impl TestHarness {
 
     /// Get the workspace path for a session
     ///
-    /// JJ workspaces are stored as named directories in the repo root
+    /// Returns the path where JJ workspaces are created, based on the
+    /// test configuration (`TEST_WORKSPACE_DIR`).
+    ///
+    /// ## Design Note
+    ///
+    /// In production, workspace_dir defaults to `../{repo}__workspaces` (sibling to repo).
+    /// In tests, we configure it to `workspaces` (inside repo) for isolation.
     pub fn workspace_path(&self, session: &str) -> PathBuf {
-        // JJ stores workspaces as named directories in the repo root
-        self.repo_path.join(session)
+        self.repo_path.join(TEST_WORKSPACE_DIR).join(session)
     }
 
     /// Assert that a workspace exists
