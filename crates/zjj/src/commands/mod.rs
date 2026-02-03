@@ -6,6 +6,7 @@ pub mod agents;
 pub mod ai;
 pub mod attach;
 pub mod batch;
+pub mod bookmark;
 pub mod can_i;
 pub mod checkpoint;
 pub mod claim;
