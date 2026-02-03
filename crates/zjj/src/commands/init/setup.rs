@@ -3,10 +3,7 @@
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
-use zjj_core::templates::{
-    askama::{render_template, ProjectContext, TemplateType},
-    MOON_TASKS, MOON_TOOLCHAIN, MOON_WORKSPACE,
-};
+use zjj_core::templates::askama::{render_template, ProjectContext, TemplateType};
 
 /// Repo-level AI instructions for when working on zjj itself
 pub(super) const REPO_AI_INSTRUCTIONS: &str = r"# ZJJ Repository - AI Agent Instructions
@@ -215,23 +212,27 @@ pub(super) fn create_repo_ai_instructions(repo_root: &Path) -> Result<()> {
 
 /// Get project context from repository root
 ///
-/// Part of the template rendering system. Not yet used but available for
-/// future init scaffolding features.
-#[allow(dead_code)]
-fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
+/// Extracts project metadata for template rendering using functional patterns.
+/// Returns default values if extraction fails, ensuring zero panics.
+///
+/// # Errors
+///
+/// Returns error if `ProjectContext::new()` validation fails.
+pub(super) fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
     let project_name = repo_root
         .file_name()
         .and_then(|s| s.to_str())
-        .unwrap_or("new-project")
-        .to_string();
+        .map(String::from)
+        .unwrap_or_else(|| "new-project".to_string());
 
-    Ok(ProjectContext::new(
+    ProjectContext::new(
         project_name,
         "A new project".to_string(),
         "0.1.0".to_string(),
         vec!["Your Name".to_string()],
         None,
-    )?)
+    )
+    .context("Failed to create project context")
 }
 
 /// Create AGENTS.md file from template
@@ -266,27 +267,36 @@ pub(super) fn create_claude_md(repo_root: &Path) -> Result<()> {
 
 /// Create Moon pipeline configuration files
 ///
-/// Part of the template rendering system. Not yet used but available for
-/// future init scaffolding features.
-pub(super) fn _create_moon_pipeline(repo_root: &Path) -> Result<()> {
+/// Scaffolds .moon/ directory with workspace.yml, toolchain.yml, and tasks.yml.
+/// Templates use project name replacement for custom paths.
+pub(super) fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
     let moon_dir = repo_root.join(".moon");
     fs::create_dir_all(&moon_dir).context("Failed to create .moon directory")?;
 
+    let context = get_project_context(repo_root)?;
+
+    // Render and write workspace.yml
     let workspace_path = moon_dir.join("workspace.yml");
     if !workspace_path.exists() {
-        fs::write(&workspace_path, MOON_WORKSPACE)
-            .context("Failed to create .moon/workspace.yml")?;
+        let content = render_template(TemplateType::MoonWorkspace, &context)
+            .context("Failed to render workspace.yml template")?;
+        fs::write(&workspace_path, content).context("Failed to create .moon/workspace.yml")?;
     }
 
+    // Render and write toolchain.yml
     let toolchain_path = moon_dir.join("toolchain.yml");
     if !toolchain_path.exists() {
-        fs::write(&toolchain_path, MOON_TOOLCHAIN)
-            .context("Failed to create .moon/toolchain.yml")?;
+        let content = render_template(TemplateType::MoonToolchain, &context)
+            .context("Failed to render toolchain.yml template")?;
+        fs::write(&toolchain_path, content).context("Failed to create .moon/toolchain.yml")?;
     }
 
+    // Render and write tasks.yml
     let tasks_path = moon_dir.join("tasks.yml");
     if !tasks_path.exists() {
-        fs::write(&tasks_path, MOON_TASKS).context("Failed to create .moon/tasks.yml")?;
+        let content = render_template(TemplateType::MoonTasks, &context)
+            .context("Failed to render tasks.yml template")?;
+        fs::write(&tasks_path, content).context("Failed to create .moon/tasks.yml")?;
     }
 
     Ok(())
