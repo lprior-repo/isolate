@@ -18,6 +18,7 @@ pub struct SessionStatusInfo {
     pub changes: FileChanges,
     pub diff_stats: DiffStats,
     pub beads: BeadStats,
+    pub zellij_status: zjj_core::zellij::TabStatus,
     #[serde(flatten)]
     pub session: Session,
 }
@@ -195,6 +196,9 @@ fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
     // Get beads stats
     let beads = get_beads_stats()?;
 
+    // Query Zellij for tab status
+    let zellij_status = zjj_core::zellij::check_tab_exists(&session.zellij_tab);
+
     // Note: Clones here are necessary because SessionStatusInfo owns its data
     // Future optimization: Consider Arc<Session> or Cow<str> for shared ownership
     Ok(SessionStatusInfo {
@@ -205,6 +209,7 @@ fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
         changes,
         diff_stats,
         beads,
+        zellij_status,
         session: session.clone(),
     })
 }
@@ -326,18 +331,18 @@ fn output_table(items: &[SessionStatusInfo]) {
 
     // Display table header
     if is_tty {
-        println!("╭─ SESSIONS ──────────────────────────────────────────────────────────────────────────────────────────────────╮");
+        println!("╭─ SESSIONS ─────────────────────────────────────────────────────────────────────────────────────────────────────────────╮");
         println!(
-            "│ {:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30} │",
-            "", "NAME", "STATUS", "BRANCH", "CHANGES", "DIFF", "BEADS", "BEAD"
+            "│ {:<3} {:<16} {:<10} {:<8} {:<12} {:<16} {:<12} {:<15} {:<30} │",
+            "", "NAME", "STATUS", "TAB", "BRANCH", "CHANGES", "DIFF", "BEADS", "BEAD"
         );
-        println!("├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤");
+        println!("├───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤");
     } else {
         println!(
-            "{:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30}",
-            "", "NAME", "STATUS", "BRANCH", "CHANGES", "DIFF", "BEADS", "BEAD"
+            "{:<3} {:<16} {:<10} {:<8} {:<12} {:<16} {:<12} {:<15} {:<30}",
+            "", "NAME", "STATUS", "TAB", "BRANCH", "CHANGES", "DIFF", "BEADS", "BEAD"
         );
-        println!("{}", "-".repeat(120));
+        println!("{}", "-".repeat(130));
     }
 
     // Display table rows
@@ -366,10 +371,11 @@ fn output_table(items: &[SessionStatusInfo]) {
 
         if is_tty {
             println!(
-                "│ {:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30} │",
+                "│ {:<3} {:<16} {:<10} {:<8} {:<12} {:<16} {:<12} {:<15} {:<30} │",
                 marker,
                 item.name,
                 item.status,
+                item.zellij_status.to_string(),
                 item.branch,
                 item.changes.to_string(),
                 item.diff_stats.to_string(),
@@ -378,10 +384,11 @@ fn output_table(items: &[SessionStatusInfo]) {
             );
         } else {
             println!(
-                "{:<3} {:<16} {:<10} {:<12} {:<16} {:<12} {:<15} {:<30}",
+                "{:<3} {:<16} {:<10} {:<8} {:<12} {:<16} {:<12} {:<15} {:<30}",
                 marker,
                 item.name,
                 item.status,
+                item.zellij_status.to_string(),
                 item.branch,
                 item.changes.to_string(),
                 item.diff_stats.to_string(),
@@ -393,7 +400,7 @@ fn output_table(items: &[SessionStatusInfo]) {
 
     // Display table footer
     if is_tty {
-        println!("╰─────────────────────────────────────────────────────────────────────────────────────────────────╯");
+        println!("╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘");
     }
 
     // Display legend
@@ -401,6 +408,7 @@ fn output_table(items: &[SessionStatusInfo]) {
     println!("Legend:");
     println!("  Changes: M=Modified  A=Added  D=Deleted  R=Renamed");
     println!("  Beads:   O=Open  P=in_Progress  B=Blocked  C=Closed");
+    println!("  TAB:     Zellij tab status (active=exists, missing=closed, unknown=not in Zellij)");
     println!("  BEAD:    Associated bead ID and title");
     if current_location.is_some() {
         println!("  ▶ = Current workspace");
@@ -539,6 +547,7 @@ mod tests {
                 blocked: 0,
                 closed: 5,
             },
+            zellij_status: zjj_core::zellij::TabStatus::Unknown,
             session,
         };
 
@@ -604,6 +613,7 @@ mod tests {
                 blocked: 0,
                 closed: 5,
             },
+            zellij_status: zjj_core::zellij::TabStatus::Active,
             session,
         }];
 
@@ -634,6 +644,7 @@ mod tests {
             changes: FileChanges::default(),
             diff_stats: DiffStats::default(),
             beads: BeadStats::default(),
+            zellij_status: zjj_core::zellij::TabStatus::Unknown,
             session,
         }];
 
@@ -683,6 +694,7 @@ mod tests {
             changes: FileChanges::default(),
             diff_stats: DiffStats::default(),
             beads: BeadStats::default(),
+            zellij_status: zjj_core::zellij::TabStatus::Unknown,
             session,
         }];
 
@@ -753,6 +765,7 @@ mod tests {
                 blocked: 1,
                 closed: 10,
             },
+            zellij_status: zjj_core::zellij::TabStatus::Missing,
             session,
         }];
 
@@ -871,6 +884,7 @@ mod tests {
             changes: FileChanges::default(),
             diff_stats: DiffStats::default(),
             beads: BeadStats::default(),
+            zellij_status: zjj_core::zellij::TabStatus::Active,
             session,
         }];
 
@@ -939,6 +953,7 @@ mod tests {
             changes: FileChanges::default(),
             diff_stats: DiffStats::default(),
             beads: BeadStats::default(),
+            zellij_status: zjj_core::zellij::TabStatus::Unknown,
             session,
         }];
 
@@ -994,6 +1009,7 @@ mod tests {
             changes: FileChanges::default(),
             diff_stats: DiffStats::default(),
             beads: BeadStats::default(),
+            zellij_status: zjj_core::zellij::TabStatus::Unknown,
             session,
         }];
 
@@ -1060,6 +1076,7 @@ mod tests {
                 changes: FileChanges::default(),
                 diff_stats: DiffStats::default(),
                 beads: BeadStats::default(),
+                zellij_status: zjj_core::zellij::TabStatus::Active,
                 session: session1,
             },
             SessionStatusInfo {
@@ -1070,6 +1087,7 @@ mod tests {
                 changes: FileChanges::default(),
                 diff_stats: DiffStats::default(),
                 beads: BeadStats::default(),
+                zellij_status: zjj_core::zellij::TabStatus::Missing,
                 session: session2,
             },
         ];
