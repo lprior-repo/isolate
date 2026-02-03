@@ -1,0 +1,1167 @@
+use std::fmt;
+
+use serde::{Deserialize, Serialize};
+
+/// Validation hint for explaining what was expected vs received
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidationHint {
+    /// The field or parameter that failed validation
+    pub field: String,
+    /// What was expected
+    pub expected: String,
+    /// What was actually received (if applicable)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub received: Option<String>,
+    /// Example of valid input
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub example: Option<String>,
+    /// Regular expression pattern for valid input (if applicable)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
+}
+
+impl ValidationHint {
+    /// Create a new validation hint
+    #[must_use]
+    pub fn new(field: impl Into<String>, expected: impl Into<String>) -> Self {
+        Self {
+            field: field.into(),
+            expected: expected.into(),
+            received: None,
+            example: None,
+            pattern: None,
+        }
+    }
+
+    /// Add what was received
+    #[must_use]
+    pub fn with_received(mut self, received: impl Into<String>) -> Self {
+        self.received = Some(received.into());
+        self
+    }
+
+    /// Add an example
+    #[must_use]
+    pub fn with_example(mut self, example: impl Into<String>) -> Self {
+        self.example = Some(example.into());
+        self
+    }
+
+    /// Add a pattern
+    #[must_use]
+    pub fn with_pattern(mut self, pattern: impl Into<String>) -> Self {
+        self.pattern = Some(pattern.into());
+        self
+    }
+}
+
+/// Context captured at the moment of failure
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FailureContext {
+    /// Working directory at failure
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub working_directory: Option<String>,
+    /// Current JJ workspace/branch
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_workspace: Option<String>,
+    /// Active sessions at failure time
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub active_sessions: Vec<String>,
+    /// Environment variables relevant to failure
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub relevant_env: Vec<(String, String)>,
+    /// Command that was being executed
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    /// Arguments to the command
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub arguments: Vec<String>,
+    /// Timestamp of failure (ISO 8601)
+    pub timestamp: String,
+    /// Stack trace or phase when failure occurred
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phase: Option<String>,
+}
+
+impl Default for FailureContext {
+    fn default() -> Self {
+        Self {
+            working_directory: None,
+            current_workspace: None,
+            active_sessions: Vec::new(),
+            relevant_env: Vec::new(),
+            command: None,
+            arguments: Vec::new(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            phase: None,
+        }
+    }
+}
+
+impl FailureContext {
+    /// Create a new failure context with current timestamp
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set working directory
+    #[must_use]
+    pub fn with_working_directory(mut self, dir: impl Into<String>) -> Self {
+        self.working_directory = Some(dir.into());
+        self
+    }
+
+    /// Set current workspace
+    #[must_use]
+    pub fn with_workspace(mut self, workspace: impl Into<String>) -> Self {
+        self.current_workspace = Some(workspace.into());
+        self
+    }
+
+    /// Add active sessions
+    #[must_use]
+    pub fn with_active_sessions(mut self, sessions: Vec<String>) -> Self {
+        self.active_sessions = sessions;
+        self
+    }
+
+    /// Set the command and arguments
+    #[must_use]
+    pub fn with_command(mut self, cmd: impl Into<String>, args: Vec<String>) -> Self {
+        self.command = Some(cmd.into());
+        self.arguments = args;
+        self
+    }
+
+    /// Set the phase where failure occurred
+    #[must_use]
+    pub fn with_phase(mut self, phase: impl Into<String>) -> Self {
+        self.phase = Some(phase.into());
+        self
+    }
+
+    /// Add relevant environment variable
+    #[must_use]
+    pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.relevant_env.push((key.into(), value.into()));
+        self
+    }
+
+    /// Capture current working directory from environment
+    #[must_use]
+    pub fn capture_cwd(mut self) -> Self {
+        if let Ok(cwd) = std::env::current_dir() {
+            self.working_directory = Some(cwd.to_string_lossy().to_string());
+        }
+        self
+    }
+}
+
+/// Rich error information for AI-first CLI
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RichError {
+    /// The underlying error
+    #[serde(flatten)]
+    pub error: RichErrorInfo,
+    /// Validation hints (what was expected vs received)
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub validation_hints: Vec<ValidationHint>,
+    /// Context captured at failure
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_at_failure: Option<FailureContext>,
+    /// Fix commands that can resolve this error
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub fix_commands: Vec<String>,
+}
+
+/// Serializable error info (subset of Error for JSON output)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RichErrorInfo {
+    /// Error code (`SCREAMING_SNAKE_CASE`)
+    pub code: String,
+    /// Human-readable message
+    pub message: String,
+    /// Exit code
+    pub exit_code: i32,
+    /// Structured context
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+    /// Suggestion for resolution
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggestion: Option<String>,
+}
+
+impl RichError {
+    /// Create a `RichError` from an Error with optional context
+    #[must_use]
+    pub fn from_error(error: &Error) -> Self {
+        Self {
+            error: RichErrorInfo {
+                code: error.code().to_string(),
+                message: error.to_string(),
+                exit_code: error.exit_code(),
+                details: error.context_map(),
+                suggestion: error.suggestion(),
+            },
+            validation_hints: error.validation_hints(),
+            context_at_failure: None,
+            fix_commands: error.fix_commands(),
+        }
+    }
+
+    /// Add failure context
+    #[must_use]
+    pub fn with_context(mut self, context: FailureContext) -> Self {
+        self.context_at_failure = Some(context);
+        self
+    }
+
+    /// Add additional fix commands
+    #[must_use]
+    pub fn with_fix_commands(mut self, commands: Vec<String>) -> Self {
+        self.fix_commands = commands;
+        self
+    }
+
+    /// Add additional validation hints
+    #[must_use]
+    pub fn with_validation_hints(mut self, hints: Vec<ValidationHint>) -> Self {
+        self.validation_hints.extend(hints);
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Error {
+    InvalidConfig(String),
+    IoError(String),
+    ParseError(String),
+    ValidationError(String),
+    NotFound(String),
+    DatabaseError(String),
+    Command(String),
+    HookFailed {
+        hook_type: String,
+        command: String,
+        exit_code: Option<i32>,
+        stdout: String,
+        stderr: String,
+    },
+    HookExecutionFailed {
+        command: String,
+        source: String,
+    },
+    JjCommandError {
+        operation: String,
+        source: String,
+        is_not_found: bool,
+    },
+    SessionLocked {
+        session: String,
+        holder: String,
+    },
+    NotLockHolder {
+        session: String,
+        agent_id: String,
+    },
+    Unknown(String),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidConfig(msg) => write!(f, "Invalid configuration: {msg}"),
+            Self::IoError(msg) => write!(f, "IO error: {msg}"),
+            Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
+            Self::ValidationError(msg) => write!(f, "Validation error: {msg}"),
+            Self::NotFound(msg) => write!(f, "Not found: {msg}"),
+            Self::DatabaseError(msg) => write!(f, "Database error: {msg}"),
+            Self::Command(msg) => write!(f, "Command error: {msg}"),
+            Self::HookFailed {
+                hook_type,
+                command,
+                exit_code,
+                stdout: _,
+                stderr,
+            } => {
+                write!(
+                    f,
+                    "Hook '{hook_type}' failed: {command}\nExit code: {}\nStderr: {stderr}",
+                    exit_code
+                        .map(|c| c.to_string())
+                        .unwrap_or_else(|| "None".to_string())
+                )
+            }
+            Self::HookExecutionFailed { command, source } => {
+                write!(f, "Failed to execute hook '{command}': {source}")
+            }
+            Self::JjCommandError {
+                operation,
+                source,
+                is_not_found,
+            } => {
+                if *is_not_found {
+                    write!(
+                        f,
+                        "Failed to {operation}: JJ is not installed or not in PATH.\n\n\nInstall JJ:\n\n  cargo install jj-cli\n\nor:\n\n  brew install jj\n\nor visit: https://github.com/martinvonz/jj#installation\n\nError: {source}"
+                    )
+                } else {
+                    write!(f, "Failed to {operation}: {source}")
+                }
+            }
+            Self::SessionLocked { session, holder } => {
+                write!(f, "Session '{session}' is locked by agent '{holder}'")
+            }
+            Self::NotLockHolder { session, agent_id } => {
+                write!(
+                    f,
+                    "Agent '{agent_id}' does not hold the lock for session '{session}'"
+                )
+            }
+            Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Self::IoError(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Self::ParseError(err.to_string())
+    }
+}
+
+impl From<toml::de::Error> for Error {
+    fn from(err: toml::de::Error) -> Self {
+        Self::ParseError(format!("Failed to parse config: {err}"))
+    }
+}
+
+impl Error {
+    /// Returns the machine-readable error code for this error.
+    ///
+    /// Error codes are always in `SCREAMING_SNAKE_CASE` format.
+    #[must_use]
+    pub const fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidConfig(_) => "INVALID_CONFIG",
+            Self::IoError(_) => "IO_ERROR",
+            Self::ParseError(_) => "PARSE_ERROR",
+            Self::ValidationError(_) => "VALIDATION_ERROR",
+            Self::NotFound(_) => "NOT_FOUND",
+            Self::DatabaseError(_) => "DATABASE_ERROR",
+            Self::Command(_) => "COMMAND_ERROR",
+            Self::HookFailed { .. } => "HOOK_FAILED",
+            Self::HookExecutionFailed { .. } => "HOOK_EXECUTION_FAILED",
+            Self::JjCommandError { .. } => "JJ_COMMAND_ERROR",
+            Self::SessionLocked { .. } => "SESSION_LOCKED",
+            Self::NotLockHolder { .. } => "NOT_LOCK_HOLDER",
+            Self::Unknown(_) => "UNKNOWN",
+        }
+    }
+
+    /// Returns structured context information for this error as a JSON value.
+    ///
+    /// This provides machine-readable context that can be used by AI agents
+    /// or tools to understand the error in detail.
+    #[must_use]
+    pub fn context_map(&self) -> Option<serde_json::Value> {
+        match self {
+            Self::InvalidConfig(msg) => Some(serde_json::json!({
+                "input": msg,
+                "expected_format": "valid TOML configuration"
+            })),
+            Self::ValidationError(msg) => Some(serde_json::json!({
+                "input": msg,
+                "expected_format": "alphanumeric, dash, underscore only"
+            })),
+            Self::NotFound(msg) => Some(serde_json::json!({
+                "resource_type": "session",
+                "resource_id": msg,
+                "searched_in": "database"
+            })),
+            Self::IoError(msg) => Some(serde_json::json!({
+                "operation": "file_io",
+                "error": msg
+            })),
+            Self::DatabaseError(msg) => Some(serde_json::json!({
+                "operation": "database",
+                "error": msg
+            })),
+            Self::Command(msg) => Some(serde_json::json!({
+                "operation": "command_execution",
+                "error": msg
+            })),
+            Self::HookFailed {
+                hook_type,
+                command,
+                exit_code,
+                stdout: _,
+                stderr,
+            } => Some(serde_json::json!({
+                "hook_type": hook_type,
+                "command": command,
+                "exit_code": exit_code,
+                "stderr": stderr
+            })),
+            Self::HookExecutionFailed { command, source } => Some(serde_json::json!({
+                "command": command,
+                "source": source
+            })),
+            Self::JjCommandError {
+                operation,
+                source,
+                is_not_found,
+            } => Some(serde_json::json!({
+                "operation": operation,
+                "source": source,
+                "is_not_found": is_not_found
+            })),
+            Self::SessionLocked { session, holder } => Some(serde_json::json!({
+                "session": session,
+                "holder": holder
+            })),
+            Self::NotLockHolder { session, agent_id } => Some(serde_json::json!({
+                "session": session,
+                "agent_id": agent_id
+            })),
+            Self::ParseError(_) | Self::Unknown(_) => None,
+        }
+    }
+
+    /// Returns a helpful suggestion for resolving this error, if available.
+    ///
+    /// Suggestions are actionable and guide the user toward a solution.
+    #[must_use]
+    pub fn suggestion(&self) -> Option<String> {
+        match self {
+             Self::NotFound(_) => Some("Try 'zjj list' to see available sessions".to_string()),
+             Self::ValidationError(msg) if msg.contains("name") => Some(
+                 "Session name must start with letter and contain only alphanumeric, dash, underscore"
+                     .to_string(),
+             ),
+             Self::DatabaseError(_) => {
+                 Some("Try 'zjj doctor' to check database health".to_string())
+             }
+Self::JjCommandError {
+                  is_not_found: true,
+                  ..
+              } => Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
+             Self::HookFailed { .. } => Some(
+                 "Check your hook configuration and ensure the command is correct".to_string(),
+             ),
+             Self::HookExecutionFailed { .. } => {
+                 Some("Ensure the hook command exists and is executable".to_string())
+             }
+             Self::InvalidConfig(_)
+             | Self::IoError(_)
+             | Self::ParseError(_)
+             | Self::ValidationError(_)
+             | Self::Command(_)
+             | Self::JjCommandError { .. }
+             | Self::SessionLocked { .. }
+             | Self::NotLockHolder { .. }
+             | Self::Unknown(_) => None,
+         }
+    }
+
+    /// Returns the semantic exit code for this error.
+    ///
+    /// Exit codes follow this semantic mapping:
+    /// - 1: Validation errors (user input issues)
+    /// - 2: Not found errors (missing resources)
+    /// - 3: System errors (IO, database issues)
+    /// - 4: External command errors (JJ, hooks, etc.)
+    #[must_use]
+    pub const fn exit_code(&self) -> i32 {
+        match self {
+            // Validation errors: exit code 1
+            Self::InvalidConfig(_) | Self::ValidationError(_) | Self::ParseError(_) => 1,
+            // Not found errors: exit code 2
+            Self::NotFound(_) => 2,
+            // System errors: exit code 3
+            Self::IoError(_) | Self::DatabaseError(_) => 3,
+            // External command errors: exit code 4
+            Self::Command(_)
+            | Self::JjCommandError { .. }
+            | Self::HookFailed { .. }
+            | Self::HookExecutionFailed { .. }
+            | Self::Unknown(_) => 4,
+            // Lock contention errors: exit code 5
+            Self::SessionLocked { .. } | Self::NotLockHolder { .. } => 5,
+        }
+    }
+
+    /// Returns validation hints that explain what was expected vs received.
+    ///
+    /// Validation hints provide structured guidance for fixing input errors.
+    #[must_use]
+    pub fn validation_hints(&self) -> Vec<ValidationHint> {
+        match self {
+            Self::ValidationError(msg) => {
+                if msg.contains("name") || msg.contains("session") {
+                    vec![ValidationHint::new(
+                        "session_name",
+                        "alphanumeric with dashes/underscores",
+                    )
+                    .with_example("feature-auth")
+                    .with_pattern("^[a-zA-Z][a-zA-Z0-9_-]*$")]
+                } else if msg.contains("empty") {
+                    vec![ValidationHint::new("input", "non-empty value")
+                        .with_received("(empty string)")]
+                } else {
+                    vec![ValidationHint::new("input", "valid value").with_received(msg.clone())]
+                }
+            }
+            Self::InvalidConfig(msg) => {
+                vec![ValidationHint::new("config", "valid TOML configuration")
+                    .with_example("[zjj]\nworkspace_dir = \"./workspaces\"")
+                    .with_received(msg.clone())]
+            }
+            Self::ParseError(msg) => {
+                if msg.contains("JSON") || msg.contains("json") {
+                    vec![ValidationHint::new("input", "valid JSON")
+                        .with_example("{\"key\": \"value\"}")
+                        .with_received(msg.clone())]
+                } else if msg.contains("TOML") || msg.contains("toml") {
+                    vec![ValidationHint::new("input", "valid TOML")
+                        .with_example("key = \"value\"")
+                        .with_received(msg.clone())]
+                } else {
+                    vec![ValidationHint::new("input", "parseable format").with_received(msg.clone())]
+                }
+            }
+            Self::SessionLocked { session, holder } => {
+                vec![ValidationHint::new("session", "unlocked session")
+                    .with_received(format!("'{session}' locked by '{holder}'"))]
+            }
+            Self::NotLockHolder { session, agent_id } => {
+                vec![ValidationHint::new("agent_id", "lock holder for session")
+                    .with_received(format!("'{agent_id}' for session '{session}'"))]
+            }
+            Self::IoError(_)
+            | Self::NotFound(_)
+            | Self::DatabaseError(_)
+            | Self::Command(_)
+            | Self::HookFailed { .. }
+            | Self::HookExecutionFailed { .. }
+            | Self::JjCommandError { .. }
+            | Self::Unknown(_) => vec![],
+        }
+    }
+
+    /// Returns fix commands that can potentially resolve this error.
+    ///
+    /// These are copy-pastable shell commands that AI agents can execute.
+    #[must_use]
+    pub fn fix_commands(&self) -> Vec<String> {
+        match self {
+            Self::NotFound(msg) => {
+                if msg.contains("session") {
+                    vec!["zjj list".to_string(), "zjj add <session-name>".to_string()]
+                } else {
+                    vec!["zjj list".to_string()]
+                }
+            }
+            Self::ValidationError(msg) => {
+                if msg.contains("name") {
+                    vec!["zjj add my-valid-session".to_string()]
+                } else {
+                    vec![]
+                }
+            }
+            Self::DatabaseError(_) => {
+                vec!["zjj doctor".to_string(), "zjj doctor --fix".to_string()]
+            }
+            Self::JjCommandError {
+                is_not_found: true, ..
+            } => {
+                vec![
+                    "cargo install jj-cli".to_string(),
+                    "brew install jj".to_string(),
+                ]
+            }
+            Self::JjCommandError {
+                is_not_found: false,
+                operation,
+                ..
+            } => {
+                if operation.contains("workspace") {
+                    vec!["jj workspace list".to_string(), "zjj doctor".to_string()]
+                } else {
+                    vec!["jj status".to_string()]
+                }
+            }
+            Self::SessionLocked { session, .. } => {
+                vec![
+                    format!("zjj agent status {session}"),
+                    format!("zjj yield {session}"),
+                ]
+            }
+            Self::NotLockHolder { session, .. } => {
+                vec![
+                    format!("zjj claim {session}"),
+                    format!("zjj agent status {session}"),
+                ]
+            }
+            Self::HookFailed { hook_type, .. } => {
+                vec![
+                    format!("zjj config get hooks.{hook_type}"),
+                    "zjj config list hooks".to_string(),
+                ]
+            }
+            Self::InvalidConfig(_) => {
+                vec![
+                    "zjj config list".to_string(),
+                    "zjj config reset".to_string(),
+                ]
+            }
+            _ => vec![],
+        }
+    }
+
+    /// Convert to `RichError` with optional failure context
+    #[must_use]
+    pub fn to_rich_error(&self) -> RichError {
+        RichError::from_error(self)
+    }
+
+    /// Convert to `RichError` with captured failure context
+    #[must_use]
+    pub fn to_rich_error_with_context(&self, context: FailureContext) -> RichError {
+        RichError::from_error(self).with_context(context)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_display_invalid_config() {
+        let err = Error::InvalidConfig("test error".into());
+        assert_eq!(err.to_string(), "Invalid configuration: test error");
+    }
+
+    #[test]
+    fn test_error_display_database_error() {
+        let err = Error::DatabaseError("connection failed".into());
+        assert_eq!(err.to_string(), "Database error: connection failed");
+    }
+
+    #[test]
+    fn test_error_from_io_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let err = Error::from(io_err);
+        assert!(matches!(err, Error::IoError(_)));
+    }
+
+    #[test]
+    fn test_error_debug() {
+        let err = Error::InvalidConfig("test".into());
+        let debug_str = format!("{err:?}");
+        assert!(debug_str.contains("InvalidConfig"));
+    }
+
+    #[test]
+    fn test_error_display_hook_failed() {
+        let err = Error::HookFailed {
+            hook_type: "post_create".to_string(),
+            command: "npm install".to_string(),
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: "Package not found".to_string(),
+        };
+        let display = err.to_string();
+        assert!(display.contains("Hook 'post_create' failed"));
+        assert!(display.contains("npm install"));
+        assert!(display.contains("Exit code: 1"));
+        assert!(display.contains("Package not found"));
+    }
+
+    #[test]
+    fn test_error_display_hook_execution_failed() {
+        let err = Error::HookExecutionFailed {
+            command: "invalid-shell".to_string(),
+            source: "No such file or directory".to_string(),
+        };
+        let display = err.to_string();
+        assert!(display.contains("Failed to execute hook"));
+        assert!(display.contains("invalid-shell"));
+        assert!(display.contains("No such file or directory"));
+    }
+
+    #[test]
+    fn test_error_display_jj_command_not_found() {
+        let err = Error::JjCommandError {
+            operation: "create workspace".to_string(),
+            source: "No such file or directory (os error 2)".to_string(),
+            is_not_found: true,
+        };
+        let display = err.to_string();
+        assert!(display.contains("Failed to create workspace"));
+        assert!(display.contains("JJ is not installed"));
+        assert!(display.contains("cargo install jj-cli"));
+        assert!(display.contains("brew install jj"));
+    }
+
+    #[test]
+    fn test_error_display_jj_command_other_error() {
+        let err = Error::JjCommandError {
+            operation: "list workspaces".to_string(),
+            source: "Permission denied".to_string(),
+            is_not_found: false,
+        };
+        let display = err.to_string();
+        assert!(display.contains("Failed to list workspaces"));
+        assert!(display.contains("Permission denied"));
+        assert!(!display.contains("JJ is not installed"));
+    }
+
+    #[test]
+    fn test_error_code_validation_error() {
+        let err = Error::ValidationError("invalid input".into());
+        assert_eq!(err.code(), "VALIDATION_ERROR");
+    }
+
+    #[test]
+    fn test_error_code_not_found() {
+        let err = Error::NotFound("session not found".into());
+        assert_eq!(err.code(), "NOT_FOUND");
+    }
+
+    #[test]
+    fn test_error_code_io_error() {
+        let err = Error::IoError("file not found".into());
+        assert_eq!(err.code(), "IO_ERROR");
+    }
+
+    #[test]
+    fn test_error_code_database_error() {
+        let err = Error::DatabaseError("connection failed".into());
+        assert_eq!(err.code(), "DATABASE_ERROR");
+    }
+
+    #[test]
+    fn test_error_code_uppercase() {
+        let err = Error::InvalidConfig("bad config".into());
+        let code = err.code();
+        assert_eq!(code, code.to_uppercase(), "Error code must be uppercase");
+    }
+
+    #[test]
+    fn test_validation_error_context_has_field() {
+        let err = Error::ValidationError("Session name must be alphanumeric".into());
+        let context = err.context_map();
+        assert!(context.is_some());
+        if let Some(ctx) = context {
+            assert!(ctx.get("input").is_some());
+        }
+    }
+
+    #[test]
+    fn test_not_found_error_context_has_resource() {
+        let err = Error::NotFound("session 'test-123' not found".into());
+        let context = err.context_map();
+        assert!(context.is_some());
+        if let Some(ctx) = context {
+            assert!(ctx.get("resource_type").is_some());
+        }
+    }
+
+    #[test]
+    fn test_io_error_context_has_path() {
+        let err = Error::IoError("Failed to read file".into());
+        let context = err.context_map();
+        assert!(context.is_some());
+        if let Some(ctx) = context {
+            assert!(ctx.get("operation").is_some());
+        }
+    }
+
+    #[test]
+    fn test_session_not_found_suggests_list() {
+        let err = Error::NotFound("session not found".into());
+        let suggestion = err.suggestion();
+        assert!(suggestion.is_some());
+        if let Some(sugg) = suggestion {
+            assert!(sugg.contains("zjj list") || sugg.contains("list"));
+        }
+    }
+
+    #[test]
+    fn test_validation_error_suggests_format() {
+        let err = Error::ValidationError("invalid session name".into());
+        let suggestion = err.suggestion();
+        assert!(suggestion.is_some());
+    }
+
+    #[test]
+    fn test_validation_error_maps_to_exit_code_1() {
+        let err = Error::ValidationError("invalid input".into());
+        assert_eq!(err.exit_code(), 1);
+    }
+
+    #[test]
+    fn test_invalid_config_maps_to_exit_code_1() {
+        let err = Error::InvalidConfig("bad config".into());
+        assert_eq!(err.exit_code(), 1);
+    }
+
+    #[test]
+    fn test_parse_error_maps_to_exit_code_1() {
+        let err = Error::ParseError("malformed input".into());
+        assert_eq!(err.exit_code(), 1);
+    }
+
+    #[test]
+    fn test_not_found_error_maps_to_exit_code_2() {
+        let err = Error::NotFound("session not found".into());
+        assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn test_io_error_maps_to_exit_code_3() {
+        let err = Error::IoError("file not found".into());
+        assert_eq!(err.exit_code(), 3);
+    }
+
+    #[test]
+    fn test_database_error_maps_to_exit_code_3() {
+        let err = Error::DatabaseError("connection failed".into());
+        assert_eq!(err.exit_code(), 3);
+    }
+
+    #[test]
+    fn test_command_error_maps_to_exit_code_4() {
+        let err = Error::Command("command failed".into());
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    #[test]
+    fn test_jj_command_error_maps_to_exit_code_4() {
+        let err = Error::JjCommandError {
+            operation: "create workspace".to_string(),
+            source: "error".to_string(),
+            is_not_found: false,
+        };
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    #[test]
+    fn test_hook_failed_maps_to_exit_code_4() {
+        let err = Error::HookFailed {
+            hook_type: "post_create".to_string(),
+            command: "npm install".to_string(),
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: "Package not found".to_string(),
+        };
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    #[test]
+    fn test_hook_execution_failed_maps_to_exit_code_4() {
+        let err = Error::HookExecutionFailed {
+            command: "invalid-shell".to_string(),
+            source: "No such file or directory".to_string(),
+        };
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    #[test]
+    fn test_unknown_error_maps_to_exit_code_4() {
+        let err = Error::Unknown("unknown error".into());
+        assert_eq!(err.exit_code(), 4);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VALIDATION HINT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_validation_hint_new() {
+        let hint = ValidationHint::new("session_name", "alphanumeric");
+        assert_eq!(hint.field, "session_name");
+        assert_eq!(hint.expected, "alphanumeric");
+        assert!(hint.received.is_none());
+        assert!(hint.example.is_none());
+    }
+
+    #[test]
+    fn test_validation_hint_with_received() {
+        let hint = ValidationHint::new("input", "non-empty").with_received("(empty)");
+        assert_eq!(hint.received, Some("(empty)".to_string()));
+    }
+
+    #[test]
+    fn test_validation_hint_with_example() {
+        let hint = ValidationHint::new("session_name", "valid name").with_example("feature-auth");
+        assert_eq!(hint.example, Some("feature-auth".to_string()));
+    }
+
+    #[test]
+    fn test_validation_hint_with_pattern() {
+        let hint = ValidationHint::new("name", "valid pattern").with_pattern("^[a-z]+$");
+        assert_eq!(hint.pattern, Some("^[a-z]+$".to_string()));
+    }
+
+    #[test]
+    fn test_validation_hint_serialization() {
+        let hint = ValidationHint::new("field", "expected")
+            .with_received("received")
+            .with_example("example");
+        let json = serde_json::to_string(&hint);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("\"field\":\"field\""));
+        assert!(json_str.contains("\"expected\":\"expected\""));
+        assert!(json_str.contains("\"received\":\"received\""));
+    }
+
+    #[test]
+    fn test_validation_error_returns_hints() {
+        let err = Error::ValidationError("invalid session name".into());
+        let hints = err.validation_hints();
+        assert!(!hints.is_empty());
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(hints[0].example.is_some());
+        }
+    }
+
+    #[test]
+    fn test_empty_validation_error_returns_hints() {
+        let err = Error::ValidationError("value cannot be empty".into());
+        let hints = err.validation_hints();
+        assert!(!hints.is_empty());
+    }
+
+    #[test]
+    fn test_session_locked_returns_hints() {
+        let err = Error::SessionLocked {
+            session: "test".to_string(),
+            holder: "agent-1".to_string(),
+        };
+        let hints = err.validation_hints();
+        assert!(!hints.is_empty());
+
+        #[allow(clippy::indexing_slicing)]
+        {
+            assert!(hints[0].received.is_some());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FAILURE CONTEXT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_failure_context_new() {
+        let ctx = FailureContext::new();
+        assert!(!ctx.timestamp.is_empty());
+        assert!(ctx.working_directory.is_none());
+    }
+
+    #[test]
+    fn test_failure_context_with_working_directory() {
+        let ctx = FailureContext::new().with_working_directory("/home/user/project");
+        assert_eq!(
+            ctx.working_directory,
+            Some("/home/user/project".to_string())
+        );
+    }
+
+    #[test]
+    fn test_failure_context_with_workspace() {
+        let ctx = FailureContext::new().with_workspace("feature-branch");
+        assert_eq!(ctx.current_workspace, Some("feature-branch".to_string()));
+    }
+
+    #[test]
+    fn test_failure_context_with_command() {
+        let ctx = FailureContext::new().with_command("zjj add", vec!["test-session".to_string()]);
+        assert_eq!(ctx.command, Some("zjj add".to_string()));
+        assert_eq!(ctx.arguments, vec!["test-session"]);
+    }
+
+    #[test]
+    fn test_failure_context_with_phase() {
+        let ctx = FailureContext::new().with_phase("workspace_creation");
+        assert_eq!(ctx.phase, Some("workspace_creation".to_string()));
+    }
+
+    #[test]
+    fn test_failure_context_with_env() {
+        let ctx = FailureContext::new()
+            .with_env("ZELLIJ_SESSION", "main")
+            .with_env("JJ_USER", "test");
+        assert_eq!(ctx.relevant_env.len(), 2);
+    }
+
+    #[test]
+    fn test_failure_context_serialization() {
+        let ctx = FailureContext::new()
+            .with_working_directory("/tmp")
+            .with_command("test", vec![]);
+        let json = serde_json::to_string(&ctx);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("\"working_directory\":\"/tmp\""));
+        assert!(json_str.contains("\"timestamp\":"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIX COMMANDS TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_not_found_error_returns_fix_commands() {
+        let err = Error::NotFound("session 'test' not found".into());
+        let commands = err.fix_commands();
+        assert!(!commands.is_empty());
+        assert!(commands.iter().any(|c| c.contains("zjj list")));
+    }
+
+    #[test]
+    fn test_validation_error_returns_fix_commands() {
+        let err = Error::ValidationError("invalid session name".into());
+        let commands = err.fix_commands();
+        assert!(!commands.is_empty());
+    }
+
+    #[test]
+    fn test_database_error_returns_fix_commands() {
+        let err = Error::DatabaseError("corrupted".into());
+        let commands = err.fix_commands();
+        assert!(commands.iter().any(|c| c.contains("doctor")));
+    }
+
+    #[test]
+    fn test_jj_not_found_returns_install_commands() {
+        let err = Error::JjCommandError {
+            operation: "init".to_string(),
+            source: "not found".to_string(),
+            is_not_found: true,
+        };
+        let commands = err.fix_commands();
+        assert!(commands.iter().any(|c| c.contains("cargo install")));
+        assert!(commands.iter().any(|c| c.contains("brew install")));
+    }
+
+    #[test]
+    fn test_session_locked_returns_fix_commands() {
+        let err = Error::SessionLocked {
+            session: "test".to_string(),
+            holder: "agent-1".to_string(),
+        };
+        let commands = err.fix_commands();
+        assert!(commands.iter().any(|c| c.contains("agent status")));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RICH ERROR TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_rich_error_from_error() {
+        let err = Error::NotFound("session not found".into());
+        let rich = RichError::from_error(&err);
+
+        assert_eq!(rich.error.code, "NOT_FOUND");
+        assert_eq!(rich.error.exit_code, 2);
+        assert!(!rich.fix_commands.is_empty());
+    }
+
+    #[test]
+    fn test_rich_error_with_context() {
+        let err = Error::ValidationError("invalid".into());
+        let ctx = FailureContext::new().with_working_directory("/tmp");
+        let rich = RichError::from_error(&err).with_context(ctx);
+
+        assert!(rich.context_at_failure.is_some());
+    }
+
+    #[test]
+    fn test_rich_error_with_validation_hints() {
+        let err = Error::ValidationError("invalid name".into());
+        let additional_hints = vec![ValidationHint::new("extra", "extra hint")];
+        let rich = RichError::from_error(&err).with_validation_hints(additional_hints);
+
+        assert!(rich.validation_hints.len() > 1);
+    }
+
+    #[test]
+    fn test_rich_error_with_fix_commands() {
+        let err = Error::Unknown("unknown".into());
+        let rich = RichError::from_error(&err).with_fix_commands(vec!["zjj doctor".to_string()]);
+
+        assert_eq!(rich.fix_commands, vec!["zjj doctor"]);
+    }
+
+    #[test]
+    fn test_rich_error_serialization() {
+        let err = Error::NotFound("test".into());
+        let rich = RichError::from_error(&err);
+
+        // Functional approach: Serialize → Parse → Validate structure
+        let result = serde_json::to_string_pretty(&rich).and_then(|json_str| {
+            // Parse JSON to verify structure (not fragile string matching)
+            serde_json::from_str::<serde_json::Value>(&json_str).map(|value| (json_str, value))
+        });
+
+        assert!(result.is_ok(), "JSON serialization should succeed");
+
+        // Extract result or fail test with error message
+        let Ok((json_str, parsed)) = result else {
+            // In tests, we don't need panic! - just return early after assertion
+            assert!(result.is_ok(), "Failed to serialize/parse RichError");
+            return;
+        };
+
+        // Validate structure via parsed JSON (type-safe, not string matching)
+        assert_eq!(
+            parsed.get("code").and_then(|v| v.as_str()),
+            Some("NOT_FOUND"),
+            "code field should be NOT_FOUND"
+        );
+        assert!(
+            parsed
+                .get("fix_commands")
+                .and_then(|v| v.as_array())
+                .is_some(),
+            "fix_commands field should be an array"
+        );
+
+        // Verify JSON is pretty-printed (has newlines)
+        assert!(json_str.contains('\n'), "JSON should be pretty-printed");
+    }
+
+    #[test]
+    fn test_error_to_rich_error() {
+        let err = Error::DatabaseError("failed".into());
+        let rich = err.to_rich_error();
+
+        assert_eq!(rich.error.code, "DATABASE_ERROR");
+    }
+
+    #[test]
+    fn test_error_to_rich_error_with_context() {
+        let err = Error::IoError("failed".into());
+        let ctx = FailureContext::new().with_phase("file_read");
+        let rich = err.to_rich_error_with_context(ctx);
+
+        assert!(rich.context_at_failure.is_some());
+        if let Some(c) = rich.context_at_failure {
+            assert_eq!(c.phase, Some("file_read".to_string()));
+        }
+    }
+}
