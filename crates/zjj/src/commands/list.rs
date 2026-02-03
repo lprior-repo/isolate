@@ -260,6 +260,7 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+    use zjj_core::WorkspaceState;
     use crate::{
         db::SessionDb,
         session::{Session, SessionStatus, SessionUpdate},
@@ -688,7 +689,7 @@ mod tests {
                 workspace_path: "/tmp/ws1".to_string(),
                 zellij_tab: "zjj:session1".to_string(),
                 state: WorkspaceState::Created,
-            status: SessionStatus::Active,
+                status: SessionStatus::Active,
                 branch: Some("main".to_string()),
                 created_at: 1_704_067_200_u64,
                 updated_at: 1_704_067_200_u64,
@@ -755,7 +756,7 @@ mod tests {
                 workspace_path: "/tmp/ws1".to_string(),
                 zellij_tab: "zjj:session1".to_string(),
                 state: WorkspaceState::Created,
-            status: SessionStatus::Active,
+                status: SessionStatus::Active,
                 branch: Some("feature".to_string()),
                 created_at: 1_704_067_200_u64,
                 updated_at: 1_704_067_200_u64,

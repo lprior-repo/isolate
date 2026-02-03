@@ -121,11 +121,7 @@ pub fn run(options: &IntegrityOptions) -> Result<()> {
 }
 
 /// Validate a workspace
-fn run_validate(
-    jj_root: &std::path::Path,
-    workspace: &str,
-    format: OutputFormat,
-) -> Result<()> {
+fn run_validate(jj_root: &std::path::Path, workspace: &str, format: OutputFormat) -> Result<()> {
     let validator = IntegrityValidator::new(jj_root);
     let result = validator.validate(workspace)?;
 
@@ -168,7 +164,7 @@ fn run_repair(
             let envelope = SchemaEnvelope::new("integrity-repair-response", "single", response);
             println!("{}", serde_json::to_string_pretty(&envelope)?);
         } else {
-            println!("Workspace '{}' is valid - no repair needed", workspace);
+            println!("Workspace '{workspace}' is valid - no repair needed");
         }
 
         return Ok(());
@@ -179,8 +175,9 @@ fn run_repair(
         let response = RepairResponse {
             workspace: workspace.to_string(),
             success: false,
-            summary: "Workspace has issues that cannot be auto-repaired. Manual intervention required."
-                .to_string(),
+            summary:
+                "Workspace has issues that cannot be auto-repaired. Manual intervention required."
+                    .to_string(),
         };
 
         if format.is_json() {
@@ -237,13 +234,11 @@ fn run_repair(
             if format.is_json() {
                 let envelope = SchemaEnvelope::new("integrity-repair-response", "single", response);
                 println!("{}", serde_json::to_string_pretty(&envelope)?);
+            } else if repair_result.success {
+                println!("Successfully repaired workspace '{workspace}'");
+                println!("Summary: {}", repair_result.summary);
             } else {
-                if repair_result.success {
-                    println!("Successfully repaired workspace '{}'", workspace);
-                    println!("Summary: {}", repair_result.summary);
-                } else {
-                    println!("Repair failed: {}", repair_result.summary);
-                }
+                println!("Repair failed: {}", repair_result.summary);
             }
 
             Ok(())
@@ -252,14 +247,14 @@ fn run_repair(
             let response = RepairResponse {
                 workspace: workspace.to_string(),
                 success: false,
-                summary: format!("Repair failed: {}", e),
+                summary: format!("Repair failed: {e}"),
             };
 
             if format.is_json() {
                 let envelope = SchemaEnvelope::new("integrity-repair-response", "single", response);
                 println!("{}", serde_json::to_string_pretty(&envelope)?);
             } else {
-                eprintln!("Repair failed: {}", e);
+                eprintln!("Repair failed: {e}");
             }
 
             Ok(())
@@ -344,14 +339,14 @@ fn run_backup_restore(
         }
     }
 
-    let (workspace_name, backup) = backup_found
-        .ok_or_else(|| anyhow::anyhow!("Backup '{}' not found", backup_id))?;
+    let (workspace_name, backup) =
+        backup_found.ok_or_else(|| anyhow::anyhow!("Backup '{backup_id}' not found"))?;
 
     // Ask for confirmation unless force is set
     if !force && !confirm_restore(&backup) {
         if format.is_json() {
             let response = RestoreResponse {
-                workspace: workspace_name.clone(),
+                workspace: workspace_name,
                 backup_id: backup_id.to_string(),
                 success: false,
                 summary: "Restore cancelled by user".to_string(),
@@ -379,15 +374,14 @@ fn run_backup_restore(
             };
 
             if format.is_json() {
-                let envelope = SchemaEnvelope::new("integrity-restore-response", "single", response);
+                let envelope =
+                    SchemaEnvelope::new("integrity-restore-response", "single", response);
                 println!("{}", serde_json::to_string_pretty(&envelope)?);
+            } else if rollback_result.success {
+                println!("Successfully restored from backup '{backup_id}'");
+                println!("Summary: {summary}");
             } else {
-                if rollback_result.success {
-                    println!("Successfully restored from backup '{}'", backup_id);
-                    println!("Summary: {}", summary);
-                } else {
-                    println!("Restore failed: {}", summary);
-                }
+                println!("Restore failed: {summary}");
             }
 
             Ok(())
@@ -397,14 +391,15 @@ fn run_backup_restore(
                 workspace: workspace_name.clone(),
                 backup_id: backup_id.to_string(),
                 success: false,
-                summary: format!("Restore failed: {}", e),
+                summary: format!("Restore failed: {e}"),
             };
 
             if format.is_json() {
-                let envelope = SchemaEnvelope::new("integrity-restore-response", "single", response);
+                let envelope =
+                    SchemaEnvelope::new("integrity-restore-response", "single", response);
                 println!("{}", serde_json::to_string_pretty(&envelope)?);
             } else {
-                eprintln!("Restore failed: {}", e);
+                eprintln!("Restore failed: {e}");
             }
 
             Ok(())
@@ -429,9 +424,12 @@ fn print_validation_result(response: &ValidationResponse) {
             println!("  Issue: {}", issue.corruption_type);
             println!("    Description: {}", issue.description);
             if let Some(ctx) = &issue.context {
-                println!("    Context: {}", ctx);
+                println!("    Context: {ctx}");
             }
-            println!("    Recommended Action: {}", issue.recommended_strategy.description());
+            println!(
+                "    Recommended Action: {}",
+                issue.recommended_strategy.description()
+            );
             println!();
         }
     }
@@ -460,7 +458,7 @@ fn print_backup_list(response: &BackupListResponse) {
         println!("  Size: {} bytes", backup.size_bytes);
         println!("  Reason: {:?}", backup.reason);
         if let Some(checksum) = &backup.checksum {
-            println!("  Checksum: {}", checksum);
+            println!("  Checksum: {checksum}");
         }
         println!();
     }
@@ -470,14 +468,21 @@ fn print_backup_list(response: &BackupListResponse) {
 fn confirm_repair(validation: &ValidationResult) -> bool {
     use std::io::{self, Write};
 
-    println!("Workspace has {} integrity issue(s):", validation.issues.len());
+    println!(
+        "Workspace has {} integrity issue(s):",
+        validation.issues.len()
+    );
     for issue in &validation.issues {
         println!("  - {}: {}", issue.corruption_type, issue.description);
     }
     println!();
-    println!("Recommended action: {}", validation.most_severe_issue()
-        .map(|i| i.recommended_strategy.description())
-        .unwrap_or("No issues"));
+    println!(
+        "Recommended action: {}",
+        validation
+            .most_severe_issue()
+            .map(|i| i.recommended_strategy.description())
+            .unwrap_or("No issues")
+    );
     println!();
 
     print!("Continue with repair? [y/N] ");
@@ -487,10 +492,7 @@ fn confirm_repair(validation: &ValidationResult) -> bool {
     io::stdin()
         .read_line(&mut input)
         .ok()
-        .map(|_| {
-            input.trim().eq_ignore_ascii_case("y")
-                || input.trim().eq_ignore_ascii_case("yes")
-        })
+        .map(|_| input.trim().eq_ignore_ascii_case("y") || input.trim().eq_ignore_ascii_case("yes"))
         .unwrap_or(false)
 }
 
@@ -514,9 +516,6 @@ fn confirm_restore(backup: &BackupMetadata) -> bool {
     io::stdin()
         .read_line(&mut input)
         .ok()
-        .map(|_| {
-            input.trim().eq_ignore_ascii_case("y")
-                || input.trim().eq_ignore_ascii_case("yes")
-        })
+        .map(|_| input.trim().eq_ignore_ascii_case("y") || input.trim().eq_ignore_ascii_case("yes"))
         .unwrap_or(false)
 }

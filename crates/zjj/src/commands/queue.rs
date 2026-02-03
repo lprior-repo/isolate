@@ -133,11 +133,7 @@ pub fn run_with_options(options: &QueueOptions) -> Result<()> {
 }
 
 /// Handle the add command
-fn handle_add(
-    queue: &zjj_core::MergeQueue,
-    workspace: &str,
-    options: &QueueOptions,
-) -> Result<()> {
+fn handle_add(queue: &zjj_core::MergeQueue, workspace: &str, options: &QueueOptions) -> Result<()> {
     let response = queue.add(
         workspace,
         options.bead_id.as_deref(),
@@ -162,7 +158,7 @@ fn handle_add(
         };
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
-        println!("{}", message);
+        println!("{message}");
     }
 
     Ok(())
@@ -210,13 +206,21 @@ fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
             println!("╠════╬═══════════════════╬═════════════╬═══════════════════════════╣");
 
             for entry in &entries {
-                let status = entry.status.as_str();
+                let status_str = entry.status.as_str();
                 let agent = entry.agent_id.as_deref().unwrap_or("-");
                 println!(
                     "║ {:2} ║ {:17} ║ {:11} ║ {:8} │ {:13} ║",
                     entry.id,
                     &entry.workspace[..entry.workspace.len().min(17)],
-                    status,
+                    status_str,
+                    entry.priority,
+                    &agent[..agent.len().min(13)]
+                );
+                println!(
+                    "║ {:2} ║ {:17} ║ {:11} ║ {:8} │ {:13} ║",
+                    entry.id,
+                    &entry.workspace[..entry.workspace.len().min(17)],
+                    entry_status,
                     entry.priority,
                     &agent[..agent.len().min(13)]
                 );
@@ -224,8 +228,10 @@ fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
             println!("╚════╩═══════════════════╩═════════════╩═══════════════════════════╝");
         }
 
-        println!("\nStats: {} total | {} pending | {} processing | {} completed | {} failed",
-                 stats.total, stats.pending, stats.processing, stats.completed, stats.failed);
+        println!(
+            "\nStats: {} total | {} pending | {} processing | {} completed | {} failed",
+            stats.total, stats.pending, stats.processing, stats.completed, stats.failed
+        );
     }
 
     Ok(())
@@ -268,10 +274,10 @@ fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
                 println!("  Status: {}", e.status.as_str());
                 println!("  Priority: {}", e.priority);
                 if let Some(bead_id) = e.bead_id {
-                    println!("  Bead ID: {}", bead_id);
+                    println!("  Bead ID: {bead_id}");
                 }
                 if let Some(agent_id) = e.agent_id {
-                    println!("  Agent ID: {}", agent_id);
+                    println!("  Agent ID: {agent_id}");
                 }
             }
             None => {
@@ -292,9 +298,9 @@ fn handle_remove(
     let removed = queue.remove(workspace)?;
 
     let message = if removed {
-        format!("Removed workspace '{}' from queue", workspace)
+        format!("Removed workspace '{workspace}' from queue")
     } else {
-        format!("Workspace '{}' not found in queue", workspace)
+        format!("Workspace '{workspace}' not found in queue")
     };
 
     if options.format.is_json() {
@@ -305,7 +311,7 @@ fn handle_remove(
         };
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
-        println!("{}", message);
+        println!("{message}");
     }
 
     Ok(())
@@ -320,15 +326,14 @@ fn handle_status(
     let entry = queue.get_by_workspace(workspace)?;
 
     if options.format.is_json() {
-        let (exists, id, status) = match &entry {
-            Some(e) => (true, Some(e.id), Some(e.status.as_str().to_string())),
-            None => (false, None, None),
-        };
+        let (exists, id, status) = entry.as_ref().map_or((false, None, None), |e| {
+            (true, Some(e.id), Some(e.status.as_str().to_string()))
+        });
 
         let message = if exists {
-            format!("Workspace '{}' is in queue", workspace)
+            format!("Workspace '{workspace}' is in queue")
         } else {
-            format!("Workspace '{}' is not in queue", workspace)
+            format!("Workspace '{workspace}' is not in queue")
         };
 
         let output = QueueStatusOutput {
@@ -347,20 +352,20 @@ fn handle_status(
                 println!("  Status: {}", e.status.as_str());
                 println!("  Priority: {}", e.priority);
                 if let Some(bead_id) = e.bead_id {
-                    println!("  Bead ID: {}", bead_id);
+                    println!("  Bead ID: {bead_id}");
                 }
                 if let Some(agent_id) = e.agent_id {
-                    println!("  Agent ID: {}", agent_id);
+                    println!("  Agent ID: {agent_id}");
                 }
                 if let Some(started_at) = e.started_at {
-                    println!("  Started At: {}", started_at);
+                    println!("  Started At: {started_at}");
                 }
                 if let Some(error_msg) = e.error_message {
-                    println!("  Error: {}", error_msg);
+                    println!("  Error: {error_msg}");
                 }
             }
             None => {
-                println!("Workspace '{}' is not in the queue", workspace);
+                println!("Workspace '{workspace}' is not in the queue");
             }
         }
     }

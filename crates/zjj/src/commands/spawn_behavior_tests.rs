@@ -21,6 +21,22 @@ mod brutal_edge_cases {
 
     use crate::commands::spawn::{execute_spawn, SpawnError, SpawnOptions, SpawnOutput};
 
+    /// Provide a tokio runtime context for `execute_spawn`.
+    ///
+    /// `execute_spawn` → `SignalHandler::register()` → `tokio::signal::unix::signal()`
+    /// which requires an active runtime handle.
+    fn with_runtime<F, T>(f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        let Ok(rt) = tokio::runtime::Runtime::new() else {
+            eprintln!("Failed to create tokio runtime - test environment is broken");
+            std::process::abort()
+        };
+        let _guard = rt.enter();
+        f()
+    }
+
     /// Helper to create default `SpawnOptions` for testing
     fn test_spawn_options(bead_id: &str, command: &str, args: Vec<String>) -> SpawnOptions {
         SpawnOptions {
@@ -84,7 +100,11 @@ mod brutal_edge_cases {
     /// This helper uses `.expect()` because test setup failure indicates
     /// the test environment itself is broken, not the code being tested.
     fn setup_test_repo() -> TestRepo {
-        TestRepo::new().expect("Test repo initialization failed - test environment is broken")
+        let Ok(repo) = TestRepo::new() else {
+            eprintln!("Test repo initialization failed - test environment is broken");
+            std::process::abort()
+        };
+        repo
     }
 
     /// Helper that retrieves current directory with safe fallback.
@@ -116,7 +136,9 @@ mod brutal_edge_cases {
 
         // Then: Returns clear "bead not found" error
         assert!(result.is_err(), "Should fail for nonexistent bead");
-        let err = result.expect_err("Expected error but got success");
+        let Err(err) = result else {
+            unreachable!("result was asserted Err above");
+        };
         assert!(
             err.to_string().contains("not found")
                 || err.to_string().contains("does not exist")
@@ -205,8 +227,8 @@ mod brutal_edge_cases {
     #[test]
     fn given_agent_command_not_found_when_spawn_then_clear_error() {
         // Given: An agent command that doesn't exist
-        let repo = TestRepo::new().unwrap_or_else(|_| panic!("Failed to create test repo"));
-        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let repo = setup_test_repo();
+        let original_dir = get_current_dir();
         std::env::set_current_dir(repo.path()).ok();
 
         let options = test_spawn_options(
@@ -216,16 +238,15 @@ mod brutal_edge_cases {
         );
 
         // When: User spawns with nonexistent command
-        let result = execute_spawn(&options);
+        let result = with_runtime(|| execute_spawn(&options));
 
         // Cleanup
         std::env::set_current_dir(original_dir).ok();
 
         // Then: Returns clear command-not-found error
         assert!(result.is_err(), "Should fail for nonexistent command");
-        let err: SpawnError = match result {
-            Err(e) => e,
-            Ok(_) => panic!("Expected error but got success"),
+        let Err(err) = result else {
+            unreachable!("result was asserted Err above");
         };
         assert!(
             err.to_string().contains("not found")
@@ -238,8 +259,8 @@ mod brutal_edge_cases {
     #[test]
     fn given_agent_exits_nonzero_when_spawn_then_handled_gracefully() {
         // Given: An agent that exits with code 1
-        let repo = TestRepo::new().unwrap_or_else(|_| panic!("Failed to create test repo"));
-        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let repo = setup_test_repo();
+        let original_dir = get_current_dir();
         std::env::set_current_dir(repo.path()).ok();
 
         let options = test_spawn_options(
@@ -249,7 +270,7 @@ mod brutal_edge_cases {
         );
 
         // When: Agent exits with failure code
-        let result = execute_spawn(&options);
+        let result = with_runtime(|| execute_spawn(&options));
 
         // Cleanup
         std::env::set_current_dir(original_dir).ok();
@@ -527,8 +548,8 @@ mod brutal_edge_cases {
     #[test]
     fn given_spawn_when_agent_runs_then_env_vars_set() {
         // Given: A spawn operation
-        let repo = TestRepo::new().unwrap_or_else(|_| panic!("Failed to create test repo"));
-        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let repo = setup_test_repo();
+        let original_dir = get_current_dir();
         std::env::set_current_dir(repo.path()).ok();
 
         // Create script that checks environment variables
@@ -566,7 +587,7 @@ exit 0
         let options = test_spawn_options("test-bead-1", "echo", vec!["test".to_string()]);
 
         // When: Agent runs
-        let result = execute_spawn(&options);
+        let result = with_runtime(|| execute_spawn(&options));
 
         // Cleanup
         let _ = std::env::set_current_dir(original_dir).ok();
@@ -582,7 +603,7 @@ exit 0
                 );
             }
             Err(e) => {
-                panic!("Spawn should succeed and agent should receive env vars: {e}");
+                unreachable!("Spawn should succeed and agent should receive env vars: {e}");
             }
         }
     }

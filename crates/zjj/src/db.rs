@@ -46,8 +46,7 @@ mod io {
 
 use num_traits::cast::ToPrimitive;
 use sqlx::{Row, SqlitePool};
-use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result};
-use zjj_core::WorkspaceState;
+use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result, WorkspaceState};
 
 use crate::session::{Session, SessionStatus, SessionUpdate};
 
@@ -242,7 +241,19 @@ impl SessionDb {
 
         insert_session(&self.pool, name, &status, workspace_path, now)
             .await
-            .map(|id| build_session(id, name, status, state, workspace_path, now))
+            .map(|id| Session {
+                id: Some(id),
+                name: name.to_string(),
+                status,
+                state,
+                workspace_path: workspace_path.to_string(),
+                zellij_tab: format!("zjj:{name}"),
+                branch: None,
+                created_at: now,
+                updated_at: now,
+                last_synced: None,
+                metadata: None,
+            })
     }
 
     /// Get a session by name
@@ -694,29 +705,6 @@ fn get_current_timestamp() -> Result<u64> {
         .map_err(|e| Error::Unknown(format!("System time error: {e}")))
 }
 
-/// Build a Session struct from components
-fn build_session(
-    id: i64,
-    name: &str,
-    status: SessionStatus,
-    state: WorkspaceState,
-    workspace_path: &str,
-    timestamp: u64,
-) -> Session {
-    Session {
-        id: Some(id),
-        name: name.to_string(),
-        status,
-        state,
-        workspace_path: workspace_path.to_string(),
-        zellij_tab: format!("zjj:{name}"),
-        branch: None,
-        created_at: timestamp,
-        updated_at: timestamp,
-        last_synced: None,
-        metadata: None,
-    }
-}
 
 // === IMPERATIVE SHELL (Database Side Effects) ===
 

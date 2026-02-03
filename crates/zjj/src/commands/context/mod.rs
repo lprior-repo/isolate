@@ -63,12 +63,28 @@ fn gather_context(no_beads: bool, no_health: bool) -> Result<ContextOutput> {
 pub fn detect_location(root: &PathBuf) -> Result<Location> {
     let current_dir = std::env::current_dir()?;
 
+    // In JJ, non-default workspaces have `.jj/repo` as a FILE (a pointer back
+    // to the main repo's `.jj/repo` directory), while the default/main workspace
+    // has `.jj/repo` as a DIRECTORY.  This reliably distinguishes a JJ workspace
+    // from the main working copy even though `jj root` returns the workspace path.
+    if root.join(".jj/repo").is_file() {
+        let name = root
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Workspace directory name is not valid UTF-8"))?
+            .to_string();
+        return Ok(Location::Workspace {
+            name,
+            path: current_dir.to_string_lossy().to_string(),
+        });
+    }
+
     if current_dir == *root {
         return Ok(Location::Main);
     }
 
+    // Path-based fallback for non-JJ workspace scenarios
     let workspaces_dir = root.join(".zjj/workspaces");
-
     if current_dir.starts_with(&workspaces_dir) {
         let workspace_name = current_dir
             .strip_prefix(&workspaces_dir)?

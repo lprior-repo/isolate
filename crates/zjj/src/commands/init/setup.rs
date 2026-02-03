@@ -278,25 +278,27 @@ pub(super) fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
     // Render and write workspace.yml
     let workspace_path = moon_dir.join("workspace.yml");
     if !workspace_path.exists() {
-        let content = render_template(TemplateType::MoonWorkspace, &context)
+        let workspace_yml = render_template(TemplateType::MoonWorkspace, &context)
             .context("Failed to render workspace.yml template")?;
-        fs::write(&workspace_path, content).context("Failed to create .moon/workspace.yml")?;
+        fs::write(&workspace_path, workspace_yml)
+            .context("Failed to create .moon/workspace.yml")?;
     }
 
     // Render and write toolchain.yml
     let toolchain_path = moon_dir.join("toolchain.yml");
     if !toolchain_path.exists() {
-        let content = render_template(TemplateType::MoonToolchain, &context)
+        let toolchain_yml = render_template(TemplateType::MoonToolchain, &context)
             .context("Failed to render toolchain.yml template")?;
-        fs::write(&toolchain_path, content).context("Failed to create .moon/toolchain.yml")?;
+        fs::write(&toolchain_path, toolchain_yml)
+            .context("Failed to create .moon/toolchain.yml")?;
     }
 
     // Render and write tasks.yml
     let tasks_path = moon_dir.join("tasks.yml");
     if !tasks_path.exists() {
-        let content = render_template(TemplateType::MoonTasks, &context)
+        let tasks_yml = render_template(TemplateType::MoonTasks, &context)
             .context("Failed to render tasks.yml template")?;
-        fs::write(&tasks_path, content).context("Failed to create .moon/tasks.yml")?;
+        fs::write(&tasks_path, tasks_yml).context("Failed to create .moon/tasks.yml")?;
     }
 
     Ok(())
