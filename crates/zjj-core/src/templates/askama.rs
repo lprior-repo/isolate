@@ -93,6 +93,26 @@ struct JujutsuTemplate;
 #[template(path = "moon_build.md.j2")]
 struct MoonBuildTemplate;
 
+#[derive(Template)]
+#[template(path = "moon_workspace.yml.j2")]
+struct MoonWorkspaceTemplate<'a> {
+    project_name: &'a str,
+    version: &'a str,
+}
+
+#[derive(Template)]
+#[template(path = "moon_toolchain.yml.j2")]
+struct MoonToolchainTemplate<'a> {
+    project_name: &'a str,
+    version: &'a str,
+}
+
+#[derive(Template)]
+#[template(path = "moon_tasks.yml.j2")]
+struct MoonTasksTemplate<'a> {
+    project_name: &'a str,
+}
+
 impl ProjectContext {
     /// Create a new project context with validation
     ///
@@ -151,6 +171,9 @@ pub enum TemplateType {
     Beads,
     Jujutsu,
     MoonBuild,
+    MoonWorkspace,
+    MoonToolchain,
+    MoonTasks,
 }
 
 impl TemplateType {
@@ -166,6 +189,9 @@ impl TemplateType {
             Self::Beads => "beads.md",
             Self::Jujutsu => "jujutsu.md",
             Self::MoonBuild => "moon_build.md",
+            Self::MoonWorkspace => "workspace.yml",
+            Self::MoonToolchain => "toolchain.yml",
+            Self::MoonTasks => "tasks.yml",
         }
     }
 
@@ -181,6 +207,9 @@ impl TemplateType {
             Self::Beads,
             Self::Jujutsu,
             Self::MoonBuild,
+            Self::MoonWorkspace,
+            Self::MoonToolchain,
+            Self::MoonTasks,
         ]
     }
 
@@ -195,6 +224,12 @@ impl TemplateType {
             Self::Jujutsu,
             Self::MoonBuild,
         ]
+    }
+
+    /// Get all Moon config template types
+    #[must_use]
+    pub const fn moon_configs() -> &'static [Self] {
+        &[Self::MoonWorkspace, Self::MoonToolchain, Self::MoonTasks]
     }
 }
 
@@ -238,6 +273,26 @@ pub fn render_template(
         TemplateType::Beads => Ok(BeadsTemplate.render()?),
         TemplateType::Jujutsu => Ok(JujutsuTemplate.render()?),
         TemplateType::MoonBuild => Ok(MoonBuildTemplate.render()?),
+        TemplateType::MoonWorkspace => {
+            let template = MoonWorkspaceTemplate {
+                project_name: &context.project_name,
+                version: &context.version,
+            };
+            Ok(template.render()?)
+        }
+        TemplateType::MoonToolchain => {
+            let template = MoonToolchainTemplate {
+                project_name: &context.project_name,
+                version: &context.version,
+            };
+            Ok(template.render()?)
+        }
+        TemplateType::MoonTasks => {
+            let template = MoonTasksTemplate {
+                project_name: &context.project_name,
+            };
+            Ok(template.render()?)
+        }
     }
 }
 
@@ -355,13 +410,55 @@ mod tests {
         assert_eq!(TemplateType::AgentsMd.as_str(), "agents.md");
         assert_eq!(TemplateType::ClaudeMd.as_str(), "claude.md");
         assert_eq!(TemplateType::MoonBuild.as_str(), "moon_build.md");
+        assert_eq!(TemplateType::MoonWorkspace.as_str(), "workspace.yml");
+        assert_eq!(TemplateType::MoonToolchain.as_str(), "toolchain.yml");
+        assert_eq!(TemplateType::MoonTasks.as_str(), "tasks.yml");
     }
 
     #[test]
     fn test_template_type_all() {
         let all = TemplateType::all();
-        assert_eq!(all.len(), 8);
+        assert_eq!(all.len(), 11);
         assert!(all.contains(&TemplateType::AgentsMd));
         assert!(all.contains(&TemplateType::ClaudeMd));
+        assert!(all.contains(&TemplateType::MoonWorkspace));
+        assert!(all.contains(&TemplateType::MoonToolchain));
+        assert!(all.contains(&TemplateType::MoonTasks));
+    }
+
+    #[test]
+    fn test_template_type_moon_configs() {
+        let moon = TemplateType::moon_configs();
+        assert_eq!(moon.len(), 3);
+        assert!(moon.contains(&TemplateType::MoonWorkspace));
+        assert!(moon.contains(&TemplateType::MoonToolchain));
+        assert!(moon.contains(&TemplateType::MoonTasks));
+    }
+
+    #[test]
+    fn test_render_moon_workspace_template() -> Result<(), TemplateError> {
+        let context = valid_context()?;
+        let result = render_template(TemplateType::MoonWorkspace, &context);
+
+        assert!(result.is_ok());
+        if let Ok(rendered) = result {
+            assert!(rendered.contains("test-project"));
+            assert!(rendered.contains("0.1.0"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_moon_tasks_template() -> Result<(), TemplateError> {
+        let context = valid_context()?;
+        let result = render_template(TemplateType::MoonTasks, &context);
+
+        assert!(result.is_ok());
+        if let Ok(rendered) = result {
+            assert!(rendered.contains("test-project"));
+            assert!(rendered.contains("target/release/test-project"));
+            assert!(rendered.contains("~/.local/bin/test-project"));
+        }
+        Ok(())
     }
 }

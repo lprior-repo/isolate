@@ -15,7 +15,10 @@ mod setup;
 mod types;
 
 use deps::{check_dependencies, ensure_jj_repo_with_cwd, jj_root_with_cwd};
-use setup::{create_jj_hooks, create_jjignore, create_repo_ai_instructions, DEFAULT_CONFIG};
+use setup::{
+    create_jj_hooks, create_jjignore, create_moon_pipeline, create_repo_ai_instructions,
+    DEFAULT_CONFIG,
+};
 use types::{build_init_response, InitPaths, InitResponse};
 
 /// Run init command with options
@@ -116,6 +119,9 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
 
     // Create repo-level AI discoverability file
     create_repo_ai_instructions(&root)?;
+
+    // Create Moon build pipeline configuration (.moon/)
+    create_moon_pipeline(&root)?;
 
     // Initialize the database (create if it doesn't exist)
     // db_path already defined above
