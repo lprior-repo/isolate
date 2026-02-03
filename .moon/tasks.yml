@@ -58,7 +58,7 @@ tasks:
       mutex: "rust_heavy"
       runDepsInParallel: false
     env:
-      CARGO_BUILD_JOBS: "6"
+      CARGO_BUILD_JOBS: "16"
 
   test-doc:
     command: "cargo test --doc --workspace"
@@ -87,7 +87,7 @@ tasks:
       mutex: "rust_heavy"
       runDepsInParallel: false
     env:
-      CARGO_BUILD_JOBS: "4"
+      CARGO_BUILD_JOBS: "8"
 
   coverage-check:
     command: "cargo tarpaulin --workspace --all-features --out Lcov --output-dir target/coverage -- --test-threads=1 | grep -E '^[0-9]+\\.[0-9]+%' | awk '{ if ($1 + 0 < 80) { exit 1 } }'"
@@ -102,7 +102,7 @@ tasks:
       mutex: "rust_heavy"
       runDepsInParallel: false
     env:
-      CARGO_BUILD_JOBS: "4"
+      CARGO_BUILD_JOBS: "8"
 
   # ============================================================================
   # STAGE 3: SECURITY
@@ -133,7 +133,7 @@ tasks:
       mutex: "rust_heavy"
       runDepsInParallel: false
     env:
-      CARGO_BUILD_JOBS: "8"
+      CARGO_BUILD_JOBS: "24"
 
   build-docs:
     command: "cargo doc --no-deps --document-private-items"
