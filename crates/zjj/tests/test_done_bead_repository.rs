@@ -25,7 +25,10 @@ mod bead_repository_tests {
 
         let result = repo.find_by_workspace(&WorkspaceName::new("workspace-1"));
         assert!(result.is_ok(), "find_by_workspace should return Ok");
-        assert!(result.unwrap().is_some(), "should find the bead");
+        assert!(
+            result.expect("find_by_workspace should return Ok").is_some(),
+            "should find the bead"
+        );
     }
 
     #[test]
@@ -40,7 +43,9 @@ mod bead_repository_tests {
 
         let result = repo.find_by_workspace(&WorkspaceName::new("workspace-1"));
         assert!(result.is_ok());
-        let bead_id = result.unwrap().unwrap();
+        let bead_id = result
+            .expect("find_by_workspace should return Ok")
+            .expect("should find the bead");
 
         let update_result = repo.update_status(&bead_id, "in_progress");
         assert!(update_result.is_ok(), "update_status should return Ok");
@@ -60,7 +65,9 @@ mod bead_repository_tests {
         let result = repo.find_by_workspace(&WorkspaceName::new("unknown-workspace"));
         assert!(result.is_ok());
         assert!(
-            result.unwrap().is_none(),
+            result
+                .expect("find_by_workspace should return Ok")
+                .is_none(),
             "should return None for unknown workspace"
         );
     }
@@ -76,7 +83,9 @@ mod bead_repository_tests {
         );
 
         let result = repo.find_by_workspace(&WorkspaceName::new("workspace-1"));
-        let bead_id = result.unwrap().unwrap();
+        let bead_id = result
+            .expect("find_by_workspace should return Ok")
+            .expect("should find the bead");
 
         let invalid_status = repo.update_status(&bead_id, "invalid-status");
         assert!(invalid_status.is_err(), "should reject invalid status");
@@ -103,7 +112,9 @@ mod bead_repository_tests {
         let result = repo.find_by_workspace(&WorkspaceName::new("any-workspace"));
         assert!(result.is_ok());
         assert!(
-            result.unwrap().is_none(),
+            result
+                .expect("find_by_workspace should return Ok")
+                .is_none(),
             "should handle missing beads gracefully"
         );
     }
@@ -126,11 +137,15 @@ mod bead_repository_tests {
         repo.add_bead("bead-1".to_string(), "ws1".to_string(), "open".to_string());
 
         let result = repo.find_by_workspace(&WorkspaceName::new("ws1"));
-        let bead_id = result.unwrap().unwrap();
+        let bead_id = result
+            .expect("find_by_workspace should return Ok")
+            .expect("should find the bead");
 
         // Concurrent updates are protected by Mutex
-        repo.update_status(&bead_id, "in_progress").unwrap();
-        repo.update_status(&bead_id, "closed").unwrap();
+        repo.update_status(&bead_id, "in_progress")
+            .expect("update_status should succeed");
+        repo.update_status(&bead_id, "closed")
+            .expect("update_status should succeed");
 
         let status = repo.get_status(bead_id.as_str());
         assert_eq!(status, Some("closed".to_string()), "last update should win");
@@ -144,7 +159,9 @@ mod bead_repository_tests {
         repo.add_bead("bead-1".to_string(), "ws1".to_string(), "open".to_string());
 
         let result = repo.find_by_workspace(&WorkspaceName::new("ws1"));
-        let bead_id = result.unwrap().unwrap();
+        let bead_id = result
+            .expect("find_by_workspace should return Ok")
+            .expect("should find the bead");
 
         // Updating non-existent bead returns error
         let update_result = repo.update_status(&BeadId::new("non-existent"), "closed");
@@ -159,7 +176,12 @@ mod bead_repository_tests {
 
         let result = repo.find_by_workspace(&WorkspaceName::new("ws1"));
         assert!(result.is_ok(), "MockBeadRepository should work");
-        assert!(result.unwrap().is_some(), "should find added bead");
+        assert!(
+            result
+                .expect("MockBeadRepository should work")
+                .is_some(),
+            "should find added bead"
+        );
     }
 
     #[test]
@@ -182,15 +204,15 @@ mod bead_repository_tests {
 
         assert!(repo
             .find_by_workspace(&WorkspaceName::new("ws1"))
-            .unwrap()
+            .expect("find_by_workspace should return Ok")
             .is_some());
         assert!(repo
             .find_by_workspace(&WorkspaceName::new("ws2"))
-            .unwrap()
+            .expect("find_by_workspace should return Ok")
             .is_some());
         assert!(repo
             .find_by_workspace(&WorkspaceName::new("ws3"))
-            .unwrap()
+            .expect("find_by_workspace should return Ok")
             .is_some());
     }
 }
