@@ -63,13 +63,13 @@ impl RepoRoot {
         Ok(Self(path))
     }
 
-    /// Get the inner PathBuf
-    pub fn inner(&self) -> &PathBuf {
+    /// Get the inner `PathBuf`
+    pub const fn inner(&self) -> &PathBuf {
         &self.0
     }
 
-    /// Get as Path
-    pub fn as_path(&self) -> &Path {
+    /// Get as `Path`
+    pub const fn as_path(&self) -> &Path {
         &self.0
     }
 }
@@ -85,7 +85,7 @@ impl fmt::Display for RepoRoot {
 pub struct WorkspaceName(String);
 
 impl WorkspaceName {
-    /// Create a new WorkspaceName with validation
+    /// Create a new `WorkspaceName` with validation
     pub fn new(name: String) -> Result<Self, ValidationError> {
         if name.is_empty() {
             return Err(ValidationError::InvalidWorkspaceName(
@@ -139,7 +139,7 @@ impl fmt::Display for WorkspaceName {
 pub struct BeadId(String);
 
 impl BeadId {
-    /// Create a new BeadId with validation
+    /// Create a new `BeadId` with validation
     pub fn new(id: String) -> Result<Self, ValidationError> {
         if id.is_empty() {
             return Err(ValidationError::InvalidBeadId(
@@ -183,7 +183,7 @@ impl fmt::Display for BeadId {
 pub struct CommitId(String);
 
 impl CommitId {
-    /// Create a new CommitId with validation
+    /// Create a new `CommitId` with validation
     pub fn new(id: String) -> Result<Self, ValidationError> {
         if id.is_empty() {
             return Err(ValidationError::InvalidCommitId(
@@ -223,7 +223,7 @@ impl fmt::Display for CommitId {
 pub struct JjOutput(String);
 
 impl JjOutput {
-    /// Create a new JjOutput with validation
+    /// Create a new `JjOutput` with validation
     pub fn new(output: String) -> Result<Self, ValidationError> {
         // Validate UTF-8 (already validated by String type, but we check for control chars)
         if output.chars().any(|c| c == '\0') {

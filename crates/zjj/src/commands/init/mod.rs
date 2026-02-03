@@ -60,8 +60,16 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
     let root = jj_root_with_cwd(&cwd)?;
     let zjj_dir = root.join(".zjj");
 
-    // Check if already initialized
-    if zjj_dir.exists() {
+    // Define paths for all essential files
+    let config_path = zjj_dir.join("config.toml");
+    let layouts_dir = zjj_dir.join("layouts");
+    let db_path = zjj_dir.join("state.db");
+
+    // Check if already fully initialized
+    let is_fully_initialized =
+        zjj_dir.exists() && config_path.exists() && layouts_dir.exists() && db_path.exists();
+
+    if is_fully_initialized {
         let response = InitResponse {
             message: "zjj already initialized in this repository.".to_string(),
             root: root.display().to_string(),
@@ -85,16 +93,20 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
         return Ok(());
     }
 
-    // Create .zjj directory
-    fs::create_dir_all(&zjj_dir).context("Failed to create .zjj directory")?;
+    // Create .zjj directory if missing
+    if !zjj_dir.exists() {
+        fs::create_dir_all(&zjj_dir).context("Failed to create .zjj directory")?;
+    }
 
-    // Create config.toml with defaults
-    let config_path = zjj_dir.join("config.toml");
-    fs::write(&config_path, DEFAULT_CONFIG).context("Failed to create config.toml")?;
+    // Create config.toml if missing
+    if !config_path.exists() {
+        fs::write(&config_path, DEFAULT_CONFIG).context("Failed to create config.toml")?;
+    }
 
-    // Create layouts directory
-    let layouts_dir = zjj_dir.join("layouts");
-    fs::create_dir_all(&layouts_dir).context("Failed to create layouts directory")?;
+    // Create layouts directory if missing
+    if !layouts_dir.exists() {
+        fs::create_dir_all(&layouts_dir).context("Failed to create layouts directory")?;
+    }
 
     // Create .jjignore to prevent .zjj tracking (avoids nested .jj conflicts)
     create_jjignore(&root)?;
@@ -106,7 +118,7 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
     create_repo_ai_instructions(&root)?;
 
     // Initialize the database (create if it doesn't exist)
-    let db_path = zjj_dir.join("state.db");
+    // db_path already defined above
     let _db = SessionDb::create_or_open_blocking(&db_path)?;
 
     if format.is_json() {

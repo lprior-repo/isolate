@@ -362,3 +362,168 @@ fn test_init_no_panics_with_format() {
         let _ = format.to_string();
     }
 }
+
+// ============================================================================
+// Bug Fix Tests: zjj-rg0v - Init doesn't recreate config.toml when .jjz exists but config missing
+// ============================================================================
+
+/// Test that init recreates config.toml when .zjj exists but config.toml is missing
+#[test]
+fn test_init_recreates_missing_config_toml() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    // First init - creates everything
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    let config_path = temp_dir.path().join(".zjj/config.toml");
+    assert!(config_path.exists(), "Initial config.toml should exist");
+
+    // Delete config.toml but leave .zjj directory
+    std::fs::remove_file(&config_path)?;
+    assert!(!config_path.exists(), "config.toml should be deleted");
+
+    // Run init again - should recreate config.toml
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    // Verify config.toml was recreated
+    assert!(config_path.exists(), "config.toml should be recreated");
+
+    // Verify content is correct
+    let content = std::fs::read_to_string(&config_path)?;
+    assert!(content.contains("workspace_dir"));
+    assert!(content.contains("[watch]"));
+
+    Ok(())
+}
+
+/// Test that init recreates state.db when .zjj exists but state.db is missing
+#[test]
+fn test_init_recreates_missing_state_db() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    // First init - creates everything
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    let db_path = temp_dir.path().join(".zjj/state.db");
+    assert!(db_path.exists(), "Initial state.db should exist");
+
+    // Delete state.db but leave .zjj directory
+    std::fs::remove_file(&db_path)?;
+    assert!(!db_path.exists(), "state.db should be deleted");
+
+    // Run init again - should recreate state.db
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    // Verify state.db was recreated
+    assert!(db_path.exists(), "state.db should be recreated");
+
+    // Verify it's a valid SQLite database
+    let db = SessionDb::open_blocking(&db_path)?;
+    let sessions = db.list_blocking(None)?;
+    assert_eq!(sessions.len(), 0);
+
+    Ok(())
+}
+
+/// Test that init recreates layouts directory when .zjj exists but layouts is missing
+#[test]
+fn test_init_recreates_missing_layouts_dir() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    // First init - creates everything
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    let layouts_path = temp_dir.path().join(".zjj/layouts");
+    assert!(
+        layouts_path.exists(),
+        "Initial layouts directory should exist"
+    );
+
+    // Delete layouts directory but leave .zjj directory
+    std::fs::remove_dir(&layouts_path)?;
+    assert!(
+        !layouts_path.exists(),
+        "layouts directory should be deleted"
+    );
+
+    // Run init again - should recreate layouts directory
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    // Verify layouts directory was recreated
+    assert!(
+        layouts_path.exists(),
+        "layouts directory should be recreated"
+    );
+    assert!(layouts_path.is_dir());
+
+    Ok(())
+}
+
+/// Test that init recreates all missing components when .zjj exists but multiple files missing
+#[test]
+fn test_init_recreates_all_missing_components() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    // First init - creates everything
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    let config_path = temp_dir.path().join(".zjj/config.toml");
+    let db_path = temp_dir.path().join(".zjj/state.db");
+    let layouts_path = temp_dir.path().join(".zjj/layouts");
+
+    // Delete all files but leave .zjj directory
+    std::fs::remove_file(&config_path)?;
+    std::fs::remove_file(&db_path)?;
+    std::fs::remove_dir(&layouts_path)?;
+
+    assert!(!config_path.exists());
+    assert!(!db_path.exists());
+    assert!(!layouts_path.exists());
+
+    // Run init again - should recreate everything
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    // Verify all components were recreated
+    assert!(config_path.exists(), "config.toml should be recreated");
+    assert!(db_path.exists(), "state.db should be recreated");
+    assert!(
+        layouts_path.exists(),
+        "layouts directory should be recreated"
+    );
+
+    Ok(())
+}
+
+/// Test that init preserves existing config.toml when all files exist
+#[test]
+fn test_init_preserves_existing_config_toml() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    // First init - creates everything
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    let config_path = temp_dir.path().join(".zjj/config.toml");
+
+    // Modify config.toml
+    let custom_content = "# Custom config\nworkspace_dir = \"../custom\"\n";
+    std::fs::write(&config_path, custom_content)?;
+
+    // Run init again - should NOT overwrite existing config
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    // Verify config.toml was preserved
+    let content = std::fs::read_to_string(&config_path)?;
+    assert_eq!(content, custom_content, "config.toml should be preserved");
+
+    Ok(())
+}
