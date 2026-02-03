@@ -98,7 +98,7 @@ impl ProjectContext {
     ///
     /// # Errors
     ///
-    /// Returns `TemplateError::InvalidContext` if:
+    /// Returns [`TemplateError::InvalidContext`] if:
     /// - `project_name` is empty
     /// - `version` is empty
     /// - `authors` is empty
@@ -204,7 +204,7 @@ impl TemplateType {
 ///
 /// # Errors
 ///
-/// Returns `TemplateError` if:
+/// Returns [`TemplateError`] if:
 /// - Template variables are missing
 /// - Rendering fails
 pub fn render_template(
@@ -243,11 +243,11 @@ pub fn render_template(
 
 /// Render all templates and collect into a map (pure transformation)
 ///
-/// Returns a `HashMap` of template type to rendered content.
+/// Returns a [`HashMap`] of template type to rendered content.
 ///
 /// # Errors
 ///
-/// Returns `TemplateError` if any template fails to render
+/// Returns [`TemplateError`] if any template fails to render
 pub fn render_all_templates(
     context: &ProjectContext,
 ) -> Result<HashMap<TemplateType, String>, TemplateError> {

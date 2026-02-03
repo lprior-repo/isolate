@@ -79,6 +79,22 @@ mod brutal_edge_cases {
         }
     }
 
+    /// Test fixture helper that creates a test repository.
+    ///
+    /// This helper uses `.expect()` because test setup failure indicates
+    /// the test environment itself is broken, not the code being tested.
+    fn setup_test_repo() -> TestRepo {
+        TestRepo::new().expect("Test repo initialization failed - test environment is broken")
+    }
+
+    /// Helper that retrieves current directory with safe fallback.
+    ///
+    /// Uses `.unwrap_or_else()` to provide a sensible default
+    /// when current directory cannot be determined.
+    fn get_current_dir() -> PathBuf {
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    }
+
     // ========================================================================
     // BRUTAL EDGE CASE 1: Invalid bead states
     // ========================================================================
@@ -86,8 +102,8 @@ mod brutal_edge_cases {
     #[test]
     fn given_nonexistent_bead_when_spawn_then_clear_error() {
         // Given: A bead ID that doesn't exist
-        let repo = TestRepo::new().unwrap_or_else(|_| panic!("Failed to create test repo"));
-        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let repo = setup_test_repo();
+        let original_dir = get_current_dir();
         std::env::set_current_dir(repo.path()).ok();
 
         let options = test_spawn_options("nonexistent-bead", "echo", vec!["test".to_string()]);
@@ -100,10 +116,7 @@ mod brutal_edge_cases {
 
         // Then: Returns clear "bead not found" error
         assert!(result.is_err(), "Should fail for nonexistent bead");
-        let err: SpawnError = match result {
-            Err(e) => e,
-            Ok(_) => panic!("Expected error but got success"),
-        };
+        let err = result.expect_err("Expected error but got success");
         assert!(
             err.to_string().contains("not found")
                 || err.to_string().contains("does not exist")
