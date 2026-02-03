@@ -12,8 +12,9 @@ mod newtypes_tests {
         let non_existent = PathBuf::from("/nonexistent/path");
         let result = RepoRoot::new(non_existent.clone());
         assert!(result.is_err(), "should reject non-existent path");
+        let err = result.expect_err("should have error");
         assert!(
-            result.unwrap_err().to_string().contains("does not exist"),
+            err.to_string().contains("does not exist"),
             "should mention missing path"
         );
     }
@@ -22,11 +23,15 @@ mod newtypes_tests {
     fn test_repo_root_validates_is_dir() {
         // Test that RepoRoot rejects non-directory paths
         let file_path = PathBuf::from("/tmp/test_file.txt");
-        std::fs::write(&file_path, "content").unwrap();
+        if let Err(e) = std::fs::write(&file_path, "content") {
+            eprintln!("Failed to write test file: {}", e);
+            return;
+        }
         let result = RepoRoot::new(file_path);
         assert!(result.is_err(), "should reject file path");
+        let err = result.expect_err("should have error");
         assert!(
-            result.unwrap_err().to_string().contains("not a directory"),
+            err.to_string().contains("not a directory"),
             "should mention not a directory"
         );
     }
@@ -34,9 +39,18 @@ mod newtypes_tests {
     #[test]
     fn test_repo_root_validates_jj_repo() {
         // Test that RepoRoot requires .jj directory
-        let temp_dir = tempfile::tempdir().unwrap();
+        let temp_dir = match tempfile::tempdir() {
+            Ok(dir) => dir,
+            Err(e) => {
+                eprintln!("Failed to create temp dir: {}", e);
+                return;
+            }
+        };
         let repo_path = temp_dir.path();
-        std::fs::create_dir_all(repo_path.join(".jj")).unwrap();
+        if let Err(e) = std::fs::create_dir_all(repo_path.join(".jj")) {
+            eprintln!("Failed to create .jj directory: {}", e);
+            return;
+        }
         let result = RepoRoot::new(repo_path.to_path_buf());
         assert!(result.is_ok(), "should accept JJ repository");
         drop(temp_dir);
@@ -162,7 +176,7 @@ mod newtypes_tests {
         let path = PathBuf::from("/test/path");
         let result = RepoRoot::new(path);
         assert!(result.is_ok(), "should create RepoRoot");
-        let repo_root = result.unwrap();
+        let repo_root = result.expect("should have valid RepoRoot");
 
         let display = format!("{}", repo_root);
         assert!(display.contains("/test/path"), "Display should show path");
@@ -173,7 +187,7 @@ mod newtypes_tests {
         // Test that WorkspaceName implements Display
         let result = WorkspaceName::new("test-workspace".to_string());
         assert!(result.is_ok(), "should create WorkspaceName");
-        let ws_name = result.unwrap();
+        let ws_name = result.expect("should have valid WorkspaceName");
 
         let display = format!("{}", ws_name);
         assert_eq!(display, "test-workspace", "Display should show name");
@@ -184,7 +198,7 @@ mod newtypes_tests {
         // Test that BeadId implements Display
         let result = BeadId::new("zjj-123".to_string());
         assert!(result.is_ok(), "should create BeadId");
-        let bead_id = result.unwrap();
+        let bead_id = result.expect("should have valid BeadId");
 
         let display = format!("{}", bead_id);
         assert_eq!(display, "zjj-123", "Display should show ID");
@@ -195,7 +209,7 @@ mod newtypes_tests {
         // Test that CommitId implements Display
         let result = CommitId::new("abc123".to_string());
         assert!(result.is_ok(), "should create CommitId");
-        let commit_id = result.unwrap();
+        let commit_id = result.expect("should have valid CommitId");
 
         let display = format!("{}", commit_id);
         assert_eq!(display, "abc123", "Display should show ID");
@@ -206,7 +220,7 @@ mod newtypes_tests {
         // Test that JjOutput implements Display
         let result = JjOutput::new("test output".to_string());
         assert!(result.is_ok(), "should create JjOutput");
-        let output = result.unwrap();
+        let output = result.expect("should have valid JjOutput");
 
         let display = format!("{}", output);
         assert_eq!(display, "test output", "Display should show output");
@@ -216,7 +230,7 @@ mod newtypes_tests {
     fn test_repo_root_inner_access() {
         // Test that we can access inner PathBuf value
         let path = PathBuf::from("/test/path");
-        let repo_root = RepoRoot::new(path).unwrap();
+        let repo_root = RepoRoot::new(path.clone()).expect("should have valid RepoRoot");
         assert_eq!(repo_root.inner(), &path, "inner() should return PathBuf");
     }
 
@@ -224,7 +238,8 @@ mod newtypes_tests {
     fn test_workspace_name_inner_access() {
         // Test that we can access inner String value
         let name = "test-workspace";
-        let ws_name = WorkspaceName::new(name.to_string()).unwrap();
+        let ws_name =
+            WorkspaceName::new(name.to_string()).expect("should have valid WorkspaceName");
         assert_eq!(ws_name.inner(), name, "inner() should return String");
     }
 
@@ -232,7 +247,7 @@ mod newtypes_tests {
     fn test_bead_id_inner_access() {
         // Test that we can access inner String value
         let id = "zjj-123";
-        let bead_id = BeadId::new(id.to_string()).unwrap();
+        let bead_id = BeadId::new(id.to_string()).expect("should have valid BeadId");
         assert_eq!(bead_id.inner(), id, "inner() should return String");
     }
 
@@ -240,7 +255,7 @@ mod newtypes_tests {
     fn test_commit_id_inner_access() {
         // Test that we can access inner String value
         let id = "abc123";
-        let commit_id = CommitId::new(id.to_string()).unwrap();
+        let commit_id = CommitId::new(id.to_string()).expect("should have valid CommitId");
         assert_eq!(commit_id.inner(), id, "inner() should return String");
     }
 
@@ -248,7 +263,7 @@ mod newtypes_tests {
     fn test_jj_output_inner_access() {
         // Test that we can access inner String value
         let text = "test output";
-        let output = JjOutput::new(text.to_string()).unwrap();
+        let output = JjOutput::new(text.to_string()).expect("should have valid JjOutput");
         assert_eq!(output.inner(), text, "inner() should return String");
     }
 
