@@ -375,7 +375,7 @@ mod tests {
         // Verify the tab name format is consistent
         let old_name = "my-session";
         let new_name = "my-session";
-        let expected_tab = format!("zjj:{}", old_name);
+        let expected_tab = format!("zjj:{old_name}");
 
         assert_eq!(old_name, new_name);
         assert_eq!(expected_tab, "zjj:my-session");

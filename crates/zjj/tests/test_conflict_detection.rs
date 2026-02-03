@@ -30,7 +30,10 @@ fn test_detect_conflicts_no_conflicts_succeeds() {
     // JJ workspaces are created directly in the repo root by zjj add
     // We need to change to the workspace directory
     let workspace_path = harness.workspace_path("feature-no-conflict");
-    std::env::set_current_dir(&workspace_path).unwrap();
+    let _prev_dir = std::env::current_dir().ok();
+    if let Err(e) = std::env::set_current_dir(&workspace_path) {
+        panic!("Failed to change to workspace directory: {e}");
+    }
 
     let result = harness.zjj(&["done", "--detect-conflicts"]);
 
@@ -103,7 +106,10 @@ fn test_detect_conflicts_found_reports_details() {
     // JJ workspaces are created directly in the repo root by zjj add
     // We need to change to the workspace directory
     let workspace_path = harness.workspace_path("conflicting-feature");
-    std::env::set_current_dir(&workspace_path).unwrap();
+    let _prev_dir = std::env::current_dir().ok();
+    if let Err(e) = std::env::set_current_dir(&workspace_path) {
+        panic!("Failed to change to workspace directory: {e}");
+    }
     let result = harness.zjj(&["done", "--detect-conflicts", "--dry-run"]);
 
     // THEN: Output lists conflicting files

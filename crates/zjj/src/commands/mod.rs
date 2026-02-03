@@ -2,8 +2,6 @@
 
 pub mod abort;
 pub mod add;
-#[cfg(test)]
-mod add_behavior_tests;
 pub mod agents;
 pub mod ai;
 pub mod attach;

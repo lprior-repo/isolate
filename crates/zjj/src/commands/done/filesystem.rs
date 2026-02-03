@@ -25,6 +25,7 @@ pub enum FsError {
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
 
+    #[expect(dead_code)] // Reserved for binary file handling
     #[error("Invalid UTF-8 in file: {0}")]
     InvalidUtf8(String),
 
@@ -44,6 +45,7 @@ pub trait FileSystem {
     fn exists(&self, path: &Path) -> bool;
 
     /// Remove a file
+    #[expect(dead_code)] // For future file cleanup operations
     fn remove_file(&self, path: &Path) -> Result<(), FsError>;
 
     /// Remove a directory and all its contents
@@ -55,8 +57,8 @@ pub trait FileSystem {
 pub struct RealFileSystem;
 
 impl RealFileSystem {
-    /// Create a new RealFileSystem
-    pub fn new() -> Self {
+    /// Create a new `RealFileSystem`
+    pub const fn new() -> Self {
         Self
     }
 }
@@ -114,13 +116,15 @@ impl FileSystem for RealFileSystem {
 }
 
 /// In-memory filesystem for testing
+#[allow(dead_code)] // Reserved for future test expansion
 #[derive(Debug, Clone)]
 pub struct InMemoryFileSystem {
     files: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl InMemoryFileSystem {
-    /// Create a new InMemoryFileSystem
+    /// Create a new `InMemoryFileSystem`
+    #[allow(dead_code)] // Reserved for future test expansion
     pub fn new() -> Self {
         Self {
             files: Arc::new(Mutex::new(HashMap::new())),
@@ -139,17 +143,17 @@ impl FileSystem for InMemoryFileSystem {
         let key = path.display().to_string();
         self.files
             .lock()
-            .map_err(|e| FsError::IoError(format!("Lock poisoned: {}", e)))?
+            .map_err(|e| FsError::IoError(format!("Lock poisoned: {e}")))?
             .get(&key)
             .cloned()
-            .ok_or_else(|| FsError::NotFound(key))
+            .ok_or(FsError::NotFound(key))
     }
 
     fn write(&self, path: &Path, contents: &str) -> Result<(), FsError> {
         let key = path.display().to_string();
         self.files
             .lock()
-            .map_err(|e| FsError::IoError(format!("Lock poisoned: {}", e)))?
+            .map_err(|e| FsError::IoError(format!("Lock poisoned: {e}")))?
             .insert(key, contents.to_string());
         Ok(())
     }
@@ -166,21 +170,18 @@ impl FileSystem for InMemoryFileSystem {
         let key = path.display().to_string();
         self.files
             .lock()
-            .map_err(|e| FsError::IoError(format!("Lock poisoned: {}", e)))?
+            .map_err(|e| FsError::IoError(format!("Lock poisoned: {e}")))?
             .remove(&key)
-            .ok_or_else(|| FsError::NotFound(key))?;
+            .ok_or(FsError::NotFound(key))?;
         Ok(())
     }
 
     fn remove_dir_all(&self, path: &Path) -> Result<(), FsError> {
         let prefix = path.display().to_string();
-        let mut files = self
-            .files
+        self.files
             .lock()
-            .map_err(|e| FsError::IoError(format!("Lock poisoned: {}", e)))?;
-
-        // Remove all files that start with this path prefix
-        files.retain(|k, _| !k.starts_with(&prefix));
+            .map_err(|e| FsError::IoError(format!("Lock poisoned: {e}")))?
+            .retain(|k, _| !k.starts_with(&prefix));
         Ok(())
     }
 }

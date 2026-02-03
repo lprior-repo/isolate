@@ -23,8 +23,7 @@
 //!
 //! Terminal states: `Merged`, `Abandoned`
 
-use std::fmt;
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -345,8 +344,7 @@ mod tests {
                 continue;
             };
 
-            let parsed_result: std::result::Result<WorkspaceState, _> =
-                serde_json::from_str(&json);
+            let parsed_result: std::result::Result<WorkspaceState, _> = serde_json::from_str(&json);
             assert!(
                 parsed_result.is_ok(),
                 "Failed to deserialize state: {state:?}"
@@ -541,11 +539,8 @@ mod tests {
     #[test]
     fn test_transition_timestamp_is_recent() {
         let before = Utc::now();
-        let transition = WorkspaceStateTransition::new(
-            WorkspaceState::Created,
-            WorkspaceState::Working,
-            "test",
-        );
+        let transition =
+            WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "test");
         let after = Utc::now();
 
         assert!(transition.timestamp >= before);

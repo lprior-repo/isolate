@@ -1,7 +1,7 @@
 //! JJ command executor trait for dependency injection
 //!
 //! This module provides a trait for executing JJ commands, allowing
-//! for easy testing via MockJjExecutor.
+//! for easy testing via `MockJjExecutor`.
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -49,13 +49,14 @@ pub struct RealJjExecutor {
 }
 
 impl RealJjExecutor {
-    /// Create a new RealJjExecutor
+    /// Create a new `RealJjExecutor`
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Create with a specific working directory
-    pub fn with_working_dir(working_dir: String) -> Self {
+    #[expect(dead_code)] // For future workspace-specific execution
+    pub const fn with_working_dir(working_dir: String) -> Self {
         Self {
             working_dir: Some(working_dir),
         }
@@ -109,7 +110,7 @@ pub struct MockJjExecutor {
 }
 
 impl MockJjExecutor {
-    /// Create a new MockJjExecutor
+    /// Create a new `MockJjExecutor`
     pub fn new() -> Self {
         Self {
             responses: Arc::new(Mutex::new(HashMap::new())),
@@ -118,6 +119,7 @@ impl MockJjExecutor {
     }
 
     /// Configure expected output for specific args
+    #[expect(dead_code)] // For future test expansion
     pub fn expect(&self, args: &[&str], output: Result<String, ExecutorError>) {
         let key = args.join(" ");
         if let Ok(mut responses) = self.responses.lock() {
@@ -126,11 +128,13 @@ impl MockJjExecutor {
     }
 
     /// Get recorded calls
+    #[expect(dead_code)] // For future test expansion
     pub fn calls(&self) -> Vec<Vec<String>> {
         self.calls.lock().map(|c| c.clone()).unwrap_or_default()
     }
 
     /// Simulate a command failure
+    #[expect(dead_code)] // For future test expansion
     pub fn fail_next(&self, args: &[&str], code: i32, stderr: String) {
         let key = args.join(" ");
         if let Ok(mut responses) = self.responses.lock() {
@@ -157,7 +161,7 @@ impl JjExecutor for MockJjExecutor {
     ) -> Result<JjOutput, ExecutorError> {
         // Record the call
         if let Ok(mut calls) = self.calls.lock() {
-            calls.push(args.iter().map(|s| s.to_string()).collect());
+            calls.push(args.iter().map(std::string::ToString::to_string).collect());
         }
 
         // Look up response
