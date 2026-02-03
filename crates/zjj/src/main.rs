@@ -16,10 +16,11 @@ mod selector;
 mod session;
 
 use commands::{
-    abort, add, agents, ai, attach, batch, can_i, checkpoint, claim, clean, completions, config,
-    context, contract, dashboard, diff, doctor, done, events, examples, export_import, focus, init,
-    integrity, introspect, list, pane, query, queue, remove, rename, revert, session_mgmt, spawn,
-    status, switch, sync, template, undo, validate, whatif, whereami, whoami, work,
+    abort, add, agents, ai, attach, batch, bookmark, can_i, checkpoint, claim, clean, completions,
+    config, context, contract, dashboard, diff, doctor, done, events, examples, export_import,
+    focus, init, integrity, introspect, list, pane, query, queue, remove, rename, revert,
+    session_mgmt, spawn, status, switch, sync, template, undo, validate, whatif, whereami, whoami,
+    work,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -556,6 +557,114 @@ fn cmd_list() -> ClapCommand {
                 .value_name("NAME")
                 .action(clap::ArgAction::Set)
                 .help("Filter sessions by agent owner"),
+        )
+}
+
+#[allow(clippy::too_many_lines)]
+fn cmd_bookmark() -> ClapCommand {
+    ClapCommand::new("bookmark")
+        .about("Manage JJ bookmarks/branches")
+        .long_about(
+            "Manage bookmarks (branches) in JJ workspaces.\n\n\
+            zjj wraps JJ completely - use 'zjj bookmark' not 'jj bookmark'.\n\
+            Provides: list, create, delete, move operations.",
+        )
+        .subcommand_required(true)
+        .subcommand(
+            ClapCommand::new("list")
+                .about("List bookmarks in a session workspace")
+                .arg(
+                    Arg::new("session")
+                        .value_name("SESSION")
+                        .help("Session name (uses current workspace if omitted)"),
+                )
+                .arg(
+                    Arg::new("all")
+                        .long("all")
+                        .short('a')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Show all bookmarks including remote"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("create")
+                .about("Create a new bookmark at current revision")
+                .arg(
+                    Arg::new("name")
+                        .required(true)
+                        .help("Name for the new bookmark"),
+                )
+                .arg(
+                    Arg::new("session")
+                        .value_name("SESSION")
+                        .help("Session name (uses current workspace if omitted)"),
+                )
+                .arg(
+                    Arg::new("push")
+                        .long("push")
+                        .short('p')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Push bookmark to remote after creation"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("delete")
+                .about("Delete a bookmark")
+                .arg(
+                    Arg::new("name")
+                        .required(true)
+                        .help("Name of the bookmark to delete"),
+                )
+                .arg(
+                    Arg::new("session")
+                        .value_name("SESSION")
+                        .help("Session name (uses current workspace if omitted)"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("move")
+                .about("Move a bookmark to a different revision")
+                .arg(
+                    Arg::new("name")
+                        .required(true)
+                        .help("Name of the bookmark to move"),
+                )
+                .arg(
+                    Arg::new("to")
+                        .long("to")
+                        .required(true)
+                        .value_name("REVISION")
+                        .help("Target revision (commit hash or revset)"),
+                )
+                .arg(
+                    Arg::new("session")
+                        .value_name("SESSION")
+                        .help("Session name (uses current workspace if omitted)"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
         )
 }
 
@@ -2237,6 +2346,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_agents())
         .subcommand(cmd_attach())
         .subcommand(cmd_list())
+        .subcommand(cmd_bookmark())
         .subcommand(cmd_remove())
         .subcommand(cmd_focus())
         .subcommand(cmd_switch())
@@ -2385,6 +2495,86 @@ fn handle_list(sub_m: &clap::ArgMatches) -> Result<()> {
     let bead = sub_m.get_one::<String>("bead").cloned();
     let agent = sub_m.get_one::<String>("agent").map(String::as_str);
     list::run(all, verbose, format, bead.as_deref(), agent)
+}
+
+fn handle_bookmark(sub_m: &clap::ArgMatches) -> Result<()> {
+    match sub_m.subcommand() {
+        Some(("list", list_m)) => {
+            let session = list_m.get_one::<String>("session").cloned();
+            let show_all = list_m.get_flag("all");
+            let json = list_m.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            let options = bookmark::ListOptions {
+                session,
+                show_all,
+                format,
+            };
+
+            bookmark::run_list(&options)
+        }
+        Some(("create", create_m)) => {
+            let name = create_m
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Name is required"))?
+                .clone();
+            let session = create_m.get_one::<String>("session").cloned();
+            let push = create_m.get_flag("push");
+            let json = create_m.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            let options = bookmark::CreateOptions {
+                name,
+                session,
+                push,
+                format,
+            };
+
+            bookmark::run_create(&options)
+        }
+        Some(("delete", delete_m)) => {
+            let name = delete_m
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Name is required"))?
+                .clone();
+            let session = delete_m.get_one::<String>("session").cloned();
+            let json = delete_m.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            let options = bookmark::DeleteOptions {
+                name,
+                session,
+                format,
+            };
+
+            bookmark::run_delete(&options)
+        }
+        Some(("move", move_m)) => {
+            let name = move_m
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Name is required"))?
+                .clone();
+            let to_revision = move_m
+                .get_one::<String>("to")
+                .ok_or_else(|| anyhow::anyhow!("--to is required"))?
+                .clone();
+            let session = move_m.get_one::<String>("session").cloned();
+            let json = move_m.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            let options = bookmark::MoveOptions {
+                name,
+                to_revision,
+                session,
+                format,
+            };
+
+            bookmark::run_move(&options)
+        }
+        _ => Err(anyhow::anyhow!(
+            "Subcommand required: list, create, delete, or move"
+        )),
+    }
 }
 
 fn handle_remove(sub_m: &clap::ArgMatches) -> Result<()> {
@@ -3720,6 +3910,7 @@ fn run_cli() -> Result<()> {
         Some(("add", sub_m)) => handle_add(sub_m),
         Some(("agents", sub_m)) => handle_agents(sub_m),
         Some(("list", sub_m)) => handle_list(sub_m),
+        Some(("bookmark", sub_m)) => handle_bookmark(sub_m),
         Some(("pane", sub_m)) => handle_pane(sub_m),
         Some(("remove", sub_m)) => handle_remove(sub_m),
         Some(("focus", sub_m)) => handle_focus(sub_m),
