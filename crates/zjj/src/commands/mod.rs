@@ -41,6 +41,7 @@ mod spawn_behavior_tests;
 pub mod status;
 pub mod switch;
 pub mod sync;
+pub mod template;
 pub mod undo;
 pub mod validate;
 pub mod wait;

@@ -134,3 +134,4 @@ pub fn get_moon_templates() -> HashMap<String, &'static str> {
     moon
 }
 pub mod askama;
+pub mod storage;

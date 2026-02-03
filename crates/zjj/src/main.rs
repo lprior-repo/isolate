@@ -19,7 +19,7 @@ use commands::{
     abort, add, agents, ai, attach, batch, can_i, checkpoint, claim, clean, completions, config,
     context, contract, dashboard, diff, doctor, done, events, examples, export_import, focus, init,
     integrity, introspect, list, pane, query, queue, remove, rename, revert, session_mgmt, spawn,
-    status, switch, sync, undo, validate, whatif, whereami, whoami, work,
+    status, switch, sync, template, undo, validate, whatif, whereami, whoami, work,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -793,6 +793,80 @@ fn cmd_clean() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+}
+
+fn cmd_template() -> ClapCommand {
+    ClapCommand::new("template")
+        .about("Manage Zellij layout templates")
+        .subcommand(
+            ClapCommand::new("list")
+                .about("List all available templates")
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("create")
+                .about("Create a new template")
+                .arg(Arg::new("name").required(true).help("Template name"))
+                .arg(
+                    Arg::new("description")
+                        .long("description")
+                        .short('d')
+                        .help("Template description"),
+                )
+                .arg(
+                    Arg::new("from-file")
+                        .long("from-file")
+                        .short('f')
+                        .help("Import from KDL file"),
+                )
+                .arg(
+                    Arg::new("builtin")
+                        .long("builtin")
+                        .short('b')
+                        .value_parser(["minimal", "standard", "full", "split", "review"])
+                        .help("Use builtin template as base"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("show")
+                .about("Show template details")
+                .arg(Arg::new("name").required(true).help("Template name"))
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("delete")
+                .about("Delete a template")
+                .arg(Arg::new("name").required(true).help("Template name"))
+                .arg(
+                    Arg::new("force")
+                        .long("force")
+                        .short('f')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip confirmation prompt"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
         )
 }
 
@@ -2171,6 +2245,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_diff())
         .subcommand(cmd_config())
         .subcommand(cmd_clean())
+        .subcommand(cmd_template())
         .subcommand(cmd_dashboard())
         .subcommand(cmd_introspect())
         .subcommand(cmd_doctor())
@@ -2467,6 +2542,75 @@ fn handle_clean(sub_m: &clap::ArgMatches) -> Result<()> {
         format,
     };
     clean::run_with_options(&options)
+}
+
+fn handle_template(sub_m: &clap::ArgMatches) -> Result<()> {
+    use zjj_core::zellij::LayoutTemplate;
+
+    match sub_m.subcommand() {
+        Some(("list", sub)) => {
+            let json = sub.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+            template::run_list(format)
+        }
+        Some(("create", sub)) => {
+            let name = sub
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Template name is required"))?
+                .clone();
+            let description = sub.get_one::<String>("description").cloned();
+            let json = sub.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            // Determine source
+            let source = if let Some(file_path) = sub.get_one::<String>("from-file") {
+                template::TemplateSource::FromFile(file_path.clone())
+            } else if let Some(builtin) = sub.get_one::<String>("builtin") {
+                let template_type = match builtin.as_str() {
+                    "minimal" => LayoutTemplate::Minimal,
+                    "standard" => LayoutTemplate::Standard,
+                    "full" => LayoutTemplate::Full,
+                    "split" => LayoutTemplate::Split,
+                    "review" => LayoutTemplate::Review,
+                    _ => {
+                        return Err(anyhow::anyhow!("Invalid builtin template: {builtin}"));
+                    }
+                };
+                template::TemplateSource::Builtin(template_type)
+            } else {
+                // Default to standard builtin
+                template::TemplateSource::Builtin(LayoutTemplate::Standard)
+            };
+
+            let options = template::CreateOptions {
+                name,
+                description,
+                source,
+                format,
+            };
+            template::run_create(&options)
+        }
+        Some(("show", sub)) => {
+            let name = sub
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Template name is required"))?;
+            let json = sub.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+            template::run_show(name, format)
+        }
+        Some(("delete", sub)) => {
+            let name = sub
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Template name is required"))?;
+            let force = sub.get_flag("force");
+            let json = sub.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+            template::run_delete(name, force, format)
+        }
+        _ => {
+            anyhow::bail!("Invalid template subcommand. Use 'zjj template --help' for usage.");
+        }
+    }
 }
 
 fn handle_introspect(sub_m: &clap::ArgMatches) -> Result<()> {
@@ -3585,6 +3729,7 @@ fn run_cli() -> Result<()> {
         Some(("diff", sub_m)) => handle_diff(sub_m),
         Some(("config", sub_m)) => handle_config(sub_m),
         Some(("clean", sub_m)) => handle_clean(sub_m),
+        Some(("template", sub_m)) => handle_template(sub_m),
         Some(("dashboard" | "dash", _)) => dashboard::run(),
         Some(("introspect", sub_m)) => handle_introspect(sub_m),
         Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m),

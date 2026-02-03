@@ -134,7 +134,11 @@ pub fn layout_generate(
 }
 
 /// Generate KDL content for a template
-fn generate_template_kdl(config: &LayoutConfig, template: LayoutTemplate) -> Result<String> {
+///
+/// # Errors
+///
+/// Returns error if KDL validation fails
+pub fn generate_template_kdl(config: &LayoutConfig, template: LayoutTemplate) -> Result<String> {
     let kdl = match template {
         LayoutTemplate::Minimal => generate_minimal_kdl(config),
         LayoutTemplate::Standard => generate_standard_kdl(config),
