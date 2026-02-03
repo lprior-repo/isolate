@@ -7,6 +7,8 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use zjj_core::OutputFormat;
 
+use super::conflict::ConflictDetectionResult;
+
 /// CLI arguments for done command (parsed in main.rs)
 #[derive(Debug, Clone)]
 #[expect(clippy::struct_excessive_bools)] // CLI flags: >3 bools is appropriate for independent options
@@ -102,6 +104,8 @@ pub struct DonePreview {
     pub potential_conflicts: Vec<String>,
     pub bead_to_close: Option<String>,
     pub workspace_path: String,
+    /// Detailed conflict detection result (when --detect-conflicts is used)
+    pub conflict_detection: Option<ConflictDetectionResult>,
 }
 
 /// Information about a commit
@@ -377,6 +381,7 @@ mod tests {
             potential_conflicts: vec![],
             bead_to_close: Some("zjj-test".to_string()),
             workspace_path: "/path/to/workspace".to_string(),
+            conflict_detection: None,
         };
 
         // Verify preview field values

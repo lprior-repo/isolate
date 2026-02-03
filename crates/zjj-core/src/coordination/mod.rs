@@ -4,4 +4,6 @@ pub mod locks;
 pub mod queue;
 
 pub use locks::{LockInfo, LockManager, LockResponse};
-pub use queue::{MergeQueue, ProcessingLock, QueueAddResponse, QueueEntry, QueueStats, QueueStatus};
+pub use queue::{
+    MergeQueue, ProcessingLock, QueueAddResponse, QueueEntry, QueueStats, QueueStatus,
+};

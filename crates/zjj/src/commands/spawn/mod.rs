@@ -69,7 +69,7 @@ pub fn run_with_options(options: &SpawnOptions) -> Result<()> {
 }
 
 /// Core spawn logic using Railway-Oriented Programming
-fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
+pub fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
     // Phase 1: Validate location (must be on main)
     let root = validate_location().map_err(|e| SpawnError::NotOnMain {
         current_location: e.to_string(),

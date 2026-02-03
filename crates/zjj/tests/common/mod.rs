@@ -31,7 +31,7 @@ pub struct TestHarness {
     pub repo_path: PathBuf,
     /// Path to the zjj binary
     zjj_bin: PathBuf,
-    /// Current working directory for commands (defaults to repo_path)
+    /// Current working directory for commands (defaults to `repo_path`)
     current_dir: PathBuf,
 }
 

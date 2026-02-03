@@ -16,6 +16,7 @@
 #![deny(clippy::panic)]
 
 pub mod bead;
+pub mod conflict;
 pub mod executor;
 pub mod filesystem;
 pub mod newtypes;
@@ -74,7 +75,7 @@ fn execute_done(
 
     // Phase 2: Build preview for dry-run
     let preview = if options.dry_run {
-        Some(build_preview(&root, &workspace_name, executor, bead_repo)?)
+        Some(build_preview(&root, &workspace_name, executor, bead_repo, options)?)
     } else {
         None
     };
@@ -199,6 +200,7 @@ fn build_preview(
     workspace_name: &str,
     executor: &dyn executor::JjExecutor,
     bead_repo: &dyn bead::BeadRepository,
+    options: &DoneOptions,
 ) -> Result<types::DonePreview, DoneError> {
     let uncommitted_files = get_uncommitted_files(root, executor)?;
     let commits_to_merge = get_commits_to_merge(root, executor)?;
@@ -206,18 +208,28 @@ fn build_preview(
     let bead_to_close = get_bead_id_for_workspace(workspace_name, bead_repo)?;
     let workspace_path = Path::new(root).join(".zjj/workspaces").join(workspace_name);
 
+    // Run detailed conflict detection if requested
+    let conflict_detection = if options.detect_conflicts {
+        Some(conflict::run_conflict_detection(executor).map_err(|e| DoneError::InvalidState {
+            reason: format!("Conflict detection failed: {e}"),
+        })?)
+    } else {
+        None
+    };
+
     Ok(types::DonePreview {
         uncommitted_files,
         commits_to_merge,
         potential_conflicts,
         bead_to_close,
         workspace_path: workspace_path.to_string_lossy().to_string(),
+        conflict_detection,
     })
 }
 
 /// Get list of uncommitted files
 fn get_uncommitted_files(
-    root: &str,
+    _root: &str,
     executor: &dyn executor::JjExecutor,
 ) -> Result<Vec<String>, DoneError> {
     let output =
@@ -249,7 +261,7 @@ fn get_uncommitted_files(
 
 /// Commit uncommitted changes
 fn commit_changes(
-    root: &str,
+    _root: &str,
     workspace_name: &str,
     message: Option<&str>,
     executor: &dyn executor::JjExecutor,
@@ -460,6 +472,11 @@ fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<
             if let Some(ref bead) = preview.bead_to_close {
                 println!("  Bead to close: {bead}");
             }
+            // Display conflict detection results if available
+            if let Some(ref conflict_detection) = preview.conflict_detection {
+                println!();
+                print!("{}", conflict_detection.to_text_output());
+            }
         }
     } else {
         println!("✅ Workspace '{}' completed", result.workspace_name);
@@ -505,7 +522,7 @@ fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()>
 
 /// Get current commit ID (before merge)
 fn get_current_commit_id(
-    root: &str,
+    _root: &str,
     executor: &dyn executor::JjExecutor,
 ) -> Result<String, DoneError> {
     let output = executor
@@ -519,7 +536,10 @@ fn get_current_commit_id(
 }
 
 /// Check if changes have been pushed to remote
-fn is_pushed_to_remote(root: &str, executor: &dyn executor::JjExecutor) -> Result<bool, DoneError> {
+fn is_pushed_to_remote(
+    _root: &str,
+    executor: &dyn executor::JjExecutor,
+) -> Result<bool, DoneError> {
     let output = executor
         .run(&["log", "-r", "@-"])
         .map_err(|e| DoneError::JjCommandFailed {
@@ -614,6 +634,7 @@ mod tests {
                 potential_conflicts: vec![],
                 bead_to_close: None,
                 workspace_path: "/path".to_string(),
+                conflict_detection: None,
             }),
             ..Default::default()
         };

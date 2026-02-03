@@ -526,12 +526,7 @@ mod tests {
     fn test_concurrent_adds() -> Result<()> {
         let queue = MergeQueue::open_in_memory()?;
         for i in 0..40 {
-            queue.add(
-                &format!("ws-{i}"),
-                None,
-                i % 3,
-                Some(&format!("agent-{i}")),
-            )?;
+            queue.add(&format!("ws-{i}"), None, i % 3, Some(&format!("agent-{i}")))?;
         }
         let queue_stats = queue.stats()?;
         assert_eq!(queue_stats.total, 40);

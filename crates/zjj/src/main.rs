@@ -2051,8 +2051,8 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_recover())
         .subcommand(cmd_retry())
         .subcommand(cmd_rollback())
-        // Merge queue coordination
-        .subcommand(cmd_queue())
+    // Merge queue coordination - TODO: implement cmd_queue()
+    // .subcommand(cmd_queue())
 }
 
 /// Format an error for user display (no stack traces)

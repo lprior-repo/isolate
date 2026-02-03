@@ -1,4 +1,4 @@
-//! NewType wrappers for done command
+//! `NewType` wrappers for done command
 //!
 //! These types provide compile-time validation and type safety.
 //! All validation happens at construction time via TryFrom/From.
@@ -14,9 +14,11 @@ use std::{
 
 use thiserror::Error;
 
-/// Validation errors for NewType constructors
+/// Validation errors for `NewType` constructors
+#[expect(clippy::enum_variant_names)] // All validation errors should be "Invalid*"
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ValidationError {
+    #[allow(dead_code)] // Reserved for future path validation
     #[error("Invalid repository path: {0}")]
     InvalidRepoPath(String),
 
@@ -26,6 +28,7 @@ pub enum ValidationError {
     #[error("Invalid bead ID: {0}")]
     InvalidBeadId(String),
 
+    #[allow(dead_code)] // Reserved for future commit validation
     #[error("Invalid commit ID: {0}")]
     InvalidCommitId(String),
 
@@ -34,11 +37,13 @@ pub enum ValidationError {
 }
 
 /// Validated repository root path
+#[allow(dead_code)] // Reserved for future strict path validation
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepoRoot(PathBuf);
 
 impl RepoRoot {
-    /// Create a new RepoRoot with validation
+    /// Create a new `RepoRoot` with validation
+    #[allow(dead_code)] // Reserved for future strict path validation
     pub fn new(path: PathBuf) -> Result<Self, ValidationError> {
         if !path.exists() {
             return Err(ValidationError::InvalidRepoPath(
@@ -64,13 +69,15 @@ impl RepoRoot {
     }
 
     /// Get the inner `PathBuf`
+    #[expect(dead_code)] // For future strict path validation
     pub const fn inner(&self) -> &PathBuf {
         &self.0
     }
 
     /// Get as `Path`
-    pub const fn as_path(&self) -> &Path {
-        &self.0
+    #[expect(dead_code)] // For future strict path validation
+    pub fn as_path(&self) -> &Path {
+        self.0.as_path()
     }
 }
 
@@ -118,6 +125,7 @@ impl WorkspaceName {
     }
 
     /// Get the inner String
+    #[expect(dead_code)] // For future direct access needs
     pub fn inner(&self) -> &str {
         &self.0
     }
@@ -162,6 +170,7 @@ impl BeadId {
     }
 
     /// Get the inner String
+    #[expect(dead_code)] // For future direct access needs
     pub fn inner(&self) -> &str {
         &self.0
     }
@@ -179,11 +188,13 @@ impl fmt::Display for BeadId {
 }
 
 /// Validated commit ID
+#[allow(dead_code)] // Reserved for future commit ID validation
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommitId(String);
 
 impl CommitId {
     /// Create a new `CommitId` with validation
+    #[allow(dead_code)] // Reserved for future commit ID validation
     pub fn new(id: String) -> Result<Self, ValidationError> {
         if id.is_empty() {
             return Err(ValidationError::InvalidCommitId(
@@ -202,11 +213,13 @@ impl CommitId {
     }
 
     /// Get the inner String
+    #[expect(dead_code)] // For future direct access needs
     pub fn inner(&self) -> &str {
         &self.0
     }
 
     /// Get as string slice
+    #[expect(dead_code)] // For future direct access needs
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -236,6 +249,7 @@ impl JjOutput {
     }
 
     /// Get the inner String
+    #[expect(dead_code)] // For future direct access needs
     pub fn inner(&self) -> &str {
         &self.0
     }

@@ -28,6 +28,7 @@ pub enum BeadError {
     #[error("Database error: {0}")]
     DatabaseError(String),
 
+    #[expect(dead_code)] // Reserved for future JSONL parsing errors
     #[error("Corrupt JSON: {0}")]
     CorruptJson(String),
 
@@ -53,12 +54,13 @@ pub struct MockBeadRepository {
 
 #[derive(Debug, Clone)]
 struct BeadData {
+    #[expect(dead_code)] // Used for debugging/future features
     id: String,
     status: String,
 }
 
 impl MockBeadRepository {
-    /// Create a new MockBeadRepository
+    /// Create a new `MockBeadRepository`
     pub fn new() -> Self {
         Self {
             beads: Arc::new(Mutex::new(HashMap::new())),
@@ -67,6 +69,7 @@ impl MockBeadRepository {
     }
 
     /// Add a bead for testing
+    #[expect(dead_code)] // For future test expansion
     pub fn add_bead(&self, id: String, workspace: String, status: String) {
         if let Ok(mut beads) = self.beads.lock() {
             beads.insert(
@@ -83,6 +86,7 @@ impl MockBeadRepository {
     }
 
     /// Get bead status
+    #[expect(dead_code)] // For future test expansion
     pub fn get_status(&self, id: &str) -> Option<String> {
         self.beads.lock().ok()?.get(id).map(|b| b.status.clone())
     }
@@ -99,16 +103,15 @@ impl BeadRepository for MockBeadRepository {
         let bead_id = self
             .workspace_to_bead
             .lock()
-            .map_err(|e| BeadError::LockError(format!("Lock poisoned: {}", e)))?
+            .map_err(|e| BeadError::LockError(format!("Lock poisoned: {e}")))?
             .get(workspace.as_str())
             .cloned();
 
-        match bead_id {
-            Some(id) => BeadId::new(id)
+        bead_id.map_or(Ok(None), |id| {
+            BeadId::new(id)
                 .map(Some)
-                .map_err(|e| BeadError::DatabaseError(e.to_string())),
-            None => Ok(None),
-        }
+                .map_err(|e| BeadError::DatabaseError(e.to_string()))
+        })
     }
 
     fn update_status(&mut self, id: &BeadId, status: &str) -> Result<(), BeadError> {
@@ -116,15 +119,14 @@ impl BeadRepository for MockBeadRepository {
         let valid_statuses = ["open", "in_progress", "closed", "blocked"];
         if !valid_statuses.contains(&status) {
             return Err(BeadError::InvalidStatus(format!(
-                "Status must be one of: {:?}",
-                valid_statuses
+                "Status must be one of: {valid_statuses:?}"
             )));
         }
 
         let mut beads = self
             .beads
             .lock()
-            .map_err(|e| BeadError::LockError(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| BeadError::LockError(format!("Lock poisoned: {e}")))?;
 
         if let Some(bead) = beads.get_mut(id.as_str()) {
             bead.status = status.to_string();

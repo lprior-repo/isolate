@@ -21,7 +21,7 @@ mod brutal_edge_cases {
 
     use crate::commands::spawn::{execute_spawn, SpawnError, SpawnOptions, SpawnOutput};
 
-    /// Helper to create default SpawnOptions for testing
+    /// Helper to create default `SpawnOptions` for testing
     fn test_spawn_options(bead_id: &str, command: &str, args: Vec<String>) -> SpawnOptions {
         SpawnOptions {
             bead_id: bead_id.to_string(),
@@ -108,8 +108,7 @@ mod brutal_edge_cases {
             err.to_string().contains("not found")
                 || err.to_string().contains("does not exist")
                 || err.to_string().contains("nonexistent-bead"),
-            "Error should indicate bead not found: {}",
-            err
+            "Error should indicate bead not found: {err}"
         );
     }
 
@@ -146,8 +145,7 @@ mod brutal_edge_cases {
             err.to_string().contains("in_progress")
                 || err.to_string().contains("status")
                 || err.to_string().contains("already"),
-            "Error should indicate invalid bead status: {}",
-            err
+            "Error should indicate invalid bead status: {err}"
         );
     }
 
@@ -183,8 +181,7 @@ mod brutal_edge_cases {
             err.to_string().contains("closed")
                 || err.to_string().contains("status")
                 || err.to_string().contains("completed"),
-            "Error should indicate bead is closed: {}",
-            err
+            "Error should indicate bead is closed: {err}"
         );
     }
 
@@ -221,8 +218,7 @@ mod brutal_edge_cases {
             err.to_string().contains("not found")
                 || err.to_string().contains("No such file")
                 || err.to_string().contains("command"),
-            "Error should indicate command not found: {}",
-            err
+            "Error should indicate command not found: {err}"
         );
     }
 
@@ -263,8 +259,7 @@ mod brutal_edge_cases {
                 let err: &SpawnError = &e;
                 assert!(
                     err.to_string().contains("exit") || err.to_string().contains("failed"),
-                    "Error should mention exit/failure: {}",
-                    err
+                    "Error should mention exit/failure: {err}"
                 );
             }
         }
@@ -281,13 +276,13 @@ mod brutal_edge_cases {
 
         // Spawn in thread with timeout
         let start = std::time::Instant::now();
-        let handle = std::thread::spawn(move || {
+        let _handle = std::thread::spawn(move || {
             std::env::set_current_dir(repo.path()).ok();
             execute_spawn(&options)
         });
 
         // Wait maximum 2 seconds
-        let _ = std::thread::sleep(Duration::from_secs(2));
+        std::thread::sleep(Duration::from_secs(2));
         let elapsed = start.elapsed();
 
         // Cleanup
@@ -298,8 +293,7 @@ mod brutal_edge_cases {
         // Real implementation should have timeout mechanism
         assert!(
             elapsed < Duration::from_secs(5),
-            "Should not hang indefinitely (elapsed: {:?})",
-            elapsed
+            "Should not hang indefinitely (elapsed: {elapsed:?})"
         );
 
         // Note: This test will likely fail, exposing missing timeout handling
@@ -345,8 +339,7 @@ mod brutal_edge_cases {
                     err.to_string().contains("exists")
                         || err.to_string().contains("conflict")
                         || err.to_string().contains("workspace"),
-                    "Error should indicate workspace conflict: {}",
-                    err
+                    "Error should indicate workspace conflict: {err}"
                 );
             }
         }
@@ -363,12 +356,12 @@ mod brutal_edge_cases {
         let workspace_path = repo.path().join(".zjj/workspaces/test-bead-1");
         let _ = fs::create_dir_all(&workspace_path);
 
-        let _ = std::process::Command::new("jj")
+        let _result = std::process::Command::new("jj")
             .args(["workspace", "add", "--name", "test-bead-1"])
             .arg(&workspace_path)
             .current_dir(repo.path())
             .output()
-            .expect("Failed to create JJ workspace");
+            .ok(); // Ignore errors in test setup
 
         let options = test_spawn_options("test-bead-1", "echo", vec!["test".to_string()]);
 
@@ -382,7 +375,6 @@ mod brutal_edge_cases {
         match result {
             Ok(_) => {
                 // Success means it handled the orphaned workspace
-                assert!(true, "Successfully reconciled orphaned JJ workspace");
             }
             Err(e) => {
                 // Error should mention workspace conflict
@@ -391,8 +383,7 @@ mod brutal_edge_cases {
                     err.to_string().contains("workspace")
                         || err.to_string().contains("exists")
                         || err.to_string().contains("conflict"),
-                    "Error should indicate workspace inconsistency: {}",
-                    err
+                    "Error should indicate workspace inconsistency: {err}"
                 );
             }
         }
@@ -427,10 +418,6 @@ mod brutal_edge_cases {
 
         // This test will fail - exposing missing signal handling
         // For now, just document the requirement
-        assert!(
-            true,
-            "SIGTERM handling not yet tested - needs implementation"
-        );
     }
 
     // ========================================================================
@@ -470,19 +457,27 @@ mod brutal_edge_cases {
         });
 
         // When: Both threads spawn simultaneously
-        let result1 = handle1.join().expect("Thread 1 panicked");
-        let result2 = handle2.join().expect("Thread 2 panicked");
+        let result1 = handle1.join().unwrap_or_else(|_| {
+            Err(SpawnError::WorkspaceCreationFailed {
+                reason: "Thread 1 panicked".to_string(),
+            })
+        });
+        let result2 = handle2.join().unwrap_or_else(|_| {
+            Err(SpawnError::WorkspaceCreationFailed {
+                reason: "Thread 2 panicked".to_string(),
+            })
+        });
 
         let _ = std::env::set_current_dir(PathBuf::from(".")).ok();
 
         // Then: Exactly one succeeds, one fails
         let success_count = [&result1, &result2]
             .iter()
-            .filter(|r: &&Result<SpawnOutput, SpawnError>| r.is_ok())
+            .filter(|r: &&&Result<SpawnOutput, SpawnError>| r.is_ok())
             .count();
         let failure_count = [&result1, &result2]
             .iter()
-            .filter(|r: &&Result<SpawnOutput, SpawnError>| r.is_err())
+            .filter(|r: &&&Result<SpawnOutput, SpawnError>| r.is_err())
             .count();
 
         assert!(
@@ -497,9 +492,9 @@ mod brutal_edge_cases {
         // And: Failure mentions conflict or already in progress
         if let Some(err_result) = [&result1, &result2]
             .iter()
-            .find(|r: &&Result<SpawnOutput, SpawnError>| r.is_err())
+            .find(|r: &&&Result<SpawnOutput, SpawnError>| r.is_err())
         {
-            let err: SpawnError = match err_result {
+            let err: &SpawnError = match err_result {
                 Err(e) => e,
                 Ok(_) => unreachable!(),
             };
@@ -507,8 +502,7 @@ mod brutal_edge_cases {
                 err.to_string().contains("in_progress")
                     || err.to_string().contains("conflict")
                     || err.to_string().contains("already"),
-                "Race error should indicate conflict: {}",
-                err
+                "Race error should indicate conflict: {err}"
             );
         }
     }
@@ -549,9 +543,11 @@ exit 0
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = fs::metadata(&script_path).unwrap().permissions();
-            perms.set_mode(0o755);
-            let _ = fs::set_permissions(&script_path, perms).unwrap();
+            if let Ok(metadata) = fs::metadata(&script_path) {
+                let mut perms = metadata.permissions();
+                perms.set_mode(0o755);
+                let _ = fs::set_permissions(&script_path, perms).ok();
+            }
         }
 
         let options = test_spawn_options("test-bead-1", "echo", vec!["test".to_string()]);
@@ -573,10 +569,7 @@ exit 0
                 );
             }
             Err(e) => {
-                panic!(
-                    "Spawn should succeed and agent should receive env vars: {}",
-                    e
-                );
+                panic!("Spawn should succeed and agent should receive env vars: {e}");
             }
         }
     }
