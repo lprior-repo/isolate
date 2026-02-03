@@ -54,6 +54,7 @@ pub mod session_state;
 pub mod templates;
 pub mod types;
 pub mod watcher;
+pub mod workspace_integrity;
 pub mod zellij;
 
 pub use config::RecoveryPolicy;
