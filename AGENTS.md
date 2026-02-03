@@ -1,6 +1,65 @@
-# Agent Instructions
+# AGENTS.md - Agent Instructions for AI Agents
 
-This project uses **bd** (beads) for issue tracking and **Moon** for hyper-fast builds.
+## Critical Rules
+
+### NEVER Touch Clippy/Lint Configuration
+**ABSOLUTE RULE: DO NOT MODIFY clippy or linting configuration files. EVER.**
+
+This includes but is not limited to:
+- `.clippy.toml`
+- `clippy.toml`
+- Any `#![allow(...)]` or `#![deny(...)]` attributes in `lib.rs` or `main.rs`
+- Clippy-related sections in `Cargo.toml`
+- Any lint configuration in `moon.yml` or build scripts
+
+If clippy reports warnings or errors, fix the **code**, not the lint rules.
+The user has explicitly configured these rules. Do not second-guess them.
+
+### Build System: Moon Only
+**NEVER use raw cargo commands.** Always use Moon for all build operations:
+
+```bash
+# Correct
+moon run :quick      # Format + lint check
+moon run :test       # Run tests
+moon run :build      # Release build
+moon run :ci         # Full pipeline
+moon run :fmt-fix    # Auto-fix formatting
+moon run :check      # Fast type check
+
+# WRONG - Never do this
+cargo fmt            # NO
+cargo clippy         # NO
+cargo test           # NO
+cargo build          # NO
+```
+
+### Code Quality
+- Zero unwraps: `unwrap()` and `expect()` are forbidden
+- Zero panics: `panic!`, `todo!`, `unimplemented!` are forbidden
+- All errors must use `Result<T, Error>` with proper propagation
+- Use functional patterns: `map`, `and_then`, `?` operator
+
+### Project Structure
+```
+crates/
+  zjj-core/     # Core library (error handling, types, functional utils)
+  zjj/          # CLI binary (MVP: init, add, list, remove, focus)
+```
+
+### Key Decisions
+- **Sync strategy**: Rebase (`jj rebase -d main`)
+- **Zellij tab naming**: `zjj:<session-name>`
+- **Beads**: Hard requirement, always integrate with `.beads/beads.db`
+- **zjj runs inside Zellij**: Tab switching via `zellij action go-to-tab-name`
+
+### Dependencies
+- JJ (Jujutsu) for workspace management
+- Zellij for terminal multiplexing
+- Beads for issue tracking integration
+- SQLite for session state persistence
+
+---
 
 ## Quick Reference
 
@@ -21,6 +80,16 @@ moon run :fmt-fix     # Auto-fix formatting
 moon run :build       # Release build
 moon run :install     # Install to ~/.local/bin
 ```
+
+### Zellij (Terminal Multiplexing)
+```bash
+zjj add <name>        # Create session + Zellij tab
+zjj focus <name>      # Switch to session tab
+zjj remove <name>     # Close tab + workspace
+zjj list              # Show all sessions
+```
+
+**See [docs/11_ZELLIJ.md](docs/11_ZELLIJ.md) for complete layout configuration, KDL syntax, templates, and troubleshooting.**
 
 ## Hyper-Fast CI/CD Pipeline
 
@@ -72,41 +141,108 @@ systemctl --user restart bazel-remote
 
 See [docs/CI-CD-PERFORMANCE.md](docs/CI-CD-PERFORMANCE.md) for benchmarks and optimization guide.
 
-## Using bv for AI Triage
+---
 
-bv is a graph-aware triage engine for Beads projects. Use robot flags for deterministic, dependency-aware outputs with precomputed metrics.
+## Using bv as an AI Sidecar
 
-**⚠️ CRITICAL: Use ONLY `--robot-*` flags. Bare `bv` launches an interactive TUI that blocks.**
+bv is a graph-aware triage engine for Beads projects (.beads/beads.jsonl). Instead of parsing JSONL or hallucinating graph traversal, use robot flags for deterministic, dependency-aware outputs with precomputed metrics (PageRank, betweenness, critical path, cycles, HITS, eigenvector, k-core).
+
+**Scope boundary:** bv handles *what to work on* (triage, priority, planning). For agent-to-agent coordination (messaging, work claiming, file reservations), use [MCP Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail).
+
+**⚠️ CRITICAL: Use ONLY `--robot-*` flags. Bare `bv` launches an interactive TUI that blocks your session.**
+
+### The Workflow: Start With Triage
+
+**`bv --robot-triage` is your single entry point.** It returns everything you need in one call:
+- `quick_ref`: at-a-glance counts + top 3 picks
+- `recommendations`: ranked actionable items with scores, reasons, unblock info
+- `quick_wins`: low-effort high-impact items
+- `blockers_to_clear`: items that unblock the most downstream work
+- `project_health`: status/type/priority distributions, graph metrics
+- `commands`: copy-paste shell commands for next steps
 
 ```bash
-# THE ENTRY POINT - Get everything in one call
-bv --robot-triage
+bv --robot-triage        # THE MEGA-COMMAND: start here
+bv --robot-next          # Minimal: just the single top pick + claim command
 
-# Minimal: just the top pick + claim command
-bv --robot-next
-
-# Parallel execution tracks for multi-agent workflows
-bv --robot-plan --robot-triage-by-track
-
-# Token-optimized output
+# Token-optimized output (TOON) for lower LLM context usage:
 bv --robot-triage --format toon
+export BV_OUTPUT_FORMAT=toon
+bv --robot-next
 ```
 
-**Key outputs from `--robot-triage`:**
-- `quick_ref.top_picks` - Top 3 ranked issues
-- `recommendations` - Full ranked list with scores, reasons
-- `quick_wins` - Low-effort, high-impact items
-- `blockers_to_clear` - High-impact unblock targets
-- `commands` - Copy-paste shell commands for next steps
+### Other Commands
 
-**jq examples:**
+**Planning:**
+| Command | Returns |
+|---------|---------|
+| `--robot-plan` | Parallel execution tracks with `unblocks` lists |
+| `--robot-priority` | Priority misalignment detection with confidence |
+
+**Graph Analysis:**
+| Command | Returns |
+|---------|---------|
+| `--robot-insights` | Full metrics: PageRank, betweenness, HITS (hubs/authorities), eigenvector, critical path, cycles, k-core, articulation points, slack |
+| `--robot-label-health` | Per-label health: `health_level` (healthy\|warning\|critical), `velocity_score`, `staleness`, `blocked_count` |
+| `--robot-label-flow` | Cross-label dependency: `flow_matrix`, `dependencies`, `bottleneck_labels` |
+| `--robot-label-attention [--attention-limit=N]` | Attention-ranked labels by: (pagerank × staleness × block_impact) / velocity |
+
+**History & Change Tracking:**
+| Command | Returns |
+|---------|---------|
+| `--robot-history` | Bead-to-commit correlations: `stats`, `histories` (per-bead events/commits/milestones), `commit_index` |
+| `--robot-diff --diff-since <ref>` | Changes since ref: new/closed/modified issues, cycles introduced/resolved |
+
+**Other Commands:**
+| Command | Returns |
+|---------|---------|
+| `--robot-burndown <sprint>` | Sprint burndown, scope changes, at-risk items |
+| `--robot-forecast <id\|all>` | ETA predictions with dependency-aware scheduling |
+| `--robot-alerts` | Stale issues, blocking cascades, priority mismatches |
+| `--robot-suggest` | Hygiene: duplicates, missing deps, label suggestions, cycle breaks |
+| `--robot-graph [--graph-format=json\|dot\|mermaid]` | Dependency graph export |
+| `--export-graph <file.html>` | Self-contained interactive HTML visualization |
+
+### Scoping & Filtering
+
 ```bash
-bv --robot-triage | jq '.quick_ref.top_picks[:3]'
-bv --robot-triage | jq '.recommendations[0]'
-bv --robot-plan | jq '.plan.summary.highest_impact'
+bv --robot-plan --label backend              # Scope to label's subgraph
+bv --robot-insights --as-of HEAD~30          # Historical point-in-time
+bv --recipe actionable --robot-plan          # Pre-filter: ready to work (no blockers)
+bv --recipe high-impact --robot-triage       # Pre-filter: top PageRank scores
+bv --robot-triage --robot-triage-by-track    # Group by parallel work streams
+bv --robot-triage --robot-triage-by-label    # Group by domain
 ```
 
-Use bv instead of parsing beads.jsonl directly—it computes PageRank, critical paths, and parallel tracks deterministically.
+### Understanding Robot Output
+
+**All robot JSON includes:**
+- `data_hash` — Fingerprint of source beads.jsonl (verify consistency across calls)
+- `status` — Per-metric state: `computed|approx|timeout|skipped` + elapsed ms
+- `as_of` / `as_of_commit` — Present when using `--as-of`; contains ref and resolved SHA
+
+**Two-phase analysis:**
+- **Phase 1 (instant):** degree, topo sort, density — always available immediately
+- **Phase 2 (async, 500ms timeout):** PageRank, betweenness, HITS, eigenvector, cycles — check `status` flags
+
+**For large graphs (>500 nodes):** Some metrics may be approximated or skipped. Always check `status`.
+
+### jq Quick Reference
+
+```bash
+bv --robot-triage | jq '.quick_ref'                        # At-a-glance summary
+bv --robot-triage | jq '.recommendations[0]'               # Top recommendation
+bv --robot-plan | jq '.plan.summary.highest_impact'        # Best unblock target
+bv --robot-insights | jq '.status'                         # Check metric readiness
+bv --robot-insights | jq '.Cycles'                         # Circular deps (must fix!)
+bv --robot-label-health | jq '.results.labels[] | select(.health_level == "critical")'
+```
+
+**Performance:** Phase 1 instant, Phase 2 async (500ms timeout). Prefer `--robot-plan` over `--robot-insights` when speed matters. Results cached by data hash.
+
+Use bv instead of parsing beads.jsonl—it computes PageRank, critical paths, cycles, and parallel tracks deterministically.
+
+---
 
 ## Parallel Agent Workflow (Orchestration Pattern)
 
@@ -204,6 +340,8 @@ bv --robot-triage --robot-triage-by-track
 - **Deterministic**: bv precomputes dependencies and execution tracks
 - **Quality**: Red-queen ensures adversarial testing on each change
 - **Clean handoff**: land skill guarantees all work pushed before completion
+
+---
 
 ## Landing the Plane (Session Completion)
 
