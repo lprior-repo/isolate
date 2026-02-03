@@ -5,6 +5,7 @@ use std::path::Path;
 use anyhow::Result;
 use serde::Serialize;
 use zjj_core::{json::SchemaEnvelopeArray, OutputFormat};
+use zjj_core::WorkspaceState;
 
 use crate::{
     commands::get_session_db,
@@ -295,6 +296,7 @@ mod tests {
         let session = Session {
             id: Some(1),
             name: "test".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "zjj:test".to_string(),
@@ -332,6 +334,7 @@ mod tests {
         let session = Session {
             id: Some(1),
             name: "test-session".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "zjj:test-session".to_string(),
@@ -361,6 +364,7 @@ mod tests {
         let session = Session {
             id: Some(1),
             name: "test-session".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "zjj:test-session".to_string(),
@@ -490,6 +494,7 @@ mod tests {
         let session = Session {
             id: Some(1),
             name: "test".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "zjj:test".to_string(),
@@ -683,7 +688,8 @@ mod tests {
                 name: "session1".to_string(),
                 workspace_path: "/tmp/ws1".to_string(),
                 zellij_tab: "zjj:session1".to_string(),
-                status: SessionStatus::Active,
+                state: WorkspaceState::Created,
+            status: SessionStatus::Active,
                 branch: Some("main".to_string()),
                 created_at: 1_704_067_200_u64,
                 updated_at: 1_704_067_200_u64,
@@ -749,7 +755,8 @@ mod tests {
                 name: "session1".to_string(),
                 workspace_path: "/tmp/ws1".to_string(),
                 zellij_tab: "zjj:session1".to_string(),
-                status: SessionStatus::Active,
+                state: WorkspaceState::Created,
+            status: SessionStatus::Active,
                 branch: Some("feature".to_string()),
                 created_at: 1_704_067_200_u64,
                 updated_at: 1_704_067_200_u64,

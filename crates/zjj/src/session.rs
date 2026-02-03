@@ -5,7 +5,7 @@ use std::time::SystemTime;
 use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
-use zjj_core::{Error, Result};
+use zjj_core::{Error, Result, WorkspaceState};
 
 /// Session status representing the lifecycle state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -61,6 +61,9 @@ pub struct Session {
     pub name: String,
     /// Current status of the session
     pub status: SessionStatus,
+    /// Workspace lifecycle state (tracks work progress)
+    #[serde(default)]
+    pub state: WorkspaceState,
     /// Path to the JJ workspace directory
     pub workspace_path: String,
     /// Zellij tab name (format: `zjj:NAME`)
@@ -98,6 +101,7 @@ impl Session {
             id: None,
             name: name.to_string(),
             status: SessionStatus::Creating,
+            state: WorkspaceState::Created,
             workspace_path: workspace_path.to_string(),
             zellij_tab: format!("zjj:{name}"),
             branch: None,
@@ -114,6 +118,8 @@ impl Session {
 pub struct SessionUpdate {
     /// Update the session status
     pub status: Option<SessionStatus>,
+    /// Update the workspace state
+    pub state: Option<WorkspaceState>,
     /// Update the branch
     pub branch: Option<String>,
     /// Update the last synced timestamp

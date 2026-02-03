@@ -50,6 +50,7 @@ pub fn run_pause(options: &PauseOptions) -> Result<()> {
     // Update status to paused
     let update = SessionUpdate {
         status: Some(SessionStatus::Paused),
+        state: None,
         branch: None,
         last_synced: None,
         metadata: None,
@@ -130,6 +131,7 @@ pub fn run_resume(options: &ResumeOptions) -> Result<()> {
     // Update status to active
     let update = SessionUpdate {
         status: Some(SessionStatus::Active),
+        state: None,
         branch: None,
         last_synced: None,
         metadata: None,

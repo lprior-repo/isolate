@@ -31,6 +31,7 @@ use zjj_core::{
     config::load_config,
     watcher::{BeadsStatus, FileWatcher, WatchEvent},
 };
+use zjj_core::WorkspaceState;
 
 use crate::{
     commands::get_session_db,
@@ -524,6 +525,7 @@ fn update_session_status(name: &str, new_status: SessionStatus) -> Result<()> {
     let db = get_session_db()?;
     let update = SessionUpdate {
         status: Some(new_status),
+        state: None,
         branch: None,
         last_synced: None,
         metadata: None,
@@ -991,6 +993,7 @@ mod tests {
         let session1 = Session {
             id: Some(1),
             name: "active-session".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/active".to_string(),
             zellij_tab: "zjj:active-session".to_string(),
@@ -1004,6 +1007,7 @@ mod tests {
         let session2 = Session {
             id: Some(2),
             name: "paused-session".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Paused,
             workspace_path: "/tmp/paused".to_string(),
             zellij_tab: "zjj:paused-session".to_string(),
