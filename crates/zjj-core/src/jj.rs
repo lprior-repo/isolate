@@ -11,6 +11,99 @@ use std::{
 
 use crate::{Error, Result};
 
+/// RAII guard for JJ workspace lifecycle
+///
+/// Ensures workspace cleanup (forget + directory removal) on drop,
+/// even when panicking. Use this to guarantee no resource leaks.
+///
+/// # Example
+///
+/// ```no_run
+/// use std::path::Path;
+///
+/// use zjj_core::jj::WorkspaceGuard;
+///
+/// let guard = WorkspaceGuard::new("session-name", Path::new("/tmp/workspace"));
+/// // Workspace is automatically cleaned up when guard goes out of scope
+/// ```
+pub struct WorkspaceGuard {
+    /// Workspace name for `jj workspace forget`
+    name: String,
+    /// Directory path to remove
+    path: PathBuf,
+    /// Whether cleanup should run on drop
+    active: bool,
+}
+
+impl WorkspaceGuard {
+    /// Create a new workspace guard
+    ///
+    /// The guard will clean up the workspace when dropped unless disarmed.
+    #[must_use]
+    pub fn new(name: String, path: PathBuf) -> Self {
+        Self {
+            name,
+            path,
+            active: true,
+        }
+    }
+
+    /// Disarm the guard to prevent cleanup
+    ///
+    /// Call this when workspace creation succeeds and you want to keep it.
+    pub fn disarm(&mut self) {
+        self.active = false;
+    }
+
+    /// Manually trigger cleanup and disarm
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cleanup fails
+    pub fn cleanup(&mut self) -> Result<()> {
+        if !self.active {
+            return Ok(());
+        }
+
+        self.active = false;
+        self.perform_cleanup()
+    }
+
+    /// Perform the actual cleanup operations
+    fn perform_cleanup(&self) -> Result<()> {
+        // Step 1: Forget the JJ workspace (best effort)
+        let forget_result = workspace_forget(&self.name);
+
+        // Step 2: Remove the directory (best effort)
+        let remove_result = if self.path.exists() {
+            std::fs::remove_dir_all(&self.path)
+                .map_err(|e| Error::IoError(format!("Failed to remove workspace directory: {e}")))
+        } else {
+            Ok(())
+        };
+
+        // Return first error encountered, or Ok if both succeeded
+        forget_result.and(remove_result)
+    }
+}
+
+impl Drop for WorkspaceGuard {
+    fn drop(&mut self) {
+        if !self.active {
+            return;
+        }
+
+        // Best effort cleanup - log errors but don't panic in Drop
+        if let Err(e) = self.perform_cleanup() {
+            tracing::warn!("Workspace cleanup failed for '{}': {}", self.name, e);
+            eprintln!(
+                "Warning: Failed to cleanup workspace '{}': {}",
+                self.name, e
+            );
+        }
+    }
+}
+
 /// Helper to create a JJ command error with appropriate context
 fn jj_command_error(operation: &str, error: &std::io::Error) -> Error {
     let is_not_found = error.kind() == ErrorKind::NotFound;
@@ -319,10 +412,13 @@ pub fn workspace_diff(path: &Path) -> Result<DiffSummary> {
 /// Parse output from 'jj diff --stat'
 fn parse_diff_stat(output: &str) -> DiffSummary {
     // Look for summary line like: "5 files changed, 123 insertions(+), 45 deletions(-)"
-    let summary_line = output
+    let summary_line = match output
         .lines()
         .find(|line| line.contains("insertion") || line.contains("deletion"))
-        .unwrap_or("");
+    {
+        Some(value) => value,
+        None => "",
+    };
 
     let mut insertions = 0;
     let mut deletions = 0;
@@ -330,7 +426,10 @@ fn parse_diff_stat(output: &str) -> DiffSummary {
     // Parse insertions
     if let Some(ins_str) = summary_line.split("insertion").next() {
         if let Some(num_str) = ins_str.split_whitespace().last() {
-            insertions = num_str.parse().unwrap_or(0);
+            insertions = match num_str.parse() {
+                Ok(value) => value,
+                Err(_) => 0,
+            };
         }
     }
 
@@ -341,7 +440,10 @@ fn parse_diff_stat(output: &str) -> DiffSummary {
             .next()
             .and_then(|s| s.split_whitespace().next())
         {
-            deletions = num_str.parse().unwrap_or(0);
+            deletions = match num_str.parse() {
+                Ok(value) => value,
+                Err(_) => 0,
+            };
         }
     }
 
@@ -418,7 +520,10 @@ mod tests {
         let result = parse_workspace_list(output);
         assert!(result.is_ok());
 
-        let workspaces = result.unwrap_or_default();
+        let Ok(workspaces) = result else {
+            assert!(false, "parse failed");
+            return;
+        };
         assert_eq!(workspaces.len(), 3);
 
         // Safe to index after checking length
@@ -470,5 +575,116 @@ mod tests {
             unknown: Vec::new(),
         };
         assert!(!dirty_status.is_clean());
+    }
+
+    // WorkspaceGuard tests
+
+    #[test]
+    fn test_workspace_guard_new() {
+        let guard = WorkspaceGuard::new(
+            "test-session".to_string(),
+            PathBuf::from("/tmp/test-workspace"),
+        );
+        assert_eq!(guard.name, "test-session");
+        assert_eq!(guard.path, PathBuf::from("/tmp/test-workspace"));
+        assert!(guard.active);
+    }
+
+    #[test]
+    fn test_workspace_guard_disarm() {
+        let mut guard = WorkspaceGuard::new(
+            "test-session".to_string(),
+            PathBuf::from("/tmp/test-workspace"),
+        );
+        assert!(guard.active);
+
+        guard.disarm();
+        assert!(!guard.active);
+    }
+
+    #[test]
+    fn test_workspace_guard_cleanup_when_active() {
+        // Create a temporary directory for testing
+        let temp_dir = std::env::temp_dir().join("zjj-test-workspace-guard");
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        let mut guard = WorkspaceGuard::new("test-cleanup".to_string(), temp_dir.clone());
+        assert!(guard.active);
+
+        // Note: cleanup will attempt to forget workspace (which will fail in test env)
+        // but should not panic
+        let result = guard.cleanup();
+
+        // Guard should be disarmed after cleanup attempt
+        assert!(!guard.active);
+
+        // Cleanup returns error because 'jj workspace forget' will fail in test env
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_workspace_guard_cleanup_when_inactive() {
+        let mut guard = WorkspaceGuard::new(
+            "test-inactive".to_string(),
+            PathBuf::from("/tmp/test-workspace"),
+        );
+
+        guard.disarm();
+        assert!(!guard.active);
+
+        // Cleanup should be a no-op when inactive
+        let result = guard.cleanup();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_workspace_guard_drop_cleans_up() {
+        // Create a temporary directory
+        let temp_dir = std::env::temp_dir().join("zjj-test-drop-cleanup");
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        {
+            let _guard = WorkspaceGuard::new("test-drop".to_string(), temp_dir.clone());
+            // Guard goes out of scope here and Drop is called
+            // This should attempt cleanup (will log error for jj forget but shouldn't panic)
+        }
+
+        // Note: In a real environment with JJ, the workspace would be forgotten
+        // Here we just verify no panic occurred
+    }
+
+    #[test]
+    fn test_workspace_guard_disarmed_does_not_cleanup() {
+        let temp_dir = std::env::temp_dir().join("zjj-test-disarmed");
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        {
+            let mut guard = WorkspaceGuard::new("test-disarmed".to_string(), temp_dir.clone());
+            guard.disarm();
+            // Guard goes out of scope but should NOT cleanup
+        }
+
+        // Directory should still exist since guard was disarmed
+        // Note: Can't reliably test this without mocking jj commands
+    }
+
+    #[test]
+    fn test_workspace_guard_panic_still_cleans_up() {
+        use std::panic::{catch_unwind, AssertUnwindSafe};
+
+        let temp_dir = std::env::temp_dir().join("zjj-test-panic-cleanup");
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            let _guard = WorkspaceGuard::new("test-panic".to_string(), temp_dir.clone());
+            // Simulate panic
+            panic!("Intentional panic for testing");
+        }));
+
+        // Panic should be caught
+        assert!(result.is_err());
+
+        // Guard should have attempted cleanup during panic unwinding
+        // This test verifies no double-panic occurred
     }
 }

@@ -898,6 +898,18 @@ fn cmd_clean() -> ClapCommand {
                 .help("List stale sessions without removing"),
         )
         .arg(
+            Arg::new("periodic")
+                .long("periodic")
+                .action(clap::ArgAction::SetTrue)
+                .help("Run as periodic cleanup daemon (1hr interval)"),
+        )
+        .arg(
+            Arg::new("age-threshold")
+                .long("age-threshold")
+                .value_name("SECONDS")
+                .help("Age threshold for periodic cleanup (default: 7200 = 2hr)"),
+        )
+        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
@@ -2724,12 +2736,18 @@ fn handle_config(sub_m: &clap::ArgMatches) -> Result<()> {
 fn handle_clean(sub_m: &clap::ArgMatches) -> Result<()> {
     let force = sub_m.get_flag("force");
     let dry_run = sub_m.get_flag("dry-run");
+    let periodic = sub_m.get_flag("periodic");
     let json = sub_m.get_flag("json");
+    let age_threshold = sub_m
+        .get_one::<String>("age-threshold")
+        .and_then(|s| s.parse::<u64>().ok());
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let options = clean::CleanOptions {
         force,
         dry_run,
         format,
+        periodic,
+        age_threshold,
     };
     clean::run_with_options(&options)
 }
@@ -3302,7 +3320,7 @@ fn handle_validate(sub_m: &clap::ArgMatches) -> Result<()> {
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
-        .unwrap_or_default();
+        .unwrap_or_else(|| Vec::new());
 
     let options = validate::ValidateOptions {
         command,
@@ -3331,7 +3349,7 @@ fn handle_whatif(sub_m: &clap::ArgMatches) -> Result<()> {
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
-        .unwrap_or_default();
+        .unwrap_or_else(|| Vec::new());
 
     let options = whatif::WhatIfOptions {
         command,
@@ -3360,7 +3378,7 @@ fn handle_claim(sub_m: &clap::ArgMatches) -> Result<()> {
     let timeout: u64 = sub_m
         .get_one::<String>("timeout")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(60);
+        .unwrap_or_else(|| 60);
 
     let options = claim::ClaimOptions {
         resource,
@@ -3415,7 +3433,7 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
         let raw_commands: Vec<String> = sub_m
             .get_many::<String>("commands")
             .map(|v| v.cloned().collect())
-            .unwrap_or_default();
+            .unwrap_or_else(|| Vec::new());
         if raw_commands.is_empty() {
             anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
         }
@@ -3658,11 +3676,11 @@ fn handle_wait(sub_m: &clap::ArgMatches) -> Result<()> {
     let timeout: u64 = sub_m
         .get_one::<String>("timeout")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(30);
+        .unwrap_or_else(|| 30);
     let interval: u64 = sub_m
         .get_one::<String>("interval")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(1);
+        .unwrap_or_else(|| 1);
 
     let condition = match condition_str.as_str() {
         "session-exists" => {
@@ -3874,10 +3892,12 @@ fn run_cli() -> Result<()> {
                 });
                 #[allow(clippy::print_stdout)]
                 {
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&json_err).unwrap_or_default()
-                    );
+                    let json = serde_json::to_string_pretty(&json_err);
+                    let json_str = match json {
+                        Ok(value) => value,
+                        Err(_) => String::new(),
+                    };
+                    println!("{}", json_str);
                 }
             }
             let _ = e.print();
@@ -4024,7 +4044,7 @@ fn main() {
         let code = err
             .downcast_ref::<zjj_core::Error>()
             .map(zjj_core::Error::exit_code)
-            .unwrap_or(1);
+            .unwrap_or_else(|| 1);
         #[allow(clippy::exit)]
         process::exit(code);
     }

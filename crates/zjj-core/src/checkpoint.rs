@@ -235,7 +235,11 @@ mod tests {
         let auto_cp = AutoCheckpoint::new(pool);
         let guard = auto_cp.guard_if_risky(OperationRisk::Safe).await;
         assert!(guard.is_ok());
-        assert!(guard.unwrap_or(None).is_none());
+        let guard = match guard {
+            Ok(value) => value,
+            Err(_) => None,
+        };
+        assert!(guard.is_none());
         Ok(())
     }
 
@@ -245,7 +249,10 @@ mod tests {
         let auto_cp = AutoCheckpoint::new(pool);
         let guard = auto_cp.guard_if_risky(OperationRisk::Risky).await;
         assert!(guard.is_ok());
-        let guard = guard.unwrap_or(None);
+        let guard = match guard {
+            Ok(value) => value,
+            Err(_) => None,
+        };
         assert!(guard.is_some());
         Ok(())
     }
@@ -254,20 +261,23 @@ mod tests {
     async fn committed_guard_state_is_committed() -> Result<()> {
         let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
-        let guard = auto_cp
-            .guard_if_risky(OperationRisk::Risky)
-            .await
-            .unwrap_or(None);
+        let guard = match auto_cp.guard_if_risky(OperationRisk::Risky).await {
+            Ok(value) => value,
+            Err(_) => None,
+        };
         if let Some(g) = guard {
             let id = g.id().to_string();
             let _ = g.commit().await;
 
             let row: Option<(String,)> =
-                sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+                match sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
                     .bind(&id)
                     .fetch_optional(&pool)
                     .await
-                    .unwrap_or(None);
+                {
+                    Ok(value) => value,
+                    Err(_) => None,
+                };
             assert_eq!(row.map(|(s,)| s), Some("committed".to_string()));
         }
         Ok(())
@@ -278,18 +288,24 @@ mod tests {
         let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
 
-        let checkpoint_id;
+        let checkpoint_id: String;
         {
-            let guard = auto_cp
-                .guard_if_risky(OperationRisk::Risky)
-                .await
-                .unwrap_or(None);
-            checkpoint_id = guard.map(|g| g.id().to_string()).unwrap_or_default();
+            let guard = match auto_cp.guard_if_risky(OperationRisk::Risky).await {
+                Ok(value) => value,
+                Err(_) => None,
+            };
+            checkpoint_id = match guard {
+                Some(g) => g.id().to_string(),
+                None => String::new(),
+            };
             // guard dropped here without commit
         }
 
         if !checkpoint_id.is_empty() {
-            let pending = find_pending_restores(&pool).await.unwrap_or_default();
+            let pending = match find_pending_restores(&pool).await {
+                Ok(value) => value,
+                Err(_) => Vec::new(),
+            };
             assert!(pending.contains(&checkpoint_id));
         }
         Ok(())
@@ -299,20 +315,23 @@ mod tests {
     async fn rollback_marks_needs_restore() -> Result<()> {
         let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
-        let guard = auto_cp
-            .guard_if_risky(OperationRisk::Risky)
-            .await
-            .unwrap_or(None);
+        let guard = match auto_cp.guard_if_risky(OperationRisk::Risky).await {
+            Ok(value) => value,
+            Err(_) => None,
+        };
         if let Some(g) = guard {
             let id = g.id().to_string();
             let _ = g.rollback().await;
 
             let row: Option<(String,)> =
-                sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+                match sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
                     .bind(&id)
                     .fetch_optional(&pool)
                     .await
-                    .unwrap_or(None);
+                {
+                    Ok(value) => value,
+                    Err(_) => None,
+                };
             assert_eq!(row.map(|(s,)| s), Some("needs_restore".to_string()));
         }
         Ok(())

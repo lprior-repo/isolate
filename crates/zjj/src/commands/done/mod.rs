@@ -579,7 +579,7 @@ fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<
         println!();
         println!("NEXT: Start new work with:");
         println!("  zjj spawn <bead-id>   # Create isolated workspace for new task");
-        println!("  bd ready              # See available work items");
+        println!("  br ready              # See available work items");
     }
     Ok(())
 }
@@ -752,8 +752,10 @@ mod tests {
             ..Default::default()
         };
         let json = serde_json::to_string(&output);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("workspace_name"));
         assert!(json_str.contains("merged"));
     }
@@ -873,8 +875,10 @@ mod tests {
             status: "completed".to_string(),
         };
         let json = serde_json::to_string(&entry);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("test-session"));
         assert!(json_str.contains("abc123"));
         assert!(json_str.contains("pre_merge_commit_id"));

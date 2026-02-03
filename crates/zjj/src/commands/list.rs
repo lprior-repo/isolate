@@ -100,12 +100,18 @@ pub fn run(
             .into_iter()
             .map(|session| {
                 let changes = get_session_changes(&session.workspace_path);
-                let beads = get_beads_count().unwrap_or_default();
+                let beads = match get_beads_count() {
+                    Ok(value) => value,
+                    Err(_) => BeadCounts::default(),
+                };
 
                 SessionListItem {
                     name: session.name.clone(),
                     status: session.status.to_string(),
-                    branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
+                    branch: match session.branch.clone() {
+                        Some(branch) => branch,
+                        None => "-".to_string(),
+                    },
                     changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
                     beads: beads.to_string(),
                     session,
@@ -187,12 +193,16 @@ fn get_beads_count() -> Result<BeadCounts> {
             .bind("open")
             .fetch_one(&pool)
             .await
-            .unwrap_or(0);
+            .unwrap_or_else(|_| 0);
 
         // For now, we can't distinguish in_progress vs blocked without more schema knowledge
         // Let's return a simplified count
+        let open_usize = match usize::try_from(open) {
+            Ok(value) => value,
+            Err(_) => 0,
+        };
         Result::<_, anyhow::Error>::Ok(BeadCounts {
-            open: usize::try_from(open).unwrap_or(0),
+            open: open_usize,
             in_progress: 0,
             blocked: 0,
         })
@@ -215,8 +225,11 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
                 .metadata
                 .as_ref()
                 .and_then(|m| {
-                    let id = m.get("bead_id").and_then(|v| v.as_str()).unwrap_or("");
-                    let title = m.get("bead_title").and_then(|v| v.as_str()).unwrap_or("");
+                    let id = m.get("bead_id").and_then(|v| v.as_str()).map_or("", |v| v);
+                    let title = m
+                        .get("bead_title")
+                        .and_then(|v| v.as_str())
+                        .map_or("", |v| v);
                     if id.is_empty() {
                         None
                     } else {

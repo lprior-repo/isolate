@@ -88,10 +88,10 @@ fn query_bead_metadata(bead_id: &str) -> Result<serde_json::Value> {
 
         let title = result.map(|r| r.0).unwrap_or_else(|| "Unknown".to_string());
 
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let timestamp = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            Ok(duration) => duration.as_secs(),
+            Err(_) => 0,
+        };
 
         Ok(serde_json::json!({
             "bead_id": bead_id,
@@ -560,7 +560,7 @@ layout {{
                 pane {{
                     size "50%"
                     cwd "{workspace_path}"
-                    command "bd"
+                    command "br"
                     args "list"
                 }}
                 pane {{
@@ -592,7 +592,7 @@ layout {{
                 pane {{
                     size "50%"
                     cwd "{workspace_path}"
-                    command "bd"
+                    command "br"
                     args "list"
                 }}
                 pane {{
@@ -690,7 +690,7 @@ mod tests {
         assert!(layout.contains("tab name=\"test-tab\""));
         assert!(layout.contains("cwd \"/path/to/workspace\""));
         assert!(layout.contains("70%"));
-        assert!(layout.contains("bd"));
+        assert!(layout.contains("br"));
         assert!(layout.contains("jj"));
     }
 
@@ -1290,7 +1290,7 @@ mod tests {
             .short
             .as_ref()
             .map(|s| format!("-{s}, "))
-            .unwrap_or_default();
+            .map_or(String::new(), |v| v);
 
         format!(
             "    {short_form}--{}\n      {}\n",
