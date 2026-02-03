@@ -5,7 +5,6 @@ use std::path::Path;
 use anyhow::Result;
 use serde::Serialize;
 use zjj_core::{json::SchemaEnvelopeArray, OutputFormat};
-use zjj_core::WorkspaceState;
 
 use crate::{
     commands::get_session_db,

@@ -813,4 +813,118 @@ mod tests {
         assert_eq!(entry.session_name, "ws1");
         assert_eq!(entry.timestamp, 123);
     }
+
+    // ── Conflict Detection Integration Tests ──────────────────────────
+
+    #[test]
+    fn test_done_preview_with_conflict_detection() {
+        let conflict_result = conflict::ConflictDetectionResult {
+            has_existing_conflicts: false,
+            existing_conflicts: vec![],
+            overlapping_files: vec!["src/main.rs".to_string()],
+            workspace_only: vec!["src/new.rs".to_string()],
+            main_only: vec!["src/old.rs".to_string()],
+            merge_likely_safe: false,
+            summary: "Potential conflicts in 1 files: src/main.rs".to_string(),
+            merge_base: Some("abc123".to_string()),
+            files_analyzed: 2,
+            detection_time_ms: 45,
+        };
+
+        let preview = types::DonePreview {
+            uncommitted_files: vec!["file.txt".to_string()],
+            commits_to_merge: vec![],
+            potential_conflicts: vec!["src/main.rs".to_string()],
+            bead_to_close: None,
+            workspace_path: "/path/to/workspace".to_string(),
+            conflict_detection: Some(conflict_result),
+        };
+
+        assert!(preview.conflict_detection.is_some());
+        let detection = preview.conflict_detection.unwrap();
+        assert!(!detection.merge_likely_safe);
+        assert_eq!(detection.overlapping_files.len(), 1);
+        assert_eq!(detection.detection_time_ms, 45);
+    }
+
+    #[test]
+    fn test_done_preview_without_conflict_detection() {
+        let preview = types::DonePreview {
+            uncommitted_files: vec!["file.txt".to_string()],
+            commits_to_merge: vec![],
+            potential_conflicts: vec![],
+            bead_to_close: None,
+            workspace_path: "/path/to/workspace".to_string(),
+            conflict_detection: None,
+        };
+
+        assert!(preview.conflict_detection.is_none());
+    }
+
+    #[test]
+    fn test_done_output_with_conflict_detection_serialization() {
+        let conflict_result = conflict::ConflictDetectionResult {
+            has_existing_conflicts: false,
+            existing_conflicts: vec![],
+            overlapping_files: vec![],
+            workspace_only: vec![],
+            main_only: vec![],
+            merge_likely_safe: true,
+            summary: "No conflicts detected - merge is safe".to_string(),
+            merge_base: Some("abc123".to_string()),
+            files_analyzed: 5,
+            detection_time_ms: 12,
+        };
+
+        let output = DoneOutput {
+            workspace_name: "test-ws".to_string(),
+            bead_id: None,
+            files_committed: 1,
+            commits_merged: 1,
+            merged: true,
+            cleaned: false,
+            bead_closed: false,
+            pushed_to_remote: false,
+            dry_run: true,
+            preview: Some(types::DonePreview {
+                uncommitted_files: vec![],
+                commits_to_merge: vec![],
+                potential_conflicts: vec![],
+                bead_to_close: None,
+                workspace_path: "/path".to_string(),
+                conflict_detection: Some(conflict_result),
+            }),
+            error: None,
+        };
+
+        let json = serde_json::to_string(&output);
+        assert!(json.is_ok());
+        let json_str = json.unwrap_or_default();
+        assert!(json_str.contains("conflict_detection"));
+        assert!(json_str.contains("merge_likely_safe"));
+        assert!(json_str.contains("detection_time_ms"));
+    }
+
+    #[test]
+    fn test_conflict_detection_result_text_output() {
+        let result = conflict::ConflictDetectionResult {
+            has_existing_conflicts: true,
+            existing_conflicts: vec!["file1.rs".to_string()],
+            overlapping_files: vec!["file2.rs".to_string()],
+            workspace_only: vec![],
+            main_only: vec![],
+            merge_likely_safe: false,
+            summary: "Conflicts detected".to_string(),
+            merge_base: Some("xyz789".to_string()),
+            files_analyzed: 3,
+            detection_time_ms: 28,
+        };
+
+        let text_output = result.to_text_output();
+        assert!(text_output.contains("Conflicts detected"));
+        assert!(text_output.contains("file1.rs"));
+        assert!(text_output.contains("file2.rs"));
+        assert!(text_output.contains("xyz789"));
+        assert!(text_output.contains("28ms"));
+    }
 }

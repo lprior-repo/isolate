@@ -18,8 +18,8 @@ mod session;
 use commands::{
     abort, add, agents, ai, attach, batch, can_i, checkpoint, claim, clean, completions, config,
     context, contract, dashboard, diff, doctor, done, events, examples, export_import, focus, init,
-    introspect, list, pane, query, remove, rename, revert, session_mgmt, spawn, status, switch,
-    sync, undo, validate, whatif, whereami, whoami, work,
+    integrity, introspect, list, pane, query, queue, remove, rename, revert, session_mgmt, spawn, status,
+    switch, sync, undo, validate, whatif, whereami, whoami, work,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -868,6 +868,86 @@ fn cmd_doctor() -> ClapCommand {
         )
 }
 
+fn cmd_integrity() -> ClapCommand {
+    ClapCommand::new("integrity")
+        .about("Manage workspace integrity and corruption recovery")
+        .subcommand_required(true)
+        .subcommand(
+            ClapCommand::new("validate")
+                .about("Validate workspace integrity")
+                .arg(
+                    Arg::new("workspace")
+                        .required(true)
+                        .help("Workspace name or path"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("repair")
+                .about("Repair corrupted workspace")
+                .arg(
+                    Arg::new("workspace")
+                        .required(true)
+                        .help("Workspace name or path"),
+                )
+                .arg(
+                    Arg::new("force")
+                        .long("force")
+                        .short('f')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip confirmation prompt"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("backup")
+                .about("Manage workspace backups")
+                .subcommand_required(true)
+                .subcommand(
+                    ClapCommand::new("list")
+                        .about("List available backups")
+                        .arg(
+                            Arg::new("json")
+                                .long("json")
+                                .action(clap::ArgAction::SetTrue)
+                                .help("Output as JSON"),
+                        ),
+                )
+                .subcommand(
+                    ClapCommand::new("restore")
+                        .about("Restore from a backup")
+                        .arg(
+                            Arg::new("backup_id")
+                                .required(true)
+                                .help("Backup ID to restore"),
+                        )
+                        .arg(
+                            Arg::new("force")
+                                .long("force")
+                                .short('f')
+                                .action(clap::ArgAction::SetTrue)
+                                .help("Skip confirmation prompt"),
+                        )
+                        .arg(
+                            Arg::new("json")
+                                .long("json")
+                                .action(clap::ArgAction::SetTrue)
+                                .help("Output as JSON"),
+                        ),
+                ),
+        )
+}
+
 fn cmd_query() -> ClapCommand {
     ClapCommand::new("query")
         .about("Query system state programmatically")
@@ -893,6 +973,88 @@ fn cmd_query() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON (default for query)"),
+        )
+}
+
+fn cmd_queue() -> ClapCommand {
+    ClapCommand::new("queue")
+        .about("Manage merge queue for multi-agent coordination")
+        .long_about(
+            "Manage the merge queue that coordinates sequential processing of workspaces.\n\n\
+            The merge queue ensures that multiple agents process workspaces in order,\n\
+            preventing merge conflicts and ensuring deterministic ordering.",
+        )
+        .after_help(
+            "EXAMPLES:\n  \
+            zjj queue --list                          Show all queue entries\n  \
+            zjj queue --add <workspace> --bead <id>  Add workspace to queue\n  \
+            zjj queue --next                          Get next pending entry\n  \
+            zjj queue --status <workspace>            Check workspace queue status\n  \
+            zjj queue --remove <workspace>            Remove workspace from queue\n  \
+            zjj queue --stats                         Show queue statistics\n  \
+            zjj queue --list --json                   Show queue as JSON",
+        )
+        .arg(
+            Arg::new("add")
+                .long("add")
+                .value_name("WORKSPACE")
+                .help("Add workspace to queue"),
+        )
+        .arg(
+            Arg::new("bead")
+                .long("bead")
+                .value_name("BEAD_ID")
+                .help("Associate with bead/issue ID (used with --add)"),
+        )
+        .arg(
+            Arg::new("priority")
+                .long("priority")
+                .value_name("PRIORITY")
+                .value_parser(clap::value_parser!(i32))
+                .default_value("5")
+                .help("Queue priority (lower = higher priority, 1-10)"),
+        )
+        .arg(
+            Arg::new("agent")
+                .long("agent")
+                .value_name("AGENT_ID")
+                .help("Agent ID that will process this entry"),
+        )
+        .arg(
+            Arg::new("list")
+                .long("list")
+                .action(clap::ArgAction::SetTrue)
+                .help("List all queue entries"),
+        )
+        .arg(
+            Arg::new("next")
+                .long("next")
+                .action(clap::ArgAction::SetTrue)
+                .help("Get next pending entry"),
+        )
+        .arg(
+            Arg::new("remove")
+                .long("remove")
+                .value_name("WORKSPACE")
+                .help("Remove workspace from queue"),
+        )
+        .arg(
+            Arg::new("status")
+                .long("status")
+                .value_name("WORKSPACE")
+                .help("Check queue status of workspace"),
+        )
+        .arg(
+            Arg::new("stats")
+                .long("stats")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show queue statistics"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
         )
 }
 
@@ -2012,6 +2174,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_dashboard())
         .subcommand(cmd_introspect())
         .subcommand(cmd_doctor())
+        .subcommand(cmd_integrity())
         .subcommand(cmd_query())
         .subcommand(cmd_context())
         .subcommand(cmd_done())
@@ -2051,8 +2214,8 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_recover())
         .subcommand(cmd_retry())
         .subcommand(cmd_rollback())
-    // Merge queue coordination - TODO: implement cmd_queue()
-    // .subcommand(cmd_queue())
+        // Merge queue coordination
+        .subcommand(cmd_queue())
 }
 
 /// Format an error for user display (no stack traces)
@@ -2360,6 +2523,65 @@ fn handle_doctor(sub_m: &clap::ArgMatches) -> Result<()> {
     }
 }
 
+fn handle_integrity(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    // Handle subcommands
+    match sub_m.subcommand() {
+        Some(("validate", validate_m)) => {
+            let workspace = validate_m
+                .get_one::<String>("workspace")
+                .ok_or_else(|| anyhow::anyhow!("Workspace is required"))?
+                .clone();
+            let options = integrity::IntegrityOptions {
+                subcommand: integrity::IntegritySubcommand::Validate { workspace },
+                format,
+            };
+            integrity::run(&options)
+        }
+        Some(("repair", repair_m)) => {
+            let workspace = repair_m
+                .get_one::<String>("workspace")
+                .ok_or_else(|| anyhow::anyhow!("Workspace is required"))?
+                .clone();
+            let force = repair_m.get_flag("force");
+            let options = integrity::IntegrityOptions {
+                subcommand: integrity::IntegritySubcommand::Repair { workspace, force },
+                format,
+            };
+            integrity::run(&options)
+        }
+        Some(("backup", backup_m)) => match backup_m.subcommand() {
+            Some(("list", list_m)) => {
+                let json = list_m.get_flag("json");
+                let format = zjj_core::OutputFormat::from_json_flag(json);
+                let options = integrity::IntegrityOptions {
+                    subcommand: integrity::IntegritySubcommand::BackupList,
+                    format,
+                };
+                integrity::run(&options)
+            }
+            Some(("restore", restore_m)) => {
+                let backup_id = restore_m
+                    .get_one::<String>("backup_id")
+                    .ok_or_else(|| anyhow::anyhow!("Backup ID is required"))?
+                    .clone();
+                let force = restore_m.get_flag("force");
+                let json = restore_m.get_flag("json");
+                let format = zjj_core::OutputFormat::from_json_flag(json);
+                let options = integrity::IntegrityOptions {
+                    subcommand: integrity::IntegritySubcommand::BackupRestore { backup_id, force },
+                    format,
+                };
+                integrity::run(&options)
+            }
+            _ => Err(anyhow::anyhow!("Unknown backup subcommand")),
+        },
+        _ => Err(anyhow::anyhow!("Unknown integrity subcommand")),
+    }
+}
+
 fn handle_spawn(sub_m: &clap::ArgMatches) -> Result<()> {
     let args = spawn::SpawnArgs::from_matches(sub_m)?;
     let options = args.to_options();
@@ -2373,6 +2595,48 @@ fn handle_query(sub_m: &clap::ArgMatches) -> Result<()> {
     let args = sub_m.get_one::<String>("args").map(String::as_str);
     let _json = sub_m.get_flag("json"); // Ignored as query is always JSON
     query::run(query_type, args)
+}
+
+fn handle_queue(sub_m: &clap::ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = zjj_core::OutputFormat::from_json_flag(json);
+
+    let add = sub_m.get_one::<String>("add").cloned();
+    let bead_id = sub_m.get_one::<String>("bead").cloned();
+    let priority = sub_m
+        .get_one::<i32>("priority")
+        .copied()
+        .unwrap_or(5);
+    let agent_id = sub_m.get_one::<String>("agent").cloned();
+    let list = sub_m.get_flag("list");
+    let next = sub_m.get_flag("next");
+    let remove = sub_m.get_one::<String>("remove").cloned();
+    let status = sub_m.get_one::<String>("status").cloned();
+    let stats = sub_m.get_flag("stats");
+
+    let options = queue::QueueOptions {
+        format,
+        add,
+        bead_id,
+        priority,
+        agent_id,
+        list,
+        next,
+        remove,
+        status,
+        stats,
+    };
+
+    match queue::run_with_options(&options) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if format.is_json() {
+                json::output_json_error_and_exit(&e);
+            } else {
+                Err(e)
+            }
+        }
+    }
 }
 
 fn handle_context(sub_m: &clap::ArgMatches) -> Result<()> {
@@ -3327,7 +3591,9 @@ fn run_cli() -> Result<()> {
         Some(("dashboard" | "dash", _)) => dashboard::run(),
         Some(("introspect", sub_m)) => handle_introspect(sub_m),
         Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m),
+        Some(("integrity", sub_m)) => handle_integrity(sub_m),
         Some(("query", sub_m)) => handle_query(sub_m),
+        Some(("queue", sub_m)) => handle_queue(sub_m),
         Some(("context", sub_m)) => handle_context(sub_m),
         Some(("done", sub_m)) => handle_done(sub_m),
         Some(("spawn", sub_m)) => handle_spawn(sub_m),

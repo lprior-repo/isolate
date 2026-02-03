@@ -31,7 +31,6 @@ use zjj_core::{
     config::load_config,
     watcher::{BeadsStatus, FileWatcher, WatchEvent},
 };
-use zjj_core::WorkspaceState;
 
 use crate::{
     commands::get_session_db,
