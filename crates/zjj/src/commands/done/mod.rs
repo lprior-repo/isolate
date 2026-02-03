@@ -42,6 +42,11 @@ pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
     let mut bead_repo = bead::MockBeadRepository::new(); // TODO: Replace with real implementation
     let filesystem = filesystem::RealFileSystem::new();
 
+    // Handle detect_conflicts mode early
+    if options.detect_conflicts {
+        return run_conflict_detection_only(&executor, options.format);
+    }
+
     let result = execute_done(options, &executor, &mut bead_repo, &filesystem);
 
     match &result {
@@ -58,6 +63,72 @@ pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
             } else {
                 DoneExitCode::OtherError
             })
+        }
+    }
+}
+
+/// Run conflict detection only mode (--detect-conflicts flag)
+fn run_conflict_detection_only(
+    executor: &dyn executor::JjExecutor,
+    format: zjj_core::OutputFormat,
+) -> Result<DoneExitCode> {
+    let detector = conflict::JjConflictDetector::new(executor);
+
+    match conflict::ConflictDetector::detect_conflicts(&detector) {
+        Ok(result) => {
+            if format.is_json() {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                println!("{}", result.summary);
+                if !result.existing_conflicts.is_empty() {
+                    println!("\nExisting conflicts:");
+                    for file in &result.existing_conflicts {
+                        println!("  - {file}");
+                    }
+                }
+                if !result.overlapping_files.is_empty() {
+                    println!("\nPotential conflicts (files modified in both):");
+                    for file in &result.overlapping_files {
+                        println!("  - {file}");
+                    }
+                }
+                if !result.workspace_only.is_empty() {
+                    println!(
+                        "\nWorkspace-only changes ({} files):",
+                        result.workspace_only.len()
+                    );
+                    for file in result.workspace_only.iter().take(10) {
+                        println!("  - {file}");
+                    }
+                    if result.workspace_only.len() > 10 {
+                        println!("  ... and {} more", result.workspace_only.len() - 10);
+                    }
+                }
+                if result.merge_likely_safe {
+                    println!("\n✅ Merge is likely safe");
+                } else {
+                    println!("\n⚠️  Review conflicts before merging");
+                }
+            }
+
+            if result.has_conflicts() {
+                Ok(DoneExitCode::MergeConflict)
+            } else {
+                Ok(DoneExitCode::Success)
+            }
+        }
+        Err(e) => {
+            let error_msg = e.to_string();
+            if format.is_json() {
+                let error_json = serde_json::json!({
+                    "error": error_msg,
+                    "error_code": "CONFLICT_DETECTION_FAILED",
+                });
+                println!("{}", serde_json::to_string_pretty(&error_json)?);
+            } else {
+                eprintln!("❌ Failed to detect conflicts: {error_msg}");
+            }
+            Ok(DoneExitCode::OtherError)
         }
     }
 }
@@ -302,22 +373,26 @@ fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<()
 }
 
 /// Check for potential conflicts by checking divergent changes
-#[allow(clippy::unnecessary_wraps)]
 fn check_potential_conflicts(
     _root: &str,
     executor: &dyn executor::JjExecutor,
 ) -> Result<Vec<String>, DoneError> {
-    // Try to get log
-    let _output = executor
-        .run(&["log", "-r", "@-", "--no-graph", "-T", "description"])
-        .ok();
+    let detector = conflict::JjConflictDetector::new(executor);
 
-    #[allow(clippy::unnecessary_wraps)]
-    let _divergent_output = executor.run(&["log", "-r", "@..@", "--no-graph"]).ok();
-
-    // For now, return empty - actual conflict detection happens during rebase
-    #[allow(clippy::unnecessary_wraps)]
-    Ok(Vec::new())
+    match conflict::ConflictDetector::detect_conflicts(&detector) {
+        Ok(result) => {
+            // Combine existing conflicts and overlapping files
+            let mut conflicts = result.existing_conflicts;
+            conflicts.extend(result.overlapping_files);
+            Ok(conflicts)
+        }
+        Err(e) => {
+            // Log error but don't fail - conflict detection is best-effort
+            // Return empty to allow merge to proceed (conflicts will be caught during merge)
+            eprintln!("Warning: conflict detection failed: {e}");
+            Ok(Vec::new())
+        }
+    }
 }
 
 /// Get commits that will be merged
