@@ -59,6 +59,7 @@ pub mod workspace_state;
 pub mod zellij;
 
 pub use config::RecoveryPolicy;
+pub use coordination::{MergeQueue, ProcessingLock, QueueAddResponse, QueueEntry, QueueStats, QueueStatus};
 pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
 pub use hints::{ActionRisk, CommandContext, NextAction};
@@ -68,6 +69,7 @@ pub use json::{
 pub use output_format::OutputFormat;
 pub use recovery::{log_recovery, should_log_recovery};
 pub use result::{Result, ResultExt};
+pub use workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
 
 /// Marker trait for types guaranteed safe (no panics possible).
 pub trait Infallible: Sized {}

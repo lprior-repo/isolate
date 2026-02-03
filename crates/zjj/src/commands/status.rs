@@ -508,6 +508,7 @@ mod tests {
             id: Some(1),
             name: "test-session".to_string(),
             status: SessionStatus::Active,
+            state: WorkspaceState::Created,
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "zjj:test-session".to_string(),
             branch: Some("feature".to_string()),
@@ -572,6 +573,7 @@ mod tests {
         let session = Session {
             id: Some(1),
             name: "test".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "zjj:test".to_string(),
@@ -616,6 +618,7 @@ mod tests {
         let session = Session {
             id: Some(1),
             name: "test".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test".to_string(),
             zellij_tab: "zjj:test".to_string(),
@@ -665,6 +668,7 @@ mod tests {
         let session = Session {
             id: Some(1),
             name: "test-envelope".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test-envelope".to_string(),
             zellij_tab: "zjj:test-envelope".to_string(),
@@ -721,6 +725,7 @@ mod tests {
         let session = Session {
             id: Some(2),
             name: "test-schema-type".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Paused,
             workspace_path: "/tmp/test-schema-type".to_string(),
             zellij_tab: "zjj:test-schema-type".to_string(),
@@ -853,6 +858,7 @@ mod tests {
         let session = Session {
             id: Some(3),
             name: "test-format".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test-format".to_string(),
             zellij_tab: "zjj:test-format".to_string(),
@@ -921,6 +927,7 @@ mod tests {
         let session = Session {
             id: Some(4),
             name: "test-version".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test-version".to_string(),
             zellij_tab: "zjj:test-version".to_string(),
@@ -976,6 +983,7 @@ mod tests {
         let session = Session {
             id: Some(5),
             name: "test-success".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/test-success".to_string(),
             zellij_tab: "zjj:test-success".to_string(),
@@ -1028,6 +1036,7 @@ mod tests {
         let session1 = Session {
             id: Some(6),
             name: "session-1".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Active,
             workspace_path: "/tmp/session-1".to_string(),
             zellij_tab: "zjj:session-1".to_string(),
@@ -1041,6 +1050,7 @@ mod tests {
         let session2 = Session {
             id: Some(7),
             name: "session-2".to_string(),
+            state: WorkspaceState::Created,
             status: SessionStatus::Paused,
             workspace_path: "/tmp/session-2".to_string(),
             zellij_tab: "zjj:session-2".to_string(),

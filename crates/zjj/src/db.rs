@@ -47,6 +47,7 @@ mod io {
 use num_traits::cast::ToPrimitive;
 use sqlx::{Row, SqlitePool};
 use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result};
+use zjj_core::WorkspaceState;
 
 use crate::session::{Session, SessionStatus, SessionUpdate};
 
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
     status TEXT NOT NULL CHECK(status IN ('creating', 'active', 'paused', 'completed', 'failed')),
+    state TEXT NOT NULL DEFAULT 'created' CHECK(state IN ('created', 'working', 'ready', 'merged', 'abandoned', 'conflict')),
     workspace_path TEXT NOT NULL,
     branch TEXT,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
@@ -70,8 +72,22 @@ CREATE TABLE IF NOT EXISTS sessions (
     metadata TEXT
 );
 
+CREATE TABLE IF NOT EXISTS state_transitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    from_state TEXT NOT NULL,
+    to_state TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    agent_id TEXT,
+    timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_status ON sessions(status);
+CREATE INDEX IF NOT EXISTS idx_state ON sessions(state);
 CREATE INDEX IF NOT EXISTS idx_name ON sessions(name);
+CREATE INDEX IF NOT EXISTS idx_transitions_session ON state_transitions(session_id);
+CREATE INDEX IF NOT EXISTS idx_transitions_timestamp ON state_transitions(timestamp);
 
 CREATE TRIGGER IF NOT EXISTS update_timestamp
 AFTER UPDATE ON sessions
@@ -222,10 +238,11 @@ impl SessionDb {
     pub async fn create(&self, name: &str, workspace_path: &str) -> Result<Session> {
         let now = get_current_timestamp()?;
         let status = SessionStatus::Creating;
+        let state = WorkspaceState::Created;
 
         insert_session(&self.pool, name, &status, workspace_path, now)
             .await
-            .map(|id| build_session(id, name, status, workspace_path, now))
+            .map(|id| build_session(id, name, status, state, workspace_path, now))
     }
 
     /// Get a session by name
@@ -682,6 +699,7 @@ fn build_session(
     id: i64,
     name: &str,
     status: SessionStatus,
+    state: WorkspaceState,
     workspace_path: &str,
     timestamp: u64,
 ) -> Session {
@@ -689,6 +707,7 @@ fn build_session(
         id: Some(id),
         name: name.to_string(),
         status,
+        state,
         workspace_path: workspace_path.to_string(),
         zellij_tab: format!("zjj:{name}"),
         branch: None,
@@ -784,11 +803,12 @@ async fn insert_session(
     timestamp: u64,
 ) -> Result<i64> {
     sqlx::query(
-        "INSERT INTO sessions (name, status, workspace_path, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO sessions (name, status, state, workspace_path, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)",
     )
     .bind(name)
     .bind(status.to_string())
+    .bind(WorkspaceState::Created.to_string())
     .bind(workspace_path)
     .bind(timestamp.to_i64().unwrap_or(i64::MAX))
     .bind(timestamp.to_i64().unwrap_or(i64::MAX))
@@ -807,7 +827,7 @@ async fn insert_session(
 /// Query a session by name
 async fn query_session_by_name(pool: &SqlitePool, name: &str) -> Result<Option<Session>> {
     sqlx::query(
-        "SELECT id, name, status, workspace_path, branch, created_at, updated_at, last_synced, metadata
+        "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata
          FROM sessions WHERE name = ?"
     )
     .bind(name)
@@ -825,7 +845,7 @@ async fn query_sessions(
     let rows = match status_filter {
         Some(status) => {
             sqlx::query(
-                "SELECT id, name, status, workspace_path, branch, created_at, updated_at, last_synced, metadata
+                "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata
                  FROM sessions WHERE status = ? ORDER BY created_at"
             )
             .bind(status.to_string())
@@ -834,7 +854,7 @@ async fn query_sessions(
         }
         None => {
             sqlx::query(
-                "SELECT id, name, status, workspace_path, branch, created_at, updated_at, last_synced, metadata
+                "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata
                  FROM sessions ORDER BY created_at"
             )
             .fetch_all(pool)
@@ -858,6 +878,10 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
         .try_get("status")
         .map_err(|e| Error::DatabaseError(format!("Failed to read status: {e}")))?;
     let status = SessionStatus::from_str(&status_str)?;
+    let state_str: String = row
+        .try_get("state")
+        .unwrap_or_else(|_| "created".to_string());
+    let state = WorkspaceState::from_str(&state_str).unwrap_or(WorkspaceState::Created);
     let workspace_path: String = row
         .try_get("workspace_path")
         .map_err(|e| Error::DatabaseError(format!("Failed to read workspace_path: {e}")))?;
@@ -888,6 +912,7 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
         id: Some(id),
         name: name.clone(),
         status,
+        state,
         workspace_path,
         zellij_tab: format!("zjj:{name}"),
         branch,
@@ -916,6 +941,10 @@ fn build_update_clauses(update: &SessionUpdate) -> Result<Vec<(&'static str, Str
 
     if let Some(ref status) = update.status {
         clauses.push(("status", status.to_string()));
+    }
+
+    if let Some(ref state) = update.state {
+        clauses.push(("state", state.to_string()));
     }
 
     if let Some(ref branch) = update.branch {
