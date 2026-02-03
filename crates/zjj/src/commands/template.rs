@@ -15,14 +15,19 @@
 use std::io::{self, Write};
 
 use anyhow::{Context, Result};
-use zjj_core::templates::storage;
-use zjj_core::zellij::{LayoutConfig, LayoutTemplate};
-use zjj_core::{json::SchemaEnvelope, OutputFormat};
+use zjj_core::{
+    json::SchemaEnvelope,
+    templates::storage,
+    zellij::{LayoutConfig, LayoutTemplate},
+    OutputFormat,
+};
 
-use crate::commands::zjj_data_dir;
-use crate::json::{
-    TemplateCreateOutput, TemplateDeleteOutput, TemplateInfo, TemplateListOutput,
-    TemplateShowOutput,
+use crate::{
+    commands::zjj_data_dir,
+    json::{
+        TemplateCreateOutput, TemplateDeleteOutput, TemplateInfo, TemplateListOutput,
+        TemplateShowOutput,
+    },
 };
 
 /// Options for template create command
@@ -113,11 +118,8 @@ pub fn run_create(options: &CreateOptions) -> Result<()> {
         TemplateSource::Builtin(template_type) => {
             generate_builtin_layout(template_type, &options.name)?
         }
-        TemplateSource::FromFile(file_path) => {
-            std::fs::read_to_string(file_path).with_context(|| {
-                format!("Failed to read template file: {file_path}")
-            })?
-        }
+        TemplateSource::FromFile(file_path) => std::fs::read_to_string(file_path)
+            .with_context(|| format!("Failed to read template file: {file_path}"))?,
     };
 
     // Create template
@@ -261,24 +263,22 @@ fn format_timestamp(timestamp: i64) -> String {
     SystemTime::UNIX_EPOCH
         .checked_add(Duration::from_secs(timestamp as u64))
         .and_then(|time| {
-            time.duration_since(UNIX_EPOCH)
-                .ok()
-                .map(|d| {
-                    let days = d.as_secs() / 86400;
-                    if days == 0 {
-                        "today".to_string()
-                    } else if days == 1 {
-                        "yesterday".to_string()
-                    } else if days < 7 {
-                        format!("{days} days ago")
-                    } else if days < 30 {
-                        format!("{} weeks ago", days / 7)
-                    } else if days < 365 {
-                        format!("{} months ago", days / 30)
-                    } else {
-                        format!("{} years ago", days / 365)
-                    }
-                })
+            time.duration_since(UNIX_EPOCH).ok().map(|d| {
+                let days = d.as_secs() / 86400;
+                if days == 0 {
+                    "today".to_string()
+                } else if days == 1 {
+                    "yesterday".to_string()
+                } else if days < 7 {
+                    format!("{days} days ago")
+                } else if days < 30 {
+                    format!("{} weeks ago", days / 7)
+                } else if days < 365 {
+                    format!("{} months ago", days / 30)
+                } else {
+                    format!("{} years ago", days / 365)
+                }
+            })
         })
         .unwrap_or_else(|| "unknown".to_string())
 }
@@ -297,8 +297,9 @@ pub fn run_use(_name: &str, _format: OutputFormat) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[test]
     fn test_create_options_construction() {
