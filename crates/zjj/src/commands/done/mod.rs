@@ -284,7 +284,7 @@ fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<()
 /// Check for potential conflicts by checking divergent changes
 #[allow(clippy::unnecessary_wraps)]
 fn check_potential_conflicts(
-    root: &str,
+    _root: &str,
     executor: &dyn executor::JjExecutor,
 ) -> Result<Vec<String>, DoneError> {
     // Try to get log
@@ -302,7 +302,7 @@ fn check_potential_conflicts(
 
 /// Get commits that will be merged
 fn get_commits_to_merge(
-    root: &str,
+    _root: &str,
     executor: &dyn executor::JjExecutor,
 ) -> Result<Vec<types::CommitInfo>, DoneError> {
     let output = executor
@@ -344,7 +344,7 @@ fn get_commits_to_merge(
 
 /// Merge workspace changes to main using rebase
 fn merge_to_main(
-    root: &str,
+    _root: &str,
     workspace_name: &str,
     _squash: bool,
     executor: &dyn executor::JjExecutor,
