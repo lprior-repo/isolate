@@ -258,9 +258,9 @@ fn output_json(items: &[SessionListItem]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use tempfile::TempDir;
+    use zjj_core::WorkspaceState;
 
     use super::*;
-    use zjj_core::WorkspaceState;
     use crate::{
         db::SessionDb,
         session::{Session, SessionStatus, SessionUpdate},

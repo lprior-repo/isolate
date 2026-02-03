@@ -705,7 +705,6 @@ fn get_current_timestamp() -> Result<u64> {
         .map_err(|e| Error::Unknown(format!("System time error: {e}")))
 }
 
-
 // === IMPERATIVE SHELL (Database Side Effects) ===
 
 /// Attempt database recovery (Railway pattern: error → recovery → retry)
