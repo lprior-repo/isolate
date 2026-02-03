@@ -55,6 +55,10 @@ tasks:
       cache: true
       runInCI: true
       mergeArgs: "replace"  # Allow overriding with specific test filters
+      mutex: "rust_heavy"
+      runDepsInParallel: false
+    env:
+      CARGO_BUILD_JOBS: "6"
 
   test-doc:
     command: "cargo test --doc --workspace"
@@ -80,6 +84,10 @@ tasks:
     options:
       cache: false
       runInCI: true
+      mutex: "rust_heavy"
+      runDepsInParallel: false
+    env:
+      CARGO_BUILD_JOBS: "4"
 
   coverage-check:
     command: "cargo tarpaulin --workspace --all-features --out Lcov --output-dir target/coverage -- --test-threads=1 | grep -E '^[0-9]+\\.[0-9]+%' | awk '{ if ($1 + 0 < 80) { exit 1 } }'"
@@ -91,6 +99,10 @@ tasks:
     options:
       cache: false
       runInCI: true
+      mutex: "rust_heavy"
+      runDepsInParallel: false
+    env:
+      CARGO_BUILD_JOBS: "4"
 
   # ============================================================================
   # STAGE 3: SECURITY
@@ -118,6 +130,10 @@ tasks:
     options:
       cache: true
       runInCI: true
+      mutex: "rust_heavy"
+      runDepsInParallel: false
+    env:
+      CARGO_BUILD_JOBS: "8"
 
   build-docs:
     command: "cargo doc --no-deps --document-private-items"
