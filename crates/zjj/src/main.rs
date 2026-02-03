@@ -18,8 +18,8 @@ mod session;
 use commands::{
     abort, add, agents, ai, attach, batch, can_i, checkpoint, claim, clean, completions, config,
     context, contract, dashboard, diff, doctor, done, events, examples, export_import, focus, init,
-    integrity, introspect, list, pane, query, queue, remove, rename, revert, session_mgmt, spawn, status,
-    switch, sync, undo, validate, whatif, whereami, whoami, work,
+    integrity, introspect, list, pane, query, queue, remove, rename, revert, session_mgmt, spawn,
+    status, switch, sync, undo, validate, whatif, whereami, whoami, work,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -2603,16 +2603,13 @@ fn handle_queue(sub_m: &clap::ArgMatches) -> Result<()> {
 
     let add = sub_m.get_one::<String>("add").cloned();
     let bead_id = sub_m.get_one::<String>("bead").cloned();
-    let priority = sub_m
-        .get_one::<i32>("priority")
-        .copied()
-        .unwrap_or(5);
+    let priority = sub_m.get_one::<i32>("priority").copied().unwrap_or(5);
     let agent_id = sub_m.get_one::<String>("agent").cloned();
     let list = sub_m.get_flag("list");
     let next = sub_m.get_flag("next");
     let remove = sub_m.get_one::<String>("remove").cloned();
     let status = sub_m.get_one::<String>("status").cloned();
-    let stats = sub_m.get_flag("stats");
+    let show_stats = sub_m.get_flag("stats");
 
     let options = queue::QueueOptions {
         format,
@@ -2624,7 +2621,7 @@ fn handle_queue(sub_m: &clap::ArgMatches) -> Result<()> {
         next,
         remove,
         status,
-        stats,
+        stats: show_stats,
     };
 
     match queue::run_with_options(&options) {

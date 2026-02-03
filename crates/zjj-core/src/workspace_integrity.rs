@@ -1222,10 +1222,7 @@ impl RepairExecutor {
     }
 
     /// Sync database to match filesystem
-    fn sync_database(
-        workspace_name: &str,
-        validation_result: &ValidationResult,
-    ) -> RepairResult {
+    fn sync_database(workspace_name: &str, validation_result: &ValidationResult) -> RepairResult {
         // This is a placeholder - actual implementation would update the SQLite database
         let issues_addressed: Vec<CorruptionType> = validation_result
             .issues
@@ -1234,7 +1231,11 @@ impl RepairExecutor {
             .map(|i| i.corruption_type)
             .collect();
 
-        RepairResult::success(workspace_name, RepairStrategy::SyncDatabase, issues_addressed)
+        RepairResult::success(
+            workspace_name,
+            RepairStrategy::SyncDatabase,
+            issues_addressed,
+        )
     }
 
     /// Forget workspace in JJ and recreate

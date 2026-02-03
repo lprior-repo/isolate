@@ -59,7 +59,9 @@ pub mod workspace_state;
 pub mod zellij;
 
 pub use config::RecoveryPolicy;
-pub use coordination::{MergeQueue, ProcessingLock, QueueAddResponse, QueueEntry, QueueStats, QueueStatus};
+pub use coordination::{
+    MergeQueue, ProcessingLock, QueueAddResponse, QueueEntry, QueueStats, QueueStatus,
+};
 pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
 pub use hints::{ActionRisk, CommandContext, NextAction};

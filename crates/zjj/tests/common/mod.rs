@@ -7,7 +7,7 @@
 //!
 //! The `TestHarness` provides test isolation by:
 //! - Creating a temporary directory for each test
-//! - Configuring workspace_dir to be inside the repo (not the default sibling directory)
+//! - Configuring `workspace_dir` to be inside the repo (not the default sibling directory)
 //! - Providing helper methods for common assertions
 
 #![allow(dead_code)]
@@ -162,7 +162,7 @@ impl TestHarness {
     ///
     /// ## Design Note
     ///
-    /// In production, workspace_dir defaults to `../{repo}__workspaces` (sibling to repo).
+    /// In production, `workspace_dir` defaults to `../{repo}__workspaces` (sibling to repo).
     /// In tests, we configure it to `workspaces` (inside repo) for isolation.
     pub fn workspace_path(&self, session: &str) -> PathBuf {
         self.repo_path.join(TEST_WORKSPACE_DIR).join(session)
@@ -247,6 +247,34 @@ impl TestHarness {
     /// Get the state database path
     pub fn state_db_path(&self) -> PathBuf {
         self.zjj_dir().join("state.db")
+    }
+
+    /// Run a zjj command from a specific directory
+    ///
+    /// Like `zjj`, but allows the caller to override the working directory.
+    /// Useful for testing commands that require being inside a workspace.
+    pub fn zjj_in_dir(&self, dir: &std::path::Path, args: &[&str]) -> CommandResult {
+        Command::new(&self.zjj_bin)
+            .args(args)
+            .current_dir(dir)
+            .env("NO_COLOR", "1")
+            .env("ZJJ_TEST_MODE", "1")
+            .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .output()
+            .map_or_else(
+                |_| CommandResult {
+                    success: false,
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: "Command execution failed".to_string(),
+                },
+                |output| CommandResult {
+                    success: output.status.success(),
+                    exit_code: output.status.code(),
+                    stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                    stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                },
+            )
     }
 
     /// Run a JJ command in the test repository

@@ -421,6 +421,7 @@ fn output_json(items: &[SessionStatusInfo]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use zjj_core::WorkspaceState;
     use crate::session::{Session, SessionStatus};
 
     #[tokio::test]

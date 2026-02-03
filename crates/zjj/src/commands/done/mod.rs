@@ -75,7 +75,13 @@ fn execute_done(
 
     // Phase 2: Build preview for dry-run
     let preview = if options.dry_run {
-        Some(build_preview(&root, &workspace_name, executor, bead_repo, options)?)
+        Some(build_preview(
+            &root,
+            &workspace_name,
+            executor,
+            bead_repo,
+            options,
+        )?)
     } else {
         None
     };
@@ -210,9 +216,11 @@ fn build_preview(
 
     // Run detailed conflict detection if requested
     let conflict_detection = if options.detect_conflicts {
-        Some(conflict::run_conflict_detection(executor).map_err(|e| DoneError::InvalidState {
-            reason: format!("Conflict detection failed: {e}"),
-        })?)
+        Some(
+            conflict::run_conflict_detection(executor).map_err(|e| DoneError::InvalidState {
+                reason: format!("Conflict detection failed: {e}"),
+            })?,
+        )
     } else {
         None
     };
@@ -324,7 +332,7 @@ fn get_commits_to_merge(
             "@..@-",
             "--no-graph",
             "-T",
-            r#"change_id "\n" commit_id "\n" description "\n" time(timestamp_safe())"\n""#,
+            r#"change_id ++ "\n" ++ commit_id ++ "\n" ++ description ++ "\n" ++ committer.timestamp() ++ "\n""#,
         ])
         .map_err(|e| DoneError::JjCommandFailed {
             command: "jj log".to_string(),
@@ -840,8 +848,9 @@ mod tests {
             conflict_detection: Some(conflict_result),
         };
 
-        assert!(preview.conflict_detection.is_some());
-        let detection = preview.conflict_detection.unwrap();
+        let Some(detection) = preview.conflict_detection else {
+            unreachable!("conflict_detection was set to Some above");
+        };
         assert!(!detection.merge_likely_safe);
         assert_eq!(detection.overlapping_files.len(), 1);
         assert_eq!(detection.detection_time_ms, 45);

@@ -30,6 +30,7 @@ use ratatui::{
 use zjj_core::{
     config::load_config,
     watcher::{BeadsStatus, FileWatcher, WatchEvent},
+    WorkspaceState,
 };
 
 use crate::{
@@ -984,6 +985,8 @@ fn remove_session(name: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use zjj_core::WorkspaceState;
+
     use super::*;
 
     #[test]

@@ -26,16 +26,9 @@ fn test_detect_conflicts_no_conflicts_succeeds() {
     let _ = harness.create_file("feature-file.txt", "feature content");
     harness.jj(&["commit", "-m", "Add feature file"]);
 
-    // WHEN: User runs "zjj done --detect-conflicts" (in workspace)
-    // JJ workspaces are created directly in the repo root by zjj add
-    // We need to change to the workspace directory
+    // WHEN: User runs "zjj done --detect-conflicts --dry-run" from the workspace
     let workspace_path = harness.workspace_path("feature-no-conflict");
-    let _prev_dir = std::env::current_dir().ok();
-    if let Err(e) = std::env::set_current_dir(&workspace_path) {
-        panic!("Failed to change to workspace directory: {e}");
-    }
-
-    let result = harness.zjj(&["done", "--detect-conflicts"]);
+    let result = harness.zjj_in_dir(&workspace_path, &["done", "--detect-conflicts", "--dry-run"]);
 
     // THEN: Output contains "no conflicts detected"
     // AND exit code is 0
@@ -44,7 +37,7 @@ fn test_detect_conflicts_no_conflicts_succeeds() {
         "Should succeed with no conflicts. Stderr: {}, Stdout: {}",
         result.stderr, result.stdout
     );
-    result.assert_output_contains("no conflicts");
+    result.assert_output_contains("No conflicts");
 }
 
 #[test]
@@ -102,15 +95,9 @@ fn test_detect_conflicts_found_reports_details() {
     let _ = harness.create_file("shared.txt", "different content");
     harness.jj(&["commit", "-m", "feature change"]);
 
-    // WHEN: User runs "zjj done --detect-conflicts"
-    // JJ workspaces are created directly in the repo root by zjj add
-    // We need to change to the workspace directory
+    // WHEN: User runs "zjj done --detect-conflicts --dry-run" from the workspace
     let workspace_path = harness.workspace_path("conflicting-feature");
-    let _prev_dir = std::env::current_dir().ok();
-    if let Err(e) = std::env::set_current_dir(&workspace_path) {
-        panic!("Failed to change to workspace directory: {e}");
-    }
-    let result = harness.zjj(&["done", "--detect-conflicts", "--dry-run"]);
+    let result = harness.zjj_in_dir(&workspace_path, &["done", "--detect-conflicts", "--dry-run"]);
 
     // THEN: Output lists conflicting files
     // AND output contains actionable hints

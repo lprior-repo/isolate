@@ -364,7 +364,10 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
                     // Handle rename format: "old_path -> new_path"
                     if file_part.contains(" -> ") {
                         // For renames, consider the destination file
-                        file_part.split(" -> ").last().map(std::string::ToString::to_string)
+                        file_part
+                            .split(" -> ")
+                            .last()
+                            .map(std::string::ToString::to_string)
                     } else {
                         Some(file_part.to_string())
                     }
