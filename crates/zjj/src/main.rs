@@ -2015,7 +2015,7 @@ fn cmd_batch() -> ClapCommand {
         .long_about(
             "Runs multiple commands in sequence or from a file.\n\n\
             Features:\n  \
-            - Transactional mode (roll back on failure)\n  \
+            - Atomic transactional mode (all succeed or all roll back)\n  \
             - Stop-on-error control\n  \
             - Combined results output",
         )
@@ -2037,6 +2037,12 @@ fn cmd_batch() -> ClapCommand {
                 .long("stop-on-error")
                 .action(clap::ArgAction::SetTrue)
                 .help("Stop execution on first error"),
+        )
+        .arg(
+            Arg::new("atomic")
+                .long("atomic")
+                .action(clap::ArgAction::SetTrue)
+                .help("Atomic mode: all operations succeed or all roll back"),
         )
         .arg(
             Arg::new("json")
@@ -3586,13 +3592,21 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let file = sub_m.get_one::<String>("file").cloned();
+    let atomic = sub_m.get_flag("atomic");
     let stop_on_error = sub_m.get_flag("stop-on-error");
 
-    // Get commands from file or arguments
+    if atomic {
+        // Atomic mode: use new batch module with checkpoint-based rollback
+        let rt = tokio::runtime::Runtime::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create runtime: {e}"))?;
+        return rt.block_on(handle_atomic_batch(sub_m, json, format, file, stop_on_error));
+    }
+
+    // Non-atomic mode: legacy batch (original batch.rs behavior)
     let commands = if let Some(file_path) = file {
         let content = std::fs::read_to_string(&file_path)
             .map_err(|e| anyhow::anyhow!("Failed to read file: {e}"))?;
-        batch::parse_batch_commands(&content)?
+        parse_legacy_batch_commands(&content)?
     } else {
         let raw_commands: Vec<String> = sub_m
             .get_many::<String>("commands")
@@ -3601,26 +3615,113 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
         if raw_commands.is_empty() {
             anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
         }
-        // Join and parse as newline-separated
-        batch::parse_batch_commands(&raw_commands.join("\n"))?
+        parse_legacy_batch_commands(&raw_commands.join("\n"))?
     };
 
-    let options = batch::BatchOptions {
-        commands,
-        stop_on_error,
-        dry_run: false,
-        format,
-    };
-    match batch::run(&options) {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            if format.is_json() {
-                json::output_json_error_and_exit(&e);
-            } else {
-                Err(e)
+    // For non-atomic mode, just execute commands sequentially
+    // (simplified - original batch.rs was deleted, so we just execute directly)
+    for (index, command_str) in commands.iter().enumerate() {
+        let parts: Vec<&str> = command_str.split_whitespace().collect();
+        if parts.is_empty() {
+            continue;
+        }
+
+        let cmd = parts[0];
+        let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+
+        let output = std::process::Command::new("zjj")
+            .arg(cmd)
+            .args(&args)
+            .output()
+            .map_err(|e| anyhow::anyhow!("Failed to execute: {e}"))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let error_msg = if stderr.is_empty() { stdout } else { stderr };
+            eprintln!("Command {index} failed: {}", error_msg);
+            if stop_on_error {
+                anyhow::bail!("Batch failed at command {index}");
             }
+        } else {
+            println!("Command {index}: {}", String::from_utf8_lossy(&output.stdout).trim());
         }
     }
+
+    Ok(())
+}
+
+/// Handle atomic batch mode with checkpoint-based rollback
+async fn handle_atomic_batch(
+    sub_m: &clap::ArgMatches,
+    json: bool,
+    format: zjj_core::OutputFormat,
+    file: Option<String>,
+    stop_on_error: bool,
+) -> anyhow::Result<()> {
+    use batch::execute_batch;
+
+    // Get database for checkpoint support
+    let db = crate::commands::get_session_db()?;
+
+    // Parse BatchRequest from JSON or arguments
+    let request = if let Some(file_path) = file {
+        let content = std::fs::read_to_string(&file_path)
+            .map_err(|e| anyhow::anyhow!("Failed to read file: {e}"))?;
+        serde_json::from_str::<batch::BatchRequest>(&content)
+            .map_err(|e| anyhow::anyhow!("Failed to parse batch request: {e}"))?
+    } else {
+        let raw_commands: Vec<String> = sub_m
+            .get_many::<String>("commands")
+            .map(|v| v.cloned().collect())
+            .unwrap_or_else(|| Vec::new());
+        if raw_commands.is_empty() {
+            anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
+        }
+        // Build BatchRequest from command-line arguments
+        let operations = raw_commands
+            .iter()
+            .filter_map(|cmd_str| {
+                let parts: Vec<&str> = cmd_str.split_whitespace().collect();
+                if parts.is_empty() {
+                    return None;
+                }
+                let cmd = parts[0];
+                let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+                Some(batch::BatchOperation {
+                    command: cmd.to_string(),
+                    args,
+                    id: Some(format!("op-{}", commands.len() + 1)),
+                    optional: false,
+                })
+            })
+            .collect();
+
+        batch::BatchRequest {
+            atomic: true,
+            operations,
+        }
+    };
+
+    // Execute atomic batch
+    execute_batch(request, db.pool(), format).await?;
+
+    Ok(())
+}
+
+/// Parse legacy batch commands (for non-atomic mode backward compatibility)
+fn parse_legacy_batch_commands(input: &str) -> anyhow::Result<Vec<String>> {
+    let commands: Vec<String> = input
+        .lines()
+        .filter(|line| !line.trim().is_empty() && !line.trim().starts_with('#'))
+        .map(|line| line.trim().to_string())
+        .collect();
+
+    if commands.is_empty() {
+        anyhow::bail!("No valid commands found");
+    }
+
+    Ok(commands)
 }
 
 fn handle_events(sub_m: &clap::ArgMatches) -> Result<()> {
