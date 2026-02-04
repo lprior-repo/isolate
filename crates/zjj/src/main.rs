@@ -2415,6 +2415,66 @@ fn cmd_rollback() -> ClapCommand {
         )
 }
 
+fn cmd_pane() -> ClapCommand {
+    ClapCommand::new("pane")
+        .about("Pane focus and navigation within sessions")
+        .long_about(
+            "Control pane focus and navigation within Zellij sessions.\n\n\
+            Supports:\n  \
+              - Focusing specific panes by name or ID\n  \
+              - Listing all panes in a session\n  \
+              - Cycling to next pane\n  \
+              - Directional navigation (up, down, left, right)\n\n\
+            Use 'zjj pane' without subcommands for interactive selection.",
+        )
+        .subcommand_required(true)
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .global(true)
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+        .subcommand(
+            ClapCommand::new("focus")
+                .about("Focus a specific pane by name or ID")
+                .arg(
+                    Arg::new("session")
+                        .required(true)
+                        .help("Name of session containing the pane"),
+                )
+                .arg(
+                    Arg::new("pane")
+                        .help("Pane name or ID to focus (optional if using --direction)"),
+                )
+                .arg(
+                    Arg::new("direction")
+                        .long("direction")
+                        .value_name("DIR")
+                        .value_parser(["up", "down", "left", "right"])
+                        .help("Navigate in direction instead of focusing specific pane"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("list")
+                .about("List all panes in a session")
+                .arg(
+                    Arg::new("session")
+                        .required(true)
+                        .help("Name of session"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("next")
+                .about("Cycle to next pane in a session")
+                .arg(
+                    Arg::new("session")
+                        .required(true)
+                        .help("Name of session"),
+                ),
+        )
+}
+
 fn cmd_abort() -> ClapCommand {
     ClapCommand::new("abort")
         .about("Abandon workspace without merging")
@@ -2423,8 +2483,8 @@ fn cmd_abort() -> ClapCommand {
             Use this when:\n  \
             - Work is no longer needed\n  \
             - You want to start fresh\n  \
-            - The approach didn't work out\n\n\
-            Can be run from inside or outside the workspace.",
+            - The approach didn't work out\n\
+            Can be run from inside or outside of workspace.",
         )
         .after_help(after_help_text(
             &[
@@ -2544,9 +2604,11 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_completions())
         // Session management
         .subcommand(cmd_rename())
-        .subcommand(cmd_pause())
+         .subcommand(cmd_pause())
         .subcommand(cmd_resume())
         .subcommand(cmd_clone())
+        // Pane management
+        .subcommand(cmd_pane())
         // Export/Import
         .subcommand(cmd_export())
         .subcommand(cmd_import())

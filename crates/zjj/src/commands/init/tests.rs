@@ -527,3 +527,181 @@ fn test_init_preserves_existing_config_toml() -> Result<()> {
 
     Ok(())
 }
+
+// ============================================================================
+// PHASE 4 (RED) - EPIC Scaffolding Tests
+// These tests FAIL until template scaffolding is integrated into init flow
+// ============================================================================
+
+/// RED: Test that init creates AGENTS.md from template
+/// Will fail until create_agents_md is integrated into init flow
+#[test]
+fn test_init_creates_agents_md() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
+    result?;
+
+    let agents_path = temp_dir.path().join("AGENTS.md");
+    assert!(agents_path.exists(), "AGENTS.md was not created");
+    assert!(agents_path.is_file());
+
+    // Verify it contains expected content from template
+    let content = std::fs::read_to_string(&agents_path)?;
+    assert!(
+        content.contains("Agent Instructions"),
+        "AGENTS.md should contain header"
+    );
+    assert!(content.contains("Beads"), "AGENTS.md should mention beads");
+
+    Ok(())
+}
+
+/// RED: Test that init creates CLAUDE.md from template
+/// Will fail until create_claude_md is integrated into init flow
+#[test]
+fn test_init_creates_claude_md() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
+    result?;
+
+    let claude_path = temp_dir.path().join("CLAUDE.md");
+    assert!(claude_path.exists(), "CLAUDE.md was not created");
+    assert!(claude_path.is_file());
+
+    // Verify it contains expected content from template
+    let content = std::fs::read_to_string(&claude_path)?;
+    assert!(
+        content.contains("Agent Instructions"),
+        "CLAUDE.md should contain header"
+    );
+    assert!(content.contains("Moon"), "CLAUDE.md should mention Moon");
+
+    Ok(())
+}
+
+/// RED: Test that init creates documentation files from templates
+/// Will fail until create_docs is integrated into init flow
+#[test]
+fn test_init_creates_documentation_files() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
+    result?;
+
+    let docs_dir = temp_dir.path().join("docs");
+    assert!(docs_dir.exists(), "docs directory was not created");
+    assert!(docs_dir.is_dir());
+
+    // Verify expected documentation files exist
+    let expected_docs = vec![
+        "01_ERROR_HANDLING.md",
+        "02_MOON_BUILD.md",
+        "03_WORKFLOW.md",
+        "05_RUST_STANDARDS.md",
+        "08_BEADS.md",
+        "09_JUJUTSU.md",
+    ];
+
+    for doc_name in expected_docs {
+        let doc_path = docs_dir.join(doc_name);
+        assert!(doc_path.exists(), "{} was not created", doc_name);
+    }
+
+    Ok(())
+}
+
+/// RED: Test that init does not overwrite existing AGENTS.md
+#[test]
+fn test_init_preserves_existing_agents_md() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    // First init - creates AGENTS.md
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    let agents_path = temp_dir.path().join("AGENTS.md");
+
+    // Modify AGENTS.md with custom content
+    let custom_content = "# Custom AGENTS\nThis is custom content.";
+    std::fs::write(&agents_path, custom_content)?;
+
+    // Second init - should NOT overwrite
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    // Verify custom content was preserved
+    let content = std::fs::read_to_string(&agents_path)?;
+    assert_eq!(
+        content, custom_content,
+        "AGENTS.md should not be overwritten"
+    );
+
+    Ok(())
+}
+
+/// RED: Test that init does not overwrite existing CLAUDE.md
+#[test]
+fn test_init_preserves_existing_claude_md() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    // First init - creates CLAUDE.md
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    let claude_path = temp_dir.path().join("CLAUDE.md");
+
+    // Modify CLAUDE.md with custom content
+    let custom_content = "# Custom CLAUDE\nThis is custom content.";
+    std::fs::write(&claude_path, custom_content)?;
+
+    // Second init - should NOT overwrite
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    // Verify custom content was preserved
+    let content = std::fs::read_to_string(&claude_path)?;
+    assert_eq!(
+        content, custom_content,
+        "CLAUDE.md should not be overwritten"
+    );
+
+    Ok(())
+}
+
+/// RED: Test that init does not overwrite existing documentation files
+#[test]
+fn test_init_preserves_existing_documentation_files() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo()? else {
+        return Ok(());
+    };
+
+    // First init - creates documentation files
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    let docs_dir = temp_dir.path().join("docs");
+    let error_handling_path = docs_dir.join("01_ERROR_HANDLING.md");
+
+    // Modify one of the doc files
+    let custom_content = "# Custom Error Handling\nCustom content here.";
+    std::fs::write(&error_handling_path, custom_content)?;
+
+    // Second init - should NOT overwrite
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+
+    // Verify custom content was preserved
+    let content = std::fs::read_to_string(&error_handling_path)?;
+    assert_eq!(
+        content, custom_content,
+        "Documentation file should not be overwritten"
+    );
+
+    Ok(())
+}

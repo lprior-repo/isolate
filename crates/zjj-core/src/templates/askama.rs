@@ -461,4 +461,103 @@ mod tests {
         }
         Ok(())
     }
+
+    #[test]
+    fn test_workflow_template_contains_agent_loop() -> Result<(), TemplateError> {
+        let result = render_template(TemplateType::Workflow, &valid_context()?);
+
+        assert!(result.is_ok());
+        let rendered = result?;
+
+        // Verify template contains the agent workflow loop components
+        assert!(
+            rendered.contains("bv") || rendered.contains("bead") || rendered.contains("triage"),
+            "Workflow template should mention bv/beads/triage for agent workflow"
+        );
+        assert!(
+            rendered.contains("zjj")
+                || rendered.contains("isolate")
+                || rendered.contains("workspace"),
+            "Workflow template should mention zjj/isolation for agent workflow"
+        );
+        assert!(
+            rendered.contains("moon") || rendered.contains("build") || rendered.contains("test"),
+            "Workflow template should mention moon/build/test for verification step"
+        );
+        assert!(
+            rendered.contains("done") || rendered.contains("merge") || rendered.contains("push"),
+            "Workflow template should mention completion/merge/push for landing step"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_beads_template_contains_triage_info() -> Result<(), TemplateError> {
+        let result = render_template(TemplateType::Beads, &valid_context()?);
+
+        assert!(result.is_ok());
+        let rendered = result?;
+
+        // Verify template contains bv and issue tracking information
+        assert!(
+            rendered.contains("bv") || rendered.contains("triage") || rendered.contains("robot"),
+            "Beads template should mention bv or triage for issue management"
+        );
+        assert!(
+            rendered.contains("issue") || rendered.contains("bead") || rendered.contains("link"),
+            "Beads template should mention issue/bead/link management"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_jujutsu_template_contains_agent_integration() -> Result<(), TemplateError> {
+        let result = render_template(TemplateType::Jujutsu, &valid_context()?);
+
+        assert!(result.is_ok());
+        let rendered = result?;
+
+        // Verify template contains jj basics and agent workflow integration
+        assert!(
+            rendered.contains("jj") || rendered.contains("Jujutsu") || rendered.contains("commit"),
+            "Jujutsu template should mention jj/Jujutsu/commit"
+        );
+        assert!(
+            rendered.contains("workspace")
+                || rendered.contains("branch")
+                || rendered.contains("bookmark"),
+            "Jujutsu template should mention workspace/branch/bookmark"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_templates_have_cross_references() -> Result<(), TemplateError> {
+        let workflow = render_template(TemplateType::Workflow, &valid_context()?)?;
+        let beads = render_template(TemplateType::Beads, &valid_context()?)?;
+        let jujutsu = render_template(TemplateType::Jujutsu, &valid_context()?)?;
+
+        // Verify cross-references between docs
+        assert!(
+            workflow.contains("bead") || workflow.contains("BEADS"),
+            "Workflow template should reference beads documentation"
+        );
+        assert!(
+            workflow.contains("jj") || workflow.contains("Jujutsu") || workflow.contains("JUJUTSU"),
+            "Workflow template should reference Jujutsu documentation"
+        );
+        assert!(
+            beads.contains("workflow") || beads.contains("WORKFLOW"),
+            "Beads template should reference workflow documentation"
+        );
+        assert!(
+            beads.contains("jj") || beads.contains("Jujutsu") || beads.contains("JUJUTSU"),
+            "Beads template should reference Jujutsu documentation"
+        );
+
+        Ok(())
+    }
 }
