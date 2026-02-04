@@ -1,4 +1,3 @@
-
     #[test]
     fn test_templates_have_cross_references() -> Result<(), TemplateError> {
         let workflow = render_template(TemplateType::Workflow, &valid_context()?)?;
@@ -18,6 +17,11 @@
             beads.contains("workflow") || beads.contains("WORKFLOW"),
             "Beads template should reference workflow documentation"
         );
+        assert!(
+            beads.contains("jj") || beads.contains("Jujutsu") || beads.contains("JUJUTSU"),
+            "Beads template should reference Jujutsu documentation"
+        );
+
         Ok(())
     }
 }
