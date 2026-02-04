@@ -117,6 +117,15 @@ pub struct Session {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub branch: Option<String>,
 
+    /// Current workspace state
+    ///
+    /// # Contract
+    /// - Starts as `WorkspaceState::Created`
+    /// - Transitions follow workspace lifecycle state machine
+    /// - Terminal states: `Merged`, `Abandoned`
+    #[serde(default = "WorkspaceState::default")]
+    pub workspace_state: WorkspaceState,
+
     /// Creation timestamp (UTC)
     pub created_at: DateTime<Utc>,
 
@@ -686,7 +695,7 @@ mod tests {
     fn test_session_validate_name_regex() {
         let session = Session {
             id: "id123".to_string(),
-            name: "invalid name".to_string(), // contains space
+            name: "invalid name".to_string(),
             status: SessionStatus::Creating,
             workspace_path: PathBuf::from("/tmp/test"),
             branch: None,
@@ -694,6 +703,7 @@ mod tests {
             updated_at: Utc::now(),
             last_synced: None,
             metadata: serde_json::Value::Null,
+            workspace_state: WorkspaceState::default(),
         };
 
         assert!(session.validate().is_err());
@@ -705,12 +715,13 @@ mod tests {
             id: "id123".to_string(),
             name: "valid-name".to_string(),
             status: SessionStatus::Creating,
-            workspace_path: PathBuf::from("relative/path"), // not absolute
+            workspace_path: PathBuf::from("relative/path"),
             branch: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
             last_synced: None,
             metadata: serde_json::Value::Null,
+            workspace_state: WorkspaceState::default(),
         };
 
         assert!(session.validate().is_err());
@@ -728,9 +739,10 @@ mod tests {
             workspace_path: PathBuf::from("/tmp/test"),
             branch: None,
             created_at: now,
-            updated_at: earlier, // updated before created!
+            updated_at: earlier,
             last_synced: None,
             metadata: serde_json::Value::Null,
+            workspace_state: WorkspaceState::default(),
         };
 
         assert!(session.validate().is_err());
@@ -869,5 +881,152 @@ mod tests {
             .get("properties")
             .and_then(|v| v.as_object())
             .is_some());
+    }
+
+    #[test]
+    fn test_session_has_workspace_state_field() {
+        let session = Session {
+            id: "id123".to_string(),
+            name: "test-session".to_string(),
+            status: SessionStatus::Active,
+            workspace_path: PathBuf::from("/tmp/test"),
+            branch: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            last_synced: None,
+            metadata: serde_json::Value::Null,
+            workspace_state: WorkspaceState::Created,
+        };
+
+        assert_eq!(session.workspace_state, WorkspaceState::Created);
+    }
+
+    #[test]
+    fn test_session_workspace_state_initializes_to_created() {
+        let _session = Session::new(
+            "test-id".to_string(),
+            "test-session".to_string(),
+            SessionStatus::Creating,
+            PathBuf::from("/tmp/test"),
+            None,
+        );
+
+        assert!(false, "Session::new() not yet implemented with workspace_state");
+    }
+
+    #[test]
+    fn test_session_workspace_state_transitions() {
+        use crate::workspace_state::WorkspaceState;
+
+        let mut state = WorkspaceState::Created;
+
+        assert!(state.can_transition_to(WorkspaceState::Working));
+        state = WorkspaceState::Working;
+
+        assert!(state.can_transition_to(WorkspaceState::Ready));
+        state = WorkspaceState::Ready;
+
+        assert!(state.can_transition_to(WorkspaceState::Merged));
+        state = WorkspaceState::Merged;
+
+        assert!(state.is_terminal());
+        assert!(!state.can_transition_to(WorkspaceState::Working));
+    }
+
+    #[test]
+    fn test_session_workspace_state_invalid_transitions() {
+        use crate::workspace_state::WorkspaceState;
+
+        assert!(!WorkspaceState::Created.can_transition_to(WorkspaceState::Merged));
+        assert!(!WorkspaceState::Working.can_transition_to(WorkspaceState::Created));
+        assert!(!WorkspaceState::Merged.can_transition_to(WorkspaceState::Ready));
+    }
+
+    #[test]
+    fn test_session_workspace_state_serialization() {
+        use crate::workspace_state::WorkspaceState;
+
+        let state = WorkspaceState::Working;
+        let json = serde_json::to_string(&state).unwrap();
+
+        assert_eq!(json, "\"working\"");
+
+        let deserialized: WorkspaceState = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, state);
+    }
+}
+
+    #[test]
+    fn test_session_workspace_state_initializes_to_created() {
+        // This test will fail until Session::new() initializes workspace_state
+        let _session = Session::new(
+            "test-id".to_string(),
+            "test-session".to_string(),
+            SessionStatus::Creating,
+            PathBuf::from("/tmp/test"),
+            None,
+        );
+
+        // Check that workspace_state is initialized to Created
+        // This will fail until Session::new() is implemented
+        assert!(
+            false,
+            "Session::new() not yet implemented with workspace_state"
+        );
+    }
+
+    #[test]
+    fn test_session_workspace_state_transitions() {
+        // This test will fail until workspace_state transitions are implemented
+        use crate::workspace_state::WorkspaceState;
+
+        let mut state = WorkspaceState::Created;
+
+        // Created -> Working (valid transition)
+        assert!(state.can_transition_to(WorkspaceState::Working));
+        state = WorkspaceState::Working;
+
+        // Working -> Ready (valid transition)
+        assert!(state.can_transition_to(WorkspaceState::Ready));
+        state = WorkspaceState::Ready;
+
+        // Ready -> Merged (valid transition)
+        assert!(state.can_transition_to(WorkspaceState::Merged));
+        state = WorkspaceState::Merged;
+
+        // Merged is terminal (no transitions)
+        assert!(state.is_terminal());
+        assert!(!state.can_transition_to(WorkspaceState::Working));
+    }
+
+    #[test]
+    fn test_session_workspace_state_invalid_transitions() {
+        // This test verifies that invalid transitions are rejected
+        use crate::workspace_state::WorkspaceState;
+
+        // Created -> Merged (invalid - skip Working and Ready)
+        assert!(!WorkspaceState::Created.can_transition_to(WorkspaceState::Merged));
+
+        // Working -> Created (invalid - cannot go back)
+        assert!(!WorkspaceState::Working.can_transition_to(WorkspaceState::Created));
+
+        // Merged -> Ready (invalid - Merged is terminal)
+        assert!(!WorkspaceState::Merged.can_transition_to(WorkspaceState::Ready));
+    }
+
+    #[test]
+    fn test_session_workspace_state_serialization() {
+        // This test will fail until workspace_state is serialized correctly
+        use crate::workspace_state::WorkspaceState;
+
+        let state = WorkspaceState::Working;
+        let json = serde_json::to_string(&state).unwrap();
+
+        // Should serialize as lowercase string
+        assert_eq!(json, "\"working\"");
+
+        // And deserialize back
+        let deserialized: WorkspaceState = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, state);
     }
 }
