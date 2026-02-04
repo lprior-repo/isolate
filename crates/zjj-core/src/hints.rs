@@ -560,10 +560,7 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
 pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
     match error_code {
         "SESSION_ALREADY_EXISTS" => {
-            let session_name = match extract_session_name(error_msg) {
-                Some(value) => value,
-                None => "session",
-            };
+            let session_name = extract_session_name(error_msg).map_or("session", |value| value);
             vec![
                 Hint::suggestion("Use a different name for the new session")
                     .with_command(format!("zjj add {session_name}-v2"))

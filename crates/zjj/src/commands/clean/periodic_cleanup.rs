@@ -21,9 +21,13 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
 use tokio::time::sleep;
-use zjj_core::OutputFormat;
+use zjj_core::{OutputFormat, WorkspaceState};
 
-use crate::{commands::get_session_db, db::SessionDb, session::Session};
+use crate::{
+    commands::get_session_db,
+    db::SessionDb,
+    session::{Session, SessionStatus},
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DOMAIN TYPES (Functional Core)
@@ -354,21 +358,24 @@ mod tests {
     fn mock_session(name: &str, age_hours: i64, workspace_exists: bool) -> Session {
         let now = Utc::now();
         let created_at = now - chrono::Duration::hours(age_hours);
+        let created_timestamp = created_at.timestamp() as u64;
 
         Session {
-            id: name.to_string(),
+            id: None,
             name: name.to_string(),
-            status: zjj_core::types::SessionStatus::Active,
+            status: SessionStatus::Active,
+            state: WorkspaceState::default(),
             workspace_path: if workspace_exists {
-                PathBuf::from("/tmp")
+                "/tmp".to_string()
             } else {
-                PathBuf::from("/nonexistent/path")
+                "/nonexistent/path".to_string()
             },
+            zellij_tab: format!("zjj:{name}"),
             branch: None,
-            created_at,
-            updated_at: created_at,
+            created_at: created_timestamp,
+            updated_at: created_timestamp,
             last_synced: None,
-            metadata: serde_json::Value::Null,
+            metadata: Some(serde_json::Value::Null),
         }
     }
 

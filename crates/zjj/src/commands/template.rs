@@ -260,27 +260,28 @@ fn confirm_deletion(name: &str) -> Result<bool> {
 fn format_timestamp(timestamp: i64) -> String {
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-    SystemTime::UNIX_EPOCH
-        .checked_add(Duration::from_secs(timestamp as u64))
-        .and_then(|time| {
-            time.duration_since(UNIX_EPOCH).ok().map(|d| {
-                let days = d.as_secs() / 86400;
-                if days == 0 {
-                    "today".to_string()
-                } else if days == 1 {
-                    "yesterday".to_string()
-                } else if days < 7 {
-                    format!("{days} days ago")
-                } else if days < 30 {
-                    format!("{} weeks ago", days / 7)
-                } else if days < 365 {
-                    format!("{} months ago", days / 30)
-                } else {
-                    format!("{} years ago", days / 365)
-                }
-            })
-        })
-        .unwrap_or_else(|| "unknown".to_string())
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    let timestamp_secs = timestamp.max(0) as u64;
+    let ago_secs = now_secs.saturating_sub(timestamp_secs);
+    let days = ago_secs / 86400;
+
+    if days == 0 {
+        "today".to_string()
+    } else if days == 1 {
+        "yesterday".to_string()
+    } else if days < 7 {
+        format!("{days} days ago")
+    } else if days < 30 {
+        format!("{} weeks ago", days / 7)
+    } else if days < 365 {
+        format!("{} months ago", days / 30)
+    } else {
+        format!("{} years ago", days / 365)
+    }
 }
 
 /// Run the template use command (applies template to current session)

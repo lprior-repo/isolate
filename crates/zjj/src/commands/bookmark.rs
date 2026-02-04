@@ -582,13 +582,13 @@ mod tests {
             name: "feature-v1".to_string(),
             session: None,
             push: false,
-            format: OutputFormat::Text,
+            format: OutputFormat::Human,
         };
 
         assert_eq!(opts.name, "feature-v1");
         assert_eq!(opts.session, None);
         assert!(!opts.push);
-        assert_eq!(opts.format, OutputFormat::Text);
+        assert_eq!(opts.format, OutputFormat::Human);
     }
 
     #[test]
@@ -610,13 +610,13 @@ mod tests {
             name: "feature".to_string(),
             to_revision: "abc123".to_string(),
             session: None,
-            format: OutputFormat::Text,
+            format: OutputFormat::Human,
         };
 
         assert_eq!(opts.name, "feature");
         assert_eq!(opts.to_revision, "abc123");
         assert_eq!(opts.session, None);
-        assert_eq!(opts.format, OutputFormat::Text);
+        assert_eq!(opts.format, OutputFormat::Human);
     }
 
     #[test]

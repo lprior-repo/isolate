@@ -40,7 +40,7 @@ impl WorkspaceGuard {
     ///
     /// The guard will clean up the workspace when dropped unless disarmed.
     #[must_use]
-    pub fn new(name: String, path: PathBuf) -> Self {
+    pub const fn new(name: String, path: PathBuf) -> Self {
         Self {
             name,
             path,
@@ -51,7 +51,7 @@ impl WorkspaceGuard {
     /// Disarm the guard to prevent cleanup
     ///
     /// Call this when workspace creation succeeds and you want to keep it.
-    pub fn disarm(&mut self) {
+    pub const fn disarm(&mut self) {
         self.active = false;
     }
 
@@ -412,13 +412,10 @@ pub fn workspace_diff(path: &Path) -> Result<DiffSummary> {
 /// Parse output from 'jj diff --stat'
 fn parse_diff_stat(output: &str) -> DiffSummary {
     // Look for summary line like: "5 files changed, 123 insertions(+), 45 deletions(-)"
-    let summary_line = match output
+    let summary_line = output
         .lines()
         .find(|line| line.contains("insertion") || line.contains("deletion"))
-    {
-        Some(value) => value,
-        None => "",
-    };
+        .unwrap_or_default();
 
     let mut insertions = 0;
     let mut deletions = 0;
@@ -426,10 +423,7 @@ fn parse_diff_stat(output: &str) -> DiffSummary {
     // Parse insertions
     if let Some(ins_str) = summary_line.split("insertion").next() {
         if let Some(num_str) = ins_str.split_whitespace().last() {
-            insertions = match num_str.parse() {
-                Ok(value) => value,
-                Err(_) => 0,
-            };
+            insertions = num_str.parse().map_or(0, |value| value);
         }
     }
 
@@ -440,10 +434,7 @@ fn parse_diff_stat(output: &str) -> DiffSummary {
             .next()
             .and_then(|s| s.split_whitespace().next())
         {
-            deletions = match num_str.parse() {
-                Ok(value) => value,
-                Err(_) => 0,
-            };
+            deletions = num_str.parse().map_or(0, |value| value);
         }
     }
 
