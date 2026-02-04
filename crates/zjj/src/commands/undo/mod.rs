@@ -20,7 +20,10 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use zjj_core::OutputFormat;
+use zjj_core::{
+    json::{ErrorDetail, SchemaEnvelope},
+    OutputFormat,
+};
 
 use crate::{
     cli::jj_root,
@@ -169,8 +172,9 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
             can_undo: can_undo_any,
             entries,
         };
+        let envelope = SchemaEnvelope::new("undo-response", "single", output);
         let json =
-            serde_json::to_string_pretty(&output).map_err(|e| UndoError::SerializationError {
+            serde_json::to_string_pretty(&envelope).map_err(|e| UndoError::SerializationError {
                 reason: e.to_string(),
             })?;
         println!("{json}");
@@ -376,8 +380,9 @@ fn update_undo_history(
 /// Output the result in the appropriate format
 fn output_result(result: &UndoOutput, format: OutputFormat) -> Result<(), UndoError> {
     if format.is_json() {
+        let envelope = SchemaEnvelope::new("undo-response", "single", result);
         let json_output =
-            serde_json::to_string_pretty(result).map_err(|e| UndoError::SerializationError {
+            serde_json::to_string_pretty(&envelope).map_err(|e| UndoError::SerializationError {
                 reason: e.to_string(),
             })?;
         println!("{json_output}");
@@ -398,15 +403,21 @@ fn output_result(result: &UndoOutput, format: OutputFormat) -> Result<(), UndoEr
 /// Output error in the appropriate format
 fn output_error(error: &UndoError, format: OutputFormat) -> Result<(), UndoError> {
     if format.is_json() {
-        let error_json = serde_json::json!({
-            "error": error.to_string(),
-            "error_code": error.error_code(),
-        });
-        let json_output = serde_json::to_string_pretty(&error_json).map_err(|e| {
-            UndoError::SerializationError {
+        let error_detail = ErrorDetail {
+            code: error.error_code().to_string(),
+            message: error.to_string(),
+            exit_code: undo_error_exit_code(error),
+            details: None,
+            suggestion: None,
+        };
+        let payload = UndoErrorPayload {
+            error: error_detail,
+        };
+        let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
+        let json_output =
+            serde_json::to_string_pretty(&envelope).map_err(|e| UndoError::SerializationError {
                 reason: e.to_string(),
-            }
-        })?;
+            })?;
         println!("{json_output}");
     } else {
         eprintln!("Error: {error}");
@@ -416,6 +427,20 @@ fn output_error(error: &UndoError, format: OutputFormat) -> Result<(), UndoError
         }
     }
     Ok(())
+}
+
+fn undo_error_exit_code(error: &UndoError) -> i32 {
+    match error {
+        UndoError::AlreadyPushedToRemote { .. } => UndoExitCode::AlreadyPushed as i32,
+        UndoError::NoUndoHistory => UndoExitCode::NoHistory as i32,
+        UndoError::InvalidState { .. } => UndoExitCode::InvalidState as i32,
+        _ => UndoExitCode::OtherError as i32,
+    }
+}
+
+#[derive(Serialize)]
+struct UndoErrorPayload {
+    error: ErrorDetail,
 }
 
 /// Undo entry in history log
@@ -495,8 +520,10 @@ mod tests {
         };
 
         let json = serde_json::to_string(&output);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("\"total\":0"));
         assert!(json_str.contains("\"can_undo\":false"));
     }
@@ -514,8 +541,10 @@ mod tests {
         };
 
         let json = serde_json::to_string(&entry);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("\"session_name\":\"feature-auth\""));
         assert!(json_str.contains("\"can_undo\":true"));
         // reason_cannot_undo should be skipped when None

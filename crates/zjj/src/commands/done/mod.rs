@@ -29,6 +29,7 @@ use std::{
 
 use anyhow::Result;
 pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput, UndoEntry};
+use zjj_core::json::{ErrorDetail, SchemaEnvelope};
 
 use crate::{
     cli::jj_root,
@@ -41,6 +42,11 @@ pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
     let executor = executor::RealJjExecutor::new();
     let mut bead_repo = bead::MockBeadRepository::new(); // TODO: Replace with real implementation
     let filesystem = filesystem::RealFileSystem::new();
+
+    // Handle detect_conflicts mode early
+    if options.detect_conflicts {
+        return run_conflict_detection_only(&executor, options.format);
+    }
 
     let result = execute_done(options, &executor, &mut bead_repo, &filesystem);
 
@@ -58,6 +64,72 @@ pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
             } else {
                 DoneExitCode::OtherError
             })
+        }
+    }
+}
+
+/// Run conflict detection only mode (--detect-conflicts flag)
+fn run_conflict_detection_only(
+    executor: &dyn executor::JjExecutor,
+    format: zjj_core::OutputFormat,
+) -> Result<DoneExitCode> {
+    let detector = conflict::JjConflictDetector::new(executor);
+
+    match conflict::ConflictDetector::detect_conflicts(&detector) {
+        Ok(result) => {
+            if format.is_json() {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                println!("{}", result.summary);
+                if !result.existing_conflicts.is_empty() {
+                    println!("\nExisting conflicts:");
+                    for file in &result.existing_conflicts {
+                        println!("  - {file}");
+                    }
+                }
+                if !result.overlapping_files.is_empty() {
+                    println!("\nPotential conflicts (files modified in both):");
+                    for file in &result.overlapping_files {
+                        println!("  - {file}");
+                    }
+                }
+                if !result.workspace_only.is_empty() {
+                    println!(
+                        "\nWorkspace-only changes ({} files):",
+                        result.workspace_only.len()
+                    );
+                    for file in result.workspace_only.iter().take(10) {
+                        println!("  - {file}");
+                    }
+                    if result.workspace_only.len() > 10 {
+                        println!("  ... and {} more", result.workspace_only.len() - 10);
+                    }
+                }
+                if result.merge_likely_safe {
+                    println!("\n✅ Merge is likely safe");
+                } else {
+                    println!("\n⚠️  Review conflicts before merging");
+                }
+            }
+
+            if result.has_conflicts() {
+                Ok(DoneExitCode::MergeConflict)
+            } else {
+                Ok(DoneExitCode::Success)
+            }
+        }
+        Err(e) => {
+            let error_msg = e.to_string();
+            if format.is_json() {
+                let error_json = serde_json::json!({
+                    "error": error_msg,
+                    "error_code": "CONFLICT_DETECTION_FAILED",
+                });
+                println!("{}", serde_json::to_string_pretty(&error_json)?);
+            } else {
+                eprintln!("❌ Failed to detect conflicts: {error_msg}");
+            }
+            Ok(DoneExitCode::OtherError)
         }
     }
 }
@@ -210,7 +282,7 @@ fn build_preview(
 ) -> Result<types::DonePreview, DoneError> {
     let uncommitted_files = get_uncommitted_files(root, executor)?;
     let commits_to_merge = get_commits_to_merge(root, executor)?;
-    let potential_conflicts = check_potential_conflicts(root, executor)?;
+    let potential_conflicts = check_potential_conflicts(root, executor);
     let bead_to_close = get_bead_id_for_workspace(workspace_name, bead_repo)?;
     let workspace_path = Path::new(root).join(".zjj/workspaces").join(workspace_name);
 
@@ -292,7 +364,7 @@ fn commit_changes(
 
 /// Check for merge conflicts
 fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<(), DoneError> {
-    let conflicts = check_potential_conflicts(root, executor)?;
+    let conflicts = check_potential_conflicts(root, executor);
 
     if !conflicts.is_empty() {
         return Err(DoneError::MergeConflict { conflicts });
@@ -302,22 +374,23 @@ fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<()
 }
 
 /// Check for potential conflicts by checking divergent changes
-#[allow(clippy::unnecessary_wraps)]
-fn check_potential_conflicts(
-    _root: &str,
-    executor: &dyn executor::JjExecutor,
-) -> Result<Vec<String>, DoneError> {
-    // Try to get log
-    let _output = executor
-        .run(&["log", "-r", "@-", "--no-graph", "-T", "description"])
-        .ok();
+fn check_potential_conflicts(_root: &str, executor: &dyn executor::JjExecutor) -> Vec<String> {
+    let detector = conflict::JjConflictDetector::new(executor);
 
-    #[allow(clippy::unnecessary_wraps)]
-    let _divergent_output = executor.run(&["log", "-r", "@..@", "--no-graph"]).ok();
-
-    // For now, return empty - actual conflict detection happens during rebase
-    #[allow(clippy::unnecessary_wraps)]
-    Ok(Vec::new())
+    match conflict::ConflictDetector::detect_conflicts(&detector) {
+        Ok(result) => {
+            // Combine existing conflicts and overlapping files
+            let mut conflicts = result.existing_conflicts;
+            conflicts.extend(result.overlapping_files);
+            conflicts
+        }
+        Err(e) => {
+            // Log error but don't fail - conflict detection is best-effort
+            // Return empty to allow merge to proceed (conflicts will be caught during merge)
+            eprintln!("Warning: conflict detection failed: {e}");
+            Vec::new()
+        }
+    }
 }
 
 /// Get commits that will be merged
@@ -461,7 +534,8 @@ fn cleanup_workspace(
 /// Output the result in the appropriate format
 fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<()> {
     if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(result)?);
+        let envelope = SchemaEnvelope::new("done-response", "single", result);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else if result.dry_run {
         println!(
             "🔍 Dry-run preview for workspace: {}",
@@ -504,7 +578,7 @@ fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<
         println!();
         println!("NEXT: Start new work with:");
         println!("  zjj spawn <bead-id>   # Create isolated workspace for new task");
-        println!("  bd ready              # See available work items");
+        println!("  br ready              # See available work items");
     }
     Ok(())
 }
@@ -512,13 +586,23 @@ fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<
 /// Output error in the appropriate format
 fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()> {
     if format.is_json() {
-        let error_json = serde_json::json!({
-            "error": error.to_string(),
+        let details = serde_json::json!({
             "error_code": error.error_code(),
             "phase": error.phase().name(),
             "recoverable": error.is_recoverable(),
         });
-        println!("{}", serde_json::to_string_pretty(&error_json)?);
+        let error_detail = ErrorDetail {
+            code: error.error_code().to_string(),
+            message: error.to_string(),
+            exit_code: done_error_exit_code(error),
+            details: Some(details),
+            suggestion: None,
+        };
+        let payload = DoneErrorPayload {
+            error: error_detail,
+        };
+        let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         eprintln!("❌ {error}");
         if error.is_recoverable() {
@@ -526,6 +610,21 @@ fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()>
         }
     }
     Ok(())
+}
+
+fn done_error_exit_code(error: &DoneError) -> i32 {
+    if matches!(error, DoneError::NotInWorkspace { .. }) {
+        DoneExitCode::NotInWorkspace as i32
+    } else if matches!(error, DoneError::MergeConflict { .. }) {
+        DoneExitCode::MergeConflict as i32
+    } else {
+        DoneExitCode::OtherError as i32
+    }
+}
+
+#[derive(serde::Serialize)]
+struct DoneErrorPayload {
+    error: ErrorDetail,
 }
 
 /// Get current commit ID (before merge)
@@ -677,8 +776,10 @@ mod tests {
             ..Default::default()
         };
         let json = serde_json::to_string(&output);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("workspace_name"));
         assert!(json_str.contains("merged"));
     }
@@ -798,8 +899,10 @@ mod tests {
             status: "completed".to_string(),
         };
         let json = serde_json::to_string(&entry);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("test-session"));
         assert!(json_str.contains("abc123"));
         assert!(json_str.contains("pre_merge_commit_id"));

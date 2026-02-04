@@ -353,7 +353,10 @@ fn query_can_run(command: &str) -> Result<()> {
     }
 
     // Check JJ repo
-    let jj_repo = is_jj_repo().unwrap_or(false);
+    let jj_repo = match is_jj_repo() {
+        Ok(value) => value,
+        Err(_) => false,
+    };
     if !jj_repo && requires_jj_repo(command) {
         blockers.push(Blocker {
             check: "jj_repo".to_string(),
@@ -573,8 +576,8 @@ fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
 
     // Check if bead exists and is ready (if provided)
     if let Some(bead) = bead_id {
-        // Try to check bead status with bd command
-        let bd_check = std::process::Command::new("bd")
+        // Try to check bead status with br command
+        let bd_check = std::process::Command::new("br")
             .args(["show", bead, "--json"])
             .output();
 
@@ -589,7 +592,7 @@ fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
                 blockers.push(format!("Bead '{bead}' not found"));
             }
             Err(_) => {
-                // bd not available - not a blocker if bead_id wasn't required
+                // br not available - not a blocker if bead_id wasn't required
             }
         }
     }
@@ -644,7 +647,7 @@ fn query_pending_merges() -> Result<()> {
                                 let output = String::from_utf8_lossy(&o.stdout);
                                 !output.contains("The working copy is clean")
                             })
-                            .unwrap_or(false);
+                            .unwrap_or_else(|_| false);
 
                         SessionWithChanges {
                             name: s.name,
@@ -1094,7 +1097,7 @@ mod tests {
             "blockers": ["max_sessions", "no_jj_repo"]
         });
 
-        assert!(!output["can_spawn"].as_bool().unwrap_or(true));
+        assert!(!output["can_spawn"].as_bool().map_or(true, |value| value));
         assert_eq!(output["blockers"].as_array().map(Vec::len), Some(2));
     }
 
@@ -1158,7 +1161,7 @@ mod tests {
             "error": null
         });
 
-        assert!(locked_output["locked"].as_bool().unwrap_or(false));
+        assert!(locked_output["locked"].as_bool().map_or(false, |v| v));
         assert_eq!(locked_output["holder"].as_str(), Some("agent-123"));
 
         // When unlocked
@@ -1170,7 +1173,9 @@ mod tests {
             "error": null
         });
 
-        assert!(!unlocked_output["locked"].as_bool().unwrap_or(true));
+        assert!(!unlocked_output["locked"]
+            .as_bool()
+            .map_or(true, |value| value));
         assert!(unlocked_output["holder"].is_null());
     }
 

@@ -163,8 +163,8 @@ fn update_bead_status_to_ready(session: &crate::session::Session) -> bool {
         .and_then(|v| v.as_str());
 
     if let Some(bead_id) = bead_id {
-        // Try to run bd update to set status back to ready
-        let result = std::process::Command::new("bd")
+        // Try to run br update to set status back to ready
+        let result = std::process::Command::new("br")
             .args(["update", bead_id, "--status", "ready"])
             .output();
 
@@ -210,8 +210,10 @@ mod tests {
         };
 
         let json = serde_json::to_string(&output);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("\"session_name\":\"test-session\""));
         assert!(json_str.contains("\"workspace_removed\":true"));
     }
@@ -360,7 +362,10 @@ mod tests {
             message: "Aborted session 'test'".to_string(),
         };
 
-        let json_str = serde_json::to_string(&output).unwrap_or_default();
+        let json_str = match serde_json::to_string(&output) {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
 
         assert!(json_str.contains("session_name"));
         assert!(json_str.contains("workspace_removed"));

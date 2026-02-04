@@ -15,7 +15,7 @@
 //! All fallible operations return `Result<T, Error>`. Use:
 //! - `?` operator for propagation
 //! - `map`, `and_then` combinators for transformation
-//! - `unwrap_or_default()`, `unwrap_or_else()` for defaults
+//! - `match` / `map_or` / `unwrap_or_else` for defaults
 //!
 //! Allow clippy casts from u128 to u32 in work.rs
 #![allow(clippy::cast_possible_truncation)]
@@ -32,7 +32,7 @@
 //! All fallible operations return `Result<T, Error>`. Use:
 //! - `?` operator for propagation
 //! - `map`, `and_then` combinators for transformation
-//! - `unwrap_or_default()`, `unwrap_or_else()` for defaults
+//! - `match` / `map_or` / `unwrap_or_else` for defaults
 
 pub mod agents;
 pub mod checkpoint;
@@ -149,9 +149,11 @@ mod tests {
         let result = ConfigBuilder::new().with_name("test").build();
         assert!(result.is_ok());
 
-        // Use map to extract and check - no unwrap needed
-        let name_matches = result.map(|c| c.name == "test").unwrap_or(false);
-        assert!(name_matches);
+        let Ok(config) = result else {
+            assert!(false, "expected config to build");
+            return;
+        };
+        assert_eq!(config.name, "test");
     }
 
     #[test]

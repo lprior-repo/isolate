@@ -35,7 +35,12 @@ fn build_diff_args(stat: bool, main_branch: &str) -> Vec<String> {
         "diff".to_string(),
         if stat { "--stat" } else { "--git" }.to_string(),
     ];
-    args.extend_from_slice(&["-r".to_string(), format!("{main_branch}..@")]);
+    args.extend_from_slice(&[
+        "--from".to_string(),
+        main_branch.to_string(),
+        "--to".to_string(),
+        "@".to_string(),
+    ]);
     args
 }
 

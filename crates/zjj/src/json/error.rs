@@ -3,7 +3,7 @@
 use anyhow::Error;
 use serde::Serialize;
 use zjj_core::{
-    json::{ErrorCode, ErrorDetail, JsonError},
+    json::{ErrorCode, ErrorDetail, JsonError, SchemaEnvelope},
     Error as ZjjError,
 };
 
@@ -29,7 +29,12 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
     let json_error = error_to_json_error(error);
     let exit_code = json_error.error.exit_code;
 
-    if let Ok(json_str) = serde_json::to_string_pretty(&json_error) {
+    let payload = ErrorEnvelopePayload {
+        error: json_error.error,
+    };
+    let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
+
+    if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
         println!("{json_str}");
     } else {
         // If JSON serialization fails, output a minimal JSON error to stdout
@@ -37,6 +42,11 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
     }
 
     std::process::exit(exit_code);
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorEnvelopePayload {
+    error: ErrorDetail,
 }
 
 /// Convert an `anyhow::Error` to a `JsonError`
@@ -194,8 +204,8 @@ const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
         ErrorCode::ConfigNotFound => Some("Run 'zjj init' to create default configuration"),
         ErrorCode::HookFailed => Some("Check hook scripts in .zjj/hooks/, or use --no-hooks to skip"),
         ErrorCode::SpawnNotOnMain => Some("Switch to main branch: jj checkout main"),
-        ErrorCode::SpawnInvalidBeadStatus => Some("Check bead status with: bd show <bead-id>"),
-        ErrorCode::SpawnBeadNotFound => Some("List available beads with: bd ready"),
+        ErrorCode::SpawnInvalidBeadStatus => Some("Check bead status with: br show <bead-id>"),
+        ErrorCode::SpawnBeadNotFound => Some("List available beads with: br ready"),
         ErrorCode::SpawnWorkspaceCreationFailed => {
             Some("Check disk space and permissions, or run: zjj doctor")
         }
@@ -209,7 +219,7 @@ const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
             Some("Resolve conflicts manually in workspace, or use: jj abandon")
         }
         ErrorCode::SpawnCleanupFailed => Some("Manually clean workspace: rm -rf .zjj/workspaces/<bead-id>"),
-        ErrorCode::SpawnDatabaseError => Some("Run: bd sync or zjj doctor --fix"),
+        ErrorCode::SpawnDatabaseError => Some("Run: br sync or zjj doctor --fix"),
         ErrorCode::SpawnJjCommandFailed => {
             Some("Check JJ is working: jj status, or run: zjj doctor")
         }

@@ -191,7 +191,7 @@ fn print_batch_human(result: &BatchResult) {
             .id
             .as_ref()
             .map(|id| format!("[{id}] "))
-            .unwrap_or_default();
+            .map_or(String::new(), |v| v);
         println!("{status_icon} {id_str}{}", cmd_result.command);
 
         if let Some(e) = cmd_result.error.as_ref() {
@@ -705,7 +705,10 @@ list
                 error: None,
             };
 
-            let duration = result.duration_ms.unwrap_or(0);
+            let duration = match result.duration_ms {
+                Some(value) => value,
+                None => 0,
+            };
             assert!(duration < 60000, "Single command should not take 60s");
         }
     }

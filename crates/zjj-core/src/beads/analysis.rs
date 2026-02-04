@@ -6,8 +6,10 @@ use chrono::{Duration, Utc};
 use im::HashMap;
 use itertools::Itertools;
 
-use super::query::matches_filter;
-use super::types::{BeadFilter, BeadIssue, BeadsSummary, IssueStatus};
+use super::{
+    query::matches_filter,
+    types::{BeadFilter, BeadIssue, BeadsSummary, IssueStatus},
+};
 
 /// Generate a summary of issues.
 #[must_use]
@@ -70,7 +72,9 @@ pub fn group_by_status(issues: &[BeadIssue]) -> HashMap<IssueStatus, Vec<BeadIss
 
 /// Group issues by their type.
 #[must_use]
-pub fn group_by_type(issues: &[BeadIssue]) -> HashMap<Option<super::types::IssueType>, Vec<BeadIssue>> {
+pub fn group_by_type(
+    issues: &[BeadIssue],
+) -> HashMap<Option<super::types::IssueType>, Vec<BeadIssue>> {
     issues
         .iter()
         .map(|issue| (issue.issue_type.clone(), issue.clone()))
@@ -205,7 +209,7 @@ pub fn calculate_critical_path(issues: &[BeadIssue]) -> Vec<BeadIssue> {
     all_paths
         .into_iter()
         .max_by_key(std::vec::Vec::len)
-        .unwrap_or_default()
+        .unwrap_or_else(|| Vec::new())
 }
 
 /// Extract issue IDs.

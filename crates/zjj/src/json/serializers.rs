@@ -81,6 +81,53 @@ pub struct FileDiffStat {
     pub status: String,
 }
 
+/// Template information for list output
+#[derive(Debug, Serialize)]
+#[allow(dead_code)]
+pub struct TemplateInfo {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+/// Template list command JSON output
+#[derive(Debug, Serialize)]
+#[allow(dead_code)]
+pub struct TemplateListOutput {
+    pub templates: Vec<TemplateInfo>,
+    pub count: usize,
+}
+
+/// Template create command JSON output
+#[derive(Debug, Serialize)]
+#[allow(dead_code)]
+pub struct TemplateCreateOutput {
+    pub name: String,
+    pub message: String,
+}
+
+/// Template show command JSON output
+#[derive(Debug, Serialize)]
+#[allow(dead_code)]
+pub struct TemplateShowOutput {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub layout: String,
+}
+
+/// Template delete command JSON output
+#[derive(Debug, Serialize)]
+#[allow(dead_code)]
+pub struct TemplateDeleteOutput {
+    pub name: String,
+    pub message: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

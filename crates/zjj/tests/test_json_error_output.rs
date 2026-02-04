@@ -32,6 +32,11 @@ fn test_init_json_error_when_already_initialized() {
 
         // Check for required error fields
         if let Ok(json) = parsed {
+            assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+            assert!(
+                json.get("schema_type").is_some(),
+                "Should have 'schema_type' field"
+            );
             assert!(json.get("success").is_some(), "Should have 'success' field");
             assert!(json.get("error").is_some(), "Should have 'error' field");
 
@@ -73,6 +78,12 @@ fn test_list_json_error_without_init() {
             Some(false),
             "success should be false"
         );
+        assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+        assert_eq!(
+            json.get("schema_type").and_then(serde_json::Value::as_str),
+            Some("single"),
+            "schema_type should be 'single'"
+        );
         assert!(json.get("error").is_some(), "Should have 'error' field");
 
         let error = &json["error"];
@@ -112,6 +123,12 @@ fn test_focus_json_error_nonexistent_session() {
             json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
+        );
+        assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+        assert_eq!(
+            json.get("schema_type").and_then(serde_json::Value::as_str),
+            Some("single"),
+            "schema_type should be 'single'"
         );
         assert!(json.get("error").is_some(), "Should have 'error' field");
 
@@ -165,6 +182,12 @@ fn test_remove_json_error_nonexistent_session() {
             Some(false),
             "success should be false"
         );
+        assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+        assert_eq!(
+            json.get("schema_type").and_then(serde_json::Value::as_str),
+            Some("single"),
+            "schema_type should be 'single'"
+        );
         assert!(json.get("error").is_some(), "Should have 'error' field");
     }
 }
@@ -194,6 +217,12 @@ fn test_add_json_error_invalid_name() {
             json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
+        );
+        assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+        assert_eq!(
+            json.get("schema_type").and_then(serde_json::Value::as_str),
+            Some("single"),
+            "schema_type should be 'single'"
         );
         assert!(json.get("error").is_some(), "Should have 'error' field");
 
@@ -235,6 +264,12 @@ fn test_add_json_error_duplicate_session() {
             Some(false),
             "success should be false"
         );
+        assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+        assert_eq!(
+            json.get("schema_type").and_then(serde_json::Value::as_str),
+            Some("single"),
+            "schema_type should be 'single'"
+        );
         assert!(json.get("error").is_some(), "Should have 'error' field");
 
         let error = &json["error"];
@@ -271,6 +306,12 @@ fn test_status_json_error_without_init() {
             Some(false),
             "success should be false"
         );
+        assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+        assert_eq!(
+            json.get("schema_type").and_then(serde_json::Value::as_str),
+            Some("single"),
+            "schema_type should be 'single'"
+        );
         assert!(json.get("error").is_some(), "Should have 'error' field");
     }
 }
@@ -299,6 +340,12 @@ fn test_sync_json_error_without_init() {
             json.get("success").and_then(serde_json::Value::as_bool),
             Some(false),
             "success should be false"
+        );
+        assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+        assert_eq!(
+            json.get("schema_type").and_then(serde_json::Value::as_str),
+            Some("single"),
+            "schema_type should be 'single'"
         );
         assert!(json.get("error").is_some(), "Should have 'error' field");
     }
@@ -372,6 +419,64 @@ fn test_diff_json_error_nonexistent_session() {
             Some(false),
             "success should be false"
         );
+        assert!(json.get("$schema").is_some(), "Should have '$schema' field");
+        assert_eq!(
+            json.get("schema_type").and_then(serde_json::Value::as_str),
+            Some("single"),
+            "schema_type should be 'single'"
+        );
         assert!(json.get("error").is_some(), "Should have 'error' field");
     }
+}
+
+#[test]
+fn test_error_response_schema_contract() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["add", "", "--json"]);
+    assert!(!result.success, "add should fail for empty name");
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(result.stdout.trim()).expect("Output should be JSON");
+
+    assert_eq!(
+        parsed.get("$schema").and_then(|v| v.as_str()),
+        Some("zjj://error-response/v1"),
+        "$schema must point to error-response"
+    );
+    assert_eq!(
+        parsed.get("_schema_version").and_then(|v| v.as_str()),
+        Some("1.0"),
+        "Schema version should be 1.0"
+    );
+    assert_eq!(
+        parsed.get("schema_type").and_then(|v| v.as_str()),
+        Some("single"),
+        "schema_type should be single"
+    );
+    assert_eq!(
+        parsed.get("success").and_then(serde_json::Value::as_bool),
+        Some(false),
+        "success should be false"
+    );
+
+    let error_obj = parsed
+        .get("error")
+        .expect("Error field should be present")
+        .as_object()
+        .expect("Error field should be object");
+
+    assert!(error_obj.get("code").is_some(), "Error should expose code");
+    assert_eq!(
+        error_obj.get("exit_code").and_then(|v| v.as_i64()),
+        Some(1),
+        "Validation errors must expose exit_code 1"
+    );
+    assert!(
+        error_obj.get("message").is_some(),
+        "Error should expose message"
+    );
 }

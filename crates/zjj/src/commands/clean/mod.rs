@@ -1,12 +1,14 @@
 //! Clean stale sessions (sessions where workspace no longer exists)
 
-use std::{io::Write, path::Path};
+use std::{io::Write, path::Path, time::Duration};
 
 use anyhow::Result;
 use serde::Serialize;
 use zjj_core::OutputFormat;
 
 use crate::commands::get_session_db;
+
+pub mod periodic_cleanup;
 
 /// Options for the clean command
 #[derive(Debug, Clone, Default)]
@@ -17,6 +19,10 @@ pub struct CleanOptions {
     pub dry_run: bool,
     /// Output format
     pub format: OutputFormat,
+    /// Run periodic cleanup daemon (1hr interval)
+    pub periodic: bool,
+    /// Age threshold for periodic cleanup (seconds, default 7200 = 2hr)
+    pub age_threshold: Option<u64>,
 }
 
 /// Output for clean command in JSON mode
@@ -30,11 +36,17 @@ pub struct CleanOutput {
 /// Run the clean command with options
 ///
 /// Uses Railway-Oriented Programming to handle the workflow:
-/// 1. Load all sessions from database
-/// 2. Filter to find stale sessions (workspace missing)
-/// 3. Handle dry-run or interactive confirmation
-/// 4. Remove stale sessions if confirmed
+/// 1. Check if periodic mode requested
+/// 2. Load all sessions from database
+/// 3. Filter to find stale sessions (workspace missing)
+/// 4. Handle dry-run or interactive confirmation
+/// 5. Remove stale sessions if confirmed
 pub fn run_with_options(options: &CleanOptions) -> Result<()> {
+    // Handle periodic mode
+    if options.periodic {
+        return run_periodic_mode(options);
+    }
+
     let db = get_session_db()?;
 
     // 1. List all sessions and filter to stale ones using functional pipeline
@@ -185,6 +197,39 @@ fn confirm_removal(stale_names: &[String]) -> Result<bool> {
 
     let response = response.trim().to_lowercase();
     Ok(response == "y" || response == "yes")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PERIODIC MODE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Run periodic cleanup daemon
+///
+/// Spawns tokio runtime and runs indefinitely
+fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
+    let config = periodic_cleanup::PeriodicCleanupConfig {
+        interval: Duration::from_secs(3600), // 1 hour
+        age_threshold: Duration::from_secs(options.age_threshold.unwrap_or(7200)), // 2 hours default
+        dry_run: options.dry_run,
+        format: options.format,
+    };
+
+    // Create tokio runtime for async execution
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| anyhow::Error::msg(format!("Failed to create tokio runtime: {e}")))?;
+
+    if options.format.is_json() {
+        println!(r#"{{"status": "starting", "mode": "periodic", "interval_secs": 3600, "age_threshold_secs": {}}}"#, config.age_threshold.as_secs());
+    } else {
+        println!("Starting periodic cleanup daemon...");
+        println!("  Interval: {} minutes", config.interval.as_secs() / 60);
+        println!("  Age threshold: {} hours", config.age_threshold.as_secs() / 3600);
+        println!("  Dry run: {}", config.dry_run);
+        println!();
+    }
+
+    // Run periodic cleanup
+    runtime.block_on(periodic_cleanup::run_periodic_cleanup(config))
 }
 
 #[cfg(test)]

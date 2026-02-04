@@ -493,8 +493,10 @@ mod tests {
     fn test_context_output_serialization() {
         let context = sample_context();
         let json = serde_json::to_string(&context);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("location"));
         assert!(json_str.contains("repository"));
         assert!(json_str.contains("health"));
@@ -506,8 +508,10 @@ mod tests {
     fn test_location_main_serialization() {
         let location = Location::Main;
         let json = serde_json::to_string(&location);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("main"));
     }
 
@@ -518,8 +522,10 @@ mod tests {
             path: "/path/to/ws".to_string(),
         };
         let json = serde_json::to_string(&location);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("workspace"));
         assert!(json_str.contains("test-ws"));
         assert!(json_str.contains("/path/to/ws"));
@@ -575,8 +581,10 @@ mod tests {
             last_synced: None,
         };
         let json = serde_json::to_string(&session);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("name"));
         assert!(json_str.contains("status"));
         assert!(json_str.contains("created_at"));
@@ -621,8 +629,10 @@ mod tests {
             has_conflicts: false,
         };
         let json = serde_json::to_string(&repo);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("uncommitted_files"));
         assert!(json_str.contains("commits_ahead"));
         assert!(json_str.contains("has_conflicts"));
@@ -663,8 +673,10 @@ mod tests {
             in_progress_count: 2,
         };
         let json = serde_json::to_string(&beads);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("active"));
         assert!(json_str.contains("blocked_by"));
         assert!(json_str.contains("ready_count"));
@@ -700,8 +712,10 @@ mod tests {
             issues: vec!["warning 1".to_string()],
         };
         let json = serde_json::to_string(&health);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("warn"));
         assert!(json_str.contains("issues"));
     }
@@ -777,7 +791,10 @@ mod tests {
         let json_value = serde_json::to_value(&context);
         assert!(json_value.is_ok());
 
-        let value = json_value.unwrap_or_default();
+        let Ok(value) = json_value else {
+            assert!(false, "serialization failed");
+            return;
+        };
         // location.type should become /location/type
         let pointer = "/location/type".to_string();
         let result = value.pointer(&pointer);
@@ -790,7 +807,10 @@ mod tests {
         let json_value = serde_json::to_value(&context);
         assert!(json_value.is_ok());
 
-        let value = json_value.unwrap_or_default();
+        let Ok(value) = json_value else {
+            assert!(false, "serialization failed");
+            return;
+        };
         // repository.branch should be accessible
         let result = value.pointer("/repository/branch");
         assert!(result.is_some());
