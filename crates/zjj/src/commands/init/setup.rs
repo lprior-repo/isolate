@@ -250,9 +250,7 @@ pub(super) fn create_agents_md(repo_root: &Path) -> Result<()> {
 
 /// Create CLAUDE.md file from template
 ///
-/// Part of the template rendering system. Not yet used but available for
-/// future init scaffolding features.
-#[allow(dead_code)]
+/// Part of the template rendering system for agent-ready projects.
 pub(super) fn create_claude_md(repo_root: &Path) -> Result<()> {
     let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::ClaudeMd, &context)?;
@@ -304,9 +302,7 @@ pub(super) fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
 
 /// Create documentation files from templates
 ///
-/// Part of the template rendering system. Not yet used but available for
-/// future init scaffolding features.
-#[allow(dead_code)]
+/// Creates comprehensive documentation for agent-ready projects.
 pub(super) fn create_docs(repo_root: &Path) -> Result<()> {
     let docs_dir = repo_root.join("docs");
     fs::create_dir_all(&docs_dir).context("Failed to create docs directory")?;
