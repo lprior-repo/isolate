@@ -875,8 +875,7 @@ mod tests {
         let result = project_config_path();
         assert!(result.is_ok());
         let Ok(path) = result else {
-            assert!(false, "project_config_path failed");
-            return;
+            panic!("project_config_path failed");
         };
         assert!(path.ends_with("config.toml"));
     }

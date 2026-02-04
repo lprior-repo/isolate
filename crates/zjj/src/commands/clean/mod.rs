@@ -209,7 +209,7 @@ fn confirm_removal(stale_names: &[String]) -> Result<bool> {
 fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
     let config = periodic_cleanup::PeriodicCleanupConfig {
         interval: Duration::from_secs(3600), // 1 hour
-        age_threshold: Duration::from_secs(options.age_threshold.unwrap_or(7200)), // 2 hours default
+        age_threshold: Duration::from_secs(options.age_threshold.unwrap_or(7200)), /* 2 hours default */
         dry_run: options.dry_run,
         format: options.format,
     };
@@ -219,11 +219,17 @@ fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
         .map_err(|e| anyhow::Error::msg(format!("Failed to create tokio runtime: {e}")))?;
 
     if options.format.is_json() {
-        println!(r#"{{"status": "starting", "mode": "periodic", "interval_secs": 3600, "age_threshold_secs": {}}}"#, config.age_threshold.as_secs());
+        println!(
+            r#"{{"status": "starting", "mode": "periodic", "interval_secs": 3600, "age_threshold_secs": {}}}"#,
+            config.age_threshold.as_secs()
+        );
     } else {
         println!("Starting periodic cleanup daemon...");
         println!("  Interval: {} minutes", config.interval.as_secs() / 60);
-        println!("  Age threshold: {} hours", config.age_threshold.as_secs() / 3600);
+        println!(
+            "  Age threshold: {} hours",
+            config.age_threshold.as_secs() / 3600
+        );
         println!("  Dry run: {}", config.dry_run);
         println!();
     }

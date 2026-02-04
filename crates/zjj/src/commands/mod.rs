@@ -27,6 +27,7 @@ pub mod init;
 pub mod integrity;
 pub mod introspect;
 pub mod list;
+pub mod lock;
 pub mod pane;
 pub mod query;
 pub mod queue;

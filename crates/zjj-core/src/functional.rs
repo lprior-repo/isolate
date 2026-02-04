@@ -120,8 +120,7 @@ mod tests {
 
         let result = composed(5);
         let Ok(value) = result else {
-            assert!(false, "composition failed");
-            return;
+            panic!("composition failed");
         };
         assert_eq!(value, 11);
     }
@@ -150,8 +149,7 @@ mod tests {
         let items = vec![1, 2, 3, 4, 5];
         let result = fold_result(items, 0, |acc, x| Ok(acc + x));
         let Ok(value) = result else {
-            assert!(false, "fold failed");
-            return;
+            panic!("fold failed");
         };
         assert_eq!(value, 15);
     }
@@ -161,8 +159,7 @@ mod tests {
         let items = vec![1, 2, 3];
         let result = map_result(items, |x| Ok(x * 2));
         let Ok(value) = result else {
-            assert!(false, "map failed");
-            return;
+            panic!("map failed");
         };
         assert_eq!(value, vec![2, 4, 6]);
     }
@@ -172,8 +169,7 @@ mod tests {
         let items = vec![1, 2, 3, 4, 5];
         let result = filter_result(items, |x| Ok(x % 2 == 0));
         let Ok(value) = result else {
-            assert!(false, "filter failed");
-            return;
+            panic!("filter failed");
         };
         assert_eq!(value, vec![2, 4]);
     }

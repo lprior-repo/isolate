@@ -559,7 +559,7 @@ impl LayoutConfig {
 ```rust
 let config = LayoutConfig::new("my-session".to_string(), workspace_path)
     .with_claude_command("nvim".to_string())
-    .with_beads_command("bd list".to_string())
+    .with_beads_command("br list".to_string())
     .with_tab_prefix("dev".to_string());
 
 // Tab name: "dev:my-session"
