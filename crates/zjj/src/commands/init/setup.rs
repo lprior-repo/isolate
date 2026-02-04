@@ -237,9 +237,7 @@ pub(super) fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
 
 /// Create AGENTS.md file from template
 ///
-/// Part of the template rendering system. Not yet used but available for
-/// future init scaffolding features.
-#[allow(dead_code)]
+/// Part of the template rendering system for agent-ready projects.
 pub(super) fn create_agents_md(repo_root: &Path) -> Result<()> {
     let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::AgentsMd, &context)?;
