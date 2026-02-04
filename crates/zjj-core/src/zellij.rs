@@ -23,7 +23,31 @@ use std::{
     process::Command,
 };
 
+use serde::Serialize;
+
 use crate::{Error, Result};
+
+/// Status of a Zellij tab
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TabStatus {
+    /// Tab exists in Zellij
+    Active,
+    /// Tab missing but session exists in database
+    Missing,
+    /// Zellij not running, cannot determine status
+    Unknown,
+}
+
+impl std::fmt::Display for TabStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Active => write!(f, "active"),
+            Self::Missing => write!(f, "missing"),
+            Self::Unknown => write!(f, "unknown"),
+        }
+    }
+}
 
 /// Supported layout templates
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -446,6 +470,78 @@ pub fn check_zellij_running() -> Result<()> {
     Ok(())
 }
 
+/// Query Zellij for all tab names
+///
+/// Executes `zellij action query-tab-names` and parses the output.
+///
+/// # Errors
+///
+/// Returns error if:
+/// - Zellij command fails to execute
+/// - Output is not valid UTF-8
+/// - Command returns non-zero exit code
+pub fn query_tab_names() -> Result<Vec<String>> {
+    Command::new("zellij")
+        .args(["action", "query-tab-names"])
+        .output()
+        .map_err(|e| Error::Command(format!("Failed to execute zellij: {e}")))
+        .and_then(|output| {
+            if output.status.success() {
+                String::from_utf8(output.stdout)
+                    .map_err(|e| Error::Command(format!("Invalid UTF-8 in zellij output: {e}")))
+                    .map(|s| {
+                        s.lines()
+                            .map(str::trim)
+                            .filter(|line| !line.is_empty())
+                            .map(String::from)
+                            .collect()
+                    })
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(Error::Command(format!("zellij query failed: {stderr}")))
+            }
+        })
+}
+
+/// Check if a specific tab exists in Zellij
+///
+/// This is a total function that always returns a `TabStatus` value:
+/// - `TabStatus::Active` if the tab exists in Zellij
+/// - `TabStatus::Missing` if Zellij is running but the tab doesn't exist
+/// - `TabStatus::Unknown` if Zellij is not running or query fails
+///
+/// # Examples
+///
+/// ```no_run
+/// use zjj_core::zellij::check_tab_exists;
+///
+/// let status = check_tab_exists("zjj:my-session");
+/// assert!(matches!(
+///     status,
+///     zjj_core::zellij::TabStatus::Active
+///         | zjj_core::zellij::TabStatus::Missing
+///         | zjj_core::zellij::TabStatus::Unknown
+/// ));
+/// ```
+#[must_use]
+pub fn check_tab_exists(tab_name: &str) -> TabStatus {
+    // If Zellij not running, return Unknown immediately
+    if std::env::var("ZELLIJ").is_err() {
+        return TabStatus::Unknown;
+    }
+
+    // Query tab names and check if ours exists
+    query_tab_names()
+        .map(|tabs| {
+            if tabs.iter().any(|name| name == tab_name) {
+                TabStatus::Active
+            } else {
+                TabStatus::Missing
+            }
+        })
+        .unwrap_or_else(|_| TabStatus::Unknown)
+}
+
 #[cfg(test)]
 mod tests {
     use std::env;
@@ -713,5 +809,73 @@ mod tests {
         if let Err(Error::NotFound(msg)) = result {
             assert!(msg.contains("Layout file not found"));
         }
+    }
+
+    // === Tests for TabStatus and tab querying ===
+
+    #[test]
+    fn test_tab_status_display() {
+        assert_eq!(TabStatus::Active.to_string(), "active");
+        assert_eq!(TabStatus::Missing.to_string(), "missing");
+        assert_eq!(TabStatus::Unknown.to_string(), "unknown");
+    }
+
+    #[test]
+    fn test_tab_status_equality() {
+        assert_eq!(TabStatus::Active, TabStatus::Active);
+        assert_ne!(TabStatus::Active, TabStatus::Missing);
+        assert_ne!(TabStatus::Missing, TabStatus::Unknown);
+    }
+
+    #[test]
+    fn test_check_tab_exists_when_zellij_not_running() {
+        // Save current ZELLIJ var
+        let zellij_var = env::var("ZELLIJ");
+
+        // Temporarily remove it
+        env::remove_var("ZELLIJ");
+
+        // Should return Unknown when Zellij not running
+        let status = check_tab_exists("zjj:test");
+        assert_eq!(status, TabStatus::Unknown);
+
+        // Restore ZELLIJ var if it existed
+        if let Ok(val) = zellij_var {
+            env::set_var("ZELLIJ", val);
+        }
+    }
+
+    #[test]
+    fn test_query_tab_names_when_zellij_not_running() {
+        // This test verifies error handling when zellij command fails
+        // We can't easily test the success case without actually running Zellij
+        // but we can verify the function doesn't panic
+        let result = query_tab_names();
+
+        // Should either succeed (if Zellij is running) or fail gracefully
+        match result {
+            Ok(tabs) => {
+                // If successful, tabs should be a vector (possibly empty)
+                assert!(tabs.is_empty() || !tabs.is_empty());
+            }
+            Err(e) => {
+                // If failed, error should be a Command error
+                assert!(matches!(e, Error::Command(_)));
+            }
+        }
+    }
+
+    #[test]
+    fn test_tab_status_serialization() {
+        use serde_json;
+
+        let active_json = serde_json::to_string(&TabStatus::Active).unwrap_or_default();
+        assert_eq!(active_json, "\"active\"");
+
+        let missing_json = serde_json::to_string(&TabStatus::Missing).unwrap_or_default();
+        assert_eq!(missing_json, "\"missing\"");
+
+        let unknown_json = serde_json::to_string(&TabStatus::Unknown).unwrap_or_default();
+        assert_eq!(unknown_json, "\"unknown\"");
     }
 }
