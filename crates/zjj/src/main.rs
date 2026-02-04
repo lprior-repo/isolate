@@ -6,6 +6,8 @@ use std::process;
 
 use anyhow::Result;
 use clap::{Arg, Command as ClapCommand};
+use serde_json;
+use zjj_core::json::SchemaEnvelope;
 
 mod cli;
 mod commands;
@@ -16,10 +18,11 @@ mod selector;
 mod session;
 
 use commands::{
-    abort, add, agents, ai, attach, batch, can_i, checkpoint, claim, clean, completions, config,
-    context, contract, dashboard, diff, doctor, done, events, examples, export_import, focus, init,
-    integrity, introspect, list, pane, query, queue, remove, rename, revert, session_mgmt, spawn,
-    status, switch, sync, undo, validate, whatif, whereami, whoami, work,
+    abort, add, agents, ai, attach, batch, bookmark, can_i, checkpoint, claim, clean, completions,
+    config, context, contract, dashboard, diff, doctor, done, events, examples, export_import,
+    focus, init, integrity, introspect, list, pane, query, queue, remove, rename, revert,
+    session_mgmt, spawn, status, switch, sync, template, undo, validate, whatif, whereami, whoami,
+    work,
 };
 
 /// Generate JSON OUTPUT documentation for command help
@@ -319,6 +322,23 @@ mod json_docs {
     }
 }
 
+fn after_help_text(examples: &[&str], json_output: Option<&'static str>) -> String {
+    let mut text = String::from("EXAMPLES:\n");
+    for example in examples {
+        text.push_str("  ");
+        text.push_str(example);
+        text.push('\n');
+    }
+    if let Some(json) = json_output {
+        text.push('\n');
+        text.push_str(json);
+        if !json.ends_with('\n') {
+            text.push('\n');
+        }
+    }
+    text
+}
+
 fn cmd_init() -> ClapCommand {
     ClapCommand::new("init")
         .about("Initialize zjj in a JJ repository (or create one)")
@@ -328,6 +348,14 @@ fn cmd_init() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj init                        Initialize ZJJ in the current JJ repository",
+                "zjj init --json                 Output JSON metadata for automation",
+                "zjj init                        Reinitialize after deleting .zjj to refresh helpers",
+            ],
+            Some(json_docs::init()),
+        ))
 }
 
 fn cmd_attach() -> ClapCommand {
@@ -359,15 +387,17 @@ fn cmd_add() -> ClapCommand {
             Use this when YOU will work in the session.\n\n\
             For automated agent workflows, use 'zjj spawn' instead.",
         )
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj add feature-auth              Create session with standard layout\n  \
-            zjj add bugfix-123 --no-open       Create without opening Zellij tab\n  \
-            zjj add experiment -t minimal      Use minimal layout template\n  \
-            zjj add quick-test --no-hooks      Skip post-create hooks\n  \
-            zjj add work --bead zjj-abc123     Associate with bead zjj-abc123\n  \
-            zjj add --example-json            Show example JSON output",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj add feature-auth              Create session with standard layout",
+                "zjj add bugfix-123 --no-open       Create without opening Zellij tab",
+                "zjj add experiment -t minimal      Use minimal layout template",
+                "zjj add quick-test --no-hooks      Skip post-create hooks",
+                "zjj add work --bead zjj-abc123     Associate with bead zjj-abc123",
+                "zjj add --example-json            Show example JSON output",
+            ],
+            Some(json_docs::add()),
+        ))
         .arg(
             Arg::new("name")
                 .required_unless_present("example-json")
@@ -525,6 +555,14 @@ fn cmd_agents() -> ClapCommand {
 fn cmd_list() -> ClapCommand {
     ClapCommand::new("list")
         .about("List all sessions")
+        .after_help(after_help_text(
+            &[
+                "zjj list                        Show all active sessions",
+                "zjj list --verbose              Include workspace paths and bead titles",
+                "zjj list --all --json           Dump every session in JSON",
+            ],
+            Some(json_docs::list()),
+        ))
         .arg(
             Arg::new("all")
                 .long("all")
@@ -559,16 +597,126 @@ fn cmd_list() -> ClapCommand {
         )
 }
 
+#[allow(clippy::too_many_lines)]
+fn cmd_bookmark() -> ClapCommand {
+    ClapCommand::new("bookmark")
+        .about("Manage JJ bookmarks/branches")
+        .long_about(
+            "Manage bookmarks (branches) in JJ workspaces.\n\n\
+            zjj wraps JJ completely - use 'zjj bookmark' not 'jj bookmark'.\n\
+            Provides: list, create, delete, move operations.",
+        )
+        .subcommand_required(true)
+        .subcommand(
+            ClapCommand::new("list")
+                .about("List bookmarks in a session workspace")
+                .arg(
+                    Arg::new("session")
+                        .value_name("SESSION")
+                        .help("Session name (uses current workspace if omitted)"),
+                )
+                .arg(
+                    Arg::new("all")
+                        .long("all")
+                        .short('a')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Show all bookmarks including remote"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("create")
+                .about("Create a new bookmark at current revision")
+                .arg(
+                    Arg::new("name")
+                        .required(true)
+                        .help("Name for the new bookmark"),
+                )
+                .arg(
+                    Arg::new("session")
+                        .value_name("SESSION")
+                        .help("Session name (uses current workspace if omitted)"),
+                )
+                .arg(
+                    Arg::new("push")
+                        .long("push")
+                        .short('p')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Push bookmark to remote after creation"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("delete")
+                .about("Delete a bookmark")
+                .arg(
+                    Arg::new("name")
+                        .required(true)
+                        .help("Name of the bookmark to delete"),
+                )
+                .arg(
+                    Arg::new("session")
+                        .value_name("SESSION")
+                        .help("Session name (uses current workspace if omitted)"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("move")
+                .about("Move a bookmark to a different revision")
+                .arg(
+                    Arg::new("name")
+                        .required(true)
+                        .help("Name of the bookmark to move"),
+                )
+                .arg(
+                    Arg::new("to")
+                        .long("to")
+                        .required(true)
+                        .value_name("REVISION")
+                        .help("Target revision (commit hash or revset)"),
+                )
+                .arg(
+                    Arg::new("session")
+                        .value_name("SESSION")
+                        .help("Session name (uses current workspace if omitted)"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+}
+
 fn cmd_remove() -> ClapCommand {
     ClapCommand::new("remove")
         .about("Remove a session and its workspace")
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj remove old-feature            Remove with confirmation prompt\n  \
-            zjj remove test-session -f        Force removal without prompt\n  \
-            zjj remove feature-x --merge       Merge changes to main first\n  \
-            zjj remove experiment -k -f       Keep branch, force removal",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj remove old-feature            Remove with confirmation prompt",
+                "zjj remove test-session -f        Force removal without prompt",
+                "zjj remove feature-x --merge       Merge changes to main first",
+                "zjj remove experiment -k -f       Keep branch, force removal",
+            ],
+            Some(json_docs::remove()),
+        ))
         .arg(
             Arg::new("name")
                 .required(true)
@@ -617,12 +765,14 @@ fn cmd_focus() -> ClapCommand {
             "Use this when you are already inside Zellij and want to switch tabs.\n\n\
             If you are outside Zellij, use 'zjj attach' to enter the session instead.",
         )
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj focus feature-auth            Switch to session's Zellij tab\n  \
-            zjj focus                         Interactive session selection\n  \
-            zjj focus bugfix-123 --json       Get JSON output of focus operation",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj focus feature-auth            Switch to session's Zellij tab",
+                "zjj focus                         Interactive session selection",
+                "zjj focus bugfix-123 --json       Get JSON output of focus operation",
+            ],
+            Some(json_docs::focus()),
+        ))
         .arg(
             Arg::new("name")
                 .required(false)
@@ -646,6 +796,14 @@ fn cmd_focus() -> ClapCommand {
 fn cmd_status() -> ClapCommand {
     ClapCommand::new("status")
         .about("Show detailed session status")
+        .after_help(after_help_text(
+            &[
+                "zjj status                      Show status for all sessions",
+                "zjj status feature-auth         Inspect a specific workspace",
+                "zjj status --watch              Watch live updates (JSON available with --json)",
+            ],
+            Some(json_docs::status()),
+        ))
         .arg(
             Arg::new("name")
                 .required(false)
@@ -673,12 +831,14 @@ fn cmd_switch() -> ClapCommand {
             Use this for quick workspace switching. Similar to 'zjj focus' but \
             emphasizes navigation between existing sessions.",
         )
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj switch feature-auth           Switch to named session\n  \
-            zjj switch                        Interactive session selection\n  \
-            zjj switch test --show-context    Switch and show session details",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj switch feature-auth           Switch to named session",
+                "zjj switch                        Interactive session selection",
+                "zjj switch test --show-context    Switch and show session details",
+            ],
+            None,
+        ))
         .arg(
             Arg::new("name")
                 .required(false)
@@ -701,13 +861,15 @@ fn cmd_switch() -> ClapCommand {
 fn cmd_sync() -> ClapCommand {
     ClapCommand::new("sync")
         .about("Sync a session's workspace with main (rebase)")
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj sync feature-auth             Sync named session with main\n  \
-            zjj sync                          Sync current workspace\n  \
-            zjj sync --all                    Sync all active sessions\n  \
-            zjj sync --json                   Get JSON output of sync operation",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj sync feature-auth             Sync named session with main",
+                "zjj sync                          Sync current workspace",
+                "zjj sync --all                    Sync all active sessions",
+                "zjj sync --json                   Get JSON output of sync operation",
+            ],
+            Some(json_docs::sync()),
+        ))
         .arg(
             Arg::new("name")
                 .required(false)
@@ -731,6 +893,14 @@ fn cmd_sync() -> ClapCommand {
 fn cmd_diff() -> ClapCommand {
     ClapCommand::new("diff")
         .about("Show diff between session and main branch")
+        .after_help(after_help_text(
+            &[
+                "zjj diff feature-auth           Show diff between feature workspace and main",
+                "zjj diff feature-auth --stat    Show diffstat summary",
+                "zjj diff feature-auth --json    Output diff metadata in JSON",
+            ],
+            Some(json_docs::diff()),
+        ))
         .arg(
             Arg::new("name")
                 .required(true)
@@ -755,6 +925,14 @@ fn cmd_config() -> ClapCommand {
     ClapCommand::new("config")
         .alias("cfg")
         .about("View or modify configuration")
+        .after_help(after_help_text(
+            &[
+                "zjj config                      Show current project config",
+                "zjj config workspace_dir        Display the workspace_dir setting",
+                "zjj config workspace_dir /new/path --json  Update key and emit JSON",
+            ],
+            Some(json_docs::config()),
+        ))
         .arg(Arg::new("key").help("Config key to view/set (dot notation: 'zellij.use_tabs')"))
         .arg(Arg::new("value").help("Value to set (omit to view)"))
         .arg(
@@ -775,6 +953,14 @@ fn cmd_config() -> ClapCommand {
 fn cmd_clean() -> ClapCommand {
     ClapCommand::new("clean")
         .about("Remove stale sessions (where workspace no longer exists)")
+        .after_help(after_help_text(
+            &[
+                "zjj clean                       Remove stale sessions",
+                "zjj clean --dry-run             List stale sessions without deleting",
+                "zjj clean --force --json        Force clean and emit JSON summary",
+            ],
+            Some(json_docs::clean()),
+        ))
         .arg(
             Arg::new("force")
                 .long("force")
@@ -789,6 +975,18 @@ fn cmd_clean() -> ClapCommand {
                 .help("List stale sessions without removing"),
         )
         .arg(
+            Arg::new("periodic")
+                .long("periodic")
+                .action(clap::ArgAction::SetTrue)
+                .help("Run as periodic cleanup daemon (1hr interval)"),
+        )
+        .arg(
+            Arg::new("age-threshold")
+                .long("age-threshold")
+                .value_name("SECONDS")
+                .help("Age threshold for periodic cleanup (default: 7200 = 2hr)"),
+        )
+        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
@@ -796,10 +994,92 @@ fn cmd_clean() -> ClapCommand {
         )
 }
 
+fn cmd_template() -> ClapCommand {
+    ClapCommand::new("template")
+        .about("Manage Zellij layout templates")
+        .subcommand(
+            ClapCommand::new("list")
+                .about("List all available templates")
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("create")
+                .about("Create a new template")
+                .arg(Arg::new("name").required(true).help("Template name"))
+                .arg(
+                    Arg::new("description")
+                        .long("description")
+                        .short('d')
+                        .help("Template description"),
+                )
+                .arg(
+                    Arg::new("from-file")
+                        .long("from-file")
+                        .short('f')
+                        .help("Import from KDL file"),
+                )
+                .arg(
+                    Arg::new("builtin")
+                        .long("builtin")
+                        .short('b')
+                        .value_parser(["minimal", "standard", "full", "split", "review"])
+                        .help("Use builtin template as base"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("show")
+                .about("Show template details")
+                .arg(Arg::new("name").required(true).help("Template name"))
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("delete")
+                .about("Delete a template")
+                .arg(Arg::new("name").required(true).help("Template name"))
+                .arg(
+                    Arg::new("force")
+                        .long("force")
+                        .short('f')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip confirmation prompt"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+}
+
 fn cmd_dashboard() -> ClapCommand {
     ClapCommand::new("dashboard")
         .about("Launch interactive TUI dashboard with kanban view")
         .alias("dash")
+        .after_help(after_help_text(
+            &[
+                "zjj dashboard                  Launch the kanban-style dashboard",
+                "zjj dashboard --json           Export dashboard snapshot for agents",
+                "zjj dash                       Use the alias to open the TUI quickly",
+            ],
+            None,
+        ))
 }
 
 fn cmd_introspect() -> ClapCommand {
@@ -813,6 +1093,14 @@ fn cmd_introspect() -> ClapCommand {
             - Environment variables zjj uses\n  \
             - Common workflow patterns",
         )
+        .after_help(after_help_text(
+            &[
+                "zjj introspect                Show commands and their arguments",
+                "zjj introspect focus          Inspect focus command contract",
+                "zjj introspect --json         Emit machine-readable capability data",
+            ],
+            Some(json_docs::introspect()),
+        ))
         .arg(
             Arg::new("command")
                 .required(false)
@@ -854,6 +1142,14 @@ fn cmd_doctor() -> ClapCommand {
     ClapCommand::new("doctor")
         .about("Run system health checks")
         .alias("check")
+        .after_help(after_help_text(
+            &[
+                "zjj doctor                    Run all system health checks",
+                "zjj doctor --fix              Auto-fix issues where possible",
+                "zjj doctor --json             Export check results to JSON",
+            ],
+            Some(json_docs::doctor()),
+        ))
         .arg(
             Arg::new("json")
                 .long("json")
@@ -951,13 +1247,15 @@ fn cmd_integrity() -> ClapCommand {
 fn cmd_query() -> ClapCommand {
     ClapCommand::new("query")
         .about("Query system state programmatically")
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj query session-exists feature   Check if session exists\n  \
-            zjj query session-count             Count active sessions\n  \
-            zjj query can-run                   Check if zjj can run\n  \
-            zjj query suggest-name feat         Get name suggestion",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj query session-exists feature   Check if session exists",
+                "zjj query session-count             Count active sessions",
+                "zjj query can-run                   Check if zjj can run",
+                "zjj query suggest-name feat         Get name suggestion",
+            ],
+            Some(json_docs::query()),
+        ))
         .arg(
             Arg::new("query_type")
                 .required(true)
@@ -984,16 +1282,18 @@ fn cmd_queue() -> ClapCommand {
             The merge queue ensures that multiple agents process workspaces in order,\n\
             preventing merge conflicts and ensuring deterministic ordering.",
         )
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj queue --list                          Show all queue entries\n  \
-            zjj queue --add <workspace> --bead <id>  Add workspace to queue\n  \
-            zjj queue --next                          Get next pending entry\n  \
-            zjj queue --status <workspace>            Check workspace queue status\n  \
-            zjj queue --remove <workspace>            Remove workspace from queue\n  \
-            zjj queue --stats                         Show queue statistics\n  \
-            zjj queue --list --json                   Show queue as JSON",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj queue --list                          Show all queue entries",
+                "zjj queue --add <workspace> --bead <id>  Add workspace to queue",
+                "zjj queue --next                          Get next pending entry",
+                "zjj queue --status <workspace>            Check workspace queue status",
+                "zjj queue --remove <workspace>            Remove workspace from queue",
+                "zjj queue --stats                         Show queue statistics",
+                "zjj queue --list --json                   Show queue as JSON",
+            ],
+            None,
+        ))
         .arg(
             Arg::new("add")
                 .long("add")
@@ -1061,6 +1361,14 @@ fn cmd_queue() -> ClapCommand {
 fn cmd_context() -> ClapCommand {
     ClapCommand::new("context")
         .about("Show complete environment context (AI agent query)")
+        .after_help(after_help_text(
+            &[
+                "zjj context                     Show environment context summary",
+                "zjj context --field=repository.branch  Extract a single field",
+                "zjj context --json               Emit JSON (default when not TTY)",
+            ],
+            Some(json_docs::context()),
+        ))
         .arg(
             Arg::new("json")
                 .long("json")
@@ -1095,13 +1403,15 @@ fn cmd_spawn() -> ClapCommand {
             Use this when an AI AGENT should work autonomously on a bead.\n\n\
             For manual interactive work, use 'zjj add' instead.",
         )
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj spawn zjj-abc12               Spawn workspace for bead with Claude\n  \
-            zjj spawn zjj-xyz34 -b            Run agent in background\n  \
-            zjj spawn zjj-def56 --agent-command=llm-run  Use custom agent\n  \
-            zjj spawn zjj-ghi78 --no-auto-merge  Don't auto-merge on success",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj spawn zjj-abc12               Spawn workspace for bead with Claude",
+                "zjj spawn zjj-xyz34 -b            Run agent in background",
+                "zjj spawn zjj-def56 --agent-command=llm-run  Use custom agent",
+                "zjj spawn zjj-ghi78 --no-auto-merge  Don't auto-merge on success",
+            ],
+            Some(json_docs::spawn()),
+        ))
         .arg(
             Arg::new("bead_id")
                 .required(true)
@@ -1161,6 +1471,14 @@ fn cmd_checkpoint() -> ClapCommand {
         .about("Save and restore session state snapshots")
         .alias("ckpt")
         .subcommand_required(true)
+        .after_help(after_help_text(
+            &[
+                "zjj checkpoint create --description=\"before lunch\"  Snapshot current sessions",
+                "zjj checkpoint list                 Show all available checkpoints",
+                "zjj checkpoint restore ckpt-123     Restore workspace state from checkpoint",
+            ],
+            Some(json_docs::checkpoint()),
+        ))
         .subcommand(
             ClapCommand::new("create")
                 .about("Create a checkpoint of all current sessions")
@@ -1194,16 +1512,18 @@ fn cmd_checkpoint() -> ClapCommand {
 fn cmd_done() -> ClapCommand {
     ClapCommand::new("done")
         .about("Complete work and merge workspace to main")
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj done                            Complete work and merge to main\n  \
-            zjj done -m \"Fix auth bug\"         Use custom commit message\n  \
-            zjj done --workspace feature-x      Complete specific workspace from main\n  \
-            zjj done --dry-run                  Preview without executing\n  \
-            zjj done --keep-workspace           Keep workspace after merge\n  \
-            zjj done --detect-conflicts         Check for conflicts before merging\n  \
-            zjj done --json                     Get JSON output",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj done                            Complete work and merge to main",
+                "zjj done -m \"Fix auth bug\"         Use custom commit message",
+                "zjj done --workspace feature-x      Complete specific workspace from main",
+                "zjj done --dry-run                  Preview without executing",
+                "zjj done --keep-workspace           Keep workspace after merge",
+                "zjj done --detect-conflicts         Check for conflicts before merging",
+                "zjj done --json                     Get JSON output",
+            ],
+            Some(json_docs::done()),
+        ))
         .arg(
             Arg::new("workspace")
                 .short('w')
@@ -1369,14 +1689,16 @@ fn cmd_work() -> ClapCommand {
             4. Output workspace info\n\n\
             This is the AI-friendly entry point for starting work.",
         )
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj work feature-auth              Start working on feature-auth\n  \
-            zjj work bug-fix --bead zjj-123    Start work on bead\n  \
-            zjj work test --idempotent         Reuse existing session if exists\n  \
-            zjj work quick --no-zellij         Create workspace without Zellij tab\n  \
-            zjj work --dry-run feature         Preview what would be created",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj work feature-auth              Start working on feature-auth",
+                "zjj work bug-fix --bead zjj-123    Start work on bead",
+                "zjj work test --idempotent         Reuse existing session if exists",
+                "zjj work quick --no-zellij         Create workspace without Zellij tab",
+                "zjj work --dry-run feature         Preview what would be created",
+            ],
+            None,
+        ))
         .arg(
             Arg::new("name")
                 .required(true)
@@ -1561,6 +1883,17 @@ fn cmd_examples() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+}
+
+fn cmd_help() -> ClapCommand {
+    ClapCommand::new("help")
+        .about("Print help for a command")
+        .arg(
+            Arg::new("command")
+                .required(false)
+                .allow_hyphen_values(true)
+                .help("Command to show help for (omit for top-level help)"),
         )
 }
 
@@ -2088,13 +2421,15 @@ fn cmd_abort() -> ClapCommand {
             - The approach didn't work out\n\n\
             Can be run from inside or outside the workspace.",
         )
-        .after_help(
-            "EXAMPLES:\n  \
-            zjj abort                          Abort current workspace\n  \
-            zjj abort --workspace feature-x    Abort specific workspace\n  \
-            zjj abort --keep-workspace         Remove from zjj but keep files\n  \
-            zjj abort --dry-run                Preview without executing",
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj abort                          Abort current workspace",
+                "zjj abort --workspace feature-x    Abort specific workspace",
+                "zjj abort --keep-workspace         Remove from zjj but keep files",
+                "zjj abort --dry-run                Preview without executing",
+            ],
+            None,
+        ))
         .arg(
             Arg::new("workspace")
                 .long("workspace")
@@ -2139,9 +2474,10 @@ fn build_cli() -> ClapCommand {
               zjj init          Initialize zjj in a JJ repo\n  \
               zjj add <name>    Create session for manual work (you control tab)\n  \
               zjj spawn <bead>  Create session for automated agent work\n  \
-              zjj focus <name>  Switch Zellij tab (inside Zellij)\n  \
-              zjj done          Merge workspace to main and clean up",
+            zjj focus <name>  Switch Zellij tab (inside Zellij)\n  \
+            zjj done          Merge workspace to main and clean up",
         )
+        .disable_help_subcommand(true)
         // Global hook arguments
         .arg(
             Arg::new("on-success")
@@ -2163,6 +2499,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_agents())
         .subcommand(cmd_attach())
         .subcommand(cmd_list())
+        .subcommand(cmd_bookmark())
         .subcommand(cmd_remove())
         .subcommand(cmd_focus())
         .subcommand(cmd_switch())
@@ -2171,6 +2508,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_diff())
         .subcommand(cmd_config())
         .subcommand(cmd_clean())
+        .subcommand(cmd_template())
         .subcommand(cmd_dashboard())
         .subcommand(cmd_introspect())
         .subcommand(cmd_doctor())
@@ -2188,6 +2526,7 @@ fn build_cli() -> ClapCommand {
         .subcommand(cmd_abort())
         .subcommand(cmd_ai())
         // AI-first commands
+        .subcommand(cmd_help())
         .subcommand(cmd_can_i())
         .subcommand(cmd_contract())
         .subcommand(cmd_examples())
@@ -2259,7 +2598,8 @@ fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
             zellij_tab: "zjj:example-session".to_string(),
             status: "active".to_string(),
         };
-        json::output_json_success(&example_output)?;
+        let envelope = SchemaEnvelope::new("add-response", "single", example_output);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
 
@@ -2310,6 +2650,86 @@ fn handle_list(sub_m: &clap::ArgMatches) -> Result<()> {
     let bead = sub_m.get_one::<String>("bead").cloned();
     let agent = sub_m.get_one::<String>("agent").map(String::as_str);
     list::run(all, verbose, format, bead.as_deref(), agent)
+}
+
+fn handle_bookmark(sub_m: &clap::ArgMatches) -> Result<()> {
+    match sub_m.subcommand() {
+        Some(("list", list_m)) => {
+            let session = list_m.get_one::<String>("session").cloned();
+            let show_all = list_m.get_flag("all");
+            let json = list_m.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            let options = bookmark::ListOptions {
+                session,
+                show_all,
+                format,
+            };
+
+            bookmark::run_list(&options)
+        }
+        Some(("create", create_m)) => {
+            let name = create_m
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Name is required"))?
+                .clone();
+            let session = create_m.get_one::<String>("session").cloned();
+            let push = create_m.get_flag("push");
+            let json = create_m.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            let options = bookmark::CreateOptions {
+                name,
+                session,
+                push,
+                format,
+            };
+
+            bookmark::run_create(&options)
+        }
+        Some(("delete", delete_m)) => {
+            let name = delete_m
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Name is required"))?
+                .clone();
+            let session = delete_m.get_one::<String>("session").cloned();
+            let json = delete_m.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            let options = bookmark::DeleteOptions {
+                name,
+                session,
+                format,
+            };
+
+            bookmark::run_delete(&options)
+        }
+        Some(("move", move_m)) => {
+            let name = move_m
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Name is required"))?
+                .clone();
+            let to_revision = move_m
+                .get_one::<String>("to")
+                .ok_or_else(|| anyhow::anyhow!("--to is required"))?
+                .clone();
+            let session = move_m.get_one::<String>("session").cloned();
+            let json = move_m.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            let options = bookmark::MoveOptions {
+                name,
+                to_revision,
+                session,
+                format,
+            };
+
+            bookmark::run_move(&options)
+        }
+        _ => Err(anyhow::anyhow!(
+            "Subcommand required: list, create, delete, or move"
+        )),
+    }
 }
 
 fn handle_remove(sub_m: &clap::ArgMatches) -> Result<()> {
@@ -2459,14 +2879,89 @@ fn handle_config(sub_m: &clap::ArgMatches) -> Result<()> {
 fn handle_clean(sub_m: &clap::ArgMatches) -> Result<()> {
     let force = sub_m.get_flag("force");
     let dry_run = sub_m.get_flag("dry-run");
+    let periodic = sub_m.get_flag("periodic");
     let json = sub_m.get_flag("json");
+    let age_threshold = sub_m
+        .get_one::<String>("age-threshold")
+        .and_then(|s| s.parse::<u64>().ok());
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let options = clean::CleanOptions {
         force,
         dry_run,
         format,
+        periodic,
+        age_threshold,
     };
     clean::run_with_options(&options)
+}
+
+fn handle_template(sub_m: &clap::ArgMatches) -> Result<()> {
+    use zjj_core::zellij::LayoutTemplate;
+
+    match sub_m.subcommand() {
+        Some(("list", sub)) => {
+            let json = sub.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+            template::run_list(format)
+        }
+        Some(("create", sub)) => {
+            let name = sub
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Template name is required"))?
+                .clone();
+            let description = sub.get_one::<String>("description").cloned();
+            let json = sub.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+
+            // Determine source
+            let source = if let Some(file_path) = sub.get_one::<String>("from-file") {
+                template::TemplateSource::FromFile(file_path.clone())
+            } else if let Some(builtin) = sub.get_one::<String>("builtin") {
+                let template_type = match builtin.as_str() {
+                    "minimal" => LayoutTemplate::Minimal,
+                    "standard" => LayoutTemplate::Standard,
+                    "full" => LayoutTemplate::Full,
+                    "split" => LayoutTemplate::Split,
+                    "review" => LayoutTemplate::Review,
+                    _ => {
+                        return Err(anyhow::anyhow!("Invalid builtin template: {builtin}"));
+                    }
+                };
+                template::TemplateSource::Builtin(template_type)
+            } else {
+                // Default to standard builtin
+                template::TemplateSource::Builtin(LayoutTemplate::Standard)
+            };
+
+            let options = template::CreateOptions {
+                name,
+                description,
+                source,
+                format,
+            };
+            template::run_create(&options)
+        }
+        Some(("show", sub)) => {
+            let name = sub
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Template name is required"))?;
+            let json = sub.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+            template::run_show(name, format)
+        }
+        Some(("delete", sub)) => {
+            let name = sub
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Template name is required"))?;
+            let force = sub.get_flag("force");
+            let json = sub.get_flag("json");
+            let format = zjj_core::OutputFormat::from_json_flag(json);
+            template::run_delete(name, force, format)
+        }
+        _ => {
+            anyhow::bail!("Invalid template subcommand. Use 'zjj template --help' for usage.");
+        }
+    }
 }
 
 fn handle_introspect(sub_m: &clap::ArgMatches) -> Result<()> {
@@ -2958,6 +3453,28 @@ fn handle_examples(sub_m: &clap::ArgMatches) -> Result<()> {
     }
 }
 
+fn handle_help(sub_m: &clap::ArgMatches) -> Result<()> {
+    let command = sub_m.get_one::<String>("command").map(String::as_str);
+    let mut cli = build_cli();
+
+    match command {
+        None | Some("-h" | "--help") => {
+            cli.print_help().map_err(anyhow::Error::new)?;
+            println!();
+            Ok(())
+        }
+        Some(name) => match cli.find_subcommand(name) {
+            Some(subcommand) => {
+                let mut subcommand = subcommand.clone();
+                subcommand.print_help().map_err(anyhow::Error::new)?;
+                println!();
+                Ok(())
+            }
+            None => Err(anyhow::anyhow!("Unknown command '{name}'")),
+        },
+    }
+}
+
 fn handle_validate(sub_m: &clap::ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
@@ -2968,7 +3485,7 @@ fn handle_validate(sub_m: &clap::ArgMatches) -> Result<()> {
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
-        .unwrap_or_default();
+        .unwrap_or_else(|| Vec::new());
 
     let options = validate::ValidateOptions {
         command,
@@ -2997,7 +3514,7 @@ fn handle_whatif(sub_m: &clap::ArgMatches) -> Result<()> {
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
-        .unwrap_or_default();
+        .unwrap_or_else(|| Vec::new());
 
     let options = whatif::WhatIfOptions {
         command,
@@ -3026,7 +3543,7 @@ fn handle_claim(sub_m: &clap::ArgMatches) -> Result<()> {
     let timeout: u64 = sub_m
         .get_one::<String>("timeout")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(60);
+        .unwrap_or_else(|| 60);
 
     let options = claim::ClaimOptions {
         resource,
@@ -3081,7 +3598,7 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
         let raw_commands: Vec<String> = sub_m
             .get_many::<String>("commands")
             .map(|v| v.cloned().collect())
-            .unwrap_or_default();
+            .unwrap_or_else(|| Vec::new());
         if raw_commands.is_empty() {
             anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
         }
@@ -3324,11 +3841,11 @@ fn handle_wait(sub_m: &clap::ArgMatches) -> Result<()> {
     let timeout: u64 = sub_m
         .get_one::<String>("timeout")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(30);
+        .unwrap_or_else(|| 30);
     let interval: u64 = sub_m
         .get_one::<String>("interval")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(1);
+        .unwrap_or_else(|| 1);
 
     let condition = match condition_str.as_str() {
         "session-exists" => {
@@ -3540,10 +4057,12 @@ fn run_cli() -> Result<()> {
                 });
                 #[allow(clippy::print_stdout)]
                 {
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&json_err).unwrap_or_default()
-                    );
+                    let json = serde_json::to_string_pretty(&json_err);
+                    let json_str = match json {
+                        Ok(value) => value,
+                        Err(_) => String::new(),
+                    };
+                    println!("{}", json_str);
                 }
             }
             let _ = e.print();
@@ -3576,6 +4095,7 @@ fn run_cli() -> Result<()> {
         Some(("add", sub_m)) => handle_add(sub_m),
         Some(("agents", sub_m)) => handle_agents(sub_m),
         Some(("list", sub_m)) => handle_list(sub_m),
+        Some(("bookmark", sub_m)) => handle_bookmark(sub_m),
         Some(("pane", sub_m)) => handle_pane(sub_m),
         Some(("remove", sub_m)) => handle_remove(sub_m),
         Some(("focus", sub_m)) => handle_focus(sub_m),
@@ -3585,6 +4105,7 @@ fn run_cli() -> Result<()> {
         Some(("diff", sub_m)) => handle_diff(sub_m),
         Some(("config", sub_m)) => handle_config(sub_m),
         Some(("clean", sub_m)) => handle_clean(sub_m),
+        Some(("template", sub_m)) => handle_template(sub_m),
         Some(("dashboard" | "dash", _)) => dashboard::run(),
         Some(("introspect", sub_m)) => handle_introspect(sub_m),
         Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m),
@@ -3603,6 +4124,7 @@ fn run_cli() -> Result<()> {
         Some(("abort", sub_m)) => handle_abort(sub_m),
         Some(("ai", sub_m)) => handle_ai(sub_m),
         // AI-first commands
+        Some(("help", sub_m)) => handle_help(sub_m),
         Some(("can-i", sub_m)) => handle_can_i(sub_m),
         Some(("contract", sub_m)) => handle_contract(sub_m),
         Some(("examples", sub_m)) => handle_examples(sub_m),
@@ -3688,7 +4210,7 @@ fn main() {
         let code = err
             .downcast_ref::<zjj_core::Error>()
             .map(zjj_core::Error::exit_code)
-            .unwrap_or(1);
+            .unwrap_or_else(|| 1);
         #[allow(clippy::exit)]
         process::exit(code);
     }

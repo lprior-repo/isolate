@@ -238,7 +238,11 @@ fn check_workspace_context() -> DoctorCheck {
         name: "Workspace Context".to_string(),
         status: CheckStatus::Pass, // Always pass, just informational
         message: if in_workspace {
-            format!("In zjj workspace{}", bead_id.as_ref().map(|b| format!(" for {b}")).unwrap_or_default())
+            let suffix = bead_id
+                .as_ref()
+                .map(|b| format!(" for {b}"))
+                .map_or(String::new(), |value| value);
+            format!("In zjj workspace{suffix}")
         } else {
             "Not in a zjj workspace".to_string()
         },
@@ -250,7 +254,10 @@ fn check_workspace_context() -> DoctorCheck {
         auto_fixable: false,
         details: in_workspace.then(|| {
             serde_json::json!({
-                "location": current_dir.as_ref().map(|p| p.display().to_string()).unwrap_or_default(),
+                "location": current_dir
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .map_or(String::new(), |value| value),
                 "zjj_bead_id": std::env::var("ZJJ_BEAD_ID").unwrap_or_else(|_| "<not set>".to_string()),
                 "zjj_workspace": std::env::var("ZJJ_WORKSPACE").unwrap_or_else(|_| "<not set>".to_string()),
             })
@@ -335,13 +342,11 @@ fn check_state_db() -> DoctorCheck {
         }
     };
 
-    let is_readable = metadata.permissions().readonly();
-
-    if !is_readable {
+    if let Err(e) = std::fs::File::open(db_path) {
         return DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Fail,
-            message: "Database file is not readable (permission denied)".to_string(),
+            message: format!("Database file is not readable: {e}"),
             suggestion: Some("Check file permissions on .zjj/state.db".to_string()),
             auto_fixable: false,
             details: Some(serde_json::json!({
@@ -350,6 +355,8 @@ fn check_state_db() -> DoctorCheck {
             })),
         };
     }
+
+    let is_read_only = metadata.permissions().readonly();
 
     // Check file size (corrupted databases often have wrong size)
     let file_size = metadata.len();
@@ -382,7 +389,7 @@ fn check_state_db() -> DoctorCheck {
         auto_fixable: false,
         details: Some(serde_json::json!({
             "file_size": file_size,
-            "readable": true
+            "read_only": is_read_only
         })),
     }
 }
@@ -393,7 +400,7 @@ fn check_orphaned_workspaces() -> DoctorCheck {
     let db_sessions = get_session_db()
         .ok()
         .and_then(|db| db.list_blocking(None).ok())
-        .unwrap_or_default();
+        .unwrap_or_else(|| Vec::new());
 
     // Get list of JJ workspaces
     let jj_workspaces = jj_root().map_or_else(
@@ -497,7 +504,7 @@ fn check_orphaned_workspaces() -> DoctorCheck {
 
 /// Check Beads integration
 fn check_beads() -> DoctorCheck {
-    let installed = is_command_available("bd");
+    let installed = is_command_available("br");
 
     if !installed {
         return DoctorCheck {
@@ -511,7 +518,7 @@ fn check_beads() -> DoctorCheck {
     }
 
     // Count open issues
-    let output = Command::new("bd").args(["list", "--status=open"]).output();
+    let output = Command::new("br").args(["list", "--status=open"]).output();
 
     match output {
         Ok(out) if out.status.success() => {
@@ -545,7 +552,7 @@ fn check_stale_sessions() -> DoctorCheck {
     let sessions = get_session_db()
         .ok()
         .and_then(|db| db.list_blocking(None).ok())
-        .unwrap_or_default();
+        .unwrap_or_else(|| Vec::new());
 
     let stale_threshold = Duration::minutes(5);
     let now = Utc::now();
@@ -558,7 +565,10 @@ fn check_stale_sessions() -> DoctorCheck {
             }
 
             // Check if session is stale (not updated in 5 minutes)
-            let updated_at_i64: i64 = s.updated_at.try_into().unwrap_or(i64::MAX);
+            let updated_at_i64: i64 = match s.updated_at.try_into() {
+                Ok(value) => value,
+                Err(_) => i64::MAX,
+            };
             let updated_at = chrono::DateTime::from_timestamp(updated_at_i64, 0).unwrap_or(now);
             let duration = now.signed_duration_since(updated_at);
 
@@ -614,7 +624,7 @@ fn check_workflow_violations() -> DoctorCheck {
         }
     };
 
-    let sessions = db.list_blocking(None).unwrap_or_default();
+    let sessions = db.list_blocking(None).unwrap_or_else(|_| Vec::new());
     let active_sessions: Vec<_> = sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Active)
@@ -779,7 +789,10 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
                 unable_to_fix.push(UnfixableIssue {
                     issue: check.name.clone(),
                     reason: "Requires manual intervention".to_string(),
-                    suggestion: check.suggestion.clone().unwrap_or_default(),
+                    suggestion: match check.suggestion.clone() {
+                        Some(value) => value,
+                        None => String::new(),
+                    },
                 });
             }
             continue;
@@ -804,7 +817,10 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
                 unable_to_fix.push(UnfixableIssue {
                     issue: check.name.clone(),
                     reason: format!("Fix failed: {reason}"),
-                    suggestion: check.suggestion.clone().unwrap_or_default(),
+                    suggestion: match check.suggestion.clone() {
+                        Some(value) => value,
+                        None => String::new(),
+                    },
                 });
             }
         }

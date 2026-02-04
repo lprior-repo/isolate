@@ -201,7 +201,10 @@ fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
         name: session.name.clone(),
         status: session.status.to_string(),
         workspace_path: session.workspace_path.clone(),
-        branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
+        branch: match session.branch.clone() {
+            Some(branch) => branch,
+            None => "-".to_string(),
+        },
         changes,
         diff_stats,
         beads,
@@ -233,12 +236,13 @@ fn get_diff_stats(workspace_path: &Path) -> DiffStats {
         return DiffStats::default();
     }
 
-    zjj_core::jj::workspace_diff(workspace_path)
-        .map(|summary| DiffStats {
+    match zjj_core::jj::workspace_diff(workspace_path) {
+        Ok(summary) => DiffStats {
             insertions: summary.insertions,
             deletions: summary.deletions,
-        })
-        .unwrap_or_default()
+        },
+        Err(_) => DiffStats::default(),
+    }
 }
 
 /// Get beads statistics from the repository's beads database
@@ -301,7 +305,16 @@ async fn count_issues_by_status(pool: &sqlx::SqlitePool, status: &str) -> Result
             )))
         })?;
 
-    Ok(usize::try_from(result.unwrap_or(0)).unwrap_or(0))
+    let count_i64 = match result {
+        Some(value) => value,
+        None => 0,
+    };
+    let count = match usize::try_from(count_i64) {
+        Ok(value) => value,
+        Err(_) => 0,
+    };
+
+    Ok(count)
 }
 
 /// Wrapper for status response data
@@ -354,8 +367,11 @@ fn output_table(items: &[SessionStatusInfo]) {
             .metadata
             .as_ref()
             .and_then(|m| {
-                let id = m.get("bead_id").and_then(|v| v.as_str()).unwrap_or("");
-                let title = m.get("bead_title").and_then(|v| v.as_str()).unwrap_or("");
+                let id = m.get("bead_id").and_then(|v| v.as_str()).map_or("", |v| v);
+                let title = m
+                    .get("bead_title")
+                    .and_then(|v| v.as_str())
+                    .map_or("", |v| v);
                 if id.is_empty() {
                     None
                 } else {
@@ -420,8 +436,9 @@ fn output_json(items: &[SessionStatusInfo]) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use zjj_core::WorkspaceState;
+
+    use super::*;
     use crate::session::{Session, SessionStatus};
 
     #[tokio::test]

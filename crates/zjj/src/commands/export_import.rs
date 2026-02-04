@@ -123,6 +123,9 @@ pub fn run_export(options: &ExportOptions) -> Result<()> {
         } else {
             println!("✓ Exported {} sessions to {}", result.count, output_path);
         }
+    } else if options.format.is_json() {
+        let envelope = SchemaEnvelope::new("export-response", "single", result);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         println!("{json_output}");
     }
@@ -206,7 +209,10 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
         // Create the session
         match db.create_blocking(
             &session.name,
-            session.workspace_path.as_deref().unwrap_or_default(),
+            match session.workspace_path.as_deref() {
+                Some(value) => value,
+                None => "",
+            },
         ) {
             Ok(_) => {
                 result.imported += 1;

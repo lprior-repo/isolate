@@ -44,7 +44,7 @@ Just exit cleanly with success (exit code 0). ZJJ will automatically:
 ## Check Your Task
 
 ```bash
-bd show $ZJJ_BEAD_ID
+br show $ZJJ_BEAD_ID
 ```
 
 ## Build Commands

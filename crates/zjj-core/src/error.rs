@@ -919,8 +919,10 @@ mod tests {
             .with_received("received")
             .with_example("example");
         let json = serde_json::to_string(&hint);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("\"field\":\"field\""));
         assert!(json_str.contains("\"expected\":\"expected\""));
         assert!(json_str.contains("\"received\":\"received\""));
@@ -1013,8 +1015,10 @@ mod tests {
             .with_working_directory("/tmp")
             .with_command("test", vec![]);
         let json = serde_json::to_string(&ctx);
-        assert!(json.is_ok());
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else {
+            assert!(false, "serialization failed");
+            return;
+        };
         assert!(json_str.contains("\"working_directory\":\"/tmp\""));
         assert!(json_str.contains("\"timestamp\":"));
     }

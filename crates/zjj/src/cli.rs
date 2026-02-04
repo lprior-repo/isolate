@@ -148,7 +148,11 @@ mod tests {
     fn test_run_command_success() {
         let result = run_command("echo", &["hello"]);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap_or_default().trim(), "hello");
+        let Ok(output) = result else {
+            assert!(false, "command failed");
+            return;
+        };
+        assert_eq!(output.trim(), "hello");
     }
 
     #[test]

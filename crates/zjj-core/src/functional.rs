@@ -37,7 +37,10 @@ where
 {
     items.into_iter().fold(im::HashMap::new(), |mut map, item| {
         let key = key_fn(&item);
-        let mut group = map.get(&key).cloned().unwrap_or_default();
+        let mut group = match map.get(&key).cloned() {
+            Some(value) => value,
+            None => Vec::new(),
+        };
         group.push(item);
         map.insert(key, group);
         map
@@ -118,7 +121,12 @@ mod tests {
         let add_one = |x: i32| -> Result<i32> { Ok(x + 1) };
         let composed = compose_result(double, add_one);
 
-        assert_eq!(composed(5).unwrap_or_default(), 11);
+        let result = composed(5);
+        let Ok(value) = result else {
+            assert!(false, "composition failed");
+            return;
+        };
+        assert_eq!(value, 11);
     }
 
     #[test]
@@ -127,8 +135,8 @@ mod tests {
         let grouped = group_by(items, |(key, _)| *key);
 
         assert_eq!(grouped.len(), 2);
-        assert_eq!(grouped.get("a").map(Vec::len).unwrap_or(0), 2);
-        assert_eq!(grouped.get("b").map(Vec::len).unwrap_or(0), 2);
+        assert_eq!(grouped.get("a").map_or(0, Vec::len), 2);
+        assert_eq!(grouped.get("b").map_or(0, Vec::len), 2);
     }
 
     #[test]
@@ -144,20 +152,32 @@ mod tests {
     fn test_fold_result() {
         let items = vec![1, 2, 3, 4, 5];
         let result = fold_result(items, 0, |acc, x| Ok(acc + x));
-        assert_eq!(result.unwrap_or_default(), 15);
+        let Ok(value) = result else {
+            assert!(false, "fold failed");
+            return;
+        };
+        assert_eq!(value, 15);
     }
 
     #[test]
     fn test_map_result() {
         let items = vec![1, 2, 3];
         let result = map_result(items, |x| Ok(x * 2));
-        assert_eq!(result.unwrap_or_default(), vec![2, 4, 6]);
+        let Ok(value) = result else {
+            assert!(false, "map failed");
+            return;
+        };
+        assert_eq!(value, vec![2, 4, 6]);
     }
 
     #[test]
     fn test_filter_result() {
         let items = vec![1, 2, 3, 4, 5];
         let result = filter_result(items, |x| Ok(x % 2 == 0));
-        assert_eq!(result.unwrap_or_default(), vec![2, 4]);
+        let Ok(value) = result else {
+            assert!(false, "filter failed");
+            return;
+        };
+        assert_eq!(value, vec![2, 4]);
     }
 }

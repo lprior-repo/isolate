@@ -256,9 +256,12 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
         let new_path = source_path.parent().map(|p| p.join(&options.target));
 
         if let Some(new_path) = &new_path {
+            let Some(new_path_str) = new_path.to_str() else {
+                anyhow::bail!("Invalid workspace path (non-UTF8)");
+            };
             // Use jj to create a new workspace at the same commit
             let output = std::process::Command::new("jj")
-                .args(["workspace", "add", new_path.to_str().unwrap_or_default()])
+                .args(["workspace", "add", new_path_str])
                 .current_dir(source_path)
                 .output()?;
 
@@ -276,7 +279,10 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
     // Create session in database
     db.create_blocking(
         &options.target,
-        new_workspace_path.as_deref().unwrap_or_default(),
+        match new_workspace_path.as_deref() {
+            Some(value) => value,
+            None => "",
+        },
     )?;
 
     let result = CloneResult {
