@@ -29,6 +29,7 @@ use std::{
 
 use anyhow::Result;
 pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput, UndoEntry};
+use zjj_core::json::{ErrorDetail, SchemaEnvelope};
 
 use crate::{
     cli::jj_root,
@@ -281,7 +282,7 @@ fn build_preview(
 ) -> Result<types::DonePreview, DoneError> {
     let uncommitted_files = get_uncommitted_files(root, executor)?;
     let commits_to_merge = get_commits_to_merge(root, executor)?;
-    let potential_conflicts = check_potential_conflicts(root, executor)?;
+    let potential_conflicts = check_potential_conflicts(root, executor);
     let bead_to_close = get_bead_id_for_workspace(workspace_name, bead_repo)?;
     let workspace_path = Path::new(root).join(".zjj/workspaces").join(workspace_name);
 
@@ -363,7 +364,7 @@ fn commit_changes(
 
 /// Check for merge conflicts
 fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<(), DoneError> {
-    let conflicts = check_potential_conflicts(root, executor)?;
+    let conflicts = check_potential_conflicts(root, executor);
 
     if !conflicts.is_empty() {
         return Err(DoneError::MergeConflict { conflicts });
@@ -373,10 +374,7 @@ fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<()
 }
 
 /// Check for potential conflicts by checking divergent changes
-fn check_potential_conflicts(
-    _root: &str,
-    executor: &dyn executor::JjExecutor,
-) -> Result<Vec<String>, DoneError> {
+fn check_potential_conflicts(_root: &str, executor: &dyn executor::JjExecutor) -> Vec<String> {
     let detector = conflict::JjConflictDetector::new(executor);
 
     match conflict::ConflictDetector::detect_conflicts(&detector) {
@@ -384,13 +382,13 @@ fn check_potential_conflicts(
             // Combine existing conflicts and overlapping files
             let mut conflicts = result.existing_conflicts;
             conflicts.extend(result.overlapping_files);
-            Ok(conflicts)
+            conflicts
         }
         Err(e) => {
             // Log error but don't fail - conflict detection is best-effort
             // Return empty to allow merge to proceed (conflicts will be caught during merge)
             eprintln!("Warning: conflict detection failed: {e}");
-            Ok(Vec::new())
+            Vec::new()
         }
     }
 }
@@ -536,7 +534,8 @@ fn cleanup_workspace(
 /// Output the result in the appropriate format
 fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<()> {
     if format.is_json() {
-        println!("{}", serde_json::to_string_pretty(result)?);
+        let envelope = SchemaEnvelope::new("done-response", "single", result);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else if result.dry_run {
         println!(
             "🔍 Dry-run preview for workspace: {}",
@@ -587,13 +586,23 @@ fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<
 /// Output error in the appropriate format
 fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()> {
     if format.is_json() {
-        let error_json = serde_json::json!({
-            "error": error.to_string(),
+        let details = serde_json::json!({
             "error_code": error.error_code(),
             "phase": error.phase().name(),
             "recoverable": error.is_recoverable(),
         });
-        println!("{}", serde_json::to_string_pretty(&error_json)?);
+        let error_detail = ErrorDetail {
+            code: error.error_code().to_string(),
+            message: error.to_string(),
+            exit_code: done_error_exit_code(error),
+            details: Some(details),
+            suggestion: None,
+        };
+        let payload = DoneErrorPayload {
+            error: error_detail,
+        };
+        let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         eprintln!("❌ {error}");
         if error.is_recoverable() {
@@ -601,6 +610,21 @@ fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()>
         }
     }
     Ok(())
+}
+
+fn done_error_exit_code(error: &DoneError) -> i32 {
+    if matches!(error, DoneError::NotInWorkspace { .. }) {
+        DoneExitCode::NotInWorkspace as i32
+    } else if matches!(error, DoneError::MergeConflict { .. }) {
+        DoneExitCode::MergeConflict as i32
+    } else {
+        DoneExitCode::OtherError as i32
+    }
+}
+
+#[derive(serde::Serialize)]
+struct DoneErrorPayload {
+    error: ErrorDetail,
 }
 
 /// Get current commit ID (before merge)

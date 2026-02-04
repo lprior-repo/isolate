@@ -30,7 +30,6 @@ use ratatui::{
 use zjj_core::{
     config::load_config,
     watcher::{BeadsStatus, FileWatcher, WatchEvent},
-    WorkspaceState,
 };
 
 use crate::{

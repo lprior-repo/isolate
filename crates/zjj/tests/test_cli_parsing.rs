@@ -920,6 +920,13 @@ fn test_add_example_json_outputs_valid_json() {
         "Output should be valid JSON (got: {})",
         result.stdout
     );
+    if let Ok(json) = parsed {
+        assert!(json.get("$schema").is_some(), "Should have $schema field");
+        assert_eq!(
+            json.get("schema_type").and_then(|v| v.as_str()),
+            Some("single")
+        );
+    }
 }
 
 #[test]

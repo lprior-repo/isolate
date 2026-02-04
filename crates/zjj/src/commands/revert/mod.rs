@@ -19,7 +19,10 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use zjj_core::OutputFormat;
+use zjj_core::{
+    json::{ErrorDetail, SchemaEnvelope},
+    OutputFormat,
+};
 
 use crate::{
     cli::jj_root,
@@ -209,10 +212,12 @@ fn update_undo_history(
 /// Output result in appropriate format
 fn output_result(result: &RevertOutput, format: OutputFormat) -> Result<(), RevertError> {
     if format.is_json() {
-        let json_output =
-            serde_json::to_string_pretty(result).map_err(|e| RevertError::SerializationError {
+        let envelope = SchemaEnvelope::new("revert-response", "single", result);
+        let json_output = serde_json::to_string_pretty(&envelope).map_err(|e| {
+            RevertError::SerializationError {
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
         println!("{json_output}");
     } else if result.dry_run {
         println!("Dry-run revert for session: {}", result.session_name);
@@ -231,11 +236,18 @@ fn output_result(result: &RevertOutput, format: OutputFormat) -> Result<(), Reve
 /// Output error in appropriate format
 fn output_error(error: &RevertError, format: OutputFormat) -> Result<(), RevertError> {
     if format.is_json() {
-        let error_json = serde_json::json!({
-            "error": error.to_string(),
-            "error_code": error.error_code(),
-        });
-        let json_output = serde_json::to_string_pretty(&error_json).map_err(|e| {
+        let error_detail = ErrorDetail {
+            code: error.error_code().to_string(),
+            message: error.to_string(),
+            exit_code: revert_error_exit_code(error),
+            details: None,
+            suggestion: None,
+        };
+        let payload = RevertErrorPayload {
+            error: error_detail,
+        };
+        let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
+        let json_output = serde_json::to_string_pretty(&envelope).map_err(|e| {
             RevertError::SerializationError {
                 reason: e.to_string(),
             }
@@ -249,6 +261,20 @@ fn output_error(error: &RevertError, format: OutputFormat) -> Result<(), RevertE
         }
     }
     Ok(())
+}
+
+fn revert_error_exit_code(error: &RevertError) -> i32 {
+    match error {
+        RevertError::SessionNotFound { .. } => RevertExitCode::SessionNotFound as i32,
+        RevertError::AlreadyPushedToRemote { .. } => RevertExitCode::AlreadyPushed as i32,
+        RevertError::InvalidState { .. } => RevertExitCode::InvalidState as i32,
+        _ => RevertExitCode::OtherError as i32,
+    }
+}
+
+#[derive(Serialize)]
+struct RevertErrorPayload {
+    error: ErrorDetail,
 }
 
 /// Undo entry in history log

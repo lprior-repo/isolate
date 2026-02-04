@@ -25,6 +25,16 @@ fn test_add_json_error_exit_code() -> Result<()> {
         parsed.get("success").and_then(serde_json::Value::as_bool),
         Some(false)
     );
+    assert!(
+        parsed.get("$schema").is_some(),
+        "Should have '$schema' field"
+    );
+    assert_eq!(
+        parsed
+            .get("schema_type")
+            .and_then(serde_json::Value::as_str),
+        Some("single")
+    );
 
     // Should have error details
     let error = parsed

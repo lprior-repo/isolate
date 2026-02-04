@@ -146,7 +146,6 @@ impl ConflictDetectionResult {
     }
 
     /// Check if any conflicts (existing or potential) were found
-    #[cfg(test)]
     #[must_use]
     pub const fn has_conflicts(&self) -> bool {
         self.has_existing_conflicts || !self.overlapping_files.is_empty()
