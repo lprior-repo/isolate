@@ -16,8 +16,8 @@ mod types;
 
 use deps::{check_dependencies, ensure_jj_repo_with_cwd, jj_root_with_cwd};
 use setup::{
-    create_jj_hooks, create_jjignore, create_moon_pipeline, create_repo_ai_instructions,
-    DEFAULT_CONFIG,
+    create_agents_md, create_claude_md, create_docs, create_jj_hooks, create_jjignore,
+    create_moon_pipeline, create_repo_ai_instructions, DEFAULT_CONFIG,
 };
 use types::{build_init_response, InitPaths, InitResponse};
 
@@ -122,6 +122,13 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
 
     // Create Moon build pipeline configuration (.moon/)
     create_moon_pipeline(&root)?;
+
+    // Create unified AI instructions (AGENTS.md and CLAUDE.md)
+    create_agents_md(&root).context("Failed to create AGENTS.md")?;
+    create_claude_md(&root).context("Failed to create CLAUDE.md")?;
+
+    // Create documentation files from templates
+    create_docs(&root).context("Failed to create documentation files")?;
 
     // Initialize the database (create if it doesn't exist)
     // db_path already defined above

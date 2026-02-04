@@ -1,3 +1,120 @@
-# Workflow
+# Workflow: Agent Development Loop
 
-Standard development workflow.
+The standard agent workflow follows a pull-isolate-verify-merge pattern using Beads, ZJJ, and Moon.
+
+## Core Loop
+
+### 1. Pull: Discover Work with `bv`
+
+Use `bv` (beads triage engine) to find high-impact work:
+
+```bash
+# Get recommendations
+bv --robot-triage
+
+# Get single top pick with claim command
+bv --robot-next
+
+# Claim the bead
+br claim BD-123
+```
+
+### 2. Isolate: Create Workspace with `zjj`
+
+Create an isolated workspace for focused development:
+
+```bash
+# Create session for a bead
+zjj add <session-name> --bead BD-123
+
+# Or spawn with agent
+zjj spawn BD-123
+```
+
+### 3. Verify: Run Tests with `moon`
+
+Ensure code quality with Moon build system:
+
+```bash
+# Quick check
+moon run :quick
+
+# Full verification
+moon run :ci
+```
+
+### 4. Merge: Complete Work with `zjj done`
+
+Merge your work back to main:
+
+```bash
+# Complete and merge
+zjj done -m "feat: implement feature"
+
+# This automatically:
+# - Syncs workspace to main
+# - Pushes to remote
+# - Closes the bead
+# - Cleans up workspace
+```
+
+## Daily Workflow
+
+### Morning: Triage
+
+```bash
+# See what needs work
+bv --robot-triage
+
+# Pick top priority
+bv --robot-next
+
+# Claim and start
+br claim BD-123
+zjj add feature-work
+```
+
+### During Work: Iterate
+
+```bash
+# Edit files
+vim src/lib.rs
+
+# Test
+moon run :quick
+
+# Commit
+jj describe -m "feat: add feature"
+jj new
+```
+
+### End of Day: Land
+
+```bash
+# Final verification
+moon run :ci
+
+# Complete work
+zjj done -m "feat: implement feature"
+```
+
+## Key Concepts
+
+**Isolation**: Each bead gets its own workspace via `zjj add`. No conflicts between parallel work.
+
+**Triage**: `bv --robot-triage` provides PageRank-based prioritization and dependency analysis.
+
+**Verification**: `moon run :ci` ensures zero linter warnings, zero test failures, proper formatting.
+
+**Atomic Completion**: `zjj done` merges, pushes, and cleans up in one command.
+
+## Integration Points
+
+- **Beads**: Issue tracking and triage via `bv`
+- **ZJJ**: Workspace isolation via `zjj add` and `zjj done`
+- **Moon**: Quality gates via `moon run :ci`
+- **JJ**: Version control managed automatically by zjj
+
+---
+
+**Next**: [Beads](08_BEADS.md)
