@@ -17,12 +17,13 @@
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::Serialize;
+use serde_json::Value;
 use tokio::time::sleep;
-use zjj_core::{OutputFormat, Session};
+use zjj_core::OutputFormat;
 
-use crate::commands::get_session_db;
+use crate::{commands::get_session_db, db::SessionDb, session::Session};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DOMAIN TYPES (Functional Core)
@@ -44,7 +45,7 @@ pub struct PeriodicCleanupConfig {
 impl Default for PeriodicCleanupConfig {
     fn default() -> Self {
         Self {
-            interval: Duration::from_secs(3600), // 1 hour
+            interval: Duration::from_secs(3600),      // 1 hour
             age_threshold: Duration::from_secs(7200), // 2 hours
             dry_run: false,
             format: OutputFormat::Human,
@@ -110,7 +111,7 @@ fn is_orphan_candidate(
     if !workspace_exists {
         return Some(OrphanCandidate {
             name: session.name.clone(),
-            workspace_path: session.workspace_path.to_string_lossy().to_string(),
+            workspace_path: session.workspace_path.clone(),
             age_seconds: age.num_seconds(),
             has_active_bead,
             workspace_exists: false,
@@ -122,7 +123,7 @@ fn is_orphan_candidate(
     if is_old_enough && !has_active_bead {
         Some(OrphanCandidate {
             name: session.name.clone(),
-            workspace_path: session.workspace_path.to_string_lossy().to_string(),
+            workspace_path: session.workspace_path.clone(),
             age_seconds: age.num_seconds(),
             has_active_bead: false,
             workspace_exists: true,
@@ -133,11 +134,10 @@ fn is_orphan_candidate(
 }
 
 /// Calculate session age
-fn calculate_age(
-    session: &Session,
-    now: &DateTime<Utc>,
-) -> Option<chrono::Duration> {
-    now.signed_duration_since(session.updated_at).into()
+fn calculate_age(session: &Session, now: &DateTime<Utc>) -> Option<chrono::Duration> {
+    let naive = NaiveDateTime::from_timestamp_opt(session.updated_at as i64, 0)?;
+    let updated = DateTime::<Utc>::from_utc(naive, Utc);
+    Some(now.signed_duration_since(updated))
 }
 
 /// Check if session has an active bead
@@ -146,8 +146,9 @@ fn calculate_age(
 fn check_active_bead(session: &Session) -> bool {
     session
         .metadata
-        .get("bead_id")
-        .and_then(|v| v.as_str())
+        .as_ref()
+        .and_then(|meta| meta.get("bead_id"))
+        .and_then(|v: &Value| v.as_str())
         .map_or(false, |bead_id| is_bead_active(bead_id))
 }
 
@@ -155,8 +156,9 @@ fn check_active_bead(session: &Session) -> bool {
 ///
 /// Uses Railway pattern - if any step fails, returns false
 fn is_bead_active(bead_id: &str) -> bool {
-    check_bead_status(bead_id)
-        .map_or(false, |status| matches!(status.as_str(), "in_progress" | "open"))
+    check_bead_status(bead_id).map_or(false, |status| {
+        matches!(status.as_str(), "in_progress" | "open")
+    })
 }
 
 /// Query bead status from beads system
@@ -170,7 +172,7 @@ fn check_bead_status(bead_id: &str) -> Option<String> {
         .ok()
         .filter(|output| output.status.success())
         .and_then(|output| String::from_utf8(output.stdout).ok())
-        .and_then(|json_str| serde_json::from_str::<serde_json::Value>(&json_str).ok())
+        .and_then(|json_str| serde_json::from_str::<Value>(&json_str).ok())
         .and_then(|json| {
             json.as_array()
                 .and_then(|arr| arr.first())
@@ -247,7 +249,7 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
     let sessions = db.list_blocking(None).map_err(anyhow::Error::new)?;
 
     // 2. Find orphan candidates (pure functional)
-    let orphan_candidates = find_orphan_candidates(&sessions, &config.age_threshold, &now);
+    let orphan_candidates = find_orphan_candidates(&sessions[..], &config.age_threshold, &now);
 
     // 3. Categorize (pure functional)
     let (cleanable, skipped) = categorize_orphans(orphan_candidates);
@@ -272,16 +274,15 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
 /// Clean orphaned sessions from database
 ///
 /// Uses functional fold to accumulate successful removals
-async fn clean_orphans(
-    db: &zjj_core::session_state::SessionDatabase,
-    orphans: &[OrphanCandidate],
-) -> Result<Vec<String>> {
+async fn clean_orphans(db: &SessionDb, orphans: &[OrphanCandidate]) -> Result<Vec<String>> {
     // Functional fold over orphans, collecting successful removals
     orphans.iter().try_fold(Vec::new(), |mut cleaned, orphan| {
         db.delete_blocking(&orphan.name)
             .map_err(anyhow::Error::new)
-            .map(|()| {
-                cleaned.push(orphan.name.clone());
+            .map(|deleted| {
+                if deleted {
+                    cleaned.push(orphan.name.clone());
+                }
                 cleaned
             })
     })
@@ -296,7 +297,10 @@ fn log_cleanup_results(output: &PeriodicCleanupOutput, format: OutputFormat) {
     } else {
         println!(
             "[{}] Periodic cleanup: detected={}, cleaned={}, skipped={}",
-            output.timestamp, output.orphans_detected, output.orphans_cleaned, output.skipped_sessions.len()
+            output.timestamp,
+            output.orphans_detected,
+            output.orphans_cleaned,
+            output.skipped_sessions.len()
         );
 
         if !output.cleaned_sessions.is_empty() {
@@ -343,8 +347,9 @@ pub async fn run_periodic_cleanup(config: PeriodicCleanupConfig) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     fn mock_session(name: &str, age_hours: i64, workspace_exists: bool) -> Session {
         let now = Utc::now();
