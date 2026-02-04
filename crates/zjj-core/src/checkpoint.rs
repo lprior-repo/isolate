@@ -235,10 +235,7 @@ mod tests {
         let auto_cp = AutoCheckpoint::new(pool);
         let guard = auto_cp.guard_if_risky(OperationRisk::Safe).await;
         assert!(guard.is_ok());
-        let guard = match guard {
-            Ok(value) => value,
-            Err(_) => None,
-        };
+        let guard = guard.ok().flatten();
         assert!(guard.is_none());
         Ok(())
     }
@@ -249,10 +246,7 @@ mod tests {
         let auto_cp = AutoCheckpoint::new(pool);
         let guard = auto_cp.guard_if_risky(OperationRisk::Risky).await;
         assert!(guard.is_ok());
-        let guard = match guard {
-            Ok(value) => value,
-            Err(_) => None,
-        };
+        let guard = guard.ok().flatten();
         assert!(guard.is_some());
         Ok(())
     }
@@ -270,14 +264,12 @@ mod tests {
             let _ = g.commit().await;
 
             let row: Option<(String,)> =
-                match sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+                sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
                     .bind(&id)
                     .fetch_optional(&pool)
                     .await
-                {
-                    Ok(value) => value,
-                    Err(_) => None,
-                };
+                    .ok()
+                    .flatten();
             assert_eq!(row.map(|(s,)| s), Some("committed".to_string()));
         }
         Ok(())
@@ -290,10 +282,11 @@ mod tests {
 
         let checkpoint_id: String;
         {
-            let guard = match auto_cp.guard_if_risky(OperationRisk::Risky).await {
-                Ok(value) => value,
-                Err(_) => None,
-            };
+            let guard = auto_cp
+                .guard_if_risky(OperationRisk::Risky)
+                .await
+                .ok()
+                .flatten();
             checkpoint_id = match guard {
                 Some(g) => g.id().to_string(),
                 None => String::new(),
@@ -302,10 +295,7 @@ mod tests {
         }
 
         if !checkpoint_id.is_empty() {
-            let pending = match find_pending_restores(&pool).await {
-                Ok(value) => value,
-                Err(_) => Vec::new(),
-            };
+            let pending = find_pending_restores(&pool).await.unwrap_or_default();
             assert!(pending.contains(&checkpoint_id));
         }
         Ok(())
@@ -324,14 +314,12 @@ mod tests {
             let _ = g.rollback().await;
 
             let row: Option<(String,)> =
-                match sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+                sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
                     .bind(&id)
                     .fetch_optional(&pool)
                     .await
-                {
-                    Ok(value) => value,
-                    Err(_) => None,
-                };
+                    .ok()
+                    .flatten();
             assert_eq!(row.map(|(s,)| s), Some("needs_restore".to_string()));
         }
         Ok(())

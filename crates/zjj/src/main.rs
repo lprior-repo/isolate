@@ -6,7 +6,6 @@ use std::process;
 
 use anyhow::Result;
 use clap::{Arg, Command as ClapCommand};
-use serde_json;
 use zjj_core::json::SchemaEnvelope;
 
 mod cli;

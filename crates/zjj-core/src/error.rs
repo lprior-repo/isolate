@@ -1016,8 +1016,7 @@ mod tests {
             .with_command("test", vec![]);
         let json = serde_json::to_string(&ctx);
         let Ok(json_str) = json else {
-            assert!(false, "serialization failed");
-            return;
+            panic!("serialization failed");
         };
         assert!(json_str.contains("\"working_directory\":\"/tmp\""));
         assert!(json_str.contains("\"timestamp\":"));

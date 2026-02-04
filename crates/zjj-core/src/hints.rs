@@ -813,10 +813,7 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = match generate_hints(&state) {
-            Ok(value) => value,
-            Err(_) => Vec::new(),
-        };
+        let hints = generate_hints(&state).unwrap_or_default();
         assert!(!hints.is_empty());
 
         #[allow(clippy::indexing_slicing)]
@@ -836,10 +833,7 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = match generate_hints(&state) {
-            Ok(value) => value,
-            Err(_) => Vec::new(),
-        };
+        let hints = generate_hints(&state).unwrap_or_default();
         assert!(hints
             .iter()
             .any(|h| h.message.contains("consider removing")));
@@ -853,10 +847,7 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = match generate_hints(&state) {
-            Ok(value) => value,
-            Err(_) => Vec::new(),
-        };
+        let hints = generate_hints(&state).unwrap_or_default();
         assert!(hints.iter().any(|h| h.hint_type == HintType::Warning));
     }
 
@@ -872,10 +863,7 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = match generate_hints(&state) {
-            Ok(value) => value,
-            Err(_) => Vec::new(),
-        };
+        let hints = generate_hints(&state).unwrap_or_default();
         assert!(hints.iter().any(|h| h.message.contains("dashboard")));
     }
 

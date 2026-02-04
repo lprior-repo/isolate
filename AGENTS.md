@@ -64,12 +64,15 @@ crates/
 ## Quick Reference
 
 ### Issue Tracking (Beads)
+**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
-bd sync               # Sync with git
+br ready              # Find available work
+br show <id>          # View issue details
+br update <id> --status in_progress  # Claim work
+br close <id>         # Complete work
+br sync --flush-only  # Sync to JSONL (no git)
+git add .beads/
+git commit -m "sync beads"
 ```
 
 ### Development (Moon CI/CD)
@@ -259,7 +262,7 @@ bv --robot-triage --robot-triage-by-track  # Get parallel execution tracks
 bv --robot-next  # Get top recommendation + claim command
 
 # Step 2: CLAIM - Reserve the bead
-bd update <bead-id> --status in_progress
+br update <bead-id> --status in_progress
 
 # Step 3: ISOLATE - Create isolated workspace
 # Use zjj skill to spawn isolated JJ workspace + Zellij tab
@@ -278,7 +281,9 @@ zjj add <session-name>
 # Use land skill for mandatory quality gates:
 # - Moon quick check (6-7ms cached)
 # - git commit with proper message
-# - bd sync
+# - br sync --flush-only
+# - git add .beads/
+# - git commit -m "sync beads"
 # - git push (MANDATORY - work not done until pushed)
 
 # Step 7: MERGE - Reintegrate to main
@@ -303,7 +308,7 @@ You are a parallel autonomous agent. Complete this workflow:
 **BEAD TO WORK ON**: <bead-id> - "<title>"
 
 **WORKFLOW**:
-1. CLAIM: `bd update <bead-id> --status in_progress`
+1. CLAIM: `br update <bead-id> --status in_progress`
 2. ISOLATE: Use the zjj skill to spawn an isolated workspace named "<session-name>"
 3. IMPLEMENT: Use functional-rust-generator skill (or tdd15-gleam for Gleam)
    - Zero unwraps, zero panics
@@ -361,7 +366,9 @@ bv --robot-triage --robot-triage-by-track
    ```bash
    git add <files>
    git commit -m "description"
-   bd sync  # Sync beads
+   br sync --flush-only  # Sync beads
+   git add .beads/
+   git commit -m "sync beads"
    git pull --rebase
    git push
    git status  # MUST show "up to date with origin"
