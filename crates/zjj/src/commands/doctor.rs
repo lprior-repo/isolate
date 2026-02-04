@@ -342,13 +342,11 @@ fn check_state_db() -> DoctorCheck {
         }
     };
 
-    let is_readable = metadata.permissions().readonly();
-
-    if !is_readable {
+    if let Err(e) = std::fs::File::open(db_path) {
         return DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Fail,
-            message: "Database file is not readable (permission denied)".to_string(),
+            message: format!("Database file is not readable: {e}"),
             suggestion: Some("Check file permissions on .zjj/state.db".to_string()),
             auto_fixable: false,
             details: Some(serde_json::json!({
@@ -357,6 +355,8 @@ fn check_state_db() -> DoctorCheck {
             })),
         };
     }
+
+    let is_read_only = metadata.permissions().readonly();
 
     // Check file size (corrupted databases often have wrong size)
     let file_size = metadata.len();
@@ -389,7 +389,7 @@ fn check_state_db() -> DoctorCheck {
         auto_fixable: false,
         details: Some(serde_json::json!({
             "file_size": file_size,
-            "readable": true
+            "read_only": is_read_only
         })),
     }
 }

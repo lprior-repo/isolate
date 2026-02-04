@@ -123,6 +123,9 @@ pub fn run_export(options: &ExportOptions) -> Result<()> {
         } else {
             println!("✓ Exported {} sessions to {}", result.count, output_path);
         }
+    } else if options.format.is_json() {
+        let envelope = SchemaEnvelope::new("export-response", "single", result);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         println!("{json_output}");
     }

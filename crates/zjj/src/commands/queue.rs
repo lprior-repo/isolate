@@ -12,7 +12,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use zjj_core::OutputFormat;
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 /// Response for queue add operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -156,7 +156,7 @@ fn handle_add(queue: &zjj_core::MergeQueue, workspace: &str, options: &QueueOpti
             total_pending: response.total_pending,
             message,
         };
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        print_queue_envelope("queue-add-response", &output)?;
     } else {
         println!("{message}");
     }
@@ -194,7 +194,7 @@ fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
             completed: stats.completed,
             failed: stats.failed,
         };
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        print_queue_envelope("queue-list-response", &output)?;
     } else {
         if entries.is_empty() {
             println!("Queue is empty");
@@ -213,14 +213,6 @@ fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
                     entry.id,
                     &entry.workspace[..entry.workspace.len().min(17)],
                     status_str,
-                    entry.priority,
-                    &agent[..agent.len().min(13)]
-                );
-                println!(
-                    "║ {:2} ║ {:17} ║ {:11} ║ {:8} │ {:13} ║",
-                    entry.id,
-                    &entry.workspace[..entry.workspace.len().min(17)],
-                    entry_status,
                     entry.priority,
                     &agent[..agent.len().min(13)]
                 );
@@ -265,7 +257,7 @@ fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
             entry: entry_output,
             message,
         };
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        print_queue_envelope("queue-next-response", &output)?;
     } else {
         match entry {
             Some(e) => {
@@ -309,7 +301,7 @@ fn handle_remove(
             removed,
             message,
         };
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        print_queue_envelope("queue-remove-response", &output)?;
     } else {
         println!("{message}");
     }
@@ -343,7 +335,7 @@ fn handle_status(
             status,
             message,
         };
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        print_queue_envelope("queue-status-response", &output)?;
     } else {
         match entry {
             Some(e) => {
@@ -385,7 +377,7 @@ fn handle_stats(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<
             completed: stats.completed,
             failed: stats.failed,
         };
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        print_queue_envelope("queue-stats-response", &output)?;
     } else {
         println!("Queue Statistics:");
         println!("  Total:      {}", stats.total);
@@ -395,5 +387,13 @@ fn handle_stats(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<
         println!("  Failed:     {}", stats.failed);
     }
 
+    Ok(())
+}
+
+fn print_queue_envelope<T: Serialize>(schema_name: &str, payload: &T) -> Result<()> {
+    let envelope = SchemaEnvelope::new(schema_name, "single", payload);
+    let json_str =
+        serde_json::to_string_pretty(&envelope).context("Failed to serialize queue response")?;
+    println!("{json_str}");
     Ok(())
 }

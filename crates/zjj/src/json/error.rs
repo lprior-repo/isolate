@@ -3,7 +3,7 @@
 use anyhow::Error;
 use serde::Serialize;
 use zjj_core::{
-    json::{ErrorCode, ErrorDetail, JsonError},
+    json::{ErrorCode, ErrorDetail, JsonError, SchemaEnvelope},
     Error as ZjjError,
 };
 
@@ -29,7 +29,12 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
     let json_error = error_to_json_error(error);
     let exit_code = json_error.error.exit_code;
 
-    if let Ok(json_str) = serde_json::to_string_pretty(&json_error) {
+    let payload = ErrorEnvelopePayload {
+        error: json_error.error,
+    };
+    let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
+
+    if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
         println!("{json_str}");
     } else {
         // If JSON serialization fails, output a minimal JSON error to stdout
@@ -37,6 +42,11 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
     }
 
     std::process::exit(exit_code);
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorEnvelopePayload {
+    error: ErrorDetail,
 }
 
 /// Convert an `anyhow::Error` to a `JsonError`

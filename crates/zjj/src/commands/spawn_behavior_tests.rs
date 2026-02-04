@@ -477,7 +477,7 @@ mod brutal_edge_cases {
             barrier1.wait(); // Synchronize start
 
             let options = test_spawn_options("test-bead-1", "echo", vec!["test".to_string()]);
-            execute_spawn(&options)
+            with_runtime(|| execute_spawn(&options))
         });
 
         let repo2 = Arc::clone(&repo);
@@ -487,7 +487,7 @@ mod brutal_edge_cases {
             barrier2.wait(); // Synchronize start
 
             let options = test_spawn_options("test-bead-1", "echo", vec!["test".to_string()]);
-            execute_spawn(&options)
+            with_runtime(|| execute_spawn(&options))
         });
 
         // When: Both threads spawn simultaneously

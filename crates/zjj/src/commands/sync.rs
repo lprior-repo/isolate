@@ -68,28 +68,7 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
             Ok(())
         }
         Err(e) => {
-            if options.format.is_json() {
-                let output = SyncOutput {
-                    name: Some(name.to_string()),
-                    synced_count: 0,
-                    failed_count: 1,
-                    errors: vec![SyncError {
-                        name: name.to_string(),
-                        error: ErrorDetail {
-                            code: "SYNC_FAILED".to_string(),
-                            message: e.to_string(),
-                            exit_code: 3,
-                            details: None,
-                            suggestion: Some(
-                                "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
-                            ),
-                        },
-                    }],
-                };
-                let envelope = SchemaEnvelope::new("sync-response", "single", output);
-                let json_str = serde_json::to_string(&envelope)?;
-                writeln!(std::io::stdout(), "{json_str}")?;
-            } else {
+            if !options.format.is_json() {
                 writeln!(std::io::stdout(), "Error syncing session '{name}': {e}")?;
             }
             Err(e)
@@ -157,7 +136,11 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                 .filter_map(|r| r.err().map(|e| *e))
                 .collect(),
         };
-        let envelope = SchemaEnvelope::new("sync-response", "single", output);
+        let envelope = if output.failed_count > 0 {
+            SchemaEnvelope::new("sync-response", "single", output).as_error()
+        } else {
+            SchemaEnvelope::new("sync-response", "single", output)
+        };
         let json_str = serde_json::to_string(&envelope)?;
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
