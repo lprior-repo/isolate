@@ -533,4 +533,24 @@ mod tests {
         assert_eq!(queue_stats.pending, 40);
         Ok(())
     }
+
+    #[test]
+    fn test_processing_lock_serializes_work() -> Result<()> {
+        let queue = MergeQueue::open_in_memory()?;
+        queue.add("ws-1", None, 5, Some("agent-1"))?;
+        queue.add("ws-2", None, 5, Some("agent-2"))?;
+
+        let first = queue.next_with_lock("agent-1")?;
+        assert!(first.is_some());
+
+        let second = queue.next_with_lock("agent-2")?;
+        assert!(second.is_none());
+
+        let released = queue.release_processing_lock("agent-1")?;
+        assert!(released);
+
+        let next = queue.next_with_lock("agent-2")?;
+        assert!(next.is_some());
+        Ok(())
+    }
 }

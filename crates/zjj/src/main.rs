@@ -3180,6 +3180,7 @@ fn handle_queue(sub_m: &clap::ArgMatches) -> Result<()> {
         priority,
         agent_id,
         list,
+        process: false,
         next,
         remove,
         status,
@@ -3725,10 +3726,10 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
 /// Handle atomic batch mode with checkpoint-based rollback
 async fn handle_atomic_batch(
     sub_m: &clap::ArgMatches,
-    json: bool,
+    _json: bool,
     format: zjj_core::OutputFormat,
     file: Option<String>,
-    stop_on_error: bool,
+    _stop_on_error: bool,
 ) -> anyhow::Result<()> {
     use batch::execute_batch;
 

@@ -8,11 +8,13 @@
 //! - Removing entries from the queue
 //! - Checking overall queue status and statistics
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
+
+use crate::commands::get_session_db;
 
 /// Response for queue add operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,6 +98,7 @@ pub struct QueueOptions {
     pub priority: i32,
     pub agent_id: Option<String>,
     pub list: bool,
+    pub process: bool,
     pub next: bool,
     pub remove: Option<String>,
     pub status: Option<String>,
@@ -116,6 +119,8 @@ pub fn run_with_options(options: &QueueOptions) -> Result<()> {
         handle_add(&queue, workspace, options)?;
     } else if options.list {
         handle_list(&queue, options)?;
+    } else if options.process {
+        handle_process(&queue, options)?;
     } else if options.next {
         handle_next(&queue, options)?;
     } else if let Some(workspace) = &options.remove {
@@ -281,6 +286,110 @@ fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
     Ok(())
 }
 
+/// Handle the process command
+fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
+    let agent_id = resolve_agent_id(options.agent_id.as_deref());
+    let entry = queue.next_with_lock(&agent_id)?;
+
+    let Some(entry) = entry else {
+        let lock = queue.get_processing_lock()?;
+        let message = if let Some(lock) = lock {
+            format!(
+                "Queue is locked by agent '{}' until {}",
+                lock.agent_id, lock.expires_at
+            )
+        } else {
+            "Queue is empty - no pending entries".to_string()
+        };
+
+        if options.format.is_json() {
+            let output = QueueNextOutput {
+                entry: None,
+                message,
+            };
+            print_queue_envelope("queue-process-response", &output)?;
+        } else {
+            println!("{message}");
+        }
+
+        return Ok(());
+    };
+
+    if !options.format.is_json() {
+        println!(
+            "Processing queued workspace '{}' (queue id {})",
+            entry.workspace, entry.id
+        );
+    }
+
+    let workspace_path = resolve_workspace_path(&entry.workspace)?;
+    let original_dir = std::env::current_dir().context("Failed to read current directory")?;
+    std::env::set_current_dir(&workspace_path)
+        .with_context(|| format!("Failed to enter workspace at {}", workspace_path.display()))?;
+
+    let done_options = crate::commands::done::types::DoneOptions {
+        message: None,
+        keep_workspace: false,
+        no_keep: false,
+        squash: false,
+        dry_run: false,
+        detect_conflicts: false,
+        no_bead_update: false,
+        format: options.format,
+    };
+
+    let done_result = crate::commands::done::run_with_options(&done_options);
+
+    let _ = std::env::set_current_dir(&original_dir);
+
+    let exit_code = match done_result {
+        Ok(code) => code,
+        Err(err) => {
+            let _ = queue.mark_failed(&entry.workspace, &err.to_string());
+            let _ = queue.release_processing_lock(&agent_id);
+            return Err(err);
+        }
+    };
+
+    match exit_code {
+        crate::commands::done::types::DoneExitCode::Success => {
+            let marked = queue.mark_completed(&entry.workspace)?;
+            anyhow::ensure!(
+                marked,
+                "Failed to mark queue entry '{}' as completed",
+                entry.workspace
+            );
+        }
+        crate::commands::done::types::DoneExitCode::MergeConflict => {
+            let marked = queue.mark_failed(&entry.workspace, "merge conflict")?;
+            anyhow::ensure!(
+                marked,
+                "Failed to mark queue entry '{}' as failed",
+                entry.workspace
+            );
+        }
+        crate::commands::done::types::DoneExitCode::NotInWorkspace => {
+            let marked = queue.mark_failed(&entry.workspace, "not in workspace")?;
+            anyhow::ensure!(
+                marked,
+                "Failed to mark queue entry '{}' as failed",
+                entry.workspace
+            );
+        }
+        crate::commands::done::types::DoneExitCode::OtherError => {
+            let marked = queue.mark_failed(&entry.workspace, "done failed")?;
+            anyhow::ensure!(
+                marked,
+                "Failed to mark queue entry '{}' as failed",
+                entry.workspace
+            );
+        }
+    }
+
+    let _ = queue.release_processing_lock(&agent_id);
+    Ok(())
+}
+
 /// Handle the remove command
 fn handle_remove(
     queue: &zjj_core::MergeQueue,
@@ -396,4 +505,30 @@ fn print_queue_envelope<T: Serialize>(schema_name: &str, payload: &T) -> Result<
         serde_json::to_string_pretty(&envelope).context("Failed to serialize queue response")?;
     println!("{json_str}");
     Ok(())
+}
+
+fn resolve_agent_id(agent_id: Option<&str>) -> String {
+    agent_id
+        .map(String::from)
+        .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
+        .unwrap_or_else(|| format!("pid-{}", std::process::id()))
+}
+
+fn resolve_workspace_path(workspace: &str) -> Result<PathBuf> {
+    let session_db = get_session_db().ok();
+    if let Some(db) = session_db {
+        if let Some(session) = db.get_blocking(workspace)? {
+            let path = PathBuf::from(session.workspace_path);
+            if path.exists() {
+                return Ok(path);
+            }
+        }
+    }
+
+    let fallback = PathBuf::from(workspace);
+    if fallback.exists() {
+        Ok(fallback)
+    } else {
+        Err(anyhow::anyhow!("Workspace '{workspace}' not found"))
+    }
 }

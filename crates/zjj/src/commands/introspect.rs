@@ -4,131 +4,18 @@
 //! system state, and dependencies.
 
 use anyhow::Result;
-use im::HashMap;
 use zjj_core::{
     introspection::{
-        ArgumentSpec, CommandExample, CommandIntrospection, DependencyInfo, ErrorCondition,
-        FlagSpec, IntrospectOutput, Prerequisites, SystemState,
+        ArgumentSpec, CommandExample, CommandIntrospection, ErrorCondition, FlagSpec,
+        IntrospectOutput, Prerequisites,
     },
     json::SchemaEnvelope,
     OutputFormat,
 };
 
-use crate::{
-    cli::{is_command_available, is_jj_repo, run_command},
-    commands::{get_session_db, zjj_data_dir},
-};
-
-/// Get version of a command by running `command --version`
-fn get_command_version(command: &str) -> Option<String> {
-    run_command(command, &["--version"])
-        .ok()
-        .and_then(|output| output.lines().next().map(|line| line.trim().to_string()))
-}
-
-/// Check dependencies and their status
-fn check_dependencies() -> HashMap<String, DependencyInfo> {
-    // JJ (required)
-    let jj_installed = is_command_available("jj");
-    let jj_info = DependencyInfo {
-        required: true,
-        installed: jj_installed,
-        version: if jj_installed {
-            get_command_version("jj")
-        } else {
-            None
-        },
-        command: "jj".to_string(),
-    };
-
-    // Zellij (required)
-    let zellij_installed = is_command_available("zellij");
-    let zellij_info = DependencyInfo {
-        required: true,
-        installed: zellij_installed,
-        version: if zellij_installed {
-            get_command_version("zellij")
-        } else {
-            None
-        },
-        command: "zellij".to_string(),
-    };
-
-    // Claude (optional)
-    let claude_installed = is_command_available("claude");
-    let claude_info = DependencyInfo {
-        required: false,
-        installed: claude_installed,
-        version: if claude_installed {
-            get_command_version("claude")
-        } else {
-            None
-        },
-        command: "claude".to_string(),
-    };
-
-    // Beads (optional)
-    let beads_installed = is_command_available("br");
-    let beads_info = DependencyInfo {
-        required: false,
-        installed: beads_installed,
-        version: if beads_installed {
-            get_command_version("br")
-        } else {
-            None
-        },
-        command: "br".to_string(),
-    };
-
-    HashMap::new()
-        .update("jj".to_string(), jj_info)
-        .update("zellij".to_string(), zellij_info)
-        .update("claude".to_string(), claude_info)
-        .update("beads".to_string(), beads_info)
-}
-
-/// Get current system state
-fn get_system_state() -> SystemState {
-    let jj_repo = is_jj_repo().unwrap_or(false);
-    let initialized = zjj_data_dir().is_ok();
-
-    let (config_path, state_db, sessions_count, active_sessions) = if initialized {
-        let data_dir = zjj_data_dir().ok();
-        let config = data_dir
-            .as_ref()
-            .map(|d| d.join("config.toml").display().to_string());
-        let db = data_dir
-            .as_ref()
-            .map(|d| d.join("state.db").display().to_string());
-
-        let (count, active) = get_session_db()
-            .ok()
-            .and_then(|db| {
-                db.list_blocking(None).ok().map(|sessions| {
-                    let total = sessions.len();
-                    let active = sessions
-                        .iter()
-                        .filter(|s| s.status.to_string() == "active")
-                        .count();
-                    (total, active)
-                })
-            })
-            .unwrap_or((0, 0));
-
-        (config, db, count, active)
-    } else {
-        (None, None, 0, 0)
-    };
-
-    SystemState {
-        initialized,
-        jj_repo,
-        config_path,
-        state_db,
-        sessions_count,
-        active_sessions,
-    }
-}
+mod dependencies;
+mod output;
+mod system_state;
 
 /// Run the introspect command - show all capabilities
 pub fn run(format: OutputFormat) -> Result<()> {
@@ -136,85 +23,19 @@ pub fn run(format: OutputFormat) -> Result<()> {
     let mut output = IntrospectOutput::new(version);
 
     // Add dependencies
-    output.dependencies = check_dependencies();
+    output.dependencies = dependencies::check_dependencies();
 
     // Add system state
-    output.system_state = get_system_state();
+    output.system_state = system_state::get_system_state();
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("introspect-response", "single", output);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
-        print_human_readable(&output);
+        output::print_human_readable(&output);
     }
 
     Ok(())
-}
-
-/// Print introspection output in human-readable format
-fn print_human_readable(output: &IntrospectOutput) {
-    println!("ZJJ Version: {}", output.zjj_version);
-    println!();
-
-    println!("Capabilities:");
-    println!("  Session Management:");
-    for cmd in &output.capabilities.session_management.commands {
-        println!("    - {cmd}");
-    }
-    println!("  Version Control:");
-    for cmd in &output.capabilities.version_control.commands {
-        println!("    - {cmd}");
-    }
-    println!("  Introspection:");
-    for cmd in &output.capabilities.introspection.commands {
-        println!("    - {cmd}");
-    }
-    println!();
-
-    println!("Dependencies:");
-    for (name, info) in &output.dependencies {
-        let status = if info.installed { "✓" } else { "✗" };
-        let required = if info.required {
-            " (required)"
-        } else {
-            " (optional)"
-        };
-        let version = info
-            .version
-            .as_ref()
-            .map(|v| format!(" - {v}"))
-            .map_or(String::new(), |value| value);
-        println!("  {status} {name}{required}{version}");
-    }
-    println!();
-
-    println!("System State:");
-    println!(
-        "  Initialized: {}",
-        if output.system_state.initialized {
-            "yes"
-        } else {
-            "no"
-        }
-    );
-    println!(
-        "  JJ Repository: {}",
-        if output.system_state.jj_repo {
-            "yes"
-        } else {
-            "no"
-        }
-    );
-    if let Some(ref path) = output.system_state.config_path {
-        println!("  Config: {path}");
-    }
-    if let Some(ref path) = output.system_state.state_db {
-        println!("  Database: {path}");
-    }
-    println!(
-        "  Sessions: {} total, {} active",
-        output.system_state.sessions_count, output.system_state.active_sessions
-    );
 }
 
 /// Introspect a specific command
@@ -1449,8 +1270,8 @@ pub struct AiWorkflowSummary {
 #[allow(clippy::too_many_lines)]
 pub fn run_ai() -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
-    let dependencies = check_dependencies();
-    let system_state = get_system_state();
+    let dependencies = dependencies::check_dependencies();
+    let system_state = system_state::get_system_state();
 
     // Determine location
     let location = crate::cli::jj_root().map_or_else(
