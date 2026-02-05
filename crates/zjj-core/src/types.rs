@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     contracts::{Constraint, ContextualHint, FieldContract, HasContract, HintType, TypeContract},
-    Error, Result,
+    Error, Result, WorkspaceState,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -101,6 +101,9 @@ pub struct Session {
 
     /// Current session status
     pub status: SessionStatus,
+
+    /// Workspace lifecycle state (tracks work progress)
+    pub state: WorkspaceState,
 
     /// Absolute path to workspace directory
     ///
@@ -223,6 +226,23 @@ impl HasContract for Session {
                             "paused".to_string(),
                             "completed".to_string(),
                             "failed".to_string(),
+                        ],
+                    })
+                    .build(),
+            )
+            .field(
+                "state",
+                FieldContract::builder("state", "WorkspaceState")
+                    .required()
+                    .description("Workspace lifecycle state")
+                    .constraint(Constraint::Enum {
+                        values: vec![
+                            "created".to_string(),
+                            "working".to_string(),
+                            "ready".to_string(),
+                            "merged".to_string(),
+                            "abandoned".to_string(),
+                            "conflict".to_string(),
                         ],
                     })
                     .build(),
@@ -688,6 +708,7 @@ mod tests {
             id: "id123".to_string(),
             name: "invalid name".to_string(), // contains space
             status: SessionStatus::Creating,
+            state: WorkspaceState::Created,
             workspace_path: PathBuf::from("/tmp/test"),
             branch: None,
             created_at: Utc::now(),
@@ -705,6 +726,7 @@ mod tests {
             id: "id123".to_string(),
             name: "valid-name".to_string(),
             status: SessionStatus::Creating,
+            state: WorkspaceState::Created,
             workspace_path: PathBuf::from("relative/path"), // not absolute
             branch: None,
             created_at: Utc::now(),
@@ -725,6 +747,7 @@ mod tests {
             id: "id123".to_string(),
             name: "valid-name".to_string(),
             status: SessionStatus::Creating,
+            state: WorkspaceState::Created,
             workspace_path: PathBuf::from("/tmp/test"),
             branch: None,
             created_at: now,
