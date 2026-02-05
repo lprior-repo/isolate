@@ -15,13 +15,18 @@
 //! Warnings (`CheckStatus::Warn`) do not cause non-zero exit codes - only failures
 //! (`CheckStatus::Fail`) do.
 
-use std::{path::Path, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use zjj_core::{
+    config::load_config,
     introspection::{CheckStatus, DoctorCheck, DoctorFixOutput, FixResult, UnfixableIssue},
     json::SchemaEnvelope,
+    workspace_integrity::IntegrityValidator,
     OutputFormat,
 };
 
@@ -103,11 +108,125 @@ fn run_all_checks() -> Vec<DoctorCheck> {
         check_workspace_context(),
         check_initialized(),
         check_state_db(),
+        check_workspace_integrity(),
         check_orphaned_workspaces(),
         check_stale_sessions(),
         check_beads(),
         check_workflow_violations(),
     ]
+}
+
+/// Check workspace integrity using the integrity validator
+fn check_workspace_integrity() -> DoctorCheck {
+    let config = match load_config() {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            return DoctorCheck {
+                name: "Workspace Integrity".to_string(),
+                status: CheckStatus::Warn,
+                message: format!("Unable to load config: {e}"),
+                suggestion: Some("Check .zjj/config.toml for errors".to_string()),
+                auto_fixable: false,
+                details: None,
+            };
+        }
+    };
+
+    let root = jj_root()
+        .ok()
+        .map(PathBuf::from)
+        .or_else(|| std::env::current_dir().ok());
+    let Some(root) = root else {
+        return DoctorCheck {
+            name: "Workspace Integrity".to_string(),
+            status: CheckStatus::Warn,
+            message: "Unable to determine repository root".to_string(),
+            suggestion: Some("Run doctor from within a JJ repository".to_string()),
+            auto_fixable: false,
+            details: None,
+        };
+    };
+
+    let workspace_dir = if Path::new(&config.workspace_dir).is_absolute() {
+        Path::new(&config.workspace_dir).to_path_buf()
+    } else {
+        root.join(Path::new(&config.workspace_dir))
+    };
+
+    let sessions = get_session_db()
+        .ok()
+        .and_then(|db| db.list_blocking(None).ok())
+        .unwrap_or_else(Vec::new);
+
+    if sessions.is_empty() {
+        return DoctorCheck {
+            name: "Workspace Integrity".to_string(),
+            status: CheckStatus::Pass,
+            message: "No sessions to validate".to_string(),
+            suggestion: None,
+            auto_fixable: false,
+            details: None,
+        };
+    }
+
+    let validator = IntegrityValidator::new(workspace_dir);
+    let names: Vec<String> = sessions.iter().map(|s| s.name.clone()).collect();
+
+    let results = match validator.validate_all(&names) {
+        Ok(values) => values,
+        Err(e) => {
+            return DoctorCheck {
+                name: "Workspace Integrity".to_string(),
+                status: CheckStatus::Warn,
+                message: format!("Integrity validation failed: {e}"),
+                suggestion: Some(
+                    "Run 'zjj integrity validate <workspace>' for details".to_string(),
+                ),
+                auto_fixable: false,
+                details: None,
+            };
+        }
+    };
+
+    let invalid: Vec<_> = results.iter().filter(|r| !r.is_valid).collect();
+
+    if invalid.is_empty() {
+        DoctorCheck {
+            name: "Workspace Integrity".to_string(),
+            status: CheckStatus::Pass,
+            message: "All workspaces validated successfully".to_string(),
+            suggestion: None,
+            auto_fixable: false,
+            details: None,
+        }
+    } else {
+        let details = serde_json::json!({
+            "invalid_workspaces": invalid.iter().map(|r| {
+                serde_json::json!({
+                    "workspace": r.workspace,
+                    "issue_count": r.issues.len(),
+                    "issues": r.issues.iter().map(|i| {
+                        serde_json::json!({
+                            "type": i.corruption_type.to_string(),
+                            "description": i.description,
+                            "path": i.affected_path.as_ref().map(|p| p.display().to_string()),
+                        })
+                    }).collect::<Vec<_>>(),
+                })
+            }).collect::<Vec<_>>()
+        });
+
+        DoctorCheck {
+            name: "Workspace Integrity".to_string(),
+            status: CheckStatus::Fail,
+            message: format!("Integrity issues found in {} workspace(s)", invalid.len()),
+            suggestion: Some(
+                "Run 'zjj integrity repair <workspace>' to attempt recovery".to_string(),
+            ),
+            auto_fixable: false,
+            details: Some(details),
+        }
+    }
 }
 
 /// Check if JJ is installed

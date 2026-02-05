@@ -37,7 +37,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use zjj_core::{
-    checkpoint::{AutoCheckpoint, CheckpointGuard, OperationRisk},
+    checkpoint::{AutoCheckpoint, OperationRisk},
     json::SchemaEnvelope,
     Error, OutputFormat, Result,
 };
@@ -189,7 +189,7 @@ pub async fn execute_batch(
     let mut should_stop = false;
 
     for (index, operation) in request.operations.iter().enumerate() {
-        let operation_index = index;
+        let _operation_index = index;
         let result = if should_stop {
             make_skipped_result(operation, "Previous operation failed")
         } else {
@@ -225,9 +225,7 @@ pub async fn execute_batch(
         // Atomic mode: all required operations must succeed
         results
             .iter()
-            .all(|r| {
-                r.success || operation_is_optional_by_id(&request.operations, &r.id)
-            })
+            .all(|r| r.success || operation_is_optional_by_id(&request.operations, &r.id))
     } else {
         // Non-atomic mode: success if no required failures
         results
@@ -243,7 +241,7 @@ pub async fn execute_batch(
             guard
                 .rollback()
                 .await
-                .map_err(|e| Error::DatabaseError(format!("Failed to rollback: {e}"))?;
+                .map_err(|e| Error::DatabaseError(format!("Failed to rollback: {e}")))?;
             true
         } else {
             false
@@ -253,7 +251,7 @@ pub async fn execute_batch(
             guard
                 .commit()
                 .await
-                .map_err(|e| Error::DatabaseError(format!("Failed to commit checkpoint: {e}"))?;
+                .map_err(|e| Error::DatabaseError(format!("Failed to commit checkpoint: {e}")))?;
         }
         false
     } else {
@@ -290,9 +288,11 @@ pub async fn execute_batch(
     // Phase 5: Output response
     if format.is_json() {
         let envelope = SchemaEnvelope::new("batch-response", "single", &response);
-        println!("{}", serde_json::to_string_pretty(&envelope).map_err(|e| {
-            Error::ParseError(format!("Failed to serialize response: {e}"))
-        })?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&envelope)
+                .map_err(|e| { Error::ParseError(format!("Failed to serialize response: {e}")) })?
+        );
     } else {
         print_batch_human(&response);
     }
@@ -342,10 +342,12 @@ fn make_skipped_result(operation: &BatchOperation, reason: &str) -> BatchItemRes
 
 /// Execute a command synchronously and capture output.
 async fn execute_command(command: &str, args: &[String]) -> Result<String> {
+    let command = command.to_string();
+    let args = args.to_vec();
     tokio::task::spawn_blocking(move || {
         std::process::Command::new("zjj")
-            .arg(command)
-            .args(args)
+            .arg(&command)
+            .args(&args)
             .output()
             .map_err(|e| Error::Command(format!("Failed to execute: {e}")))
             .and_then(|output| {
@@ -354,23 +356,19 @@ async fn execute_command(command: &str, args: &[String]) -> Result<String> {
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     let stdout = String::from_utf8_lossy(&output.stdout);
-                    let error_msg = if stderr.is_empty() {
-                        stdout
-                    } else {
-                        stderr
-                    };
-                    Err(Error::Command(error_msg))
+                    let error_msg = if stderr.is_empty() { stdout } else { stderr };
+                    Err(Error::Command(error_msg.to_string()))
                 }
             })
     })
     .await
-    .map_err(|e| Error::Command(format!("Task join error: {e}"))?
+    .map_err(|e| Error::Command(format!("Task join error: {e}")))?
 }
 
 /// Convert Duration to milliseconds, clamping to u64 range.
 fn to_duration_ms(duration: std::time::Duration) -> Option<u64> {
     let ms = duration.as_millis();
-    if ms >= 0 && ms <= u64::MAX as i128 {
+    if ms <= u128::from(u64::MAX) {
         Some(ms as u64)
     } else {
         None
@@ -451,14 +449,12 @@ mod tests {
         // This is a structural test for the logic flow.
         let request = BatchRequest {
             atomic: true,
-            operations: vec![
-                BatchOperation {
-                    command: "status".to_string(),
-                    args: vec![],
-                    id: Some("op-1".to_string()),
-                    optional: false,
-                },
-            ],
+            operations: vec![BatchOperation {
+                command: "status".to_string(),
+                args: vec![],
+                id: Some("op-1".to_string()),
+                optional: false,
+            }],
         };
 
         // Verify request structure (DBC pre-condition)
@@ -552,8 +548,7 @@ mod tests {
         ];
 
         for (status, expected) in statuses {
-            let json = serde_json::to_string(&status)
-                .expect("Serialization should succeed");
+            let json = serde_json::to_string(&status).expect("Serialization should succeed");
             assert_eq!(json, format!("\"{}\"", expected));
         }
     }
@@ -565,18 +560,15 @@ mod tests {
     fn test_batch_request_roundtrip() {
         let original = BatchRequest {
             atomic: true,
-            operations: vec![
-                BatchOperation {
-                    command: "add".to_string(),
-                    args: vec!["session-1".to_string()],
-                    id: Some("step-1".to_string()),
-                    optional: false,
-                },
-            ],
+            operations: vec![BatchOperation {
+                command: "add".to_string(),
+                args: vec!["session-1".to_string()],
+                id: Some("step-1".to_string()),
+                optional: false,
+            }],
         };
 
-        let json =
-            serde_json::to_string(&original).expect("Serialization should succeed");
+        let json = serde_json::to_string(&original).expect("Serialization should succeed");
 
         let deserialized: BatchRequest =
             serde_json::from_str(&json).expect("Deserialization should succeed");
@@ -692,8 +684,7 @@ mod tests {
             optional: true, // this is optional
         }];
 
-        let is_optional =
-            operation_is_optional_by_id(&operations, &Some("op-1".to_string()));
+        let is_optional = operation_is_optional_by_id(&operations, &Some("op-1".to_string()));
 
         assert!(is_optional);
     }
@@ -710,8 +701,7 @@ mod tests {
             optional: true,
         }];
 
-        let is_optional =
-            operation_is_optional_by_id(&operations, &Some("op-999".to_string()));
+        let is_optional = operation_is_optional_by_id(&operations, &Some("op-999".to_string()));
 
         assert!(!is_optional);
     }

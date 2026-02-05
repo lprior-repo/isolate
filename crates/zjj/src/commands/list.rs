@@ -1,10 +1,10 @@
 //! List all sessions
 
-use std::path::Path;
+use std::{path::Path, str::FromStr};
 
 use anyhow::Result;
 use serde::Serialize;
-use zjj_core::{json::SchemaEnvelopeArray, OutputFormat};
+use zjj_core::{json::SchemaEnvelopeArray, OutputFormat, WorkspaceStateFilter};
 
 use crate::{
     commands::get_session_db,
@@ -45,10 +45,18 @@ pub fn run(
     format: OutputFormat,
     bead: Option<&str>,
     agent: Option<&str>,
+    state: Option<&str>,
 ) -> Result<()> {
     // Execute in a closure to allow ? operator while catching errors for JSON mode
     let result = (|| -> Result<()> {
         let db = get_session_db()?;
+
+        let state_filter = match state {
+            Some(value) => {
+                Some(WorkspaceStateFilter::from_str(value).map_err(|e| anyhow::Error::new(e))?)
+            }
+            None => None,
+        };
 
         // Filter sessions: exclude completed/failed unless --all is used
         // Single-pass filtering using iterator chain for O(n) complexity
@@ -78,8 +86,10 @@ pub fn run(
                         == Some(agent_filter)
                 });
 
+                let state_matches = state_filter.map_or(true, |filter| filter.matches(s.state));
+
                 // Combine all filter conditions
-                status_matches && bead_matches && agent_matches
+                status_matches && bead_matches && agent_matches && state_matches
             })
             .collect();
 

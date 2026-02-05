@@ -11,6 +11,7 @@ Main sessions table storing all zjj session state.
 - `id` - Auto-increment primary key
 - `name` - Unique session identifier
 - `status` - Session lifecycle (creating/active/paused/completed/failed)
+- `state` - Workspace lifecycle state (created/working/ready/merged/abandoned/conflict)
 - `workspace_path` - Path to JJ workspace
 - `branch` - Current JJ branch (optional)
 - `created_at` - Unix timestamp of session creation
@@ -20,6 +21,7 @@ Main sessions table storing all zjj session state.
 
 **Indexes:**
 - `idx_sessions_status` - Fast status filtering
+- `idx_sessions_state` - Fast workspace state filtering
 - `idx_sessions_name` - Fast name lookups
 - `idx_sessions_created_at` - Ordered listing
 
@@ -59,6 +61,11 @@ sqlx::query(&schema).execute(&pool).await?;
 1. `01_sessions.sql` - Base table
 2. `02_session_locks.sql` - Concurrency control
 3. `03_triggers.sql` - Auto-updates
+
+### `state_transitions`
+
+The `state_transitions` table is created by `01_sessions.sql` and records
+workspace lifecycle transitions for audit and analysis.
 
 ## DRQ Alignment
 

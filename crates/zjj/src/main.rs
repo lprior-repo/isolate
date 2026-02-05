@@ -594,6 +594,13 @@ fn cmd_list() -> ClapCommand {
                 .action(clap::ArgAction::Set)
                 .help("Filter sessions by agent owner"),
         )
+        .arg(
+            Arg::new("state")
+                .long("state")
+                .value_name("STATE")
+                .action(clap::ArgAction::Set)
+                .help("Filter sessions by workspace state (created, working, ready, merged, abandoned, conflict, active, complete, terminal, non-terminal)"),
+        )
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2458,20 +2465,12 @@ fn cmd_pane() -> ClapCommand {
         .subcommand(
             ClapCommand::new("list")
                 .about("List all panes in a session")
-                .arg(
-                    Arg::new("session")
-                        .required(true)
-                        .help("Name of session"),
-                ),
+                .arg(Arg::new("session").required(true).help("Name of session")),
         )
         .subcommand(
             ClapCommand::new("next")
                 .about("Cycle to next pane in a session")
-                .arg(
-                    Arg::new("session")
-                        .required(true)
-                        .help("Name of session"),
-                ),
+                .arg(Arg::new("session").required(true).help("Name of session")),
         )
 }
 
@@ -2716,7 +2715,8 @@ fn handle_list(sub_m: &clap::ArgMatches) -> Result<()> {
     let format = zjj_core::OutputFormat::from_json_flag(json);
     let bead = sub_m.get_one::<String>("bead").cloned();
     let agent = sub_m.get_one::<String>("agent").map(String::as_str);
-    list::run(all, verbose, format, bead.as_deref(), agent)
+    let state = sub_m.get_one::<String>("state").map(String::as_str);
+    list::run(all, verbose, format, bead.as_deref(), agent, state)
 }
 
 fn handle_bookmark(sub_m: &clap::ArgMatches) -> Result<()> {
@@ -3661,7 +3661,13 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
         // Atomic mode: use new batch module with checkpoint-based rollback
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| anyhow::anyhow!("Failed to create runtime: {e}"))?;
-        return rt.block_on(handle_atomic_batch(sub_m, json, format, file, stop_on_error));
+        return rt.block_on(handle_atomic_batch(
+            sub_m,
+            json,
+            format,
+            file,
+            stop_on_error,
+        ));
     }
 
     // Non-atomic mode: legacy batch (original batch.rs behavior)
@@ -3706,7 +3712,10 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
                 anyhow::bail!("Batch failed at command {index}");
             }
         } else {
-            println!("Command {index}: {}", String::from_utf8_lossy(&output.stdout).trim());
+            println!(
+                "Command {index}: {}",
+                String::from_utf8_lossy(&output.stdout).trim()
+            );
         }
     }
 
@@ -3743,7 +3752,8 @@ async fn handle_atomic_batch(
         // Build BatchRequest from command-line arguments
         let operations = raw_commands
             .iter()
-            .filter_map(|cmd_str| {
+            .enumerate()
+            .filter_map(|(index, cmd_str)| {
                 let parts: Vec<&str> = cmd_str.split_whitespace().collect();
                 if parts.is_empty() {
                     return None;
@@ -3753,7 +3763,7 @@ async fn handle_atomic_batch(
                 Some(batch::BatchOperation {
                     command: cmd.to_string(),
                     args,
-                    id: Some(format!("op-{}", commands.len() + 1)),
+                    id: Some(format!("op-{}", index + 1)),
                     optional: false,
                 })
             })
