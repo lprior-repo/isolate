@@ -10,8 +10,10 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -178,9 +180,8 @@ pub fn list_templates(templates_base: &Path) -> Result<Vec<Template>> {
         return Ok(Vec::new());
     }
 
-    let entries = std::fs::read_dir(templates_base).map_err(|e| {
-        Error::IoError(format!("Failed to read templates directory: {e}"))
-    })?;
+    let entries = std::fs::read_dir(templates_base)
+        .map_err(|e| Error::IoError(format!("Failed to read templates directory: {e}")))?;
 
     let templates = entries
         .filter_map(|entry| {
@@ -199,18 +200,15 @@ fn load_template_from_dir(dir: &Path) -> Result<Template> {
     let layout_path = dir.join("layout.kdl");
 
     // Read metadata
-    let metadata_content = std::fs::read_to_string(&metadata_path).map_err(|e| {
-        Error::IoError(format!("Failed to read template metadata: {e}"))
-    })?;
+    let metadata_content = std::fs::read_to_string(&metadata_path)
+        .map_err(|e| Error::IoError(format!("Failed to read template metadata: {e}")))?;
 
-    let metadata: TemplateMetadata = serde_json::from_str(&metadata_content).map_err(|e| {
-        Error::ValidationError(format!("Invalid template metadata: {e}"))
-    })?;
+    let metadata: TemplateMetadata = serde_json::from_str(&metadata_content)
+        .map_err(|e| Error::ValidationError(format!("Invalid template metadata: {e}")))?;
 
     // Read layout
-    let layout = std::fs::read_to_string(&layout_path).map_err(|e| {
-        Error::IoError(format!("Failed to read template layout: {e}"))
-    })?;
+    let layout = std::fs::read_to_string(&layout_path)
+        .map_err(|e| Error::IoError(format!("Failed to read template layout: {e}")))?;
 
     let name = TemplateName::new(metadata.name.clone())?;
 
@@ -251,25 +249,21 @@ pub fn save_template(template: &Template, templates_base: &Path) -> Result<()> {
     let dir = template_dir(templates_base, &template.name);
 
     // Create template directory
-    std::fs::create_dir_all(&dir).map_err(|e| {
-        Error::IoError(format!("Failed to create template directory: {e}"))
-    })?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| Error::IoError(format!("Failed to create template directory: {e}")))?;
 
     // Write metadata
     let metadata_path = dir.join("metadata.json");
-    let metadata_json = serde_json::to_string_pretty(&template.metadata).map_err(|e| {
-        Error::IoError(format!("Failed to serialize template metadata: {e}"))
-    })?;
+    let metadata_json = serde_json::to_string_pretty(&template.metadata)
+        .map_err(|e| Error::IoError(format!("Failed to serialize template metadata: {e}")))?;
 
-    std::fs::write(&metadata_path, metadata_json).map_err(|e| {
-        Error::IoError(format!("Failed to write template metadata: {e}"))
-    })?;
+    std::fs::write(&metadata_path, metadata_json)
+        .map_err(|e| Error::IoError(format!("Failed to write template metadata: {e}")))?;
 
     // Write layout
     let layout_path = dir.join("layout.kdl");
-    std::fs::write(&layout_path, &template.layout).map_err(|e| {
-        Error::IoError(format!("Failed to write template layout: {e}"))
-    })?;
+    std::fs::write(&layout_path, &template.layout)
+        .map_err(|e| Error::IoError(format!("Failed to write template layout: {e}")))?;
 
     Ok(())
 }
@@ -289,9 +283,8 @@ pub fn delete_template(name: &str, templates_base: &Path) -> Result<()> {
         return Err(Error::NotFound(format!("Template '{name}' not found")));
     }
 
-    std::fs::remove_dir_all(&dir).map_err(|e| {
-        Error::IoError(format!("Failed to delete template: {e}"))
-    })?;
+    std::fs::remove_dir_all(&dir)
+        .map_err(|e| Error::IoError(format!("Failed to delete template: {e}")))?;
 
     Ok(())
 }
@@ -309,8 +302,9 @@ pub fn template_exists(name: &str, templates_base: &Path) -> Result<bool> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[test]
     fn test_template_name_validation() {
@@ -342,10 +336,7 @@ mod tests {
             Some("Test template".to_string())
         );
         assert!(template.metadata.created_at > 0);
-        assert_eq!(
-            template.metadata.created_at,
-            template.metadata.updated_at
-        );
+        assert_eq!(template.metadata.created_at, template.metadata.updated_at);
 
         Ok(())
     }
@@ -420,9 +411,9 @@ mod tests {
 
     #[test]
     fn test_template_not_found() {
-        let temp_dir = TempDir::new().ok().ok_or_else(|| {
-            Error::IoError("Failed to create temp dir".to_string())
-        });
+        let temp_dir = TempDir::new()
+            .ok()
+            .ok_or_else(|| Error::IoError("Failed to create temp dir".to_string()));
         if let Ok(temp) = temp_dir {
             let result = load_template("nonexistent", temp.path());
             assert!(result.is_err());

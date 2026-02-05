@@ -255,10 +255,10 @@ mod tests {
     async fn committed_guard_state_is_committed() -> Result<()> {
         let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
-        let guard = match auto_cp.guard_if_risky(OperationRisk::Risky).await {
-            Ok(value) => value,
-            Err(_) => None,
-        };
+        let guard = auto_cp
+            .guard_if_risky(OperationRisk::Risky)
+            .await
+            .unwrap_or_default();
         if let Some(g) = guard {
             let id = g.id().to_string();
             let _ = g.commit().await;
@@ -287,10 +287,7 @@ mod tests {
                 .await
                 .ok()
                 .flatten();
-            checkpoint_id = match guard {
-                Some(g) => g.id().to_string(),
-                None => String::new(),
-            };
+            checkpoint_id = guard.map_or_else(String::new, |g| g.id().to_string());
             // guard dropped here without commit
         }
 
@@ -305,10 +302,10 @@ mod tests {
     async fn rollback_marks_needs_restore() -> Result<()> {
         let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
-        let guard = match auto_cp.guard_if_risky(OperationRisk::Risky).await {
-            Ok(value) => value,
-            Err(_) => None,
-        };
+        let guard = auto_cp
+            .guard_if_risky(OperationRisk::Risky)
+            .await
+            .unwrap_or_default();
         if let Some(g) = guard {
             let id = g.id().to_string();
             let _ = g.rollback().await;

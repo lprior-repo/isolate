@@ -3553,7 +3553,7 @@ fn handle_validate(sub_m: &clap::ArgMatches) -> Result<()> {
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
-        .unwrap_or_else(|| Vec::new());
+        .unwrap_or_default();
 
     let options = validate::ValidateOptions {
         command,
@@ -3582,7 +3582,7 @@ fn handle_whatif(sub_m: &clap::ArgMatches) -> Result<()> {
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
-        .unwrap_or_else(|| Vec::new());
+        .unwrap_or_default();
 
     let options = whatif::WhatIfOptions {
         command,
@@ -3611,7 +3611,7 @@ fn handle_claim(sub_m: &clap::ArgMatches) -> Result<()> {
     let timeout: u64 = sub_m
         .get_one::<String>("timeout")
         .and_then(|s| s.parse().ok())
-        .unwrap_or_else(|| 60);
+        .unwrap_or(60);
 
     let options = claim::ClaimOptions {
         resource,
@@ -3680,7 +3680,7 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
         let raw_commands: Vec<String> = sub_m
             .get_many::<String>("commands")
             .map(|v| v.cloned().collect())
-            .unwrap_or_else(|| Vec::new());
+            .unwrap_or_default();
         if raw_commands.is_empty() {
             anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
         }
@@ -3696,7 +3696,10 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
         }
 
         let cmd = parts[0];
-        let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = parts[1..]
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
 
         let output = std::process::Command::new("zjj")
             .arg(cmd)
@@ -3704,19 +3707,19 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
             .output()
             .map_err(|e| anyhow::anyhow!("Failed to execute: {e}"))?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let error_msg = if stderr.is_empty() { stdout } else { stderr };
-            eprintln!("Command {index} failed: {}", error_msg);
-            if stop_on_error {
-                anyhow::bail!("Batch failed at command {index}");
-            }
-        } else {
+        if output.status.success() {
             println!(
                 "Command {index}: {}",
                 String::from_utf8_lossy(&output.stdout).trim()
             );
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let error_msg = if stderr.is_empty() { stdout } else { stderr };
+            eprintln!("Command {index} failed: {error_msg}");
+            if stop_on_error {
+                anyhow::bail!("Batch failed at command {index}");
+            }
         }
     }
 
@@ -3746,7 +3749,7 @@ async fn handle_atomic_batch(
         let raw_commands: Vec<String> = sub_m
             .get_many::<String>("commands")
             .map(|v| v.cloned().collect())
-            .unwrap_or_else(|| Vec::new());
+            .unwrap_or_default();
         if raw_commands.is_empty() {
             anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
         }
@@ -3760,7 +3763,10 @@ async fn handle_atomic_batch(
                     return None;
                 }
                 let cmd = parts[0];
-                let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+                let args: Vec<String> = parts[1..]
+                    .iter()
+                    .map(std::string::ToString::to_string)
+                    .collect();
                 Some(batch::BatchOperation {
                     command: cmd.to_string(),
                     args,
@@ -4014,11 +4020,11 @@ fn handle_wait(sub_m: &clap::ArgMatches) -> Result<()> {
     let timeout: u64 = sub_m
         .get_one::<String>("timeout")
         .and_then(|s| s.parse().ok())
-        .unwrap_or_else(|| 30);
+        .unwrap_or(30);
     let interval: u64 = sub_m
         .get_one::<String>("interval")
         .and_then(|s| s.parse().ok())
-        .unwrap_or_else(|| 1);
+        .unwrap_or(1);
 
     let condition = match condition_str.as_str() {
         "session-exists" => {
@@ -4231,11 +4237,8 @@ fn run_cli() -> Result<()> {
                 #[allow(clippy::print_stdout)]
                 {
                     let json = serde_json::to_string_pretty(&json_err);
-                    let json_str = match json {
-                        Ok(value) => value,
-                        Err(_) => String::new(),
-                    };
-                    println!("{}", json_str);
+                    let json_str = json.unwrap_or_default();
+                    println!("{json_str}");
                 }
             }
             let _ = e.print();

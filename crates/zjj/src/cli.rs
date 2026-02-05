@@ -149,8 +149,7 @@ mod tests {
         let result = run_command("echo", &["hello"]);
         assert!(result.is_ok());
         let Ok(output) = result else {
-            assert!(false, "command failed");
-            return;
+            panic!("command failed");
         };
         assert_eq!(output.trim(), "hello");
     }

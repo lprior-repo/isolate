@@ -288,10 +288,7 @@ fn test_spawn_preserves_other_beads_on_rollback() {
     assert!(!result.success, "Spawn should fail with corrupt entry");
 
     // Verify other beads are still present in database
-    let db_content = match fs::read_to_string(&beads_db) {
-        Ok(value) => value,
-        Err(_) => String::new(),
-    };
+    let db_content = fs::read_to_string(&beads_db).unwrap_or_default();
     assert!(
         db_content.contains("bead-1"),
         "Other beads should be preserved in database"

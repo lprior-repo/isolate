@@ -156,7 +156,7 @@ fn check_workspace_integrity() -> DoctorCheck {
     let sessions = get_session_db()
         .ok()
         .and_then(|db| db.list_blocking(None).ok())
-        .unwrap_or_else(Vec::new);
+        .unwrap_or_default();
 
     if sessions.is_empty() {
         return DoctorCheck {
@@ -519,7 +519,7 @@ fn check_orphaned_workspaces() -> DoctorCheck {
     let db_sessions = get_session_db()
         .ok()
         .and_then(|db| db.list_blocking(None).ok())
-        .unwrap_or_else(|| Vec::new());
+        .unwrap_or_default();
 
     // Get list of JJ workspaces
     let jj_workspaces = jj_root().map_or_else(
@@ -671,7 +671,7 @@ fn check_stale_sessions() -> DoctorCheck {
     let sessions = get_session_db()
         .ok()
         .and_then(|db| db.list_blocking(None).ok())
-        .unwrap_or_else(|| Vec::new());
+        .unwrap_or_default();
 
     let stale_threshold = Duration::minutes(5);
     let now = Utc::now();
@@ -684,10 +684,7 @@ fn check_stale_sessions() -> DoctorCheck {
             }
 
             // Check if session is stale (not updated in 5 minutes)
-            let updated_at_i64: i64 = match s.updated_at.try_into() {
-                Ok(value) => value,
-                Err(_) => i64::MAX,
-            };
+            let updated_at_i64 = i64::try_from(s.updated_at).unwrap_or(i64::MAX);
             let updated_at = chrono::DateTime::from_timestamp(updated_at_i64, 0).unwrap_or(now);
             let duration = now.signed_duration_since(updated_at);
 
@@ -908,10 +905,7 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
                 unable_to_fix.push(UnfixableIssue {
                     issue: check.name.clone(),
                     reason: "Requires manual intervention".to_string(),
-                    suggestion: match check.suggestion.clone() {
-                        Some(value) => value,
-                        None => String::new(),
-                    },
+                    suggestion: check.suggestion.clone().unwrap_or_default(),
                 });
             }
             continue;
@@ -936,10 +930,7 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
                 unable_to_fix.push(UnfixableIssue {
                     issue: check.name.clone(),
                     reason: format!("Fix failed: {reason}"),
-                    suggestion: match check.suggestion.clone() {
-                        Some(value) => value,
-                        None => String::new(),
-                    },
+                    suggestion: check.suggestion.clone().unwrap_or_default(),
                 });
             }
         }

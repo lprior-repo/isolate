@@ -534,7 +534,7 @@ fn test_init_preserves_existing_config_toml() -> Result<()> {
 // ============================================================================
 
 /// RED: Test that init creates AGENTS.md from template
-/// Will fail until create_agents_md is integrated into init flow
+/// Will fail until `create_agents_md` is integrated into init flow
 #[test]
 fn test_init_creates_agents_md() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
@@ -560,7 +560,7 @@ fn test_init_creates_agents_md() -> Result<()> {
 }
 
 /// RED: Test that init creates CLAUDE.md from template
-/// Will fail until create_claude_md is integrated into init flow
+/// Will fail until `create_claude_md` is integrated into init flow
 #[test]
 fn test_init_creates_claude_md() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
@@ -586,7 +586,7 @@ fn test_init_creates_claude_md() -> Result<()> {
 }
 
 /// RED: Test that init creates documentation files from templates
-/// Will fail until create_docs is integrated into init flow
+/// Will fail until `create_docs` is integrated into init flow
 #[test]
 fn test_init_creates_documentation_files() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
@@ -612,7 +612,7 @@ fn test_init_creates_documentation_files() -> Result<()> {
 
     for doc_name in expected_docs {
         let doc_path = docs_dir.join(doc_name);
-        assert!(doc_path.exists(), "{} was not created", doc_name);
+        assert!(doc_path.exists(), "{doc_name} was not created");
     }
 
     Ok(())

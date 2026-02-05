@@ -191,6 +191,7 @@ pub struct CloneResult {
 }
 
 /// Run the clone command
+#[allow(clippy::too_many_lines)]
 pub fn run_clone(options: &CloneOptions) -> Result<()> {
     let db = get_session_db()?;
 
@@ -279,10 +280,7 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
     // Create session in database
     db.create_blocking(
         &options.target,
-        match new_workspace_path.as_deref() {
-            Some(value) => value,
-            None => "",
-        },
+        new_workspace_path.as_deref().map_or("", |value| value),
     )?;
 
     let result = CloneResult {

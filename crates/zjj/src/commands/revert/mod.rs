@@ -263,7 +263,7 @@ fn output_error(error: &RevertError, format: OutputFormat) -> Result<(), RevertE
     Ok(())
 }
 
-fn revert_error_exit_code(error: &RevertError) -> i32 {
+const fn revert_error_exit_code(error: &RevertError) -> i32 {
     match error {
         RevertError::SessionNotFound { .. } => RevertExitCode::SessionNotFound as i32,
         RevertError::AlreadyPushedToRemote { .. } => RevertExitCode::AlreadyPushed as i32,

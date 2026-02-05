@@ -659,7 +659,7 @@ fn output_error(error: &DoneError, format: zjj_core::OutputFormat) -> Result<()>
     Ok(())
 }
 
-fn done_error_exit_code(error: &DoneError) -> i32 {
+const fn done_error_exit_code(error: &DoneError) -> i32 {
     if matches!(error, DoneError::NotInWorkspace { .. }) {
         DoneExitCode::NotInWorkspace as i32
     } else if matches!(error, DoneError::MergeConflict { .. }) {
@@ -823,10 +823,8 @@ mod tests {
             ..Default::default()
         };
         let json = serde_json::to_string(&output);
-        let Ok(json_str) = json else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        assert!(json.is_ok(), "serialization should succeed");
+        let json_str = json.unwrap_or_default();
         assert!(json_str.contains("workspace_name"));
         assert!(json_str.contains("merged"));
     }
@@ -946,10 +944,8 @@ mod tests {
             status: "completed".to_string(),
         };
         let json = serde_json::to_string(&entry);
-        let Ok(json_str) = json else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        assert!(json.is_ok(), "serialization should succeed");
+        let json_str = json.unwrap_or_default();
         assert!(json_str.contains("test-session"));
         assert!(json_str.contains("abc123"));
         assert!(json_str.contains("pre_merge_commit_id"));

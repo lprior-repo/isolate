@@ -429,7 +429,7 @@ fn output_error(error: &UndoError, format: OutputFormat) -> Result<(), UndoError
     Ok(())
 }
 
-fn undo_error_exit_code(error: &UndoError) -> i32 {
+const fn undo_error_exit_code(error: &UndoError) -> i32 {
     match error {
         UndoError::AlreadyPushedToRemote { .. } => UndoExitCode::AlreadyPushed as i32,
         UndoError::NoUndoHistory => UndoExitCode::NoHistory as i32,
@@ -520,10 +520,8 @@ mod tests {
         };
 
         let json = serde_json::to_string(&output);
-        let Ok(json_str) = json else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        assert!(json.is_ok(), "serialization should succeed");
+        let json_str = json.unwrap_or_default();
         assert!(json_str.contains("\"total\":0"));
         assert!(json_str.contains("\"can_undo\":false"));
     }
@@ -541,10 +539,8 @@ mod tests {
         };
 
         let json = serde_json::to_string(&entry);
-        let Ok(json_str) = json else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        assert!(json.is_ok(), "serialization should succeed");
+        let json_str = json.unwrap_or_default();
         assert!(json_str.contains("\"session_name\":\"feature-auth\""));
         assert!(json_str.contains("\"can_undo\":true"));
         // reason_cannot_undo should be skipped when None

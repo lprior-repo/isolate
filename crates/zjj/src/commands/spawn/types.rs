@@ -51,7 +51,7 @@ impl SpawnArgs {
         let agent_args = matches
             .get_many::<String>("agent-args")
             .map(|vals| vals.cloned().collect())
-            .unwrap_or_else(|| Vec::new());
+            .unwrap_or_default();
 
         let no_auto_merge = matches.get_flag("no-auto-merge");
         let no_auto_cleanup = matches.get_flag("no-auto-cleanup");
@@ -60,7 +60,7 @@ impl SpawnArgs {
         let timeout = matches
             .get_one::<String>("timeout")
             .and_then(|s| s.parse().ok())
-            .unwrap_or_else(|| 14400);
+            .unwrap_or(14400);
 
         let format = if matches.get_flag("json") {
             "json".to_string()

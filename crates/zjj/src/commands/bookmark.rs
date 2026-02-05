@@ -39,6 +39,22 @@ pub enum BookmarkError {
     JjCommandFailed(String),
 }
 
+fn validate_bookmark_name(name: &str) -> Result<()> {
+    let is_valid = !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if is_valid {
+        Ok(())
+    } else {
+        Err(BookmarkError::InvalidName(
+            name.to_string(),
+            "must be alphanumeric, underscore, or hyphen".to_string(),
+        )
+        .into())
+    }
+}
+
 /// Bookmark information
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct BookmarkInfo {
@@ -122,6 +138,7 @@ pub fn list(options: &ListOptions) -> Result<Vec<BookmarkInfo>> {
 /// - Workspace path doesn't exist
 /// - JJ command fails
 pub fn create(options: &CreateOptions) -> Result<BookmarkInfo> {
+    validate_bookmark_name(&options.name)?;
     let workspace_path = resolve_workspace_path(options.session.as_deref())?;
 
     // Check if bookmark already exists
@@ -175,6 +192,7 @@ pub fn create(options: &CreateOptions) -> Result<BookmarkInfo> {
 /// - Workspace path doesn't exist
 /// - JJ command fails
 pub fn delete(options: &DeleteOptions) -> Result<()> {
+    validate_bookmark_name(&options.name)?;
     let workspace_path = resolve_workspace_path(options.session.as_deref())?;
 
     // Check if bookmark exists
@@ -217,6 +235,7 @@ pub fn delete(options: &DeleteOptions) -> Result<()> {
 /// - Workspace path doesn't exist
 /// - JJ command fails
 pub fn move_bookmark(options: &MoveOptions) -> Result<BookmarkInfo> {
+    validate_bookmark_name(&options.name)?;
     let workspace_path = resolve_workspace_path(options.session.as_deref())?;
 
     // Build JJ command
@@ -248,7 +267,7 @@ pub fn move_bookmark(options: &MoveOptions) -> Result<BookmarkInfo> {
 /// Run the bookmark list command
 pub fn run_list(options: &ListOptions) -> Result<()> {
     let result = (|| -> Result<()> {
-        let bookmarks = list(&options)?;
+        let bookmarks = list(options)?;
 
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("bookmark-list-response", "array", bookmarks);
@@ -283,7 +302,7 @@ pub fn run_list(options: &ListOptions) -> Result<()> {
 /// Run the bookmark create command
 pub fn run_create(options: &CreateOptions) -> Result<()> {
     let result = (|| -> Result<()> {
-        let bookmark = create(&options)?;
+        let bookmark = create(options)?;
 
         if options.format.is_json() {
             #[derive(Serialize)]
@@ -328,7 +347,7 @@ pub fn run_create(options: &CreateOptions) -> Result<()> {
 /// Run the bookmark delete command
 pub fn run_delete(options: &DeleteOptions) -> Result<()> {
     let result = (|| -> Result<()> {
-        delete(&options)?;
+        delete(options)?;
 
         if options.format.is_json() {
             #[derive(Serialize)]
@@ -371,7 +390,7 @@ pub fn run_delete(options: &DeleteOptions) -> Result<()> {
 /// Run the bookmark move command
 pub fn run_move(options: &MoveOptions) -> Result<()> {
     let result = (|| -> Result<()> {
-        let bookmark = move_bookmark(&options)?;
+        let bookmark = move_bookmark(options)?;
 
         if options.format.is_json() {
             #[derive(Serialize)]
@@ -541,7 +560,6 @@ mod tests {
         let bookmarks = result.ok();
         assert!(bookmarks.is_some());
 
-        let bookmarks = bookmarks;
         if let Some(bookmarks) = bookmarks {
             assert_eq!(bookmarks.len(), 1);
             assert_eq!(bookmarks[0].name, "feature-v1");

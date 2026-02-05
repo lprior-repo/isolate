@@ -18,9 +18,9 @@ fn assert_schema_envelope(json: &serde_json::Value, schema_name: &str) {
 }
 
 #[test]
-fn test_done_dry_run_json_has_envelope() {
+fn test_done_dry_run_json_has_envelope() -> Result<(), serde_json::Error> {
     let Some(harness) = TestHarness::try_new() else {
-        return;
+        return Ok(());
     };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "done-test", "--no-open"]);
@@ -29,8 +29,7 @@ fn test_done_dry_run_json_has_envelope() {
     let result = harness.zjj_in_dir(&workspace_path, &["done", "--dry-run", "--json"]);
 
     assert!(result.success, "done dry-run should succeed");
-    let parsed: serde_json::Value =
-        serde_json::from_str(result.stdout.trim()).expect("Valid JSON output");
+    let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
     assert_schema_envelope(&parsed, "done-response");
     assert_eq!(
         parsed
@@ -38,12 +37,13 @@ fn test_done_dry_run_json_has_envelope() {
             .and_then(serde_json::Value::as_str),
         Some("done-test")
     );
+    Ok(())
 }
 
 #[test]
-fn test_undo_list_json_has_envelope() {
+fn test_undo_list_json_has_envelope() -> Result<(), serde_json::Error> {
     let Some(harness) = TestHarness::try_new() else {
-        return;
+        return Ok(());
     };
     harness.assert_success(&["init"]);
 
@@ -53,34 +53,29 @@ fn test_undo_list_json_has_envelope() {
     let entry = format!(
         "{{\"session_name\":\"undo-test\",\"commit_id\":\"c1\",\"pre_merge_commit_id\":\"p1\",\"timestamp\":{timestamp},\"pushed_to_remote\":false,\"status\":\"completed\"}}\n"
     );
-    harness
-        .create_file(".zjj/undo.log", &entry)
-        .expect("Failed to write undo log");
+    let _ = harness.create_file(".zjj/undo.log", &entry);
 
     let result = harness.zjj(&["undo", "--list", "--json"]);
     assert!(result.success, "undo --list should succeed");
-    let parsed: serde_json::Value =
-        serde_json::from_str(result.stdout.trim()).expect("Valid JSON output");
+    let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
     assert_schema_envelope(&parsed, "undo-response");
     assert!(parsed.get("entries").is_some(), "entries should be present");
+    Ok(())
 }
 
 #[test]
-fn test_revert_dry_run_json_has_envelope() {
+fn test_revert_dry_run_json_has_envelope() -> Result<(), serde_json::Error> {
     let Some(harness) = TestHarness::try_new() else {
-        return;
+        return Ok(());
     };
     harness.assert_success(&["init"]);
 
     let entry = "{\"session_name\":\"revert-test\",\"commit_id\":\"c1\",\"pre_merge_commit_id\":\"p1\",\"timestamp\":1700000000,\"pushed_to_remote\":false,\"status\":\"completed\"}\n";
-    harness
-        .create_file(".zjj/undo.log", entry)
-        .expect("Failed to write undo log");
+    let _ = harness.create_file(".zjj/undo.log", entry);
 
     let result = harness.zjj(&["revert", "revert-test", "--dry-run", "--json"]);
     assert!(result.success, "revert --dry-run should succeed");
-    let parsed: serde_json::Value =
-        serde_json::from_str(result.stdout.trim()).expect("Valid JSON output");
+    let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
     assert_schema_envelope(&parsed, "revert-response");
     assert_eq!(
         parsed
@@ -88,23 +83,24 @@ fn test_revert_dry_run_json_has_envelope() {
             .and_then(serde_json::Value::as_str),
         Some("revert-test")
     );
+    Ok(())
 }
 
 #[test]
-fn test_export_json_has_envelope() {
+fn test_export_json_has_envelope() -> Result<(), serde_json::Error> {
     let Some(harness) = TestHarness::try_new() else {
-        return;
+        return Ok(());
     };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "export-test", "--no-open"]);
 
     let result = harness.zjj(&["export", "--json"]);
     assert!(result.success, "export --json should succeed");
-    let parsed: serde_json::Value =
-        serde_json::from_str(result.stdout.trim()).expect("Valid JSON output");
+    let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
     assert_schema_envelope(&parsed, "export-response");
     assert!(
         parsed.get("sessions").is_some(),
         "sessions should be present"
     );
+    Ok(())
 }
