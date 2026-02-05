@@ -1283,16 +1283,54 @@ fn cmd_queue() -> ClapCommand {
         )
         .after_help(after_help_text(
             &[
-                "zjj queue --list                          Show all queue entries",
-                "zjj queue --add <workspace> --bead <id>  Add workspace to queue",
-                "zjj queue --next                          Get next pending entry",
-                "zjj queue --status <workspace>            Check workspace queue status",
-                "zjj queue --remove <workspace>            Remove workspace from queue",
-                "zjj queue --stats                         Show queue statistics",
+                "zjj queue add <workspace> --bead <id>     Add workspace to queue",
+                "zjj queue list                            Show all queue entries",
+                "zjj queue process                         Process next queued workspace",
                 "zjj queue --list --json                   Show queue as JSON",
             ],
             None,
         ))
+        .subcommand(
+            ClapCommand::new("add")
+                .about("Add workspace to queue")
+                .arg(
+                    Arg::new("workspace")
+                        .value_name("WORKSPACE")
+                        .required(true)
+                        .help("Workspace to queue"),
+                )
+                .arg(
+                    Arg::new("bead")
+                        .long("bead")
+                        .value_name("BEAD_ID")
+                        .help("Associate with bead/issue ID"),
+                )
+                .arg(
+                    Arg::new("priority")
+                        .long("priority")
+                        .value_name("PRIORITY")
+                        .value_parser(clap::value_parser!(i32))
+                        .default_value("5")
+                        .help("Queue priority (lower = higher priority, 1-10)"),
+                )
+                .arg(
+                    Arg::new("agent")
+                        .long("agent")
+                        .value_name("AGENT_ID")
+                        .help("Agent ID that will process this entry"),
+                ),
+        )
+        .subcommand(ClapCommand::new("list").about("List all queue entries"))
+        .subcommand(
+            ClapCommand::new("process")
+                .about("Process the next queued workspace sequentially")
+                .arg(
+                    Arg::new("agent")
+                        .long("agent")
+                        .value_name("AGENT_ID")
+                        .help("Agent ID for queue processing lock"),
+                ),
+        )
         .arg(
             Arg::new("add")
                 .long("add")
@@ -1353,6 +1391,7 @@ fn cmd_queue() -> ClapCommand {
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
+                .global(true)
                 .help("Output as JSON"),
         )
 }
@@ -2458,20 +2497,12 @@ fn cmd_pane() -> ClapCommand {
         .subcommand(
             ClapCommand::new("list")
                 .about("List all panes in a session")
-                .arg(
-                    Arg::new("session")
-                        .required(true)
-                        .help("Name of session"),
-                ),
+                .arg(Arg::new("session").required(true).help("Name of session")),
         )
         .subcommand(
             ClapCommand::new("next")
                 .about("Cycle to next pane in a session")
-                .arg(
-                    Arg::new("session")
-                        .required(true)
-                        .help("Name of session"),
-                ),
+                .arg(Arg::new("session").required(true).help("Name of session")),
         )
 }
 
@@ -3163,27 +3194,80 @@ fn handle_queue(sub_m: &clap::ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = zjj_core::OutputFormat::from_json_flag(json);
 
-    let add = sub_m.get_one::<String>("add").cloned();
-    let bead_id = sub_m.get_one::<String>("bead").cloned();
-    let priority = sub_m.get_one::<i32>("priority").copied().unwrap_or(5);
-    let agent_id = sub_m.get_one::<String>("agent").cloned();
-    let list = sub_m.get_flag("list");
-    let next = sub_m.get_flag("next");
-    let remove = sub_m.get_one::<String>("remove").cloned();
-    let status = sub_m.get_one::<String>("status").cloned();
-    let show_stats = sub_m.get_flag("stats");
+    let options = match sub_m.subcommand() {
+        Some(("add", add_m)) => {
+            let workspace = add_m
+                .get_one::<String>("workspace")
+                .ok_or_else(|| anyhow::anyhow!("Workspace is required"))?
+                .clone();
+            let bead_id = add_m.get_one::<String>("bead").cloned();
+            let priority = add_m.get_one::<i32>("priority").copied().unwrap_or(5);
+            let agent_id = add_m.get_one::<String>("agent").cloned();
+            queue::QueueOptions {
+                format,
+                add: Some(workspace),
+                bead_id,
+                priority,
+                agent_id,
+                list: false,
+                process: false,
+                next: false,
+                remove: None,
+                status: None,
+                stats: false,
+            }
+        }
+        Some(("list", _)) => queue::QueueOptions {
+            format,
+            add: None,
+            bead_id: None,
+            priority: 5,
+            agent_id: None,
+            list: true,
+            process: false,
+            next: false,
+            remove: None,
+            status: None,
+            stats: false,
+        },
+        Some(("process", process_m)) => queue::QueueOptions {
+            format,
+            add: None,
+            bead_id: None,
+            priority: 5,
+            agent_id: process_m.get_one::<String>("agent").cloned(),
+            list: false,
+            process: true,
+            next: false,
+            remove: None,
+            status: None,
+            stats: false,
+        },
+        _ => {
+            let add = sub_m.get_one::<String>("add").cloned();
+            let bead_id = sub_m.get_one::<String>("bead").cloned();
+            let priority = sub_m.get_one::<i32>("priority").copied().unwrap_or(5);
+            let agent_id = sub_m.get_one::<String>("agent").cloned();
+            let list = sub_m.get_flag("list");
+            let next = sub_m.get_flag("next");
+            let remove = sub_m.get_one::<String>("remove").cloned();
+            let status = sub_m.get_one::<String>("status").cloned();
+            let show_stats = sub_m.get_flag("stats");
 
-    let options = queue::QueueOptions {
-        format,
-        add,
-        bead_id,
-        priority,
-        agent_id,
-        list,
-        next,
-        remove,
-        status,
-        stats: show_stats,
+            queue::QueueOptions {
+                format,
+                add,
+                bead_id,
+                priority,
+                agent_id,
+                list,
+                process: false,
+                next,
+                remove,
+                status,
+                stats: show_stats,
+            }
+        }
     };
 
     match queue::run_with_options(&options) {
@@ -3661,7 +3745,13 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
         // Atomic mode: use new batch module with checkpoint-based rollback
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| anyhow::anyhow!("Failed to create runtime: {e}"))?;
-        return rt.block_on(handle_atomic_batch(sub_m, json, format, file, stop_on_error));
+        return rt.block_on(handle_atomic_batch(
+            sub_m,
+            json,
+            format,
+            file,
+            stop_on_error,
+        ));
     }
 
     // Non-atomic mode: legacy batch (original batch.rs behavior)
@@ -3706,7 +3796,10 @@ fn handle_batch(sub_m: &clap::ArgMatches) -> Result<()> {
                 anyhow::bail!("Batch failed at command {index}");
             }
         } else {
-            println!("Command {index}: {}", String::from_utf8_lossy(&output.stdout).trim());
+            println!(
+                "Command {index}: {}",
+                String::from_utf8_lossy(&output.stdout).trim()
+            );
         }
     }
 
@@ -3753,7 +3846,7 @@ async fn handle_atomic_batch(
                 Some(batch::BatchOperation {
                     command: cmd.to_string(),
                     args,
-                    id: Some(format!("op-{}", commands.len() + 1)),
+                    id: Some(format!("op-{}", raw_commands.len() + 1)),
                     optional: false,
                 })
             })
@@ -3801,6 +3894,8 @@ fn handle_events(sub_m: &clap::ArgMatches) -> Result<()> {
         event_type,
         limit,
         follow,
+        websocket: false,
+        ws_address: None,
         since: None,
         format,
     };

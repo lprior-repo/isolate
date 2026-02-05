@@ -178,7 +178,8 @@ fn execute_done(
     };
 
     // Phase 5: Check for conflicts
-    check_conflicts(&root, executor)?;
+    check_conflicts(&root, executor)
+        .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
 
     // Phase 5.5: Get pre-merge commit ID (for undo)
     let pre_merge_commit_id = get_current_commit_id(&root, executor)?;
@@ -190,7 +191,8 @@ fn execute_done(
     let commits_to_merge = get_commits_to_merge(&root, executor)?;
 
     // Phase 7: Merge to main
-    merge_to_main(&root, &workspace_name, options.squash, executor)?;
+    merge_to_main(&root, &workspace_name, options.squash, executor)
+        .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
 
     // Phase 7.5: Log undo history
     log_undo_history(
@@ -371,6 +373,51 @@ fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<()
     }
 
     Ok(())
+}
+
+fn queue_merge_conflict(
+    error: DoneError,
+    workspace_name: &str,
+    bead_repo: &dyn bead::BeadRepository,
+) -> DoneError {
+    if matches!(error, DoneError::MergeConflict { .. }) {
+        let _ = queue_workspace_conflict(workspace_name, bead_repo);
+    }
+    error
+}
+
+fn queue_workspace_conflict(
+    workspace_name: &str,
+    bead_repo: &dyn bead::BeadRepository,
+) -> Result<(), DoneError> {
+    let queue_db = Path::new(".zjj/queue.db");
+    let queue = zjj_core::MergeQueue::open(queue_db).map_err(|e| DoneError::InvalidState {
+        reason: format!("Failed to open merge queue: {e}"),
+    })?;
+
+    let existing = queue
+        .get_by_workspace(workspace_name)
+        .map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to read merge queue: {e}"),
+        })?;
+    if existing.is_some() {
+        return Ok(());
+    }
+
+    let env_bead = std::env::var("ZJJ_BEAD_ID").ok();
+    let bead_id = env_bead.or_else(|| {
+        get_bead_id_for_workspace(workspace_name, bead_repo)
+            .ok()
+            .flatten()
+    });
+    let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
+
+    queue
+        .add(workspace_name, bead_id.as_deref(), 5, agent_id.as_deref())
+        .map(|_| ())
+        .map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to queue merge conflict: {e}"),
+        })
 }
 
 /// Check for potential conflicts by checking divergent changes
