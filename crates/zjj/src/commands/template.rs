@@ -258,7 +258,7 @@ fn confirm_deletion(name: &str) -> Result<bool> {
 
 /// Format Unix timestamp as human-readable string
 fn format_timestamp(timestamp: i64) -> String {
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     let now_secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)

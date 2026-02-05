@@ -21,12 +21,12 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
 use tokio::time::sleep;
-use zjj_core::{OutputFormat, WorkspaceState};
+use zjj_core::OutputFormat;
 
 use crate::{
     commands::get_session_db,
     db::SessionDb,
-    session::{Session, SessionStatus},
+    session::Session,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1,224 +1,37 @@
 //! Create a new session with JJ workspace + Zellij tab
 
-use std::path::Path;
-
 use anyhow::{Context, Result};
-use zjj_core::{config, jj, json::SchemaEnvelope, OutputFormat};
+use zjj_core::{config, json::SchemaEnvelope};
+
+mod atomic;
+mod beads;
+mod hooks;
+mod output;
+mod types;
+mod zellij;
+
+use atomic::atomic_create_session;
+use beads::query_bead_metadata;
+use hooks::execute_post_create_hooks;
+use output::output_result;
+pub use types::AddOptions;
+use zellij::{create_session_layout, create_zellij_tab};
 
 /// JSON output structure for add command
 ///
 /// Re-exported from `crate::json::serializers`
 use crate::json::AddOutput;
 use crate::{
-    cli::{attach_to_zellij_session, is_inside_zellij, run_command},
+    cli::{attach_to_zellij_session, is_inside_zellij},
     commands::{check_prerequisites, get_session_db},
     session::{validate_session_name, SessionStatus, SessionUpdate},
 };
-/// Options for the add command
-#[allow(clippy::struct_excessive_bools)]
-pub struct AddOptions {
-    /// Session name
-    pub name: String,
-    /// Optional bead/issue ID to associate with this session
-    pub bead_id: Option<String>,
-    /// Skip executing hooks
-    pub no_hooks: bool,
-    /// Template name to use for layout
-    pub template: Option<String>,
-    /// Create workspace but don't open Zellij tab
-    pub no_open: bool,
-    /// Skip Zellij integration entirely (for non-TTY environments)
-    pub no_zellij: bool,
-    /// Output format (JSON or Human-readable)
-    pub format: OutputFormat,
-    /// Succeed if session already exists (safe for retries)
-    pub idempotent: bool,
-    /// Preview without creating
-    pub dry_run: bool,
-}
-
-impl AddOptions {
-    /// Create new `AddOptions` with defaults
-    #[allow(dead_code)]
-    pub const fn new(name: String) -> Self {
-        Self {
-            name,
-            bead_id: None,
-            no_hooks: false,
-            template: None,
-            no_open: false,
-            no_zellij: false,
-            format: OutputFormat::Human,
-            idempotent: false,
-            dry_run: false,
-        }
-    }
-}
 
 /// Run the add command
 #[allow(dead_code)]
 pub fn run(name: &str) -> Result<()> {
     let options = AddOptions::new(name.to_string());
     run_with_options(&options)
-}
-
-/// Query bead metadata from .beads/beads.db
-///
-/// Returns JSON metadata with `bead_id`, title, and status information.
-/// Returns empty JSON object if bead not found or database doesn't exist.
-fn query_bead_metadata(bead_id: &str) -> Result<serde_json::Value> {
-    let beads_db = Path::new(".beads/beads.db");
-    if !beads_db.exists() {
-        return Ok(serde_json::json!({}));
-    }
-
-    let rt = tokio::runtime::Runtime::new().context("Failed to create async runtime")?;
-
-    rt.block_on(async {
-        let connection_string = format!("sqlite:{}", beads_db.display());
-        let pool = sqlx::SqlitePool::connect(&connection_string)
-            .await
-            .context("Failed to connect to beads database")?;
-
-        let result: Option<(String,)> = sqlx::query_as("SELECT title FROM issues WHERE id = ?1")
-            .bind(bead_id)
-            .fetch_optional(&pool)
-            .await
-            .context("Failed to query bead from database")?;
-
-        let title = result.map(|r| r.0).unwrap_or_else(|| "Unknown".to_string());
-
-        let timestamp = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-            Ok(duration) => duration.as_secs(),
-            Err(_) => 0,
-        };
-
-        Ok(serde_json::json!({
-            "bead_id": bead_id,
-            "bead_title": title,
-            "bead_status": "in_progress",
-            "cached_at": timestamp
-        }))
-    })
-}
-
-/// Create session atomically to prevent partial state on SIGKILL
-///
-/// This implements atomicity by:
-/// 1. Creating DB record with 'creating' status FIRST (detectable)
-/// 2. Creating JJ workspace SECOND (interruptible by SIGKILL)
-/// 3. On failure: cleaning workspace, leaving DB in 'creating' state for doctor
-///
-/// # Atomicity Guarantee
-///
-/// If SIGKILL occurs during step 2:
-/// - DB record exists in 'creating' state (detectable by doctor)
-/// - Partial workspace may exist (cleaned by `rollback_partial_state`)
-/// - No partial state that prevents recovery
-///
-/// # Errors
-///
-/// Returns error on any failure, leaving DB in 'creating' state
-/// and triggering cleanup of partial workspace state.
-fn atomic_create_session(
-    name: &str,
-    workspace_path: &std::path::Path,
-    db: &crate::db::SessionDb,
-    bead_metadata: Option<serde_json::Value>,
-) -> Result<()> {
-    let workspace_path_str = workspace_path.display().to_string();
-
-    // STEP 1: Create DB record with 'creating' status FIRST
-    // This makes the creation attempt detectable by doctor
-    let db_result = db.create_blocking(name, &workspace_path_str);
-
-    let _session = match db_result {
-        Ok(s) => s,
-        Err(db_error) => {
-            // DB creation failed - no cleanup needed (nothing created yet)
-            return Err(db_error).context("Failed to create session record");
-        }
-    };
-
-    // Update session with bead metadata if provided
-    if let Some(metadata) = bead_metadata {
-        db.update_blocking(
-            name,
-            SessionUpdate {
-                metadata: Some(metadata),
-                ..Default::default()
-            },
-        )
-        .context("Failed to update session metadata")?;
-    }
-
-    // STEP 2: Create JJ workspace (can be interrupted by SIGKILL)
-    // If this fails or is interrupted, rollback will clean up
-    let workspace_result = create_jj_workspace(name, workspace_path);
-
-    match workspace_result {
-        Ok(()) => {
-            // Workspace created successfully
-            // DB record already in 'creating' state, will transition to 'active'
-            // after post_create hooks
-            Ok(())
-        }
-        Err(workspace_error) => {
-            // Workspace creation failed or was interrupted
-            // Rollback: clean workspace, leave DB in 'creating' state
-            rollback_partial_state(name, workspace_path);
-            Err(workspace_error).context("Failed to create workspace, rolled back")
-        }
-    }
-}
-
-/// Rollback partial state after failed or interrupted session creation
-///
-/// This cleans up filesystem state while leaving the DB record
-/// in 'creating' state for detection by doctor.
-///
-/// # Rollback Strategy
-///
-/// 1. Remove workspace directory if it exists (partial state cleanup)
-/// 2. DO NOT remove DB record (leave for doctor detection)
-/// 3. Handle missing paths gracefully (no panic on cleanup failure)
-///
-/// # Atomicity Contract
-///
-/// This function NEVER panics - all cleanup failures are logged
-/// and handled gracefully. Partial state is always detectable.
-fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) {
-    use std::fs;
-
-    let workspace_dir = workspace_path;
-
-    // Only attempt cleanup if path exists (handle missing gracefully)
-    if workspace_dir.exists() {
-        match fs::remove_dir_all(workspace_dir) {
-            Ok(()) => {
-                tracing::info!("Rolled back partial workspace for session '{}'", name);
-            }
-            Err(cleanup_err) => {
-                // Cleanup failed but we still leave DB in 'creating' state
-                // Doctor will detect the stale session
-                eprintln!(
-                    "Warning: failed to cleanup partial workspace '{}': {}",
-                    workspace_path.display(),
-                    cleanup_err
-                );
-                tracing::warn!(
-                    "Failed to rollback workspace for session '{}': {}",
-                    name,
-                    cleanup_err
-                );
-            }
-        }
-    } else {
-        // Workspace doesn't exist - nothing to clean
-        tracing::info!("No workspace to rollback for session '{}'", name);
-    }
-
-    // DB record intentionally left in 'creating' state for doctor detection
 }
 
 /// Run the add command internally without output (for use by work command)
@@ -455,169 +268,6 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     Ok(())
 }
 
-/// Output the result in the appropriate format
-fn output_result(
-    name: &str,
-    workspace_path: &str,
-    zellij_tab: &str,
-    mode: &str,
-    format: OutputFormat,
-) {
-    if format.is_json() {
-        let output = AddOutput {
-            name: name.to_string(),
-            workspace_path: workspace_path.to_string(),
-            zellij_tab: zellij_tab.to_string(),
-            status: format!("Created session '{name}' ({mode})"),
-        };
-        let envelope = SchemaEnvelope::new("add-response", "single", output);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
-    } else {
-        println!("Created session '{name}' (workspace at {workspace_path})");
-    }
-}
-
-/// Create a JJ workspace for the session
-fn create_jj_workspace(name: &str, workspace_path: &std::path::Path) -> Result<()> {
-    // Use the JJ workspace manager from core
-    // Preserve the zjj_core::Error to maintain exit code semantics
-    jj::workspace_create(name, workspace_path).map_err(anyhow::Error::new)?;
-
-    Ok(())
-}
-
-/// Execute `post_create` hooks in the workspace directory
-fn execute_post_create_hooks(_workspace_path: &str) -> Result<()> {
-    // TODO: Load hooks from config when zjj-4wn is complete
-    // For now, use empty hook list
-    let hooks: Vec<String> = Vec::new();
-
-    for hook in hooks {
-        run_command("sh", &["-c", &hook]).with_context(|| format!("Hook '{hook}' failed"))?;
-    }
-
-    Ok(())
-}
-
-/// Create a Zellij tab for the session
-fn create_zellij_tab(tab_name: &str, workspace_path: &str, _template: Option<&str>) -> Result<()> {
-    // Create new tab with the session name
-    run_command("zellij", &["action", "new-tab", "--name", tab_name])
-        .context("Failed to create Zellij tab")?;
-
-    // Change to the workspace directory in the new tab
-    // We use write-chars to send the cd command
-    let cd_command = format!("cd {workspace_path}\n");
-    run_command("zellij", &["action", "write-chars", &cd_command])
-        .context("Failed to change directory in Zellij tab")?;
-
-    Ok(())
-}
-
-/// Create a Zellij layout for the session
-/// This layout creates a tab with the session name and cwd set to workspace
-fn create_session_layout(tab_name: &str, workspace_path: &str, template: Option<&str>) -> String {
-    // TODO: Load template from config when zjj-65r is complete
-    // For now, use built-in templates
-    match template {
-        Some("minimal") => create_minimal_layout(tab_name, workspace_path),
-        Some("full") => create_full_layout(tab_name, workspace_path),
-        _ => create_standard_layout(tab_name, workspace_path),
-    }
-}
-
-/// Create minimal layout: single pane
-fn create_minimal_layout(tab_name: &str, workspace_path: &str) -> String {
-    format!(
-        r#"
-layout {{
-    tab name="{tab_name}" {{
-        pane {{
-            cwd "{workspace_path}"
-        }}
-    }}
-}}
-"#
-    )
-}
-
-/// Create standard layout: main pane (70%) + sidebar (30%)
-fn create_standard_layout(tab_name: &str, workspace_path: &str) -> String {
-    format!(
-        r#"
-layout {{
-    tab name="{tab_name}" {{
-        pane split_direction="vertical" {{
-            pane {{
-                size "70%"
-                cwd "{workspace_path}"
-            }}
-            pane split_direction="horizontal" {{
-                pane {{
-                    size "50%"
-                    cwd "{workspace_path}"
-                    command "br"
-                    args "list"
-                }}
-                pane {{
-                    size "50%"
-                    cwd "{workspace_path}"
-                    command "jj"
-                    args "log"
-                }}
-            }}
-        }}
-    }}
-}}
-"#
-    )
-}
-
-/// Create full layout: standard + floating pane
-fn create_full_layout(tab_name: &str, workspace_path: &str) -> String {
-    format!(
-        r#"
-layout {{
-    tab name="{tab_name}" {{
-        pane split_direction="vertical" {{
-            pane {{
-                size "70%"
-                cwd "{workspace_path}"
-            }}
-            pane split_direction="horizontal" {{
-                pane {{
-                    size "50%"
-                    cwd "{workspace_path}"
-                    command "br"
-                    args "list"
-                }}
-                pane {{
-                    size "50%"
-                    cwd "{workspace_path}"
-                    command "jj"
-                    args "log"
-                }}
-            }}
-        }}
-        floating_panes {{
-            pane {{
-                width "80%"
-                height "80%"
-                x "10%"
-                y "10%"
-                cwd "{workspace_path}"
-            }}
-        }}
-    }}
-}}
-"#
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -675,50 +325,6 @@ mod tests {
         let err = zjj_core::Error::ValidationError("Session 'test' already exists".into());
         assert_eq!(err.exit_code(), 1);
         assert!(matches!(err, zjj_core::Error::ValidationError(_)));
-    }
-
-    #[test]
-    fn test_create_minimal_layout() {
-        let layout = create_minimal_layout("test-tab", "/path/to/workspace");
-        assert!(layout.contains("tab name=\"test-tab\""));
-        assert!(layout.contains("cwd \"/path/to/workspace\""));
-    }
-
-    #[test]
-    fn test_create_standard_layout() {
-        let layout = create_standard_layout("test-tab", "/path/to/workspace");
-        assert!(layout.contains("tab name=\"test-tab\""));
-        assert!(layout.contains("cwd \"/path/to/workspace\""));
-        assert!(layout.contains("70%"));
-        assert!(layout.contains("br"));
-        assert!(layout.contains("jj"));
-    }
-
-    #[test]
-    fn test_create_full_layout() {
-        let layout = create_full_layout("test-tab", "/path/to/workspace");
-        assert!(layout.contains("tab name=\"test-tab\""));
-        assert!(layout.contains("floating_panes"));
-        assert!(layout.contains("width \"80%\""));
-    }
-
-    #[test]
-    fn test_create_session_layout_default() {
-        let layout = create_session_layout("test", "/path", None);
-        assert!(layout.contains("tab name=\"test\""));
-    }
-
-    #[test]
-    fn test_create_session_layout_minimal() {
-        let layout = create_session_layout("test", "/path", Some("minimal"));
-        assert!(layout.contains("tab name=\"test\""));
-        assert!(!layout.contains("70%"));
-    }
-
-    #[test]
-    fn test_create_session_layout_full() {
-        let layout = create_session_layout("test", "/path", Some("full"));
-        assert!(layout.contains("floating_panes"));
     }
 
     // === Tests for P4: Category-grouped help output (Phase 4 RED - should fail) ===
