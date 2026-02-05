@@ -906,16 +906,10 @@ mod tests {
 
             let json_str = serde_json::to_string(&issue);
             assert!(json_str.is_ok(), "Should serialize to JSON");
-
-            let Ok(json_str) = json_str else {
-                assert!(false, "serialization failed");
-                return;
-            };
+            let json_str = json_str.unwrap_or_default();
             let json: Result<serde_json::Value, _> = serde_json::from_str(&json_str);
-            let Ok(json) = json else {
-                assert!(false, "deserialization failed");
-                return;
-            };
+            assert!(json.is_ok(), "deserialization should succeed");
+            let json = json.unwrap_or_default();
 
             // AI needs these fields
             assert!(json.get("code").is_some(), "Need code for categorization");
@@ -955,15 +949,11 @@ mod tests {
             let json_str = serde_json::to_string(&output);
             assert!(json_str.is_ok(), "Should serialize");
 
-            let Ok(json_str) = json_str else {
-                assert!(false, "serialization failed");
-                return;
-            };
+            assert!(json_str.is_ok(), "serialization should succeed");
+            let json_str = json_str.unwrap_or_default();
             let json: Result<serde_json::Value, _> = serde_json::from_str(&json_str);
-            let Ok(json) = json else {
-                assert!(false, "deserialization failed");
-                return;
-            };
+            assert!(json.is_ok(), "deserialization should succeed");
+            let json = json.unwrap_or_default();
 
             // Summary fields
             assert!(json.get("fixed_count").is_some());

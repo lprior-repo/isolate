@@ -341,10 +341,8 @@ mod tests {
             error: None,
         };
         let json = serde_json::to_string(&output);
-        let Ok(json_str) = json else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        assert!(json.is_ok(), "serialization should succeed");
+        let json_str = json.unwrap_or_default();
         assert!(json_str.contains("test-ws"));
         assert!(json_str.contains("xyz789"));
         assert!(json_str.contains("\"dry_run\":true"));

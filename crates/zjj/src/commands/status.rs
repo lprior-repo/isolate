@@ -205,10 +205,7 @@ fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
         name: session.name.clone(),
         status: session.status.to_string(),
         workspace_path: session.workspace_path.clone(),
-        branch: match session.branch.clone() {
-            Some(branch) => branch,
-            None => "-".to_string(),
-        },
+        branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
         changes,
         diff_stats,
         beads,
@@ -241,13 +238,13 @@ fn get_diff_stats(workspace_path: &Path) -> DiffStats {
         return DiffStats::default();
     }
 
-    match zjj_core::jj::workspace_diff(workspace_path) {
-        Ok(summary) => DiffStats {
+    zjj_core::jj::workspace_diff(workspace_path).map_or_else(
+        |_| DiffStats::default(),
+        |summary| DiffStats {
             insertions: summary.insertions,
             deletions: summary.deletions,
         },
-        Err(_) => DiffStats::default(),
-    }
+    )
 }
 
 /// Get beads statistics from the repository's beads database
@@ -310,14 +307,8 @@ async fn count_issues_by_status(pool: &sqlx::SqlitePool, status: &str) -> Result
             )))
         })?;
 
-    let count_i64 = match result {
-        Some(value) => value,
-        None => 0,
-    };
-    let count = match usize::try_from(count_i64) {
-        Ok(value) => value,
-        Err(_) => 0,
-    };
+    let count_i64 = result.unwrap_or_default();
+    let count = usize::try_from(count_i64).unwrap_or_default();
 
     Ok(count)
 }

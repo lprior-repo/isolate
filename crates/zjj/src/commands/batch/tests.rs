@@ -93,7 +93,7 @@ async fn test_batch_respects_order() {
     assert!(request.operations[2].optional);
 }
 
-/// GIVEN: BatchItemStatus values
+/// GIVEN: `BatchItemStatus` values
 /// WHEN: Serialized
 /// THEN: All status types serialize correctly
 #[test]
@@ -104,12 +104,13 @@ fn test_batch_item_status_serialization() {
         (Succeeded, "succeeded"),
         (Failed, "failed"),
         (Skipped, "skipped"),
-        (RolledBack, "rolledBack"),
+        (RolledBack, "rolledback"),
     ];
 
     for (status, expected) in statuses {
-        let json = serde_json::to_string(&status).expect("Serialization should succeed");
-        assert_eq!(json, format!("\"{}\"", expected));
+        let json = serde_json::to_string(&status);
+        assert!(json.is_ok(), "Serialization should succeed");
+        assert_eq!(json.unwrap_or_default(), format!("\"{expected}\""));
     }
 }
 
@@ -244,7 +245,8 @@ fn test_operation_is_optional_by_id_matching() {
         optional: true, // this is optional
     }];
 
-    let is_optional = operation_is_optional_by_id(&operations, &Some("op-1".to_string()));
+    let op_id = "op-1".to_string();
+    let is_optional = operation_is_optional_by_id(&operations, Some(&op_id));
 
     assert!(is_optional);
 }
@@ -261,7 +263,8 @@ fn test_operation_is_optional_by_id_not_found() {
         optional: true,
     }];
 
-    let is_optional = operation_is_optional_by_id(&operations, &Some("op-999".to_string()));
+    let op_id = "op-999".to_string();
+    let is_optional = operation_is_optional_by_id(&operations, Some(&op_id));
 
     assert!(!is_optional);
 }
@@ -278,7 +281,7 @@ fn test_operation_is_optional_by_id_none() {
         optional: true,
     }];
 
-    let is_optional = operation_is_optional_by_id(&operations, &None);
+    let is_optional = operation_is_optional_by_id(&operations, None);
 
     assert!(!is_optional);
 }

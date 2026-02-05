@@ -353,10 +353,7 @@ fn query_can_run(command: &str) -> Result<()> {
     }
 
     // Check JJ repo
-    let jj_repo = match is_jj_repo() {
-        Ok(value) => value,
-        Err(_) => false,
-    };
+    let jj_repo = is_jj_repo().unwrap_or_default();
     if !jj_repo && requires_jj_repo(command) {
         blockers.push(Blocker {
             check: "jj_repo".to_string(),
@@ -1097,7 +1094,7 @@ mod tests {
             "blockers": ["max_sessions", "no_jj_repo"]
         });
 
-        assert!(!output["can_spawn"].as_bool().map_or(true, |value| value));
+        assert!(output["can_spawn"].as_bool().is_none_or(|v| !v));
         assert_eq!(output["blockers"].as_array().map(Vec::len), Some(2));
     }
 
@@ -1161,7 +1158,7 @@ mod tests {
             "error": null
         });
 
-        assert!(locked_output["locked"].as_bool().map_or(false, |v| v));
+        assert!(locked_output["locked"].as_bool().is_some_and(|v| v));
         assert_eq!(locked_output["holder"].as_str(), Some("agent-123"));
 
         // When unlocked
@@ -1173,9 +1170,7 @@ mod tests {
             "error": null
         });
 
-        assert!(!unlocked_output["locked"]
-            .as_bool()
-            .map_or(true, |value| value));
+        assert!(unlocked_output["locked"].as_bool().is_none_or(|v| !v));
         assert!(unlocked_output["holder"].is_null());
     }
 

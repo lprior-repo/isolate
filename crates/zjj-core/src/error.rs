@@ -914,18 +914,15 @@ mod tests {
     }
 
     #[test]
-    fn test_validation_hint_serialization() {
+    fn test_validation_hint_serialization() -> Result<(), serde_json::Error> {
         let hint = ValidationHint::new("field", "expected")
             .with_received("received")
             .with_example("example");
-        let json = serde_json::to_string(&hint);
-        let Ok(json_str) = json else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        let json_str = serde_json::to_string(&hint)?;
         assert!(json_str.contains("\"field\":\"field\""));
         assert!(json_str.contains("\"expected\":\"expected\""));
         assert!(json_str.contains("\"received\":\"received\""));
+        Ok(())
     }
 
     #[test]

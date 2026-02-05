@@ -39,6 +39,7 @@ impl std::fmt::Display for BeadCounts {
 }
 
 /// Run the list command
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     all: bool,
     verbose: bool,
@@ -52,9 +53,7 @@ pub fn run(
         let db = get_session_db()?;
 
         let state_filter = match state {
-            Some(value) => {
-                Some(WorkspaceStateFilter::from_str(value).map_err(|e| anyhow::Error::new(e))?)
-            }
+            Some(value) => Some(WorkspaceStateFilter::from_str(value).map_err(anyhow::Error::new)?),
             None => None,
         };
 
@@ -86,7 +85,7 @@ pub fn run(
                         == Some(agent_filter)
                 });
 
-                let state_matches = state_filter.map_or(true, |filter| filter.matches(s.state));
+                let state_matches = state_filter.is_none_or(|filter| filter.matches(s.state));
 
                 // Combine all filter conditions
                 status_matches && bead_matches && agent_matches && state_matches
@@ -110,18 +109,12 @@ pub fn run(
             .into_iter()
             .map(|session| {
                 let changes = get_session_changes(&session.workspace_path);
-                let beads = match get_beads_count() {
-                    Ok(value) => value,
-                    Err(_) => BeadCounts::default(),
-                };
+                let beads = get_beads_count().unwrap_or_default();
 
                 SessionListItem {
                     name: session.name.clone(),
                     status: session.status.to_string(),
-                    branch: match session.branch.clone() {
-                        Some(branch) => branch,
-                        None => "-".to_string(),
-                    },
+                    branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
                     changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
                     beads: beads.to_string(),
                     session,
@@ -203,14 +196,11 @@ fn get_beads_count() -> Result<BeadCounts> {
             .bind("open")
             .fetch_one(&pool)
             .await
-            .unwrap_or_else(|_| 0);
+            .unwrap_or(0);
 
         // For now, we can't distinguish in_progress vs blocked without more schema knowledge
         // Let's return a simplified count
-        let open_usize = match usize::try_from(open) {
-            Ok(value) => value,
-            Err(_) => 0,
-        };
+        let open_usize = usize::try_from(open).unwrap_or_default();
         Result::<_, anyhow::Error>::Ok(BeadCounts {
             open: open_usize,
             in_progress: 0,

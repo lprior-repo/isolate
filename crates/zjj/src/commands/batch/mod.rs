@@ -23,7 +23,7 @@
 //! let response = execute_batch(request, &db).await?;
 //! ```
 //!
-//! # Invariants (DbC)
+//! # Invariants (`DbC`)
 //!
 //! - **Pre**: All operations in the request are valid commands
 //! - **Post**: Either all operations succeeded, or all were rolled back to checkpoint
@@ -138,7 +138,7 @@ pub struct BatchItemResult {
 }
 
 /// Status of a batch item execution.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum BatchItemStatus {
     /// Operation succeeded
@@ -159,7 +159,7 @@ pub enum BatchItemStatus {
 /// - **Then**: Execute all operations, rollback all on failure
 /// - **Invariant**: Checkpoint created before any operation executes
 ///
-/// # DbC (Design by Contract)
+/// # `DbC` (Design by Contract)
 ///
 /// - **Pre**: All operations in `request.operations` are valid zjj commands
 /// - **Post**: Either all non-optional operations succeeded, or state is restored to checkpoint
@@ -168,6 +168,7 @@ pub enum BatchItemStatus {
 ///
 /// - `Ok(BatchResponse)` with results and rollback status
 /// - `Err(Error)` if checkpoint creation fails or critical error occurs
+#[allow(clippy::too_many_lines)]
 pub async fn execute_batch(
     request: BatchRequest,
     db: &SqlitePool,
@@ -188,8 +189,7 @@ pub async fn execute_batch(
     let mut results = Vec::with_capacity(request.operations.len());
     let mut should_stop = false;
 
-    for (index, operation) in request.operations.iter().enumerate() {
-        let _operation_index = index;
+    for operation in &request.operations {
         let result = if should_stop {
             make_skipped_result(operation, "Previous operation failed")
         } else {
@@ -225,7 +225,7 @@ pub async fn execute_batch(
         // Atomic mode: all required operations must succeed
         results
             .iter()
-            .all(|r| r.success || operation_is_optional_by_id(&request.operations, &r.id))
+            .all(|r| r.success || operation_is_optional_by_id(&request.operations, r.id.as_ref()))
     } else {
         // Non-atomic mode: success if no required failures
         results
@@ -307,24 +307,26 @@ async fn execute_batch_operation(operation: &BatchOperation) -> BatchItemResult 
 
     execute_command(&operation.command, &operation.args)
         .await
-        .map(|output| BatchItemResult {
-            id: operation.id.clone(),
-            command: command_str.clone(),
-            success: true,
-            status: BatchItemStatus::Succeeded,
-            output: Some(output),
-            error: None,
-            duration_ms: to_duration_ms(start.elapsed()),
-        })
-        .unwrap_or_else(|e| BatchItemResult {
-            id: operation.id.clone(),
-            command: command_str,
-            success: false,
-            status: BatchItemStatus::Failed,
-            output: None,
-            error: Some(e.to_string()),
-            duration_ms: to_duration_ms(start.elapsed()),
-        })
+        .map_or_else(
+            |e| BatchItemResult {
+                id: operation.id.clone(),
+                command: command_str.clone(),
+                success: false,
+                status: BatchItemStatus::Failed,
+                output: None,
+                error: Some(e.to_string()),
+                duration_ms: to_duration_ms(start.elapsed()),
+            },
+            |output| BatchItemResult {
+                id: operation.id.clone(),
+                command: command_str.clone(),
+                success: true,
+                status: BatchItemStatus::Succeeded,
+                output: Some(output),
+                error: None,
+                duration_ms: to_duration_ms(start.elapsed()),
+            },
+        )
 }
 
 /// Create a skipped operation result.
@@ -369,22 +371,20 @@ async fn execute_command(command: &str, args: &[String]) -> Result<String> {
 fn to_duration_ms(duration: std::time::Duration) -> Option<u64> {
     let ms = duration.as_millis();
     if ms <= u128::from(u64::MAX) {
-        Some(ms as u64)
+        u64::try_from(ms).ok()
     } else {
         None
     }
 }
 
 /// Check if an operation is optional by ID.
-fn operation_is_optional_by_id(operations: &[BatchOperation], id: &Option<String>) -> bool {
-    match id {
-        Some(op_id) => operations
+fn operation_is_optional_by_id(operations: &[BatchOperation], id: Option<&String>) -> bool {
+    id.is_some_and(|op_id| {
+        operations
             .iter()
             .find(|op| op.id.as_ref() == Some(op_id))
-            .map(|op| op.optional)
-            .unwrap_or(false),
-        None => false,
-    }
+            .is_some_and(|op| op.optional)
+    })
 }
 
 /// Print human-readable batch response.
@@ -395,7 +395,7 @@ fn print_batch_human(response: &BatchResponse) {
     );
 
     if let Some(cp_id) = &response.checkpoint_id {
-        println!("Checkpoint: {}", cp_id);
+        println!("Checkpoint: {cp_id}");
     }
 
     if response.rolled_back {
@@ -425,11 +425,11 @@ fn print_batch_human(response: &BatchResponse) {
         println!("{}{}{}", status_icon, id_str, item_result.command);
 
         if let Some(e) = item_result.error.as_ref() {
-            println!("    Error: {}", e);
+            println!("    Error: {e}");
         }
 
         if let Some(ms) = item_result.duration_ms {
-            println!("    Duration: {}ms", ms);
+            println!("    Duration: {ms}ms");
         }
     }
 
@@ -465,7 +465,7 @@ mod tests {
 
     /// GIVEN: Atomic batch with partial failure
     /// WHEN: First operation succeeds, second fails
-    /// THEN: Both rolled back, success=false, rolled_back=true
+    /// THEN: Both rolled back, `success=false`, `rolled_back=true`
     #[tokio::test]
     async fn test_batch_partial_fails_rollback() {
         let request = BatchRequest {
@@ -533,31 +533,33 @@ mod tests {
         assert!(request.operations[2].optional);
     }
 
-    /// GIVEN: BatchItemStatus values
+    /// GIVEN: `BatchItemStatus` values
     /// WHEN: Serialized
     /// THEN: All status types serialize correctly
     #[test]
-    fn test_batch_item_status_serialization() {
+    fn test_batch_item_status_serialization() -> std::result::Result<(), serde_json::Error> {
         use BatchItemStatus::*;
 
         let statuses = [
             (Succeeded, "succeeded"),
             (Failed, "failed"),
             (Skipped, "skipped"),
-            (RolledBack, "rolledBack"),
+            (RolledBack, "rolledback"),
         ];
 
         for (status, expected) in statuses {
-            let json = serde_json::to_string(&status).expect("Serialization should succeed");
-            assert_eq!(json, format!("\"{}\"", expected));
+            let json = serde_json::to_string(&status)?;
+            assert_eq!(json, format!("\"{expected}\""));
         }
+
+        Ok(())
     }
 
-    /// GIVEN: BatchRequest with atomic mode
+    /// GIVEN: `BatchRequest` with atomic mode
     /// WHEN: Serialized and deserialized
     /// THEN: All fields preserved
     #[test]
-    fn test_batch_request_roundtrip() {
+    fn test_batch_request_roundtrip() -> std::result::Result<(), serde_json::Error> {
         let original = BatchRequest {
             atomic: true,
             operations: vec![BatchOperation {
@@ -568,22 +570,23 @@ mod tests {
             }],
         };
 
-        let json = serde_json::to_string(&original).expect("Serialization should succeed");
+        let json = serde_json::to_string(&original)?;
 
-        let deserialized: BatchRequest =
-            serde_json::from_str(&json).expect("Deserialization should succeed");
+        let deserialized: BatchRequest = serde_json::from_str(&json)?;
 
-        assert_eq!(deserialized.atomic, true);
+        assert!(deserialized.atomic);
         assert_eq!(deserialized.operations.len(), 1);
         assert_eq!(deserialized.operations[0].command, "add");
         assert_eq!(deserialized.operations[0].args, vec!["session-1"]);
         assert_eq!(deserialized.operations[0].id, Some("step-1".to_string()));
         assert!(!deserialized.operations[0].optional);
+
+        Ok(())
     }
 
-    /// GIVEN: BatchResponse with all succeeded
+    /// GIVEN: `BatchResponse` with all succeeded
     /// WHEN: Check response fields
-    /// THEN: success=true, failed=0, checkpoint_id set
+    /// THEN: `success=true`, `failed=0`, `checkpoint_id` set
     #[test]
     fn test_batch_response_success_fields() {
         let response = BatchResponse {
@@ -606,9 +609,9 @@ mod tests {
         assert!(!response.rolled_back);
     }
 
-    /// GIVEN: BatchResponse with rollback
+    /// GIVEN: `BatchResponse` with rollback
     /// WHEN: Check response fields
-    /// THEN: success=false, rolled_back=true, results show RolledBack status
+    /// THEN: `success=false`, `rolled_back=true`, results show `RolledBack` status
     #[test]
     fn test_batch_response_rollback_fields() {
         let results = vec![BatchItemResult {
@@ -638,7 +641,7 @@ mod tests {
         assert_eq!(response.results[0].status, BatchItemStatus::RolledBack);
     }
 
-    /// GIVEN: to_duration_ms with valid duration
+    /// GIVEN: `to_duration_ms` with valid duration
     /// WHEN: Called
     /// THEN: Returns Some(milliseconds)
     #[test]
@@ -649,7 +652,7 @@ mod tests {
         assert_eq!(ms, Some(500));
     }
 
-    /// GIVEN: to_duration_ms with zero duration
+    /// GIVEN: `to_duration_ms` with zero duration
     /// WHEN: Called
     /// THEN: Returns Some(0)
     #[test]
@@ -660,19 +663,19 @@ mod tests {
         assert_eq!(ms, Some(0));
     }
 
-    /// GIVEN: to_duration_ms with overflow duration
+    /// GIVEN: `to_duration_ms` with overflow duration
     /// WHEN: Called
     /// THEN: Returns None (gracefully handles overflow)
     #[test]
     fn test_to_duration_ms_overflow() {
-        let duration = std::time::Duration::from_secs(u64::MAX as u64);
+        let duration = std::time::Duration::from_secs(u64::MAX);
         let ms = to_duration_ms(duration);
 
         // Overflow case: should return None instead of panicking
         assert!(ms.is_none());
     }
 
-    /// GIVEN: operation_is_optional_by_id with matching ID
+    /// GIVEN: `operation_is_optional_by_id` with matching ID
     /// WHEN: Called
     /// THEN: Returns operation's optional flag
     #[test]
@@ -684,12 +687,13 @@ mod tests {
             optional: true, // this is optional
         }];
 
-        let is_optional = operation_is_optional_by_id(&operations, &Some("op-1".to_string()));
+        let op_id = "op-1".to_string();
+        let is_optional = operation_is_optional_by_id(&operations, Some(&op_id));
 
         assert!(is_optional);
     }
 
-    /// GIVEN: operation_is_optional_by_id with non-matching ID
+    /// GIVEN: `operation_is_optional_by_id` with non-matching ID
     /// WHEN: Called
     /// THEN: Returns false (not found)
     #[test]
@@ -701,12 +705,13 @@ mod tests {
             optional: true,
         }];
 
-        let is_optional = operation_is_optional_by_id(&operations, &Some("op-999".to_string()));
+        let op_id = "op-999".to_string();
+        let is_optional = operation_is_optional_by_id(&operations, Some(&op_id));
 
         assert!(!is_optional);
     }
 
-    /// GIVEN: operation_is_optional_by_id with None ID
+    /// GIVEN: `operation_is_optional_by_id` with None ID
     /// WHEN: Called
     /// THEN: Returns false (no ID to match)
     #[test]
@@ -718,7 +723,7 @@ mod tests {
             optional: true,
         }];
 
-        let is_optional = operation_is_optional_by_id(&operations, &None);
+        let is_optional = operation_is_optional_by_id(&operations, None);
 
         assert!(!is_optional);
     }

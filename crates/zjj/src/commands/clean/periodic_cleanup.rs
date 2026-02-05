@@ -17,17 +17,13 @@
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
 use tokio::time::sleep;
 use zjj_core::OutputFormat;
 
-use crate::{
-    commands::get_session_db,
-    db::SessionDb,
-    session::Session,
-};
+use crate::{commands::get_session_db, db::SessionDb, session::Session};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DOMAIN TYPES (Functional Core)
@@ -139,30 +135,29 @@ fn is_orphan_candidate(
 
 /// Calculate session age
 fn calculate_age(session: &Session, now: &DateTime<Utc>) -> Option<chrono::Duration> {
-    let naive = NaiveDateTime::from_timestamp_opt(session.updated_at as i64, 0)?;
-    let updated = DateTime::<Utc>::from_utc(naive, Utc);
+    let updated_at = i64::try_from(session.updated_at).ok()?;
+    let updated = DateTime::<Utc>::from_timestamp(updated_at, 0)?;
     Some(now.signed_duration_since(updated))
 }
 
 /// Check if session has an active bead
 ///
-/// Looks in metadata for bead_id and checks if bead status is active
+/// Looks in metadata for `bead_id` and checks if bead status is active
 fn check_active_bead(session: &Session) -> bool {
     session
         .metadata
         .as_ref()
         .and_then(|meta| meta.get("bead_id"))
         .and_then(|v: &Value| v.as_str())
-        .map_or(false, |bead_id| is_bead_active(bead_id))
+        .is_some_and(is_bead_active)
 }
 
 /// Check if a bead is in active status
 ///
 /// Uses Railway pattern - if any step fails, returns false
 fn is_bead_active(bead_id: &str) -> bool {
-    check_bead_status(bead_id).map_or(false, |status| {
-        matches!(status.as_str(), "in_progress" | "open")
-    })
+    check_bead_status(bead_id)
+        .is_some_and(|status| matches!(status.as_str(), "in_progress" | "open"))
 }
 
 /// Query bead status from beads system
@@ -219,7 +214,7 @@ fn categorize_orphans(
 }
 
 /// Determine if orphan should be cleaned
-fn should_clean(orphan: &OrphanCandidate) -> bool {
+const fn should_clean(orphan: &OrphanCandidate) -> bool {
     // Clean if workspace missing OR (old AND no active bead)
     !orphan.workspace_exists || (!orphan.has_active_bead && orphan.age_seconds >= 7200)
 }
@@ -245,6 +240,7 @@ fn skip_reason(orphan: &OrphanCandidate) -> String {
 /// 3. Categorize into cleanable/skippable
 /// 4. Clean eligible orphans
 /// 5. Return results
+#[allow(clippy::unused_async)]
 async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<PeriodicCleanupOutput> {
     let now = Utc::now();
 
@@ -262,7 +258,7 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
     let cleaned_sessions = if config.dry_run {
         Vec::new()
     } else {
-        clean_orphans(&db, &cleanable).await?
+        clean_orphans(&db, &cleanable)?
     };
 
     // 5. Build result
@@ -278,7 +274,7 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
 /// Clean orphaned sessions from database
 ///
 /// Uses functional fold to accumulate successful removals
-async fn clean_orphans(db: &SessionDb, orphans: &[OrphanCandidate]) -> Result<Vec<String>> {
+fn clean_orphans(db: &SessionDb, orphans: &[OrphanCandidate]) -> Result<Vec<String>> {
     // Functional fold over orphans, collecting successful removals
     orphans.iter().try_fold(Vec::new(), |mut cleaned, orphan| {
         db.delete_blocking(&orphan.name)
@@ -333,7 +329,7 @@ pub async fn run_periodic_cleanup(config: PeriodicCleanupConfig) -> Result<()> {
             Ok(output) => log_cleanup_results(&output, config.format),
             Err(e) => {
                 if config.format.is_json() {
-                    eprintln!(r#"{{"error": "Cleanup failed: {}"}}"#, e);
+                    eprintln!(r#"{{"error": "Cleanup failed: {e}"}}"#);
                 } else {
                     eprintln!("Periodic cleanup error: {e}");
                 }
@@ -351,14 +347,15 @@ pub async fn run_periodic_cleanup(config: PeriodicCleanupConfig) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use zjj_core::WorkspaceState;
 
     use super::*;
+    use crate::session::SessionStatus;
 
     fn mock_session(name: &str, age_hours: i64, workspace_exists: bool) -> Session {
         let now = Utc::now();
         let created_at = now - chrono::Duration::hours(age_hours);
-        let created_timestamp = created_at.timestamp() as u64;
+        let created_timestamp = u64::try_from(created_at.timestamp()).unwrap_or_default();
 
         Session {
             id: None,

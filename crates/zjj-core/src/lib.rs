@@ -145,15 +145,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_config_builder_success() {
+    fn test_config_builder_success() -> Result<()> {
         let result = ConfigBuilder::new().with_name("test").build();
         assert!(result.is_ok());
-
-        let Ok(config) = result else {
-            assert!(false, "expected config to build");
-            return;
-        };
+        let config = result?;
         assert_eq!(config.name, "test");
+        Ok(())
     }
 
     #[test]

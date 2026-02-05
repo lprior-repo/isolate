@@ -5,6 +5,7 @@
 mod common;
 
 use common::TestHarness;
+use serde::de::Error as _;
 
 // ============================================================================
 // JSON Error Output Tests
@@ -430,17 +431,16 @@ fn test_diff_json_error_nonexistent_session() {
 }
 
 #[test]
-fn test_error_response_schema_contract() {
+fn test_error_response_schema_contract() -> Result<(), serde_json::Error> {
     let Some(harness) = TestHarness::try_new() else {
-        return;
+        return Ok(());
     };
     harness.assert_success(&["init"]);
 
     let result = harness.zjj(&["add", "", "--json"]);
     assert!(!result.success, "add should fail for empty name");
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(result.stdout.trim()).expect("Output should be JSON");
+    let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
 
     assert_eq!(
         parsed.get("$schema").and_then(|v| v.as_str()),
@@ -465,13 +465,14 @@ fn test_error_response_schema_contract() {
 
     let error_obj = parsed
         .get("error")
-        .expect("Error field should be present")
-        .as_object()
-        .expect("Error field should be object");
+        .and_then(serde_json::Value::as_object)
+        .ok_or_else(|| serde_json::Error::custom("Error field should be object"))?;
 
     assert!(error_obj.get("code").is_some(), "Error should expose code");
     assert_eq!(
-        error_obj.get("exit_code").and_then(|v| v.as_i64()),
+        error_obj
+            .get("exit_code")
+            .and_then(serde_json::Value::as_i64),
         Some(1),
         "Validation errors must expose exit_code 1"
     );
@@ -479,4 +480,5 @@ fn test_error_response_schema_contract() {
         error_obj.get("message").is_some(),
         "Error should expose message"
     );
+    Ok(())
 }

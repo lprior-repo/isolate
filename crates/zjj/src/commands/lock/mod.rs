@@ -16,10 +16,12 @@ use zjj_core::coordination::locks::LockManager;
 
 use self::types::{LockArgs, LockOutput, UnlockArgs, UnlockOutput};
 
+#[allow(dead_code, clippy::unused_async)]
 pub async fn run_lock_async(_args: &LockArgs, _mgr: &LockManager) -> Result<LockOutput> {
     anyhow::bail!("Not yet implemented")
 }
 
+#[allow(dead_code, clippy::unused_async)]
 pub async fn run_unlock_async(_args: &UnlockArgs, _mgr: &LockManager) -> Result<UnlockOutput> {
     anyhow::bail!("Not yet implemented")
 }

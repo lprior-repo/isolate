@@ -1,6 +1,5 @@
 //! Tests for lock command
 
-#![cfg(test)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
@@ -8,12 +7,11 @@
 #![warn(clippy::nursery)]
 
 use chrono::Utc;
-use serde_json::Value;
 use zjj_core::coordination::locks::LockManager;
 
 use super::{
     run_lock_async, run_unlock_async,
-    types::{LockArgs, LockOutput, UnlockArgs, UnlockOutput},
+    types::{LockArgs, UnlockArgs},
 };
 
 /// Helper to create test database pool
@@ -79,7 +77,7 @@ async fn test_lock_fails_if_held_by_another() -> anyhow::Result<()> {
     let err = result
         .err()
         .ok_or_else(|| anyhow::anyhow!("Expected error"))?;
-    assert_eq!(err.to_string().contains("SESSION_LOCKED"), true);
+    assert!(err.to_string().contains("SESSION_LOCKED"));
 
     Ok(())
 }

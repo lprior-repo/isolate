@@ -28,7 +28,10 @@ fn test_detect_conflicts_no_conflicts_succeeds() {
 
     // WHEN: User runs "zjj done --detect-conflicts --dry-run" from the workspace
     let workspace_path = harness.workspace_path("feature-no-conflict");
-    let result = harness.zjj_in_dir(&workspace_path, &["done", "--detect-conflicts", "--dry-run"]);
+    let result = harness.zjj_in_dir(
+        &workspace_path,
+        &["done", "--detect-conflicts", "--dry-run"],
+    );
 
     // THEN: Output contains "no conflicts detected"
     // AND exit code is 0
@@ -97,7 +100,10 @@ fn test_detect_conflicts_found_reports_details() {
 
     // WHEN: User runs "zjj done --detect-conflicts --dry-run" from the workspace
     let workspace_path = harness.workspace_path("conflicting-feature");
-    let result = harness.zjj_in_dir(&workspace_path, &["done", "--detect-conflicts", "--dry-run"]);
+    let result = harness.zjj_in_dir(
+        &workspace_path,
+        &["done", "--detect-conflicts", "--dry-run"],
+    );
 
     // THEN: Output lists conflicting files
     // AND output contains actionable hints

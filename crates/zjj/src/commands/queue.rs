@@ -91,6 +91,7 @@ pub struct QueueStatsOutput {
 
 /// Options for queue command
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct QueueOptions {
     pub format: OutputFormat,
     pub add: Option<String>,

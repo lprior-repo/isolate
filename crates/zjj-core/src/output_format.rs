@@ -256,70 +256,55 @@ mod tests {
     }
 
     /// Helper to test serialization and deserialization round-trips
-    fn test_serde_round_trip(format: OutputFormat, expected_json: &str) {
-        let serialized = serde_json::to_string(&format);
-        assert!(serialized.is_ok(), "serialization should succeed");
-        let Some(serialized) = serialized.ok() else {
-            return;
-        };
+    fn test_serde_round_trip(
+        format: OutputFormat,
+        expected_json: &str,
+    ) -> Result<(), serde_json::Error> {
+        let serialized = serde_json::to_string(&format)?;
         assert_eq!(serialized, expected_json);
 
-        let deserialized: Result<OutputFormat, _> = serde_json::from_str(&serialized);
-        assert!(deserialized.is_ok(), "deserialization should succeed");
-        let Some(deserialized) = deserialized.ok() else {
-            return;
-        };
+        let deserialized: OutputFormat = serde_json::from_str(&serialized)?;
         assert_eq!(deserialized, format);
+        Ok(())
     }
 
     #[test]
-    fn test_output_format_serde_serialization() {
-        test_serde_round_trip(OutputFormat::Json, "\"json\"");
-        test_serde_round_trip(OutputFormat::Human, "\"human\"");
+    fn test_output_format_serde_serialization() -> Result<(), serde_json::Error> {
+        test_serde_round_trip(OutputFormat::Json, "\"json\"")?;
+        test_serde_round_trip(OutputFormat::Human, "\"human\"")?;
+        Ok(())
     }
 
     #[test]
-    fn test_output_format_serde_serialize_json_variant() {
+    fn test_output_format_serde_serialize_json_variant() -> Result<(), serde_json::Error> {
         let format = OutputFormat::Json;
-        let serialized = serde_json::to_string(&format).map_err(|_| "serde failed");
-        let Ok(json_str) = serialized else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        let json_str = serde_json::to_string(&format)?;
         assert_eq!(json_str, "\"json\"");
+        Ok(())
     }
 
     #[test]
-    fn test_output_format_serde_serialize_human_variant() {
+    fn test_output_format_serde_serialize_human_variant() -> Result<(), serde_json::Error> {
         let format = OutputFormat::Human;
-        let serialized = serde_json::to_string(&format).map_err(|_| "serde failed");
-        let Ok(json_str) = serialized else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        let json_str = serde_json::to_string(&format)?;
         assert_eq!(json_str, "\"human\"");
+        Ok(())
     }
 
     #[test]
-    fn test_output_format_serde_deserialize_json_variant() {
+    fn test_output_format_serde_deserialize_json_variant() -> Result<(), serde_json::Error> {
         let json_str = "\"json\"";
-        let result: Result<OutputFormat, _> = serde_json::from_str(json_str);
-        let Ok(format) = result else {
-            assert!(false, "deserialization failed");
-            return;
-        };
+        let format: OutputFormat = serde_json::from_str(json_str)?;
         assert_eq!(format, OutputFormat::Json);
+        Ok(())
     }
 
     #[test]
-    fn test_output_format_serde_deserialize_human_variant() {
+    fn test_output_format_serde_deserialize_human_variant() -> Result<(), serde_json::Error> {
         let json_str = "\"human\"";
-        let result: Result<OutputFormat, _> = serde_json::from_str(json_str);
-        let Ok(format) = result else {
-            assert!(false, "deserialization failed");
-            return;
-        };
+        let format: OutputFormat = serde_json::from_str(json_str)?;
         assert_eq!(format, OutputFormat::Human);
+        Ok(())
     }
 
     #[test]

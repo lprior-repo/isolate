@@ -116,7 +116,7 @@ pub fn run_create(options: &CreateOptions) -> Result<()> {
     // Get layout content based on source
     let layout_content = match &options.source {
         TemplateSource::Builtin(template_type) => {
-            generate_builtin_layout(template_type, &options.name)?
+            generate_builtin_layout(*template_type, &options.name)?
         }
         TemplateSource::FromFile(file_path) => std::fs::read_to_string(file_path)
             .with_context(|| format!("Failed to read template file: {file_path}"))?,
@@ -148,7 +148,7 @@ pub fn run_create(options: &CreateOptions) -> Result<()> {
 }
 
 /// Generate layout content for a builtin template
-fn generate_builtin_layout(template_type: &LayoutTemplate, name: &str) -> Result<String> {
+fn generate_builtin_layout(template_type: LayoutTemplate, name: &str) -> Result<String> {
     // Create a minimal config for layout generation
     let config = LayoutConfig::new(
         name.to_string(),
@@ -156,7 +156,7 @@ fn generate_builtin_layout(template_type: &LayoutTemplate, name: &str) -> Result
     );
 
     // Generate KDL content
-    let kdl = zjj_core::zellij::generate_template_kdl(&config, *template_type)?;
+    let kdl = zjj_core::zellij::generate_template_kdl(&config, template_type)?;
     Ok(kdl)
 }
 
@@ -265,7 +265,7 @@ fn format_timestamp(timestamp: i64) -> String {
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    let timestamp_secs = timestamp.max(0) as u64;
+    let timestamp_secs = u64::try_from(timestamp.max(0)).unwrap_or_default();
     let ago_secs = now_secs.saturating_sub(timestamp_secs);
     let days = ago_secs / 86400;
 
@@ -298,8 +298,6 @@ pub fn run_use(_name: &str, _format: OutputFormat) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use tempfile::TempDir;
-
     use super::*;
 
     #[test]
@@ -320,7 +318,7 @@ mod tests {
         // Test with current timestamp
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
+            .map(|d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX))
             .unwrap_or(0);
 
         let formatted = format_timestamp(now);

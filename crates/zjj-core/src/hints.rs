@@ -778,12 +778,14 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
+    use crate::WorkspaceState;
 
     fn create_test_session(name: &str, status: SessionStatus) -> Session {
         Session {
             id: format!("id-{name}"),
             name: name.to_string(),
             status,
+            state: WorkspaceState::default(),
             workspace_path: PathBuf::from("/tmp/test"),
             branch: None,
             created_at: Utc::now(),
@@ -1153,20 +1155,11 @@ mod tests {
 
     #[test]
     fn test_action_risk_serialization() {
-        let safe_json = match serde_json::to_string(&ActionRisk::Safe) {
-            Ok(value) => value,
-            Err(_) => String::new(),
-        };
+        let safe_json = serde_json::to_string(&ActionRisk::Safe).unwrap_or_default();
         assert_eq!(safe_json, "\"safe\"");
-        let medium_json = match serde_json::to_string(&ActionRisk::Medium) {
-            Ok(value) => value,
-            Err(_) => String::new(),
-        };
+        let medium_json = serde_json::to_string(&ActionRisk::Medium).unwrap_or_default();
         assert_eq!(medium_json, "\"medium\"");
-        let high_json = match serde_json::to_string(&ActionRisk::High) {
-            Ok(value) => value,
-            Err(_) => String::new(),
-        };
+        let high_json = serde_json::to_string(&ActionRisk::High).unwrap_or_default();
         assert_eq!(high_json, "\"high\"");
     }
 
@@ -1178,10 +1171,7 @@ mod tests {
             risk: ActionRisk::Medium,
             description: Some("A test action".to_string()),
         };
-        let json = match serde_json::to_string(&action) {
-            Ok(value) => value,
-            Err(_) => String::new(),
-        };
+        let json = serde_json::to_string(&action).unwrap_or_default();
         assert!(json.contains("\"risk\":\"medium\""));
         assert!(json.contains("\"description\":\"A test action\""));
     }
@@ -1194,10 +1184,7 @@ mod tests {
             risk: ActionRisk::Safe,
             description: None,
         };
-        let json = match serde_json::to_string(&action) {
-            Ok(value) => value,
-            Err(_) => String::new(),
-        };
+        let json = serde_json::to_string(&action).unwrap_or_default();
         assert!(!json.contains("description"));
     }
 

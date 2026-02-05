@@ -28,10 +28,9 @@ pub(super) fn query_bead_metadata(bead_id: &str) -> Result<serde_json::Value> {
 
         let title = result.map(|r| r.0).unwrap_or_else(|| "Unknown".to_string());
 
-        let timestamp = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-            Ok(duration) => duration.as_secs(),
-            Err(_) => 0,
-        };
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |duration| duration.as_secs());
 
         Ok(serde_json::json!({
             "bead_id": bead_id,

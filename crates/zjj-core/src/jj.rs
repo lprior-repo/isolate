@@ -506,15 +506,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_workspace_list() {
+    fn test_parse_workspace_list() -> Result<()> {
         let output = "default: /home/user/repo\nfeature: /home/user/repo/.zjj/workspaces/feature\nstale-ws: /home/user/old (stale)";
         let result = parse_workspace_list(output);
         assert!(result.is_ok());
-
-        let Ok(workspaces) = result else {
-            assert!(false, "parse failed");
-            return;
-        };
+        let workspaces = result?;
         assert_eq!(workspaces.len(), 3);
 
         // Safe to index after checking length
@@ -525,6 +521,7 @@ mod tests {
             assert_eq!(workspaces[2].name, "stale-ws");
             assert!(workspaces[2].is_stale);
         }
+        Ok(())
     }
 
     #[test]
@@ -599,7 +596,7 @@ mod tests {
         let temp_dir = std::env::temp_dir().join("zjj-test-workspace-guard");
         let _ = std::fs::create_dir_all(&temp_dir);
 
-        let mut guard = WorkspaceGuard::new("test-cleanup".to_string(), temp_dir.clone());
+        let mut guard = WorkspaceGuard::new("test-cleanup".to_string(), temp_dir);
         assert!(guard.active);
 
         // Note: cleanup will attempt to forget workspace (which will fail in test env)
@@ -635,7 +632,7 @@ mod tests {
         let _ = std::fs::create_dir_all(&temp_dir);
 
         {
-            let _guard = WorkspaceGuard::new("test-drop".to_string(), temp_dir.clone());
+            let _guard = WorkspaceGuard::new("test-drop".to_string(), temp_dir);
             // Guard goes out of scope here and Drop is called
             // This should attempt cleanup (will log error for jj forget but shouldn't panic)
         }
@@ -650,7 +647,7 @@ mod tests {
         let _ = std::fs::create_dir_all(&temp_dir);
 
         {
-            let mut guard = WorkspaceGuard::new("test-disarmed".to_string(), temp_dir.clone());
+            let mut guard = WorkspaceGuard::new("test-disarmed".to_string(), temp_dir);
             guard.disarm();
             // Guard goes out of scope but should NOT cleanup
         }
@@ -667,7 +664,7 @@ mod tests {
         let _ = std::fs::create_dir_all(&temp_dir);
 
         let result = catch_unwind(AssertUnwindSafe(|| {
-            let _guard = WorkspaceGuard::new("test-panic".to_string(), temp_dir.clone());
+            let _guard = WorkspaceGuard::new("test-panic".to_string(), temp_dir);
             // Simulate panic
             panic!("Intentional panic for testing");
         }));

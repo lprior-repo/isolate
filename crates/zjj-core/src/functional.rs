@@ -37,7 +37,7 @@ where
 {
     items.into_iter().fold(im::HashMap::new(), |mut map, item| {
         let key = key_fn(&item);
-        let mut group = map.get(&key).cloned().map_or_else(Vec::new, |value| value);
+        let mut group = map.get(&key).cloned().unwrap_or_else(Vec::new);
         group.push(item);
         map.insert(key, group);
         map

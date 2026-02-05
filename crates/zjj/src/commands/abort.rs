@@ -201,7 +201,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_abort_output_serializes() {
+    fn test_abort_output_serializes() -> Result<(), serde_json::Error> {
         let output = AbortOutput {
             session_name: "test-session".to_string(),
             workspace_removed: true,
@@ -209,13 +209,11 @@ mod tests {
             message: "Aborted session 'test-session'".to_string(),
         };
 
-        let json = serde_json::to_string(&output);
-        let Ok(json_str) = json else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        let json_str = serde_json::to_string(&output)?;
         assert!(json_str.contains("\"session_name\":\"test-session\""));
         assert!(json_str.contains("\"workspace_removed\":true"));
+
+        Ok(())
     }
 
     #[test]
@@ -362,10 +360,7 @@ mod tests {
             message: "Aborted session 'test'".to_string(),
         };
 
-        let json_str = match serde_json::to_string(&output) {
-            Ok(value) => value,
-            Err(_) => String::new(),
-        };
+        let json_str = serde_json::to_string(&output).unwrap_or_default();
 
         assert!(json_str.contains("session_name"));
         assert!(json_str.contains("workspace_removed"));

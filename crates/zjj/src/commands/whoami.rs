@@ -126,10 +126,8 @@ mod tests {
         };
 
         let json = serde_json::to_string(&output);
-        let Ok(json_str) = json else {
-            assert!(false, "serialization failed");
-            return;
-        };
+        assert!(json.is_ok(), "serialization should succeed");
+        let json_str = json.unwrap_or_default();
         assert!(json_str.contains("\"registered\":true"));
         assert!(json_str.contains("\"agent_id\":\"agent-12345\""));
     }
@@ -219,10 +217,7 @@ mod tests {
             simple: "agent-1".to_string(),
         };
 
-        let json_str = match serde_json::to_string(&output) {
-            Ok(value) => value,
-            Err(_) => String::new(),
-        };
+        let json_str = serde_json::to_string(&output).unwrap_or_default();
 
         assert!(json_str.contains("registered"));
         assert!(json_str.contains("agent_id"));
@@ -243,10 +238,7 @@ mod tests {
             simple: agent_id.to_string(),
         };
 
-        let agent_id = match output.agent_id.as_deref() {
-            Some(value) => value,
-            None => "",
-        };
+        let agent_id = output.agent_id.as_deref().unwrap_or_default();
         assert_eq!(output.simple, agent_id);
     }
 
@@ -261,14 +253,8 @@ mod tests {
             simple: "agent-1".to_string(),
         };
 
-        let json1 = match serde_json::to_string(&make_output()) {
-            Ok(value) => value,
-            Err(_) => String::new(),
-        };
-        let json2 = match serde_json::to_string(&make_output()) {
-            Ok(value) => value,
-            Err(_) => String::new(),
-        };
+        let json1 = serde_json::to_string(&make_output()).unwrap_or_default();
+        let json2 = serde_json::to_string(&make_output()).unwrap_or_default();
 
         assert_eq!(json1, json2);
     }
