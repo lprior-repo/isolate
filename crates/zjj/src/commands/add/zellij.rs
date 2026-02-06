@@ -3,21 +3,19 @@ use anyhow::{Context, Result};
 use crate::cli::run_command;
 
 /// Create a Zellij tab for the session
-pub(super) async fn create_zellij_tab(
+pub(super) fn create_zellij_tab(
     tab_name: &str,
     workspace_path: &str,
     _template: Option<&str>,
 ) -> Result<()> {
     // Create new tab with the session name
     run_command("zellij", &["action", "new-tab", "--name", tab_name])
-        .await
         .context("Failed to create Zellij tab")?;
 
     // Change to the workspace directory in the new tab
     // We use write-chars to send the cd command
     let cd_command = format!("cd {workspace_path}\n");
     run_command("zellij", &["action", "write-chars", &cd_command])
-        .await
         .context("Failed to change directory in Zellij tab")?;
 
     Ok(())
