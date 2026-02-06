@@ -344,6 +344,18 @@ impl From<toml::de::Error> for Error {
     }
 }
 
+impl From<crate::beads::BeadsError> for Error {
+    fn from(err: crate::beads::BeadsError) -> Self {
+        match err {
+            crate::beads::BeadsError::DatabaseError(msg)
+            | crate::beads::BeadsError::QueryFailed(msg) => Self::DatabaseError(msg),
+            crate::beads::BeadsError::NotFound(msg) => Self::NotFound(msg),
+            crate::beads::BeadsError::InvalidFilter(msg) => Self::ValidationError(msg),
+            crate::beads::BeadsError::PathError(msg) => Self::IoError(msg),
+        }
+    }
+}
+
 impl Error {
     /// Returns the machine-readable error code for this error.
     ///

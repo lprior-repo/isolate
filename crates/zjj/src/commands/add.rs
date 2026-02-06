@@ -55,11 +55,11 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
     let root = check_prerequisites().await?;
 
     // Query bead metadata if bead_id provided
-    let bead_metadata = options
-        .bead_id
-        .as_ref()
-        .map(|bead_id| query_bead_metadata(bead_id))
-        .transpose()?;
+    let bead_metadata = if let Some(bead_id) = &options.bead_id {
+        Some(query_bead_metadata(bead_id).await?)
+    } else {
+        None
+    };
 
     // Load config to get workspace_dir setting
     let cfg = config::load_config().map_err(|e| anyhow::Error::msg(e.to_string()))?;
@@ -111,11 +111,11 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     let root = check_prerequisites().await?;
 
     // Query bead metadata if bead_id provided
-    let bead_metadata = options
-        .bead_id
-        .as_ref()
-        .map(|bead_id| query_bead_metadata(bead_id))
-        .transpose()?;
+    let bead_metadata = if let Some(bead_id) = &options.bead_id {
+        Some(query_bead_metadata(bead_id).await?)
+    } else {
+        None
+    };
 
     // Load config to get workspace_dir setting early for dry-run
     let cfg = config::load_config().map_err(|e| anyhow::Error::msg(e.to_string()))?;
