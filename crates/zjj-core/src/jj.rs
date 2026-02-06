@@ -376,39 +376,43 @@ pub async fn workspace_status(path: &Path) -> Result<Status> {
 }
 
 /// Parse output from 'jj status'
-fn parse_status(output: &str) -> Status {
-    output.lines().fold(
-        Status {
+#[must_use]
+pub fn parse_status(output: &str) -> Status {
+    output.lines().fold(Status::default(), |mut status, line| {
+        let line = line.trim();
+        if line.is_empty() {
+            return status;
+        }
+
+        if let Some(rest) = line.strip_prefix('M') {
+            status.modified.push(PathBuf::from(rest.trim()));
+        } else if let Some(rest) = line.strip_prefix('A') {
+            status.added.push(PathBuf::from(rest.trim()));
+        } else if let Some(rest) = line.strip_prefix('D') {
+            status.deleted.push(PathBuf::from(rest.trim()));
+        } else if let Some(rest) = line.strip_prefix('R') {
+            if let Some((old, new)) = rest.split_once("=>") {
+                status
+                    .renamed
+                    .push((PathBuf::from(old.trim()), PathBuf::from(new.trim())));
+            }
+        } else if let Some(rest) = line.strip_prefix('?') {
+            status.unknown.push(PathBuf::from(rest.trim()));
+        }
+        status
+    })
+}
+
+impl Default for Status {
+    fn default() -> Self {
+        Self {
             modified: Vec::new(),
             added: Vec::new(),
             deleted: Vec::new(),
             renamed: Vec::new(),
             unknown: Vec::new(),
-        },
-        |mut status, line| {
-            let line = line.trim();
-            if line.is_empty() {
-                return status;
-            }
-
-            if let Some(rest) = line.strip_prefix('M') {
-                status.modified.push(PathBuf::from(rest.trim()));
-            } else if let Some(rest) = line.strip_prefix('A') {
-                status.added.push(PathBuf::from(rest.trim()));
-            } else if let Some(rest) = line.strip_prefix('D') {
-                status.deleted.push(PathBuf::from(rest.trim()));
-            } else if let Some(rest) = line.strip_prefix('R') {
-                if let Some((old, new)) = rest.split_once("=>") {
-                    status
-                        .renamed
-                        .push((PathBuf::from(old.trim()), PathBuf::from(new.trim())));
-                }
-            } else if let Some(rest) = line.strip_prefix('?') {
-                status.unknown.push(PathBuf::from(rest.trim()));
-            }
-            status
-        },
-    )
+        }
+    }
 }
 
 /// Get diff summary for a workspace
@@ -442,26 +446,29 @@ pub async fn workspace_diff(path: &Path) -> Result<DiffSummary> {
 }
 
 /// Parse output from 'jj diff --stat'
-fn parse_diff_stat(output: &str) -> DiffSummary {
+#[must_use]
+pub fn parse_diff_stat(output: &str) -> DiffSummary {
+    use regex::Regex;
+
     // Look for summary line like: "5 files changed, 123 insertions(+), 45 deletions(-)"
     let summary_line = output
         .lines()
         .find(|line| line.contains("insertion") || line.contains("deletion"))
         .unwrap_or_default();
 
-    let insertions = summary_line
-        .split("insertion")
-        .next()
-        .and_then(|s| s.split_whitespace().last())
-        .and_then(|s| s.parse().ok())
+    let insertions_re = Regex::new(r"(\d+)\s+insertion").expect("valid regex");
+    let deletions_re = Regex::new(r"(\d+)\s+deletion").expect("valid regex");
+
+    let insertions = insertions_re
+        .captures(summary_line)
+        .and_then(|caps| caps.get(1))
+        .and_then(|m| m.as_str().parse().ok())
         .unwrap_or(0);
 
-    let deletions = summary_line
-        .split("deletion")
-        .next()
-        .and_then(|s| s.rsplit(',').next())
-        .and_then(|s| s.split_whitespace().next())
-        .and_then(|s| s.parse().ok())
+    let deletions = deletions_re
+        .captures(summary_line)
+        .and_then(|caps| caps.get(1))
+        .and_then(|m| m.as_str().parse().ok())
         .unwrap_or(0);
 
     DiffSummary {

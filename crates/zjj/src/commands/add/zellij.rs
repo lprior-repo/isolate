@@ -38,9 +38,6 @@ pub(super) async fn create_zellij_tab(
     Ok(())
 }
 
-    Ok(())
-}
-
 /// Create a Zellij layout for the session (as a string)
 pub(super) fn create_session_layout(
     tab_name: &str,

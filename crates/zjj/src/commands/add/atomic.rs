@@ -21,7 +21,7 @@ use crate::{db::SessionDb, session::SessionUpdate};
 ///
 /// Returns error on any failure, leaving DB in 'creating' state
 /// and triggering cleanup of partial workspace state.
-pub(super) fn atomic_create_session(
+pub(super) async fn atomic_create_session(
     name: &str,
     workspace_path: &std::path::Path,
     db: &SessionDb,
@@ -31,7 +31,7 @@ pub(super) fn atomic_create_session(
 
     // STEP 1: Create DB record with 'creating' status FIRST
     // This makes the creation attempt detectable by doctor
-    let db_result = db.create_blocking(name, &workspace_path_str);
+    let db_result = db.create(name, &workspace_path_str).await;
 
     let _session = match db_result {
         Ok(s) => s,
@@ -43,19 +43,20 @@ pub(super) fn atomic_create_session(
 
     // Update session with bead metadata if provided
     if let Some(metadata) = bead_metadata {
-        db.update_blocking(
+        db.update(
             name,
             SessionUpdate {
                 metadata: Some(metadata),
                 ..Default::default()
             },
         )
+        .await
         .context("Failed to update session metadata")?;
     }
 
     // STEP 2: Create JJ workspace (can be interrupted by SIGKILL)
     // If this fails or is interrupted, rollback will clean up
-    let workspace_result = create_jj_workspace(name, workspace_path);
+    let workspace_result = create_jj_workspace(name, workspace_path).await;
 
     match workspace_result {
         Ok(()) => {
@@ -121,10 +122,10 @@ pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::pat
 }
 
 /// Create a JJ workspace for the session
-fn create_jj_workspace(name: &str, workspace_path: &std::path::Path) -> Result<()> {
+async fn create_jj_workspace(name: &str, workspace_path: &std::path::Path) -> Result<()> {
     // Use the JJ workspace manager from core
     // Preserve the zjj_core::Error to maintain exit code semantics
-    jj::workspace_create(name, workspace_path).map_err(anyhow::Error::new)?;
+    jj::workspace_create(name, workspace_path).await.map_err(anyhow::Error::new)?;
 
     Ok(())
 }
