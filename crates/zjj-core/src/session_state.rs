@@ -522,22 +522,46 @@ impl SessionBeadsContext {
     ///
     /// # Errors
     ///
-    /// This function currently does not return errors, but the Result type
-    /// is used for forward compatibility with database queries.
-    pub fn query_beads_for_state(&self) -> Result<Vec<String>> {
-        // Map each state to its appropriate beads using functional pattern matching
-        let beads = match self.state {
-            SessionState::Created => vec![],
-            SessionState::Active => vec!["bead-wip-1"],
-            SessionState::Syncing => vec!["bead-merge-1"],
-            SessionState::Synced => vec!["bead-done-1"],
-            SessionState::Paused => vec!["bead-blocked-1"],
-            SessionState::Completed => vec!["bead-all-1"],
-            SessionState::Failed => vec!["bead-error-1"],
+    /// Returns `Error::DatabaseError` if the beads database query fails.
+    pub async fn query_beads_for_state(&self) -> Result<Vec<String>> {
+        let path = match &self.beads_db_path {
+            Some(p) => std::path::Path::new(p),
+            None => {
+                // Map each state to its appropriate beads using functional pattern matching
+                let beads = match self.state {
+                    SessionState::Created => vec![],
+                    SessionState::Active => vec!["bead-wip-1"],
+                    SessionState::Syncing => vec!["bead-merge-1"],
+                    SessionState::Synced => vec!["bead-done-1"],
+                    SessionState::Paused => vec!["bead-blocked-1"],
+                    SessionState::Completed => vec!["bead-all-1"],
+                    SessionState::Failed => vec!["bead-error-1"],
+                };
+
+                // Convert string slices to owned strings using functional iterator
+                return Ok(beads.into_iter().map(String::from).collect());
+            }
         };
 
-        // Convert string slices to owned strings using functional iterator
-        Ok(beads.into_iter().map(String::from).collect())
+        // Query actual beads database
+        let issues = crate::beads::query_beads(path).await?;
+
+        // Filter issues based on state using functional patterns
+        let filtered_ids = issues
+            .into_iter()
+            .filter(|issue| match self.state {
+                SessionState::Created => false,
+                SessionState::Active => issue.is_open() && !issue.is_blocked(),
+                SessionState::Syncing => issue.is_open(),
+                SessionState::Synced => !issue.is_open(),
+                SessionState::Paused => issue.is_blocked(),
+                SessionState::Completed => true,
+                SessionState::Failed => false,
+            })
+            .map(|issue| issue.id)
+            .collect();
+
+        Ok(filtered_ids)
     }
 
     /// Update state
@@ -754,20 +778,20 @@ mod tests {
         assert_eq!(context.beads_db_path(), Some("/path/to/beads.db"));
     }
 
-    #[test]
-    fn test_session_beads_context_query_beads_for_created_state() {
+    #[tokio::test]
+    async fn test_session_beads_context_query_beads_for_created_state() {
         // Beads queries should return state-appropriate issues
         let context = SessionBeadsContext::new("test", SessionState::Created);
-        let result = context.query_beads_for_state();
+        let result = context.query_beads_for_state().await;
         assert!(result.is_ok(), "query_beads_for_state should succeed");
         let Some(beads) = result.ok() else { return };
         assert!(beads.is_empty(), "Created state should have no beads");
     }
 
-    #[test]
-    fn test_session_beads_context_query_beads_for_active_state() {
+    #[tokio::test]
+    async fn test_session_beads_context_query_beads_for_active_state() {
         let context = SessionBeadsContext::new("test", SessionState::Active);
-        let result = context.query_beads_for_state();
+        let result = context.query_beads_for_state().await;
         assert!(result.is_ok(), "query_beads_for_state should succeed");
         let Some(beads) = result.ok() else { return };
         assert!(!beads.is_empty(), "Active state should have beads");
@@ -777,19 +801,19 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_session_beads_context_query_beads_for_syncing_state() {
+    #[tokio::test]
+    async fn test_session_beads_context_query_beads_for_syncing_state() {
         let context = SessionBeadsContext::new("test", SessionState::Syncing);
-        let result = context.query_beads_for_state();
+        let result = context.query_beads_for_state().await;
         assert!(result.is_ok(), "query_beads_for_state should succeed");
         let Some(beads) = result.ok() else { return };
         assert!(!beads.is_empty(), "Syncing state should have beads");
     }
 
-    #[test]
-    fn test_session_beads_context_query_beads_for_synced_state() {
+    #[tokio::test]
+    async fn test_session_beads_context_query_beads_for_synced_state() {
         let context = SessionBeadsContext::new("test", SessionState::Synced);
-        let result = context.query_beads_for_state();
+        let result = context.query_beads_for_state().await;
         assert!(result.is_ok(), "query_beads_for_state should succeed");
         let Some(beads) = result.ok() else { return };
         assert!(!beads.is_empty(), "Synced state should have beads");
@@ -1022,10 +1046,10 @@ mod tests {
         let _state = manager.current_state(); // Should not panic
     }
 
-    #[test]
-    fn test_beads_query_returns_result_not_panic() {
+    #[tokio::test]
+    async fn test_beads_query_returns_result_not_panic() {
         let context = SessionBeadsContext::new("test", SessionState::Active);
-        let result = context.query_beads_for_state();
+        let result = context.query_beads_for_state().await;
         // Should return Result, not panic
         assert!(result.is_ok());
     }
@@ -1121,11 +1145,11 @@ mod tests {
         // Status command can query these without panic
     }
 
-    #[test]
-    fn test_integration_list_command_with_beads() {
+    #[tokio::test]
+    async fn test_integration_list_command_with_beads() {
         // list.rs should use beads context to show state-appropriate info
         let context = SessionBeadsContext::new("session", SessionState::Active);
-        let result = context.query_beads_for_state();
+        let result = context.query_beads_for_state().await;
         assert!(result.is_ok(), "query_beads should succeed");
         let Some(beads) = result.ok() else { return };
         assert!(!beads.is_empty());
@@ -1187,11 +1211,12 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_railway_error_handling_or_else() {
+    #[tokio::test]
+    async fn test_railway_error_handling_or_else() {
         let context = SessionBeadsContext::new("test", SessionState::Created);
         let result: Result<Vec<String>> = context
             .query_beads_for_state()
+            .await
             .or_else(|_| Ok(vec!["default-bead".to_string()]));
 
         assert!(result.is_ok());

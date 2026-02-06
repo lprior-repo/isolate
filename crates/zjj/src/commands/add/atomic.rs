@@ -67,7 +67,7 @@ pub(super) fn atomic_create_session(
         Err(workspace_error) => {
             // Workspace creation failed or was interrupted
             // Rollback: clean workspace, leave DB in 'creating' state
-            rollback_partial_state(name, workspace_path);
+            rollback_partial_state(name, workspace_path).await;
             Err(workspace_error).context("Failed to create workspace, rolled back")
         }
     }
@@ -88,14 +88,12 @@ pub(super) fn atomic_create_session(
 ///
 /// This function NEVER panics - all cleanup failures are logged
 /// and handled gracefully. Partial state is always detectable.
-pub(super) fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) {
-    use std::fs;
-
+pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) {
     let workspace_dir = workspace_path;
 
     // Only attempt cleanup if path exists (handle missing gracefully)
     if workspace_dir.exists() {
-        match fs::remove_dir_all(workspace_dir) {
+        match tokio::fs::remove_dir_all(workspace_dir).await {
             Ok(()) => {
                 tracing::info!("Rolled back partial workspace for session '{}'", name);
             }

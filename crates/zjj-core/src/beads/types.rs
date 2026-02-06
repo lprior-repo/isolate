@@ -5,7 +5,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
-use thiserror::Error>;
+use thiserror::Error;
 
 /// Errors that can occur when working with beads.
 #[derive(Debug, Error)]

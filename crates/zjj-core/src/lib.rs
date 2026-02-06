@@ -35,6 +35,7 @@
 //! - `match` / `map_or` / `unwrap_or_else` for defaults
 
 pub mod agents;
+pub mod beads;
 pub mod checkpoint;
 pub mod config;
 pub mod contracts;

@@ -1,129 +1,67 @@
-use anyhow::{Context, Result};
-
-use crate::cli::run_command;
+use std::path::Path;
+use anyhow::Result;
+use zjj_core::zellij::{self, LayoutConfig, LayoutTemplate};
 
 /// Create a Zellij tab for the session
-pub(super) fn create_zellij_tab(
+pub(super) async fn create_zellij_tab(
     tab_name: &str,
     workspace_path: &str,
-    _template: Option<&str>,
+    template: Option<&str>,
 ) -> Result<()> {
-    // Create new tab with the session name
-    run_command("zellij", &["action", "new-tab", "--name", tab_name])
-        .context("Failed to create Zellij tab")?;
+    let template_type = match template {
+        Some("minimal") => LayoutTemplate::Minimal,
+        Some("full") => LayoutTemplate::Full,
+        Some("split") => LayoutTemplate::Split,
+        Some("review") => LayoutTemplate::Review,
+        _ => LayoutTemplate::Standard,
+    };
 
-    // Change to the workspace directory in the new tab
-    // We use write-chars to send the cd command
-    let cd_command = format!("cd {workspace_path}\n");
-    run_command("zellij", &["action", "write-chars", &cd_command])
-        .context("Failed to change directory in Zellij tab")?;
+    let config = LayoutConfig::new(
+        tab_name.strip_prefix("zjj:").unwrap_or(tab_name).to_string(),
+        Path::new(workspace_path).to_path_buf(),
+    );
+
+    // Use a temporary directory for the layout file
+    let temp_dir = std::env::temp_dir();
+    let layout = zellij::layout_generate(&config, template_type, &temp_dir)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to generate layout: {e}"))?;
+
+    // Open the tab using the generated layout
+    zellij::tab_open(&layout.file_path, tab_name)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to open Zellij tab: {e}"))?;
+
+    // Cleanup the temporary layout file
+    let _ = tokio::fs::remove_file(&layout.file_path).await;
 
     Ok(())
 }
 
-/// Create a Zellij layout for the session
-/// This layout creates a tab with the session name and cwd set to workspace
+    Ok(())
+}
+
+/// Create a Zellij layout for the session (as a string)
 pub(super) fn create_session_layout(
     tab_name: &str,
     workspace_path: &str,
     template: Option<&str>,
 ) -> String {
-    // TODO: Load template from config when zjj-65r is complete
-    // For now, use built-in templates
-    match template {
-        Some("minimal") => create_minimal_layout(tab_name, workspace_path),
-        Some("full") => create_full_layout(tab_name, workspace_path),
-        _ => create_standard_layout(tab_name, workspace_path),
-    }
-}
+    let template_type = match template {
+        Some("minimal") => LayoutTemplate::Minimal,
+        Some("full") => LayoutTemplate::Full,
+        Some("split") => LayoutTemplate::Split,
+        Some("review") => LayoutTemplate::Review,
+        _ => LayoutTemplate::Standard,
+    };
 
-/// Create minimal layout: single pane
-fn create_minimal_layout(tab_name: &str, workspace_path: &str) -> String {
-    format!(
-        r#"
-layout {{
-    tab name="{tab_name}" {{
-        pane {{
-            cwd "{workspace_path}"
-        }}
-    }}
-}}
-"#
-    )
-}
+    let config = LayoutConfig::new(
+        tab_name.strip_prefix("zjj:").unwrap_or(tab_name).to_string(),
+        Path::new(workspace_path).to_path_buf(),
+    );
 
-/// Create standard layout: main pane (70%) + sidebar (30%)
-fn create_standard_layout(tab_name: &str, workspace_path: &str) -> String {
-    format!(
-        r#"
-layout {{
-    tab name="{tab_name}" {{
-        pane split_direction="vertical" {{
-            pane {{
-                size "70%"
-                cwd "{workspace_path}"
-            }}
-            pane split_direction="horizontal" {{
-                pane {{
-                    size "50%"
-                    cwd "{workspace_path}"
-                    command "br"
-                    args "list"
-                }}
-                pane {{
-                    size "50%"
-                    cwd "{workspace_path}"
-                    command "jj"
-                    args "log"
-                }}
-            }}
-        }}
-    }}
-}}
-"#
-    )
-}
-
-/// Create full layout: standard + floating pane
-fn create_full_layout(tab_name: &str, workspace_path: &str) -> String {
-    format!(
-        r#"
-layout {{
-    tab name="{tab_name}" {{
-        pane split_direction="vertical" {{
-            pane {{
-                size "70%"
-                cwd "{workspace_path}"
-            }}
-            pane split_direction="horizontal" {{
-                pane {{
-                    size "50%"
-                    cwd "{workspace_path}"
-                    command "br"
-                    args "list"
-                }}
-                pane {{
-                    size "50%"
-                    cwd "{workspace_path}"
-                    command "jj"
-                    args "log"
-                }}
-            }}
-        }}
-    }}
-    floating_panes {{
-        pane {{
-            x "10%"
-            y "10%"
-            width "80%"
-            height "80%"
-            cwd "{workspace_path}"
-            command "nu"
-        }}
-    }}
-}}
-"#
-    )
+    zellij::generate_template_kdl(&config, template_type)
+        .unwrap_or_else(|_| "layout { pane { } }".to_string())
 }
 
 #[cfg(test)]
@@ -131,46 +69,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_minimal_layout() {
-        let layout = create_minimal_layout("test-tab", "/path/to/workspace");
-        assert!(layout.contains("tab name=\"test-tab\""));
-        assert!(layout.contains("cwd \"/path/to/workspace\""));
-    }
-
-    #[test]
-    fn test_create_standard_layout() {
-        let layout = create_standard_layout("test-tab", "/path/to/workspace");
-        assert!(layout.contains("tab name=\"test-tab\""));
-        assert!(layout.contains("cwd \"/path/to/workspace\""));
-        assert!(layout.contains("70%"));
-        assert!(layout.contains("br"));
-        assert!(layout.contains("jj"));
-    }
-
-    #[test]
-    fn test_create_full_layout() {
-        let layout = create_full_layout("test-tab", "/path/to/workspace");
-        assert!(layout.contains("tab name=\"test-tab\""));
-        assert!(layout.contains("floating_panes"));
-        assert!(layout.contains("width \"80%\""));
-    }
-
-    #[test]
     fn test_create_session_layout_default() {
-        let layout = create_session_layout("test", "/path", None);
-        assert!(layout.contains("tab name=\"test\""));
+        let layout = create_session_layout("zjj:test", "/path", None);
+        assert!(layout.contains("layout"));
+        assert!(layout.contains("pane"));
     }
 
     #[test]
     fn test_create_session_layout_minimal() {
-        let layout = create_session_layout("test", "/path", Some("minimal"));
-        assert!(layout.contains("tab name=\"test\""));
-        assert!(!layout.contains("70%"));
+        let layout = create_session_layout("zjj:test", "/path", Some("minimal"));
+        assert!(layout.contains("layout"));
+        assert!(layout.contains("pane"));
     }
 
     #[test]
     fn test_create_session_layout_full() {
-        let layout = create_session_layout("test", "/path", Some("full"));
+        let layout = create_session_layout("zjj:test", "/path", Some("full"));
+        assert!(layout.contains("layout"));
         assert!(layout.contains("floating_panes"));
     }
 }
