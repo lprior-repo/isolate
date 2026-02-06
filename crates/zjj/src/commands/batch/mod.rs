@@ -34,6 +34,9 @@
 //! - **Then**: Execute all operations or rollback all using checkpoint
 //! - **Invariant**: Atomic transactions, checkpoint before execution
 
+#[cfg(test)]
+mod tests;
+
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use zjj_core::{
@@ -189,7 +192,7 @@ pub async fn execute_batch(
     let mut results = Vec::with_capacity(request.operations.len());
     let mut should_stop = false;
 
-    for operation in &request.operations {
+    for (index, operation) in request.operations.iter().enumerate() {
         let result = if should_stop {
             make_skipped_result(operation, "Previous operation failed")
         } else {
@@ -342,7 +345,7 @@ fn make_skipped_result(operation: &BatchOperation, reason: &str) -> BatchItemRes
     }
 }
 
-/// Execute a command synchronously and capture output.
+/// Execute a command asynchronously and capture output.
 async fn execute_command(command: &str, args: &[String]) -> Result<String> {
     let output = tokio::process::Command::new("zjj")
         .arg(command)
@@ -356,16 +359,20 @@ async fn execute_command(command: &str, args: &[String]) -> Result<String> {
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let error_msg = if stderr.is_empty() { stdout } else { stderr };
-        Err(Error::Command(error_msg.to_string()))
+        let error_msg = if stderr.is_empty() {
+            stdout.to_string()
+        } else {
+            stderr.to_string()
+        };
+        Err(Error::Command(error_msg))
     }
 }
 
 /// Convert Duration to milliseconds, clamping to u64 range.
 fn to_duration_ms(duration: std::time::Duration) -> Option<u64> {
     let ms = duration.as_millis();
-    if ms <= u128::from(u64::MAX) {
-        u64::try_from(ms).ok()
+    if ms <= u64::MAX as u128 {
+        Some(ms as u64)
     } else {
         None
     }
@@ -427,6 +434,8 @@ fn print_batch_human(response: &BatchResponse) {
         }
     }
 
+    println!();
+}
     println!();
 }
 

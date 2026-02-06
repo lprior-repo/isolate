@@ -93,7 +93,7 @@ async fn test_batch_respects_order() {
     assert!(request.operations[2].optional);
 }
 
-/// GIVEN: `BatchItemStatus` values
+/// GIVEN: BatchItemStatus values
 /// WHEN: Serialized
 /// THEN: All status types serialize correctly
 #[test]
@@ -104,15 +104,12 @@ fn test_batch_item_status_serialization() {
         (Succeeded, "succeeded"),
         (Failed, "failed"),
         (Skipped, "skipped"),
-        (RolledBack, "rolledback"),
+        (RolledBack, "rolledBack"),
     ];
 
     for (status, expected) in statuses {
-        let json_result = serde_json::to_string(&status);
-        assert!(json_result.is_ok(), "Serialization should succeed");
-        if let Ok(json) = json_result {
-            assert_eq!(json, format!("\"{expected}\""));
-        }
+        let json = serde_json::to_string(&status).expect("Serialization should succeed");
+        assert_eq!(json, format!("\"{}\"", expected));
     }
 }
 
@@ -120,7 +117,7 @@ fn test_batch_item_status_serialization() {
 /// WHEN: Serialized and deserialized
 /// THEN: All fields preserved
 #[test]
-fn test_batch_request_roundtrip() -> std::result::Result<(), Box<dyn std::error::Error>> {
+fn test_batch_request_roundtrip() {
     let original = BatchRequest {
         atomic: true,
         operations: vec![BatchOperation {
@@ -131,9 +128,10 @@ fn test_batch_request_roundtrip() -> std::result::Result<(), Box<dyn std::error:
         }],
     };
 
-    let json = serde_json::to_string(&original)?;
+    let json = serde_json::to_string(&original).expect("Serialization should succeed");
 
-    let deserialized: BatchRequest = serde_json::from_str(&json)?;
+    let deserialized: BatchRequest =
+        serde_json::from_str(&json).expect("Deserialization should succeed");
 
     assert_eq!(deserialized.atomic, true);
     assert_eq!(deserialized.operations.len(), 1);
@@ -141,7 +139,6 @@ fn test_batch_request_roundtrip() -> std::result::Result<(), Box<dyn std::error:
     assert_eq!(deserialized.operations[0].args, vec!["session-1"]);
     assert_eq!(deserialized.operations[0].id, Some("step-1".to_string()));
     assert!(!deserialized.operations[0].optional);
-    Ok(())
 }
 
 /// GIVEN: BatchResponse with all succeeded
@@ -247,8 +244,7 @@ fn test_operation_is_optional_by_id_matching() {
         optional: true, // this is optional
     }];
 
-    let op_id = "op-1".to_string();
-    let is_optional = operation_is_optional_by_id(&operations, Some(&op_id));
+    let is_optional = operation_is_optional_by_id(&operations, &Some("op-1".to_string()));
 
     assert!(is_optional);
 }
@@ -265,8 +261,7 @@ fn test_operation_is_optional_by_id_not_found() {
         optional: true,
     }];
 
-    let op_id = "op-999".to_string();
-    let is_optional = operation_is_optional_by_id(&operations, Some(&op_id));
+    let is_optional = operation_is_optional_by_id(&operations, &Some("op-999".to_string()));
 
     assert!(!is_optional);
 }
@@ -283,7 +278,7 @@ fn test_operation_is_optional_by_id_none() {
         optional: true,
     }];
 
-    let is_optional = operation_is_optional_by_id(&operations, None);
+    let is_optional = operation_is_optional_by_id(&operations, &None);
 
     assert!(!is_optional);
 }
