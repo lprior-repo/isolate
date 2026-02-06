@@ -1270,13 +1270,8 @@ pub struct AiWorkflowSummary {
 #[allow(clippy::too_many_lines)]
 pub async fn run_ai() -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
-<<<<<<< HEAD
     let dependencies = dependencies::check_dependencies().await;
     let system_state = system_state::get_system_state().await;
-=======
-    let dependencies = dependencies::check_dependencies();
-    let system_state = system_state::get_system_state();
->>>>>>> origin/zjj-1ven-queue
 
     // Determine location
     let location = crate::cli::jj_root().await.map_or_else(

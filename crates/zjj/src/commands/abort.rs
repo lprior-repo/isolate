@@ -83,9 +83,11 @@ pub async fn run(options: &AbortOptions) -> Result<()> {
     let workspace_removed = if options.keep_workspace {
         false
     } else if workspace_path.exists() {
-        std::fs::remove_dir_all(workspace_path).with_context(|| {
-            format!("Failed to remove workspace at {}", workspace_path.display())
-        })?;
+        tokio::fs::remove_dir_all(workspace_path)
+            .await
+            .with_context(|| {
+                format!("Failed to remove workspace at {}", workspace_path.display())
+            })?;
         true
     } else {
         false

@@ -4,21 +4,22 @@ use zjj_core::introspection::DependencyInfo;
 use crate::cli::{is_command_available, run_command};
 
 /// Get version of a command by running `command --version`
-fn get_command_version(command: &str) -> Option<String> {
+async fn get_command_version(command: &str) -> Option<String> {
     run_command(command, &["--version"])
+        .await
         .ok()
-        .and_then(|output| output.lines().next().map(|line| line.trim().to_string()))
+        .and_then(|output: String| output.lines().next().map(|line: &str| line.trim().to_string()))
 }
 
 /// Check dependencies and their status
-pub(super) fn check_dependencies() -> HashMap<String, DependencyInfo> {
+pub(super) async fn check_dependencies() -> HashMap<String, DependencyInfo> {
     // JJ (required)
-    let jj_installed = is_command_available("jj");
+    let jj_installed = is_command_available("jj").await;
     let jj_info = DependencyInfo {
         required: true,
         installed: jj_installed,
         version: if jj_installed {
-            get_command_version("jj")
+            get_command_version("jj").await
         } else {
             None
         },
@@ -26,12 +27,12 @@ pub(super) fn check_dependencies() -> HashMap<String, DependencyInfo> {
     };
 
     // Zellij (required)
-    let zellij_installed = is_command_available("zellij");
+    let zellij_installed = is_command_available("zellij").await;
     let zellij_info = DependencyInfo {
         required: true,
         installed: zellij_installed,
         version: if zellij_installed {
-            get_command_version("zellij")
+            get_command_version("zellij").await
         } else {
             None
         },
@@ -39,12 +40,12 @@ pub(super) fn check_dependencies() -> HashMap<String, DependencyInfo> {
     };
 
     // Claude (optional)
-    let claude_installed = is_command_available("claude");
+    let claude_installed = is_command_available("claude").await;
     let claude_info = DependencyInfo {
         required: false,
         installed: claude_installed,
         version: if claude_installed {
-            get_command_version("claude")
+            get_command_version("claude").await
         } else {
             None
         },
@@ -52,12 +53,12 @@ pub(super) fn check_dependencies() -> HashMap<String, DependencyInfo> {
     };
 
     // Beads (optional)
-    let beads_installed = is_command_available("br");
+    let beads_installed = is_command_available("br").await;
     let beads_info = DependencyInfo {
         required: false,
         installed: beads_installed,
         version: if beads_installed {
-            get_command_version("br")
+            get_command_version("br").await
         } else {
             None
         },
