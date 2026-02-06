@@ -9,10 +9,12 @@
 
 use std::{
     collections::HashMap,
-    process::Command,
     sync::{Arc, Mutex},
+    pin::Pin,
+    future::Future,
 };
 
+use tokio::process::Command;
 use thiserror::Error;
 
 use super::newtypes::JjOutput;
@@ -33,13 +35,19 @@ pub enum ExecutorError {
     IoError(String),
 }
 
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
 /// Trait for executing JJ commands
-pub trait JjExecutor {
+pub trait JjExecutor: Send + Sync {
     /// Run a JJ command with arguments
-    fn run(&self, args: &[&str]) -> Result<JjOutput, ExecutorError>;
+    fn run<'a>(&'a self, args: &'a [&'a str]) -> BoxFuture<'a, Result<JjOutput, ExecutorError>>;
 
     /// Run a JJ command with environment variables
-    fn run_with_env(&self, args: &[&str], env: &[(&str, &str)]) -> Result<JjOutput, ExecutorError>;
+    fn run_with_env<'a>(
+        &'a self,
+        args: &'a [&'a str],
+        env: &'a [(&'a str, &'a str)],
+    ) -> BoxFuture<'a, Result<JjOutput, ExecutorError>>;
 }
 
 /// Real JJ executor that runs actual commands
@@ -64,41 +72,47 @@ impl RealJjExecutor {
 }
 
 impl JjExecutor for RealJjExecutor {
-    fn run(&self, args: &[&str]) -> Result<JjOutput, ExecutorError> {
-        self.run_with_env(args, &[])
+    fn run<'a>(&'a self, args: &'a [&'a str]) -> BoxFuture<'a, Result<JjOutput, ExecutorError>> {
+        Box::pin(async move { self.run_with_env(args, &[]).await })
     }
 
-    fn run_with_env(&self, args: &[&str], env: &[(&str, &str)]) -> Result<JjOutput, ExecutorError> {
-        let mut cmd = Command::new("jj");
+    fn run_with_env<'a>(
+        &'a self,
+        args: &'a [&'a str],
+        env: &'a [(&'a str, &'a str)],
+    ) -> BoxFuture<'a, Result<JjOutput, ExecutorError>> {
+        Box::pin(async move {
+            let mut cmd = Command::new("jj");
 
-        if let Some(ref dir) = self.working_dir {
-            cmd.current_dir(dir);
-        }
-
-        cmd.args(args);
-
-        for (key, value) in env {
-            cmd.env(key, value);
-        }
-
-        let output = cmd.output().map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                ExecutorError::CommandNotFound("jj command not found in PATH".to_string())
-            } else {
-                ExecutorError::IoError(e.to_string())
+            if let Some(ref dir) = self.working_dir {
+                cmd.current_dir(dir);
             }
-        })?;
 
-        if !output.status.success() {
-            let code = output.status.code().unwrap_or(-1);
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            return Err(ExecutorError::CommandFailed { code, stderr });
-        }
+            cmd.args(args);
 
-        let stdout = String::from_utf8(output.stdout)
-            .map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))?;
+            for (key, value) in env {
+                cmd.env(key, value);
+            }
 
-        JjOutput::new(stdout).map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))
+            let output = cmd.output().await.map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    ExecutorError::CommandNotFound("jj command not found in PATH".to_string())
+                } else {
+                    ExecutorError::IoError(e.to_string())
+                }
+            })?;
+
+            if !output.status.success() {
+                let code = output.status.code().unwrap_or(-1);
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                return Err(ExecutorError::CommandFailed { code, stderr });
+            }
+
+            let stdout = String::from_utf8(output.stdout)
+                .map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))?;
+
+            JjOutput::new(stdout).map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))
+        })
     }
 }
 
@@ -150,35 +164,37 @@ impl Default for MockJjExecutor {
 }
 
 impl JjExecutor for MockJjExecutor {
-    fn run(&self, args: &[&str]) -> Result<JjOutput, ExecutorError> {
-        self.run_with_env(args, &[])
+    fn run<'a>(&'a self, args: &'a [&'a str]) -> BoxFuture<'a, Result<JjOutput, ExecutorError>> {
+        Box::pin(async move { self.run_with_env(args, &[]).await })
     }
 
-    fn run_with_env(
-        &self,
-        args: &[&str],
-        _env: &[(&str, &str)],
-    ) -> Result<JjOutput, ExecutorError> {
-        // Record the call
-        if let Ok(mut calls) = self.calls.lock() {
-            calls.push(args.iter().map(std::string::ToString::to_string).collect());
-        }
-
-        // Look up response
-        let key = args.join(" ");
-        let response = self
-            .responses
-            .lock()
-            .ok()
-            .and_then(|responses| responses.get(&key).cloned());
-
-        match response {
-            Some(Ok(output)) => {
-                JjOutput::new(output).map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))
+    fn run_with_env<'a>(
+        &'a self,
+        args: &'a [&'a str],
+        _env: &'a [(&'a str, &'a str)],
+    ) -> BoxFuture<'a, Result<JjOutput, ExecutorError>> {
+        Box::pin(async move {
+            // Record the call
+            if let Ok(mut calls) = self.calls.lock() {
+                calls.push(args.iter().map(std::string::ToString::to_string).collect());
             }
-            Some(Err(e)) => Err(e),
-            None => Ok(JjOutput::new(String::new())
-                .map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))?),
-        }
+
+            // Look up response
+            let key = args.join(" ");
+            let response = self
+                .responses
+                .lock()
+                .ok()
+                .and_then(|responses| responses.get(&key).cloned());
+
+            match response {
+                Some(Ok(output)) => {
+                    JjOutput::new(output).map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))
+                }
+                Some(Err(e)) => Err(e),
+                None => Ok(JjOutput::new(String::new())
+                    .map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))?),
+            }
+        })
     }
 }

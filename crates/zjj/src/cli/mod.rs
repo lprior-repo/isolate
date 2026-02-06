@@ -1,16 +1,22 @@
 //! CLI utilities and helpers
 
+pub mod commands;
+pub mod handlers;
+pub mod json_docs;
+
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
-use std::process::Command;
+use std::process::Command as StdCommand;
 
+use tokio::process::Command;
 use anyhow::{Context, Result};
 
 /// Execute a shell command and return its output
-pub fn run_command(program: &str, args: &[&str]) -> Result<String> {
+pub async fn run_command(program: &str, args: &[&str]) -> Result<String> {
     let output = Command::new(program)
         .args(args)
         .output()
+        .await
         .with_context(|| format!("Failed to execute {program}"))?;
 
     if output.status.success() {
@@ -36,37 +42,39 @@ pub fn is_terminal() -> bool {
 }
 
 /// Check if current directory is a JJ repository
-pub fn is_jj_repo() -> Result<bool> {
+pub async fn is_jj_repo() -> Result<bool> {
     let result = Command::new("jj")
         .args(["root"])
         .output()
+        .await
         .context("Failed to run jj")?;
 
     Ok(result.status.success())
 }
 
 /// Get JJ repository root
-pub fn jj_root() -> Result<String> {
-    run_command("jj", &["root"]).map(|s| s.trim().to_string())
+pub async fn jj_root() -> Result<String> {
+    run_command("jj", &["root"]).await.map(|s| s.trim().to_string())
 }
 
 /// Check if a command is available in PATH
-pub fn is_command_available(cmd: &str) -> bool {
+pub async fn is_command_available(cmd: &str) -> bool {
     Command::new("which")
         .arg(cmd)
         .output()
+        .await
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
 
 /// Check if JJ is installed
-pub fn is_jj_installed() -> bool {
-    is_command_available("jj")
+pub async fn is_jj_installed() -> bool {
+    is_command_available("jj").await
 }
 
 /// Check if Zellij is installed
-pub fn is_zellij_installed() -> bool {
-    is_command_available("zellij")
+pub async fn is_zellij_installed() -> bool {
+    is_command_available("zellij").await
 }
 
 /// Attach to or create a Zellij session, optionally with a layout
@@ -81,14 +89,26 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
         );
     }
 
-    // Check if Zellij is installed
-    if !is_zellij_installed() {
+    // Since we are in a synchronous context here (exec replaces process), we can't easily await is_zellij_installed.
+    // We'll use a blocking check for this specific function since it's about to exec anyway.
+    let zellij_check = StdCommand::new("which")
+        .arg("zellij")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !zellij_check {
         anyhow::bail!("Zellij is not installed. Please install it first.");
     }
 
     // Get the session name from the JJ repo root or use default
-    let session_name = jj_root()
+    // Using blocking call here for simplicity in this specific sync function context
+    let session_name = StdCommand::new("jj")
+        .args(["root"])
+        .output()
         .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|s| s.trim().to_string())
         .and_then(|root| {
             std::path::Path::new(&root)
                 .file_name()
@@ -104,7 +124,7 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
     // Using exec to replace the current process
     let zellij_path = which::which("zellij").context("Failed to find zellij in PATH")?;
 
-    let mut cmd = std::process::Command::new(zellij_path);
+    let mut cmd = StdCommand::new(zellij_path);
 
     // If layout content provided, write it to a temp file and use it
     if let Some(layout) = layout_content {
@@ -144,9 +164,9 @@ pub fn attach_to_zellij_session(_layout_content: Option<&str>) -> Result<()> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_run_command_success() {
-        let result = run_command("echo", &["hello"]);
+    #[tokio::test]
+    async fn test_run_command_success() {
+        let result = run_command("echo", &["hello"]).await;
         assert!(result.is_ok());
         let Ok(output) = result else {
             panic!("command failed");
@@ -154,9 +174,9 @@ mod tests {
         assert_eq!(output.trim(), "hello");
     }
 
-    #[test]
-    fn test_run_command_failure() {
-        let result = run_command("false", &[]);
+    #[tokio::test]
+    async fn test_run_command_failure() {
+        let result = run_command("false", &[]).await;
         assert!(result.is_err());
     }
 }

@@ -18,7 +18,6 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use itertools::Itertools;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -118,9 +117,9 @@ enum InputAction {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Run the interactive dashboard
-pub fn run() -> Result<()> {
+pub async fn run() -> Result<()> {
     // Check if we're in a JJ repo
-    let _root = crate::cli::jj_root().context("Not in a JJ repository. Run 'zjj init' first.")?;
+    let _root = crate::cli::jj_root().await.context("Not in a JJ repository. Run 'zjj init' first.")?;
 
     // Setup terminal
     enable_raw_mode().context("Failed to enable raw mode")?;
@@ -139,11 +138,11 @@ pub fn run() -> Result<()> {
     let config = load_config().context("Failed to load configuration")?;
 
     // Create app state
-    let mut app = DashboardApp::new()?;
+    let mut app = DashboardApp::new().await?;
 
     // Setup file watcher if enabled
     let mut watcher_rx = if config.watch.enabled {
-        setup_file_watcher(&config).ok()
+        setup_file_watcher(&config).await.ok()
     } else {
         None
     };
@@ -154,7 +153,7 @@ pub fn run() -> Result<()> {
         &mut app,
         &mut watcher_rx,
         Duration::from_millis(u64::from(config.dashboard.refresh_ms)),
-    );
+    ).await;
 
     // Cleanup terminal
     disable_raw_mode().context("Failed to disable raw mode")?;
@@ -174,7 +173,7 @@ pub fn run() -> Result<()> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Main application event loop
-fn run_app(
+async fn run_app(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     app: &mut DashboardApp,
     watcher_rx: &mut Option<tokio::sync::mpsc::Receiver<WatchEvent>>,
@@ -198,10 +197,10 @@ fn run_app(
             let event = event::read()?;
             match event {
                 Event::Key(key) => {
-                    handle_key_event(app, key)?;
+                    handle_key_event(app, key).await?;
                 }
                 Event::Mouse(mouse) => {
-                    handle_mouse_event(app, mouse)?;
+                    handle_mouse_event(app, mouse).await?;
                 }
                 Event::Resize(width, height) => {
                     app.terminal_width = width;
@@ -216,7 +215,7 @@ fn run_app(
             while let Ok(event) = rx.try_recv() {
                 match event {
                     WatchEvent::BeadsChanged { .. } => {
-                        app.refresh_sessions()?;
+                        app.refresh_sessions().await?;
                     }
                 }
             }
@@ -224,7 +223,7 @@ fn run_app(
 
         // Auto-refresh
         if last_refresh.elapsed() >= refresh_interval {
-            app.refresh_sessions()?;
+            app.refresh_sessions().await?;
             last_refresh = Instant::now();
         }
     }
@@ -233,12 +232,12 @@ fn run_app(
 }
 
 /// Setup file watcher for beads database changes
-fn setup_file_watcher(
+async fn setup_file_watcher(
     config: &zjj_core::config::Config,
 ) -> Result<tokio::sync::mpsc::Receiver<WatchEvent>> {
     // Get all workspace paths from sessions
-    let db = get_session_db()?;
-    let sessions = db.list_blocking(None)?;
+    let db = get_session_db().await?;
+    let sessions = db.list(None).await?;
 
     let workspaces: Vec<PathBuf> = sessions
         .into_iter()
@@ -253,14 +252,14 @@ fn setup_file_watcher(
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Handle keyboard input
-fn handle_key_event(app: &mut DashboardApp, key: KeyEvent) -> Result<()> {
+async fn handle_key_event(app: &mut DashboardApp, key: KeyEvent) -> Result<()> {
     // Handle dialogs first
     if app.input_dialog.is_some() {
         let dialog = app
             .input_dialog
             .take()
             .ok_or_else(|| anyhow::anyhow!("Failed to take input dialog"))?;
-        return handle_input_dialog(app, dialog, key);
+        return handle_input_dialog(app, dialog, key).await;
     }
 
     if app.confirm_dialog.is_some() {
@@ -268,7 +267,7 @@ fn handle_key_event(app: &mut DashboardApp, key: KeyEvent) -> Result<()> {
             .confirm_dialog
             .take()
             .ok_or_else(|| anyhow::anyhow!("Failed to take confirm dialog"))?;
-        return handle_confirm_dialog(app, dialog, key);
+        return handle_confirm_dialog(app, dialog, key).await;
     }
 
     // Normal key handling
@@ -289,7 +288,7 @@ fn handle_key_event(app: &mut DashboardApp, key: KeyEvent) -> Result<()> {
             app.move_up();
         }
         KeyCode::Char('r') => {
-            app.refresh_sessions()?;
+            app.refresh_sessions().await?;
         }
         KeyCode::Char('a') => {
             app.show_add_dialog();
@@ -301,7 +300,7 @@ fn handle_key_event(app: &mut DashboardApp, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Enter => {
             if let Some(session) = app.get_selected_session() {
-                focus_session(&session.session)?;
+                focus_session(&session.session).await?;
             }
         }
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -314,7 +313,7 @@ fn handle_key_event(app: &mut DashboardApp, key: KeyEvent) -> Result<()> {
 }
 
 /// Handle input dialog events
-fn handle_input_dialog(
+async fn handle_input_dialog(
     app: &mut DashboardApp,
     mut dialog: InputDialog,
     key: KeyEvent,
@@ -327,8 +326,8 @@ fn handle_input_dialog(
             match action {
                 InputAction::AddSession => {
                     if !input.is_empty() {
-                        add_session(&input)?;
-                        app.refresh_sessions()?;
+                        add_session(&input).await?;
+                        app.refresh_sessions().await?;
                     }
                 }
             }
@@ -353,7 +352,7 @@ fn handle_input_dialog(
 }
 
 /// Handle confirmation dialog events
-fn handle_confirm_dialog(
+async fn handle_confirm_dialog(
     app: &mut DashboardApp,
     dialog: ConfirmDialog,
     key: KeyEvent,
@@ -361,8 +360,8 @@ fn handle_confirm_dialog(
     match key.code {
         KeyCode::Char('y' | 'Y') => match dialog.action {
             ConfirmAction::RemoveSession(name) => {
-                remove_session(&name)?;
-                app.refresh_sessions()?;
+                remove_session(&name).await?;
+                app.refresh_sessions().await?;
             }
         },
         KeyCode::Char('n' | 'N') | KeyCode::Esc => {
@@ -378,7 +377,7 @@ fn handle_confirm_dialog(
 }
 
 /// Handle mouse events for drag-and-drop
-fn handle_mouse_event(app: &mut DashboardApp, mouse: MouseEvent) -> Result<()> {
+async fn handle_mouse_event(app: &mut DashboardApp, mouse: MouseEvent) -> Result<()> {
     // Ignore mouse events if dialog is open
     if app.input_dialog.is_some() || app.confirm_dialog.is_some() {
         return Ok(());
@@ -397,7 +396,7 @@ fn handle_mouse_event(app: &mut DashboardApp, mouse: MouseEvent) -> Result<()> {
         }
         MouseEventKind::Up(button) => {
             if button == crossterm::event::MouseButton::Left {
-                handle_mouse_up(app)?;
+                handle_mouse_up(app).await?;
             }
         }
         MouseEventKind::ScrollDown => {
@@ -451,7 +450,7 @@ fn handle_mouse_drag(app: &mut DashboardApp, column: u16, row: u16) {
 }
 
 /// Handle mouse up (end drag and update status)
-fn handle_mouse_up(app: &mut DashboardApp) -> Result<()> {
+async fn handle_mouse_up(app: &mut DashboardApp) -> Result<()> {
     if let Some(drag_state) = app.drag_state.take() {
         // Check if we dropped in a different column
         if drag_state.current_column != drag_state.start_column {
@@ -470,8 +469,8 @@ fn handle_mouse_up(app: &mut DashboardApp) -> Result<()> {
                 };
 
                 // Update session status
-                update_session_status(&session_name, new_status)?;
-                app.refresh_sessions()?;
+                update_session_status(&session_name, new_status).await?;
+                app.refresh_sessions().await?;
             }
         }
     }
@@ -520,8 +519,8 @@ fn find_row_at_position(app: &DashboardApp, column_idx: usize, y: u16) -> Option
 }
 
 /// Update session status in database
-fn update_session_status(name: &str, new_status: SessionStatus) -> Result<()> {
-    let db = get_session_db()?;
+async fn update_session_status(name: &str, new_status: SessionStatus) -> Result<()> {
+    let db = get_session_db().await?;
     let update = SessionUpdate {
         status: Some(new_status),
         state: None,
@@ -529,7 +528,7 @@ fn update_session_status(name: &str, new_status: SessionStatus) -> Result<()> {
         last_synced: None,
         metadata: None,
     };
-    db.update_blocking(name, update)?;
+    db.update(name, update).await?;
     Ok(())
 }
 
@@ -803,7 +802,7 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
 impl DashboardApp {
     /// Create a new dashboard app
-    fn new() -> Result<Self> {
+    async fn new() -> Result<Self> {
         let (width, _) = crossterm::terminal::size()?;
         let mut app = Self {
             sessions_by_status: vec![vec![], vec![], vec![], vec![], vec![]],
@@ -818,55 +817,47 @@ impl DashboardApp {
             column_bounds: vec![],
         };
 
-        app.refresh_sessions()?;
+        app.refresh_sessions().await?;
         Ok(app)
     }
 
     /// Refresh session data from database
-    fn refresh_sessions(&mut self) -> Result<()> {
-        let db = get_session_db()?;
-        let sessions = db.list_blocking(None)?;
+    async fn refresh_sessions(&mut self) -> Result<()> {
+        let db = get_session_db().await?;
+        let sessions = db.list(None).await?;
 
-        // Group sessions by status using itertools
+        // Group sessions by status manually
         let mut grouped: Vec<Vec<SessionData>> = vec![vec![], vec![], vec![], vec![], vec![]];
 
-        // Build session data with status grouping
-        let session_data_map = sessions
-            .into_iter()
-            .map(|session| {
-                let workspace_path = Path::new(&session.workspace_path);
+        for session in sessions {
+            let workspace_path = Path::new(&session.workspace_path);
 
-                let changes = if workspace_path.exists() {
-                    zjj_core::jj::workspace_status(workspace_path)
-                        .ok()
-                        .map(|status| status.change_count())
-                } else {
-                    None
-                };
+            let changes = if workspace_path.exists() {
+                zjj_core::jj::workspace_status(workspace_path)
+                    .await
+                    .ok()
+                    .map(|status| status.change_count())
+            } else {
+                None
+            };
 
-                let beads = BeadsStatus::NoBeads;
+            let beads = BeadsStatus::NoBeads;
 
-                let column_idx = match session.status {
-                    SessionStatus::Creating => 0,
-                    SessionStatus::Active => 1,
-                    SessionStatus::Paused => 2,
-                    SessionStatus::Completed => 3,
-                    SessionStatus::Failed => 4,
-                };
+            let column_idx = match session.status {
+                SessionStatus::Creating => 0,
+                SessionStatus::Active => 1,
+                SessionStatus::Paused => 2,
+                SessionStatus::Completed => 3,
+                SessionStatus::Failed => 4,
+            };
 
-                let session_data = SessionData {
-                    session,
-                    changes,
-                    beads,
-                };
+            let session_data = SessionData {
+                session,
+                changes,
+                beads,
+            };
 
-                (column_idx, session_data)
-            })
-            .into_group_map();
-
-        // Populate grouped vec, preserving order
-        for (column_idx, sessions_in_group) in session_data_map {
-            grouped[column_idx] = sessions_in_group;
+            grouped[column_idx].push(session_data);
         }
 
         self.sessions_by_status = grouped;
@@ -949,11 +940,12 @@ impl DashboardApp {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Focus a session by switching to its Zellij tab
-fn focus_session(session: &Session) -> Result<()> {
+async fn focus_session(session: &Session) -> Result<()> {
     // Use zellij action to switch to the tab
-    let output = std::process::Command::new("zellij")
+    let output = tokio::process::Command::new("zellij")
         .args(["action", "go-to-tab-name", &session.zellij_tab])
         .output()
+        .await
         .context("Failed to execute zellij command")?;
 
     if !output.status.success() {
@@ -967,14 +959,14 @@ fn focus_session(session: &Session) -> Result<()> {
 }
 
 /// Add a new session
-fn add_session(name: &str) -> Result<()> {
-    crate::commands::add::run(name)?;
+async fn add_session(name: &str) -> Result<()> {
+    crate::commands::add::run(name).await?;
     Ok(())
 }
 
 /// Remove a session
-fn remove_session(name: &str) -> Result<()> {
-    crate::commands::remove::run(name)?;
+async fn remove_session(name: &str) -> Result<()> {
+    crate::commands::remove::run(name).await?;
     Ok(())
 }
 

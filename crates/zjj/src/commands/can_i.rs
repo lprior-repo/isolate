@@ -51,8 +51,8 @@ pub struct Prerequisite {
 }
 
 /// Run the can-i command
-pub fn run(options: &CanIOptions) -> Result<()> {
-    let result = check_permission(&options.action, options.resource.as_deref())?;
+pub async fn run(options: &CanIOptions) -> Result<()> {
+    let result = check_permission(&options.action, options.resource.as_deref()).await?;
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("can-i-response", "single", &result);
@@ -92,16 +92,16 @@ pub fn run(options: &CanIOptions) -> Result<()> {
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn check_permission(action: &str, resource: Option<&str>) -> Result<CanIResult> {
+async fn check_permission(action: &str, resource: Option<&str>) -> Result<CanIResult> {
     match action {
-        "add" | "work" => Ok(check_can_add(resource)),
-        "remove" => Ok(check_can_remove(resource)),
-        "done" => Ok(check_can_done(resource)),
-        "undo" => Ok(check_can_undo()),
-        "sync" => Ok(check_can_sync(resource)),
-        "spawn" => Ok(check_can_spawn(resource)),
-        "claim" => Ok(check_can_claim(resource)),
-        "merge" => Ok(check_can_merge(resource)),
+        "add" | "work" => Ok(check_can_add(resource).await),
+        "remove" => Ok(check_can_remove(resource).await),
+        "done" => Ok(check_can_done(resource).await),
+        "undo" => Ok(check_can_undo().await),
+        "sync" => Ok(check_can_sync(resource).await),
+        "spawn" => Ok(check_can_spawn(resource).await),
+        "claim" => Ok(check_can_claim(resource).await),
+        "merge" => Ok(check_can_merge(resource).await),
         _ => Ok(CanIResult {
             allowed: true,
             action: action.to_string(),
@@ -113,11 +113,11 @@ fn check_permission(action: &str, resource: Option<&str>) -> Result<CanIResult> 
     }
 }
 
-fn check_can_add(resource: Option<&str>) -> CanIResult {
+async fn check_can_add(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
     // Check if zjj is initialized
-    let db_result = get_session_db();
+    let db_result = get_session_db().await;
     let zjj_initialized = db_result.is_ok();
     prerequisites.push(Prerequisite {
         check: "zjj_initialized".to_string(),
@@ -131,7 +131,7 @@ fn check_can_add(resource: Option<&str>) -> CanIResult {
 
     // Check if session name already exists
     let name_available = if let (Some(name), Ok(db)) = (resource, &db_result) {
-        db.get_blocking(name).map(|s| s.is_none()).unwrap_or(true)
+        db.get(name).await.map(|s| s.is_none()).unwrap_or(true)
     } else {
         true
     };
@@ -174,10 +174,10 @@ fn check_can_add(resource: Option<&str>) -> CanIResult {
     }
 }
 
-fn check_can_remove(resource: Option<&str>) -> CanIResult {
+async fn check_can_remove(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
-    let db_result = get_session_db();
+    let db_result = get_session_db().await;
     let zjj_initialized = db_result.is_ok();
 
     prerequisites.push(Prerequisite {
@@ -192,7 +192,7 @@ fn check_can_remove(resource: Option<&str>) -> CanIResult {
 
     // Check if session exists
     let session_exists = if let (Some(name), Ok(db)) = (resource, &db_result) {
-        db.get_blocking(name).map(|s| s.is_some()).unwrap_or(false)
+        db.get(name).await.map(|s| s.is_some()).unwrap_or(false)
     } else {
         false
     };
@@ -227,10 +227,10 @@ fn check_can_remove(resource: Option<&str>) -> CanIResult {
     }
 }
 
-fn check_can_done(resource: Option<&str>) -> CanIResult {
+async fn check_can_done(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
-    let db_result = get_session_db();
+    let db_result = get_session_db().await;
     let zjj_initialized = db_result.is_ok();
 
     prerequisites.push(Prerequisite {
@@ -278,11 +278,11 @@ fn check_can_done(resource: Option<&str>) -> CanIResult {
     }
 }
 
-fn check_can_undo() -> CanIResult {
+async fn check_can_undo() -> CanIResult {
     let mut prerequisites = Vec::new();
 
     // Check if undo history exists
-    let data_dir = super::zjj_data_dir();
+    let data_dir = super::zjj_data_dir().await;
     let undo_file_exists = data_dir
         .map(|d| d.join("undo-history.jsonl").exists())
         .unwrap_or(false);
@@ -314,10 +314,10 @@ fn check_can_undo() -> CanIResult {
     }
 }
 
-fn check_can_sync(resource: Option<&str>) -> CanIResult {
+async fn check_can_sync(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
-    let db_result = get_session_db();
+    let db_result = get_session_db().await;
     let zjj_initialized = db_result.is_ok();
 
     prerequisites.push(Prerequisite {
@@ -331,14 +331,10 @@ fn check_can_sync(resource: Option<&str>) -> CanIResult {
     });
 
     // Check if there are sessions to sync
-    let has_sessions = db_result
-        .as_ref()
-        .map(|db| {
-            db.list_blocking(None)
-                .map(|list| !list.is_empty())
-                .unwrap_or(false)
-        })
-        .unwrap_or(false);
+    let has_sessions = match &db_result {
+        Ok(db) => db.list(None).await.map(|list| !list.is_empty()).unwrap_or(false),
+        Err(_) => false,
+    };
 
     prerequisites.push(Prerequisite {
         check: "has_sessions".to_string(),
@@ -371,10 +367,10 @@ fn check_can_sync(resource: Option<&str>) -> CanIResult {
     }
 }
 
-fn check_can_spawn(resource: Option<&str>) -> CanIResult {
+async fn check_can_spawn(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
-    let db_result = get_session_db();
+    let db_result = get_session_db().await;
     let zjj_initialized = db_result.is_ok();
 
     prerequisites.push(Prerequisite {
@@ -400,9 +396,10 @@ fn check_can_spawn(resource: Option<&str>) -> CanIResult {
     });
 
     // Check if Zellij is available
-    let zellij_available = std::process::Command::new("zellij")
+    let zellij_available = tokio::process::Command::new("zellij")
         .arg("--version")
         .output()
+        .await
         .map(|o| o.status.success())
         .unwrap_or(false);
     prerequisites.push(Prerequisite {
@@ -442,10 +439,10 @@ fn check_can_spawn(resource: Option<&str>) -> CanIResult {
     }
 }
 
-fn check_can_claim(resource: Option<&str>) -> CanIResult {
+async fn check_can_claim(resource: Option<&str>) -> CanIResult {
     let mut prerequisites = Vec::new();
 
-    let db_result = get_session_db();
+    let db_result = get_session_db().await;
     let zjj_initialized = db_result.is_ok();
 
     prerequisites.push(Prerequisite {
@@ -471,33 +468,40 @@ fn check_can_claim(resource: Option<&str>) -> CanIResult {
     });
 
     // Check if lock exists
-    let lock_free = resource.is_none_or(|res| {
-        let locks_dir = super::zjj_data_dir().map(|d| d.join("locks")).ok();
-        let safe_name: String = res
-            .chars()
-            .map(|c| {
-                if c.is_alphanumeric() || c == '-' || c == '_' {
-                    c
-                } else {
-                    '_'
-                }
-            })
-            .collect();
-        let lock_path = locks_dir.map(|d| d.join(format!("{safe_name}.lock")));
-        lock_path.map(|p| !p.exists()).unwrap_or(true)
-    });
+    let lock_free_val = if let Some(res) = resource {
+         match super::zjj_data_dir().await {
+             Ok(d) => {
+                 let locks_dir = d.join("locks");
+                 let safe_name: String = res
+                    .chars()
+                    .map(|c| {
+                        if c.is_alphanumeric() || c == '-' || c == '_' {
+                            c
+                        } else {
+                            '_'
+                        }
+                    })
+                    .collect();
+                 let lock_path = locks_dir.join(format!("{safe_name}.lock"));
+                 !lock_path.exists()
+             },
+             Err(_) => true
+         }
+    } else {
+        true
+    };
 
     prerequisites.push(Prerequisite {
         check: "lock_free".to_string(),
-        passed: lock_free,
-        description: if lock_free {
+        passed: lock_free_val,
+        description: if lock_free_val {
             "Resource is not locked".to_string()
         } else {
             "Resource is currently locked".to_string()
         },
     });
 
-    let allowed = zjj_initialized && resource_provided && lock_free;
+    let allowed = zjj_initialized && resource_provided && lock_free_val;
     let reason = if allowed {
         "Can claim resource".to_string()
     } else if !zjj_initialized {
@@ -518,9 +522,9 @@ fn check_can_claim(resource: Option<&str>) -> CanIResult {
     }
 }
 
-fn check_can_merge(resource: Option<&str>) -> CanIResult {
+async fn check_can_merge(resource: Option<&str>) -> CanIResult {
     // Same as done for now
-    let mut r = check_can_done(resource);
+    let mut r = check_can_done(resource).await;
     r.action = "merge".to_string();
     r
 }

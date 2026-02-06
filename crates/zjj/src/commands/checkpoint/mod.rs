@@ -72,14 +72,14 @@ CREATE INDEX IF NOT EXISTS idx_checkpoint_sessions_id ON checkpoint_sessions(che
 // ── Public entry point ───────────────────────────────────────────────
 
 /// Run the checkpoint command
-pub fn run(args: &CheckpointArgs) -> Result<()> {
-    let db = get_session_db()?;
-    ensure_checkpoint_tables(&db)?;
+pub async fn run(args: &CheckpointArgs) -> Result<()> {
+    let db = get_session_db().await?;
+    ensure_checkpoint_tables(&db).await?;
 
     let response = match &args.action {
-        CheckpointAction::Create { description } => create_checkpoint(&db, description.as_deref()),
-        CheckpointAction::Restore { checkpoint_id } => restore_checkpoint(&db, checkpoint_id),
-        CheckpointAction::List => list_checkpoints(&db),
+        CheckpointAction::Create { description } => create_checkpoint(&db, description.as_deref()).await,
+        CheckpointAction::Restore { checkpoint_id } => restore_checkpoint(&db, checkpoint_id).await,
+        CheckpointAction::List => list_checkpoints(&db).await,
     }?;
 
     output_response(&response, args.format)
@@ -87,180 +87,166 @@ pub fn run(args: &CheckpointArgs) -> Result<()> {
 
 // ── Implementation ───────────────────────────────────────────────────
 
-fn ensure_checkpoint_tables(db: &SessionDb) -> Result<()> {
-    let rt = tokio::runtime::Runtime::new().context("Failed to create runtime")?;
-    rt.block_on(async {
-        let pool = db.pool();
-        sqlx::query(CHECKPOINT_SCHEMA)
-            .execute(pool)
-            .await
-            .map(|_| ())
-            .context("Failed to create checkpoint tables")
-    })
-}
-
-fn create_checkpoint(db: &SessionDb, description: Option<&str>) -> Result<CheckpointResponse> {
-    let rt = tokio::runtime::Runtime::new().context("Failed to create runtime")?;
-    rt.block_on(async {
-        let pool = db.pool();
-        let sessions = db.list(None).await.map_err(|e| anyhow::anyhow!("{e}"))?;
-
-        let checkpoint_id = generate_checkpoint_id()?;
-        let session_count =
-            i64::try_from(sessions.len()).unwrap_or(i64::MAX);
-
-        sqlx::query(
-            "INSERT INTO checkpoints (checkpoint_id, description, session_count) VALUES (?, ?, ?)",
-        )
-        .bind(&checkpoint_id)
-        .bind(description)
-        .bind(session_count)
+async fn ensure_checkpoint_tables(db: &SessionDb) -> Result<()> {
+    let pool = db.pool();
+    sqlx::query(CHECKPOINT_SCHEMA)
         .execute(pool)
         .await
-        .context("Failed to insert checkpoint")?;
-
-        for session in &sessions {
-            let metadata_json = session
-                .metadata
-                .as_ref()
-                .map(serde_json::to_string)
-                .transpose()
-                .context("Failed to serialize session metadata")?;
-
-            sqlx::query(
-                "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path, branch, metadata)
-                 VALUES (?, ?, ?, ?, ?, ?)",
-            )
-            .bind(&checkpoint_id)
-            .bind(&session.name)
-            .bind(session.status.to_string())
-            .bind(&session.workspace_path)
-            .bind(&session.branch)
-            .bind(&metadata_json)
-            .execute(pool)
-            .await
-            .context("Failed to insert checkpoint session")?;
-        }
-
-        Ok(CheckpointResponse::Created { checkpoint_id })
-    })
+        .map(|_| ())
+        .context("Failed to create checkpoint tables")
 }
 
-fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<CheckpointResponse> {
-    let rt = tokio::runtime::Runtime::new().context("Failed to create runtime")?;
-    rt.block_on(async {
-        let pool = db.pool();
+async fn create_checkpoint(db: &SessionDb, description: Option<&str>) -> Result<CheckpointResponse> {
+    let pool = db.pool();
+    let sessions = db.list(None).await.map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        // Verify checkpoint exists
-        let exists: bool = sqlx::query("SELECT 1 FROM checkpoints WHERE checkpoint_id = ?")
-            .bind(checkpoint_id)
-            .fetch_optional(pool)
-            .await
-            .context("Failed to query checkpoint")?
-            .is_some();
+    let checkpoint_id = generate_checkpoint_id()?;
+    let session_count =
+        i64::try_from(sessions.len()).unwrap_or(i64::MAX);
 
-        if !exists {
-            anyhow::bail!("Checkpoint '{checkpoint_id}' not found");
-        }
+    sqlx::query(
+        "INSERT INTO checkpoints (checkpoint_id, description, session_count) VALUES (?, ?, ?)",
+    )
+    .bind(&checkpoint_id)
+    .bind(description)
+    .bind(session_count)
+    .execute(pool)
+    .await
+    .context("Failed to insert checkpoint")?;
 
-        // Fetch saved sessions
-        let rows = sqlx::query(
-            "SELECT session_name, status, workspace_path, branch, metadata
-             FROM checkpoint_sessions WHERE checkpoint_id = ?",
+    for session in &sessions {
+        let metadata_json = session
+            .metadata
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .context("Failed to serialize session metadata")?;
+
+        sqlx::query(
+            "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path, branch, metadata)
+             VALUES (?, ?, ?, ?, ?, ?)",
         )
+        .bind(&checkpoint_id)
+        .bind(&session.name)
+        .bind(session.status.to_string())
+        .bind(&session.workspace_path)
+        .bind(&session.branch)
+        .bind(&metadata_json)
+        .execute(pool)
+        .await
+        .context("Failed to insert checkpoint session")?;
+    }
+
+    Ok(CheckpointResponse::Created { checkpoint_id })
+}
+
+async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<CheckpointResponse> {
+    let pool = db.pool();
+
+    // Verify checkpoint exists
+    let exists: bool = sqlx::query("SELECT 1 FROM checkpoints WHERE checkpoint_id = ?")
         .bind(checkpoint_id)
-        .fetch_all(pool)
+        .fetch_optional(pool)
         .await
-        .context("Failed to fetch checkpoint sessions")?;
+        .context("Failed to query checkpoint")?
+        .is_some();
 
-        // Atomic restore: delete all current sessions, then re-insert from checkpoint
-        // Use a transaction for atomicity
-        let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+    if !exists {
+        anyhow::bail!("Checkpoint '{checkpoint_id}' not found");
+    }
 
-        sqlx::query("DELETE FROM sessions")
-            .execute(&mut *tx)
-            .await
-            .context("Failed to clear sessions for restore")?;
+    // Fetch saved sessions
+    let rows = sqlx::query(
+        "SELECT session_name, status, workspace_path, branch, metadata
+         FROM checkpoint_sessions WHERE checkpoint_id = ?",
+    )
+    .bind(checkpoint_id)
+    .fetch_all(pool)
+    .await
+    .context("Failed to fetch checkpoint sessions")?;
 
-        for row in &rows {
-            let name: String = row.try_get("session_name").context("Missing session_name")?;
-            let status: String = row.try_get("status").context("Missing status")?;
-            let workspace_path: String =
-                row.try_get("workspace_path").context("Missing workspace_path")?;
-            let branch: Option<String> = row.try_get("branch").context("Missing branch")?;
-            let metadata: Option<String> = row.try_get("metadata").context("Missing metadata")?;
+    // Atomic restore: delete all current sessions, then re-insert from checkpoint
+    // Use a transaction for atomicity
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
-            sqlx::query(
-                "INSERT INTO sessions (name, status, workspace_path, branch, metadata, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'))",
-            )
-            .bind(&name)
-            .bind(&status)
-            .bind(&workspace_path)
-            .bind(&branch)
-            .bind(&metadata)
-            .execute(&mut *tx)
-            .await
-            .with_context(|| format!("Failed to restore session '{name}'"))?;
-        }
+    sqlx::query("DELETE FROM sessions")
+        .execute(&mut *tx)
+        .await
+        .context("Failed to clear sessions for restore")?;
 
-        tx.commit().await.context("Failed to commit restore transaction")?;
+    for row in &rows {
+        let name: String = row.try_get("session_name").context("Missing session_name")?;
+        let status: String = row.try_get("status").context("Missing status")?;
+        let workspace_path: String =
+            row.try_get("workspace_path").context("Missing workspace_path")?;
+        let branch: Option<String> = row.try_get("branch").context("Missing branch")?;
+        let metadata: Option<String> = row.try_get("metadata").context("Missing metadata")?;
 
-        Ok(CheckpointResponse::Restored {
-            checkpoint_id: checkpoint_id.to_string(),
-        })
+        sqlx::query(
+            "INSERT INTO sessions (name, status, workspace_path, branch, metadata, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'))",
+        )
+        .bind(&name)
+        .bind(&status)
+        .bind(&workspace_path)
+        .bind(&branch)
+        .bind(&metadata)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("Failed to restore session '{name}'"))?;
+    }
+
+    tx.commit().await.context("Failed to commit restore transaction")?;
+
+    Ok(CheckpointResponse::Restored {
+        checkpoint_id: checkpoint_id.to_string(),
     })
 }
 
-fn list_checkpoints(db: &SessionDb) -> Result<CheckpointResponse> {
-    let rt = tokio::runtime::Runtime::new().context("Failed to create runtime")?;
-    rt.block_on(async {
-        let pool = db.pool();
+async fn list_checkpoints(db: &SessionDb) -> Result<CheckpointResponse> {
+    let pool = db.pool();
 
-        let rows = sqlx::query(
-            "SELECT checkpoint_id, created_at, session_count, description
-             FROM checkpoints ORDER BY created_at DESC",
-        )
-        .fetch_all(pool)
-        .await
-        .context("Failed to list checkpoints")?;
+    let rows = sqlx::query(
+        "SELECT checkpoint_id, created_at, session_count, description
+         FROM checkpoints ORDER BY created_at DESC",
+    )
+    .fetch_all(pool)
+    .await
+    .context("Failed to list checkpoints")?;
 
-        let checkpoints = rows
-            .iter()
-            .map(|row| {
-                let id: String = row
-                    .try_get("checkpoint_id")
-                    .map_err(|e| anyhow::anyhow!("Missing checkpoint_id: {e}"))?;
-                let created_at_ts: i64 = row
-                    .try_get("created_at")
-                    .map_err(|e| anyhow::anyhow!("Missing created_at: {e}"))?;
-                let session_count: i64 = row
-                    .try_get("session_count")
-                    .map_err(|e| anyhow::anyhow!("Missing session_count: {e}"))?;
-                let description: Option<String> = row
-                    .try_get("description")
-                    .map_err(|e| anyhow::anyhow!("Missing description: {e}"))?;
+    let mut checkpoints = Vec::new();
+    for row in rows {
+        let id: String = row
+            .try_get("checkpoint_id")
+            .map_err(|e| anyhow::anyhow!("Missing checkpoint_id: {e}"))?;
+        let created_at_ts: i64 = row
+            .try_get("created_at")
+            .map_err(|e| anyhow::anyhow!("Missing created_at: {e}"))?;
+        let session_count: i64 = row
+            .try_get("session_count")
+            .map_err(|e| anyhow::anyhow!("Missing session_count: {e}"))?;
+        let description: Option<String> = row
+            .try_get("description")
+            .map_err(|e| anyhow::anyhow!("Missing description: {e}"))?;
 
-                let created_at = chrono::Utc
-                    .timestamp_opt(created_at_ts, 0)
-                    .single()
-                    .map(|dt: chrono::DateTime<chrono::Utc>| dt.to_rfc3339())
-                    .ok_or_else(|| anyhow::anyhow!("Invalid timestamp: {created_at_ts}"))?;
+        let created_at = chrono::Utc
+            .timestamp_opt(created_at_ts, 0)
+            .single()
+            .map(|dt: chrono::DateTime<chrono::Utc>| dt.to_rfc3339())
+            .ok_or_else(|| anyhow::anyhow!("Invalid timestamp: {created_at_ts}"))?;
 
-                let count = usize::try_from(session_count)
-                    .map_err(|_| anyhow::anyhow!("Session count out of range: {session_count}"))?;
+        let count = usize::try_from(session_count)
+            .map_err(|_| anyhow::anyhow!("Session count out of range: {session_count}"))?;
 
-                Ok(CheckpointInfo {
-                    id,
-                    created_at,
-                    session_count: count,
-                    description,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
+        checkpoints.push(CheckpointInfo {
+            id,
+            created_at,
+            session_count: count,
+            description,
+        });
+    }
 
-        Ok(CheckpointResponse::List { checkpoints })
-    })
+    Ok(CheckpointResponse::List { checkpoints })
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

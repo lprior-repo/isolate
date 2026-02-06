@@ -37,30 +37,30 @@ pub struct InitOptions {
 ///    - .zjj/state.db (sessions database)
 ///    - .zjj/layouts/ (Zellij layouts directory)
 #[expect(dead_code)] // Convenience wrapper, currently unused but part of public API
-pub fn run() -> Result<()> {
-    run_with_options(InitOptions::default())
+pub async fn run() -> Result<()> {
+    run_with_options(InitOptions::default()).await
 }
 
 /// Run init command with options
-pub fn run_with_options(options: InitOptions) -> Result<()> {
-    run_with_cwd_and_format(None, options.format)
+pub async fn run_with_options(options: InitOptions) -> Result<()> {
+    run_with_cwd_and_format(None, options.format).await
 }
 
 /// Run init command with cwd and format
-pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Result<()> {
+pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Result<()> {
     let cwd = match cwd {
         Some(p) => PathBuf::from(p),
         None => std::env::current_dir().context("Failed to get current directory")?,
     };
 
     // Check required dependencies
-    check_dependencies()?;
+    check_dependencies().await?;
 
     // Initialize JJ repo if needed
-    ensure_jj_repo_with_cwd(&cwd)?;
+    ensure_jj_repo_with_cwd(&cwd).await?;
 
     // Get the repo root using the provided cwd
-    let root = jj_root_with_cwd(&cwd)?;
+    let root = jj_root_with_cwd(&cwd).await?;
     let zjj_dir = root.join(".zjj");
 
     // Define paths for all essential files
@@ -132,7 +132,7 @@ pub fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Resu
 
     // Initialize the database (create if it doesn't exist)
     // db_path already defined above
-    let _db = SessionDb::create_or_open_blocking(&db_path)?;
+    let _db = SessionDb::create_or_open(&db_path).await?;
 
     if format.is_json() {
         let response = build_init_response(&root, false);

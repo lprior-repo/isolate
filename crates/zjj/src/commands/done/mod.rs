@@ -30,6 +30,7 @@ use std::{
 use anyhow::Result;
 pub use types::{DoneError, DoneExitCode, DoneOptions, DoneOutput, UndoEntry};
 use zjj_core::json::{ErrorDetail, SchemaEnvelope};
+use self::conflict::ConflictDetector;
 
 use crate::{
     cli::jj_root,
@@ -37,7 +38,7 @@ use crate::{
 };
 
 /// Run the done command with options
-pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
+pub async fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
     // Create real dependencies
     let executor = executor::RealJjExecutor::new();
     let mut bead_repo = bead::MockBeadRepository::new(); // TODO: Replace with real implementation
@@ -45,18 +46,18 @@ pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
 
     // Handle detect_conflicts mode early
     if options.detect_conflicts {
-        return run_conflict_detection_only(&executor, options.format);
+        return run_conflict_detection_only(&executor, options.format).await;
     }
 
-    let result = execute_done(options, &executor, &mut bead_repo, &filesystem);
+    let result = execute_done(options, &executor, &mut bead_repo, &filesystem).await;
 
-    match &result {
+    match result {
         Ok(output) => {
-            output_result(output, options.format)?;
+            output_result(&output, options.format)?;
             Ok(DoneExitCode::Success)
         }
         Err(e) => {
-            output_error(e, options.format)?;
+            output_error(&e, options.format)?;
             Ok(if matches!(e, DoneError::NotInWorkspace { .. }) {
                 DoneExitCode::NotInWorkspace
             } else if matches!(e, DoneError::MergeConflict { .. }) {
@@ -69,13 +70,13 @@ pub fn run_with_options(options: &DoneOptions) -> Result<DoneExitCode> {
 }
 
 /// Run conflict detection only mode (--detect-conflicts flag)
-fn run_conflict_detection_only(
+async fn run_conflict_detection_only(
     executor: &dyn executor::JjExecutor,
     format: zjj_core::OutputFormat,
 ) -> Result<DoneExitCode> {
     let detector = conflict::JjConflictDetector::new(executor);
 
-    match conflict::ConflictDetector::detect_conflicts(&detector) {
+    match detector.detect_conflicts().await {
         Ok(result) => {
             if format.is_json() {
                 println!("{}", serde_json::to_string_pretty(&result)?);
@@ -135,14 +136,14 @@ fn run_conflict_detection_only(
 }
 
 /// Core done logic using Railway-Oriented Programming
-fn execute_done(
+async fn execute_done(
     options: &DoneOptions,
     executor: &dyn executor::JjExecutor,
     bead_repo: &mut dyn bead::BeadRepository,
     filesystem: &dyn filesystem::FileSystem,
 ) -> Result<DoneOutput, DoneError> {
     // Phase 1: Validate location (must be in workspace)
-    let root = validate_location()?;
+    let root = validate_location().await?;
     let workspace_name = get_workspace_name(&root)?;
 
     // Phase 2: Build preview for dry-run
@@ -153,7 +154,7 @@ fn execute_done(
             executor,
             bead_repo,
             options,
-        )?)
+        ).await?)
     } else {
         None
     };
@@ -168,30 +169,30 @@ fn execute_done(
     }
 
     // Phase 3: Check uncommitted files
-    let uncommitted_files = get_uncommitted_files(&root, executor)?;
+    let uncommitted_files = get_uncommitted_files(&root, executor).await?;
 
     // Phase 4: Commit uncommitted changes
     let files_committed = if uncommitted_files.is_empty() {
         0
     } else {
-        commit_changes(&root, &workspace_name, options.message.as_deref(), executor)?
+        commit_changes(&root, &workspace_name, options.message.as_deref(), executor).await?
     };
 
     // Phase 5: Check for conflicts
-    check_conflicts(&root, executor)
+    check_conflicts(&root, executor).await
         .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
 
     // Phase 5.5: Get pre-merge commit ID (for undo)
-    let pre_merge_commit_id = get_current_commit_id(&root, executor)?;
+    let pre_merge_commit_id = get_current_commit_id(&root, executor).await?;
 
     // Phase 5.6: Check if pushed to remote (for undo)
-    let pushed_to_remote = is_pushed_to_remote(&root, executor)?;
+    let pushed_to_remote = is_pushed_to_remote(&root, executor).await?;
 
     // Phase 6: Get commits to merge
-    let commits_to_merge = get_commits_to_merge(&root, executor)?;
+    let commits_to_merge = get_commits_to_merge(&root, executor).await?;
 
     // Phase 7: Merge to main
-    merge_to_main(&root, &workspace_name, options.squash, executor)
+    merge_to_main(&root, &workspace_name, options.squash, executor).await
         .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
 
     // Phase 7.5: Log undo history
@@ -239,8 +240,8 @@ fn execute_done(
 }
 
 /// Validate we're in a workspace
-fn validate_location() -> Result<String, DoneError> {
-    let root_str = jj_root().map_err(|_| DoneError::NotAJjRepo)?;
+async fn validate_location() -> Result<String, DoneError> {
+    let root_str = jj_root().await.map_err(|_| DoneError::NotAJjRepo)?;
     let root = PathBuf::from(&root_str);
 
     let location = detect_location(&root).map_err(|e| DoneError::InvalidState {
@@ -275,23 +276,23 @@ fn get_workspace_name(root: &str) -> Result<String, DoneError> {
 }
 
 /// Build preview for dry-run mode
-fn build_preview(
+async fn build_preview(
     root: &str,
     workspace_name: &str,
     executor: &dyn executor::JjExecutor,
     bead_repo: &dyn bead::BeadRepository,
     options: &DoneOptions,
 ) -> Result<types::DonePreview, DoneError> {
-    let uncommitted_files = get_uncommitted_files(root, executor)?;
-    let commits_to_merge = get_commits_to_merge(root, executor)?;
-    let potential_conflicts = check_potential_conflicts(root, executor);
+    let uncommitted_files = get_uncommitted_files(root, executor).await?;
+    let commits_to_merge = get_commits_to_merge(root, executor).await?;
+    let potential_conflicts = check_potential_conflicts(root, executor).await;
     let bead_to_close = get_bead_id_for_workspace(workspace_name, bead_repo)?;
     let workspace_path = Path::new(root).join(".zjj/workspaces").join(workspace_name);
 
     // Run detailed conflict detection if requested
     let conflict_detection = if options.detect_conflicts {
         Some(
-            conflict::run_conflict_detection(executor).map_err(|e| DoneError::InvalidState {
+            conflict::run_conflict_detection(executor).await.map_err(|e| DoneError::InvalidState {
                 reason: format!("Conflict detection failed: {e}"),
             })?,
         )
@@ -310,14 +311,15 @@ fn build_preview(
 }
 
 /// Get list of uncommitted files
-fn get_uncommitted_files(
+async fn get_uncommitted_files(
     _root: &str,
     executor: &dyn executor::JjExecutor,
 ) -> Result<Vec<String>, DoneError> {
     let output =
         executor
             .run(&["status", "--no-pager"])
-            .map_err(|e| DoneError::JjCommandFailed {
+            .await
+            .map_err(|e: executor::ExecutorError| DoneError::JjCommandFailed {
                 command: "jj status".to_string(),
                 reason: e.to_string(),
             })?;
@@ -342,7 +344,7 @@ fn get_uncommitted_files(
 }
 
 /// Commit uncommitted changes
-fn commit_changes(
+async fn commit_changes(
     _root: &str,
     workspace_name: &str,
     message: Option<&str>,
@@ -353,7 +355,8 @@ fn commit_changes(
 
     let output = executor
         .run(&["commit", "-m", msg])
-        .map_err(|e| DoneError::CommitFailed {
+        .await
+        .map_err(|e: executor::ExecutorError| DoneError::CommitFailed {
             reason: e.to_string(),
         })?;
 
@@ -365,8 +368,8 @@ fn commit_changes(
 }
 
 /// Check for merge conflicts
-fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<(), DoneError> {
-    let conflicts = check_potential_conflicts(root, executor);
+async fn check_conflicts(root: &str, executor: &dyn executor::JjExecutor) -> Result<(), DoneError> {
+    let conflicts = check_potential_conflicts(root, executor).await;
 
     if !conflicts.is_empty() {
         return Err(DoneError::MergeConflict { conflicts });
@@ -421,10 +424,10 @@ fn queue_workspace_conflict(
 }
 
 /// Check for potential conflicts by checking divergent changes
-fn check_potential_conflicts(_root: &str, executor: &dyn executor::JjExecutor) -> Vec<String> {
+async fn check_potential_conflicts(_root: &str, executor: &dyn executor::JjExecutor) -> Vec<String> {
     let detector = conflict::JjConflictDetector::new(executor);
 
-    match conflict::ConflictDetector::detect_conflicts(&detector) {
+    match detector.detect_conflicts().await {
         Ok(result) => {
             // Combine existing conflicts and overlapping files
             let mut conflicts = result.existing_conflicts;
@@ -441,7 +444,7 @@ fn check_potential_conflicts(_root: &str, executor: &dyn executor::JjExecutor) -
 }
 
 /// Get commits that will be merged
-fn get_commits_to_merge(
+async fn get_commits_to_merge(
     _root: &str,
     executor: &dyn executor::JjExecutor,
 ) -> Result<Vec<types::CommitInfo>, DoneError> {
@@ -454,7 +457,8 @@ fn get_commits_to_merge(
             "-T",
             r#"change_id ++ "\n" ++ commit_id ++ "\n" ++ description ++ "\n" ++ committer.timestamp() ++ "\n""#,
         ])
-        .map_err(|e| DoneError::JjCommandFailed {
+        .await
+        .map_err(|e: executor::ExecutorError| DoneError::JjCommandFailed {
             command: "jj log".to_string(),
             reason: e.to_string(),
         })?;
@@ -483,14 +487,14 @@ fn get_commits_to_merge(
 }
 
 /// Merge workspace changes to main using rebase
-fn merge_to_main(
+async fn merge_to_main(
     _root: &str,
     workspace_name: &str,
     _squash: bool,
     executor: &dyn executor::JjExecutor,
 ) -> Result<(), DoneError> {
     // First, abandon the workspace to move changes to main
-    let result = executor.run(&["workspace", "abandon", "--name", workspace_name]);
+    let result = executor.run(&["workspace", "abandon", "--name", workspace_name]).await;
 
     match result {
         Ok(_) => Ok(()),
@@ -500,14 +504,14 @@ fn merge_to_main(
                 // Parse conflicts from output
                 let conflicts: Vec<String> = error_msg
                     .lines()
-                    .filter(|l| l.contains("file"))
-                    .map(|l| l.trim().to_string())
+                    .filter(|l: &&str| l.contains("file"))
+                    .map(|l: &str| l.trim().to_string())
                     .collect();
 
                 Err(DoneError::MergeConflict {
                     conflicts: conflicts
                         .iter()
-                        .filter(|c| !c.is_empty())
+                        .filter(|c: &&String| !c.is_empty())
                         .cloned()
                         .collect(),
                 })
@@ -675,13 +679,14 @@ struct DoneErrorPayload {
 }
 
 /// Get current commit ID (before merge)
-fn get_current_commit_id(
+async fn get_current_commit_id(
     _root: &str,
     executor: &dyn executor::JjExecutor,
 ) -> Result<String, DoneError> {
     let output = executor
         .run(&["log", "-r", "@", "--no-graph", "-T", "commit_id"])
-        .map_err(|e| DoneError::JjCommandFailed {
+        .await
+        .map_err(|e: executor::ExecutorError| DoneError::JjCommandFailed {
             command: "jj log".to_string(),
             reason: e.to_string(),
         })?;
@@ -690,13 +695,14 @@ fn get_current_commit_id(
 }
 
 /// Check if changes have been pushed to remote
-fn is_pushed_to_remote(
+async fn is_pushed_to_remote(
     _root: &str,
     executor: &dyn executor::JjExecutor,
 ) -> Result<bool, DoneError> {
     let output = executor
         .run(&["log", "-r", "@-"])
-        .map_err(|e| DoneError::JjCommandFailed {
+        .await
+        .map_err(|e: executor::ExecutorError| DoneError::JjCommandFailed {
             command: "jj log".to_string(),
             reason: e.to_string(),
         })?;

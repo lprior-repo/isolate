@@ -108,9 +108,11 @@ fn test_batch_item_status_serialization() {
     ];
 
     for (status, expected) in statuses {
-        let json = serde_json::to_string(&status);
-        assert!(json.is_ok(), "Serialization should succeed");
-        assert_eq!(json.unwrap_or_default(), format!("\"{expected}\""));
+        let json_result = serde_json::to_string(&status);
+        assert!(json_result.is_ok(), "Serialization should succeed");
+        if let Ok(json) = json_result {
+            assert_eq!(json, format!("\"{expected}\""));
+        }
     }
 }
 
@@ -118,7 +120,7 @@ fn test_batch_item_status_serialization() {
 /// WHEN: Serialized and deserialized
 /// THEN: All fields preserved
 #[test]
-fn test_batch_request_roundtrip() {
+fn test_batch_request_roundtrip() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let original = BatchRequest {
         atomic: true,
         operations: vec![BatchOperation {
@@ -129,10 +131,9 @@ fn test_batch_request_roundtrip() {
         }],
     };
 
-    let json = serde_json::to_string(&original).expect("Serialization should succeed");
+    let json = serde_json::to_string(&original)?;
 
-    let deserialized: BatchRequest =
-        serde_json::from_str(&json).expect("Deserialization should succeed");
+    let deserialized: BatchRequest = serde_json::from_str(&json)?;
 
     assert_eq!(deserialized.atomic, true);
     assert_eq!(deserialized.operations.len(), 1);
@@ -140,6 +141,7 @@ fn test_batch_request_roundtrip() {
     assert_eq!(deserialized.operations[0].args, vec!["session-1"]);
     assert_eq!(deserialized.operations[0].id, Some("step-1".to_string()));
     assert!(!deserialized.operations[0].optional);
+    Ok(())
 }
 
 /// GIVEN: BatchResponse with all succeeded

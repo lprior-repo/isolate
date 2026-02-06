@@ -91,7 +91,7 @@ pub struct ContractsResponse {
 }
 
 /// Run the contract command
-pub fn run(options: &ContractOptions) -> Result<()> {
+pub async fn run(options: &ContractOptions) -> Result<()> {
     let contracts = build_all_contracts();
 
     if let Some(cmd_name) = &options.command {

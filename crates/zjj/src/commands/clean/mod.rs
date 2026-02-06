@@ -41,16 +41,16 @@ pub struct CleanOutput {
 /// 3. Filter to find stale sessions (workspace missing)
 /// 4. Handle dry-run or interactive confirmation
 /// 5. Remove stale sessions if confirmed
-pub fn run_with_options(options: &CleanOptions) -> Result<()> {
+pub async fn run_with_options(options: &CleanOptions) -> Result<()> {
     // Handle periodic mode
     if options.periodic {
-        return run_periodic_mode(options);
+        return run_periodic_mode(options).await;
     }
 
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
 
     // 1. List all sessions and filter to stale ones using functional pipeline
-    let sessions = db.list_blocking(None).map_err(anyhow::Error::new)?;
+    let sessions = db.list(None).await.map_err(anyhow::Error::new)?;
 
     let stale_sessions: Vec<_> = sessions
         .into_iter()
@@ -78,11 +78,12 @@ pub fn run_with_options(options: &CleanOptions) -> Result<()> {
     }
 
     // 5. Remove stale sessions using functional fold for error handling
-    let removed_count = stale_sessions.iter().try_fold(0, |count, session| {
-        db.delete_blocking(&session.name)
-            .map_err(anyhow::Error::new)
-            .map(|_| count + 1)
-    })?;
+    let mut removed_count = 0;
+    for session in &stale_sessions {
+        if db.delete(&session.name).await.map_err(anyhow::Error::new)? {
+            removed_count += 1;
+        }
+    }
 
     // 6. Output result
     output_result(removed_count, &stale_names, options.format);
@@ -205,18 +206,14 @@ fn confirm_removal(stale_names: &[String]) -> Result<bool> {
 
 /// Run periodic cleanup daemon
 ///
-/// Spawns tokio runtime and runs indefinitely
-fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
+/// Runs indefinitely in the background
+async fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
     let config = periodic_cleanup::PeriodicCleanupConfig {
         interval: Duration::from_secs(3600), // 1 hour
         age_threshold: Duration::from_secs(options.age_threshold.unwrap_or(7200)), /* 2 hours default */
         dry_run: options.dry_run,
         format: options.format,
     };
-
-    // Create tokio runtime for async execution
-    let runtime = tokio::runtime::Runtime::new()
-        .map_err(|e| anyhow::Error::msg(format!("Failed to create tokio runtime: {e}")))?;
 
     if options.format.is_json() {
         println!(
@@ -235,7 +232,7 @@ fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
     }
 
     // Run periodic cleanup
-    runtime.block_on(periodic_cleanup::run_periodic_cleanup(config))
+    periodic_cleanup::run_periodic_cleanup(config).await
 }
 
 #[cfg(test)]

@@ -26,27 +26,27 @@ pub struct SyncOptions {
 ///
 /// If a session name is provided, syncs that session's workspace.
 /// Otherwise, syncs all sessions.
-pub fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
-    name.map_or_else(
-        || sync_all_with_options(options),
-        |n| sync_session_with_options(n, options),
-    )
+pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
+    match name {
+        Some(n) => sync_session_with_options(n, options).await,
+        None => sync_all_with_options(options).await,
+    }
 }
 
 /// Sync a specific session's workspace
-fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
-    let db = get_session_db()?;
+async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
+    let db = get_session_db().await?;
 
     // Get the session
     // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-    let session = db.get_blocking(name)?.ok_or_else(|| {
+    let session = db.get(name).await?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{name}' not found"
         )))
     })?;
 
     // Use internal sync function
-    match sync_session_internal(&db, &session.name, &session.workspace_path) {
+    match sync_session_internal(&db, &session.name, &session.workspace_path).await {
         Ok(()) => {
             if options.format.is_json() {
                 let output = SyncOutput {
@@ -77,12 +77,12 @@ fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<()> {
 }
 
 /// Sync all sessions
-fn sync_all_with_options(options: SyncOptions) -> Result<()> {
-    let db = get_session_db()?;
+async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
+    let db = get_session_db().await?;
 
     // Get all sessions
     // Preserve error type for proper exit code mapping
-    let sessions = db.list_blocking(None).map_err(anyhow::Error::new)?;
+    let sessions = db.list(None).await.map_err(anyhow::Error::new)?;
 
     if sessions.is_empty() {
         if options.format.is_json() {
@@ -103,29 +103,15 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
 
     if options.format.is_json() {
         // For JSON output, collect results and output once at the end
-        // Use functional pattern: map to Results, partition into successes/failures
-        let (successes, errors): (Vec<_>, Vec<_>) = sessions
-            .iter()
-            .map(|session| {
-                sync_session_internal(&db, &session.name, &session.workspace_path)
-                    .map(|()| session.name.clone())
-                    .map_err(|e| {
-                        Box::new(SyncError {
-                            name: session.name.clone(),
-                            error: ErrorDetail {
-                                code: "SYNC_FAILED".to_string(),
-                                message: e.to_string(),
-                                exit_code: 3,
-                                details: None,
-                                suggestion: Some(
-                                    "Try 'jj resolve' to fix conflicts, then retry sync"
-                                        .to_string(),
-                                ),
-                            },
-                        })
-                    })
-            })
-            .partition(Result::is_ok);
+        let mut results = Vec::new();
+        for session in &sessions {
+            let res = sync_session_internal(&db, &session.name, &session.workspace_path).await;
+            results.push((session, res));
+        }
+
+        let (successes, errors): (Vec<_>, Vec<_>) = results
+            .into_iter()
+            .partition(|(_, res)| res.is_ok());
 
         let output = SyncOutput {
             name: None,
@@ -133,7 +119,18 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
             failed_count: errors.len(),
             errors: errors
                 .into_iter()
-                .filter_map(|r| r.err().map(|e| *e))
+                .filter_map(|(session, res)| {
+                    res.err().map(|e| SyncError {
+                        name: session.name.clone(),
+                        error: ErrorDetail {
+                            code: "SYNC_FAILED".to_string(),
+                            message: e.to_string(),
+                            exit_code: 3,
+                            details: None,
+                            suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                        },
+                    })
+                })
                 .collect(),
         };
         let envelope = if output.failed_count > 0 {
@@ -145,66 +142,57 @@ fn sync_all_with_options(options: SyncOptions) -> Result<()> {
         writeln!(std::io::stdout(), "{json_str}")?;
     } else {
         // Original text output
-        writeln!(
-            std::io::stdout(),
-            "Syncing {} session(s)...",
-            sessions.len()
-        )?;
+        writeln!(std::io::stdout(), "Syncing {} session(s)...", sessions.len())?;
 
-        // Use functional pattern: map to Results with side effects, partition into
-        // successes/failures
-        let (successes, errors): (Vec<_>, Vec<_>) = sessions
-            .iter()
-            .map(|session| {
-                write!(std::io::stdout(), "Syncing '{}' ... ", &session.name).ok();
-                std::io::stdout().flush().ok();
+        let mut success_count = 0;
+        let mut failure_count = 0;
+        let mut errors = Vec::new();
 
-                sync_session_internal(&db, &session.name, &session.workspace_path)
-                    .map(|()| {
-                        writeln!(std::io::stdout(), "OK").ok();
-                        session.name.clone()
-                    })
-                    .map_err(|e| {
-                        writeln!(std::io::stdout(), "FAILED: {e}").ok();
-                        (session.name.clone(), e)
-                    })
-            })
-            .partition(Result::is_ok);
+        for session in &sessions {
+            write!(std::io::stdout(), "Syncing '{}' ... ", &session.name).ok();
+            std::io::stdout().flush().ok();
 
-        let success_count = successes.len();
-        let failure_count = errors.len();
+            match sync_session_internal(&db, &session.name, &session.workspace_path).await {
+                Ok(()) => {
+                    writeln!(std::io::stdout(), "OK").ok();
+                    success_count += 1;
+                }
+                Err(e) => {
+                    writeln!(std::io::stdout(), "FAILED: {e}").ok();
+                    failure_count += 1;
+                    errors.push((session.name.clone(), e));
+                }
+            }
+        }
 
         let mut stdout = std::io::stdout();
         writeln!(stdout)?;
-        writeln!(
-            stdout,
-            "Summary: {success_count} succeeded, {failure_count} failed"
-        )?;
+        writeln!(stdout, "Summary: {success_count} succeeded, {failure_count} failed")?;
 
         if !errors.is_empty() {
             writeln!(stdout, "\nErrors:")?;
-            errors
-                .into_iter()
-                .filter_map(Result::err)
-                .try_for_each(|(name, error)| writeln!(stdout, "  {name}: {error}"))?;
+            for (name, error) in errors {
+                writeln!(stdout, "  {name}: {error}")?;
+            }
         }
     }
     Ok(())
 }
 
 /// Internal function to sync a session's workspace
-fn sync_session_internal(
+async fn sync_session_internal(
     db: &crate::db::SessionDb,
     name: &str,
     workspace_path: &str,
 ) -> Result<()> {
-    let main_branch = determine_main_branch(Path::new(workspace_path));
+    let main_branch = determine_main_branch(Path::new(workspace_path)).await;
 
     // Run rebase in the session's workspace
     run_command(
         "jj",
         &["--repository", workspace_path, "rebase", "-d", &main_branch],
     )
+    .await
     .context("Failed to sync workspace with main")?;
 
     // Update last_synced timestamp
@@ -213,13 +201,14 @@ fn sync_session_internal(
         .context("System time error")?
         .as_secs();
 
-    db.update_blocking(
+    db.update(
         name,
         SessionUpdate {
             last_synced: Some(now),
             ..Default::default()
         },
     )
+    .await
     .map_err(anyhow::Error::new)?;
 
     Ok(())
@@ -410,39 +399,39 @@ mod tests {
         })
     }
 
-    #[test]
-    fn test_determine_main_branch_not_in_repo() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_determine_main_branch_not_in_repo() -> anyhow::Result<()> {
         // When not in a JJ repo, should fall back to "main"
         let temp = tempfile::TempDir::new()?;
-        let result = determine_main_branch(temp.path());
+        let result = determine_main_branch(temp.path()).await;
         assert_eq!(result, "main");
         Ok(())
     }
 
-    #[test]
-    fn test_determine_main_branch_fallback() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_determine_main_branch_fallback() -> anyhow::Result<()> {
         // Test that function returns "main" when trunk() fails
         let temp = tempfile::TempDir::new()?;
-        let result = determine_main_branch(temp.path());
+        let result = determine_main_branch(temp.path()).await;
         assert_eq!(result, "main");
         Ok(())
     }
 
-    #[test]
-    fn test_sync_uses_determined_main_branch() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_sync_uses_determined_main_branch() -> anyhow::Result<()> {
         // Test that sync_session_internal uses determine_main_branch
         // This test will verify the integration once implemented
         let temp = tempfile::TempDir::new()?;
-        let branch = determine_main_branch(temp.path());
+        let branch = determine_main_branch(temp.path()).await;
         assert_eq!(branch, "main");
         Ok(())
     }
 
-    #[test]
-    fn test_main_branch_detection_respects_trunk() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_main_branch_detection_respects_trunk() -> anyhow::Result<()> {
         // When trunk() returns a valid commit ID, use it
         let temp = tempfile::TempDir::new()?;
-        let _branch = determine_main_branch(temp.path());
+        let _branch = determine_main_branch(temp.path()).await;
         // Implementation should use trunk() when available
         Ok(())
     }

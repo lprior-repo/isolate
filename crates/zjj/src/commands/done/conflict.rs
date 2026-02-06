@@ -220,7 +220,7 @@ impl ConflictDetectionResult {
 
 /// Trait for conflict detection implementations
 #[allow(dead_code)] // For future extensibility - allows alternative implementations
-pub trait ConflictDetector {
+pub trait ConflictDetector: Send + Sync {
     /// Perform comprehensive conflict detection
     ///
     /// This is the main entry point for conflict detection. It:
@@ -228,13 +228,13 @@ pub trait ConflictDetector {
     /// 2. Finds the merge base
     /// 3. Analyzes file overlap between workspace and trunk
     /// 4. Returns a comprehensive result
-    fn detect_conflicts(&self) -> Result<ConflictDetectionResult, ConflictError>;
+    fn detect_conflicts(&self) -> impl std::future::Future<Output = Result<ConflictDetectionResult, ConflictError>> + Send;
 
     /// Quick check for existing JJ conflicts only
     ///
     /// This is faster than full detection when you only need to know
     /// if the workspace has existing unresolved conflicts.
-    fn has_existing_conflicts(&self) -> Result<bool, ConflictError>;
+    fn has_existing_conflicts(&self) -> impl std::future::Future<Output = Result<bool, ConflictError>> + Send;
 }
 
 // ============================================================================
@@ -259,7 +259,7 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
     }
 
     /// Check for existing JJ conflicts in the workspace
-    fn check_existing_conflicts(&self) -> Result<Vec<String>, ConflictError> {
+    async fn check_existing_conflicts(&self) -> Result<Vec<String>, ConflictError> {
         // Check if current revision has conflicts
         let output = self
             .executor
@@ -271,20 +271,22 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
                 "-T",
                 r#"if(conflict, "CONFLICT\n", "")"#,
             ])
-            .map_err(|e| ConflictError::StatusFailed(e.to_string()))?;
+            .await
+            .map_err(|e: ExecutorError| ConflictError::StatusFailed(e.to_string()))?;
 
         if output.as_str().contains("CONFLICT") {
             // Get list of conflicted files
             let resolve_output = self
                 .executor
                 .run(&["resolve", "--list"])
-                .map_err(|e| ConflictError::StatusFailed(e.to_string()))?;
+                .await
+                .map_err(|e: ExecutorError| ConflictError::StatusFailed(e.to_string()))?;
 
             let conflicts: Vec<String> = resolve_output
                 .as_str()
                 .lines()
-                .filter(|line| !line.trim().is_empty())
-                .map(|line| {
+                .filter(|line: &&str| !line.trim().is_empty())
+                .map(|line: &str| {
                     // Extract file path from resolve --list output
                     line.split_whitespace()
                         .next()
@@ -300,7 +302,7 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
     }
 
     /// Find the merge base (common ancestor) between workspace and trunk
-    fn find_merge_base(&self) -> Result<Option<String>, ConflictError> {
+    async fn find_merge_base(&self) -> Result<Option<String>, ConflictError> {
         // Find the most recent common ancestor of @ and trunk()
         let output = self
             .executor
@@ -314,7 +316,8 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
                 "--limit",
                 "1",
             ])
-            .map_err(|e| ConflictError::MergeBaseFailed(e.to_string()))?;
+            .await
+            .map_err(|e: ExecutorError| ConflictError::MergeBaseFailed(e.to_string()))?;
 
         let commit_id = output.as_str().trim();
         if commit_id.is_empty() {
@@ -325,21 +328,23 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
     }
 
     /// Get files modified in workspace since branching from trunk
-    fn get_workspace_modified_files(&self) -> Result<HashSet<String>, ConflictError> {
+    async fn get_workspace_modified_files(&self) -> Result<HashSet<String>, ConflictError> {
         let output = self
             .executor
             .run(&["diff", "--from", "trunk()", "--to", "@", "--summary"])
-            .map_err(|e| ConflictError::DiffFailed(e.to_string()))?;
+            .await
+            .map_err(|e: ExecutorError| ConflictError::DiffFailed(e.to_string()))?;
 
         Ok(Self::parse_diff_summary(output.as_str()))
     }
 
     /// Get files modified in trunk since the merge base
-    fn get_trunk_modified_files(&self, merge_base: &str) -> Result<HashSet<String>, ConflictError> {
+    async fn get_trunk_modified_files(&self, merge_base: &str) -> Result<HashSet<String>, ConflictError> {
         let output = self
             .executor
             .run(&["diff", "--from", merge_base, "--to", "trunk()", "--summary"])
-            .map_err(|e| ConflictError::DiffFailed(e.to_string()))?;
+            .await
+            .map_err(|e: ExecutorError| ConflictError::DiffFailed(e.to_string()))?;
 
         Ok(Self::parse_diff_summary(output.as_str()))
     }
@@ -350,7 +355,7 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
     fn parse_diff_summary(output: &str) -> HashSet<String> {
         output
             .lines()
-            .filter_map(|line| {
+            .filter_map(|line: &str| {
                 let trimmed = line.trim();
                 if trimmed.is_empty() {
                     return None;
@@ -380,28 +385,29 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
 }
 
 impl<E: JjExecutor + ?Sized> ConflictDetector for JjConflictDetector<'_, E> {
-    fn detect_conflicts(&self) -> Result<ConflictDetectionResult, ConflictError> {
+    async fn detect_conflicts(&self) -> Result<ConflictDetectionResult, ConflictError> {
         let start = std::time::Instant::now();
 
         // Step 1: Check for existing conflicts
-        let existing_conflicts = self.check_existing_conflicts()?;
+        let existing_conflicts = self.check_existing_conflicts().await?;
         let has_existing = !existing_conflicts.is_empty();
 
         // Step 2: Find merge base
-        let merge_base = self.find_merge_base()?;
+        let merge_base = self.find_merge_base().await?;
 
         // Step 3: Get workspace modified files
-        let workspace_files = self.get_workspace_modified_files()?;
+        let workspace_files = self.get_workspace_modified_files().await?;
 
         // Step 4: Get trunk modified files
         let trunk_files = if let Some(ref base) = merge_base {
-            self.get_trunk_modified_files(base)?
+            self.get_trunk_modified_files(base).await?
         } else {
             // If no merge base found, compare directly to trunk
             let output = self
                 .executor
                 .run(&["diff", "--from", "@", "--to", "trunk()", "--summary"])
-                .map_err(|e| ConflictError::DiffFailed(e.to_string()))?;
+                .await
+                .map_err(|e: ExecutorError| ConflictError::DiffFailed(e.to_string()))?;
             Self::parse_diff_summary(output.as_str())
         };
 
@@ -452,8 +458,8 @@ impl<E: JjExecutor + ?Sized> ConflictDetector for JjConflictDetector<'_, E> {
         })
     }
 
-    fn has_existing_conflicts(&self) -> Result<bool, ConflictError> {
-        Ok(!self.check_existing_conflicts()?.is_empty())
+    async fn has_existing_conflicts(&self) -> Result<bool, ConflictError> {
+        Ok(!self.check_existing_conflicts().await?.is_empty())
     }
 }
 
@@ -464,18 +470,18 @@ impl<E: JjExecutor + ?Sized> ConflictDetector for JjConflictDetector<'_, E> {
 /// Run conflict detection with the given executor
 ///
 /// This is the main entry point for conflict detection.
-pub fn run_conflict_detection<E: JjExecutor + ?Sized>(
+pub async fn run_conflict_detection<E: JjExecutor + ?Sized>(
     executor: &E,
 ) -> Result<ConflictDetectionResult, ConflictError> {
     let detector = JjConflictDetector::new(executor);
-    detector.detect_conflicts()
+    detector.detect_conflicts().await
 }
 
 /// Quick check for existing conflicts only
 #[allow(dead_code)] // Reserved for future use in quick conflict checks
-pub fn has_conflicts<E: JjExecutor + ?Sized>(executor: &E) -> Result<bool, ConflictError> {
+pub async fn has_conflicts<E: JjExecutor + ?Sized>(executor: &E) -> Result<bool, ConflictError> {
     let detector = JjConflictDetector::new(executor);
-    detector.has_existing_conflicts()
+    detector.has_existing_conflicts().await
 }
 
 // ============================================================================

@@ -69,23 +69,23 @@ pub enum AiSubcommand {
 }
 
 /// Run the ai command
-pub fn run(options: &AiOptions) -> Result<()> {
+pub async fn run(options: &AiOptions) -> Result<()> {
     match options.subcommand {
-        AiSubcommand::Status => run_status(options.format),
+        AiSubcommand::Status => run_status(options.format).await,
         AiSubcommand::Workflow => run_workflow(options.format),
         AiSubcommand::QuickStart => run_quick_start(options.format),
-        AiSubcommand::Next => run_next(options.format),
+        AiSubcommand::Next => run_next(options.format).await,
         AiSubcommand::Default => run_default(options.format),
     }
 }
 
 /// Run AI status - comprehensive state check with guidance
-fn run_status(format: OutputFormat) -> Result<()> {
-    let initialized = zjj_data_dir().is_ok();
+async fn run_status(format: OutputFormat) -> Result<()> {
+    let initialized = zjj_data_dir().await.is_ok();
     let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
     let inside_zellij = is_inside_zellij();
 
-    let (location, workspace) = super::check_in_jj_repo().map_or_else(
+    let (location, workspace) = super::check_in_jj_repo().await.map_or_else(
         |_| ("not_in_repo".to_string(), None),
         |root| match context::detect_location(&root) {
             Ok(context::Location::Main) => ("main".to_string(), None),
@@ -94,16 +94,15 @@ fn run_status(format: OutputFormat) -> Result<()> {
         },
     );
 
-    let active_sessions = get_session_db()
-        .ok()
-        .and_then(|db| db.list_blocking(None).ok())
-        .map(|sessions| {
+    let active_sessions = match get_session_db().await {
+        Ok(db) => db.list(None).await.map(|sessions| {
             sessions
                 .iter()
                 .filter(|s| s.status.to_string() == "active")
                 .count()
-        })
-        .unwrap_or(0);
+        }).unwrap_or(0),
+        Err(_) => 0,
+    };
 
     // Determine readiness and suggestion
     let (ready, suggestion, next_command) = if !initialized {
@@ -352,11 +351,11 @@ pub struct NextActionOutput {
 }
 
 /// Run AI next - single next action
-fn run_next(format: OutputFormat) -> Result<()> {
-    let initialized = zjj_data_dir().is_ok();
+async fn run_next(format: OutputFormat) -> Result<()> {
+    let initialized = zjj_data_dir().await.is_ok();
     let inside_zellij = is_inside_zellij();
 
-    let (location, workspace) = super::check_in_jj_repo().map_or_else(
+    let (location, workspace) = super::check_in_jj_repo().await.map_or_else(
         |_| ("not_in_repo".to_string(), None),
         |root| match context::detect_location(&root) {
             Ok(context::Location::Main) => ("main".to_string(), None),
@@ -389,16 +388,15 @@ fn run_next(format: OutputFormat) -> Result<()> {
         }
     } else {
         // On main, ready to work
-        let active_sessions = get_session_db()
-            .ok()
-            .and_then(|db| db.list_blocking(None).ok())
-            .map(|sessions| {
+        let active_sessions = match get_session_db().await {
+            Ok(db) => db.list(None).await.map(|sessions| {
                 sessions
                     .iter()
                     .filter(|s| s.status.to_string() == "active")
                     .count()
-            })
-            .unwrap_or(0);
+            }).unwrap_or(0),
+            Err(_) => 0,
+        };
 
         if active_sessions > 0 {
             NextActionOutput {

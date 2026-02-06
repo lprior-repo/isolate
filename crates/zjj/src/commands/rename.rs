@@ -76,8 +76,8 @@ fn validate_tab_name_length(name: &str) -> Result<()> {
 /// # Errors
 ///
 /// Returns error if Zellij command fails
-fn rename_zellij_tab(new_tab_name: &str) -> Result<()> {
-    run_command("zellij", &["action", "rename-tab", new_tab_name])?;
+async fn rename_zellij_tab(new_tab_name: &str) -> Result<()> {
+    run_command("zellij", &["action", "rename-tab", new_tab_name]).await?;
     Ok(())
 }
 
@@ -109,7 +109,7 @@ fn output_error_json(old_name: &str, new_name: &str, error_msg: &str) -> Result<
 /// - Exit 3: Session not found
 /// - Exit 4: Other errors (Zellij command failed, database errors)
 #[allow(clippy::too_many_lines)]
-pub fn run(options: &RenameOptions) -> Result<()> {
+pub async fn run(options: &RenameOptions) -> Result<()> {
     // REQUIREMENT [IF2]: If not inside Zellij, exit 2 with message
     // Use ValidationError which maps to exit code 1 (validation failure)
     if !is_inside_zellij() {
@@ -120,10 +120,10 @@ pub fn run(options: &RenameOptions) -> Result<()> {
         anyhow::bail!(error_msg);
     }
 
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
 
     // REQUIREMENT [IF1]: If session doesn't exist, exit 3
-    let session = db.get_blocking(&options.old_name)?.ok_or_else(|| {
+    let session = db.get(&options.old_name).await?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{}' not found",
             &options.old_name
@@ -160,7 +160,7 @@ pub fn run(options: &RenameOptions) -> Result<()> {
     validate_tab_name_length(&options.new_name)?;
 
     // Check new name doesn't exist
-    if db.get_blocking(&options.new_name)?.is_some() {
+    if db.get(&options.new_name).await?.is_some() {
         let error_msg = format!("Session '{}' already exists", &options.new_name);
         if options.format.is_json() {
             output_error_json(&options.old_name, &options.new_name, &error_msg)?;
@@ -206,7 +206,7 @@ pub fn run(options: &RenameOptions) -> Result<()> {
     }
 
     // REQUIREMENT [E1]: Rename Zellij tab via action
-    rename_zellij_tab(&new_tab_name)?;
+    rename_zellij_tab(&new_tab_name).await?;
 
     // Rename workspace directory
     let workspace_path = &session.workspace_path;
@@ -225,13 +225,13 @@ pub fn run(options: &RenameOptions) -> Result<()> {
 
     // REQUIREMENT [E2]: Update session record in database
     // Create new session with new name
-    db.create_blocking(
+    db.create(
         &options.new_name,
         new_workspace_path.as_deref().unwrap_or(workspace_path),
-    )?;
+    ).await?;
 
     // Delete old session
-    db.delete_blocking(&options.old_name)?;
+    db.delete(&options.old_name).await?;
 
     // Success output
     let result = RenameResult {

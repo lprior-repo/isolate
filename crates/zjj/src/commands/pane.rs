@@ -12,7 +12,8 @@
 //! - Cycling to the next pane
 //! - Directional navigation (up, down, left, right)
 
-use std::{io::Write, process::Command};
+use std::io::Write;
+use tokio::process::Command;
 
 use anyhow::Result;
 use serde::Serialize;
@@ -134,22 +135,22 @@ fn check_zellij_running() -> Result<()> {
 }
 
 /// Focus a pane by ID or name in the given session
-pub fn pane_focus(
+pub async fn pane_focus(
     session_name: &str,
     pane_identifier: Option<&str>,
     options: &PaneFocusOptions,
 ) -> Result<()> {
     check_zellij_running()?;
 
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
     let session = db
-        .get_blocking(session_name)?
+        .get(session_name).await?
         .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
 
     // First, focus the session's tab
-    run_command("zellij", &["action", "go-to-tab-name", &zellij_tab])?;
+    run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
 
     let pane_id = if let Some(pane) = pane_identifier {
         pane.to_string()
@@ -169,6 +170,7 @@ pub fn pane_focus(
     let output = Command::new("zellij")
         .args(["action", "focus-pane-id", &pane_id])
         .output()
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {e}"))?;
 
     if !output.status.success() {
@@ -203,23 +205,24 @@ pub fn pane_focus(
 }
 
 /// List all panes in a session
-pub fn pane_list(session_name: &str, options: &PaneListOptions) -> Result<()> {
+pub async fn pane_list(session_name: &str, options: &PaneListOptions) -> Result<()> {
     check_zellij_running()?;
 
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
     let session = db
-        .get_blocking(session_name)?
+        .get(session_name).await?
         .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
 
     // Focus the session's tab first
-    run_command("zellij", &["action", "go-to-tab-name", &zellij_tab])?;
+    run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
 
     // Get pane list from Zellij
     let output = Command::new("zellij")
         .args(["action", "list-pane-ids"])
         .output()
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {e}"))?;
 
     if !output.status.success() {
@@ -270,23 +273,24 @@ pub fn pane_list(session_name: &str, options: &PaneListOptions) -> Result<()> {
 }
 
 /// Cycle to the next pane in a session
-pub fn pane_next(session_name: &str, options: &PaneNextOptions) -> Result<()> {
+pub async fn pane_next(session_name: &str, options: &PaneNextOptions) -> Result<()> {
     check_zellij_running()?;
 
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
     let session = db
-        .get_blocking(session_name)?
+        .get(session_name).await?
         .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
 
     // Focus the session's tab first
-    run_command("zellij", &["action", "go-to-tab-name", &zellij_tab])?;
+    run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
 
     // Move focus to next pane
     let output = Command::new("zellij")
         .args(["action", "move-focus-or-tab"])
         .output()
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {e}"))?;
 
     if !output.status.success() {
@@ -316,22 +320,22 @@ pub fn pane_next(session_name: &str, options: &PaneNextOptions) -> Result<()> {
 }
 
 /// Navigate in a direction within a session
-pub fn pane_navigate(
+pub async fn pane_navigate(
     session_name: &str,
     direction: Direction,
     options: &PaneFocusOptions,
 ) -> Result<()> {
     check_zellij_running()?;
 
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
     let session = db
-        .get_blocking(session_name)?
+        .get(session_name).await?
         .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
 
     // Focus the session's tab first
-    run_command("zellij", &["action", "go-to-tab-name", &zellij_tab])?;
+    run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
 
     // Move focus in the specified direction
     let direction_arg = direction.as_zellij_arg();
@@ -339,6 +343,7 @@ pub fn pane_navigate(
         .args(["action"])
         .arg(direction_arg)
         .output()
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to execute zellij: {e}"))?;
 
     if !output.status.success() {

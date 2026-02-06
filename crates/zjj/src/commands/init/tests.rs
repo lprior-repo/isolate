@@ -40,18 +40,15 @@ fn setup_test_jj_repo() -> Result<Option<TempDir>> {
     Ok(Some(temp_dir))
 }
 
-#[test]
-fn test_init_creates_zjj_directory() -> Result<()> {
+#[tokio::test]
+async fn test_init_creates_zjj_directory() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
     // Run init with temp directory as cwd
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
-
-    // Check result
-    result?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify .zjj directory was created (use absolute path)
     let zjj_path = temp_dir.path().join(".zjj");
@@ -61,15 +58,14 @@ fn test_init_creates_zjj_directory() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_init_creates_config_toml() -> Result<()> {
+#[tokio::test]
+async fn test_init_creates_config_toml() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
-    result?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify config.toml was created
     let config_path = temp_dir.path().join(".zjj/config.toml");
@@ -86,15 +82,14 @@ fn test_init_creates_config_toml() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_init_creates_state_db() -> Result<()> {
+#[tokio::test]
+async fn test_init_creates_state_db() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
-    result?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify state.db was created
     let db_path = temp_dir.path().join(".zjj/state.db");
@@ -102,22 +97,21 @@ fn test_init_creates_state_db() -> Result<()> {
     assert!(db_path.is_file(), "state.db is not a file");
 
     // Verify it's a valid SQLite database with correct schema
-    let db = SessionDb::open_blocking(&db_path)?;
-    let sessions = db.list_blocking(None)?;
+    let db = SessionDb::open(&db_path).await?;
+    let sessions = db.list(None).await?;
     assert_eq!(sessions.len(), 0); // Should be empty initially
 
     Ok(())
 }
 
-#[test]
-fn test_init_creates_layouts_directory() -> Result<()> {
+#[tokio::test]
+async fn test_init_creates_layouts_directory() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
-    result?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify layouts directory was created
     let layouts_path = temp_dir.path().join(".zjj/layouts");
@@ -127,26 +121,26 @@ fn test_init_creates_layouts_directory() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_init_handles_already_initialized() -> Result<()> {
+#[tokio::test]
+async fn test_init_handles_already_initialized() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
     // First init should succeed
-    let result1 = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
+    let result1 = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
     assert!(result1.is_ok());
 
     // Second init should not fail, just inform user
-    let result2 = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
+    let result2 = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
     assert!(result2.is_ok());
 
     Ok(())
 }
 
-#[test]
-fn test_init_auto_creates_jj_repo() -> Result<()> {
+#[tokio::test]
+async fn test_init_auto_creates_jj_repo() -> Result<()> {
     // This test verifies that if we're not in a JJ repo,
     // the init command will create one automatically
     if !jj_is_available() {
@@ -159,7 +153,7 @@ fn test_init_auto_creates_jj_repo() -> Result<()> {
     // Before JJ init, should not be a repo
     // After our init command runs, it will create a JJ repo automatically
     // So we just verify the automatic initialization works
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
+    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
 
     // Should succeed because init_jj_repo is called automatically
     assert!(result.is_ok());
@@ -368,14 +362,14 @@ fn test_init_no_panics_with_format() {
 // ============================================================================
 
 /// Test that init recreates config.toml when .zjj exists but config.toml is missing
-#[test]
-fn test_init_recreates_missing_config_toml() -> Result<()> {
+#[tokio::test]
+async fn test_init_recreates_missing_config_toml() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let config_path = temp_dir.path().join(".zjj/config.toml");
     assert!(config_path.exists(), "Initial config.toml should exist");
@@ -385,7 +379,7 @@ fn test_init_recreates_missing_config_toml() -> Result<()> {
     assert!(!config_path.exists(), "config.toml should be deleted");
 
     // Run init again - should recreate config.toml
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify config.toml was recreated
     assert!(config_path.exists(), "config.toml should be recreated");
@@ -399,14 +393,14 @@ fn test_init_recreates_missing_config_toml() -> Result<()> {
 }
 
 /// Test that init recreates state.db when .zjj exists but state.db is missing
-#[test]
-fn test_init_recreates_missing_state_db() -> Result<()> {
+#[tokio::test]
+async fn test_init_recreates_missing_state_db() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let db_path = temp_dir.path().join(".zjj/state.db");
     assert!(db_path.exists(), "Initial state.db should exist");
@@ -416,28 +410,28 @@ fn test_init_recreates_missing_state_db() -> Result<()> {
     assert!(!db_path.exists(), "state.db should be deleted");
 
     // Run init again - should recreate state.db
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify state.db was recreated
     assert!(db_path.exists(), "state.db should be recreated");
 
     // Verify it's a valid SQLite database
-    let db = SessionDb::open_blocking(&db_path)?;
-    let sessions = db.list_blocking(None)?;
+    let db = SessionDb::open(&db_path).await?;
+    let sessions = db.list(None).await?;
     assert_eq!(sessions.len(), 0);
 
     Ok(())
 }
 
 /// Test that init recreates layouts directory when .zjj exists but layouts is missing
-#[test]
-fn test_init_recreates_missing_layouts_dir() -> Result<()> {
+#[tokio::test]
+async fn test_init_recreates_missing_layouts_dir() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let layouts_path = temp_dir.path().join(".zjj/layouts");
     assert!(
@@ -453,7 +447,7 @@ fn test_init_recreates_missing_layouts_dir() -> Result<()> {
     );
 
     // Run init again - should recreate layouts directory
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify layouts directory was recreated
     assert!(
@@ -466,14 +460,14 @@ fn test_init_recreates_missing_layouts_dir() -> Result<()> {
 }
 
 /// Test that init recreates all missing components when .zjj exists but multiple files missing
-#[test]
-fn test_init_recreates_all_missing_components() -> Result<()> {
+#[tokio::test]
+async fn test_init_recreates_all_missing_components() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let config_path = temp_dir.path().join(".zjj/config.toml");
     let db_path = temp_dir.path().join(".zjj/state.db");
@@ -489,7 +483,7 @@ fn test_init_recreates_all_missing_components() -> Result<()> {
     assert!(!layouts_path.exists());
 
     // Run init again - should recreate everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify all components were recreated
     assert!(config_path.exists(), "config.toml should be recreated");
@@ -503,14 +497,14 @@ fn test_init_recreates_all_missing_components() -> Result<()> {
 }
 
 /// Test that init preserves existing config.toml when all files exist
-#[test]
-fn test_init_preserves_existing_config_toml() -> Result<()> {
+#[tokio::test]
+async fn test_init_preserves_existing_config_toml() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let config_path = temp_dir.path().join(".zjj/config.toml");
 
@@ -519,7 +513,7 @@ fn test_init_preserves_existing_config_toml() -> Result<()> {
     std::fs::write(&config_path, custom_content)?;
 
     // Run init again - should NOT overwrite existing config
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify config.toml was preserved
     let content = std::fs::read_to_string(&config_path)?;
@@ -535,14 +529,13 @@ fn test_init_preserves_existing_config_toml() -> Result<()> {
 
 /// RED: Test that init creates AGENTS.md from template
 /// Will fail until `create_agents_md` is integrated into init flow
-#[test]
-fn test_init_creates_agents_md() -> Result<()> {
+#[tokio::test]
+async fn test_init_creates_agents_md() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
-    result?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let agents_path = temp_dir.path().join("AGENTS.md");
     assert!(agents_path.exists(), "AGENTS.md was not created");
@@ -561,14 +554,13 @@ fn test_init_creates_agents_md() -> Result<()> {
 
 /// RED: Test that init creates CLAUDE.md from template
 /// Will fail until `create_claude_md` is integrated into init flow
-#[test]
-fn test_init_creates_claude_md() -> Result<()> {
+#[tokio::test]
+async fn test_init_creates_claude_md() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
-    result?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let claude_path = temp_dir.path().join("CLAUDE.md");
     assert!(claude_path.exists(), "CLAUDE.md was not created");
@@ -587,14 +579,13 @@ fn test_init_creates_claude_md() -> Result<()> {
 
 /// RED: Test that init creates documentation files from templates
 /// Will fail until `create_docs` is integrated into init flow
-#[test]
-fn test_init_creates_documentation_files() -> Result<()> {
+#[tokio::test]
+async fn test_init_creates_documentation_files() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default());
-    result?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let docs_dir = temp_dir.path().join("docs");
     assert!(docs_dir.exists(), "docs directory was not created");
@@ -619,14 +610,14 @@ fn test_init_creates_documentation_files() -> Result<()> {
 }
 
 /// RED: Test that init does not overwrite existing AGENTS.md
-#[test]
-fn test_init_preserves_existing_agents_md() -> Result<()> {
+#[tokio::test]
+async fn test_init_preserves_existing_agents_md() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
     // First init - creates AGENTS.md
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let agents_path = temp_dir.path().join("AGENTS.md");
 
@@ -635,7 +626,7 @@ fn test_init_preserves_existing_agents_md() -> Result<()> {
     std::fs::write(&agents_path, custom_content)?;
 
     // Second init - should NOT overwrite
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify custom content was preserved
     let content = std::fs::read_to_string(&agents_path)?;
@@ -648,14 +639,14 @@ fn test_init_preserves_existing_agents_md() -> Result<()> {
 }
 
 /// RED: Test that init does not overwrite existing CLAUDE.md
-#[test]
-fn test_init_preserves_existing_claude_md() -> Result<()> {
+#[tokio::test]
+async fn test_init_preserves_existing_claude_md() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
     // First init - creates CLAUDE.md
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let claude_path = temp_dir.path().join("CLAUDE.md");
 
@@ -664,7 +655,7 @@ fn test_init_preserves_existing_claude_md() -> Result<()> {
     std::fs::write(&claude_path, custom_content)?;
 
     // Second init - should NOT overwrite
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify custom content was preserved
     let content = std::fs::read_to_string(&claude_path)?;
@@ -677,14 +668,14 @@ fn test_init_preserves_existing_claude_md() -> Result<()> {
 }
 
 /// RED: Test that init does not overwrite existing documentation files
-#[test]
-fn test_init_preserves_existing_documentation_files() -> Result<()> {
+#[tokio::test]
+async fn test_init_preserves_existing_documentation_files() -> Result<()> {
     let Some(temp_dir) = setup_test_jj_repo()? else {
         return Ok(());
     };
 
     // First init - creates documentation files
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     let docs_dir = temp_dir.path().join("docs");
     let error_handling_path = docs_dir.join("01_ERROR_HANDLING.md");
@@ -694,7 +685,7 @@ fn test_init_preserves_existing_documentation_files() -> Result<()> {
     std::fs::write(&error_handling_path, custom_content)?;
 
     // Second init - should NOT overwrite
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default())?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
     // Verify custom content was preserved
     let content = std::fs::read_to_string(&error_handling_path)?;

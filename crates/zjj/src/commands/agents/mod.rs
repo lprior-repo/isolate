@@ -30,13 +30,7 @@ use self::types::{
 /// - Agents table does not exist
 /// - Locks table does not exist
 /// - Query fails
-pub fn run(args: &AgentsArgs, format: OutputFormat) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
-    runtime.block_on(async { run_async(args, format).await })
-}
-
-/// Async implementation of the agents command
-async fn run_async(args: &AgentsArgs, format: OutputFormat) -> Result<()> {
+pub async fn run(args: &AgentsArgs, format: OutputFormat) -> Result<()> {
     // Get database connection
     let pool = get_db_pool().await?;
 
@@ -72,7 +66,7 @@ async fn run_async(args: &AgentsArgs, format: OutputFormat) -> Result<()> {
 
 /// Get database pool from session database
 async fn get_db_pool() -> Result<SqlitePool> {
-    let data_dir = crate::commands::zjj_data_dir()?;
+    let data_dir = crate::commands::zjj_data_dir().await?;
     let db_path = data_dir.join("state.db");
 
     // Check if database exists
@@ -257,12 +251,7 @@ fn print_human_readable(output: &AgentsOutput) {
 /// # Errors
 ///
 /// Returns error if database access fails
-pub fn run_register(args: &RegisterArgs, format: OutputFormat) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
-    runtime.block_on(async { run_register_async(args, format).await })
-}
-
-async fn run_register_async(args: &RegisterArgs, format: OutputFormat) -> Result<()> {
+pub async fn run_register(args: &RegisterArgs, format: OutputFormat) -> Result<()> {
     let pool = get_db_pool().await?;
 
     // Generate agent ID if not provided
@@ -315,12 +304,7 @@ async fn run_register_async(args: &RegisterArgs, format: OutputFormat) -> Result
 /// # Errors
 ///
 /// Returns error if no agent ID set or database access fails
-pub fn run_heartbeat(args: &HeartbeatArgs, format: OutputFormat) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
-    runtime.block_on(async { run_heartbeat_async(args, format).await })
-}
-
-async fn run_heartbeat_async(args: &HeartbeatArgs, format: OutputFormat) -> Result<()> {
+pub async fn run_heartbeat(args: &HeartbeatArgs, format: OutputFormat) -> Result<()> {
     let agent_id = std::env::var("ZJJ_AGENT_ID").map_err(|_| {
         anyhow::anyhow!("No agent registered. Set ZJJ_AGENT_ID or run 'zjj agent register'")
     })?;
@@ -372,12 +356,7 @@ async fn run_heartbeat_async(args: &HeartbeatArgs, format: OutputFormat) -> Resu
 /// # Errors
 ///
 /// Returns error if database access fails
-pub fn run_status(format: OutputFormat) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
-    runtime.block_on(async { run_status_async(format).await })
-}
-
-async fn run_status_async(format: OutputFormat) -> Result<()> {
+pub async fn run_status(format: OutputFormat) -> Result<()> {
     let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
 
     let output = if let Some(ref id) = agent_id {
@@ -461,12 +440,7 @@ async fn run_status_async(format: OutputFormat) -> Result<()> {
 /// # Errors
 ///
 /// Returns error if no agent ID or database access fails
-pub fn run_unregister(args: &UnregisterArgs, format: OutputFormat) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
-    runtime.block_on(async { run_unregister_async(args, format).await })
-}
-
-async fn run_unregister_async(args: &UnregisterArgs, format: OutputFormat) -> Result<()> {
+pub async fn run_unregister(args: &UnregisterArgs, format: OutputFormat) -> Result<()> {
     let agent_id = args
         .agent_id
         .clone()

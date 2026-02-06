@@ -57,8 +57,8 @@ pub enum TemplateSource {
 /// # Errors
 ///
 /// Returns error if unable to read templates directory or list templates
-pub fn run_list(format: OutputFormat) -> Result<()> {
-    let data_dir = zjj_data_dir()?;
+pub async fn run_list(format: OutputFormat) -> Result<()> {
+    let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
     let templates = storage::list_templates(&templates_base)?;
@@ -104,8 +104,8 @@ pub fn run_list(format: OutputFormat) -> Result<()> {
 /// # Errors
 ///
 /// Returns error if unable to create template or write to storage
-pub fn run_create(options: &CreateOptions) -> Result<()> {
-    let data_dir = zjj_data_dir()?;
+pub async fn run_create(options: &CreateOptions) -> Result<()> {
+    let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
     // Check if template already exists
@@ -165,8 +165,8 @@ fn generate_builtin_layout(template_type: LayoutTemplate, name: &str) -> Result<
 /// # Errors
 ///
 /// Returns error if template not found or unable to read template
-pub fn run_show(name: &str, format: OutputFormat) -> Result<()> {
-    let data_dir = zjj_data_dir()?;
+pub async fn run_show(name: &str, format: OutputFormat) -> Result<()> {
+    let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
     let template = storage::load_template(name, &templates_base)?;
@@ -207,8 +207,8 @@ pub fn run_show(name: &str, format: OutputFormat) -> Result<()> {
 /// # Errors
 ///
 /// Returns error if template not found or unable to delete
-pub fn run_delete(name: &str, force: bool, format: OutputFormat) -> Result<()> {
-    let data_dir = zjj_data_dir()?;
+pub async fn run_delete(name: &str, force: bool, format: OutputFormat) -> Result<()> {
+    let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
     // Confirm deletion unless --force

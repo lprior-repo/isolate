@@ -37,12 +37,12 @@ pub struct PauseResult {
 }
 
 /// Run the pause command
-pub fn run_pause(options: &PauseOptions) -> Result<()> {
-    let db = get_session_db()?;
+pub async fn run_pause(options: &PauseOptions) -> Result<()> {
+    let db = get_session_db().await?;
 
     // Check session exists
     let session = db
-        .get_blocking(&options.session)?
+        .get(&options.session).await?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", &options.session))?;
 
     let prev_status = session.status.to_string();
@@ -55,7 +55,7 @@ pub fn run_pause(options: &PauseOptions) -> Result<()> {
         last_synced: None,
         metadata: None,
     };
-    db.update_blocking(&options.session, update)?;
+    db.update(&options.session, update).await?;
 
     let result = PauseResult {
         success: true,
@@ -100,12 +100,12 @@ pub struct ResumeResult {
 }
 
 /// Run the resume command
-pub fn run_resume(options: &ResumeOptions) -> Result<()> {
-    let db = get_session_db()?;
+pub async fn run_resume(options: &ResumeOptions) -> Result<()> {
+    let db = get_session_db().await?;
 
     // Check session exists
     let session = db
-        .get_blocking(&options.session)?
+        .get(&options.session).await?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", &options.session))?;
 
     if session.status != SessionStatus::Paused {
@@ -136,7 +136,7 @@ pub fn run_resume(options: &ResumeOptions) -> Result<()> {
         last_synced: None,
         metadata: None,
     };
-    db.update_blocking(&options.session, update)?;
+    db.update(&options.session, update).await?;
 
     let result = ResumeResult {
         success: true,
@@ -192,16 +192,16 @@ pub struct CloneResult {
 
 /// Run the clone command
 #[allow(clippy::too_many_lines)]
-pub fn run_clone(options: &CloneOptions) -> Result<()> {
-    let db = get_session_db()?;
+pub async fn run_clone(options: &CloneOptions) -> Result<()> {
+    let db = get_session_db().await?;
 
     // Check source exists
     let source_session = db
-        .get_blocking(&options.source)?
+        .get(&options.source).await?
         .ok_or_else(|| anyhow::anyhow!("Source session '{}' not found", &options.source))?;
 
     // Check target doesn't exist
-    if db.get_blocking(&options.target)?.is_some() {
+    if db.get(&options.target).await?.is_some() {
         let result = CloneResult {
             success: false,
             source: options.source.clone(),
@@ -257,31 +257,20 @@ pub fn run_clone(options: &CloneOptions) -> Result<()> {
         let new_path = source_path.parent().map(|p| p.join(&options.target));
 
         if let Some(new_path) = &new_path {
-            let Some(new_path_str) = new_path.to_str() else {
-                anyhow::bail!("Invalid workspace path (non-UTF8)");
-            };
-            // Use jj to create a new workspace at the same commit
-            let output = std::process::Command::new("jj")
-                .args(["workspace", "add", new_path_str])
-                .current_dir(source_path)
-                .output()?;
-
-            if !output.status.success() {
-                anyhow::bail!(
-                    "Failed to create workspace: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                );
-            }
+            // Use zjj_core to create workspace (async)
+            zjj_core::jj::workspace_create(&options.target, new_path).await.map_err(|e| {
+                anyhow::anyhow!("Failed to create workspace: {e}")
+            })?;
         }
 
         new_path.map(|p| p.to_string_lossy().to_string())
     };
 
     // Create session in database
-    db.create_blocking(
+    db.create(
         &options.target,
         new_workspace_path.as_deref().map_or("", |value| value),
-    )?;
+    ).await?;
 
     let result = CloneResult {
         success: true,

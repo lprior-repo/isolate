@@ -90,22 +90,22 @@ impl std::fmt::Display for BeadStats {
 }
 
 /// Run the status command
-pub fn run(name: Option<&str>, format: OutputFormat, watch: bool) -> Result<()> {
+pub async fn run(name: Option<&str>, format: OutputFormat, watch: bool) -> Result<()> {
     if watch {
-        run_watch_mode(name, format)
+        run_watch_mode(name, format).await
     } else {
-        run_once(name, format)
+        run_once(name, format).await
     }
 }
 
 /// Run status once
-fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
-    let db = get_session_db()?;
+async fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
+    let db = get_session_db().await?;
 
     let sessions = if let Some(session_name) = name {
         // Get single session
         // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-        let session = db.get_blocking(session_name)?.ok_or_else(|| {
+        let session = db.get(session_name).await?.ok_or_else(|| {
             anyhow::Error::new(zjj_core::Error::NotFound(format!(
                 "Session '{session_name}' not found"
             )))
@@ -113,7 +113,7 @@ fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
         vec![session]
     } else {
         // Get all sessions
-        db.list_blocking(None)?
+        db.list(None).await?
     };
 
     if sessions.is_empty() {
@@ -138,15 +138,24 @@ fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
     }
 
     // Gather status for all sessions
-    let statuses: Vec<SessionStatusInfo> = sessions
-        .into_iter()
-        .map(|session| gather_session_status(&session))
-        .collect::<Result<Vec<_>>>()?;
+    let mut statuses = Vec::new();
+    for session in sessions {
+        statuses.push(gather_session_status(&session).await?);
+    }
 
     if format.is_json() {
         output_json(&statuses)?;
     } else {
-        output_table(&statuses);
+        // Detect current workspace location (handle errors gracefully)
+        let current_location = zjj_core::jj::check_in_jj_repo().await
+            .ok()
+            .and_then(|root| crate::commands::context::detect_location(&root).ok())
+            .and_then(|loc| match loc {
+                crate::commands::context::Location::Workspace { name, .. } => Some(name),
+                crate::commands::context::Location::Main => None,
+            });
+
+        output_table(&statuses, current_location.as_deref());
         // Workflow summary
         let active_count = statuses.iter().filter(|s| s.status == "active").count();
         if active_count > 0 {
@@ -161,43 +170,43 @@ fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
 }
 
 /// Run status in watch mode (continuous updates)
-fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<()> {
-    use std::{io::Write, thread, time::Duration};
+pub async fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<()> {
+    use std::io::Write;
 
     loop {
         // Clear screen (ANSI escape code)
         if format.is_human() {
             print!("\x1B[2J\x1B[1;1H");
-            std::io::stdout().flush()?;
+            let _ = std::io::stdout().flush();
         }
 
         // Run status once
-        if let Err(e) = run_once(name, format) {
+        if let Err(e) = run_once(name, format).await {
             if format.is_human() {
                 eprintln!("Error: {e}");
             }
         }
 
         // Wait 1 second
-        thread::sleep(Duration::from_secs(1));
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
 }
 
 /// Gather detailed status for a session
-fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
+pub async fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
     let workspace_path = Path::new(&session.workspace_path);
 
     // Get file changes
-    let changes = get_file_changes(workspace_path);
+    let changes = get_file_changes(workspace_path).await;
 
     // Get diff stats
-    let diff_stats = get_diff_stats(workspace_path);
+    let diff_stats = get_diff_stats(workspace_path).await;
 
     // Get beads stats
-    let beads = get_beads_stats()?;
+    let beads = get_beads_stats().await?;
 
     // Query Zellij for tab status
-    let zellij_status = zjj_core::zellij::check_tab_exists(&session.zellij_tab);
+    let zellij_status = zjj_core::zellij::check_tab_exists(&session.zellij_tab).await;
 
     // Note: Clones here are necessary because SessionStatusInfo owns its data
     // Future optimization: Consider Arc<Session> or Cow<str> for shared ownership
@@ -215,12 +224,12 @@ fn gather_session_status(session: &Session) -> Result<SessionStatusInfo> {
 }
 
 /// Get file changes from JJ status
-fn get_file_changes(workspace_path: &Path) -> FileChanges {
+async fn get_file_changes(workspace_path: &Path) -> FileChanges {
     if !workspace_path.exists() {
         return FileChanges::default();
     }
 
-    match zjj_core::jj::workspace_status(workspace_path) {
+    match zjj_core::jj::workspace_status(workspace_path).await {
         Ok(status) => FileChanges {
             modified: status.modified.len(),
             added: status.added.len(),
@@ -233,12 +242,12 @@ fn get_file_changes(workspace_path: &Path) -> FileChanges {
 }
 
 /// Get diff statistics from JJ diff
-fn get_diff_stats(workspace_path: &Path) -> DiffStats {
+async fn get_diff_stats(workspace_path: &Path) -> DiffStats {
     if !workspace_path.exists() {
         return DiffStats::default();
     }
 
-    zjj_core::jj::workspace_diff(workspace_path).map_or_else(
+    zjj_core::jj::workspace_diff(workspace_path).await.map_or_else(
         |_| DiffStats::default(),
         |summary| DiffStats {
             insertions: summary.insertions,
@@ -248,9 +257,9 @@ fn get_diff_stats(workspace_path: &Path) -> DiffStats {
 }
 
 /// Get beads statistics from the repository's beads database
-fn get_beads_stats() -> Result<BeadStats> {
+async fn get_beads_stats() -> Result<BeadStats> {
     // Find repository root
-    let repo_root = zjj_core::jj::check_in_jj_repo().ok();
+    let repo_root = zjj_core::jj::check_in_jj_repo().await.ok();
 
     let Some(root) = repo_root else {
         return Ok(BeadStats::default());
@@ -262,36 +271,26 @@ fn get_beads_stats() -> Result<BeadStats> {
         return Ok(BeadStats::default());
     }
 
-    // Use sqlx to query the beads database synchronously
-    // We create a runtime and block on the async operation
-    let rt = tokio::runtime::Runtime::new().map_err(|e| {
-        anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-            "Failed to create runtime: {e}"
-        )))
-    })?;
+    let connection_string = format!("sqlite:{}", beads_db_path.display());
+    let pool = sqlx::SqlitePool::connect(&connection_string)
+        .await
+        .map_err(|e| {
+            anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+                "Failed to open beads database: {e}"
+            )))
+        })?;
 
-    rt.block_on(async {
-        let connection_string = format!("sqlite:{}", beads_db_path.display());
-        let pool = sqlx::SqlitePool::connect(&connection_string)
-            .await
-            .map_err(|e| {
-                anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-                    "Failed to open beads database: {e}"
-                )))
-            })?;
+    // Count issues by status using parameterized queries
+    let open = count_issues_by_status(&pool, "open").await?;
+    let in_progress = count_issues_by_status(&pool, "in_progress").await?;
+    let blocked = count_issues_by_status(&pool, "blocked").await?;
+    let closed = count_issues_by_status(&pool, "closed").await?;
 
-        // Count issues by status using parameterized queries
-        let open = count_issues_by_status(&pool, "open").await?;
-        let in_progress = count_issues_by_status(&pool, "in_progress").await?;
-        let blocked = count_issues_by_status(&pool, "blocked").await?;
-        let closed = count_issues_by_status(&pool, "closed").await?;
-
-        Result::<_, anyhow::Error>::Ok(BeadStats {
-            open,
-            in_progress,
-            blocked,
-            closed,
-        })
+    Ok(BeadStats {
+        open,
+        in_progress,
+        blocked,
+        closed,
     })
 }
 
@@ -320,18 +319,9 @@ struct StatusResponseData {
 }
 
 /// Output sessions as formatted table
-fn output_table(items: &[SessionStatusInfo]) {
+fn output_table(items: &[SessionStatusInfo], current_location: Option<&str>) {
     // Detect TTY for formatting choice
     let is_tty = atty::is(atty::Stream::Stdout);
-
-    // Detect current workspace location (handle errors gracefully)
-    let current_location = zjj_core::jj::check_in_jj_repo()
-        .ok()
-        .and_then(|root| crate::commands::context::detect_location(&root).ok())
-        .and_then(|loc| match loc {
-            crate::commands::context::Location::Workspace { name, .. } => Some(name),
-            crate::commands::context::Location::Main => None,
-        });
 
     // Display table header
     if is_tty {
@@ -352,7 +342,6 @@ fn output_table(items: &[SessionStatusInfo]) {
     // Display table rows
     for item in items {
         let is_current = current_location
-            .as_ref()
             .is_some_and(|current| current == &item.name);
 
         let marker = if is_current { "▶" } else { " " };
@@ -572,7 +561,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_file_changes_missing_workspace() {
-        let result = get_file_changes(Path::new("/nonexistent/path"));
+        let result = get_file_changes(Path::new("/nonexistent/path")).await;
         assert_eq!(result.modified, 0);
         assert_eq!(result.added, 0);
         assert_eq!(result.deleted, 0);
@@ -581,7 +570,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_diff_stats_missing_workspace() {
-        let result = get_diff_stats(Path::new("/nonexistent/path"));
+        let result = get_diff_stats(Path::new("/nonexistent/path")).await;
         assert_eq!(result.insertions, 0);
         assert_eq!(result.deletions, 0);
     }
@@ -629,7 +618,7 @@ mod tests {
         }];
 
         // This test just verifies the function doesn't panic
-        output_table(&items);
+        output_table(&items, None);
     }
 
     #[tokio::test]

@@ -344,27 +344,21 @@ fn make_skipped_result(operation: &BatchOperation, reason: &str) -> BatchItemRes
 
 /// Execute a command synchronously and capture output.
 async fn execute_command(command: &str, args: &[String]) -> Result<String> {
-    let command = command.to_string();
-    let args = args.to_vec();
-    tokio::task::spawn_blocking(move || {
-        std::process::Command::new("zjj")
-            .arg(&command)
-            .args(&args)
-            .output()
-            .map_err(|e| Error::Command(format!("Failed to execute: {e}")))
-            .and_then(|output| {
-                if output.status.success() {
-                    Ok(String::from_utf8_lossy(&output.stdout).to_string())
-                } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    let error_msg = if stderr.is_empty() { stdout } else { stderr };
-                    Err(Error::Command(error_msg.to_string()))
-                }
-            })
-    })
-    .await
-    .map_err(|e| Error::Command(format!("Task join error: {e}")))?
+    let output = tokio::process::Command::new("zjj")
+        .arg(command)
+        .args(args)
+        .output()
+        .await
+        .map_err(|e| Error::Command(format!("Failed to execute: {e}")))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg = if stderr.is_empty() { stdout } else { stderr };
+        Err(Error::Command(error_msg.to_string()))
+    }
 }
 
 /// Convert Duration to milliseconds, clamping to u64 range.

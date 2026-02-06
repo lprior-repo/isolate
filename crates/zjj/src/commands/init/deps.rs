@@ -6,18 +6,19 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
+use tokio::process::Command;
 
 use crate::cli::{is_jj_installed, is_zellij_installed};
 
 /// Check that required dependencies are installed
-pub(super) fn check_dependencies() -> Result<()> {
+pub(super) async fn check_dependencies() -> Result<()> {
     let mut missing = Vec::new();
 
-    if !is_jj_installed() {
+    if !is_jj_installed().await {
         missing.push("jj (Jujutsu)");
     }
 
-    if !is_zellij_installed() {
+    if !is_zellij_installed().await {
         missing.push("zellij");
     }
 
@@ -51,24 +52,25 @@ pub(super) fn check_dependencies() -> Result<()> {
 }
 
 /// Ensure we're in a JJ repository, initializing one if needed with a specific cwd
-pub(super) fn ensure_jj_repo_with_cwd(cwd: &Path) -> Result<()> {
-    if is_jj_repo_with_cwd(cwd)? {
+pub(super) async fn ensure_jj_repo_with_cwd(cwd: &Path) -> Result<()> {
+    if is_jj_repo_with_cwd(cwd).await? {
         return Ok(());
     }
 
     println!("No JJ repository found. Initializing one...");
-    init_jj_repo_with_cwd(cwd)?;
+    init_jj_repo_with_cwd(cwd).await?;
     println!("Initialized JJ repository.");
 
     Ok(())
 }
 
 /// Get the JJ root using a specific working directory
-pub(super) fn jj_root_with_cwd(cwd: &Path) -> Result<PathBuf> {
-    let output = std::process::Command::new("jj")
+pub(super) async fn jj_root_with_cwd(cwd: &Path) -> Result<PathBuf> {
+    let output = Command::new("jj")
         .args(["root"])
         .current_dir(cwd)
         .output()
+        .await
         .context("Failed to run jj root")?;
 
     if !output.status.success() {
@@ -80,21 +82,23 @@ pub(super) fn jj_root_with_cwd(cwd: &Path) -> Result<PathBuf> {
 }
 
 /// Check if we're in a JJ repo using a specific cwd
-fn is_jj_repo_with_cwd(cwd: &Path) -> Result<bool> {
-    let output = std::process::Command::new("jj")
+async fn is_jj_repo_with_cwd(cwd: &Path) -> Result<bool> {
+    let output = Command::new("jj")
         .args(["status"])
         .current_dir(cwd)
-        .output()?;
+        .output()
+        .await?;
 
     Ok(output.status.success())
 }
 
 /// Initialize a JJ repo using a specific cwd
-fn init_jj_repo_with_cwd(cwd: &Path) -> Result<()> {
-    let output = std::process::Command::new("jj")
+async fn init_jj_repo_with_cwd(cwd: &Path) -> Result<()> {
+    let output = Command::new("jj")
         .args(["git", "init"])
         .current_dir(cwd)
         .output()
+        .await
         .context("Failed to run jj git init")?;
 
     if !output.status.success() {

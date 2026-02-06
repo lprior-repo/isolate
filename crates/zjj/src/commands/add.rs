@@ -29,9 +29,9 @@ use crate::{
 
 /// Run the add command
 #[allow(dead_code)]
-pub fn run(name: &str) -> Result<()> {
+pub async fn run(name: &str) -> Result<()> {
     let options = AddOptions::new(name.to_string());
-    run_with_options(&options)
+    run_with_options(&options).await
 }
 
 /// Run the add command internally without output (for use by work command)
@@ -39,20 +39,20 @@ pub fn run(name: &str) -> Result<()> {
 /// # Errors
 ///
 /// Returns an error if session creation fails
-pub fn run_internal(options: &AddOptions) -> Result<()> {
+pub async fn run_internal(options: &AddOptions) -> Result<()> {
     // Validate session name (REQ-CLI-015)
     validate_session_name(&options.name).map_err(anyhow::Error::new)?;
 
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
 
     // Check if session already exists (REQ-ERR-004)
-    if db.get_blocking(&options.name)?.is_some() {
+    if db.get(&options.name).await?.is_some() {
         return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
             format!("Session '{}' already exists", options.name),
         )));
     }
 
-    let root = check_prerequisites()?;
+    let root = check_prerequisites().await?;
 
     // Query bead metadata if bead_id provided
     let bead_metadata = options
@@ -70,30 +70,31 @@ pub fn run_internal(options: &AddOptions) -> Result<()> {
     let workspace_path_str = workspace_path.display().to_string();
 
     // ATOMIC SESSION CREATION
-    atomic_create_session(&options.name, &workspace_path, &db, bead_metadata)?;
+    atomic_create_session(&options.name, &workspace_path, &db, bead_metadata).await?;
 
     // Execute post_create hooks unless --no-hooks
     if !options.no_hooks {
-        if let Err(e) = execute_post_create_hooks(&workspace_path_str) {
-            let _ = db.update_blocking(
+        if let Err(e) = execute_post_create_hooks(&workspace_path_str).await {
+            let _ = db.update(
                 &options.name,
                 SessionUpdate {
                     status: Some(SessionStatus::Failed),
                     ..Default::default()
                 },
-            );
+            ).await;
             return Err(e).context("post_create hook failed");
         }
     }
 
     // Transition to 'active' status
-    db.update_blocking(
+    db.update(
         &options.name,
         SessionUpdate {
             status: Some(SessionStatus::Active),
             ..Default::default()
         },
     )
+    .await
     .context("Failed to activate session")?;
 
     Ok(())
@@ -101,13 +102,13 @@ pub fn run_internal(options: &AddOptions) -> Result<()> {
 
 /// Run the add command with options
 #[allow(clippy::too_many_lines)]
-pub fn run_with_options(options: &AddOptions) -> Result<()> {
+pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     // Validate session name (REQ-CLI-015)
     // Map zjj_core::Error to anyhow::Error while preserving the original error
     validate_session_name(&options.name).map_err(anyhow::Error::new)?;
 
-    let db = get_session_db()?;
-    let root = check_prerequisites()?;
+    let db = get_session_db().await?;
+    let root = check_prerequisites().await?;
 
     // Query bead metadata if bead_id provided
     let bead_metadata = options
@@ -123,7 +124,7 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     let workspace_path_str = workspace_path.display().to_string();
 
     // Check if session already exists
-    if let Some(existing) = db.get_blocking(&options.name)? {
+    if let Some(existing) = db.get(&options.name).await? {
         if options.idempotent {
             // Idempotent mode: return success with existing session info
             output_result(
@@ -171,26 +172,27 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
 
     // ATOMIC SESSION CREATION (zjj-bw0x)
     // Order: DB first (detectable), then workspace (cleanable)
-    atomic_create_session(&options.name, &workspace_path, &db, bead_metadata)?;
+    atomic_create_session(&options.name, &workspace_path, &db, bead_metadata).await?;
 
     let mut session = db
-        .get_blocking(&options.name)?
+        .get(&options.name)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Session record lost during atomic creation"))?;
 
     // Execute post_create hooks unless --no-hooks (REQ-CLI-004, REQ-CLI-005)
     // COMPENSATING ACTION: If this fails, session has 'creating' status in DB
     // Recovery: User can retry with 'zjj done' to complete or 'zjj remove' to clean up
     if !options.no_hooks {
-        if let Err(e) = execute_post_create_hooks(&workspace_path_str) {
+        if let Err(e) = execute_post_create_hooks(&workspace_path_str).await {
             // Hook failure → status 'failed' (REQ-HOOKS-003)
             // Attempt to mark session as failed (may also fail)
-            let _ = db.update_blocking(
+            let _ = db.update(
                 &options.name,
                 SessionUpdate {
                     status: Some(SessionStatus::Failed),
                     ..Default::default()
                 },
-            );
+            ).await;
             return Err(e).context("post_create hook failed");
         }
     }
@@ -198,13 +200,13 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
     // Transition to 'active' status after successful creation (REQ-STATE-004)
     // COMPENSATING ACTION: If this fails, session has 'creating' status in DB
     // Recovery: User can retry with 'zjj done' to complete or 'zjj remove' to clean up
-    match db.update_blocking(
+    match db.update(
         &options.name,
         SessionUpdate {
             status: Some(SessionStatus::Active),
             ..Default::default()
         },
-    ) {
+    ).await {
         Ok(()) => {
             session.status = SessionStatus::Active;
         }
@@ -232,7 +234,7 @@ pub fn run_with_options(options: &AddOptions) -> Result<()> {
             &session.zellij_tab,
             &workspace_path_str,
             options.template.as_deref(),
-        )?;
+        ).await?;
         output_result(
             &options.name,
             &workspace_path_str,

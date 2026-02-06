@@ -31,17 +31,17 @@ pub struct RemoveOptions {
 
 /// Run the remove command
 #[allow(dead_code)]
-pub fn run(name: &str) -> Result<()> {
-    run_with_options(name, &RemoveOptions::default())
+pub async fn run(name: &str) -> Result<()> {
+    run_with_options(name, &RemoveOptions::default()).await
 }
 
 /// Run the remove command with options
-pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
-    let db = get_session_db()?;
+pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
+    let db = get_session_db().await?;
 
     // Get the session
     // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-    let session = db.get_blocking(name)?.ok_or_else(|| {
+    let session = db.get(name).await?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{name}' not found"
         )))
@@ -76,11 +76,11 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     // Close Zellij tab if inside Zellij
     if is_inside_zellij() {
         // Try to close the tab - ignore errors if tab doesn't exist
-        let _ = close_zellij_tab(&session.zellij_tab);
+        let _ = close_zellij_tab(&session.zellij_tab).await;
     }
 
     // Remove JJ workspace (this removes the workspace from JJ's tracking)
-    let workspace_result = run_command("jj", &["workspace", "forget", name]);
+    let workspace_result = run_command("jj", &["workspace", "forget", name]).await;
     if let Err(e) = workspace_result {
         tracing::warn!("Failed to forget JJ workspace: {e}");
     }
@@ -92,7 +92,7 @@ pub fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     }
 
     // Remove from database
-    db.delete_blocking(name)?;
+    db.delete(name).await?;
 
     if options.format.is_json() {
         let output = RemoveOutput {
@@ -141,12 +141,14 @@ fn merge_to_main(_name: &str, _workspace_path: &str) -> Result<()> {
 }
 
 /// Close a Zellij tab by name
-fn close_zellij_tab(tab_name: &str) -> Result<()> {
+async fn close_zellij_tab(tab_name: &str) -> Result<()> {
     // First, go to the tab
     run_command("zellij", &["action", "go-to-tab-name", tab_name])
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to switch to tab: {e}"))?;
     // Then close it
     run_command("zellij", &["action", "close-tab"])
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to close tab: {e}"))?;
     Ok(())
 }

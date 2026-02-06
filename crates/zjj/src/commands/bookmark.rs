@@ -105,8 +105,8 @@ pub struct MoveOptions {
 /// - Session not found
 /// - Workspace path doesn't exist
 /// - JJ command fails
-pub fn list(options: &ListOptions) -> Result<Vec<BookmarkInfo>> {
-    let workspace_path = resolve_workspace_path(options.session.as_deref())?;
+pub async fn list(options: &ListOptions) -> Result<Vec<BookmarkInfo>> {
+    let workspace_path = resolve_workspace_path(options.session.as_deref()).await?;
 
     // Build JJ command
     let mut cmd = Command::new("jj");
@@ -137,16 +137,16 @@ pub fn list(options: &ListOptions) -> Result<Vec<BookmarkInfo>> {
 /// - Session not found
 /// - Workspace path doesn't exist
 /// - JJ command fails
-pub fn create(options: &CreateOptions) -> Result<BookmarkInfo> {
+pub async fn create(options: &CreateOptions) -> Result<BookmarkInfo> {
     validate_bookmark_name(&options.name)?;
-    let workspace_path = resolve_workspace_path(options.session.as_deref())?;
+    let workspace_path = resolve_workspace_path(options.session.as_deref()).await?;
 
     // Check if bookmark already exists
     let existing = list(&ListOptions {
         session: options.session.clone(),
         show_all: false,
         format: options.format,
-    })?;
+    }).await?;
 
     if existing.iter().any(|b| b.name == options.name) {
         return Err(BookmarkError::AlreadyExists(options.name.clone()).into());
@@ -191,16 +191,16 @@ pub fn create(options: &CreateOptions) -> Result<BookmarkInfo> {
 /// - Session not found
 /// - Workspace path doesn't exist
 /// - JJ command fails
-pub fn delete(options: &DeleteOptions) -> Result<()> {
+pub async fn delete(options: &DeleteOptions) -> Result<()> {
     validate_bookmark_name(&options.name)?;
-    let workspace_path = resolve_workspace_path(options.session.as_deref())?;
+    let workspace_path = resolve_workspace_path(options.session.as_deref()).await?;
 
     // Check if bookmark exists
     let existing = list(&ListOptions {
         session: options.session.clone(),
         show_all: false,
         format: options.format,
-    })?;
+    }).await?;
 
     if !existing.iter().any(|b| b.name == options.name) {
         return Err(BookmarkError::NotFound(options.name.clone()).into());
@@ -234,9 +234,9 @@ pub fn delete(options: &DeleteOptions) -> Result<()> {
 /// - Session not found
 /// - Workspace path doesn't exist
 /// - JJ command fails
-pub fn move_bookmark(options: &MoveOptions) -> Result<BookmarkInfo> {
+pub async fn move_bookmark(options: &MoveOptions) -> Result<BookmarkInfo> {
     validate_bookmark_name(&options.name)?;
-    let workspace_path = resolve_workspace_path(options.session.as_deref())?;
+    let workspace_path = resolve_workspace_path(options.session.as_deref()).await?;
 
     // Build JJ command
     let mut cmd = Command::new("jj");
@@ -265,9 +265,9 @@ pub fn move_bookmark(options: &MoveOptions) -> Result<BookmarkInfo> {
 }
 
 /// Run the bookmark list command
-pub fn run_list(options: &ListOptions) -> Result<()> {
-    let result = (|| -> Result<()> {
-        let bookmarks = list(options)?;
+pub async fn run_list(options: &ListOptions) -> Result<()> {
+    let result = async {
+        let bookmarks = list(options).await?;
 
         if options.format.is_json() {
             let envelope = SchemaEnvelope::new("bookmark-list-response", "array", bookmarks);
@@ -286,7 +286,8 @@ pub fn run_list(options: &ListOptions) -> Result<()> {
         }
 
         Ok(())
-    })();
+    }
+    .await;
 
     if let Err(e) = result {
         if options.format.is_json() {
@@ -300,9 +301,9 @@ pub fn run_list(options: &ListOptions) -> Result<()> {
 }
 
 /// Run the bookmark create command
-pub fn run_create(options: &CreateOptions) -> Result<()> {
-    let result = (|| -> Result<()> {
-        let bookmark = create(options)?;
+pub async fn run_create(options: &CreateOptions) -> Result<()> {
+    let result = async {
+        let bookmark = create(options).await?;
 
         if options.format.is_json() {
             #[derive(Serialize)]
@@ -331,7 +332,8 @@ pub fn run_create(options: &CreateOptions) -> Result<()> {
         }
 
         Ok(())
-    })();
+    }
+    .await;
 
     if let Err(e) = result {
         if options.format.is_json() {
@@ -345,9 +347,9 @@ pub fn run_create(options: &CreateOptions) -> Result<()> {
 }
 
 /// Run the bookmark delete command
-pub fn run_delete(options: &DeleteOptions) -> Result<()> {
-    let result = (|| -> Result<()> {
-        delete(options)?;
+pub async fn run_delete(options: &DeleteOptions) -> Result<()> {
+    let result = async {
+        delete(options).await?;
 
         if options.format.is_json() {
             #[derive(Serialize)]
@@ -368,7 +370,8 @@ pub fn run_delete(options: &DeleteOptions) -> Result<()> {
         }
 
         Ok(())
-    })();
+    }
+    .await;
 
     if let Err(e) = result {
         if options.format.is_json() {
@@ -388,9 +391,9 @@ pub fn run_delete(options: &DeleteOptions) -> Result<()> {
 }
 
 /// Run the bookmark move command
-pub fn run_move(options: &MoveOptions) -> Result<()> {
-    let result = (|| -> Result<()> {
-        let bookmark = move_bookmark(options)?;
+pub async fn run_move(options: &MoveOptions) -> Result<()> {
+    let result = async {
+        let bookmark = move_bookmark(options).await?;
 
         if options.format.is_json() {
             #[derive(Serialize)]
@@ -416,7 +419,8 @@ pub fn run_move(options: &MoveOptions) -> Result<()> {
         }
 
         Ok(())
-    })();
+    }
+    .await;
 
     if let Err(e) = result {
         if options.format.is_json() {
@@ -434,10 +438,10 @@ pub fn run_move(options: &MoveOptions) -> Result<()> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Resolve workspace path from session name or current directory
-fn resolve_workspace_path(session: Option<&str>) -> Result<String> {
+async fn resolve_workspace_path(session: Option<&str>) -> Result<String> {
     let path = if let Some(name) = session {
-        let db = get_session_db()?;
-        let sessions = db.list_blocking(None)?;
+        let db = get_session_db().await?;
+        let sessions = db.list(None).await?;
 
         sessions
             .iter()

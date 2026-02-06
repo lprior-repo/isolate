@@ -18,15 +18,15 @@ mod output;
 mod system_state;
 
 /// Run the introspect command - show all capabilities
-pub fn run(format: OutputFormat) -> Result<()> {
+pub async fn run(format: OutputFormat) -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     let mut output = IntrospectOutput::new(version);
 
     // Add dependencies
-    output.dependencies = dependencies::check_dependencies();
+    output.dependencies = dependencies::check_dependencies().await;
 
     // Add system state
-    output.system_state = system_state::get_system_state();
+    output.system_state = system_state::get_system_state().await;
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("introspect-response", "single", output);
@@ -39,7 +39,7 @@ pub fn run(format: OutputFormat) -> Result<()> {
 }
 
 /// Introspect a specific command
-pub fn run_command_introspect(command: &str, format: OutputFormat) -> Result<()> {
+pub async fn run_command_introspect(command: &str, format: OutputFormat) -> Result<()> {
     let introspection = match command {
         "add" => get_add_introspection(),
         "remove" => get_remove_introspection(),
@@ -959,7 +959,7 @@ pub struct SessionStatesOutput {
 }
 
 /// Run introspect with --env-vars flag
-pub fn run_env_vars(format: OutputFormat) -> Result<()> {
+pub async fn run_env_vars(format: OutputFormat) -> Result<()> {
     let env_vars = vec![
         EnvVarInfo {
             name: "ZJJ_AGENT_ID".to_string(),
@@ -1035,7 +1035,7 @@ pub fn run_env_vars(format: OutputFormat) -> Result<()> {
 
 /// Run introspect with --workflows flag
 #[allow(clippy::too_many_lines)]
-pub fn run_workflows(format: OutputFormat) -> Result<()> {
+pub async fn run_workflows(format: OutputFormat) -> Result<()> {
     let workflows = vec![
         WorkflowPattern {
             name: "Quick Work Session".to_string(),
@@ -1268,13 +1268,13 @@ pub struct AiWorkflowSummary {
 /// - Recommendations
 /// - Environment info
 #[allow(clippy::too_many_lines)]
-pub fn run_ai() -> Result<()> {
+pub async fn run_ai() -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
-    let dependencies = dependencies::check_dependencies();
-    let system_state = system_state::get_system_state();
+    let dependencies = dependencies::check_dependencies().await;
+    let system_state = system_state::get_system_state().await;
 
     // Determine location
-    let location = crate::cli::jj_root().map_or_else(
+    let location = crate::cli::jj_root().await.map_or_else(
         |_| "not_in_repo".to_string(),
         |root| {
             let path = std::path::PathBuf::from(&root);
@@ -1480,7 +1480,7 @@ pub fn run_ai() -> Result<()> {
 }
 
 /// Run introspect with --session-states flag
-pub fn run_session_states(format: OutputFormat) -> Result<()> {
+pub async fn run_session_states(format: OutputFormat) -> Result<()> {
     let states = vec![
         "creating".to_string(),
         "active".to_string(),

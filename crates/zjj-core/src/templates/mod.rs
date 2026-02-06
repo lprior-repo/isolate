@@ -65,8 +65,8 @@ moon run :ci --force
 /// Template for `docs/03_WORKFLOW.md`
 pub const DOC_03_WORKFLOW: &str = r"# Workflow: Pull -> Isolate -> Verify -> Merge
 
-1. **Pull**: `bv` discover.
-2. **Isolate**: `zjj spawn`.
+1. **Pull**: `bv` discover new beads.
+2. **Isolate**: `zjj spawn <bead-id>`.
 3. **Verify**: `moon run :ci --force`.
 4. **Merge**: `zjj done`.
 ";
@@ -83,6 +83,7 @@ pub const DOC_05_RUST_STANDARDS: &str = r"# Rust Standards
 pub const DOC_08_BEADS: &str = r"# Beads Integration
 
 Issues are nodes in a graph. Prioritize using `bv --robot-triage`.
+See [03_WORKFLOW.md](03_WORKFLOW.md) for how to pull beads into isolated workspaces.
 ";
 
 /// Template for `docs/09_JUJUTSU.md`

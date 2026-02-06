@@ -102,26 +102,26 @@ struct RestoreResponse {
 }
 
 /// Run the integrity command
-pub fn run(options: &IntegrityOptions) -> Result<()> {
+pub async fn run(options: &IntegrityOptions) -> Result<()> {
     // Ensure we're in a JJ repository
-    let jj_root = check_prerequisites()?;
+    let jj_root = check_prerequisites().await?;
 
     match &options.subcommand {
         IntegritySubcommand::Validate { workspace } => {
-            run_validate(&jj_root, workspace, options.format)
+            run_validate(&jj_root, workspace, options.format).await
         }
         IntegritySubcommand::Repair { workspace, force } => {
-            run_repair(&jj_root, workspace, *force, options.format)
+            run_repair(&jj_root, workspace, *force, options.format).await
         }
-        IntegritySubcommand::BackupList => run_backup_list(&jj_root, options.format),
+        IntegritySubcommand::BackupList => run_backup_list(&jj_root, options.format).await,
         IntegritySubcommand::BackupRestore { backup_id, force } => {
-            run_backup_restore(&jj_root, backup_id, *force, options.format)
+            run_backup_restore(&jj_root, backup_id, *force, options.format).await
         }
     }
 }
 
 /// Validate a workspace
-fn run_validate(jj_root: &std::path::Path, workspace: &str, format: OutputFormat) -> Result<()> {
+async fn run_validate(jj_root: &std::path::Path, workspace: &str, format: OutputFormat) -> Result<()> {
     let validator = IntegrityValidator::new(jj_root);
     let result = validator.validate(workspace)?;
 
@@ -144,7 +144,7 @@ fn run_validate(jj_root: &std::path::Path, workspace: &str, format: OutputFormat
 }
 
 /// Repair a workspace
-fn run_repair(
+async fn run_repair(
     jj_root: &std::path::Path,
     workspace: &str,
     force: bool,
@@ -263,7 +263,7 @@ fn run_repair(
 }
 
 /// List available backups
-fn run_backup_list(jj_root: &std::path::Path, format: OutputFormat) -> Result<()> {
+async fn run_backup_list(jj_root: &std::path::Path, format: OutputFormat) -> Result<()> {
     let manager = BackupManager::new(jj_root);
 
     // Collect all backups from all workspaces
@@ -307,7 +307,7 @@ fn run_backup_list(jj_root: &std::path::Path, format: OutputFormat) -> Result<()
 }
 
 /// Restore from a backup
-fn run_backup_restore(
+async fn run_backup_restore(
     jj_root: &std::path::Path,
     backup_id: &str,
     force: bool,
