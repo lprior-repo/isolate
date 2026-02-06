@@ -68,12 +68,12 @@ fn make_output(
 }
 
 /// Run the wait command
-pub fn run(options: &WaitOptions) -> Result<()> {
+pub async fn run(options: &WaitOptions) -> Result<()> {
     let start = Instant::now();
 
     loop {
         // Check if condition is met
-        let (met, state) = check_condition(&options.condition)?;
+        let (met, state) = check_condition(&options.condition).await?;
 
         if met {
             return output_result(
@@ -91,53 +91,52 @@ pub fn run(options: &WaitOptions) -> Result<()> {
         }
 
         // Wait before next poll
-        std::thread::sleep(options.poll_interval);
+        tokio::time::sleep(options.poll_interval).await;
     }
 }
 
 /// Check if a condition is met
-fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> {
+async fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> {
     match condition {
-        WaitCondition::SessionExists(name) => get_session_db().ok().map_or_else(
-            || Ok((false, Some("db_unavailable".to_string()))),
-            |db| match db.get_blocking(name) {
+        WaitCondition::SessionExists(name) => match get_session_db().await {
+            Ok(db) => match db.get(name).await {
                 Ok(Some(session)) => Ok((true, Some(format!("status:{}", session.status)))),
                 Ok(None) => Ok((false, Some("not_found".to_string()))),
                 Err(_) => Ok((false, Some("error".to_string()))),
             },
-        ),
+            Err(_) => Ok((false, Some("db_unavailable".to_string()))),
+        },
 
         WaitCondition::SessionUnlocked(name) => {
-            get_session_db()
-                .ok()
-                .and_then(|db| {
-                    db.get_blocking(name)
-                        .map(|opt| match opt {
-                            Some(session) => {
-                                // Check if session is locked (has an active agent)
-                                let locked = session
-                                    .metadata
-                                    .as_ref()
-                                    .and_then(|m| m.get("locked_by"))
-                                    .is_some();
-                                (!locked, Some(format!("locked:{locked}")))
-                            }
-                            None => {
-                                // Session doesn't exist - can't be "unlocked"
-                                // This is semantically different from being unlocked
-                                (false, Some("not_found".to_string()))
-                            }
-                        })
-                        .ok()
-                })
-                .map_or_else(|| Ok((false, Some("db_unavailable".to_string()))), Ok)
+            match get_session_db().await {
+                Ok(db) => {
+                    match db.get(name).await {
+                        Ok(Some(session)) => {
+                            // Check if session is locked (has an active agent)
+                            let locked = session
+                                .metadata
+                                .as_ref()
+                                .and_then(|m| m.get("locked_by"))
+                                .is_some();
+                            Ok((!locked, Some(format!("locked:{locked}"))))
+                        }
+                        Ok(None) => {
+                            // Session doesn't exist - can't be "unlocked"
+                            // This is semantically different from being unlocked
+                            Ok((false, Some("not_found".to_string())))
+                        }
+                        Err(_) => Ok((false, Some("error".to_string()))),
+                    }
+                }
+                Err(_) => Ok((false, Some("db_unavailable".to_string()))),
+            }
         }
 
         WaitCondition::Healthy => {
             // Check if system is healthy
-            let jj_ok = crate::cli::is_command_available("jj");
-            let zellij_ok = crate::cli::is_command_available("zellij");
-            let db_ok = get_session_db().is_ok();
+            let jj_ok = crate::cli::is_command_available("jj").await;
+            let zellij_ok = crate::cli::is_command_available("zellij").await;
+            let db_ok = get_session_db().await.is_ok();
 
             let healthy = jj_ok && zellij_ok && db_ok;
             let state = format!(
@@ -150,9 +149,8 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
             Ok((healthy, Some(state)))
         }
 
-        WaitCondition::SessionStatus { name, status } => get_session_db().ok().map_or_else(
-            || Ok((false, Some("db_unavailable".to_string()))),
-            |db| match db.get_blocking(name) {
+        WaitCondition::SessionStatus { name, status } => match get_session_db().await {
+            Ok(db) => match db.get(name).await {
                 Ok(Some(session)) => {
                     let current_status = session.status.to_string();
                     let met = current_status == *status;
@@ -161,7 +159,8 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
                 Ok(None) => Ok((false, Some("not_found".to_string()))),
                 Err(_) => Ok((false, Some("error".to_string()))),
             },
-        ),
+            Err(_) => Ok((false, Some("db_unavailable".to_string()))),
+        },
     }
 }
 

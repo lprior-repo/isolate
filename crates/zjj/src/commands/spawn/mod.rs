@@ -61,17 +61,17 @@ use zjj_core::json::SchemaEnvelope;
 use crate::cli::jj_root;
 
 /// Run the spawn command with options
-pub fn run_with_options(options: &SpawnOptions) -> Result<()> {
-    let result = execute_spawn(options)?;
+pub async fn run_with_options(options: &SpawnOptions) -> Result<()> {
+    let result = execute_spawn(options).await?;
 
     output_result(&result, options.format)?;
     Ok(())
 }
 
 /// Core spawn logic using Railway-Oriented Programming
-pub fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
+pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
     // Phase 1: Validate location (must be on main)
-    let root = validate_location().map_err(|e| SpawnError::NotOnMain {
+    let root = validate_location().await.map_err(|e| SpawnError::NotOnMain {
         current_location: e.to_string(),
     })?;
 
@@ -79,9 +79,9 @@ pub fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> 
     validate_bead_status(&options.bead_id)?;
 
     // Initialize transaction tracker
-    let workspace_path = create_workspace(&root, &options.bead_id)?;
+    let workspace_path = create_workspace(&root, &options.bead_id).await?;
 
-    let tracker = TransactionTracker::new(&options.bead_id, &workspace_path)?;
+    let tracker = TransactionTracker::new(&options.bead_id, &workspace_path).await?;
 
     // Register signal handlers for graceful shutdown
     let signal_handler = SignalHandler::new(Some(tracker.clone()));
@@ -112,7 +112,7 @@ pub fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> 
 
     // Phase 6-8: Handle completion
     let (merged, cleaned, status) = match exit_code {
-        Some(0) => handle_success(&root, &options.bead_id, &workspace_path, options)?,
+        Some(0) => handle_success(&root, &options.bead_id, &workspace_path, options).await?,
         Some(code) => handle_failure(&workspace_path, options, code)?,
         None => (false, false, SpawnStatus::Running),
     };
@@ -129,8 +129,8 @@ pub fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> 
 }
 
 /// Validate we're on main branch (not in a workspace)
-fn validate_location() -> Result<String> {
-    let root = jj_root().context("Failed to get JJ root")?;
+async fn validate_location() -> Result<String> {
+    let root = jj_root().await.context("Failed to get JJ root")?;
 
     // Check if we're in a workspace by looking at current directory
     let current_dir = std::env::current_dir().context("Failed to get current directory")?;
@@ -200,7 +200,7 @@ fn validate_bead_status(bead_id: &str) -> Result<(), SpawnError> {
 }
 
 /// Create a JJ workspace for the bead
-fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, SpawnError> {
+async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, SpawnError> {
     let workspaces_dir = Path::new(root).join(".zjj/workspaces");
     fs::create_dir_all(&workspaces_dir).map_err(|e| SpawnError::WorkspaceCreationFailed {
         reason: format!("Failed to create workspaces directory: {e}"),
@@ -209,11 +209,12 @@ fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, Spa
     let workspace_path = workspaces_dir.join(bead_id);
 
     // Create JJ workspace
-    let output = Command::new("jj")
+    let output = tokio::process::Command::new("jj")
         .args(["workspace", "add", "--name", bead_id])
         .arg(&workspace_path)
         .current_dir(root)
         .output()
+        .await
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
             reason: format!("Failed to execute jj workspace add: {e}"),
         })?;
@@ -347,7 +348,7 @@ fn spawn_agent_background(
 }
 
 /// Handle successful agent completion
-fn handle_success(
+async fn handle_success(
     root: &str,
     bead_id: &str,
     workspace_path: &Path,
@@ -356,7 +357,7 @@ fn handle_success(
     let merged = if options.no_auto_merge {
         false
     } else {
-        merge_to_main(root, bead_id)?
+        merge_to_main(root, bead_id).await?
     };
 
     let cleaned = cleanup_workspace(workspace_path)?;
@@ -413,12 +414,13 @@ fn handle_failure(
 /// # Errors
 /// * `JjCommandFailed` - If the jj command execution fails
 /// * `MergeFailed` - If the workspace doesn't exist or abandon fails
-fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
+async fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
     // First, check if the workspace exists before attempting to abandon
-    let list_output = Command::new("jj")
+    let list_output = tokio::process::Command::new("jj")
         .args(["workspace", "list"])
         .current_dir(root)
         .output()
+        .await
         .map_err(|e| SpawnError::JjCommandFailed {
             reason: format!("Failed to execute jj workspace list: {e}"),
         })?;
@@ -445,10 +447,11 @@ fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
     }
 
     // Abandon the workspace to merge changes back to main
-    let abandon_output = Command::new("jj")
+    let abandon_output = tokio::process::Command::new("jj")
         .args(["workspace", "abandon", "--name", workspace_name])
         .current_dir(root)
         .output()
+        .await
         .map_err(|e| SpawnError::JjCommandFailed {
             reason: format!("Failed to execute jj workspace abandon: {e}"),
         })?;

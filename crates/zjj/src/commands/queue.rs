@@ -113,7 +113,7 @@ fn get_queue() -> Result<zjj_core::MergeQueue> {
 }
 
 /// Run the queue command with options
-pub fn run_with_options(options: &QueueOptions) -> Result<()> {
+pub async fn run_with_options(options: &QueueOptions) -> Result<()> {
     let queue = get_queue()?;
 
     if let Some(workspace) = &options.add {
@@ -121,7 +121,7 @@ pub fn run_with_options(options: &QueueOptions) -> Result<()> {
     } else if options.list {
         handle_list(&queue, options)?;
     } else if options.process {
-        handle_process(&queue, options)?;
+        handle_process(&queue, options).await?;
     } else if options.next {
         handle_next(&queue, options)?;
     } else if let Some(workspace) = &options.remove {
@@ -288,7 +288,7 @@ fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
 }
 
 /// Handle the process command
-fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
+async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
     let agent_id = resolve_agent_id(options.agent_id.as_deref());
     let entry = queue.next_with_lock(&agent_id)?;
 
@@ -323,7 +323,7 @@ fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Resul
         );
     }
 
-    let workspace_path = resolve_workspace_path(&entry.workspace)?;
+    let workspace_path = resolve_workspace_path(&entry.workspace).await?;
     let original_dir = std::env::current_dir().context("Failed to read current directory")?;
     std::env::set_current_dir(&workspace_path)
         .with_context(|| format!("Failed to enter workspace at {}", workspace_path.display()))?;
@@ -339,7 +339,7 @@ fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Resul
         format: options.format,
     };
 
-    let done_result = crate::commands::done::run_with_options(&done_options);
+    let done_result = crate::commands::done::run_with_options(&done_options).await;
 
     let _ = std::env::set_current_dir(&original_dir);
 
@@ -515,10 +515,10 @@ fn resolve_agent_id(agent_id: Option<&str>) -> String {
         .unwrap_or_else(|| format!("pid-{}", std::process::id()))
 }
 
-fn resolve_workspace_path(workspace: &str) -> Result<PathBuf> {
-    let session_db = get_session_db().ok();
+async fn resolve_workspace_path(workspace: &str) -> Result<PathBuf> {
+    let session_db = get_session_db().await.ok();
     if let Some(db) = session_db {
-        if let Some(session) = db.get_blocking(workspace)? {
+        if let Some(session) = db.get(workspace).await? {
             let path = PathBuf::from(session.workspace_path);
             if path.exists() {
                 return Ok(path);

@@ -74,15 +74,15 @@ struct LockInfo {
     expires_at: u64,
 }
 
-fn get_locks_dir() -> Result<PathBuf> {
-    let data_dir = super::zjj_data_dir()?;
+async fn get_locks_dir() -> Result<PathBuf> {
+    let data_dir = super::zjj_data_dir().await?;
     let locks_dir = data_dir.join("locks");
     fs::create_dir_all(&locks_dir)?;
     Ok(locks_dir)
 }
 
-fn lock_file_path(resource: &str) -> Result<PathBuf> {
-    let locks_dir = get_locks_dir()?;
+async fn lock_file_path(resource: &str) -> Result<PathBuf> {
+    let locks_dir = get_locks_dir().await?;
     // Sanitize resource name for filename
     let safe_name: String = resource
         .chars()
@@ -267,9 +267,9 @@ impl<T> Pipe for T {
 }
 
 /// Run the claim command
-pub fn run_claim(options: &ClaimOptions) -> Result<()> {
+pub async fn run_claim(options: &ClaimOptions) -> Result<()> {
     let agent_id = get_agent_id();
-    let lock_path = lock_file_path(&options.resource)?;
+    let lock_path = lock_file_path(&options.resource).await?;
     let now = current_timestamp()?;
     let expires_at = now + options.timeout;
 
@@ -353,9 +353,9 @@ fn attempt_yield(lock_path: &std::path::Path, resource: &str, agent_id: &str) ->
 }
 
 /// Run the yield command
-pub fn run_yield(options: &YieldOptions) -> Result<()> {
+pub async fn run_yield(options: &YieldOptions) -> Result<()> {
     let agent_id = get_agent_id();
-    let lock_path = lock_file_path(&options.resource)?;
+    let lock_path = lock_file_path(&options.resource).await?;
 
     let result = attempt_yield(&lock_path, &options.resource, &agent_id);
 

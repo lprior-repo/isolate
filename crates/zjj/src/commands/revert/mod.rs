@@ -18,7 +18,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::{Deserialize, Serialize};
+use tokio::process::Command;
 use zjj_core::{
     json::{ErrorDetail, SchemaEnvelope},
     OutputFormat,
@@ -36,8 +36,8 @@ pub use types::{RevertArgs, RevertError, RevertExitCode, RevertOptions, RevertOu
 const UNDO_LOG_PATH: &str = ".zjj/undo.log";
 
 /// Run revert command with options
-pub fn run_with_options(options: &RevertOptions) -> Result<RevertExitCode, RevertError> {
-    let result = execute_revert(options);
+pub async fn run_with_options(options: &RevertOptions) -> Result<RevertExitCode, RevertError> {
+    let result = execute_revert(options).await;
 
     match &result {
         Ok(output) => {
@@ -57,8 +57,8 @@ pub fn run_with_options(options: &RevertOptions) -> Result<RevertExitCode, Rever
 }
 
 /// Core revert logic using Railway-Oriented Programming
-fn execute_revert(options: &RevertOptions) -> Result<RevertOutput, RevertError> {
-    let root = jj_root().map_err(|e| RevertError::JjCommandFailed {
+async fn execute_revert(options: &RevertOptions) -> Result<RevertOutput, RevertError> {
+    let root = jj_root().await.map_err(|e: anyhow::Error| RevertError::JjCommandFailed {
         command: "jj root".to_string(),
         reason: e.to_string(),
     })?;
@@ -80,7 +80,7 @@ fn execute_revert(options: &RevertOptions) -> Result<RevertOutput, RevertError> 
         });
     }
 
-    revert_merge(&root, &entry)?;
+    revert_merge(&root, &entry).await?;
 
     update_undo_history(&root, &history, &entry, "reverted")?;
 
@@ -96,7 +96,7 @@ fn execute_revert(options: &RevertOptions) -> Result<RevertOutput, RevertError> 
 /// Validate we're in a valid location
 fn validate_location(root: &str) -> Result<(), RevertError> {
     let location =
-        detect_location(&PathBuf::from(root)).map_err(|e| RevertError::InvalidState {
+        detect_location(&PathBuf::from(root)).map_err(|e: anyhow::Error| RevertError::InvalidState {
             reason: e.to_string(),
         })?;
 
@@ -115,13 +115,13 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
     }
 
     let content =
-        fs::read_to_string(&undo_log_path).map_err(|e| RevertError::ReadUndoLogFailed {
+        fs::read_to_string(&undo_log_path).map_err(|e: std::io::Error| RevertError::ReadUndoLogFailed {
             reason: e.to_string(),
         })?;
 
     let entries: Vec<UndoEntry> = content
         .lines()
-        .filter_map(|line| {
+        .filter_map(|line: &str| {
             if line.trim().is_empty() {
                 None
             } else {
@@ -137,7 +137,7 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
 fn find_session_entry(history: &[UndoEntry], session_name: &str) -> Result<UndoEntry, RevertError> {
     history
         .iter()
-        .find(|entry| entry.session_name == session_name && entry.status == "completed")
+        .find(|entry: &&UndoEntry| entry.session_name == session_name && entry.status == "completed")
         .cloned()
         .ok_or_else(|| RevertError::SessionNotFound {
             session_name: session_name.to_string(),
@@ -156,12 +156,13 @@ fn validate_revert_possible(entry: &UndoEntry) -> Result<(), RevertError> {
 }
 
 /// Revert specific merge operation
-fn revert_merge(root: &str, entry: &UndoEntry) -> Result<(), RevertError> {
-    let output = std::process::Command::new("jj")
+async fn revert_merge(root: &str, entry: &UndoEntry) -> Result<(), RevertError> {
+    let output = Command::new("jj")
         .current_dir(root)
         .args(["rebase", "-d", &entry.pre_merge_commit_id])
         .output()
-        .map_err(|e| RevertError::JjCommandFailed {
+        .await
+        .map_err(|e: std::io::Error| RevertError::JjCommandFailed {
             command: "jj rebase".to_string(),
             reason: e.to_string(),
         })?;
@@ -187,7 +188,7 @@ fn update_undo_history(
 
     let new_content = history
         .iter()
-        .map(|hist_entry| {
+        .map(|hist_entry: &UndoEntry| {
             if hist_entry.session_name == entry.session_name {
                 let mut updated = hist_entry.clone();
                 updated.status = status.to_string();
@@ -197,12 +198,12 @@ fn update_undo_history(
             }
         })
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| RevertError::SerializationError {
+        .map_err(|e: serde_json::Error| RevertError::SerializationError {
             reason: e.to_string(),
         })?
         .join("\n");
 
-    fs::write(&undo_log_path, new_content).map_err(|e| RevertError::WriteUndoLogFailed {
+    fs::write(&undo_log_path, new_content).map_err(|e: std::io::Error| RevertError::WriteUndoLogFailed {
         reason: e.to_string(),
     })?;
 
@@ -213,7 +214,7 @@ fn update_undo_history(
 fn output_result(result: &RevertOutput, format: OutputFormat) -> Result<(), RevertError> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("revert-response", "single", result);
-        let json_output = serde_json::to_string_pretty(&envelope).map_err(|e| {
+        let json_output = serde_json::to_string_pretty(&envelope).map_err(|e: serde_json::Error| {
             RevertError::SerializationError {
                 reason: e.to_string(),
             }
@@ -247,7 +248,7 @@ fn output_error(error: &RevertError, format: OutputFormat) -> Result<(), RevertE
             error: error_detail,
         };
         let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
-        let json_output = serde_json::to_string_pretty(&envelope).map_err(|e| {
+        let json_output = serde_json::to_string_pretty(&envelope).map_err(|e: serde_json::Error| {
             RevertError::SerializationError {
                 reason: e.to_string(),
             }
@@ -272,13 +273,13 @@ const fn revert_error_exit_code(error: &RevertError) -> i32 {
     }
 }
 
-#[derive(Serialize)]
+#[derive(serde::Serialize)]
 struct RevertErrorPayload {
     error: ErrorDetail,
 }
 
 /// Undo entry in history log
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct UndoEntry {
     session_name: String,
     commit_id: String,

@@ -75,8 +75,8 @@ pub struct WorkOptions {
 /// - Not in a JJ repo
 /// - Session creation fails
 /// - Already in a workspace (unless idempotent)
-pub fn run(options: &WorkOptions) -> Result<()> {
-    let root = super::check_in_jj_repo()?;
+pub async fn run(options: &WorkOptions) -> Result<()> {
+    let root = super::check_in_jj_repo().await?;
     let location = context::detect_location(&root)?;
 
     // Check if we're already in a workspace
@@ -99,9 +99,9 @@ pub fn run(options: &WorkOptions) -> Result<()> {
     let data_dir = root.join(".zjj");
     let db_path = data_dir.join("state.db");
     let session_db =
-        SessionDb::open_blocking(&db_path).context("Failed to open session database")?;
+        SessionDb::open(&db_path).await.context("Failed to open session database")?;
 
-    let existing = session_db.get_blocking(&options.name).ok().flatten();
+    let existing = session_db.get(&options.name).await.ok().flatten();
 
     if existing.is_some() {
         if options.idempotent {
@@ -127,7 +127,7 @@ pub fn run(options: &WorkOptions) -> Result<()> {
     };
 
     // Suppress add command output by running internally
-    add::run_internal(&add_options)?;
+    add::run_internal(&add_options).await?;
 
     // Generate agent ID if needed
     let agent_id = if options.no_agent {

@@ -50,8 +50,8 @@ pub struct AbortOptions {
 /// - Not in a workspace and no workspace specified
 /// - Workspace not found
 /// - Cleanup fails
-pub fn run(options: &AbortOptions) -> Result<()> {
-    let root = super::check_in_jj_repo()?;
+pub async fn run(options: &AbortOptions) -> Result<()> {
+    let root = super::check_in_jj_repo().await?;
     let location = context::detect_location(&root)?;
 
     // Determine which workspace to abort
@@ -70,11 +70,11 @@ pub fn run(options: &AbortOptions) -> Result<()> {
     }
 
     // Get the session database
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
 
     // Find the session
     let session = db
-        .get_blocking(&workspace_name)?
+        .get(&workspace_name).await?
         .ok_or_else(|| anyhow::anyhow!("Session '{workspace_name}' not found"))?;
 
     let workspace_path = std::path::Path::new(&session.workspace_path);
@@ -92,24 +92,24 @@ pub fn run(options: &AbortOptions) -> Result<()> {
     };
 
     // Update session status to abandoned
-    db.update_blocking(
+    db.update(
         &workspace_name,
         SessionUpdate {
             status: Some(SessionStatus::Failed), // Using Failed as closest to Abandoned
             ..Default::default()
         },
-    )
+    ).await
     .context("Failed to update session status")?;
 
     // Remove the session from database
-    db.delete_blocking(&workspace_name)
+    db.delete(&workspace_name).await
         .context("Failed to delete session")?;
 
     // Update bead status if applicable
     let bead_updated = if options.no_bead_update {
         false
     } else {
-        update_bead_status_to_ready(&session)
+        update_bead_status_to_ready(&session).await
     };
 
     let output = AbortOutput {
@@ -154,7 +154,7 @@ fn output_dry_run(workspace_name: &str, options: &AbortOptions) -> Result<()> {
 }
 
 /// Update bead status back to ready
-fn update_bead_status_to_ready(session: &crate::session::Session) -> bool {
+async fn update_bead_status_to_ready(session: &crate::session::Session) -> bool {
     // Check if session has a bead_id in metadata
     let bead_id = session
         .metadata
@@ -164,9 +164,10 @@ fn update_bead_status_to_ready(session: &crate::session::Session) -> bool {
 
     if let Some(bead_id) = bead_id {
         // Try to run br update to set status back to ready
-        let result = std::process::Command::new("br")
+        let result = tokio::process::Command::new("br")
             .args(["update", bead_id, "--status", "ready"])
-            .output();
+            .output()
+            .await;
 
         if let Ok(output) = result {
             return output.status.success();

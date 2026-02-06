@@ -47,7 +47,7 @@ pub struct ExamplesResponse {
 }
 
 /// Run the examples command
-pub fn run(options: &ExamplesOptions) -> Result<()> {
+pub async fn run(options: &ExamplesOptions) -> Result<()> {
     let all_examples = build_examples();
 
     let filtered: Vec<Example> = all_examples

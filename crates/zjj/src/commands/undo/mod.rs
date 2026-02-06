@@ -19,7 +19,8 @@ use std::{
     time::SystemTime,
 };
 
-use serde::{Deserialize, Serialize};
+use tokio::process::Command;
+use num_traits::ToPrimitive;
 use zjj_core::{
     json::{ErrorDetail, SchemaEnvelope},
     OutputFormat,
@@ -38,13 +39,13 @@ const UNDO_LOG_PATH: &str = ".zjj/undo.log";
 const WORKSPACE_RETENTION_HOURS: u64 = 24;
 
 /// Run the undo command with options
-pub fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
+pub async fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
     // Handle list mode
     if options.list {
-        return run_list(options);
+        return run_list(options).await;
     }
 
-    let result = execute_undo(options);
+    let result = execute_undo(options).await;
 
     match &result {
         Ok(output) => {
@@ -64,8 +65,8 @@ pub fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, UndoError
 }
 
 /// List undo history
-fn run_list(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
-    let root = jj_root().map_err(|e| UndoError::JjCommandFailed {
+async fn run_list(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
+    let root = jj_root().await.map_err(|e| UndoError::JjCommandFailed {
         command: "jj root".to_string(),
         reason: e.to_string(),
     })?;
@@ -98,7 +99,7 @@ fn run_list(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
 }
 
 /// Output for undo history listing
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct UndoHistoryOutput {
     entries: Vec<UndoHistoryEntry>,
     total: usize,
@@ -106,7 +107,7 @@ struct UndoHistoryOutput {
 }
 
 /// A single entry in the undo history for display
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct UndoHistoryEntry {
     session_name: String,
     commit_id: String,
@@ -122,7 +123,7 @@ struct UndoHistoryEntry {
 fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), UndoError> {
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .map_err(|e| UndoError::SystemTimeError {
+        .map_err(|e: std::time::SystemTimeError| UndoError::SystemTimeError {
             reason: e.to_string(),
         })?
         .as_secs();
@@ -146,7 +147,7 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
             };
 
             // Convert timestamp to human-readable format
-            let datetime = chrono::DateTime::from_timestamp(entry.timestamp.cast_signed(), 0)
+            let datetime = chrono::DateTime::from_timestamp(entry.timestamp.to_i64().unwrap_or_default(), 0)
                 .map_or_else(
                     || entry.timestamp.to_string(),
                     |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
@@ -210,8 +211,8 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
 }
 
 /// Core undo logic using Railway-Oriented Programming
-fn execute_undo(options: &UndoOptions) -> Result<UndoOutput, UndoError> {
-    let root = jj_root().map_err(|e| UndoError::JjCommandFailed {
+async fn execute_undo(options: &UndoOptions) -> Result<UndoOutput, UndoError> {
+    let root = jj_root().await.map_err(|e| UndoError::JjCommandFailed {
         command: "jj root".to_string(),
         reason: e.to_string(),
     })?;
@@ -233,7 +234,7 @@ fn execute_undo(options: &UndoOptions) -> Result<UndoOutput, UndoError> {
         });
     }
 
-    revert_merge(&root, &last_entry)?;
+    revert_merge(&root, &last_entry).await?;
 
     update_undo_history(&root, &history, &last_entry, "undone")?;
 
@@ -272,7 +273,7 @@ fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
 
     let entries: Vec<UndoEntry> = content
         .lines()
-        .filter_map(|line| {
+        .filter_map(|line: &str| {
             if line.trim().is_empty() {
                 None
             } else {
@@ -302,7 +303,7 @@ fn validate_undo_possible(_root: &str, entry: &UndoEntry) -> Result<(), UndoErro
 
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .map_err(|e| UndoError::SystemTimeError {
+        .map_err(|e: std::time::SystemTimeError| UndoError::SystemTimeError {
             reason: e.to_string(),
         })?
         .as_secs();
@@ -320,11 +321,12 @@ fn validate_undo_possible(_root: &str, entry: &UndoEntry) -> Result<(), UndoErro
 }
 
 /// Revert the merge operation
-fn revert_merge(root: &str, entry: &UndoEntry) -> Result<(), UndoError> {
-    let output = std::process::Command::new("jj")
+async fn revert_merge(root: &str, entry: &UndoEntry) -> Result<(), UndoError> {
+    let output = Command::new("jj")
         .current_dir(root)
         .args(["rebase", "-d", &entry.pre_merge_commit_id])
         .output()
+        .await
         .map_err(|e| UndoError::JjCommandFailed {
             command: "jj rebase".to_string(),
             reason: e.to_string(),
@@ -370,7 +372,7 @@ fn update_undo_history(
     new_content.push_str(&json);
     new_content.push('\n');
 
-    fs::write(&undo_log_path, new_content).map_err(|e| UndoError::WriteUndoLogFailed {
+    fs::write(&undo_log_path, new_content).map_err(|e: std::io::Error| UndoError::WriteUndoLogFailed {
         reason: e.to_string(),
     })?;
 
@@ -438,13 +440,13 @@ const fn undo_error_exit_code(error: &UndoError) -> i32 {
     }
 }
 
-#[derive(Serialize)]
+#[derive(serde::Serialize)]
 struct UndoErrorPayload {
     error: ErrorDetail,
 }
 
 /// Undo entry in history log
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct UndoEntry {
     session_name: String,
     commit_id: String,

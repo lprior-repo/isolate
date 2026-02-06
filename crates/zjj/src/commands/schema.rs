@@ -46,7 +46,7 @@ pub struct AllSchemasOutput {
 }
 
 /// Run the schema command
-pub fn run(options: &SchemaOptions) -> Result<()> {
+pub async fn run(options: &SchemaOptions) -> Result<()> {
     if options.list {
         return run_list(options.format);
     }

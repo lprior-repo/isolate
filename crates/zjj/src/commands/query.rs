@@ -137,7 +137,7 @@ impl QueryTypeInfo {
 }
 
 /// Run a query
-pub fn run(query_type: &str, args: Option<&str>) -> Result<()> {
+pub async fn run(query_type: &str, args: Option<&str>) -> Result<()> {
     // Handle special help queries
     if query_type == "--help" || query_type == "help" || query_type == "--list" {
         println!("{}", QueryTypeInfo::list_all_queries());
@@ -151,16 +151,16 @@ pub fn run(query_type: &str, args: Option<&str>) -> Result<()> {
                     .map(|info| anyhow::anyhow!(info.format_error_message()))
                     .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
             })?;
-            query_session_exists(name)
+            query_session_exists(name).await
         }
-        "session-count" => query_session_count(args),
+        "session-count" => query_session_count(args).await,
         "can-run" => {
             let command = args.ok_or_else(|| {
                 QueryTypeInfo::find("can-run")
                     .map(|info| anyhow::anyhow!(info.format_error_message()))
                     .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
             })?;
-            query_can_run(command)
+            query_can_run(command).await
         }
         "suggest-name" => {
             let pattern = args.ok_or_else(|| {
@@ -168,7 +168,7 @@ pub fn run(query_type: &str, args: Option<&str>) -> Result<()> {
                     .map(|info| anyhow::anyhow!(info.format_error_message()))
                     .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
             })?;
-            query_suggest_name(pattern)
+            query_suggest_name(pattern).await
         }
         "lock-status" => {
             let session = args.ok_or_else(|| {
@@ -176,11 +176,11 @@ pub fn run(query_type: &str, args: Option<&str>) -> Result<()> {
                     .map(|info| anyhow::anyhow!(info.format_error_message()))
                     .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
             })?;
-            query_lock_status(session)
+            query_lock_status(session).await
         }
-        "can-spawn" => query_can_spawn(args),
-        "pending-merges" => query_pending_merges(),
-        "location" => query_location(),
+        "can-spawn" => query_can_spawn(args).await,
+        "pending-merges" => query_pending_merges().await,
+        "location" => query_location().await,
         _ => {
             let error_msg = format!(
                 "Error: Unknown query type '{}'\n\n{}",
@@ -231,9 +231,9 @@ fn categorize_db_error(err: &anyhow::Error) -> (String, String) {
 }
 
 /// Query if a session exists
-fn query_session_exists(name: &str) -> Result<()> {
-    let (result, exit_code) = match get_session_db() {
-        Ok(db) => match db.get_blocking(name) {
+async fn query_session_exists(name: &str) -> Result<()> {
+    let (result, exit_code) = match get_session_db().await {
+        Ok(db) => match db.get(name).await {
             Ok(session) => {
                 let exists = session.is_some();
                 let exit = i32::from(!exists);
@@ -287,9 +287,9 @@ fn query_session_exists(name: &str) -> Result<()> {
 /// Query session count
 /// Note: According to Red Queen findings, this should output plain number, not JSON
 /// when used in shell scripts. However, JSON envelope is still output for --json flag.
-fn query_session_count(filter: Option<&str>) -> ! {
-    let (count_val, exit_code) = match get_session_db() {
-        Ok(db) => match db.list_blocking(None) {
+async fn query_session_count(filter: Option<&str>) -> ! {
+    let (count_val, exit_code) = match get_session_db().await {
+        Ok(db) => match db.list(None).await {
             Ok(sessions) => {
                 let count = filter
                     .and_then(|f| f.strip_prefix("--status="))
@@ -323,13 +323,13 @@ fn query_session_count(filter: Option<&str>) -> ! {
 }
 
 /// Query if a command can run
-fn query_can_run(command: &str) -> Result<()> {
+async fn query_can_run(command: &str) -> Result<()> {
     let mut blockers = vec![];
     let mut prereqs_met = 0;
     let prereqs_total = 4; // Adjust based on command
 
     // Check if initialized
-    let initialized = zjj_data_dir().is_ok();
+    let initialized = zjj_data_dir().await.is_ok();
     if !initialized && requires_init(command) {
         blockers.push(Blocker {
             check: "initialized".to_string(),
@@ -341,7 +341,7 @@ fn query_can_run(command: &str) -> Result<()> {
     }
 
     // Check JJ installed
-    let jj_installed = is_command_available("jj");
+    let jj_installed = is_command_available("jj").await;
     if !jj_installed && requires_jj(command) {
         blockers.push(Blocker {
             check: "jj_installed".to_string(),
@@ -353,7 +353,7 @@ fn query_can_run(command: &str) -> Result<()> {
     }
 
     // Check JJ repo
-    let jj_repo = is_jj_repo().unwrap_or_default();
+    let jj_repo = is_jj_repo().await.unwrap_or_default();
     if !jj_repo && requires_jj_repo(command) {
         blockers.push(Blocker {
             check: "jj_repo".to_string(),
@@ -396,17 +396,15 @@ fn query_can_run(command: &str) -> Result<()> {
 }
 
 /// Query for suggested name based on pattern
-fn query_suggest_name(pattern: &str) -> Result<()> {
+async fn query_suggest_name(pattern: &str) -> Result<()> {
     // suggest_name can work without database access if we can't get sessions
-    let existing_names = get_session_db().map_or_else(
-        |_| Vec::new(),
-        |db| {
-            db.list_blocking(None).map_or_else(
-                |_| Vec::new(),
-                |sessions| sessions.into_iter().map(|s| s.name).collect(),
-            )
+    let existing_names = match get_session_db().await {
+        Ok(db) => match db.list(None).await {
+            Ok(sessions) => sessions.into_iter().map(|s| s.name).collect(),
+            Err(_) => Vec::new(),
         },
-    );
+        Err(_) => Vec::new(),
+    };
 
     match zjj_core::introspection::suggest_name(pattern, &existing_names) {
         Ok(result) => {
@@ -449,7 +447,7 @@ fn requires_zellij(command: &str) -> bool {
 }
 
 /// Query lock status for a session
-fn query_lock_status(session: &str) -> Result<()> {
+async fn query_lock_status(session: &str) -> Result<()> {
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -461,45 +459,54 @@ fn query_lock_status(session: &str) -> Result<()> {
         error: Option<QueryError>,
     }
 
-    let result = match get_session_db() {
+    let result = match get_session_db().await {
         Ok(db) => {
             // Check if session exists first
-            match db.get_blocking(session) {
+            match db.get(session).await {
                 Ok(Some(_)) => {
                     // Try to get lock info
-                    // For now, we'll check using a runtime query
-                    let runtime = tokio::runtime::Runtime::new()
-                        .map_err(|e| anyhow::anyhow!("Failed to create runtime: {e}"))?;
+                    match zjj_data_dir().await {
+                        Ok(data_dir) => {
+                            let db_path = data_dir.join("state.db");
 
-                    let data_dir = zjj_data_dir()?;
-                    let db_path = data_dir.join("state.db");
+                            let lock_info = async {
+                                let pool =
+                                    sqlx::SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
+                                        .await
+                                        .ok()?;
+                                let lock_mgr = zjj_core::coordination::locks::LockManager::new(pool);
+                                lock_mgr.init().await.ok()?;
+                                let all_locks = lock_mgr.get_all_locks().await.ok()?;
+                                all_locks.into_iter().find(|l| l.session == session)
+                            }.await;
 
-                    let lock_info = runtime.block_on(async {
-                        let pool =
-                            sqlx::SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
-                                .await
-                                .ok()?;
-                        let lock_mgr = zjj_core::coordination::locks::LockManager::new(pool);
-                        lock_mgr.init().await.ok()?;
-                        let all_locks = lock_mgr.get_all_locks().await.ok()?;
-                        all_locks.into_iter().find(|l| l.session == session)
-                    });
-
-                    match lock_info {
-                        Some(lock) => LockStatusResult {
-                            session: session.to_string(),
-                            locked: true,
-                            holder: Some(lock.agent_id.clone()),
-                            expires_at: Some(lock.expires_at.to_rfc3339()),
-                            error: None,
-                        },
-                        None => LockStatusResult {
+                            match lock_info {
+                                Some(lock) => LockStatusResult {
+                                    session: session.to_string(),
+                                    locked: true,
+                                    holder: Some(lock.agent_id.clone()),
+                                    expires_at: Some(lock.expires_at.to_rfc3339()),
+                                    error: None,
+                                },
+                                None => LockStatusResult {
+                                    session: session.to_string(),
+                                    locked: false,
+                                    holder: None,
+                                    expires_at: None,
+                                    error: None,
+                                },
+                            }
+                        }
+                        Err(e) => LockStatusResult {
                             session: session.to_string(),
                             locked: false,
                             holder: None,
                             expires_at: None,
-                            error: None,
-                        },
+                            error: Some(QueryError {
+                                code: "DATA_DIR_ERROR".to_string(),
+                                message: e.to_string(),
+                            }),
+                        }
                     }
                 }
                 Ok(None) => LockStatusResult {
@@ -542,7 +549,7 @@ fn query_lock_status(session: &str) -> Result<()> {
 }
 
 /// Query if spawning is possible
-fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
+async fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -556,7 +563,7 @@ fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
     let mut blockers = vec![];
 
     // Check if we're on main
-    let root = crate::commands::check_in_jj_repo();
+    let root = crate::commands::check_in_jj_repo().await;
     let on_main = root.as_ref().ok().is_some_and(|r| {
         let location = super::context::detect_location(r);
         matches!(location.as_ref().ok(), Some(super::context::Location::Main))
@@ -567,16 +574,17 @@ fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
     }
 
     // Check if zjj is initialized
-    if zjj_data_dir().is_err() {
+    if zjj_data_dir().await.is_err() {
         blockers.push("ZJJ not initialized".to_string());
     }
 
     // Check if bead exists and is ready (if provided)
     if let Some(bead) = bead_id {
         // Try to check bead status with br command
-        let bd_check = std::process::Command::new("br")
+        let bd_check = tokio::process::Command::new("br")
             .args(["show", bead, "--json"])
-            .output();
+            .output()
+            .await;
 
         match bd_check {
             Ok(output) if output.status.success() => {
@@ -611,7 +619,7 @@ fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
 }
 
 /// Query sessions with pending changes to merge
-fn query_pending_merges() -> Result<()> {
+async fn query_pending_merges() -> Result<()> {
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -628,31 +636,31 @@ fn query_pending_merges() -> Result<()> {
         error: Option<QueryError>,
     }
 
-    let result = match get_session_db() {
-        Ok(db) => match db.list_blocking(None) {
+    let result = match get_session_db().await {
+        Ok(db) => match db.list(None).await {
             Ok(sessions) => {
-                let active_sessions: Vec<SessionWithChanges> = sessions
-                    .into_iter()
-                    .filter(|s| s.status.to_string() == "active")
-                    .map(|s| {
+                let mut active_sessions: Vec<SessionWithChanges> = vec![];
+                for s in sessions {
+                    if s.status.to_string() == "active" {
                         // Check for uncommitted changes
-                        let has_uncommitted = std::process::Command::new("jj")
+                        let has_uncommitted = tokio::process::Command::new("jj")
                             .args(["status", "--no-pager"])
                             .current_dir(&s.workspace_path)
                             .output()
+                            .await
                             .map(|o| {
                                 let output = String::from_utf8_lossy(&o.stdout);
                                 !output.contains("The working copy is clean")
                             })
                             .unwrap_or_else(|_| false);
 
-                        SessionWithChanges {
+                        active_sessions.push(SessionWithChanges {
                             name: s.name,
                             status: s.status.to_string(),
                             has_uncommitted,
-                        }
-                    })
-                    .collect();
+                        });
+                    }
+                }
 
                 let count = active_sessions.len();
                 PendingMergesResult {
@@ -686,7 +694,7 @@ fn query_pending_merges() -> Result<()> {
 }
 
 /// Query current location (main or workspace)
-fn query_location() -> Result<()> {
+async fn query_location() -> Result<()> {
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -699,7 +707,7 @@ fn query_location() -> Result<()> {
         error: Option<QueryError>,
     }
 
-    let result = match crate::commands::check_in_jj_repo() {
+    let result = match crate::commands::check_in_jj_repo().await {
         Ok(root) => match super::context::detect_location(&root) {
             Ok(location) => match location {
                 super::context::Location::Main => LocationResult {

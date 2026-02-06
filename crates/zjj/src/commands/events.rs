@@ -88,22 +88,22 @@ pub struct EventsResponse {
 }
 
 /// Run the events command
-pub fn run(options: &EventsOptions) -> Result<()> {
+pub async fn run(options: &EventsOptions) -> Result<()> {
     if options.follow {
-        run_follow(options)
+        run_follow(options).await
     } else {
-        run_list(options)
+        run_list(options).await
     }
 }
 
-fn run_list(options: &EventsOptions) -> Result<()> {
+async fn run_list(options: &EventsOptions) -> Result<()> {
     // Get recent events from the database/log
     let events = get_recent_events(
         options.session.as_deref(),
         options.event_type.as_deref(),
         options.limit.unwrap_or(50),
         options.since.as_deref(),
-    )?;
+    ).await?;
 
     let response = EventsResponse {
         total: events.len(),
@@ -135,7 +135,7 @@ fn run_list(options: &EventsOptions) -> Result<()> {
     Ok(())
 }
 
-fn run_follow(options: &EventsOptions) -> Result<()> {
+async fn run_follow(options: &EventsOptions) -> Result<()> {
     eprintln!("Following events... (Ctrl+C to stop)");
     eprintln!();
 
@@ -147,7 +147,7 @@ fn run_follow(options: &EventsOptions) -> Result<()> {
             options.session.as_deref(),
             options.event_type.as_deref(),
             last_id.as_deref(),
-        )?;
+        ).await?;
 
         for event in &events {
             if options.format.is_json() {
@@ -170,23 +170,23 @@ fn run_follow(options: &EventsOptions) -> Result<()> {
         }
 
         // Poll interval
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
     }
 }
 
 /// Get the events file path
-fn get_events_file_path() -> Result<std::path::PathBuf> {
-    let data_dir = super::zjj_data_dir()?;
+async fn get_events_file_path() -> Result<std::path::PathBuf> {
+    let data_dir = super::zjj_data_dir().await?;
     Ok(data_dir.join("events.jsonl"))
 }
 
-fn get_recent_events(
+async fn get_recent_events(
     session: Option<&str>,
     event_type: Option<&str>,
     limit: usize,
     since: Option<&str>,
 ) -> Result<Vec<Event>> {
-    let events_file = get_events_file_path()?;
+    let events_file = get_events_file_path().await?;
 
     let mut events = Vec::new();
 
@@ -230,12 +230,12 @@ fn get_recent_events(
     Ok(events)
 }
 
-fn get_new_events(
+async fn get_new_events(
     session: Option<&str>,
     event_type: Option<&str>,
     after_id: Option<&str>,
 ) -> Result<Vec<Event>> {
-    let events_file = get_events_file_path()?;
+    let events_file = get_events_file_path().await?;
 
     let mut events = Vec::new();
     let mut found_marker = after_id.is_none(); // If no marker, include all
@@ -294,7 +294,7 @@ fn _generate_event_id() -> String {
 /// Part of the public event logging API. Not yet integrated into command flows,
 /// but available for future use by session/agent coordination features.
 #[allow(clippy::used_underscore_items)]
-pub fn _log_event(
+pub async fn _log_event(
     event_type: EventType,
     session: Option<&str>,
     agent_id: Option<&str>,
@@ -313,7 +313,7 @@ pub fn _log_event(
     };
 
     // Get events file path
-    let events_file = get_events_file_path()?;
+    let events_file = get_events_file_path().await?;
 
     // Serialize event
     let event_json = serde_json::to_string(&event)

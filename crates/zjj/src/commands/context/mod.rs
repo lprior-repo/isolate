@@ -7,6 +7,7 @@ pub mod types;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use tokio::process::Command;
 pub use types::{
     BeadsContext, ContextOutput, HealthStatus, Location, RepositoryContext, SessionContext,
 };
@@ -14,10 +15,10 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::commands::{check_in_jj_repo, get_session_db};
 
-pub fn run(json: bool, field: Option<&str>, no_beads: bool, no_health: bool) -> Result<()> {
+pub async fn run(json: bool, field: Option<&str>, no_beads: bool, no_health: bool) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
 
-    let context = gather_context(no_beads, no_health)?;
+    let context = gather_context(no_beads, no_health).await?;
 
     if let Some(field_path) = field {
         extract_and_print_field(&context, field_path)?;
@@ -28,24 +29,24 @@ pub fn run(json: bool, field: Option<&str>, no_beads: bool, no_health: bool) -> 
     Ok(())
 }
 
-fn gather_context(no_beads: bool, no_health: bool) -> Result<ContextOutput> {
-    let root = check_in_jj_repo()?;
+async fn gather_context(no_beads: bool, no_health: bool) -> Result<ContextOutput> {
+    let root = check_in_jj_repo().await?;
     let location = detect_location(&root)?;
 
-    let repository_context = get_repository_context(&root)?;
+    let repository_context = get_repository_context(&root).await?;
 
     let session_context = if matches!(location, Location::Workspace { .. }) {
-        Some(get_session_info()?)
+        Some(get_session_info().await?)
     } else {
         None
     };
 
-    let beads_context = if no_beads { None } else { get_beads_context()? };
+    let beads_context = if no_beads { None } else { get_beads_context().await? };
 
     let health_status = if no_health {
         HealthStatus::Good
     } else {
-        check_health(&root, session_context.as_ref())
+        check_health(&root, session_context.as_ref()).await
     };
 
     let suggestions = generate_suggestions(&location, &health_status, &repository_context);
@@ -105,11 +106,11 @@ pub fn detect_location(root: &PathBuf) -> Result<Location> {
     Ok(Location::Main)
 }
 
-fn get_repository_context(root: &PathBuf) -> Result<RepositoryContext> {
-    let branch = get_current_branch(root)?;
-    let uncommitted_files = count_uncommitted_files(root)?;
-    let has_conflicts = check_conflicts(root)?;
-    let commits_ahead = count_commits_ahead(root)?;
+async fn get_repository_context(root: &PathBuf) -> Result<RepositoryContext> {
+    let branch = get_current_branch(root).await?;
+    let uncommitted_files = count_uncommitted_files(root).await?;
+    let has_conflicts = check_conflicts(root).await?;
+    let commits_ahead = count_commits_ahead(root).await?;
 
     Ok(RepositoryContext {
         root: root.to_string_lossy().to_string(),
@@ -120,11 +121,12 @@ fn get_repository_context(root: &PathBuf) -> Result<RepositoryContext> {
     })
 }
 
-fn get_current_branch(root: &PathBuf) -> Result<String> {
-    let output = std::process::Command::new("jj")
+async fn get_current_branch(root: &PathBuf) -> Result<String> {
+    let output = Command::new("jj")
         .current_dir(root)
         .args(["log", "-r", "@", "--no-graph", "-T", "change_id"])
         .output()
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to get current branch: {e}"))?;
 
     if !output.status.success() {
@@ -138,11 +140,12 @@ fn get_current_branch(root: &PathBuf) -> Result<String> {
     Ok(change_id)
 }
 
-fn count_uncommitted_files(root: &PathBuf) -> Result<usize> {
-    let output = std::process::Command::new("jj")
+async fn count_uncommitted_files(root: &PathBuf) -> Result<usize> {
+    let output = Command::new("jj")
         .current_dir(root)
         .args(["status", "--no-pager"])
         .output()
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to get uncommitted files: {e}"))?;
 
     if !output.status.success() {
@@ -168,11 +171,12 @@ fn count_uncommitted_files(root: &PathBuf) -> Result<usize> {
     Ok(count)
 }
 
-fn check_conflicts(root: &PathBuf) -> Result<bool> {
-    let output = std::process::Command::new("jj")
+async fn check_conflicts(root: &PathBuf) -> Result<bool> {
+    let output = Command::new("jj")
         .current_dir(root)
         .args(["status", "--no-pager"])
         .output()
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to check for conflicts: {e}"))?;
 
     if !output.status.success() {
@@ -186,11 +190,12 @@ fn check_conflicts(root: &PathBuf) -> Result<bool> {
     Ok(stdout.contains("Conflicting"))
 }
 
-fn count_commits_ahead(root: &PathBuf) -> Result<usize> {
-    let output = std::process::Command::new("jj")
+async fn count_commits_ahead(root: &PathBuf) -> Result<usize> {
+    let output = Command::new("jj")
         .current_dir(root)
         .args(["log", "-r", "@..@", "--no-graph", "-T", "commit_id"])
         .output()
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to count commits ahead: {e}"))?;
 
     if !output.status.success() {
@@ -205,9 +210,9 @@ fn count_commits_ahead(root: &PathBuf) -> Result<usize> {
     Ok(count)
 }
 
-fn get_session_info() -> Result<SessionContext> {
-    let session_db = get_session_db()?;
-    let sessions = session_db.list_blocking(None)?;
+async fn get_session_info() -> Result<SessionContext> {
+    let session_db = get_session_db().await?;
+    let sessions = session_db.list(None).await?;
 
     let current_workspace = std::env::current_dir()?;
     let workspace_name = current_workspace
@@ -249,7 +254,7 @@ fn get_session_info() -> Result<SessionContext> {
     })
 }
 
-fn get_beads_context() -> Result<Option<BeadsContext>> {
+async fn get_beads_context() -> Result<Option<BeadsContext>> {
     let beads_dir = std::path::Path::new(".beads");
     if !beads_dir.exists() {
         return Ok(None);
@@ -260,7 +265,7 @@ fn get_beads_context() -> Result<Option<BeadsContext>> {
         return Ok(None);
     }
 
-    let content = std::fs::read_to_string(&beads_db)?;
+    let content = tokio::fs::read_to_string(&beads_db).await?;
     let mut active: Option<String> = None;
     let mut blocked_by: Vec<String> = Vec::new();
     let mut ready_count = 0usize;
@@ -295,7 +300,7 @@ fn get_beads_context() -> Result<Option<BeadsContext>> {
     }))
 }
 
-fn check_health(root: &std::path::Path, session_context: Option<&SessionContext>) -> HealthStatus {
+async fn check_health(root: &std::path::Path, session_context: Option<&SessionContext>) -> HealthStatus {
     let mut warnings: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
 

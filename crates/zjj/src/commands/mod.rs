@@ -52,12 +52,10 @@ pub mod whereami;
 pub mod whoami;
 pub mod work;
 
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use tokio::process::Command;
 
 use crate::db::SessionDb;
 
@@ -66,8 +64,8 @@ use crate::db::SessionDb;
 /// # Errors
 ///
 /// Returns an error with helpful installation instructions if JJ is not found
-pub fn check_jj_installed() -> Result<()> {
-    zjj_core::jj::check_jj_installed().map_err(|_| {
+pub async fn check_jj_installed() -> Result<()> {
+    zjj_core::jj::check_jj_installed().await.map_err(|_| {
         anyhow::anyhow!(
             "JJ is not installed or not found in PATH.\n\n\
             Installation instructions:\n\
@@ -83,8 +81,8 @@ pub fn check_jj_installed() -> Result<()> {
 /// # Errors
 ///
 /// Returns an error if not in a JJ repository
-pub fn check_in_jj_repo() -> Result<PathBuf> {
-    zjj_core::jj::check_in_jj_repo().map_err(|_| {
+pub async fn check_in_jj_repo() -> Result<PathBuf> {
+    zjj_core::jj::check_in_jj_repo().await.map_err(|_| {
         anyhow::anyhow!(
             "Not in a JJ repository.\n\n\
             Run 'zjj init' to initialize JJ and ZJJ in this directory."
@@ -101,12 +99,12 @@ pub fn check_in_jj_repo() -> Result<PathBuf> {
 /// # Errors
 ///
 /// Returns an error with helpful messages if prerequisites are not met
-pub fn check_prerequisites() -> Result<PathBuf> {
+pub async fn check_prerequisites() -> Result<PathBuf> {
     // First check if JJ is installed
-    check_jj_installed()?;
+    check_jj_installed().await?;
 
     // Then check if we're in a JJ repo
-    check_in_jj_repo()
+    check_in_jj_repo().await
 }
 
 /// Get the ZJJ data directory for the current repository
@@ -114,9 +112,9 @@ pub fn check_prerequisites() -> Result<PathBuf> {
 /// # Errors
 ///
 /// Returns an error if prerequisites are not met (JJ not installed or not in a JJ repo)
-pub fn zjj_data_dir() -> Result<PathBuf> {
+pub async fn zjj_data_dir() -> Result<PathBuf> {
     // Check prerequisites first
-    let root = check_prerequisites()?;
+    let root = check_prerequisites().await?;
     Ok(root.join(".zjj"))
 }
 
@@ -128,8 +126,8 @@ pub fn zjj_data_dir() -> Result<PathBuf> {
 /// - Prerequisites are not met (JJ not installed or not in a JJ repo)
 /// - ZJJ is not initialized
 /// - Unable to open the database
-pub fn get_session_db() -> Result<SessionDb> {
-    let data_dir = zjj_data_dir()?;
+pub async fn get_session_db() -> Result<SessionDb> {
+    let data_dir = zjj_data_dir().await?;
 
     anyhow::ensure!(
         data_dir.exists(),
@@ -147,7 +145,7 @@ pub fn get_session_db() -> Result<SessionDb> {
         ));
     }
 
-    SessionDb::open_blocking(&db_path).context("Failed to open session database")
+    SessionDb::open(&db_path).await.context("Failed to open session database")
 }
 
 /// Determine the main branch for a workspace
@@ -155,11 +153,12 @@ pub fn get_session_db() -> Result<SessionDb> {
 /// Uses jj's `trunk()` function to find the main branch.
 /// Falls back to "main" if unable to detect.
 #[allow(dead_code)] // Used in sync.rs via re-export
-pub fn determine_main_branch(workspace_path: &Path) -> String {
+pub async fn determine_main_branch(workspace_path: &Path) -> String {
     let output = Command::new("jj")
         .args(["log", "-r", "trunk()", "--no-graph", "-T", "commit_id"])
         .current_dir(workspace_path)
-        .output();
+        .output()
+        .await;
 
     if let Ok(output) = output {
         if output.status.success() {
@@ -178,12 +177,12 @@ pub fn determine_main_branch(workspace_path: &Path) -> String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_check_jj_installed_error_message() {
+    #[tokio::test]
+    async fn test_check_jj_installed_error_message() {
         // This test verifies that check_jj_installed returns a helpful error message
         // We can't directly test the failure case without controlling PATH, but we can
         // verify the error message format by examining the code
-        let result = check_jj_installed();
+        let result = check_jj_installed().await;
 
         // If JJ is installed (likely in CI), this will pass
         // If JJ is not installed, verify the error message is helpful
@@ -204,11 +203,11 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_check_in_jj_repo_error_message() {
+    #[tokio::test]
+    async fn test_check_in_jj_repo_error_message() {
         // When not in a JJ repo, we should get a helpful error message
         // We can't control being in/out of a repo in tests, but we verify the error format
-        let result = check_in_jj_repo();
+        let result = check_in_jj_repo().await;
 
         if let Err(e) = result {
             let msg = e.to_string();
@@ -219,11 +218,11 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_check_prerequisites_validates_jj_first() {
+    #[tokio::test]
+    async fn test_check_prerequisites_validates_jj_first() {
         // Prerequisites should check JJ installation before checking repo
         // This ensures we give the right error first
-        let result = check_prerequisites();
+        let result = check_prerequisites().await;
 
         // If this fails, it should be because JJ is not installed OR we're not in a repo
         if let Err(e) = result {
@@ -238,10 +237,10 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_zjj_data_dir_checks_prerequisites() {
+    #[tokio::test]
+    async fn test_zjj_data_dir_checks_prerequisites() {
         // zjj_data_dir should call check_prerequisites
-        let result = zjj_data_dir();
+        let result = zjj_data_dir().await;
 
         // If this fails, it should be due to prerequisites
         if let Err(e) = result {
@@ -269,11 +268,11 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_get_session_db_requires_init() {
+    #[tokio::test]
+    async fn test_get_session_db_requires_init() {
         // get_session_db should fail if zjj is not initialized
         // Even if we're in a JJ repo, if .zjj doesn't exist, it should fail
-        let result = get_session_db();
+        let result = get_session_db().await;
 
         if let Err(e) = result {
             let msg = e.to_string();
@@ -289,12 +288,12 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_prerequisite_error_messages_are_actionable() {
+    #[tokio::test]
+    async fn test_prerequisite_error_messages_are_actionable() {
         // Verify that error messages tell users what to do
 
         // Test check_jj_installed error
-        let jj_err = check_jj_installed();
+        let jj_err = check_jj_installed().await;
         if let Err(e) = jj_err {
             let msg = e.to_string();
             assert!(
@@ -304,7 +303,7 @@ mod tests {
         }
 
         // Test check_in_jj_repo error
-        let repo_err = check_in_jj_repo();
+        let repo_err = check_in_jj_repo().await;
         if let Err(e) = repo_err {
             let msg = e.to_string();
             // If we get the "not in repo" error, it should mention zjj init

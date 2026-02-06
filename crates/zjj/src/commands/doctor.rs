@@ -15,13 +15,11 @@
 //! Warnings (`CheckStatus::Warn`) do not cause non-zero exit codes - only failures
 //! (`CheckStatus::Fail`) do.
 
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::{Duration, Utc};
+use tokio::process::Command;
 use zjj_core::{
     config::load_config,
     introspection::{CheckStatus, DoctorCheck, DoctorFixOutput, FixResult, UnfixableIssue},
@@ -51,14 +49,14 @@ struct DoctorSummary {
     failed: usize,
 }
 
-fn check_for_recent_recovery() -> Option<String> {
+async fn check_for_recent_recovery() -> Option<String> {
     let log_path = Path::new(".zjj/recovery.log");
 
     if !log_path.exists() {
         return None;
     }
 
-    let content = std::fs::read_to_string(log_path).ok()?;
+    let content = tokio::fs::read_to_string(log_path).await.ok()?;
 
     // Get last 5 lines to check for recent recovery
     let recent_lines: Vec<&str> = content.lines().rev().take(5).collect();
@@ -88,36 +86,36 @@ fn check_for_recent_recovery() -> Option<String> {
 }
 
 /// Run health checks
-pub fn run(format: OutputFormat, fix: bool) -> Result<()> {
-    let checks = run_all_checks();
+pub async fn run(format: OutputFormat, fix: bool) -> Result<()> {
+    let checks = run_all_checks().await;
 
     if fix {
-        run_fixes(&checks, format)
+        run_fixes(&checks, format).await
     } else {
-        show_health_report(&checks, format)
+        show_health_report(&checks, format).await
     }
 }
 
 /// Run all health checks
-fn run_all_checks() -> Vec<DoctorCheck> {
+async fn run_all_checks() -> Vec<DoctorCheck> {
     vec![
-        check_jj_installed(),
-        check_zellij_installed(),
-        check_zellij_running(),
-        check_jj_repo(),
-        check_workspace_context(),
-        check_initialized(),
-        check_state_db(),
-        check_workspace_integrity(),
-        check_orphaned_workspaces(),
-        check_stale_sessions(),
-        check_beads(),
-        check_workflow_violations(),
+        check_jj_installed().await,
+        check_zellij_installed().await,
+        check_zellij_running().await,
+        check_jj_repo().await,
+        check_workspace_context().await,
+        check_initialized().await,
+        check_state_db().await,
+        check_workspace_integrity().await,
+        check_orphaned_workspaces().await,
+        check_stale_sessions().await,
+        check_beads().await,
+        check_workflow_violations().await,
     ]
 }
 
 /// Check workspace integrity using the integrity validator
-fn check_workspace_integrity() -> DoctorCheck {
+async fn check_workspace_integrity() -> DoctorCheck {
     let config = match load_config() {
         Ok(cfg) => cfg,
         Err(e) => {
@@ -133,6 +131,7 @@ fn check_workspace_integrity() -> DoctorCheck {
     };
 
     let root = jj_root()
+        .await
         .ok()
         .map(PathBuf::from)
         .or_else(|| std::env::current_dir().ok());
@@ -153,10 +152,10 @@ fn check_workspace_integrity() -> DoctorCheck {
         root.join(Path::new(&config.workspace_dir))
     };
 
-    let sessions = get_session_db()
-        .ok()
-        .and_then(|db| db.list_blocking(None).ok())
-        .unwrap_or_default();
+    let sessions = match get_session_db().await {
+        Ok(db) => db.list(None).await.unwrap_or_default(),
+        Err(_) => Vec::new(),
+    };
 
     if sessions.is_empty() {
         return DoctorCheck {
@@ -230,8 +229,8 @@ fn check_workspace_integrity() -> DoctorCheck {
 }
 
 /// Check if JJ is installed
-fn check_jj_installed() -> DoctorCheck {
-    let installed = is_command_available("jj");
+async fn check_jj_installed() -> DoctorCheck {
+    let installed = is_command_available("jj").await;
 
     DoctorCheck {
         name: "JJ Installation".to_string(),
@@ -256,8 +255,8 @@ fn check_jj_installed() -> DoctorCheck {
 }
 
 /// Check if Zellij is installed
-fn check_zellij_installed() -> DoctorCheck {
-    let installed = is_command_available("zellij");
+async fn check_zellij_installed() -> DoctorCheck {
+    let installed = is_command_available("zellij").await;
 
     DoctorCheck {
         name: "Zellij Installation".to_string(),
@@ -282,7 +281,7 @@ fn check_zellij_installed() -> DoctorCheck {
 }
 
 /// Check if Zellij is running
-fn check_zellij_running() -> DoctorCheck {
+async fn check_zellij_running() -> DoctorCheck {
     let running = is_inside_zellij();
 
     DoctorCheck {
@@ -308,8 +307,8 @@ fn check_zellij_running() -> DoctorCheck {
 }
 
 /// Check if current directory is a JJ repository
-fn check_jj_repo() -> DoctorCheck {
-    let is_repo = is_jj_repo().unwrap_or(false);
+async fn check_jj_repo() -> DoctorCheck {
+    let is_repo = is_jj_repo().await.unwrap_or(false);
 
     DoctorCheck {
         name: "JJ Repository".to_string(),
@@ -337,7 +336,7 @@ fn check_jj_repo() -> DoctorCheck {
 ///
 /// This helps AI agents understand they're already in the right place
 /// and should NOT clone the repository elsewhere.
-fn check_workspace_context() -> DoctorCheck {
+async fn check_workspace_context() -> DoctorCheck {
     let current_dir = std::env::current_dir().ok();
     let in_workspace = current_dir
         .as_ref()
@@ -385,7 +384,7 @@ fn check_workspace_context() -> DoctorCheck {
 }
 
 /// Check if zjj is initialized
-fn check_initialized() -> DoctorCheck {
+async fn check_initialized() -> DoctorCheck {
     // Check for .zjj directory existence directly, without depending on JJ installation
     let zjj_dir = std::path::Path::new(".zjj");
     let config_file = zjj_dir.join("config.toml");
@@ -413,9 +412,9 @@ fn check_initialized() -> DoctorCheck {
     }
 }
 
-fn check_state_db() -> DoctorCheck {
+async fn check_state_db() -> DoctorCheck {
     // Check if recovery occurred recently BEFORE checking database
-    if let Some(recovery_info) = check_for_recent_recovery() {
+    if let Some(recovery_info) = check_for_recent_recovery().await {
         return DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
@@ -514,21 +513,23 @@ fn check_state_db() -> DoctorCheck {
 }
 
 /// Check for orphaned workspaces
-fn check_orphaned_workspaces() -> DoctorCheck {
+async fn check_orphaned_workspaces() -> DoctorCheck {
     // Get list of sessions from DB with their workspace paths
-    let db_sessions = get_session_db()
-        .ok()
-        .and_then(|db| db.list_blocking(None).ok())
-        .unwrap_or_default();
+    let db_sessions = match get_session_db().await {
+        Ok(db) => db.list(None).await.unwrap_or_default(),
+        Err(_) => Vec::new(),
+    };
 
     // Get list of JJ workspaces
-    let jj_workspaces = jj_root().map_or_else(
-        |_| vec![],
-        |root| {
+    let jj_root_res = jj_root().await;
+    let jj_workspaces = match jj_root_res {
+        Err(_) => vec![],
+        Ok(root) => {
             let output = Command::new("jj")
                 .args(["workspace", "list"])
                 .current_dir(&root)
-                .output();
+                .output()
+                .await;
 
             match output {
                 Ok(out) if out.status.success() => {
@@ -546,7 +547,7 @@ fn check_orphaned_workspaces() -> DoctorCheck {
                 _ => vec![],
             }
         },
-    );
+    };
 
     // Build a set of session names for quick lookup
     let session_names: std::collections::HashSet<_> =
@@ -622,8 +623,8 @@ fn check_orphaned_workspaces() -> DoctorCheck {
 }
 
 /// Check Beads integration
-fn check_beads() -> DoctorCheck {
-    let installed = is_command_available("br");
+async fn check_beads() -> DoctorCheck {
+    let installed = is_command_available("br").await;
 
     if !installed {
         return DoctorCheck {
@@ -637,7 +638,7 @@ fn check_beads() -> DoctorCheck {
     }
 
     // Count open issues
-    let output = Command::new("br").args(["list", "--status=open"]).output();
+    let output = Command::new("br").args(["list", "--status=open"]).output().await;
 
     match output {
         Ok(out) if out.status.success() => {
@@ -667,11 +668,11 @@ fn check_beads() -> DoctorCheck {
 }
 
 /// Check for stale/incomplete sessions
-fn check_stale_sessions() -> DoctorCheck {
-    let sessions = get_session_db()
-        .ok()
-        .and_then(|db| db.list_blocking(None).ok())
-        .unwrap_or_default();
+async fn check_stale_sessions() -> DoctorCheck {
+    let sessions = match get_session_db().await {
+        Ok(db) => db.list(None).await.unwrap_or_default(),
+        Err(_) => Vec::new(),
+    };
 
     let stale_threshold = Duration::minutes(5);
     let now = Utc::now();
@@ -724,9 +725,8 @@ fn check_stale_sessions() -> DoctorCheck {
 }
 
 /// Check for workflow violations that may confuse AI agents
-#[allow(clippy::manual_let_else)]
-fn check_workflow_violations() -> DoctorCheck {
-    let db = match get_session_db() {
+async fn check_workflow_violations() -> DoctorCheck {
+    let db = match get_session_db().await {
         Ok(db) => db,
         Err(_) => {
             return DoctorCheck {
@@ -740,7 +740,7 @@ fn check_workflow_violations() -> DoctorCheck {
         }
     };
 
-    let sessions = db.list_blocking(None).unwrap_or_else(|_| Vec::new());
+    let sessions = db.list(None).await.unwrap_or_default();
     let active_sessions: Vec<_> = sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Active)
@@ -805,7 +805,7 @@ fn check_workflow_violations() -> DoctorCheck {
 /// - 0: All checks passed (healthy system)
 /// - 1: One or more checks failed (unhealthy system)
 /// - 2: System recovered from corruption (recovery detected)
-fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
+async fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     // Calculate summary statistics
     let warnings = checks
         .iter()
@@ -895,7 +895,7 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
 /// # Exit Codes
 /// - 0: All critical issues were fixed or none existed
 /// - 1: Critical issues remain unfixed
-fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
+async fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     let mut fixed = vec![];
     let mut unable_to_fix = vec![];
 
@@ -913,8 +913,9 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
 
         // Try to fix the issue
         let fix_result = match check.name.as_str() {
-            "Orphaned Workspaces" => fix_orphaned_workspaces(check).map_err(|e| e.to_string()),
-            "Stale Sessions" => fix_stale_sessions(check),
+            "Orphaned Workspaces" => fix_orphaned_workspaces(check).await.map_err(|e| e.to_string()),
+            "Stale Sessions" => fix_stale_sessions(check).await,
+            "State Database" => fix_state_database(check).await,
             _ => Err("No auto-fix available".to_string()),
         };
 
@@ -966,7 +967,7 @@ fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     Ok(())
 }
 
-fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
+async fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
     let stale_data = check
         .details
         .as_ref()
@@ -977,12 +978,12 @@ fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
         .as_array()
         .ok_or_else(|| "Stale sessions data is not an array".to_string())?;
 
-    let db = get_session_db().map_err(|e| format!("Failed to open DB: {e}"))?;
+    let db = get_session_db().await.map_err(|e| format!("Failed to open DB: {e}"))?;
     let mut removed = 0;
 
     for session_value in sessions {
         if let Some(session_name) = session_value.as_str() {
-            match db.delete_blocking(session_name) {
+            match db.delete(session_name).await {
                 Ok(true) => removed += 1,
                 Ok(false) => {}
                 Err(e) => {
@@ -996,6 +997,19 @@ fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
         Ok(format!("Removed {removed} stale session(s)"))
     } else {
         Err("Failed to remove any stale sessions".to_string())
+    }
+}
+
+async fn fix_state_database(_check: &DoctorCheck) -> Result<String, String> {
+    let db_path = std::path::Path::new(".zjj/state.db");
+    if !db_path.exists() {
+        return Err("Database file does not exist".to_string());
+    }
+
+    // Attempt to delete the corrupted database
+    match tokio::fs::remove_file(db_path).await {
+        Ok(()) => Ok("Deleted corrupted database file. It will be recreated on next run.".to_string()),
+        Err(e) => Err(format!("Failed to delete corrupted database: {e}")),
     }
 }
 
@@ -1030,13 +1044,13 @@ fn show_fix_results(output: &DoctorFixOutput) {
 }
 
 /// Fix orphaned workspaces
-fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
+async fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
     let orphaned_data = check
         .details
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("No orphaned workspaces data"))?;
 
-    let root = jj_root()?;
+    let root = jj_root().await?;
     let mut filesystem_removed = 0;
     let mut db_removed = 0;
 
@@ -1051,6 +1065,7 @@ fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
                     .args(["workspace", "forget", name])
                     .current_dir(&root)
                     .output()
+                    .await
                     .ok();
 
                 if result.map(|r| r.status.success()).unwrap_or(false) {
@@ -1065,10 +1080,10 @@ fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
         .get("db_to_filesystem")
         .and_then(|v| v.as_array())
     {
-        if let Ok(db) = get_session_db() {
+        if let Ok(db) = get_session_db().await {
             for session_name in db_orphans {
                 if let Some(name) = session_name.as_str() {
-                    if db.delete_blocking(name).unwrap_or(false) {
+                    if db.delete(name).await.unwrap_or(false) {
                         db_removed += 1;
                     }
                 }
@@ -1104,9 +1119,9 @@ mod tests {
 
     use super::*;
 
-    #[test]
+    #[tokio::test]
     #[serial]
-    fn test_check_initialized_detects_zjj_directory() {
+    async fn test_check_initialized_detects_zjj_directory() {
         // Create a temporary directory
         let temp_dir = TempDir::new().ok().filter(|_| true);
         let Some(temp_dir) = temp_dir else {
@@ -1123,7 +1138,7 @@ mod tests {
         }
 
         // Test 1: No .zjj directory - should fail
-        let result = check_initialized();
+        let result = check_initialized().await;
         assert_eq!(result.status, CheckStatus::Fail);
         assert_eq!(result.name, "zjj Initialized");
         assert!(result.message.contains("not initialized"));
@@ -1133,7 +1148,7 @@ mod tests {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
-        let result = check_initialized();
+        let result = check_initialized().await;
         assert_eq!(result.status, CheckStatus::Fail);
 
         // Test 3: .zjj directory with config.toml - should pass
@@ -1141,7 +1156,7 @@ mod tests {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
-        let result = check_initialized();
+        let result = check_initialized().await;
         assert_eq!(result.status, CheckStatus::Pass);
         assert!(result.message.contains(".zjj directory exists"));
 
@@ -1149,9 +1164,9 @@ mod tests {
         let _ = std::env::set_current_dir(original_dir);
     }
 
-    #[test]
+    #[tokio::test]
     #[serial]
-    fn test_check_initialized_independent_of_jj() {
+    async fn test_check_initialized_independent_of_jj() {
         // This test verifies that check_initialized doesn't call jj commands
         // We test this by checking it works even without a JJ repo
 
@@ -1179,18 +1194,18 @@ mod tests {
         }
 
         // Even without JJ installed/initialized, should detect .zjj
-        let result = check_initialized();
+        let result = check_initialized().await;
         assert_eq!(result.status, CheckStatus::Pass);
 
         // Cleanup
         let _ = std::env::set_current_dir(original_dir);
     }
 
-    #[test]
-    fn test_check_jj_installed_vs_check_initialized() {
+    #[tokio::test]
+    async fn test_check_jj_installed_vs_check_initialized() {
         // Verify that JJ installation check and initialization check are separate concerns
-        let jj_check = check_jj_installed();
-        let init_check = check_initialized();
+        let jj_check = check_jj_installed().await;
+        let init_check = check_initialized().await;
 
         // These should be independent checks
         assert_eq!(jj_check.name, "JJ Installation");

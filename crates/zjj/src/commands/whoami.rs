@@ -35,7 +35,7 @@ pub struct WhoAmIOptions {
 /// # Errors
 ///
 /// Returns an error if unable to determine identity
-pub fn run(options: &WhoAmIOptions) -> Result<()> {
+pub async fn run(options: &WhoAmIOptions) -> Result<()> {
     // Check environment variables for agent context
     let env_agent_id = std::env::var("ZJJ_AGENT_ID").ok();
     let env_bead_id = std::env::var("ZJJ_BEAD_ID").ok();

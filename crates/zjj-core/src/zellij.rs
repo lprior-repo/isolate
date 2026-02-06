@@ -18,12 +18,10 @@
 //! - REQ-ZELLIJ-012: Configure main pane command (default: claude)
 //! - REQ-ZELLIJ-013: Configure beads pane command (default: bv)
 
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
+use tokio::process::Command;
 
 use crate::{Error, Result};
 
@@ -136,20 +134,20 @@ pub struct Layout {
 /// - Unable to create layout directory
 /// - Unable to write layout file
 /// - Template generation fails
-pub fn layout_generate(
+pub async fn layout_generate(
     config: &LayoutConfig,
     template: LayoutTemplate,
     output_dir: &Path,
 ) -> Result<Layout> {
     // Create output directory
-    std::fs::create_dir_all(output_dir)?;
+    tokio::fs::create_dir_all(output_dir).await?;
 
     // Generate KDL content
     let kdl_content = generate_template_kdl(config, template)?;
 
     // Write to file
     let file_path = output_dir.join(format!("{}.kdl", config.session_name));
-    std::fs::write(&file_path, &kdl_content)?;
+    tokio::fs::write(&file_path, &kdl_content).await?;
 
     Ok(Layout {
         kdl_content,
@@ -370,7 +368,7 @@ fn validate_kdl(content: &str) -> Result<()> {
 /// - Zellij is not running
 /// - Layout file doesn't exist
 /// - zellij action command fails
-pub fn tab_open(layout_path: &Path, tab_name: &str) -> Result<()> {
+pub async fn tab_open(layout_path: &Path, tab_name: &str) -> Result<()> {
     // Check Zellij is running
     check_zellij_running()?;
 
@@ -390,6 +388,7 @@ pub fn tab_open(layout_path: &Path, tab_name: &str) -> Result<()> {
         .arg("--name")
         .arg(tab_name)
         .output()
+        .await
         .map_err(|e| Error::Command(format!("Failed to execute zellij: {e}")))?;
 
     if !output.status.success() {
@@ -407,17 +406,18 @@ pub fn tab_open(layout_path: &Path, tab_name: &str) -> Result<()> {
 /// Returns error if:
 /// - Zellij is not running
 /// - zellij action command fails
-pub fn tab_close(tab_name: &str) -> Result<()> {
+pub async fn tab_close(tab_name: &str) -> Result<()> {
     // Check Zellij is running
     check_zellij_running()?;
 
     // First focus the tab
-    tab_focus(tab_name)?;
+    tab_focus(tab_name).await?;
 
     // Execute: zellij action close-tab
     let output = Command::new("zellij")
         .args(["action", "close-tab"])
         .output()
+        .await
         .map_err(|e| Error::Command(format!("Failed to execute zellij: {e}")))?;
 
     if !output.status.success() {
@@ -436,7 +436,7 @@ pub fn tab_close(tab_name: &str) -> Result<()> {
 /// - Zellij is not running
 /// - Tab doesn't exist
 /// - zellij action command fails
-pub fn tab_focus(tab_name: &str) -> Result<()> {
+pub async fn tab_focus(tab_name: &str) -> Result<()> {
     // Check Zellij is running
     check_zellij_running()?;
 
@@ -444,6 +444,7 @@ pub fn tab_focus(tab_name: &str) -> Result<()> {
     let output = Command::new("zellij")
         .args(["action", "go-to-tab-name", tab_name])
         .output()
+        .await
         .map_err(|e| Error::Command(format!("Failed to execute zellij: {e}")))?;
 
     if !output.status.success() {
@@ -480,10 +481,11 @@ pub fn check_zellij_running() -> Result<()> {
 /// - Zellij command fails to execute
 /// - Output is not valid UTF-8
 /// - Command returns non-zero exit code
-pub fn query_tab_names() -> Result<Vec<String>> {
+pub async fn query_tab_names() -> Result<Vec<String>> {
     Command::new("zellij")
         .args(["action", "query-tab-names"])
         .output()
+        .await
         .map_err(|e| Error::Command(format!("Failed to execute zellij: {e}")))
         .and_then(|output| {
             if output.status.success() {
@@ -515,16 +517,18 @@ pub fn query_tab_names() -> Result<Vec<String>> {
 /// ```no_run
 /// use zjj_core::zellij::check_tab_exists;
 ///
-/// let status = check_tab_exists("zjj:my-session");
+/// # async fn example() {
+/// let status = check_tab_exists("zjj:my-session").await;
 /// assert!(matches!(
 ///     status,
 ///     zjj_core::zellij::TabStatus::Active
 ///         | zjj_core::zellij::TabStatus::Missing
 ///         | zjj_core::zellij::TabStatus::Unknown
 /// ));
+/// # }
 /// ```
 #[must_use]
-pub fn check_tab_exists(tab_name: &str) -> TabStatus {
+pub async fn check_tab_exists(tab_name: &str) -> TabStatus {
     // If Zellij not running, return Unknown immediately
     if std::env::var("ZELLIJ").is_err() {
         return TabStatus::Unknown;
@@ -532,6 +536,7 @@ pub fn check_tab_exists(tab_name: &str) -> TabStatus {
 
     // Query tab names and check if ours exists
     query_tab_names()
+        .await
         .map(|tabs| {
             if tabs.iter().any(|name| name == tab_name) {
                 TabStatus::Active
@@ -624,17 +629,17 @@ mod tests {
     }
 
     // Test Case 5: Open tab - Executes 'zellij action new-tab ...'
-    #[test]
-    fn test_tab_open_requires_zellij() {
+    #[tokio::test]
+    async fn test_tab_open_requires_zellij() {
         // This test will fail if not in Zellij
         // We just test the error handling
         let temp_dir = env::temp_dir();
         let layout_path = temp_dir.join("test.kdl");
 
         // Create a test layout file
-        std::fs::write(&layout_path, "layout { pane { } }").ok();
+        tokio::fs::write(&layout_path, "layout { pane { } }").await.ok();
 
-        let result = tab_open(&layout_path, "test-tab");
+        let result = tab_open(&layout_path, "test-tab").await;
 
         // Should fail if not in Zellij
         if env::var("ZELLIJ").is_err() {
@@ -646,9 +651,9 @@ mod tests {
     }
 
     // Test Case 6: Close tab - Executes 'zellij action close-tab ...'
-    #[test]
-    fn test_tab_close_requires_zellij() {
-        let result = tab_close("test-tab");
+    #[tokio::test]
+    async fn test_tab_close_requires_zellij() {
+        let result = tab_close("test-tab").await;
 
         // Should fail if not in Zellij
         if env::var("ZELLIJ").is_err() {
@@ -660,9 +665,9 @@ mod tests {
     }
 
     // Test Case 7: Focus tab - Executes 'zellij action go-to-tab-name ...'
-    #[test]
-    fn test_tab_focus_requires_zellij() {
-        let result = tab_focus("test-tab");
+    #[tokio::test]
+    async fn test_tab_focus_requires_zellij() {
+        let result = tab_focus("test-tab").await;
 
         // Should fail if not in Zellij
         if env::var("ZELLIJ").is_err() {
@@ -778,12 +783,12 @@ mod tests {
     }
 
     // Additional test: Layout generation end-to-end
-    #[test]
-    fn test_layout_generate_creates_file() {
+    #[tokio::test]
+    async fn test_layout_generate_creates_file() {
         let config = test_config();
         let output_dir = env::temp_dir().join("zjj-test-layouts");
 
-        let result = layout_generate(&config, LayoutTemplate::Minimal, &output_dir);
+        let result = layout_generate(&config, LayoutTemplate::Minimal, &output_dir).await;
         assert!(result.is_ok());
 
         let layout = result.unwrap_or_else(|_| Layout {
@@ -795,15 +800,15 @@ mod tests {
         assert!(layout.kdl_content.contains("layout"));
 
         // Cleanup
-        std::fs::remove_file(&layout.file_path).ok();
-        std::fs::remove_dir(&output_dir).ok();
+        tokio::fs::remove_file(&layout.file_path).await.ok();
+        tokio::fs::remove_dir(&output_dir).await.ok();
     }
 
     // Additional test: tab_open with missing file
-    #[test]
-    fn test_tab_open_missing_layout_file() {
+    #[tokio::test]
+    async fn test_tab_open_missing_layout_file() {
         let missing_path = PathBuf::from("/nonexistent/layout.kdl");
-        let result = tab_open(&missing_path, "test");
+        let result = tab_open(&missing_path, "test").await;
 
         assert!(result.is_err());
         if let Err(Error::NotFound(msg)) = result {
@@ -827,8 +832,8 @@ mod tests {
         assert_ne!(TabStatus::Missing, TabStatus::Unknown);
     }
 
-    #[test]
-    fn test_check_tab_exists_when_zellij_not_running() {
+    #[tokio::test]
+    async fn test_check_tab_exists_when_zellij_not_running() {
         // Save current ZELLIJ var
         let zellij_var = env::var("ZELLIJ");
 
@@ -836,7 +841,7 @@ mod tests {
         env::remove_var("ZELLIJ");
 
         // Should return Unknown when Zellij not running
-        let status = check_tab_exists("zjj:test");
+        let status = check_tab_exists("zjj:test").await;
         assert_eq!(status, TabStatus::Unknown);
 
         // Restore ZELLIJ var if it existed
@@ -845,12 +850,12 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_query_tab_names_when_zellij_not_running() {
+    #[tokio::test]
+    async fn test_query_tab_names_when_zellij_not_running() {
         // This test verifies error handling when zellij command fails
         // We can't easily test the success case without actually running Zellij
         // but we can verify the function doesn't panic
-        let result = query_tab_names();
+        let result = query_tab_names().await;
 
         // Should either succeed (if Zellij is running) or fail gracefully
         match result {

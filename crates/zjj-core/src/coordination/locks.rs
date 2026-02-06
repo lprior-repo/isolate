@@ -54,6 +54,12 @@ impl LockManager {
         }
     }
 
+    /// Get the database pool
+    #[must_use]
+    pub const fn pool(&self) -> &SqlitePool {
+        &self.db
+    }
+
     /// Create a new `LockManager` with a custom TTL.
     #[must_use]
     pub const fn with_ttl(db: SqlitePool, ttl: Duration) -> Self {

@@ -19,15 +19,15 @@ pub struct FocusOptions {
 }
 
 /// Run the focus command with options
-pub fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()> {
-    let db = get_session_db()?;
+pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()> {
+    let db = get_session_db().await?;
 
     // Resolve the name (either provided or selected interactively)
     let resolved_name = if let Some(n) = name {
         n.to_string()
     } else {
         // Interactive selection
-        let sessions = db.list_blocking(None)?;
+        let sessions = db.list(None).await?;
 
         if sessions.is_empty() {
             if options.format.is_json() {
@@ -46,7 +46,7 @@ pub fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()
 
     // Get the session (we might need to fetch it again if it was provided by name)
     // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-    let session = db.get_blocking(&resolved_name)?.ok_or_else(|| {
+    let session = db.get(&resolved_name).await?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{resolved_name}' not found"
         )))
@@ -72,7 +72,7 @@ pub fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()
         }
     } else if is_inside_zellij() {
         // Inside Zellij: Switch to the tab
-        run_command("zellij", &["action", "go-to-tab-name", &zellij_tab])?;
+        run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
 
         if options.format.is_json() {
             let output = FocusOutput {

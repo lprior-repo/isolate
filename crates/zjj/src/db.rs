@@ -293,63 +293,7 @@ impl SessionDb {
     pub async fn list(&self, status_filter: Option<SessionStatus>) -> Result<Vec<Session>> {
         query_sessions(&self.pool, status_filter).await
     }
-
-    // === BLOCKING WRAPPERS ===
-    // These provide synchronous versions of async methods for use in
-    // non-async contexts (like CLI commands). Each creates a runtime
-    // and blocks on the corresponding async method.
-
-    /// Blocking version of [`open`](Self::open)
-    pub fn open_blocking(path: &Path) -> Result<Self> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(Self::open(path))
-    }
-
-    /// Blocking version of [`create_or_open`](Self::create_or_open)
-    pub fn create_or_open_blocking(path: &Path) -> Result<Self> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(Self::create_or_open(path))
-    }
-
-    /// Blocking version of [`create`](Self::create)
-    pub fn create_blocking(&self, name: &str, workspace_path: &str) -> Result<Session> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(self.create(name, workspace_path))
-    }
-
-    /// Blocking version of [`get`](Self::get)
-    pub fn get_blocking(&self, name: &str) -> Result<Option<Session>> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(self.get(name))
-    }
-
-    /// Blocking version of [`update`](Self::update)
-    pub fn update_blocking(&self, name: &str, update: SessionUpdate) -> Result<()> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(self.update(name, update))
-    }
-
-    /// Blocking version of [`delete`](Self::delete)
-    pub fn delete_blocking(&self, name: &str) -> Result<bool> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(self.delete(name))
-    }
-
-    /// Blocking version of [`list`](Self::list)
-    pub fn list_blocking(&self, status_filter: Option<SessionStatus>) -> Result<Vec<Session>> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| Error::Unknown(format!("Failed to create runtime: {e}")))?;
-        rt.block_on(self.list(status_filter))
-    }
 }
-
-// === PURE FUNCTIONS (Functional Core) ===
 
 /// Get the current recovery policy from environment variables
 fn get_recovery_policy() -> RecoveryPolicy {
@@ -597,15 +541,16 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
                 eprintln!("⚠  Database file corrupted: {p}", p = db_path.display());
                 eprintln!("   Magic bytes (hex): {magic_hex}");
                 eprintln!("   Expected: 53 51 4c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 (SQLite format 3)");
-                eprintln!("   SQLite will attempt automatic recovery...");
 
-                if should_log {
-                    log_recovery(&format!(
-                        "Database file corrupted: {p}. Magic bytes: {magic_hex}. SQLite will recover automatically.",
-                        p = db_path.display()
-                    ))
-                    .ok();
-                }
+                return Err(zjj_core::Error::DatabaseError(format!(
+                    "Database file corrupted: {p}\n\n\
+                     To prevent data loss, automatic recovery is disabled by default.\n\
+                     To recover, please run:\n\
+                     zjj doctor --fix\n\n\
+                     Or manually delete the database and run 'zjj init':\n\
+                     rm {p} && zjj init",
+                    p = db_path.display()
+                )));
             }
             RecoveryPolicy::Silent => {
                 if should_log {
@@ -649,15 +594,15 @@ fn recover_database(path: &Path) -> Result<()> {
         }
         RecoveryPolicy::Warn => {
             eprintln!("⚠  Database corruption detected: {p}", p = path.display());
-            eprintln!("   Recovering by recreating database file...");
-
-            if should_log {
-                let log_msg = format!(
-                    "Database corruption detected at: {p}. Recovered by recreating database.",
-                    p = path.display()
-                );
-                log_recovery(&log_msg).ok();
-            }
+            return Err(zjj_core::Error::DatabaseError(format!(
+                "Database corruption detected: {p}\n\n\
+                 To prevent data loss, automatic recovery is disabled by default.\n\
+                 To recover, please run:\n\
+                 zjj doctor --fix\n\n\
+                 Or manually delete the database and run 'zjj init':\n\
+                 rm {p} && zjj init",
+                p = path.display()
+            )));
         }
         RecoveryPolicy::Silent => {
             if should_log {

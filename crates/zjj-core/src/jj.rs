@@ -4,10 +4,11 @@
 //! All operations return `Result` and never panic.
 
 use std::{
-    io::ErrorKind,
     path::{Path, PathBuf},
-    process::Command,
+    process::Command as StdCommand,
 };
+
+use tokio::process::Command;
 
 use crate::{Error, Result};
 
@@ -19,11 +20,11 @@ use crate::{Error, Result};
 /// # Example
 ///
 /// ```no_run
-/// use std::path::Path;
+/// use std::path::PathBuf;
 ///
 /// use zjj_core::jj::WorkspaceGuard;
 ///
-/// let guard = WorkspaceGuard::new("session-name", Path::new("/tmp/workspace"));
+/// let guard = WorkspaceGuard::new("session-name".to_string(), PathBuf::from("/tmp/workspace"));
 /// // Workspace is automatically cleaned up when guard goes out of scope
 /// ```
 pub struct WorkspaceGuard {
@@ -51,7 +52,7 @@ impl WorkspaceGuard {
     /// Disarm the guard to prevent cleanup
     ///
     /// Call this when workspace creation succeeds and you want to keep it.
-    pub const fn disarm(&mut self) {
+    pub fn disarm(&mut self) {
         self.active = false;
     }
 
@@ -60,21 +61,48 @@ impl WorkspaceGuard {
     /// # Errors
     ///
     /// Returns error if cleanup fails
-    pub fn cleanup(&mut self) -> Result<()> {
+    pub async fn cleanup(&mut self) -> Result<()> {
         if !self.active {
             return Ok(());
         }
 
         self.active = false;
-        self.perform_cleanup()
+        // Use async implementation
+        let forget_result = workspace_forget(&self.name).await;
+        
+        // Async file removal
+        let remove_result = if self.path.exists() {
+            tokio::fs::remove_dir_all(&self.path)
+                .await
+                .map_err(|e| Error::IoError(format!("Failed to remove workspace directory: {e}")))
+        } else {
+            Ok(())
+        };
+
+        forget_result.and(remove_result)
     }
 
-    /// Perform the actual cleanup operations
-    fn perform_cleanup(&self) -> Result<()> {
-        // Step 1: Forget the JJ workspace (best effort)
-        let forget_result = workspace_forget(&self.name);
+    /// Perform the actual cleanup operations synchronously (for Drop)
+    fn perform_cleanup_sync(&self) -> Result<()> {
+        // Step 1: Forget the JJ workspace (best effort, sync)
+        let forget_result = StdCommand::new("jj")
+            .args(["workspace", "forget", &self.name])
+            .output()
+            .map_err(|e| jj_command_error("forget workspace", &e))
+            .and_then(|output| {
+                if output.status.success() {
+                    Ok(())
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    Err(Error::JjCommandError {
+                        operation: "forget workspace".to_string(),
+                        source: stderr.to_string(),
+                        is_not_found: false,
+                    })
+                }
+            });
 
-        // Step 2: Remove the directory (best effort)
+        // Step 2: Remove the directory (best effort, sync)
         let remove_result = if self.path.exists() {
             std::fs::remove_dir_all(&self.path)
                 .map_err(|e| Error::IoError(format!("Failed to remove workspace directory: {e}")))
@@ -94,7 +122,7 @@ impl Drop for WorkspaceGuard {
         }
 
         // Best effort cleanup - log errors but don't panic in Drop
-        if let Err(e) = self.perform_cleanup() {
+        if let Err(e) = self.perform_cleanup_sync() {
             tracing::warn!("Workspace cleanup failed for '{}': {}", self.name, e);
             eprintln!(
                 "Warning: Failed to cleanup workspace '{}': {}",
@@ -106,7 +134,7 @@ impl Drop for WorkspaceGuard {
 
 /// Helper to create a JJ command error with appropriate context
 fn jj_command_error(operation: &str, error: &std::io::Error) -> Error {
-    let is_not_found = error.kind() == ErrorKind::NotFound;
+    let is_not_found = error.kind() == std::io::ErrorKind::NotFound;
     Error::JjCommandError {
         operation: operation.to_string(),
         source: error.to_string(),
@@ -152,7 +180,7 @@ pub struct Status {
 impl Status {
     /// Check if there are any changes
     #[must_use]
-    pub const fn is_clean(&self) -> bool {
+    pub fn is_clean(&self) -> bool {
         self.modified.is_empty()
             && self.added.is_empty()
             && self.deleted.is_empty()
@@ -161,7 +189,7 @@ impl Status {
 
     /// Count total number of changed files
     #[must_use]
-    pub const fn change_count(&self) -> usize {
+    pub fn change_count(&self) -> usize {
         self.modified.len() + self.added.len() + self.deleted.len() + self.renamed.len()
     }
 }
@@ -176,7 +204,7 @@ impl Status {
 /// - Workspace name already exists
 /// - Unable to create workspace directory
 /// - JJ command fails
-pub fn workspace_create(name: &str, path: &Path) -> Result<()> {
+pub async fn workspace_create(name: &str, path: &Path) -> Result<()> {
     // Validate inputs
     if name.is_empty() {
         return Err(Error::InvalidConfig(
@@ -186,7 +214,8 @@ pub fn workspace_create(name: &str, path: &Path) -> Result<()> {
 
     // Create parent directory if needed
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
+        tokio::fs::create_dir_all(parent)
+            .await
             .map_err(|e| Error::IoError(format!("Failed to create workspace directory: {e}")))?;
     }
 
@@ -195,6 +224,7 @@ pub fn workspace_create(name: &str, path: &Path) -> Result<()> {
         .args(["workspace", "add", "--name", name])
         .arg(path)
         .output()
+        .await
         .map_err(|e| jj_command_error("create workspace", &e))?;
 
     if !output.status.success() {
@@ -218,7 +248,7 @@ pub fn workspace_create(name: &str, path: &Path) -> Result<()> {
 /// - Not in a JJ repository
 /// - Workspace doesn't exist
 /// - JJ command fails
-pub fn workspace_forget(name: &str) -> Result<()> {
+pub async fn workspace_forget(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::InvalidConfig(
             "workspace name cannot be empty".into(),
@@ -229,6 +259,7 @@ pub fn workspace_forget(name: &str) -> Result<()> {
     let output = Command::new("jj")
         .args(["workspace", "forget", name])
         .output()
+        .await
         .map_err(|e| jj_command_error("forget workspace", &e))?;
 
     if !output.status.success() {
@@ -251,11 +282,12 @@ pub fn workspace_forget(name: &str) -> Result<()> {
 /// - JJ is not installed
 /// - Not in a JJ repository
 /// - Unable to parse JJ output
-pub fn workspace_list() -> Result<Vec<WorkspaceInfo>> {
+pub async fn workspace_list() -> Result<Vec<WorkspaceInfo>> {
     // Execute: jj workspace list
     let output = Command::new("jj")
         .args(["workspace", "list"])
         .output()
+        .await
         .map_err(|e| jj_command_error("list workspaces", &e))?;
 
     if !output.status.success() {
@@ -321,12 +353,13 @@ fn parse_workspace_list(output: &str) -> Result<Vec<WorkspaceInfo>> {
 /// - JJ is not installed
 /// - Not in a JJ repository
 /// - Unable to parse JJ output
-pub fn workspace_status(path: &Path) -> Result<Status> {
+pub async fn workspace_status(path: &Path) -> Result<Status> {
     // Execute: jj status (in the workspace directory)
     let output = Command::new("jj")
         .args(["status"])
         .current_dir(path)
         .output()
+        .await
         .map_err(|e| jj_command_error("get workspace status", &e))?;
 
     if !output.status.success() {
@@ -344,40 +377,38 @@ pub fn workspace_status(path: &Path) -> Result<Status> {
 
 /// Parse output from 'jj status'
 fn parse_status(output: &str) -> Status {
-    let mut status = Status {
-        modified: Vec::new(),
-        added: Vec::new(),
-        deleted: Vec::new(),
-        renamed: Vec::new(),
-        unknown: Vec::new(),
-    };
-
-    for line in output.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        // Look for status markers: M, A, D, R, ?
-        if let Some(rest) = line.strip_prefix('M') {
-            status.modified.push(PathBuf::from(rest.trim()));
-        } else if let Some(rest) = line.strip_prefix('A') {
-            status.added.push(PathBuf::from(rest.trim()));
-        } else if let Some(rest) = line.strip_prefix('D') {
-            status.deleted.push(PathBuf::from(rest.trim()));
-        } else if let Some(rest) = line.strip_prefix('R') {
-            // Renamed: "R old_path => new_path"
-            if let Some((old, new)) = rest.split_once("=>") {
-                status
-                    .renamed
-                    .push((PathBuf::from(old.trim()), PathBuf::from(new.trim())));
+    output.lines().fold(
+        Status {
+            modified: Vec::new(),
+            added: Vec::new(),
+            deleted: Vec::new(),
+            renamed: Vec::new(),
+            unknown: Vec::new(),
+        },
+        |mut status, line| {
+            let line = line.trim();
+            if line.is_empty() {
+                return status;
             }
-        } else if let Some(rest) = line.strip_prefix('?') {
-            status.unknown.push(PathBuf::from(rest.trim()));
-        }
-    }
 
-    status
+            if let Some(rest) = line.strip_prefix('M') {
+                status.modified.push(PathBuf::from(rest.trim()));
+            } else if let Some(rest) = line.strip_prefix('A') {
+                status.added.push(PathBuf::from(rest.trim()));
+            } else if let Some(rest) = line.strip_prefix('D') {
+                status.deleted.push(PathBuf::from(rest.trim()));
+            } else if let Some(rest) = line.strip_prefix('R') {
+                if let Some((old, new)) = rest.split_once("=>") {
+                    status
+                        .renamed
+                        .push((PathBuf::from(old.trim()), PathBuf::from(new.trim())));
+                }
+            } else if let Some(rest) = line.strip_prefix('?') {
+                status.unknown.push(PathBuf::from(rest.trim()));
+            }
+            status
+        },
+    )
 }
 
 /// Get diff summary for a workspace
@@ -388,12 +419,13 @@ fn parse_status(output: &str) -> Status {
 /// - JJ is not installed
 /// - Not in a JJ repository
 /// - Unable to parse JJ output
-pub fn workspace_diff(path: &Path) -> Result<DiffSummary> {
+pub async fn workspace_diff(path: &Path) -> Result<DiffSummary> {
     // Execute: jj diff --stat (in the workspace directory)
     let output = Command::new("jj")
         .args(["diff", "--stat"])
         .current_dir(path)
         .output()
+        .await
         .map_err(|e| jj_command_error("get workspace diff", &e))?;
 
     if !output.status.success() {
@@ -417,26 +449,20 @@ fn parse_diff_stat(output: &str) -> DiffSummary {
         .find(|line| line.contains("insertion") || line.contains("deletion"))
         .unwrap_or_default();
 
-    let mut insertions = 0;
-    let mut deletions = 0;
+    let insertions = summary_line
+        .split("insertion")
+        .next()
+        .and_then(|s| s.split_whitespace().last())
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
 
-    // Parse insertions
-    if let Some(ins_str) = summary_line.split("insertion").next() {
-        if let Some(num_str) = ins_str.split_whitespace().last() {
-            insertions = num_str.parse().map_or(0, |value| value);
-        }
-    }
-
-    // Parse deletions
-    if let Some(del_str) = summary_line.split("deletion").next() {
-        if let Some(num_str) = del_str
-            .rsplit(',')
-            .next()
-            .and_then(|s| s.split_whitespace().next())
-        {
-            deletions = num_str.parse().map_or(0, |value| value);
-        }
-    }
+    let deletions = summary_line
+        .split("deletion")
+        .next()
+        .and_then(|s| s.rsplit(',').next())
+        .and_then(|s| s.split_whitespace().next())
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
 
     DiffSummary {
         insertions,
@@ -449,10 +475,11 @@ fn parse_diff_stat(output: &str) -> DiffSummary {
 /// # Errors
 ///
 /// Returns error if JJ is not found in PATH
-pub fn check_jj_installed() -> Result<()> {
+pub async fn check_jj_installed() -> Result<()> {
     Command::new("jj")
         .arg("--version")
         .output()
+        .await
         .map_err(|e| jj_command_error("check JJ installation", &e))
         .and_then(|output| {
             if output.status.success() {
@@ -472,10 +499,11 @@ pub fn check_jj_installed() -> Result<()> {
 /// # Errors
 ///
 /// Returns error if not in a JJ repository
-pub fn check_in_jj_repo() -> Result<PathBuf> {
+pub async fn check_in_jj_repo() -> Result<PathBuf> {
     let output = Command::new("jj")
         .args(["root"])
         .output()
+        .await
         .map_err(|e| jj_command_error("find JJ repository root", &e))?;
 
     if !output.status.success() {
@@ -590,8 +618,8 @@ mod tests {
         assert!(!guard.active);
     }
 
-    #[test]
-    fn test_workspace_guard_cleanup_when_active() {
+    #[tokio::test]
+    async fn test_workspace_guard_cleanup_when_active() {
         // Create a temporary directory for testing
         let temp_dir = std::env::temp_dir().join("zjj-test-workspace-guard");
         let _ = std::fs::create_dir_all(&temp_dir);
@@ -601,7 +629,7 @@ mod tests {
 
         // Note: cleanup will attempt to forget workspace (which will fail in test env)
         // but should not panic
-        let result = guard.cleanup();
+        let result = guard.cleanup().await;
 
         // Guard should be disarmed after cleanup attempt
         assert!(!guard.active);
@@ -610,8 +638,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_workspace_guard_cleanup_when_inactive() {
+    #[tokio::test]
+    async fn test_workspace_guard_cleanup_when_inactive() {
         let mut guard = WorkspaceGuard::new(
             "test-inactive".to_string(),
             PathBuf::from("/tmp/test-workspace"),
@@ -621,7 +649,7 @@ mod tests {
         assert!(!guard.active);
 
         // Cleanup should be a no-op when inactive
-        let result = guard.cleanup();
+        let result = guard.cleanup().await;
         assert!(result.is_ok());
     }
 

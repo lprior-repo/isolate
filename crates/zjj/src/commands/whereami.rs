@@ -35,8 +35,8 @@ pub struct WhereAmIOptions {
 /// # Errors
 ///
 /// Returns an error if unable to determine location
-pub fn run(options: &WhereAmIOptions) -> Result<()> {
-    let root = super::check_in_jj_repo()?;
+pub async fn run(options: &WhereAmIOptions) -> Result<()> {
+    let root = super::check_in_jj_repo().await?;
     let location = context::detect_location(&root)?;
 
     let output = match &location {

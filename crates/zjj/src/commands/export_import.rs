@@ -67,12 +67,12 @@ pub struct ExportResult {
 }
 
 /// Run the export command
-pub fn run_export(options: &ExportOptions) -> Result<()> {
-    let db = get_session_db()?;
+pub async fn run_export(options: &ExportOptions) -> Result<()> {
+    let db = get_session_db().await?;
 
     let sessions: Vec<ExportedSession> = if let Some(session_name) = &options.session {
         let session = db
-            .get_blocking(session_name)?
+            .get(session_name).await?
             .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
         vec![ExportedSession {
@@ -86,7 +86,7 @@ pub fn run_export(options: &ExportOptions) -> Result<()> {
             metadata: session.metadata,
         }]
     } else {
-        db.list_blocking(None)?
+        db.list(None).await?
             .into_iter()
             .map(|s| ExportedSession {
                 name: s.name,
@@ -167,11 +167,11 @@ pub struct ImportResult {
 }
 
 /// Run the import command
-pub fn run_import(options: &ImportOptions) -> Result<()> {
+pub async fn run_import(options: &ImportOptions) -> Result<()> {
     let content = std::fs::read_to_string(&options.input)?;
     let export_data: ExportResult = serde_json::from_str(&content)?;
 
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
 
     let mut result = ImportResult {
         success: true,
@@ -186,7 +186,7 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
 
     for session in export_data.sessions {
         // Check if session already exists
-        if db.get_blocking(&session.name)?.is_some() {
+        if db.get(&session.name).await?.is_some() {
             if options.skip_existing {
                 result.skipped += 1;
                 result.skipped_sessions.push(session.name.clone());
@@ -207,10 +207,10 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
         }
 
         // Create the session
-        match db.create_blocking(
+        match db.create(
             &session.name,
             session.workspace_path.as_deref().map_or("", |value| value),
-        ) {
+        ).await {
             Ok(_) => {
                 result.imported += 1;
                 result.imported_sessions.push(session.name.clone());

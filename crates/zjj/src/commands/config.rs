@@ -27,7 +27,7 @@ pub struct ConfigOptions {
 /// - Config key is not found
 /// - Config value cannot be set
 /// - Invalid arguments provided
-pub fn run(options: ConfigOptions) -> Result<()> {
+pub async fn run(options: ConfigOptions) -> Result<()> {
     // Preserve error type for proper exit code mapping
     let config = zjj_core::config::load_config().map_err(anyhow::Error::new)?;
 

@@ -240,13 +240,12 @@ fn skip_reason(orphan: &OrphanCandidate) -> String {
 /// 3. Categorize into cleanable/skippable
 /// 4. Clean eligible orphans
 /// 5. Return results
-#[allow(clippy::unused_async)]
 async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<PeriodicCleanupOutput> {
     let now = Utc::now();
 
     // 1. Fetch sessions (imperative I/O)
-    let db = get_session_db()?;
-    let sessions = db.list_blocking(None).map_err(anyhow::Error::new)?;
+    let db = get_session_db().await?;
+    let sessions = db.list(None).await.map_err(anyhow::Error::new)?;
 
     // 2. Find orphan candidates (pure functional)
     let orphan_candidates = find_orphan_candidates(&sessions[..], &config.age_threshold, &now);
@@ -258,7 +257,7 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
     let cleaned_sessions = if config.dry_run {
         Vec::new()
     } else {
-        clean_orphans(&db, &cleanable)?
+        clean_orphans(&db, &cleanable).await?
     };
 
     // 5. Build result
@@ -274,18 +273,14 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
 /// Clean orphaned sessions from database
 ///
 /// Uses functional fold to accumulate successful removals
-fn clean_orphans(db: &SessionDb, orphans: &[OrphanCandidate]) -> Result<Vec<String>> {
-    // Functional fold over orphans, collecting successful removals
-    orphans.iter().try_fold(Vec::new(), |mut cleaned, orphan| {
-        db.delete_blocking(&orphan.name)
-            .map_err(anyhow::Error::new)
-            .map(|deleted| {
-                if deleted {
-                    cleaned.push(orphan.name.clone());
-                }
-                cleaned
-            })
-    })
+async fn clean_orphans(db: &SessionDb, orphans: &[OrphanCandidate]) -> Result<Vec<String>> {
+    let mut cleaned = Vec::new();
+    for orphan in orphans {
+        if db.delete(&orphan.name).await.map_err(anyhow::Error::new)? {
+            cleaned.push(orphan.name.clone());
+        }
+    }
+    Ok(cleaned)
 }
 
 /// Log cleanup results

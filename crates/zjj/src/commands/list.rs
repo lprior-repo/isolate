@@ -40,7 +40,7 @@ impl std::fmt::Display for BeadCounts {
 
 /// Run the list command
 #[allow(clippy::too_many_arguments)]
-pub fn run(
+pub async fn run(
     all: bool,
     verbose: bool,
     format: OutputFormat,
@@ -48,9 +48,9 @@ pub fn run(
     agent: Option<&str>,
     state: Option<&str>,
 ) -> Result<()> {
-    // Execute in a closure to allow ? operator while catching errors for JSON mode
-    let result = (|| -> Result<()> {
-        let db = get_session_db()?;
+    // Execute in a block to allow ? operator while catching errors for JSON mode
+    let result = async {
+        let db = get_session_db().await?;
 
         let state_filter = match state {
             Some(value) => Some(WorkspaceStateFilter::from_str(value).map_err(anyhow::Error::new)?),
@@ -60,7 +60,7 @@ pub fn run(
         // Filter sessions: exclude completed/failed unless --all is used
         // Single-pass filtering using iterator chain for O(n) complexity
         let sessions: Vec<Session> = db
-            .list_blocking(None)?
+            .list(None).await?
             .into_iter()
             .filter(|s| {
                 // Filter by status: exclude completed/failed unless --all flag is set
@@ -105,22 +105,20 @@ pub fn run(
         }
 
         // Build list items with enhanced data
-        let items: Vec<SessionListItem> = sessions
-            .into_iter()
-            .map(|session| {
-                let changes = get_session_changes(&session.workspace_path);
-                let beads = get_beads_count().unwrap_or_default();
+        let mut items = Vec::new();
+        for session in sessions {
+            let changes = get_session_changes(&session.workspace_path).await;
+            let beads = get_beads_count().await.unwrap_or_default();
 
-                SessionListItem {
-                    name: session.name.clone(),
-                    status: session.status.to_string(),
-                    branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
-                    changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
-                    beads: beads.to_string(),
-                    session,
-                }
-            })
-            .collect();
+            items.push(SessionListItem {
+                name: session.name.clone(),
+                status: session.status.to_string(),
+                branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
+                changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
+                beads: beads.to_string(),
+                session,
+            });
+        }
 
         if format.is_json() {
             output_json(&items)?;
@@ -129,7 +127,7 @@ pub fn run(
         }
 
         Ok(())
-    })();
+    }.await;
 
     // Handle errors in JSON mode
     if let Err(e) = result {
@@ -144,7 +142,7 @@ pub fn run(
 }
 
 /// Get the number of changes in a workspace
-fn get_session_changes(workspace_path: &str) -> Option<usize> {
+async fn get_session_changes(workspace_path: &str) -> Option<usize> {
     let path = Path::new(workspace_path);
 
     // Check if workspace exists
@@ -154,14 +152,15 @@ fn get_session_changes(workspace_path: &str) -> Option<usize> {
 
     // Try to get status from JJ
     zjj_core::jj::workspace_status(path)
+        .await
         .ok()
         .map(|status| status.change_count())
 }
 
 /// Get beads count from the repository's beads database
-fn get_beads_count() -> Result<BeadCounts> {
+async fn get_beads_count() -> Result<BeadCounts> {
     // Find repository root
-    let repo_root = zjj_core::jj::check_in_jj_repo().ok();
+    let repo_root = zjj_core::jj::check_in_jj_repo().await.ok();
 
     let Some(root) = repo_root else {
         return Ok(BeadCounts::default());
@@ -173,39 +172,29 @@ fn get_beads_count() -> Result<BeadCounts> {
         return Ok(BeadCounts::default());
     }
 
-    // Use sqlx to query the beads database synchronously
-    // We create a runtime and block on the async operation
-    let rt = tokio::runtime::Runtime::new().map_err(|e| {
-        anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-            "Failed to create runtime: {e}"
-        )))
-    })?;
+    let connection_string = format!("sqlite:{}", beads_db_path.display());
+    let pool = sqlx::SqlitePool::connect(&connection_string)
+        .await
+        .map_err(|e| {
+            anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
+                "Failed to open beads database: {e}"
+            )))
+        })?;
 
-    rt.block_on(async {
-        let connection_string = format!("sqlite:{}", beads_db_path.display());
-        let pool = sqlx::SqlitePool::connect(&connection_string)
-            .await
-            .map_err(|e| {
-                anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-                    "Failed to open beads database: {e}"
-                )))
-            })?;
+    // Count open issues
+    let open: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM issues WHERE status = ?1")
+        .bind("open")
+        .fetch_one(&pool)
+        .await
+        .unwrap_or(0);
 
-        // Count open issues
-        let open: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM issues WHERE status = ?1")
-            .bind("open")
-            .fetch_one(&pool)
-            .await
-            .unwrap_or(0);
-
-        // For now, we can't distinguish in_progress vs blocked without more schema knowledge
-        // Let's return a simplified count
-        let open_usize = usize::try_from(open).unwrap_or_default();
-        Result::<_, anyhow::Error>::Ok(BeadCounts {
-            open: open_usize,
-            in_progress: 0,
-            blocked: 0,
-        })
+    // For now, we can't distinguish in_progress vs blocked without more schema knowledge
+    // Let's return a simplified count
+    let open_usize = usize::try_from(open).unwrap_or_default();
+    Ok(BeadCounts {
+        open: open_usize,
+        in_progress: 0,
+        blocked: 0,
     })
 }
 
@@ -338,7 +327,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_session_changes_missing_workspace() {
-        let result = get_session_changes("/nonexistent/path");
+        let result = get_session_changes("/nonexistent/path").await;
         assert!(result.is_none());
     }
 

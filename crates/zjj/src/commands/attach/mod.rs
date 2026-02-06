@@ -32,12 +32,12 @@ impl AttachOptions {
 }
 
 /// Run the attach command with given options
-pub fn run_with_options(opts: &AttachOptions) -> Result<()> {
-    let db = get_session_db()?;
+pub async fn run_with_options(opts: &AttachOptions) -> Result<()> {
+    let db = get_session_db().await?;
 
     // 1. Validate session exists
     let _session = db
-        .get_blocking(&opts.name)?
+        .get(&opts.name).await?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", opts.name))?;
 
     // 2. Check if Zellij is installed

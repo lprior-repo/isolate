@@ -1,12 +1,12 @@
 //! Show diff between session and main branch
 
-use std::{
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::path::Path;
+use std::process::Stdio;
 
 use anyhow::Result;
 use serde::Serialize;
+use tokio::io::AsyncWriteExt;
+use tokio::process::Command;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::commands::{determine_main_branch, get_session_db};
@@ -66,7 +66,7 @@ fn map_jj_error(e: &std::io::Error, operation: &str) -> anyhow::Error {
 }
 
 /// Handle diff output based on format
-fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: OutputFormat) {
+async fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: OutputFormat) {
     if format.is_json() {
         let stats = stat.then(|| parse_stat_output(stdout));
         let diff_output = DiffOutput {
@@ -93,28 +93,29 @@ fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: OutputFormat
     } else if stat {
         print!("{stdout}");
     } else {
-        get_pager()
-            .and_then(|pager| {
-                Command::new(&pager)
+        match get_pager() {
+            Some(pager) => {
+                let mut child = Command::new(&pager)
                     .stdin(Stdio::piped())
                     .spawn()
-                    .ok()
-                    .map(|mut child| {
-                        if let Some(mut stdin) = child.stdin.take() {
-                            use std::io::Write;
-                            let _ = stdin.write_all(stdout.as_bytes());
-                        }
-                        let _ = child.wait();
-                    })
-            })
-            .unwrap_or_else(|| print!("{stdout}"));
+                    .ok();
+                
+                if let Some(mut child) = child.take() {
+                    if let Some(mut stdin) = child.stdin.take() {
+                        let _ = stdin.write_all(stdout.as_bytes()).await;
+                    }
+                    let _ = child.wait().await;
+                }
+            }
+            None => print!("{stdout}"),
+        }
     }
 }
 
 /// Run the diff command
-pub fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
-    let db = get_session_db()?;
-    let session = db.get_blocking(name)?.ok_or_else(|| {
+pub async fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
+    let db = get_session_db().await?;
+    let session = db.get(name).await?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Session '{name}' not found"
         )))
@@ -128,13 +129,14 @@ pub fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
         )))
     })?;
 
-    let main_branch = determine_main_branch(workspace_path);
+    let main_branch = determine_main_branch(workspace_path).await;
     let args = build_diff_args(stat, &main_branch);
 
     let output = Command::new("jj")
         .args(&args)
         .current_dir(workspace_path)
         .output()
+        .await
         .map_err(|e| map_jj_error(&e, "diff"))?;
 
     output.status.success().then_some(()).ok_or_else(|| {
@@ -147,7 +149,7 @@ pub fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
     })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    handle_diff_output(&stdout, name, stat, format);
+    handle_diff_output(&stdout, name, stat, format).await;
     Ok(())
 }
 
@@ -234,7 +236,7 @@ mod tests {
     async fn test_determine_main_branch_not_in_repo() -> Result<()> {
         // When not in a JJ repo (or jj not installed), should fall back to "main"
         let temp = TempDir::new().context("Failed to create temp dir")?;
-        let result = determine_main_branch(temp.path());
+        let result = determine_main_branch(temp.path()).await;
 
         // Should return fallback "main"
         assert_eq!(result, "main");

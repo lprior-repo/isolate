@@ -8,6 +8,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use tokio::process::Command;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use super::get_session_db;
@@ -87,14 +88,14 @@ fn compute_status(issues: &[Issue]) -> String {
 }
 
 /// Run the recover command
-pub fn run_recover(options: &RecoverOptions) -> Result<()> {
-    let issues = diagnose_issues();
+pub async fn run_recover(options: &RecoverOptions) -> Result<()> {
+    let issues = diagnose_issues().await;
 
     // Apply fixes if not diagnose-only mode
     let issues = if options.diagnose_only {
         issues
     } else {
-        fix_issues(issues)
+        fix_issues(issues).await
     };
 
     let output = RecoverOutput {
@@ -120,11 +121,11 @@ pub fn run_recover(options: &RecoverOptions) -> Result<()> {
 }
 
 /// Diagnose issues
-fn diagnose_issues() -> Vec<Issue> {
+async fn diagnose_issues() -> Vec<Issue> {
     let mut issues = Vec::new();
 
     // Check JJ
-    if !is_command_available("jj") {
+    if !is_command_available("jj").await {
         issues.push(Issue {
             code: "JJ_NOT_INSTALLED".to_string(),
             description: "JJ (Jujutsu) is not installed".to_string(),
@@ -135,7 +136,7 @@ fn diagnose_issues() -> Vec<Issue> {
     }
 
     // Check Zellij
-    if !is_command_available("zellij") {
+    if !is_command_available("zellij").await {
         issues.push(Issue {
             code: "ZELLIJ_NOT_INSTALLED".to_string(),
             description: "Zellij is not installed".to_string(),
@@ -146,7 +147,8 @@ fn diagnose_issues() -> Vec<Issue> {
     }
 
     // Check database
-    let db_ok = get_session_db().is_ok();
+    let db_res = get_session_db().await;
+    let db_ok = db_res.is_ok();
     if !db_ok {
         issues.push(Issue {
             code: "DB_NOT_INITIALIZED".to_string(),
@@ -158,44 +160,42 @@ fn diagnose_issues() -> Vec<Issue> {
     }
 
     // Check for orphaned sessions
-    if db_ok {
-        if let Ok(db) = get_session_db() {
-            if let Ok(sessions) = db.list_blocking(None) {
-                for session in sessions {
-                    // Check if workspace directory exists
-                    if let Some(ref meta) = session.metadata {
-                        if let Some(path) = meta.get("workspace_path").and_then(|v| v.as_str()) {
-                            if !std::path::Path::new(path).exists() {
-                                issues.push(Issue {
-                                    code: "ORPHANED_SESSION".to_string(),
-                                    description: format!(
-                                        "Session '{}' has missing workspace at {}",
-                                        session.name, path
-                                    ),
-                                    severity: "warning".to_string(),
-                                    fix_command: Some(format!(
-                                        "zjj remove {} --force",
-                                        session.name
-                                    )),
-                                    fixed: false,
-                                });
-                            }
+    if let Ok(db) = db_res {
+        if let Ok(sessions) = db.list(None).await {
+            for session in sessions {
+                // Check if workspace directory exists
+                if let Some(ref meta) = session.metadata {
+                    if let Some(path) = meta.get("workspace_path").and_then(|v| v.as_str()) {
+                        if !std::path::Path::new(path).exists() {
+                            issues.push(Issue {
+                                code: "ORPHANED_SESSION".to_string(),
+                                description: format!(
+                                    "Session '{}' has missing workspace at {}",
+                                    session.name, path
+                                ),
+                                severity: "warning".to_string(),
+                                fix_command: Some(format!(
+                                    "zjj remove {} --force",
+                                    session.name
+                                )),
+                                fixed: false,
+                            });
                         }
                     }
+                }
 
-                    // Check for stale sessions (creating for too long)
-                    if session.status.to_string() == "creating" {
-                        issues.push(Issue {
-                            code: "STALE_CREATING_SESSION".to_string(),
-                            description: format!(
-                                "Session '{}' stuck in 'creating' state",
-                                session.name
-                            ),
-                            severity: "warning".to_string(),
-                            fix_command: Some(format!("zjj remove {} --force", session.name)),
-                            fixed: false,
-                        });
-                    }
+                // Check for stale sessions (creating for too long)
+                if session.status.to_string() == "creating" {
+                    issues.push(Issue {
+                        code: "STALE_CREATING_SESSION".to_string(),
+                        description: format!(
+                            "Session '{}' stuck in 'creating' state",
+                            session.name
+                        ),
+                        severity: "warning".to_string(),
+                        fix_command: Some(format!("zjj remove {} --force", session.name)),
+                        fixed: false,
+                    });
                 }
             }
         }
@@ -205,28 +205,29 @@ fn diagnose_issues() -> Vec<Issue> {
 }
 
 /// Try to fix a single issue, returning updated issue
-fn try_fix_issue(issue: Issue) -> Issue {
+async fn try_fix_issue(issue: Issue) -> Issue {
     match issue.code.as_str() {
         "STALE_CREATING_SESSION" | "ORPHANED_SESSION" => {
             // Extract session name from fix command and attempt fix
-            issue
+            let session_name = issue
                 .fix_command
                 .as_ref()
                 .and_then(|cmd| {
                     let parts: Vec<&str> = cmd.split_whitespace().collect();
                     (parts.len() >= 3 && parts[0] == "zjj" && parts[1] == "remove")
                         .then(|| parts[2])
-                })
-                .and_then(|session_name| get_session_db().ok().map(|db| (db, session_name)))
-                .map(|(db, session_name)| {
-                    // Attempt delete - success or already-gone both count as fixed
-                    db.delete_blocking(session_name).is_ok()
-                })
-                .map(|fixed| Issue {
-                    fixed,
-                    ..issue.clone()
-                })
-                .unwrap_or(issue)
+                });
+
+            if let Some(name) = session_name {
+                if let Ok(db) = get_session_db().await {
+                    let fixed = db.delete(name).await.is_ok();
+                    return Issue {
+                        fixed,
+                        ..issue
+                    };
+                }
+            }
+            issue
         }
         // All other issues require user intervention - cannot auto-fix
         _ => issue,
@@ -234,14 +235,12 @@ fn try_fix_issue(issue: Issue) -> Issue {
 }
 
 /// Fix issues where possible
-///
-/// Only fixes issues that can be safely auto-fixed:
-/// - `STALE_CREATING_SESSION`: Removes stale session from database
-/// - `ORPHANED_SESSION`: Removes orphaned session from database
-/// - `DB_NOT_INITIALIZED`: Cannot auto-fix (requires zjj init)
-/// - `JJ_NOT_INSTALLED`, `ZELLIJ_NOT_INSTALLED`: Cannot auto-fix (requires user action)
-fn fix_issues(issues: Vec<Issue>) -> Vec<Issue> {
-    issues.into_iter().map(try_fix_issue).collect()
+async fn fix_issues(issues: Vec<Issue>) -> Vec<Issue> {
+    let mut results = Vec::new();
+    for issue in issues {
+        results.push(try_fix_issue(issue).await);
+    }
+    results
 }
 
 /// Print recover output in human format
@@ -309,32 +308,32 @@ struct SavedCommand {
 }
 
 /// Get the path to the last command file
-fn get_last_command_path() -> Result<std::path::PathBuf> {
-    let data_dir = super::zjj_data_dir()?;
+async fn get_last_command_path() -> Result<std::path::PathBuf> {
+    let data_dir = super::zjj_data_dir().await?;
     Ok(data_dir.join("last_command.json"))
 }
 
 /// Save the last command for potential retry
 #[allow(dead_code)]
-pub fn save_last_command(command: &str, failed: bool) -> Result<()> {
-    let path = get_last_command_path()?;
+pub async fn save_last_command(command: &str, failed: bool) -> Result<()> {
+    let path = get_last_command_path().await?;
     let saved = SavedCommand {
         command: command.to_string(),
         failed,
         timestamp: chrono::Utc::now().to_rfc3339(),
     };
     let content = serde_json::to_string_pretty(&saved)?;
-    std::fs::write(&path, content)?;
+    tokio::fs::write(&path, content).await?;
     Ok(())
 }
 
 /// Run the retry command
 #[allow(clippy::option_if_let_else)]
-pub fn run_retry(options: &RetryOptions) -> Result<()> {
-    let path = get_last_command_path()?;
+pub async fn run_retry(options: &RetryOptions) -> Result<()> {
+    let path = get_last_command_path().await?;
 
     let output = if path.exists() {
-        match std::fs::read_to_string(&path) {
+        match tokio::fs::read_to_string(&path).await {
             Ok(content) => match serde_json::from_str::<SavedCommand>(&content) {
                 Ok(saved) if saved.failed => {
                     // Execute the saved command
@@ -347,14 +346,15 @@ pub fn run_retry(options: &RetryOptions) -> Result<()> {
                         }
                     } else {
                         // Execute the command
-                        let result = std::process::Command::new(parts[0])
+                        let result = Command::new(parts[0])
                             .args(&parts[1..])
-                            .status();
+                            .status()
+                            .await;
 
                         match result {
                             Ok(status) if status.success() => {
                                 // Clear the failed command since retry succeeded
-                                let _ = std::fs::remove_file(&path);
+                                let _ = tokio::fs::remove_file(&path).await;
                                 RetryOutput {
                                     has_command: true,
                                     command: Some(saved.command.clone()),
@@ -428,11 +428,11 @@ pub struct RollbackOutput {
 
 /// Run the rollback command
 #[allow(clippy::too_many_lines)]
-pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
+pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
     // Check if session exists
-    let db = get_session_db()?;
+    let db = get_session_db().await?;
     let session = db
-        .get_blocking(&options.session)?
+        .get(&options.session).await?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", options.session))?;
 
     // Get the workspace path from session metadata
@@ -457,7 +457,7 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
     let output = if options.dry_run {
         // Dry run: show what would happen
         // Check if the checkpoint exists using jj log
-        let check_result = std::process::Command::new("jj")
+        let check_result = Command::new("jj")
             .current_dir(workspace_dir)
             .args([
                 "log",
@@ -467,7 +467,8 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
                 "-T",
                 "change_id",
             ])
-            .output();
+            .output()
+            .await;
 
         match check_result {
             Ok(output) if output.status.success() => RollbackOutput {
@@ -504,10 +505,11 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<()> {
         }
     } else {
         // Actually perform the rollback using jj edit
-        let result = std::process::Command::new("jj")
+        let result = Command::new("jj")
             .current_dir(workspace_dir)
             .args(["edit", &options.checkpoint])
-            .status();
+            .status()
+            .await;
 
         match result {
             Ok(status) if status.success() => RollbackOutput {
