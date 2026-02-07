@@ -4,6 +4,7 @@ use std::{io::Write, path::Path, time::SystemTime};
 
 use anyhow::{Context, Result};
 use futures::StreamExt;
+use tokio::process::Command;
 use zjj_core::{
     json::{ErrorDetail, SchemaEnvelope},
     OutputFormat,
