@@ -72,8 +72,8 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
     // Check if database file exists
     if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
         return Err(Error::DatabaseError(format!(
-            "Database file not found: {}",
-            db_path.display()
+            "Database file not found: {path}",
+            path = db_path.display()
         )));
     }
 
@@ -92,7 +92,7 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
 
         return Err(Error::DatabaseError(format!(
             "Database file is too small to be valid: {} bytes (expected at least 100)",
-            metadata.len()
+            metadata.len(),
         )));
     }
 
@@ -127,8 +127,7 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
         .ok();
 
         return Err(Error::DatabaseError(format!(
-            "Database file is corrupted (invalid magic bytes): {}",
-            magic_hex
+            "Database file is corrupted (invalid magic bytes): {magic_hex}"
         )));
     }
 
@@ -150,12 +149,12 @@ pub async fn repair_database(db_path: &Path, config: &RecoveryConfig) -> Result<
     match config.policy {
         crate::RecoveryPolicy::FailFast => {
             return Err(Error::DatabaseError(format!(
-                "Database repair is disabled in fail-fast mode: {}",
-                db_path.display()
+                "Database repair is disabled in fail-fast mode: {path}",
+                path = db_path.display()
             )));
         }
         crate::RecoveryPolicy::Warn => {
-            eprintln!("⚠  Repairing corrupted database: {}", db_path.display());
+            eprintln!("⚠  Repairing corrupted database: {path}", path = db_path.display());
             log_recovery(
                 &format!("Repairing database: {}", db_path.display()),
                 config,
@@ -251,7 +250,7 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
                 )));
             }
             crate::RecoveryPolicy::Warn => {
-                eprintln!("⚠  Found {} incomplete session(s)", recovered_count);
+                eprintln!("⚠  Found {recovered_count} incomplete session(s)");
                 for row in &rows {
                     let name: String = row.get("name");
                     eprintln!("  - {name}");
@@ -324,17 +323,16 @@ pub async fn periodic_cleanup(
     let db_url = format!("sqlite://{}", db_path.to_string_lossy());
 
     // Try to open database
-    let pool = match SqlitePoolOptions::new()
+    let pool = if let Ok(p) = SqlitePoolOptions::new()
         .max_connections(1)
         .connect(&db_url)
         .await
     {
-        Ok(p) => p,
-        Err(_) => {
-            // Database is corrupted, attempt repair
-            repair_database(db_path, config).await?;
-            return Ok(0);
-        }
+        p
+    } else {
+        // Database is corrupted, attempt repair
+        repair_database(db_path, config).await?;
+        return Ok(0);
     };
 
     let cutoff_time = chrono::Utc::now().timestamp() - max_age_seconds;

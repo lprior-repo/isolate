@@ -836,13 +836,10 @@ mod tests {
         // Function doesn't exist yet - this will fail to compile
         let result = create_workspace("my-workspace", &temp_dir).await;
 
-        match result {
-            Ok(guard) => {
-                assert_eq!(guard.name, "my-workspace");
-            }
-            Err(_) => {
-                // Expected in test environment
-            }
+        if let Ok(guard) = result {
+            assert_eq!(guard.name, "my-workspace");
+        } else {
+            // Expected in test environment
         }
     }
 
@@ -854,13 +851,10 @@ mod tests {
         // Function doesn't exist yet - this will fail to compile
         let result = create_workspace("path-workspace", &temp_dir).await;
 
-        match result {
-            Ok(guard) => {
-                assert_eq!(guard.path, temp_dir);
-            }
-            Err(_) => {
-                // Expected in test environment
-            }
+        if let Ok(guard) = result {
+            assert_eq!(guard.path, temp_dir);
+        } else {
+            // Expected in test environment
         }
     }
 }

@@ -556,7 +556,7 @@ impl IntegrityValidator {
                 return Some(
                     IntegrityIssue::new(
                         CorruptionType::StaleLocks,
-                        format!("Stale lock file detected (age: {}s)", age),
+                        format!("Stale lock file detected (age: {age}s"),
                     )
                     .with_path(&lock_file),
                 );

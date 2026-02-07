@@ -707,7 +707,7 @@ mod tests {
             .flatten();
 
         assert!(claimed.is_some());
-        let entry = claimed.unwrap();
+        let entry = claimed.expect("claimed entry must exist after assert");
         assert_eq!(entry.status, QueueStatus::Processing);
         assert_eq!(entry.workspace, "ws-1");
 
@@ -721,14 +721,14 @@ mod tests {
 
         // Add 10 entries to create contention
         for i in 0..10 {
-            queue.add(&format!("ws-{}", i), None, 5, None).await?;
+            queue.add(&format!("ws-{i}"), None, 5, None).await?;
         }
 
         // Spawn 5 agents concurrently trying to claim entries
         let mut handles = vec![];
         for i in 0..5 {
             let q = queue.clone();
-            let agent_id = format!("agent-{}", i);
+            let agent_id = format!("agent-{i}");
             let handle = tokio::spawn(async move { q.next_with_lock(&agent_id).await });
             handles.push(handle);
         }
