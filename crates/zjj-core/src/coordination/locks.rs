@@ -257,6 +257,9 @@ impl LockManager {
                     .execute(&self.db)
                     .await
                     .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+                // Log successful unlock to audit trail
+                self.log_operation(session, agent_id, "unlock").await?;
                 Ok(())
             }
             Some(_) => Err(Error::NotLockHolder {
@@ -264,7 +267,8 @@ impl LockManager {
                 agent_id: agent_id.to_string(),
             }),
             None => {
-                // No active lock - idempotent unlock is fine
+                // No active lock - detect and log double unlock
+                self.log_operation(session, agent_id, "double_unlock_warning").await?;
                 Ok(())
             }
         }
@@ -656,3 +660,4 @@ mod tests {
 
         Ok(())
     }
+}
