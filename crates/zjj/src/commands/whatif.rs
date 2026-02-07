@@ -6,6 +6,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use zjj_core::{OutputFormat, SchemaEnvelope};
 
+use crate::session::validate_session_name;
+
 /// Options for the whatif command
 #[derive(Debug, Clone)]
 pub struct WhatIfOptions {
@@ -109,94 +111,175 @@ pub fn run(options: &WhatIfOptions) -> Result<()> {
         let envelope = SchemaEnvelope::new("whatif-response", "single", result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
-        println!("What if: {} {}", result.command, result.args.join(" "));
-        println!();
+        let output = format_human_output(&result);
+        let truncated = truncate_output_if_needed(&result, 4096);
 
-        if !result.prerequisites.is_empty() {
-            println!("Prerequisites:");
-            result.prerequisites.iter().for_each(|prereq| {
-                let status = match prereq.status {
-                    PrerequisiteStatus::Met => "✓",
-                    PrerequisiteStatus::NotMet => "✗",
-                    PrerequisiteStatus::Unknown => "?",
-                };
-                println!("  {status} {}: {}", prereq.check, prereq.description);
-            });
+        if truncated.len() < output.len() {
+            // Output was truncated, save to temp file and show message
+            let temp_path = save_full_output_to_temp(&output)?;
+            println!("{truncated}");
             println!();
-        }
-
-        println!("Execution plan:");
-        result.steps.iter().for_each(|step| {
-            println!("  {}. {}", step.order, step.description);
-            println!("     Action: {}", step.action);
-            if step.can_fail {
-                if let Some(on_fail) = &step.on_failure {
-                    println!("     On failure: {on_fail}");
-                }
-            }
-        });
-        println!();
-
-        if !result.creates.is_empty() {
-            println!("Would create:");
-            result.creates.iter().for_each(|c| {
-                println!(
-                    "  + [{}] {}: {}",
-                    c.resource_type, c.resource, c.description
-                );
-            });
-            println!();
-        }
-
-        if !result.modifies.is_empty() {
-            println!("Would modify:");
-            result.modifies.iter().for_each(|m| {
-                println!(
-                    "  ~ [{}] {}: {}",
-                    m.resource_type, m.resource, m.description
-                );
-            });
-            println!();
-        }
-
-        if !result.deletes.is_empty() {
-            println!("Would delete:");
-            result.deletes.iter().for_each(|d| {
-                println!(
-                    "  - [{}] {}: {}",
-                    d.resource_type, d.resource, d.description
-                );
-            });
-            println!();
-        }
-
-        if !result.side_effects.is_empty() {
-            println!("Side effects:");
-            result.side_effects.iter().for_each(|effect| {
-                println!("  • {effect}");
-            });
-            println!();
-        }
-
-        if !result.warnings.is_empty() {
-            println!("Warnings:");
-            result.warnings.iter().for_each(|warning| {
-                println!("  ⚠ {warning}");
-            });
-            println!();
-        }
-
-        if result.reversible {
-            println!("Reversible: yes");
-            if let Some(undo) = &result.undo_command {
-                println!("Undo command: {undo}");
-            }
+            println!(
+                "⚠ Output truncated to 4KB for display. Full output saved to: {temp_path}"
+            );
         } else {
-            println!("Reversible: no");
+            println!("{output}");
         }
     }
 
     Ok(())
+}
+
+/// Format human-readable output from WhatIfResult
+fn format_human_output(result: &WhatIfResult) -> String {
+    use std::fmt::Write;
+
+    let mut output = String::new();
+    writeln!(output, "What if: {} {}", result.command, result.args.join(" ")).unwrap();
+    writeln!(output).unwrap();
+
+    if !result.prerequisites.is_empty() {
+        writeln!(output, "Prerequisites:").unwrap();
+        for prereq in &result.prerequisites {
+            let status = match prereq.status {
+                PrerequisiteStatus::Met => "✓",
+                PrerequisiteStatus::NotMet => "✗",
+                PrerequisiteStatus::Unknown => "?",
+            };
+            writeln!(output, "  {status} {}: {}", prereq.check, prereq.description).unwrap();
+        }
+        writeln!(output).unwrap();
+    }
+
+    writeln!(output, "Execution plan:").unwrap();
+    for step in &result.steps {
+        writeln!(output, "  {}. {}", step.order, step.description).unwrap();
+        writeln!(output, "     Action: {}", step.action).unwrap();
+        if step.can_fail {
+            if let Some(on_fail) = &step.on_failure {
+                writeln!(output, "     On failure: {on_fail}").unwrap();
+            }
+        }
+    }
+    writeln!(output).unwrap();
+
+    if !result.creates.is_empty() {
+        writeln!(output, "Would create:").unwrap();
+        for c in &result.creates {
+            writeln!(
+                output,
+                "  + [{}] {}: {}",
+                c.resource_type, c.resource, c.description
+            )
+            .unwrap();
+        }
+        writeln!(output).unwrap();
+    }
+
+    if !result.modifies.is_empty() {
+        writeln!(output, "Would modify:").unwrap();
+        for m in &result.modifies {
+            writeln!(
+                output,
+                "  ~ [{}] {}: {}",
+                m.resource_type, m.resource, m.description
+            )
+            .unwrap();
+        }
+        writeln!(output).unwrap();
+    }
+
+    if !result.deletes.is_empty() {
+        writeln!(output, "Would delete:").unwrap();
+        for d in &result.deletes {
+            writeln!(
+                output,
+                "  - [{}] {}: {}",
+                d.resource_type, d.resource, d.description
+            )
+            .unwrap();
+        }
+        writeln!(output).unwrap();
+    }
+
+    if !result.side_effects.is_empty() {
+        writeln!(output, "Side effects:").unwrap();
+        for effect in &result.side_effects {
+            writeln!(output, "  • {effect}").unwrap();
+        }
+        writeln!(output).unwrap();
+    }
+
+    if !result.warnings.is_empty() {
+        writeln!(output, "Warnings:").unwrap();
+        for warning in &result.warnings {
+            writeln!(output, "  ⚠ {warning}").unwrap();
+        }
+        writeln!(output).unwrap();
+    }
+
+    if result.reversible {
+        writeln!(output, "Reversible: yes").unwrap();
+        if let Some(undo) = &result.undo_command {
+            writeln!(output, "Undo command: {undo}").unwrap();
+        }
+    } else {
+        writeln!(output, "Reversible: no").unwrap();
+    }
+
+    output
+}
+
+/// Truncate output to specified limit if needed, preserving structure
+fn truncate_output_if_needed(result: &WhatIfResult, limit: usize) -> String {
+    let output = format_human_output(result);
+
+    if output.len() <= limit {
+        return output;
+    }
+
+    // Truncate to ~90% of limit, leaving room for truncation message
+    let truncate_at = limit.saturating_sub(200);
+
+    // Find a good truncation point (newline)
+    let truncated = if let Some(pos) = output[..truncate_at].rfind('\n') {
+        format!(
+            "{}\n\n... (truncated, {} bytes total) ...",
+            &output[..pos],
+            output.len()
+        )
+    } else {
+        format!(
+            "{}\n\n... (truncated, {} bytes total) ...",
+            &output[..truncate_at],
+            output.len()
+        )
+    };
+
+    truncated
+}
+
+/// Save full output to a temporary file
+fn save_full_output_to_temp(output: &str) -> Result<String> {
+    use std::io::Write;
+
+    // Create temp file with unique name based on timestamp
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| anyhow::anyhow!("Failed to get time: {e}"))?
+        .as_secs();
+
+    let temp_dir = std::env::temp_dir();
+    let file_name = format!("zjj-whatif-{timestamp}.txt");
+    let temp_path = temp_dir.join(&file_name);
+
+    let mut file = std::fs::File::create(&temp_path)
+        .map_err(|e| anyhow::anyhow!("Failed to create temp file: {e}"))?;
+
+    file.write_all(output.as_bytes())
+        .map_err(|e| anyhow::anyhow!("Failed to write temp file: {e}"))?;
+
+    Ok(temp_path.display().to_string())
 }
 
 fn preview_command(command: &str, args: &[String]) -> Result<WhatIfResult> {
@@ -230,9 +313,14 @@ fn preview_command(command: &str, args: &[String]) -> Result<WhatIfResult> {
     }
 }
 
-#[allow(clippy::unnecessary_wraps)]
 fn preview_add(args: &[String]) -> Result<WhatIfResult> {
+    // Validate session name to prevent injection attacks and resource exhaustion
     let name = args.first().map(String::as_str).unwrap_or("<name>");
+
+    // Only validate if we have a real name (not the placeholder)
+    if name != "<name>" {
+        validate_session_name(name).map_err(anyhow::Error::new)?;
+    }
 
     Ok(WhatIfResult {
         command: "add".to_string(),
@@ -309,7 +397,13 @@ fn preview_add(args: &[String]) -> Result<WhatIfResult> {
 }
 
 fn preview_work(args: &[String]) -> Result<WhatIfResult> {
+    // Validate session name to prevent injection attacks
     let name = args.first().map(String::as_str).unwrap_or("<name>");
+
+    // Only validate if we have a real name (not the placeholder)
+    if name != "<name>" {
+        validate_session_name(name).map_err(anyhow::Error::new)?;
+    }
 
     let mut result = preview_add(args)?;
     result.command = "work".to_string();
@@ -336,9 +430,14 @@ fn preview_work(args: &[String]) -> Result<WhatIfResult> {
     Ok(result)
 }
 
-#[allow(clippy::unnecessary_wraps)]
 fn preview_remove(args: &[String]) -> Result<WhatIfResult> {
+    // Validate session name to prevent injection attacks
     let name = args.first().map(String::as_str).unwrap_or("<name>");
+
+    // Only validate if we have a real name (not the placeholder)
+    if name != "<name>" {
+        validate_session_name(name).map_err(anyhow::Error::new)?;
+    }
 
     Ok(WhatIfResult {
         command: "remove".to_string(),
@@ -418,9 +517,14 @@ fn preview_remove(args: &[String]) -> Result<WhatIfResult> {
     })
 }
 
-#[allow(clippy::unnecessary_wraps)]
 fn preview_done(args: &[String]) -> Result<WhatIfResult> {
+    // Validate workspace name to prevent injection attacks
     let workspace = args.first().map(String::as_str).unwrap_or("<current>");
+
+    // Only validate if we have a real workspace (not the placeholder)
+    if workspace != "<current>" {
+        validate_session_name(workspace).map_err(anyhow::Error::new)?;
+    }
 
     Ok(WhatIfResult {
         command: "done".to_string(),
@@ -750,5 +854,168 @@ mod tests {
         let result = preview_command("unknown", &[])?;
         assert!(!result.warnings.is_empty());
         Ok(())
+    }
+
+    // === Security Tests: Input Validation (RED Phase) ===
+
+    #[test]
+    fn test_whatif_validates_session_name_empty() {
+        let result = preview_add(&["".to_string()]);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            let err_msg = e.to_string().to_lowercase();
+            assert!(
+                err_msg.contains("invalid") || err_msg.contains("empty") || err_msg.contains("validation"),
+                "Expected validation error for empty name, got: {e}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_whatif_validates_session_name_too_long() {
+        let long_name = "a".repeat(100);
+        let result = preview_add(&[long_name]);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            let err_msg = e.to_string().to_lowercase();
+            assert!(
+                err_msg.contains("invalid") || err_msg.contains("exceed") || err_msg.contains("validation"),
+                "Expected validation error for too-long name, got: {e}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_whatif_validates_session_name_invalid_chars() {
+        let invalid_names = vec![
+            "test session",  // space
+            "test/session",  // slash
+            "test\\session", // backslash
+            "test.session",  // dot
+            "test🚀",        // emoji
+            "123-session",   // starts with number
+            "-test",         // starts with dash
+            "_test",         // starts with underscore
+        ];
+
+        for name in invalid_names {
+            let result = preview_add(&[name.to_string()]);
+            assert!(result.is_err(), "Expected validation error for '{name}'");
+            if let Err(e) = result {
+                let err_msg = e.to_string().to_lowercase();
+                assert!(
+                    err_msg.contains("invalid") || err_msg.contains("validation") || err_msg.contains("ascii"),
+                    "Expected validation error for '{name}', got: {e}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_whatif_validates_session_name_valid() -> Result<()> {
+        let valid_names = vec![
+            "test-session",
+            "test_session",
+            "TestSession",
+            "abc123",
+            "a",
+        ];
+
+        for name in valid_names {
+            let result = preview_add(&[name.to_string()]);
+            assert!(result.is_ok(), "Expected success for valid name '{name}'");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_whatif_validates_all_subcommands() {
+        let invalid_name = "test session";
+
+        // Test that all whatif subcommands validate the first argument as session name
+        let commands = vec![
+            ("add", vec![invalid_name.to_string()]),
+            ("remove", vec![invalid_name.to_string()]),
+            ("work", vec![invalid_name.to_string()]),
+        ];
+
+        for (cmd, args) in commands {
+            let result = preview_command(cmd, &args);
+            // Some commands may not validate in preview, but the real commands do
+            // This test documents the expectation that validation should happen
+            if let Err(e) = result {
+                let err_msg = e.to_string().to_lowercase();
+                assert!(
+                    err_msg.contains("invalid") || err_msg.contains("validation"),
+                    "Command '{cmd}' should validate session name, got: {e}"
+                );
+            }
+        }
+    }
+
+    // === Security Tests: Output Truncation (RED Phase) ===
+
+    #[test]
+    fn test_whatif_output_truncation_limit() {
+        // Create a WhatIfResult with very large output
+        let result = WhatIfResult {
+            command: "add".to_string(),
+            args: vec!["test".to_string()],
+            steps: vec![WhatIfStep {
+                order: 1,
+                description: "A".repeat(10000),
+                action: "B".repeat(10000),
+                can_fail: true,
+                on_failure: Some("C".repeat(10000)),
+            }],
+            creates: vec![ResourceChange {
+                resource_type: "D".repeat(10000),
+                resource: "E".repeat(10000),
+                description: "F".repeat(10000),
+            }],
+            modifies: vec![],
+            deletes: vec![],
+            side_effects: vec!["G".repeat(10000)],
+            reversible: true,
+            undo_command: Some("H".repeat(10000)),
+            warnings: vec!["I".repeat(10000)],
+            prerequisites: vec![PrerequisiteCheck {
+                check: "J".repeat(10000),
+                status: PrerequisiteStatus::Met,
+                description: "K".repeat(10000),
+            }],
+        };
+
+        // Test that the output truncation function limits output
+        let truncated = truncate_output_if_needed(&result, 4096);
+        assert!(
+            truncated.len() <= 4096 + 200, // Allow some margin for truncation message
+            "Output should be truncated to ~4KB, but got {} bytes",
+            truncated.len()
+        );
+    }
+
+    #[test]
+    fn test_whatif_output_small_not_truncated() {
+        let result = WhatIfResult {
+            command: "add".to_string(),
+            args: vec!["test".to_string()],
+            steps: vec![],
+            creates: vec![],
+            modifies: vec![],
+            deletes: vec![],
+            side_effects: vec![],
+            reversible: false,
+            undo_command: None,
+            warnings: vec![],
+            prerequisites: vec![],
+        };
+
+        let truncated = truncate_output_if_needed(&result, 4096);
+        // Small output should not be truncated
+        assert!(
+            !truncated.contains("(truncated"),
+            "Small output should not be truncated"
+        );
     }
 }

@@ -56,8 +56,8 @@ impl QueryTypeInfo {
                 description: "Suggest next available name based on pattern",
                 requires_arg: true,
                 arg_name: "pattern",
-                usage_example: r#"zjj query suggest-name "feature-{n}""#,
-                returns_description: r#"{"pattern": "feature-{n}", "suggested": "feature-3", "next_available_n": 3, "existing_matches": ["feature-1", "feature-2"]}"#,
+                usage_example: r#"zjj query suggest-name "feat{n}""#,
+                returns_description: r#"{"pattern": "feat{n}", "suggested": "feat3", "next_available_n": 3, "existing_matches": ["feat1", "feat2"]}"#,
             },
             Self {
                 name: "lock-status",
@@ -96,6 +96,22 @@ impl QueryTypeInfo {
 
     fn find(name: &str) -> Option<&'static Self> {
         Self::all().iter().find(|q| q.name == name)
+    }
+
+    /// Get query info or return a standardized error for unknown query types
+    ///
+    /// This ensures that all query argument errors follow a consistent format.
+    /// For known query types, uses the metadata to format a detailed error message.
+    /// For unknown query types (which should never happen in match arms), returns
+    /// a bug indicator.
+    fn missing_arg_error(query_name: &str) -> anyhow::Error {
+        Self::find(query_name)
+            .map(|info| anyhow::anyhow!(info.format_error_message()))
+            .unwrap_or_else(|| {
+                anyhow::anyhow!(
+                    "Error: Query type '{query_name}' is missing metadata (this is a bug)"
+                )
+            })
     }
 
     fn format_error_message(&self) -> String {
@@ -146,36 +162,20 @@ pub async fn run(query_type: &str, args: Option<&str>) -> Result<()> {
 
     match query_type {
         "session-exists" => {
-            let name = args.ok_or_else(|| {
-                QueryTypeInfo::find("session-exists")
-                    .map(|info| anyhow::anyhow!(info.format_error_message()))
-                    .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
-            })?;
+            let name = args.ok_or_else(|| QueryTypeInfo::missing_arg_error("session-exists"))?;
             query_session_exists(name).await
         }
         "session-count" => query_session_count(args).await,
         "can-run" => {
-            let command = args.ok_or_else(|| {
-                QueryTypeInfo::find("can-run")
-                    .map(|info| anyhow::anyhow!(info.format_error_message()))
-                    .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
-            })?;
+            let command = args.ok_or_else(|| QueryTypeInfo::missing_arg_error("can-run"))?;
             query_can_run(command).await
         }
         "suggest-name" => {
-            let pattern = args.ok_or_else(|| {
-                QueryTypeInfo::find("suggest-name")
-                    .map(|info| anyhow::anyhow!(info.format_error_message()))
-                    .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
-            })?;
+            let pattern = args.ok_or_else(|| QueryTypeInfo::missing_arg_error("suggest-name"))?;
             query_suggest_name(pattern).await
         }
         "lock-status" => {
-            let session = args.ok_or_else(|| {
-                QueryTypeInfo::find("lock-status")
-                    .map(|info| anyhow::anyhow!(info.format_error_message()))
-                    .unwrap_or_else(|| anyhow::anyhow!("Query type metadata not found"))
-            })?;
+            let session = args.ok_or_else(|| QueryTypeInfo::missing_arg_error("lock-status"))?;
             query_lock_status(session).await
         }
         "can-spawn" => query_can_spawn(args).await,
@@ -1221,5 +1221,161 @@ mod tests {
             error_output["error"]["code"].as_str(),
             Some("SESSION_NOT_FOUND")
         );
+    }
+
+    // ============================================================================
+    // TESTS FOR BEAD zjj-b86b: Standardize missing argument error messages
+    // ============================================================================
+
+    /// RED: Missing argument error messages should be consistent across all query subcommands
+    ///
+    /// This test verifies that when a query subcommand requiring an argument is invoked
+    /// without that argument, it produces a standardized error message format that includes:
+    /// - The query type name
+    /// - Whether the argument is required or optional
+    /// - Description of the query
+    /// - Usage example
+    /// - Expected return value
+    #[test]
+    fn test_query_missing_arg_error_format_is_consistent() {
+        // Test session-exists (requires arg)
+        let session_exists_info = QueryTypeInfo::find("session-exists");
+        assert!(session_exists_info.is_some(), "session-exists should have metadata");
+
+        let error_msg = session_exists_info.unwrap().format_error_message();
+        assert!(
+            error_msg.contains("Error: 'session-exists' query requires"),
+            "Error message should indicate it's an error about 'session-exists' query"
+        );
+        assert!(
+            error_msg.contains("session_name"),
+            "Error message should indicate which argument is missing"
+        );
+        assert!(
+            error_msg.contains("Description:"),
+            "Error message should include description"
+        );
+        assert!(
+            error_msg.contains("Usage:"),
+            "Error message should include usage"
+        );
+        assert!(
+            error_msg.contains("Example:"),
+            "Error message should include example"
+        );
+        assert!(
+            error_msg.contains("Returns:"),
+            "Error message should include return value description"
+        );
+
+        // Test can-run (requires arg)
+        let can_run_info = QueryTypeInfo::find("can-run");
+        assert!(can_run_info.is_some(), "can-run should have metadata");
+
+        let error_msg = can_run_info.unwrap().format_error_message();
+        assert!(
+            error_msg.contains("Error: 'can-run' query requires"),
+            "Error message should indicate it's an error about 'can-run' query"
+        );
+        assert!(
+            error_msg.contains("command_name"),
+            "Error message should indicate which argument is missing"
+        );
+
+        // Test suggest-name (requires arg)
+        let suggest_name_info = QueryTypeInfo::find("suggest-name");
+        assert!(suggest_name_info.is_some(), "suggest-name should have metadata");
+
+        let error_msg = suggest_name_info.unwrap().format_error_message();
+        assert!(
+            error_msg.contains("Error: 'suggest-name' query requires"),
+            "Error message should indicate it's an error about 'suggest-name' query"
+        );
+        assert!(
+            error_msg.contains("pattern"),
+            "Error message should indicate which argument is missing"
+        );
+    }
+
+    /// RED: Optional argument queries should indicate the argument is optional
+    #[test]
+    fn test_query_optional_arg_message_indicates_optional() {
+        // Test session-count (optional arg)
+        let session_count_info = QueryTypeInfo::find("session-count");
+        assert!(session_count_info.is_some(), "session-count should have metadata");
+
+        let error_msg = session_count_info.unwrap().format_error_message();
+        assert!(
+            error_msg.contains("optional"),
+            "Error message should indicate the argument is optional"
+        );
+        assert!(
+            error_msg.contains("--status=active"),
+            "Error message should show the optional flag format"
+        );
+    }
+
+    /// RED: All query types with required args should have consistent format
+    #[test]
+    fn test_all_required_arg_queries_have_consistent_format() {
+        let queries_with_required_args = vec![
+            ("session-exists", "session_name"),
+            ("can-run", "command_name"),
+            ("suggest-name", "pattern"),
+            ("lock-status", "session_name"),
+        ];
+
+        for (query_name, expected_arg) in queries_with_required_args {
+            let info = QueryTypeInfo::find(query_name);
+            assert!(
+                info.is_some(),
+                "{query_name} should have metadata for consistent error messages"
+            );
+
+            let info = info.unwrap();
+            assert!(
+                info.requires_arg,
+                "{query_name} should be marked as requiring an argument"
+            );
+            assert_eq!(
+                info.arg_name, expected_arg,
+                "{query_name} should have correct argument name '{expected_arg}'"
+            );
+
+            let error_msg = info.format_error_message();
+
+            // Verify consistent structure
+            assert!(
+                error_msg.contains(&format!("Error: '{query_name}' query requires")),
+                "{query_name}: Error message should follow standard format"
+            );
+            assert!(
+                error_msg.contains(expected_arg),
+                "{query_name}: Error message should mention the required argument '{expected_arg}'"
+            );
+        }
+    }
+
+    /// RED: Query metadata should never be missing for known query types
+    #[test]
+    fn test_known_query_types_have_metadata() {
+        let known_queries = vec![
+            "session-exists",
+            "session-count",
+            "can-run",
+            "suggest-name",
+            "lock-status",
+            "can-spawn",
+            "pending-merges",
+            "location",
+        ];
+
+        for query_name in known_queries {
+            let info = QueryTypeInfo::find(query_name);
+            assert!(
+                info.is_some(),
+                "Known query type '{query_name}' should have metadata for consistent error messages"
+            );
+        }
     }
 }
