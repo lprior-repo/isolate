@@ -108,7 +108,8 @@ fn test_batch_item_status_serialization() {
     ];
 
     for (status, expected) in statuses {
-        let json = serde_json::to_string(&status).unwrap_or_else(|e| panic!("Serialization should succeed: {e}"));
+        let json = serde_json::to_string(&status)
+            .unwrap_or_else(|e| panic!("Serialization should succeed: {e}"));
         assert_eq!(json, format!("\"{expected}\""));
     }
 }
@@ -128,10 +129,11 @@ fn test_batch_request_roundtrip() {
         }],
     };
 
-    let json = serde_json::to_string(&original).unwrap_or_else(|e| panic!("Serialization should succeed: {e}"));
+    let json = serde_json::to_string(&original)
+        .unwrap_or_else(|e| panic!("Serialization should succeed: {e}"));
 
-    let deserialized: BatchRequest =
-        serde_json::from_str(&json).unwrap_or_else(|e| panic!("Deserialization should succeed: {e}"));
+    let deserialized: BatchRequest = serde_json::from_str(&json)
+        .unwrap_or_else(|e| panic!("Deserialization should succeed: {e}"));
 
     assert!(deserialized.atomic);
     assert_eq!(deserialized.operations.len(), 1);

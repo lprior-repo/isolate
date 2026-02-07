@@ -348,10 +348,7 @@ fn test_multiple_sessions_isolation() -> Result<(), Box<dyn std::error::Error>> 
     // Verify all sessions exist independently
     let list_result = harness.zjj(&["list", "--json"]);
     let json: JsonValue = parse_json(&list_result.stdout)?;
-    let count = json["sessions"]
-        .as_array()
-        .map(Vec::len)
-        .unwrap_or(0);
+    let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
     assert_eq!(count, 3, "Should have 3 sessions");
 
     // Verify each session can be queried independently using functional traversal
@@ -406,13 +403,12 @@ fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::e
         .ok_or_else(|| "Error should have error field".to_string())
         .and_then(|error_obj| {
             // Validate all required error fields exist using functional traversal
-            error_fields
-                .iter()
-                .try_for_each(|&field| {
-                    error_obj.get(field)
-                        .ok_or_else(|| format!("Error should have {field}"))
-                        .map(|_| ())
-                })
+            error_fields.iter().try_for_each(|&field| {
+                error_obj
+                    .get(field)
+                    .ok_or_else(|| format!("Error should have {field}"))
+                    .map(|_| ())
+            })
         })?;
 
     Ok(())
@@ -604,40 +600,31 @@ fn validate_schema_envelope(
     command_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Parse JSON with context
-    let json = parse_json(json_str)
-        .map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
+    let json = parse_json(json_str).map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
 
     // Define required fields with their error messages
     let required_fields: &[&str] = &["$schema", "_schema_version", "success"];
 
     // Validate all required fields exist using functional traversal
-    required_fields
-        .iter()
-        .try_for_each(|&field| {
-            json.get(field)
-                .ok_or_else(|| {
-                    ValidationError::MissingField(
-                        field,
-                        format!("{command_name}: output: {json_str}")
-                    )
-                })
-                .map(|_| ())
-        })?;
+    required_fields.iter().try_for_each(|&field| {
+        json.get(field)
+            .ok_or_else(|| {
+                ValidationError::MissingField(field, format!("{command_name}: output: {json_str}"))
+            })
+            .map(|_| ())
+    })?;
 
     // Validate schema format using and_then for composition
-    let schema = json["$schema"]
-        .as_str()
-        .ok_or_else(|| {
-            ValidationError::InvalidFormat(
-                format!("{command_name}: $schema field is not a string")
-            )
-        })?;
+    let schema = json["$schema"].as_str().ok_or_else(|| {
+        ValidationError::InvalidFormat(format!("{command_name}: $schema field is not a string"))
+    })?;
 
     // Validate schema URI pattern
     if !schema.starts_with("zjj://") {
-        return Err(ValidationError::SchemaMismatch(
-            format!("{command_name}: $schema should start with 'zjj://', got: {schema}")
-        ).into());
+        return Err(ValidationError::SchemaMismatch(format!(
+            "{command_name}: $schema should start with 'zjj://', got: {schema}"
+        ))
+        .into());
     }
 
     Ok(())

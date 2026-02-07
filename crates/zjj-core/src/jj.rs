@@ -169,8 +169,7 @@ pub struct DiffSummary {
 }
 
 /// Status of files in a workspace
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Status {
     /// Modified files
     pub modified: Vec<PathBuf>,
@@ -458,7 +457,6 @@ pub fn parse_status(output: &str) -> Status {
         status
     })
 }
-
 
 /// Get diff summary for a workspace
 ///

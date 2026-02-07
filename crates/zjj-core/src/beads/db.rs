@@ -69,14 +69,14 @@ fn parse_bead_row(row: &sqlx::sqlite::SqliteRow) -> std::result::Result<BeadIssu
     let depends_on_str: Option<String> = row
         .try_get(9)
         .map_err(|e: sqlx::Error| BeadsError::QueryFailed(e.to_string()))?;
-    let depends_on = depends_on_str
-        .map(|s: String| s.split(',').map(String::from).collect::<Vec<String>>());
+    let depends_on =
+        depends_on_str.map(|s: String| s.split(',').map(String::from).collect::<Vec<String>>());
 
     let blocked_by_str: Option<String> = row
         .try_get(10)
         .map_err(|e: sqlx::Error| BeadsError::QueryFailed(e.to_string()))?;
-    let blocked_by = blocked_by_str
-        .map(|s: String| s.split(',').map(String::from).collect::<Vec<String>>());
+    let blocked_by =
+        blocked_by_str.map(|s: String| s.split(',').map(String::from).collect::<Vec<String>>());
 
     // Required datetime fields - fail if missing or invalid
     let created_at_str: Option<String> = row

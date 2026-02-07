@@ -399,7 +399,10 @@ async fn query_can_run(command: &str) -> Result<()> {
 async fn query_suggest_name(pattern: &str) -> Result<()> {
     // suggest_name can work without database access if we can't get sessions
     let existing_names = match get_session_db().await {
-        Ok(db) => db.list(None).await.map_or_else(|_| Vec::new(), |sessions| sessions.into_iter().map(|s| s.name).collect()),
+        Ok(db) => db.list(None).await.map_or_else(
+            |_| Vec::new(),
+            |sessions| sessions.into_iter().map(|s| s.name).collect(),
+        ),
         Err(_) => Vec::new(),
     };
 

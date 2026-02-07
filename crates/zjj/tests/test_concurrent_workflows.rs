@@ -187,27 +187,25 @@ fn test_multi_agent_workflow_integration() {
     );
 
     // Verify each agent's sessions are properly namespaced (functional pattern)
-    let agent_session_counts: std::collections::HashMap<usize, usize> =
-        all_created_sessions
-            .iter()
-            .filter_map(|session_name| {
-                session_name
-                    .strip_prefix("agent-")
-                    .and_then(|agent_part| agent_part.split('-').next())
-                    .and_then(|agent_id_str| agent_id_str.parse::<usize>().ok())
-            })
-            .filter(|&agent_id| agent_id < NUM_AGENTS)
-            .fold(std::collections::HashMap::new(), |mut acc, agent_id| {
-                *acc.entry(agent_id).or_insert(0) += 1;
-                acc
-            });
+    let agent_session_counts: std::collections::HashMap<usize, usize> = all_created_sessions
+        .iter()
+        .filter_map(|session_name| {
+            session_name
+                .strip_prefix("agent-")
+                .and_then(|agent_part| agent_part.split('-').next())
+                .and_then(|agent_id_str| agent_id_str.parse::<usize>().ok())
+        })
+        .filter(|&agent_id| agent_id < NUM_AGENTS)
+        .fold(std::collections::HashMap::new(), |mut acc, agent_id| {
+            *acc.entry(agent_id).or_insert(0) += 1;
+            acc
+        });
 
     // Each agent should have created exactly their expected count
     for agent_id in 0..NUM_AGENTS {
         let count = agent_session_counts.get(&agent_id).copied().unwrap_or(0);
         assert_eq!(
-            count,
-            SESSIONS_PER_AGENT,
+            count, SESSIONS_PER_AGENT,
             "Agent {agent_id} should have created {SESSIONS_PER_AGENT} sessions, got {count}"
         );
     }
@@ -316,7 +314,8 @@ fn test_rapid_operations_stability() {
     // THEN: System remains stable
     let success_rate = f64::from(success_count) * 100.0 / num_operations as f64;
     let epsilon = 0.0001;
-    assert!((success_rate - 100.0).abs() < epsilon,
+    assert!(
+        (success_rate - 100.0).abs() < epsilon,
         "All operations should succeed: {success_rate:.1}%"
     );
 
@@ -545,7 +544,8 @@ fn test_database_connection_pool_stress() {
     // THEN: All operations succeed (pool not exhausted)
     let success_rate = f64::from(success_count) * 100.0 / num_operations as f64;
     let epsilon = 0.0001;
-    assert!((success_rate - 100.0).abs() < epsilon,
+    assert!(
+        (success_rate - 100.0).abs() < epsilon,
         "All operations should succeed: {success_rate:.1}%"
     );
 

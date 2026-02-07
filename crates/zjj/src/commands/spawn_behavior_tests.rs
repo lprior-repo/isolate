@@ -464,6 +464,7 @@ mod brutal_edge_cases {
     #[tokio::test]
     async fn given_two_spawns_same_bead_when_racing_then_one_succeeds() {
         use std::sync::Arc;
+
         use tokio::sync::Barrier;
 
         let _lock = get_cwd_lock().await;

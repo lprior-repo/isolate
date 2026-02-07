@@ -4,8 +4,7 @@
 
 mod common;
 
-use std::fs;
-use std::io;
+use std::{fs, io};
 
 use common::TestHarness;
 
@@ -95,7 +94,10 @@ fn test_spawn_with_corrupted_bead_database() {
 {"id":"corrupt-me","title":"Corrupt This","status":"open","priority":"1","issue_type":"task","created_at":"2026-01-30T00:00:00Z","updated_at":"2026-01-30T00:00:00Z","source_repo":"."}
 {invalid json missing closing brace"#;
 
-    let _ = execute_or_exit(WriteFile { path: &beads_db, content: corrupted_content });
+    let _ = execute_or_exit(WriteFile {
+        path: &beads_db,
+        content: corrupted_content,
+    });
 
     // Attempt to spawn with the corrupted database
     // The spawn operation should fail when it tries to update bead status
@@ -147,7 +149,10 @@ fn test_spawn_with_malformed_json_in_database() {
 
     // Write completely invalid JSON
     let malformed_content = "this is not json at all\n{also not valid json\n{broken{brackets";
-    let _ = execute_or_exit(WriteFile { path: &beads_db, content: malformed_content });
+    let _ = execute_or_exit(WriteFile {
+        path: &beads_db,
+        content: malformed_content,
+    });
 
     // Attempt spawn
     let result = harness.zjj(&["spawn", "any-bead", "--agent-command", "echo"]);
@@ -189,7 +194,10 @@ fn test_spawn_validates_bead_status_before_workspace_creation() {
 
     // Create a bead that's already 'in_progress' (not allowed for spawn)
     let in_progress_content = r#"{"id":"blocked-bead","title":"Already Running","status":"in_progress","priority":"1","issue_type":"task","created_at":"2026-01-30T00:00:00Z","updated_at":"2026-01-30T00:00:00Z","source_repo":"."}"#;
-    let _ = execute_or_exit(WriteFile { path: &beads_db, content: in_progress_content });
+    let _ = execute_or_exit(WriteFile {
+        path: &beads_db,
+        content: in_progress_content,
+    });
 
     // Attempt spawn - should fail validation before workspace creation
     let result = harness.zjj(&["spawn", "blocked-bead", "--agent-command", "echo"]);
@@ -239,7 +247,10 @@ fn test_spawn_with_empty_json_lines_in_database() {
 
 "#;
 
-    let _ = execute_or_exit(WriteFile { path: &beads_db, content: empty_lines_content });
+    let _ = execute_or_exit(WriteFile {
+        path: &beads_db,
+        content: empty_lines_content,
+    });
 
     // Spawn should succeed - empty lines should be skipped
     let result = harness.zjj(&["spawn", "valid-bead", "--agent-command", "echo"]);
@@ -267,7 +278,10 @@ fn test_spawn_with_duplicate_bead_ids_in_database() {
     let duplicate_content = r#"{"id":"dup-bead","title":"First Instance","status":"open","priority":"1","issue_type":"task","created_at":"2026-01-30T00:00:00Z","updated_at":"2026-01-30T00:00:00Z","source_repo":"."}
 {"id":"dup-bead","title":"Second Instance","status":"open","priority":"2","issue_type":"task","created_at":"2026-01-30T00:01:00Z","updated_at":"2026-01-30T00:01:00Z","source_repo":"."}"#;
 
-    let _ = execute_or_exit(WriteFile { path: &beads_db, content: duplicate_content });
+    let _ = execute_or_exit(WriteFile {
+        path: &beads_db,
+        content: duplicate_content,
+    });
 
     // Attempt spawn - should handle gracefully
     let result = harness.zjj(&["spawn", "dup-bead", "--agent-command", "echo"]);
@@ -298,7 +312,10 @@ fn test_spawn_preserves_other_beads_on_rollback() {
 {"id":"corrupt-entry","title":"Will Fail","status":"open","priority":"1","issue_type":"task","created_at":"2026-01-30T00:00:00Z","updated_at":"2026-01-30T00:00:00Z","source_repo":"."}
 {invalid json"#;
 
-    let _ = execute_or_exit(WriteFile { path: &beads_db, content: full_content });
+    let _ = execute_or_exit(WriteFile {
+        path: &beads_db,
+        content: full_content,
+    });
 
     // Attempt spawn of corrupt entry
     let result = harness.zjj(&["spawn", "corrupt-entry", "--agent-command", "echo"]);

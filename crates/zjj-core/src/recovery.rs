@@ -49,6 +49,11 @@ pub async fn log_recovery(message: &str, config: &RecoveryConfig) -> Result<()> 
         .await
         .map_err(|e| Error::IoError(format!("Failed to write to recovery log: {e}")))?;
 
+    // Flush to disk immediately for durability (fixes race condition in tests)
+    file.sync_all()
+        .await
+        .map_err(|e| Error::IoError(format!("Failed to flush recovery log: {e}")))?;
+
     Ok(())
 }
 
@@ -91,7 +96,8 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
         .ok();
 
         return Err(Error::DatabaseError(format!(
-            "Database file is too small to be valid: {} bytes (expected at least 100)", metadata.len(),
+            "Database file is too small to be valid: {} bytes (expected at least 100)",
+            metadata.len(),
         )));
     }
 
@@ -152,7 +158,10 @@ pub async fn repair_database(db_path: &Path, config: &RecoveryConfig) -> Result<
             )));
         }
         crate::RecoveryPolicy::Warn => {
-            eprintln!("⚠  Repairing corrupted database: {path}", path = db_path.display());
+            eprintln!(
+                "⚠  Repairing corrupted database: {path}",
+                path = db_path.display()
+            );
             log_recovery(
                 &format!("Repairing database: {}", db_path.display()),
                 config,

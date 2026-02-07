@@ -24,14 +24,16 @@ pub(super) async fn get_system_state() -> SystemState {
             Err(_) => None,
         };
 
-        let (count, active) = sessions_result.map(|sessions| {
-            let total = sessions.len();
-            let active = sessions
-                .iter()
-                .filter(|s| s.status.to_string() == "active")
-                .count();
-            (total, active)
-        }).unwrap_or((0, 0));
+        let (count, active) = sessions_result
+            .map(|sessions| {
+                let total = sessions.len();
+                let active = sessions
+                    .iter()
+                    .filter(|s| s.status.to_string() == "active")
+                    .count();
+                (total, active)
+            })
+            .unwrap_or((0, 0));
 
         (config, db, count, active)
     } else {

@@ -508,14 +508,20 @@ async fn resolve_workspace_path(workspace: &str) -> Result<PathBuf> {
     if let Ok(db) = get_session_db().await {
         if let Some(session) = db.get(workspace).await? {
             let path = PathBuf::from(session.workspace_path);
-            if tokio::fs::try_exists(&path).await.is_ok_and(|exists| exists) {
+            if tokio::fs::try_exists(&path)
+                .await
+                .is_ok_and(|exists| exists)
+            {
                 return Ok(path);
             }
         }
     }
 
     let fallback = PathBuf::from(workspace);
-    if tokio::fs::try_exists(&fallback).await.is_ok_and(|exists| exists) {
+    if tokio::fs::try_exists(&fallback)
+        .await
+        .is_ok_and(|exists| exists)
+    {
         Ok(fallback)
     } else {
         Err(anyhow::anyhow!("Workspace '{workspace}' not found"))

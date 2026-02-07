@@ -4,13 +4,18 @@
 
 mod common;
 
+use std::path::PathBuf;
+
 use common::TestHarness;
 use futures::{stream, StreamExt};
-use std::path::PathBuf;
 use tokio::process::Command;
 
 /// Async helper: Execute zjj command and capture output
-async fn run_zjj_async(zjj_bin: &PathBuf, current_dir: &PathBuf, args: &[&str]) -> common::CommandResult {
+async fn run_zjj_async(
+    zjj_bin: &PathBuf,
+    current_dir: &PathBuf,
+    args: &[&str],
+) -> common::CommandResult {
     let output = Command::new(zjj_bin)
         .args(args)
         .current_dir(current_dir)
@@ -64,13 +69,58 @@ async fn test_help_for_all_commands() {
     };
 
     let commands = [
-        "init", "add", "agents", "attach", "list", "remove", "focus", "switch",
-        "status", "sync", "diff", "config", "clean", "dashboard", "introspect",
-        "doctor", "integrity", "query", "context", "done", "spawn", "checkpoint",
-        "undo", "revert", "whereami", "whoami", "work", "abort", "ai", "help",
-        "can-i", "contract", "examples", "validate", "whatif", "claim", "yield",
-        "batch", "events", "completions", "rename", "pause", "resume", "clone",
-        "export", "import", "wait", "schema", "recover", "retry", "rollback", "queue",
+        "init",
+        "add",
+        "agents",
+        "attach",
+        "list",
+        "remove",
+        "focus",
+        "switch",
+        "status",
+        "sync",
+        "diff",
+        "config",
+        "clean",
+        "dashboard",
+        "introspect",
+        "doctor",
+        "integrity",
+        "query",
+        "context",
+        "done",
+        "spawn",
+        "checkpoint",
+        "undo",
+        "revert",
+        "whereami",
+        "whoami",
+        "work",
+        "abort",
+        "ai",
+        "help",
+        "can-i",
+        "contract",
+        "examples",
+        "validate",
+        "whatif",
+        "claim",
+        "yield",
+        "batch",
+        "events",
+        "completions",
+        "rename",
+        "pause",
+        "resume",
+        "clone",
+        "export",
+        "import",
+        "wait",
+        "schema",
+        "recover",
+        "retry",
+        "rollback",
+        "queue",
     ];
 
     // Run commands concurrently with a semaphore to limit parallelism
@@ -170,7 +220,12 @@ async fn test_completions_smoke() {
         return;
     };
 
-    let result = run_zjj_async(&harness.zjj_bin, &harness.current_dir, &["completions", "bash"]).await;
+    let result = run_zjj_async(
+        &harness.zjj_bin,
+        &harness.current_dir,
+        &["completions", "bash"],
+    )
+    .await;
     assert!(
         result.success,
         "completions bash should succeed\nStdout: {}\nStderr: {}",

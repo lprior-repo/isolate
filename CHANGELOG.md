@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-02-07
+
+### Major Release - Production Ready
+
+This release marks zjj as production-ready with comprehensive functional Rust refactoring, async architecture, and enhanced safety guarantees.
+
+### Breaking Changes
+
+#### Pervasive Functional Transformation
+- **Zero unwrap law enforced**: All `unwrap()`, `expect()`, `panic!()` eliminated
+- **Railway-Oriented Programming**: Error handling via `Result<T, E>` with proper propagation
+- **Pure functional core**: Core logic is sync, deterministic, and side-effect-free
+- **Persistent data structures**: `rpds` for structural sharing and immutability
+
+#### Type-State Pattern for Safety
+- **RepairExecutor**: Backup safety enforced via compile-time type-state
+- **File locking**: Battle-tested `fs2` library replaces custom implementations
+- **Extension locks**: Now extend from current expiration, not from `now`
+
+#### Async Architecture Complete
+- **Async shell, sync core**: I/O operations use `tokio`, core remains pure
+- **Connection pooling**: `sqlx` with `SqlitePool` for efficient database access
+- **Stream processing**: `futures-util` for async combinators
+
+### Added
+- Comprehensive test suite (4x faster with optimization rounds)
+- SCCache compiler cache integration
+- Workspace integrity verification
+- Production readiness fixes (14 tasks completed)
+
+### Performance
+- **98.5% faster builds**: Moon + bazel-remote caching
+- **4x test speedup**: Three optimization rounds on slow tests
+- **50% avg batch speedup**: Round 1 and 2 test optimizations
+
+### Fixed
+- 100+ clippy and linting errors resolved
+- All `items-after-statements` warnings eliminated
+- Template storage thread safety with fs2 file locking
+- Lock expiration bug in `extend_lock`
+
+### Quality
+- Zero unsafe code (forbidden by lint policy)
+- Zero panics/unwraps in production code
+- Exhaustive pattern matching enforced
+- Thiserror for domain errors, anyhow for boundary errors
+
 ## [0.3.0] - 2026-01-27
 
 ### Breaking Changes

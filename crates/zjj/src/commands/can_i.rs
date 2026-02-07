@@ -158,8 +158,7 @@ async fn check_can_add(resource: Option<&str>) -> CanIResult {
     let fix_commands = if !zjj_initialized {
         vec!["zjj init".to_string()]
     } else if !name_available {
-        resource
-            .map_or_else(Vec::new, |name| vec![format!("zjj remove {name}")])
+        resource.map_or_else(Vec::new, |name| vec![format!("zjj remove {name}")])
     } else {
         vec![]
     };
@@ -243,8 +242,7 @@ async fn check_can_done(resource: Option<&str>) -> CanIResult {
     });
 
     // Check if we're in a workspace or session is specified
-    let in_workspace = std::env::current_dir()
-        .is_ok_and(|p| p.join(".jj").exists());
+    let in_workspace = std::env::current_dir().is_ok_and(|p| p.join(".jj").exists());
     prerequisites.push(Prerequisite {
         check: "in_workspace".to_string(),
         passed: in_workspace || resource.is_some(),
@@ -281,8 +279,7 @@ async fn check_can_undo() -> CanIResult {
 
     // Check if undo history exists
     let data_dir = super::zjj_data_dir().await;
-    let undo_file_exists = data_dir
-        .is_ok_and(|d| d.join("undo-history.jsonl").exists());
+    let undo_file_exists = data_dir.is_ok_and(|d| d.join("undo-history.jsonl").exists());
 
     prerequisites.push(Prerequisite {
         check: "undo_history_exists".to_string(),
@@ -468,23 +465,21 @@ async fn check_can_claim(resource: Option<&str>) -> CanIResult {
 
     // Check if lock exists
     let lock_free_val = if let Some(res) = resource {
-        super::zjj_data_dir()
-            .await
-            .is_ok_and(|d| {
-                let locks_dir = d.join("locks");
-                let safe_name: String = res
-                    .chars()
-                    .map(|c| {
-                        if c.is_alphanumeric() || c == '-' || c == '_' {
-                            c
-                        } else {
-                            '_'
-                        }
-                    })
-                    .collect();
-                let lock_path = locks_dir.join(format!("{safe_name}.lock"));
-                !lock_path.exists()
-            })
+        super::zjj_data_dir().await.is_ok_and(|d| {
+            let locks_dir = d.join("locks");
+            let safe_name: String = res
+                .chars()
+                .map(|c| {
+                    if c.is_alphanumeric() || c == '-' || c == '_' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect();
+            let lock_path = locks_dir.join(format!("{safe_name}.lock"));
+            !lock_path.exists()
+        })
     } else {
         true
     };

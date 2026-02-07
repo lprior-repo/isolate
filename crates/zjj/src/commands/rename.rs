@@ -125,7 +125,8 @@ pub async fn run(options: &RenameOptions) -> Result<()> {
     // REQUIREMENT [IF1]: If session doesn't exist, exit 3
     let session = db.get(&options.old_name).await?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
-            "Session '{0}' not found", options.old_name
+            "Session '{0}' not found",
+            options.old_name
         )))
     })?;
 

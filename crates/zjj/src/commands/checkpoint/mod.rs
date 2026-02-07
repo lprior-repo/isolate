@@ -107,8 +107,8 @@ async fn create_checkpoint(
     let sessions = db.list(None).await.map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let checkpoint_id = generate_checkpoint_id()?;
-    let session_count = i64::try_from(sessions.len())
-        .map_err(|_| anyhow::anyhow!("Session count out of range"))?;
+    let session_count =
+        i64::try_from(sessions.len()).map_err(|_| anyhow::anyhow!("Session count out of range"))?;
 
     sqlx::query(
         "INSERT INTO checkpoints (checkpoint_id, description, session_count) VALUES (?, ?, ?)",
@@ -508,10 +508,14 @@ mod tests {
 
     #[test]
     fn test_generate_checkpoint_id_uniqueness() {
-        let Ok(id1) = generate_checkpoint_id() else { return };
+        let Ok(id1) = generate_checkpoint_id() else {
+            return;
+        };
         // Sleep briefly to ensure different timestamp
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let Ok(id2) = generate_checkpoint_id() else { return };
+        let Ok(id2) = generate_checkpoint_id() else {
+            return;
+        };
         // IDs should be different (based on timestamp)
         assert_ne!(id1, id2);
     }

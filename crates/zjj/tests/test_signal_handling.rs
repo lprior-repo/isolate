@@ -188,9 +188,7 @@ fn test_concurrent_list_operations_with_interruption() {
     // Perform multiple list operations rapidly
     // In a real scenario, these could be interrupted by signals
     // Use functional approach to verify all succeed
-    let list_results: Vec<_> = (0..5)
-        .map(|_| harness.zjj(&["list"]))
-        .collect();
+    let list_results: Vec<_> = (0..5).map(|_| harness.zjj(&["list"])).collect();
 
     assert!(
         list_results.iter().all(|r| r.success),
@@ -289,7 +287,10 @@ fn test_no_orphaned_workspaces_after_interrupted_add() {
     let workspaces_dir = harness.repo_path.join("workspaces");
     if workspaces_dir.exists() {
         let entries_result = std::fs::read_dir(&workspaces_dir);
-        assert!(entries_result.is_ok(), "Should be able to read workspaces directory");
+        assert!(
+            entries_result.is_ok(),
+            "Should be able to read workspaces directory"
+        );
 
         let workspace_count = entries_result
             .unwrap_or_else(|e| panic!("Directory exists and is readable: {e}"))
@@ -438,7 +439,7 @@ fn test_recovery_from_partial_state() {
     let _status_result = harness.zjj(&["status", "recovery-1"]);
     // The system may succeed (graceful degradation) or report missing workspace
     // Both outcomes are acceptable for robust error handling
-    
+
     // Other sessions should remain unaffected
     let list_result = harness.zjj(&["list"]);
     assert!(

@@ -318,17 +318,17 @@ pub async fn handle_introspect(sub_m: &ArgMatches) -> Result<()> {
         return introspect::run_ai().await;
     }
     if sub_m.get_flag("env-vars") {
-        return introspect::run_env_vars(format) ;
+        return introspect::run_env_vars(format);
     }
     if sub_m.get_flag("workflows") {
-        return introspect::run_workflows(format) ;
+        return introspect::run_workflows(format);
     }
     if sub_m.get_flag("session-states") {
-        return introspect::run_session_states(format) ;
+        return introspect::run_session_states(format);
     }
     let command = sub_m.get_one::<String>("command").map(String::as_str);
     if let Some(cmd) = command {
-        introspect::run_command_introspect(cmd, format) 
+        introspect::run_command_introspect(cmd, format)
     } else {
         introspect::run(format).await
     }
@@ -553,7 +553,7 @@ pub fn handle_whoami(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let options = whoami::WhoAmIOptions { format };
-    whoami::run(&options) 
+    whoami::run(&options)
 }
 
 pub async fn handle_work(sub_m: &ArgMatches) -> Result<()> {
@@ -620,7 +620,7 @@ pub fn handle_contract(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let command = sub_m.get_one::<String>("command").cloned();
     let options = contract::ContractOptions { command, format };
-    contract::run(&options) 
+    contract::run(&options)
 }
 
 pub fn handle_examples(sub_m: &ArgMatches) -> Result<()> {
@@ -633,7 +633,7 @@ pub fn handle_examples(sub_m: &ArgMatches) -> Result<()> {
         use_case,
         format,
     };
-    examples::run(&options) 
+    examples::run(&options)
 }
 
 pub fn handle_help(sub_m: &ArgMatches) -> Result<()> {
@@ -886,7 +886,7 @@ pub fn handle_completions(sub_m: &ArgMatches) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Shell is required"))?;
     let shell: completions::Shell = shell_str.parse()?;
     let options = completions::CompletionsOptions { shell, format };
-    completions::run(&options) 
+    completions::run(&options)
 }
 
 pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
@@ -1088,7 +1088,7 @@ pub fn handle_schema(sub_m: &ArgMatches) -> Result<()> {
         all: sub_m.get_flag("all"),
         format,
     };
-    schema::run(&options) 
+    schema::run(&options)
 }
 
 pub async fn handle_pane(sub_m: &ArgMatches) -> Result<()> {

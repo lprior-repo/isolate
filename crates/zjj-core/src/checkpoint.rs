@@ -173,7 +173,8 @@ impl CheckpointGuard {
             .await
             .map_err(|e| {
                 Error::DatabaseError(format!(
-                    "Failed to mark checkpoint '{}' for restore: {e}", self.checkpoint_id
+                    "Failed to mark checkpoint '{}' for restore: {e}",
+                    self.checkpoint_id
                 ))
             })?;
 

@@ -217,11 +217,8 @@ async fn test_watcher_handles_multiple_workspaces() -> Result<()> {
     };
 
     let workspace_paths = vec![workspace1.clone(), workspace2.clone(), workspace3.clone()];
-    let mut rx = FileWatcher::watch_workspaces(
-        &config,
-        &workspace_paths,
-    )
-    .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
+    let mut rx = FileWatcher::watch_workspaces(&config, &workspace_paths)
+        .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
     // Reduced initialization delay (50ms -> 30ms)
     tokio::time::sleep(Duration::from_millis(30)).await;
@@ -357,16 +354,12 @@ async fn test_watcher_handles_concurrent_modifications() -> Result<()> {
     let db_clone = beads_db.clone();
 
     let task1 = tokio::spawn(async move {
-        fs::write(&db_clone, b"task1-0")
-            .await
-            .ok();
+        fs::write(&db_clone, b"task1-0").await.ok();
     });
 
     let db_clone2 = beads_db.clone();
     let task2 = tokio::spawn(async move {
-        fs::write(&db_clone2, b"task2-0")
-            .await
-            .ok();
+        fs::write(&db_clone2, b"task2-0").await.ok();
     });
 
     // Wait for both tasks
@@ -421,10 +414,8 @@ async fn test_watcher_rapid_changes_different_workspaces() -> Result<()> {
     let workspace2 = temp_dir.path().join("ws2");
 
     // Create both workspaces in parallel for faster setup
-    let (ws1_result, ws2_result) = tokio::join!(
-        setup_workspace(&workspace1),
-        setup_workspace(&workspace2)
-    );
+    let (ws1_result, ws2_result) =
+        tokio::join!(setup_workspace(&workspace1), setup_workspace(&workspace2));
 
     ws1_result?;
     ws2_result?;
@@ -435,9 +426,8 @@ async fn test_watcher_rapid_changes_different_workspaces() -> Result<()> {
         paths: vec![".beads/beads.db".to_string()],
     };
 
-    let mut rx =
-        FileWatcher::watch_workspaces(&config, &[workspace1.clone(), workspace2.clone()])
-            .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
+    let mut rx = FileWatcher::watch_workspaces(&config, &[workspace1.clone(), workspace2.clone()])
+        .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
     tokio::time::sleep(Duration::from_millis(50)).await;
 

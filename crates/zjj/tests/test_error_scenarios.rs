@@ -10,8 +10,9 @@
 
 mod common;
 
-use common::TestHarness;
 use std::sync::OnceLock;
+
+use common::TestHarness;
 
 // ============================================================================
 // Shared Test Utilities
@@ -287,7 +288,10 @@ fn test_corrupted_database_recovery() {
     // Functional error handling: use Result instead of abort
     let db_path = harness.state_db_path();
     let write_result = std::fs::write(&db_path, "garbage data");
-    assert!(write_result.is_ok(), "Failed to corrupt database for testing");
+    assert!(
+        write_result.is_ok(),
+        "Failed to corrupt database for testing"
+    );
 
     // Operations should succeed by recovering (resetting the DB)
     // We need to set recovery policy to silent to allow auto-recovery without error
@@ -309,7 +313,10 @@ fn test_missing_database() {
     // Delete the database - functional error handling
     let db_path = harness.state_db_path();
     let remove_result = std::fs::remove_file(&db_path);
-    assert!(remove_result.is_ok(), "Failed to remove database for testing");
+    assert!(
+        remove_result.is_ok(),
+        "Failed to remove database for testing"
+    );
 
     // Operations should succeed by re-creating the database
     let result = harness.zjj(&["list"]);
@@ -354,8 +361,8 @@ fn test_readonly_zjj_directory() {
 
     // Make .zjj directory readonly - functional error handling
     let zjj_dir = harness.zjj_dir();
-    let metadata = fs::metadata(&zjj_dir)
-        .unwrap_or_else(|e| panic!("Failed to get directory metadata: {e}"));
+    let metadata =
+        fs::metadata(&zjj_dir).unwrap_or_else(|e| panic!("Failed to get directory metadata: {e}"));
     let mut perms = metadata.permissions();
     perms.set_mode(0o444); // Readonly
     fs::set_permissions(&zjj_dir, perms)
@@ -736,9 +743,7 @@ fn test_rapid_sequential_add_remove() {
 
     // Rapid add/remove cycles should maintain database integrity
     // Pre-allocate session names to avoid repeated format! calls
-    let session_names: Vec<String> = (0..10)
-        .map(|i| format!("rapid{i}"))
-        .collect();
+    let session_names: Vec<String> = (0..10).map(|i| format!("rapid{i}")).collect();
 
     for name in &session_names {
         harness.assert_success(&["add", name, "--no-open"]);

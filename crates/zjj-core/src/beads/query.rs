@@ -39,12 +39,14 @@ pub fn matches_filter(issue: &BeadIssue, filter: &BeadFilter) -> bool {
                 .labels
                 .as_ref()
                 .is_some_and(|issue_labels| filter.labels.iter().all(|l| issue_labels.contains(l))))
-        && (filter.assignee.as_ref().is_none_or(|assignee| {
-            issue.assignee.as_ref() == Some(assignee)
-        }))
-        && (filter.parent.as_ref().is_none_or(|parent| {
-            issue.parent.as_ref() == Some(parent)
-        }))
+        && (filter
+            .assignee
+            .as_ref()
+            .is_none_or(|assignee| issue.assignee.as_ref() == Some(assignee)))
+        && (filter
+            .parent
+            .as_ref()
+            .is_none_or(|parent| issue.parent.as_ref() == Some(parent)))
         && (!filter.has_parent || issue.parent.is_some())
         && (!filter.blocked_only || issue.is_blocked())
         && filter.search_text.as_ref().is_none_or(|text| {

@@ -248,8 +248,9 @@ async fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::Path;
+
+    use super::*;
 
     #[test]
     fn test_clean_options_default() {
