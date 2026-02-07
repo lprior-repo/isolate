@@ -20,7 +20,7 @@ use zjj_core::{
     kdl_validation,
     templates::storage,
     zellij::{LayoutConfig, LayoutTemplate},
-    OutputFormat,
+    Error, OutputFormat,
 };
 
 use crate::{
@@ -51,6 +51,60 @@ pub enum TemplateSource {
     Builtin(LayoutTemplate),
     /// Import from a KDL file
     FromFile(String),
+}
+
+/// Validate a template name
+///
+/// Template names must:
+/// - Not be empty
+/// - Not exceed 64 characters
+/// - Only contain ASCII alphanumeric characters, dashes, and underscores
+/// - Start with a letter (a-z, A-Z)
+///
+/// # Errors
+///
+/// Returns `Error::ValidationError` if the template name is invalid
+fn validate_template_name(name: &str) -> Result<(), Error> {
+    if name.is_empty() {
+        return Err(Error::ValidationError(
+            "Template name cannot be empty".into(),
+        ));
+    }
+
+    // Check for non-ASCII characters first (prevents unicode bypasses)
+    if !name.is_ascii() {
+        return Err(Error::ValidationError(
+            "Template name must contain only ASCII characters (a-z, A-Z, 0-9, -, _)".into(),
+        ));
+    }
+
+    if name.len() > 64 {
+        return Err(Error::ValidationError(
+            "Template name cannot exceed 64 characters".into(),
+        ));
+    }
+
+    // Only allow ASCII alphanumeric, dash, and underscore
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(Error::ValidationError(
+            "Invalid template name: Template name can only contain ASCII alphanumeric characters, dashes, and underscores"
+                .into(),
+        ));
+    }
+
+    // Must start with a letter (not dash, underscore, or digit)
+    if let Some(first) = name.chars().next() {
+        if !first.is_ascii_alphabetic() {
+            return Err(Error::ValidationError(
+                "Invalid template name: Template name must start with a letter (a-z, A-Z)".into(),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 /// Run the template list command
@@ -106,6 +160,10 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
 ///
 /// Returns error if unable to create template or write to storage
 pub async fn run_create(options: &CreateOptions) -> Result<()> {
+    // Validate template name first
+    validate_template_name(&options.name)
+        .map_err(|e| anyhow::Error::new(e).context("Invalid template name"))?;
+
     let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
@@ -413,5 +471,128 @@ mod tests {
             "Error message should mention binary vs text. Got: {}",
             error_msg
         );
+    }
+
+    // Tests for template name validation
+
+    #[test]
+    fn test_validate_template_name_empty() {
+        let result = validate_template_name("");
+        assert!(result.is_err());
+        if let Err(Error::ValidationError(msg)) = result {
+            assert!(msg.contains("empty") || msg.contains("Empty"));
+        } else {
+            panic!("Expected ValidationError, got: {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_validate_template_name_too_long() {
+        let long_name = "a".repeat(65);
+        let result = validate_template_name(&long_name);
+        assert!(result.is_err());
+        if let Err(Error::ValidationError(msg)) = result {
+            assert!(msg.contains("64"));
+        } else {
+            panic!("Expected ValidationError, got: {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_validate_template_name_non_ascii() {
+        let result = validate_template_name("template-🚀");
+        assert!(result.is_err());
+        if let Err(Error::ValidationError(msg)) = result {
+            assert!(msg.contains("ASCII"));
+        } else {
+            panic!("Expected ValidationError, got: {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_validate_template_name_starts_with_digit() {
+        let result = validate_template_name("123template");
+        assert!(result.is_err());
+        if let Err(Error::ValidationError(msg)) = result {
+            assert!(msg.contains("start with a letter"));
+        } else {
+            panic!("Expected ValidationError, got: {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_validate_template_name_starts_with_dash() {
+        let result = validate_template_name("-template");
+        assert!(result.is_err());
+        if let Err(Error::ValidationError(msg)) = result {
+            assert!(msg.contains("start with a letter"));
+        } else {
+            panic!("Expected ValidationError, got: {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_validate_template_name_starts_with_underscore() {
+        let result = validate_template_name("_template");
+        assert!(result.is_err());
+        if let Err(Error::ValidationError(msg)) = result {
+            assert!(msg.contains("start with a letter"));
+        } else {
+            panic!("Expected ValidationError, got: {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_validate_template_name_invalid_characters() {
+        let result = validate_template_name("template name");
+        assert!(result.is_err());
+        if let Err(Error::ValidationError(msg)) = result {
+            assert!(msg.contains("alphanumeric") || msg.contains("character"));
+        } else {
+            panic!("Expected ValidationError, got: {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_validate_template_name_valid() {
+        let valid_names = vec![
+            "template",
+            "my_template",
+            "my-template",
+            "my_template-123",
+            "Template",
+            "TEMPLATE",
+            "a",
+            "abc123",
+        ];
+
+        for name in valid_names {
+            let result = validate_template_name(name);
+            assert!(
+                result.is_ok(),
+                "Expected '{name}' to be valid, got: {:?}",
+                result
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_template_name_max_length() {
+        let max_name = "a".repeat(64);
+        let result = validate_template_name(&max_name);
+        assert!(result.is_ok(), "64-character name should be valid");
+    }
+
+    #[test]
+    fn test_validate_template_name_special_characters() {
+        let invalid_names = vec!["template.name", "template@name", "template$name"];
+
+        for name in invalid_names {
+            let result = validate_template_name(name);
+            assert!(
+                result.is_err(),
+                "Expected '{name}' to be invalid, but it was accepted",
+            );
+        }
     }
 }

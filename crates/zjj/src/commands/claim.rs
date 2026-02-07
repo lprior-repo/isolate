@@ -48,6 +48,12 @@ pub struct ClaimResult {
     /// Error message if claim failed
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Whether this was a double claim (same agent re-claiming)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_double_claim: Option<bool>,
+    /// Number of times this agent has claimed this resource
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claim_count: Option<usize>,
 }
 
 /// Result of yield operation
@@ -74,6 +80,50 @@ struct LockInfo {
     expires_at: u64,
 }
 
+/// Audit entry for claim operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ClaimAuditEntry {
+    agent_id: String,
+    resource: String,
+    timestamp: u64,
+    action: ClaimAction,
+    success: bool,
+    expires_at: Option<u64>,
+    previous_holder: Option<String>,
+}
+
+/// Types of claim actions for audit trail
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum ClaimAction {
+    #[serde(rename = "initial_claim")]
+    InitialClaim,
+    #[serde(rename = "double_claim")]
+    DoubleClaim,
+    #[serde(rename = "expired_claim")]
+    ExpiredClaim,
+    #[serde(rename = "failed_claim")]
+    FailedClaim,
+}
+
+/// Complete audit log for a resource
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ClaimAudit {
+    entries: Vec<ClaimAuditEntry>,
+}
+
+impl ClaimAudit {
+    fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+
+    fn add_entry(mut self, entry: ClaimAuditEntry) -> Self {
+        self.entries.push(entry);
+        self
+    }
+}
+
 async fn get_locks_dir() -> Result<PathBuf> {
     let data_dir = super::zjj_data_dir().await?;
     let locks_dir = data_dir.join("locks");
@@ -97,6 +147,21 @@ async fn lock_file_path(resource: &str) -> Result<PathBuf> {
     Ok(locks_dir.join(format!("{safe_name}.lock")))
 }
 
+async fn audit_file_path(resource: &str) -> Result<PathBuf> {
+    let locks_dir = get_locks_dir().await?;
+    let safe_name: String = resource
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    Ok(locks_dir.join(format!("{safe_name}.audit")))
+}
+
 fn current_timestamp() -> Result<u64> {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -114,6 +179,37 @@ async fn read_lock(path: &std::path::Path) -> Option<LockInfo> {
         .await
         .ok()
         .and_then(|content| serde_json::from_str(&content).ok())
+}
+
+/// Read audit log from file
+async fn read_audit(path: &std::path::Path) -> Result<ClaimAudit> {
+    match tokio::fs::read_to_string(path).await {
+        Ok(content) => {
+            serde_json::from_str(&content)
+                .map_err(|e| anyhow::anyhow!("Failed to parse audit log: {e}"))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ClaimAudit::new()),
+        Err(e) => Err(anyhow::anyhow!("Failed to read audit log: {e}")),
+    }
+}
+
+/// Write audit entry to file
+async fn write_audit_entry(path: &std::path::Path, entry: ClaimAuditEntry) -> Result<()> {
+    let audit = read_audit(path).await?;
+    let updated_audit = audit.add_entry(entry);
+    let content = serde_json::to_string_pretty(&updated_audit)?;
+    tokio::fs::write(path, content)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to write audit log: {e}"))
+}
+
+/// Count claims by a specific agent for a resource
+async fn count_claims_by_agent(audit: &ClaimAudit, agent_id: &str) -> usize {
+    audit
+        .entries
+        .iter()
+        .filter(|entry| entry.agent_id == agent_id && entry.success)
+        .count()
 }
 
 /// Attempt to acquire lock using atomic file creation
@@ -151,6 +247,7 @@ async fn write_lock(path: &std::path::Path, lock_info: &LockInfo) -> Result<()> 
 /// Try to claim a resource, returning the result
 async fn attempt_claim(
     lock_path: &std::path::Path,
+    audit_path: &std::path::Path,
     resource: &str,
     agent_id: &str,
     now: u64,
@@ -165,6 +262,17 @@ async fn attempt_claim(
 
     // Try atomic create first (prevents TOCTOU)
     if try_atomic_create_lock(lock_path, &new_lock).await? {
+        let audit_entry = ClaimAuditEntry {
+            agent_id: agent_id.to_string(),
+            resource: resource.to_string(),
+            timestamp: now,
+            action: ClaimAction::InitialClaim,
+            success: true,
+            expires_at: Some(expires_at),
+            previous_holder: None,
+        };
+        let _ = write_audit_entry(audit_path, audit_entry).await;
+
         return Ok(ClaimResult {
             claimed: true,
             resource: resource.to_string(),
@@ -172,15 +280,32 @@ async fn attempt_claim(
             expires_at: Some(expires_at),
             previous_holder: None,
             error: None,
+            is_double_claim: Some(false),
+            claim_count: Some(1),
         });
     }
 
     // Lock file exists - check if we can take it
+    let audit = read_audit(audit_path).await?;
+    let claim_count = count_claims_by_agent(&audit, agent_id).await;
+
     let result = if let Some(existing) = read_lock(lock_path).await {
         if existing.expires_at < now {
             // Lock expired - take it
-            write_lock(lock_path, &new_lock)
-                .await
+            let write_result = write_lock(lock_path, &new_lock).await;
+
+            let audit_entry = ClaimAuditEntry {
+                agent_id: agent_id.to_string(),
+                resource: resource.to_string(),
+                timestamp: now,
+                action: ClaimAction::ExpiredClaim,
+                success: write_result.is_ok(),
+                expires_at: Some(expires_at),
+                previous_holder: Some(existing.holder.clone()),
+            };
+            let _ = write_audit_entry(audit_path, audit_entry).await;
+
+            write_result
                 .map(|()| ClaimResult {
                     claimed: true,
                     resource: resource.to_string(),
@@ -188,6 +313,8 @@ async fn attempt_claim(
                     expires_at: Some(expires_at),
                     previous_holder: Some(existing.holder),
                     error: None,
+                    is_double_claim: Some(false),
+                    claim_count: Some(claim_count + 1),
                 })
                 .unwrap_or_else(|e| ClaimResult {
                     claimed: false,
@@ -196,9 +323,23 @@ async fn attempt_claim(
                     expires_at: None,
                     previous_holder: None,
                     error: Some(format!("Failed to write lock: {e}")),
+                    is_double_claim: None,
+                    claim_count: Some(claim_count),
                 })
         } else if existing.holder == agent_id {
-            // We already hold it - extend
+            // DOUBLE CLAIM DETECTED - we already hold it
+            let audit_entry = ClaimAuditEntry {
+                agent_id: agent_id.to_string(),
+                resource: resource.to_string(),
+                timestamp: now,
+                action: ClaimAction::DoubleClaim,
+                success: true,
+                expires_at: Some(expires_at),
+                previous_holder: None,
+            };
+            let _ = write_audit_entry(audit_path, audit_entry).await;
+
+            // Still extend the lock, but flag as double claim
             write_lock(lock_path, &new_lock)
                 .await
                 .map(|()| ClaimResult {
@@ -208,6 +349,8 @@ async fn attempt_claim(
                     expires_at: Some(expires_at),
                     previous_holder: None,
                     error: None,
+                    is_double_claim: Some(true),
+                    claim_count: Some(claim_count + 1),
                 })
                 .unwrap_or_else(|e| ClaimResult {
                     claimed: false,
@@ -216,9 +359,22 @@ async fn attempt_claim(
                     expires_at: None,
                     previous_holder: None,
                     error: Some(format!("Failed to extend lock: {e}")),
+                    is_double_claim: Some(true),
+                    claim_count: Some(claim_count),
                 })
         } else {
             // Someone else holds valid lock
+            let audit_entry = ClaimAuditEntry {
+                agent_id: agent_id.to_string(),
+                resource: resource.to_string(),
+                timestamp: now,
+                action: ClaimAction::FailedClaim,
+                success: false,
+                expires_at: None,
+                previous_holder: Some(existing.holder.clone()),
+            };
+            let _ = write_audit_entry(audit_path, audit_entry).await;
+
             ClaimResult {
                 claimed: false,
                 resource: resource.to_string(),
@@ -226,12 +382,26 @@ async fn attempt_claim(
                 expires_at: Some(existing.expires_at),
                 previous_holder: None,
                 error: Some(format!("Resource locked by {}", existing.holder)),
+                is_double_claim: Some(false),
+                claim_count: Some(claim_count),
             }
         }
     } else {
         // Lock file unreadable/corrupt - try to take it
-        write_lock(lock_path, &new_lock)
-            .await
+        let write_result = write_lock(lock_path, &new_lock).await;
+
+        let audit_entry = ClaimAuditEntry {
+            agent_id: agent_id.to_string(),
+            resource: resource.to_string(),
+            timestamp: now,
+            action: ClaimAction::InitialClaim,
+            success: write_result.is_ok(),
+            expires_at: Some(expires_at),
+            previous_holder: None,
+        };
+        let _ = write_audit_entry(audit_path, audit_entry).await;
+
+        write_result
             .map(|()| ClaimResult {
                 claimed: true,
                 resource: resource.to_string(),
@@ -239,6 +409,8 @@ async fn attempt_claim(
                 expires_at: Some(expires_at),
                 previous_holder: None,
                 error: None,
+                is_double_claim: Some(false),
+                claim_count: Some(claim_count + 1),
             })
             .unwrap_or_else(|e| ClaimResult {
                 claimed: false,
@@ -247,6 +419,8 @@ async fn attempt_claim(
                 expires_at: None,
                 previous_holder: None,
                 error: Some(format!("Failed to write lock: {e}")),
+                is_double_claim: None,
+                claim_count: Some(claim_count),
             })
     };
 
@@ -257,16 +431,32 @@ async fn attempt_claim(
 pub async fn run_claim(options: &ClaimOptions) -> Result<()> {
     let agent_id = get_agent_id();
     let lock_path = lock_file_path(&options.resource).await?;
+    let audit_path = audit_file_path(&options.resource).await?;
     let now = current_timestamp()?;
     let expires_at = now + options.timeout;
 
-    let result = attempt_claim(&lock_path, &options.resource, &agent_id, now, expires_at).await?;
+    let result = attempt_claim(
+        &lock_path,
+        &audit_path,
+        &options.resource,
+        &agent_id,
+        now,
+        expires_at,
+    )
+    .await?;
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("claim-response", "single", &result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else if result.claimed {
-        println!("✓ Claimed resource '{}'", result.resource);
+        if result.is_double_claim.unwrap_or(false) {
+            println!("⚠ Double claim detected for resource '{}'", result.resource);
+            if let Some(count) = result.claim_count {
+                println!("  Total claims by you: {count}");
+            }
+        } else {
+            println!("✓ Claimed resource '{}'", result.resource);
+        }
         if let Some(h) = &result.holder {
             println!("  Lock holder: {h}");
         }
@@ -364,6 +554,37 @@ pub async fn run_yield(options: &YieldOptions) -> Result<()> {
     Ok(())
 }
 
+/// Query claim history for a resource
+pub async fn query_claim_history(resource: &str) -> Result<Vec<ClaimAuditEntry>> {
+    let audit_path = audit_file_path(resource).await?;
+    let audit = read_audit(&audit_path).await?;
+    Ok(audit.entries)
+}
+
+/// Show current holders of all locked resources
+pub async fn show_current_holders() -> Result<Vec<LockInfo>> {
+    let locks_dir = get_locks_dir().await?;
+    let mut entries = tokio::fs::read_dir(&locks_dir)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to read locks directory: {e}"))?;
+
+    let mut locks = Vec::new();
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        if path.extension().map_or(false, |ext| ext == "lock") {
+            if let Some(lock_info) = read_lock(&path).await {
+                // Only include non-expired locks
+                let now = current_timestamp()?;
+                if lock_info.expires_at > now {
+                    locks.push(lock_info);
+                }
+            }
+        }
+    }
+
+    Ok(locks)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,6 +598,8 @@ mod tests {
             expires_at: Some(1_234_567_890),
             previous_holder: None,
             error: None,
+            is_double_claim: Some(false),
+            claim_count: Some(1),
         };
 
         let json = serde_json::to_string(&result)?;
@@ -408,11 +631,32 @@ mod tests {
             expires_at: None,
             previous_holder: None,
             error: Some("Resource is locked".to_string()),
+            is_double_claim: Some(false),
+            claim_count: Some(0),
         };
 
         let json = serde_json::to_string(&result)?;
         assert!(json.contains("\"claimed\":false"));
         assert!(json.contains("\"error\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_claim_result_double_claim() -> Result<(), Box<dyn std::error::Error>> {
+        let result = ClaimResult {
+            claimed: true,
+            resource: "session:test".to_string(),
+            holder: Some("agent-1".to_string()),
+            expires_at: Some(1_234_567_890),
+            previous_holder: None,
+            error: None,
+            is_double_claim: Some(true),
+            claim_count: Some(3),
+        };
+
+        let json = serde_json::to_string(&result)?;
+        assert!(json.contains("\"is_double_claim\":true"));
+        assert!(json.contains("\"claim_count\":3"));
         Ok(())
     }
 
@@ -453,6 +697,8 @@ mod tests {
                 expires_at: Some(1_234_567_890),
                 previous_holder: None,
                 error: None,
+                is_double_claim: Some(false),
+                claim_count: Some(1),
             };
 
             assert!(result.claimed, "Should be claimed");
@@ -466,6 +712,12 @@ mod tests {
                 result.previous_holder.is_none(),
                 "No previous holder for fresh claim"
             );
+            assert_eq!(
+                result.is_double_claim,
+                Some(false),
+                "Should not be double claim"
+            );
+            assert_eq!(result.claim_count, Some(1), "First claim");
         }
 
         /// GIVEN: Resource is locked by another agent
@@ -480,6 +732,8 @@ mod tests {
                 expires_at: Some(1_234_567_890),
                 previous_holder: None,
                 error: Some("Resource is locked by agent-xyz".to_string()),
+                is_double_claim: Some(false),
+                claim_count: Some(0),
             };
 
             assert!(!result.claimed, "Should not be claimed");
@@ -503,6 +757,8 @@ mod tests {
                 expires_at: Some(9_999_999_999),
                 previous_holder: Some("agent-old".to_string()),
                 error: None,
+                is_double_claim: Some(false),
+                claim_count: Some(1),
             };
 
             assert!(result.claimed, "Should claim expired lock");
@@ -515,9 +771,9 @@ mod tests {
 
         /// GIVEN: Agent re-claims their own resource
         /// WHEN: Claim is made
-        /// THEN: Should extend expiration
+        /// THEN: Should extend expiration AND flag as double claim
         #[test]
-        fn reclaim_extends_expiration() {
+        fn reclaim_detects_double_claim() {
             let result = ClaimResult {
                 claimed: true,
                 resource: "session:my-lock".to_string(),
@@ -525,10 +781,18 @@ mod tests {
                 expires_at: Some(2_000_000_000), // Extended
                 previous_holder: None,           // Still us, no "previous"
                 error: None,
+                is_double_claim: Some(true),     // NEW: Detects double claim
+                claim_count: Some(3),            // NEW: Shows claim count
             };
 
             assert!(result.claimed);
             assert!(result.expires_at.is_some(), "Should have new expiration");
+            assert_eq!(
+                result.is_double_claim,
+                Some(true),
+                "Should detect double claim"
+            );
+            assert_eq!(result.claim_count, Some(3), "Should count total claims");
         }
     }
 
@@ -701,6 +965,8 @@ mod tests {
                 expires_at: Some(9_999_999_999),
                 previous_holder: None,
                 error: None,
+                is_double_claim: Some(false),
+                claim_count: Some(1),
             };
 
             let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&result)?)?;
@@ -727,6 +993,8 @@ mod tests {
                 expires_at: Some(1_234_567_890),
                 previous_holder: None,
                 error: Some("Resource locked by other-agent".to_string()),
+                is_double_claim: Some(false),
+                claim_count: Some(0),
             };
 
             let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&result)?)?;
@@ -737,6 +1005,30 @@ mod tests {
                 .as_str()
                 .ok_or("error not string")?
                 .contains("other-agent"));
+            Ok(())
+        }
+
+        /// GIVEN: Double claim
+        /// WHEN: Serialized
+        /// THEN: Should include double claim flag and count
+        #[test]
+        fn double_claim_json_includes_detection() -> Result<(), Box<dyn std::error::Error>> {
+            let result = ClaimResult {
+                claimed: true,
+                resource: "session:double".to_string(),
+                holder: Some("agent-1".to_string()),
+                expires_at: Some(9_999_999_999),
+                previous_holder: None,
+                error: None,
+                is_double_claim: Some(true),
+                claim_count: Some(5),
+            };
+
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&result)?)?;
+
+            assert_eq!(json["claimed"].as_bool(), Some(true));
+            assert_eq!(json["is_double_claim"].as_bool(), Some(true));
+            assert_eq!(json["claim_count"], 5);
             Ok(())
         }
 
@@ -757,6 +1049,132 @@ mod tests {
             assert!(json.get("yielded").is_some());
             assert!(json["yielded"].is_boolean());
             Ok(())
+        }
+    }
+
+    // ============================================================================
+    // Audit Trail Tests
+    // Tests for claim history tracking and double claim detection
+    // ============================================================================
+
+    mod audit_trail_behavior {
+        use super::*;
+
+        /// GIVEN: Audit log entry
+        /// WHEN: Created
+        /// THEN: Should have all required fields
+        #[test]
+        fn audit_entry_has_required_fields() {
+            let entry = ClaimAuditEntry {
+                agent_id: "agent-123".to_string(),
+                resource: "session:feature-x".to_string(),
+                timestamp: 1_609_459_200,
+                action: ClaimAction::InitialClaim,
+                success: true,
+                expires_at: Some(1_609_462_800),
+                previous_holder: None,
+            };
+
+            assert!(!entry.agent_id.is_empty());
+            assert!(!entry.resource.is_empty());
+            assert!(entry.timestamp > 0);
+            assert!(entry.success);
+            assert!(entry.expires_at.is_some());
+        }
+
+        /// GIVEN: Empty audit log
+        /// WHEN: Entry added
+        /// THEN: Should contain the entry
+        #[test]
+        fn audit_log_tracks_entries() {
+            let audit = ClaimAudit::new();
+            let entry = ClaimAuditEntry {
+                agent_id: "agent-1".to_string(),
+                resource: "session:test".to_string(),
+                timestamp: 1000,
+                action: ClaimAction::InitialClaim,
+                success: true,
+                expires_at: Some(2000),
+                previous_holder: None,
+            };
+
+            let updated = audit.add_entry(entry);
+            assert_eq!(updated.entries.len(), 1);
+            assert_eq!(updated.entries[0].agent_id, "agent-1");
+        }
+
+        /// GIVEN: Multiple claims
+        /// WHEN: Counted by agent
+        /// THEN: Should return correct count
+        #[tokio::test]
+        async fn count_claims_by_agent_works() {
+            let mut audit = ClaimAudit::new();
+
+            // Add 3 successful claims by agent-1
+            for i in 0..3 {
+                audit = audit.add_entry(ClaimAuditEntry {
+                    agent_id: "agent-1".to_string(),
+                    resource: "session:test".to_string(),
+                    timestamp: 1000 + i,
+                    action: ClaimAction::InitialClaim,
+                    success: true,
+                    expires_at: Some(2000 + i),
+                    previous_holder: None,
+                });
+            }
+
+            // Add 1 failed claim
+            audit = audit.add_entry(ClaimAuditEntry {
+                agent_id: "agent-1".to_string(),
+                resource: "session:test".to_string(),
+                timestamp: 1003,
+                action: ClaimAction::FailedClaim,
+                success: false,
+                expires_at: None,
+                previous_holder: Some("agent-2".to_string()),
+            });
+
+            let count = count_claims_by_agent(&audit, "agent-1").await;
+            assert_eq!(count, 3, "Should count only successful claims");
+        }
+
+        /// GIVEN: Claim actions
+        /// WHEN: Serialized
+        /// THEN: Should have correct JSON representation
+        #[test]
+        fn claim_action_serializes_correctly() -> Result<(), Box<dyn std::error::Error>> {
+            let actions = [
+                (ClaimAction::InitialClaim, "initial_claim"),
+                (ClaimAction::DoubleClaim, "double_claim"),
+                (ClaimAction::ExpiredClaim, "expired_claim"),
+                (ClaimAction::FailedClaim, "failed_claim"),
+            ];
+
+            for (action, expected) in actions {
+                let json = serde_json::to_string(&action)?;
+                assert!(json.contains(expected), "Action should serialize to {expected}");
+            }
+
+            Ok(())
+        }
+
+        /// GIVEN: Audit entry with double claim
+        /// WHEN: Created
+        /// THEN: Should indicate double claim action
+        #[test]
+        fn double_claim_audit_entry() {
+            let entry = ClaimAuditEntry {
+                agent_id: "agent-1".to_string(),
+                resource: "session:test".to_string(),
+                timestamp: 2000,
+                action: ClaimAction::DoubleClaim,
+                success: true,
+                expires_at: Some(3000),
+                previous_holder: None,
+            };
+
+            assert!(matches!(entry.action, ClaimAction::DoubleClaim));
+            assert!(entry.success);
         }
     }
 }

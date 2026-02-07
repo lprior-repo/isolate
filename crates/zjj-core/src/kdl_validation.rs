@@ -8,6 +8,8 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 
+use std::str::FromStr;
+
 use crate::{Error, Result};
 
 /// Validate KDL syntax with detailed error reporting
@@ -53,10 +55,10 @@ fn validate_zellij_requirements(content: &str) -> Result<()> {
         .map_err(|e| Error::ValidationError(format!("Failed to parse KDL for validation: {e}")))?;
 
     // Check for root 'layout' node
-    let has_layout = doc.nodes().iter().any(|node| {
-        node.name()
-            .map_or(false, |name| name.value() == "layout")
-    });
+    let has_layout = doc
+        .nodes()
+        .iter()
+        .any(|node| node.name().value() == "layout");
 
     if !has_layout {
         return Err(Error::ValidationError(
@@ -67,14 +69,16 @@ fn validate_zellij_requirements(content: &str) -> Result<()> {
     // Check for at least one 'pane' node (in children or at root)
     let has_pane = doc.nodes().iter().any(|node| {
         // Check direct children of layout node
-        let has_child_pane = node.children().map_or(false, |children| {
-            children.nodes().iter().any(|child| {
-                child.name().map_or(false, |n: &kdl::KdlIdentifier| n.value() == "pane")
-            })
-        });
+        let has_child_pane = match node.children() {
+            Some(children) => children
+                .nodes()
+                .iter()
+                .any(|child| child.name().value() == "pane"),
+            None => false,
+        };
 
         // Also check if the node itself is a pane (for simple layouts)
-        let is_pane = node.name().map_or(false, |n: &kdl::KdlIdentifier| n.value() == "pane");
+        let is_pane = node.name().value() == "pane";
 
         has_child_pane || is_pane
     });
