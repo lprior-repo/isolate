@@ -51,6 +51,14 @@ pub fn cmd_attach() -> ClapCommand {
 
             If already inside Zellij, use 'zjj focus' to switch tabs instead.",
         )
+        .after_help(after_help_text(
+            &[
+                "zjj attach feature-auth         Attach to session from shell",
+                "zjj attach my-session           Replace shell with Zellij session",
+                "zjj attach work --json          Show errors in JSON format",
+            ],
+            None,
+        ))
         .arg(
             Arg::new("name")
                 .required(true)
@@ -973,7 +981,7 @@ pub fn cmd_query() -> ClapCommand {
                 "zjj query session-exists feature   Check if session exists",
                 "zjj query session-count             Count active sessions",
                 "zjj query can-run                   Check if zjj can run",
-                "zjj query suggest-name \"feat{n}\"   Get name suggestion",
+                "zjj query suggest-name PATTERN      Suggest next available sequential name",
             ],
             Some(json_docs::query()),
         ))
@@ -2388,4 +2396,3 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_rollback())
         // Merge queue coordination
         .subcommand(cmd_queue())
-}
