@@ -256,6 +256,8 @@ impl fmt::Display for JjConflictType {
     }
 }
 
+#[derive(Debug)]
+#[derive(Debug)]
 pub enum Error {
     InvalidConfig(String),
     IoError(String),
@@ -722,27 +724,24 @@ impl Error {
                 conflict_type,
                 workspace_name,
                 ..
-            } => {
-                match conflict_type {
-                    JjConflictType::AlreadyExists => vec![
-                        "jj workspace list".to_string(),
-                        format!("jj workspace forget {workspace_name}"),
-                    ],
-                    JjConflictType::ConcurrentModification => vec![
-                        "pgrep -fl jj".to_string(),
-                        "jj workspace list".to_string(),
-                    ],
-                    JjConflictType::Abandoned => vec![
-                        format!("jj workspace forget {workspace_name}"),
-                        "jj status".to_string(),
-                    ],
-                    JjConflictType::Stale => vec![
-                        "jj workspace update-stale".to_string(),
-                        "jj reload".to_string(),
-                        "jj status".to_string(),
-                    ],
+            } => match conflict_type {
+                JjConflictType::AlreadyExists => vec![
+                    "jj workspace list".to_string(),
+                    format!("jj workspace forget {workspace_name}"),
+                ],
+                JjConflictType::ConcurrentModification => {
+                    vec!["pgrep -fl jj".to_string(), "jj workspace list".to_string()]
                 }
-            }
+                JjConflictType::Abandoned => vec![
+                    format!("jj workspace forget {workspace_name}"),
+                    "jj status".to_string(),
+                ],
+                JjConflictType::Stale => vec![
+                    "jj workspace update-stale".to_string(),
+                    "jj reload".to_string(),
+                    "jj status".to_string(),
+                ],
+            },
             Self::SessionLocked { session, .. } => {
                 vec![
                     format!("zjj agent status {session}"),
@@ -1370,7 +1369,10 @@ mod tests {
             holder: "agent-1".to_string(),
         };
         let suggestion = err.suggestion();
-        assert!(suggestion.is_some(), "Session locked errors should have suggestions");
+        assert!(
+            suggestion.is_some(),
+            "Session locked errors should have suggestions"
+        );
         let sugg = suggestion.expect("suggestion exists");
         assert!(
             sugg.contains("yield") || sugg.contains("status"),
@@ -1385,7 +1387,10 @@ mod tests {
             agent_id: "agent-2".to_string(),
         };
         let suggestion = err.suggestion();
-        assert!(suggestion.is_some(), "Not lock holder errors should have suggestions");
+        assert!(
+            suggestion.is_some(),
+            "Not lock holder errors should have suggestions"
+        );
     }
 
     #[test]
@@ -1436,7 +1441,9 @@ mod tests {
         let commands = err.fix_commands();
         assert!(!commands.is_empty(), "IO errors should have fix commands");
         assert!(
-            commands.iter().any(|c| c.contains("ls") || c.contains("check")),
+            commands
+                .iter()
+                .any(|c| c.contains("ls") || c.contains("check")),
             "IO error fix commands should include diagnostic commands"
         );
     }
@@ -1455,14 +1462,20 @@ mod tests {
     fn test_parse_error_has_fix_commands() {
         let err = Error::ParseError("Invalid JSON syntax".into());
         let commands = err.fix_commands();
-        assert!(!commands.is_empty(), "Parse errors should have validation commands");
+        assert!(
+            !commands.is_empty(),
+            "Parse errors should have validation commands"
+        );
     }
 
     #[test]
     fn test_invalid_config_has_fix_commands() {
         let err = Error::InvalidConfig("Unknown key".into());
         let commands = err.fix_commands();
-        assert!(!commands.is_empty(), "Config errors should have config fix commands");
+        assert!(
+            !commands.is_empty(),
+            "Config errors should have config fix commands"
+        );
         assert!(
             commands.iter().any(|c| c.contains("config")),
             "Config error fix commands should mention config commands"
@@ -1481,7 +1494,10 @@ mod tests {
     fn test_unknown_error_has_fix_commands() {
         let err = Error::Unknown("Unexpected error".into());
         let commands = err.fix_commands();
-        assert!(!commands.is_empty(), "Unknown errors should have 'zjj doctor' fix command");
+        assert!(
+            !commands.is_empty(),
+            "Unknown errors should have 'zjj doctor' fix command"
+        );
         assert!(
             commands.iter().any(|c| c.contains("doctor")),
             "Unknown error should suggest 'zjj doctor'"
