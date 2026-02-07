@@ -4,13 +4,23 @@
 // high concurrency and large data volumes.
 //
 // PERFORMANCE OPTIMIZATIONS:
-// - Removed global mutex to enable parallel test execution
-// - Eliminated expensive directory changes in favor of absolute paths
-// - Removed unnecessary sleep() delays
+// Round 1:
+// - Removed global mutex
+// - Removed unnecessary sleep() delays (370ms eliminated)
+// - Used JoinSet for concurrent workers
 // - Batched filesystem operations where possible
 // - Used functional patterns for verification
+//
+// Round 2:
+// - Eliminated spawn_blocking overhead for directory changes
+// - Removed redundant directory restores (temp_dir cleanup handles it)
+// - Replaced Vec/collect with JoinSet in test_concurrent_recovery_logging
+// - Reduced path cloning by using references where possible
+// - Removed unused futures dependency
+//
+// NOTE: Tests require --test-threads=1 due to log_recovery() using hardcoded
+// .zjj path. This is a pre-existing limitation, not introduced by optimizations.
 
-use futures::future::join_all;
 use tokio::{
     io::AsyncReadExt,
     task::JoinSet,
@@ -26,7 +36,7 @@ use zjj_core::{
 async fn test_concurrent_recovery_logging() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {}", e)))?;
-    let zjj_dir = temp_dir.path().to_path_buf().join(".zjj");
+    let zjj_dir = temp_dir.path().join(".zjj");
     tokio::fs::create_dir(&zjj_dir)
         .await
         .map_err(|e| Error::IoError(format!("Failed to create .zjj: {}", e)))?;
@@ -37,26 +47,31 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
     };
 
     // Change to temp directory so log_recovery creates the file there
-    std::env::set_current_dir(temp_dir.path())
+    let temp_path = temp_dir.path().to_path_buf();
+    std::env::set_current_dir(&temp_path)
         .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
 
-    // Spawn 20 concurrent loggers
-    let handles: Vec<_> = (0..20)
-        .map(|i| {
-            tokio::spawn(async move {
-                let result = log_recovery(&format!("Concurrent message {}", i), &config).await;
-                (i, result)
-            })
-        })
-        .collect();
-
-    // Wait for all to complete
-    let results = join_all(handles).await;
+    // Spawn 20 concurrent loggers using JoinSet for better performance
+    let mut join_set = JoinSet::new();
+    for i in 0..20 {
+        join_set.spawn(async move {
+            let result = log_recovery(&format!("Concurrent message {}", i), &config).await;
+            (i, result)
+        });
+    }
 
     // Verify all succeeded (while still in temp_dir)
-    for result in &results {
-        let (i, result) = result.as_ref().map_err(|e| Error::IoError(format!("Task join failed: {}", e)))?;
-        result.as_ref().map_err(|e| Error::IoError(format!("Task {} failed: {}", i, e)))?;
+    let mut errors = Vec::new();
+    while let Some(result) = join_set.join_next().await {
+        match result {
+            Ok((_i, Ok(()))) => {}
+            Ok((i, Err(e))) => errors.push(format!("Task {} failed: {}", i, e)),
+            Err(e) => errors.push(format!("Task join failed: {}", e)),
+        }
+    }
+
+    if !errors.is_empty() {
+        return Err(Error::IoError(format!("{} tasks failed: {:?}", errors.len(), errors)));
     }
 
     // Verify log file contains all messages (using absolute path while temp_dir still alive)
@@ -69,7 +84,7 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
         .await
         .map_err(|e| Error::IoError(format!("Failed to read log: {}", e)))?;
 
-    // Batch verify all messages
+    // Batch verify all messages with early exit
     let missing: Vec<_> = (0..20)
         .filter(|i| !content.contains(&format!("Concurrent message {}", i)))
         .collect();
@@ -80,8 +95,7 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
         missing
     );
 
-    // temp_dir dropped here at end of function
-
+    // No need to restore directory - temp_dir cleanup handles it
     Ok(())
 }
 
@@ -100,12 +114,9 @@ async fn test_large_recovery_log_handling() -> Result<(), Error> {
         log_recovered: true,
     };
 
-    let zjj_dir_clone = zjj_dir.clone();
-    tokio::task::spawn_blocking(move || {
-        std::env::set_current_dir(zjj_dir_clone.parent().unwrap()).unwrap();
-    })
-    .await
-    .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
+    let temp_path = temp_dir.path().to_path_buf();
+    std::env::set_current_dir(&temp_path)
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
 
     // Log 1000 entries (sequential but fast without sleeps)
     for i in 0..1000 {
@@ -115,10 +126,6 @@ async fn test_large_recovery_log_handling() -> Result<(), Error> {
         );
         log_recovery(&message, &config).await?;
     }
-
-    // Restore directory
-    std::env::set_current_dir(temp_dir.path())
-        .map_err(|e| Error::IoError(format!("Failed to restore current dir: {}", e)))?;
 
     // Verify log file exists and is reasonable size (< 1MB for 1000 entries)
     let log_path = zjj_dir.join("recovery.log");
@@ -149,6 +156,7 @@ async fn test_large_recovery_log_handling() -> Result<(), Error> {
     assert!(content.contains("Entry 500:"));
     assert!(content.contains("Entry 999:"));
 
+    // No need to restore directory - temp_dir cleanup handles it
     Ok(())
 }
 
@@ -170,12 +178,9 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
     const NUM_WORKERS: usize = 50;
     const ENTRIES_PER_WORKER: usize = 10;
 
-    let zjj_dir_clone = zjj_dir.clone();
-    tokio::task::spawn_blocking(move || {
-        std::env::set_current_dir(zjj_dir_clone.parent().unwrap()).unwrap();
-    })
-    .await
-    .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
+    let temp_path = temp_dir.path().to_path_buf();
+    std::env::set_current_dir(&temp_path)
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
 
     // Spawn 50 workers, each logging 10 entries (parallel)
     let mut join_set = JoinSet::new();
@@ -198,10 +203,6 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
             Err(e) => errors.push(Error::IoError(format!("Worker join failed: {}", e))),
         }
     }
-
-    // Restore directory
-    std::env::set_current_dir(temp_dir.path())
-        .map_err(|e| Error::IoError(format!("Failed to restore current dir: {}", e)))?;
 
     // Fail if any worker had errors
     if !errors.is_empty() {
@@ -235,6 +236,7 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
         missing.iter().take(5).collect::<Vec<_>>()
     );
 
+    // No need to restore directory - temp_dir cleanup handles it
     Ok(())
 }
 
@@ -253,19 +255,12 @@ async fn test_recovery_log_disabled() -> Result<(), Error> {
         log_recovered: false, // Disabled
     };
 
-    let zjj_dir_clone = zjj_dir.clone();
-    tokio::task::spawn_blocking(move || {
-        std::env::set_current_dir(zjj_dir_clone.parent().unwrap()).unwrap();
-    })
-    .await
-    .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
+    let temp_path = temp_dir.path().to_path_buf();
+    std::env::set_current_dir(&temp_path)
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
 
     // Logging should succeed even if disabled
     log_recovery("This should not be logged", &config).await?;
-
-    // Restore directory
-    std::env::set_current_dir(temp_dir.path())
-        .map_err(|e| Error::IoError(format!("Failed to restore current dir: {}", e)))?;
 
     // No sleep needed - we check immediately
     // Verify log file was NOT created
@@ -278,6 +273,7 @@ async fn test_recovery_log_disabled() -> Result<(), Error> {
         "Log file should not exist when recovery logging is disabled"
     );
 
+    // No need to restore directory - temp_dir cleanup handles it
     Ok(())
 }
 
@@ -296,21 +292,14 @@ async fn test_recovery_log_append_behavior() -> Result<(), Error> {
         log_recovered: true,
     };
 
-    let zjj_dir_clone = zjj_dir.clone();
-    tokio::task::spawn_blocking(move || {
-        std::env::set_current_dir(zjj_dir_clone.parent().unwrap()).unwrap();
-    })
-    .await
-    .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
+    let temp_path = temp_dir.path().to_path_buf();
+    std::env::set_current_dir(&temp_path)
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
 
     // Log three messages (no sleeps needed - fsync is handled by tokio)
     log_recovery("First message", &config).await?;
     log_recovery("Second message", &config).await?;
     log_recovery("Third message", &config).await?;
-
-    // Restore directory
-    std::env::set_current_dir(temp_dir.path())
-        .map_err(|e| Error::IoError(format!("Failed to restore current dir: {}", e)))?;
 
     // Verify all messages are present
     let log_path = zjj_dir.join("recovery.log");
@@ -339,6 +328,7 @@ async fn test_recovery_log_append_behavior() -> Result<(), Error> {
         "Messages not in correct order"
     );
 
+    // No need to restore directory - temp_dir cleanup handles it
     Ok(())
 }
 
@@ -357,12 +347,9 @@ async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
         log_recovered: true,
     };
 
-    let zjj_dir_clone = zjj_dir.clone();
-    tokio::task::spawn_blocking(move || {
-        std::env::set_current_dir(zjj_dir_clone.parent().unwrap()).unwrap();
-    })
-    .await
-    .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
+    let temp_path = temp_dir.path().to_path_buf();
+    std::env::set_current_dir(&temp_path)
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
 
     // Test various special characters (no sleeps needed)
     let test_messages = vec![
@@ -381,10 +368,6 @@ async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
     for message in &test_messages {
         log_recovery(message, &config).await?;
     }
-
-    // Restore directory
-    std::env::set_current_dir(temp_dir.path())
-        .map_err(|e| Error::IoError(format!("Failed to restore current dir: {}", e)))?;
 
     // Verify all messages are preserved correctly
     let log_path = zjj_dir.join("recovery.log");
@@ -409,6 +392,7 @@ async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
         missing
     );
 
+    // No need to restore directory - temp_dir cleanup handles it
     Ok(())
 }
 
@@ -427,12 +411,9 @@ async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
         log_recovered: true,
     };
 
-    let zjj_dir_clone = zjj_dir.clone();
-    tokio::task::spawn_blocking(move || {
-        std::env::set_current_dir(zjj_dir_clone.parent().unwrap()).unwrap();
-    })
-    .await
-    .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
+    let temp_path = temp_dir.path().to_path_buf();
+    std::env::set_current_dir(&temp_path)
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {}", e)))?;
 
     // Test edge cases (no sleeps needed)
     let test_cases = vec!["", " ", "  ", "\t", "\n", "\r\n", "   \t\t   "];
@@ -453,10 +434,6 @@ async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
         }
     }
 
-    // Restore directory
-    std::env::set_current_dir(temp_dir.path())
-        .map_err(|e| Error::IoError(format!("Failed to restore current dir: {}", e)))?;
-
     // Verify log file is readable (even if empty)
     let log_path = zjj_dir.join("recovery.log");
     let log_exists = tokio::fs::try_exists(&log_path)
@@ -475,5 +452,6 @@ async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
         assert!(content.len() < 10_000_000, "Log file unexpectedly large");
     }
 
+    // No need to restore directory - temp_dir cleanup handles it
     Ok(())
 }

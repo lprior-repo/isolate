@@ -17,7 +17,7 @@ async fn spawn_concurrent_agents(
     queue: Arc<MergeQueue>,
     work_items: Vec<String>,
 ) -> Vec<Option<String>> {
-    const MAX_RETRIES: u32 = 20;
+    const MAX_RETRIES: u32 = 15;
     const INITIAL_BACKOFF_MS: u64 = 1;
 
     let handles = work_items
@@ -51,8 +51,8 @@ async fn spawn_concurrent_agents(
 
                 // Process the claimed entry
                 if let Ok(Some(entry)) = &result {
-                    // Small delay to simulate work
-                    sleep(Duration::from_millis(1)).await;
+                    // Yield to allow other tasks to process (zero-cost alternative to sleep)
+                    tokio::task::yield_now().await;
                     let _ = queue.mark_completed(&entry.workspace).await;
                     let _ = queue.release_processing_lock(&agent_id).await;
                 }
@@ -236,8 +236,8 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     let extended = queue.extend_lock("agent-extender", 100).await?;
     assert!(extended, "Lock extension should succeed");
 
-    // Small delay to ensure extension is persisted
-    sleep(Duration::from_millis(1)).await;
+    // Yield to ensure extension is persisted
+    tokio::task::yield_now().await;
 
     // Verify lock was extended
     let lock2 = queue.get_processing_lock().await?;
@@ -320,7 +320,7 @@ async fn test_queue_concurrent_high_contention() -> Result<(), Box<dyn std::erro
     let queue = Arc::new(queue);
 
     // Spawn 20 agents competing for 5 work items with retry logic
-    const MAX_RETRIES: u32 = 20;
+    const MAX_RETRIES: u32 = 15;
     const INITIAL_BACKOFF_MS: u64 = 1;
 
     let agents: Vec<String> = (0..20).map(|i| format!("agent-{}", i)).collect();
@@ -345,7 +345,7 @@ async fn test_queue_concurrent_high_contention() -> Result<(), Box<dyn std::erro
             }
 
             if let Ok(Some(entry)) = &result {
-                sleep(Duration::from_millis(1)).await;
+                tokio::task::yield_now().await;
                 let _ = queue.mark_completed(&entry.workspace).await;
                 let _ = queue.release_processing_lock(&agent_id).await;
             }
@@ -407,7 +407,7 @@ async fn test_queue_serialization_under_load() -> Result<(), Box<dyn std::error:
 
     // Process all items with 10 concurrent agents
     let num_agents = 10;
-    let mut handles = Vec::new();
+    let mut handles = Vec::with_capacity(num_agents);
 
     for agent_idx in 0..num_agents {
         let queue = Arc::clone(&queue);
@@ -419,8 +419,8 @@ async fn test_queue_serialization_under_load() -> Result<(), Box<dyn std::error:
                 let result = queue.next_with_lock(&agent_id).await;
                 match result {
                     Ok(Some(entry)) => {
-                        // Small delay to simulate work (1ms vs original 1ms = same speed)
-                        sleep(Duration::from_millis(1)).await;
+                        // Yield to allow fair scheduling (zero-cost vs sleep)
+                        tokio::task::yield_now().await;
                         // Complete
                         let _ = queue.mark_completed(&entry.workspace).await;
                         let _ = queue.release_processing_lock(&agent_id).await;
@@ -494,7 +494,7 @@ async fn test_queue_priority_respected_under_concurrency() -> Result<(), Box<dyn
     let queue = Arc::new(queue);
 
     // Process all items with 3 agents
-    let mut processed_order = Vec::new();
+    let mut processed_order = Vec::with_capacity(6);
     let handles: Vec<_> = (0..3)
         .map(|i| {
             let queue = Arc::clone(&queue);
@@ -507,8 +507,8 @@ async fn test_queue_priority_respected_under_concurrency() -> Result<(), Box<dyn
                     match result {
                         Ok(Some(entry)) => {
                             order.push((entry.workspace.clone(), entry.priority));
-                            // Small delay to simulate work (1ms vs original 5ms = 5x faster)
-                            sleep(Duration::from_millis(1)).await;
+                            // Yield for fair scheduling (zero-cost vs sleep)
+                            tokio::task::yield_now().await;
                             let _ = queue.mark_completed(&entry.workspace).await;
                             let _ = queue.release_processing_lock(&agent_id).await;
                         }

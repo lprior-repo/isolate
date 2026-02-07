@@ -572,6 +572,7 @@ impl IntegrityValidator {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Executes repairs for detected integrity issues
+#[derive(Clone)]
 pub struct RepairExecutor {
     /// Whether to create backups before repairing
     always_backup: bool,

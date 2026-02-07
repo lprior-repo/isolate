@@ -26,8 +26,17 @@ use std::sync::OnceLock;
 use zjj_core::zellij::{self, LayoutConfig, LayoutTemplate, TabStatus};
 
 // ============================================================================
-// Shared Test Fixtures (Cached for performance)
+// Shared Test Fixtures (Cached for performance - Round 2 Optimizations)
 // ============================================================================
+
+/// All layout templates - const array for compile-time optimization
+const ALL_TEMPLATES: &[LayoutTemplate] = &[
+    LayoutTemplate::Minimal,
+    LayoutTemplate::Standard,
+    LayoutTemplate::Full,
+    LayoutTemplate::Split,
+    LayoutTemplate::Review,
+];
 
 /// Cached test configuration - initialized once, reused across all tests
 fn test_config() -> &'static LayoutConfig {
@@ -51,20 +60,41 @@ fn custom_config() -> &'static LayoutConfig {
     })
 }
 
-/// All layout templates - defined once for reuse
-fn all_templates() -> &'static [LayoutTemplate] {
-    &[
-        LayoutTemplate::Minimal,
-        LayoutTemplate::Standard,
-        LayoutTemplate::Full,
-        LayoutTemplate::Split,
-        LayoutTemplate::Review,
-    ]
+/// Cached KDL generation results - generated once, reused across tests
+struct CachedKdl {
+    template: LayoutTemplate,
+    kdl: String,
 }
 
-/// Helper to count occurrences of a pattern in KDL (functional, no mut)
+fn get_cached_kdl(template: LayoutTemplate) -> &'static str {
+    static CACHE: OnceLock<Vec<CachedKdl>> = OnceLock::new();
+
+    CACHE.get_or_init(|| {
+        let config = test_config();
+        ALL_TEMPLATES
+            .iter()
+            .map(|&t| {
+                let kdl = zellij::generate_template_kdl(config, t)
+                    .expect("KDL generation should succeed");
+                CachedKdl { template: t, kdl }
+            })
+            .collect()
+    })
+    .iter()
+    .find(|cached| cached.template == template)
+    .map(|cached| cached.kdl.as_str())
+    .expect("Template should be in cache")
+}
+
+/// Helper to count occurrences of a pattern in KDL (optimized for Round 2)
+/// Uses byte-level search for better performance on ASCII patterns
 fn count_pattern(kdl: &str, pattern: &str) -> usize {
-    kdl.matches(pattern).count()
+    // For single-character patterns, use bytes() for faster iteration
+    if pattern.len() == 1 {
+        kdl.bytes().filter(|&b| b == pattern.as_bytes()[0]).count()
+    } else {
+        kdl.matches(pattern).count()
+    }
 }
 
 /// Helper to validate balanced braces (functional, returns Result)
@@ -88,9 +118,8 @@ fn validate_balanced_braces(kdl: &str) -> Result<(), String> {
 
 #[tokio::test]
 async fn test_zellij_layout_generation_minimal() {
-    let config = test_config();
-    let kdl = zellij::generate_template_kdl(config, LayoutTemplate::Minimal)
-        .expect("KDL generation should succeed");
+    // Use cached KDL for faster execution
+    let kdl = get_cached_kdl(LayoutTemplate::Minimal);
 
     // Verify KDL structure using functional helpers
     assert!(kdl.contains("layout"), "KDL should contain layout node");
@@ -107,7 +136,7 @@ async fn test_zellij_layout_generation_minimal() {
 
     // Verify no extra panes
     assert_eq!(
-        count_pattern(&kdl, "pane"),
+        count_pattern(kdl, "pane"),
         1,
         "Minimal layout should have exactly 1 pane"
     );
@@ -115,9 +144,8 @@ async fn test_zellij_layout_generation_minimal() {
 
 #[tokio::test]
 async fn test_zellij_layout_generation_standard() {
-    let config = test_config();
-    let kdl = zellij::generate_template_kdl(config, LayoutTemplate::Standard)
-        .expect("KDL generation should succeed");
+    // Use cached KDL for faster execution
+    let kdl = get_cached_kdl(LayoutTemplate::Standard);
 
     // Verify horizontal split
     assert!(
@@ -132,7 +160,7 @@ async fn test_zellij_layout_generation_standard() {
     assert!(kdl.contains("jj"), "Should have jj command for log");
 
     // Verify pane count (main container + 3 panes)
-    let pane_count = count_pattern(&kdl, "pane");
+    let pane_count = count_pattern(kdl, "pane");
     assert!(
         pane_count >= 3,
         "Standard layout should have at least 3 panes"
@@ -141,9 +169,8 @@ async fn test_zellij_layout_generation_standard() {
 
 #[tokio::test]
 async fn test_zellij_layout_generation_full() {
-    let config = test_config();
-    let kdl = zellij::generate_template_kdl(config, LayoutTemplate::Full)
-        .expect("KDL generation should succeed");
+    // Use cached KDL for faster execution
+    let kdl = get_cached_kdl(LayoutTemplate::Full);
 
     // Verify floating pane is present
     assert!(
@@ -170,12 +197,11 @@ async fn test_zellij_layout_generation_full() {
 
 #[tokio::test]
 async fn test_zellij_layout_generation_split() {
-    let config = test_config();
-    let kdl = zellij::generate_template_kdl(config, LayoutTemplate::Split)
-        .expect("KDL generation should succeed");
+    // Use cached KDL for faster execution
+    let kdl = get_cached_kdl(LayoutTemplate::Split);
 
     // Verify two Claude instances
-    let claude_count = count_pattern(&kdl, "claude");
+    let claude_count = count_pattern(kdl, "claude");
     assert_eq!(
         claude_count, 2,
         "Split layout should have 2 Claude instances"
@@ -187,9 +213,8 @@ async fn test_zellij_layout_generation_split() {
 
 #[tokio::test]
 async fn test_zellij_layout_generation_review() {
-    let config = test_config();
-    let kdl = zellij::generate_template_kdl(config, LayoutTemplate::Review)
-        .expect("KDL generation should succeed");
+    // Use cached KDL for faster execution
+    let kdl = get_cached_kdl(LayoutTemplate::Review);
 
     // Verify review-specific commands
     assert!(kdl.contains("jj"), "Should have jj command");
@@ -293,51 +318,35 @@ fn test_zellij_tab_name_validation_custom_prefix() {
 
 #[tokio::test]
 async fn test_zellij_kdl_template_is_valid_minimal() {
-    let config = test_config();
-    let kdl = zellij::generate_template_kdl(config, LayoutTemplate::Minimal)
-        .expect("KDL generation should succeed");
+    // Use cached KDL for faster execution
+    let kdl = get_cached_kdl(LayoutTemplate::Minimal);
 
     // Verify KDL syntax validation passes
+    let config = test_config();
     let result = zellij::generate_template_kdl(config, LayoutTemplate::Minimal);
     assert!(result.is_ok(), "Generated KDL should be valid");
 
     // Count braces to ensure they're balanced
     assert!(
-        validate_balanced_braces(&kdl).is_ok(),
+        validate_balanced_braces(kdl).is_ok(),
         "KDL should have balanced braces"
     );
 
     // Minimal template should have exactly 2 braces (layout + pane)
-    let open_braces = count_pattern(&kdl, "{");
+    let open_braces = count_pattern(kdl, "{");
     assert_eq!(
         open_braces, 2,
         "Minimal template should have 2 opening braces"
     );
 }
 
-/// Parallel validation of all templates - generates KDL once, validates all efficiently
+/// Parallel validation of all templates - uses cached KDL for efficiency
 #[tokio::test]
 async fn test_zellij_kdl_template_all_templates_valid_parallel() {
-    let config = test_config();
-
-    // Functional map: generate all KDLs, collect into Vec, validate in parallel
-    let results: Vec<Result<(LayoutTemplate, String), String>> = all_templates()
+    // Use cached KDL - all templates already generated at test init
+    let validation_results: Result<Vec<_>, _> = ALL_TEMPLATES
         .iter()
-        .map(|template| {
-            zellij::generate_template_kdl(config, *template)
-                .map(|kdl| (*template, kdl))
-                .map_err(|e| format!("KDL generation failed: {:?}", e))
-        })
-        .collect();
-
-    // All should succeed
-    assert!(results.iter().all(Result::is_ok), "All templates should generate");
-
-    // Functional validation: iter().all() for short-circuiting
-    let validation_results: Result<Vec<_>, _> = results
-        .iter()
-        .filter_map(|result| result.as_ref().ok())
-        .map(|(_template, kdl)| validate_balanced_braces(kdl))
+        .map(|&template| validate_balanced_braces(get_cached_kdl(template)))
         .collect();
 
     assert!(validation_results.is_ok(), "All templates should have balanced braces");
@@ -345,9 +354,8 @@ async fn test_zellij_kdl_template_all_templates_valid_parallel() {
 
 #[tokio::test]
 async fn test_zellij_kdl_template_all_required_elements() {
-    let config = test_config();
-    let kdl = zellij::generate_template_kdl(config, LayoutTemplate::Minimal)
-        .expect("KDL generation should succeed");
+    // Use cached KDL for faster execution
+    let kdl = get_cached_kdl(LayoutTemplate::Minimal);
 
     // Verify required KDL elements
     assert!(kdl.contains("layout"), "Must contain 'layout' node");
@@ -368,11 +376,11 @@ async fn test_zellij_workspace_path_in_layouts() {
     let workspace_path = PathBuf::from("/custom/workspace/path");
     let config = LayoutConfig::new("test-session".to_string(), workspace_path.clone());
 
-    // Functional map: test all templates in one pass
-    let results: Vec<bool> = all_templates()
+    // Functional map: test all templates using const array
+    let results: Vec<bool> = ALL_TEMPLATES
         .iter()
-        .map(|template| {
-            zellij::generate_template_kdl(&config, *template)
+        .map(|&template| {
+            zellij::generate_template_kdl(&config, template)
                 .map(|kdl| kdl.contains("/custom/workspace/path"))
                 .unwrap_or(false)
         })
@@ -563,10 +571,10 @@ async fn test_zellij_check_tab_exists_when_not_running() {
 async fn test_zellij_templates_all_pass_internal_validation() {
     let config = test_config();
 
-    // Functional: map templates to Results, collect, validate all
-    let results: Vec<Result<String, _>> = all_templates()
+    // Functional: map templates to Results using const array
+    let results: Vec<Result<String, _>> = ALL_TEMPLATES
         .iter()
-        .map(|template| zellij::generate_template_kdl(config, *template))
+        .map(|&template| zellij::generate_template_kdl(config, template))
         .collect();
 
     assert!(
@@ -581,11 +589,11 @@ async fn test_zellij_validation_happens_automatically() {
     // If validation fails, it returns an error
     let config = test_config();
 
-    // Functional validation pipeline
-    let validation_results: Result<Vec<_>, _> = all_templates()
+    // Functional validation pipeline using const array
+    let validation_results: Result<Vec<_>, _> = ALL_TEMPLATES
         .iter()
-        .map(|template| {
-            zellij::generate_template_kdl(config, *template)
+        .map(|&template| {
+            zellij::generate_template_kdl(config, template)
                 .map_err(|e| format!("{e:?}"))
                 .and_then(|kdl| {
                     // Verify the KDL has the required structure
@@ -627,10 +635,10 @@ fn test_zellij_config_builder_chain() {
 async fn test_zellij_all_templates_generate_valid_kdl() {
     let config = test_config();
 
-    // Functional validation pipeline
-    let results: Vec<Result<String, _>> = all_templates()
+    // Functional validation pipeline using const array
+    let results: Vec<Result<String, _>> = ALL_TEMPLATES
         .iter()
-        .map(|template| zellij::generate_template_kdl(config, *template))
+        .map(|&template| zellij::generate_template_kdl(config, template))
         .collect();
 
     assert!(
