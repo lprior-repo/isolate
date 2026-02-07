@@ -8,6 +8,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 |---|----------|---------|-----------|
 | **00** | [START HERE](00_START_HERE.md) | 5-minute crash course + navigation | 5 min |
 | **01** | [ERROR HANDLING](01_ERROR_HANDLING.md) | Fallible operations, Result patterns | 20 min |
+| **01a** | [ERROR TROUBLESHOOTING](ERROR_TROUBLESHOOTING.md) | Debug and resolve specific errors | 15 min |
 | **02** | [MOON BUILD](02_MOON_BUILD.md) | Building, testing, caching | 15 min |
 | **03** | [WORKFLOW](03_WORKFLOW.md) | Daily dev workflow (Beads + jj + Moon) | 20 min |
 | **04** | [FUNCTIONAL PATTERNS](04_FUNCTIONAL_PATTERNS.md) | Iterator combinators, FP techniques | 25 min |
@@ -37,6 +38,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 
 ### How Do I Handle Errors?
 → [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) - 10 patterns with examples
+→ [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md) - Debug and resolve specific errors
 
 ### What Combinators Can I Use?
 → [06_COMBINATORS.md](06_COMBINATORS.md) - Complete reference
@@ -69,6 +71,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 
 ### Error Handling (The Most Important)
 - [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) - 10 patterns + examples
+- [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md) - Debug and resolve specific errors
 - [05_RUST_STANDARDS.md](05_RUST_STANDARDS.md) - Requirements + enforcement
 - [07_TESTING.md](07_TESTING.md) - Testing error paths
 
@@ -154,6 +157,7 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 
 ### By Error Type
 → [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) - All error patterns
+→ [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md) - Debug specific errors with solutions
 
 ### By Iterator Operation
 → [06_COMBINATORS.md](06_COMBINATORS.md) - Complete iterator reference
@@ -206,7 +210,8 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 
 1. **Quick question?** → Find in [00_START_HERE.md](00_START_HERE.md)
 2. **Error handling?** → [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md)
-3. **Which combinator?** → [06_COMBINATORS.md](06_COMBINATORS.md)
+3. **Specific error?** → [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md)
+4. **Which combinator?** → [06_COMBINATORS.md](06_COMBINATORS.md)
 4. **Build issue?** → [02_MOON_BUILD.md](02_MOON_BUILD.md)
 5. **Workflow question?** → [03_WORKFLOW.md](03_WORKFLOW.md)
 

@@ -2,6 +2,8 @@
 
 Comprehensive guide to idiomatic, zero-panic error handling.
 
+**For troubleshooting specific errors**, see [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md).
+
 ## Core Pattern: Result<T, Error>
 
 All fallible operations return `Result<T, Error>`:
