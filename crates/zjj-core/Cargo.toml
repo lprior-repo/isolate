@@ -32,6 +32,7 @@ notify = "6"
 notify-debouncer-mini = "0.4"
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
 chrono = { version = "0.4", features = ["serde"] }
+fs2 = "0.4"
 regex = "1.11"
 walkdir = "2"
 

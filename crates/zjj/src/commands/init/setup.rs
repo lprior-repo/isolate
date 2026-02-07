@@ -116,16 +116,35 @@ log_recovered = true
 ///
 /// Uses file locking for atomic updates to .jjignore file.
 pub(super) async fn create_jjignore(repo_root: &Path) -> Result<()> {
-    use zjj_core::filelock::{acquire_lock, LockOptions};
-
     let jjignore_path = repo_root.join(".jjignore");
     let zjj_pattern = ".zjj/";
 
     // Use file lock to prevent concurrent .jjignore modifications
     let lock_path = repo_root.join(".jjignore.lock");
-    let _lock = acquire_lock(&lock_path, &LockOptions::new())
-        .await
-        .context("Failed to acquire lock for .jjignore creation")?;
+
+    // Create/open lock file in a blocking task for fs2 compatibility
+    let lock_path_clone = lock_path.clone();
+    tokio::task::spawn_blocking(move || {
+        use std::fs::OpenOptions as StdOpenOptions;
+
+        use zjj_core::FileExt;
+
+        let lock_file = StdOpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(&lock_path_clone)
+            .context("Failed to create lock file for .jjignore")?;
+
+        // Try to acquire exclusive lock (blocking)
+        lock_file
+            .lock_exclusive()
+            .context("Failed to acquire lock for .jjignore creation")?;
+
+        // Lock is released when lock_file is dropped at end of closure
+        Result::<(), anyhow::Error>::Ok(())
+    })
+    .await
+    .context("Failed to join locking task")??;
 
     match tokio::fs::try_exists(&jjignore_path).await {
         Ok(true) => {
@@ -170,18 +189,42 @@ pub(super) async fn create_jjignore(repo_root: &Path) -> Result<()> {
 ///
 /// Uses file locking to ensure atomic hook creation and prevent race conditions.
 pub(super) async fn create_jj_hooks(repo_root: &Path) -> Result<()> {
-    use zjj_core::filelock::{acquire_lock, LockOptions};
-
     let jj_hooks_dir = repo_root.join(".jj/hooks");
 
     // Use file lock for hook creation to prevent concurrent creation issues
     let lock_path = jj_hooks_dir.join(".pre-commit.lock");
-    let _lock = acquire_lock(
-        &lock_path,
-        &LockOptions::new().with_create_parent_dirs(true),
-    )
+
+    // Create lock file (parent dirs are created below)
+    tokio::fs::create_dir_all(&jj_hooks_dir)
+        .await
+        .context("Failed to create .jj/hooks directory")?;
+
+    let lock_path_clone = lock_path.clone();
+    tokio::task::spawn_blocking(move || {
+        use std::fs::OpenOptions as StdOpenOptions;
+
+        use zjj_core::FileExt;
+
+        let lock_file = StdOpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(&lock_path_clone)
+            .context("Failed to create lock file for hook creation")?;
+
+        lock_file
+            .lock_exclusive()
+            .context("Failed to acquire lock for hook creation")?;
+
+        // Lock is released when lock_file is dropped at end of closure
+        Result::<(), anyhow::Error>::Ok(())
+    })
     .await
-    .context("Failed to acquire lock for hook creation")?;
+    .context("Failed to join locking task")??;
+
+    // Create hooks directory (ignores "already exists" error - no TOCTOU)
+    tokio::fs::create_dir_all(&jj_hooks_dir)
+        .await
+        .context("Failed to create .jj/hooks directory")?;
 
     // Create hooks directory (ignores "already exists" error - no TOCTOU)
     tokio::fs::create_dir_all(&jj_hooks_dir)

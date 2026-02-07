@@ -13,7 +13,7 @@ use zjj_core::coordination::queue::{MergeQueue, QueueStatus};
 /// Helper to spawn multiple agents concurrently and collect their results.
 async fn spawn_concurrent_agents(
     queue: Arc<MergeQueue>,
-    num_agents: usize,
+    _num_agents: usize,
     work_items: Vec<String>,
 ) -> Vec<Option<String>> {
     let handles = work_items
@@ -39,7 +39,6 @@ async fn spawn_concurrent_agents(
         .await
         .into_iter()
         .filter_map(|r| r.ok())
-        .flatten()
         .collect()
 }
 
@@ -70,7 +69,10 @@ async fn test_queue_concurrent_lock_no_duplicates() -> Result<(), Box<dyn std::e
     let results = spawn_concurrent_agents(queue.clone(), 20, work_items).await;
 
     // Collect all successfully claimed workspaces
-    let claimed_workspaces: HashSet<String> = results.into_iter().collect();
+    let claimed_workspaces: HashSet<String> = results
+        .into_iter()
+        .filter_map(|opt| opt)
+        .collect();
 
     // Verify no duplicates: should have exactly 20 unique workspaces claimed
     assert_eq!(
@@ -111,7 +113,10 @@ async fn test_queue_lock_timeout_allows_reacquisition() -> Result<(), Box<dyn st
 
     // Agent 1 claims the work item
     let claimed1 = queue.next_with_lock("agent-1").await?;
-    assert!(claimed1.is_some(), "Agent 1 should claim the workspace");
+    assert!(
+        claimed1.as_ref().is_some(),
+        "Agent 1 should claim the workspace"
+    );
 
     // Verify agent-1 holds the lock
     let lock = queue.get_processing_lock().await?;
@@ -478,8 +483,12 @@ async fn test_queue_lock_contention_resolution() -> Result<(), Box<dyn std::erro
                 sleep(Duration::from_millis(i as u64 * 2)).await;
 
                 // Try again after delay
-                if result.unwrap().is_none() {
-                    queue.next_with_lock(&agent_id).await
+                if let Ok(ref inner) = result {
+                    if inner.is_none() {
+                        queue.next_with_lock(&agent_id).await
+                    } else {
+                        result
+                    }
                 } else {
                     result
                 }
@@ -493,7 +502,7 @@ async fn test_queue_lock_contention_resolution() -> Result<(), Box<dyn std::erro
     let successful_claims: usize = results
         .into_iter()
         .filter_map(|r| r.ok())
-        .filter(|r| r.is_some())
+        .filter(|r| matches!(r, Ok(Some(_))))
         .count();
 
     // Only one agent should successfully claim the workspace
