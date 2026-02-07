@@ -67,6 +67,27 @@ pub struct ExportResult {
 }
 
 /// Run the export command
+///
+/// # JSON Output Format
+///
+/// When `--format json` is specified, the response is wrapped in a `SchemaEnvelope`
+/// which includes a `success` field. Therefore, response data MUST NOT include its own
+/// `success` field to avoid duplication.
+///
+/// ## Example (correct)
+/// ```ignore
+/// let response = serde_json::json!({
+///     "output_file": "/tmp/export.json",
+///     "sessions_exported": 3,
+///     // NO "success" field here - SchemaEnvelope adds it
+/// });
+/// let envelope = SchemaEnvelope::new("export-response", "single", response);
+/// ```
+///
+/// # Bug Fix (zjj-1ube)
+///
+/// Previously, the response included `"success": true`, which resulted in duplicate
+/// `success` fields when wrapped in `SchemaEnvelope`. This has been fixed.
 pub async fn run_export(options: &ExportOptions) -> Result<()> {
     let db = get_session_db().await?;
 
@@ -116,7 +137,6 @@ pub async fn run_export(options: &ExportOptions) -> Result<()> {
         tokio::fs::write(output_path, &json_output).await?;
         if options.format.is_json() {
             let response = serde_json::json!({
-                "success": true,
                 "output_file": output_path,
                 "sessions_exported": result.count,
             });
