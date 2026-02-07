@@ -11,11 +11,13 @@
 #![warn(clippy::pedantic)]
 
 use std::{
+    fs::File,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde::{Deserialize, Serialize};
+use fs2::FileExt;
 
 use crate::{Error, Result};
 
@@ -244,6 +246,7 @@ pub fn load_template(name: &str, templates_base: &Path) -> Result<Template> {
 ///
 /// Returns error if:
 /// - Unable to create template directory
+/// - Unable to acquire file lock
 /// - Unable to write template files
 pub fn save_template(template: &Template, templates_base: &Path) -> Result<()> {
     let dir = template_dir(templates_base, &template.name);
@@ -251,6 +254,19 @@ pub fn save_template(template: &Template, templates_base: &Path) -> Result<()> {
     // Create template directory
     std::fs::create_dir_all(&dir)
         .map_err(|e| Error::IoError(format!("Failed to create template directory: {e}")))?;
+
+    // Acquire exclusive lock on templates directory before writing
+    // Lock is automatically released when lock_file goes out of scope
+    let lock_path = templates_base.join(".template.lock");
+    let lock_file = File::options()
+        .write(true)
+        .create(true)
+        .open(&lock_path)
+        .map_err(|e| Error::IoError(format!("Failed to create lock file: {e}")))?;
+
+    lock_file
+        .lock_exclusive()
+        .map_err(|e| Error::IoError(format!("Failed to acquire template lock: {e}")))?;
 
     // Write metadata
     let metadata_path = dir.join("metadata.json");
@@ -265,6 +281,7 @@ pub fn save_template(template: &Template, templates_base: &Path) -> Result<()> {
     std::fs::write(&layout_path, &template.layout)
         .map_err(|e| Error::IoError(format!("Failed to write template layout: {e}")))?;
 
+    // Lock automatically released here when lock_file is dropped
     Ok(())
 }
 
@@ -274,6 +291,7 @@ pub fn save_template(template: &Template, templates_base: &Path) -> Result<()> {
 ///
 /// Returns error if:
 /// - Template doesn't exist
+/// - Unable to acquire file lock
 /// - Unable to remove template directory
 pub fn delete_template(name: &str, templates_base: &Path) -> Result<()> {
     let template_name = TemplateName::new(name.to_string())?;
@@ -283,9 +301,23 @@ pub fn delete_template(name: &str, templates_base: &Path) -> Result<()> {
         return Err(Error::NotFound(format!("Template '{name}' not found")));
     }
 
+    // Acquire exclusive lock on templates directory before deleting
+    // Lock is automatically released when lock_file goes out of scope
+    let lock_path = templates_base.join(".template.lock");
+    let lock_file = File::options()
+        .write(true)
+        .create(true)
+        .open(&lock_path)
+        .map_err(|e| Error::IoError(format!("Failed to create lock file: {e}")))?;
+
+    lock_file
+        .lock_exclusive()
+        .map_err(|e| Error::IoError(format!("Failed to acquire template lock: {e}")))?;
+
     std::fs::remove_dir_all(&dir)
         .map_err(|e| Error::IoError(format!("Failed to delete template: {e}")))?;
 
+    // Lock automatically released here when lock_file is dropped
     Ok(())
 }
 
