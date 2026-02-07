@@ -509,18 +509,91 @@ async fn check_state_db() -> DoctorCheck {
         };
     }
 
-    // Basic check passed - consider database accessible and potentially healthy
-    // Note: We don't verify SQLite integrity to avoid triggering recovery
-    DoctorCheck {
-        name: "State Database".to_string(),
-        status: CheckStatus::Pass,
-        message: format!("state.db is accessible ({file_size} bytes)"),
-        suggestion: None,
-        auto_fixable: false,
-        details: Some(serde_json::json!({
-            "file_size": file_size,
-            "read_only": is_read_only
-        })),
+    // Run PRAGMA integrity_check for better diagnostics
+    let integrity_result = run_integrity_check(db_path).await;
+
+    match integrity_result {
+        Ok(integrity_details) => {
+            // Integrity check passed
+            DoctorCheck {
+                name: "State Database".to_string(),
+                status: CheckStatus::Pass,
+                message: format!("state.db is accessible and valid ({file_size} bytes)"),
+                suggestion: None,
+                auto_fixable: false,
+                details: Some(serde_json::json!({
+                    "file_size": file_size,
+                    "read_only": is_read_only,
+                    "integrity_check": integrity_details
+                })),
+            }
+        }
+        Err(integrity_error) => {
+            // Integrity check failed
+            DoctorCheck {
+                name: "State Database".to_string(),
+                status: CheckStatus::Fail,
+                message: format!("Database integrity check failed: {integrity_error}"),
+                suggestion: Some(
+                    "Database is corrupted. Run 'zjj doctor --fix' to attempt recovery."
+                        .to_string(),
+                ),
+                auto_fixable: true,
+                details: Some(serde_json::json!({
+                    "file_size": file_size,
+                    "read_only": is_read_only,
+                    "integrity_error": integrity_error
+                })),
+            }
+        }
+    }
+}
+
+/// Run PRAGMA integrity_check on the database
+///
+/// Returns Ok with details if integrity check passes (result is "ok")
+/// Returns Err with error message if integrity check fails or connection fails
+async fn run_integrity_check(db_path: &Path) -> Result<String, String> {
+    use sqlx::SqlitePool;
+
+    // Open database in read-only mode to avoid triggering recovery
+    let connection_string = format!("sqlite:{}?mode=ro", db_path.display());
+
+    let pool = match SqlitePool::connect(&connection_string).await {
+        Ok(p) => p,
+        Err(e) => return Err(format!("Failed to open database for integrity check: {e}")),
+    };
+
+    // Run PRAGMA integrity_check
+    // Returns "ok" if database is valid, or error details otherwise
+    let result = match sqlx::query("PRAGMA integrity_check")
+        .fetch_one(&pool)
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            pool.close().await;
+            return Err(format!("Integrity check query failed: {e}"));
+        }
+    };
+
+    // The result is a single row with a column named "integrity_check"
+    let integrity_result: String = match result.try_get("integrity_check") {
+        Ok(r) => r,
+        Err(e) => {
+            pool.close().await;
+            return Err(format!("Failed to parse integrity check result: {e}"));
+        }
+    };
+
+    // Close the pool
+    pool.close().await;
+
+    // Check if integrity check passed
+    if integrity_result == "ok" {
+        Ok("Database integrity verified".to_string())
+    } else {
+        Err(integrity_result)
     }
 }
 
