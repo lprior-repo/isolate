@@ -111,8 +111,8 @@ pub fn run(options: &WhatIfOptions) -> Result<()> {
         let envelope = SchemaEnvelope::new("whatif-response", "single", result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
-        let output = format_human_output(&result);
-        let truncated = truncate_output_if_needed(&result, 4096);
+        let output = format_human_output(&result)?;
+        let truncated = truncate_output_if_needed(&result, 4096)?;
 
         if truncated.len() < output.len() {
             // Output was truncated, save to temp file and show message
@@ -131,111 +131,108 @@ pub fn run(options: &WhatIfOptions) -> Result<()> {
 }
 
 /// Format human-readable output from WhatIfResult
-fn format_human_output(result: &WhatIfResult) -> String {
+fn format_human_output(result: &WhatIfResult) -> Result<String> {
     use std::fmt::Write;
 
     let mut output = String::new();
-    writeln!(output, "What if: {} {}", result.command, result.args.join(" ")).unwrap();
-    writeln!(output).unwrap();
+    writeln!(output, "What if: {} {}", result.command, result.args.join(" "))?;
+    writeln!(output)?;
 
     if !result.prerequisites.is_empty() {
-        writeln!(output, "Prerequisites:").unwrap();
+        writeln!(output, "Prerequisites:")?;
         for prereq in &result.prerequisites {
             let status = match prereq.status {
                 PrerequisiteStatus::Met => "✓",
                 PrerequisiteStatus::NotMet => "✗",
                 PrerequisiteStatus::Unknown => "?",
             };
-            writeln!(output, "  {status} {}: {}", prereq.check, prereq.description).unwrap();
+            writeln!(output, "  {status} {}: {}", prereq.check, prereq.description)?;
         }
-        writeln!(output).unwrap();
+        writeln!(output)?;
     }
 
-    writeln!(output, "Execution plan:").unwrap();
+    writeln!(output, "Execution plan:")?;
     for step in &result.steps {
-        writeln!(output, "  {}. {}", step.order, step.description).unwrap();
-        writeln!(output, "     Action: {}", step.action).unwrap();
+        writeln!(output, "  {}. {}", step.order, step.description)?;
+        writeln!(output, "     Action: {}", step.action)?;
         if step.can_fail {
             if let Some(on_fail) = &step.on_failure {
-                writeln!(output, "     On failure: {on_fail}").unwrap();
+                writeln!(output, "     On failure: {on_fail}")?;
             }
         }
     }
-    writeln!(output).unwrap();
+    writeln!(output)?;
 
     if !result.creates.is_empty() {
-        writeln!(output, "Would create:").unwrap();
+        writeln!(output, "Would create:")?;
         for c in &result.creates {
             writeln!(
                 output,
                 "  + [{}] {}: {}",
                 c.resource_type, c.resource, c.description
-            )
-            .unwrap();
+            )?;
         }
-        writeln!(output).unwrap();
+        writeln!(output)?;
     }
 
     if !result.modifies.is_empty() {
-        writeln!(output, "Would modify:").unwrap();
+        writeln!(output, "Would modify:")?;
         for m in &result.modifies {
             writeln!(
                 output,
                 "  ~ [{}] {}: {}",
                 m.resource_type, m.resource, m.description
-            )
-            .unwrap();
+            )?;
         }
-        writeln!(output).unwrap();
+        writeln!(output)?;
     }
 
     if !result.deletes.is_empty() {
-        writeln!(output, "Would delete:").unwrap();
+        writeln!(output, "Would delete:")?;
         for d in &result.deletes {
             writeln!(
                 output,
                 "  - [{}] {}: {}",
                 d.resource_type, d.resource, d.description
-            )
-            .unwrap();
+            )?;
         }
-        writeln!(output).unwrap();
+        writeln!(output)?;
     }
 
     if !result.side_effects.is_empty() {
-        writeln!(output, "Side effects:").unwrap();
+        writeln!(output, "Side effects:")?;
         for effect in &result.side_effects {
-            writeln!(output, "  • {effect}").unwrap();
+            writeln!(output, "  • {effect}")?;
         }
-        writeln!(output).unwrap();
+        writeln!(output)?;
     }
 
     if !result.warnings.is_empty() {
-        writeln!(output, "Warnings:").unwrap();
+        writeln!(output, "Warnings:")?;
         for warning in &result.warnings {
-            writeln!(output, "  ⚠ {warning}").unwrap();
+            writeln!(output, "  ⚠ {warning}")?;
         }
-        writeln!(output).unwrap();
+        writeln!(output)?;
     }
 
     if result.reversible {
-        writeln!(output, "Reversible: yes").unwrap();
+        writeln!(output, "Reversible: yes")?;
         if let Some(undo) = &result.undo_command {
-            writeln!(output, "Undo command: {undo}").unwrap();
+            writeln!(output, "Undo command: {undo}")?;
         }
     } else {
-        writeln!(output, "Reversible: no").unwrap();
+        writeln!(output, "Reversible: no")?;
     }
 
-    output
+    Ok(output)
 }
 
 /// Truncate output to specified limit if needed, preserving structure
-fn truncate_output_if_needed(result: &WhatIfResult, limit: usize) -> String {
-    let output = format_human_output(result);
+fn truncate_output_if_needed(result: &WhatIfResult, limit: usize) -> Result<String> {
+    let output = format_human_output(result)?;
 
     if output.len() <= limit {
-        return output;
+        return Ok(output);
     }
 
     // Truncate to ~90% of limit, leaving room for truncation message
@@ -243,17 +240,17 @@ fn truncate_output_if_needed(result: &WhatIfResult, limit: usize) -> String {
 
     // Find a good truncation point (newline)
     let truncated = if let Some(pos) = output[..truncate_at].rfind('\n') {
-        format!(
+        Ok(format!(
             "{}\n\n... (truncated, {} bytes total) ...",
             &output[..pos],
             output.len()
-        )
+        ))
     } else {
-        format!(
+        Ok(format!(
             "{}\n\n... (truncated, {} bytes total) ...",
             &output[..truncate_at],
             output.len()
-        )
+        ))
     };
 
     truncated
@@ -956,7 +953,7 @@ mod tests {
     // === Security Tests: Output Truncation (RED Phase) ===
 
     #[test]
-    fn test_whatif_output_truncation_limit() {
+    fn test_whatif_output_truncation_limit() -> Result<()> {
         // Create a WhatIfResult with very large output
         let result = WhatIfResult {
             command: "add".to_string(),
@@ -987,16 +984,17 @@ mod tests {
         };
 
         // Test that the output truncation function limits output
-        let truncated = truncate_output_if_needed(&result, 4096);
+        let truncated = truncate_output_if_needed(&result, 4096)?;
         assert!(
             truncated.len() <= 4096 + 200, // Allow some margin for truncation message
             "Output should be truncated to ~4KB, but got {} bytes",
             truncated.len()
         );
+        Ok(())
     }
 
     #[test]
-    fn test_whatif_output_small_not_truncated() {
+    fn test_whatif_output_small_not_truncated() -> Result<()> {
         let result = WhatIfResult {
             command: "add".to_string(),
             args: vec!["test".to_string()],
@@ -1011,11 +1009,12 @@ mod tests {
             prerequisites: vec![],
         };
 
-        let truncated = truncate_output_if_needed(&result, 4096);
+        let truncated = truncate_output_if_needed(&result, 4096)?;
         // Small output should not be truncated
         assert!(
             !truncated.contains("(truncated"),
             "Small output should not be truncated"
         );
+        Ok(())
     }
 }
