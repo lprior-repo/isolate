@@ -2,7 +2,7 @@
 
 use std::{path::Path, process::Stdio};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Serialize;
 use tokio::{io::AsyncWriteExt, process::Command};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
@@ -63,6 +63,75 @@ fn map_jj_error(e: &std::io::Error, operation: &str) -> anyhow::Error {
     })
 }
 
+/// Detect session name from current workspace directory
+///
+/// Returns Ok(Some(session_name)) if in a workspace
+/// Returns Ok(None) if not in a workspace
+/// Returns Err if workspace detection fails
+async fn detect_session_from_workspace(
+    db: &crate::db::SessionDb,
+) -> Result<Option<String>> {
+    use std::path::Path;
+    use anyhow::Context as _;
+
+    // Get current directory
+    let current_dir = std::env::current_dir()
+        .context("Failed to get current directory")?;
+
+    // Try to get JJ workspace root
+    let output = tokio::process::Command::new("jj")
+        .args(["workspace", "root"])
+        .output()
+        .await;
+
+    let workspace_root = match output {
+        Ok(out) if out.status.success() => {
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        }
+        _ => return Ok(None), // Not in a JJ repo
+    };
+
+    // Check if we're in a workspace by looking at workspace show
+    let show_output = tokio::process::Command::new("jj")
+        .args(["workspace", "show"])
+        .output()
+        .await;
+
+    let in_workspace = match show_output {
+        Ok(out) if out.status.success() => {
+            let workspace_info = String::from_utf8_lossy(&out.stdout);
+            workspace_info.contains("Working copy")
+        }
+        _ => false,
+    };
+
+    if !in_workspace {
+        return Ok(None); // In main repo, not a workspace
+    }
+
+    // We're in a workspace - find the session by matching workspace_path
+    let sessions = db
+        .list(None)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to list sessions: {e}"))?;
+
+    // Normalize paths for comparison
+    let workspace_path = Path::new(&workspace_root);
+    let current_path = Path::new(&current_dir);
+
+    for session in sessions {
+        let session_path = Path::new(&session.workspace_path);
+
+        // Check if current directory is within or matches the session workspace
+        if current_path.starts_with(session_path) || workspace_path == session_path {
+            return Ok(Some(session.name.clone()));
+        }
+    }
+
+    // No matching session found
+    Ok(None)
+}
+
 /// Handle diff output based on format
 async fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: OutputFormat) {
     if format.is_json() {
@@ -108,11 +177,38 @@ async fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: Output
 }
 
 /// Run the diff command
-pub async fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
+///
+/// If name is None, attempts to detect session from current workspace.
+/// If not in a workspace, returns an error requesting explicit session name.
+pub async fn run(name: Option<&str>, stat: bool, format: OutputFormat) -> Result<()> {
     let db = get_session_db().await?;
-    let session = db.get(name).await?.ok_or_else(|| {
+
+    // Determine session name
+    let session_name = match name {
+        Some(n) => n.to_string(),
+        None => {
+            // Try to detect session from workspace
+            match detect_session_from_workspace(&db).await? {
+                Some(detected_name) => {
+                    tracing::info!("Auto-detected session '{detected_name}' from workspace");
+                    detected_name
+                }
+                None => {
+                    return Err(anyhow::Error::new(zjj_core::Error::NotFound(
+                        "Session name required (not in a workspace or no matching session found)\n\n\
+                         Provide explicit session name:\n\
+                           zjj diff <session-name>\n\n\
+                         Or run from within a workspace directory."
+                            .to_string(),
+                    )));
+                }
+            }
+        }
+    };
+
+    let session = db.get(&session_name).await?.ok_or_else(|| {
         anyhow::Error::new(zjj_core::Error::NotFound(format!(
-            "Session '{name}' not found"
+            "Session '{session_name}' not found"
         )))
     })?;
 
@@ -144,7 +240,7 @@ pub async fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
     })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    handle_diff_output(&stdout, name, stat, format).await;
+    handle_diff_output(&stdout, &session_name, stat, format).await;
     Ok(())
 }
 
