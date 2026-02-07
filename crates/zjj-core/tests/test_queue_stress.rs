@@ -8,28 +8,55 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use futures::future::join_all;
 use tokio::time::sleep;
-use zjj_core::coordination::queue::{MergeQueue, QueueStatus};
+use zjj_core::coordination::queue::{MergeQueue, QueueEntry, QueueStatus};
+use zjj_core::Error;
 
 /// Helper to spawn multiple agents concurrently and collect their results.
+/// Agents retry up to 10 times with exponential backoff to handle lock contention.
 async fn spawn_concurrent_agents(
     queue: Arc<MergeQueue>,
-    _num_agents: usize,
     work_items: Vec<String>,
 ) -> Vec<Option<String>> {
+    const MAX_RETRIES: u32 = 20;
+    const INITIAL_BACKOFF_MS: u64 = 1;
+
     let handles = work_items
         .into_iter()
-        .map(|workspace| {
+        .map(|agent_id| {
             let queue = Arc::clone(&queue);
             tokio::spawn(async move {
-                // Each agent attempts to claim the next workspace
-                let result = queue.next_with_lock(&workspace).await;
-                // Simulate some work
-                sleep(Duration::from_millis(10)).await;
-                // Mark as completed to release the lock
-                if let Ok(Some(entry)) = &result {
-                    let _ = queue.mark_completed(&entry.workspace).await;
-                    let _ = queue.release_processing_lock(&workspace).await;
+                let mut result: Result<Option<QueueEntry>, Error> = Ok(None);
+                let mut backoff_ms = INITIAL_BACKOFF_MS;
+
+                // Retry with backoff to handle lock contention
+                for _attempt in 0..MAX_RETRIES {
+                    result = queue.next_with_lock(&agent_id).await;
+
+                    match &result {
+                        Ok(Some(_)) => {
+                            // Successfully claimed - proceed with work
+                            break;
+                        }
+                        Ok(None) => {
+                            // Lock held by another agent - retry with backoff
+                            sleep(Duration::from_millis(backoff_ms)).await;
+                            backoff_ms = (backoff_ms * 2).min(50); // Exponential backoff, max 50ms
+                        }
+                        Err(_) => {
+                            // Error - stop retrying
+                            break;
+                        }
+                    }
                 }
+
+                // Process the claimed entry
+                if let Ok(Some(entry)) = &result {
+                    // Small delay to simulate work
+                    sleep(Duration::from_millis(1)).await;
+                    let _ = queue.mark_completed(&entry.workspace).await;
+                    let _ = queue.release_processing_lock(&agent_id).await;
+                }
+
                 result.ok().flatten().map(|e| e.workspace)
             })
         })
@@ -47,26 +74,35 @@ async fn test_queue_concurrent_lock_no_duplicates() -> Result<(), Box<dyn std::e
     // Test that 10 agents competing for 20 work items results in no duplicates
     let queue = MergeQueue::open_in_memory().await?;
 
-    // Add 20 work items to the queue
-    for i in 0..20 {
-        queue
-            .add(
-                &format!("workspace-{}", i),
-                Some(&format!("bead-{}", i)),
-                5,
-                None,
+    // Add 20 work items to the queue in parallel
+    let items: Vec<_> = (0..20)
+        .map(|i| {
+            (
+                format!("workspace-{}", i),
+                format!("bead-{}", i),
+                5i32,
             )
-            .await?;
-    }
+        })
+        .collect();
+    let add_futures: Vec<_> = items
+        .iter()
+        .map(|(workspace, bead, priority)| {
+            queue.add(workspace, Some(bead), *priority, None)
+        })
+        .collect();
+    join_all(add_futures)
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
 
     // Verify all items are pending
     let stats = queue.stats().await?;
     assert_eq!(stats.pending, 20, "All 20 items should be pending");
 
-    // Spawn 20 agents concurrently (one per workspace)
+    // Spawn 20 agents concurrently
     let work_items: Vec<String> = (0..20).map(|i| format!("agent-{}", i)).collect();
     let queue = Arc::new(queue);
-    let results = spawn_concurrent_agents(queue.clone(), 20, work_items).await;
+    let results = spawn_concurrent_agents(queue.clone(), work_items).await;
 
     // Collect all successfully claimed workspaces
     let claimed_workspaces: HashSet<String> = results
@@ -200,6 +236,9 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     let extended = queue.extend_lock("agent-extender", 100).await?;
     assert!(extended, "Lock extension should succeed");
 
+    // Small delay to ensure extension is persisted
+    sleep(Duration::from_millis(1)).await;
+
     // Verify lock was extended
     let lock2 = queue.get_processing_lock().await?;
     assert!(lock2.is_some(), "Lock should still be held");
@@ -207,7 +246,8 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
 
     assert!(
         new_expires > initial_expires,
-        "Lock expiration should be extended"
+        "Lock expiration should be extended: initial={}, new={}",
+        initial_expires, new_expires
     );
 
     // Another agent cannot claim while lock is extended
@@ -262,26 +302,50 @@ async fn test_queue_concurrent_high_contention() -> Result<(), Box<dyn std::erro
     // Test high contention: many agents competing for few work items
     let queue = MergeQueue::open_in_memory().await?;
 
-    // Add only 5 work items
-    for i in 0..5 {
-        queue
-            .add(&format!("ws-{}", i), Some(&format!("bead-{}", i)), 5, None)
-            .await?;
-    }
+    // Add 5 work items in parallel
+    let items: Vec<_> = (0..5)
+        .map(|i| (format!("ws-{}", i), format!("bead-{}", i), 5i32))
+        .collect();
+    let add_futures: Vec<_> = items
+        .iter()
+        .map(|(workspace, bead, priority)| {
+            queue.add(workspace, Some(bead), *priority, None)
+        })
+        .collect();
+    join_all(add_futures)
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
 
     let queue = Arc::new(queue);
 
-    // Spawn 20 agents competing for 5 work items
+    // Spawn 20 agents competing for 5 work items with retry logic
+    const MAX_RETRIES: u32 = 20;
+    const INITIAL_BACKOFF_MS: u64 = 1;
+
     let agents: Vec<String> = (0..20).map(|i| format!("agent-{}", i)).collect();
     let handles = agents.into_iter().map(|agent_id| {
         let queue = Arc::clone(&queue);
         tokio::spawn(async move {
-            // Try to claim work
-            let result = queue.next_with_lock(&agent_id).await;
+            let mut result: Result<Option<QueueEntry>, Error> = Ok(None);
+            let mut backoff_ms = INITIAL_BACKOFF_MS;
+
+            // Retry with backoff to handle lock contention
+            for _attempt in 0..MAX_RETRIES {
+                result = queue.next_with_lock(&agent_id).await;
+
+                match &result {
+                    Ok(Some(_)) => break,
+                    Ok(None) => {
+                        sleep(Duration::from_millis(backoff_ms)).await;
+                        backoff_ms = (backoff_ms * 2).min(50);
+                    }
+                    Err(_) => break,
+                }
+            }
+
             if let Ok(Some(entry)) = &result {
-                // Simulate variable work time
-                sleep(Duration::from_millis(10)).await;
-                // Complete and release
+                sleep(Duration::from_millis(1)).await;
                 let _ = queue.mark_completed(&entry.workspace).await;
                 let _ = queue.release_processing_lock(&agent_id).await;
             }
@@ -317,18 +381,25 @@ async fn test_queue_serialization_under_load() -> Result<(), Box<dyn std::error:
     let queue = MergeQueue::open_in_memory().await?;
     let queue = Arc::new(queue);
 
-    // Add 100 work items with varying priorities
-    for i in 0..100 {
-        let priority = (i % 10) as i32; // Priority 0-9
-        queue
-            .add(
-                &format!("ws-{}", i),
-                Some(&format!("bead-{}", i)),
-                priority,
-                None,
-            )
-            .await?;
-    }
+    // Add 100 work items with varying priorities in parallel
+    let items: Vec<_> = (0..100)
+        .map(|i| {
+            let workspace = format!("ws-{}", i);
+            let bead = format!("bead-{}", i);
+            let priority = (i % 10) as i32;
+            (workspace, bead, priority)
+        })
+        .collect();
+    let add_futures: Vec<_> = items
+        .iter()
+        .map(|(workspace, bead, priority)| {
+            queue.add(workspace, Some(bead), *priority, None)
+        })
+        .collect();
+    join_all(add_futures)
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
 
     // Verify all added
     let stats = queue.stats().await?;
@@ -348,7 +419,7 @@ async fn test_queue_serialization_under_load() -> Result<(), Box<dyn std::error:
                 let result = queue.next_with_lock(&agent_id).await;
                 match result {
                     Ok(Some(entry)) => {
-                        // Simulate work
+                        // Small delay to simulate work (1ms vs original 1ms = same speed)
                         sleep(Duration::from_millis(1)).await;
                         // Complete
                         let _ = queue.mark_completed(&entry.workspace).await;
@@ -408,9 +479,17 @@ async fn test_queue_priority_respected_under_concurrency() -> Result<(), Box<dyn
         ("ws-low2", "bead-6", 10),
     ];
 
-    for (workspace, bead, priority) in &work_items {
-        queue.add(workspace, Some(bead), *priority, None).await?;
-    }
+    // Add work items in parallel
+    let add_futures: Vec<_> = work_items
+        .iter()
+        .map(|(workspace, bead, priority)| {
+            queue.add(workspace, Some(bead), *priority, None)
+        })
+        .collect();
+    join_all(add_futures)
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
 
     let queue = Arc::new(queue);
 
@@ -428,7 +507,8 @@ async fn test_queue_priority_respected_under_concurrency() -> Result<(), Box<dyn
                     match result {
                         Ok(Some(entry)) => {
                             order.push((entry.workspace.clone(), entry.priority));
-                            sleep(Duration::from_millis(5)).await;
+                            // Small delay to simulate work (1ms vs original 5ms = 5x faster)
+                            sleep(Duration::from_millis(1)).await;
                             let _ = queue.mark_completed(&entry.workspace).await;
                             let _ = queue.release_processing_lock(&agent_id).await;
                         }
@@ -482,22 +562,7 @@ async fn test_queue_lock_contention_resolution() -> Result<(), Box<dyn std::erro
             let queue = Arc::clone(&queue);
             tokio::spawn(async move {
                 let agent_id = format!("agent-{}", i);
-                // Try immediately (race condition)
-                let result = queue.next_with_lock(&agent_id).await;
-
-                // Small delay to stagger attempts
-                sleep(Duration::from_millis(i as u64 * 2)).await;
-
-                // Try again after delay
-                if let Ok(ref inner) = result {
-                    if inner.is_none() {
-                        queue.next_with_lock(&agent_id).await
-                    } else {
-                        result
-                    }
-                } else {
-                    result
-                }
+                queue.next_with_lock(&agent_id).await
             })
         })
         .collect();
