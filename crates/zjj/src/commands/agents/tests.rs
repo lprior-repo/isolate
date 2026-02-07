@@ -711,3 +711,70 @@ async fn unregister_is_idempotent() -> Result<(), anyhow::Error> {
     assert!(result.is_ok());
     Ok(())
 }
+
+// ============================================================================
+// Agent ID Validation Unit Tests
+// ============================================================================
+
+// Test: Validate agent ID rejects empty strings
+#[test]
+fn validate_agent_id_rejects_empty() {
+    use super::super::validate_agent_id;
+
+    let result = validate_agent_id("");
+    assert!(result.is_err(), "empty agent_id should be rejected");
+    assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+}
+
+// Test: Validate agent ID rejects whitespace-only strings
+#[test]
+fn validate_agent_id_rejects_whitespace_only() {
+    use super::super::validate_agent_id;
+
+    let test_cases = vec![" ", "  ", "\t", "\n", "\t\n", "   \t\n   "];
+
+    for whitespace_id in test_cases {
+        let result = validate_agent_id(whitespace_id);
+        assert!(
+            result.is_err(),
+            "whitespace-only agent_id '{:?}' should be rejected",
+            whitespace_id
+        );
+    }
+}
+
+// Test: Validate agent ID accepts valid IDs
+#[test]
+fn validate_agent_id_accepts_valid_ids() {
+    use super::super::validate_agent_id;
+
+    let valid_ids = vec![
+        "agent-1",
+        "valid-agent-123",
+        "agent_underscore",
+        "agent.dot",
+        "UPPERCASE",
+        "12345",
+        "a",
+    ];
+
+    for valid_id in valid_ids {
+        let result = validate_agent_id(valid_id);
+        assert!(
+            result.is_ok(),
+            "valid agent_id '{}' should be accepted: {:?}",
+            valid_id,
+            result
+        );
+    }
+}
+
+// Test: Validate agent ID trims whitespace
+#[test]
+fn validate_agent_id_trims_whitespace() {
+    use super::super::validate_agent_id;
+
+    // Should succeed - whitespace is trimmed
+    let result = validate_agent_id("  valid-agent  ");
+    assert!(result.is_ok(), "trimmed agent_id should be accepted");
+}
