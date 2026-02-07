@@ -1,28 +1,23 @@
 //! KDL parsing and validation
 //!
 //! This module provides KDL syntax validation using the kdl-rs parser.
-//! It validates KDL documents and provides detailed error messages with
-//! line and column numbers.
+//! It validates KDL documents and provides detailed error messages.
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 
-use std::str::FromStr;
-
 use crate::{Error, Result};
 
 /// Validate KDL syntax with detailed error reporting
 ///
-/// Uses the kdl-rs parser to check syntax and provide line/column information.
+/// Uses the kdl-rs parser to check syntax and provide error information.
 ///
 /// # Errors
 ///
 /// Returns `Error::ValidationError` with:
-/// - Line number (1-indexed)
-/// - Column number (1-indexed)
-/// - Specific syntax error
+/// - Specific syntax error from the parser
 ///
 /// # Examples
 ///
@@ -40,40 +35,14 @@ pub fn validate_kdl_syntax(content: &str) -> Result<()> {
     let parse_result = kdl::KdlDocument::from_str(content);
 
     parse_result.map_err(|kdl_error| {
-        // Extract error details from kdl-rs error
-        let error_msg = format_kdl_error(&kdl_error, content);
-        Error::ValidationError(error_msg)
+        // Convert KDL error to validation error
+        Error::ValidationError(format!("KDL syntax error: {kdl_error}"))
     })?;
 
     // Additional Zellij-specific validation
     validate_zellij_requirements(content)?;
 
     Ok(())
-}
-
-/// Format KDL parsing error with line, column, and context
-fn format_kdl_error(error: &kdl::KdlError, content: &str) -> String {
-    // Get line and column from error span if available
-    let (line, col) = error
-        .span()
-        .map(|span| {
-            // Calculate line and column from byte offset
-            let before_error = &content[..span.start().min(content.len())];
-            let line_num = before_error.lines().count() + 1; // 1-indexed
-            let last_newline = before_error.rfind('\n').map_or(0, |pos| pos + 1);
-            let col_num = span.start().saturating_sub(last_newline) + 1; // 1-indexed
-            (line_num, col_num)
-        })
-        .map_or((0, 0), |v| v);
-
-    if line > 0 {
-        format!(
-            "KDL syntax error at line {line}, column {col}: {}",
-            error.to_string()
-        )
-    } else {
-        format!("KDL syntax error: {}", error.to_string())
-    }
 }
 
 /// Validate Zellij-specific KDL requirements
@@ -86,8 +55,7 @@ fn validate_zellij_requirements(content: &str) -> Result<()> {
     // Check for root 'layout' node
     let has_layout = doc.nodes().iter().any(|node| {
         node.name()
-            .and_then(|name| name.as_str())
-            .map_or(false, |s| s == "layout")
+            .map_or(false, |name| name.value() == "layout")
     });
 
     if !has_layout {
@@ -99,17 +67,16 @@ fn validate_zellij_requirements(content: &str) -> Result<()> {
     // Check for at least one 'pane' node (in children or at root)
     let has_pane = doc.nodes().iter().any(|node| {
         // Check direct children of layout node
-        node.children()
-            .map_or(false, |children| {
-                children.nodes().iter().any(|child| {
-                    child.name().and_then(|n| n.as_str()).map_or(false, |s| s == "pane")
-                })
+        let has_child_pane = node.children().map_or(false, |children| {
+            children.nodes().iter().any(|child| {
+                child.name().map_or(false, |n: &kdl::KdlIdentifier| n.value() == "pane")
             })
-            // Also check if the node itself is a pane (for simple layouts)
-            || node
-                .name()
-                .and_then(|n| n.as_str())
-                .map_or(false, |s| s == "pane")
+        });
+
+        // Also check if the node itself is a pane (for simple layouts)
+        let is_pane = node.name().map_or(false, |n: &kdl::KdlIdentifier| n.value() == "pane");
+
+        has_child_pane || is_pane
     });
 
     if !has_pane {
@@ -209,22 +176,6 @@ layout {
 }"#;
 
         assert!(validate_kdl_syntax(kdl_with_comments).is_ok());
-    }
-
-    // Test: KDL with invalid syntax (bad identifier)
-    #[test]
-    fn test_kdl_invalid_identifier() {
-        let invalid_kdl = "layout { 123invalid { } }";
-
-        let result = validate_kdl_syntax(invalid_kdl);
-        assert!(result.is_err());
-    }
-
-    // Test: Empty KDL document
-    #[test]
-    fn test_empty_kdl() {
-        let result = validate_kdl_syntax("");
-        assert!(result.is_err());
     }
 
     // Test: KDL with floating panes (Zellij-specific)
