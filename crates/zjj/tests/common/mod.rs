@@ -324,6 +324,33 @@ impl TestHarness {
             })
     }
 
+    /// Run a JJ command in a specific directory
+    ///
+    /// Like `jj`, but allows the caller to override the working directory.
+    /// Useful for testing JJ commands inside workspaces.
+    ///
+    /// # Performance
+    ///
+    /// Uses functional error handling to avoid match branching overhead.
+    pub fn jj_in_dir(&self, dir: &Path, args: &[&str]) -> CommandResult {
+        Command::new("jj")
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .map(|output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            })
+            .unwrap_or_else(|_| CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            })
+    }
+
     /// Create a file in the repository
     pub fn create_file(&self, path: &str, content: &str) -> Result<()> {
         let file_path = self.repo_path.join(path);
@@ -570,11 +597,7 @@ mod tests {
         let session_name = "test-workspace-containment";
         let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
 
-        assert!(
-            result.success,
-            "zjj add failed: {}",
-            result.stderr
-        );
+        assert!(result.success, "zjj add failed: {}", result.stderr);
 
         // Verify the workspace is inside the test repo by checking the expected location
         let workspace_path = harness.workspace_path(session_name);
@@ -624,7 +647,10 @@ mod tests {
         );
 
         // Verify workspace was created in custom location
-        let expected_path = harness.repo_path.join(custom_workspace).join("test-custom-workspace");
+        let expected_path = harness
+            .repo_path
+            .join(custom_workspace)
+            .join("test-custom-workspace");
         assert!(
             expected_path.exists(),
             "Workspace should exist at custom path: {}",
