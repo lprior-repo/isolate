@@ -2388,6 +2388,7 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_import())
         // Wait/Poll commands
         .subcommand(cmd_wait())
+        .subcommand(cmd_wait())
         // Schema command
         .subcommand(cmd_schema())
         // Recovery commands
@@ -2396,3 +2397,4 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_rollback())
         // Merge queue coordination
         .subcommand(cmd_queue())
+}
