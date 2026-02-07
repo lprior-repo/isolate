@@ -44,28 +44,28 @@ pub struct RepoRoot(PathBuf);
 impl RepoRoot {
     /// Create a new `RepoRoot` with validation
     #[allow(dead_code)] // Reserved for future strict path validation
-    pub fn new(path: PathBuf) -> Result<Self, ValidationError> {
-        if !path.exists() {
-            return Err(ValidationError::InvalidRepoPath(
+    pub async fn new(path: PathBuf) -> Result<Self, ValidationError> {
+        match tokio::fs::try_exists(&path).await {
+            Ok(true) => {
+                if !path.is_dir() {
+                    return Err(ValidationError::InvalidRepoPath(
+                        "Path is not a directory".to_string(),
+                    ));
+                }
+
+                // Check for .jj directory
+                let jj_dir = path.join(".jj");
+                match tokio::fs::try_exists(&jj_dir).await {
+                    Ok(true) => Ok(Self(path)),
+                    _ => Err(ValidationError::InvalidRepoPath(
+                        "Not a JJ repository (no .jj directory found)".to_string(),
+                    )),
+                }
+            }
+            _ => Err(ValidationError::InvalidRepoPath(
                 "Path does not exist".to_string(),
-            ));
+            )),
         }
-
-        if !path.is_dir() {
-            return Err(ValidationError::InvalidRepoPath(
-                "Path is not a directory".to_string(),
-            ));
-        }
-
-        // Check for .jj directory
-        let jj_dir = path.join(".jj");
-        if !jj_dir.exists() {
-            return Err(ValidationError::InvalidRepoPath(
-                "Not a JJ repository (no .jj directory found)".to_string(),
-            ));
-        }
-
-        Ok(Self(path))
     }
 
     /// Get the inner `PathBuf`

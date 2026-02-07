@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use futures::{StreamExt, TryStreamExt};
 
 use crate::cli::run_command;
 
@@ -8,11 +9,15 @@ pub(super) async fn execute_post_create_hooks(_workspace_path: &str) -> Result<(
     // For now, use empty hook list
     let hooks: Vec<String> = Vec::new();
 
-    for hook in hooks {
-        run_command("sh", &["-c", &hook])
-            .await
-            .with_context(|| format!("Hook '{hook}' failed"))?;
-    }
+    futures::stream::iter(hooks)
+        .map(Ok::<String, anyhow::Error>)
+        .try_for_each(|hook| async move {
+            run_command("sh", &["-c", &hook])
+                .await
+                .with_context(|| format!("Hook '{hook}' failed"))?;
+            Ok(())
+        })
+        .await?;
 
     Ok(())
 }

@@ -37,7 +37,7 @@ pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Res
             return Ok(());
         }
 
-        if let Some(session) = crate::selector::select_session(&sessions)? {
+        if let Some(session) = crate::selector::select_session(&sessions).await? {
             session.name
         } else {
             return Ok(()); // User cancelled
@@ -102,7 +102,7 @@ pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Res
             println!("Session '{resolved_name}' is in tab '{zellij_tab}'");
             println!("Attaching to Zellij session...");
         }
-        attach_to_zellij_session(None)?;
+        attach_to_zellij_session(None).await?;
         // Note: This never returns - we exec into Zellij
     }
 

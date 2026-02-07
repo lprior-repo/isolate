@@ -26,7 +26,7 @@ use ratatui::{
 use crate::session::{Session, SessionStatus};
 
 /// Select a session interactively from a list
-pub fn select_session(sessions: &[Session]) -> Result<Option<Session>> {
+pub async fn select_session(sessions: &[Session]) -> Result<Option<Session>> {
     if sessions.is_empty() {
         return Ok(None);
     }
@@ -40,7 +40,7 @@ pub fn select_session(sessions: &[Session]) -> Result<Option<Session>> {
     let mut terminal = Terminal::new(backend).context("Failed to create terminal")?;
 
     // Run app
-    let result = run_selector(&mut terminal, sessions);
+    let result = run_selector(&mut terminal, sessions).await;
 
     // Restore terminal
     disable_raw_mode().context("Failed to disable raw mode")?;
@@ -56,7 +56,7 @@ struct SelectorState {
     selected_index: usize,
 }
 
-fn run_selector(
+async fn run_selector(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     sessions: &[Session],
 ) -> Result<Option<Session>> {
@@ -94,6 +94,8 @@ fn run_selector(
                 }
             }
         }
+        // Small sleep to avoid busy-waiting if poll returns immediately
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
 

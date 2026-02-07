@@ -9,14 +9,16 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-use tokio::process::Command;
 use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::{
+    process::Command,
+    signal::unix::{signal, SignalKind},
+};
 
 use super::types::SpawnError;
 
@@ -88,9 +90,11 @@ impl TransactionTracker {
     /// # Errors
     /// Returns `SpawnError::JjCommandFailed` if unable to get JJ root.
     pub async fn new(bead_id: &str, workspace_path: &Path) -> Result<Self, SpawnError> {
-        let root = crate::cli::jj_root().await.map_err(|e| SpawnError::JjCommandFailed {
-            reason: format!("Failed to get JJ root: {e}"),
-        })?;
+        let root = crate::cli::jj_root()
+            .await
+            .map_err(|e| SpawnError::JjCommandFailed {
+                reason: format!("Failed to get JJ root: {e}"),
+            })?;
 
         Ok(Self {
             bead_id: bead_id.to_string(),
@@ -203,7 +207,7 @@ impl TransactionTracker {
         }
 
         if phases.has_bead_update() {
-            self.reset_bead_status()?;
+            self.reset_bead_status().await?;
         }
 
         if phases.has_workspace() {
@@ -240,7 +244,10 @@ impl TransactionTracker {
         // Wait briefly, then SIGKILL if still running
         tokio::time::sleep(Duration::from_millis(500)).await;
 
-        let kill_result = Command::new("kill").args(["-0", &pid.to_string()]).output().await;
+        let kill_result = Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .output()
+            .await;
 
         if kill_result.is_ok() && kill_result.as_ref().is_ok_and(|o| o.status.success()) {
             // Still running, force kill
@@ -257,65 +264,28 @@ impl TransactionTracker {
     /// Reset bead status from '`in_progress`' to 'open'
     ///
     /// # Errors
-    /// Returns `SpawnError::DatabaseError` if status update fails or JSON parsing fails.
-    fn reset_bead_status(&self) -> Result<(), SpawnError> {
+    /// Returns `SpawnError::DatabaseError` if status update fails.
+    async fn reset_bead_status(&self) -> Result<(), SpawnError> {
         eprintln!("Resetting bead '{}' status to 'open'...", self.bead_id);
 
-        let beads_db = Path::new(".beads/issues.jsonl");
-        let content = std::fs::read_to_string(beads_db).map_err(|e| SpawnError::DatabaseError {
-            reason: format!("Failed to read beads database: {e}"),
-        })?;
-
-        // Functional transformation using try_fold with Railway-Oriented Programming
-        // Accumulates both the new content string and updated flag immutably
-        let (new_content, updated) = content.lines().try_fold(
-            (String::new(), false),
-            |(mut acc, updated), line| -> Result<(String, bool), SpawnError> {
-                // Parse JSON line, propagating errors instead of silently ignoring
-                let mut json = serde_json::from_str::<serde_json::Value>(line).map_err(|e| {
-                    SpawnError::DatabaseError {
-                        reason: format!("Failed to parse beads JSON line: {e}"),
-                    }
-                })?;
-
-                // Check if this bead matches our ID and update status if so
-                let is_target_bead = json
-                    .get("id")
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|id| id == self.bead_id);
-
-                let updated = if is_target_bead {
-                    json["status"] = serde_json::json!("open");
-                    true
-                } else {
-                    updated
-                };
-
-                // Append serialized JSON line to accumulator
-                acc.push_str(&json.to_string());
-                acc.push('\n');
-
-                Ok((acc, updated))
-            },
-        )?;
-
-        // Only write if we actually updated a bead
-        if updated {
-            std::fs::write(beads_db, new_content).map_err(|e| SpawnError::DatabaseError {
-                reason: format!("Failed to write beads database: {e}"),
+        let bead_repo = crate::beads::BeadRepository::new(&self.root);
+        bead_repo
+            .update_status(&self.bead_id, crate::beads::BeadStatus::Open)
+            .await
+            .map_err(|e| SpawnError::DatabaseError {
+                reason: format!("Failed to update bead status: {e}"),
             })?;
-        }
 
         eprintln!("Bead status reset");
         Ok(())
     }
 
-    /// Abandon the workspace to clean up changes
+    /// Forget the workspace to clean up
     ///
     /// # Errors
     /// Returns `SpawnError::MergeFailed` or `SpawnError::JjCommandFailed` on failure.
     async fn abandon_workspace(&self) -> Result<(), SpawnError> {
-        eprintln!("Abandoning workspace '{}'...", self.bead_id);
+        eprintln!("Forgetting workspace '{}'...", self.bead_id);
 
         let list_output = Command::new("jj")
             .args(["workspace", "list"])
@@ -341,26 +311,26 @@ impl TransactionTracker {
             .any(|line| line.contains(&self.bead_id));
 
         if workspace_exists {
-            let abandon_output = Command::new("jj")
-                .args(["workspace", "abandon", "--name", &self.bead_id])
+            let forget_output = Command::new("jj")
+                .args(["workspace", "forget", &self.bead_id])
                 .current_dir(&self.root)
                 .output()
                 .await
                 .map_err(|e| SpawnError::JjCommandFailed {
-                    reason: format!("Failed to execute jj workspace abandon: {e}"),
+                    reason: format!("Failed to execute jj workspace forget: {e}"),
                 })?;
 
-            if !abandon_output.status.success() {
+            if !forget_output.status.success() {
                 return Err(SpawnError::MergeFailed {
                     reason: format!(
-                        "Failed to abandon workspace: {}",
-                        String::from_utf8_lossy(&abandon_output.stderr)
+                        "Failed to forget workspace: {}",
+                        String::from_utf8_lossy(&forget_output.stderr)
                     ),
                 });
             }
         }
 
-        eprintln!("Workspace abandoned");
+        eprintln!("Workspace forgotten");
         Ok(())
     }
 }

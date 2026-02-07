@@ -17,15 +17,15 @@ pub struct SyncError {
     pub error: ErrorDetail,
 }
 
-/// Output a JSON error and exit with the appropriate semantic exit code
+/// Output a JSON error and return the appropriate semantic exit code
 ///
 /// Converts an `anyhow::Error` to a JSON error structure and outputs it to stdout.
-/// Then exits the process with the semantic exit code from the error:
+/// Returns the semantic exit code from the error:
 /// - 1: Validation errors (user input issues)
 /// - 2: Not found errors (missing resources)
 /// - 3: System errors (IO, database issues)
 /// - 4: External command errors
-pub fn output_json_error_and_exit(error: &Error) -> ! {
+pub fn output_json_error(error: &Error) -> i32 {
     let json_error = error_to_json_error(error);
     let exit_code = json_error.error.exit_code;
 
@@ -41,7 +41,7 @@ pub fn output_json_error_and_exit(error: &Error) -> ! {
         println!(r#"{{"error":{{"message":"{error}","exit_code":{exit_code}}}}}"#);
     }
 
-    std::process::exit(exit_code);
+    exit_code
 }
 
 #[derive(Debug, Serialize)]

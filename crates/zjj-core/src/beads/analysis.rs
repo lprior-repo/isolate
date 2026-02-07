@@ -187,29 +187,32 @@ pub fn calculate_critical_path(issues: &[BeadIssue]) -> Vec<BeadIssue> {
         }
 
         if let Some(deps) = graph.get(node) {
-            for dep in deps {
+            deps.iter().for_each(|dep| {
                 dfs(dep, graph, path, visited, all_issues);
-            }
+            });
         }
     }
 
     let graph = get_dependency_graph(issues);
 
-    let mut all_paths = Vec::new();
-
-    for issue in issues {
-        let mut path = Vec::new();
-        let mut visited = std::collections::HashSet::new();
-        dfs(&issue.id, &graph, &mut path, &mut visited, issues);
-        if !path.is_empty() {
-            all_paths.push(path);
-        }
-    }
+    let all_paths: Vec<Vec<BeadIssue>> = issues
+        .iter()
+        .filter_map(|issue| {
+            let mut path = Vec::new();
+            let mut visited = std::collections::HashSet::new();
+            dfs(&issue.id, &graph, &mut path, &mut visited, issues);
+            if path.is_empty() {
+                None
+            } else {
+                Some(path)
+            }
+        })
+        .collect();
 
     all_paths
         .into_iter()
         .max_by_key(std::vec::Vec::len)
-        .unwrap_or_else(|| Vec::new())
+        .unwrap_or_else(Vec::new)
 }
 
 /// Extract issue IDs.

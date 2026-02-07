@@ -216,8 +216,8 @@ pub async fn run(options: &RenameOptions) -> Result<()> {
         let old_path = std::path::Path::new(workspace_path);
         let new_path = old_path.parent().map(|p| p.join(&options.new_name));
         if let Some(ref new_path) = new_path {
-            if old_path.exists() {
-                std::fs::rename(old_path, new_path)?;
+            if tokio::fs::try_exists(old_path).await.unwrap_or(false) {
+                tokio::fs::rename(old_path, new_path).await?;
             }
         }
         new_path.map(|p| p.to_string_lossy().to_string())
@@ -228,7 +228,8 @@ pub async fn run(options: &RenameOptions) -> Result<()> {
     db.create(
         &options.new_name,
         new_workspace_path.as_deref().unwrap_or(workspace_path),
-    ).await?;
+    )
+    .await?;
 
     // Delete old session
     db.delete(&options.old_name).await?;

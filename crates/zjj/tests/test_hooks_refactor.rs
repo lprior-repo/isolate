@@ -16,7 +16,7 @@ mod hook_type_event_names {
 
     #[test]
     fn test_pre_remove_event_name() {
-        assert_eq!(HookType::PreRemove.event_name(), "post_remove");
+        assert_eq!(HookType::PreRemove.event_name(), "pre_remove");
     }
 
     #[test]

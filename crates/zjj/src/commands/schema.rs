@@ -80,10 +80,10 @@ fn run_list(format: OutputFormat) -> Result<()> {
     } else {
         println!("Available Schemas:");
         println!();
-        for schema in &output.schemas {
+        output.schemas.iter().for_each(|schema| {
             println!("  {} (v{})", schema.name, schema.version);
             println!("    {}", schema.description);
-        }
+        });
         println!();
         println!("Use 'zjj schema <name> --json' to get the full JSON Schema.");
     }

@@ -42,7 +42,8 @@ pub async fn run_pause(options: &PauseOptions) -> Result<()> {
 
     // Check session exists
     let session = db
-        .get(&options.session).await?
+        .get(&options.session)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", &options.session))?;
 
     let prev_status = session.status.to_string();
@@ -105,7 +106,8 @@ pub async fn run_resume(options: &ResumeOptions) -> Result<()> {
 
     // Check session exists
     let session = db
-        .get(&options.session).await?
+        .get(&options.session)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", &options.session))?;
 
     if session.status != SessionStatus::Paused {
@@ -197,7 +199,8 @@ pub async fn run_clone(options: &CloneOptions) -> Result<()> {
 
     // Check source exists
     let source_session = db
-        .get(&options.source).await?
+        .get(&options.source)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Source session '{}' not found", &options.source))?;
 
     // Check target doesn't exist
@@ -258,9 +261,9 @@ pub async fn run_clone(options: &CloneOptions) -> Result<()> {
 
         if let Some(new_path) = &new_path {
             // Use zjj_core to create workspace (async)
-            zjj_core::jj::workspace_create(&options.target, new_path).await.map_err(|e| {
-                anyhow::anyhow!("Failed to create workspace: {e}")
-            })?;
+            zjj_core::jj::workspace_create(&options.target, new_path)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to create workspace: {e}"))?;
         }
 
         new_path.map(|p| p.to_string_lossy().to_string())
@@ -270,7 +273,8 @@ pub async fn run_clone(options: &CloneOptions) -> Result<()> {
     db.create(
         &options.target,
         new_workspace_path.as_deref().map_or("", |value| value),
-    ).await?;
+    )
+    .await?;
 
     let result = CloneResult {
         success: true,

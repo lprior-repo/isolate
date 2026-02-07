@@ -98,6 +98,10 @@ pub async fn run(name: Option<&str>, format: OutputFormat, watch: bool) -> Resul
     }
 }
 
+use futures::StreamExt;
+
+// ... imports ...
+
 /// Run status once
 async fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
     let db = get_session_db().await?;
@@ -137,17 +141,22 @@ async fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    // Gather status for all sessions
-    let mut statuses = Vec::new();
-    for session in sessions {
-        statuses.push(gather_session_status(&session).await?);
-    }
+    // Gather status for all sessions using concurrent stream
+    // Using buffered(10) to allow up to 10 concurrent status checks while preserving order
+    let statuses: Vec<SessionStatusInfo> = futures::stream::iter(sessions)
+        .map(|session| async move { gather_session_status(&session).await })
+        .buffered(10)
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
 
     if format.is_json() {
         output_json(&statuses)?;
     } else {
         // Detect current workspace location (handle errors gracefully)
-        let current_location = zjj_core::jj::check_in_jj_repo().await
+        let current_location = zjj_core::jj::check_in_jj_repo()
+            .await
             .ok()
             .and_then(|root| crate::commands::context::detect_location(&root).ok())
             .and_then(|loc| match loc {
@@ -225,35 +234,35 @@ pub async fn gather_session_status(session: &Session) -> Result<SessionStatusInf
 
 /// Get file changes from JJ status
 async fn get_file_changes(workspace_path: &Path) -> FileChanges {
-    if !workspace_path.exists() {
-        return FileChanges::default();
-    }
-
-    match zjj_core::jj::workspace_status(workspace_path).await {
-        Ok(status) => FileChanges {
-            modified: status.modified.len(),
-            added: status.added.len(),
-            deleted: status.deleted.len(),
-            renamed: status.renamed.len(),
-            unknown: status.unknown.len(),
+    match tokio::fs::try_exists(workspace_path).await {
+        Ok(true) => match zjj_core::jj::workspace_status(workspace_path).await {
+            Ok(status) => FileChanges {
+                modified: status.modified.len(),
+                added: status.added.len(),
+                deleted: status.deleted.len(),
+                renamed: status.renamed.len(),
+                unknown: status.unknown.len(),
+            },
+            Err(_) => FileChanges::default(),
         },
-        Err(_) => FileChanges::default(),
+        _ => FileChanges::default(),
     }
 }
 
 /// Get diff statistics from JJ diff
 async fn get_diff_stats(workspace_path: &Path) -> DiffStats {
-    if !workspace_path.exists() {
-        return DiffStats::default();
+    match tokio::fs::try_exists(workspace_path).await {
+        Ok(true) => zjj_core::jj::workspace_diff(workspace_path)
+            .await
+            .map_or_else(
+                |_| DiffStats::default(),
+                |summary| DiffStats {
+                    insertions: summary.insertions,
+                    deletions: summary.deletions,
+                },
+            ),
+        _ => DiffStats::default(),
     }
-
-    zjj_core::jj::workspace_diff(workspace_path).await.map_or_else(
-        |_| DiffStats::default(),
-        |summary| DiffStats {
-            insertions: summary.insertions,
-            deletions: summary.deletions,
-        },
-    )
 }
 
 /// Get beads statistics from the repository's beads database
@@ -267,7 +276,7 @@ async fn get_beads_stats() -> Result<BeadStats> {
 
     let beads_db_path = root.join(".beads").join("beads.db");
 
-    if !beads_db_path.exists() {
+    if !tokio::fs::try_exists(&beads_db_path).await.unwrap_or(false) {
         return Ok(BeadStats::default());
     }
 
@@ -340,9 +349,8 @@ fn output_table(items: &[SessionStatusInfo], current_location: Option<&str>) {
     }
 
     // Display table rows
-    for item in items {
-        let is_current = current_location
-            .is_some_and(|current| current == &item.name);
+    items.iter().for_each(|item| {
+        let is_current = current_location.is_some_and(|current| current == &item.name);
 
         let marker = if is_current { "▶" } else { " " };
 
@@ -392,7 +400,7 @@ fn output_table(items: &[SessionStatusInfo], current_location: Option<&str>) {
                 bead_info
             );
         }
-    }
+    });
 
     // Display table footer
     if is_tty {

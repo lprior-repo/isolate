@@ -1,9 +1,6 @@
 //! Initialize ZJJ - sets up everything needed
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
@@ -69,8 +66,10 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     let db_path = zjj_dir.join("state.db");
 
     // Check if already fully initialized
-    let is_fully_initialized =
-        zjj_dir.exists() && config_path.exists() && layouts_dir.exists() && db_path.exists();
+    let is_fully_initialized = tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false)
+        && tokio::fs::try_exists(&config_path).await.unwrap_or(false)
+        && tokio::fs::try_exists(&layouts_dir).await.unwrap_or(false)
+        && tokio::fs::try_exists(&db_path).await.unwrap_or(false);
 
     if is_fully_initialized {
         let response = InitResponse {
@@ -97,38 +96,50 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     }
 
     // Create .zjj directory if missing
-    if !zjj_dir.exists() {
-        fs::create_dir_all(&zjj_dir).context("Failed to create .zjj directory")?;
+    if !tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false) {
+        tokio::fs::create_dir_all(&zjj_dir)
+            .await
+            .context("Failed to create .zjj directory")?;
     }
 
     // Create config.toml if missing
-    if !config_path.exists() {
-        fs::write(&config_path, DEFAULT_CONFIG).context("Failed to create config.toml")?;
+    if !tokio::fs::try_exists(&config_path).await.unwrap_or(false) {
+        tokio::fs::write(&config_path, DEFAULT_CONFIG)
+            .await
+            .context("Failed to create config.toml")?;
     }
 
     // Create layouts directory if missing
-    if !layouts_dir.exists() {
-        fs::create_dir_all(&layouts_dir).context("Failed to create layouts directory")?;
+    if !tokio::fs::try_exists(&layouts_dir).await.unwrap_or(false) {
+        tokio::fs::create_dir_all(&layouts_dir)
+            .await
+            .context("Failed to create layouts directory")?;
     }
 
     // Create .jjignore to prevent .zjj tracking (avoids nested .jj conflicts)
-    create_jjignore(&root)?;
+    create_jjignore(&root).await?;
 
     // Create JJ hooks to enforce zjj workflow (agents can't bypass with --no-verify)
-    create_jj_hooks(&root)?;
+    create_jj_hooks(&root).await?;
 
     // Create repo-level AI discoverability file
-    create_repo_ai_instructions(&root)?;
+    create_repo_ai_instructions(&root).await?;
 
     // Create Moon build pipeline configuration (.moon/)
-    create_moon_pipeline(&root)?;
+    create_moon_pipeline(&root).await?;
 
     // Create unified AI instructions (AGENTS.md and CLAUDE.md)
-    create_agents_md(&root).context("Failed to create AGENTS.md")?;
-    create_claude_md(&root).context("Failed to create CLAUDE.md")?;
+    create_agents_md(&root)
+        .await
+        .context("Failed to create AGENTS.md")?;
+    create_claude_md(&root)
+        .await
+        .context("Failed to create CLAUDE.md")?;
 
     // Create documentation files from templates
-    create_docs(&root).context("Failed to create documentation files")?;
+    create_docs(&root)
+        .await
+        .context("Failed to create documentation files")?;
 
     // Initialize the database (create if it doesn't exist)
     // db_path already defined above

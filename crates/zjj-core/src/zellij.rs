@@ -637,7 +637,9 @@ mod tests {
         let layout_path = temp_dir.join("test.kdl");
 
         // Create a test layout file
-        tokio::fs::write(&layout_path, "layout { pane { } }").await.ok();
+        tokio::fs::write(&layout_path, "layout { pane { } }")
+            .await
+            .ok();
 
         let result = tab_open(&layout_path, "test-tab").await;
 

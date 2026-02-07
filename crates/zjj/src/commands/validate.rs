@@ -72,7 +72,7 @@ pub async fn run(options: &ValidateOptions) -> Result<()> {
         } else {
             println!("✗ Validation failed for '{}'", result.command);
             println!();
-            for arg in &result.args {
+            result.args.iter().for_each(|arg| {
                 if arg.valid {
                     println!("  ✓ {}: {}", arg.name, arg.value);
                 } else {
@@ -84,21 +84,21 @@ pub async fn run(options: &ValidateOptions) -> Result<()> {
                         println!("    Suggestion: {sugg}");
                     }
                 }
-            }
+            });
             if !result.errors.is_empty() {
                 println!();
                 println!("Errors:");
-                for err in &result.errors {
+                result.errors.iter().for_each(|err| {
                     println!("  - {err}");
-                }
+                });
             }
         }
         if !result.warnings.is_empty() {
             println!();
             println!("Warnings:");
-            for warn in &result.warnings {
+            result.warnings.iter().for_each(|warn| {
                 println!("  - {warn}");
-            }
+            });
         }
     }
 

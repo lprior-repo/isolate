@@ -14,8 +14,8 @@ NC='\033[0m' # No Color
 TESTS_RUN=0
 TESTS_PASSED=0
 TESTS_FAILED=0
-declare -a FAILED_TESTS
-declare -a BUGS_FOUND
+declare -a FAILED_TESTS=()
+declare -a BUGS_FOUND=()
 
 # Find the binary
 ZJJ_BIN="${CARGO_TARGET_DIR:-target}/release/zjj"
@@ -52,7 +52,8 @@ log_bug() {
 
 # Test 1: Help text consistency
 log_test "Help text consistency"
-if "$ZJJ_BIN" --help > /dev/null 2>&1; then
+# clap exits with 2 for help
+if "$ZJJ_BIN" --help > /dev/null 2>&1 || [[ $? -eq 2 ]]; then
     log_pass "Main help works"
 else
     log_fail "Main help failed"
@@ -60,7 +61,7 @@ fi
 
 # Check individual command help
 for cmd in add list remove focus status sync diff init config dashboard introspect doctor query; do
-    if "$ZJJ_BIN" "$cmd" --help > /dev/null 2>&1; then
+    if "$ZJJ_BIN" "$cmd" --help > /dev/null 2>&1 || [[ $? -eq 2 ]]; then
         log_pass "$cmd --help works"
     else
         log_fail "$cmd --help failed"

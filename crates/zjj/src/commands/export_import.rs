@@ -72,7 +72,8 @@ pub async fn run_export(options: &ExportOptions) -> Result<()> {
 
     let sessions: Vec<ExportedSession> = if let Some(session_name) = &options.session {
         let session = db
-            .get(session_name).await?
+            .get(session_name)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
         vec![ExportedSession {
@@ -86,7 +87,8 @@ pub async fn run_export(options: &ExportOptions) -> Result<()> {
             metadata: session.metadata,
         }]
     } else {
-        db.list(None).await?
+        db.list(None)
+            .await?
             .into_iter()
             .map(|s| ExportedSession {
                 name: s.name,
@@ -111,7 +113,7 @@ pub async fn run_export(options: &ExportOptions) -> Result<()> {
     let json_output = serde_json::to_string_pretty(&result)?;
 
     if let Some(output_path) = &options.output {
-        std::fs::write(output_path, &json_output)?;
+        tokio::fs::write(output_path, &json_output).await?;
         if options.format.is_json() {
             let response = serde_json::json!({
                 "success": true,
@@ -168,7 +170,7 @@ pub struct ImportResult {
 
 /// Run the import command
 pub async fn run_import(options: &ImportOptions) -> Result<()> {
-    let content = std::fs::read_to_string(&options.input)?;
+    let content = tokio::fs::read_to_string(&options.input).await?;
     let export_data: ExportResult = serde_json::from_str(&content)?;
 
     let db = get_session_db().await?;
@@ -207,10 +209,13 @@ pub async fn run_import(options: &ImportOptions) -> Result<()> {
         }
 
         // Create the session
-        match db.create(
-            &session.name,
-            session.workspace_path.as_deref().map_or("", |value| value),
-        ).await {
+        match db
+            .create(
+                &session.name,
+                session.workspace_path.as_deref().map_or("", |value| value),
+            )
+            .await
+        {
             Ok(_) => {
                 result.imported += 1;
                 result.imported_sessions.push(session.name.clone());

@@ -107,45 +107,53 @@ pub struct QueueOptions {
 }
 
 /// Get or create the merge queue database
-fn get_queue() -> Result<zjj_core::MergeQueue> {
+async fn get_queue() -> Result<zjj_core::MergeQueue> {
     let queue_db = Path::new(".zjj/queue.db");
-    zjj_core::MergeQueue::open(queue_db).context("Failed to open merge queue database")
+    zjj_core::MergeQueue::open(queue_db)
+        .await
+        .context("Failed to open merge queue database")
 }
 
 /// Run the queue command with options
 pub async fn run_with_options(options: &QueueOptions) -> Result<()> {
-    let queue = get_queue()?;
+    let queue = get_queue().await?;
 
     if let Some(workspace) = &options.add {
-        handle_add(&queue, workspace, options)?;
+        handle_add(&queue, workspace, options).await?;
     } else if options.list {
-        handle_list(&queue, options)?;
+        handle_list(&queue, options).await?;
     } else if options.process {
         handle_process(&queue, options).await?;
     } else if options.next {
-        handle_next(&queue, options)?;
+        handle_next(&queue, options).await?;
     } else if let Some(workspace) = &options.remove {
-        handle_remove(&queue, workspace, options)?;
+        handle_remove(&queue, workspace, options).await?;
     } else if let Some(workspace) = &options.status {
-        handle_status(&queue, workspace, options)?;
+        handle_status(&queue, workspace, options).await?;
     } else if options.stats {
-        handle_stats(&queue, options)?;
+        handle_stats(&queue, options).await?;
     } else {
         // Default to showing list
-        handle_list(&queue, options)?;
+        handle_list(&queue, options).await?;
     }
 
     Ok(())
 }
 
 /// Handle the add command
-fn handle_add(queue: &zjj_core::MergeQueue, workspace: &str, options: &QueueOptions) -> Result<()> {
-    let response = queue.add(
-        workspace,
-        options.bead_id.as_deref(),
-        options.priority,
-        options.agent_id.as_deref(),
-    )?;
+async fn handle_add(
+    queue: &zjj_core::MergeQueue,
+    workspace: &str,
+    options: &QueueOptions,
+) -> Result<()> {
+    let response = queue
+        .add(
+            workspace,
+            options.bead_id.as_deref(),
+            options.priority,
+            options.agent_id.as_deref(),
+        )
+        .await?;
 
     let message = format!(
         "Added workspace '{}' to queue at position {}/{}",
@@ -171,9 +179,9 @@ fn handle_add(queue: &zjj_core::MergeQueue, workspace: &str, options: &QueueOpti
 }
 
 /// Handle the list command
-fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
-    let entries = queue.list(None)?;
-    let stats = queue.stats()?;
+async fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
+    let entries = queue.list(None).await?;
+    let stats = queue.stats().await?;
 
     if options.format.is_json() {
         let entries: Vec<QueueEntryOutput> = entries
@@ -211,7 +219,7 @@ fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
             println!("║ ID ║ Workspace         ║ Status      ║ Priority │ Agent         ║");
             println!("╠════╬═══════════════════╬═════════════╬═══════════════════════════╣");
 
-            for entry in &entries {
+            entries.iter().for_each(|entry| {
                 let status_str = entry.status.as_str();
                 let agent = entry.agent_id.as_deref().unwrap_or("-");
                 println!(
@@ -222,7 +230,7 @@ fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
                     entry.priority,
                     &agent[..agent.len().min(13)]
                 );
-            }
+            });
             println!("╚════╩═══════════════════╩═════════════╩═══════════════════════════╝");
         }
 
@@ -236,8 +244,8 @@ fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
 }
 
 /// Handle the next command
-fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
-    let entry = queue.next()?;
+async fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
+    let entry = queue.next().await?;
 
     if options.format.is_json() {
         let entry_output = entry.map(|e| QueueEntryOutput {
@@ -290,10 +298,10 @@ fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<(
 /// Handle the process command
 async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
     let agent_id = resolve_agent_id(options.agent_id.as_deref());
-    let entry = queue.next_with_lock(&agent_id)?;
+    let entry = queue.next_with_lock(&agent_id).await?;
 
     let Some(entry) = entry else {
-        let lock = queue.get_processing_lock()?;
+        let lock = queue.get_processing_lock().await?;
         let message = if let Some(lock) = lock {
             format!(
                 "Queue is locked by agent '{}' until {}",
@@ -343,61 +351,42 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
 
     let _ = std::env::set_current_dir(&original_dir);
 
-    let exit_code = match done_result {
-        Ok(code) => code,
-        Err(err) => {
-            let _ = queue.mark_failed(&entry.workspace, &err.to_string());
-            let _ = queue.release_processing_lock(&agent_id);
-            return Err(err);
-        }
-    };
-
-    match exit_code {
-        crate::commands::done::types::DoneExitCode::Success => {
-            let marked = queue.mark_completed(&entry.workspace)?;
+    match done_result {
+        Ok(()) => {
+            let marked = queue.mark_completed(&entry.workspace).await?;
             anyhow::ensure!(
                 marked,
                 "Failed to mark queue entry '{}' as completed",
                 entry.workspace
             );
         }
-        crate::commands::done::types::DoneExitCode::MergeConflict => {
-            let marked = queue.mark_failed(&entry.workspace, "merge conflict")?;
-            anyhow::ensure!(
-                marked,
-                "Failed to mark queue entry '{}' as failed",
-                entry.workspace
-            );
-        }
-        crate::commands::done::types::DoneExitCode::NotInWorkspace => {
-            let marked = queue.mark_failed(&entry.workspace, "not in workspace")?;
-            anyhow::ensure!(
-                marked,
-                "Failed to mark queue entry '{}' as failed",
-                entry.workspace
-            );
-        }
-        crate::commands::done::types::DoneExitCode::OtherError => {
-            let marked = queue.mark_failed(&entry.workspace, "done failed")?;
-            anyhow::ensure!(
-                marked,
-                "Failed to mark queue entry '{}' as failed",
-                entry.workspace
-            );
+        Err(err) => {
+            let error_msg = err.to_string();
+            let status_msg = if error_msg.contains("conflict") {
+                "merge conflict"
+            } else if error_msg.contains("not in a workspace") {
+                "not in workspace"
+            } else {
+                "done failed"
+            };
+
+            let _ = queue.mark_failed(&entry.workspace, status_msg).await;
+            let _ = queue.release_processing_lock(&agent_id).await;
+            return Err(err);
         }
     }
 
-    let _ = queue.release_processing_lock(&agent_id);
+    let _ = queue.release_processing_lock(&agent_id).await;
     Ok(())
 }
 
 /// Handle the remove command
-fn handle_remove(
+async fn handle_remove(
     queue: &zjj_core::MergeQueue,
     workspace: &str,
     options: &QueueOptions,
 ) -> Result<()> {
-    let removed = queue.remove(workspace)?;
+    let removed = queue.remove(workspace).await?;
 
     let message = if removed {
         format!("Removed workspace '{workspace}' from queue")
@@ -420,12 +409,12 @@ fn handle_remove(
 }
 
 /// Handle the status command
-fn handle_status(
+async fn handle_status(
     queue: &zjj_core::MergeQueue,
     workspace: &str,
     options: &QueueOptions,
 ) -> Result<()> {
-    let entry = queue.get_by_workspace(workspace)?;
+    let entry = queue.get_by_workspace(workspace).await?;
 
     if options.format.is_json() {
         let (exists, id, status) = entry.as_ref().map_or((false, None, None), |e| {
@@ -476,8 +465,8 @@ fn handle_status(
 }
 
 /// Handle the stats command
-fn handle_stats(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
-    let stats = queue.stats()?;
+async fn handle_stats(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
+    let stats = queue.stats().await?;
 
     if options.format.is_json() {
         let output = QueueStatsOutput {
@@ -516,18 +505,17 @@ fn resolve_agent_id(agent_id: Option<&str>) -> String {
 }
 
 async fn resolve_workspace_path(workspace: &str) -> Result<PathBuf> {
-    let session_db = get_session_db().await.ok();
-    if let Some(db) = session_db {
+    if let Ok(db) = get_session_db().await {
         if let Some(session) = db.get(workspace).await? {
             let path = PathBuf::from(session.workspace_path);
-            if path.exists() {
+            if tokio::fs::try_exists(&path).await.unwrap_or(false) {
                 return Ok(path);
             }
         }
     }
 
     let fallback = PathBuf::from(workspace);
-    if fallback.exists() {
+    if tokio::fs::try_exists(&fallback).await.unwrap_or(false) {
         Ok(fallback)
     } else {
         Err(anyhow::anyhow!("Workspace '{workspace}' not found"))

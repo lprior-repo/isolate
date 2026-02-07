@@ -518,22 +518,17 @@ pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestN
         .get(1)
         .ok_or_else(|| Error::ValidationError("Pattern parts missing suffix".into()))?;
 
-    // Find all numbers used in matching names
-    let mut used_numbers = Vec::new();
-    let mut matching = Vec::new();
-
-    for name in existing_names {
-        if name.starts_with(prefix) && name.ends_with(suffix) {
-            // Functional: safe substring extraction
+    // Find all numbers used in matching names using functional patterns
+    let (used_numbers, matching): (Vec<usize>, Vec<String>) = existing_names
+        .iter()
+        .filter(|name| name.starts_with(prefix) && name.ends_with(suffix))
+        .filter_map(|name| {
             let num_part = name
                 .get(prefix.len()..name.len().saturating_sub(suffix.len()))
                 .unwrap_or("");
-            if let Ok(n) = num_part.parse::<usize>() {
-                used_numbers.push(n);
-                matching.push(name.clone());
-            }
-        }
-    }
+            num_part.parse::<usize>().ok().map(|n| (n, name.clone()))
+        })
+        .unzip();
 
     // Find next available number
     let next_n = (1..=used_numbers.len() + 2)

@@ -39,14 +39,12 @@ pub fn matches_filter(issue: &BeadIssue, filter: &BeadFilter) -> bool {
                 .labels
                 .as_ref()
                 .is_some_and(|issue_labels| filter.labels.iter().all(|l| issue_labels.contains(l))))
-        && (filter
-            .assignee
-            .as_ref()
-            .map_or(true, |assignee| issue.assignee.as_ref().map_or(false, |a| a == assignee)))
-        && (filter
-            .parent
-            .as_ref()
-            .map_or(true, |parent| issue.parent.as_ref().map_or(false, |p| p == parent)))
+        && (filter.assignee.as_ref().map_or(true, |assignee| {
+            issue.assignee.as_ref().map_or(false, |a| a == assignee)
+        }))
+        && (filter.parent.as_ref().map_or(true, |parent| {
+            issue.parent.as_ref().map_or(false, |p| p == parent)
+        }))
         && (!filter.has_parent || issue.parent.is_some())
         && (!filter.blocked_only || issue.is_blocked())
         && filter.search_text.as_ref().map_or(true, |text| {
@@ -70,7 +68,9 @@ pub fn sort_issues(
         BeadSort::Priority => match direction {
             SortDirection::Asc => issues
                 .iter()
-                .sorted_by_key(|i: &&BeadIssue| (i.priority.map_or(5, |p| p.to_u32()), i.updated_at))
+                .sorted_by_key(|i: &&BeadIssue| {
+                    (i.priority.map_or(5, |p| p.to_u32()), i.updated_at)
+                })
                 .cloned()
                 .collect(),
             SortDirection::Desc => issues

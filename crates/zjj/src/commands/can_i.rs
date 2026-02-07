@@ -73,18 +73,18 @@ pub async fn run(options: &CanIOptions) -> Result<()> {
         if !result.prerequisites.is_empty() {
             println!();
             println!("Prerequisites:");
-            for prereq in &result.prerequisites {
+            result.prerequisites.iter().for_each(|prereq| {
                 let icon = if prereq.passed { "✓" } else { "✗" };
                 println!("  {icon} {}: {}", prereq.check, prereq.description);
-            }
+            });
         }
 
         if !result.fix_commands.is_empty() {
             println!();
             println!("To fix, run:");
-            for cmd in &result.fix_commands {
+            result.fix_commands.iter().for_each(|cmd| {
                 println!("  {cmd}");
-            }
+            });
         }
     }
 
@@ -332,7 +332,11 @@ async fn check_can_sync(resource: Option<&str>) -> CanIResult {
 
     // Check if there are sessions to sync
     let has_sessions = match &db_result {
-        Ok(db) => db.list(None).await.map(|list| !list.is_empty()).unwrap_or(false),
+        Ok(db) => db
+            .list(None)
+            .await
+            .map(|list| !list.is_empty())
+            .unwrap_or(false),
         Err(_) => false,
     };
 
@@ -469,10 +473,10 @@ async fn check_can_claim(resource: Option<&str>) -> CanIResult {
 
     // Check if lock exists
     let lock_free_val = if let Some(res) = resource {
-         match super::zjj_data_dir().await {
-             Ok(d) => {
-                 let locks_dir = d.join("locks");
-                 let safe_name: String = res
+        match super::zjj_data_dir().await {
+            Ok(d) => {
+                let locks_dir = d.join("locks");
+                let safe_name: String = res
                     .chars()
                     .map(|c| {
                         if c.is_alphanumeric() || c == '-' || c == '_' {
@@ -482,11 +486,11 @@ async fn check_can_claim(resource: Option<&str>) -> CanIResult {
                         }
                     })
                     .collect();
-                 let lock_path = locks_dir.join(format!("{safe_name}.lock"));
-                 !lock_path.exists()
-             },
-             Err(_) => true
-         }
+                let lock_path = locks_dir.join(format!("{safe_name}.lock"));
+                !lock_path.exists()
+            }
+            Err(_) => true,
+        }
     } else {
         true
     };

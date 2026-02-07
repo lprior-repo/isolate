@@ -62,7 +62,9 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
     };
 
     // Load config to get workspace_dir setting
-    let cfg = config::load_config().map_err(|e| anyhow::Error::msg(e.to_string()))?;
+    let cfg = config::load_config()
+        .await
+        .map_err(|e| anyhow::Error::msg(e.to_string()))?;
 
     // Construct workspace path from config's workspace_dir
     let workspace_base = root.join(&cfg.workspace_dir);
@@ -75,13 +77,15 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
     // Execute post_create hooks unless --no-hooks
     if !options.no_hooks {
         if let Err(e) = execute_post_create_hooks(&workspace_path_str).await {
-            let _ = db.update(
-                &options.name,
-                SessionUpdate {
-                    status: Some(SessionStatus::Failed),
-                    ..Default::default()
-                },
-            ).await;
+            let _ = db
+                .update(
+                    &options.name,
+                    SessionUpdate {
+                        status: Some(SessionStatus::Failed),
+                        ..Default::default()
+                    },
+                )
+                .await;
             return Err(e).context("post_create hook failed");
         }
     }
@@ -118,7 +122,9 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     };
 
     // Load config to get workspace_dir setting early for dry-run
-    let cfg = config::load_config().map_err(|e| anyhow::Error::msg(e.to_string()))?;
+    let cfg = config::load_config()
+        .await
+        .map_err(|e| anyhow::Error::msg(e.to_string()))?;
     let workspace_base = root.join(&cfg.workspace_dir);
     let workspace_path = workspace_base.join(&options.name);
     let workspace_path_str = workspace_path.display().to_string();
@@ -186,13 +192,15 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
         if let Err(e) = execute_post_create_hooks(&workspace_path_str).await {
             // Hook failure → status 'failed' (REQ-HOOKS-003)
             // Attempt to mark session as failed (may also fail)
-            let _ = db.update(
-                &options.name,
-                SessionUpdate {
-                    status: Some(SessionStatus::Failed),
-                    ..Default::default()
-                },
-            ).await;
+            let _ = db
+                .update(
+                    &options.name,
+                    SessionUpdate {
+                        status: Some(SessionStatus::Failed),
+                        ..Default::default()
+                    },
+                )
+                .await;
             return Err(e).context("post_create hook failed");
         }
     }
@@ -200,13 +208,16 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     // Transition to 'active' status after successful creation (REQ-STATE-004)
     // COMPENSATING ACTION: If this fails, session has 'creating' status in DB
     // Recovery: User can retry with 'zjj done' to complete or 'zjj remove' to clean up
-    match db.update(
-        &options.name,
-        SessionUpdate {
-            status: Some(SessionStatus::Active),
-            ..Default::default()
-        },
-    ).await {
+    match db
+        .update(
+            &options.name,
+            SessionUpdate {
+                status: Some(SessionStatus::Active),
+                ..Default::default()
+            },
+        )
+        .await
+    {
         Ok(()) => {
             session.status = SessionStatus::Active;
         }
@@ -234,7 +245,8 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
             &session.zellij_tab,
             &workspace_path_str,
             options.template.as_deref(),
-        ).await?;
+        )
+        .await?;
         output_result(
             &options.name,
             &workspace_path_str,
@@ -263,7 +275,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
             &workspace_path_str,
             options.template.as_deref(),
         );
-        attach_to_zellij_session(Some(&layout))?;
+        attach_to_zellij_session(Some(&layout)).await?;
         // Note: This never returns - we exec into Zellij
     }
 

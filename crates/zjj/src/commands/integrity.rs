@@ -121,9 +121,13 @@ pub async fn run(options: &IntegrityOptions) -> Result<()> {
 }
 
 /// Validate a workspace
-async fn run_validate(jj_root: &std::path::Path, workspace: &str, format: OutputFormat) -> Result<()> {
+async fn run_validate(
+    jj_root: &std::path::Path,
+    workspace: &str,
+    format: OutputFormat,
+) -> Result<()> {
     let validator = IntegrityValidator::new(jj_root);
-    let result = validator.validate(workspace)?;
+    let result = validator.validate(workspace).await?;
 
     let response = ValidationResponse {
         workspace: workspace.to_string(),
@@ -151,7 +155,7 @@ async fn run_repair(
     format: OutputFormat,
 ) -> Result<()> {
     let validator = IntegrityValidator::new(jj_root);
-    let validation = validator.validate(workspace)?;
+    let validation = validator.validate(workspace).await?;
 
     if validation.is_valid {
         let response = RepairResponse {
@@ -212,7 +216,7 @@ async fn run_repair(
 
     // Perform repair
     let backup_manager = BackupManager::new(jj_root);
-    let executor = RepairExecutor::new(backup_manager);
+    let executor = RepairExecutor::new().with_backup_manager(backup_manager);
 
     // Get the workspace path
     let workspace_path = jj_root.join(workspace);
@@ -223,7 +227,10 @@ async fn run_repair(
         .map(|i| i.recommended_strategy)
         .unwrap_or(RepairStrategy::NoRepairPossible);
 
-    match executor.execute(workspace, &workspace_path, &validation, strategy) {
+    match executor
+        .execute(workspace, &workspace_path, &validation, strategy)
+        .await
+    {
         Ok(repair_result) => {
             let response = RepairResponse {
                 workspace: workspace.to_string(),
@@ -264,31 +271,36 @@ async fn run_repair(
 
 /// List available backups
 async fn run_backup_list(jj_root: &std::path::Path, format: OutputFormat) -> Result<()> {
+    use futures::stream::{self, StreamExt};
     let manager = BackupManager::new(jj_root);
 
-    // Collect all backups from all workspaces
-    let mut all_backups = Vec::new();
-
-    // Get all workspace directories
-    if let Ok(entries) = std::fs::read_dir(jj_root) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                if let Some(workspace_name) = path.file_name() {
-                    if let Some(name_str) = workspace_name.to_str() {
-                        // Skip special directories
-                        if !name_str.starts_with('.') && !name_str.starts_with('_') {
-                            if let Ok(backups) = manager.list_backups(name_str) {
-                                all_backups.extend(backups);
-                            }
-                        }
-                    }
+    // Get all potential workspace directories
+    let mut entries = tokio::fs::read_dir(jj_root).await?;
+    let mut paths = Vec::new();
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        if path.is_dir() {
+            if let Some(name_str) = path.file_name().and_then(|n| n.to_str()) {
+                if !name_str.starts_with('.') && !name_str.starts_with('_') {
+                    paths.push(name_str.to_string());
                 }
             }
         }
     }
 
+    // Collect all backups in parallel
+    let all_backups: Vec<BackupMetadata> = stream::iter(paths)
+        .map(|name| {
+            let manager = &manager;
+            async move { manager.list_backups(&name).unwrap_or_default() }
+        })
+        .buffer_unordered(10)
+        .flat_map(stream::iter)
+        .collect()
+        .await;
+
     // Sort by creation time (newest first)
+    let mut all_backups = all_backups;
     all_backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
     let response = BackupListResponse {
@@ -313,31 +325,38 @@ async fn run_backup_restore(
     force: bool,
     format: OutputFormat,
 ) -> Result<()> {
+    use futures::stream::{self, StreamExt};
     let manager = BackupManager::new(jj_root);
 
     // Find the backup across all workspaces
-    let mut backup_found = None;
-
-    if let Ok(entries) = std::fs::read_dir(jj_root) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                if let Some(workspace_name) = path.file_name() {
-                    if let Some(name_str) = workspace_name.to_str() {
-                        // Skip special directories
-                        if !name_str.starts_with('.') && !name_str.starts_with('_') {
-                            if let Ok(backups) = manager.list_backups(name_str) {
-                                if let Some(backup) = backups.iter().find(|b| b.id == backup_id) {
-                                    backup_found = Some((name_str.to_string(), backup.clone()));
-                                    break;
-                                }
-                            }
-                        }
-                    }
+    let mut entries = tokio::fs::read_dir(jj_root).await?;
+    let mut paths = Vec::new();
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        if path.is_dir() {
+            if let Some(name_str) = path.file_name().and_then(|n| n.to_str()) {
+                if !name_str.starts_with('.') && !name_str.starts_with('_') {
+                    paths.push(name_str.to_string());
                 }
             }
         }
     }
+
+    let backup_found = stream::iter(paths)
+        .filter_map(|name| {
+            let manager = &manager;
+            let backup_id = backup_id.to_string();
+            async move {
+                manager
+                    .list_backups(&name)
+                    .ok()
+                    .and_then(|backups| backups.into_iter().find(|b| b.id == backup_id))
+                    .map(|backup| (name, backup))
+            }
+        })
+        .boxed()
+        .next()
+        .await;
 
     let (workspace_name, backup) =
         backup_found.ok_or_else(|| anyhow::anyhow!("Backup '{backup_id}' not found"))?;

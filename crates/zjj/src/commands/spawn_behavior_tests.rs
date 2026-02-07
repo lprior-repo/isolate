@@ -13,12 +13,11 @@ mod brutal_edge_cases {
     use std::{
         fs,
         path::{Path, PathBuf},
-        time::Duration,
         sync::OnceLock,
     };
 
-    use tokio::sync::Mutex;
     use tempfile::TempDir;
+    use tokio::sync::Mutex;
     use zjj_core::OutputFormat;
 
     use crate::commands::spawn::{execute_spawn, SpawnError, SpawnOptions};
@@ -52,15 +51,16 @@ mod brutal_edge_cases {
 
     impl TestRepo {
         /// Create a new test repository with JJ + beads initialized
-        fn new() -> Result<Self, anyhow::Error> {
+        async fn new() -> Result<Self, anyhow::Error> {
             let temp_dir = TempDir::new()?;
             let root = temp_dir.path().to_path_buf();
 
             // Initialize JJ repo
-            let _ = std::process::Command::new("jj")
+            let _ = tokio::process::Command::new("jj")
                 .args(["git", "init", "--colocate"])
                 .current_dir(&root)
-                .output()?;
+                .output()
+                .await?;
 
             // Create .zjj directory structure
             fs::create_dir_all(root.join(".zjj"))?;
@@ -89,8 +89,8 @@ mod brutal_edge_cases {
     }
 
     /// Test fixture helper that creates a test repository.
-    fn setup_test_repo() -> TestRepo {
-        match TestRepo::new() {
+    async fn setup_test_repo() -> TestRepo {
+        match TestRepo::new().await {
             Ok(repo) => repo,
             Err(e) => {
                 eprintln!("Test repo initialization failed: {e}");
@@ -112,7 +112,7 @@ mod brutal_edge_cases {
     async fn given_nonexistent_bead_when_spawn_then_clear_error() {
         let _lock = get_cwd_lock().await;
         // Given: A bead ID that doesn't exist
-        let repo = setup_test_repo();
+        let repo = setup_test_repo().await;
         let original_dir = get_current_dir();
         std::env::set_current_dir(repo.path()).ok();
 
@@ -141,7 +141,7 @@ mod brutal_edge_cases {
     async fn given_bead_already_in_progress_when_spawn_then_rejected() {
         let _lock = get_cwd_lock().await;
         // Given: A bead that's already in_progress
-        let Ok(repo) = TestRepo::new() else {
+        let Ok(repo) = TestRepo::new().await else {
             return;
         };
         let original_dir = get_current_dir();
@@ -181,7 +181,7 @@ mod brutal_edge_cases {
     async fn given_bead_is_closed_when_spawn_then_rejected() {
         let _lock = get_cwd_lock().await;
         // Given: A bead that's already closed/completed
-        let Ok(repo) = TestRepo::new() else {
+        let Ok(repo) = TestRepo::new().await else {
             return;
         };
         let original_dir = get_current_dir();
@@ -224,7 +224,7 @@ mod brutal_edge_cases {
     async fn given_agent_command_not_found_when_spawn_then_clear_error() {
         let _lock = get_cwd_lock().await;
         // Given: An agent command that doesn't exist
-        let repo = setup_test_repo();
+        let repo = setup_test_repo().await;
         let original_dir = get_current_dir();
         std::env::set_current_dir(repo.path()).ok();
 
@@ -257,7 +257,7 @@ mod brutal_edge_cases {
     async fn given_agent_exits_nonzero_when_spawn_then_handled_gracefully() {
         let _lock = get_cwd_lock().await;
         // Given: An agent that exits with code 1
-        let repo = setup_test_repo();
+        let repo = setup_test_repo().await;
         let original_dir = get_current_dir();
         std::env::set_current_dir(repo.path()).ok();
 
@@ -301,22 +301,29 @@ mod brutal_edge_cases {
     async fn given_agent_hangs_when_spawn_then_timeout_works() {
         let _lock = get_cwd_lock().await;
         // Given: An agent that hangs forever
-        let Ok(repo) = TestRepo::new() else {
+        let Ok(repo) = TestRepo::new().await else {
             return;
         };
         let original_dir = get_current_dir();
         std::env::set_current_dir(repo.path()).ok();
 
-        let options = test_spawn_options("test-bead-1", "sleep", vec!["3600".to_string()]);
+        // Set a very short timeout for the test
+        let mut options = test_spawn_options("test-bead-1", "sleep", vec!["3600".to_string()]);
+        options.timeout_secs = 1;
 
-        // Spawn with timeout using tokio::time::timeout
-        let result = tokio::time::timeout(Duration::from_secs(2), execute_spawn(&options)).await;
+        // When: User spawns with short timeout
+        let result = execute_spawn(&options).await;
 
         // Cleanup
         let _ = std::env::set_current_dir(original_dir).ok();
 
-        // Then: Should timeout
-        assert!(result.is_err(), "Should timeout");
+        // Then: Should return Timeout error
+        assert!(result.is_err(), "Should return error");
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, SpawnError::Timeout { .. }),
+            "Expected Timeout error, got: {err:?}"
+        );
     }
 
     // ========================================================================
@@ -327,7 +334,7 @@ mod brutal_edge_cases {
     async fn given_workspace_already_exists_when_spawn_then_handled() {
         let _lock = get_cwd_lock().await;
         // Given: A workspace directory that already exists
-        let Ok(repo) = TestRepo::new() else {
+        let Ok(repo) = TestRepo::new().await else {
             return;
         };
         let original_dir = get_current_dir();
@@ -372,7 +379,7 @@ mod brutal_edge_cases {
     async fn given_jj_workspace_exists_but_no_db_when_spawn_then_reconciles() {
         let _lock = get_cwd_lock().await;
         // Given: JJ workspace exists but session DB doesn't know about it
-        let Ok(repo) = TestRepo::new() else {
+        let Ok(repo) = TestRepo::new().await else {
             return;
         };
         let original_dir = get_current_dir();
@@ -382,11 +389,12 @@ mod brutal_edge_cases {
         let workspace_path = repo.path().join(".zjj/workspaces/test-bead-1");
         let _ = fs::create_dir_all(&workspace_path);
 
-        let _result = std::process::Command::new("jj")
+        let _result = tokio::process::Command::new("jj")
             .args(["workspace", "add", "--name", "test-bead-1"])
             .arg(&workspace_path)
             .current_dir(repo.path())
             .output()
+            .await
             .ok(); // Ignore errors in test setup
 
         let options = test_spawn_options("test-bead-1", "echo", vec!["test".to_string()]);
@@ -422,7 +430,7 @@ mod brutal_edge_cases {
     #[tokio::test]
     async fn given_sigterm_during_spawn_when_interrupted_then_rolls_back() {
         // Given: A long-running spawn operation
-        let Ok(_repo) = TestRepo::new() else {
+        let Ok(_repo) = TestRepo::new().await else {
             return;
         };
 
@@ -455,10 +463,12 @@ mod brutal_edge_cases {
     #[tokio::test]
     async fn given_two_spawns_same_bead_when_racing_then_one_succeeds() {
         let _lock = get_cwd_lock().await;
-        use std::sync::{Arc, Barrier};
+        use std::sync::Arc;
 
-        // Given: Two threads spawning same bead simultaneously
-        let Ok(repo_val) = TestRepo::new() else {
+        use tokio::sync::Barrier;
+
+        // Given: Two tasks spawning same bead simultaneously
+        let Ok(repo_val) = TestRepo::new().await else {
             return;
         };
         let repo = Arc::new(repo_val);
@@ -468,12 +478,12 @@ mod brutal_edge_cases {
         let barrier1 = Arc::clone(&barrier);
         let handle1 = tokio::spawn(async move {
             let _ = std::env::set_current_dir(repo1.path());
-            barrier1.wait(); // Synchronize start
+            barrier1.wait().await; // Synchronize start
 
             let options = SpawnOptions {
                 bead_id: "test-bead-1".to_string(),
                 agent_command: "echo".to_string(),
-                agent_args: vec!["test".to_string()],
+                agent_args: vec!["test1".to_string()],
                 background: false,
                 no_auto_merge: true,
                 no_auto_cleanup: true,
@@ -487,12 +497,12 @@ mod brutal_edge_cases {
         let barrier2 = Arc::clone(&barrier);
         let handle2 = tokio::spawn(async move {
             let _ = std::env::set_current_dir(repo2.path());
-            barrier2.wait(); // Synchronize start
+            barrier2.wait().await; // Synchronize start
 
             let options = SpawnOptions {
                 bead_id: "test-bead-1".to_string(),
                 agent_command: "echo".to_string(),
-                agent_args: vec!["test".to_string()],
+                agent_args: vec!["test2".to_string()],
                 background: false,
                 no_auto_merge: true,
                 no_auto_cleanup: true,
@@ -502,15 +512,15 @@ mod brutal_edge_cases {
             execute_spawn(&options).await
         });
 
-        // When: Both threads spawn simultaneously
+        // When: Both tasks spawn simultaneously
         let result1 = handle1.await.unwrap_or_else(|_| {
             Err(SpawnError::WorkspaceCreationFailed {
-                reason: "Thread 1 panicked".to_string(),
+                reason: "Task 1 panicked".to_string(),
             })
         });
         let result2 = handle2.await.unwrap_or_else(|_| {
             Err(SpawnError::WorkspaceCreationFailed {
-                reason: "Thread 2 panicked".to_string(),
+                reason: "Task 2 panicked".to_string(),
             })
         });
 
@@ -520,8 +530,16 @@ mod brutal_edge_cases {
         let mut success_count = 0;
         let mut failure_count = 0;
 
-        if result1.is_ok() { success_count += 1; } else { failure_count += 1; }
-        if result2.is_ok() { success_count += 1; } else { failure_count += 1; }
+        if result1.is_ok() {
+            success_count += 1;
+        } else {
+            failure_count += 1;
+        }
+        if result2.is_ok() {
+            success_count += 1;
+        } else {
+            failure_count += 1;
+        }
 
         assert!(
             success_count <= 1,
@@ -538,7 +556,7 @@ mod brutal_edge_cases {
             Ok(_) => match result2 {
                 Err(e) => e.to_string(),
                 Ok(_) => String::new(),
-            }
+            },
         };
 
         assert!(
@@ -557,7 +575,7 @@ mod brutal_edge_cases {
     async fn given_spawn_when_agent_runs_then_env_vars_set() {
         let _lock = get_cwd_lock().await;
         // Given: A spawn operation
-        let repo = setup_test_repo();
+        let repo = setup_test_repo().await;
         let original_dir = get_current_dir();
         std::env::set_current_dir(repo.path()).ok();
 
@@ -593,7 +611,7 @@ exit 0
             }
         }
 
-        let options = test_spawn_options("test-bead-1", "./check_env.sh", vec![]);
+        let options = test_spawn_options("test-bead-1", script_path.to_str().unwrap(), vec![]);
 
         // When: Agent runs
         let result = execute_spawn(&options).await;

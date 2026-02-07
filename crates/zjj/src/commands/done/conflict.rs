@@ -228,13 +228,17 @@ pub trait ConflictDetector: Send + Sync {
     /// 2. Finds the merge base
     /// 3. Analyzes file overlap between workspace and trunk
     /// 4. Returns a comprehensive result
-    fn detect_conflicts(&self) -> impl std::future::Future<Output = Result<ConflictDetectionResult, ConflictError>> + Send;
+    fn detect_conflicts(
+        &self,
+    ) -> impl std::future::Future<Output = Result<ConflictDetectionResult, ConflictError>> + Send;
 
     /// Quick check for existing JJ conflicts only
     ///
     /// This is faster than full detection when you only need to know
     /// if the workspace has existing unresolved conflicts.
-    fn has_existing_conflicts(&self) -> impl std::future::Future<Output = Result<bool, ConflictError>> + Send;
+    fn has_existing_conflicts(
+        &self,
+    ) -> impl std::future::Future<Output = Result<bool, ConflictError>> + Send;
 }
 
 // ============================================================================
@@ -339,7 +343,10 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
     }
 
     /// Get files modified in trunk since the merge base
-    async fn get_trunk_modified_files(&self, merge_base: &str) -> Result<HashSet<String>, ConflictError> {
+    async fn get_trunk_modified_files(
+        &self,
+        merge_base: &str,
+    ) -> Result<HashSet<String>, ConflictError> {
         let output = self
             .executor
             .run(&["diff", "--from", merge_base, "--to", "trunk()", "--summary"])

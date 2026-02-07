@@ -1,12 +1,10 @@
 //! Show diff between session and main branch
 
-use std::path::Path;
-use std::process::Stdio;
+use std::{path::Path, process::Stdio};
 
 use anyhow::Result;
 use serde::Serialize;
-use tokio::io::AsyncWriteExt;
-use tokio::process::Command;
+use tokio::{io::AsyncWriteExt, process::Command};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::commands::{determine_main_branch, get_session_db};
@@ -95,11 +93,8 @@ async fn handle_diff_output(stdout: &str, name: &str, stat: bool, format: Output
     } else {
         match get_pager() {
             Some(pager) => {
-                let mut child = Command::new(&pager)
-                    .stdin(Stdio::piped())
-                    .spawn()
-                    .ok();
-                
+                let mut child = Command::new(&pager).stdin(Stdio::piped()).spawn().ok();
+
                 if let Some(mut child) = child.take() {
                     if let Some(mut stdin) = child.stdin.take() {
                         let _ = stdin.write_all(stdout.as_bytes()).await;
@@ -122,12 +117,12 @@ pub async fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
     })?;
 
     let workspace_path = Path::new(&session.workspace_path);
-    workspace_path.exists().then_some(()).ok_or_else(|| {
-        anyhow::Error::new(zjj_core::Error::NotFound(format!(
+    if !tokio::fs::try_exists(workspace_path).await.unwrap_or(false) {
+        return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
             "Workspace not found: {}. The session may be stale.",
             session.workspace_path
-        )))
-    })?;
+        ))));
+    }
 
     let main_branch = determine_main_branch(workspace_path).await;
     let args = build_diff_args(stat, &main_branch);
@@ -155,45 +150,43 @@ pub async fn run(name: &str, stat: bool, format: OutputFormat) -> Result<()> {
 
 /// Parse stat output to extract statistics
 fn parse_stat_output(stat_output: &str) -> DiffStats {
-    let mut files_changed = 0;
-    let mut insertions = 0;
-    let mut deletions = 0;
-
-    for line in stat_output.lines() {
-        // Count file change lines (e.g., " file.txt | 5 ++-")
-        if line.contains('|') {
-            files_changed += 1;
-        }
-        // Parse summary line (e.g., "1 file changed, 3 insertions(+), 1 deletion(-)")
-        if line.contains("changed") {
-            // Split by comma and parse each segment
-            for segment in line.split(',') {
-                let segment = segment.trim();
-                // Look for insertion(s)
-                if segment.contains("insertion") {
-                    if let Some(num_str) = segment.split_whitespace().next() {
-                        if let Ok(n) = num_str.parse::<usize>() {
-                            insertions = n;
-                        }
-                    }
-                }
-                // Look for deletion(s)
-                if segment.contains("deletion") {
-                    if let Some(num_str) = segment.split_whitespace().next() {
-                        if let Ok(n) = num_str.parse::<usize>() {
-                            deletions = n;
-                        }
-                    }
-                }
+    stat_output.lines().fold(
+        DiffStats {
+            files_changed: 0,
+            insertions: 0,
+            deletions: 0,
+        },
+        |mut acc, line| {
+            // Count file change lines (e.g., " file.txt | 5 ++-")
+            if line.contains('|') {
+                acc.files_changed += 1;
             }
-        }
-    }
-
-    DiffStats {
-        files_changed,
-        insertions,
-        deletions,
-    }
+            // Parse summary line (e.g., "1 file changed, 3 insertions(+), 1 deletion(-)")
+            if line.contains("changed") {
+                // Split by comma and parse each segment
+                line.split(',').for_each(|segment| {
+                    let segment = segment.trim();
+                    // Look for insertion(s)
+                    if segment.contains("insertion") {
+                        if let Some(num_str) = segment.split_whitespace().next() {
+                            if let Ok(n) = num_str.parse::<usize>() {
+                                acc.insertions = n;
+                            }
+                        }
+                    }
+                    // Look for deletion(s)
+                    if segment.contains("deletion") {
+                        if let Some(num_str) = segment.split_whitespace().next() {
+                            if let Ok(n) = num_str.parse::<usize>() {
+                                acc.deletions = n;
+                            }
+                        }
+                    }
+                });
+            }
+            acc
+        },
+    )
 }
 
 /// Get the pager command from environment or defaults

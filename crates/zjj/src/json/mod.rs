@@ -10,7 +10,7 @@ pub mod error;
 pub mod serializers;
 
 // Re-export commonly used types for convenience
-pub use error::{output_json_error_and_exit, SyncError};
+pub use error::{output_json_error, SyncError};
 pub use serializers::{
     AddOutput, FocusOutput, RemoveOutput, SyncOutput, TemplateCreateOutput, TemplateDeleteOutput,
     TemplateInfo, TemplateListOutput, TemplateShowOutput,

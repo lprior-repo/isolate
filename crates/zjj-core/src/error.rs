@@ -265,6 +265,7 @@ pub enum Error {
         session: String,
         agent_id: String,
     },
+    OperationCancelled(String),
     Unknown(String),
 }
 
@@ -319,6 +320,7 @@ impl fmt::Display for Error {
                     "Agent '{agent_id}' does not hold the lock for session '{session}'"
                 )
             }
+            Self::OperationCancelled(msg) => write!(f, "Operation cancelled: {msg}"),
             Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
         }
     }
@@ -375,6 +377,7 @@ impl Error {
             Self::JjCommandError { .. } => "JJ_COMMAND_ERROR",
             Self::SessionLocked { .. } => "SESSION_LOCKED",
             Self::NotLockHolder { .. } => "NOT_LOCK_HOLDER",
+            Self::OperationCancelled(_) => "OPERATION_CANCELLED",
             Self::Unknown(_) => "UNKNOWN",
         }
     }
@@ -444,6 +447,9 @@ impl Error {
                 "session": session,
                 "agent_id": agent_id
             })),
+            Self::OperationCancelled(reason) => Some(serde_json::json!({
+                "reason": reason
+            })),
             Self::ParseError(_) | Self::Unknown(_) => None,
         }
     }
@@ -480,6 +486,7 @@ Self::JjCommandError {
              | Self::JjCommandError { .. }
              | Self::SessionLocked { .. }
              | Self::NotLockHolder { .. }
+             | Self::OperationCancelled(_)
              | Self::Unknown(_) => None,
          }
     }
@@ -508,6 +515,8 @@ Self::JjCommandError {
             | Self::Unknown(_) => 4,
             // Lock contention errors: exit code 5
             Self::SessionLocked { .. } | Self::NotLockHolder { .. } => 5,
+            // Operation cancelled: exit code 130 (SIGINT)
+            Self::OperationCancelled(_) => 130,
         }
     }
 
@@ -565,6 +574,7 @@ Self::JjCommandError {
             | Self::HookFailed { .. }
             | Self::HookExecutionFailed { .. }
             | Self::JjCommandError { .. }
+            | Self::OperationCancelled(_)
             | Self::Unknown(_) => vec![],
         }
     }

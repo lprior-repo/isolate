@@ -19,6 +19,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::{Duration, Utc};
+use futures::StreamExt;
 use tokio::process::Command;
 use zjj_core::{
     config::load_config,
@@ -52,7 +53,7 @@ struct DoctorSummary {
 async fn check_for_recent_recovery() -> Option<String> {
     let log_path = Path::new(".zjj/recovery.log");
 
-    if !log_path.exists() {
+    if !tokio::fs::try_exists(log_path).await.unwrap_or(false) {
         return None;
     }
 
@@ -116,7 +117,7 @@ async fn run_all_checks() -> Vec<DoctorCheck> {
 
 /// Check workspace integrity using the integrity validator
 async fn check_workspace_integrity() -> DoctorCheck {
-    let config = match load_config() {
+    let config = match load_config().await {
         Ok(cfg) => cfg,
         Err(e) => {
             return DoctorCheck {
@@ -171,7 +172,7 @@ async fn check_workspace_integrity() -> DoctorCheck {
     let validator = IntegrityValidator::new(workspace_dir);
     let names: Vec<String> = sessions.iter().map(|s| s.name.clone()).collect();
 
-    let results = match validator.validate_all(&names) {
+    let results = match validator.validate_all(&names).await {
         Ok(values) => values,
         Err(e) => {
             return DoctorCheck {
@@ -388,7 +389,8 @@ async fn check_initialized() -> DoctorCheck {
     // Check for .zjj directory existence directly, without depending on JJ installation
     let zjj_dir = std::path::Path::new(".zjj");
     let config_file = zjj_dir.join("config.toml");
-    let initialized = zjj_dir.exists() && config_file.exists();
+    let initialized = tokio::fs::try_exists(zjj_dir).await.unwrap_or(false)
+        && tokio::fs::try_exists(&config_file).await.unwrap_or(false);
 
     DoctorCheck {
         name: "zjj Initialized".to_string(),
@@ -434,7 +436,7 @@ async fn check_state_db() -> DoctorCheck {
     // Check file existence, readability, and basic validity without opening DB
     let db_path = std::path::Path::new(".zjj/state.db");
 
-    if !db_path.exists() {
+    if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
         return DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
@@ -460,7 +462,7 @@ async fn check_state_db() -> DoctorCheck {
         }
     };
 
-    if let Err(e) = std::fs::File::open(db_path) {
+    if let Err(e) = tokio::fs::File::open(db_path).await {
         return DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Fail,
@@ -546,7 +548,7 @@ async fn check_orphaned_workspaces() -> DoctorCheck {
                 }
                 _ => vec![],
             }
-        },
+        }
     };
 
     // Build a set of session names for quick lookup
@@ -564,16 +566,25 @@ async fn check_orphaned_workspaces() -> DoctorCheck {
     // A session is orphaned if:
     // 1. No workspace with matching name exists in JJ, OR
     // 2. Workspace exists in JJ but the directory is missing
-    let db_orphans: Vec<_> = db_sessions
-        .into_iter()
-        .filter(|session| {
-            let has_workspace = jj_workspaces.iter().any(|ws| ws == session.name.as_str());
-            let directory_exists = std::path::Path::new(&session.workspace_path).exists();
+    let db_orphans: Vec<_> = futures::stream::iter(db_sessions)
+        .then(|session| {
+            let jj_workspaces = &jj_workspaces;
+            async move {
+                let has_workspace = jj_workspaces.iter().any(|ws| ws == session.name.as_str());
+                let directory_exists = tokio::fs::try_exists(&session.workspace_path)
+                    .await
+                    .unwrap_or(false);
 
-            !has_workspace || !directory_exists
+                if !has_workspace || !directory_exists {
+                    Some(session.name)
+                } else {
+                    None
+                }
+            }
         })
-        .map(|session| session.name)
-        .collect();
+        .filter_map(|opt| async move { opt })
+        .collect()
+        .await;
 
     // Merge both types of orphans
     let total_orphans = filesystem_orphans.len() + db_orphans.len();
@@ -638,7 +649,10 @@ async fn check_beads() -> DoctorCheck {
     }
 
     // Count open issues
-    let output = Command::new("br").args(["list", "--status=open"]).output().await;
+    let output = Command::new("br")
+        .args(["list", "--status=open"])
+        .output()
+        .await;
 
     match output {
         Ok(out) if out.status.success() => {
@@ -855,7 +869,7 @@ async fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Res
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!();
 
-    for check in checks {
+    checks.iter().for_each(|check| {
         let symbol = match check.status {
             CheckStatus::Pass => "✓",
             CheckStatus::Warn => "⚠",
@@ -867,7 +881,7 @@ async fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Res
         if let Some(ref suggestion) = check.suggestion {
             println!("  → {suggestion}");
         }
-    }
+    });
 
     println!();
     println!("Health: {passed} passed, {warnings} warning(s), {errors} error(s)");
@@ -896,46 +910,51 @@ async fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Res
 /// - 0: All critical issues were fixed or none existed
 /// - 1: Critical issues remain unfixed
 async fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
-    let mut fixed = vec![];
-    let mut unable_to_fix = vec![];
+    let (fixed, unable_to_fix) = futures::stream::iter(checks)
+        .fold(
+            (vec![], vec![]),
+            |(mut fixed, mut unable_to_fix), check| async move {
+                if !check.auto_fixable {
+                    if check.status != CheckStatus::Pass {
+                        unable_to_fix.push(UnfixableIssue {
+                            issue: check.name.clone(),
+                            reason: "Requires manual intervention".to_string(),
+                            suggestion: check.suggestion.clone().unwrap_or_default(),
+                        });
+                    }
+                    return (fixed, unable_to_fix);
+                }
 
-    for check in checks {
-        if !check.auto_fixable {
-            if check.status != CheckStatus::Pass {
-                unable_to_fix.push(UnfixableIssue {
-                    issue: check.name.clone(),
-                    reason: "Requires manual intervention".to_string(),
-                    suggestion: check.suggestion.clone().unwrap_or_default(),
-                });
-            }
-            continue;
-        }
+                // Try to fix the issue
+                let fix_result = match check.name.as_str() {
+                    "Orphaned Workspaces" => fix_orphaned_workspaces(check)
+                        .await
+                        .map_err(|e| e.to_string()),
+                    "Stale Sessions" => fix_stale_sessions(check).await,
+                    "State Database" => fix_state_database(check).await,
+                    _ => Err("No auto-fix available".to_string()),
+                };
 
-        // Try to fix the issue
-        let fix_result = match check.name.as_str() {
-            "Orphaned Workspaces" => fix_orphaned_workspaces(check).await.map_err(|e| e.to_string()),
-            "Stale Sessions" => fix_stale_sessions(check).await,
-            "State Database" => fix_state_database(check).await,
-            _ => Err("No auto-fix available".to_string()),
-        };
-
-        match fix_result {
-            Ok(action) => {
-                fixed.push(FixResult {
-                    issue: check.name.clone(),
-                    action,
-                    success: true,
-                });
-            }
-            Err(reason) => {
-                unable_to_fix.push(UnfixableIssue {
-                    issue: check.name.clone(),
-                    reason: format!("Fix failed: {reason}"),
-                    suggestion: check.suggestion.clone().unwrap_or_default(),
-                });
-            }
-        }
-    }
+                match fix_result {
+                    Ok(action) => {
+                        fixed.push(FixResult {
+                            issue: check.name.clone(),
+                            action,
+                            success: true,
+                        });
+                    }
+                    Err(reason) => {
+                        unable_to_fix.push(UnfixableIssue {
+                            issue: check.name.clone(),
+                            reason: format!("Fix failed: {reason}"),
+                            suggestion: check.suggestion.clone().unwrap_or_default(),
+                        });
+                    }
+                }
+                (fixed, unable_to_fix)
+            },
+        )
+        .await;
 
     let output = DoctorFixOutput {
         fixed,
@@ -978,20 +997,27 @@ async fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
         .as_array()
         .ok_or_else(|| "Stale sessions data is not an array".to_string())?;
 
-    let db = get_session_db().await.map_err(|e| format!("Failed to open DB: {e}"))?;
-    let mut removed = 0;
+    let db = get_session_db()
+        .await
+        .map_err(|e| format!("Failed to open DB: {e}"))?;
 
-    for session_value in sessions {
-        if let Some(session_name) = session_value.as_str() {
-            match db.delete(session_name).await {
-                Ok(true) => removed += 1,
-                Ok(false) => {}
-                Err(e) => {
-                    tracing::warn!("Failed to delete stale session '{session_name}': {e}");
+    let removed = futures::stream::iter(sessions)
+        .fold(0, |mut acc, session_value| {
+            let db = &db;
+            async move {
+                if let Some(session_name) = session_value.as_str() {
+                    match db.delete(session_name).await {
+                        Ok(true) => acc += 1,
+                        Ok(false) => {}
+                        Err(e) => {
+                            tracing::warn!("Failed to delete stale session '{session_name}': {e}");
+                        }
+                    }
                 }
+                acc
             }
-        }
-    }
+        })
+        .await;
 
     if removed > 0 {
         Ok(format!("Removed {removed} stale session(s)"))
@@ -1002,13 +1028,15 @@ async fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
 
 async fn fix_state_database(_check: &DoctorCheck) -> Result<String, String> {
     let db_path = std::path::Path::new(".zjj/state.db");
-    if !db_path.exists() {
+    if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
         return Err("Database file does not exist".to_string());
     }
 
     // Attempt to delete the corrupted database
     match tokio::fs::remove_file(db_path).await {
-        Ok(()) => Ok("Deleted corrupted database file. It will be recreated on next run.".to_string()),
+        Ok(()) => {
+            Ok("Deleted corrupted database file. It will be recreated on next run.".to_string())
+        }
         Err(e) => Err(format!("Failed to delete corrupted database: {e}")),
     }
 }
@@ -1051,45 +1079,61 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
         .ok_or_else(|| anyhow::anyhow!("No orphaned workspaces data"))?;
 
     let root = jj_root().await?;
-    let mut filesystem_removed = 0;
-    let mut db_removed = 0;
 
     // Fix filesystem → DB orphans (workspaces without sessions)
-    if let Some(filesystem_orphans) = orphaned_data
+    let filesystem_removed = if let Some(filesystem_orphans) = orphaned_data
         .get("filesystem_to_db")
         .and_then(|v| v.as_array())
     {
-        for workspace in filesystem_orphans {
-            if let Some(name) = workspace.as_str() {
-                let result = Command::new("jj")
-                    .args(["workspace", "forget", name])
-                    .current_dir(&root)
-                    .output()
-                    .await
-                    .ok();
+        futures::stream::iter(filesystem_orphans)
+            .fold(0, |mut acc, workspace| {
+                let root = &root;
+                async move {
+                    if let Some(name) = workspace.as_str() {
+                        let result = Command::new("jj")
+                            .args(["workspace", "forget", name])
+                            .current_dir(root)
+                            .output()
+                            .await
+                            .ok();
 
-                if result.map(|r| r.status.success()).unwrap_or(false) {
-                    filesystem_removed += 1;
+                        if result.is_some_and(|r| r.status.success()) {
+                            acc += 1;
+                        }
+                    }
+                    acc
                 }
-            }
-        }
-    }
+            })
+            .await
+    } else {
+        0
+    };
 
     // Fix DB → filesystem orphans (sessions without workspaces)
-    if let Some(db_orphans) = orphaned_data
+    let db_removed = if let Some(db_orphans) = orphaned_data
         .get("db_to_filesystem")
         .and_then(|v| v.as_array())
     {
         if let Ok(db) = get_session_db().await {
-            for session_name in db_orphans {
-                if let Some(name) = session_name.as_str() {
-                    if db.delete(name).await.unwrap_or(false) {
-                        db_removed += 1;
+            futures::stream::iter(db_orphans)
+                .fold(0, |mut acc, session_name| {
+                    let db = &db;
+                    async move {
+                        if let Some(name) = session_name.as_str() {
+                            if db.delete(name).await.unwrap_or(false) {
+                                acc += 1;
+                            }
+                        }
+                        acc
                     }
-                }
-            }
+                })
+                .await
+        } else {
+            0
         }
-    }
+    } else {
+        0
+    };
 
     let mut parts = Vec::new();
     if filesystem_removed > 0 {
@@ -1144,7 +1188,7 @@ mod tests {
         assert!(result.message.contains("not initialized"));
 
         // Test 2: .zjj directory exists but no config.toml - should fail
-        if fs::create_dir(".zjj").is_err() {
+        if tokio::fs::create_dir(".zjj").await.is_err() {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
@@ -1152,7 +1196,10 @@ mod tests {
         assert_eq!(result.status, CheckStatus::Fail);
 
         // Test 3: .zjj directory with config.toml - should pass
-        if fs::write(".zjj/config.toml", "workspace_dir = \"test\"").is_err() {
+        if tokio::fs::write(".zjj/config.toml", "workspace_dir = \"test\"")
+            .await
+            .is_err()
+        {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
@@ -1184,11 +1231,14 @@ mod tests {
         }
 
         // Create .zjj structure WITHOUT initializing a JJ repo
-        if fs::create_dir(".zjj").is_err() {
+        if tokio::fs::create_dir(".zjj").await.is_err() {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
-        if fs::write(".zjj/config.toml", "workspace_dir = \"test\"").is_err() {
+        if tokio::fs::write(".zjj/config.toml", "workspace_dir = \"test\"")
+            .await
+            .is_err()
+        {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
@@ -1220,8 +1270,8 @@ mod tests {
     // These tests FAIL initially - they verify envelope structure and format
     // Implementation in Phase 4 (GREEN) will make them pass
 
-    #[test]
-    fn test_doctor_json_has_envelope() -> Result<()> {
+    #[tokio::test]
+    async fn test_doctor_json_has_envelope() -> Result<()> {
         // Verify envelope wrapping for doctor command output
         use zjj_core::json::SchemaEnvelope;
 
@@ -1251,8 +1301,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_doctor_checks_wrapped() -> Result<()> {
+    #[tokio::test]
+    async fn test_doctor_checks_wrapped() -> Result<()> {
         // Verify health check results are wrapped in envelope
         use zjj_core::json::SchemaEnvelope;
 
@@ -1284,8 +1334,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_doctor_summary_structure() -> Result<()> {
+    #[tokio::test]
+    async fn test_doctor_summary_structure() -> Result<()> {
         // Verify summary structure matches documented schema
         use zjj_core::json::SchemaEnvelope;
 

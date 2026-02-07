@@ -14,23 +14,23 @@ mod types;
 
 // Re-export public API
 pub use analysis::{
-    all_match, any_match, calculate_critical_path, count_by_status, extract_labels,
-    find_blocked, find_blockers, find_potential_duplicates, find_ready, find_stale,
-    get_dependency_graph, get_issue, get_issues_by_id, group_by_status, group_by_type,
-    summarize, to_ids, to_titles,
+    all_match, any_match, calculate_critical_path, count_by_status, extract_labels, find_blocked,
+    find_blockers, find_potential_duplicates, find_ready, find_stale, get_dependency_graph,
+    get_issue, get_issues_by_id, group_by_status, group_by_type, summarize, to_ids, to_titles,
 };
 pub use db::query_beads;
 pub use query::{apply_query, filter_issues, paginate, sort_issues};
 pub use types::{
-    BeadFilter, BeadIssue, BeadQuery, BeadSort, BeadsError, BeadsSummary, IssueStatus,
-    IssueType, Priority, SortDirection,
+    BeadFilter, BeadIssue, BeadQuery, BeadSort, BeadsError, BeadsSummary, IssueStatus, IssueType,
+    Priority, SortDirection,
 };
 
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects, clippy::redundant_clone)]
 mod tests {
-    use super::*;
     use chrono::Utc;
+
+    use super::*;
 
     #[test]
     fn test_bead_issue_is_blocked() {

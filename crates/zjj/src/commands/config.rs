@@ -29,7 +29,9 @@ pub struct ConfigOptions {
 /// - Invalid arguments provided
 pub async fn run(options: ConfigOptions) -> Result<()> {
     // Preserve error type for proper exit code mapping
-    let config = zjj_core::config::load_config().map_err(anyhow::Error::new)?;
+    let config = zjj_core::config::load_config()
+        .await
+        .map_err(anyhow::Error::new)?;
 
     match (options.key, options.value) {
         // No key, no value: Show all config
@@ -49,7 +51,7 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
             } else {
                 project_config_path()?
             };
-            set_config_value(&config_path, &key, &value)?;
+            set_config_value(&config_path, &key, &value).await?;
 
             if options.format.is_json() {
                 println!(
@@ -183,20 +185,22 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Set a config value in the specified config file
-fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<()> {
+async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<()> {
     // Load existing config or create new
-    let mut doc = if config_path.exists() {
-        let content = std::fs::read_to_string(config_path).context(format!(
-            "Failed to read config file {}",
-            config_path.display()
-        ))?;
+    let mut doc = if tokio::fs::try_exists(config_path).await.unwrap_or(false) {
+        let content = tokio::fs::read_to_string(config_path)
+            .await
+            .context(format!(
+                "Failed to read config file {}",
+                config_path.display()
+            ))?;
         content
             .parse::<toml_edit::DocumentMut>()
             .context("Failed to parse config file as TOML")?
     } else {
         // Create parent directory if needed
         if let Some(parent) = config_path.parent() {
-            std::fs::create_dir_all(parent).context(format!(
+            tokio::fs::create_dir_all(parent).await.context(format!(
                 "Failed to create config directory {}",
                 parent.display()
             ))?;
@@ -209,10 +213,12 @@ fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<()> {
     set_nested_value(&mut doc, &parts, value)?;
 
     // Write back to file
-    std::fs::write(config_path, doc.to_string()).context(format!(
-        "Failed to write config file {}",
-        config_path.display()
-    ))?;
+    tokio::fs::write(config_path, doc.to_string())
+        .await
+        .context(format!(
+            "Failed to write config file {}",
+            config_path.display()
+        ))?;
 
     Ok(())
 }
@@ -322,6 +328,14 @@ mod tests {
         Ok((temp_dir, config_path))
     }
 
+    // Async version for use in async test contexts
+    async fn create_temp_config_async(content: &str) -> Result<(TempDir, PathBuf)> {
+        let temp_dir = TempDir::new()?;
+        let config_path = temp_dir.path().join("config.toml");
+        tokio::fs::write(&config_path, content).await?;
+        Ok((temp_dir, config_path))
+    }
+
     #[test]
     fn test_get_nested_value_simple() -> Result<()> {
         let config = setup_test_config();
@@ -402,60 +416,60 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_set_config_value_simple() -> Result<()> {
+    #[tokio::test]
+    async fn test_set_config_value_simple() -> Result<()> {
         let (_temp_dir, config_path) = create_temp_config("")?;
-        set_config_value(&config_path, "workspace_dir", "../custom")?;
+        set_config_value(&config_path, "workspace_dir", "../custom").await?;
 
-        let content = std::fs::read_to_string(&config_path)?;
+        let content = tokio::fs::read_to_string(&config_path).await?;
         assert!(content.contains("workspace_dir"));
         assert!(content.contains("../custom"));
         Ok(())
     }
 
-    #[test]
-    fn test_set_config_value_nested() -> Result<()> {
+    #[tokio::test]
+    async fn test_set_config_value_nested() -> Result<()> {
         let (_temp_dir, config_path) = create_temp_config("")?;
-        set_config_value(&config_path, "zellij.use_tabs", "false")?;
+        set_config_value(&config_path, "zellij.use_tabs", "false").await?;
 
-        let content = std::fs::read_to_string(&config_path)?;
+        let content = tokio::fs::read_to_string(&config_path).await?;
         assert!(content.contains("[zellij]"));
         assert!(content.contains("use_tabs = false"));
         Ok(())
     }
 
-    #[test]
-    fn test_set_config_value_deep_nested() -> Result<()> {
+    #[tokio::test]
+    async fn test_set_config_value_deep_nested() -> Result<()> {
         let (_temp_dir, config_path) = create_temp_config("")?;
-        set_config_value(&config_path, "zellij.panes.main.command", "nvim")?;
+        set_config_value(&config_path, "zellij.panes.main.command", "nvim").await?;
 
-        let content = std::fs::read_to_string(&config_path)?;
+        let content = tokio::fs::read_to_string(&config_path).await?;
         assert!(content.contains("[zellij.panes.main]"));
         assert!(content.contains("command"));
         assert!(content.contains("nvim"));
         Ok(())
     }
 
-    #[test]
-    fn test_set_config_value_overwrite_existing() -> Result<()> {
+    #[tokio::test]
+    async fn test_set_config_value_overwrite_existing() -> Result<()> {
         let (_temp_dir, config_path) = create_temp_config(r#"workspace_dir = "../old""#)?;
-        set_config_value(&config_path, "workspace_dir", "../new")?;
+        set_config_value(&config_path, "workspace_dir", "../new").await?;
 
-        let content = std::fs::read_to_string(&config_path)?;
+        let content = tokio::fs::read_to_string(&config_path).await?;
         assert!(content.contains("../new"));
         assert!(!content.contains("../old"));
         Ok(())
     }
 
-    #[test]
-    fn test_set_config_value_creates_parent_dir() -> Result<()> {
+    #[tokio::test]
+    async fn test_set_config_value_creates_parent_dir() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let config_path = temp_dir.path().join("subdir").join("config.toml");
 
-        set_config_value(&config_path, "workspace_dir", "../test")?;
+        set_config_value(&config_path, "workspace_dir", "../test").await?;
 
         assert!(config_path.exists());
-        let content = std::fs::read_to_string(&config_path)?;
+        let content = tokio::fs::read_to_string(&config_path).await?;
         assert!(content.contains("workspace_dir"));
         Ok(())
     }

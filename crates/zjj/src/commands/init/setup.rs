@@ -1,6 +1,6 @@
 //! File creation helpers for init
 
-use std::{fs, path::Path};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use zjj_core::templates::askama::{render_template, ProjectContext, TemplateType};
@@ -111,32 +111,51 @@ log_recovered = true
 ///
 /// This prevents nested .jj directories when jj workspace add checks out files.
 /// If .jjignore already exists, appends .zjj/ if not already present.
-pub(super) fn create_jjignore(repo_root: &Path) -> Result<()> {
+///
+/// # TOCTOU Prevention
+///
+/// Uses file locking for atomic updates to .jjignore file.
+pub(super) async fn create_jjignore(repo_root: &Path) -> Result<()> {
+    use zjj_core::filelock::{acquire_lock, LockOptions};
+
     let jjignore_path = repo_root.join(".jjignore");
     let zjj_pattern = ".zjj/";
 
-    if jjignore_path.exists() {
-        // Check if .zjj/ is already in the file
-        let content =
-            fs::read_to_string(&jjignore_path).context("Failed to read existing .jjignore")?;
+    // Use file lock to prevent concurrent .jjignore modifications
+    let lock_path = repo_root.join(".jjignore.lock");
+    let _lock = acquire_lock(&lock_path, &LockOptions::new())
+        .await
+        .context("Failed to acquire lock for .jjignore creation")?;
 
-        if content.lines().any(|line| line.trim() == zjj_pattern) {
-            return Ok(()); // Already has .zjj/
-        }
+    match tokio::fs::try_exists(&jjignore_path).await {
+        Ok(true) => {
+            // Check if .zjj/ is already in the file
+            let content = tokio::fs::read_to_string(&jjignore_path)
+                .await
+                .context("Failed to read existing .jjignore")?;
 
-        // Append .zjj/ to existing file
-        let mut new_content = content;
-        if !new_content.ends_with('\n') {
+            if content.lines().any(|line| line.trim() == zjj_pattern) {
+                return Ok(()); // Already has .zjj/
+            }
+
+            // Append .zjj/ to existing file
+            let mut new_content = content;
+            if !new_content.ends_with('\n') {
+                new_content.push('\n');
+            }
+            new_content.push_str(zjj_pattern);
             new_content.push('\n');
-        }
-        new_content.push_str(zjj_pattern);
-        new_content.push('\n');
 
-        fs::write(&jjignore_path, new_content).context("Failed to update .jjignore")?;
-    } else {
-        // Create new .jjignore with .zjj/
-        fs::write(&jjignore_path, format!("{zjj_pattern}\n"))
-            .context("Failed to create .jjignore")?;
+            tokio::fs::write(&jjignore_path, new_content)
+                .await
+                .context("Failed to update .jjignore")?;
+        }
+        _ => {
+            // Create new .jjignore with .zjj/
+            tokio::fs::write(&jjignore_path, format!("{zjj_pattern}\n"))
+                .await
+                .context("Failed to create .jjignore")?;
+        }
     }
 
     Ok(())
@@ -146,12 +165,38 @@ pub(super) fn create_jjignore(repo_root: &Path) -> Result<()> {
 ///
 /// Unlike git hooks, JJ hooks CANNOT be bypassed with --no-verify.
 /// AI agents that clone the repo elsewhere will hit this wall.
-pub(super) fn create_jj_hooks(repo_root: &Path) -> Result<()> {
+///
+/// # TOCTOU Prevention
+///
+/// Uses file locking to ensure atomic hook creation and prevent race conditions.
+pub(super) async fn create_jj_hooks(repo_root: &Path) -> Result<()> {
+    use zjj_core::filelock::{acquire_lock, LockOptions};
+
     let jj_hooks_dir = repo_root.join(".jj/hooks");
-    fs::create_dir_all(&jj_hooks_dir).context("Failed to create .jj/hooks directory")?;
+
+    // Use file lock for hook creation to prevent concurrent creation issues
+    let lock_path = jj_hooks_dir.join(".pre-commit.lock");
+    let _lock = acquire_lock(
+        &lock_path,
+        &LockOptions::new().with_create_parent_dirs(true),
+    )
+    .await
+    .context("Failed to acquire lock for hook creation")?;
+
+    // Create hooks directory (ignores "already exists" error - no TOCTOU)
+    tokio::fs::create_dir_all(&jj_hooks_dir)
+        .await
+        .context("Failed to create .jj/hooks directory")?;
 
     let pre_commit_path = jj_hooks_dir.join("pre-commit");
-    if !pre_commit_path.exists() {
+
+    // Use try_exists check here as we're not making decisions based on it
+    // We just use it to avoid unnecessary writes
+    let should_create = tokio::fs::try_exists(&pre_commit_path)
+        .await
+        .unwrap_or(false);
+
+    if !should_create {
         let hook_content = r#"#!/bin/sh
 # ZJJ JJ Pre-Commit Hook - CANNOT be bypassed with --no-verify
 #
@@ -178,16 +223,20 @@ if [ -z "$ZJJ_ACTIVE" ]; then
     exit 1
 fi
 "#;
-        fs::write(&pre_commit_path, hook_content).context("Failed to create JJ pre-commit hook")?;
+        tokio::fs::write(&pre_commit_path, hook_content)
+            .await
+            .context("Failed to create JJ pre-commit hook")?;
 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = fs::metadata(&pre_commit_path)
-                .context("Failed to get hook permissions")?
-                .permissions();
+            let metadata = tokio::fs::metadata(&pre_commit_path)
+                .await
+                .context("Failed to get hook permissions")?;
+            let mut perms = metadata.permissions();
             perms.set_mode(0o755);
-            fs::set_permissions(&pre_commit_path, perms)
+            tokio::fs::set_permissions(&pre_commit_path, perms)
+                .await
                 .context("Failed to set hook permissions")?;
         }
     }
@@ -198,12 +247,13 @@ fi
 /// Create repo-level AI instructions file
 ///
 /// This helps AI agents understand how to work with a zjj-managed repository.
-pub(super) fn create_repo_ai_instructions(repo_root: &Path) -> Result<()> {
+pub(super) async fn create_repo_ai_instructions(repo_root: &Path) -> Result<()> {
     let ai_path = repo_root.join(".ai-instructions.md");
 
     // Only create if it doesn't exist
-    if !ai_path.exists() {
-        fs::write(&ai_path, REPO_AI_INSTRUCTIONS)
+    if !tokio::fs::try_exists(&ai_path).await.unwrap_or(false) {
+        tokio::fs::write(&ai_path, REPO_AI_INSTRUCTIONS)
+            .await
             .context("Failed to create .ai-instructions.md")?;
     }
 
@@ -238,12 +288,14 @@ pub(super) fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
 /// Create AGENTS.md file from template
 ///
 /// Part of the template rendering system for agent-ready projects.
-pub(super) fn create_agents_md(repo_root: &Path) -> Result<()> {
+pub(super) async fn create_agents_md(repo_root: &Path) -> Result<()> {
     let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::AgentsMd, &context)?;
     let path = repo_root.join("AGENTS.md");
-    if !path.exists() {
-        fs::write(&path, rendered_content).context("Failed to create AGENTS.md")?;
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
+        tokio::fs::write(&path, rendered_content)
+            .await
+            .context("Failed to create AGENTS.md")?;
     }
     Ok(())
 }
@@ -251,12 +303,14 @@ pub(super) fn create_agents_md(repo_root: &Path) -> Result<()> {
 /// Create CLAUDE.md file from template
 ///
 /// Part of the template rendering system for agent-ready projects.
-pub(super) fn create_claude_md(repo_root: &Path) -> Result<()> {
+pub(super) async fn create_claude_md(repo_root: &Path) -> Result<()> {
     let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::ClaudeMd, &context)?;
     let path = repo_root.join("CLAUDE.md");
-    if !path.exists() {
-        fs::write(&path, rendered_content).context("Failed to create CLAUDE.md")?;
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
+        tokio::fs::write(&path, rendered_content)
+            .await
+            .context("Failed to create CLAUDE.md")?;
     }
     Ok(())
 }
@@ -265,36 +319,57 @@ pub(super) fn create_claude_md(repo_root: &Path) -> Result<()> {
 ///
 /// Scaffolds .moon/ directory with workspace.yml, toolchain.yml, and tasks.yml.
 /// Templates use project name replacement for custom paths.
-pub(super) fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
+pub(super) async fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
     let moon_dir = repo_root.join(".moon");
-    fs::create_dir_all(&moon_dir).context("Failed to create .moon directory")?;
+    tokio::fs::create_dir_all(&moon_dir)
+        .await
+        .context("Failed to create .moon directory")?;
 
     let context = get_project_context(repo_root)?;
 
     // Render and write workspace.yml
+
     let workspace_path = moon_dir.join("workspace.yml");
-    if !workspace_path.exists() {
+
+    if !tokio::fs::try_exists(&workspace_path)
+        .await
+        .unwrap_or(false)
+    {
         let workspace_yml = render_template(TemplateType::MoonWorkspace, &context)
             .context("Failed to render workspace.yml template")?;
-        fs::write(&workspace_path, workspace_yml)
+
+        tokio::fs::write(&workspace_path, workspace_yml)
+            .await
             .context("Failed to create .moon/workspace.yml")?;
     }
 
     // Render and write toolchain.yml
+
     let toolchain_path = moon_dir.join("toolchain.yml");
-    if !toolchain_path.exists() {
+
+    if !tokio::fs::try_exists(&toolchain_path)
+        .await
+        .unwrap_or(false)
+    {
         let toolchain_yml = render_template(TemplateType::MoonToolchain, &context)
             .context("Failed to render toolchain.yml template")?;
-        fs::write(&toolchain_path, toolchain_yml)
+
+        tokio::fs::write(&toolchain_path, toolchain_yml)
+            .await
             .context("Failed to create .moon/toolchain.yml")?;
     }
 
     // Render and write tasks.yml
+
     let tasks_path = moon_dir.join("tasks.yml");
-    if !tasks_path.exists() {
+
+    if !tokio::fs::try_exists(&tasks_path).await.unwrap_or(false) {
         let tasks_yml = render_template(TemplateType::MoonTasks, &context)
             .context("Failed to render tasks.yml template")?;
-        fs::write(&tasks_path, tasks_yml).context("Failed to create .moon/tasks.yml")?;
+
+        tokio::fs::write(&tasks_path, tasks_yml)
+            .await
+            .context("Failed to create .moon/tasks.yml")?;
     }
 
     Ok(())
@@ -303,20 +378,33 @@ pub(super) fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
 /// Create documentation files from templates
 ///
 /// Creates comprehensive documentation for agent-ready projects.
-pub(super) fn create_docs(repo_root: &Path) -> Result<()> {
+pub(super) async fn create_docs(repo_root: &Path) -> Result<()> {
+    use futures::{StreamExt, TryStreamExt};
+
     let docs_dir = repo_root.join("docs");
-    fs::create_dir_all(&docs_dir).context("Failed to create docs directory")?;
+    tokio::fs::create_dir_all(&docs_dir)
+        .await
+        .context("Failed to create docs directory")?;
 
     let context = get_project_context(repo_root)?;
 
-    for template_type in TemplateType::docs() {
-        let rendered = render_template(*template_type, &context)?;
-        let path = docs_dir.join(template_type.as_str());
-        if !path.exists() {
-            fs::write(&path, rendered)
-                .with_context(|| format!("Failed to create {}", path.display()))?;
-        }
-    }
+    futures::stream::iter(TemplateType::docs())
+        .map(Ok)
+        .try_for_each(|template_type| {
+            let context = &context;
+            let docs_dir = &docs_dir;
+            async move {
+                let rendered = render_template(*template_type, context)?;
+                let path = docs_dir.join(template_type.as_str());
+                if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
+                    tokio::fs::write(&path, rendered)
+                        .await
+                        .with_context(|| format!("Failed to create {}", path.display()))?;
+                }
+                Ok::<(), anyhow::Error>(())
+            }
+        })
+        .await?;
 
     Ok(())
 }

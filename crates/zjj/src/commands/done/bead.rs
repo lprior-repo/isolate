@@ -9,12 +9,15 @@
 
 use std::{
     collections::HashMap,
+    future::Future,
+    pin::Pin,
     sync::{Arc, Mutex},
 };
 
 use thiserror::Error;
 
 use super::newtypes::{BeadId, WorkspaceName};
+use crate::beads::{BeadRepository as RealBeadRepo, BeadStatus};
 
 /// Bead repository errors
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -36,13 +39,68 @@ pub enum BeadError {
     LockError(String),
 }
 
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
 /// Trait for bead repository operations
-pub trait BeadRepository {
+pub trait BeadRepository: Send + Sync {
     /// Find bead by workspace name
-    fn find_by_workspace(&self, workspace: &WorkspaceName) -> Result<Option<BeadId>, BeadError>;
+    fn find_by_workspace<'a>(
+        &'a self,
+        workspace: &'a WorkspaceName,
+    ) -> BoxFuture<'a, Result<Option<BeadId>, BeadError>>;
 
     /// Update bead status
-    fn update_status(&mut self, id: &BeadId, status: &str) -> Result<(), BeadError>;
+    fn update_status<'a>(
+        &'a mut self,
+        id: &'a BeadId,
+        status: &'a str,
+    ) -> BoxFuture<'a, Result<(), BeadError>>;
+}
+
+/// Real bead repository implementation
+pub struct RealBeadRepository {
+    inner: RealBeadRepo,
+}
+
+impl RealBeadRepository {
+    pub fn new(root: std::path::PathBuf) -> Self {
+        Self {
+            inner: RealBeadRepo::new(root),
+        }
+    }
+}
+
+impl BeadRepository for RealBeadRepository {
+    fn find_by_workspace<'a>(
+        &'a self,
+        workspace: &'a WorkspaceName,
+    ) -> BoxFuture<'a, Result<Option<BeadId>, BeadError>> {
+        Box::pin(async move {
+            match self.inner.get_bead(workspace.as_str()).await {
+                Ok(Some(bead)) => Ok(Some(
+                    BeadId::new(bead.id).map_err(|e| BeadError::DatabaseError(e.to_string()))?,
+                )),
+                Ok(None) => Ok(None),
+                Err(e) => Err(BeadError::DatabaseError(e.to_string())),
+            }
+        })
+    }
+
+    fn update_status<'a>(
+        &'a mut self,
+        id: &'a BeadId,
+        status: &'a str,
+    ) -> BoxFuture<'a, Result<(), BeadError>> {
+        Box::pin(async move {
+            let bead_status = status
+                .parse::<BeadStatus>()
+                .map_err(|e| BeadError::InvalidStatus(e.to_string()))?;
+            self.inner
+                .update_status(id.as_str(), bead_status)
+                .await
+                .map_err(|e| BeadError::DatabaseError(e.to_string()))
+        })
+    }
 }
 
 /// Mock bead repository for testing
@@ -99,40 +157,52 @@ impl Default for MockBeadRepository {
 }
 
 impl BeadRepository for MockBeadRepository {
-    fn find_by_workspace(&self, workspace: &WorkspaceName) -> Result<Option<BeadId>, BeadError> {
-        let bead_id = self
-            .workspace_to_bead
-            .lock()
-            .map_err(|e| BeadError::LockError(format!("Lock poisoned: {e}")))?
-            .get(workspace.as_str())
-            .cloned();
+    fn find_by_workspace<'a>(
+        &'a self,
+        workspace: &'a WorkspaceName,
+    ) -> BoxFuture<'a, Result<Option<BeadId>, BeadError>> {
+        Box::pin(async move {
+            let bead_id = self
+                .workspace_to_bead
+                .lock()
+                .map_err(|e| BeadError::LockError(format!("Lock poisoned: {e}")))?
+                .get(workspace.as_str())
+                .cloned();
 
-        bead_id.map_or(Ok(None), |id| {
-            BeadId::new(id)
-                .map(Some)
-                .map_err(|e| BeadError::DatabaseError(e.to_string()))
+            bead_id.map_or(Ok(None), |id| {
+                BeadId::new(id)
+                    .map(Some)
+                    .map_err(|e| BeadError::DatabaseError(e.to_string()))
+            })
         })
     }
 
-    fn update_status(&mut self, id: &BeadId, status: &str) -> Result<(), BeadError> {
-        // Validate status
-        let valid_statuses = ["open", "in_progress", "closed", "blocked"];
-        if !valid_statuses.contains(&status) {
-            return Err(BeadError::InvalidStatus(format!(
-                "Status must be one of: {valid_statuses:?}"
-            )));
-        }
+    fn update_status<'a>(
+        &'a mut self,
+        id: &'a BeadId,
+        status: &'a str,
+    ) -> BoxFuture<'a, Result<(), BeadError>> {
+        let status = status.to_string();
+        Box::pin(async move {
+            // Validate status
+            let valid_statuses = ["open", "in_progress", "closed", "blocked"];
+            if !valid_statuses.contains(&status.as_str()) {
+                return Err(BeadError::InvalidStatus(format!(
+                    "Status must be one of: {valid_statuses:?}"
+                )));
+            }
 
-        let mut beads = self
-            .beads
-            .lock()
-            .map_err(|e| BeadError::LockError(format!("Lock poisoned: {e}")))?;
+            let mut beads = self
+                .beads
+                .lock()
+                .map_err(|e| BeadError::LockError(format!("Lock poisoned: {e}")))?;
 
-        if let Some(bead) = beads.get_mut(id.as_str()) {
-            bead.status = status.to_string();
-            Ok(())
-        } else {
-            Err(BeadError::NotFound(id.as_str().to_string()))
-        }
+            if let Some(bead) = beads.get_mut(id.as_str()) {
+                bead.status = status;
+                Ok(())
+            } else {
+                Err(BeadError::NotFound(id.as_str().to_string()))
+            }
+        })
     }
 }

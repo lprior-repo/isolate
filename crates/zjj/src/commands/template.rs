@@ -61,7 +61,7 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
     let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
-    let templates = storage::list_templates(&templates_base)?;
+    let templates = storage::list_templates(&templates_base).await?;
 
     if format.is_json() {
         let template_infos: Vec<TemplateInfo> = templates
@@ -87,13 +87,13 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
         println!("Use 'zjj template create <name>' to create a template.");
     } else {
         println!("Available templates:");
-        for template in &templates {
+        templates.iter().for_each(|template| {
             if let Some(desc) = &template.metadata.description {
                 println!("  {} - {}", template.name, desc);
             } else {
                 println!("  {}", template.name);
             }
-        }
+        });
     }
 
     Ok(())
@@ -118,7 +118,8 @@ pub async fn run_create(options: &CreateOptions) -> Result<()> {
         TemplateSource::Builtin(template_type) => {
             generate_builtin_layout(*template_type, &options.name)?
         }
-        TemplateSource::FromFile(file_path) => std::fs::read_to_string(file_path)
+        TemplateSource::FromFile(file_path) => tokio::fs::read_to_string(file_path)
+            .await
             .with_context(|| format!("Failed to read template file: {file_path}"))?,
     };
 
@@ -130,7 +131,7 @@ pub async fn run_create(options: &CreateOptions) -> Result<()> {
     )?;
 
     // Save to storage
-    storage::save_template(&template, &templates_base)?;
+    storage::save_template(&template, &templates_base).await?;
 
     if options.format.is_json() {
         let output = TemplateCreateOutput {
@@ -169,7 +170,7 @@ pub async fn run_show(name: &str, format: OutputFormat) -> Result<()> {
     let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
-    let template = storage::load_template(name, &templates_base)?;
+    let template = storage::load_template(name, &templates_base).await?;
 
     if format.is_json() {
         let output = TemplateShowOutput {
@@ -227,7 +228,7 @@ pub async fn run_delete(name: &str, force: bool, format: OutputFormat) -> Result
         return Ok(());
     }
 
-    storage::delete_template(name, &templates_base)?;
+    storage::delete_template(name, &templates_base).await?;
 
     if format.is_json() {
         let output = TemplateDeleteOutput {

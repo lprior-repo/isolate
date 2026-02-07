@@ -10,7 +10,6 @@
 #![warn(clippy::nursery)]
 
 use std::{
-    fs,
     path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -44,6 +43,7 @@ impl HeartbeatMonitor {
     /// * `workspace_path` - Path to the workspace directory
     /// * `interval` - Heartbeat update interval
     /// * `timeout` - Timeout before agent is considered dead
+    #[must_use]
     pub fn new(workspace_path: &Path, interval: Duration, timeout: Duration) -> Self {
         let heartbeat_path = workspace_path.join(HEARTBEAT_FILE);
 
@@ -59,6 +59,7 @@ impl HeartbeatMonitor {
     ///
     /// # Arguments
     /// * `workspace_path` - Path to the workspace directory
+    #[must_use]
     pub fn with_defaults(workspace_path: &Path) -> Self {
         Self::new(
             workspace_path,
@@ -73,7 +74,7 @@ impl HeartbeatMonitor {
     ///
     /// # Errors
     /// Returns `SpawnError::WorkspaceCreationFailed` if initialization fails.
-    pub fn initialize(&self) -> Result<(), SpawnError> {
+    pub async fn initialize(&self) -> Result<(), SpawnError> {
         let heartbeat_dir =
             self.heartbeat_path
                 .parent()
@@ -81,11 +82,13 @@ impl HeartbeatMonitor {
                     reason: "Invalid heartbeat path".to_string(),
                 })?;
 
-        fs::create_dir_all(heartbeat_dir).map_err(|e| SpawnError::WorkspaceCreationFailed {
-            reason: format!("Failed to create heartbeat directory: {e}"),
-        })?;
+        tokio::fs::create_dir_all(heartbeat_dir)
+            .await
+            .map_err(|e| SpawnError::WorkspaceCreationFailed {
+                reason: format!("Failed to create heartbeat directory: {e}"),
+            })?;
 
-        self.update()?;
+        self.update().await?;
 
         Ok(())
     }
@@ -96,7 +99,7 @@ impl HeartbeatMonitor {
     ///
     /// # Errors
     /// Returns `SpawnError::WorkspaceCreationFailed` if write fails.
-    pub fn update(&self) -> Result<(), SpawnError> {
+    pub async fn update(&self) -> Result<(), SpawnError> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| {
             SpawnError::WorkspaceCreationFailed {
                 reason: format!("Failed to get current time: {e}"),
@@ -105,11 +108,11 @@ impl HeartbeatMonitor {
 
         let timestamp = now.as_secs().to_string();
 
-        fs::write(&self.heartbeat_path, timestamp).map_err(|e| {
-            SpawnError::WorkspaceCreationFailed {
+        tokio::fs::write(&self.heartbeat_path, timestamp)
+            .await
+            .map_err(|e| SpawnError::WorkspaceCreationFailed {
                 reason: format!("Failed to write heartbeat: {e}"),
-            }
-        })?;
+            })?;
 
         Ok(())
     }
@@ -121,34 +124,35 @@ impl HeartbeatMonitor {
     /// # Errors
     /// Returns `SpawnError::WorkspaceCreationFailed` if unable to read heartbeat.
     #[allow(dead_code)]
-    pub fn is_alive(&self) -> Result<bool, SpawnError> {
-        if !self.heartbeat_path.exists() {
-            return Ok(false);
-        }
+    pub async fn is_alive(&self) -> Result<bool, SpawnError> {
+        match tokio::fs::try_exists(&self.heartbeat_path).await {
+            Ok(true) => {
+                let content = tokio::fs::read_to_string(&self.heartbeat_path)
+                    .await
+                    .map_err(|e| SpawnError::WorkspaceCreationFailed {
+                        reason: format!("Failed to read heartbeat: {e}"),
+                    })?;
 
-        let content = fs::read_to_string(&self.heartbeat_path).map_err(|e| {
-            SpawnError::WorkspaceCreationFailed {
-                reason: format!("Failed to read heartbeat: {e}"),
-            }
-        })?;
+                let timestamp: u64 =
+                    content
+                        .trim()
+                        .parse()
+                        .map_err(|e| SpawnError::WorkspaceCreationFailed {
+                            reason: format!("Invalid heartbeat timestamp: {e}"),
+                        })?;
 
-        let timestamp: u64 =
-            content
-                .trim()
-                .parse()
-                .map_err(|e| SpawnError::WorkspaceCreationFailed {
-                    reason: format!("Invalid heartbeat timestamp: {e}"),
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| {
+                    SpawnError::WorkspaceCreationFailed {
+                        reason: format!("Failed to get current time: {e}"),
+                    }
                 })?;
 
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| {
-            SpawnError::WorkspaceCreationFailed {
-                reason: format!("Failed to get current time: {e}"),
+                let elapsed = now.as_secs().saturating_sub(timestamp);
+
+                Ok(elapsed < self.timeout.as_secs())
             }
-        })?;
-
-        let elapsed = now.as_secs().saturating_sub(timestamp);
-
-        Ok(elapsed < self.timeout.as_secs())
+            _ => Ok(false),
+        }
     }
 
     /// Get the time elapsed since last heartbeat
@@ -158,32 +162,33 @@ impl HeartbeatMonitor {
     /// # Errors
     /// Returns `SpawnError::WorkspaceCreationFailed` if unable to read heartbeat.
     #[allow(dead_code)]
-    pub fn elapsed(&self) -> Result<u64, SpawnError> {
-        if !self.heartbeat_path.exists() {
-            return Ok(u64::MAX);
-        }
+    pub async fn elapsed(&self) -> Result<u64, SpawnError> {
+        match tokio::fs::try_exists(&self.heartbeat_path).await {
+            Ok(true) => {
+                let content = tokio::fs::read_to_string(&self.heartbeat_path)
+                    .await
+                    .map_err(|e| SpawnError::WorkspaceCreationFailed {
+                        reason: format!("Failed to read heartbeat: {e}"),
+                    })?;
 
-        let content = fs::read_to_string(&self.heartbeat_path).map_err(|e| {
-            SpawnError::WorkspaceCreationFailed {
-                reason: format!("Failed to read heartbeat: {e}"),
-            }
-        })?;
+                let timestamp: u64 =
+                    content
+                        .trim()
+                        .parse()
+                        .map_err(|e| SpawnError::WorkspaceCreationFailed {
+                            reason: format!("Invalid heartbeat timestamp: {e}"),
+                        })?;
 
-        let timestamp: u64 =
-            content
-                .trim()
-                .parse()
-                .map_err(|e| SpawnError::WorkspaceCreationFailed {
-                    reason: format!("Invalid heartbeat timestamp: {e}"),
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| {
+                    SpawnError::WorkspaceCreationFailed {
+                        reason: format!("Failed to get current time: {e}"),
+                    }
                 })?;
 
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| {
-            SpawnError::WorkspaceCreationFailed {
-                reason: format!("Failed to get current time: {e}"),
+                Ok(now.as_secs().saturating_sub(timestamp))
             }
-        })?;
-
-        Ok(now.as_secs().saturating_sub(timestamp))
+            _ => Ok(u64::MAX),
+        }
     }
 
     /// Clean up heartbeat file
@@ -192,21 +197,23 @@ impl HeartbeatMonitor {
     ///
     /// # Errors
     /// Returns `SpawnError::CleanupFailed` if cleanup fails.
-    pub fn cleanup(&self) -> Result<(), SpawnError> {
-        if self.heartbeat_path.exists() {
-            fs::remove_file(&self.heartbeat_path).map_err(|e| SpawnError::CleanupFailed {
-                reason: format!("Failed to remove heartbeat file: {e}"),
-            })?;
+    pub async fn cleanup(&self) -> Result<(), SpawnError> {
+        match tokio::fs::try_exists(&self.heartbeat_path).await {
+            Ok(true) => {
+                tokio::fs::remove_file(&self.heartbeat_path)
+                    .await
+                    .map_err(|e| SpawnError::CleanupFailed {
+                        reason: format!("Failed to remove heartbeat file: {e}"),
+                    })?;
+            }
+            _ => {}
         }
         Ok(())
     }
 }
 
-impl Drop for HeartbeatMonitor {
-    fn drop(&mut self) {
-        let _ = self.cleanup();
-    }
-}
+// NOTE: Drop cannot be async, so we'll have to rely on manual cleanup or a background task if
+// needed. But for now, we'll keep manual cleanup in spawn/mod.rs.
 
 /// Write heartbeat update instruction for agents
 ///
@@ -215,7 +222,7 @@ impl Drop for HeartbeatMonitor {
 ///
 /// # Errors
 /// Returns `SpawnError::WorkspaceCreationFailed` if write fails.
-pub fn write_heartbeat_instructions(workspace_path: &Path) -> Result<(), SpawnError> {
+pub async fn write_heartbeat_instructions(workspace_path: &Path) -> Result<(), SpawnError> {
     let instructions = format!(
         r"# Heartbeat Instructions
 
@@ -258,15 +265,17 @@ done
                 reason: "Invalid heartbeat instructions path".to_string(),
             })?;
 
-    fs::create_dir_all(heartbeat_dir).map_err(|e| SpawnError::WorkspaceCreationFailed {
-        reason: format!("Failed to create heartbeat directory: {e}"),
-    })?;
+    tokio::fs::create_dir_all(heartbeat_dir)
+        .await
+        .map_err(|e| SpawnError::WorkspaceCreationFailed {
+            reason: format!("Failed to create heartbeat directory: {e}"),
+        })?;
 
-    fs::write(&instructions_path, instructions).map_err(|e| {
-        SpawnError::WorkspaceCreationFailed {
+    tokio::fs::write(&instructions_path, instructions)
+        .await
+        .map_err(|e| SpawnError::WorkspaceCreationFailed {
             reason: format!("Failed to write heartbeat instructions: {e}"),
-        }
-    })?;
+        })?;
 
     Ok(())
 }
@@ -277,64 +286,64 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_heartbeat_monitor_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
+    #[tokio::test]
+    async fn test_heartbeat_monitor_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
         let temp = TempDir::new()?;
         let workspace = temp.path();
 
         let monitor = HeartbeatMonitor::with_defaults(workspace);
 
         // Initialize should create heartbeat file
-        monitor.initialize()?;
+        monitor.initialize().await?;
         assert!(monitor.heartbeat_path.exists());
 
         // Should be alive after initialization
-        assert!(monitor.is_alive()?);
+        assert!(monitor.is_alive().await?);
 
         // Update heartbeat
-        monitor.update()?;
-        assert!(monitor.is_alive()?);
+        monitor.update().await?;
+        assert!(monitor.is_alive().await?);
 
         // Elapsed should be small
-        let elapsed = monitor.elapsed()?;
+        let elapsed = monitor.elapsed().await?;
         assert!(elapsed < 5);
         Ok(())
     }
 
-    #[test]
-    fn test_heartbeat_monitor_timeout() -> Result<(), Box<dyn std::error::Error>> {
+    #[tokio::test]
+    async fn test_heartbeat_monitor_timeout() -> Result<(), Box<dyn std::error::Error>> {
         let temp = TempDir::new()?;
         let workspace = temp.path();
 
         let monitor =
             HeartbeatMonitor::new(workspace, Duration::from_secs(1), Duration::from_secs(2));
 
-        monitor.initialize()?;
+        monitor.initialize().await?;
 
         // Should be alive initially
-        assert!(monitor.is_alive()?);
+        assert!(monitor.is_alive().await?);
 
         // Write old timestamp to simulate timeout
         let old_timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() - 10;
 
-        fs::write(&monitor.heartbeat_path, old_timestamp.to_string())?;
+        tokio::fs::write(&monitor.heartbeat_path, old_timestamp.to_string()).await?;
 
         // Should not be alive after timeout
-        assert!(!monitor.is_alive()?);
+        assert!(!monitor.is_alive().await?);
         Ok(())
     }
 
-    #[test]
-    fn test_write_heartbeat_instructions() -> Result<(), Box<dyn std::error::Error>> {
+    #[tokio::test]
+    async fn test_write_heartbeat_instructions() -> Result<(), Box<dyn std::error::Error>> {
         let temp = TempDir::new()?;
         let workspace = temp.path();
 
-        write_heartbeat_instructions(workspace)?;
+        write_heartbeat_instructions(workspace).await?;
 
         let instructions_path = workspace.join(".zjj/HEARTBEAT.md");
         assert!(instructions_path.exists());
 
-        let content = fs::read_to_string(&instructions_path)?;
+        let content = tokio::fs::read_to_string(&instructions_path).await?;
         assert!(content.contains("Heartbeat Instructions"));
         assert!(content.contains(HEARTBEAT_FILE));
         Ok(())

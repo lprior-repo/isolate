@@ -21,11 +21,16 @@ pub async fn run_lock_async(args: &LockArgs, mgr: &LockManager) -> Result<LockOu
         .agent_id
         .clone()
         .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
-        .ok_or_else(|| anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id")
+        })?;
 
     // If a custom TTL is provided, create a new manager with that TTL
     let mgr = if args.ttl > 0 {
-        LockManager::with_ttl(mgr.pool().clone(), chrono::Duration::seconds(i64::try_from(args.ttl).unwrap_or(300)))
+        LockManager::with_ttl(
+            mgr.pool().clone(),
+            chrono::Duration::seconds(i64::try_from(args.ttl).unwrap_or(300)),
+        )
     } else {
         mgr.clone()
     };
@@ -52,16 +57,16 @@ pub async fn run_unlock_async(args: &UnlockArgs, mgr: &LockManager) -> Result<Un
         .agent_id
         .clone()
         .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
-        .ok_or_else(|| anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id")
+        })?;
 
     match mgr.unlock(&args.session, &agent_id).await {
-        Ok(()) => {
-            Ok(UnlockOutput {
-                success: true,
-                released: true,
-                session: args.session.clone(),
-            })
-        }
+        Ok(()) => Ok(UnlockOutput {
+            success: true,
+            released: true,
+            session: args.session.clone(),
+        }),
         Err(zjj_core::Error::NotLockHolder { .. }) => {
             anyhow::bail!("NOT_LOCK_HOLDER: You are not the lock holder for this session")
         }

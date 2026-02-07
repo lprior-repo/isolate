@@ -14,10 +14,11 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use futures::stream::{self, StreamExt};
 use serde::Serialize;
 use serde_json::Value;
 use tokio::time::sleep;
@@ -98,14 +99,17 @@ pub struct SkippedSession {
 /// A session is an orphan if:
 /// 1. Workspace directory doesn't exist, OR
 /// 2. Session is older than threshold AND has no active bead
-fn is_orphan_candidate(
+async fn is_orphan_candidate(
     session: &Session,
     age_threshold: &Duration,
     now: &DateTime<Utc>,
 ) -> Option<OrphanCandidate> {
     let age = calculate_age(session, now)?;
-    let workspace_exists = Path::new(&session.workspace_path).exists();
-    let has_active_bead = check_active_bead(session);
+    let workspace_exists = match tokio::fs::try_exists(&session.workspace_path).await {
+        Ok(exists) => exists,
+        Err(_) => false,
+    };
+    let has_active_bead = check_active_bead(session).await;
 
     // Orphan if workspace missing
     if !workspace_exists {
@@ -143,31 +147,37 @@ fn calculate_age(session: &Session, now: &DateTime<Utc>) -> Option<chrono::Durat
 /// Check if session has an active bead
 ///
 /// Looks in metadata for `bead_id` and checks if bead status is active
-fn check_active_bead(session: &Session) -> bool {
-    session
+async fn check_active_bead(session: &Session) -> bool {
+    if let Some(bead_id) = session
         .metadata
         .as_ref()
         .and_then(|meta| meta.get("bead_id"))
         .and_then(|v: &Value| v.as_str())
-        .is_some_and(is_bead_active)
+    {
+        is_bead_active(bead_id).await
+    } else {
+        false
+    }
 }
 
 /// Check if a bead is in active status
 ///
 /// Uses Railway pattern - if any step fails, returns false
-fn is_bead_active(bead_id: &str) -> bool {
+async fn is_bead_active(bead_id: &str) -> bool {
     check_bead_status(bead_id)
+        .await
         .is_some_and(|status| matches!(status.as_str(), "in_progress" | "open"))
 }
 
 /// Query bead status from beads system
 ///
 /// Returns None if bead doesn't exist or can't be queried
-fn check_bead_status(bead_id: &str) -> Option<String> {
+async fn check_bead_status(bead_id: &str) -> Option<String> {
     // Functional pipeline: try to execute br command and parse output
-    std::process::Command::new("br")
+    tokio::process::Command::new("br")
         .args(["show", bead_id, "--json"])
         .output()
+        .await
         .ok()
         .filter(|output| output.status.success())
         .and_then(|output| String::from_utf8(output.stdout).ok())
@@ -181,16 +191,18 @@ fn check_bead_status(bead_id: &str) -> Option<String> {
         })
 }
 
-/// Filter sessions to orphan candidates using functional pipeline
-fn find_orphan_candidates(
+/// Filter sessions to orphan candidates using functional async stream
+async fn find_orphan_candidates(
     sessions: &[Session],
     age_threshold: &Duration,
     now: &DateTime<Utc>,
 ) -> Vec<OrphanCandidate> {
-    sessions
-        .iter()
-        .filter_map(|session| is_orphan_candidate(session, age_threshold, now))
-        .collect()
+    stream::iter(sessions)
+        .map(|session| async move { is_orphan_candidate(session, age_threshold, now).await })
+        .buffer_unordered(10) // Process up to 10 sessions in parallel
+        .filter_map(|opt| async move { opt })
+        .collect::<Vec<_>>()
+        .await
 }
 
 /// Categorize orphans into cleanable and skippable
@@ -247,8 +259,9 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
     let db = get_session_db().await?;
     let sessions = db.list(None).await.map_err(anyhow::Error::new)?;
 
-    // 2. Find orphan candidates (pure functional)
-    let orphan_candidates = find_orphan_candidates(&sessions[..], &config.age_threshold, &now);
+    // 2. Find orphan candidates (async functional)
+    let orphan_candidates =
+        find_orphan_candidates(&sessions[..], &config.age_threshold, &now).await;
 
     // 3. Categorize (pure functional)
     let (cleanable, skipped) = categorize_orphans(orphan_candidates);
@@ -274,13 +287,18 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
 ///
 /// Uses functional fold to accumulate successful removals
 async fn clean_orphans(db: &SessionDb, orphans: &[OrphanCandidate]) -> Result<Vec<String>> {
-    let mut cleaned = Vec::new();
-    for orphan in orphans {
-        if db.delete(&orphan.name).await.map_err(anyhow::Error::new)? {
-            cleaned.push(orphan.name.clone());
-        }
-    }
-    Ok(cleaned)
+    futures::stream::iter(orphans)
+        .fold(Ok(Vec::new()), |res, orphan| {
+            let db = &db;
+            async move {
+                let mut cleaned = res?;
+                if db.delete(&orphan.name).await.map_err(anyhow::Error::new)? {
+                    cleaned.push(orphan.name.clone());
+                }
+                Ok(cleaned)
+            }
+        })
+        .await
 }
 
 /// Log cleanup results
@@ -300,16 +318,16 @@ fn log_cleanup_results(output: &PeriodicCleanupOutput, format: OutputFormat) {
 
         if !output.cleaned_sessions.is_empty() {
             println!("  Cleaned sessions:");
-            for session in &output.cleaned_sessions {
+            output.cleaned_sessions.iter().for_each(|session| {
                 println!("    - {session}");
-            }
+            });
         }
 
         if !output.skipped_sessions.is_empty() {
             println!("  Skipped sessions:");
-            for skipped in &output.skipped_sessions {
+            output.skipped_sessions.iter().for_each(|skipped| {
                 println!("    - {}: {}", skipped.name, skipped.reason);
-            }
+            });
         }
     }
 }
@@ -371,26 +389,26 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_orphan_detection_missing_workspace() {
+    #[tokio::test]
+    async fn test_orphan_detection_missing_workspace() {
         let session = mock_session("test", 1, false);
         let now = Utc::now();
         let threshold = Duration::from_secs(7200);
 
-        let result = is_orphan_candidate(&session, &threshold, &now);
+        let result = is_orphan_candidate(&session, &threshold, &now).await;
 
         assert!(result.is_some());
         let orphan = result.unwrap_or_else(|| panic!("Expected orphan"));
         assert!(!orphan.workspace_exists);
     }
 
-    #[test]
-    fn test_orphan_detection_old_no_bead() {
+    #[tokio::test]
+    async fn test_orphan_detection_old_no_bead() {
         let session = mock_session("test", 3, true);
         let now = Utc::now();
         let threshold = Duration::from_secs(7200);
 
-        let result = is_orphan_candidate(&session, &threshold, &now);
+        let result = is_orphan_candidate(&session, &threshold, &now).await;
 
         assert!(result.is_some());
         let orphan = result.unwrap_or_else(|| panic!("Expected orphan"));
@@ -398,13 +416,13 @@ mod tests {
         assert!(!orphan.has_active_bead);
     }
 
-    #[test]
-    fn test_not_orphan_recent() {
+    #[tokio::test]
+    async fn test_not_orphan_recent() {
         let session = mock_session("test", 1, true);
         let now = Utc::now();
         let threshold = Duration::from_secs(7200);
 
-        let result = is_orphan_candidate(&session, &threshold, &now);
+        let result = is_orphan_candidate(&session, &threshold, &now).await;
 
         assert!(result.is_none());
     }

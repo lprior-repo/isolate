@@ -114,19 +114,19 @@ pub async fn run(options: &WhatIfOptions) -> Result<()> {
 
         if !result.prerequisites.is_empty() {
             println!("Prerequisites:");
-            for prereq in &result.prerequisites {
+            result.prerequisites.iter().for_each(|prereq| {
                 let status = match prereq.status {
                     PrerequisiteStatus::Met => "✓",
                     PrerequisiteStatus::NotMet => "✗",
                     PrerequisiteStatus::Unknown => "?",
                 };
                 println!("  {status} {}: {}", prereq.check, prereq.description);
-            }
+            });
             println!();
         }
 
         println!("Execution plan:");
-        for step in &result.steps {
+        result.steps.iter().for_each(|step| {
             println!("  {}. {}", step.order, step.description);
             println!("     Action: {}", step.action);
             if step.can_fail {
@@ -134,55 +134,55 @@ pub async fn run(options: &WhatIfOptions) -> Result<()> {
                     println!("     On failure: {on_fail}");
                 }
             }
-        }
+        });
         println!();
 
         if !result.creates.is_empty() {
             println!("Would create:");
-            for c in &result.creates {
+            result.creates.iter().for_each(|c| {
                 println!(
                     "  + [{}] {}: {}",
                     c.resource_type, c.resource, c.description
                 );
-            }
+            });
             println!();
         }
 
         if !result.modifies.is_empty() {
             println!("Would modify:");
-            for m in &result.modifies {
+            result.modifies.iter().for_each(|m| {
                 println!(
                     "  ~ [{}] {}: {}",
                     m.resource_type, m.resource, m.description
                 );
-            }
+            });
             println!();
         }
 
         if !result.deletes.is_empty() {
             println!("Would delete:");
-            for d in &result.deletes {
+            result.deletes.iter().for_each(|d| {
                 println!(
                     "  - [{}] {}: {}",
                     d.resource_type, d.resource, d.description
                 );
-            }
+            });
             println!();
         }
 
         if !result.side_effects.is_empty() {
             println!("Side effects:");
-            for effect in &result.side_effects {
+            result.side_effects.iter().for_each(|effect| {
                 println!("  • {effect}");
-            }
+            });
             println!();
         }
 
         if !result.warnings.is_empty() {
             println!("Warnings:");
-            for warning in &result.warnings {
+            result.warnings.iter().for_each(|warning| {
                 println!("  ⚠ {warning}");
-            }
+            });
             println!();
         }
 

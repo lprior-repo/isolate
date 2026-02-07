@@ -8,14 +8,13 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 
-use std::{path::Path, process::Command};
-
 use anyhow::{Context, Result};
 use serde::Serialize;
 use thiserror::Error;
+use tokio::process::Command;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
-use crate::{commands::get_session_db, json};
+use crate::commands::get_session_db;
 
 /// Bookmark-specific errors
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -117,7 +116,10 @@ pub async fn list(options: &ListOptions) -> Result<Vec<BookmarkInfo>> {
     }
 
     // Execute command
-    let output = cmd.output().context("failed to execute jj bookmark list")?;
+    let output = cmd
+        .output()
+        .await
+        .context("failed to execute jj bookmark list")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -146,7 +148,8 @@ pub async fn create(options: &CreateOptions) -> Result<BookmarkInfo> {
         session: options.session.clone(),
         show_all: false,
         format: options.format,
-    }).await?;
+    })
+    .await?;
 
     if existing.iter().any(|b| b.name == options.name) {
         return Err(BookmarkError::AlreadyExists(options.name.clone()).into());
@@ -160,6 +163,7 @@ pub async fn create(options: &CreateOptions) -> Result<BookmarkInfo> {
     // Execute command
     let output = cmd
         .output()
+        .await
         .context("failed to execute jj bookmark create")?;
 
     if !output.status.success() {
@@ -168,11 +172,11 @@ pub async fn create(options: &CreateOptions) -> Result<BookmarkInfo> {
     }
 
     // Get current revision
-    let revision = get_current_revision(&workspace_path)?;
+    let revision = get_current_revision(&workspace_path).await?;
 
     // Push to remote if requested
     if options.push {
-        push_bookmark(&options.name, &workspace_path)?;
+        push_bookmark(&options.name, &workspace_path).await?;
     }
 
     Ok(BookmarkInfo {
@@ -200,7 +204,8 @@ pub async fn delete(options: &DeleteOptions) -> Result<()> {
         session: options.session.clone(),
         show_all: false,
         format: options.format,
-    }).await?;
+    })
+    .await?;
 
     if !existing.iter().any(|b| b.name == options.name) {
         return Err(BookmarkError::NotFound(options.name.clone()).into());
@@ -214,6 +219,7 @@ pub async fn delete(options: &DeleteOptions) -> Result<()> {
     // Execute command
     let output = cmd
         .output()
+        .await
         .context("failed to execute jj bookmark delete")?;
 
     if !output.status.success() {
@@ -250,7 +256,10 @@ pub async fn move_bookmark(options: &MoveOptions) -> Result<BookmarkInfo> {
     .current_dir(&workspace_path);
 
     // Execute command
-    let output = cmd.output().context("failed to execute jj bookmark move")?;
+    let output = cmd
+        .output()
+        .await
+        .context("failed to execute jj bookmark move")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -266,35 +275,22 @@ pub async fn move_bookmark(options: &MoveOptions) -> Result<BookmarkInfo> {
 
 /// Run the bookmark list command
 pub async fn run_list(options: &ListOptions) -> Result<()> {
-    let result = async {
-        let bookmarks = list(options).await?;
+    let bookmarks = list(options).await?;
 
-        if options.format.is_json() {
-            let envelope = SchemaEnvelope::new("bookmark-list-response", "array", bookmarks);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
-        } else if bookmarks.is_empty() {
-            println!("No bookmarks found.");
-        } else {
-            println!("Bookmarks:");
-            for bookmark in bookmarks {
-                let remote_marker = if bookmark.remote { " (remote)" } else { "" };
-                println!(
-                    "  {} → {}{}",
-                    bookmark.name, bookmark.revision, remote_marker
-                );
-            }
-        }
-
-        Ok(())
-    }
-    .await;
-
-    if let Err(e) = result {
-        if options.format.is_json() {
-            json::output_json_error_and_exit(&e);
-        } else {
-            return Err(e);
-        }
+    if options.format.is_json() {
+        let envelope = SchemaEnvelope::new("bookmark-list-response", "array", bookmarks);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else if bookmarks.is_empty() {
+        println!("No bookmarks found.");
+    } else {
+        println!("Bookmarks:");
+        bookmarks.iter().for_each(|bookmark| {
+            let remote_marker = if bookmark.remote { " (remote)" } else { "" };
+            println!(
+                "  {} → {}{}",
+                bookmark.name, bookmark.revision, remote_marker
+            );
+        });
     }
 
     Ok(())
@@ -302,44 +298,31 @@ pub async fn run_list(options: &ListOptions) -> Result<()> {
 
 /// Run the bookmark create command
 pub async fn run_create(options: &CreateOptions) -> Result<()> {
-    let result = async {
-        let bookmark = create(options).await?;
+    let bookmark = create(options).await?;
 
-        if options.format.is_json() {
-            #[derive(Serialize)]
-            struct CreateResponse {
-                success: bool,
-                bookmark: String,
-                revision: String,
-            }
-
-            let response = CreateResponse {
-                success: true,
-                bookmark: bookmark.name,
-                revision: bookmark.revision,
-            };
-
-            let envelope = SchemaEnvelope::new("bookmark-create-response", "single", response);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
-        } else {
-            println!(
-                "Created bookmark '{}' at revision {}",
-                options.name, bookmark.revision
-            );
-            if options.push {
-                println!("Pushed to remote");
-            }
+    if options.format.is_json() {
+        #[derive(Serialize)]
+        struct CreateResponse {
+            success: bool,
+            bookmark: String,
+            revision: String,
         }
 
-        Ok(())
-    }
-    .await;
+        let response = CreateResponse {
+            success: true,
+            bookmark: bookmark.name,
+            revision: bookmark.revision,
+        };
 
-    if let Err(e) = result {
-        if options.format.is_json() {
-            json::output_json_error_and_exit(&e);
-        } else {
-            return Err(e);
+        let envelope = SchemaEnvelope::new("bookmark-create-response", "single", response);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!(
+            "Created bookmark '{}' at revision {}",
+            options.name, bookmark.revision
+        );
+        if options.push {
+            println!("Pushed to remote");
         }
     }
 
@@ -348,43 +331,24 @@ pub async fn run_create(options: &CreateOptions) -> Result<()> {
 
 /// Run the bookmark delete command
 pub async fn run_delete(options: &DeleteOptions) -> Result<()> {
-    let result = async {
-        delete(options).await?;
+    delete(options).await?;
 
-        if options.format.is_json() {
-            #[derive(Serialize)]
-            struct DeleteResponse {
-                success: bool,
-                deleted: String,
-            }
-
-            let response = DeleteResponse {
-                success: true,
-                deleted: options.name.clone(),
-            };
-
-            let envelope = SchemaEnvelope::new("bookmark-delete-response", "single", response);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
-        } else {
-            println!("Deleted bookmark '{}'", options.name);
+    if options.format.is_json() {
+        #[derive(Serialize)]
+        struct DeleteResponse {
+            success: bool,
+            deleted: String,
         }
 
-        Ok(())
-    }
-    .await;
+        let response = DeleteResponse {
+            success: true,
+            deleted: options.name.clone(),
+        };
 
-    if let Err(e) = result {
-        if options.format.is_json() {
-            json::output_json_error_and_exit(&e);
-        } else {
-            // Exit with code 3 for "not found" errors
-            if let Some(err) = e.downcast_ref::<BookmarkError>() {
-                if matches!(err, BookmarkError::NotFound(_)) {
-                    std::process::exit(3);
-                }
-            }
-            return Err(e);
-        }
+        let envelope = SchemaEnvelope::new("bookmark-delete-response", "single", response);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("Deleted bookmark '{}'", options.name);
     }
 
     Ok(())
@@ -392,42 +356,29 @@ pub async fn run_delete(options: &DeleteOptions) -> Result<()> {
 
 /// Run the bookmark move command
 pub async fn run_move(options: &MoveOptions) -> Result<()> {
-    let result = async {
-        let bookmark = move_bookmark(options).await?;
+    let bookmark = move_bookmark(options).await?;
 
-        if options.format.is_json() {
-            #[derive(Serialize)]
-            struct MoveResponse {
-                success: bool,
-                bookmark: String,
-                new_revision: String,
-            }
-
-            let response = MoveResponse {
-                success: true,
-                bookmark: bookmark.name,
-                new_revision: bookmark.revision,
-            };
-
-            let envelope = SchemaEnvelope::new("bookmark-move-response", "single", response);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
-        } else {
-            println!(
-                "Moved bookmark '{}' to revision {}",
-                options.name, bookmark.revision
-            );
+    if options.format.is_json() {
+        #[derive(Serialize)]
+        struct MoveResponse {
+            success: bool,
+            bookmark: String,
+            new_revision: String,
         }
 
-        Ok(())
-    }
-    .await;
+        let response = MoveResponse {
+            success: true,
+            bookmark: bookmark.name,
+            new_revision: bookmark.revision,
+        };
 
-    if let Err(e) = result {
-        if options.format.is_json() {
-            json::output_json_error_and_exit(&e);
-        } else {
-            return Err(e);
-        }
+        let envelope = SchemaEnvelope::new("bookmark-move-response", "single", response);
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!(
+            "Moved bookmark '{}' to revision {}",
+            options.name, bookmark.revision
+        );
     }
 
     Ok(())
@@ -456,7 +407,7 @@ async fn resolve_workspace_path(session: Option<&str>) -> Result<String> {
             .to_string()
     };
 
-    if Path::new(&path).exists() {
+    if tokio::fs::try_exists(&path).await.unwrap_or(false) {
         Ok(path)
     } else {
         Err(BookmarkError::WorkspaceNotFound(path).into())
@@ -496,11 +447,12 @@ fn parse_bookmark_list(output: &[u8]) -> Result<Vec<BookmarkInfo>> {
 }
 
 /// Get current revision hash
-fn get_current_revision(workspace_path: &str) -> Result<String> {
+async fn get_current_revision(workspace_path: &str) -> Result<String> {
     let output = Command::new("jj")
         .args(["log", "-r", "@", "--no-graph", "-T", "commit_id"])
         .current_dir(workspace_path)
         .output()
+        .await
         .context("failed to get current revision")?;
 
     if !output.status.success() {
@@ -512,11 +464,12 @@ fn get_current_revision(workspace_path: &str) -> Result<String> {
 }
 
 /// Push bookmark to remote
-fn push_bookmark(bookmark_name: &str, workspace_path: &str) -> Result<()> {
+async fn push_bookmark(bookmark_name: &str, workspace_path: &str) -> Result<()> {
     let output = Command::new("jj")
         .args(["git", "push", "--bookmark", bookmark_name])
         .current_dir(workspace_path)
         .output()
+        .await
         .context("failed to push bookmark")?;
 
     if !output.status.success() {

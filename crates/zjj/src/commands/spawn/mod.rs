@@ -52,13 +52,16 @@ br show $ZJJ_BEAD_ID
 Check the project's README or CLAUDE.md for the correct build commands.
 ";
 
-use std::{fs, io::Write, path::Path, process::Command};
+use std::{path::Path, time::Duration};
 
 use anyhow::{Context, Result};
 use types::SpawnStatus;
 use zjj_core::json::SchemaEnvelope;
 
-use crate::cli::jj_root;
+use crate::{
+    beads::{BeadRepository, BeadStatus},
+    cli::jj_root,
+};
 
 /// Run the spawn command with options
 pub async fn run_with_options(options: &SpawnOptions) -> Result<()> {
@@ -71,12 +74,16 @@ pub async fn run_with_options(options: &SpawnOptions) -> Result<()> {
 /// Core spawn logic using Railway-Oriented Programming
 pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
     // Phase 1: Validate location (must be on main)
-    let root = validate_location().await.map_err(|e| SpawnError::NotOnMain {
-        current_location: e.to_string(),
-    })?;
+    let root = validate_location()
+        .await
+        .map_err(|e| SpawnError::NotOnMain {
+            current_location: e.to_string(),
+        })?;
+
+    let bead_repo = BeadRepository::new(&root);
 
     // Phase 2: Validate bead status
-    validate_bead_status(&options.bead_id)?;
+    validate_bead_status(&bead_repo, &options.bead_id).await?;
 
     // Initialize transaction tracker
     let workspace_path = create_workspace(&root, &options.bead_id).await?;
@@ -91,19 +98,41 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     tracker.mark_workspace_created()?;
 
     // Phase 4: Update bead status to in_progress
-    update_bead_status(&options.bead_id, "in_progress").map_err(|e| {
-        let _ = tracker.rollback(); // Ignore rollback errors in error path
-        SpawnError::DatabaseError {
+    if let Err(e) = bead_repo
+        .update_status(&options.bead_id, BeadStatus::InProgress)
+        .await
+    {
+        let _ = tracker.rollback().await; // Ignore rollback errors in error path
+        return Err(SpawnError::DatabaseError {
             reason: e.to_string(),
-        }
-    })?;
+        });
+    }
     tracker.mark_bead_status_updated()?;
 
     // Phase 5: Spawn agent with transaction tracking
-    let (pid, exit_code) = if options.background {
-        spawn_agent_background(&workspace_path, options)?
+    // Apply timeout to the spawn operation
+    let spawn_result = if options.background {
+        tokio::time::timeout(
+            Duration::from_secs(options.timeout_secs),
+            spawn_agent_background(&workspace_path, options),
+        )
+        .await
     } else {
-        spawn_agent_foreground(&workspace_path, options)?
+        tokio::time::timeout(
+            Duration::from_secs(options.timeout_secs),
+            spawn_agent_foreground(&workspace_path, options),
+        )
+        .await
+    };
+
+    let (pid, exit_code) = match spawn_result {
+        Ok(result) => result?,
+        Err(_) => {
+            let _ = tracker.rollback().await;
+            return Err(SpawnError::Timeout {
+                timeout_secs: options.timeout_secs,
+            });
+        }
     };
 
     if let Some(pid) = pid {
@@ -113,7 +142,7 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     // Phase 6-8: Handle completion
     let (merged, cleaned, status) = match exit_code {
         Some(0) => handle_success(&root, &options.bead_id, &workspace_path, options).await?,
-        Some(code) => handle_failure(&workspace_path, options, code)?,
+        Some(code) => handle_failure(&root, &workspace_path, options, code).await?,
         None => (false, false, SpawnStatus::Running),
     };
 
@@ -144,57 +173,26 @@ async fn validate_location() -> Result<String> {
 }
 
 /// Validate that the bead exists and has appropriate status
-fn validate_bead_status(bead_id: &str) -> Result<(), SpawnError> {
-    let beads_dir = Path::new(".beads");
-    if !beads_dir.exists() {
+async fn validate_bead_status(bead_repo: &BeadRepository, bead_id: &str) -> Result<(), SpawnError> {
+    let bead = bead_repo
+        .get_bead(bead_id)
+        .await
+        .map_err(|e| SpawnError::DatabaseError {
+            reason: format!("Failed to read beads database: {e}"),
+        })?;
+
+    let Some(bead) = bead else {
         return Err(SpawnError::BeadNotFound {
             bead_id: bead_id.to_string(),
         });
-    }
+    };
 
-    let beads_db = beads_dir.join("issues.jsonl");
-    if !beads_db.exists() {
-        return Err(SpawnError::BeadNotFound {
-            bead_id: bead_id.to_string(),
-        });
-    }
-
-    let content = fs::read_to_string(beads_db).map_err(|e| SpawnError::DatabaseError {
-        reason: format!("Failed to read beads database: {e}"),
-    })?;
-
-    let mut found = false;
-    let mut status = String::new();
-
-    for line in content.lines() {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if json
-                .get("id")
-                .and_then(|i| i.as_str())
-                .map(|i| i == bead_id)
-                .unwrap_or(false)
-            {
-                found = true;
-                if let Some(s) = json.get("status").and_then(|s| s.as_str()) {
-                    status = s.to_string();
-                }
-                break;
-            }
-        }
-    }
-
-    if !found {
-        return Err(SpawnError::BeadNotFound {
-            bead_id: bead_id.to_string(),
-        });
-    }
-
-    // Check if status is appropriate (open or ready, indicated by "open" or "●")
-    match status.as_str() {
-        "open" | "●" | "ready" => Ok(()),
+    // Check if status is appropriate (open)
+    match bead.status {
+        BeadStatus::Open => Ok(()),
         _ => Err(SpawnError::InvalidBeadStatus {
             bead_id: bead_id.to_string(),
-            status,
+            status: bead.status.to_string(),
         }),
     }
 }
@@ -202,9 +200,11 @@ fn validate_bead_status(bead_id: &str) -> Result<(), SpawnError> {
 /// Create a JJ workspace for the bead
 async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, SpawnError> {
     let workspaces_dir = Path::new(root).join(".zjj/workspaces");
-    fs::create_dir_all(&workspaces_dir).map_err(|e| SpawnError::WorkspaceCreationFailed {
-        reason: format!("Failed to create workspaces directory: {e}"),
-    })?;
+    tokio::fs::create_dir_all(&workspaces_dir)
+        .await
+        .map_err(|e| SpawnError::WorkspaceCreationFailed {
+            reason: format!("Failed to create workspaces directory: {e}"),
+        })?;
 
     let workspace_path = workspaces_dir.join(bead_id);
 
@@ -229,7 +229,7 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
     }
 
     // Create AI discoverability files in the workspace
-    create_workspace_discoverability(&workspace_path)?;
+    create_workspace_discoverability(&workspace_path).await?;
 
     Ok(workspace_path)
 }
@@ -238,110 +238,80 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
 ///
 /// These files tell AI agents they're already in the right place
 /// and should NOT clone the repository elsewhere.
-fn create_workspace_discoverability(workspace_path: &Path) -> Result<(), SpawnError> {
+async fn create_workspace_discoverability(workspace_path: &Path) -> Result<(), SpawnError> {
     // Create .ai-instructions.md for Claude Code and others
     let ai_instructions_path = workspace_path.join(".ai-instructions.md");
-    fs::write(&ai_instructions_path, AI_INSTRUCTIONS).map_err(|e| {
-        SpawnError::WorkspaceCreationFailed {
+    tokio::fs::write(&ai_instructions_path, AI_INSTRUCTIONS)
+        .await
+        .map_err(|e| SpawnError::WorkspaceCreationFailed {
             reason: format!("Failed to create .ai-instructions.md: {e}"),
-        }
-    })?;
+        })?;
 
     // Write heartbeat monitoring instructions
-    write_heartbeat_instructions(workspace_path)?;
-
-    Ok(())
-}
-
-/// Update bead status in the database
-fn update_bead_status(bead_id: &str, new_status: &str) -> Result<()> {
-    let beads_db = Path::new(".beads/issues.jsonl");
-    let content = fs::read_to_string(beads_db)?;
-    let mut new_content = String::new();
-    let mut updated = false;
-
-    for line in content.lines() {
-        if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(line) {
-            if json
-                .get("id")
-                .and_then(|i| i.as_str())
-                .map(|i| i == bead_id)
-                .unwrap_or(false)
-            {
-                json["status"] = serde_json::json!(new_status);
-                updated = true;
-            }
-            new_content.push_str(&json.to_string());
-            new_content.push('\n');
-        }
-    }
-
-    if updated {
-        let mut file = fs::File::create(beads_db)?;
-        file.write_all(new_content.as_bytes())?;
-    }
+    write_heartbeat_instructions(workspace_path).await?;
 
     Ok(())
 }
 
 /// Spawn agent in foreground (wait for completion)
-fn spawn_agent_foreground(
+async fn spawn_agent_foreground(
     workspace_path: &Path,
     options: &SpawnOptions,
 ) -> Result<(Option<u32>, Option<i32>), SpawnError> {
     let heartbeat = HeartbeatMonitor::with_defaults(workspace_path);
-    heartbeat.initialize()?;
+    heartbeat.initialize().await?;
 
-    let mut cmd = Command::new(&options.agent_command);
+    let mut cmd = tokio::process::Command::new(&options.agent_command);
     cmd.args(&options.agent_args)
         .current_dir(workspace_path)
         .env("ZJJ_BEAD_ID", &options.bead_id)
         .env("ZJJ_WORKSPACE", workspace_path.to_string_lossy().as_ref())
         .env("ZJJ_ACTIVE", "1"); // Required by git pre-commit hook
 
-    let mut spawn_result = cmd.spawn().map_err(|e| SpawnError::AgentSpawnFailed {
+    let mut child = cmd.spawn().map_err(|e| SpawnError::AgentSpawnFailed {
         reason: format!("Failed to spawn agent: {e}"),
     })?;
 
-    let pid = Some(spawn_result.id());
+    let pid = child.id();
 
-    // Wait for completion
-    let status = spawn_result
+    // Wait for completion asynchronously
+    let status = child
         .wait()
+        .await
         .map_err(|e| SpawnError::AgentSpawnFailed {
             reason: format!("Failed to wait for agent: {e}"),
         })?;
 
     let exit_code = status.code();
 
-    heartbeat.cleanup()?;
+    heartbeat.cleanup().await?;
 
     Ok((pid, exit_code))
 }
 
 /// Spawn agent in background (don't wait)
-fn spawn_agent_background(
+async fn spawn_agent_background(
     workspace_path: &Path,
     options: &SpawnOptions,
 ) -> Result<(Option<u32>, Option<i32>), SpawnError> {
     let heartbeat = HeartbeatMonitor::with_defaults(workspace_path);
-    heartbeat.initialize()?;
+    heartbeat.initialize().await?;
 
-    let mut cmd = Command::new(&options.agent_command);
+    let mut cmd = tokio::process::Command::new(&options.agent_command);
     cmd.args(&options.agent_args)
         .current_dir(workspace_path)
         .env("ZJJ_BEAD_ID", &options.bead_id)
         .env("ZJJ_WORKSPACE", workspace_path.to_string_lossy().as_ref())
-        .env("ZJJ_ACTIVE", "1")  // Required by git pre-commit hook
+        .env("ZJJ_ACTIVE", "1") // Required by git pre-commit hook
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
 
-    let spawn_result = cmd.spawn().map_err(|e| SpawnError::AgentSpawnFailed {
+    let child = cmd.spawn().map_err(|e| SpawnError::AgentSpawnFailed {
         reason: format!("Failed to spawn agent: {e}"),
     })?;
 
-    let pid = Some(spawn_result.id());
+    let pid = child.id();
 
     // Detach - process continues in background
     Ok((pid, None))
@@ -360,18 +330,23 @@ async fn handle_success(
         merge_to_main(root, bead_id).await?
     };
 
-    let cleaned = cleanup_workspace(workspace_path)?;
+    let cleaned = cleanup_workspace(workspace_path).await?;
 
+    let bead_repo = BeadRepository::new(root);
     // Update bead to completed
-    update_bead_status(bead_id, "completed").map_err(|e| SpawnError::DatabaseError {
-        reason: e.to_string(),
-    })?;
+    bead_repo
+        .update_status(bead_id, BeadStatus::Closed)
+        .await
+        .map_err(|e| SpawnError::DatabaseError {
+            reason: e.to_string(),
+        })?;
 
     Ok((merged, cleaned, SpawnStatus::Completed))
 }
 
 /// Handle failed agent completion
-fn handle_failure(
+async fn handle_failure(
+    root: &str,
     workspace_path: &Path,
     options: &SpawnOptions,
     _exit_code: i32,
@@ -379,7 +354,7 @@ fn handle_failure(
     let cleaned = if options.no_auto_cleanup {
         false
     } else {
-        cleanup_workspace(workspace_path)?
+        cleanup_workspace(workspace_path).await?
     };
 
     // Reset bead status from in_progress to open for retry
@@ -390,32 +365,34 @@ fn handle_failure(
             bead_id: "unknown".to_string(),
         })?;
 
-    update_bead_status(bead_id, "open").map_err(|e| SpawnError::DatabaseError {
-        reason: e.to_string(),
-    })?;
+    let bead_repo = BeadRepository::new(root);
+    bead_repo
+        .update_status(bead_id, BeadStatus::Open)
+        .await
+        .map_err(|e| SpawnError::DatabaseError {
+            reason: e.to_string(),
+        })?;
 
     Ok((false, cleaned, SpawnStatus::Failed))
 }
 
-/// Merge workspace changes to main by abandoning the workspace
+/// Merge workspace changes to main by forgetting the workspace
 ///
-/// This function uses `jj workspace abandon` to merge the workspace's changes
-/// back to the main branch. The abandon operation in JJ moves the workspace's
-/// changes into the main branch's working copy.
+/// This function uses `jj workspace forget` to remove the workspace record.
 ///
 /// # Arguments
 /// * `root` - The JJ repository root directory
-/// * `workspace_name` - The name of the workspace to abandon (`bead_id`)
+/// * `workspace_name` - The name of the workspace to forget (`bead_id`)
 ///
 /// # Returns
-/// * `Ok(true)` - If the workspace was successfully abandoned/merged
-/// * `Err(SpawnError)` - If the abandon operation failed
+/// * `Ok(true)` - If the workspace was successfully forgotten
+/// * `Err(SpawnError)` - If the forget operation failed
 ///
 /// # Errors
 /// * `JjCommandFailed` - If the jj command execution fails
-/// * `MergeFailed` - If the workspace doesn't exist or abandon fails
+/// * `MergeFailed` - If the workspace doesn't exist or forget fails
 async fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
-    // First, check if the workspace exists before attempting to abandon
+    // First, check if the workspace exists before attempting to forget
     let list_output = tokio::process::Command::new("jj")
         .args(["workspace", "list"])
         .current_dir(root)
@@ -447,18 +424,18 @@ async fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnEr
     }
 
     // Abandon the workspace to merge changes back to main
-    let abandon_output = tokio::process::Command::new("jj")
-        .args(["workspace", "abandon", "--name", workspace_name])
+    let forget_output = tokio::process::Command::new("jj")
+        .args(["workspace", "forget", workspace_name])
         .current_dir(root)
         .output()
         .await
         .map_err(|e| SpawnError::JjCommandFailed {
-            reason: format!("Failed to execute jj workspace abandon: {e}"),
+            reason: format!("Failed to execute jj workspace forget: {e}"),
         })?;
 
-    if !abandon_output.status.success() {
-        let stderr = String::from_utf8_lossy(&abandon_output.stderr);
-        let stdout = String::from_utf8_lossy(&abandon_output.stdout);
+    if !forget_output.status.success() {
+        let stderr = String::from_utf8_lossy(&forget_output.stderr);
+        let stdout = String::from_utf8_lossy(&forget_output.stdout);
 
         // Check for conflict indicators in the output
         let error_output = if stderr.is_empty() {
@@ -467,19 +444,8 @@ async fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnEr
             stderr.to_string()
         };
 
-        let has_conflicts = error_output.to_lowercase().contains("conflict")
-            || error_output.to_lowercase().contains("conflicting");
-
-        if has_conflicts {
-            return Err(SpawnError::MergeFailed {
-                reason: format!(
-                    "Merge conflicts detected when abandoning workspace: {error_output}"
-                ),
-            });
-        }
-
         return Err(SpawnError::JjCommandFailed {
-            reason: format!("jj workspace abandon failed: {error_output}"),
+            reason: format!("jj workspace forget failed: {error_output}"),
         });
     }
 
@@ -487,14 +453,17 @@ async fn merge_to_main(root: &str, workspace_name: &str) -> Result<bool, SpawnEr
 }
 
 /// Clean up the workspace directory
-fn cleanup_workspace(workspace_path: &Path) -> Result<bool, SpawnError> {
-    if workspace_path.exists() {
-        fs::remove_dir_all(workspace_path).map_err(|e| SpawnError::CleanupFailed {
-            reason: format!("Failed to remove workspace: {e}"),
-        })?;
-        Ok(true)
-    } else {
-        Ok(false)
+async fn cleanup_workspace(workspace_path: &Path) -> Result<bool, SpawnError> {
+    match tokio::fs::try_exists(workspace_path).await {
+        Ok(true) => {
+            tokio::fs::remove_dir_all(workspace_path)
+                .await
+                .map_err(|e| SpawnError::CleanupFailed {
+                    reason: format!("Failed to remove workspace: {e}"),
+                })?;
+            Ok(true)
+        }
+        _ => Ok(false),
     }
 }
 

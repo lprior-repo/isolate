@@ -1,6 +1,7 @@
 //! CLI command definitions using `clap`
 
 use clap::{Arg, Command as ClapCommand};
+
 use crate::cli::json_docs;
 
 pub fn after_help_text(examples: &[&str], json_output: Option<&'static str>) -> String {
@@ -1909,6 +1910,58 @@ pub fn cmd_events() -> ClapCommand {
         )
 }
 
+pub fn cmd_lock() -> ClapCommand {
+    ClapCommand::new("lock")
+        .about("Acquire exclusive lock on a session")
+        .arg(
+            Arg::new("session")
+                .required(true)
+                .help("Session name to lock"),
+        )
+        .arg(
+            Arg::new("agent-id")
+                .long("agent-id")
+                .value_name("ID")
+                .help("Agent ID (uses ZJJ_AGENT_ID if not provided)"),
+        )
+        .arg(
+            Arg::new("ttl")
+                .long("ttl")
+                .value_name("SECONDS")
+                .value_parser(clap::value_parser!(u64))
+                .default_value("300")
+                .help("Lock TTL in seconds"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+pub fn cmd_unlock() -> ClapCommand {
+    ClapCommand::new("unlock")
+        .about("Release exclusive lock on a session")
+        .arg(
+            Arg::new("session")
+                .required(true)
+                .help("Session name to unlock"),
+        )
+        .arg(
+            Arg::new("agent-id")
+                .long("agent-id")
+                .value_name("ID")
+                .help("Agent ID (uses ZJJ_AGENT_ID if not provided)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 pub fn cmd_completions() -> ClapCommand {
     ClapCommand::new("completions")
         .about("Generate shell completions")
@@ -1929,7 +1982,11 @@ pub fn cmd_completions() -> ClapCommand {
 pub fn cmd_rename() -> ClapCommand {
     ClapCommand::new("rename")
         .about("Rename an existing session")
-        .arg(Arg::new("old_name").required(true).help("Current session name"))
+        .arg(
+            Arg::new("old_name")
+                .required(true)
+                .help("Current session name"),
+        )
         .arg(Arg::new("new_name").required(true).help("New session name"))
         .arg(
             Arg::new("json")
@@ -1966,8 +2023,16 @@ pub fn cmd_resume() -> ClapCommand {
 pub fn cmd_clone() -> ClapCommand {
     ClapCommand::new("clone")
         .about("Clone a session into a new one")
-        .arg(Arg::new("source").required(true).help("Source session name"))
-        .arg(Arg::new("dest").required(true).help("Destination session name"))
+        .arg(
+            Arg::new("source")
+                .required(true)
+                .help("Source session name"),
+        )
+        .arg(
+            Arg::new("dest")
+                .required(true)
+                .help("Destination session name"),
+        )
         .arg(
             Arg::new("json")
                 .long("json")
@@ -2030,7 +2095,12 @@ pub fn cmd_wait() -> ClapCommand {
         .arg(
             Arg::new("condition")
                 .required(true)
-                .value_parser(["session-exists", "session-unlocked", "healthy", "session-status"])
+                .value_parser([
+                    "session-exists",
+                    "session-unlocked",
+                    "healthy",
+                    "session-status",
+                ])
                 .help("Condition to wait for"),
         )
         .arg(Arg::new("name").help("Session name (for session conditions)"))
@@ -2295,6 +2365,8 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_yield())
         .subcommand(cmd_batch())
         .subcommand(cmd_events())
+        .subcommand(cmd_lock())
+        .subcommand(cmd_unlock())
         .subcommand(cmd_completions())
         // Session management
         .subcommand(cmd_rename())
