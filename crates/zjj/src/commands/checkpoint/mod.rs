@@ -52,7 +52,6 @@ CREATE TABLE IF NOT EXISTS checkpoints (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     checkpoint_id TEXT UNIQUE NOT NULL,
     description TEXT,
-    session_count INTEGER NOT NULL,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 
@@ -107,18 +106,13 @@ async fn create_checkpoint(
     let sessions = db.list(None).await.map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let checkpoint_id = generate_checkpoint_id()?;
-    let session_count =
-        i64::try_from(sessions.len()).map_err(|_| anyhow::anyhow!("Session count out of range"))?;
 
-    sqlx::query(
-        "INSERT INTO checkpoints (checkpoint_id, description, session_count) VALUES (?, ?, ?)",
-    )
-    .bind(&checkpoint_id)
-    .bind(description)
-    .bind(session_count)
-    .execute(pool)
-    .await
-    .context("Failed to insert checkpoint")?;
+    sqlx::query("INSERT INTO checkpoints (checkpoint_id, description) VALUES (?, ?)")
+        .bind(&checkpoint_id)
+        .bind(description)
+        .execute(pool)
+        .await
+        .context("Failed to insert checkpoint")?;
 
     futures::stream::iter(sessions)
         .map(Ok::<crate::session::Session, anyhow::Error>)
@@ -137,7 +131,7 @@ async fn create_checkpoint(
                     "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path, branch, metadata)
                      VALUES (?, ?, ?, ?, ?, ?)",
                 )
-                .bind(checkpoint_id)
+                .bind(&checkpoint_id)
                 .bind(&session.name)
                 .bind(session.status.to_string())
                 .bind(&session.workspace_path)
@@ -227,46 +221,54 @@ async fn list_checkpoints(db: &SessionDb) -> Result<CheckpointResponse> {
     let pool = db.pool();
 
     let rows = sqlx::query(
-        "SELECT checkpoint_id, created_at, session_count, description
+        "SELECT checkpoint_id, created_at, description
          FROM checkpoints ORDER BY created_at DESC",
     )
     .fetch_all(pool)
     .await
     .context("Failed to list checkpoints")?;
 
-    let checkpoints = rows
-        .into_iter()
-        .map(|row| {
-            let id: String = row
-                .try_get("checkpoint_id")
-                .map_err(|e| anyhow::anyhow!("Missing checkpoint_id: {e}"))?;
-            let created_at_ts: i64 = row
-                .try_get("created_at")
-                .map_err(|e| anyhow::anyhow!("Missing created_at: {e}"))?;
-            let session_count: i64 = row
-                .try_get("session_count")
-                .map_err(|e| anyhow::anyhow!("Missing session_count: {e}"))?;
-            let description: Option<String> = row
-                .try_get("description")
-                .map_err(|e| anyhow::anyhow!("Missing description: {e}"))?;
+    let checkpoints = futures::stream::iter(rows)
+        .map(Ok::<sqlx::sqlite::SqliteRow, anyhow::Error>)
+        .and_then(|row| {
+            let pool = pool.clone();
+            async move {
+                let id: String = row
+                    .try_get("checkpoint_id")
+                    .context("Missing checkpoint_id")?;
+                let created_at_ts: i64 = row.try_get("created_at").context("Missing created_at")?;
+                let description: Option<String> =
+                    row.try_get("description").context("Missing description")?;
 
-            let created_at = chrono::Utc
-                .timestamp_opt(created_at_ts, 0)
-                .single()
-                .map(|dt: chrono::DateTime<chrono::Utc>| dt.to_rfc3339())
-                .ok_or_else(|| anyhow::anyhow!("Invalid timestamp: {created_at_ts}"))?;
+                // Query actual session count from checkpoint_sessions table
+                let count_row: Option<(i64,)> = sqlx::query_as(
+                    "SELECT COUNT(*) FROM checkpoint_sessions WHERE checkpoint_id = ?",
+                )
+                .bind(&id)
+                .fetch_optional(&pool)
+                .await
+                .context("Failed to count checkpoint sessions")?;
 
-            let count = usize::try_from(session_count)
-                .map_err(|_| anyhow::anyhow!("Session count out of range: {session_count}"))?;
+                let session_count = count_row.map_or(0, |(c,)| c);
+                let count = usize::try_from(session_count)
+                    .map_err(|_| anyhow::anyhow!("Session count out of range: {session_count}"))?;
 
-            Ok(CheckpointInfo {
-                id,
-                created_at,
-                session_count: count,
-                description,
-            })
+                let created_at = chrono::Utc
+                    .timestamp_opt(created_at_ts, 0)
+                    .single()
+                    .map(|dt: chrono::DateTime<chrono::Utc>| dt.to_rfc3339())
+                    .ok_or_else(|| anyhow::anyhow!("Invalid timestamp: {created_at_ts}"))?;
+
+                Ok(CheckpointInfo {
+                    id,
+                    created_at,
+                    session_count: count,
+                    description,
+                })
+            }
         })
-        .collect::<Result<Vec<_>>>()?;
+        .try_collect::<Vec<_>>()
+        .await?;
 
     Ok(CheckpointResponse::List { checkpoints })
 }
@@ -543,7 +545,6 @@ mod tests {
     fn test_checkpoint_schema_checkpoints_columns() {
         assert!(CHECKPOINT_SCHEMA.contains("checkpoint_id TEXT UNIQUE NOT NULL"));
         assert!(CHECKPOINT_SCHEMA.contains("description TEXT"));
-        assert!(CHECKPOINT_SCHEMA.contains("session_count INTEGER NOT NULL"));
         assert!(CHECKPOINT_SCHEMA.contains("created_at INTEGER NOT NULL"));
     }
 
