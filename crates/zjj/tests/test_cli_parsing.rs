@@ -172,8 +172,8 @@ fn test_list_with_json_flag() {
     assert!(result.success);
 
     // Verify JSON format - parse once
-    let _parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).unwrap_or_else(|e| panic!("Output should be valid JSON: {e}"));
+    let _parsed: serde_json::Value = serde_json::from_str(&result.stdout)
+        .unwrap_or_else(|e| panic!("Output should be valid JSON: {e}"));
 }
 
 #[test]
@@ -243,8 +243,9 @@ fn test_list_agent_combined_with_json() {
     );
 
     // Verify JSON format is still valid - parse once
-    let _parsed: serde_json::Value = serde_json::from_str(&result.stdout)
-        .unwrap_or_else(|e| panic!("Output should be valid JSON when combining --agent with --json: {e}"));
+    let _parsed: serde_json::Value = serde_json::from_str(&result.stdout).unwrap_or_else(|e| {
+        panic!("Output should be valid JSON when combining --agent with --json: {e}")
+    });
 }
 
 // ============================================================================

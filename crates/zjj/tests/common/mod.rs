@@ -390,8 +390,8 @@ impl CommandResult {
     /// Functional pattern: Returns Result instead of panicking
     /// Uses Railway-Oriented Programming for error propagation
     pub fn verify_sessions(&self, expected_count: usize) -> Result<(), anyhow::Error> {
-        let parsed: serde_json::Value = serde_json::from_str(&self.stdout)
-            .with_context(|| "Failed to parse JSON output")?;
+        let parsed: serde_json::Value =
+            serde_json::from_str(&self.stdout).with_context(|| "Failed to parse JSON output")?;
 
         let sessions = parsed["data"]
             .as_array()
@@ -399,16 +399,12 @@ impl CommandResult {
 
         let actual_count = sessions.len();
         if actual_count != expected_count {
-            anyhow::bail!(
-                "Expected {expected_count} sessions, found {actual_count}"
-            );
+            anyhow::bail!("Expected {expected_count} sessions, found {actual_count}");
         }
 
         // Verify no duplicates using functional patterns
-        let session_names: std::collections::HashSet<_> = sessions
-            .iter()
-            .filter_map(|s| s["name"].as_str())
-            .collect();
+        let session_names: std::collections::HashSet<_> =
+            sessions.iter().filter_map(|s| s["name"].as_str()).collect();
 
         if session_names.len() != expected_count {
             anyhow::bail!(
@@ -423,8 +419,7 @@ impl CommandResult {
 
     /// Parse JSON output using functional error handling
     pub fn parse_json(&self) -> Result<serde_json::Value, anyhow::Error> {
-        serde_json::from_str(&self.stdout)
-            .with_context(|| "Failed to parse JSON output")
+        serde_json::from_str(&self.stdout).with_context(|| "Failed to parse JSON output")
     }
 }
 

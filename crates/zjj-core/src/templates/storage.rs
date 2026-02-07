@@ -16,8 +16,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use serde::{Deserialize, Serialize};
 use fs2::FileExt;
+use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 

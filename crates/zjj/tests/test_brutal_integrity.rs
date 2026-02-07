@@ -28,9 +28,7 @@ use tokio::{
     task::JoinSet,
 };
 use zjj_core::{
-    workspace_integrity::{
-        BackupManager, CorruptionType, IntegrityValidator, RepairExecutor,
-    },
+    workspace_integrity::{BackupManager, CorruptionType, IntegrityValidator, RepairExecutor},
     Error, Result,
 };
 

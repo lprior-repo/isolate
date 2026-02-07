@@ -1,10 +1,6 @@
 //! Merge queue for sequential multi-agent coordination.
 
-use std::{
-    path::Path,
-    str::FromStr,
-    time::Duration,
-};
+use std::{path::Path, str::FromStr, time::Duration};
 
 use chrono::Utc;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
@@ -254,8 +250,9 @@ impl MergeQueue {
             .ok_or_else(|| Error::DatabaseError("Failed to retrieve inserted entry".to_string()))?;
 
         // Position MUST exist after insertion
-        let position = self.position(workspace).await?
-            .ok_or_else(|| Error::DatabaseError("Workspace not found in queue after insertion".to_string()))?;
+        let position = self.position(workspace).await?.ok_or_else(|| {
+            Error::DatabaseError("Workspace not found in queue after insertion".to_string())
+        })?;
         let total_pending = self.count_pending().await?;
         Ok(QueueAddResponse {
             entry,
@@ -714,9 +711,9 @@ mod tests {
             .find(Option::is_some)
             .flatten();
 
-        let entry = claimed.ok_or_else(|| Error::DatabaseError(
-            "Expected at least one claimed entry after assert".to_string(),
-        ))?;
+        let entry = claimed.ok_or_else(|| {
+            Error::DatabaseError("Expected at least one claimed entry after assert".to_string())
+        })?;
         assert_eq!(entry.status, QueueStatus::Processing);
         assert_eq!(entry.workspace, "ws-1");
 

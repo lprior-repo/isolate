@@ -280,7 +280,11 @@ async fn get_new_events(
 #[allow(clippy::used_underscore_items)]
 fn _generate_event_id() -> String {
     let now = chrono::Utc::now();
-    format!("evt-{timestamp}-{pid}", timestamp = now.timestamp_millis(), pid = std::process::id())
+    format!(
+        "evt-{timestamp}-{pid}",
+        timestamp = now.timestamp_millis(),
+        pid = std::process::id()
+    )
 }
 
 /// Log an event to the events log

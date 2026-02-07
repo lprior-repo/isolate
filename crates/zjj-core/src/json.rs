@@ -256,11 +256,7 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
             format!("Invalid configuration: {msg}"),
             Some("Check your configuration file for errors".to_string()),
         ),
-        Error::IoError(msg) => (
-            ErrorCode::Unknown,
-            format!("IO error: {msg}"),
-            None,
-        ),
+        Error::IoError(msg) => (ErrorCode::Unknown, format!("IO error: {msg}"), None),
         Error::ParseError(msg) => (
             ErrorCode::ConfigParseError,
             format!("Parse error: {msg}"),
@@ -281,11 +277,7 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
             format!("Database error: {msg}"),
             Some("Try running 'zjj doctor --fix' to repair the database".to_string()),
         ),
-        Error::Command(msg) => (
-            ErrorCode::Unknown,
-            format!("Command error: {msg}"),
-            None,
-        ),
+        Error::Command(msg) => (ErrorCode::Unknown, format!("Command error: {msg}"), None),
         Error::HookFailed {
             hook_type,
             command,
@@ -323,11 +315,7 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
                 )
             }
         }
-        Error::Unknown(msg) => (
-            ErrorCode::Unknown,
-            format!("Unknown error: {msg}"),
-            None,
-        ),
+        Error::Unknown(msg) => (ErrorCode::Unknown, format!("Unknown error: {msg}"), None),
         Error::SessionLocked { session, holder } => (
             ErrorCode::Unknown,
             format!("Session '{session}' is locked by agent '{holder}'"),

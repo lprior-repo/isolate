@@ -28,7 +28,8 @@ use zjj_core::{
 #[allow(clippy::too_many_lines)]
 async fn test_concurrent_template_read_write() {
     let start = std::time::Instant::now();
-    let temp_dir = tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
+    let temp_dir =
+        tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
     let templates_base = Arc::new(temp_dir.path().to_path_buf());
 
     // Create initial set of templates
@@ -44,7 +45,8 @@ async fn test_concurrent_template_read_write() {
         .collect();
 
     for template in &initial_templates {
-        save_template(template, &templates_base).unwrap_or_else(|e| panic!("Failed to save initial template: {e}"));
+        save_template(template, &templates_base)
+            .unwrap_or_else(|e| panic!("Failed to save initial template: {e}"));
     }
 
     let mut join_set = JoinSet::new();
@@ -53,32 +55,31 @@ async fn test_concurrent_template_read_write() {
     for reader_id in 0..10 {
         let base = Arc::clone(&templates_base);
         join_set.spawn(async move {
-            let (successful_reads, read_errors) = (0..20)
-                .fold((0, 0), |(reads, errors), i| {
-                    if i % 2 == 0 {
-                        // List all templates - use functional error handling
-                        list_templates(&base)
-                            .map(|templates| {
-                                // Verify we got a reasonable result
-                                assert!(templates.len() <= 60, "Too many templates returned");
+            let (successful_reads, read_errors) = (0..20).fold((0, 0), |(reads, errors), i| {
+                if i % 2 == 0 {
+                    // List all templates - use functional error handling
+                    list_templates(&base)
+                        .map(|templates| {
+                            // Verify we got a reasonable result
+                            assert!(templates.len() <= 60, "Too many templates returned");
+                            (reads + 1, errors)
+                        })
+                        .unwrap_or((reads, errors + 1))
+                } else {
+                    // Load a specific template - use functional error handling
+                    let template_id = (reader_id + i) % 10;
+                    load_template(&format!("template_{template_id}"), &base)
+                        .map(|_| (reads + 1, errors))
+                        .unwrap_or_else(|e| {
+                            if matches!(e, Error::NotFound(_)) {
+                                // Template might not exist yet, that's okay
                                 (reads + 1, errors)
-                            })
-                            .unwrap_or((reads, errors + 1))
-                    } else {
-                        // Load a specific template - use functional error handling
-                        let template_id = (reader_id + i) % 10;
-                        load_template(&format!("template_{template_id}"), &base)
-                            .map(|_| (reads + 1, errors))
-                            .unwrap_or_else(|e| {
-                                if matches!(e, Error::NotFound(_)) {
-                                    // Template might not exist yet, that's okay
-                                    (reads + 1, errors)
-                                } else {
-                                    (reads, errors + 1)
-                                }
-                            })
-                    }
-                });
+                            } else {
+                                (reads, errors + 1)
+                            }
+                        })
+                }
+            });
 
             // Return tuple with first element as reader ID (0-9)
             (reader_id, successful_reads, read_errors, 0) // (id, reads, read_errors, 0 for writes)
@@ -211,7 +212,8 @@ async fn test_concurrent_template_read_write() {
 #[tokio::test]
 async fn test_template_handles_corrupted_metadata() {
     let start = std::time::Instant::now();
-    let temp_dir = tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
+    let temp_dir =
+        tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
     let templates_base = temp_dir.path();
 
     // Create a valid template first
@@ -222,7 +224,8 @@ async fn test_template_handles_corrupted_metadata() {
     )
     .unwrap_or_else(|e| panic!("Failed to create template: {e}"));
 
-    save_template(&template, templates_base).unwrap_or_else(|e| panic!("Failed to save template: {e}"));
+    save_template(&template, templates_base)
+        .unwrap_or_else(|e| panic!("Failed to save template: {e}"));
 
     // Verify it loads correctly
     let loaded = load_template("valid_template", templates_base);
@@ -283,7 +286,8 @@ async fn test_template_handles_corrupted_metadata() {
     let template2 = Template::new("template2".to_string(), "layout { pane }".to_string(), None)
         .unwrap_or_else(|e| panic!("Failed to create template: {e}"));
 
-    save_template(&template2, templates_base).unwrap_or_else(|e| panic!("Failed to save second template: {e}"));
+    save_template(&template2, templates_base)
+        .unwrap_or_else(|e| panic!("Failed to save second template: {e}"));
 
     // Corrupt first template's metadata again
     let metadata_path2 = templates_base.join("template2").join("metadata.json");
@@ -301,7 +305,9 @@ async fn test_template_handles_corrupted_metadata() {
     let templates_list = list_result.unwrap_or_else(|e| panic!("Failed to list templates: {e}"));
     // The corrupted template should be skipped
     assert!(
-        !templates_list.iter().any(|t| t.name.as_str() == "template2"),
+        !templates_list
+            .iter()
+            .any(|t| t.name.as_str() == "template2"),
         "Corrupted template should not appear in list"
     );
 
@@ -313,7 +319,8 @@ async fn test_template_handles_corrupted_metadata() {
 #[tokio::test]
 async fn test_concurrent_same_template_operations() {
     let start = std::time::Instant::now();
-    let temp_dir = tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
+    let temp_dir =
+        tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
     let templates_base = Arc::new(temp_dir.path().to_path_buf());
 
     // Create initial template
@@ -324,7 +331,8 @@ async fn test_concurrent_same_template_operations() {
     )
     .unwrap_or_else(|e| panic!("Failed to create template: {e}"));
 
-    save_template(&template, &templates_base).unwrap_or_else(|e| panic!("Failed to save template: {e}"));
+    save_template(&template, &templates_base)
+        .unwrap_or_else(|e| panic!("Failed to save template: {e}"));
 
     let mut join_set = JoinSet::new();
 
@@ -395,7 +403,8 @@ async fn test_concurrent_same_template_operations() {
 #[tokio::test]
 async fn test_concurrent_exists_checks() {
     let start = std::time::Instant::now();
-    let temp_dir = tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
+    let temp_dir =
+        tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
     let templates_base = Arc::new(temp_dir.path().to_path_buf());
 
     let mut join_set = JoinSet::new();
@@ -429,15 +438,13 @@ async fn test_concurrent_exists_checks() {
                     );
 
                     // Use and_then to chain Result -> Option conversion
-                    template_result
-                        .ok()
-                        .and_then(|t| {
-                            if save_template(&t, &base).is_ok() {
-                                Some(1)
-                            } else {
-                                None
-                            }
-                        })
+                    template_result.ok().and_then(|t| {
+                        if save_template(&t, &base).is_ok() {
+                            Some(1)
+                        } else {
+                            None
+                        }
+                    })
                 })
                 .sum();
 

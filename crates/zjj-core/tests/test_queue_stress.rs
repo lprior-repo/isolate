@@ -8,8 +8,10 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use futures::future::join_all;
 use tokio::time::sleep;
-use zjj_core::coordination::queue::{MergeQueue, QueueEntry, QueueStatus};
-use zjj_core::Error;
+use zjj_core::{
+    coordination::queue::{MergeQueue, QueueEntry, QueueStatus},
+    Error,
+};
 
 /// Helper to spawn multiple agents concurrently and collect their results.
 /// Agents retry up to 10 times with exponential backoff to handle lock contention.
@@ -78,19 +80,11 @@ async fn test_queue_concurrent_lock_no_duplicates() -> Result<(), Box<dyn std::e
 
     // Add 20 work items to the queue in parallel
     let items: Vec<_> = (0..20)
-        .map(|i| {
-            (
-                format!("workspace-{i}"),
-                format!("bead-{i}"),
-                5i32,
-            )
-        })
+        .map(|i| (format!("workspace-{i}"), format!("bead-{i}"), 5i32))
         .collect();
     let add_futures: Vec<_> = items
         .iter()
-        .map(|(workspace, bead, priority)| {
-            queue.add(workspace, Some(bead), *priority, None)
-        })
+        .map(|(workspace, bead, priority)| queue.add(workspace, Some(bead), *priority, None))
         .collect();
     join_all(add_futures)
         .await
@@ -107,10 +101,7 @@ async fn test_queue_concurrent_lock_no_duplicates() -> Result<(), Box<dyn std::e
     let results = spawn_concurrent_agents(queue.clone(), work_items).await;
 
     // Collect all successfully claimed workspaces
-    let claimed_workspaces: HashSet<String> = results
-        .into_iter()
-        .flatten()
-        .collect();
+    let claimed_workspaces: HashSet<String> = results.into_iter().flatten().collect();
 
     // Verify no duplicates: should have exactly 20 unique workspaces claimed
     assert_eq!(
@@ -130,7 +121,12 @@ async fn test_queue_concurrent_lock_no_duplicates() -> Result<(), Box<dyn std::e
 
     // Verify queue stats show all items completed
     let stats = queue.stats().await?;
-    assert_eq!(stats.completed, 20, "All {total} items should be completed", total = 20);
+    assert_eq!(
+        stats.completed,
+        20,
+        "All {total} items should be completed",
+        total = 20
+    );
     assert_eq!(stats.processing, 0, "No items should remain in processing");
 
     Ok(())
@@ -159,11 +155,7 @@ async fn test_queue_lock_timeout_allows_reacquisition() -> Result<(), Box<dyn st
     let lock = queue.get_processing_lock().await?;
     assert!(lock.is_some(), "Lock should be held");
     if let Some(lock_val) = lock {
-        assert_eq!(
-            lock_val.agent_id,
-            "agent-1",
-            "Agent-1 should hold the lock"
-        );
+        assert_eq!(lock_val.agent_id, "agent-1", "Agent-1 should hold the lock");
     }
 
     // Agent 2 tries to claim but should fail (lock held)
@@ -198,8 +190,7 @@ async fn test_queue_lock_timeout_allows_reacquisition() -> Result<(), Box<dyn st
     assert!(lock.is_some(), "Lock should be held by agent-2");
     if let Some(lock_val) = lock {
         assert_eq!(
-            lock_val.agent_id,
-            "agent-2",
+            lock_val.agent_id, "agent-2",
             "Agent-2 should hold the lock after acquisition"
         );
     }
@@ -231,9 +222,12 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Get initial lock info
     let lock1 = queue.get_processing_lock().await?;
     assert!(lock1.is_some(), "Lock should be held");
-    let initial_expires = lock1.as_ref().map(|lock| lock.expires_at).unwrap_or_else(|| {
-        panic!("lock should exist");
-    });
+    let initial_expires = lock1
+        .as_ref()
+        .map(|lock| lock.expires_at)
+        .unwrap_or_else(|| {
+            panic!("lock should exist");
+        });
 
     // Extend the lock by 100 seconds
     let extended = queue.extend_lock("agent-extender", 100).await?;
@@ -245,9 +239,12 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Verify lock was extended
     let lock2 = queue.get_processing_lock().await?;
     assert!(lock2.is_some(), "Lock should still be held");
-    let new_expires = lock2.as_ref().map(|lock| lock.expires_at).unwrap_or_else(|| {
-        panic!("lock should exist");
-    });
+    let new_expires = lock2
+        .as_ref()
+        .map(|lock| lock.expires_at)
+        .unwrap_or_else(|| {
+            panic!("lock should exist");
+        });
 
     assert!(
         new_expires > initial_expires,
@@ -266,8 +263,7 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     assert!(lock3.is_some(), "Lock should still be held");
     if let Some(lock_val) = lock3 {
         assert_eq!(
-            lock_val.agent_id,
-            "agent-extender",
+            lock_val.agent_id, "agent-extender",
             "Original agent should still hold the lock"
         );
     }
@@ -282,9 +278,12 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Verify lock expiration hasn't changed (still held by original agent)
     let lock4 = queue.get_processing_lock().await?;
     assert_eq!(
-        lock4.as_ref().map(|lock| lock.expires_at).unwrap_or_else(|| {
-            panic!("lock should exist");
-        }),
+        lock4
+            .as_ref()
+            .map(|lock| lock.expires_at)
+            .unwrap_or_else(|| {
+                panic!("lock should exist");
+            }),
         new_expires,
         "Lock expiration should not change when non-owner tries to extend"
     );
@@ -317,9 +316,7 @@ async fn test_queue_concurrent_high_contention() -> Result<(), Box<dyn std::erro
         .collect();
     let add_futures: Vec<_> = items
         .iter()
-        .map(|(workspace, bead, priority)| {
-            queue.add(workspace, Some(bead), *priority, None)
-        })
+        .map(|(workspace, bead, priority)| queue.add(workspace, Some(bead), *priority, None))
         .collect();
     join_all(add_futures)
         .await
@@ -396,9 +393,7 @@ async fn test_queue_serialization_under_load() -> Result<(), Box<dyn std::error:
         .collect();
     let add_futures: Vec<_> = items
         .iter()
-        .map(|(workspace, bead, priority)| {
-            queue.add(workspace, Some(bead), *priority, None)
-        })
+        .map(|(workspace, bead, priority)| queue.add(workspace, Some(bead), *priority, None))
         .collect();
     join_all(add_futures)
         .await
@@ -485,9 +480,7 @@ async fn test_queue_priority_respected_under_concurrency() -> Result<(), Box<dyn
     // Add work items in parallel
     let add_futures: Vec<_> = work_items
         .iter()
-        .map(|(workspace, bead, priority)| {
-            queue.add(workspace, Some(bead), *priority, None)
-        })
+        .map(|(workspace, bead, priority)| queue.add(workspace, Some(bead), *priority, None))
         .collect();
     join_all(add_futures)
         .await

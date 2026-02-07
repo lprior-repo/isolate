@@ -489,9 +489,15 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
             // Note: In real implementation, would query actual changes
             // For now, just demonstrate the hint structure
             hints.push(
-                Hint::info(format!("Session '{session_name}' is active", session_name = session.name))
-                    .with_command(format!("zjj status {session_name}", session_name = session.name))
-                    .with_rationale("Review session status regularly"),
+                Hint::info(format!(
+                    "Session '{session_name}' is active",
+                    session_name = session.name
+                ))
+                .with_command(format!(
+                    "zjj status {session_name}",
+                    session_name = session.name
+                ))
+                .with_rationale("Review session status regularly"),
             );
         }
     });
@@ -507,9 +513,13 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
                 hints.push(
                     Hint::suggestion(format!(
                         "Session '{session_name}' completed {age} day(s) ago, consider removing",
-                        session_name = session.name, age = age
+                        session_name = session.name,
+                        age = age
                     ))
-                    .with_command(format!("zjj remove {session_name} --merge", session_name = session.name))
+                    .with_command(format!(
+                        "zjj remove {session_name} --merge",
+                        session_name = session.name
+                    ))
                     .with_rationale("Clean up completed work")
                     .with_context(serde_json::json!({
                         "session": session.name,
@@ -526,9 +536,15 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
         .filter(|s| s.status == SessionStatus::Failed)
         .for_each(|session| {
             hints.push(
-                Hint::warning(format!("Session '{session_name}' failed during creation", session_name = session.name))
-                    .with_command(format!("zjj remove {session_name}", session_name = session.name))
-                    .with_rationale("Clean up failed session and retry"),
+                Hint::warning(format!(
+                    "Session '{session_name}' failed during creation",
+                    session_name = session.name
+                ))
+                .with_command(format!(
+                    "zjj remove {session_name}",
+                    session_name = session.name
+                ))
+                .with_rationale("Clean up failed session and retry"),
             );
         });
 
@@ -728,7 +744,8 @@ pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vec<Hint> {
         hints.push(
             Hint::warning(format!(
                 "Session '{session_name}' has {blocked_count} blocked issue(s)",
-                session_name = session_name, blocked_count = beads.blocked
+                session_name = session_name,
+                blocked_count = beads.blocked
             ))
             .with_command("bv")
             .with_rationale("Resolve blockers to make progress")

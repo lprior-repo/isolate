@@ -1,3 +1,4 @@
+
 // Recovery Logging Stress Tests
 //
 // Comprehensive stress tests for recovery logging functionality under
@@ -21,10 +22,7 @@
 // NOTE: Tests require --test-threads=1 due to log_recovery() using hardcoded
 // .zjj path. This is a pre-existing limitation, not introduced by optimizations.
 
-use tokio::{
-    io::AsyncReadExt,
-    task::JoinSet,
-};
+use tokio::{io::AsyncReadExt, task::JoinSet};
 use zjj_core::{
     config::{RecoveryConfig, RecoveryPolicy},
     recovery::log_recovery,
@@ -35,7 +33,7 @@ use zjj_core::{
 #[tokio::test]
 async fn test_concurrent_recovery_logging() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
-        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
     let zjj_dir = temp_dir.path().join(".zjj");
     tokio::fs::create_dir(&zjj_dir)
         .await
@@ -49,7 +47,7 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
     // Change to temp directory so log_recovery creates the file there
     let temp_path = temp_dir.path().to_path_buf();
     std::env::set_current_dir(&temp_path)
-        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}")))?;
 
     // Spawn 20 concurrent loggers using JoinSet for better performance
     let mut join_set = JoinSet::new();
@@ -71,7 +69,11 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
     }
 
     if !errors.is_empty() {
-        return Err(Error::IoError(format!("{count} tasks failed: {errors:?}", count = errors.len(), errors = errors)));
+        return Err(Error::IoError(format!(
+            "{count} tasks failed: {errors:?}",
+            count = errors.len(),
+            errors = errors
+        )));
     }
 
     // Verify log file contains all messages (using absolute path while temp_dir still alive)
@@ -82,17 +84,14 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
         .map_err(|e| Error::IoError(format!("Failed to open log: {e}")))?;
     file.read_to_string(&mut content)
         .await
-        .map_err(|e| Error::IoError(format!("Failed to read log: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to read log: {e}")))?;
 
     // Batch verify all messages with early exit
     let missing: Vec<_> = (0..20)
         .filter(|i| !content.contains(&format!("Concurrent message {i}")))
         .collect();
 
-    assert!(
-        missing.is_empty(),
-        "Missing messages in log: {missing:?}"
-    );
+    assert!(missing.is_empty(), "Missing messages in log: {missing:?}");
 
     // No need to restore directory - temp_dir cleanup handles it
     Ok(())
@@ -102,7 +101,7 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
 #[tokio::test]
 async fn test_large_recovery_log_handling() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
-        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
     let zjj_dir = temp_dir.path().join(".zjj");
     tokio::fs::create_dir(&zjj_dir)
         .await
@@ -115,13 +114,11 @@ async fn test_large_recovery_log_handling() -> Result<(), Error> {
 
     let temp_path = temp_dir.path().to_path_buf();
     std::env::set_current_dir(&temp_path)
-        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}")))?;
 
     // Log 1000 entries (sequential but fast without sleeps)
     for i in 0..1000 {
-        let message = format!(
-            "Entry {i}: Some relatively long message to increase log size",
-        );
+        let message = format!("Entry {i}: Some relatively long message to increase log size",);
         log_recovery(&message, &config).await?;
     }
 
@@ -146,7 +143,7 @@ async fn test_large_recovery_log_handling() -> Result<(), Error> {
         .map_err(|e| Error::IoError(format!("Failed to open log: {e}")))?;
     file.read_to_string(&mut content)
         .await
-        .map_err(|e| Error::IoError(format!("Failed to read log: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to read log: {e}")))?;
 
     // Spot check some entries
     assert!(content.contains("Entry 0:"));
@@ -164,7 +161,7 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
     const ENTRIES_PER_WORKER: usize = 10;
 
     let temp_dir = tempfile::tempdir()
-        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
     let zjj_dir = temp_dir.path().join(".zjj");
     tokio::fs::create_dir(&zjj_dir)
         .await
@@ -177,7 +174,7 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
 
     let temp_path = temp_dir.path().to_path_buf();
     std::env::set_current_dir(&temp_path)
-        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}")))?;
 
     // Spawn 50 workers, each logging 10 entries (parallel)
     let mut join_set = JoinSet::new();
@@ -214,7 +211,7 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
         .map_err(|e| Error::IoError(format!("Failed to open log: {e}")))?;
     file.read_to_string(&mut content)
         .await
-        .map_err(|e| Error::IoError(format!("Failed to read log: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to read log: {e}")))?;
 
     // Batch verify all entries (collect missing messages)
     let missing: Vec<String> = (0..NUM_WORKERS)
@@ -241,7 +238,7 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
 #[tokio::test]
 async fn test_recovery_log_disabled() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
-        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
     let zjj_dir = temp_dir.path().join(".zjj");
     tokio::fs::create_dir(&zjj_dir)
         .await
@@ -254,7 +251,7 @@ async fn test_recovery_log_disabled() -> Result<(), Error> {
 
     let temp_path = temp_dir.path().to_path_buf();
     std::env::set_current_dir(&temp_path)
-        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}")))?;
 
     // Logging should succeed even if disabled
     log_recovery("This should not be logged", &config).await?;
@@ -278,7 +275,7 @@ async fn test_recovery_log_disabled() -> Result<(), Error> {
 #[tokio::test]
 async fn test_recovery_log_append_behavior() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
-        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
     let zjj_dir = temp_dir.path().join(".zjj");
     tokio::fs::create_dir(&zjj_dir)
         .await
@@ -291,7 +288,7 @@ async fn test_recovery_log_append_behavior() -> Result<(), Error> {
 
     let temp_path = temp_dir.path().to_path_buf();
     std::env::set_current_dir(&temp_path)
-        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}")))?;
 
     // Log three messages (no sleeps needed - fsync is handled by tokio)
     log_recovery("First message", &config).await?;
@@ -306,18 +303,21 @@ async fn test_recovery_log_append_behavior() -> Result<(), Error> {
         .map_err(|e| Error::IoError(format!("Failed to open log: {e}")))?;
     file.read_to_string(&mut content)
         .await
-        .map_err(|e| Error::IoError(format!("Failed to read log: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to read log: {e}")))?;
 
     assert!(content.contains("First message"), "Missing first message");
     assert!(content.contains("Second message"), "Missing second message");
     assert!(content.contains("Third message"), "Missing third message");
 
     // Verify messages appear in order (first before second before third)
-    let first_pos = content.find("First message")
+    let first_pos = content
+        .find("First message")
         .unwrap_or_else(|| panic!("First message should be in log"));
-    let second_pos = content.find("Second message")
+    let second_pos = content
+        .find("Second message")
         .unwrap_or_else(|| panic!("Second message should be in log"));
-    let third_pos = content.find("Third message")
+    let third_pos = content
+        .find("Third message")
         .unwrap_or_else(|| panic!("Third message should be in log"));
 
     assert!(
@@ -333,7 +333,7 @@ async fn test_recovery_log_append_behavior() -> Result<(), Error> {
 #[tokio::test]
 async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
-        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
     let zjj_dir = temp_dir.path().join(".zjj");
     tokio::fs::create_dir(&zjj_dir)
         .await
@@ -346,7 +346,7 @@ async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
 
     let temp_path = temp_dir.path().to_path_buf();
     std::env::set_current_dir(&temp_path)
-        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}")))?;
 
     // Test various special characters (no sleeps needed)
     let test_messages = vec![
@@ -374,19 +374,27 @@ async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
         .map_err(|e| Error::IoError(format!("Failed to open log: {e}")))?;
     file.read_to_string(&mut content)
         .await
-        .map_err(|e| Error::IoError(format!("Failed to read log: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to read log: {e}")))?;
 
     // Batch verify all messages
-    let test_patterns = ["你好世界", "🎉", "\\n", "double", "🚀", "∑ ∫", "£ € ¥", "← →", "┌─┐", "🦀"];
+    let test_patterns = [
+        "你好世界",
+        "🎉",
+        "\\n",
+        "double",
+        "🚀",
+        "∑ ∫",
+        "£ € ¥",
+        "← →",
+        "┌─┐",
+        "🦀",
+    ];
     let missing: Vec<_> = test_patterns
         .iter()
         .filter(|&&pattern| !content.contains(pattern))
         .collect();
 
-    assert!(
-        missing.is_empty(),
-        "Missing patterns in log: {missing:?}"
-    );
+    assert!(missing.is_empty(), "Missing patterns in log: {missing:?}");
 
     // No need to restore directory - temp_dir cleanup handles it
     Ok(())
@@ -396,7 +404,7 @@ async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
 #[tokio::test]
 async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
     let temp_dir = tempfile::tempdir()
-        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
     let zjj_dir = temp_dir.path().join(".zjj");
     tokio::fs::create_dir(&zjj_dir)
         .await
@@ -409,7 +417,7 @@ async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
 
     let temp_path = temp_dir.path().to_path_buf();
     std::env::set_current_dir(&temp_path)
-        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}"))) ?;
+        .map_err(|e| Error::IoError(format!("Failed to set current dir: {e}")))?;
 
     // Test edge cases (no sleeps needed)
     let test_cases = vec!["", " ", "  ", "\t", "\n", "\r\n", "   \t\t   "];
@@ -441,7 +449,7 @@ async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
             .map_err(|e| Error::IoError(format!("Failed to open log: {e}")))?;
         file.read_to_string(&mut content)
             .await
-            .map_err(|e| Error::IoError(format!("Failed to read log: {e}"))) ?;
+            .map_err(|e| Error::IoError(format!("Failed to read log: {e}")))?;
 
         // File should be readable without errors
         assert!(content.len() < 10_000_000, "Log file unexpectedly large");

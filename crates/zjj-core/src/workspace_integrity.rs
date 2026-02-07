@@ -200,8 +200,10 @@ impl IntegrityIssue {
         match corruption_type {
             CorruptionType::MissingDirectory => Severity::Critical,
             CorruptionType::StaleLocks => Severity::Warn,
-            CorruptionType::MissingJjDir | CorruptionType::CorruptedJjDir
-            | CorruptionType::PermissionDenied | CorruptionType::CorruptedGitIndex => Severity::Fail,
+            CorruptionType::MissingJjDir
+            | CorruptionType::CorruptedJjDir
+            | CorruptionType::PermissionDenied
+            | CorruptionType::CorruptedGitIndex => Severity::Fail,
         }
     }
 
@@ -1070,10 +1072,7 @@ mod tests {
         let meta = manager.create_backup("ws", "Test").await?;
         assert_eq!(meta.workspace, "ws");
         assert_eq!(meta.reason, "Test");
-        assert!(
-            tokio::fs::try_exists(root.path().join(".zjj").join("backups"))
-                .await?
-        );
+        assert!(tokio::fs::try_exists(root.path().join(".zjj").join("backups")).await?);
         Ok(())
     }
 }

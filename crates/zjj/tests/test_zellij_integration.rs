@@ -20,8 +20,7 @@
 
 #![allow(clippy::expect_used)]
 
-use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::{path::PathBuf, sync::OnceLock};
 
 use zjj_core::zellij::{self, LayoutConfig, LayoutTemplate, TabStatus};
 
@@ -69,21 +68,22 @@ struct CachedKdl {
 fn get_cached_kdl(template: LayoutTemplate) -> &'static str {
     static CACHE: OnceLock<Vec<CachedKdl>> = OnceLock::new();
 
-    CACHE.get_or_init(|| {
-        let config = test_config();
-        ALL_TEMPLATES
-            .iter()
-            .map(|&t| {
-                let kdl = zellij::generate_template_kdl(config, t)
-                    .expect("KDL generation should succeed");
-                CachedKdl { template: t, kdl }
-            })
-            .collect()
-    })
-    .iter()
-    .find(|cached| cached.template == template)
-    .map(|cached| cached.kdl.as_str())
-    .expect("Template should be in cache")
+    CACHE
+        .get_or_init(|| {
+            let config = test_config();
+            ALL_TEMPLATES
+                .iter()
+                .map(|&t| {
+                    let kdl = zellij::generate_template_kdl(config, t)
+                        .expect("KDL generation should succeed");
+                    CachedKdl { template: t, kdl }
+                })
+                .collect()
+        })
+        .iter()
+        .find(|cached| cached.template == template)
+        .map(|cached| cached.kdl.as_str())
+        .expect("Template should be in cache")
 }
 
 /// Helper to count occurrences of a pattern in KDL (optimized for Round 2)
@@ -105,7 +105,9 @@ fn validate_balanced_braces(kdl: &str) -> Result<(), String> {
     if open_braces == close_braces {
         Ok(())
     } else {
-        Err(format!("Unbalanced braces: {open_braces} open, {close_braces} close"))
+        Err(format!(
+            "Unbalanced braces: {open_braces} open, {close_braces} close"
+        ))
     }
 }
 
@@ -346,7 +348,10 @@ async fn test_zellij_kdl_template_all_templates_valid_parallel() {
         .map(|&template| validate_balanced_braces(get_cached_kdl(template)))
         .collect();
 
-    assert!(validation_results.is_ok(), "All templates should have balanced braces");
+    assert!(
+        validation_results.is_ok(),
+        "All templates should have balanced braces"
+    );
 }
 
 #[tokio::test]
@@ -603,7 +608,10 @@ async fn test_zellij_validation_happens_automatically() {
         })
         .collect();
 
-    assert!(validation_results.is_ok(), "All templates should generate valid KDL");
+    assert!(
+        validation_results.is_ok(),
+        "All templates should generate valid KDL"
+    );
 }
 
 // ============================================================================
@@ -650,5 +658,8 @@ async fn test_zellij_all_templates_generate_valid_kdl() {
         .map(|kdl| validate_balanced_braces(kdl))
         .collect();
 
-    assert!(brace_validation.is_ok(), "All templates should have balanced braces");
+    assert!(
+        brace_validation.is_ok(),
+        "All templates should have balanced braces"
+    );
 }
