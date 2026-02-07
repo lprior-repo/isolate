@@ -9,6 +9,11 @@
 //! 4. Environment variables: ZJJ_*
 //! 5. CLI flags (command-specific)
 //!
+//! # Hot-Reload
+//!
+//! For long-running commands (e.g., `dashboard --watch`), use [`ConfigManager`]
+//! to get automatic config reloading when files change.
+//!
 //! # Example Config
 //!
 //! ```toml
@@ -23,11 +28,15 @@
 //! post_create = ["br sync", "npm install"]
 //! ```
 
-use std::{collections::HashMap, path::PathBuf, str::FromStr};
+use std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 
 use serde::{Deserialize, Serialize};
+use tokio::sync::{mpsc, RwLock};
 
 use crate::{Error, Result};
+
+// Import notify for Watcher trait
+use notify::Watcher;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -296,10 +305,171 @@ impl Default for RecoveryConfig {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CONFIG MANAGER (HOT-RELOAD)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Manages configuration with hot-reload capability
+///
+/// This type provides thread-safe, reloadable configuration for long-running
+/// processes. It watches config files and automatically reloads when they change.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use zjj_core::config::ConfigManager;
+///
+/// # async fn example() -> zjj_core::Result<()> {
+/// let manager = ConfigManager::new().await?;
+///
+/// // Get current config (fast, non-blocking read)
+/// let config = manager.get().await;
+/// println!("Workspace dir: {}", config.workspace_dir);
+///
+/// // Config auto-reloads when files change
+/// tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+/// let updated_config = manager.get().await;
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone)]
+pub struct ConfigManager {
+    inner: Arc<RwLock<ConfigManagerInner>>,
+}
+
+struct ConfigManagerInner {
+    config: Config,
+}
+
+impl ConfigManager {
+    /// Create a new ConfigManager with hot-reload enabled
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - Initial config load fails
+    /// - Unable to spawn reload task
+    pub async fn new() -> Result<Self> {
+        let config = load_config().await?;
+
+        let manager = Self {
+            inner: Arc::new(RwLock::new(ConfigManagerInner { config })),
+        };
+
+        // Spawn config watcher task
+        let inner = manager.inner.clone();
+        let mut file_watcher_rx = Self::watch_config_files();
+
+        tokio::spawn(async move {
+            // Loop: watch for file changes and reload config
+            loop {
+                tokio::select! {
+                    // File changed - reload config
+                    Some(_) = file_watcher_rx.recv() => {
+                        // Debounce: small delay before reload
+                        tokio::time::sleep(Duration::from_millis(150)).await;
+
+                        // Reload config
+                        match load_config().await {
+                            Ok(new_config) => {
+                                let mut inner_write = inner.write().await;
+                                inner_write.config = new_config;
+                                tracing::info!("Config reloaded successfully");
+                            }
+                            Err(e) => {
+                                // Log error but keep running with last known good config
+                                tracing::warn!("Config reload failed: {e}, using previous config");
+                            }
+                        }
+                    }
+                    // Channel closed - exit task
+                    else => break,
+                }
+            }
+        });
+
+        Ok(manager)
+    }
+
+    /// Get the current configuration
+    ///
+    /// This is a fast, non-blocking read that returns the most recent
+    /// successfully loaded configuration (including hot-reloaded changes).
+    pub async fn get(&self) -> Config {
+        let inner = self.inner.read().await;
+        inner.config.clone()
+    }
+
+    /// Create a config file watcher channel
+    ///
+    /// Returns a receiver that gets events when config files change.
+    fn watch_config_files() -> mpsc::Receiver<()> {
+        let (tx, rx) = mpsc::channel::<()>(4);
+
+        tokio::spawn(async move {
+            let paths_to_watch = Self::get_config_paths();
+
+            if paths_to_watch.is_empty() {
+                return;
+            }
+
+            // Use notify to watch config files
+            let result = notify::recommended_watcher(move |res: std::result::Result<notify::Event, notify::Error>| {
+                if let Ok(event) = res {
+                    if event.kind.is_modify() || event.kind.is_create() {
+                        let _ = tx.blocking_send(());
+                    }
+                }
+            });
+
+            let mut watcher = match result {
+                Ok(w) => w,
+                Err(_) => return,
+            };
+
+            // Watch each config path
+            for path in paths_to_watch {
+                if path.exists() {
+                    let _ = watcher.watch(&path, notify::RecursiveMode::NonRecursive);
+                } else {
+                    // Watch parent directory for file creation
+                    if let Some(parent) = path.parent() {
+                        let _ = watcher.watch(parent, notify::RecursiveMode::NonRecursive);
+                    }
+                }
+            }
+
+            // Keep the watcher task alive
+            tokio::time::sleep(Duration::from_secs(u64::MAX)).await;
+        });
+
+        rx
+    }
+
+    /// Get paths to config files that should be watched
+    fn get_config_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+
+        // Global config
+        if let Ok(global) = global_config_path() {
+            paths.push(global);
+        }
+
+        // Project config
+        if let Ok(project) = project_config_path() {
+            paths.push(project);
+        }
+
+        paths
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Load configuration from all sources with hierarchy
+///
+/// For long-running processes that need hot-reload, use [`ConfigManager`] instead.
 ///
 /// # Errors
 ///
@@ -980,5 +1150,37 @@ mod tests {
         let mut config = Config::default();
         config.dashboard.refresh_ms = 10000;
         assert!(config.validate().is_ok());
+    }
+
+    // Test 13: ConfigManager creation and retrieval
+    #[tokio::test]
+    async fn test_config_manager_basic() {
+        let result = ConfigManager::new().await;
+        assert!(result.is_ok(), "ConfigManager::new should succeed");
+
+        let manager = result.unwrap();
+        let config = manager.get().await;
+
+        // Verify we got a valid config
+        assert!(!config.workspace_dir.is_empty());
+        assert_eq!(config.default_template, "standard");
+        assert!(config.watch.enabled);
+    }
+
+    // Test 14: ConfigManager is thread-safe (can clone)
+    #[tokio::test]
+    async fn test_config_manager_clone() {
+        let result = ConfigManager::new().await;
+        assert!(result.is_ok());
+
+        let manager1 = result.unwrap();
+        let manager2 = manager1.clone();
+
+        // Both managers should provide the same config
+        let config1 = manager1.get().await;
+        let config2 = manager2.get().await;
+
+        assert_eq!(config1.workspace_dir, config2.workspace_dir);
+        assert_eq!(config1.default_template, config2.default_template);
     }
 }
