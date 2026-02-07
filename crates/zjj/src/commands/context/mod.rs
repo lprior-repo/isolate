@@ -41,7 +41,11 @@ async fn gather_context(no_beads: bool, no_health: bool) -> Result<ContextOutput
         None
     };
 
-    let beads_context = if no_beads { None } else { get_beads_context().await? };
+    let beads_context = if no_beads {
+        None
+    } else {
+        get_beads_context().await?
+    };
 
     let health_status = if no_health {
         HealthStatus::Good
@@ -256,41 +260,44 @@ async fn get_session_info() -> Result<SessionContext> {
 
 async fn get_beads_context() -> Result<Option<BeadsContext>> {
     let beads_dir = std::path::Path::new(".beads");
-    if !beads_dir.exists() {
+    if !tokio::fs::try_exists(beads_dir).await.unwrap_or(false) {
         return Ok(None);
     }
 
     let beads_db = beads_dir.join("issues.jsonl");
-    if !beads_db.exists() {
+    if !tokio::fs::try_exists(&beads_db).await.unwrap_or(false) {
         return Ok(None);
     }
 
     let content = tokio::fs::read_to_string(&beads_db).await?;
-    let mut active: Option<String> = None;
-    let mut blocked_by: Vec<String> = Vec::new();
-    let mut ready_count = 0usize;
-    let mut in_progress_count = 0usize;
 
-    for line in content.lines() {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if let Some(status) = json.get("status").and_then(|s| s.as_str()) {
-                match status {
-                    "in_progress" => {
-                        in_progress_count += 1;
-                        active = active
-                            .or_else(|| json.get("id").and_then(|i| i.as_str()).map(String::from));
-                    }
-                    "ready" | "●" => ready_count += 1,
-                    "blocked" => {
-                        if let Some(id) = json.get("id").and_then(|i| i.as_str()) {
-                            blocked_by.push(id.to_string());
+    let (active, blocked_by, ready_count, in_progress_count) = content
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .fold(
+            (None, Vec::new(), 0usize, 0usize),
+            |(mut active, mut blocked_by, mut ready, mut in_progress), json| {
+                if let Some(status) = json.get("status").and_then(|s| s.as_str()) {
+                    match status {
+                        "in_progress" => {
+                            in_progress += 1;
+                            if active.is_none() {
+                                active = json.get("id").and_then(|i| i.as_str()).map(String::from);
+                            }
                         }
+                        "ready" | "●" => ready += 1,
+                        "blocked" => {
+                            if let Some(id) = json.get("id").and_then(|i| i.as_str()) {
+                                blocked_by.push(id.to_string());
+                            }
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
-            }
-        }
-    }
+                (active, blocked_by, ready, in_progress)
+            },
+        );
 
     Ok(Some(BeadsContext {
         active,
@@ -300,18 +307,24 @@ async fn get_beads_context() -> Result<Option<BeadsContext>> {
     }))
 }
 
-async fn check_health(root: &std::path::Path, session_context: Option<&SessionContext>) -> HealthStatus {
+async fn check_health(
+    root: &std::path::Path,
+    session_context: Option<&SessionContext>,
+) -> HealthStatus {
     let mut warnings: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
 
     let db_path = root.join(".zjj/state.db");
-    if !db_path.exists() {
+    if !tokio::fs::try_exists(&db_path).await.unwrap_or(false) {
         errors.push("Session database not found".to_string());
     }
 
     if let Some(session) = session_context {
         let workspace_path = root.join(".zjj/workspaces").join(&session.name);
-        if !workspace_path.exists() {
+        if !tokio::fs::try_exists(&workspace_path)
+            .await
+            .unwrap_or(false)
+        {
             warnings.push(format!(
                 "Workspace path missing for session: {}",
                 session.name
@@ -352,14 +365,14 @@ fn generate_suggestions(
 
     match health {
         HealthStatus::Warn { issues } => {
-            for issue in issues {
+            issues.iter().for_each(|issue| {
                 suggestions.push(format!("Warning: {issue}"));
-            }
+            });
         }
         HealthStatus::Error { critical } => {
-            for error in critical {
+            critical.iter().for_each(|error| {
                 suggestions.push(format!("Error: {error}"));
-            }
+            });
         }
         HealthStatus::Good => {}
     }
@@ -418,23 +431,23 @@ fn print_human_readable(context: &ContextOutput) {
         HealthStatus::Good => println!("✅ Health: Good"),
         HealthStatus::Warn { issues } => {
             println!("⚠️  Health: Warning");
-            for issue in issues {
+            issues.iter().for_each(|issue| {
                 println!("  - {issue}");
-            }
+            });
         }
         HealthStatus::Error { critical } => {
             println!("❌ Health: Error");
-            for error in critical {
+            critical.iter().for_each(|error| {
                 println!("  - {error}");
-            }
+            });
         }
     }
 
     if !context.suggestions.is_empty() {
         println!("\n💡 Suggestions:");
-        for suggestion in &context.suggestions {
+        context.suggestions.iter().for_each(|suggestion| {
             println!("  • {suggestion}");
-        }
+        });
     }
 }
 

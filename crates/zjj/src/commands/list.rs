@@ -3,12 +3,14 @@
 use std::{path::Path, str::FromStr};
 
 use anyhow::Result;
+use futures::StreamExt;
 use serde::Serialize;
 use zjj_core::{json::SchemaEnvelopeArray, OutputFormat, WorkspaceStateFilter};
 
 use crate::{
+    beads::{BeadRepository, BeadStatus},
+    cli::jj_root,
     commands::get_session_db,
-    json,
     session::{Session, SessionStatus},
 };
 
@@ -48,94 +50,85 @@ pub async fn run(
     agent: Option<&str>,
     state: Option<&str>,
 ) -> Result<()> {
-    // Execute in a block to allow ? operator while catching errors for JSON mode
-    let result = async {
-        let db = get_session_db().await?;
+    let db = get_session_db().await?;
 
-        let state_filter = match state {
-            Some(value) => Some(WorkspaceStateFilter::from_str(value).map_err(anyhow::Error::new)?),
-            None => None,
-        };
+    let state_filter = match state {
+        Some(value) => Some(WorkspaceStateFilter::from_str(value).map_err(anyhow::Error::new)?),
+        None => None,
+    };
 
-        // Filter sessions: exclude completed/failed unless --all is used
-        // Single-pass filtering using iterator chain for O(n) complexity
-        let sessions: Vec<Session> = db
-            .list(None).await?
-            .into_iter()
-            .filter(|s| {
-                // Filter by status: exclude completed/failed unless --all flag is set
-                let status_matches = all
-                    || (s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
+    // Filter sessions: exclude completed/failed unless --all is used
+    // Functional iterator chain for filtering
+    let sessions: Vec<Session> = db
+        .list(None)
+        .await?
+        .into_iter()
+        .filter(|s| {
+            let status_matches =
+                all || (s.status != SessionStatus::Completed && s.status != SessionStatus::Failed);
 
-                // Filter by bead ID if specified
-                let bead_matches = bead.is_none_or(|bead_id| {
-                    s.metadata
-                        .as_ref()
-                        .and_then(|m| m.get("bead_id"))
-                        .and_then(|v| v.as_str())
-                        == Some(bead_id)
-                });
-
-                // Filter by agent owner if specified
-                let agent_matches = agent.is_none_or(|agent_filter| {
-                    s.metadata
-                        .as_ref()
-                        .and_then(|m| m.get("owner"))
-                        .and_then(|v| v.as_str())
-                        == Some(agent_filter)
-                });
-
-                let state_matches = state_filter.is_none_or(|filter| filter.matches(s.state));
-
-                // Combine all filter conditions
-                status_matches && bead_matches && agent_matches && state_matches
-            })
-            .collect();
-
-        if sessions.is_empty() {
-            if format.is_json() {
-                let envelope =
-                    SchemaEnvelopeArray::new("list-response", Vec::<SessionListItem>::new());
-                println!("{}", serde_json::to_string_pretty(&envelope)?);
-            } else {
-                println!("No sessions found.");
-                println!("Use 'zjj add <name>' to create a session.");
-            }
-            return Ok(());
-        }
-
-        // Build list items with enhanced data
-        let mut items = Vec::new();
-        for session in sessions {
-            let changes = get_session_changes(&session.workspace_path).await;
-            let beads = get_beads_count().await.unwrap_or_default();
-
-            items.push(SessionListItem {
-                name: session.name.clone(),
-                status: session.status.to_string(),
-                branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
-                changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
-                beads: beads.to_string(),
-                session,
+            let bead_matches = bead.is_none_or(|bead_id| {
+                s.metadata
+                    .as_ref()
+                    .and_then(|m| m.get("bead_id"))
+                    .and_then(|v| v.as_str())
+                    == Some(bead_id)
             });
-        }
 
+            let agent_matches = agent.is_none_or(|agent_filter| {
+                s.metadata
+                    .as_ref()
+                    .and_then(|m| m.get("owner"))
+                    .and_then(|v| v.as_str())
+                    == Some(agent_filter)
+            });
+
+            let state_matches = state_filter
+                .as_ref()
+                .is_none_or(|filter| filter.matches(s.state));
+
+            status_matches && bead_matches && agent_matches && state_matches
+        })
+        .collect();
+
+    if sessions.is_empty() {
         if format.is_json() {
-            output_json(&items)?;
+            let envelope = SchemaEnvelopeArray::new("list-response", Vec::<SessionListItem>::new());
+            println!("{}", serde_json::to_string_pretty(&envelope)?);
         } else {
-            output_table(&items, verbose);
+            println!("No sessions found.");
+            println!("Use 'zjj add <name>' to create a session.");
         }
+        return Ok(());
+    }
 
-        Ok(())
-    }.await;
+    let beads_count = get_beads_count().await.unwrap_or_default();
+    let beads_str = beads_count.to_string();
 
-    // Handle errors in JSON mode
-    if let Err(e) = result {
-        if format.is_json() {
-            json::output_json_error_and_exit(&e);
-        } else {
-            return Err(e);
-        }
+    // Build list items using concurrent futures stream for performance
+    let items: Vec<SessionListItem> = futures::stream::iter(sessions)
+        .map(|session| {
+            let beads_str = beads_str.clone();
+            async move {
+                let changes = get_session_changes(&session.workspace_path).await;
+                SessionListItem {
+                    name: session.name.clone(),
+                    status: session.status.to_string(),
+                    branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
+                    changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
+                    beads: beads_str,
+                    session,
+                }
+            }
+        })
+        .buffer_unordered(5) // Concurrently fetch status for up to 5 workspaces
+        .collect()
+        .await;
+
+    if format.is_json() {
+        output_json(&items)?;
+    } else {
+        output_table(&items, verbose);
     }
 
     Ok(())
@@ -146,56 +139,40 @@ async fn get_session_changes(workspace_path: &str) -> Option<usize> {
     let path = Path::new(workspace_path);
 
     // Check if workspace exists
-    if !path.exists() {
-        return None;
+    match tokio::fs::try_exists(path).await {
+        Ok(true) => {
+            // Try to get status from JJ
+            zjj_core::jj::workspace_status(path)
+                .await
+                .ok()
+                .map(|status| status.change_count())
+        }
+        _ => None,
     }
-
-    // Try to get status from JJ
-    zjj_core::jj::workspace_status(path)
-        .await
-        .ok()
-        .map(|status| status.change_count())
 }
 
 /// Get beads count from the repository's beads database
 async fn get_beads_count() -> Result<BeadCounts> {
-    // Find repository root
-    let repo_root = zjj_core::jj::check_in_jj_repo().await.ok();
-
-    let Some(root) = repo_root else {
+    let root = jj_root().await.ok();
+    let Some(root) = root else {
         return Ok(BeadCounts::default());
     };
 
-    let beads_db_path = root.join(".beads").join("beads.db");
+    let bead_repo = BeadRepository::new(root);
+    let beads = bead_repo.list_beads().await.unwrap_or_default();
 
-    if !beads_db_path.exists() {
-        return Ok(BeadCounts::default());
-    }
+    // Functional counting using fold
+    let counts = beads.into_iter().fold(BeadCounts::default(), |mut acc, b| {
+        match b.status {
+            BeadStatus::Open => acc.open += 1,
+            BeadStatus::InProgress => acc.in_progress += 1,
+            BeadStatus::Blocked => acc.blocked += 1,
+            _ => {}
+        }
+        acc
+    });
 
-    let connection_string = format!("sqlite:{}", beads_db_path.display());
-    let pool = sqlx::SqlitePool::connect(&connection_string)
-        .await
-        .map_err(|e| {
-            anyhow::Error::new(zjj_core::Error::DatabaseError(format!(
-                "Failed to open beads database: {e}"
-            )))
-        })?;
-
-    // Count open issues
-    let open: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM issues WHERE status = ?1")
-        .bind("open")
-        .fetch_one(&pool)
-        .await
-        .unwrap_or(0);
-
-    // For now, we can't distinguish in_progress vs blocked without more schema knowledge
-    // Let's return a simplified count
-    let open_usize = usize::try_from(open).unwrap_or_default();
-    Ok(BeadCounts {
-        open: open_usize,
-        in_progress: 0,
-        blocked: 0,
-    })
+    Ok(counts)
 }
 
 /// Output sessions as formatted table
@@ -208,7 +185,7 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
         );
         println!("{}", "-".repeat(120));
 
-        for item in items {
+        items.iter().for_each(|item| {
             let bead_info = item
                 .session
                 .metadata
@@ -231,7 +208,7 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
                 "{:<20} {:<12} {:<15} {:<30} {:<40}",
                 item.name, item.status, item.branch, bead_info, item.session.workspace_path
             );
-        }
+        });
     } else {
         // Normal mode: show standard columns
         println!(
@@ -240,12 +217,12 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
         );
         println!("{}", "-".repeat(70));
 
-        for item in items {
+        items.iter().for_each(|item| {
             println!(
                 "{:<20} {:<12} {:<15} {:<10} {:<12}",
                 item.name, item.status, item.branch, item.changes, item.beads
             );
-        }
+        });
     }
 }
 

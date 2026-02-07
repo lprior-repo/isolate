@@ -3,7 +3,7 @@
 //! Provides resource claiming and yielding for multi-agent coordination.
 //! Uses file-based locking for simplicity.
 
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -77,7 +77,7 @@ struct LockInfo {
 async fn get_locks_dir() -> Result<PathBuf> {
     let data_dir = super::zjj_data_dir().await?;
     let locks_dir = data_dir.join("locks");
-    fs::create_dir_all(&locks_dir)?;
+    tokio::fs::create_dir_all(&locks_dir).await?;
     Ok(locks_dir)
 }
 
@@ -109,27 +109,28 @@ fn get_agent_id() -> String {
 }
 
 /// Read existing lock info from file
-fn read_lock(path: &std::path::Path) -> Option<LockInfo> {
-    fs::read_to_string(path)
+async fn read_lock(path: &std::path::Path) -> Option<LockInfo> {
+    tokio::fs::read_to_string(path)
+        .await
         .ok()
         .and_then(|content| serde_json::from_str(&content).ok())
 }
 
 /// Attempt to acquire lock using atomic file creation
-fn try_atomic_create_lock(path: &std::path::Path, lock_info: &LockInfo) -> Result<bool> {
+async fn try_atomic_create_lock(path: &std::path::Path, lock_info: &LockInfo) -> Result<bool> {
     let content = serde_json::to_string_pretty(lock_info)?;
 
     // Try atomic create (will fail if file exists)
-    match fs::OpenOptions::new()
+    match tokio::fs::OpenOptions::new()
         .write(true)
         .create_new(true)  // O_CREAT | O_EXCL - atomic creation
         .open(path)
+        .await
     {
-        Ok(file) => {
+        Ok(mut file) => {
             // Successfully created new file atomically
-            use std::io::Write;
-            let mut file = file;
-            file.write_all(content.as_bytes())?;
+            use tokio::io::AsyncWriteExt;
+            file.write_all(content.as_bytes()).await?;
             Ok(true)
         }
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
@@ -141,14 +142,14 @@ fn try_atomic_create_lock(path: &std::path::Path, lock_info: &LockInfo) -> Resul
 }
 
 /// Overwrite lock file (used for extensions and takeovers)
-fn write_lock(path: &std::path::Path, lock_info: &LockInfo) -> Result<()> {
+async fn write_lock(path: &std::path::Path, lock_info: &LockInfo) -> Result<()> {
     let content = serde_json::to_string_pretty(lock_info)?;
-    fs::write(path, content)?;
+    tokio::fs::write(path, content).await?;
     Ok(())
 }
 
 /// Try to claim a resource, returning the result
-fn attempt_claim(
+async fn attempt_claim(
     lock_path: &std::path::Path,
     resource: &str,
     agent_id: &str,
@@ -163,7 +164,7 @@ fn attempt_claim(
     };
 
     // Try atomic create first (prevents TOCTOU)
-    if try_atomic_create_lock(lock_path, &new_lock)? {
+    if try_atomic_create_lock(lock_path, &new_lock).await? {
         return Ok(ClaimResult {
             claimed: true,
             resource: resource.to_string(),
@@ -175,61 +176,31 @@ fn attempt_claim(
     }
 
     // Lock file exists - check if we can take it
-    read_lock(lock_path)
-        .map(|existing| {
-            if existing.expires_at < now {
-                // Lock expired - take it
-                write_lock(lock_path, &new_lock)
-                    .map(|()| ClaimResult {
-                        claimed: true,
-                        resource: resource.to_string(),
-                        holder: Some(agent_id.to_string()),
-                        expires_at: Some(expires_at),
-                        previous_holder: Some(existing.holder),
-                        error: None,
-                    })
-                    .unwrap_or_else(|e| ClaimResult {
-                        claimed: false,
-                        resource: resource.to_string(),
-                        holder: None,
-                        expires_at: None,
-                        previous_holder: None,
-                        error: Some(format!("Failed to write lock: {e}")),
-                    })
-            } else if existing.holder == agent_id {
-                // We already hold it - extend
-                write_lock(lock_path, &new_lock)
-                    .map(|()| ClaimResult {
-                        claimed: true,
-                        resource: resource.to_string(),
-                        holder: Some(agent_id.to_string()),
-                        expires_at: Some(expires_at),
-                        previous_holder: None,
-                        error: None,
-                    })
-                    .unwrap_or_else(|e| ClaimResult {
-                        claimed: false,
-                        resource: resource.to_string(),
-                        holder: Some(agent_id.to_string()),
-                        expires_at: None,
-                        previous_holder: None,
-                        error: Some(format!("Failed to extend lock: {e}")),
-                    })
-            } else {
-                // Someone else holds valid lock
-                ClaimResult {
+    let result = if let Some(existing) = read_lock(lock_path).await {
+        if existing.expires_at < now {
+            // Lock expired - take it
+            write_lock(lock_path, &new_lock)
+                .await
+                .map(|()| ClaimResult {
+                    claimed: true,
+                    resource: resource.to_string(),
+                    holder: Some(agent_id.to_string()),
+                    expires_at: Some(expires_at),
+                    previous_holder: Some(existing.holder),
+                    error: None,
+                })
+                .unwrap_or_else(|e| ClaimResult {
                     claimed: false,
                     resource: resource.to_string(),
-                    holder: Some(existing.holder.clone()),
-                    expires_at: Some(existing.expires_at),
+                    holder: None,
+                    expires_at: None,
                     previous_holder: None,
-                    error: Some(format!("Resource locked by {}", existing.holder)),
-                }
-            }
-        })
-        .unwrap_or_else(|| {
-            // Lock file unreadable/corrupt - try to take it
+                    error: Some(format!("Failed to write lock: {e}")),
+                })
+        } else if existing.holder == agent_id {
+            // We already hold it - extend
             write_lock(lock_path, &new_lock)
+                .await
                 .map(|()| ClaimResult {
                     claimed: true,
                     resource: resource.to_string(),
@@ -241,29 +212,45 @@ fn attempt_claim(
                 .unwrap_or_else(|e| ClaimResult {
                     claimed: false,
                     resource: resource.to_string(),
-                    holder: None,
+                    holder: Some(agent_id.to_string()),
                     expires_at: None,
                     previous_holder: None,
-                    error: Some(format!("Failed to write lock: {e}")),
+                    error: Some(format!("Failed to extend lock: {e}")),
                 })
-        })
-        .pipe(Ok)
-}
+        } else {
+            // Someone else holds valid lock
+            ClaimResult {
+                claimed: false,
+                resource: resource.to_string(),
+                holder: Some(existing.holder.clone()),
+                expires_at: Some(existing.expires_at),
+                previous_holder: None,
+                error: Some(format!("Resource locked by {}", existing.holder)),
+            }
+        }
+    } else {
+        // Lock file unreadable/corrupt - try to take it
+        write_lock(lock_path, &new_lock)
+            .await
+            .map(|()| ClaimResult {
+                claimed: true,
+                resource: resource.to_string(),
+                holder: Some(agent_id.to_string()),
+                expires_at: Some(expires_at),
+                previous_holder: None,
+                error: None,
+            })
+            .unwrap_or_else(|e| ClaimResult {
+                claimed: false,
+                resource: resource.to_string(),
+                holder: None,
+                expires_at: None,
+                previous_holder: None,
+                error: Some(format!("Failed to write lock: {e}")),
+            })
+    };
 
-/// Pipe extension for functional chaining
-trait Pipe: Sized {
-    fn pipe<F, R>(self, f: F) -> R
-    where
-        F: FnOnce(Self) -> R;
-}
-
-impl<T> Pipe for T {
-    fn pipe<F, R>(self, f: F) -> R
-    where
-        F: FnOnce(Self) -> R,
-    {
-        f(self)
-    }
+    Ok(result)
 }
 
 /// Run the claim command
@@ -273,7 +260,7 @@ pub async fn run_claim(options: &ClaimOptions) -> Result<()> {
     let now = current_timestamp()?;
     let expires_at = now + options.timeout;
 
-    let result = attempt_claim(&lock_path, &options.resource, &agent_id, now, expires_at)?;
+    let result = attempt_claim(&lock_path, &options.resource, &agent_id, now, expires_at).await?;
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("claim-response", "single", &result);
@@ -301,55 +288,57 @@ pub async fn run_claim(options: &ClaimOptions) -> Result<()> {
 }
 
 /// Attempt to yield a resource
-fn attempt_yield(lock_path: &std::path::Path, resource: &str, agent_id: &str) -> YieldResult {
+async fn attempt_yield(lock_path: &std::path::Path, resource: &str, agent_id: &str) -> YieldResult {
     // No lock exists - consider it successfully yielded (idempotent)
-    if !lock_path.exists() {
-        return YieldResult {
-            yielded: true,
-            resource: resource.to_string(),
-            agent_id: Some(agent_id.to_string()),
-            error: None,
-        };
-    }
-
-    // Try to read and verify ownership
-    read_lock(lock_path)
-        .map(|lock| {
-            if lock.holder == agent_id {
-                // We hold it - release
-                fs::remove_file(lock_path)
-                    .map(|()| YieldResult {
-                        yielded: true,
-                        resource: resource.to_string(),
-                        agent_id: Some(agent_id.to_string()),
-                        error: None,
-                    })
-                    .unwrap_or_else(|e| YieldResult {
-                        yielded: false,
-                        resource: resource.to_string(),
-                        agent_id: Some(agent_id.to_string()),
-                        error: Some(format!("Failed to remove lock: {e}")),
-                    })
-            } else {
-                // Someone else holds it
-                YieldResult {
-                    yielded: false,
-                    resource: resource.to_string(),
-                    agent_id: Some(agent_id.to_string()),
-                    error: Some(format!("Resource held by {}, not us", lock.holder)),
-                }
-            }
-        })
-        .unwrap_or_else(|| {
-            // Lock file corrupt - just remove it
-            let _ = fs::remove_file(lock_path);
-            YieldResult {
+    match tokio::fs::try_exists(lock_path).await {
+        Ok(false) | Err(_) => {
+            return YieldResult {
                 yielded: true,
                 resource: resource.to_string(),
                 agent_id: Some(agent_id.to_string()),
                 error: None,
+            };
+        }
+        Ok(true) => {}
+    }
+
+    // Try to read and verify ownership
+    if let Some(lock) = read_lock(lock_path).await {
+        if lock.holder == agent_id {
+            // We hold it - release
+            tokio::fs::remove_file(lock_path)
+                .await
+                .map(|()| YieldResult {
+                    yielded: true,
+                    resource: resource.to_string(),
+                    agent_id: Some(agent_id.to_string()),
+                    error: None,
+                })
+                .unwrap_or_else(|e| YieldResult {
+                    yielded: false,
+                    resource: resource.to_string(),
+                    agent_id: Some(agent_id.to_string()),
+                    error: Some(format!("Failed to remove lock: {e}")),
+                })
+        } else {
+            // Someone else holds it
+            YieldResult {
+                yielded: false,
+                resource: resource.to_string(),
+                agent_id: Some(agent_id.to_string()),
+                error: Some(format!("Resource held by {}, not us", lock.holder)),
             }
-        })
+        }
+    } else {
+        // Lock file corrupt - just remove it
+        let _ = tokio::fs::remove_file(lock_path).await;
+        YieldResult {
+            yielded: true,
+            resource: resource.to_string(),
+            agent_id: Some(agent_id.to_string()),
+            error: None,
+        }
+    }
 }
 
 /// Run the yield command
@@ -357,7 +346,7 @@ pub async fn run_yield(options: &YieldOptions) -> Result<()> {
     let agent_id = get_agent_id();
     let lock_path = lock_file_path(&options.resource).await?;
 
-    let result = attempt_yield(&lock_path, &options.resource, &agent_id);
+    let result = attempt_yield(&lock_path, &options.resource, &agent_id).await;
 
     if options.format.is_json() {
         let envelope = SchemaEnvelope::new("yield-response", "single", &result);

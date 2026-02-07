@@ -8,8 +8,8 @@ pub mod json_docs;
 use std::os::unix::process::CommandExt;
 use std::process::Command as StdCommand;
 
-use tokio::process::Command;
 use anyhow::{Context, Result};
+use tokio::process::Command;
 
 /// Execute a shell command and return its output
 pub async fn run_command(program: &str, args: &[&str]) -> Result<String> {
@@ -54,7 +54,9 @@ pub async fn is_jj_repo() -> Result<bool> {
 
 /// Get JJ repository root
 pub async fn jj_root() -> Result<String> {
-    run_command("jj", &["root"]).await.map(|s| s.trim().to_string())
+    run_command("jj", &["root"])
+        .await
+        .map(|s| s.trim().to_string())
 }
 
 /// Check if a command is available in PATH
@@ -80,7 +82,7 @@ pub async fn is_zellij_installed() -> bool {
 /// Attach to or create a Zellij session, optionally with a layout
 /// This function will exec into Zellij, replacing the current process
 #[cfg(unix)]
-pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
+pub async fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
     // Check if running in a TTY
     if !is_terminal() {
         anyhow::bail!(
@@ -89,26 +91,14 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
         );
     }
 
-    // Since we are in a synchronous context here (exec replaces process), we can't easily await is_zellij_installed.
-    // We'll use a blocking check for this specific function since it's about to exec anyway.
-    let zellij_check = StdCommand::new("which")
-        .arg("zellij")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
-
-    if !zellij_check {
+    if !is_zellij_installed().await {
         anyhow::bail!("Zellij is not installed. Please install it first.");
     }
 
     // Get the session name from the JJ repo root or use default
-    // Using blocking call here for simplicity in this specific sync function context
-    let session_name = StdCommand::new("jj")
-        .args(["root"])
-        .output()
+    let session_name = jj_root()
+        .await
         .ok()
-        .and_then(|output| String::from_utf8(output.stdout).ok())
-        .map(|s| s.trim().to_string())
         .and_then(|root| {
             std::path::Path::new(&root)
                 .file_name()
@@ -130,7 +120,7 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
     if let Some(layout) = layout_content {
         let temp_dir = std::env::temp_dir();
         let layout_path = temp_dir.join(format!("zjj-{}.kdl", std::process::id()));
-        std::fs::write(&layout_path, layout)?;
+        tokio::fs::write(&layout_path, layout).await?;
 
         cmd.args([
             "--layout",
@@ -155,7 +145,7 @@ pub fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()> {
 /// Attach to or create a Zellij session, optionally with a layout
 /// Windows version - not supported
 #[cfg(not(unix))]
-pub fn attach_to_zellij_session(_layout_content: Option<&str>) -> Result<()> {
+pub async fn attach_to_zellij_session(_layout_content: Option<&str>) -> Result<()> {
     anyhow::bail!("Auto-spawning Zellij is only supported on Unix systems");
 }
 

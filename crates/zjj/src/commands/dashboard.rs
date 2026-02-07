@@ -119,7 +119,9 @@ enum InputAction {
 /// Run the interactive dashboard
 pub async fn run() -> Result<()> {
     // Check if we're in a JJ repo
-    let _root = crate::cli::jj_root().await.context("Not in a JJ repository. Run 'zjj init' first.")?;
+    let _root = crate::cli::jj_root()
+        .await
+        .context("Not in a JJ repository. Run 'zjj init' first.")?;
 
     // Setup terminal
     enable_raw_mode().context("Failed to enable raw mode")?;
@@ -135,7 +137,9 @@ pub async fn run() -> Result<()> {
     let mut terminal = Terminal::new(backend).context("Failed to create terminal")?;
 
     // Load config
-    let config = load_config().context("Failed to load configuration")?;
+    let config = load_config()
+        .await
+        .context("Failed to load configuration")?;
 
     // Create app state
     let mut app = DashboardApp::new().await?;
@@ -153,7 +157,8 @@ pub async fn run() -> Result<()> {
         &mut app,
         &mut watcher_rx,
         Duration::from_millis(u64::from(config.dashboard.refresh_ms)),
-    ).await;
+    )
+    .await;
 
     // Cleanup terminal
     disable_raw_mode().context("Failed to disable raw mode")?;
@@ -823,42 +828,51 @@ impl DashboardApp {
 
     /// Refresh session data from database
     async fn refresh_sessions(&mut self) -> Result<()> {
+        use futures::StreamExt;
+
         let db = get_session_db().await?;
         let sessions = db.list(None).await?;
 
-        // Group sessions by status manually
-        let mut grouped: Vec<Vec<SessionData>> = vec![vec![], vec![], vec![], vec![], vec![]];
+        // Enrich and group sessions using functional patterns
+        let enriched_sessions: Vec<SessionData> = futures::stream::iter(sessions)
+            .map(|session| async move {
+                let workspace_path = Path::new(&session.workspace_path);
 
-        for session in sessions {
-            let workspace_path = Path::new(&session.workspace_path);
+                let changes = match tokio::fs::try_exists(workspace_path).await {
+                    Ok(true) => zjj_core::jj::workspace_status(workspace_path)
+                        .await
+                        .ok()
+                        .map(|status| status.change_count()),
+                    _ => None,
+                };
 
-            let changes = if workspace_path.exists() {
-                zjj_core::jj::workspace_status(workspace_path)
-                    .await
-                    .ok()
-                    .map(|status| status.change_count())
-            } else {
-                None
-            };
+                let beads = BeadsStatus::NoBeads;
 
-            let beads = BeadsStatus::NoBeads;
+                SessionData {
+                    session,
+                    changes,
+                    beads,
+                }
+            })
+            .buffered(10)
+            .collect()
+            .await;
 
-            let column_idx = match session.status {
-                SessionStatus::Creating => 0,
-                SessionStatus::Active => 1,
-                SessionStatus::Paused => 2,
-                SessionStatus::Completed => 3,
-                SessionStatus::Failed => 4,
-            };
-
-            let session_data = SessionData {
-                session,
-                changes,
-                beads,
-            };
-
-            grouped[column_idx].push(session_data);
-        }
+        // Group enriched sessions by status using fold
+        let grouped = enriched_sessions.into_iter().fold(
+            vec![vec![], vec![], vec![], vec![], vec![]],
+            |mut acc, data| {
+                let column_idx = match data.session.status {
+                    SessionStatus::Creating => 0,
+                    SessionStatus::Active => 1,
+                    SessionStatus::Paused => 2,
+                    SessionStatus::Completed => 3,
+                    SessionStatus::Failed => 4,
+                };
+                acc[column_idx].push(data);
+                acc
+            },
+        );
 
         self.sessions_by_status = grouped;
         self.last_update = Instant::now();

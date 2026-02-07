@@ -266,7 +266,8 @@ fn test_corrupted_database_recovery() {
     }
 
     // Operations should succeed by recovering (resetting the DB)
-    let result = harness.zjj(&["list"]);
+    // We need to set recovery policy to silent to allow auto-recovery without error
+    let result = harness.zjj_with_env(&["list"], &[("ZJJ_RECOVERY_POLICY", "silent")]);
     assert!(
         result.success,
         "Should recover from corrupted database (reset)"

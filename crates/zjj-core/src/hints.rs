@@ -484,7 +484,7 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
     }
 
     // Sessions with changes
-    for session in &state.sessions {
+    state.sessions.iter().for_each(|session| {
         if session.status == SessionStatus::Active {
             // Note: In real implementation, would query actual changes
             // For now, just demonstrate the hint structure
@@ -494,49 +494,43 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
                     .with_rationale("Review session status regularly"),
             );
         }
-    }
+    });
 
     // Completed sessions not removed
-    let completed: Vec<_> = state
+    state
         .sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Completed)
-        .collect();
-
-    for session in completed {
-        let age = (chrono::Utc::now() - session.updated_at).num_days();
-        if age > 1 {
-            hints.push(
-                Hint::suggestion(format!(
-                    "Session '{}' completed {} day(s) ago, consider removing",
-                    session.name, age
-                ))
-                .with_command(format!("zjj remove {} --merge", session.name))
-                .with_rationale("Clean up completed work")
-                .with_context(serde_json::json!({
-                    "session": session.name,
-                    "age_days": age,
-                })),
-            );
-        }
-    }
+        .for_each(|session| {
+            let age = (chrono::Utc::now() - session.updated_at).num_days();
+            if age > 1 {
+                hints.push(
+                    Hint::suggestion(format!(
+                        "Session '{}' completed {} day(s) ago, consider removing",
+                        session.name, age
+                    ))
+                    .with_command(format!("zjj remove {} --merge", session.name))
+                    .with_rationale("Clean up completed work")
+                    .with_context(serde_json::json!({
+                        "session": session.name,
+                        "age_days": age,
+                    })),
+                );
+            }
+        });
 
     // Failed sessions
-    let failed: Vec<_> = state
+    state
         .sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Failed)
-        .collect();
-
-    if !failed.is_empty() {
-        for session in failed {
+        .for_each(|session| {
             hints.push(
                 Hint::warning(format!("Session '{}' failed during creation", session.name))
                     .with_command(format!("zjj remove {}", session.name))
                     .with_rationale("Clean up failed session and retry"),
             );
-        }
-    }
+        });
 
     // Multiple active sessions - suggest dashboard
     let active_count = state

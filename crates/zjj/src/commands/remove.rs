@@ -1,9 +1,6 @@
 //! Remove a session and its workspace
 
-use std::{
-    fs,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 use anyhow::{Context, Result};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
@@ -86,8 +83,10 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
     }
 
     // Remove the workspace directory
-    if fs::metadata(&session.workspace_path).is_ok() {
-        fs::remove_dir_all(&session.workspace_path)
+    let workspace_path = std::path::Path::new(&session.workspace_path);
+    if tokio::fs::metadata(workspace_path).await.is_ok() {
+        tokio::fs::remove_dir_all(workspace_path)
+            .await
             .context("Failed to remove workspace directory")?;
     }
 
@@ -168,7 +167,7 @@ mod tests {
         let db = SessionDb::create_or_open(&db_path).await?;
 
         let workspace_dir = dir.path().join("workspaces").join(name);
-        fs::create_dir_all(&workspace_dir)?;
+        tokio::fs::create_dir_all(&workspace_dir).await?;
         let workspace_path = workspace_dir
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Invalid workspace path"))?

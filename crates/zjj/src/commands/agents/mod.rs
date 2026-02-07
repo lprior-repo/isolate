@@ -195,7 +195,7 @@ fn print_human_readable(output: &AgentsOutput) {
     if output.agents.is_empty() {
         println!("  No active agents");
     } else {
-        for agent in &output.agents {
+        output.agents.iter().for_each(|agent| {
             print!("  {} ", agent.agent_id);
 
             if let Some(ref session) = agent.current_session {
@@ -210,19 +210,19 @@ fn print_human_readable(output: &AgentsOutput) {
 
             println!("    Actions: {}", agent.actions_count);
             println!("    Last seen: {}", agent.last_seen.to_rfc3339());
-        }
+        });
     }
 
     if output.total_stale > 0 {
         println!();
         println!("Stale Agents ({}):", output.total_stale);
-        for agent in output.agents.iter().filter(|a| a.stale) {
+        output.agents.iter().filter(|a| a.stale).for_each(|agent| {
             println!(
                 "  {} (last seen: {})",
                 agent.agent_id,
                 agent.last_seen.to_rfc3339()
             );
-        }
+        });
     }
 
     println!();
@@ -231,14 +231,14 @@ fn print_human_readable(output: &AgentsOutput) {
         println!("No active locks");
     } else {
         println!("Active Locks ({}):", output.locks.len());
-        for lock in &output.locks {
+        output.locks.iter().for_each(|lock| {
             println!(
                 "  {} held by {} (expires: {})",
                 lock.session,
                 lock.holder,
                 lock.expires_at.to_rfc3339()
             );
-        }
+        });
     }
 }
 

@@ -13,13 +13,13 @@
 //! - Directional navigation (up, down, left, right)
 
 use std::io::Write;
-use tokio::process::Command;
 
 use anyhow::Result;
 use serde::Serialize;
+use tokio::process::Command;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
-use crate::{cli::run_command, commands::get_session_db, json::output_json_error_and_exit};
+use crate::{cli::run_command, commands::get_session_db};
 
 /// Direction for pane navigation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,7 +144,8 @@ pub async fn pane_focus(
 
     let db = get_session_db().await?;
     let session = db
-        .get(session_name).await?
+        .get(session_name)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
@@ -155,12 +156,6 @@ pub async fn pane_focus(
     let pane_id = if let Some(pane) = pane_identifier {
         pane.to_string()
     } else {
-        // No pane specified, this is an error
-        if options.format.is_json() {
-            output_json_error_and_exit(&anyhow::anyhow!(
-                "Pane identifier is required for focus command"
-            ));
-        }
         return Err(anyhow::anyhow!(
             "Pane identifier is required. Use 'zjj pane list {session_name}' to see available panes."
         ));
@@ -175,11 +170,6 @@ pub async fn pane_focus(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        if options.format.is_json() {
-            output_json_error_and_exit(&anyhow::anyhow!(
-                "Failed to focus pane '{pane_id}': {stderr}"
-            ));
-        }
         return Err(anyhow::anyhow!(
             "Failed to focus pane '{pane_id}': {stderr}"
         ));
@@ -210,7 +200,8 @@ pub async fn pane_list(session_name: &str, options: &PaneListOptions) -> Result<
 
     let db = get_session_db().await?;
     let session = db
-        .get(session_name).await?
+        .get(session_name)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
@@ -263,10 +254,10 @@ pub async fn pane_list(session_name: &str, options: &PaneListOptions) -> Result<
     } else {
         let mut stdout = std::io::stdout();
         writeln!(stdout, "Panes in session '{session_name}':")?;
-        for pane in &panes {
+        panes.iter().for_each(|pane| {
             let focused_mark = if pane.focused { "*" } else { " " };
-            writeln!(stdout, " {focused_mark} {} - {}", pane.id, pane.title)?;
-        }
+            let _ = writeln!(stdout, " {focused_mark} {} - {}", pane.id, pane.title);
+        });
     }
 
     Ok(())
@@ -278,7 +269,8 @@ pub async fn pane_next(session_name: &str, options: &PaneNextOptions) -> Result<
 
     let db = get_session_db().await?;
     let session = db
-        .get(session_name).await?
+        .get(session_name)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
@@ -295,9 +287,6 @@ pub async fn pane_next(session_name: &str, options: &PaneNextOptions) -> Result<
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        if options.format.is_json() {
-            output_json_error_and_exit(&anyhow::anyhow!("Failed to move to next pane: {stderr}"));
-        }
         return Err(anyhow::anyhow!("Failed to move to next pane: {stderr}"));
     }
 
@@ -329,7 +318,8 @@ pub async fn pane_navigate(
 
     let db = get_session_db().await?;
     let session = db
-        .get(session_name).await?
+        .get(session_name)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
     let zellij_tab = session.zellij_tab;
@@ -348,9 +338,6 @@ pub async fn pane_navigate(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        if options.format.is_json() {
-            output_json_error_and_exit(&anyhow::anyhow!("Failed to move focus: {stderr}"));
-        }
         return Err(anyhow::anyhow!("Failed to move focus: {stderr}"));
     }
 

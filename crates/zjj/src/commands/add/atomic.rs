@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use zjj_core::jj;
+use zjj_core::{filelock, jj};
 
 use crate::{db::SessionDb, session::SessionUpdate};
 
@@ -89,33 +89,41 @@ pub(super) async fn atomic_create_session(
 ///
 /// This function NEVER panics - all cleanup failures are logged
 /// and handled gracefully. Partial state is always detectable.
+///
+/// # TOCTOU Prevention
+///
+/// Uses `remove_dir_all` directly without checking if path exists first.
+/// If the directory doesn't exist, the error is safely ignored.
 pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) {
     let workspace_dir = workspace_path;
 
-    // Only attempt cleanup if path exists (handle missing gracefully)
-    if workspace_dir.exists() {
-        match tokio::fs::remove_dir_all(workspace_dir).await {
-            Ok(()) => {
-                tracing::info!("Rolled back partial workspace for session '{}'", name);
-            }
-            Err(cleanup_err) => {
-                // Cleanup failed but we still leave DB in 'creating' state
-                // Doctor will detect the stale session
-                eprintln!(
-                    "Warning: failed to cleanup partial workspace '{}': {}",
-                    workspace_path.display(),
-                    cleanup_err
-                );
-                tracing::warn!(
-                    "Failed to rollback workspace for session '{}': {}",
-                    name,
-                    cleanup_err
-                );
-            }
+    // Remove workspace directory directly without checking existence first
+    // This prevents TOCTOU - if it doesn't exist, we get an error we ignore
+    match tokio::fs::remove_dir_all(workspace_dir).await {
+        Ok(()) => {
+            tracing::info!("Rolled back partial workspace for session '{}'", name);
         }
-    } else {
-        // Workspace doesn't exist - nothing to clean
-        tracing::info!("No workspace to rollback for session '{}'", name);
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // Workspace doesn't exist - nothing to clean
+            tracing::info!(
+                "No workspace to rollback for session '{}' (already gone)",
+                name
+            );
+        }
+        Err(cleanup_err) => {
+            // Cleanup failed but we still leave DB in 'creating' state
+            // Doctor will detect the stale session
+            eprintln!(
+                "Warning: failed to cleanup partial workspace '{}': {}",
+                workspace_path.display(),
+                cleanup_err
+            );
+            tracing::warn!(
+                "Failed to rollback workspace for session '{}': {}",
+                name,
+                cleanup_err
+            );
+        }
     }
 
     // DB record intentionally left in 'creating' state for doctor detection
@@ -125,7 +133,9 @@ pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::pat
 async fn create_jj_workspace(name: &str, workspace_path: &std::path::Path) -> Result<()> {
     // Use the JJ workspace manager from core
     // Preserve the zjj_core::Error to maintain exit code semantics
-    jj::workspace_create(name, workspace_path).await.map_err(anyhow::Error::new)?;
+    jj::workspace_create(name, workspace_path)
+        .await
+        .map_err(anyhow::Error::new)?;
 
     Ok(())
 }

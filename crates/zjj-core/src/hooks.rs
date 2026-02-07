@@ -7,10 +7,9 @@
 //!
 //! Hooks execute sequentially in the workspace directory using the user's shell.
 
-use std::{
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::{path::Path, process::Stdio};
+
+use tokio::process::Command;
 
 use crate::{config::HooksConfig, Error, Result};
 
@@ -91,7 +90,7 @@ impl HookRunner {
     /// - A hook command fails (non-zero exit code)
     /// - A hook command cannot be executed (e.g., shell not found)
     /// - Unable to determine user's shell
-    pub fn run(&self, hook_type: HookType, workspace_path: &Path) -> Result<HookResult> {
+    pub async fn run(&self, hook_type: HookType, workspace_path: &Path) -> Result<HookResult> {
         let hooks = self.get_hooks_for_type(hook_type);
 
         if hooks.is_empty() {
@@ -100,39 +99,35 @@ impl HookRunner {
 
         let shell = get_user_shell()?;
         let num_hooks = hooks.len();
+        let mut results = Vec::new();
 
-        let results =
-            hooks
-                .iter()
-                .enumerate()
-                .try_fold(Vec::new(), |mut acc, (index, hook_cmd)| {
-                    // Allow eprintln for user feedback (not debug output)
-                    #[allow(clippy::print_stderr)]
-                    {
-                        eprintln!(
-                            "Running {} hook {}/{}: {}",
-                            hook_type.event_name(),
-                            index + 1,
-                            num_hooks,
-                            hook_cmd
-                        );
-                    }
+        for (index, hook_cmd) in hooks.iter().enumerate() {
+            // Allow eprintln for user feedback (not debug output)
+            #[allow(clippy::print_stderr)]
+            {
+                eprintln!(
+                    "Running {} hook {}/{}: {}",
+                    hook_type.event_name(),
+                    index + 1,
+                    num_hooks,
+                    hook_cmd
+                );
+            }
 
-                    let result = Self::execute_hook(&shell, hook_cmd, workspace_path)?;
+            let result = Self::execute_hook(&shell, hook_cmd, workspace_path).await?;
 
-                    if !result.success {
-                        return Err(Error::HookFailed {
-                            hook_type: hook_type.event_name().to_string(),
-                            command: hook_cmd.clone(),
-                            exit_code: result.exit_code,
-                            stdout: result.stdout,
-                            stderr: result.stderr,
-                        });
-                    }
+            if !result.success {
+                return Err(Error::HookFailed {
+                    hook_type: hook_type.event_name().to_string(),
+                    command: hook_cmd.clone(),
+                    exit_code: result.exit_code,
+                    stdout: result.stdout,
+                    stderr: result.stderr,
+                });
+            }
 
-                    acc.push(result);
-                    Ok(acc)
-                })?;
+            results.push(result);
+        }
 
         Ok(HookResult::Success(results))
     }
@@ -147,7 +142,7 @@ impl HookRunner {
     }
 
     /// Execute a single hook command
-    fn execute_hook(shell: &str, command: &str, cwd: &Path) -> Result<CommandResult> {
+    async fn execute_hook(shell: &str, command: &str, cwd: &Path) -> Result<CommandResult> {
         let output = Command::new(shell)
             .arg("-c")
             .arg(command)
@@ -155,6 +150,7 @@ impl HookRunner {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
+            .await
             .map_err(|e| Error::HookExecutionFailed {
                 command: command.to_string(),
                 source: e.to_string(),
@@ -200,11 +196,23 @@ fn get_user_shell() -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{
+        fs,
+        sync::{Mutex, OnceLock},
+    };
 
     use tempfile::TempDir;
 
     use super::*;
+
+    static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+
+    fn get_env_lock() -> std::sync::MutexGuard<'static, ()> {
+        ENV_MUTEX
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
 
     // Helper to create a temporary workspace for testing
     fn create_test_workspace() -> Result<TempDir> {
@@ -212,21 +220,23 @@ mod tests {
     }
 
     // Test 1: No hooks configured - returns NoHooks
-    #[test]
-    fn test_no_hooks_configured() -> Result<()> {
+    #[tokio::test]
+    async fn test_no_hooks_configured() -> Result<()> {
+        let _lock = get_env_lock();
         let config = HooksConfig::default();
         let runner = HookRunner::new(config);
         let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+        let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
         assert_eq!(result, HookResult::NoHooks);
         Ok(())
     }
 
     // Test 2: Single successful hook
-    #[test]
-    fn test_single_successful_hook() -> Result<()> {
+    #[tokio::test]
+    async fn test_single_successful_hook() -> Result<()> {
+        let _lock = get_env_lock();
         let config = HooksConfig {
             post_create: vec!["echo 'Hello'".to_string()],
             pre_remove: Vec::new(),
@@ -235,7 +245,7 @@ mod tests {
         let runner = HookRunner::new(config);
         let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+        let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
@@ -253,8 +263,9 @@ mod tests {
     }
 
     // Test 3: Multiple successful hooks execute in order
-    #[test]
-    fn test_multiple_successful_hooks() -> Result<()> {
+    #[tokio::test]
+    async fn test_multiple_successful_hooks() -> Result<()> {
+        let _lock = get_env_lock();
         let config = HooksConfig {
             post_create: vec!["echo 'A'".to_string(), "echo 'B'".to_string()],
             pre_remove: Vec::new(),
@@ -263,7 +274,7 @@ mod tests {
         let runner = HookRunner::new(config);
         let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+        let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 2);
@@ -286,8 +297,9 @@ mod tests {
     }
 
     // Test 4: Hook failure returns error
-    #[test]
-    fn test_hook_failure() -> Result<()> {
+    #[tokio::test]
+    async fn test_hook_failure() -> Result<()> {
+        let _lock = get_env_lock();
         let config = HooksConfig {
             post_create: vec!["exit 1".to_string()],
             pre_remove: Vec::new(),
@@ -296,7 +308,7 @@ mod tests {
         let runner = HookRunner::new(config);
         let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path());
+        let result = runner.run(HookType::PostCreate, workspace.path()).await;
 
         assert!(result.is_err());
         if let Err(Error::HookFailed {
@@ -318,8 +330,9 @@ mod tests {
     }
 
     // Test 5: Partial hook failure - second hook fails, third never runs
-    #[test]
-    fn test_partial_hook_failure() -> Result<()> {
+    #[tokio::test]
+    async fn test_partial_hook_failure() -> Result<()> {
+        let _lock = get_env_lock();
         let config = HooksConfig {
             post_create: vec![
                 "echo 'A'".to_string(),
@@ -332,7 +345,7 @@ mod tests {
         let runner = HookRunner::new(config);
         let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path());
+        let result = runner.run(HookType::PostCreate, workspace.path()).await;
 
         assert!(result.is_err());
         // The third hook should never execute
@@ -347,8 +360,9 @@ mod tests {
     }
 
     // Test 6: Hook with workspace as cwd
-    #[test]
-    fn test_hook_with_workspace_cwd() -> Result<()> {
+    #[tokio::test]
+    async fn test_hook_with_workspace_cwd() -> Result<()> {
+        let _lock = get_env_lock();
         let config = HooksConfig {
             post_create: vec!["pwd".to_string()],
             pre_remove: Vec::new(),
@@ -357,7 +371,7 @@ mod tests {
         let runner = HookRunner::new(config);
         let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+        let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
@@ -377,8 +391,9 @@ mod tests {
     }
 
     // Test 7: Hook stderr captured
-    #[test]
-    fn test_hook_stderr_captured() -> Result<()> {
+    #[tokio::test]
+    async fn test_hook_stderr_captured() -> Result<()> {
+        let _lock = get_env_lock();
         let config = HooksConfig {
             post_create: vec!["echo 'error' >&2".to_string()],
             pre_remove: Vec::new(),
@@ -387,7 +402,7 @@ mod tests {
         let runner = HookRunner::new(config);
         let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+        let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
@@ -405,8 +420,9 @@ mod tests {
     }
 
     // Test 8: Complex hook script (multi-command)
-    #[test]
-    fn test_complex_hook_script() -> Result<()> {
+    #[tokio::test]
+    async fn test_complex_hook_script() -> Result<()> {
+        let _lock = get_env_lock();
         let workspace = create_test_workspace()?;
 
         // Create a subdirectory
@@ -420,7 +436,7 @@ mod tests {
         };
         let runner = HookRunner::new(config);
 
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+        let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
         if let HookResult::Success(results) = result {
             assert_eq!(results.len(), 1);
@@ -439,8 +455,9 @@ mod tests {
     }
 
     // Test 9: Different hook types use different configs
-    #[test]
-    fn test_different_hook_types() -> Result<()> {
+    #[tokio::test]
+    async fn test_different_hook_types() -> Result<()> {
+        let _lock = get_env_lock();
         let config = HooksConfig {
             post_create: vec!["echo 'post_create'".to_string()],
             pre_remove: vec!["echo 'pre_remove'".to_string()],
@@ -450,7 +467,7 @@ mod tests {
         let workspace = create_test_workspace()?;
 
         // Test post_create
-        let result = runner.run(HookType::PostCreate, workspace.path())?;
+        let result = runner.run(HookType::PostCreate, workspace.path()).await?;
         if let HookResult::Success(results) = result {
             let first = results
                 .first()
@@ -463,7 +480,7 @@ mod tests {
         }
 
         // Test pre_remove
-        let result = runner.run(HookType::PreRemove, workspace.path())?;
+        let result = runner.run(HookType::PreRemove, workspace.path()).await?;
         if let HookResult::Success(results) = result {
             let first = results
                 .first()
@@ -476,7 +493,7 @@ mod tests {
         }
 
         // Test post_merge
-        let result = runner.run(HookType::PostMerge, workspace.path())?;
+        let result = runner.run(HookType::PostMerge, workspace.path()).await?;
         if let HookResult::Success(results) = result {
             let first = results
                 .first()
@@ -494,14 +511,15 @@ mod tests {
     // Test 10: Shell detection uses SHELL env var
     #[test]
     fn test_get_user_shell_from_env() -> Result<()> {
+        let _lock = get_env_lock();
         // Save current SHELL value
         let original_shell = std::env::var("SHELL").ok();
 
         // Set SHELL to a test value
-        std::env::set_var("SHELL", "/bin/test_shell");
+        std::env::set_var("SHELL", "/bin/sh"); // Use /bin/sh which should exist
 
         let shell = get_user_shell()?;
-        assert_eq!(shell, "/bin/test_shell");
+        assert_eq!(shell, "/bin/sh");
 
         // Restore original SHELL
         match original_shell {
@@ -514,6 +532,7 @@ mod tests {
     // Test 11: Shell detection falls back to /bin/sh
     #[test]
     fn test_get_user_shell_fallback() -> Result<()> {
+        let _lock = get_env_lock();
         // Save current SHELL value
         let original_shell = std::env::var("SHELL").ok();
 
@@ -540,8 +559,8 @@ mod tests {
     }
 
     // Test 13: Hook execution failed error (invalid command)
-    #[test]
-    fn test_hook_execution_failed() -> Result<()> {
+    #[tokio::test]
+    async fn test_hook_execution_failed() -> Result<()> {
         let config = HooksConfig {
             post_create: vec!["nonexistent_command_that_does_not_exist".to_string()],
             pre_remove: Vec::new(),
@@ -550,7 +569,7 @@ mod tests {
         let runner = HookRunner::new(config);
         let workspace = create_test_workspace()?;
 
-        let result = runner.run(HookType::PostCreate, workspace.path());
+        let result = runner.run(HookType::PostCreate, workspace.path()).await;
 
         // This might be HookFailed (command found but returns error) or
         // could succeed with error code, depending on shell behavior

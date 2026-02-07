@@ -1,4 +1,5 @@
 use std::path::Path;
+
 use anyhow::Result;
 use zjj_core::zellij::{self, LayoutConfig, LayoutTemplate};
 
@@ -17,7 +18,10 @@ pub(super) async fn create_zellij_tab(
     };
 
     let config = LayoutConfig::new(
-        tab_name.strip_prefix("zjj:").unwrap_or(tab_name).to_string(),
+        tab_name
+            .strip_prefix("zjj:")
+            .unwrap_or(tab_name)
+            .to_string(),
         Path::new(workspace_path).to_path_buf(),
     );
 
@@ -53,7 +57,10 @@ pub(super) fn create_session_layout(
     };
 
     let config = LayoutConfig::new(
-        tab_name.strip_prefix("zjj:").unwrap_or(tab_name).to_string(),
+        tab_name
+            .strip_prefix("zjj:")
+            .unwrap_or(tab_name)
+            .to_string(),
         Path::new(workspace_path).to_path_buf(),
     );
 

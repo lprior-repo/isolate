@@ -108,7 +108,6 @@ pub struct SpawnOptions {
     pub no_auto_merge: bool,
     pub no_auto_cleanup: bool,
     pub background: bool,
-    #[allow(dead_code)] // Reserved for future timeout implementation
     pub timeout_secs: u64,
     pub format: OutputFormat,
 }
@@ -191,7 +190,6 @@ pub enum SpawnError {
     AgentSpawnFailed {
         reason: String,
     },
-    #[expect(dead_code)] // Timeout handling reserved for future implementation
     Timeout {
         timeout_secs: u64,
     },

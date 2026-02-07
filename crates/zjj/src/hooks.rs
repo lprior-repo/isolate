@@ -2,10 +2,9 @@
 //!
 //! Provides --on-success and --on-failure hooks for command execution.
 
-use std::process::Command;
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use tokio::process::Command;
 
 /// Hook configuration
 #[derive(Debug, Clone, Default)]
@@ -48,26 +47,28 @@ impl HooksConfig {
     }
 
     /// Run the appropriate hook based on result
-    pub fn run_hook(&self, success: bool) -> Option<HookResult> {
+    pub async fn run_hook(&self, success: bool) -> Option<HookResult> {
         let (hook_name, hook_cmd) = if success {
             ("on_success", &self.on_success)
         } else {
             ("on_failure", &self.on_failure)
         };
 
-        hook_cmd
-            .as_ref()
-            .map(|cmd| run_hook_command(hook_name, cmd))
+        if let Some(cmd) = hook_cmd.as_ref() {
+            Some(run_hook_command(hook_name, cmd).await)
+        } else {
+            None
+        }
     }
 }
 
 /// Run a hook command
-fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
+async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
     // Run the command through the shell
     let result = if cfg!(target_os = "windows") {
-        Command::new("cmd").args(["/C", command]).output()
+        Command::new("cmd").args(["/C", command]).output().await
     } else {
-        Command::new("sh").args(["-c", command]).output()
+        Command::new("sh").args(["-c", command]).output().await
     };
 
     match result {
@@ -120,16 +121,17 @@ fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
 
 /// Wrapper to execute a command with hooks
 #[allow(dead_code)]
-pub fn with_hooks<F>(hooks: &HooksConfig, f: F) -> Result<()>
+pub async fn with_hooks<F, Fut>(hooks: &HooksConfig, f: F) -> Result<()>
 where
-    F: FnOnce() -> Result<()>,
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<()>>,
 {
-    let result = f();
+    let result = f().await;
     let success = result.is_ok();
 
     // Run the appropriate hook
     // Hook results are tracked in HookResult and can be handled by caller if needed
-    let _ = hooks.run_hook(success);
+    let _ = hooks.run_hook(success).await;
 
     result
 }
@@ -172,16 +174,16 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_run_hook_echo() {
-        let result = run_hook_command("test", "echo hello");
+    #[tokio::test]
+    async fn test_run_hook_echo() {
+        let result = run_hook_command("test", "echo hello").await;
         assert!(result.success);
         assert!(result.output.is_some());
     }
 
-    #[test]
-    fn test_run_hook_false() {
-        let result = run_hook_command("test", "false");
+    #[tokio::test]
+    async fn test_run_hook_false() {
+        let result = run_hook_command("test", "false").await;
         assert!(!result.success);
     }
 }

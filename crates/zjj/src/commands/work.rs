@@ -98,8 +98,9 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     // Check if session already exists
     let data_dir = root.join(".zjj");
     let db_path = data_dir.join("state.db");
-    let session_db =
-        SessionDb::open(&db_path).await.context("Failed to open session database")?;
+    let session_db = SessionDb::open(&db_path)
+        .await
+        .context("Failed to open session database")?;
 
     let existing = session_db.get(&options.name).await.ok().flatten();
 

@@ -74,23 +74,34 @@ pub async fn run(options: &AbortOptions) -> Result<()> {
 
     // Find the session
     let session = db
-        .get(&workspace_name).await?
+        .get(&workspace_name)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Session '{workspace_name}' not found"))?;
 
     let workspace_path = std::path::Path::new(&session.workspace_path);
 
+    // Forget the JJ workspace
+    let _ = tokio::process::Command::new("jj")
+        .args(["workspace", "forget", &workspace_name])
+        .current_dir(&root)
+        .output()
+        .await;
+
     // Remove workspace files unless --keep-workspace
     let workspace_removed = if options.keep_workspace {
         false
-    } else if workspace_path.exists() {
-        tokio::fs::remove_dir_all(workspace_path)
-            .await
-            .with_context(|| {
-                format!("Failed to remove workspace at {}", workspace_path.display())
-            })?;
-        true
     } else {
-        false
+        match tokio::fs::try_exists(workspace_path).await {
+            Ok(true) => {
+                tokio::fs::remove_dir_all(workspace_path)
+                    .await
+                    .with_context(|| {
+                        format!("Failed to remove workspace at {}", workspace_path.display())
+                    })?;
+                true
+            }
+            _ => false,
+        }
     };
 
     // Update session status to abandoned
@@ -100,11 +111,13 @@ pub async fn run(options: &AbortOptions) -> Result<()> {
             status: Some(SessionStatus::Failed), // Using Failed as closest to Abandoned
             ..Default::default()
         },
-    ).await
+    )
+    .await
     .context("Failed to update session status")?;
 
     // Remove the session from database
-    db.delete(&workspace_name).await
+    db.delete(&workspace_name)
+        .await
         .context("Failed to delete session")?;
 
     // Update bead status if applicable

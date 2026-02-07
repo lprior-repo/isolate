@@ -7,6 +7,7 @@
 //! - `zjj rollback <session> --to <checkpoint>` - Restore to checkpoint
 
 use anyhow::{Context, Result};
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
@@ -162,42 +163,53 @@ async fn diagnose_issues() -> Vec<Issue> {
     // Check for orphaned sessions
     if let Ok(db) = db_res {
         if let Ok(sessions) = db.list(None).await {
-            for session in sessions {
-                // Check if workspace directory exists
-                if let Some(ref meta) = session.metadata {
-                    if let Some(path) = meta.get("workspace_path").and_then(|v| v.as_str()) {
-                        if !std::path::Path::new(path).exists() {
-                            issues.push(Issue {
-                                code: "ORPHANED_SESSION".to_string(),
-                                description: format!(
-                                    "Session '{}' has missing workspace at {}",
-                                    session.name, path
-                                ),
-                                severity: "warning".to_string(),
-                                fix_command: Some(format!(
-                                    "zjj remove {} --force",
-                                    session.name
-                                )),
-                                fixed: false,
-                            });
+            let session_issues: Vec<Issue> = futures::stream::iter(sessions)
+                .then(|session| async move {
+                    let mut issues = Vec::new();
+                    let name = session.name.clone();
+                    let status = session.status.to_string();
+
+                    // Check if workspace directory exists
+                    if let Some(path) = session
+                        .metadata
+                        .as_ref()
+                        .and_then(|m| m.get("workspace_path"))
+                        .and_then(|v| v.as_str())
+                    {
+                        match tokio::fs::try_exists(path).await {
+                            Ok(false) | Err(_) => {
+                                issues.push(Issue {
+                                    code: "ORPHANED_SESSION".to_string(),
+                                    description: format!(
+                                        "Session '{}' has missing workspace at {}",
+                                        name, path
+                                    ),
+                                    severity: "warning".to_string(),
+                                    fix_command: Some(format!("zjj remove {} --force", name)),
+                                    fixed: false,
+                                });
+                            }
+                            Ok(true) => {}
                         }
                     }
-                }
 
-                // Check for stale sessions (creating for too long)
-                if session.status.to_string() == "creating" {
-                    issues.push(Issue {
-                        code: "STALE_CREATING_SESSION".to_string(),
-                        description: format!(
-                            "Session '{}' stuck in 'creating' state",
-                            session.name
-                        ),
-                        severity: "warning".to_string(),
-                        fix_command: Some(format!("zjj remove {} --force", session.name)),
-                        fixed: false,
-                    });
-                }
-            }
+                    // Check for stale sessions (creating for too long)
+                    if status == "creating" {
+                        issues.push(Issue {
+                            code: "STALE_CREATING_SESSION".to_string(),
+                            description: format!("Session '{}' stuck in 'creating' state", name),
+                            severity: "warning".to_string(),
+                            fix_command: Some(format!("zjj remove {} --force", name)),
+                            fixed: false,
+                        });
+                    }
+                    issues
+                })
+                .flat_map(futures::stream::iter)
+                .collect()
+                .await;
+
+            issues.extend(session_issues);
         }
     }
 
@@ -209,22 +221,15 @@ async fn try_fix_issue(issue: Issue) -> Issue {
     match issue.code.as_str() {
         "STALE_CREATING_SESSION" | "ORPHANED_SESSION" => {
             // Extract session name from fix command and attempt fix
-            let session_name = issue
-                .fix_command
-                .as_ref()
-                .and_then(|cmd| {
-                    let parts: Vec<&str> = cmd.split_whitespace().collect();
-                    (parts.len() >= 3 && parts[0] == "zjj" && parts[1] == "remove")
-                        .then(|| parts[2])
-                });
+            let session_name = issue.fix_command.as_ref().and_then(|cmd| {
+                let parts: Vec<&str> = cmd.split_whitespace().collect();
+                (parts.len() >= 3 && parts[0] == "zjj" && parts[1] == "remove").then(|| parts[2])
+            });
 
             if let Some(name) = session_name {
                 if let Ok(db) = get_session_db().await {
                     let fixed = db.delete(name).await.is_ok();
-                    return Issue {
-                        fixed,
-                        ..issue
-                    };
+                    return Issue { fixed, ..issue };
                 }
             }
             issue
@@ -236,11 +241,10 @@ async fn try_fix_issue(issue: Issue) -> Issue {
 
 /// Fix issues where possible
 async fn fix_issues(issues: Vec<Issue>) -> Vec<Issue> {
-    let mut results = Vec::new();
-    for issue in issues {
-        results.push(try_fix_issue(issue).await);
-    }
-    results
+    futures::stream::iter(issues)
+        .then(try_fix_issue)
+        .collect()
+        .await
 }
 
 /// Print recover output in human format
@@ -260,7 +264,7 @@ fn print_recover_human(output: &RecoverOutput, diagnose_only: bool) {
 
     println!("Issues found: {}\n", output.issues.len());
 
-    for issue in &output.issues {
+    output.issues.iter().for_each(|issue| {
         let icon = match issue.severity.as_str() {
             "critical" => "❌",
             "warning" => "⚠️ ",
@@ -277,7 +281,7 @@ fn print_recover_human(output: &RecoverOutput, diagnose_only: bool) {
             println!("   Fix: {cmd}");
         }
         println!();
-    }
+    });
 
     println!("Summary:");
     println!("  Status: {}", output.status);
@@ -332,71 +336,69 @@ pub async fn save_last_command(command: &str, failed: bool) -> Result<()> {
 pub async fn run_retry(options: &RetryOptions) -> Result<()> {
     let path = get_last_command_path().await?;
 
-    let output = if path.exists() {
-        match tokio::fs::read_to_string(&path).await {
-            Ok(content) => match serde_json::from_str::<SavedCommand>(&content) {
-                Ok(saved) if saved.failed => {
-                    // Execute the saved command
-                    let parts: Vec<&str> = saved.command.split_whitespace().collect();
-                    if parts.is_empty() {
-                        RetryOutput {
-                            has_command: false,
-                            command: None,
-                            message: "Saved command is empty".to_string(),
-                        }
-                    } else {
-                        // Execute the command
-                        let result = Command::new(parts[0])
-                            .args(&parts[1..])
-                            .status()
-                            .await;
+    let output = match tokio::fs::try_exists(&path).await {
+        Ok(true) => {
+            match tokio::fs::read_to_string(&path).await {
+                Ok(content) => match serde_json::from_str::<SavedCommand>(&content) {
+                    Ok(saved) if saved.failed => {
+                        // Execute the saved command
+                        let parts: Vec<&str> = saved.command.split_whitespace().collect();
+                        if parts.is_empty() {
+                            RetryOutput {
+                                has_command: false,
+                                command: None,
+                                message: "Saved command is empty".to_string(),
+                            }
+                        } else {
+                            // Execute the command
+                            let result = Command::new(parts[0]).args(&parts[1..]).status().await;
 
-                        match result {
-                            Ok(status) if status.success() => {
-                                // Clear the failed command since retry succeeded
-                                let _ = tokio::fs::remove_file(&path).await;
-                                RetryOutput {
+                            match result {
+                                Ok(status) if status.success() => {
+                                    // Clear the failed command since retry succeeded
+                                    let _ = tokio::fs::remove_file(&path).await;
+                                    RetryOutput {
+                                        has_command: true,
+                                        command: Some(saved.command.clone()),
+                                        message: format!("Retry succeeded: {}", saved.command),
+                                    }
+                                }
+                                Ok(_) => RetryOutput {
                                     has_command: true,
                                     command: Some(saved.command.clone()),
-                                    message: format!("Retry succeeded: {}", saved.command),
-                                }
+                                    message: format!("Retry failed again: {}", saved.command),
+                                },
+                                Err(e) => RetryOutput {
+                                    has_command: true,
+                                    command: Some(saved.command.clone()),
+                                    message: format!("Failed to execute retry: {e}"),
+                                },
                             }
-                            Ok(_) => RetryOutput {
-                                has_command: true,
-                                command: Some(saved.command.clone()),
-                                message: format!("Retry failed again: {}", saved.command),
-                            },
-                            Err(e) => RetryOutput {
-                                has_command: true,
-                                command: Some(saved.command.clone()),
-                                message: format!("Failed to execute retry: {e}"),
-                            },
                         }
                     }
-                }
-                Ok(_) => RetryOutput {
-                    has_command: false,
-                    command: None,
-                    message: "Last command succeeded, nothing to retry".to_string(),
+                    Ok(_) => RetryOutput {
+                        has_command: false,
+                        command: None,
+                        message: "Last command succeeded, nothing to retry".to_string(),
+                    },
+                    Err(_) => RetryOutput {
+                        has_command: false,
+                        command: None,
+                        message: "Could not parse last command file".to_string(),
+                    },
                 },
                 Err(_) => RetryOutput {
                     has_command: false,
                     command: None,
-                    message: "Could not parse last command file".to_string(),
+                    message: "Could not read last command file".to_string(),
                 },
-            },
-            Err(_) => RetryOutput {
-                has_command: false,
-                command: None,
-                message: "Could not read last command file".to_string(),
-            },
+            }
         }
-    } else {
-        RetryOutput {
+        _ => RetryOutput {
             has_command: false,
             command: None,
             message: "No command history found. Run a zjj command first.".to_string(),
-        }
+        },
     };
 
     if options.format.is_json() {
@@ -432,7 +434,8 @@ pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
     // Check if session exists
     let db = get_session_db().await?;
     let session = db
-        .get(&options.session).await?
+        .get(&options.session)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", options.session))?;
 
     // Get the workspace path from session metadata
@@ -444,13 +447,13 @@ pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Session '{}' has no workspace path", options.session))?;
 
     let workspace_dir = std::path::Path::new(workspace_path);
-    if !workspace_dir.exists() {
+    if !tokio::fs::try_exists(workspace_dir).await.unwrap_or(false) {
         anyhow::bail!("Workspace directory '{workspace_path}' does not exist");
     }
 
     // Verify it's a JJ repository
     let jj_dir = workspace_dir.join(".jj");
-    if !jj_dir.exists() {
+    if !tokio::fs::try_exists(&jj_dir).await.unwrap_or(false) {
         anyhow::bail!("'{workspace_path}' is not a JJ repository");
     }
 

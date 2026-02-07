@@ -103,7 +103,8 @@ async fn run_list(options: &EventsOptions) -> Result<()> {
         options.event_type.as_deref(),
         options.limit.unwrap_or(50),
         options.since.as_deref(),
-    ).await?;
+    )
+    .await?;
 
     let response = EventsResponse {
         total: events.len(),
@@ -116,7 +117,7 @@ async fn run_list(options: &EventsOptions) -> Result<()> {
         let envelope = SchemaEnvelope::new("events-response", "single", &response);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
-        for event in &response.events {
+        response.events.iter().for_each(|event| {
             let session_str = event
                 .session
                 .as_ref()
@@ -129,7 +130,7 @@ async fn run_list(options: &EventsOptions) -> Result<()> {
                 "{} {}{}{}: {}",
                 event.timestamp, event.event_type, session_str, agent_str, event.message
             );
-        }
+        });
     }
 
     Ok(())
@@ -147,11 +148,14 @@ async fn run_follow(options: &EventsOptions) -> Result<()> {
             options.session.as_deref(),
             options.event_type.as_deref(),
             last_id.as_deref(),
-        ).await?;
+        )
+        .await?;
 
-        for event in &events {
+        events.iter().for_each(|event| {
             if options.format.is_json() {
-                println!("{}", serde_json::to_string(&event)?);
+                if let Ok(json) = serde_json::to_string(event) {
+                    println!("{json}");
+                }
             } else {
                 let session_str = event
                     .session
@@ -166,7 +170,10 @@ async fn run_follow(options: &EventsOptions) -> Result<()> {
                     event.timestamp, event.event_type, session_str, agent_str, event.message
                 );
             }
-            last_id = Some(event.id.clone());
+        });
+
+        if let Some(last) = events.last() {
+            last_id = Some(last.id.clone());
         }
 
         // Poll interval
@@ -188,38 +195,28 @@ async fn get_recent_events(
 ) -> Result<Vec<Event>> {
     let events_file = get_events_file_path().await?;
 
-    let mut events = Vec::new();
+    let mut events = match tokio::fs::try_exists(&events_file).await {
+        Ok(true) => {
+            let content = tokio::fs::read_to_string(&events_file).await?;
+            content
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .filter_map(|line| {
+                    serde_json::from_str::<Event>(line).ok().filter(|event| {
+                        // Apply filters
+                        let session_matches =
+                            session.map_or(true, |s| event.session.as_deref() == Some(s));
+                        let type_matches =
+                            event_type.map_or(true, |t| event.event_type.to_string() == t);
+                        let since_matches = since.map_or(true, |st| event.timestamp.as_str() >= st);
 
-    // Read from the events log file if it exists
-    if events_file.exists() {
-        let content = std::fs::read_to_string(&events_file)?;
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
-            }
-            if let Ok(event) = serde_json::from_str::<Event>(line) {
-                // Apply filters
-                if let Some(session_filter) = session {
-                    if event.session.as_deref() != Some(session_filter) {
-                        continue;
-                    }
-                }
-                if let Some(type_filter) = event_type {
-                    if event.event_type.to_string() != type_filter {
-                        continue;
-                    }
-                }
-                if let Some(since_time) = since {
-                    if event.timestamp.as_str() < since_time {
-                        continue;
-                    }
-                }
-                events.push(event);
-            } else {
-                // Skip malformed lines
-            }
+                        session_matches && type_matches && since_matches
+                    })
+                })
+                .collect()
         }
-    }
+        _ => Vec::new(),
+    };
 
     // Sort by timestamp descending (most recent first)
     events.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
@@ -237,41 +234,41 @@ async fn get_new_events(
 ) -> Result<Vec<Event>> {
     let events_file = get_events_file_path().await?;
 
-    let mut events = Vec::new();
-    let mut found_marker = after_id.is_none(); // If no marker, include all
+    let events = match tokio::fs::try_exists(&events_file).await {
+        Ok(true) => {
+            let content = tokio::fs::read_to_string(&events_file).await?;
+            let mut found_marker = after_id.is_none(); // If no marker, include all
 
-    if events_file.exists() {
-        let content = std::fs::read_to_string(&events_file)?;
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
-            }
-            if let Ok(event) = serde_json::from_str::<Event>(line) {
-                // Skip until we find the marker
-                if !found_marker {
-                    if Some(event.id.as_str()) == after_id {
-                        found_marker = true;
-                    }
-                    continue;
-                }
+            content
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .filter_map(|line| {
+                    serde_json::from_str::<Event>(line).ok().and_then(|event| {
+                        // Skip until we find the marker
+                        if !found_marker {
+                            if Some(event.id.as_str()) == after_id {
+                                found_marker = true;
+                            }
+                            return None;
+                        }
 
-                // Apply filters
-                if let Some(session_filter) = session {
-                    if event.session.as_deref() != Some(session_filter) {
-                        continue;
-                    }
-                }
-                if let Some(type_filter) = event_type {
-                    if event.event_type.to_string() != type_filter {
-                        continue;
-                    }
-                }
-                events.push(event);
-            } else {
-                // Skip malformed lines
-            }
+                        // Apply filters
+                        let session_matches =
+                            session.map_or(true, |s| event.session.as_deref() == Some(s));
+                        let type_matches =
+                            event_type.map_or(true, |t| event.event_type.to_string() == t);
+
+                        if session_matches && type_matches {
+                            Some(event)
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .collect()
         }
-    }
+        _ => Vec::new(),
+    };
 
     Ok(events)
 }
@@ -300,7 +297,7 @@ pub async fn _log_event(
     agent_id: Option<&str>,
     message: &str,
 ) -> Result<()> {
-    use std::io::Write;
+    use tokio::io::AsyncWriteExt;
 
     let event = Event {
         id: _generate_event_id(),
@@ -320,14 +317,17 @@ pub async fn _log_event(
         .map_err(|e| anyhow::anyhow!("Failed to serialize event: {e}"))?;
 
     // Open file for appending
-    let mut file = std::fs::OpenOptions::new()
+    let mut file = tokio::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(&events_file)
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to open events file: {e}"))?;
 
     // Write event
-    writeln!(file, "{event_json}").map_err(|e| anyhow::anyhow!("Failed to write event: {e}"))?;
+    file.write_all(format!("{event_json}\n").as_bytes())
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to write event: {e}"))?;
 
     Ok(())
 }

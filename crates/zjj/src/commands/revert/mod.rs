@@ -13,10 +13,7 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use tokio::process::Command;
 use zjj_core::{
@@ -58,14 +55,16 @@ pub async fn run_with_options(options: &RevertOptions) -> Result<RevertExitCode,
 
 /// Core revert logic using Railway-Oriented Programming
 async fn execute_revert(options: &RevertOptions) -> Result<RevertOutput, RevertError> {
-    let root = jj_root().await.map_err(|e: anyhow::Error| RevertError::JjCommandFailed {
-        command: "jj root".to_string(),
-        reason: e.to_string(),
-    })?;
+    let root = jj_root()
+        .await
+        .map_err(|e: anyhow::Error| RevertError::JjCommandFailed {
+            command: "jj root".to_string(),
+            reason: e.to_string(),
+        })?;
 
     validate_location(&root)?;
 
-    let history = read_undo_history(&root)?;
+    let history = read_undo_history(&root).await?;
     let entry = find_session_entry(&history, &options.session_name)?;
 
     validate_revert_possible(&entry)?;
@@ -82,7 +81,7 @@ async fn execute_revert(options: &RevertOptions) -> Result<RevertOutput, RevertE
 
     revert_merge(&root, &entry).await?;
 
-    update_undo_history(&root, &history, &entry, "reverted")?;
+    update_undo_history(&root, &history, &entry, "reverted").await?;
 
     Ok(RevertOutput {
         session_name: options.session_name.clone(),
@@ -95,10 +94,11 @@ async fn execute_revert(options: &RevertOptions) -> Result<RevertOutput, RevertE
 
 /// Validate we're in a valid location
 fn validate_location(root: &str) -> Result<(), RevertError> {
-    let location =
-        detect_location(&PathBuf::from(root)).map_err(|e: anyhow::Error| RevertError::InvalidState {
+    let location = detect_location(&PathBuf::from(root)).map_err(|e: anyhow::Error| {
+        RevertError::InvalidState {
             reason: e.to_string(),
-        })?;
+        }
+    })?;
 
     match location {
         Location::Main => Ok(()),
@@ -107,37 +107,35 @@ fn validate_location(root: &str) -> Result<(), RevertError> {
 }
 
 /// Read undo history from log file
-fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
+async fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
     let undo_log_path = Path::new(root).join(UNDO_LOG_PATH);
 
-    if !undo_log_path.exists() {
-        return Ok(Vec::new());
+    match tokio::fs::try_exists(&undo_log_path).await {
+        Ok(true) => {
+            let content =
+                tokio::fs::read_to_string(&undo_log_path)
+                    .await
+                    .map_err(|e: std::io::Error| RevertError::ReadUndoLogFailed {
+                        reason: e.to_string(),
+                    })?;
+
+            let entries: Vec<UndoEntry> = content
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .filter_map(|line| serde_json::from_str::<UndoEntry>(line).ok())
+                .collect();
+
+            Ok(entries)
+        }
+        _ => Ok(Vec::new()),
     }
-
-    let content =
-        fs::read_to_string(&undo_log_path).map_err(|e: std::io::Error| RevertError::ReadUndoLogFailed {
-            reason: e.to_string(),
-        })?;
-
-    let entries: Vec<UndoEntry> = content
-        .lines()
-        .filter_map(|line: &str| {
-            if line.trim().is_empty() {
-                None
-            } else {
-                serde_json::from_str::<UndoEntry>(line).ok()
-            }
-        })
-        .collect();
-
-    Ok(entries)
 }
 
 /// Find specific session entry in history
 fn find_session_entry(history: &[UndoEntry], session_name: &str) -> Result<UndoEntry, RevertError> {
     history
         .iter()
-        .find(|entry: &&UndoEntry| entry.session_name == session_name && entry.status == "completed")
+        .find(|entry| entry.session_name == session_name && entry.status == "completed")
         .cloned()
         .ok_or_else(|| RevertError::SessionNotFound {
             session_name: session_name.to_string(),
@@ -178,7 +176,7 @@ async fn revert_merge(root: &str, entry: &UndoEntry) -> Result<(), RevertError> 
 }
 
 /// Update undo history after successful revert
-fn update_undo_history(
+async fn update_undo_history(
     root: &str,
     history: &[UndoEntry],
     entry: &UndoEntry,
@@ -188,7 +186,7 @@ fn update_undo_history(
 
     let new_content = history
         .iter()
-        .map(|hist_entry: &UndoEntry| {
+        .map(|hist_entry| {
             if hist_entry.session_name == entry.session_name {
                 let mut updated = hist_entry.clone();
                 updated.status = status.to_string();
@@ -201,11 +199,14 @@ fn update_undo_history(
         .map_err(|e: serde_json::Error| RevertError::SerializationError {
             reason: e.to_string(),
         })?
-        .join("\n");
+        .join("\n")
+        + "\n";
 
-    fs::write(&undo_log_path, new_content).map_err(|e: std::io::Error| RevertError::WriteUndoLogFailed {
-        reason: e.to_string(),
-    })?;
+    tokio::fs::write(&undo_log_path, new_content)
+        .await
+        .map_err(|e: std::io::Error| RevertError::WriteUndoLogFailed {
+            reason: e.to_string(),
+        })?;
 
     Ok(())
 }
@@ -214,11 +215,12 @@ fn update_undo_history(
 fn output_result(result: &RevertOutput, format: OutputFormat) -> Result<(), RevertError> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("revert-response", "single", result);
-        let json_output = serde_json::to_string_pretty(&envelope).map_err(|e: serde_json::Error| {
-            RevertError::SerializationError {
-                reason: e.to_string(),
-            }
-        })?;
+        let json_output =
+            serde_json::to_string_pretty(&envelope).map_err(|e: serde_json::Error| {
+                RevertError::SerializationError {
+                    reason: e.to_string(),
+                }
+            })?;
         println!("{json_output}");
     } else if result.dry_run {
         println!("Dry-run revert for session: {}", result.session_name);
@@ -248,11 +250,12 @@ fn output_error(error: &RevertError, format: OutputFormat) -> Result<(), RevertE
             error: error_detail,
         };
         let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
-        let json_output = serde_json::to_string_pretty(&envelope).map_err(|e: serde_json::Error| {
-            RevertError::SerializationError {
-                reason: e.to_string(),
-            }
-        })?;
+        let json_output =
+            serde_json::to_string_pretty(&envelope).map_err(|e: serde_json::Error| {
+                RevertError::SerializationError {
+                    reason: e.to_string(),
+                }
+            })?;
         println!("{json_output}");
     } else {
         eprintln!("Error: {error}");

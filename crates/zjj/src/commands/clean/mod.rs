@@ -3,6 +3,7 @@
 use std::{io::Write, path::Path, time::Duration};
 
 use anyhow::Result;
+use futures::{StreamExt, TryStreamExt};
 use serde::Serialize;
 use zjj_core::OutputFormat;
 
@@ -52,10 +53,16 @@ pub async fn run_with_options(options: &CleanOptions) -> Result<()> {
     // 1. List all sessions and filter to stale ones using functional pipeline
     let sessions = db.list(None).await.map_err(anyhow::Error::new)?;
 
-    let stale_sessions: Vec<_> = sessions
-        .into_iter()
-        .filter(|session| !Path::new(&session.workspace_path).exists())
-        .collect();
+    let stale_sessions: Vec<_> = futures::stream::iter(sessions)
+        .then(|session| async move {
+            let exists = tokio::fs::try_exists(&session.workspace_path)
+                .await
+                .map_err(anyhow::Error::new)?;
+            Ok(if exists { None } else { Some(session) })
+        })
+        .filter_map(|res: Result<Option<_>, anyhow::Error>| async move { res.ok().flatten() })
+        .collect()
+        .await;
 
     // 2. Handle no stale sessions case
     if stale_sessions.is_empty() {
@@ -78,12 +85,16 @@ pub async fn run_with_options(options: &CleanOptions) -> Result<()> {
     }
 
     // 5. Remove stale sessions using functional fold for error handling
-    let mut removed_count = 0;
-    for session in &stale_sessions {
-        if db.delete(&session.name).await.map_err(anyhow::Error::new)? {
-            removed_count += 1;
-        }
-    }
+    let removed_count = futures::stream::iter(&stale_sessions)
+        .map(|s| Ok::<_, anyhow::Error>(s))
+        .try_fold(0, |acc, session| {
+            let db = &db;
+            async move {
+                let deleted = db.delete(&session.name).await.map_err(anyhow::Error::new)?;
+                Ok(if deleted { acc + 1 } else { acc })
+            }
+        })
+        .await?;
 
     // 6. Output result
     output_result(removed_count, &stale_names, options.format);
@@ -128,9 +139,9 @@ fn output_dry_run(stale_names: &[String], format: OutputFormat) {
             "Found {} stale session(s) (dry-run, no changes made):",
             stale_names.len()
         );
-        for name in stale_names {
+        stale_names.iter().for_each(|name| {
             println!("  - {name}");
-        }
+        });
         println!();
         println!("Run 'zjj clean --force' to remove these sessions");
     }
@@ -165,9 +176,9 @@ fn output_result(removed_count: usize, stale_names: &[String], format: OutputFor
         }
     } else {
         println!("✓ Removed {removed_count} stale session(s)");
-        for name in stale_names {
+        stale_names.iter().for_each(|name| {
             println!("  - {name}");
-        }
+        });
     }
 }
 

@@ -225,6 +225,8 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
         | Error::Unknown(_) => 4,
         // Lock contention errors: exit code 5
         Error::SessionLocked { .. } | Error::NotLockHolder { .. } => 5,
+        // Operation cancelled: exit code 130
+        Error::OperationCancelled(_) => 130,
     }
 }
 
@@ -335,6 +337,11 @@ impl From<&crate::Error> for JsonError {
                 ErrorCode::Unknown,
                 format!("Agent '{agent_id}' does not hold the lock for session '{session}'"),
                 None,
+            ),
+            Error::OperationCancelled(reason) => (
+                ErrorCode::Unknown,
+                format!("Operation cancelled: {reason}"),
+                Some("Operation was interrupted by shutdown signal".to_string()),
             ),
         };
 

@@ -470,15 +470,19 @@ async fn query_lock_status(session: &str) -> Result<()> {
                             let db_path = data_dir.join("state.db");
 
                             let lock_info = async {
-                                let pool =
-                                    sqlx::SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
-                                        .await
-                                        .ok()?;
-                                let lock_mgr = zjj_core::coordination::locks::LockManager::new(pool);
+                                let pool = sqlx::SqlitePool::connect(&format!(
+                                    "sqlite:{}",
+                                    db_path.display()
+                                ))
+                                .await
+                                .ok()?;
+                                let lock_mgr =
+                                    zjj_core::coordination::locks::LockManager::new(pool);
                                 lock_mgr.init().await.ok()?;
                                 let all_locks = lock_mgr.get_all_locks().await.ok()?;
                                 all_locks.into_iter().find(|l| l.session == session)
-                            }.await;
+                            }
+                            .await;
 
                             match lock_info {
                                 Some(lock) => LockStatusResult {
@@ -506,7 +510,7 @@ async fn query_lock_status(session: &str) -> Result<()> {
                                 code: "DATA_DIR_ERROR".to_string(),
                                 message: e.to_string(),
                             }),
-                        }
+                        },
                     }
                 }
                 Ok(None) => LockStatusResult {

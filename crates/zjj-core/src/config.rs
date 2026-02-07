@@ -29,13 +29,23 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum RecoveryPolicy {
     Silent,
     #[default]
     Warn,
     FailFast,
+}
+
+impl<'de> Deserialize<'de> for RecoveryPolicy {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
 }
 
 impl FromStr for RecoveryPolicy {
@@ -297,14 +307,22 @@ impl Default for RecoveryConfig {
 /// - Config file is malformed TOML
 /// - Config values fail validation
 /// - Unable to determine repository name for placeholder substitution
-pub fn load_config() -> Result<Config> {
+pub async fn load_config() -> Result<Config> {
     // 1. Start with built-in defaults
     let mut config = Config::default();
+
+    // 2. Load global config if exists
+    if let Ok(global_path) = global_config_path() {
+        if global_path.exists() {
+            let global = load_toml_file(&global_path).await?;
+            config.merge(global);
+        }
+    }
 
     // 3. Load project config if exists
     if let Ok(project_path) = project_config_path() {
         if project_path.exists() {
-            let project = load_toml_file(&project_path)?;
+            let project = load_toml_file(&project_path).await?;
             config.merge(project); // Project overrides global
         }
     }
@@ -341,6 +359,13 @@ fn project_config_path() -> Result<PathBuf> {
         .map_err(|e| Error::IoError(format!("Failed to get current directory: {e}")))
 }
 
+/// Get path to global config file
+fn global_config_path() -> Result<PathBuf> {
+    directories::ProjectDirs::from("", "", "zjj")
+        .map(|proj_dirs| proj_dirs.config_dir().join("config.toml"))
+        .ok_or_else(|| Error::IoError("Failed to determine global config directory".to_string()))
+}
+
 /// Get repository name from current directory
 ///
 /// # Errors
@@ -349,14 +374,13 @@ fn project_config_path() -> Result<PathBuf> {
 /// - Current directory cannot be determined
 /// - Directory name cannot be extracted
 fn get_repo_name() -> Result<String> {
-    std::env::current_dir()
-        .map_err(|e| Error::IoError(format!("Failed to get current directory: {e}")))
-        .and_then(|dir| {
-            dir.file_name()
-                .and_then(|name| name.to_str())
-                .map(String::from)
-                .ok_or_else(|| Error::Unknown("Failed to determine repository name".to_string()))
-        })
+    let dir = std::env::current_dir()
+        .map_err(|e| Error::IoError(format!("Failed to get current directory: {e}")))?;
+
+    dir.file_name()
+        .and_then(|name| name.to_str())
+        .map(String::from)
+        .ok_or_else(|| Error::Unknown("Failed to determine repository name".to_string()))
 }
 
 /// Load a TOML file into a partial Config
@@ -366,8 +390,8 @@ fn get_repo_name() -> Result<String> {
 /// Returns error if:
 /// - File cannot be read
 /// - TOML is malformed
-fn load_toml_file(path: &std::path::Path) -> Result<Config> {
-    let content = std::fs::read_to_string(path).map_err(|e| {
+async fn load_toml_file(path: &std::path::Path) -> Result<Config> {
+    let content = tokio::fs::read_to_string(path).await.map_err(|e| {
         Error::IoError(format!(
             "Failed to read config file {}: {e}",
             path.display()
@@ -667,11 +691,11 @@ mod tests {
     use super::*;
 
     // Test 1: No config files - Returns default config
-    #[test]
-    fn test_no_config_files_returns_defaults() {
+    #[tokio::test]
+    async fn test_no_config_files_returns_defaults() {
         // This test works in the normal repo context where no .zjj/config.toml exists
         // and global config likely doesn't exist either
-        let result = load_config();
+        let result = load_config().await;
         assert!(
             result.is_ok(),
             "load_config should succeed even without config files"
@@ -805,28 +829,27 @@ mod tests {
     }
 
     // Test 9: Missing global config - No error, uses defaults
-    #[test]
-    fn test_missing_global_config_no_error() {
+    #[tokio::test]
+    async fn test_missing_global_config_no_error() {
         // This tests that load_config doesn't fail when global config doesn't exist
         // (which is the normal case for most users)
-        let result = load_config();
+        let result = load_config().await;
         assert!(result.is_ok());
     }
 
     // Test 10: Malformed TOML - Clear error with line number
-    #[test]
-    fn test_malformed_toml_returns_parse_error() -> Result<()> {
-        use std::io::Write;
+    #[tokio::test]
+    async fn test_malformed_toml_returns_parse_error() -> Result<()> {
         let temp_dir = tempfile::tempdir()
             .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
         let config_path = temp_dir.path().join("bad_config.toml");
 
-        let mut file = std::fs::File::create(&config_path)
-            .map_err(|e| Error::IoError(format!("Failed to create test file: {e}")))?;
-        file.write_all(b"workspace_dir = \n invalid toml [[[")
+        // Use async file operations
+        tokio::fs::write(&config_path, b"workspace_dir = \n invalid toml [[[")
+            .await
             .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
-        let result = load_toml_file(&config_path);
+        let result = load_toml_file(&config_path).await;
         assert!(result.is_err());
 
         if let Err(e) = result {

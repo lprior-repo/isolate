@@ -126,7 +126,7 @@ impl FileWatcher {
         .map_err(|e| Error::IoError(format!("Failed to create file watcher: {e}")))?;
 
         // Watch each workspace's beads database
-        for workspace in workspaces {
+        workspaces.iter().try_for_each(|workspace| {
             let beads_db = workspace.join(".beads/beads.db");
             if beads_db.exists() {
                 debouncer
@@ -136,7 +136,8 @@ impl FileWatcher {
                         Error::IoError(format!("Failed to watch {}: {e}", beads_db.display()))
                     })?;
             }
-        }
+            Ok::<(), Error>(())
+        })?;
 
         // Keep debouncer alive by moving it into a background task
         tokio::spawn(async move {
@@ -162,22 +163,23 @@ pub async fn query_beads_status(pool: &SqlitePool, workspace_path: &Path) -> Res
     let beads_db = workspace_path.join(".beads/beads.db");
 
     // If beads database doesn't exist, it will be created when needed
-    if !beads_db.exists() {
-        return Ok(BeadsStatus::NoBeads);
+    match tokio::fs::try_exists(&beads_db).await {
+        Ok(true) => {
+            // Query for each status count
+            let open = query_count(pool, "open").await?;
+            let in_progress = query_count(pool, "in_progress").await?;
+            let blocked = query_count(pool, "blocked").await?;
+            let closed = query_count(pool, "closed").await?;
+
+            Ok(BeadsStatus::Counts {
+                open,
+                in_progress,
+                blocked,
+                closed,
+            })
+        }
+        _ => Ok(BeadsStatus::NoBeads),
     }
-
-    // Query for each status count
-    let open = query_count(pool, "open").await?;
-    let in_progress = query_count(pool, "in_progress").await?;
-    let blocked = query_count(pool, "blocked").await?;
-    let closed = query_count(pool, "closed").await?;
-
-    Ok(BeadsStatus::Counts {
-        open,
-        in_progress,
-        blocked,
-        closed,
-    })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

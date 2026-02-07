@@ -49,9 +49,11 @@ pub mod introspection;
 pub mod jj;
 pub mod json;
 mod output_format;
-mod recovery;
+pub mod recovery;
 pub mod result;
 pub mod session_state;
+pub mod shutdown;
+pub mod taskregistry;
 pub mod templates;
 pub mod types;
 pub mod watcher;
@@ -70,8 +72,13 @@ pub use json::{
     ErrorCode, HateoasLink, RelatedResources, ResponseMeta, SchemaEnvelope, SchemaEnvelopeArray,
 };
 pub use output_format::OutputFormat;
-pub use recovery::{log_recovery, should_log_recovery};
+pub use recovery::{
+    log_recovery, periodic_cleanup, recover_incomplete_sessions, repair_database,
+    should_log_recovery, validate_database,
+};
 pub use result::{Result, ResultExt};
+pub use shutdown::{signal_channels, ShutdownCoordinator, ShutdownSignal};
+pub use taskregistry::TaskRegistry;
 pub use workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
 
 /// Marker trait for types guaranteed safe (no panics possible).

@@ -9,13 +9,13 @@
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
-    pin::Pin,
     future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
 };
 
-use tokio::process::Command;
 use thiserror::Error;
+use tokio::process::Command;
 
 use super::newtypes::JjOutput;
 

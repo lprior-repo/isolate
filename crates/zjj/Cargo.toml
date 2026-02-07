@@ -30,6 +30,7 @@ crossterm = "0.27"
 toml = "0.8"
 toml_edit = "0.22"
 itertools = "0.13"
+futures = "0.3"
 chrono = "0.4"
 num-traits = "0.2"
 atty = "0.2"
@@ -41,6 +42,7 @@ predicates = "3"
 toml = "0.8"
 serial_test = "3.2"
 proptest = "1.0"
+filetime = "0.2"
 
 [lints]
 workspace = true

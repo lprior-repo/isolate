@@ -75,7 +75,7 @@ fn print_command_human_readable(cmd: &CommandIntrospection) {
 
     if !cmd.arguments.is_empty() {
         println!("Arguments:");
-        for arg in &cmd.arguments {
+        cmd.arguments.iter().for_each(|arg| {
             let required = if arg.required {
                 " (required)"
             } else {
@@ -87,7 +87,7 @@ fn print_command_human_readable(cmd: &CommandIntrospection) {
             if !arg.examples.is_empty() {
                 println!("    Examples: {}", arg.examples.join(", "));
             }
-        }
+        });
         println!();
     }
 
@@ -98,10 +98,10 @@ fn print_command_human_readable(cmd: &CommandIntrospection) {
 
     if !cmd.examples.is_empty() {
         println!("Examples:");
-        for example in &cmd.examples {
+        cmd.examples.iter().for_each(|example| {
             println!("  {}", example.command);
             println!("    {}", example.description);
-        }
+        });
         println!();
     }
 
@@ -165,36 +165,35 @@ pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
         "general",
     ];
 
-    // Display categories in defined order using for loops
-    for &category in &category_order {
-        let Some(flags_in_category) = grouped.get(category) else {
-            continue;
-        };
-        let _ = write!(output, "\n\n  {}:", capitalize_category(category));
+    // Display categories in defined order using functional patterns
+    category_order.iter().for_each(|category| {
+        if let Some(flags_in_category) = grouped.get(*category) {
+            let _ = write!(output, "\n\n  {}:", capitalize_category(category));
 
-        for flag in flags_in_category {
-            let short = flag
-                .short
-                .as_ref()
-                .map(|s| format!("-{s}, "))
-                .map_or(String::new(), |value| value);
-            let _ = write!(output, "\n    {short}--{}", flag.long);
-            let _ = write!(output, "\n      Type: {}", flag.flag_type);
-            let _ = write!(output, "\n      Description: {}", flag.description);
+            flags_in_category.iter().for_each(|flag| {
+                let short = flag
+                    .short
+                    .as_ref()
+                    .map(|s| format!("-{s}, "))
+                    .map_or(String::new(), |value| value);
+                let _ = write!(output, "\n    {short}--{}", flag.long);
+                let _ = write!(output, "\n      Type: {}", flag.flag_type);
+                let _ = write!(output, "\n      Description: {}", flag.description);
 
-            if let Some(ref default) = flag.default {
-                let _ = write!(output, "\n      Default: {default}");
-            }
+                if let Some(ref default) = flag.default {
+                    let _ = write!(output, "\n      Default: {default}");
+                }
 
-            if !flag.possible_values.is_empty() {
-                let _ = write!(
-                    output,
-                    "\n      Values: {}",
-                    flag.possible_values.join(", ")
-                );
-            }
+                if !flag.possible_values.is_empty() {
+                    let _ = write!(
+                        output,
+                        "\n      Values: {}",
+                        flag.possible_values.join(", ")
+                    );
+                }
+            });
         }
-    }
+    });
 
     output.push('\n');
     output
@@ -1019,7 +1018,7 @@ pub async fn run_env_vars(format: OutputFormat) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         println!("Environment Variables:\n");
-        for var in &output.env_vars {
+        output.env_vars.iter().for_each(|var| {
             println!("  {} ({}):", var.name, var.direction);
             println!("    {}", var.description);
             if let Some(ref default) = var.default {
@@ -1027,7 +1026,7 @@ pub async fn run_env_vars(format: OutputFormat) -> Result<()> {
             }
             println!("    Example: {}", var.example);
             println!();
-        }
+        });
     }
 
     Ok(())
@@ -1149,15 +1148,15 @@ pub async fn run_workflows(format: OutputFormat) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         println!("Workflow Patterns:\n");
-        for workflow in &output.workflows {
+        output.workflows.iter().for_each(|workflow| {
             println!("  {}:", workflow.name);
             println!("    {}\n", workflow.description);
-            for step in &workflow.steps {
+            workflow.steps.iter().for_each(|step| {
                 println!("    {}. {}", step.step, step.command);
                 println!("       {}", step.description);
-            }
+            });
             println!();
-        }
+        });
     }
 
     Ok(())
@@ -1554,9 +1553,9 @@ pub async fn run_session_states(format: OutputFormat) -> Result<()> {
     } else {
         println!("Session States: {}\n", output.states.join(" -> "));
         println!("Transitions:");
-        for t in &output.transitions {
+        output.transitions.iter().for_each(|t| {
             println!("  {} -> {} : {}", t.from, t.to, t.trigger);
-        }
+        });
     }
 
     Ok(())

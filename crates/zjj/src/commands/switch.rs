@@ -37,7 +37,7 @@ pub async fn run_with_options(name: Option<&str>, options: &SwitchOptions) -> Re
             return Ok(());
         }
 
-        if let Some(session) = crate::selector::select_session(&sessions)? {
+        if let Some(session) = crate::selector::select_session(&sessions).await? {
             session.name
         } else {
             return Ok(()); // User cancelled

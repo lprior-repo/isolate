@@ -8,7 +8,12 @@ async fn get_command_version(command: &str) -> Option<String> {
     run_command(command, &["--version"])
         .await
         .ok()
-        .and_then(|output: String| output.lines().next().map(|line: &str| line.trim().to_string()))
+        .and_then(|output: String| {
+            output
+                .lines()
+                .next()
+                .map(|line: &str| line.trim().to_string())
+        })
 }
 
 /// Check dependencies and their status

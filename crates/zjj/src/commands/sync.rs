@@ -3,6 +3,7 @@
 use std::{io::Write, path::Path, time::SystemTime};
 
 use anyhow::{Context, Result};
+// Removed unused StreamExt import
 use zjj_core::{
     json::{ErrorDetail, SchemaEnvelope},
     OutputFormat,
@@ -46,34 +47,26 @@ async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<(
     })?;
 
     // Use internal sync function
-    match sync_session_internal(&db, &session.name, &session.workspace_path).await {
-        Ok(()) => {
-            if options.format.is_json() {
-                let output = SyncOutput {
-                    name: Some(name.to_string()),
-                    synced_count: 1,
-                    failed_count: 0,
-                    errors: Vec::new(),
-                };
-                let envelope = SchemaEnvelope::new("sync-response", "single", output);
-                let json_str = serde_json::to_string(&envelope)?;
-                writeln!(std::io::stdout(), "{json_str}")?;
-            } else {
-                let mut stdout = std::io::stdout();
-                writeln!(stdout, "Synced session '{name}' with main")?;
-                writeln!(stdout)?;
-                writeln!(stdout, "NEXT: Continue working, or if done:")?;
-                writeln!(stdout, "  zjj done          # Merge to main + cleanup")?;
-            }
-            Ok(())
-        }
-        Err(e) => {
-            if !options.format.is_json() {
-                writeln!(std::io::stdout(), "Error syncing session '{name}': {e}")?;
-            }
-            Err(e)
-        }
+    sync_session_internal(&db, &session.name, &session.workspace_path).await?;
+
+    if options.format.is_json() {
+        let output = SyncOutput {
+            name: Some(name.to_string()),
+            synced_count: 1,
+            failed_count: 0,
+            errors: Vec::new(),
+        };
+        let envelope = SchemaEnvelope::new("sync-response", "single", output);
+        let json_str = serde_json::to_string(&envelope)?;
+        println!("{json_str}");
+    } else {
+        println!("Synced session '{name}' with main");
+        println!();
+        println!("NEXT: Continue working, or if done:");
+        println!("  zjj done          # Merge to main + cleanup");
     }
+
+    Ok(())
 }
 
 /// Sync all sessions
@@ -94,24 +87,32 @@ async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
             };
             let envelope = SchemaEnvelope::new("sync-response", "single", output);
             let json_str = serde_json::to_string(&envelope)?;
-            writeln!(std::io::stdout(), "{json_str}")?;
+            println!("{json_str}");
         } else {
-            writeln!(std::io::stdout(), "No sessions to sync")?;
+            println!("No sessions to sync");
         }
         return Ok(());
     }
 
-    if options.format.is_json() {
-        // For JSON output, collect results and output once at the end
-        let mut results = Vec::new();
-        for session in &sessions {
-            let res = sync_session_internal(&db, &session.name, &session.workspace_path).await;
-            results.push((session, res));
-        }
+    use futures::StreamExt;
 
-        let (successes, errors): (Vec<_>, Vec<_>) = results
-            .into_iter()
-            .partition(|(_, res)| res.is_ok());
+    // ... inside sync_all_with_options ...
+    if options.format.is_json() {
+        // For JSON output, collect results concurrently and output once at the end
+        let results: Vec<_> = futures::stream::iter(sessions)
+            .map(|session| {
+                let db = &db;
+                async move {
+                    let res = sync_session_internal(db, &session.name, &session.workspace_path).await;
+                    (session, res)
+                }
+            })
+            .buffered(5) // Limit concurrency to 5
+            .collect()
+            .await;
+
+        let (successes, errors): (Vec<_>, Vec<_>) =
+            results.into_iter().partition(|(_, res)| res.is_ok());
 
         let output = SyncOutput {
             name: None,
@@ -127,53 +128,69 @@ async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                             message: e.to_string(),
                             exit_code: 3,
                             details: None,
-                            suggestion: Some("Try 'jj resolve' to fix conflicts, then retry sync".to_string()),
+                            suggestion: Some(
+                                "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
+                            ),
                         },
                     })
                 })
                 .collect(),
         };
-        let envelope = if output.failed_count > 0 {
+
+        let has_failures = output.failed_count > 0;
+        let envelope = if has_failures {
             SchemaEnvelope::new("sync-response", "single", output).as_error()
         } else {
             SchemaEnvelope::new("sync-response", "single", output)
         };
         let json_str = serde_json::to_string(&envelope)?;
-        writeln!(std::io::stdout(), "{json_str}")?;
+        println!("{json_str}");
+
+        if has_failures {
+            anyhow::bail!("Failed to sync {} session(s)", envelope.data.failed_count);
+        }
     } else {
         // Original text output
-        writeln!(std::io::stdout(), "Syncing {} session(s)...", sessions.len())?;
+        println!("Syncing {} session(s)...", sessions.len());
 
-        let mut success_count = 0;
-        let mut failure_count = 0;
-        let mut errors = Vec::new();
+        // Process sessions sequentially for text mode to avoid interleaved output
+        let (success_count, failure_count, errors) = futures::stream::iter(sessions)
+            .fold(
+                (0, 0, Vec::new()),
+                |(mut s_acc, mut f_acc, mut err_acc), session| {
+                    let db = &db;
+                    async move {
+                        print!("Syncing '{}' ... ", &session.name);
+                        let _ = std::io::stdout().flush();
 
-        for session in &sessions {
-            write!(std::io::stdout(), "Syncing '{}' ... ", &session.name).ok();
-            std::io::stdout().flush().ok();
+                        match sync_session_internal(db, &session.name, &session.workspace_path)
+                            .await
+                        {
+                            Ok(()) => {
+                                println!("OK");
+                                s_acc += 1;
+                            }
+                            Err(e) => {
+                                println!("FAILED: {e}");
+                                f_acc += 1;
+                                err_acc.push((session.name.clone(), e));
+                            }
+                        }
+                        (s_acc, f_acc, err_acc)
+                    }
+                },
+            )
+            .await;
 
-            match sync_session_internal(&db, &session.name, &session.workspace_path).await {
-                Ok(()) => {
-                    writeln!(std::io::stdout(), "OK").ok();
-                    success_count += 1;
-                }
-                Err(e) => {
-                    writeln!(std::io::stdout(), "FAILED: {e}").ok();
-                    failure_count += 1;
-                    errors.push((session.name.clone(), e));
-                }
-            }
-        }
-
-        let mut stdout = std::io::stdout();
-        writeln!(stdout)?;
-        writeln!(stdout, "Summary: {success_count} succeeded, {failure_count} failed")?;
+        println!();
+        println!("Summary: {success_count} succeeded, {failure_count} failed");
 
         if !errors.is_empty() {
-            writeln!(stdout, "\nErrors:")?;
-            for (name, error) in errors {
-                writeln!(stdout, "  {name}: {error}")?;
-            }
+            println!("\nErrors:");
+            errors.into_iter().for_each(|(name, error)| {
+                println!("  {name}: {error}");
+            });
+            anyhow::bail!("Failed to sync {failure_count} session(s)");
         }
     }
     Ok(())

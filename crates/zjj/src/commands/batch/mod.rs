@@ -37,6 +37,7 @@
 #[cfg(test)]
 mod tests;
 
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use zjj_core::{
@@ -189,27 +190,31 @@ pub async fn execute_batch(
     };
 
     // Phase 2: Execute operations in order
-    let mut results = Vec::with_capacity(request.operations.len());
-    let mut should_stop = false;
+    let atomic = request.atomic;
+    let (results, _) = futures::stream::iter(&request.operations)
+        .fold(
+            (Vec::with_capacity(request.operations.len()), false),
+            |(mut results, mut should_stop), operation| async move {
+                let result = if should_stop {
+                    make_skipped_result(operation, "Previous operation failed")
+                } else {
+                    execute_batch_operation(operation).await
+                };
 
-    for (index, operation) in request.operations.iter().enumerate() {
-        let result = if should_stop {
-            make_skipped_result(operation, "Previous operation failed")
-        } else {
-            execute_batch_operation(operation).await
-        };
+                // Track if we should stop (required operation failed in atomic mode)
+                let is_required = !operation.optional;
+                let is_failure = !result.success;
+                let stop_now = atomic && is_required && is_failure;
 
-        // Track if we should stop (required operation failed in atomic mode)
-        let is_required = !operation.optional;
-        let is_failure = !result.success;
-        let stop_now = request.atomic && is_required && is_failure;
+                if stop_now {
+                    should_stop = true;
+                }
 
-        if stop_now {
-            should_stop = true;
-        }
-
-        results.push(result);
-    }
+                results.push(result);
+                (results, should_stop)
+            },
+        )
+        .await;
 
     // Phase 3: Compute final result
     let succeeded = results
@@ -409,7 +414,7 @@ fn print_batch_human(response: &BatchResponse) {
 
     println!();
 
-    for item_result in &response.results {
+    response.results.iter().for_each(|item_result| {
         let status_icon = match item_result.status {
             BatchItemStatus::Succeeded => "✓",
             BatchItemStatus::Failed => "✗",
@@ -432,7 +437,7 @@ fn print_batch_human(response: &BatchResponse) {
         if let Some(ms) = item_result.duration_ms {
             println!("    Duration: {ms}ms");
         }
-    }
+    });
 
     println!();
 }

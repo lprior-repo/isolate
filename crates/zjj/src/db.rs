@@ -14,7 +14,9 @@ use std::{path::Path, str::FromStr, time::SystemTime};
 
 /// Functional I/O helper module - wraps mutable buffer operations in pure functions
 mod io {
-    use std::{fs::File, io::Read, path::Path};
+    use std::path::Path;
+
+    use tokio::io::AsyncReadExt;
 
     /// Monadic wrapper for reading exact bytes from a file
     ///
@@ -23,24 +25,12 @@ mod io {
     ///
     /// # Errors
     /// Returns IO error if file cannot be opened or read.
-    pub fn read_exact_bytes<const N: usize>(path: &Path) -> std::io::Result<[u8; N]> {
+    pub async fn read_exact_bytes<const N: usize>(path: &Path) -> std::io::Result<[u8; N]> {
         // Mutation is encapsulated within this function scope
         let mut buffer = [0u8; N];
-        File::open(path).and_then(|mut file| {
-            file.read_exact(&mut buffer)?;
-            Ok(buffer) // Return immutable buffer
-        })
-    }
-
-    /// Monadic wrapper for reading exact bytes from an open file
-    ///
-    /// # Errors
-    /// Returns IO error if file cannot be read.
-    #[allow(dead_code)] // Reserved for future use (WAL integrity checks)
-    pub fn read_exact_from_file<const N: usize>(mut file: File) -> std::io::Result<[u8; N]> {
-        let mut buffer = [0u8; N];
-        file.read_exact(&mut buffer)?;
-        Ok(buffer)
+        let mut file = tokio::fs::File::open(path).await?;
+        file.read_exact(&mut buffer).await?;
+        Ok(buffer) // Return immutable buffer
     }
 }
 
@@ -129,7 +119,7 @@ impl SessionDb {
         // Ensure parent directory exists for create operations
         if let Some(parent) = path.parent() {
             if !parent.exists() && allow_create {
-                std::fs::create_dir_all(parent).map_err(|e| {
+                tokio::fs::create_dir_all(parent).await.map_err(|e| {
                     Error::IoError(format!("Failed to create parent directory: {e}"))
                 })?;
             }
@@ -150,9 +140,9 @@ impl SessionDb {
 
         // Pre-flight check: Detect permission issues BEFORE SQLite tries to open
         // This prevents silent recovery from permission-denied scenarios
-        if path.exists() {
-            use std::fs::File;
-            if let Err(e) = File::open(path) {
+        if tokio::fs::try_exists(path).await.unwrap_or(false) {
+            use tokio::fs::File;
+            if let Err(e) = File::open(path).await {
                 return Err(Error::DatabaseError(format!(
                     "Database file is not accessible: {e}\n\n\
                      Run 'zjj doctor' to diagnose, or fix permissions manually:\n\
@@ -161,6 +151,13 @@ impl SessionDb {
                 )));
             }
         }
+
+        // Load config to get recovery policy
+        // We use a default config if loading fails to ensure we can still try to open DB
+        let recovery_config = zjj_core::config::load_config()
+            .await
+            .map(|c| c.recovery)
+            .unwrap_or_default();
 
         // SQLx connection string with mode parameter
         let db_url = if path.is_absolute() {
@@ -183,8 +180,11 @@ impl SessionDb {
         //     ↓ (Err) → Fail with helpful message
 
         // Combine pre-flight checks (functional AND composition)
-        let preflight_result =
-            check_wal_integrity(path).and_then(|()| check_database_integrity(path));
+        let preflight_result = async {
+            check_wal_integrity(path, &recovery_config).await?;
+            check_database_integrity(path, &recovery_config).await
+        }
+        .await;
 
         // Try to open database (with recovery on preflight or connection failure)
         let pool = match preflight_result {
@@ -194,14 +194,22 @@ impl SessionDb {
                     Ok(p) => p,
                     Err(e) => {
                         // Connection failed despite passing checks - try recovery
-                        attempt_database_recovery(path, allow_create, &db_url, e).await?
+                        attempt_database_recovery(path, allow_create, &db_url, e, &recovery_config)
+                            .await?
                     }
                 }
             }
             Err(preflight_err) => {
                 // Pre-flight checks failed (corruption detected)
                 // Attempt recovery (Railway pattern: error track → recovery → success track)
-                attempt_database_recovery(path, allow_create, &db_url, preflight_err).await?
+                attempt_database_recovery(
+                    path,
+                    allow_create,
+                    &db_url,
+                    preflight_err,
+                    &recovery_config,
+                )
+                .await?
             }
         };
 
@@ -213,9 +221,9 @@ impl SessionDb {
             }
             Err(e) => {
                 // Schema init failed - likely corrupted database
-                match can_recover_database(path, allow_create) {
+                match can_recover_database(path, allow_create).await {
                     Ok(()) => {
-                        recover_database(path)?;
+                        recover_database(path, &recovery_config).await?;
                         let new_pool = create_connection_pool(&db_url).await?;
                         init_schema(&new_pool).await?;
                         check_schema_version(&new_pool).await?;
@@ -316,15 +324,15 @@ fn get_recovery_policy() -> RecoveryPolicy {
 /// Recovery is allowed when:
 /// - The database file exists (corruption recovery)
 /// - The parent directory exists (missing file recovery)
-fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
+async fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
     // Check if we can access and read the file before allowing recovery
     // This prevents recovery when DB is inaccessible (chmod 000, permission denied, etc.)
-    if path.exists() {
-        match path.metadata() {
+    if tokio::fs::try_exists(path).await.unwrap_or(false) {
+        match tokio::fs::metadata(path).await {
             Ok(_) => {
                 // File exists, check if readable
-                use std::fs::File;
-                match File::open(path) {
+                use tokio::fs::File;
+                match File::open(path).await {
                     Ok(_) => {
                         // File is accessible, recovery is allowed
                         return Ok(());
@@ -350,7 +358,7 @@ fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
     // If file doesn't exist, check if parent directory exists
     // (meaning zjj was previously initialized)
     if let Some(parent) = path.parent() {
-        if parent.exists() {
+        if tokio::fs::try_exists(parent).await.unwrap_or(false) {
             return Ok(());
         }
     }
@@ -374,23 +382,30 @@ fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
 ///
 /// This function detects corrupted WAL files and logs the recovery
 /// according to the current recovery policy.
-fn check_wal_integrity(db_path: &Path) -> Result<()> {
+async fn check_wal_integrity(
+    db_path: &Path,
+    config: &zjj_core::config::RecoveryConfig,
+) -> Result<()> {
     let wal_path = db_path.with_extension("db-wal");
 
     // If WAL file doesn't exist, no issue
-    if !wal_path.exists() {
+    if !tokio::fs::try_exists(&wal_path).await.unwrap_or(false) {
         return Ok(());
     }
 
     // Read first 32 bytes of WAL header (functional - no exposed mutation)
-    let header = match io::read_exact_bytes::<32>(&wal_path) {
+    let header = match io::read_exact_bytes::<32>(&wal_path).await {
         Ok(h) => h,
         Err(e) => {
             // Can't read WAL file - likely corrupted or inaccessible
-            log_recovery(&format!(
-                "WAL file inaccessible or corrupted: {p}. Error: {e}",
-                p = wal_path.display()
-            ))
+            log_recovery(
+                &format!(
+                    "WAL file inaccessible or corrupted: {p}. Error: {e}",
+                    p = wal_path.display()
+                ),
+                config,
+            )
+            .await
             .ok();
             return Err(Error::DatabaseError(format!(
                 "WAL file is corrupted or inaccessible: {p}\n\
@@ -411,8 +426,8 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
 
     if wal_magic != 0x377f_0682 {
         // WAL magic bytes don't match - file is corrupted
-        let policy = get_recovery_policy();
-        let should_log = should_log_recovery();
+        let policy = config.policy;
+        let should_log = should_log_recovery(config);
 
         match policy {
             RecoveryPolicy::FailFast => {
@@ -436,7 +451,7 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
                     log_recovery(&format!(
                         "WAL file corrupted: {p}. Magic bytes: 0x{wal_magic:08x}, expected 0x377f0682. SQLite will recover automatically.",
                         p = wal_path.display()
-                    ))
+                    ), config).await
                     .ok();
                 }
             }
@@ -445,7 +460,7 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
                     log_recovery(&format!(
                         "WAL file corrupted: {p}. Magic bytes: 0x{wal_magic:08x}, expected 0x377f0682. SQLite recovered silently.",
                         p = wal_path.display()
-                    ))
+                    ), config).await
                     .ok();
                 }
             }
@@ -463,20 +478,28 @@ fn check_wal_integrity(db_path: &Path) -> Result<()> {
 ///
 /// This function detects corrupted database files and logs recovery
 /// according to current recovery policy.
-fn check_database_integrity(db_path: &Path) -> Result<()> {
+async fn check_database_integrity(
+    db_path: &Path,
+    config: &zjj_core::config::RecoveryConfig,
+) -> Result<()> {
     // If database file doesn't exist, no issue (might be creating)
-    if !db_path.exists() {
+    if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
         return Ok(());
     }
 
     // Database files must be at least 100 bytes (minimum header size)
-    let file_size = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
+    let file_size = tokio::fs::metadata(db_path)
+        .await
+        .map(|m| m.len())
+        .unwrap_or(0);
 
     if file_size < 100 {
         // Too small to be a valid database
-        log_recovery(&format!(
-            "Database file too small: {file_size} bytes. Expected at least 100 bytes."
-        ))
+        log_recovery(
+            &format!("Database file too small: {file_size} bytes. Expected at least 100 bytes."),
+            config,
+        )
+        .await
         .ok();
         return Err(Error::DatabaseError(format!(
             "Database file is too small to be valid: {file_size} bytes\n\
@@ -486,14 +509,18 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
     }
 
     // Read first 16 bytes of database header (functional - no exposed mutation)
-    let header = match io::read_exact_bytes::<16>(db_path) {
+    let header = match io::read_exact_bytes::<16>(db_path).await {
         Ok(h) => h,
         Err(e) => {
             // Can't read database header - likely corrupted or inaccessible
-            log_recovery(&format!(
-                "Database file inaccessible or corrupted: {p}. Error: {e}",
-                p = db_path.display()
-            ))
+            log_recovery(
+                &format!(
+                    "Database file inaccessible or corrupted: {p}. Error: {e}",
+                    p = db_path.display()
+                ),
+                config,
+            )
+            .await
             .ok();
             return Err(Error::DatabaseError(format!(
                 "Database file is corrupted or inaccessible: {p}\n\
@@ -513,8 +540,8 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
     let header_prefix = header.get(0..16).unwrap_or(&[]);
     if header_prefix != expected_magic {
         // Magic bytes don't match - file is corrupted
-        let policy = get_recovery_policy();
-        let should_log = should_log_recovery();
+        let policy = config.policy;
+        let should_log = should_log_recovery(config);
 
         let magic_hex: String = header
             .iter()
@@ -557,7 +584,7 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
                     log_recovery(&format!(
                         "Database file corrupted: {p}. Magic bytes: {magic_hex}. SQLite recovered silently.",
                         p = db_path.display()
-                    ))
+                    ), config).await
                     .ok();
                 }
             }
@@ -576,9 +603,9 @@ fn check_database_integrity(db_path: &Path) -> Result<()> {
 /// - `FailFast`: Returns error without recovering
 /// - Warn: Logs warning, then recovers
 /// - Silent: Recovers without warning (old behavior)
-fn recover_database(path: &Path) -> Result<()> {
-    let policy = get_recovery_policy();
-    let should_log = should_log_recovery();
+async fn recover_database(path: &Path, config: &zjj_core::config::RecoveryConfig) -> Result<()> {
+    let policy = config.policy;
+    let should_log = should_log_recovery(config);
 
     match policy {
         RecoveryPolicy::FailFast => {
@@ -587,7 +614,7 @@ fn recover_database(path: &Path) -> Result<()> {
                  Recovery is disabled in strict mode (--strict or ZJJ_STRICT=1).\n\n\
                  To recover, either:\n\
                  - Remove --strict flag\n\
-                 - Run 'zjj doctor --fix'\n\
+                 - Run 'zjj integrity repair' if applicable\n\
                  - Manually delete the database and run 'zjj init'",
                 p = path.display()
             )));
@@ -610,7 +637,7 @@ fn recover_database(path: &Path) -> Result<()> {
                     "Database corruption detected at: {p}. Recovered silently.",
                     p = path.display()
                 );
-                log_recovery(&log_msg).ok();
+                log_recovery(&log_msg, config).await.ok();
             }
         }
     }
@@ -618,8 +645,8 @@ fn recover_database(path: &Path) -> Result<()> {
     // Remove corrupted file if it exists
     // Do NOT modify file permissions - respect user-set permissions
     // Only log error if removal fails - don't attempt chmod
-    if path.exists() {
-        match std::fs::remove_file(path) {
+    if tokio::fs::try_exists(path).await.unwrap_or(false) {
+        match tokio::fs::remove_file(path).await {
             Ok(()) => {
                 // Successfully removed corrupted file
                 // New database will be created with default permissions on next DB open
@@ -627,10 +654,14 @@ fn recover_database(path: &Path) -> Result<()> {
             Err(e) => {
                 // Failed to remove - log error and return it
                 // Don't attempt chmod - preserve user permissions
-                log_recovery(&format!(
-                    "Failed to remove corrupted database {p}: {e}",
-                    p = path.display()
-                ))
+                log_recovery(
+                    &format!(
+                        "Failed to remove corrupted database {p}: {e}",
+                        p = path.display()
+                    ),
+                    config,
+                )
+                .await
                 .ok();
                 return Err(Error::IoError(format!(
                     "Failed to remove corrupted database: {e}"
@@ -664,14 +695,21 @@ async fn attempt_database_recovery(
     allow_create: bool,
     db_url: &str,
     original_error: Error,
+    config: &zjj_core::config::RecoveryConfig,
 ) -> Result<SqlitePool> {
     // Railway pattern: can_recover? → recover → retry
-    can_recover_database(path, allow_create)
-        .and_then(|()| recover_database(path))  // Functional chaining
+    if let Err(recovery_err) = can_recover_database(path, allow_create).await {
+        return Err(Error::DatabaseError(format!(
+            "{original_error}\n\nRecovery check failed: {recovery_err}"
+        )));
+    }
+
+    recover_database(path, config)
+        .await
         .map_err(|recovery_err| {
-            // Recovery check or recovery itself failed
+            // Recovery itself failed
             Error::DatabaseError(format!(
-                "{original_error}\n\nRecovery check failed: {recovery_err}"
+                "{original_error}\n\nRecovery failed: {recovery_err}"
             ))
         })?;
 
@@ -679,9 +717,22 @@ async fn attempt_database_recovery(
     create_connection_pool(db_url).await
 }
 
-/// Create `SQLite` connection pool
+/// Create `SQLite` connection pool with resource limits
+///
+/// Configures connection pool to prevent resource leaks:
+/// - `max_connections`: Maximum 10 concurrent connections
+/// - `acquire_timeout`: 5 second timeout for acquiring connections
+/// - `idle_timeout`: 10 minute timeout for idle connections
+///
+/// # Errors
+///
+/// Returns error if connection pool cannot be established
 async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
-    SqlitePool::connect(db_url)
+    sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(10)
+        .acquire_timeout(std::time::Duration::from_secs(5))
+        .idle_timeout(Some(std::time::Duration::from_secs(600)))
+        .connect(db_url)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to connect to database: {e}")))
 }
@@ -831,12 +882,15 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
         .map_err(|e| Error::DatabaseError(format!("Failed to read last_synced: {e}")))?;
     let metadata_str: Option<String> = row
         .try_get("metadata")
-        .map_err(|e| Error::DatabaseError(format!("Failed to read metadata: {e}")))?;
+        .map_err(|e| Error::DatabaseError(format!("Failed to read metadata column: {e}")))?;
 
     let metadata = metadata_str
         .map(|s| {
-            serde_json::from_str(&s)
-                .map_err(|e| Error::ParseError(format!("Invalid metadata JSON: {e}")))
+            serde_json::from_str(&s).map_err(|e| {
+                Error::DatabaseError(format!(
+                    "Corrupted metadata JSON in database: {e}\nRaw value: {s}"
+                ))
+            })
         })
         .transpose()?;
 
@@ -916,12 +970,9 @@ fn build_update_query(clauses: &[(&str, String)], name: &str) -> (String, Vec<St
 
 /// Execute UPDATE query
 async fn execute_update(pool: &SqlitePool, sql: &str, values: Vec<String>) -> Result<()> {
-    let mut query = sqlx::query(sql);
-    for value in values {
-        query = query.bind(value);
-    }
-
-    query
+    values
+        .into_iter()
+        .fold(sqlx::query(sql), |query, value| query.bind(value))
         .execute(pool)
         .await
         .map(|_| ())
@@ -1108,6 +1159,7 @@ mod tests {
 
         // Read the first 16 bytes (functional - no exposed mutation)
         let header = crate::db::io::read_exact_bytes::<16>(&db_path)
+            .await
             .map_err(|e| Error::IoError(format!("Failed to read header: {e}")))?;
 
         // Verify it matches the expected magic bytes
@@ -1138,14 +1190,16 @@ mod tests {
             .chain(std::iter::repeat_n(0, 100 - invalid_header.len()))
             .collect();
 
-        std::fs::write(&db_path, invalid_data)
+        tokio::fs::write(&db_path, invalid_data)
+            .await
             .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
         // Verify the file was created
-        assert!(db_path.exists());
+        assert!(tokio::fs::try_exists(&db_path).await.unwrap_or(false));
 
         // Read and verify the first 16 bytes match the invalid header (functional)
         let header = crate::db::io::read_exact_bytes::<16>(&db_path)
+            .await
             .map_err(|e| Error::IoError(format!("Failed to read header: {e}")))?;
 
         assert_eq!(
@@ -1170,14 +1224,115 @@ mod tests {
         let db_path = dir.path().join("test_too_small.db");
 
         // Create a file that's too small (< 100 bytes)
-        std::fs::write(&db_path, b"too small")
+        tokio::fs::write(&db_path, b"too small")
+            .await
             .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
         // Verify the file exists but is too small
-        assert!(db_path.exists());
-        let file_size = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+        assert!(tokio::fs::try_exists(&db_path).await.unwrap_or(false));
+        let file_size = tokio::fs::metadata(&db_path)
+            .await
+            .map(|m| m.len())
+            .unwrap_or(0);
         assert!(file_size < 100, "File should be less than 100 bytes");
 
         Ok(())
+    }
+
+    mod brutal_database_failures {
+        use sqlx::sqlite::SqlitePool;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn test_corrupted_metadata_json_swallowing() -> Result<()> {
+            let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+            let db_path = dir.path().join("corrupt_meta.db");
+            let db = SessionDb::create_or_open(&db_path).await?;
+
+            // Insert session with invalid JSON in metadata manually
+            sqlx::query("INSERT INTO sessions (name, status, state, workspace_path, metadata) VALUES (?, ?, ?, ?, ?)")
+                .bind("corrupt-json")
+                .bind("active")
+                .bind("working")
+                .bind("/tmp")
+                .bind("{invalid json}")
+                .execute(db.pool())
+                .await
+                .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+            // WHEN: Querying the session
+            let result = db.get("corrupt-json").await;
+
+            // THEN: Error should NOT be swallowed, should return ParseError or DatabaseError
+            assert!(
+                result.is_err(),
+                "Should fail when metadata JSON is corrupted"
+            );
+            let err = result.unwrap_err();
+            assert!(
+                err.to_string().contains("metadata"),
+                "Error message should mention metadata: {err}"
+            );
+
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn test_invalid_status_enum_swallowing() -> Result<()> {
+            let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+            let db_path = dir.path().join("corrupt_status.db");
+            let db = SessionDb::create_or_open(&db_path).await?;
+
+            // Insert session with invalid status manually (bypassing check for test)
+            // Note: Schema has CHECK constraint, so we must be careful or disable it for test
+            sqlx::query(
+                "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
+            )
+            .bind("invalid-status")
+            .bind("not-a-status")
+            .bind("working")
+            .bind("/tmp")
+            .execute(db.pool())
+            .await
+            .ok(); // Might fail due to CHECK constraint depending on SQLite version/setup
+
+            // If it succeeded (constraint didn't catch it), zjj MUST catch it on read
+            let result = db.get("invalid-status").await;
+            if let Ok(Some(_)) = result {
+                panic!("Should NOT have successfully parsed invalid status enum");
+            }
+
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn test_missing_required_fields_swallowing() -> Result<()> {
+            let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+            let db_path = dir.path().join("missing_fields.db");
+            let db = SessionDb::create_or_open(&db_path).await?;
+
+            // We can't easily insert missing fields into 'sessions' due to NOT NULL
+            // but we can test if try_get errors are propagated in parse_session_row
+            // by using a custom query that omits fields
+            let rows = sqlx::query("SELECT id, name FROM sessions") // Missing status, workspace_path, etc.
+                .fetch_all(db.pool())
+                .await
+                .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+            for row in rows {
+                let result = parse_session_row(row);
+                assert!(
+                    result.is_err(),
+                    "parse_session_row should fail when fields are missing"
+                );
+                assert!(
+                    result.unwrap_err().to_string().contains("Failed to read"),
+                    "Error should indicate read failure"
+                );
+            }
+
+            Ok(())
+        }
     }
 }

@@ -130,7 +130,7 @@ pub async fn get_session_db() -> Result<SessionDb> {
     let data_dir = zjj_data_dir().await?;
 
     anyhow::ensure!(
-        data_dir.exists(),
+        tokio::fs::try_exists(&data_dir).await.unwrap_or(false),
         "ZJJ not initialized. Run 'zjj init' first."
     );
 
@@ -145,7 +145,9 @@ pub async fn get_session_db() -> Result<SessionDb> {
         ));
     }
 
-    SessionDb::open(&db_path).await.context("Failed to open session database")
+    SessionDb::open(&db_path)
+        .await
+        .context("Failed to open session database")
 }
 
 /// Determine the main branch for a workspace

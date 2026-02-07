@@ -117,37 +117,6 @@ pub struct CommitInfo {
     pub timestamp: String,
 }
 
-/// Phase of done operation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DonePhase {
-    ValidatingLocation,
-    #[expect(dead_code)] // For future workflow implementation
-    CheckingUncommitted,
-    CommittingChanges,
-    #[expect(dead_code)] // For future workflow implementation
-    CheckingConflicts,
-    MergingToMain,
-    UpdatingBeadStatus,
-    CleaningWorkspace,
-    #[expect(dead_code)] // For future workflow implementation
-    SwitchingToMain,
-}
-
-impl DonePhase {
-    pub const fn name(&self) -> &'static str {
-        match self {
-            Self::ValidatingLocation => "validating_location",
-            Self::CheckingUncommitted => "checking_uncommitted",
-            Self::CommittingChanges => "committing_changes",
-            Self::CheckingConflicts => "checking_conflicts",
-            Self::MergingToMain => "merging_to_main",
-            Self::UpdatingBeadStatus => "updating_bead_status",
-            Self::CleaningWorkspace => "cleaning_workspace",
-            Self::SwitchingToMain => "switching_to_main",
-        }
-    }
-}
-
 /// Done operation error (zero-panic, no unwraps)
 #[derive(Debug, Clone)]
 pub enum DoneError {
@@ -240,21 +209,6 @@ impl From<crate::commands::done::filesystem::FsError> for DoneError {
 }
 
 impl DoneError {
-    pub const fn phase(&self) -> DonePhase {
-        match self {
-            Self::NotInWorkspace { .. }
-            | Self::NotAJjRepo
-            | Self::WorkspaceNotFound { .. }
-            | Self::InvalidState { .. } => DonePhase::ValidatingLocation,
-            Self::CommitFailed { .. } => DonePhase::CommittingChanges,
-            Self::MergeConflict { .. }
-            | Self::MergeFailed { .. }
-            | Self::JjCommandFailed { .. } => DonePhase::MergingToMain,
-            Self::CleanupFailed { .. } => DonePhase::CleaningWorkspace,
-            Self::BeadUpdateFailed { .. } => DonePhase::UpdatingBeadStatus,
-        }
-    }
-
     pub const fn error_code(&self) -> &'static str {
         match self {
             Self::NotInWorkspace { .. } => "NOT_IN_WORKSPACE",
@@ -273,15 +227,6 @@ impl DoneError {
     pub const fn is_recoverable(&self) -> bool {
         matches!(self, Self::MergeConflict { .. })
     }
-}
-
-/// Exit codes for done command
-#[derive(Debug, Clone, Copy)]
-pub enum DoneExitCode {
-    Success = 0,
-    MergeConflict = 1,
-    NotInWorkspace = 2,
-    OtherError = 3,
 }
 
 #[cfg(test)]

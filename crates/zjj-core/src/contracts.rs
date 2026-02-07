@@ -184,17 +184,17 @@ impl TypeContract {
             }
         }
 
-        // Add field schemas
-        let mut properties = serde_json::Map::new();
-        let mut required = Vec::new();
-
-        for (field_name, field_contract) in &self.fields {
-            properties.insert(field_name.clone(), field_contract.to_json_schema());
-
-            if field_contract.required {
-                required.push(field_name.clone());
-            }
-        }
+        // Add field schemas using functional patterns
+        let (properties, required) = self.fields.iter().fold(
+            (serde_json::Map::new(), Vec::new()),
+            |(mut props, mut req), (field_name, field_contract)| {
+                props.insert(field_name.clone(), field_contract.to_json_schema());
+                if field_contract.required {
+                    req.push(field_name.clone());
+                }
+                (props, req)
+            },
+        );
 
         if let Some(obj) = schema.as_object_mut() {
             if !properties.is_empty() {
@@ -245,9 +245,10 @@ impl FieldContract {
                 },
             );
 
-            // Add constraints
-            for constraint in &self.constraints {
-                match constraint {
+            // Add constraints using functional patterns
+            self.constraints
+                .iter()
+                .for_each(|constraint| match constraint {
                     Constraint::Regex { pattern, .. } => {
                         obj.insert("pattern".to_string(), serde_json::json!(pattern));
                     }
@@ -274,8 +275,7 @@ impl FieldContract {
                     | Constraint::PathAbsolute
                     | Constraint::Unique
                     | Constraint::Custom { .. } => {}
-                }
-            }
+                });
 
             if let Some(default) = &self.default {
                 obj.insert("default".to_string(), serde_json::json!(default));
@@ -410,11 +410,14 @@ impl Constraint {
                         path.display()
                     )));
                 }
-                if !path.exists() {
-                    return Err(Error::ValidationError(format!(
-                        "Path '{}' does not exist",
-                        path.display()
-                    )));
+                match path.try_exists() {
+                    Ok(true) => {}
+                    _ => {
+                        return Err(Error::ValidationError(format!(
+                            "Path '{}' does not exist",
+                            path.display()
+                        )));
+                    }
                 }
             }
             Self::Regex { .. }

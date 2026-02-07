@@ -14,13 +14,12 @@
 #![forbid(unsafe_code)]
 
 use std::{
-    fs,
     path::{Path, PathBuf},
     time::SystemTime,
 };
 
-use tokio::process::Command;
 use num_traits::ToPrimitive;
+use tokio::process::Command;
 use zjj_core::{
     json::{ErrorDetail, SchemaEnvelope},
     OutputFormat,
@@ -71,7 +70,7 @@ async fn run_list(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
         reason: e.to_string(),
     })?;
 
-    let history = match read_undo_history(&root) {
+    let history = match read_undo_history(&root).await {
         Ok(h) => h,
         Err(UndoError::NoUndoHistory) => {
             if options.format.is_json() {
@@ -147,11 +146,12 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
             };
 
             // Convert timestamp to human-readable format
-            let datetime = chrono::DateTime::from_timestamp(entry.timestamp.to_i64().unwrap_or_default(), 0)
-                .map_or_else(
-                    || entry.timestamp.to_string(),
-                    |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                );
+            let datetime =
+                chrono::DateTime::from_timestamp(entry.timestamp.to_i64().unwrap_or_default(), 0)
+                    .map_or_else(
+                        || entry.timestamp.to_string(),
+                        |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                    );
 
             UndoHistoryEntry {
                 session_name: entry.session_name.clone(),
@@ -183,7 +183,7 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
         println!("Undo History ({} entries):", entries.len());
         println!();
 
-        for (i, entry) in entries.iter().enumerate() {
+        entries.iter().enumerate().for_each(|(i, entry)| {
             let status_indicator = if entry.can_undo { "✓" } else { "✗" };
             let index = i + 1;
 
@@ -198,7 +198,7 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
                 println!("      Cannot undo: {reason}");
             }
             println!();
-        }
+        });
 
         if can_undo_any {
             println!("Run 'zjj undo' to revert the most recent undoable entry.");
@@ -219,7 +219,7 @@ async fn execute_undo(options: &UndoOptions) -> Result<UndoOutput, UndoError> {
 
     validate_location(&root)?;
 
-    let history = read_undo_history(&root)?;
+    let history = read_undo_history(&root).await?;
     let last_entry = get_last_undo_entry(&history)?;
 
     validate_undo_possible(&root, &last_entry)?;
@@ -236,7 +236,7 @@ async fn execute_undo(options: &UndoOptions) -> Result<UndoOutput, UndoError> {
 
     revert_merge(&root, &last_entry).await?;
 
-    update_undo_history(&root, &history, &last_entry, "undone")?;
+    update_undo_history(&root, &history, &last_entry, "undone").await?;
 
     Ok(UndoOutput {
         session_name: last_entry.session_name.clone(),
@@ -260,32 +260,30 @@ fn validate_location(root: &str) -> Result<(), UndoError> {
 }
 
 /// Read undo history from log file
-fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
+async fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
     let undo_log_path = Path::new(root).join(UNDO_LOG_PATH);
 
-    if !undo_log_path.exists() {
-        return Err(UndoError::NoUndoHistory);
+    match tokio::fs::try_exists(&undo_log_path).await {
+        Ok(true) => {
+            let content = tokio::fs::read_to_string(&undo_log_path)
+                .await
+                .map_err(|e| UndoError::ReadUndoLogFailed {
+                    reason: e.to_string(),
+                })?;
+
+            let entries: Vec<UndoEntry> = content
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .filter_map(|line| serde_json::from_str::<UndoEntry>(line).ok())
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
+
+            Ok(entries)
+        }
+        _ => Err(UndoError::NoUndoHistory),
     }
-
-    let content = fs::read_to_string(&undo_log_path).map_err(|e| UndoError::ReadUndoLogFailed {
-        reason: e.to_string(),
-    })?;
-
-    let entries: Vec<UndoEntry> = content
-        .lines()
-        .filter_map(|line: &str| {
-            if line.trim().is_empty() {
-                None
-            } else {
-                serde_json::from_str::<UndoEntry>(line).ok()
-            }
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect();
-
-    Ok(entries)
 }
 
 /// Get the last (most recent) undo entry
@@ -343,7 +341,7 @@ async fn revert_merge(root: &str, entry: &UndoEntry) -> Result<(), UndoError> {
 }
 
 /// Update undo history after successful undo
-fn update_undo_history(
+async fn update_undo_history(
     root: &str,
     history: &[UndoEntry],
     entry: &UndoEntry,
@@ -351,30 +349,27 @@ fn update_undo_history(
 ) -> Result<(), UndoError> {
     let undo_log_path = Path::new(root).join(UNDO_LOG_PATH);
 
-    let mut new_content = String::new();
-
-    for hist_entry in history.iter().skip(1) {
-        let json =
-            serde_json::to_string(hist_entry).map_err(|e| UndoError::SerializationError {
-                reason: e.to_string(),
-            })?;
-        new_content.push_str(&json);
-        new_content.push('\n');
-    }
-
     let mut updated_entry = entry.clone();
     updated_entry.status = status.to_string();
 
-    let json =
-        serde_json::to_string(&updated_entry).map_err(|e| UndoError::SerializationError {
+    // Use functional mapping to prepare new content
+    let new_content = history
+        .iter()
+        .skip(1)
+        .map(|hist_entry| serde_json::to_string(hist_entry))
+        .chain(std::iter::once(serde_json::to_string(&updated_entry)))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| UndoError::SerializationError {
+            reason: e.to_string(),
+        })?
+        .join("\n")
+        + "\n";
+
+    tokio::fs::write(&undo_log_path, new_content)
+        .await
+        .map_err(|e: std::io::Error| UndoError::WriteUndoLogFailed {
             reason: e.to_string(),
         })?;
-    new_content.push_str(&json);
-    new_content.push('\n');
-
-    fs::write(&undo_log_path, new_content).map_err(|e: std::io::Error| UndoError::WriteUndoLogFailed {
-        reason: e.to_string(),
-    })?;
 
     Ok(())
 }
