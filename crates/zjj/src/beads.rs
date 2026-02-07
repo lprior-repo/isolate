@@ -56,6 +56,19 @@ pub struct BeadMetadata {
     pub description: Option<String>,
 }
 
+/// Enable `WAL` mode on the SQLite connection for better crash recovery.
+///
+/// # Errors
+///
+/// Returns `Error` if the `PRAGMA` statement fails.
+async fn enable_wal_mode(pool: &SqlitePool) -> Result<()> {
+    sqlx::query("PRAGMA journal_mode=WAL;")
+        .execute(pool)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to enable WAL mode: {e}"))?;
+    Ok(())
+}
+
 /// Unified repository for beads
 pub struct BeadRepository {
     root: PathBuf,
@@ -115,8 +128,11 @@ impl BeadRepository {
             return Ok(Vec::new());
         }
 
-        let connection_string = format!("sqlite:{}", path.display());
+        let connection_string = format!("sqlite:{}?mode=rw", path.display());
         let pool = SqlitePool::connect(&connection_string).await?;
+
+        // Enable WAL mode for better crash recovery
+        enable_wal_mode(&pool).await?;
 
         let rows: Vec<(String, String, String)> =
             sqlx::query_as("SELECT id, title, status FROM issues")
@@ -191,8 +207,11 @@ impl BeadRepository {
             return Ok(None);
         }
 
-        let connection_string = format!("sqlite:{}", path.display());
+        let connection_string = format!("sqlite:{}?mode=rw", path.display());
         let pool = SqlitePool::connect(&connection_string).await?;
+
+        // Enable WAL mode for better crash recovery
+        enable_wal_mode(&pool).await?;
 
         let result: Option<(String, String, String)> =
             sqlx::query_as("SELECT id, title, status FROM issues WHERE id = ?1")
@@ -252,8 +271,11 @@ impl BeadRepository {
 
     async fn update_status_sqlite(&self, id: &str, status: BeadStatus) -> Result<()> {
         let path = self.beads_db_path();
-        let connection_string = format!("sqlite:{}", path.display());
+        let connection_string = format!("sqlite:{}?mode=rw", path.display());
         let pool = SqlitePool::connect(&connection_string).await?;
+
+        // Enable WAL mode for better crash recovery
+        enable_wal_mode(&pool).await?;
 
         sqlx::query("UPDATE issues SET status = ?1, updated_at = datetime('now') WHERE id = ?2")
             .bind(status.to_string())

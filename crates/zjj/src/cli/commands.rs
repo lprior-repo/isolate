@@ -618,7 +618,9 @@ pub fn cmd_diff() -> ClapCommand {
         .about("Show diff between session and main branch")
         .after_help(after_help_text(
             &[
+                "zjj diff                        Auto-detect session from workspace",
                 "zjj diff feature-auth           Show diff between feature workspace and main",
+                "zjj diff --stat                 Show diffstat for auto-detected session",
                 "zjj diff feature-auth --stat    Show diffstat summary",
                 "zjj diff feature-auth --json    Output diff metadata in JSON",
             ],
@@ -626,9 +628,9 @@ pub fn cmd_diff() -> ClapCommand {
         ))
         .arg(
             Arg::new("name")
-                .required(true)
+                .required(false)
                 .allow_hyphen_values(true) // Allow -name to be passed through for validation
-                .help("Session name to show diff for"),
+                .help("Session name to show diff for (auto-detected if not provided)"),
         )
         .arg(
             Arg::new("stat")

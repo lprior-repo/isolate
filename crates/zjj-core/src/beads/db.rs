@@ -35,6 +35,19 @@ fn parse_status(status_str: &str) -> Result<IssueStatus, BeadsError> {
     })
 }
 
+/// Enable `WAL` mode on the SQLite connection for better crash recovery.
+///
+/// # Errors
+///
+/// Returns `BeadsError` if the `PRAGMA` statement fails.
+async fn enable_wal_mode(pool: &SqlitePool) -> std::result::Result<(), BeadsError> {
+    sqlx::query("PRAGMA journal_mode=WAL;")
+        .execute(pool)
+        .await
+        .map_err(|e| BeadsError::DatabaseError(format!("Failed to enable WAL mode: {e}")))?;
+    Ok(())
+}
+
 /// Query all issues from the beads database.
 ///
 /// Parse a single row from the beads database into a `BeadIssue`
@@ -150,10 +163,13 @@ pub async fn query_beads(workspace_path: &Path) -> std::result::Result<Vec<BeadI
         BeadsError::DatabaseError("Beads database path contains invalid UTF-8".to_string())
     })?;
 
-    let db_url = format!("sqlite://{path_str}?mode=ro");
+    let db_url = format!("sqlite://{path_str}?mode=rw");
     let pool = SqlitePool::connect(&db_url)
         .await
         .map_err(|e| BeadsError::DatabaseError(format!("Failed to connect to beads.db: {e}")))?;
+
+    // Enable WAL mode for better crash recovery
+    enable_wal_mode(&pool).await?;
 
     let rows: Vec<sqlx::sqlite::SqliteRow> = sqlx::query(
         "SELECT id, title, status, priority, type, description, labels, assignee,
