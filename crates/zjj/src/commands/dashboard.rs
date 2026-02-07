@@ -27,7 +27,7 @@ use ratatui::{
     Frame, Terminal,
 };
 use zjj_core::{
-    config::load_config,
+    config::ConfigManager,
     watcher::{BeadsStatus, FileWatcher, WatchEvent},
 };
 
@@ -136,10 +136,13 @@ pub async fn run() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).context("Failed to create terminal")?;
 
-    // Load config
-    let config = load_config()
+    // Setup config manager with hot-reload
+    let config_manager = ConfigManager::new()
         .await
-        .context("Failed to load configuration")?;
+        .context("Failed to initialize config manager")?;
+
+    // Get initial config
+    let config = config_manager.get().await;
 
     // Create app state
     let mut app = DashboardApp::new().await?;
@@ -151,11 +154,12 @@ pub async fn run() -> Result<()> {
         None
     };
 
-    // Main event loop
+    // Main event loop with hot-reload support
     let result = run_app(
         &mut terminal,
         &mut app,
         &mut watcher_rx,
+        config_manager,
         Duration::from_millis(u64::from(config.dashboard.refresh_ms)),
     )
     .await;
@@ -182,6 +186,7 @@ async fn run_app(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     app: &mut DashboardApp,
     watcher_rx: &mut Option<tokio::sync::mpsc::Receiver<WatchEvent>>,
+    _config_manager: ConfigManager,
     refresh_interval: Duration,
 ) -> Result<()> {
     let mut last_refresh = Instant::now();

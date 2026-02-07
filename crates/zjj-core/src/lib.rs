@@ -48,7 +48,7 @@ pub mod workspace_integrity;
 pub mod workspace_state;
 pub mod zellij;
 
-pub use config::RecoveryPolicy;
+pub use config::{ConfigManager, RecoveryPolicy};
 pub use coordination::{
     MergeQueue, ProcessingLock, QueueAddResponse, QueueEntry, QueueStats, QueueStatus,
 };

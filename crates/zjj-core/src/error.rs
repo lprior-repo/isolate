@@ -256,8 +256,7 @@ impl fmt::Display for JjConflictType {
     }
 }
 
-#[derive(Debug)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Error {
     InvalidConfig(String),
     IoError(String),
