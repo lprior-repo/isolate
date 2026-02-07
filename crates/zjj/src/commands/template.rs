@@ -61,7 +61,7 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
     let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
-    let templates = storage::list_templates(&templates_base).await?;
+    let templates = storage::list_templates(&templates_base)?;
 
     if format.is_json() {
         let template_infos: Vec<TemplateInfo> = templates
@@ -131,7 +131,7 @@ pub async fn run_create(options: &CreateOptions) -> Result<()> {
     )?;
 
     // Save to storage
-    storage::save_template(&template, &templates_base).await?;
+    storage::save_template(&template, &templates_base)?;
 
     if options.format.is_json() {
         let output = TemplateCreateOutput {
@@ -170,7 +170,7 @@ pub async fn run_show(name: &str, format: OutputFormat) -> Result<()> {
     let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
-    let template = storage::load_template(name, &templates_base).await?;
+    let template = storage::load_template(name, &templates_base)?;
 
     if format.is_json() {
         let output = TemplateShowOutput {
@@ -228,7 +228,7 @@ pub async fn run_delete(name: &str, force: bool, format: OutputFormat) -> Result
         return Ok(());
     }
 
-    storage::delete_template(name, &templates_base).await?;
+    storage::delete_template(name, &templates_base)?;
 
     if format.is_json() {
         let output = TemplateDeleteOutput {

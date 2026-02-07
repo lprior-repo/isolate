@@ -67,6 +67,8 @@ pub use coordination::{
 };
 pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
+// Re-export fs2 for file locking utilities
+pub use fs2::FileExt;
 pub use hints::{ActionRisk, CommandContext, NextAction};
 pub use json::{
     ErrorCode, HateoasLink, RelatedResources, ResponseMeta, SchemaEnvelope, SchemaEnvelopeArray,
