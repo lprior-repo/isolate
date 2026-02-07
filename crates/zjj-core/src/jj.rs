@@ -200,6 +200,83 @@ impl Status {
     }
 }
 
+/// Detect JJ workspace conflict type from error output
+///
+/// Parses stderr from JJ commands to identify specific conflict types
+/// and provide structured recovery information.
+///
+/// # Arguments
+///
+/// * `stderr` - Error output from JJ command
+/// * `workspace_name` - Name of the workspace being operated on
+///
+/// # Returns
+///
+/// * `Some(JjConflictType)` if a conflict pattern is detected
+/// * `None` if the error doesn't match known conflict patterns
+#[must_use]
+fn detect_workspace_conflict(stderr: &str, workspace_name: &str) -> Option<crate::error::JjConflictType> {
+    // Functional pipeline: check lines → find first matching pattern → return conflict type
+    stderr
+        .lines()
+        .find_map(|line| {
+            let line_lower = line.to_lowercase();
+            if line_lower.contains("already exists") 
+                || line_lower.contains("workspace already added")
+                || line_lower.contains("already added") {
+                Some(crate::error::JjConflictType::AlreadyExists)
+            } else if line_lower.contains("concurrent") 
+                || line_lower.contains("simultaneous")
+                || line_lower.contains("locked") {
+                Some(crate::error::JjConflictType::ConcurrentModification)
+            } else if line_lower.contains("abandoned") {
+                Some(crate::error::JjConflictType::Abandoned)
+            } else if line_lower.contains("working copy")
+                || line_lower.contains("out of sync")
+                || line_lower.contains("stale") {
+                Some(crate::error::JjConflictType::Stale)
+            } else {
+                None
+            }
+        })
+}
+
+/// Generate recovery hint for a workspace conflict
+///
+/// # Arguments
+///
+/// * `conflict_type` - Type of conflict detected
+/// * `workspace_name` - Name of the workspace
+///
+/// # Returns
+///
+/// Actionable recovery hint string
+#[must_use]
+fn conflict_recovery_hint(conflict_type: &crate::error::JjConflictType, workspace_name: &str) -> String {
+    match conflict_type {
+        crate::error::JjConflictType::AlreadyExists => {
+            format!(
+                "Recovery options:\n\n                 1. Use the existing workspace: jj workspace list\n\n                 2. Forget the existing workspace first: jj workspace forget {workspace_name}\n\n                 3. Use a different workspace name"
+            )
+        }
+        crate::error::JjConflictType::ConcurrentModification => {
+            format!(
+                "Recovery options:\n\n                 1. Wait a moment and retry the operation\n\n                 2. Check for other JJ processes: pgrep -fl jj\n\n                 3. Verify workspace state: jj workspace list"
+            )
+        }
+        crate::error::JjConflictType::Abandoned => {
+            format!(
+                "Recovery options:\n\n                 1. Abandon this workspace: jj workspace forget {workspace_name}\n\n                 2. Create a new workspace with a different name\n\n                 3. Check repository status: jj status"
+            )
+        }
+        crate::error::JjConflictType::Stale => {
+            format!(
+                "Recovery options:\n\n                 1. Update the workspace: jj workspace update-stale\n\n                 2. Reload the repository: jj reload\n\n                 3. Check for conflicts: jj status"
+            )
+        }
+    }
+}
+
 /// Create a new JJ workspace
 ///
 /// # Errors
@@ -235,6 +312,19 @@ pub async fn workspace_create(name: &str, path: &Path) -> Result<()> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
+
+        // Try to detect specific conflict patterns
+        if let Some(conflict_type) = detect_workspace_conflict(&stderr, name) {
+            let recovery_hint = conflict_recovery_hint(&conflict_type, name);
+            return Err(Error::JjWorkspaceConflict {
+                conflict_type,
+                workspace_name: name.to_string(),
+                source: stderr.to_string(),
+                recovery_hint,
+            });
+        }
+
+        // Fall back to generic JJ error
         return Err(Error::JjCommandError {
             operation: "create workspace".to_string(),
             source: stderr.to_string(),
@@ -845,4 +935,82 @@ mod tests {
             // Expected in test environment
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CONFLICT DETECTION TESTS
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_detect_conflict_already_exists() {
+    let stderr = "error: workspace 'my-workspace' already exists";
+    let result = detect_workspace_conflict(stderr, "my-workspace");
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), crate::error::JjConflictType::AlreadyExists);
+}
+
+#[test]
+fn test_detect_conflict_concurrent() {
+    let stderr = "error: concurrent modification detected";
+    let result = detect_workspace_conflict(stderr, "test");
+    assert!(result.is_some());
+    assert_eq!(
+        result.unwrap(),
+        crate::error::JjConflictType::ConcurrentModification
+    );
+}
+
+#[test]
+fn test_detect_conflict_abandoned() {
+    let stderr = "error: workspace has been abandoned";
+    let result = detect_workspace_conflict(stderr, "old-workspace");
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), crate::error::JjConflictType::Abandoned);
+}
+
+#[test]
+fn test_detect_conflict_stale() {
+    let stderr = "error: working copy is stale";
+    let result = detect_workspace_conflict(stderr, "stale-workspace");
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), crate::error::JjConflictType::Stale);
+}
+
+#[test]
+fn test_detect_conflict_no_match() {
+    let stderr = "error: some other error";
+    let result = detect_workspace_conflict(stderr, "test");
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_conflict_recovery_hint_already_exists() {
+    let hint = conflict_recovery_hint(&crate::error::JjConflictType::AlreadyExists, "test-ws");
+    assert!(hint.contains("Recovery options"));
+    assert!(hint.contains("jj workspace forget test-ws"));
+    assert!(hint.contains("jj workspace list"));
+}
+
+#[test]
+fn test_conflict_recovery_hint_concurrent() {
+    let hint = conflict_recovery_hint(&crate::error::JjConflictType::ConcurrentModification, "test-ws");
+    assert!(hint.contains("Recovery options"));
+    assert!(hint.contains("Wait a moment"));
+    assert!(hint.contains("pgrep -fl jj"));
+}
+
+#[test]
+fn test_conflict_recovery_hint_abandoned() {
+    let hint = conflict_recovery_hint(&crate::error::JjConflictType::Abandoned, "old-ws");
+    assert!(hint.contains("Recovery options"));
+    assert!(hint.contains("jj workspace forget old-ws"));
+    assert!(hint.contains("jj status"));
+}
+
+#[test]
+fn test_conflict_recovery_hint_stale() {
+    let hint = conflict_recovery_hint(&crate::error::JjConflictType::Stale, "stale-ws");
+    assert!(hint.contains("Recovery options"));
+    assert!(hint.contains("jj workspace update-stale"));
+    assert!(hint.contains("jj reload"));
 }
