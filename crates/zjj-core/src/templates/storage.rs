@@ -454,4 +454,88 @@ mod tests {
             assert!(matches!(result, Err(Error::NotFound(_))));
         }
     }
+
+    #[test]
+    fn test_template_size_limit_normal() -> Result<()> {
+        // Normal-sized template should be accepted
+        let normal_layout = "layout { pane size \"80%\" }".to_string();
+        let template = Template::new("normal".to_string(), normal_layout, None)?;
+
+        let temp_dir = TempDir::new()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let templates_base = temp_dir.path();
+
+        // Should succeed - normal size
+        let result = save_template(&template, templates_base);
+        assert!(result.is_ok(), "Normal-sized template should be accepted");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_template_size_limit_exceeded() -> Result<()> {
+        // Template exceeding 1MB should be rejected
+        let oversized_layout = "layout { pane ".to_string()
+            + &"x".repeat(2_000_000) // 2MB of content
+            + " }";
+
+        let template = Template::new("oversized".to_string(), oversized_layout, None)?;
+
+        let temp_dir = TempDir::new()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let templates_base = temp_dir.path();
+
+        // Should fail - exceeds size limit
+        let result = save_template(&template, templates_base);
+        assert!(result.is_err(), "Oversized template should be rejected");
+
+        // Check error message is clear
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("size") || error_msg.contains("too large"),
+            "Error message should mention size limit. Got: {error_msg}"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_template_size_exactly_at_limit() -> Result<()> {
+        // Template exactly at 1MB boundary should be accepted
+        let layout_at_limit = "layout { pane ".to_string()
+            + &"x".repeat(1_048_576 - 20) // 1MB minus overhead
+            + " }";
+
+        let template = Template::new("at-limit".to_string(), layout_at_limit, None)?;
+
+        let temp_dir = TempDir::new()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let templates_base = temp_dir.path();
+
+        // Should succeed - exactly at limit
+        let result = save_template(&template, templates_base);
+        assert!(result.is_ok(), "Template at size limit should be accepted");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_template_size_one_byte_over_limit() -> Result<()> {
+        // Template one byte over 1MB should be rejected
+        let layout_over = "layout { pane ".to_string()
+            + &"x".repeat(1_048_576 - 18) // 1MB minus overhead plus 1
+            + " }";
+
+        let template = Template::new("one-over".to_string(), layout_over, None)?;
+
+        let temp_dir = TempDir::new()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let templates_base = temp_dir.path();
+
+        // Should fail - one byte over limit
+        let result = save_template(&template, templates_base);
+        assert!(result.is_err(), "Template one byte over limit should be rejected");
+
+        Ok(())
+    }
 }
