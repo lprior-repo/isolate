@@ -344,4 +344,51 @@ mod tests {
         assert!(matches!(builtin, TemplateSource::Builtin(_)));
         assert!(matches!(from_file, TemplateSource::FromFile(_)));
     }
+
+    #[tokio::test]
+    async fn test_binary_file_error_message() {
+        // Create a temporary binary file
+        let temp_dir = match tempfile::tempdir() {
+            Ok(dir) => dir,
+            Err(_) => {
+                // Skip test if tempfile fails
+                return;
+            }
+        };
+
+        let binary_file_path = temp_dir.path().join("binary.kdl");
+        let binary_content = vec![0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE, 0xFD];
+
+        // Write binary content
+        if std::fs::write(&binary_file_path, binary_content).is_err() {
+            // Skip test if write fails
+            return;
+        }
+
+        // Try to create a template from the binary file
+        let opts = CreateOptions {
+            name: "test_binary".to_string(),
+            description: None,
+            source: TemplateSource::FromFile(binary_file_path.to_string_lossy().to_string()),
+            format: OutputFormat::Human,
+        };
+
+        let result = run_create(&opts).await;
+
+        // Verify it fails
+        assert!(result.is_err());
+
+        // Check that error message mentions UTF-8 requirement
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("UTF-8") || error_msg.contains("utf-8"),
+            "Error message should mention UTF-8 requirement. Got: {}",
+            error_msg
+        );
+        assert!(
+            error_msg.contains("binary") || error_msg.contains("text"),
+            "Error message should mention binary vs text. Got: {}",
+            error_msg
+        );
+    }
 }
