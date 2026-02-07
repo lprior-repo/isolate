@@ -2,7 +2,7 @@
 //!
 //! Provides --on-success and --on-failure hooks for command execution.
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 
@@ -33,12 +33,35 @@ pub struct HookResult {
 }
 
 impl HooksConfig {
-    /// Create a new hooks config from command line args
-    pub const fn from_args(on_success: Option<String>, on_failure: Option<String>) -> Self {
-        Self {
-            on_success,
-            on_failure,
+    /// Validate a callback command string is non-empty after trimming whitespace
+    fn validate_command(cmd: &str) -> Result<&str> {
+        let trimmed = cmd.trim();
+        match trimmed.is_empty() {
+            true => Err(anyhow!(
+                "callback command cannot be empty or whitespace-only"
+            )),
+            false => Ok(trimmed),
         }
+    }
+
+    /// Create a new hooks config from command line args
+    ///
+    /// Returns an error if either command is empty or contains only whitespace.
+    pub fn from_args(on_success: Option<String>, on_failure: Option<String>) -> Result<Self> {
+        let validated_on_success = match on_success {
+            Some(cmd) => Some(Self::validate_command(&cmd)?.to_string()),
+            None => None,
+        };
+
+        let validated_on_failure = match on_failure {
+            Some(cmd) => Some(Self::validate_command(&cmd)?.to_string()),
+            None => None,
+        };
+
+        Ok(Self {
+            on_success: validated_on_success,
+            on_failure: validated_on_failure,
+        })
     }
 
     /// Check if any hooks are configured
@@ -62,7 +85,7 @@ impl HooksConfig {
     }
 }
 
-/// Run a hook command
+/// Run a hook command and print output for visibility
 async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
     // Run the command through the shell
     let result = if cfg!(target_os = "windows") {
@@ -76,6 +99,23 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
+            // Print hook execution output for visibility in tests
+            #[allow(clippy::print_stderr)]
+            {
+                eprintln!("Hook [{}]: {}", hook_name, command);
+                if !stdout.is_empty() {
+                    eprintln!("Hook stdout:\n{}", stdout);
+                }
+                if !stderr.is_empty() {
+                    eprintln!("Hook stderr:\n{}", stderr);
+                }
+            }
+
+            let exit_code_msg = output.status.code().map_or_else(
+                || "terminated by signal".to_string(),
+                |code| format!("exited with code: {code}"),
+            );
+
             if output.status.success() {
                 HookResult {
                     hook: hook_name.to_string(),
@@ -84,7 +124,7 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     output: if stdout.is_empty() {
                         None
                     } else {
-                        Some(stdout)
+                        Some(stdout.clone())
                     },
                     error: None,
                 }
@@ -96,26 +136,29 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     output: if stdout.is_empty() {
                         None
                     } else {
-                        Some(stdout)
+                        Some(stdout.clone())
                     },
                     error: Some(if stderr.is_empty() {
-                        format!(
-                            "Hook exited with code: {}",
-                            output.status.code().unwrap_or(-1)
-                        )
+                        exit_code_msg
                     } else {
-                        stderr
+                        stderr.clone()
                     }),
                 }
             }
         }
-        Err(e) => HookResult {
-            hook: hook_name.to_string(),
-            success: false,
-            command: command.to_string(),
-            output: None,
-            error: Some(format!("Failed to execute hook: {e}")),
-        },
+        Err(e) => {
+            #[allow(clippy::print_stderr)]
+            {
+                eprintln!("Hook [{}] failed to execute: {}", hook_name, e);
+            }
+            HookResult {
+                hook: hook_name.to_string(),
+                success: false,
+                command: command.to_string(),
+                output: None,
+                error: Some(format!("Failed to execute hook: {e}")),
+            }
+        }
     }
 }
 
@@ -129,9 +172,22 @@ where
     let result = f().await;
     let success = result.is_ok();
 
-    // Run the appropriate hook
-    // Hook results are tracked in HookResult and can be handled by caller if needed
-    let _ = hooks.run_hook(success).await;
+    // Run the appropriate hook and print results
+    if let Some(hook_result) = hooks.run_hook(success).await {
+        // Result is already printed by run_hook_command
+        // Return error if hook failed
+        if !hook_result.success {
+            let error_msg = match &hook_result.error {
+                Some(msg) => msg.as_str(),
+                None => "unknown error",
+            };
+            return Err(anyhow::anyhow!(
+                "Hook '{}' failed: {}",
+                hook_result.hook,
+                error_msg
+            ));
+        }
+    }
 
     result
 }
@@ -148,14 +204,48 @@ mod tests {
 
     #[test]
     fn test_hooks_config_with_success() {
-        let config = HooksConfig::from_args(Some("echo success".to_string()), None);
+        let config = HooksConfig::from_args(Some("echo success".to_string()), None).unwrap();
         assert!(config.has_hooks());
     }
 
     #[test]
     fn test_hooks_config_with_failure() {
-        let config = HooksConfig::from_args(None, Some("echo failed".to_string()));
+        let config = HooksConfig::from_args(None, Some("echo failed".to_string())).unwrap();
         assert!(config.has_hooks());
+    }
+
+    #[test]
+    fn test_hooks_config_rejects_empty_success() {
+        let result = HooksConfig::from_args(Some("".to_string()), None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_hooks_config_rejects_whitespace_only_success() {
+        let result = HooksConfig::from_args(Some("   ".to_string()), None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_hooks_config_rejects_empty_failure() {
+        let result = HooksConfig::from_args(None, Some("".to_string()));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_hooks_config_rejects_whitespace_only_failure() {
+        let result = HooksConfig::from_args(None, Some("\t\n".to_string()));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_hooks_config_accepts_whitespace_padded_command() {
+        let config = HooksConfig::from_args(Some("  echo test  ".to_string()), None).unwrap();
+        assert_eq!(config.on_success, Some("echo test".to_string()));
     }
 
     #[test]
