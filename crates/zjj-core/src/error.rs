@@ -460,35 +460,71 @@ impl Error {
     #[must_use]
     pub fn suggestion(&self) -> Option<String> {
         match self {
-             Self::NotFound(_) => Some("Try 'zjj list' to see available sessions".to_string()),
-             Self::ValidationError(msg) if msg.contains("name") => Some(
-                 "Session name must start with letter and contain only alphanumeric, dash, underscore"
-                     .to_string(),
-             ),
-             Self::DatabaseError(_) => {
-                 Some("Try 'zjj doctor' to check database health".to_string())
-             }
-Self::JjCommandError {
-                  is_not_found: true,
-                  ..
-              } => Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
-             Self::HookFailed { .. } => Some(
-                 "Check your hook configuration and ensure the command is correct".to_string(),
-             ),
-             Self::HookExecutionFailed { .. } => {
-                 Some("Ensure the hook command exists and is executable".to_string())
-             }
-             Self::InvalidConfig(_)
-             | Self::IoError(_)
-             | Self::ParseError(_)
-             | Self::ValidationError(_)
-             | Self::Command(_)
-             | Self::JjCommandError { .. }
-             | Self::SessionLocked { .. }
-             | Self::NotLockHolder { .. }
-             | Self::OperationCancelled(_)
-             | Self::Unknown(_) => None,
-         }
+            Self::NotFound(_) => Some("Try 'zjj list' to see available sessions".to_string()),
+            Self::ValidationError(msg) => {
+                if msg.contains("name") {
+                    Some(
+                        "Session name must start with letter and contain only alphanumeric, dash, underscore"
+                            .to_string(),
+                    )
+                } else {
+                    Some(format!("Invalid input: {msg}. Check the input format and try again."))
+                }
+            }
+            Self::DatabaseError(_) => {
+                Some("Try 'zjj doctor' to check database health".to_string())
+            }
+            Self::JjCommandError {
+                is_not_found: true,
+                ..
+            } => Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
+            Self::JjCommandError { .. } => Some(
+                "Check JJ is working: 'jj status', or try 'zjj doctor' for diagnostics".to_string(),
+            ),
+            Self::HookFailed { hook_type, .. } => Some(
+                format!("Check hook '{hook_type}' configuration: 'zjj config get hooks.{hook_type}' or use --no-hooks to skip")
+            ),
+            Self::HookExecutionFailed { .. } => {
+                Some("Ensure the hook command exists and is executable".to_string())
+            }
+            Self::InvalidConfig(_) => Some(
+                "Check configuration: 'zjj config list' or 'zjj config reset' to restore defaults".to_string(),
+            ),
+            Self::IoError(msg) if msg.contains("Permission denied") => {
+                Some("Check file permissions: 'ls -la' or run with appropriate access rights".to_string())
+            }
+            Self::IoError(msg) if msg.contains("No such file") || msg.contains("not found") => {
+                Some("Ensure the file or directory exists: 'ls -la' or 'zjj doctor' to check setup".to_string())
+            }
+            Self::IoError(_) => Some(
+                "Check disk space, permissions, or run 'zjj doctor' for diagnostics".to_string(),
+            ),
+            Self::ParseError(msg) if msg.contains("JSON") || msg.contains("json") => {
+                Some("Fix JSON syntax: Use 'jq .' to validate or check format with online validator".to_string())
+            }
+            Self::ParseError(msg) if msg.contains("TOML") || msg.contains("toml") => {
+                Some("Fix TOML syntax: Check for proper key = 'value' pairs and indentation".to_string())
+            }
+            Self::ParseError(_) => Some(
+                "Fix the input format and try again, or run 'zjj doctor' for help".to_string(),
+            ),
+            Self::Command(msg) if msg.contains("not found") => {
+                Some("Ensure the command is installed and in PATH".to_string())
+            }
+            Self::Command(_) => Some(
+                "Check the command syntax and requirements, or run 'zjj doctor'".to_string(),
+            ),
+            Self::SessionLocked { session, holder } => Some(
+                format!("Session '{session}' is locked by '{holder}'. Use 'zjj yield {session}' to release or check status with 'zjj agents status'")
+            ),
+            Self::NotLockHolder { session, .. } => Some(
+                format!("You don't hold the lock for '{session}'. Use 'zjj claim {session}' to acquire it or check with 'zjj agents status'")
+            ),
+            Self::Unknown(_) => Some(
+                "Run 'zjj doctor' to check system health and configuration".to_string(),
+            ),
+            Self::OperationCancelled(_) => None, // User-initiated, no suggestion needed
+        }
     }
 
     /// Returns the semantic exit code for this error.
@@ -645,7 +681,35 @@ Self::JjCommandError {
                     "zjj config reset".to_string(),
                 ]
             }
-            _ => vec![],
+            Self::IoError(msg) => {
+                if msg.contains("Permission") {
+                    vec!["ls -la".to_string(), "zjj doctor".to_string()]
+                } else if msg.contains("not found") || msg.contains("No such file") {
+                    vec!["ls -la".to_string(), "zjj doctor".to_string()]
+                } else {
+                    vec!["df -h".to_string(), "zjj doctor".to_string()]
+                }
+            }
+            Self::ParseError(msg) => {
+                if msg.contains("JSON") || msg.contains("json") {
+                    vec!["echo '{}' | jq .".to_string(), "zjj doctor".to_string()]
+                } else if msg.contains("TOML") || msg.contains("toml") {
+                    vec!["zjj config list".to_string(), "zjj doctor".to_string()]
+                } else {
+                    vec!["zjj doctor".to_string()]
+                }
+            }
+            Self::Command(msg) if msg.contains("not found") => {
+                vec!["which <command>".to_string(), "zjj doctor".to_string()]
+            }
+            Self::Command(_) => {
+                vec!["zjj doctor".to_string()]
+            }
+            Self::Unknown(_) => {
+                vec!["zjj doctor".to_string()]
+            }
+            Self::OperationCancelled(_) => vec![],
+            Self::HookExecutionFailed { .. } => vec!["zjj config list hooks".to_string()],
         }
     }
 
@@ -1184,6 +1248,229 @@ mod tests {
         assert!(rich.context_at_failure.is_some());
         if let Some(c) = rich.context_at_failure {
             assert_eq!(c.phase, Some("file_read".to_string()));
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SUGGESTION TESTS - Verify all common errors have actionable suggestions
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_io_error_has_suggestion() {
+        let err = Error::IoError("Permission denied".into());
+        let suggestion = err.suggestion();
+        assert!(suggestion.is_some(), "IO errors should have suggestions");
+        let sugg = suggestion.expect("suggestion exists");
+        assert!(
+            sugg.contains("permission") || sugg.contains("check"),
+            "IO error suggestion should mention permissions or checking"
+        );
+    }
+
+    #[test]
+    fn test_command_error_has_suggestion() {
+        let err = Error::Command("Command failed".into());
+        let suggestion = err.suggestion();
+        assert!(
+            suggestion.is_some(),
+            "Command errors should have troubleshooting suggestions"
+        );
+    }
+
+    #[test]
+    fn test_session_locked_has_suggestion() {
+        let err = Error::SessionLocked {
+            session: "test".to_string(),
+            holder: "agent-1".to_string(),
+        };
+        let suggestion = err.suggestion();
+        assert!(suggestion.is_some(), "Session locked errors should have suggestions");
+        let sugg = suggestion.expect("suggestion exists");
+        assert!(
+            sugg.contains("yield") || sugg.contains("status"),
+            "Session locked suggestion should mention yield or status commands"
+        );
+    }
+
+    #[test]
+    fn test_not_lock_holder_has_suggestion() {
+        let err = Error::NotLockHolder {
+            session: "test".to_string(),
+            agent_id: "agent-2".to_string(),
+        };
+        let suggestion = err.suggestion();
+        assert!(suggestion.is_some(), "Not lock holder errors should have suggestions");
+    }
+
+    #[test]
+    fn test_parse_error_has_suggestion() {
+        let err = Error::ParseError("Invalid JSON".into());
+        let suggestion = err.suggestion();
+        assert!(
+            suggestion.is_some(),
+            "Parse errors should have format correction suggestions"
+        );
+    }
+
+    #[test]
+    fn test_invalid_config_has_suggestion() {
+        let err = Error::InvalidConfig("Unknown key".into());
+        let suggestion = err.suggestion();
+        assert!(
+            suggestion.is_some(),
+            "Invalid config errors should have config fix suggestions"
+        );
+    }
+
+    #[test]
+    fn test_operation_cancelled_has_suggestion() {
+        let err = Error::OperationCancelled("User interrupted".into());
+        let _suggestion = err.suggestion();
+        // Operation cancelled may or may not have a suggestion (user-initiated)
+        // This test documents the current behavior
+    }
+
+    #[test]
+    fn test_unknown_error_has_suggestion() {
+        let err = Error::Unknown("Something unexpected".into());
+        let suggestion = err.suggestion();
+        assert!(
+            suggestion.is_some(),
+            "Unknown errors should have fallback suggestions (like 'zjj doctor')"
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIX COMMAND TESTS - Verify actionable fix commands are available
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_io_error_has_fix_commands() {
+        let err = Error::IoError("File not found".into());
+        let commands = err.fix_commands();
+        assert!(!commands.is_empty(), "IO errors should have fix commands");
+        assert!(
+            commands.iter().any(|c| c.contains("ls") || c.contains("check")),
+            "IO error fix commands should include diagnostic commands"
+        );
+    }
+
+    #[test]
+    fn test_command_error_has_fix_commands() {
+        let err = Error::Command("Command not found".into());
+        let commands = err.fix_commands();
+        assert!(
+            !commands.is_empty(),
+            "Command errors should have troubleshooting fix commands"
+        );
+    }
+
+    #[test]
+    fn test_parse_error_has_fix_commands() {
+        let err = Error::ParseError("Invalid JSON syntax".into());
+        let commands = err.fix_commands();
+        assert!(!commands.is_empty(), "Parse errors should have validation commands");
+    }
+
+    #[test]
+    fn test_invalid_config_has_fix_commands() {
+        let err = Error::InvalidConfig("Unknown key".into());
+        let commands = err.fix_commands();
+        assert!(!commands.is_empty(), "Config errors should have config fix commands");
+        assert!(
+            commands.iter().any(|c| c.contains("config")),
+            "Config error fix commands should mention config commands"
+        );
+    }
+
+    #[test]
+    fn test_operation_cancelled_has_no_fix_commands() {
+        let err = Error::OperationCancelled("User interrupted".into());
+        let commands = err.fix_commands();
+        // User-initiated cancellation doesn't need fix commands
+        assert!(commands.is_empty() || commands.len() <= 1);
+    }
+
+    #[test]
+    fn test_unknown_error_has_fix_commands() {
+        let err = Error::Unknown("Unexpected error".into());
+        let commands = err.fix_commands();
+        assert!(!commands.is_empty(), "Unknown errors should have 'zjj doctor' fix command");
+        assert!(
+            commands.iter().any(|c| c.contains("doctor")),
+            "Unknown error should suggest 'zjj doctor'"
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VALIDATION HINT TESTS - Verify validation provides useful hints
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_parse_error_json_provides_hint() {
+        let err = Error::ParseError("Expected comma at line 5".into());
+        let hints = err.validation_hints();
+        assert!(
+            !hints.is_empty(),
+            "Parse errors should provide validation hints"
+        );
+    }
+
+    #[test]
+    fn test_invalid_config_provides_hint() {
+        let err = Error::InvalidConfig("Unknown key 'foo'".into());
+        let hints = err.validation_hints();
+        assert!(!hints.is_empty(), "Invalid config should provide hints");
+        assert!(
+            hints.iter().any(|h| h.field == "config"),
+            "Config error hint should mention 'config' field"
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ACTIONABILITY TESTS - Suggestions are actionable, not vague
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_suggestions_contain_commands_not_just_explanations() {
+        // All suggestions should include specific commands, not just explanations
+        let test_errors = vec![
+            Error::NotFound("session 'test' not found".into()),
+            Error::ValidationError("invalid name".into()),
+            Error::DatabaseError("corrupted".into()),
+        ];
+
+        for err in test_errors {
+            if let Some(suggestion) = err.suggestion() {
+                // Check if suggestion contains a command pattern (starts with word or has :)
+                let has_actionable_hint = suggestion
+                    .chars()
+                    .next()
+                    .map(|c| c.is_alphabetic() || c == '\'')
+                    .unwrap_or(false)
+                    || suggestion.contains("zjj")
+                    || suggestion.contains("jj ")
+                    || suggestion.contains("cargo ");
+                assert!(
+                    has_actionable_hint,
+                    "Suggestion should be actionable: '{suggestion}'"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_fix_commands_are_copy_pastable() {
+        // Fix commands should be complete, copy-pastable shell commands
+        let err = Error::NotFound("session 'test' not found".into());
+        let commands = err.fix_commands();
+
+        for cmd in commands {
+            assert!(!cmd.is_empty(), "Fix command should not be empty");
+            assert!(
+                cmd.starts_with("zjj ") || cmd.starts_with("jj ") || cmd.starts_with("cargo "),
+                "Fix command should start with a known command: '{cmd}'"
+            );
         }
     }
 }

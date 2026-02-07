@@ -677,6 +677,26 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[test]
+    fn test_suggest_name_requires_braced_placeholder() {
+        // Test pattern without {n} placeholder returns validation error
+        // This documents the error when users run: zjj query suggest-name feat
+        let result = suggest_name("feat", &[]);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(Error::ValidationError(_))));
+    }
+
+    #[test]
+    fn test_suggest_name_with_feat_placeholder() {
+        // Test the corrected example from the help text
+        // zjj query suggest-name "feat{n}" should work
+        let existing = vec!["feat1".to_string(), "feat2".to_string()];
+        let result = suggest_name("feat{n}", &existing).unwrap();
+        assert_eq!(result.suggested, "feat3");
+        assert_eq!(result.next_available_n, 3);
+        assert_eq!(result.existing_matches.len(), 2);
+    }
+
     // ===== CommandIntrospection Validation Tests (TDD15 Phase 4 - RED) =====
     // These tests verify the expected structure and validation rules for the list command.
     // They FAIL until the implementation adds the required flags and error conditions.
