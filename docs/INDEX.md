@@ -18,6 +18,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 | **09** | [JUJUTSU](09_JUJUTSU.md) | Version control, stacking commits | 20 min |
 | **10** | [MOON CICD INDEXED](10_MOON_CICD_INDEXED.md) | Complete moon task catalog (indexed) | Reference |
 | **11** | [ZELLIJ](11_ZELLIJ.md) | Terminal multiplexing, layouts, tab management | 25 min |
+| **19** | [CODANNA QUERY PERFORMANCE](19_CODANNA_QUERY_PERFORMANCE.md) | Code search metrics, benchmarks, optimization | 20 min |
 | **INDEX** | This file | Document map | - |
 
 ## 🚀 Quick Navigation by Task
@@ -58,6 +59,9 @@ All ZJJ documentation in one place, token-efficient and searchable.
 ### How Do I Test Code?
 → [07_TESTING.md](07_TESTING.md) - Testing patterns
 
+### How Do I Search Code?
+→ [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md) - Code search metrics and optimization
+
 ## 📚 By Topic
 
 ### The Core Law
@@ -82,6 +86,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 - [08_BEADS.md](08_BEADS.md) - Issue tracking + triage
 - [09_JUJUTSU.md](09_JUJUTSU.md) - Version control
 - [11_ZELLIJ.md](11_ZELLIJ.md) - Terminal multiplexing + layouts
+- [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md) - Code search metrics and optimization
 
 ## 🔑 Key Commands Quick Reference
 
@@ -105,8 +110,15 @@ jj describe -m "feat: description"  # Commit
 jj git push                         # Push
 ```
 
+### Codanna (Code Search)
+```bash
+codanna mcp find_symbol --name Workspace          # Exact symbol
+codanna mcp search_symbols --pattern work --kind Struct  # Fuzzy
+codanna mcp semantic_search_docs --query "error handling"  # Semantic
+```
+
 ### More Commands
-See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTSU.md](09_JUJUTSU.md) for full command lists.
+See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTSU.md](09_JUJUTSU.md), [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md) for full command lists.
 
 ## 🎓 Learning Paths
 
@@ -132,11 +144,11 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 
 ## 📊 Documentation Stats
 
-- **Total Pages**: 12
-- **Total Content**: ~58k tokens
+- **Total Pages**: 13
+- **Total Content**: ~62k tokens
 - **Average Page**: ~4.8k tokens
 - **Token Efficiency**: Highly optimized for AI + human reading
-- **Latest Addition**: 11_ZELLIJ.md (terminal multiplexing and layout guide)
+- **Latest Addition**: 19_CODANNA_QUERY_PERFORMANCE.md (code search metrics and optimization)
 
 ## 🔍 Search Guide
 
@@ -169,6 +181,7 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 | Moon Caching | [02_MOON_BUILD.md](02_MOON_BUILD.md) | Smart task skipping for speed |
 | Beads Triage | [08_BEADS.md](08_BEADS.md) | Graph-aware issue prioritization |
 | Jujutsu Stacking | [09_JUJUTSU.md](09_JUJUTSU.md) | Instant branches, reorderable commits |
+| Codanna Search | [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md) | 40-50x faster than grep, semantic code search |
 
 ## 🚫 What NOT to Do
 
@@ -178,6 +191,7 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 - `panic!()` - See [05_RUST_STANDARDS.md](05_RUST_STANDARDS.md)
 - `unsafe { }` - See [05_RUST_STANDARDS.md](05_RUST_STANDARDS.md)
 - Direct `cargo` commands - Use `moon run` instead ([02_MOON_BUILD.md](02_MOON_BUILD.md))
+- Grep/Glob for code search - Use Codanna instead ([19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md))
 
 ## ✅ What TO Do
 
@@ -186,6 +200,7 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 - Build with `moon run` ([02_MOON_BUILD.md](02_MOON_BUILD.md))
 - Use functional patterns ([04_FUNCTIONAL_PATTERNS.md](04_FUNCTIONAL_PATTERNS.md))
 - Test all paths ([07_TESTING.md](07_TESTING.md))
+- Search code with Codanna ([19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md))
 
 ## 📞 Getting Help
 
