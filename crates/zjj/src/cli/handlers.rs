@@ -210,9 +210,7 @@ pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_diff(sub_m: &ArgMatches) -> Result<()> {
-    let name = sub_m
-        .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+    let name = sub_m.get_one::<String>("name").map(|s| s.as_str());
     let stat = sub_m.get_flag("stat");
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
