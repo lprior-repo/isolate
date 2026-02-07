@@ -708,6 +708,20 @@ impl RepairExecutor {
             ));
         }
 
+        // CRITICAL: Check if workspace directory exists before attempting repair
+        // For missing directories, we cannot repair automatically
+        let workspace_exists = tokio::fs::try_exists(&validation.path).await?;
+        if !workspace_exists {
+            return Ok(RepairResult::failure(
+                &validation.workspace,
+                strategy,
+                format!(
+                    "Workspace directory '{}' does not exist. Cannot repair missing workspace.",
+                    validation.path.display()
+                ),
+            ));
+        }
+
         // Create backup if configured (ADVERSARIAL: type-safe backup guarantee)
         let backup_id = match &self.backup_config {
             BackupConfig::WithBackup(manager) => {
