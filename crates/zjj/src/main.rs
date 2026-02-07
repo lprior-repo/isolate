@@ -10,6 +10,7 @@ mod commands;
 mod db;
 mod hooks;
 mod json;
+mod progress;
 mod selector;
 mod session;
 
