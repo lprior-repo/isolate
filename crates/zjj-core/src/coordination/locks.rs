@@ -598,7 +598,6 @@ mod tests {
         assert_eq!(r2.session, "session-1");
         Ok(())
     }
-}
 
     // EARS: Double unlock MUST be logged as warning in audit trail
     #[tokio::test]
