@@ -29,8 +29,7 @@ fn jj_availability() -> &'static bool {
         Command::new("jj")
             .arg("--version")
             .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+            .map_or(false, |o| o.status.success())
     })
 }
 
@@ -535,7 +534,7 @@ mod tests {
             // Fail with clear error message for debugging
             panic!(
                 "zjj add failed: {}\nstdout: {}\nstderr: {}",
-                result.exit_code.unwrap_or(-1),
+                result.exit_code.map_or(-1, |c| c),
                 result.stdout,
                 result.stderr
             );
