@@ -25,8 +25,8 @@ fn test_clone_finds_existing_source_session() {
     let result = harness.zjj(&["list", "--json"]);
     assert!(result.success, "list should succeed");
 
-    let json: serde_json::Value = serde_json::from_str(&result.stdout)
-        .expect("list JSON should be valid");
+    let json: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("list JSON should be valid");
 
     let sessions = json["data"]["sessions"]
         .as_array()

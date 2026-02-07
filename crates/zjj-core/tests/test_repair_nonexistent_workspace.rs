@@ -22,16 +22,17 @@ async fn test_repair_nonexistent_workspace_returns_error() {
     // Then: Validation should succeed but show issues
     assert!(result.is_ok(), "Validation should not panic");
     let validation = result.unwrap();
-    assert!(!validation.is_valid, "Non-existent workspace should be invalid");
+    assert!(
+        !validation.is_valid,
+        "Non-existent workspace should be invalid"
+    );
     assert_eq!(
         validation.issues.len(),
         1,
         "Should have exactly one issue: missing directory"
     );
     assert_eq!(
-        validation.issues[0]
-            .corruption_type
-            .to_string(),
+        validation.issues[0].corruption_type.to_string(),
         "missing_directory",
         "Issue should be about missing directory"
     );
@@ -54,8 +55,8 @@ async fn test_repair_nonexistent_workspace_returns_error() {
 
     // The error message should be clear and mention the missing directory
     assert!(
-        repair.summary.contains("does not exist") ||
-        repair.summary.contains("Cannot repair missing workspace"),
+        repair.summary.contains("does not exist")
+            || repair.summary.contains("Cannot repair missing workspace"),
         "Error message should clearly indicate the workspace is missing: {}",
         repair.summary
     );
@@ -93,8 +94,8 @@ async fn test_repair_nonexistent_workspace_with_backup_manager() {
 
     // The error message should be clear
     assert!(
-        repair.summary.contains("does not exist") ||
-        repair.summary.contains("Cannot repair missing workspace"),
+        repair.summary.contains("does not exist")
+            || repair.summary.contains("Cannot repair missing workspace"),
         "Error message should clearly indicate the workspace is missing: {}",
         repair.summary
     );
@@ -136,8 +137,8 @@ async fn test_forget_and_recreate_nonexistent_workspace() {
 
     // The error message should clearly indicate the problem
     assert!(
-        repair.summary.contains("does not exist") ||
-        repair.summary.contains("Cannot repair missing workspace"),
+        repair.summary.contains("does not exist")
+            || repair.summary.contains("Cannot repair missing workspace"),
         "Summary should clearly describe the missing workspace: {}",
         repair.summary
     );

@@ -215,30 +215,34 @@ impl Status {
 /// * `Some(JjConflictType)` if a conflict pattern is detected
 /// * `None` if the error doesn't match known conflict patterns
 #[must_use]
-fn detect_workspace_conflict(stderr: &str, workspace_name: &str) -> Option<crate::error::JjConflictType> {
+fn detect_workspace_conflict(
+    stderr: &str,
+    workspace_name: &str,
+) -> Option<crate::error::JjConflictType> {
     // Functional pipeline: check lines → find first matching pattern → return conflict type
-    stderr
-        .lines()
-        .find_map(|line| {
-            let line_lower = line.to_lowercase();
-            if line_lower.contains("already exists") 
-                || line_lower.contains("workspace already added")
-                || line_lower.contains("already added") {
-                Some(crate::error::JjConflictType::AlreadyExists)
-            } else if line_lower.contains("concurrent") 
-                || line_lower.contains("simultaneous")
-                || line_lower.contains("locked") {
-                Some(crate::error::JjConflictType::ConcurrentModification)
-            } else if line_lower.contains("abandoned") {
-                Some(crate::error::JjConflictType::Abandoned)
-            } else if line_lower.contains("working copy")
-                || line_lower.contains("out of sync")
-                || line_lower.contains("stale") {
-                Some(crate::error::JjConflictType::Stale)
-            } else {
-                None
-            }
-        })
+    stderr.lines().find_map(|line| {
+        let line_lower = line.to_lowercase();
+        if line_lower.contains("already exists")
+            || line_lower.contains("workspace already added")
+            || line_lower.contains("already added")
+        {
+            Some(crate::error::JjConflictType::AlreadyExists)
+        } else if line_lower.contains("concurrent")
+            || line_lower.contains("simultaneous")
+            || line_lower.contains("locked")
+        {
+            Some(crate::error::JjConflictType::ConcurrentModification)
+        } else if line_lower.contains("abandoned") {
+            Some(crate::error::JjConflictType::Abandoned)
+        } else if line_lower.contains("working copy")
+            || line_lower.contains("out of sync")
+            || line_lower.contains("stale")
+        {
+            Some(crate::error::JjConflictType::Stale)
+        } else {
+            None
+        }
+    })
 }
 
 /// Generate recovery hint for a workspace conflict
@@ -252,7 +256,10 @@ fn detect_workspace_conflict(stderr: &str, workspace_name: &str) -> Option<crate
 ///
 /// Actionable recovery hint string
 #[must_use]
-fn conflict_recovery_hint(conflict_type: &crate::error::JjConflictType, workspace_name: &str) -> String {
+fn conflict_recovery_hint(
+    conflict_type: &crate::error::JjConflictType,
+    workspace_name: &str,
+) -> String {
     match conflict_type {
         crate::error::JjConflictType::AlreadyExists => {
             format!(
@@ -993,7 +1000,10 @@ fn test_conflict_recovery_hint_already_exists() {
 
 #[test]
 fn test_conflict_recovery_hint_concurrent() {
-    let hint = conflict_recovery_hint(&crate::error::JjConflictType::ConcurrentModification, "test-ws");
+    let hint = conflict_recovery_hint(
+        &crate::error::JjConflictType::ConcurrentModification,
+        "test-ws",
+    );
     assert!(hint.contains("Recovery options"));
     assert!(hint.contains("Wait a moment"));
     assert!(hint.contains("pgrep -fl jj"));

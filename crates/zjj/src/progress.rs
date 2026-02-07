@@ -3,8 +3,10 @@
 //! Provides progress bars and status indicators for operations that take >2 seconds.
 //! Supports both terminal and Zellij environments, with --quiet flag support.
 
-use std::io::{self, Write};
-use std::time::{Duration, Instant};
+use std::{
+    io::{self, Write},
+    time::{Duration, Instant},
+};
 
 use thiserror::Error;
 
@@ -70,7 +72,10 @@ impl ProgressConfig {
 pub enum ProgressError {
     /// Invalid phase transition
     #[error("invalid phase transition from {from:?} to {to:?}")]
-    InvalidPhaseTransition { from: OperationPhase, to: OperationPhase },
+    InvalidPhaseTransition {
+        from: OperationPhase,
+        to: OperationPhase,
+    },
 
     /// Progress operation failed
     #[error("progress operation failed: {0}")]
@@ -447,7 +452,10 @@ mod tests {
             assert!(result.is_err(), "Should not transition from Complete");
             assert!(matches!(
                 result.unwrap_err(),
-                ProgressError::InvalidPhaseTransition { from: OperationPhase::Complete, to: OperationPhase::Executing }
+                ProgressError::InvalidPhaseTransition {
+                    from: OperationPhase::Complete,
+                    to: OperationPhase::Executing
+                }
             ));
         }
 
@@ -535,7 +543,10 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(10)).await;
             let elapsed2 = indicator.total_elapsed();
 
-            assert_eq!(elapsed1, elapsed2, "Total elapsed should be fixed after completion");
+            assert_eq!(
+                elapsed1, elapsed2,
+                "Total elapsed should be fixed after completion"
+            );
         }
     }
 

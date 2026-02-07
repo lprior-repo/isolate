@@ -184,10 +184,8 @@ async fn read_lock(path: &std::path::Path) -> Option<LockInfo> {
 /// Read audit log from file
 async fn read_audit(path: &std::path::Path) -> Result<ClaimAudit> {
     match tokio::fs::read_to_string(path).await {
-        Ok(content) => {
-            serde_json::from_str(&content)
-                .map_err(|e| anyhow::anyhow!("Failed to parse audit log: {e}"))
-        }
+        Ok(content) => serde_json::from_str(&content)
+            .map_err(|e| anyhow::anyhow!("Failed to parse audit log: {e}")),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ClaimAudit::new()),
         Err(e) => Err(anyhow::anyhow!("Failed to read audit log: {e}")),
     }
@@ -781,8 +779,8 @@ mod tests {
                 expires_at: Some(2_000_000_000), // Extended
                 previous_holder: None,           // Still us, no "previous"
                 error: None,
-                is_double_claim: Some(true),     // NEW: Detects double claim
-                claim_count: Some(3),            // NEW: Shows claim count
+                is_double_claim: Some(true), // NEW: Detects double claim
+                claim_count: Some(3),        // NEW: Shows claim count
             };
 
             assert!(result.claimed);
@@ -1152,7 +1150,10 @@ mod tests {
 
             for (action, expected) in actions {
                 let json = serde_json::to_string(&action)?;
-                assert!(json.contains(expected), "Action should serialize to {expected}");
+                assert!(
+                    json.contains(expected),
+                    "Action should serialize to {expected}"
+                );
             }
 
             Ok(())

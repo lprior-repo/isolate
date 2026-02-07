@@ -54,7 +54,10 @@ fn test_all_errors_have_documentation() {
     // All errors should have a code
     for err in test_errors {
         assert!(!err.code().is_empty(), "Error should have a code");
-        assert!(err.code().chars().all(|c| c.is_uppercase() || c == '_'), "Error code should be SCREAMING_SNAKE_CASE");
+        assert!(
+            err.code().chars().all(|c| c.is_uppercase() || c == '_'),
+            "Error code should be SCREAMING_SNAKE_CASE"
+        );
     }
 }
 
@@ -198,7 +201,10 @@ fn test_validation_errors_provide_hints() {
 
     for hint in hints {
         assert!(!hint.field.is_empty(), "Hint should specify the field");
-        assert!(!hint.expected.is_empty(), "Hint should specify what was expected");
+        assert!(
+            !hint.expected.is_empty(),
+            "Hint should specify what was expected"
+        );
     }
 }
 
@@ -232,7 +238,10 @@ fn test_jj_command_errors_distinguish_not_found() {
         msg.contains("JJ is not installed"),
         "Should suggest installing JJ when not found"
     );
-    assert!(msg.contains("cargo install jj-cli"), "Should provide install command");
+    assert!(
+        msg.contains("cargo install jj-cli"),
+        "Should provide install command"
+    );
 }
 
 #[test]
@@ -244,7 +253,10 @@ fn test_session_locked_errors_include_holder_info() {
 
     let msg = err.to_string();
     assert!(msg.contains("my-session"), "Should include session name");
-    assert!(msg.contains("agent-123"), "Should include holder information");
+    assert!(
+        msg.contains("agent-123"),
+        "Should include holder information"
+    );
 
     let suggestion = err.suggestion();
     assert!(
@@ -299,10 +311,7 @@ fn test_parse_errors_distinguish_json_vs_toml() {
     let json_err = Error::ParseError("Invalid JSON: Expected comma".into());
     let suggestion = json_err.suggestion();
 
-    assert!(
-        suggestion.is_some(),
-        "Parse errors should have suggestions"
-    );
+    assert!(suggestion.is_some(), "Parse errors should have suggestions");
     if let Some(sugg) = suggestion {
         assert!(
             sugg.contains("jq") || sugg.contains("JSON"),

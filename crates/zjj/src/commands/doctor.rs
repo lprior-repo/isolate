@@ -566,10 +566,7 @@ async fn run_integrity_check(db_path: &Path) -> Result<String, String> {
 
     // Run PRAGMA integrity_check
     // Returns "ok" if database is valid, or error details otherwise
-    let result = match sqlx::query("PRAGMA integrity_check")
-        .fetch_one(&pool)
-        .await
-    {
+    let result = match sqlx::query("PRAGMA integrity_check").fetch_one(&pool).await {
         Ok(r) => r,
         Err(e) => {
             pool.close().await;

@@ -20,14 +20,15 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use sqlx::sqlite::SqlitePoolOptions;
 use tokio::task::JoinSet;
-use zjj_core::coordination::locks::LockManager;
-use zjj_core::Error;
+use zjj_core::{coordination::locks::LockManager, Error};
 
 /// Test helper: Create in-memory database pool
 async fn test_pool() -> Result<sqlx::SqlitePool, Error> {
@@ -158,8 +159,7 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
 
     // THEN: Exactly 1 agent MUST succeed
     assert_eq!(
-        metrics.successful_acquisitions,
-        1,
+        metrics.successful_acquisitions, 1,
         "Exactly 1 agent should acquire lock, got {}",
         metrics.successful_acquisitions
     );
@@ -182,10 +182,7 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
     );
 
     // THEN: No deadlocks detected
-    assert_eq!(
-        metrics.deadlocks_detected, 0,
-        "No deadlocks should occur"
-    );
+    assert_eq!(metrics.deadlocks_detected, 0, "No deadlocks should occur");
 
     // THEN: Verify lock state in database
     let lock_state = mgr.get_lock_state(session).await?;
@@ -194,9 +191,12 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
         "Lock should be held in database"
     );
     assert!(
-        metrics.unique_holders.contains(lock_state.holder.as_deref().ok_or_else(|| {
-            Error::Validation("Failed to convert holder to &str".into())
-        })?),
+        metrics.unique_holders.contains(
+            lock_state
+                .holder
+                .as_deref()
+                .ok_or_else(|| { Error::Validation("Failed to convert holder to &str".into()) })?
+        ),
         "Lock holder should match successful agent"
     );
 
@@ -315,7 +315,10 @@ async fn test_50_agents_claim_unique_resources() -> Result<(), Error> {
     for (session, expected_holder) in &successful_locks {
         let lock_state = mgr.get_lock_state(session).await?;
         assert!(
-            lock_state.holder.as_ref().map_or(false, |h| h == expected_holder),
+            lock_state
+                .holder
+                .as_ref()
+                .map_or(false, |h| h == expected_holder),
             "Session {session} holder mismatch: expected {expected_holder}, got {:?}",
             lock_state.holder
         );
@@ -326,7 +329,10 @@ async fn test_50_agents_claim_unique_resources() -> Result<(), Error> {
     println!("test_50_agents_claim_unique_resources metrics:");
     println!("  - Total locks: {}", num_agents);
     println!("  - Acquisition rate: {acquisition_rate:.2} locks/sec");
-    println!("  - Average per-lock time: {:.2}ms", total_duration.as_millis() as f64 / num_agents as f64);
+    println!(
+        "  - Average per-lock time: {:.2}ms",
+        total_duration.as_millis() as f64 / num_agents as f64
+    );
     println!("  - Total duration: {:?}", total_duration);
 
     Ok(())
@@ -393,7 +399,12 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
                 tokio::time::sleep(Duration::from_millis(delay_ms)).await;
             }
 
-            (agent_name, session_name, successful_operations, failed_operations)
+            (
+                agent_name,
+                session_name,
+                successful_operations,
+                failed_operations,
+            )
         });
     }
 
@@ -411,7 +422,9 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
             }
             Err(e) => {
                 eprintln!("Task panicked: {e}");
-                return Err(Error::Unknown("Task panicked during concurrent operations".into()));
+                return Err(Error::Unknown(
+                    "Task panicked during concurrent operations".into(),
+                ));
             }
         }
     }
@@ -422,7 +435,8 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     assert_eq!(
         agent_results.len(),
         num_agents,
-        "All {} agents should complete", num_agents
+        "All {} agents should complete",
+        num_agents
     );
 
     // THEN: Total operations should be successful
@@ -438,7 +452,10 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     println!("  - Total failed operations: {}", total_failed);
     println!("  - Success rate: {success_rate:.1}%");
     println!("  - Total duration: {:?}", total_duration);
-    println!("  - Operations per second: {:.2}", total_operations as f64 / total_duration.as_secs_f64());
+    println!(
+        "  - Operations per second: {:.2}",
+        total_operations as f64 / total_duration.as_secs_f64()
+    );
 
     // THEN: Verify database integrity (no partial/corrupted state)
     let all_locks = mgr.get_all_locks().await?;
@@ -450,7 +467,8 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
         let lock_state = mgr.get_lock_state(&lock_info.session).await?;
         assert!(
             lock_state.holder.is_some(),
-            "Active lock {} should have a holder", lock_info.session
+            "Active lock {} should have a holder",
+            lock_info.session
         );
     }
 
@@ -534,7 +552,8 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
         // State should be valid (either locked or unlocked, not corrupted)
         assert!(
             lock_state.holder.is_some() || lock_state.holder.is_none(),
-            "Lock state for {} should be valid (not corrupted)", session_name
+            "Lock state for {} should be valid (not corrupted)",
+            session_name
         );
 
         // Check audit trail
@@ -542,22 +561,38 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
 
         // Verify audit log is not corrupted
         for entry in &audit_log {
-            assert!(!entry.session.is_empty(), "Audit entry session should not be empty");
-            assert!(!entry.agent_id.is_empty(), "Audit entry agent_id should not be empty");
-            assert!(!entry.operation.is_empty(), "Audit entry operation should not be empty");
+            assert!(
+                !entry.session.is_empty(),
+                "Audit entry session should not be empty"
+            );
+            assert!(
+                !entry.agent_id.is_empty(),
+                "Audit entry agent_id should not be empty"
+            );
+            assert!(
+                !entry.operation.is_empty(),
+                "Audit entry operation should not be empty"
+            );
             assert!(
                 entry.timestamp > chrono::DateTime::MIN_UTC,
                 "Audit entry timestamp should be valid"
             );
         }
 
-        println!("Session {} - Audit entries: {}", session_name, audit_log.len());
+        println!(
+            "Session {} - Audit entries: {}",
+            session_name,
+            audit_log.len()
+        );
     }
 
     println!("test_lock_unlock_storm_consistency metrics:");
     println!("  - Total operations completed: {}", total_operations);
     println!("  - Duration: {:?}", total_duration);
-    println!("  - Operations per second: {:.2}", total_operations as f64 / total_duration.as_secs_f64());
+    println!(
+        "  - Operations per second: {:.2}",
+        total_operations as f64 / total_duration.as_secs_f64()
+    );
 
     Ok(())
 }
@@ -640,15 +675,12 @@ async fn test_claim_transfer_under_load() -> Result<(), Error> {
 
     // THEN: All transfers should succeed
     assert_eq!(
-        successful_transfers,
-        num_transfer_cycles,
-        "All {} transfers should succeed", num_transfer_cycles
+        successful_transfers, num_transfer_cycles,
+        "All {} transfers should succeed",
+        num_transfer_cycles
     );
 
-    assert_eq!(
-        failed_transfers, 0,
-        "No transfers should fail"
-    );
+    assert_eq!(failed_transfers, 0, "No transfers should fail");
 
     // THEN: Final state should be unlocked (all agents cleaned up)
     let final_state = mgr.get_lock_state(session).await?;
@@ -710,9 +742,7 @@ async fn test_lock_contention_metrics() -> Result<(), Error> {
                     let _ = mgr_clone.unlock(&session_name, &agent_name).await;
                     (true, elapsed.as_millis())
                 }
-                Err(_) => {
-                    (false, elapsed.as_millis())
-                }
+                Err(_) => (false, elapsed.as_millis()),
             }
         });
     }
@@ -736,7 +766,9 @@ async fn test_lock_contention_metrics() -> Result<(), Error> {
             }
             Err(e) => {
                 eprintln!("Task panicked: {e}");
-                return Err(Error::Unknown("Task panicked during contention test".into()));
+                return Err(Error::Unknown(
+                    "Task panicked during contention test".into(),
+                ));
             }
         }
     }
@@ -881,9 +913,9 @@ async fn test_no_deadlocks_under_load() -> Result<(), Error> {
 
     // THEN: All agents should complete
     assert_eq!(
-        completed_agents,
-        num_agents,
-        "All {} agents should complete without deadlock", num_agents
+        completed_agents, num_agents,
+        "All {} agents should complete without deadlock",
+        num_agents
     );
 
     // THEN: Test should complete well before timeout

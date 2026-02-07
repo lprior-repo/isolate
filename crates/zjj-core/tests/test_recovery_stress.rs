@@ -1,4 +1,3 @@
-
 // Recovery Logging Stress Tests
 //
 // Comprehensive stress tests for recovery logging functionality under
