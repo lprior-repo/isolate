@@ -21,6 +21,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
+/// Maximum template file size (1MB)
+/// This prevents performance issues from excessively large template files
+const MAX_TEMPLATE_SIZE: usize = 1_048_576;
+
 /// A validated template name
 ///
 /// Names must:
@@ -153,6 +157,22 @@ fn current_timestamp() -> i64 {
         .unwrap_or(0)
 }
 
+/// Validate template content size
+///
+/// # Errors
+///
+/// Returns error if template content exceeds maximum size
+fn validate_template_size(content: &str, context: &str) -> Result<()> {
+    let size = content.len();
+    if size > MAX_TEMPLATE_SIZE {
+        return Err(Error::ValidationError(format!(
+            "Template {context} exceeds maximum size of {} bytes (got {} bytes)",
+            MAX_TEMPLATE_SIZE, size
+        )));
+    }
+    Ok(())
+}
+
 /// Get the templates directory path for a repository
 ///
 /// # Errors
@@ -245,10 +265,14 @@ pub fn load_template(name: &str, templates_base: &Path) -> Result<Template> {
 /// # Errors
 ///
 /// Returns error if:
+/// - Template content exceeds size limit
 /// - Unable to create template directory
 /// - Unable to acquire file lock
 /// - Unable to write template files
 pub fn save_template(template: &Template, templates_base: &Path) -> Result<()> {
+    // Validate template size before writing
+    validate_template_size(&template.layout, "content")?;
+
     let dir = template_dir(templates_base, &template.name);
 
     // Create template directory
@@ -522,8 +546,9 @@ mod tests {
     #[test]
     fn test_template_size_one_byte_over_limit() -> Result<()> {
         // Template one byte over 1MB should be rejected
+        // "layout { pane " is 14 chars, " }" is 2 chars, total overhead = 16
         let layout_over = "layout { pane ".to_string()
-            + &"x".repeat(1_048_576 - 18) // 1MB minus overhead plus 1
+            + &"x".repeat(1_048_576 - 16 + 1) // 1MB minus overhead plus 1
             + " }";
 
         let template = Template::new("one-over".to_string(), layout_over, None)?;
