@@ -253,7 +253,10 @@ impl MergeQueue {
             .get_by_id(id)
             .await?
             .ok_or_else(|| Error::DatabaseError("Failed to retrieve inserted entry".to_string()))?;
-        let position = self.position(workspace).await?.unwrap_or(1);
+
+        // Position MUST exist after insertion
+        let position = self.position(workspace).await?
+            .ok_or_else(|| Error::DatabaseError("Workspace not found in queue after insertion".to_string()))?;
         let total_pending = self.count_pending().await?;
         Ok(QueueAddResponse {
             entry,

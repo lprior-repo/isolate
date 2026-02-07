@@ -9,11 +9,40 @@ use sqlx::{Row, SqlitePool};
 
 use super::types::{BeadIssue, BeadsError, IssueStatus, Priority};
 
+/// Parse a datetime string from RFC3339 format.
+///
+/// # Errors
+///
+/// Returns `BeadsError::QueryFailed` if the string is missing or invalid.
+fn parse_datetime(datetime_str: Option<String>) -> Result<DateTime<Utc>, BeadsError> {
+    datetime_str
+        .ok_or_else(|| BeadsError::QueryFailed("Missing required datetime field".to_string()))
+        .and_then(|s| {
+            DateTime::parse_from_rfc3339(&s)
+                .map(|dt| dt.with_timezone(&Utc))
+                .map_err(|e| BeadsError::QueryFailed(format!("Invalid datetime format '{s}': {e}")))
+        })
+}
+
+/// Parse a status string into IssueStatus.
+///
+/// # Errors
+///
+/// Returns `BeadsError::QueryFailed` if the status string is invalid.
+fn parse_status(status_str: &str) -> Result<IssueStatus, BeadsError> {
+    status_str.parse().map_err(|_| {
+        BeadsError::QueryFailed(format!("Invalid status value '{status_str}'. Expected one of: open, in_progress, done, cancelled"))
+    })
+}
+
 /// Query all issues from the beads database.
 ///
 /// # Errors
 ///
-/// Returns `BeadsError` if the database cannot be opened or queried.
+/// Returns `BeadsError` if:
+/// - The database cannot be opened or queried
+/// - Any required field is missing or malformed
+/// - Status or datetime values are invalid
 pub async fn query_beads(workspace_path: &Path) -> std::result::Result<Vec<BeadIssue>, BeadsError> {
     let beads_db = workspace_path.join(".beads/beads.db");
 
@@ -48,7 +77,7 @@ pub async fn query_beads(workspace_path: &Path) -> std::result::Result<Vec<BeadI
             let status_str: String = row
                 .try_get(2)
                 .map_err(|e: sqlx::Error| BeadsError::QueryFailed(e.to_string()))?;
-            let status = status_str.parse().unwrap_or(IssueStatus::Open);
+            let status = parse_status(&status_str)?;
 
             let priority_str: Option<String> = row
                 .try_get(3)
@@ -80,28 +109,28 @@ pub async fn query_beads(workspace_path: &Path) -> std::result::Result<Vec<BeadI
             let blocked_by = blocked_by_str
                 .map(|s: String| s.split(',').map(String::from).collect::<Vec<String>>());
 
+            // Required datetime fields - fail if missing or invalid
             let created_at_str: Option<String> = row
                 .try_get(11)
                 .map_err(|e: sqlx::Error| BeadsError::QueryFailed(e.to_string()))?;
-            let created_at = created_at_str
-                .and_then(|s: String| DateTime::parse_from_rfc3339(&s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(Utc::now);
+            let created_at = parse_datetime(created_at_str)?;
 
             let updated_at_str: Option<String> = row
                 .try_get(12)
                 .map_err(|e: sqlx::Error| BeadsError::QueryFailed(e.to_string()))?;
-            let updated_at = updated_at_str
-                .and_then(|s: String| DateTime::parse_from_rfc3339(&s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(Utc::now);
+            let updated_at = parse_datetime(updated_at_str)?;
 
+            // Optional datetime field
             let closed_at_str: Option<String> = row
                 .try_get(13)
                 .map_err(|e: sqlx::Error| BeadsError::QueryFailed(e.to_string()))?;
             let closed_at = closed_at_str
-                .and_then(|s: String| DateTime::parse_from_rfc3339(&s).ok())
-                .map(|dt| dt.with_timezone(&Utc));
+                .map(|s| {
+                    DateTime::parse_from_rfc3339(&s)
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .map_err(|e| BeadsError::QueryFailed(format!("Invalid closed_at datetime: {e}")))
+                })
+                .transpose()?;
 
             Ok(BeadIssue {
                 id: row
@@ -130,5 +159,6 @@ pub async fn query_beads(workspace_path: &Path) -> std::result::Result<Vec<BeadI
                 closed_at,
             })
         })
-        .collect()
+        .collect::<std::result::Result<Vec<_>, BeadsError>>()
+        .map_err(|e| BeadsError::QueryFailed(format!("Failed to parse bead issues: {e}")))
 }
