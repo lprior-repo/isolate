@@ -118,9 +118,29 @@ pub async fn run_create(options: &CreateOptions) -> Result<()> {
         TemplateSource::Builtin(template_type) => {
             generate_builtin_layout(*template_type, &options.name)?
         }
-        TemplateSource::FromFile(file_path) => tokio::fs::read_to_string(file_path)
-            .await
-            .with_context(|| format!("Failed to read template file: {file_path}"))?,
+        TemplateSource::FromFile(file_path) => {
+            // Read file as bytes first to detect UTF-8 issues
+            let bytes = tokio::fs::read(file_path).await.map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    anyhow::Error::new(e).context(format!(
+                        "Template file not found: {file_path}"
+                    ))
+                } else {
+                    anyhow::Error::new(e)
+                }
+            })?;
+
+            // Validate UTF-8 and convert to string
+            String::from_utf8(bytes).map_err(|e| {
+                let valid_up_to = e.utf8_error().valid_up_to();
+                anyhow::anyhow!(
+                    "Template files must be valid UTF-8 text. \
+                     File '{file_path}' contains invalid UTF-8 data at byte {}. \
+                     This may be a binary file. Please provide a text-based KDL layout file.",
+                    valid_up_to
+                )
+            })?
+        }
     };
 
     // Create template
