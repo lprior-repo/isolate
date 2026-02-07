@@ -486,19 +486,30 @@ impl IntegrityValidator {
     }
 
     /// Validate multiple workspaces in parallel
+    ///
+    /// RESULTS ARE ORDERED: Returns results in the same order as input workspaces.
+    /// Uses concurrent validation for performance but preserves ordering for predictability.
     pub async fn validate_all(&self, workspaces: &[String]) -> Result<Vec<ValidationResult>> {
-        use futures::stream::{self, StreamExt};
+        use std::sync::Arc;
 
-        let results = stream::iter(workspaces)
+        use futures::future::try_join_all;
+
+        // Clone self for each validation (IntegrityValidator is cheap to clone - just PathBuf +
+        // u64)
+        let validator = Arc::new(self);
+
+        // Create validation futures that preserve input order
+        let futures = workspaces
+            .iter()
             .map(|name| {
+                let validator = validator.clone();
                 let name = name.clone();
-                async move { self.validate(&name).await }
+                async move { (*validator).validate(&name).await }
             })
-            .buffer_unordered(10)
-            .collect::<Vec<_>>()
-            .await;
+            .collect::<Vec<_>>();
 
-        results.into_iter().collect()
+        // Run concurrently but preserve order (try_join_all maintains input order)
+        try_join_all(futures).await
     }
 
     /// Validate the .jj directory structure

@@ -3,8 +3,12 @@
 //! This module provides functionality to log recovery actions
 //! to .zjj/recovery.log for audit trails.
 
-use std::path::Path;
+use std::{
+    fs::File,
+    path::Path,
+};
 
+use fs2::FileExt;
 use sqlx::Row;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -12,11 +16,14 @@ use crate::{config::RecoveryConfig, Error, Result};
 
 /// Log a recovery action to the recovery log file
 ///
+/// Uses file locking (fs2) to ensure atomic concurrent writes across processes.
+///
 /// # Errors
 ///
 /// Returns error if:
 /// - .zjj directory does not exist
 /// - Log file cannot be created or written to
+/// - File lock cannot be acquired
 pub async fn log_recovery(message: &str, config: &RecoveryConfig) -> Result<()> {
     // Only log if enabled in config
     if !config.log_recovered {
@@ -37,24 +44,35 @@ pub async fn log_recovery(message: &str, config: &RecoveryConfig) -> Result<()> 
     let timestamp = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let log_entry = format!("[{timestamp}] {message}\n");
 
-    // Append to log file (create if doesn't exist)
-    let mut file = tokio::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to open recovery log: {e}")))?;
+    // Use blocking file I/O with proper locking (fs2 works with std::fs::File)
+    // spawn_blocking prevents blocking the async runtime
+    tokio::task::spawn_blocking(move || {
+        // Open file with append mode (create if doesn't exist)
+        let mut file = File::options()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .map_err(|e| Error::IoError(format!("Failed to open recovery log: {e}")))?;
 
-    file.write_all(log_entry.as_bytes())
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to write to recovery log: {e}")))?;
+        // Acquire exclusive lock for atomic write
+        file.try_lock_exclusive()
+            .map_err(|e| Error::IoError(format!("Failed to lock recovery log: {e}")))?;
 
-    // Flush to disk immediately for durability (fixes race condition in tests)
-    file.sync_all()
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to flush recovery log: {e}")))?;
+        // Write log entry
+        use std::io::Write;
+        file.write_all(log_entry.as_bytes())
+            .map_err(|e| Error::IoError(format!("Failed to write to recovery log: {e}")))?;
 
-    Ok(())
+        // Sync to disk for durability
+        file.sync_all()
+            .map_err(|e| Error::IoError(format!("Failed to flush recovery log: {e}")))?;
+
+        // Lock is released when file is dropped
+
+        Ok::<(), Error>(())
+    })
+    .await
+    .map_err(|e| Error::IoError(format!("Failed to join logging task: {e}")))?
 }
 
 /// Check if a recovery action should be logged based on policy
