@@ -351,6 +351,67 @@ impl LockManager {
             })
             .collect()
     }
+
+    /// Get audit log for a session.
+    pub async fn get_lock_audit_log(&self, session: &str) -> Result<Vec<LockAuditEntry>> {
+        let rows: Vec<(String, String, String, String)> = sqlx::query_as(
+            "SELECT session, agent_id, operation, timestamp
+             FROM session_lock_audit
+             WHERE session = ?
+             ORDER BY id ASC",
+        )
+        .bind(session)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        rows.into_iter()
+            .map(|(session, agent_id, operation, timestamp_str)| {
+                let timestamp = DateTime::parse_from_rfc3339(&timestamp_str)
+                    .map_err(|e| Error::ParseError(e.to_string()))?
+                    .with_timezone(&Utc);
+                Ok(LockAuditEntry {
+                    session,
+                    agent_id,
+                    operation,
+                    timestamp,
+                })
+            })
+            .collect()
+    }
+
+    /// Get current lock state for a session.
+    pub async fn get_lock_state(&self, session: &str) -> Result<LockState> {
+        let now_str = Utc::now().to_rfc3339();
+
+        let existing: Option<(String, String)> = sqlx::query_as(
+            "SELECT agent_id, expires_at FROM session_locks
+             WHERE session = ? AND expires_at >= ?",
+        )
+        .bind(session)
+        .bind(&now_str)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        match existing {
+            Some((holder, expires_str)) => {
+                let expires_at = DateTime::parse_from_rfc3339(&expires_str)
+                    .map_err(|e| Error::ParseError(e.to_string()))?
+                    .with_timezone(&Utc);
+                Ok(LockState {
+                    session: session.to_string(),
+                    holder: Some(holder),
+                    expires_at: Some(expires_at),
+                })
+            }
+            None => Ok(LockState {
+                session: session.to_string(),
+                holder: None,
+                expires_at: None,
+            }),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -535,6 +596,65 @@ mod tests {
         let _ = mgr.lock("session-1", "agent-a").await?;
         let r2 = mgr.lock("session-1", "agent-a").await?;
         assert_eq!(r2.session, "session-1");
+        Ok(())
+    }
+}
+
+    // EARS: Double unlock MUST be logged as warning in audit trail
+    #[tokio::test]
+    async fn test_double_unlock_logs_warning() -> Result<()> {
+        let mgr = setup().await?;
+        let _ = mgr.lock("session-1", "agent-a").await?;
+
+        // First unlock succeeds
+        mgr.unlock("session-1", "agent-a").await?;
+
+        // Second unlock (double unlock) should be detected
+        let audit_log = mgr.get_lock_audit_log("session-1").await?;
+
+        // Should have 2 entries: lock + unlock
+        assert_eq!(audit_log.len(), 2, "Expected 2 audit entries (lock + unlock)");
+
+        // First entry should be lock
+        assert_eq!(audit_log[0].operation, "lock");
+        assert_eq!(audit_log[0].agent_id, "agent-a");
+
+        // Second entry should be unlock
+        assert_eq!(audit_log[1].operation, "unlock");
+        assert_eq!(audit_log[1].agent_id, "agent-a");
+
+        // Now try double unlock
+        mgr.unlock("session-1", "agent-a").await?;
+
+        let audit_log2 = mgr.get_lock_audit_log("session-1").await?;
+        // Should have 3 entries now: lock + unlock + double_unlock_warning
+        assert_eq!(audit_log2.len(), 3, "Expected 3 audit entries with double unlock warning");
+
+        // Third entry should be marked as double unlock
+        assert_eq!(audit_log2[2].operation, "double_unlock_warning");
+
+        Ok(())
+    }
+
+    // EARS: Lock state query MUST show current lock holder
+    #[tokio::test]
+    async fn test_lock_state_query_shows_holder() -> Result<()> {
+        let mgr = setup().await?;
+
+        // Initially no lock
+        let state = mgr.get_lock_state("session-1").await?;
+        assert!(state.holder.is_none(), "Expected no holder initially");
+
+        // After lock, holder should be agent-a
+        let _ = mgr.lock("session-1", "agent-a").await?;
+        let state = mgr.get_lock_state("session-1").await?;
+        assert_eq!(state.holder.as_deref(), Some("agent-a"));
+
+        // After unlock, no holder
+        mgr.unlock("session-1", "agent-a").await?;
+        let state = mgr.get_lock_state("session-1").await?;
+        assert!(state.holder.is_none(), "Expected no holder after unlock");
+
         Ok(())
     }
 }
