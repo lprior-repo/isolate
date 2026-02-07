@@ -973,7 +973,7 @@ pub fn cmd_query() -> ClapCommand {
                 "zjj query session-exists feature   Check if session exists",
                 "zjj query session-count             Count active sessions",
                 "zjj query can-run                   Check if zjj can run",
-                "zjj query suggest-name feat         Get name suggestion",
+                "zjj query suggest-name \"feat{n}\"   Get name suggestion",
             ],
             Some(json_docs::query()),
         ))
