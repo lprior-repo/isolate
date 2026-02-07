@@ -511,4 +511,128 @@ mod tests {
         result.assert_stdout_contains("Hello");
         result.assert_output_contains("world");
     }
+
+    // === TEST FOR BEAD zjj-29tv: Workspace path configuration ===
+
+    /// RED Phase: Test that zjj receives correct workspace path from environment variable
+    ///
+    /// This test validates that when `ZJJ_WORKSPACE_DIR` is set to a relative path,
+    /// zjj correctly resolves it relative to the JJ repo root (not current_dir).
+    #[test]
+    fn test_workspace_path_from_env_var_is_resolved_correctly() {
+        let Some(harness) = TestHarness::try_new() else {
+            return;
+        };
+
+        // Initialize zjj first
+        harness.assert_success(&["init"]);
+
+        // Create a session to trigger workspace creation
+        let result = harness.zjj(&["add", "test-workspace-path", "--no-zellij", "--no-hooks"]);
+
+        // The command should succeed
+        if !result.success {
+            // Fail with clear error message for debugging
+            panic!(
+                "zjj add failed: {}\nstdout: {}\nstderr: {}",
+                result.exit_code.unwrap_or(-1),
+                result.stdout,
+                result.stderr
+            );
+        }
+
+        // Verify the workspace was created in the correct location
+        // Expected: {temp_repo}/workspaces/test-workspace-path
+        let expected_path = harness.workspace_path("test-workspace-path");
+        assert!(
+            expected_path.exists(),
+            "Workspace should exist at expected path: {}",
+            expected_path.display()
+        );
+
+        // Cleanup
+        let _ = harness.zjj(&["remove", "test-workspace-path", "--merge"]);
+    }
+
+    /// RED Phase: Test that workspace path is inside the test repo (not elsewhere)
+    ///
+    /// This prevents workspaces from being created outside the temp directory,
+    /// which would cause test pollution and cleanup issues.
+    #[test]
+    fn test_workspace_path_is_inside_test_repo() {
+        let Some(harness) = TestHarness::try_new() else {
+            return;
+        };
+
+        // Initialize zjj first
+        harness.assert_success(&["init"]);
+
+        // Create a session
+        let session_name = "test-workspace-containment";
+        let result = harness.zjj(&["add", session_name, "--no-zellij", "--no-hooks"]);
+
+        assert!(
+            result.success,
+            "zjj add failed: {}",
+            result.stderr
+        );
+
+        // Verify the workspace is inside the test repo by checking the expected location
+        let workspace_path = harness.workspace_path(session_name);
+        assert!(
+            workspace_path.exists(),
+            "Workspace should exist at expected path: {}",
+            workspace_path.display()
+        );
+
+        assert!(
+            workspace_path.starts_with(&harness.repo_path),
+            "Workspace path {} should be inside test repo {}",
+            workspace_path.display(),
+            harness.repo_path.display()
+        );
+
+        // Cleanup
+        let _ = harness.zjj(&["remove", session_name, "--merge"]);
+    }
+
+    /// RED Phase: Test that workspace_dir can be configured per test
+    ///
+    /// This validates that tests can override the workspace location
+    /// if needed for specific test scenarios.
+    #[test]
+    fn test_workspace_dir_is_configurable_via_env() {
+        let Some(harness) = TestHarness::try_new() else {
+            return;
+        };
+
+        // Initialize zjj first
+        harness.assert_success(&["init"]);
+
+        // Custom workspace directory for this test
+        let custom_workspace = "custom-workspaces";
+
+        // Add a session with custom workspace dir
+        let result = harness.zjj_with_env(
+            &["add", "test-custom-workspace", "--no-zellij", "--no-hooks"],
+            &[("ZJJ_WORKSPACE_DIR", custom_workspace)],
+        );
+
+        assert!(
+            result.success,
+            "zjj add with custom workspace_dir failed: {}",
+            result.stderr
+        );
+
+        // Verify workspace was created in custom location
+        let expected_path = harness.repo_path.join(custom_workspace).join("test-custom-workspace");
+        assert!(
+            expected_path.exists(),
+            "Workspace should exist at custom path: {}",
+            expected_path.display()
+        );
+
+        // Cleanup
+        let _ = harness.zjj(&["remove", "test-custom-workspace", "--merge"]);
+    }
 }
