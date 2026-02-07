@@ -2376,8 +2376,6 @@ pub fn cmd_backup() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Apply retention policy and remove old backups"),
         )
-        .arg(
-        )
 }
 
 pub fn build_cli() -> ClapCommand {

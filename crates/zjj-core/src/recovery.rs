@@ -3,10 +3,7 @@
 //! This module provides functionality to log recovery actions
 //! to .zjj/recovery.log for audit trails.
 
-use std::{
-    fs::File,
-    path::Path,
-};
+use std::{fs::File, path::Path};
 
 use fs2::FileExt;
 use sqlx::Row;

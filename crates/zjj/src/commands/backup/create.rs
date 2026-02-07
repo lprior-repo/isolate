@@ -1,0 +1,165 @@
+//! Backup creation functionality
+
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![forbid(unsafe_code)]
+
+use anyhow::{Context, Result};
+use chrono::Utc;
+use std::path::{Path, PathBuf};
+
+use super::{
+    compute_checksum, generate_backup_filename, get_database_backup_dir, BackupConfig,
+    BackupMetadata,
+};
+use tokio::fs;
+
+/// Create a backup of a database file
+///
+/// # Errors
+///
+/// Returns error if:
+/// - Source database file does not exist
+/// - Backup directory cannot be created
+/// - File copy fails
+/// - Metadata cannot be written
+pub async fn create_backup(
+    database_path: &Path,
+    config: &BackupConfig,
+) -> Result<PathBuf> {
+    // Validate source database exists
+    anyhow::ensure!(
+        database_path.exists(),
+        "Source database does not exist: {}",
+        database_path.display()
+    );
+
+    // Get database name from path
+    let database_name = database_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Invalid database path"))?;
+
+    // Create backup directory structure
+    let backup_dir = get_database_backup_dir(&config.backup_dir, database_name);
+    fs::create_dir_all(&backup_dir)
+        .await
+        .context("Failed to create backup directory")?;
+
+    // Generate backup filename with timestamp
+    let timestamp = Utc::now();
+    let backup_filename = generate_backup_filename(&timestamp);
+    let backup_path = backup_dir.join(&backup_filename);
+
+    // Copy database file to backup location
+    fs::copy(database_path, &backup_path)
+        .await
+        .context("Failed to copy database file")?;
+
+    // Get backup file size
+    let metadata = fs::metadata(&backup_path)
+        .await
+        .context("Failed to get backup file metadata")?;
+    let size_bytes = metadata.len();
+
+    // Compute checksum for integrity verification
+    let checksum = compute_checksum(&backup_path)
+        .await
+        .context("Failed to compute backup checksum")?;
+
+    // Create and save metadata
+    let backup_metadata = BackupMetadata::new(database_name.to_string(), size_bytes, checksum);
+    let metadata_path = backup_path.with_extension("json");
+    let metadata_json = serde_json::to_string_pretty(&backup_metadata)
+        .context("Failed to serialize backup metadata")?;
+
+    fs::write(&metadata_path, metadata_json)
+        .await
+        .context("Failed to write backup metadata")?;
+
+    Ok(backup_path)
+}
+
+/// Create backups for all zjj databases
+///
+/// # Errors
+///
+/// Returns error if any backup operation fails
+pub async fn backup_all_databases(root: &Path, config: &BackupConfig) -> Result<Vec<PathBuf>> {
+    let databases = vec!["state.db", "queue.db"];
+
+    let zjj_dir = root.join(".zjj");
+    let beads_dir = root.join(".beads");
+
+    let mut backup_paths = Vec::new();
+
+    // Backup .zjj databases
+    for db_name in &databases {
+        let db_path = zjj_dir.join(db_name);
+        if db_path.exists() {
+            match create_backup(&db_path, config).await {
+                Ok(path) => backup_paths.push(path),
+                Err(e) => {
+                    tracing::warn!("Failed to backup {}: {}", db_name, e);
+                    // Continue with other databases
+                }
+            }
+        }
+    }
+
+    // Backup beads.db
+    let beads_db_path = beads_dir.join("beads.db");
+    if beads_db_path.exists() {
+        match create_backup(&beads_db_path, config).await {
+            Ok(path) => backup_paths.push(path),
+            Err(e) => {
+                tracing::warn!("Failed to backup beads.db: {}", e);
+            }
+        }
+    }
+
+    Ok(backup_paths)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_create_backup_creates_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        // Create test database file
+        let db_path = root.join("test.db");
+        fs::write(&db_path, b"test data").await.unwrap();
+
+        let config = BackupConfig {
+            backup_dir: root.join("backups"),
+            ..Default::default()
+        };
+
+        let backup_path = create_backup(&db_path, &config)
+            .await
+            .unwrap();
+
+        assert!(backup_path.exists());
+        assert!(backup_path.with_extension("json").exists());
+    }
+
+    #[tokio::test]
+    async fn test_create_backup_nonexistent_database() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        let db_path = root.join("nonexistent.db");
+        let config = BackupConfig {
+            backup_dir: root.join("backups"),
+            ..Default::default()
+        };
+
+        assert!(create_backup(&db_path, &config).await.is_err());
+    }
+}

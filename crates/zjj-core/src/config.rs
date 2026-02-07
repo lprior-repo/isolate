@@ -30,13 +30,12 @@
 
 use std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 
+// Import notify for Watcher trait
+use notify::Watcher;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
 
 use crate::{Error, Result};
-
-// Import notify for Watcher trait
-use notify::Watcher;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -413,13 +412,15 @@ impl ConfigManager {
             }
 
             // Use notify to watch config files
-            let result = notify::recommended_watcher(move |res: std::result::Result<notify::Event, notify::Error>| {
-                if let Ok(event) = res {
-                    if event.kind.is_modify() || event.kind.is_create() {
-                        let _ = tx.blocking_send(());
+            let result = notify::recommended_watcher(
+                move |res: std::result::Result<notify::Event, notify::Error>| {
+                    if let Ok(event) = res {
+                        if event.kind.is_modify() || event.kind.is_create() {
+                            let _ = tx.blocking_send(());
+                        }
                     }
-                }
-            });
+                },
+            );
 
             let mut watcher = match result {
                 Ok(w) => w,

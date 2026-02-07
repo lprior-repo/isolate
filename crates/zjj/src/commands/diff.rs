@@ -68,15 +68,13 @@ fn map_jj_error(e: &std::io::Error, operation: &str) -> anyhow::Error {
 /// Returns Ok(Some(session_name)) if in a workspace
 /// Returns Ok(None) if not in a workspace
 /// Returns Err if workspace detection fails
-async fn detect_session_from_workspace(
-    db: &crate::db::SessionDb,
-) -> Result<Option<String>> {
+async fn detect_session_from_workspace(db: &crate::db::SessionDb) -> Result<Option<String>> {
     use std::path::Path;
+
     use anyhow::Context as _;
 
     // Get current directory
-    let current_dir = std::env::current_dir()
-        .context("Failed to get current directory")?;
+    let current_dir = std::env::current_dir().context("Failed to get current directory")?;
 
     // Try to get JJ workspace root
     let output = tokio::process::Command::new("jj")
@@ -85,9 +83,7 @@ async fn detect_session_from_workspace(
         .await;
 
     let workspace_root = match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout).trim().to_string()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).trim().to_string(),
         _ => return Ok(None), // Not in a JJ repo
     };
 

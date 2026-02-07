@@ -119,9 +119,7 @@ pub fn run(options: &WhatIfOptions) -> Result<()> {
             let temp_path = save_full_output_to_temp(&output)?;
             println!("{truncated}");
             println!();
-            println!(
-                "⚠ Output truncated to 4KB for display. Full output saved to: {temp_path}"
-            );
+            println!("⚠ Output truncated to 4KB for display. Full output saved to: {temp_path}");
         } else {
             println!("{output}");
         }
@@ -135,7 +133,12 @@ fn format_human_output(result: &WhatIfResult) -> Result<String> {
     use std::fmt::Write;
 
     let mut output = String::new();
-    writeln!(output, "What if: {} {}", result.command, result.args.join(" "))?;
+    writeln!(
+        output,
+        "What if: {} {}",
+        result.command,
+        result.args.join(" ")
+    )?;
     writeln!(output)?;
 
     if !result.prerequisites.is_empty() {
@@ -146,7 +149,11 @@ fn format_human_output(result: &WhatIfResult) -> Result<String> {
                 PrerequisiteStatus::NotMet => "✗",
                 PrerequisiteStatus::Unknown => "?",
             };
-            writeln!(output, "  {status} {}: {}", prereq.check, prereq.description)?;
+            writeln!(
+                output,
+                "  {status} {}: {}",
+                prereq.check, prereq.description
+            )?;
         }
         writeln!(output)?;
     }
@@ -862,7 +869,9 @@ mod tests {
         if let Err(e) = result {
             let err_msg = e.to_string().to_lowercase();
             assert!(
-                err_msg.contains("invalid") || err_msg.contains("empty") || err_msg.contains("validation"),
+                err_msg.contains("invalid")
+                    || err_msg.contains("empty")
+                    || err_msg.contains("validation"),
                 "Expected validation error for empty name, got: {e}"
             );
         }
@@ -876,7 +885,9 @@ mod tests {
         if let Err(e) = result {
             let err_msg = e.to_string().to_lowercase();
             assert!(
-                err_msg.contains("invalid") || err_msg.contains("exceed") || err_msg.contains("validation"),
+                err_msg.contains("invalid")
+                    || err_msg.contains("exceed")
+                    || err_msg.contains("validation"),
                 "Expected validation error for too-long name, got: {e}"
             );
         }
@@ -901,7 +912,9 @@ mod tests {
             if let Err(e) = result {
                 let err_msg = e.to_string().to_lowercase();
                 assert!(
-                    err_msg.contains("invalid") || err_msg.contains("validation") || err_msg.contains("ascii"),
+                    err_msg.contains("invalid")
+                        || err_msg.contains("validation")
+                        || err_msg.contains("ascii"),
                     "Expected validation error for '{name}', got: {e}"
                 );
             }
@@ -910,13 +923,7 @@ mod tests {
 
     #[test]
     fn test_whatif_validates_session_name_valid() -> Result<()> {
-        let valid_names = vec![
-            "test-session",
-            "test_session",
-            "TestSession",
-            "abc123",
-            "a",
-        ];
+        let valid_names = vec!["test-session", "test_session", "TestSession", "abc123", "a"];
 
         for name in valid_names {
             let result = preview_add(&[name.to_string()]);

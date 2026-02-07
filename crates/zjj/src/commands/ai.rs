@@ -201,7 +201,10 @@ fn print_status_human(output: &AiStatusOutput) {
         "Initialized:   {}",
         if output.initialized { "yes" } else { "no" }
     );
-    println!("Active work:   {}", format_session_count(output.active_sessions));
+    println!(
+        "Active work:   {}",
+        format_session_count(output.active_sessions)
+    );
     println!();
     println!(
         "Status: {}",

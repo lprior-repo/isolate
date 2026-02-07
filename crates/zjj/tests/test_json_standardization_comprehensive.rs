@@ -32,7 +32,9 @@ fn validate_envelope(json: &serde_json::Value, expected_schema: &str) -> Result<
         .ok_or_else(|| "Missing _schema_version field".to_string())?;
 
     if version != "1.0" {
-        return Err(format!("Schema version mismatch: expected 1.0, got {version}"));
+        return Err(format!(
+            "Schema version mismatch: expected 1.0, got {version}"
+        ));
     }
 
     // Check for schema_type field
@@ -330,10 +332,7 @@ fn test_error_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
         let error = parsed.get("error").unwrap();
 
         // Check error has required fields
-        assert!(
-            error.get("code").is_some(),
-            "Error should have code field"
-        );
+        assert!(error.get("code").is_some(), "Error should have code field");
         assert!(
             error.get("message").is_some(),
             "Error should have message field"
@@ -357,7 +356,10 @@ fn test_schema_uri_consistency() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test multiple commands
     let commands = vec![
-        (vec!["add", "uri-test", "--json", "--no-open"], "add-response"),
+        (
+            vec!["add", "uri-test", "--json", "--no-open"],
+            "add-response",
+        ),
         (vec!["list", "--json"], "list-response"),
     ];
 
@@ -439,14 +441,8 @@ fn test_hateoas_links_field() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(arr) = links.as_array() {
                 // Each link should have rel and href
                 for link in arr {
-                    assert!(
-                        link.get("rel").is_some(),
-                        "Link should have rel field"
-                    );
-                    assert!(
-                        link.get("href").is_some(),
-                        "Link should have href field"
-                    );
+                    assert!(link.get("rel").is_some(), "Link should have rel field");
+                    assert!(link.get("href").is_some(), "Link should have href field");
                 }
             }
         }

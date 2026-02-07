@@ -123,12 +123,7 @@ impl LockManager {
     }
 
     /// Log a lock operation to the audit trail.
-    async fn log_operation(
-        &self,
-        session: &str,
-        agent_id: &str,
-        operation: &str,
-    ) -> Result<()> {
+    async fn log_operation(&self, session: &str, agent_id: &str, operation: &str) -> Result<()> {
         let now_str = Utc::now().to_rfc3339();
 
         sqlx::query(
@@ -202,15 +197,10 @@ impl LockManager {
 
         let expires_at = now + self.ttl;
         let expires_str = expires_at.to_rfc3339();
-        let nanos = now.timestamp_nanos_opt().map_or_else(
-            || now.timestamp() * 1_000_000_000,
-            |n| n
-        );
-        let lock_id = format!(
-            "lock-{}-{}",
-            session,
-            nanos
-        );
+        let nanos = now
+            .timestamp_nanos_opt()
+            .map_or_else(|| now.timestamp() * 1_000_000_000, |n| n);
+        let lock_id = format!("lock-{}-{}", session, nanos);
 
         sqlx::query(
             "INSERT INTO session_locks (lock_id, session, agent_id, acquired_at, expires_at) VALUES (?, ?, ?, ?, ?)",
@@ -268,7 +258,8 @@ impl LockManager {
             }),
             None => {
                 // No active lock - detect and log double unlock
-                self.log_operation(session, agent_id, "double_unlock_warning").await?;
+                self.log_operation(session, agent_id, "double_unlock_warning")
+                    .await?;
                 Ok(())
             }
         }
@@ -616,7 +607,11 @@ mod tests {
         let audit_log = mgr.get_lock_audit_log("session-1").await?;
 
         // Should have 2 entries: lock + unlock
-        assert_eq!(audit_log.len(), 2, "Expected 2 audit entries (lock + unlock)");
+        assert_eq!(
+            audit_log.len(),
+            2,
+            "Expected 2 audit entries (lock + unlock)"
+        );
 
         // First entry should be lock
         assert_eq!(audit_log[0].operation, "lock");
@@ -631,7 +626,11 @@ mod tests {
 
         let audit_log2 = mgr.get_lock_audit_log("session-1").await?;
         // Should have 3 entries now: lock + unlock + double_unlock_warning
-        assert_eq!(audit_log2.len(), 3, "Expected 3 audit entries with double unlock warning");
+        assert_eq!(
+            audit_log2.len(),
+            3,
+            "Expected 3 audit entries with double unlock warning"
+        );
 
         // Third entry should be marked as double unlock
         assert_eq!(audit_log2[2].operation, "double_unlock_warning");

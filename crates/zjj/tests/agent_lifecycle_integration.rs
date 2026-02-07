@@ -132,9 +132,7 @@ async fn lifecycle_complete_happy_path() -> Result<()> {
     tokio::time::sleep(Duration::from_millis(10)).await;
 
     // Step 6: Agent completes work
-    ctx.merge_queue
-        .mark_completed("workspace-1")
-        .await?;
+    ctx.merge_queue.mark_completed("workspace-1").await?;
 
     // Step 7: Agent releases lock
     ctx.release_lock("workspace-1", "agent-1").await?;
@@ -191,9 +189,7 @@ async fn lifecycle_agent_failure_during_processing() -> Result<()> {
     assert!(entry3.is_some(), "should claim after timeout");
 
     // Complete work
-    ctx.merge_queue
-        .mark_completed("workspace-1")
-        .await?;
+    ctx.merge_queue.mark_completed("workspace-1").await?;
 
     Ok(())
 }
@@ -217,8 +213,12 @@ async fn lifecycle_session_lock_contention() -> Result<()> {
     let result = ctx.lock_manager.lock("session-1", "agent-2").await;
     assert!(result.is_err(), "should fail - session locked");
 
-    let err = result.err().ok_or_else(|| Error::Unknown("expected error".into()))?;
-    assert!(matches!(err, Error::SessionLocked { session, holder } if session == "session-1" && holder == "agent-1"));
+    let err = result
+        .err()
+        .ok_or_else(|| Error::Unknown("expected error".into()))?;
+    assert!(
+        matches!(err, Error::SessionLocked { session, holder } if session == "session-1" && holder == "agent-1")
+    );
 
     // Agent 1 releases lock
     ctx.release_lock("session-1", "agent-1").await?;
@@ -275,7 +275,10 @@ async fn lifecycle_work_priority_ordering() -> Result<()> {
     // Next should be high priority
     let entry = ctx.merge_queue.next_with_lock("agent-1").await?;
     assert!(entry.is_some());
-    assert_eq!(entry.as_ref().map(|e| e.workspace.as_str()), Some("high-priority"));
+    assert_eq!(
+        entry.as_ref().map(|e| e.workspace.as_str()),
+        Some("high-priority")
+    );
 
     Ok(())
 }
@@ -404,9 +407,7 @@ async fn lifecycle_cleanup_old_work() -> Result<()> {
     let entry = ctx.merge_queue.next_with_lock("agent-1").await?;
     assert!(entry.is_some());
 
-    ctx.merge_queue
-        .mark_completed("workspace-1")
-        .await?;
+    ctx.merge_queue.mark_completed("workspace-1").await?;
     ctx.merge_queue.release_processing_lock("agent-1").await?;
 
     // Verify completed
@@ -414,9 +415,7 @@ async fn lifecycle_cleanup_old_work() -> Result<()> {
     assert_eq!(stats.completed, 1);
 
     // Cleanup old entries (max_age = 0 seconds, so all should be cleaned)
-    let cleaned = ctx.merge_queue
-        .cleanup(Duration::from_secs(0))
-        .await?;
+    let cleaned = ctx.merge_queue.cleanup(Duration::from_secs(0)).await?;
     assert_eq!(cleaned, 1, "should clean 1 completed entry");
 
     // Verify cleanup
@@ -447,7 +446,10 @@ async fn lifecycle_concurrent_registration() -> Result<()> {
 
     // Should still be only one agent
     let count = ctx.agent_count().await?;
-    assert_eq!(count, 1, "should have only 1 agent after concurrent registration");
+    assert_eq!(
+        count, 1,
+        "should have only 1 agent after concurrent registration"
+    );
 
     Ok(())
 }
@@ -461,10 +463,7 @@ async fn lifecycle_lock_timeout_expiry() -> Result<()> {
     let ctx = IntegrationTestContext::new().await?;
 
     // Create lock manager with short TTL (1 second)
-    let lock_manager = LockManager::with_ttl(
-        ctx.pool.clone(),
-        chrono::Duration::seconds(1),
-    );
+    let lock_manager = LockManager::with_ttl(ctx.pool.clone(), chrono::Duration::seconds(1));
     lock_manager.init().await?;
 
     ctx.register_agent("agent-1").await?;

@@ -1240,7 +1240,10 @@ mod tests {
     fn test_query_missing_arg_error_format_is_consistent() {
         // Test session-exists (requires arg)
         let session_exists_info = QueryTypeInfo::find("session-exists");
-        assert!(session_exists_info.is_some(), "session-exists should have metadata");
+        assert!(
+            session_exists_info.is_some(),
+            "session-exists should have metadata"
+        );
 
         let error_msg = session_exists_info.unwrap().format_error_message();
         assert!(
@@ -1284,7 +1287,10 @@ mod tests {
 
         // Test suggest-name (requires arg)
         let suggest_name_info = QueryTypeInfo::find("suggest-name");
-        assert!(suggest_name_info.is_some(), "suggest-name should have metadata");
+        assert!(
+            suggest_name_info.is_some(),
+            "suggest-name should have metadata"
+        );
 
         let error_msg = suggest_name_info.unwrap().format_error_message();
         assert!(
@@ -1302,7 +1308,10 @@ mod tests {
     fn test_query_optional_arg_message_indicates_optional() {
         // Test session-count (optional arg)
         let session_count_info = QueryTypeInfo::find("session-count");
-        assert!(session_count_info.is_some(), "session-count should have metadata");
+        assert!(
+            session_count_info.is_some(),
+            "session-count should have metadata"
+        );
 
         let error_msg = session_count_info.unwrap().format_error_message();
         assert!(
