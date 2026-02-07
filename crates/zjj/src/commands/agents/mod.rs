@@ -467,13 +467,16 @@ pub async fn run_status(format: OutputFormat) -> Result<()> {
 ///
 /// # Errors
 ///
-/// Returns error if no agent ID or database access fails
+/// Returns error if no agent ID, invalid agent ID, or database access fails
 pub async fn run_unregister(args: &UnregisterArgs, format: OutputFormat) -> Result<()> {
     let agent_id = args
         .agent_id
         .clone()
         .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
         .ok_or_else(|| anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --id"))?;
+
+    // Validate agent ID
+    validate_agent_id(&agent_id)?;
 
     let pool = get_db_pool().await?;
 
@@ -509,14 +512,13 @@ fn generate_agent_id() -> String {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
-        .unwrap_or(0);
+        .map_or(0u128, |v| v);
 
     // Use PID to make IDs unique across concurrent processes
     let pid = std::process::id();
 
-    format!(
-        "agent-{:08x}-{:04x}",
-        u32::try_from(timestamp).unwrap_or(u32::MAX),
-        u16::try_from(pid).unwrap_or(u16::MAX)
-    )
+    let timestamp_u32 = u32::try_from(timestamp).map_or(u32::MAX, |v| v);
+    let pid_u16 = u16::try_from(pid).map_or(u16::MAX, |v| v);
+
+    format!("agent-{:08x}-{:04x}", timestamp_u32, pid_u16)
 }
