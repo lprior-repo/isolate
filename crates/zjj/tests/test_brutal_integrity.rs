@@ -28,7 +28,9 @@ use tokio::{
     task::JoinSet,
 };
 use zjj_core::{
-    workspace_integrity::{CorruptionType, IntegrityValidator, RepairExecutor},
+    workspace_integrity::{
+        BackupManager, CorruptionType, IntegrityValidator, RepairExecutor,
+    },
     Error, Result,
 };
 
@@ -71,7 +73,9 @@ impl IntegrityHarness {
 
         // Pre-construct validator and executor for reuse
         let validator = Arc::new(IntegrityValidator::new(&workspaces_root));
-        let executor = Arc::new(RepairExecutor::new().with_always_backup(true));
+        // ADVERSARIAL FIX: Provide backup manager to prevent runtime error
+        let backup_manager = BackupManager::new(&workspaces_root);
+        let executor = Arc::new(RepairExecutor::new().with_backup_manager(backup_manager));
 
         Ok(Self {
             inner: Arc::new(IntegrityHarnessInner {
