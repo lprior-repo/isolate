@@ -71,7 +71,7 @@ async fn test_watcher_detects_file_changes() -> Result<()> {
     };
 
     // Start watching
-    let mut rx = FileWatcher::watch_workspaces(&config, vec![workspace_path.clone()])
+    let mut rx = FileWatcher::watch_workspaces(&config, std::slice::from_ref(&workspace_path))
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
     // Wait for watcher to initialize (reduced from 100ms -> 30ms)
@@ -132,7 +132,7 @@ async fn test_watcher_debounces_rapid_changes() -> Result<()> {
         paths: vec![".beads/beads.db".to_string()],
     };
 
-    let mut rx = FileWatcher::watch_workspaces(&config, vec![workspace_path.clone()])
+    let mut rx = FileWatcher::watch_workspaces(&config, std::slice::from_ref(&workspace_path))
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
     // Reduced initialization delay (50ms -> 30ms)
@@ -140,7 +140,7 @@ async fn test_watcher_debounces_rapid_changes() -> Result<()> {
 
     // Perform rapid writes (reduced iterations: 3 -> 2)
     for i in 0..2 {
-        fs::write(&beads_db, format!("content {}", i).as_bytes())
+        fs::write(&beads_db, format!("content {i}").as_bytes())
             .await
             .map_err(|e| zjj_core::Error::IoError(format!("Failed to write iteration {i}: {e}")))?;
 
@@ -172,8 +172,7 @@ async fn test_watcher_debounces_rapid_changes() -> Result<()> {
                     break;
                 }
             }
-            Ok(None) => break, // Channel closed
-            Err(_) => break,   // Timeout - no more events
+            Ok(None) | Err(_) => break,
         }
     }
 
@@ -217,9 +216,10 @@ async fn test_watcher_handles_multiple_workspaces() -> Result<()> {
         paths: vec![".beads/beads.db".to_string()],
     };
 
+    let workspace_paths = vec![workspace1.clone(), workspace2.clone(), workspace3.clone()];
     let mut rx = FileWatcher::watch_workspaces(
         &config,
-        vec![workspace1.clone(), workspace2.clone(), workspace3.clone()],
+        &workspace_paths,
     )
     .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
@@ -248,11 +248,8 @@ async fn test_watcher_handles_multiple_workspaces() -> Result<()> {
 
     while start.elapsed() < Duration::from_millis(800) && events.len() < 3 {
         match timeout(Duration::from_millis(250), rx.recv()).await {
-            Ok(Some(event)) => {
-                events.push(event);
-            }
-            Ok(None) => break,
-            Err(_) => break,
+            Ok(Some(event)) => events.push(event),
+            Ok(None) | Err(_) => break,
         }
     }
 
@@ -309,7 +306,7 @@ async fn test_watcher_handles_missing_database() -> Result<()> {
     };
 
     // This should not fail - watcher should handle missing database
-    let result = FileWatcher::watch_workspaces(&config, vec![workspace_path]);
+    let result = FileWatcher::watch_workspaces(&config, &[workspace_path]);
 
     assert!(
         result.is_ok(),
@@ -350,7 +347,7 @@ async fn test_watcher_handles_concurrent_modifications() -> Result<()> {
         paths: vec![".beads/beads.db".to_string()],
     };
 
-    let mut rx = FileWatcher::watch_workspaces(&config, vec![workspace_path.clone()])
+    let mut rx = FileWatcher::watch_workspaces(&config, std::slice::from_ref(&workspace_path))
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
     // Reduced initialization delay (50ms -> 30ms)
@@ -381,7 +378,7 @@ async fn test_watcher_handles_concurrent_modifications() -> Result<()> {
     let start = std::time::Instant::now();
     let mut received_any = false;
 
-    while start.elapsed() < Duration::from_millis(700) {
+    while start.elapsed() < Duration::from_millis(700) && !received_any {
         match timeout(Duration::from_millis(250), rx.recv()).await {
             Ok(Some(event)) => {
                 match event {
@@ -394,10 +391,11 @@ async fn test_watcher_handles_concurrent_modifications() -> Result<()> {
                 received_any = true;
                 // Reduced debounce confirmation wait (150ms -> 100ms)
                 tokio::time::sleep(Duration::from_millis(100)).await;
-                break;
             }
             Ok(None) => break,
-            Err(_) => break,
+            Err(_) => {
+                // Timeout - continue waiting if we still have time
+            }
         }
     }
 
@@ -438,7 +436,7 @@ async fn test_watcher_rapid_changes_different_workspaces() -> Result<()> {
     };
 
     let mut rx =
-        FileWatcher::watch_workspaces(&config, vec![workspace1.clone(), workspace2.clone()])
+        FileWatcher::watch_workspaces(&config, &[workspace1.clone(), workspace2.clone()])
             .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
     tokio::time::sleep(Duration::from_millis(50)).await;
@@ -458,11 +456,8 @@ async fn test_watcher_rapid_changes_different_workspaces() -> Result<()> {
 
     while start.elapsed() < Duration::from_millis(600) {
         match timeout(Duration::from_millis(250), rx.recv()).await {
-            Ok(Some(event)) => {
-                events.push(event);
-            }
-            Ok(None) => break,
-            Err(_) => break,
+            Ok(Some(event)) => events.push(event),
+            Ok(None) | Err(_) => break,
         }
     }
 
@@ -484,9 +479,7 @@ async fn test_watcher_rapid_changes_different_workspaces() -> Result<()> {
 
     assert!(
         ws1_events > 0 && ws2_events > 0,
-        "Both workspaces should have events: ws1={}, ws2={}",
-        ws1_events,
-        ws2_events
+        "Both workspaces should have events: ws1={ws1_events}, ws2={ws2_events}"
     );
 
     Ok(())
@@ -504,7 +497,7 @@ fn test_watcher_rejects_invalid_debounce_too_low() {
         paths: vec![".beads/beads.db".to_string()],
     };
 
-    let result = FileWatcher::watch_workspaces(&config, vec![]);
+    let result = FileWatcher::watch_workspaces(&config, &[]);
     assert!(result.is_err(), "Should reject debounce_ms < 10");
 
     if let Err(e) = result {
@@ -520,7 +513,7 @@ fn test_watcher_rejects_invalid_debounce_too_high() {
         paths: vec![".beads/beads.db".to_string()],
     };
 
-    let result = FileWatcher::watch_workspaces(&config, vec![]);
+    let result = FileWatcher::watch_workspaces(&config, &[]);
     assert!(result.is_err(), "Should reject debounce_ms > 5000");
 
     if let Err(e) = result {
@@ -536,7 +529,7 @@ fn test_watcher_rejects_disabled_config() {
         paths: vec![".beads/beads.db".to_string()],
     };
 
-    let result = FileWatcher::watch_workspaces(&config, vec![]);
+    let result = FileWatcher::watch_workspaces(&config, &[]);
     assert!(result.is_err(), "Should reject disabled watcher");
 
     if let Err(e) = result {
@@ -571,14 +564,14 @@ async fn test_watcher_channel_capacity() -> Result<()> {
         paths: vec![".beads/beads.db".to_string()],
     };
 
-    let mut rx = FileWatcher::watch_workspaces(&config, vec![workspace_path.clone()])
+    let mut rx = FileWatcher::watch_workspaces(&config, std::slice::from_ref(&workspace_path))
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
     tokio::time::sleep(Duration::from_millis(50)).await;
 
     // Don't consume events immediately - test channel buffering (reduced iterations: 10 -> 7)
     for i in 0..7 {
-        fs::write(&beads_db, format!("content {}", i).as_bytes())
+        fs::write(&beads_db, format!("content {i}").as_bytes())
             .await
             .map_err(|e| zjj_core::Error::IoError(format!("Failed to write iteration {i}: {e}")))?;
         tokio::time::sleep(Duration::from_millis(40)).await;
@@ -593,16 +586,14 @@ async fn test_watcher_channel_capacity() -> Result<()> {
             Ok(Some(_)) => {
                 event_count += 1;
             }
-            Ok(None) => break,
-            Err(_) => break,
+            Ok(None) | Err(_) => break,
         }
     }
 
     // Should receive at least some events
     assert!(
         event_count > 0,
-        "Should receive events through channel, got {}",
-        event_count
+        "Should receive events through channel, got {event_count}"
     );
 
     Ok(())

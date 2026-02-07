@@ -3,7 +3,7 @@
 use std::{io::Write, path::Path, time::SystemTime};
 
 use anyhow::{Context, Result};
-// Removed unused StreamExt import
+use futures::StreamExt;
 use zjj_core::{
     json::{ErrorDetail, SchemaEnvelope},
     OutputFormat,
@@ -70,6 +70,7 @@ async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<(
 }
 
 /// Sync all sessions
+#[allow(clippy::too_many_lines)]
 async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
     let db = get_session_db().await?;
 
@@ -94,11 +95,8 @@ async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
         return Ok(());
     }
 
-    use futures::StreamExt;
-
-    // ... inside sync_all_with_options ...
+    // For JSON output, collect results concurrently and output once at the end
     if options.format.is_json() {
-        // For JSON output, collect results concurrently and output once at the end
         let results: Vec<_> = futures::stream::iter(sessions)
             .map(|session| {
                 let db = &db;
@@ -187,9 +185,9 @@ async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
 
         if !errors.is_empty() {
             println!("\nErrors:");
-            errors.into_iter().for_each(|(name, error)| {
+            for (name, error) in errors {
                 println!("  {name}: {error}");
-            });
+            }
             anyhow::bail!("Failed to sync {failure_count} session(s)");
         }
     }

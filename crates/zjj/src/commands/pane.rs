@@ -254,10 +254,10 @@ pub async fn pane_list(session_name: &str, options: &PaneListOptions) -> Result<
     } else {
         let mut stdout = std::io::stdout();
         writeln!(stdout, "Panes in session '{session_name}':")?;
-        panes.iter().for_each(|pane| {
+        for pane in &panes {
             let focused_mark = if pane.focused { "*" } else { " " };
-            let _ = writeln!(stdout, " {focused_mark} {} - {}", pane.id, pane.title);
-        });
+            writeln!(stdout, " {focused_mark} {} - {}", pane.id, pane.title)?;
+        }
     }
 
     Ok(())

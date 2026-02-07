@@ -249,7 +249,7 @@ async fn setup_file_watcher(
         .map(|s| PathBuf::from(s.workspace_path))
         .collect();
 
-    FileWatcher::watch_workspaces(&config.watch, workspaces).context("Failed to setup file watcher")
+    FileWatcher::watch_workspaces(&config.watch, &workspaces).context("Failed to setup file watcher")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

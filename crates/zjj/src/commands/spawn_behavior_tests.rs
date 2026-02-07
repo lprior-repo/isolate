@@ -463,10 +463,10 @@ mod brutal_edge_cases {
 
     #[tokio::test]
     async fn given_two_spawns_same_bead_when_racing_then_one_succeeds() {
-        let _lock = get_cwd_lock().await;
         use std::sync::Arc;
-
         use tokio::sync::Barrier;
+
+        let _lock = get_cwd_lock().await;
 
         // Given: Two tasks spawning same bead simultaneously
         let Ok(repo_val) = TestRepo::new().await else {
@@ -573,7 +573,7 @@ mod brutal_edge_cases {
     // ========================================================================
 
     #[tokio::test]
-    async fn given_spawn_when_agent_runs_then_env_vars_set() {
+    async fn given_spawn_when_agent_runs_then_env_vars_set() -> Result<(), anyhow::Error> {
         let _lock = get_cwd_lock().await;
         // Given: A spawn operation
         let repo = setup_test_repo().await;
@@ -612,8 +612,9 @@ exit 0
             }
         }
 
-        let script_path_str = script_path.to_str()
-            .expect("script path should be valid UTF-8");
+        let script_path_str = script_path
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("script path should be valid UTF-8"))?;
         let options = test_spawn_options("test-bead-1", script_path_str, vec![]);
 
         // When: Agent runs
@@ -636,5 +637,10 @@ exit 0
                 panic!("Spawn should succeed and agent should receive env vars: {e}");
             }
         }
+
+        #[cfg(not(unix))]
+        let _ = result;
+
+        Ok(())
     }
 }

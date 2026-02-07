@@ -329,6 +329,7 @@ mod tests {
     }
 
     // Async version for use in async test contexts
+    #[allow(dead_code)]
     async fn create_temp_config_async(content: &str) -> Result<(TempDir, PathBuf)> {
         let temp_dir = TempDir::new()?;
         let config_path = temp_dir.path().join("config.toml");

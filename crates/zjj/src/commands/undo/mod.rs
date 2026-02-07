@@ -183,7 +183,7 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
         println!("Undo History ({} entries):", entries.len());
         println!();
 
-        entries.iter().enumerate().for_each(|(i, entry)| {
+        for (i, entry) in entries.iter().enumerate() {
             let status_indicator = if entry.can_undo { "✓" } else { "✗" };
             let index = i + 1;
 
@@ -198,7 +198,7 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
                 println!("      Cannot undo: {reason}");
             }
             println!();
-        });
+        }
 
         if can_undo_any {
             println!("Run 'zjj undo' to revert the most recent undoable entry.");
@@ -356,7 +356,7 @@ async fn update_undo_history(
     let new_content = history
         .iter()
         .skip(1)
-        .map(|hist_entry| serde_json::to_string(hist_entry))
+        .map(serde_json::to_string)
         .chain(std::iter::once(serde_json::to_string(&updated_entry)))
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| UndoError::SerializationError {

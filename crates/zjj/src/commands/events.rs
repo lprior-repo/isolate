@@ -151,7 +151,7 @@ async fn run_follow(options: &EventsOptions) -> Result<()> {
         )
         .await?;
 
-        events.iter().for_each(|event| {
+        for event in &events {
             if options.format.is_json() {
                 if let Ok(json) = serde_json::to_string(event) {
                     println!("{json}");
@@ -170,7 +170,7 @@ async fn run_follow(options: &EventsOptions) -> Result<()> {
                     event.timestamp, event.event_type, session_str, agent_str, event.message
                 );
             }
-        });
+        }
 
         if let Some(last) = events.last() {
             last_id = Some(last.id.clone());
@@ -205,10 +205,10 @@ async fn get_recent_events(
                     serde_json::from_str::<Event>(line).ok().filter(|event| {
                         // Apply filters
                         let session_matches =
-                            session.map_or(true, |s| event.session.as_deref() == Some(s));
+                            session.is_none_or(|s| event.session.as_deref() == Some(s));
                         let type_matches =
-                            event_type.map_or(true, |t| event.event_type.to_string() == t);
-                        let since_matches = since.map_or(true, |st| event.timestamp.as_str() >= st);
+                            event_type.is_none_or(|t| event.event_type.to_string() == t);
+                        let since_matches = since.is_none_or(|st| event.timestamp.as_str() >= st);
 
                         session_matches && type_matches && since_matches
                     })
@@ -254,9 +254,9 @@ async fn get_new_events(
 
                         // Apply filters
                         let session_matches =
-                            session.map_or(true, |s| event.session.as_deref() == Some(s));
+                            session.is_none_or(|s| event.session.as_deref() == Some(s));
                         let type_matches =
-                            event_type.map_or(true, |t| event.event_type.to_string() == t);
+                            event_type.is_none_or(|t| event.event_type.to_string() == t);
 
                         if session_matches && type_matches {
                             Some(event)
@@ -280,7 +280,7 @@ async fn get_new_events(
 #[allow(clippy::used_underscore_items)]
 fn _generate_event_id() -> String {
     let now = chrono::Utc::now();
-    format!("evt-{}-{}", now.timestamp_millis(), std::process::id())
+    format!("evt-{timestamp}-{pid}", timestamp = now.timestamp_millis(), pid = std::process::id())
 }
 
 /// Log an event to the events log
@@ -343,7 +343,7 @@ pub fn _log_event_silent(
     agent_id: Option<&str>,
     message: &str,
 ) {
-    let _ = _log_event(event_type, session, agent_id, message);
+    drop(_log_event(event_type, session, agent_id, message));
 }
 
 #[cfg(test)]

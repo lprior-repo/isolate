@@ -318,17 +318,17 @@ pub async fn handle_introspect(sub_m: &ArgMatches) -> Result<()> {
         return introspect::run_ai().await;
     }
     if sub_m.get_flag("env-vars") {
-        return introspect::run_env_vars(format).await;
+        return introspect::run_env_vars(format) ;
     }
     if sub_m.get_flag("workflows") {
-        return introspect::run_workflows(format).await;
+        return introspect::run_workflows(format) ;
     }
     if sub_m.get_flag("session-states") {
-        return introspect::run_session_states(format).await;
+        return introspect::run_session_states(format) ;
     }
     let command = sub_m.get_one::<String>("command").map(String::as_str);
     if let Some(cmd) = command {
-        introspect::run_command_introspect(cmd, format).await
+        introspect::run_command_introspect(cmd, format) 
     } else {
         introspect::run(format).await
     }
@@ -549,11 +549,11 @@ pub async fn handle_whereami(sub_m: &ArgMatches) -> Result<()> {
     whereami::run(&options).await
 }
 
-pub async fn handle_whoami(sub_m: &ArgMatches) -> Result<()> {
+pub fn handle_whoami(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let options = whoami::WhoAmIOptions { format };
-    whoami::run(&options).await
+    whoami::run(&options) 
 }
 
 pub async fn handle_work(sub_m: &ArgMatches) -> Result<()> {
@@ -615,15 +615,15 @@ pub async fn handle_can_i(sub_m: &ArgMatches) -> Result<()> {
     can_i::run(&options).await
 }
 
-pub async fn handle_contract(sub_m: &ArgMatches) -> Result<()> {
+pub fn handle_contract(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let command = sub_m.get_one::<String>("command").cloned();
     let options = contract::ContractOptions { command, format };
-    contract::run(&options).await
+    contract::run(&options) 
 }
 
-pub async fn handle_examples(sub_m: &ArgMatches) -> Result<()> {
+pub fn handle_examples(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let command = sub_m.get_one::<String>("command").cloned();
@@ -633,10 +633,10 @@ pub async fn handle_examples(sub_m: &ArgMatches) -> Result<()> {
         use_case,
         format,
     };
-    examples::run(&options).await
+    examples::run(&options) 
 }
 
-pub async fn handle_help(sub_m: &ArgMatches) -> Result<()> {
+pub fn handle_help(sub_m: &ArgMatches) -> Result<()> {
     let command = sub_m.get_one::<String>("command").map(String::as_str);
     let mut cli = build_cli();
     match command {
@@ -657,7 +657,7 @@ pub async fn handle_help(sub_m: &ArgMatches) -> Result<()> {
     }
 }
 
-pub async fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
+pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let command = sub_m
@@ -673,10 +673,10 @@ pub async fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
         args,
         format,
     };
-    validate::run(&options).await
+    validate::run(&options)
 }
 
-pub async fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
+pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let command = sub_m
@@ -692,7 +692,7 @@ pub async fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
         args,
         format,
     };
-    whatif::run(&options).await
+    whatif::run(&options)
 }
 
 pub async fn handle_claim(sub_m: &ArgMatches) -> Result<()> {
@@ -754,7 +754,7 @@ pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
 
     futures::stream::iter(commands.iter().enumerate())
         .map(Ok)
-        .try_fold((), |_, (index, command_str)| async move {
+        .try_fold((), |(), (index, command_str)| async move {
             let parts: Vec<&str> = command_str.split_whitespace().collect();
             if parts.is_empty() {
                 return Ok(());
@@ -878,7 +878,7 @@ pub async fn handle_events(sub_m: &ArgMatches) -> Result<()> {
     events::run(&options).await
 }
 
-pub async fn handle_completions(sub_m: &ArgMatches) -> Result<()> {
+pub fn handle_completions(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let shell_str = sub_m
@@ -886,7 +886,7 @@ pub async fn handle_completions(sub_m: &ArgMatches) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Shell is required"))?;
     let shell: completions::Shell = shell_str.parse()?;
     let options = completions::CompletionsOptions { shell, format };
-    completions::run(&options).await
+    completions::run(&options) 
 }
 
 pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
@@ -960,6 +960,7 @@ pub async fn handle_lock(sub_m: &ArgMatches) -> Result<()> {
             output.session, output.holder
         );
         if let Some(expires) = output.expires_at {
+            let expires: chrono::DateTime<chrono::Utc> = expires;
             println!("  Expires at: {}", expires.to_rfc3339());
         }
     }
@@ -1078,7 +1079,7 @@ pub async fn handle_wait(sub_m: &ArgMatches) -> Result<()> {
     wait::run(&options).await
 }
 
-pub async fn handle_schema(sub_m: &ArgMatches) -> Result<()> {
+pub fn handle_schema(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let options = schema::SchemaOptions {
@@ -1087,7 +1088,7 @@ pub async fn handle_schema(sub_m: &ArgMatches) -> Result<()> {
         all: sub_m.get_flag("all"),
         format,
     };
-    schema::run(&options).await
+    schema::run(&options) 
 }
 
 pub async fn handle_pane(sub_m: &ArgMatches) -> Result<()> {
@@ -1146,8 +1147,11 @@ pub async fn handle_rollback(sub_m: &ArgMatches) -> Result<()> {
     let session = sub_m
         .get_one::<String>("session")
         .cloned()
-        .unwrap_or_default();
-    let checkpoint = sub_m.get_one::<String>("to").cloned().unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+    let checkpoint = sub_m
+        .get_one::<String>("to")
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Checkpoint name is required"))?;
     let dry_run = sub_m.get_flag("dry-run");
     let options = recover::RollbackOptions {
         session,
@@ -1159,6 +1163,7 @@ pub async fn handle_rollback(sub_m: &ArgMatches) -> Result<()> {
 }
 
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::large_stack_frames)]
 pub async fn run_cli() -> Result<()> {
     let cli = build_cli();
     let args: Vec<String> = std::env::args().collect();
@@ -1219,21 +1224,21 @@ pub async fn run_cli() -> Result<()> {
         Some(("undo", sub_m)) => handle_undo(sub_m).await,
         Some(("revert", sub_m)) => handle_revert(sub_m).await,
         Some(("whereami", sub_m)) => handle_whereami(sub_m).await,
-        Some(("whoami", sub_m)) => handle_whoami(sub_m).await,
+        Some(("whoami", sub_m)) => handle_whoami(sub_m),
         Some(("work", sub_m)) => handle_work(sub_m).await,
         Some(("abort", sub_m)) => handle_abort(sub_m).await,
         Some(("ai", sub_m)) => handle_ai(sub_m).await,
-        Some(("help", sub_m)) => handle_help(sub_m).await,
+        Some(("help", sub_m)) => handle_help(sub_m),
         Some(("can-i", sub_m)) => handle_can_i(sub_m).await,
-        Some(("contract", sub_m)) => handle_contract(sub_m).await,
-        Some(("examples", sub_m)) => handle_examples(sub_m).await,
-        Some(("validate", sub_m)) => handle_validate(sub_m).await,
-        Some(("whatif", sub_m)) => handle_whatif(sub_m).await,
+        Some(("contract", sub_m)) => handle_contract(sub_m),
+        Some(("examples", sub_m)) => handle_examples(sub_m),
+        Some(("validate", sub_m)) => handle_validate(sub_m),
+        Some(("whatif", sub_m)) => handle_whatif(sub_m),
         Some(("claim", sub_m)) => handle_claim(sub_m).await,
         Some(("yield", sub_m)) => handle_yield(sub_m).await,
         Some(("batch", sub_m)) => handle_batch(sub_m).await,
         Some(("events", sub_m)) => handle_events(sub_m).await,
-        Some(("completions", sub_m)) => handle_completions(sub_m).await,
+        Some(("completions", sub_m)) => handle_completions(sub_m),
         Some(("rename", sub_m)) => handle_rename(sub_m).await,
         Some(("pause", sub_m)) => handle_pause(sub_m).await,
         Some(("resume", sub_m)) => handle_resume(sub_m).await,
@@ -1243,7 +1248,7 @@ pub async fn run_cli() -> Result<()> {
         Some(("export", sub_m)) => handle_export(sub_m).await,
         Some(("import", sub_m)) => handle_import(sub_m).await,
         Some(("wait", sub_m)) => handle_wait(sub_m).await,
-        Some(("schema", sub_m)) => handle_schema(sub_m).await,
+        Some(("schema", sub_m)) => handle_schema(sub_m),
         Some(("recover", sub_m)) => handle_recover(sub_m).await,
         Some(("retry", sub_m)) => handle_retry(sub_m).await,
         Some(("rollback", sub_m)) => handle_rollback(sub_m).await,
@@ -1272,8 +1277,6 @@ pub async fn run_cli() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use zjj_core::OutputFormat;
-
-    use super::*;
 
     #[test]
     fn test_handle_add_converts_json_flag_to_output_format() {

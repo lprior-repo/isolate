@@ -261,6 +261,7 @@ pub fn save_template(template: &Template, templates_base: &Path) -> Result<()> {
     let lock_file = File::options()
         .write(true)
         .create(true)
+        .truncate(false)
         .open(&lock_path)
         .map_err(|e| Error::IoError(format!("Failed to create lock file: {e}")))?;
 
@@ -307,6 +308,7 @@ pub fn delete_template(name: &str, templates_base: &Path) -> Result<()> {
     let lock_file = File::options()
         .write(true)
         .create(true)
+        .truncate(false)
         .open(&lock_path)
         .map_err(|e| Error::IoError(format!("Failed to create lock file: {e}")))?;
 

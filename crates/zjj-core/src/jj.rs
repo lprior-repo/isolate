@@ -129,7 +129,7 @@ impl Drop for WorkspaceGuard {
 
         // Best effort cleanup - log errors but don't panic in Drop
         if let Err(e) = self.perform_cleanup_sync() {
-            tracing::warn!("Workspace cleanup failed for '{}': {}", self.name, e);
+            tracing::warn!("Workspace cleanup failed for '{}': {e}", self.name);
             eprintln!(
                 "Warning: Failed to cleanup workspace '{}': {}",
                 self.name, e

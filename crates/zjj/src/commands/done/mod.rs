@@ -379,7 +379,7 @@ async fn queue_workspace_conflict(
     }
 
     let env_bead = std::env::var("ZJJ_BEAD_ID").ok();
-    let bead_id = env_bead.or_else(|| {
+    let bead_id = env_bead.or({
         // We need a way to call this async here if we wanted to use it
         // but since we are refactoring, we'll just use the env var or None for now
         // to avoid complex async recursion issues in this specific spot.

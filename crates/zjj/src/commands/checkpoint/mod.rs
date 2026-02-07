@@ -107,7 +107,8 @@ async fn create_checkpoint(
     let sessions = db.list(None).await.map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let checkpoint_id = generate_checkpoint_id()?;
-    let session_count = i64::try_from(sessions.len()).unwrap_or(i64::MAX);
+    let session_count = i64::try_from(sessions.len())
+        .map_err(|_| anyhow::anyhow!("Session count out of range"))?;
 
     sqlx::query(
         "INSERT INTO checkpoints (checkpoint_id, description, session_count) VALUES (?, ?, ?)",
@@ -302,13 +303,13 @@ fn output_response(response: &CheckpointResponse, format: OutputFormat) -> Resul
                         "ID", "Created", "Sessions"
                     );
                     println!("{}", "-".repeat(72));
-                    checkpoints.iter().for_each(|cp| {
-                        let desc = cp.description.as_deref().unwrap_or("");
+                    for cp in checkpoints {
+                        let desc = cp.description.as_deref().map_or("", |s| s);
                         println!(
                             "{:<20} {:<28} {:>8}  {}",
                             cp.id, cp.created_at, cp.session_count, desc
                         );
-                    });
+                    }
                 }
             }
         }
@@ -368,7 +369,7 @@ mod tests {
         };
         let json = serde_json::to_string(&response);
         assert!(json.is_ok(), "serialization should succeed");
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else { return };
         assert!(json_str.contains("Created"));
         assert!(json_str.contains("chk-abc123"));
     }
@@ -380,7 +381,7 @@ mod tests {
         };
         let json = serde_json::to_string(&response);
         assert!(json.is_ok(), "serialization should succeed");
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else { return };
         assert!(json_str.contains("Restored"));
         assert!(json_str.contains("chk-def456"));
     }
@@ -392,7 +393,7 @@ mod tests {
         };
         let json = serde_json::to_string(&response);
         assert!(json.is_ok(), "serialization should succeed");
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else { return };
         assert!(json_str.contains("List"));
         assert!(json_str.contains("checkpoints"));
     }
@@ -417,7 +418,7 @@ mod tests {
         };
         let json = serde_json::to_string(&response);
         assert!(json.is_ok(), "serialization should succeed");
-        let json_str = json.unwrap_or_default();
+        let Ok(json_str) = json else { return };
         assert!(json_str.contains("chk-1"));
         assert!(json_str.contains("chk-2"));
         assert!(json_str.contains("first checkpoint"));
@@ -498,7 +499,7 @@ mod tests {
     fn test_generate_checkpoint_id_format() {
         let id_result = generate_checkpoint_id();
         assert!(id_result.is_ok(), "id generation should succeed");
-        let id = id_result.unwrap_or_default();
+        let Ok(id) = id_result else { return };
         assert!(id.starts_with("chk-"));
         // Should be a valid hex string after the prefix
         let hex_part = &id[4..];
@@ -507,10 +508,10 @@ mod tests {
 
     #[test]
     fn test_generate_checkpoint_id_uniqueness() {
-        let id1 = generate_checkpoint_id().unwrap_or_default();
+        let Ok(id1) = generate_checkpoint_id() else { return };
         // Sleep briefly to ensure different timestamp
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let id2 = generate_checkpoint_id().unwrap_or_default();
+        let Ok(id2) = generate_checkpoint_id() else { return };
         // IDs should be different (based on timestamp)
         assert_ne!(id1, id2);
     }

@@ -130,10 +130,9 @@ async fn check_can_add(resource: Option<&str>) -> CanIResult {
     });
 
     // Check if session name already exists
-    let name_available = if let (Some(name), Ok(db)) = (resource, &db_result) {
-        db.get(name).await.map(|s| s.is_none()).unwrap_or(true)
-    } else {
-        true
+    let name_available = match (resource, &db_result) {
+        (Some(name), Ok(db)) => db.get(name).await.is_ok_and(|session| session.is_none()),
+        _ => true,
     };
     if resource.is_some() {
         prerequisites.push(Prerequisite {
@@ -159,7 +158,8 @@ async fn check_can_add(resource: Option<&str>) -> CanIResult {
     let fix_commands = if !zjj_initialized {
         vec!["zjj init".to_string()]
     } else if !name_available {
-        vec![format!("zjj remove {}", resource.unwrap_or("session-name"))]
+        resource
+            .map_or_else(Vec::new, |name| vec![format!("zjj remove {name}")])
     } else {
         vec![]
     };
@@ -191,10 +191,9 @@ async fn check_can_remove(resource: Option<&str>) -> CanIResult {
     });
 
     // Check if session exists
-    let session_exists = if let (Some(name), Ok(db)) = (resource, &db_result) {
-        db.get(name).await.map(|s| s.is_some()).unwrap_or(false)
-    } else {
-        false
+    let session_exists = match (resource, &db_result) {
+        (Some(name), Ok(db)) => db.get(name).await.is_ok_and(|session| session.is_some()),
+        _ => false,
     };
     if resource.is_some() {
         prerequisites.push(Prerequisite {
@@ -245,8 +244,7 @@ async fn check_can_done(resource: Option<&str>) -> CanIResult {
 
     // Check if we're in a workspace or session is specified
     let in_workspace = std::env::current_dir()
-        .map(|p| p.join(".jj").exists())
-        .unwrap_or(false);
+        .is_ok_and(|p| p.join(".jj").exists());
     prerequisites.push(Prerequisite {
         check: "in_workspace".to_string(),
         passed: in_workspace || resource.is_some(),
@@ -284,8 +282,7 @@ async fn check_can_undo() -> CanIResult {
     // Check if undo history exists
     let data_dir = super::zjj_data_dir().await;
     let undo_file_exists = data_dir
-        .map(|d| d.join("undo-history.jsonl").exists())
-        .unwrap_or(false);
+        .is_ok_and(|d| d.join("undo-history.jsonl").exists());
 
     prerequisites.push(Prerequisite {
         check: "undo_history_exists".to_string(),
@@ -332,11 +329,7 @@ async fn check_can_sync(resource: Option<&str>) -> CanIResult {
 
     // Check if there are sessions to sync
     let has_sessions = match &db_result {
-        Ok(db) => db
-            .list(None)
-            .await
-            .map(|list| !list.is_empty())
-            .unwrap_or(false),
+        Ok(db) => db.list(None).await.is_ok_and(|list| !list.is_empty()),
         Err(_) => false,
     };
 
@@ -400,12 +393,14 @@ async fn check_can_spawn(resource: Option<&str>) -> CanIResult {
     });
 
     // Check if Zellij is available
-    let zellij_available = tokio::process::Command::new("zellij")
+    let zellij_available = match tokio::process::Command::new("zellij")
         .arg("--version")
         .output()
         .await
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    };
     prerequisites.push(Prerequisite {
         check: "zellij_available".to_string(),
         passed: zellij_available,
@@ -473,8 +468,9 @@ async fn check_can_claim(resource: Option<&str>) -> CanIResult {
 
     // Check if lock exists
     let lock_free_val = if let Some(res) = resource {
-        match super::zjj_data_dir().await {
-            Ok(d) => {
+        super::zjj_data_dir()
+            .await
+            .is_ok_and(|d| {
                 let locks_dir = d.join("locks");
                 let safe_name: String = res
                     .chars()
@@ -488,9 +484,7 @@ async fn check_can_claim(resource: Option<&str>) -> CanIResult {
                     .collect();
                 let lock_path = locks_dir.join(format!("{safe_name}.lock"));
                 !lock_path.exists()
-            }
-            Err(_) => true,
-        }
+            })
     } else {
         true
     };

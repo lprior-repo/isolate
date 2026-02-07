@@ -19,20 +19,6 @@
 //!
 //! Allow clippy casts from u128 to u32 in work.rs
 #![allow(clippy::cast_possible_truncation)]
-//! ## Laws (Compiler Enforced)
-//!
-//! - No `unwrap()` - returns `Result` instead
-//! - No `expect()` - returns `Result` instead
-//! - No `panic!()` - returns `Result` instead
-//! - No `unsafe` - safe Rust only
-//! - No `todo!()` / `unimplemented!()` - complete implementations only
-//!
-//! ## Error Handling
-//!
-//! All fallible operations return `Result<T, Error>`. Use:
-//! - `?` operator for propagation
-//! - `map`, `and_then` combinators for transformation
-//! - `match` / `map_or` / `unwrap_or_else` for defaults
 
 pub mod agents;
 pub mod beads;

@@ -39,11 +39,11 @@ enum ValidationError {
 impl std::fmt::Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ValidationError::MissingField(field, ctx) => {
+            Self::MissingField(field, ctx) => {
                 write!(f, "Missing required field '{field}' in {ctx}")
             }
-            ValidationError::InvalidFormat(msg) => write!(f, "Invalid format: {msg}"),
-            ValidationError::SchemaMismatch(msg) => write!(f, "Schema mismatch: {msg}"),
+            Self::InvalidFormat(msg) => write!(f, "Invalid format: {msg}"),
+            Self::SchemaMismatch(msg) => write!(f, "Schema mismatch: {msg}"),
         }
     }
 }
@@ -276,8 +276,8 @@ fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
         let json: JsonValue = parse_json(&result.stdout)?;
         json["count"]
             .as_u64()
-            .map(|v| v as usize)
-            .ok_or_else(|| "Invalid count value".into())
+            .and_then(|v| usize::try_from(v).ok())
+            .ok_or_else(|| "Invalid count value or overflow".into())
     };
 
     assert_eq!(initial_count()?, 0, "Should have 0 sessions initially");

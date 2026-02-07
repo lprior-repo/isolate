@@ -101,7 +101,7 @@ pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::pat
     // This prevents TOCTOU - if it doesn't exist, we get an error we ignore
     match tokio::fs::remove_dir_all(workspace_dir).await {
         Ok(()) => {
-            tracing::info!("Rolled back partial workspace for session '{}'", name);
+            tracing::info!("Rolled back partial workspace for session '{name}'");
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             // Workspace doesn't exist - nothing to clean

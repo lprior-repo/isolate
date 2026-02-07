@@ -219,9 +219,9 @@ async fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Re
             println!("║ ID ║ Workspace         ║ Status      ║ Priority │ Agent         ║");
             println!("╠════╬═══════════════════╬═════════════╬═══════════════════════════╣");
 
-            entries.iter().for_each(|entry| {
+            for entry in &entries {
                 let status_str = entry.status.as_str();
-                let agent = entry.agent_id.as_deref().unwrap_or("-");
+                let agent = entry.agent_id.as_deref().map_or("-", |s| s);
                 println!(
                     "║ {:2} ║ {:17} ║ {:11} ║ {:8} │ {:13} ║",
                     entry.id,
@@ -230,7 +230,7 @@ async fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Re
                     entry.priority,
                     &agent[..agent.len().min(13)]
                 );
-            });
+            }
             println!("╚════╩═══════════════════╩═════════════╩═══════════════════════════╝");
         }
 
@@ -508,14 +508,14 @@ async fn resolve_workspace_path(workspace: &str) -> Result<PathBuf> {
     if let Ok(db) = get_session_db().await {
         if let Some(session) = db.get(workspace).await? {
             let path = PathBuf::from(session.workspace_path);
-            if tokio::fs::try_exists(&path).await.unwrap_or(false) {
+            if tokio::fs::try_exists(&path).await.is_ok_and(|exists| exists) {
                 return Ok(path);
             }
         }
     }
 
     let fallback = PathBuf::from(workspace);
-    if tokio::fs::try_exists(&fallback).await.unwrap_or(false) {
+    if tokio::fs::try_exists(&fallback).await.is_ok_and(|exists| exists) {
         Ok(fallback)
     } else {
         Err(anyhow::anyhow!("Workspace '{workspace}' not found"))

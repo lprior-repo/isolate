@@ -51,7 +51,7 @@ impl<T: std::fmt::Debug> ResultExt<T> for Result<T> {
         match self {
             Ok(value) => Some(value),
             Err(e) => {
-                tracing::error!("Operation failed: {}", e);
+                tracing::error!("Operation failed: {e}");
                 None
             }
         }
@@ -61,7 +61,7 @@ impl<T: std::fmt::Debug> ResultExt<T> for Result<T> {
         match self {
             Ok(value) => value,
             Err(e) => {
-                tracing::error!("Operation failed, using default: {}", e);
+                tracing::error!("Operation failed, using default: {e}");
                 default
             }
         }

@@ -42,8 +42,7 @@ pub trait FileSystem: Send + Sync {
     fn read_to_string<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, Result<String, FsError>>;
 
     /// Write string to file
-    fn write<'a>(&'a self, path: &'a Path, contents: &'a str)
-        -> BoxFuture<'a, Result<(), FsError>>;
+    fn write<'a>(&'a self, path: &'a Path, contents: &'a str) -> BoxFuture<'a, Result<(), FsError>>;
 
     /// Check if file exists
     fn exists<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, bool>;
@@ -82,11 +81,7 @@ impl FileSystem for RealFileSystem {
         })
     }
 
-    fn write<'a>(
-        &'a self,
-        path: &'a Path,
-        contents: &'a str,
-    ) -> BoxFuture<'a, Result<(), FsError>> {
+    fn write<'a>(&'a self, path: &'a Path, contents: &'a str) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async move {
             tokio::fs::write(path, contents).await.map_err(|e| {
                 if e.kind() == std::io::ErrorKind::PermissionDenied {
@@ -167,11 +162,7 @@ impl FileSystem for InMemoryFileSystem {
         })
     }
 
-    fn write<'a>(
-        &'a self,
-        path: &'a Path,
-        contents: &'a str,
-    ) -> BoxFuture<'a, Result<(), FsError>> {
+    fn write<'a>(&'a self, path: &'a Path, contents: &'a str) -> BoxFuture<'a, Result<(), FsError>> {
         let contents = contents.to_string();
         Box::pin(async move {
             let key = path.display().to_string();

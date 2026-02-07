@@ -91,8 +91,7 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
         .ok();
 
         return Err(Error::DatabaseError(format!(
-            "Database file is too small to be valid: {} bytes (expected at least 100)",
-            metadata.len(),
+            "Database file is too small to be valid: {} bytes (expected at least 100)", metadata.len(),
         )));
     }
 

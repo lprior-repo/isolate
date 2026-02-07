@@ -26,7 +26,7 @@ struct WriteFile<'a> {
     content: &'a str,
 }
 
-impl<'a> FsOps for WriteFile<'a> {
+impl FsOps for WriteFile<'_> {
     type Output = ();
 
     fn execute(self) -> io::Result<()> {
@@ -39,7 +39,7 @@ struct CreateDir<'a> {
     path: &'a std::path::Path,
 }
 
-impl<'a> FsOps for CreateDir<'a> {
+impl FsOps for CreateDir<'_> {
     type Output = ();
 
     fn execute(self) -> io::Result<()> {

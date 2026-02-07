@@ -132,6 +132,7 @@ pub(super) async fn create_jjignore(repo_root: &Path) -> Result<()> {
         let lock_file = StdOpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(true)
             .open(&lock_path_clone)
             .context("Failed to create lock file for .jjignore")?;
 
@@ -208,6 +209,7 @@ pub(super) async fn create_jj_hooks(repo_root: &Path) -> Result<()> {
         let lock_file = StdOpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(true)
             .open(&lock_path_clone)
             .context("Failed to create lock file for hook creation")?;
 

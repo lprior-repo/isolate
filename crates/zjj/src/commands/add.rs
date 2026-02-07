@@ -914,7 +914,8 @@ mod tests {
 
         format!(
             "    {short_form}--{}\n      {}\n",
-            flag.long, flag.description
+            flag.long,
+            flag.description
         )
     }
 
@@ -941,7 +942,8 @@ mod tests {
 
         let header = format!(
             "Command: {}\nDescription: {}\n\n",
-            cmd.command, cmd.description
+            cmd.command,
+            cmd.description
         );
 
         if cmd.flags.is_empty() {

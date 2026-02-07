@@ -56,7 +56,7 @@ pub struct CompletionsResponse {
 }
 
 /// Run the completions command
-pub async fn run(options: &CompletionsOptions) -> Result<()> {
+pub fn run(options: &CompletionsOptions) -> Result<()> {
     let script = generate_completions(options.shell);
     let install = get_install_instructions(options.shell);
 

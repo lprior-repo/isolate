@@ -3,7 +3,7 @@
 //! Tests various error conditions and recovery scenarios
 //!
 //! Performance optimizations:
-//! - Reuses TestHarness across related tests to reduce setup overhead
+//! - Reuses `TestHarness` across related tests to reduce setup overhead
 //! - Pre-allocates strings for validation tests
 //! - Minimizes temp directory creation
 //! - Uses functional error handling patterns
@@ -355,11 +355,11 @@ fn test_readonly_zjj_directory() {
     // Make .zjj directory readonly - functional error handling
     let zjj_dir = harness.zjj_dir();
     let metadata = fs::metadata(&zjj_dir)
-        .expect("Failed to get directory metadata");
+        .unwrap_or_else(|e| panic!("Failed to get directory metadata: {e}"));
     let mut perms = metadata.permissions();
     perms.set_mode(0o444); // Readonly
     fs::set_permissions(&zjj_dir, perms)
-        .expect("Failed to set readonly permissions");
+        .unwrap_or_else(|e| panic!("Failed to set readonly permissions: {e}"));
 
     // Operations that need write access should fail
     let _result = harness.zjj(&["add", "test", "--no-open"]);
@@ -372,7 +372,7 @@ fn test_readonly_zjj_directory() {
             perms.set_mode(0o755);
             fs::set_permissions(&zjj_dir, perms)
         })
-        .expect("Failed to restore permissions");
+        .unwrap_or_else(|e| panic!("Failed to restore permissions: {e}"));
 }
 
 // ============================================================================
@@ -740,10 +740,10 @@ fn test_rapid_sequential_add_remove() {
         .map(|i| format!("rapid{i}"))
         .collect();
 
-    session_names.iter().for_each(|name| {
+    for name in &session_names {
         harness.assert_success(&["add", name, "--no-open"]);
         harness.assert_success(&["remove", name, "--force"]);
-    });
+    }
 
     // Verify no sessions remain
     let result = harness.zjj(&["list"]);

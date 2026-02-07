@@ -25,9 +25,10 @@ use zjj_core::{
 ///
 /// All operations must complete without deadlock or data races.
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn test_concurrent_template_read_write() {
     let start = std::time::Instant::now();
-    let temp_dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
     let templates_base = Arc::new(temp_dir.path().to_path_buf());
 
     // Create initial set of templates
@@ -38,12 +39,12 @@ async fn test_concurrent_template_read_write() {
                 format!("layout {{ pane id=\"{i}\" }}"),
                 Some(format!("Template {i}")),
             )
-            .expect("Failed to create template")
+            .unwrap_or_else(|e| panic!("Failed to create template: {e}"))
         })
         .collect();
 
     for template in &initial_templates {
-        save_template(template, &templates_base).expect("Failed to save initial template");
+        save_template(template, &templates_base).unwrap_or_else(|e| panic!("Failed to save initial template: {e}"));
     }
 
     let mut join_set = JoinSet::new();
@@ -89,7 +90,7 @@ async fn test_concurrent_template_read_write() {
         let base = Arc::clone(&templates_base);
         join_set.spawn(async move {
             let successful_writes = (0..10)
-                .filter_map(|i| {
+                .map(|i| {
                     let template_num = writer_id * 10 + i;
 
                     // Create template - use functional pattern
@@ -98,23 +99,23 @@ async fn test_concurrent_template_read_write() {
                         format!("layout {{ pane id=\"{template_num}\" }}"),
                         Some(format!("Template {template_num}")),
                     )
-                    .and_then(|t| save_template(&t, &base).map(|_| t));
+                    .and_then(|t| save_template(&t, &base).map(|()| t));
 
                     let write_count = u32::from(create_result.is_ok());
 
                     // Update existing template
-                    let update_count = if template_num > 0 {
+                    let update_count = u32::from(if template_num > 0 {
                         let prev_template_num = template_num - 1;
                         Template::new(
                             format!("template_{prev_template_num}"),
                             format!("layout {{ pane id=\"{prev_template_num}\" version=\"2\" }}"),
                             Some(format!("Updated template {prev_template_num}")),
                         )
-                        .and_then(|t| save_template(&t, &base).map(|_| t))
+                        .and_then(|t| save_template(&t, &base).map(|()| t))
                         .is_ok()
                     } else {
                         false
-                    } as u32;
+                    });
 
                     // Occasionally delete a template
                     if i % 3 == 0 && template_num > 5 {
@@ -125,7 +126,8 @@ async fn test_concurrent_template_read_write() {
 
                     Some(write_count + update_count)
                 })
-                .sum();
+                .map(|opt| opt.unwrap_or(0))
+                .sum::<u32>();
 
             // Return tuple with first element as writer ID (100-104)
             (100 + writer_id, 0, 0, successful_writes) // (id, 0 for reads, 0 for read_errors,
@@ -182,7 +184,7 @@ async fn test_concurrent_template_read_write() {
 
     // Final verification: ensure templates directory is in consistent state
     let final_templates = list_templates(&templates_base)
-        .expect("Failed to list templates after concurrent operations");
+        .unwrap_or_else(|e| panic!("Failed to list templates after concurrent operations: {e}"));
 
     // Verify all templates have valid metadata
     for template in &final_templates {
@@ -199,7 +201,7 @@ async fn test_concurrent_template_read_write() {
     }
 
     let elapsed = start.elapsed();
-    println!("test_concurrent_template_read_write completed in {:?}", elapsed);
+    println!("test_concurrent_template_read_write completed in {elapsed:?}");
 }
 
 /// Test that template operations handle corrupted metadata gracefully
@@ -209,7 +211,7 @@ async fn test_concurrent_template_read_write() {
 #[tokio::test]
 async fn test_template_handles_corrupted_metadata() {
     let start = std::time::Instant::now();
-    let temp_dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
     let templates_base = temp_dir.path();
 
     // Create a valid template first
@@ -218,9 +220,9 @@ async fn test_template_handles_corrupted_metadata() {
         "layout { pane }".to_string(),
         Some("Valid template".to_string()),
     )
-    .expect("Failed to create template");
+    .unwrap_or_else(|e| panic!("Failed to create template: {e}"));
 
-    save_template(&template, templates_base).expect("Failed to save template");
+    save_template(&template, templates_base).unwrap_or_else(|e| panic!("Failed to save template: {e}"));
 
     // Verify it loads correctly
     let loaded = load_template("valid_template", templates_base);
@@ -233,7 +235,7 @@ async fn test_template_handles_corrupted_metadata() {
     // Write invalid JSON
     tokio::fs::write(&metadata_path, "{ invalid json }")
         .await
-        .expect("Failed to corrupt metadata");
+        .unwrap_or_else(|e| panic!("Failed to corrupt metadata: {e}"));
 
     // Attempting to load should return a proper error, not panic
     let load_result = load_template("valid_template", templates_base);
@@ -260,7 +262,7 @@ async fn test_template_handles_corrupted_metadata() {
     // Test with completely missing metadata file
     tokio::fs::remove_file(&metadata_path)
         .await
-        .expect("Failed to remove metadata");
+        .unwrap_or_else(|e| panic!("Failed to remove metadata: {e}"));
 
     let load_result = load_template("valid_template", templates_base);
     assert!(
@@ -271,7 +273,7 @@ async fn test_template_handles_corrupted_metadata() {
     // Test with partially corrupted JSON (missing closing brace)
     tokio::fs::write(&metadata_path, r#"{"name": "test""#)
         .await
-        .expect("Failed to write partial JSON");
+        .unwrap_or_else(|e| panic!("Failed to write partial JSON: {e}"));
 
     let load_result = load_template("valid_template", templates_base);
     assert!(load_result.is_err(), "Loading partial JSON should fail");
@@ -279,15 +281,15 @@ async fn test_template_handles_corrupted_metadata() {
     // Test list_templates with corrupted metadata
     // Create another valid template
     let template2 = Template::new("template2".to_string(), "layout { pane }".to_string(), None)
-        .expect("Failed to create template");
+        .unwrap_or_else(|e| panic!("Failed to create template: {e}"));
 
-    save_template(&template2, templates_base).expect("Failed to save second template");
+    save_template(&template2, templates_base).unwrap_or_else(|e| panic!("Failed to save second template: {e}"));
 
     // Corrupt first template's metadata again
     let metadata_path2 = templates_base.join("template2").join("metadata.json");
     tokio::fs::write(&metadata_path2, "corrupted")
         .await
-        .expect("Failed to corrupt metadata");
+        .unwrap_or_else(|e| panic!("Failed to corrupt metadata: {e}"));
 
     // list_templates should skip corrupted templates, not crash
     let list_result = list_templates(templates_base);
@@ -296,22 +298,22 @@ async fn test_template_handles_corrupted_metadata() {
         "list_templates should handle corruption gracefully"
     );
 
-    let templates = list_result.expect("Failed to list templates");
+    let templates_list = list_result.unwrap_or_else(|e| panic!("Failed to list templates: {e}"));
     // The corrupted template should be skipped
     assert!(
-        !templates.iter().any(|t| t.name.as_str() == "template2"),
+        !templates_list.iter().any(|t| t.name.as_str() == "template2"),
         "Corrupted template should not appear in list"
     );
 
     let elapsed = start.elapsed();
-    println!("test_template_handles_corrupted_metadata completed in {:?}", elapsed);
+    println!("test_template_handles_corrupted_metadata completed in {elapsed:?}");
 }
 
 /// Test concurrent operations on the same template
 #[tokio::test]
 async fn test_concurrent_same_template_operations() {
     let start = std::time::Instant::now();
-    let temp_dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
     let templates_base = Arc::new(temp_dir.path().to_path_buf());
 
     // Create initial template
@@ -320,9 +322,9 @@ async fn test_concurrent_same_template_operations() {
         "layout { pane }".to_string(),
         Some("Shared template".to_string()),
     )
-    .expect("Failed to create template");
+    .unwrap_or_else(|e| panic!("Failed to create template: {e}"));
 
-    save_template(&template, &templates_base).expect("Failed to save template");
+    save_template(&template, &templates_base).unwrap_or_else(|e| panic!("Failed to save template: {e}"));
 
     let mut join_set = JoinSet::new();
 
@@ -380,20 +382,20 @@ async fn test_concurrent_same_template_operations() {
 
     // Verify template still exists and is valid
     let final_template = load_template("shared", &templates_base)
-        .expect("Failed to load template after concurrent operations");
+        .unwrap_or_else(|e| panic!("Failed to load template after concurrent operations: {e}"));
 
     assert_eq!(final_template.name.as_str(), "shared");
     assert!(!final_template.layout.is_empty());
 
     let elapsed = start.elapsed();
-    println!("test_concurrent_same_template_operations completed in {:?}", elapsed);
+    println!("test_concurrent_same_template_operations completed in {elapsed:?}");
 }
 
-/// Test template_exists under concurrent load
+/// Test `template_exists` under concurrent load
 #[tokio::test]
 async fn test_concurrent_exists_checks() {
     let start = std::time::Instant::now();
-    let temp_dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().unwrap_or_else(|e| panic!("Failed to create temp dir: {e}"));
     let templates_base = Arc::new(temp_dir.path().to_path_buf());
 
     let mut join_set = JoinSet::new();
@@ -419,17 +421,23 @@ async fn test_concurrent_exists_checks() {
         let base = Arc::clone(&templates_base);
         join_set.spawn(async move {
             let creates = (0..10)
-                .filter_map(|i| {
-                    let template = Template::new(
+                .filter_map(|i| -> Option<u32> {
+                    let template_result = Template::new(
                         format!("template_{}", writer_id * 10 + i),
                         "layout { pane }".to_string(),
                         None,
                     );
 
-                    template
+                    // Use and_then to chain Result -> Option conversion
+                    template_result
                         .ok()
-                        .filter(|t| save_template(t, &base).is_ok())
-                        .map(|_| 1)
+                        .and_then(|t| {
+                            if save_template(&t, &base).is_ok() {
+                                Some(1)
+                            } else {
+                                None
+                            }
+                        })
                 })
                 .sum();
 
@@ -458,5 +466,5 @@ async fn test_concurrent_exists_checks() {
     assert!(total_creates > 0, "No templates were created");
 
     let elapsed = start.elapsed();
-    println!("test_concurrent_exists_checks completed in {:?}", elapsed);
+    println!("test_concurrent_exists_checks completed in {elapsed:?}");
 }
