@@ -589,36 +589,63 @@ impl IntegrityValidator {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Executes repairs for detected integrity issues
+///
+/// # ADVERSARIAL DEFENSE
+///
+/// The executor enforces consistency: if `always_backup` is true, a `BackupManager`
+/// MUST be provided. This prevents runtime errors where repairs fail due to missing
+/// backup configuration.
 #[derive(Clone)]
 pub struct RepairExecutor {
-    /// Whether to create backups before repairing
-    always_backup: bool,
-    /// Backup manager
-    backup_manager: Option<BackupManager>,
+    /// Backup configuration
+    backup_config: BackupConfig,
+}
+
+/// Backup configuration for repair operations
+#[derive(Clone)]
+enum BackupConfig {
+    /// No backups - repair operations are destructive
+    NoBackup,
+    /// Always backup before repair
+    WithBackup(BackupManager),
 }
 
 impl RepairExecutor {
-    /// Create a new repair executor
+    /// Create a new repair executor with default safety (no backups)
+    ///
+    /// NOTE: Defaults to NO BACKUP for safety. Use `with_backup_manager()`
+    /// to enable backups before destructive operations.
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            always_backup: true,
-            backup_manager: None,
+            backup_config: BackupConfig::NoBackup,
         }
     }
 
-    /// Create with a backup manager
+    /// Enable backups with a backup manager
+    ///
+    /// This is the RECOMMENDED way to create a repair executor for production use.
+    /// Backups protect against data loss during repair operations.
     #[must_use]
     pub fn with_backup_manager(mut self, backup_manager: BackupManager) -> Self {
-        self.backup_manager = Some(backup_manager);
+        self.backup_config = BackupConfig::WithBackup(backup_manager);
         self
     }
 
-    /// Set whether to always create backups
+    /// Disable backups explicitly (for testing or trusted environments)
+    ///
+    /// WARNING: Without backups, repair operations are destructive and cannot
+    /// be rolled back. Use with caution.
     #[must_use]
-    pub const fn with_always_backup(mut self, always_backup: bool) -> Self {
-        self.always_backup = always_backup;
+    pub fn without_backup(mut self) -> Self {
+        self.backup_config = BackupConfig::NoBackup;
         self
+    }
+
+    /// Check if this executor creates backups before repair
+    #[must_use]
+    pub const fn creates_backups(&self) -> bool {
+        matches!(self.backup_config, BackupConfig::WithBackup(_))
     }
 
     /// Execute repair (legacy name for compatibility)
@@ -668,18 +695,15 @@ impl RepairExecutor {
             ));
         }
 
-        // Create backup if needed
-        let backup_id = if self.always_backup {
-            let manager = self.backup_manager.clone().ok_or_else(|| {
-                Error::Unknown("Backup manager not configured for repair operation".to_string())
-            })?;
-
-            let meta = manager
-                .create_backup(&validation.workspace, "Auto-repair")
-                .await?;
-            Some(meta.id)
-        } else {
-            None
+        // Create backup if configured (ADVERSARIAL: type-safe backup guarantee)
+        let backup_id = match &self.backup_config {
+            BackupConfig::WithBackup(manager) => {
+                let meta = manager
+                    .create_backup(&validation.workspace, "Auto-repair")
+                    .await?;
+                Some(meta.id)
+            }
+            BackupConfig::NoBackup => None,
         };
 
         // Execute the repair
@@ -708,18 +732,27 @@ impl RepairExecutor {
     }
 
     /// Clear lock files in a workspace
+    ///
+    /// ADVERSARIAL: Idempotent operation - safe to call multiple times even if
+    /// locks were already removed by another process. This prevents race conditions
+    /// in concurrent repair scenarios.
     async fn clear_locks(workspace_path: &Path) -> Result<()> {
         let lock_file = workspace_path.join(".jj").join("working_copy").join("lock");
-        let lock_exists = tokio::fs::try_exists(&lock_file).await?;
-        if lock_exists {
-            tokio::fs::remove_file(&lock_file).await.map_err(|e| {
-                Error::IoError(format!(
-                    "Failed to remove lock file {}: {e}",
-                    lock_file.display()
-                ))
-            })?;
+
+        // Try to remove the lock file, ignoring "not found" errors (idempotent)
+        let result = tokio::fs::remove_file(&lock_file).await;
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // File already removed by another process - OK
+                Ok(())
+            }
+            Err(e) => Err(Error::IoError(format!(
+                "Failed to remove lock file {}: {e}",
+                lock_file.display()
+            ))),
         }
-        Ok(())
     }
 
     /// Forget workspace in JJ and recreate
