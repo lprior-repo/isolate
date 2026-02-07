@@ -203,6 +203,10 @@ pub async fn run_clone(options: &CloneOptions) -> Result<()> {
         .await?
         .ok_or_else(|| anyhow::anyhow!("Source session '{}' not found", &options.source))?;
 
+    // Validate target session name (REQ-CLI-015)
+    // Map zjj_core::Error to anyhow::Error while preserving the original error
+    crate::session::validate_session_name(&options.target).map_err(anyhow::Error::new)?;
+
     // Check target doesn't exist
     if db.get(&options.target).await?.is_some() {
         let result = CloneResult {
