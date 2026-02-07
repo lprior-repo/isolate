@@ -274,7 +274,8 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
             &session.zellij_tab,
             &workspace_path_str,
             options.template.as_deref(),
-        );
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create session layout: {e}"))?;
         attach_to_zellij_session(Some(&layout)).await?;
         // Note: This never returns - we exec into Zellij
     }
