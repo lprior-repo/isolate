@@ -17,6 +17,7 @@ use std::io::{self, Write};
 use anyhow::{Context, Result};
 use zjj_core::{
     json::SchemaEnvelope,
+    kdl_validation,
     templates::storage,
     zellij::{LayoutConfig, LayoutTemplate},
     OutputFormat,
@@ -122,9 +123,7 @@ pub async fn run_create(options: &CreateOptions) -> Result<()> {
             // Read file as bytes first to detect UTF-8 issues
             let bytes = tokio::fs::read(file_path).await.map_err(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {
-                    anyhow::Error::new(e).context(format!(
-                        "Template file not found: {file_path}"
-                    ))
+                    anyhow::Error::new(e).context(format!("Template file not found: {file_path}"))
                 } else {
                     anyhow::Error::new(e)
                 }
@@ -142,6 +141,10 @@ pub async fn run_create(options: &CreateOptions) -> Result<()> {
             })?
         }
     };
+
+    // Validate KDL syntax (for both builtin and file sources)
+    kdl_validation::validate_kdl_syntax(&layout_content)
+        .map_err(|e| anyhow::anyhow!("Invalid KDL syntax in template '{}': {}", options.name, e))?;
 
     // Create template
     let template = storage::Template::new(
