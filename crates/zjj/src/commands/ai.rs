@@ -172,6 +172,17 @@ fn determine_ready_state(
     }
 }
 
+/// Format session count with proper pluralization
+///
+/// Returns "X session" for count == 1, "X sessions" otherwise
+fn format_session_count(count: usize) -> String {
+    if count == 1 {
+        "1 session".to_string()
+    } else {
+        format!("{count} sessions")
+    }
+}
+
 /// Print AI status in human-readable format
 fn print_status_human(output: &AiStatusOutput) {
     println!("AI Agent Status");
@@ -190,7 +201,7 @@ fn print_status_human(output: &AiStatusOutput) {
         "Initialized:   {}",
         if output.initialized { "yes" } else { "no" }
     );
-    println!("Active work:   {} sessions", output.active_sessions);
+    println!("Active work:   {}", format_session_count(output.active_sessions));
     println!();
     println!(
         "Status: {}",
@@ -1154,6 +1165,45 @@ mod tests {
                 matches!(default, AiSubcommand::Default),
                 "Default variant should be the AiSubcommand::Default"
             );
+        }
+    }
+
+    mod pluralization_behavior {
+        use super::*;
+
+        /// GIVEN: Active sessions count is 1
+        /// WHEN: Formatting the display text
+        /// THEN: Should use singular "session" not plural "sessions"
+        #[test]
+        fn one_session_shows_singular_not_plural() {
+            let count = 1;
+            let text = format_session_count(count);
+            assert_eq!(text, "1 session", "Single session should be singular");
+        }
+
+        /// GIVEN: Active sessions count is 0
+        /// WHEN: Formatting the display text
+        /// THEN: Should use plural "sessions"
+        #[test]
+        fn zero_sessions_shows_plural() {
+            let count = 0;
+            let text = format_session_count(count);
+            assert_eq!(text, "0 sessions", "Zero sessions should be plural");
+        }
+
+        /// GIVEN: Active sessions count is 2 or more
+        /// WHEN: Formatting the display text
+        /// THEN: Should use plural "sessions"
+        #[test]
+        fn two_or_more_sessions_shows_plural() {
+            for count in [2, 5, 10, 100] {
+                let text = format_session_count(count);
+                assert_eq!(
+                    text,
+                    format!("{count} sessions"),
+                    "Multiple sessions should be plural"
+                );
+            }
         }
     }
 
