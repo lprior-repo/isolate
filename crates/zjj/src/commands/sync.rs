@@ -59,7 +59,7 @@ async fn detect_workspace_context() -> Result<Option<String>> {
                 let current_path = Path::new(&workspace_root);
 
                 // Walk up the directory tree looking for a directory with .jj that's not ours
-                let mut search_path: &Path = current_path;
+                let mut search_path = current_path.to_path_buf();
                 while let Some(parent) = search_path.parent() {
                     let parent_jj = parent.join(".jj");
 
@@ -69,7 +69,7 @@ async fn detect_workspace_context() -> Result<Option<String>> {
                         return Ok(parent.to_str().map(String::from));
                     }
 
-                    search_path = parent.to_path_buf().as_path();
+                    search_path = parent.to_path_buf();
                 }
             }
         }

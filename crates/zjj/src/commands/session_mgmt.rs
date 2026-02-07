@@ -279,6 +279,13 @@ pub async fn run_clone(options: &CloneOptions) -> Result<()> {
         new_workspace_path.as_deref().map_or("", |value| value),
     )
     .await?;
+    // Update session status to Active (fix bug: clone leaves status as "creating")
+    let update = SessionUpdate {
+        status: Some(SessionStatus::Active),
+        ..Default::default()
+    };
+    db.update(&options.target, update).await?;
+
 
     let result = CloneResult {
         success: true,

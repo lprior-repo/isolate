@@ -2300,6 +2300,118 @@ pub fn cmd_abort() -> ClapCommand {
         )
 }
 
+/// Rename command - rename a session
+pub fn cmd_rename() -> ClapCommand {
+    ClapCommand::new("rename")
+        .about("Rename a session")
+        .long_about(
+            "Rename a session to a new name.
+
+            The session workspace and Zellij tab will be updated to use the new name.",
+        )
+        .arg(
+            Arg::new("old")
+                .required(true)
+                .help("Current name of the session"),
+        )
+        .arg(
+            Arg::new("new")
+                .required(true)
+                .help("New name for the session"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+/// Pause command - pause a session
+pub fn cmd_pause() -> ClapCommand {
+    ClapCommand::new("pause")
+        .about("Pause a session")
+        .long_about(
+            "Pause a session, marking it as temporarily inactive.
+
+            Paused sessions remain in the database but are marked as 'paused'.
+            Use 'zjj resume' to reactivate a paused session.",
+        )
+        .arg(
+            Arg::new("session")
+                .required(true)
+                .help("Name of the session to pause"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+/// Resume command - resume a paused session
+pub fn cmd_resume() -> ClapCommand {
+    ClapCommand::new("resume")
+        .about("Resume a paused session")
+        .long_about(
+            "Resume a paused session, marking it as active again.
+
+            Only sessions that are paused can be resumed.
+            Active sessions cannot be resumed.",
+        )
+        .arg(
+            Arg::new("session")
+                .required(true)
+                .help("Name of the session to resume"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+/// Clone command - create a copy of an existing session
+pub fn cmd_clone() -> ClapCommand {
+    ClapCommand::new("clone")
+        .about("Clone an existing session")
+        .long_about(
+            "Creates a copy of an existing session with a new name.
+
+            The cloned session will have:
+            - A new JJ workspace created from the source
+            - A new Zellij tab
+            - Independent state from the source
+
+            Use this when you need to work on a task based on an existing session.",
+        )
+        .after_help("Examples:\n  zjj clone feature-auth feature-auth-v2    Clone feature-auth to feature-auth-v2\n  zjj clone bugfix-123 bugfix-124 --dry-run    Preview the clone operation\n  zjj clone experiment experiment-copy --json    Output as JSON")
+        .arg(
+            Arg::new("source")
+                .required(true)
+                .help("Name of the session to clone"),
+        )
+        .arg(
+            Arg::new("dest")
+                .required(true)
+                .help("Name for the cloned session"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without creating"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 pub fn build_cli() -> ClapCommand {
     ClapCommand::new("zjj")
         .version(env!("CARGO_PKG_VERSION"))
