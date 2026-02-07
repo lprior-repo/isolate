@@ -69,13 +69,12 @@ fn validate_zellij_requirements(content: &str) -> Result<()> {
     // Check for at least one 'pane' node (in children or at root)
     let has_pane = doc.nodes().iter().any(|node| {
         // Check direct children of layout node
-        let has_child_pane = match node.children() {
-            Some(children) => children
+        let has_child_pane = node.children().is_some_and(|children| {
+            children
                 .nodes()
                 .iter()
-                .any(|child| child.name().value() == "pane"),
-            None => false,
-        };
+                .any(|child| child.name().value() == "pane")
+        });
 
         // Also check if the node itself is a pane (for simple layouts)
         let is_pane = node.name().value() == "pane";

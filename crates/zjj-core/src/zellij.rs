@@ -539,16 +539,11 @@ pub async fn check_tab_exists(tab_name: &str) -> TabStatus {
     }
 
     // Query tab names and check if ours exists
-    query_tab_names()
-        .await
-        .map(|tabs| {
-            if tabs.iter().any(|name| name == tab_name) {
-                TabStatus::Active
-            } else {
-                TabStatus::Missing
-            }
-        })
-        .unwrap_or_else(|_| TabStatus::Unknown)
+    query_tab_names().await.map_or(TabStatus::Unknown, |tabs| {
+        tabs.iter()
+            .find(|name| *name == tab_name)
+            .map_or(TabStatus::Missing, |_| TabStatus::Active)
+    })
 }
 
 #[cfg(test)]
@@ -880,13 +875,16 @@ mod tests {
     fn test_tab_status_serialization() {
         use serde_json;
 
-        let active_json = serde_json::to_string(&TabStatus::Active).unwrap_or_default();
+        let active_json =
+            serde_json::to_string(&TabStatus::Active).unwrap_or_else(|_| String::new());
         assert_eq!(active_json, "\"active\"");
 
-        let missing_json = serde_json::to_string(&TabStatus::Missing).unwrap_or_default();
+        let missing_json =
+            serde_json::to_string(&TabStatus::Missing).unwrap_or_else(|_| String::new());
         assert_eq!(missing_json, "\"missing\"");
 
-        let unknown_json = serde_json::to_string(&TabStatus::Unknown).unwrap_or_default();
+        let unknown_json =
+            serde_json::to_string(&TabStatus::Unknown).unwrap_or_else(|_| String::new());
         assert_eq!(unknown_json, "\"unknown\"");
     }
 }

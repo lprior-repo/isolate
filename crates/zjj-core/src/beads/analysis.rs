@@ -214,7 +214,7 @@ pub fn calculate_critical_path(issues: &[BeadIssue]) -> Vec<BeadIssue> {
             }
         })
         .max_by_key(std::vec::Vec::len)
-        .unwrap_or_default()
+        .unwrap_or_else(Vec::new)
 }
 
 /// Extract issue IDs.

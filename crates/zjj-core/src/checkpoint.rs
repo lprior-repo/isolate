@@ -255,11 +255,8 @@ mod tests {
     async fn committed_guard_state_is_committed() -> Result<()> {
         let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
-        let guard = auto_cp
-            .guard_if_risky(OperationRisk::Risky)
-            .await
-            .unwrap_or_default();
-        if let Some(g) = guard {
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
             let id = g.id().to_string();
             let _ = g.commit().await;
 
@@ -282,17 +279,19 @@ mod tests {
 
         let checkpoint_id: String;
         {
-            let guard = auto_cp
-                .guard_if_risky(OperationRisk::Risky)
-                .await
+            let guard_result: Result<Option<CheckpointGuard>> =
+                auto_cp.guard_if_risky(OperationRisk::Risky).await;
+            checkpoint_id = guard_result
                 .ok()
-                .flatten();
-            checkpoint_id = guard.map_or_else(String::new, |g| g.id().to_string());
+                .flatten()
+                .map_or_else(String::new, |g| g.id().to_string());
             // guard dropped here without commit
         }
 
         if !checkpoint_id.is_empty() {
-            let pending = find_pending_restores(&pool).await.unwrap_or_default();
+            let pending = find_pending_restores(&pool)
+                .await
+                .unwrap_or_else(|_| Vec::new());
             assert!(pending.contains(&checkpoint_id));
         }
         Ok(())
@@ -302,11 +301,8 @@ mod tests {
     async fn rollback_marks_needs_restore() -> Result<()> {
         let pool = test_pool().await?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
-        let guard = auto_cp
-            .guard_if_risky(OperationRisk::Risky)
-            .await
-            .unwrap_or_default();
-        if let Some(g) = guard {
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
             let id = g.id().to_string();
             let _ = g.rollback().await;
 

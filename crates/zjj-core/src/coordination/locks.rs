@@ -44,7 +44,7 @@ pub struct LockAuditEntry {
     pub session: String,
     /// The agent that performed the operation.
     pub agent_id: String,
-    /// The operation performed (lock, unlock, double_unlock_warning).
+    /// The operation performed (lock, unlock, `double_unlock_warning`).
     pub operation: String,
     /// When the operation occurred.
     pub timestamp: DateTime<Utc>,
@@ -199,8 +199,8 @@ impl LockManager {
         let expires_str = expires_at.to_rfc3339();
         let nanos = now
             .timestamp_nanos_opt()
-            .map_or_else(|| now.timestamp() * 1_000_000_000, |n| n);
-        let lock_id = format!("lock-{}-{}", session, nanos);
+            .unwrap_or_else(|| now.timestamp() * 1_000_000_000);
+        let lock_id = format!("lock-{session}-{nanos}");
 
         sqlx::query(
             "INSERT INTO session_locks (lock_id, session, agent_id, acquired_at, expires_at) VALUES (?, ?, ?, ?, ?)",

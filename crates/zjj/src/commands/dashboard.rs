@@ -699,7 +699,7 @@ fn format_session_item(
     };
 
     let line = Line::from(vec![
-        Span::styled(format!("{:<15}", session.name), name_style),
+        Span::styled(format!("{session.name:<15}"), name_style),
         Span::styled(format!(" {branch} "), Style::default().fg(Color::DarkGray)),
         Span::styled(
             format!("Δ{changes_str} "),

@@ -825,7 +825,7 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = generate_hints(&state).unwrap_or_default();
+        let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
         assert!(!hints.is_empty());
 
         #[allow(clippy::indexing_slicing)]
@@ -845,7 +845,7 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = generate_hints(&state).unwrap_or_default();
+        let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
         assert!(hints
             .iter()
             .any(|h| h.message.contains("consider removing")));
@@ -859,7 +859,7 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = generate_hints(&state).unwrap_or_default();
+        let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
         assert!(hints.iter().any(|h| h.hint_type == HintType::Warning));
     }
 
@@ -875,7 +875,7 @@ mod tests {
             jj_repo: true,
         };
 
-        let hints = generate_hints(&state).unwrap_or_default();
+        let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
         assert!(hints.iter().any(|h| h.message.contains("dashboard")));
     }
 
@@ -1165,11 +1165,12 @@ mod tests {
 
     #[test]
     fn test_action_risk_serialization() {
-        let safe_json = serde_json::to_string(&ActionRisk::Safe).unwrap_or_default();
+        let safe_json = serde_json::to_string(&ActionRisk::Safe).unwrap_or_else(|_| String::new());
         assert_eq!(safe_json, "\"safe\"");
-        let medium_json = serde_json::to_string(&ActionRisk::Medium).unwrap_or_default();
+        let medium_json =
+            serde_json::to_string(&ActionRisk::Medium).unwrap_or_else(|_| String::new());
         assert_eq!(medium_json, "\"medium\"");
-        let high_json = serde_json::to_string(&ActionRisk::High).unwrap_or_default();
+        let high_json = serde_json::to_string(&ActionRisk::High).unwrap_or_else(|_| String::new());
         assert_eq!(high_json, "\"high\"");
     }
 
@@ -1181,7 +1182,7 @@ mod tests {
             risk: ActionRisk::Medium,
             description: Some("A test action".to_string()),
         };
-        let json = serde_json::to_string(&action).unwrap_or_default();
+        let json = serde_json::to_string(&action).unwrap_or_else(|_| String::new());
         assert!(json.contains("\"risk\":\"medium\""));
         assert!(json.contains("\"description\":\"A test action\""));
     }
@@ -1194,7 +1195,7 @@ mod tests {
             risk: ActionRisk::Safe,
             description: None,
         };
-        let json = serde_json::to_string(&action).unwrap_or_default();
+        let json = serde_json::to_string(&action).unwrap_or_else(|_| String::new());
         assert!(!json.contains("description"));
     }
 

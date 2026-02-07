@@ -154,7 +154,7 @@ fn current_timestamp() -> i64 {
         .duration_since(UNIX_EPOCH)
         .ok()
         .and_then(|d| i64::try_from(d.as_secs()).ok())
-        .unwrap_or(0)
+        .map_or(0, |v| v)
 }
 
 /// Validate template content size
@@ -162,12 +162,11 @@ fn current_timestamp() -> i64 {
 /// # Errors
 ///
 /// Returns error if template content exceeds maximum size
-fn validate_template_size(content: &str, context: &str) -> Result<()> {
+fn validate_template_size(content: &str, description: &str) -> Result<()> {
     let size = content.len();
     if size > MAX_TEMPLATE_SIZE {
         return Err(Error::ValidationError(format!(
-            "Template {context} exceeds maximum size of {} bytes (got {} bytes)",
-            MAX_TEMPLATE_SIZE, size
+            "Template {description} exceeds maximum size of {MAX_TEMPLATE_SIZE} bytes (got {size} bytes)"
         )));
     }
     Ok(())
@@ -513,8 +512,11 @@ mod tests {
         let result = save_template(&template, templates_base);
         assert!(result.is_err(), "Oversized template should be rejected");
 
-        // Check error message is clear
-        let error_msg = result.unwrap_err().to_string();
+        // Check error message is clear using match instead of unwrap_err
+        let error_msg = match result {
+            Err(e) => e.to_string(),
+            Ok(()) => return Err(Error::IoError("Expected error but got success".to_string())),
+        };
         assert!(
             error_msg.contains("size") || error_msg.contains("too large"),
             "Error message should mention size limit. Got: {error_msg}"

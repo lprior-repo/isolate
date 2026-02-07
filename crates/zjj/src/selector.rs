@@ -121,11 +121,11 @@ fn draw_ui(f: &mut Frame, sessions: &[Session], state: &mut SelectorState) {
 
             let line = Line::from(vec![
                 Span::styled(
-                    format!("{:<20}", session.name),
+                    format!("{session.name:<20}"),
                     Style::default().add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
-                    format!("{:10}", session.status),
+                    format!("{session.status:10}"),
                     Style::default().fg(status_color),
                 ),
                 Span::raw(format!(" {}", session.branch.as_deref().unwrap_or("-"))),

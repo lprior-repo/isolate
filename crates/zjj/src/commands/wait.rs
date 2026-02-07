@@ -100,7 +100,7 @@ async fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<Stri
     match condition {
         WaitCondition::SessionExists(name) => match get_session_db().await {
             Ok(db) => match db.get(name).await {
-                Ok(Some(session)) => Ok((true, Some(format!("status:{}", session.status)))),
+                Ok(Some(session)) => Ok((true, Some(format!("status:{status}", status = session.status)))),
                 Ok(None) => Ok((false, Some("not_found".to_string()))),
                 Err(_) => Ok((false, Some("error".to_string()))),
             },

@@ -114,7 +114,7 @@ pub async fn compute_checksum(path: &Path) -> Result<String> {
     }
 
     let result = hasher.finalize();
-    Ok(format!("{:x}", result))
+    Ok(format!("{result:x}"))
 }
 
 /// Get backup directory for a specific database

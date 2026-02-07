@@ -35,7 +35,7 @@ fn parse_status(status_str: &str) -> Result<IssueStatus, BeadsError> {
     })
 }
 
-/// Enable `WAL` mode on the SQLite connection for better crash recovery.
+/// Enable `WAL` mode on the `SQLite` connection for better crash recovery.
 ///
 /// # Errors
 ///

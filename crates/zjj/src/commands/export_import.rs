@@ -103,7 +103,7 @@ pub async fn run_export(options: &ExportOptions) -> Result<()> {
             bead_id: None, // bead_id not in Session struct
             workspace_path: Some(session.workspace_path),
             owner: None,
-            created_at: Some(format!("{}", session.created_at)),
+            created_at: Some(format!("{session.created_at}")),
             commits: vec![],
             metadata: session.metadata,
         }]
@@ -117,7 +117,7 @@ pub async fn run_export(options: &ExportOptions) -> Result<()> {
                 bead_id: None,
                 workspace_path: Some(s.workspace_path),
                 owner: None,
-                created_at: Some(format!("{}", s.created_at)),
+                created_at: Some(format!("{s.created_at}")),
                 commits: vec![],
                 metadata: s.metadata,
             })
@@ -225,7 +225,7 @@ pub async fn run_import(options: &ImportOptions) -> Result<()> {
                     result.failed += 1;
                     result
                         .errors
-                        .push(format!("Failed to overwrite '{}': {}", session.name, e));
+                        .push(format!("Failed to overwrite '{}': {e}", session.name));
                     result.success = false;
                     continue;
                 }
@@ -270,7 +270,7 @@ pub async fn run_import(options: &ImportOptions) -> Result<()> {
                 result.failed += 1;
                 result
                     .errors
-                    .push(format!("Failed to import '{}': {}", session.name, e));
+                    .push(format!("Failed to import '{}': {e}", session.name));
                 result.success = false;
             }
         }
