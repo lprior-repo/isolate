@@ -2080,6 +2080,13 @@ pub fn cmd_import() -> ClapCommand {
         .about("Import session state from a file")
         .arg(Arg::new("file").required(true).help("Input file path"))
         .arg(
+            Arg::new("force")
+                .long("force")
+                .short('f')
+                .action(clap::ArgAction::SetTrue)
+                .help("Overwrite existing sessions"),
+        )
+        .arg(
             Arg::new("skip-existing")
                 .long("skip-existing")
                 .action(clap::ArgAction::SetTrue)
@@ -2411,6 +2418,12 @@ pub fn cmd_clone() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("no-zellij")
+                .long("no-zellij")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip Zellij integration (for non-TTY environments)"),
         )
 }
 

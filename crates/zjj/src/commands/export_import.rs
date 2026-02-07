@@ -164,6 +164,8 @@ pub async fn run_export(options: &ExportOptions) -> Result<()> {
 pub struct ImportOptions {
     /// Input file path
     pub input: String,
+    /// Overwrite existing sessions
+    pub force: bool,
     /// Skip existing sessions instead of erroring
     pub skip_existing: bool,
     /// Dry-run mode
@@ -178,6 +180,7 @@ pub struct ImportResult {
     pub success: bool,
     pub imported: usize,
     pub skipped: usize,
+    pub overwritten: usize,
     pub failed: usize,
     pub dry_run: bool,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -186,6 +189,8 @@ pub struct ImportResult {
     pub imported_sessions: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub skipped_sessions: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub overwritten_sessions: Vec<String>,
 }
 
 /// Run the import command
@@ -199,27 +204,43 @@ pub async fn run_import(options: &ImportOptions) -> Result<()> {
         success: true,
         imported: 0,
         skipped: 0,
+        overwritten: 0,
         failed: 0,
         dry_run: options.dry_run,
         errors: vec![],
         imported_sessions: vec![],
         skipped_sessions: vec![],
+        overwritten_sessions: vec![],
     };
 
     for session in export_data.sessions {
+        let session_exists = db.get(&session.name).await?.is_some();
+        let was_overwritten = session_exists && options.force;
+
         // Check if session already exists
-        if db.get(&session.name).await?.is_some() {
-            if options.skip_existing {
+        if session_exists {
+            if options.force {
+                // Delete existing session before importing
+                if let Err(e) = db.delete(&session.name).await {
+                    result.failed += 1;
+                    result
+                        .errors
+                        .push(format!("Failed to overwrite '{}': {}", session.name, e));
+                    result.success = false;
+                    continue;
+                }
+            } else if options.skip_existing {
                 result.skipped += 1;
                 result.skipped_sessions.push(session.name.clone());
                 continue;
+            } else {
+                result.failed += 1;
+                result
+                    .errors
+                    .push(format!("Session '{}' already exists", session.name));
+                result.success = false;
+                continue;
             }
-            result.failed += 1;
-            result
-                .errors
-                .push(format!("Session '{}' already exists", session.name));
-            result.success = false;
-            continue;
         }
 
         if options.dry_run {
@@ -237,8 +258,13 @@ pub async fn run_import(options: &ImportOptions) -> Result<()> {
             .await
         {
             Ok(_) => {
-                result.imported += 1;
-                result.imported_sessions.push(session.name.clone());
+                if was_overwritten {
+                    result.overwritten += 1;
+                    result.overwritten_sessions.push(session.name.clone());
+                } else {
+                    result.imported += 1;
+                    result.imported_sessions.push(session.name.clone());
+                }
             }
             Err(e) => {
                 result.failed += 1;
@@ -258,13 +284,17 @@ pub async fn run_import(options: &ImportOptions) -> Result<()> {
             println!("[dry-run] Would import {} sessions", result.imported);
         } else {
             println!(
-                "✓ Imported {} sessions, skipped {}, failed {}",
-                result.imported, result.skipped, result.failed
+                "✓ Imported {} sessions, skipped {}, overwritten {}, failed {}",
+                result.imported, result.skipped, result.overwritten, result.failed
             );
         }
 
         if !result.imported_sessions.is_empty() {
             println!("  Imported: {}", result.imported_sessions.join(", "));
+        }
+
+        if !result.overwritten_sessions.is_empty() {
+            println!("  Overwritten: {}", result.overwritten_sessions.join(", "));
         }
 
         if !result.skipped_sessions.is_empty() {

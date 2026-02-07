@@ -10,7 +10,7 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 use crate::{
     cli::commands::build_cli,
     commands::{
-        abort, add, agents, ai, attach, batch, bookmark, can_i, checkpoint, claim, clean,
+        abort, add, agents, ai, attach, backup, batch, bookmark, can_i, checkpoint, claim, clean,
         completions, config, context, contract, dashboard, diff, doctor, done, events, examples,
         export_import, focus, get_session_db, init, integrity, introspect, list, pane, query,
         queue, recover, remove, rename, revert, schema, session_mgmt, spawn, status, switch, sync,
@@ -1001,6 +1001,7 @@ pub async fn handle_clone(sub_m: &ArgMatches) -> Result<()> {
         source,
         target,
         dry_run: false,
+        no_zellij: sub_m.get_flag("no-zellij"),
         format,
     };
     session_mgmt::run_clone(&options).await
@@ -1025,10 +1026,12 @@ pub async fn handle_import(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let input = sub_m.get_one::<String>("file").cloned().unwrap_or_default();
+    let force = sub_m.get_flag("force");
     let skip_existing = sub_m.get_flag("skip-existing");
     let dry_run = sub_m.get_flag("dry-run");
     let options = export_import::ImportOptions {
         input,
+        force,
         skip_existing,
         dry_run,
         format,
