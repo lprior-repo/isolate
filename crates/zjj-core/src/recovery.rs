@@ -54,8 +54,8 @@ pub async fn log_recovery(message: &str, config: &RecoveryConfig) -> Result<()> 
             .open(&log_path)
             .map_err(|e| Error::IoError(format!("Failed to open recovery log: {e}")))?;
 
-        // Acquire exclusive lock for atomic write
-        file.try_lock_exclusive()
+        // Acquire exclusive lock for atomic write (blocks until available)
+        file.lock_exclusive()
             .map_err(|e| Error::IoError(format!("Failed to lock recovery log: {e}")))?;
 
         // Write log entry
