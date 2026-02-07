@@ -198,15 +198,12 @@ impl HeartbeatMonitor {
     /// # Errors
     /// Returns `SpawnError::CleanupFailed` if cleanup fails.
     pub async fn cleanup(&self) -> Result<(), SpawnError> {
-        match tokio::fs::try_exists(&self.heartbeat_path).await {
-            Ok(true) => {
-                tokio::fs::remove_file(&self.heartbeat_path)
-                    .await
-                    .map_err(|e| SpawnError::CleanupFailed {
-                        reason: format!("Failed to remove heartbeat file: {e}"),
-                    })?;
-            }
-            _ => {}
+        if matches!(tokio::fs::try_exists(&self.heartbeat_path).await, Ok(true)) {
+            tokio::fs::remove_file(&self.heartbeat_path)
+                .await
+                .map_err(|e| SpawnError::CleanupFailed {
+                    reason: format!("Failed to remove heartbeat file: {e}"),
+                })?;
         }
         Ok(())
     }

@@ -125,14 +125,13 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
         .await
     };
 
-    let (pid, exit_code) = match spawn_result {
-        Ok(result) => result?,
-        Err(_) => {
-            let _ = tracker.rollback().await;
-            return Err(SpawnError::Timeout {
-                timeout_secs: options.timeout_secs,
-            });
-        }
+    let (pid, exit_code) = if let Ok(result) = spawn_result {
+        result?
+    } else {
+        let _ = tracker.rollback().await;
+        return Err(SpawnError::Timeout {
+            timeout_secs: options.timeout_secs,
+        });
     };
 
     if let Some(pid) = pid {

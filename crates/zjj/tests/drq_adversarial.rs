@@ -213,12 +213,8 @@ fn test_json_success_matches_exit_code() {
                 assert_eq!(
                     success,
                     result.success,
-                    "JSON success field ({}) must match exit code ({}={}) for command {:?}\nOutput: {}",
-                    success,
-                    !result.success,
-                    result.exit_code.unwrap_or(1),
-                    args,
-                    result.stdout
+                    "JSON success field ({success}) must match exit code ({success}={}) for command {:?}\nOutput: {}",
+                    result.success, args, &result.stdout
                 );
             }
         }

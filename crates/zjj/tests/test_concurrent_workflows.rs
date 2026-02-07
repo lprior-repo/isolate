@@ -37,7 +37,7 @@ fn test_100_concurrent_session_creation() {
     // and concurrent creation would require complex coordination.
 
     for i in 0..num_sessions {
-        let session_name = format!("concurrent-session-{}", i);
+        let session_name = format!("concurrent-session-{i}");
         harness.assert_success(&["add", &session_name, "--no-open"]);
     }
 
@@ -48,7 +48,7 @@ fn test_100_concurrent_session_creation() {
     // Verify all sessions are present
     result
         .verify_sessions(num_sessions)
-        .expect("Session verification should succeed");
+        .unwrap_or_else(|e| panic!("Session verification should succeed: {e}"));
 }
 
 // ========================================================================
@@ -69,7 +69,7 @@ fn test_parallel_read_operations() {
     // GIVEN: Create 20 sessions
     let num_sessions = 20;
     for i in 0..num_sessions {
-        let session_name = format!("read-session-{}", i);
+        let session_name = format!("read-session-{i}");
         harness.assert_success(&["add", &session_name, "--no-open"]);
     }
 
@@ -87,7 +87,7 @@ fn test_parallel_read_operations() {
 
             // Create test sessions in local harness
             for i in 0..5 {
-                local_harness.assert_success(&["add", &format!("local-{}", i), "--no-open"]);
+                local_harness.assert_success(&["add", &format!("local-{i}"), "--no-open"]);
             }
 
             // Read sessions
@@ -114,7 +114,7 @@ fn test_parallel_read_operations() {
     assert!(result.success);
     result
         .verify_sessions(num_sessions)
-        .expect("Original sessions should be intact");
+        .unwrap_or_else(|e| panic!("Original sessions should be intact: {e}"));
 }
 
 // ========================================================================
@@ -127,14 +127,14 @@ fn test_parallel_read_operations() {
 
 #[test]
 fn test_multi_agent_workflow_integration() {
+    // GIVEN: 3 parallel agents
+    const NUM_AGENTS: usize = 3;
+    const SESSIONS_PER_AGENT: usize = 10;
+
     let Some(harness) = TestHarness::try_new() else {
         return;
     };
     harness.assert_success(&["init"]);
-
-    // GIVEN: 3 parallel agents
-    const NUM_AGENTS: usize = 3;
-    const SESSIONS_PER_AGENT: usize = 10;
 
     let mut agent_handles = Vec::new();
 
@@ -149,7 +149,7 @@ fn test_multi_agent_workflow_integration() {
             let mut created_sessions = Vec::new();
 
             for session_num in 0..SESSIONS_PER_AGENT {
-                let session_name = format!("agent-{}-session-{}", agent_id, session_num);
+                let session_name = format!("agent-{agent_id}-session-{session_num}");
 
                 // Create session
                 let result = agent_harness.zjj(&["add", &session_name, "--no-open"]);
@@ -175,8 +175,7 @@ fn test_multi_agent_workflow_integration() {
     assert_eq!(
         all_created_sessions.len(),
         expected_total,
-        "All agents should create their sessions: {}",
-        expected_total
+        "All agents should create their sessions: {expected_total}"
     );
 
     // Verify no duplicate session names (conflict detection)
@@ -209,8 +208,7 @@ fn test_multi_agent_workflow_integration() {
         assert_eq!(
             count,
             SESSIONS_PER_AGENT,
-            "Agent {} should have created {} sessions, got {}",
-            agent_id, SESSIONS_PER_AGENT, count
+            "Agent {agent_id} should have created {SESSIONS_PER_AGENT} sessions, got {count}"
         );
     }
 }
@@ -235,7 +233,7 @@ fn test_concurrent_create_delete() {
 
     // Create sessions
     for i in 0..num_operations {
-        let session_name = format!("session-{}", i);
+        let session_name = format!("session-{i}");
         harness.assert_success(&["add", &session_name, "--no-open"]);
     }
 
@@ -243,7 +241,7 @@ fn test_concurrent_create_delete() {
     let mut handles = Vec::new();
 
     for i in 0..num_operations {
-        let session_name = format!("session-{}", i);
+        let session_name = format!("session-{i}");
         let handle = std::thread::spawn(move || {
             // Each thread creates its own harness
             let Some(local_harness) = TestHarness::try_new() else {
@@ -290,6 +288,7 @@ fn test_concurrent_create_delete() {
 // WHEN: 200 rapid operations are performed
 // THEN: System remains stable with no corruption
 
+#[allow(clippy::cast_precision_loss)]
 #[test]
 fn test_rapid_operations_stability() {
     let Some(harness) = TestHarness::try_new() else {
@@ -305,7 +304,7 @@ fn test_rapid_operations_stability() {
     // Optimized: Remove redundant status/list calls, just create (100 commands vs 600)
     let mut success_count = 0;
     for i in 0..num_operations {
-        let session_name = format!("rapid-{}", i);
+        let session_name = format!("rapid-{i}");
 
         // Create
         let create_result = harness.zjj(&["add", &session_name, "--no-open"]);
@@ -315,11 +314,10 @@ fn test_rapid_operations_stability() {
     }
 
     // THEN: System remains stable
-    let success_rate = (success_count as f64 / num_operations as f64) * 100.0;
-    assert_eq!(
-        success_rate, 100.0,
-        "All operations should succeed: {:.1}%",
-        success_rate
+    let success_rate = f64::from(success_count) * 100.0 / num_operations as f64;
+    let epsilon = 0.0001;
+    assert!((success_rate - 100.0).abs() < epsilon,
+        "All operations should succeed: {success_rate:.1}%"
     );
 
     // Verify all sessions persisted (functional verification)
@@ -327,7 +325,7 @@ fn test_rapid_operations_stability() {
     assert!(result.success);
     result
         .verify_sessions(num_operations)
-        .expect("All operations should persist");
+        .unwrap_or_else(|e| panic!("All operations should persist: {e}"));
 }
 
 // ========================================================================
@@ -351,7 +349,7 @@ fn test_high_volume_session_management() {
     // WHEN: Create 50 sessions
     let mut created_sessions = Vec::new();
     for i in 0..num_sessions {
-        let session_name = format!("volume-{}", i);
+        let session_name = format!("volume-{i}");
         harness.assert_success(&["add", &session_name, "--no-open"]);
         created_sessions.push(session_name);
     }
@@ -359,7 +357,7 @@ fn test_high_volume_session_management() {
     // THEN: All sessions accessible
     for session_name in &created_sessions {
         let result = harness.zjj(&["status", session_name]);
-        assert!(result.success, "Status should succeed for {}", session_name);
+        assert!(result.success, "Status should succeed for {session_name}");
     }
 
     // List operations remain fast
@@ -370,14 +368,13 @@ fn test_high_volume_session_management() {
     assert!(result.success, "List should succeed");
     assert!(
         duration.as_secs() < 5,
-        "List operation should complete quickly, took {:?}",
-        duration
+        "List operation should complete quickly, took {duration:?}"
     );
 
     // Verify all sessions present (functional pattern)
     result
         .verify_sessions(num_sessions)
-        .expect("All sessions should be present");
+        .unwrap_or_else(|e| panic!("All sessions should be present: {e}"));
 }
 
 // ========================================================================
@@ -390,14 +387,14 @@ fn test_high_volume_session_management() {
 
 #[test]
 fn test_parallel_agents_overlapping_namespaces() {
+    // GIVEN: Multiple agents
+    const NUM_AGENTS: usize = 5;
+    const SESSIONS_PER_AGENT: usize = 8;
+
     let Some(harness) = TestHarness::try_new() else {
         return;
     };
     harness.assert_success(&["init"]);
-
-    // GIVEN: Multiple agents
-    const NUM_AGENTS: usize = 5;
-    const SESSIONS_PER_AGENT: usize = 8;
 
     let mut agent_handles = Vec::new();
 
@@ -413,7 +410,7 @@ fn test_parallel_agents_overlapping_namespaces() {
 
             for session_num in 0..SESSIONS_PER_AGENT {
                 // Use different patterns per agent to avoid conflicts
-                let session_name = format!("agent{}-session-{:02}", agent_id, session_num);
+                let session_name = format!("agent{agent_id}-session-{session_num:02}");
 
                 let result = agent_harness.zjj(&["add", &session_name, "--no-open"]);
 
@@ -438,8 +435,7 @@ fn test_parallel_agents_overlapping_namespaces() {
     assert_eq!(
         all_created_sessions.len(),
         expected_total,
-        "All agents should create their sessions: {}",
-        expected_total
+        "All agents should create their sessions: {expected_total}"
     );
 
     // Verify no duplicates
@@ -454,13 +450,11 @@ fn test_parallel_agents_overlapping_namespaces() {
     for session_name in &all_created_sessions {
         assert!(
             session_name.starts_with("agent"),
-            "Session should follow agent pattern: {}",
-            session_name
+            "Session should follow agent pattern: {session_name}"
         );
         assert!(
             session_name.contains("-session-"),
-            "Session should contain session separator: {}",
-            session_name
+            "Session should contain session separator: {session_name}"
         );
     }
 }
@@ -485,14 +479,14 @@ fn test_rapid_create_remove_cycles() {
 
     // WHEN: Rapid create/remove cycles
     for i in 0..num_cycles {
-        let session_name = format!("cycle-{}", i);
+        let session_name = format!("cycle-{i}");
 
         // Create
         harness.assert_success(&["add", &session_name, "--no-open"]);
 
         // Verify exists
         let result = harness.zjj(&["status", &session_name]);
-        assert!(result.success, "Session {} should exist", session_name);
+        assert!(result.success, "Session {session_name} should exist");
 
         // Remove
         harness.assert_success(&["remove", &session_name, "--force"]);
@@ -506,7 +500,7 @@ fn test_rapid_create_remove_cycles() {
     assert!(result.success);
     result
         .verify_sessions(0)
-        .expect("All sessions should be removed after cycles");
+        .unwrap_or_else(|e| panic!("All sessions should be removed after cycles: {e}"));
 }
 
 // ========================================================================
@@ -517,6 +511,7 @@ fn test_rapid_create_remove_cycles() {
 // WHEN: Operations execute rapidly
 // THEN: Connection pool handles load without exhaustion
 
+#[allow(clippy::cast_precision_loss)]
 #[test]
 fn test_database_connection_pool_stress() {
     let Some(harness) = TestHarness::try_new() else {
@@ -532,7 +527,7 @@ fn test_database_connection_pool_stress() {
     // Optimized: Create batch first, then rapid reads to stress pool (30+30=60 commands vs 150)
     let mut success_count = 0;
     for i in 0..num_operations {
-        let session_name = format!("pool-stress-{}", i);
+        let session_name = format!("pool-stress-{i}");
 
         // Create (acquires connection)
         let create_result = harness.zjj(&["add", &session_name, "--no-open"]);
@@ -548,11 +543,10 @@ fn test_database_connection_pool_stress() {
     }
 
     // THEN: All operations succeed (pool not exhausted)
-    let success_rate = (success_count as f64 / num_operations as f64) * 100.0;
-    assert_eq!(
-        success_rate, 100.0,
-        "All operations should succeed: {:.1}%",
-        success_rate
+    let success_rate = f64::from(success_count) * 100.0 / num_operations as f64;
+    let epsilon = 0.0001;
+    assert!((success_rate - 100.0).abs() < epsilon,
+        "All operations should succeed: {success_rate:.1}%"
     );
 
     // Verify database integrity (functional verification includes uniqueness)
@@ -560,7 +554,7 @@ fn test_database_connection_pool_stress() {
     assert!(result.success);
     result
         .verify_sessions(num_operations)
-        .expect("All operations should succeed with unique sessions");
+        .unwrap_or_else(|e| panic!("All operations should succeed with unique sessions: {e}"));
 }
 
 // ========================================================================
@@ -584,7 +578,7 @@ fn test_concurrent_status_checks() {
     let mut session_names = Vec::new();
 
     for i in 0..num_sessions {
-        let session_name = format!("status-check-{}", i);
+        let session_name = format!("status-check-{i}");
         harness.assert_success(&["add", &session_name, "--no-open"]);
         session_names.push(session_name);
     }

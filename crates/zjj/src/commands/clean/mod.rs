@@ -51,7 +51,7 @@ pub async fn run_with_options(options: &CleanOptions) -> Result<()> {
     let db = get_session_db().await?;
 
     // 1. List all sessions and filter to stale ones using functional pipeline
-    let sessions = db.list(None).await.map_err(anyhow::Error::new)?;
+    let sessions = db.list(None).await.map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let stale_sessions: Vec<_> = futures::stream::iter(sessions)
         .then(|session| async move {
@@ -86,7 +86,7 @@ pub async fn run_with_options(options: &CleanOptions) -> Result<()> {
 
     // 5. Remove stale sessions using functional fold for error handling
     let removed_count = futures::stream::iter(&stale_sessions)
-        .map(|s| Ok::<_, anyhow::Error>(s))
+        .map(Ok::<_, anyhow::Error>)
         .try_fold(0, |acc, session| {
             let db = &db;
             async move {
@@ -139,9 +139,9 @@ fn output_dry_run(stale_names: &[String], format: OutputFormat) {
             "Found {} stale session(s) (dry-run, no changes made):",
             stale_names.len()
         );
-        stale_names.iter().for_each(|name| {
+        for name in stale_names {
             println!("  - {name}");
-        });
+        }
         println!();
         println!("Run 'zjj clean --force' to remove these sessions");
     }
@@ -176,9 +176,9 @@ fn output_result(removed_count: usize, stale_names: &[String], format: OutputFor
         }
     } else {
         println!("✓ Removed {removed_count} stale session(s)");
-        stale_names.iter().for_each(|name| {
+        for name in stale_names {
             println!("  - {name}");
-        });
+        }
     }
 }
 

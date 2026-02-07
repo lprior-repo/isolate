@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 
 use crate::{beads::BeadRepository, cli::jj_root};
 
-/// Query bead metadata from repository (SQLite or JSONL)
+/// Query bead metadata from repository (`SQLite` or `JSONL`).
 ///
 /// Returns JSON metadata with `bead_id`, title, and status information.
 /// Returns empty JSON object if bead not found or database doesn't exist.

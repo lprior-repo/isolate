@@ -81,16 +81,22 @@ impl ShutdownCoordinator {
             tokio::time::sleep(Duration::from_secs(1)).await;
 
             // Abort all remaining tasks
-            let mut tasks = self.tasks.lock().await;
-            for task in tasks.drain(..) {
-                task.abort();
+            {
+                let mut tasks = self.tasks.lock().await;
+                for task in tasks.drain(..) {
+                    task.abort();
+                }
+                drop(tasks); // Release lock early
             }
 
             // Terminate agent processes
-            let mut processes = self.agent_processes.lock().await;
-            for mut process in processes.drain(..) {
-                // Try graceful shutdown first
-                let _ = process.kill();
+            {
+                let mut processes = self.agent_processes.lock().await;
+                for mut process in processes.drain(..) {
+                    // Try graceful shutdown first
+                    let _ = process.kill();
+                }
+                drop(processes); // Release lock early
             }
 
             Ok::<(), crate::Error>(())

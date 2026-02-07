@@ -19,20 +19,19 @@ pub(super) async fn get_system_state() -> SystemState {
             .as_ref()
             .map(|d| d.join("state.db").display().to_string());
 
-        let (count, active) = if let Ok(db) = get_session_db().await {
-            if let Ok(sessions) = db.list(None).await {
-                let total = sessions.len();
-                let active = sessions
-                    .iter()
-                    .filter(|s| s.status.to_string() == "active")
-                    .count();
-                (total, active)
-            } else {
-                (0, 0)
-            }
-        } else {
-            (0, 0)
+        let sessions_result: Option<Vec<_>> = match get_session_db().await {
+            Ok(db) => db.list(None).await.ok(),
+            Err(_) => None,
         };
+
+        let (count, active) = sessions_result.map(|sessions| {
+            let total = sessions.len();
+            let active = sessions
+                .iter()
+                .filter(|s| s.status.to_string() == "active")
+                .count();
+            (total, active)
+        }).unwrap_or((0, 0));
 
         (config, db, count, active)
     } else {

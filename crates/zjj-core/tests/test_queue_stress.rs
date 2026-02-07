@@ -62,11 +62,13 @@ async fn spawn_concurrent_agents(
         })
         .collect::<Vec<_>>();
 
-    join_all(handles)
+    let results: Vec<Option<String>> = join_all(handles)
         .await
         .into_iter()
-        .filter_map(|r| r.ok())
-        .collect()
+        .filter_map(Result::ok)
+        .collect();
+
+    results
 }
 
 #[tokio::test]
@@ -78,8 +80,8 @@ async fn test_queue_concurrent_lock_no_duplicates() -> Result<(), Box<dyn std::e
     let items: Vec<_> = (0..20)
         .map(|i| {
             (
-                format!("workspace-{}", i),
-                format!("bead-{}", i),
+                format!("workspace-{i}"),
+                format!("bead-{i}"),
                 5i32,
             )
         })
@@ -100,14 +102,14 @@ async fn test_queue_concurrent_lock_no_duplicates() -> Result<(), Box<dyn std::e
     assert_eq!(stats.pending, 20, "All 20 items should be pending");
 
     // Spawn 20 agents concurrently
-    let work_items: Vec<String> = (0..20).map(|i| format!("agent-{}", i)).collect();
+    let work_items: Vec<String> = (0..20).map(|i| format!("agent-{i}")).collect();
     let queue = Arc::new(queue);
     let results = spawn_concurrent_agents(queue.clone(), work_items).await;
 
     // Collect all successfully claimed workspaces
     let claimed_workspaces: HashSet<String> = results
         .into_iter()
-        .filter_map(|opt| opt)
+        .flatten()
         .collect();
 
     // Verify no duplicates: should have exactly 20 unique workspaces claimed
@@ -119,17 +121,16 @@ async fn test_queue_concurrent_lock_no_duplicates() -> Result<(), Box<dyn std::e
 
     // Verify all workspaces were claimed exactly once
     for i in 0..20 {
-        let workspace = format!("workspace-{}", i);
+        let workspace = format!("workspace-{i}");
         assert!(
             claimed_workspaces.contains(&workspace),
-            "Workspace {} should be in claimed set",
-            workspace
+            "Workspace {workspace} should be in claimed set"
         );
     }
 
     // Verify queue stats show all items completed
     let stats = queue.stats().await?;
-    assert_eq!(stats.completed, 20, "All 20 items should be completed");
+    assert_eq!(stats.completed, 20, "All {total} items should be completed", total = 20);
     assert_eq!(stats.processing, 0, "No items should remain in processing");
 
     Ok(())
@@ -230,7 +231,9 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Get initial lock info
     let lock1 = queue.get_processing_lock().await?;
     assert!(lock1.is_some(), "Lock should be held");
-    let initial_expires = lock1.as_ref().expect("lock should exist").expires_at;
+    let initial_expires = lock1.as_ref().map(|lock| lock.expires_at).unwrap_or_else(|| {
+        panic!("lock should exist");
+    });
 
     // Extend the lock by 100 seconds
     let extended = queue.extend_lock("agent-extender", 100).await?;
@@ -242,12 +245,13 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Verify lock was extended
     let lock2 = queue.get_processing_lock().await?;
     assert!(lock2.is_some(), "Lock should still be held");
-    let new_expires = lock2.as_ref().expect("lock should exist").expires_at;
+    let new_expires = lock2.as_ref().map(|lock| lock.expires_at).unwrap_or_else(|| {
+        panic!("lock should exist");
+    });
 
     assert!(
         new_expires > initial_expires,
-        "Lock expiration should be extended: initial={}, new={}",
-        initial_expires, new_expires
+        "Lock expiration should be extended: initial={initial_expires}, new={new_expires}"
     );
 
     // Another agent cannot claim while lock is extended
@@ -278,7 +282,9 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Verify lock expiration hasn't changed (still held by original agent)
     let lock4 = queue.get_processing_lock().await?;
     assert_eq!(
-        lock4.as_ref().expect("lock should exist").expires_at,
+        lock4.as_ref().map(|lock| lock.expires_at).unwrap_or_else(|| {
+            panic!("lock should exist");
+        }),
         new_expires,
         "Lock expiration should not change when non-owner tries to extend"
     );
@@ -299,12 +305,15 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
 
 #[tokio::test]
 async fn test_queue_concurrent_high_contention() -> Result<(), Box<dyn std::error::Error>> {
+    const MAX_RETRIES: u32 = 15;
+    const INITIAL_BACKOFF_MS: u64 = 1;
+
     // Test high contention: many agents competing for few work items
     let queue = MergeQueue::open_in_memory().await?;
 
     // Add 5 work items in parallel
     let items: Vec<_> = (0..5)
-        .map(|i| (format!("ws-{}", i), format!("bead-{}", i), 5i32))
+        .map(|i| (format!("ws-{i}"), format!("bead-{i}"), 5i32))
         .collect();
     let add_futures: Vec<_> = items
         .iter()
@@ -318,13 +327,7 @@ async fn test_queue_concurrent_high_contention() -> Result<(), Box<dyn std::erro
         .collect::<Result<Vec<_>, _>>()?;
 
     let queue = Arc::new(queue);
-
-    // Spawn 20 agents competing for 5 work items with retry logic
-    const MAX_RETRIES: u32 = 15;
-    const INITIAL_BACKOFF_MS: u64 = 1;
-
-    let agents: Vec<String> = (0..20).map(|i| format!("agent-{}", i)).collect();
-    let handles = agents.into_iter().map(|agent_id| {
+    let handles = (0..20).map(|i| format!("agent-{i}")).map(|agent_id| {
         let queue = Arc::clone(&queue);
         tokio::spawn(async move {
             let mut result: Result<Option<QueueEntry>, Error> = Ok(None);
@@ -335,12 +338,11 @@ async fn test_queue_concurrent_high_contention() -> Result<(), Box<dyn std::erro
                 result = queue.next_with_lock(&agent_id).await;
 
                 match &result {
-                    Ok(Some(_)) => break,
+                    Ok(Some(_)) | Err(_) => break,
                     Ok(None) => {
                         sleep(Duration::from_millis(backoff_ms)).await;
                         backoff_ms = (backoff_ms * 2).min(50);
                     }
-                    Err(_) => break,
                 }
             }
 
@@ -353,12 +355,12 @@ async fn test_queue_concurrent_high_contention() -> Result<(), Box<dyn std::erro
         })
     });
 
-    let results = join_all(handles)
+    let results: Vec<String> = join_all(handles)
         .await
         .into_iter()
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .flatten()
-        .collect::<Vec<_>>();
+        .collect();
 
     // Exactly 5 unique workspaces should be claimed (no duplicates)
     let unique_workspaces: HashSet<_> = results.into_iter().collect();
@@ -377,6 +379,8 @@ async fn test_queue_concurrent_high_contention() -> Result<(), Box<dyn std::erro
 
 #[tokio::test]
 async fn test_queue_serialization_under_load() -> Result<(), Box<dyn std::error::Error>> {
+    const NUM_AGENTS: usize = 10;
+
     // Test that queue operations are properly serialized under load
     let queue = MergeQueue::open_in_memory().await?;
     let queue = Arc::new(queue);
@@ -384,9 +388,9 @@ async fn test_queue_serialization_under_load() -> Result<(), Box<dyn std::error:
     // Add 100 work items with varying priorities in parallel
     let items: Vec<_> = (0..100)
         .map(|i| {
-            let workspace = format!("ws-{}", i);
-            let bead = format!("bead-{}", i);
-            let priority = (i % 10) as i32;
+            let workspace = format!("ws-{i}");
+            let bead = format!("bead-{i}");
+            let priority = i % 10;
             (workspace, bead, priority)
         })
         .collect();
@@ -405,14 +409,13 @@ async fn test_queue_serialization_under_load() -> Result<(), Box<dyn std::error:
     let stats = queue.stats().await?;
     assert_eq!(stats.pending, 100, "All 100 items should be pending");
 
-    // Process all items with 10 concurrent agents
-    let num_agents = 10;
-    let mut handles = Vec::with_capacity(num_agents);
+    let mut handles = Vec::with_capacity(NUM_AGENTS);
+    let queue_ref = Arc::clone(&queue);
 
-    for agent_idx in 0..num_agents {
-        let queue = Arc::clone(&queue);
+    for agent_idx in 0..NUM_AGENTS {
+        let queue = Arc::clone(&queue_ref);
         let handle = tokio::spawn(async move {
-            let agent_id = format!("agent-{}", agent_idx);
+            let agent_id = format!("agent-{agent_idx}");
             let mut processed = 0;
 
             loop {
@@ -444,7 +447,7 @@ async fn test_queue_serialization_under_load() -> Result<(), Box<dyn std::error:
     let processed_counts = join_all(handles)
         .await
         .into_iter()
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .collect::<Vec<_>>();
 
     // Total processed should be 100
@@ -470,7 +473,7 @@ async fn test_queue_priority_respected_under_concurrency() -> Result<(), Box<dyn
     let queue = MergeQueue::open_in_memory().await?;
 
     // Add work items with different priorities out of order
-    let work_items = vec![
+    let work_items = [
         ("ws-low", "bead-1", 10),
         ("ws-high1", "bead-2", 0),
         ("ws-mid1", "bead-3", 5),
@@ -499,7 +502,7 @@ async fn test_queue_priority_respected_under_concurrency() -> Result<(), Box<dyn
         .map(|i| {
             let queue = Arc::clone(&queue);
             tokio::spawn(async move {
-                let agent_id = format!("agent-{}", i);
+                let agent_id = format!("agent-{i}");
                 let mut order = Vec::new();
 
                 loop {
@@ -512,8 +515,7 @@ async fn test_queue_priority_respected_under_concurrency() -> Result<(), Box<dyn
                             let _ = queue.mark_completed(&entry.workspace).await;
                             let _ = queue.release_processing_lock(&agent_id).await;
                         }
-                        Ok(None) => break,
-                        Err(_) => break,
+                        Ok(None) | Err(_) => break,
                     }
                 }
 
@@ -523,22 +525,26 @@ async fn test_queue_priority_respected_under_concurrency() -> Result<(), Box<dyn
         .collect();
 
     let results = join_all(handles).await;
-    for result in results {
-        if let Ok(order) = result {
-            processed_order.extend(order);
-        }
+    for order in results.into_iter().flatten() {
+        processed_order.extend(order);
     }
 
     // Sort by priority to verify correct ordering
     processed_order.sort_by_key(|(_, priority)| *priority);
 
     // Highest priority (0) items should be processed first
-    let priority_0_items: Vec<_> = processed_order.iter().filter(|(_, p)| *p == 0).collect();
-    assert_eq!(priority_0_items.len(), 1, "One priority-0 item");
+    assert_eq!(
+        processed_order.iter().filter(|(_, p)| *p == 0).count(),
+        1,
+        "One priority-0 item"
+    );
 
     // Lower priority items (10) should be processed last
-    let priority_10_items: Vec<_> = processed_order.iter().filter(|(_, p)| *p == 10).collect();
-    assert_eq!(priority_10_items.len(), 2, "Two priority-10 items");
+    assert_eq!(
+        processed_order.iter().filter(|(_, p)| *p == 10).count(),
+        2,
+        "Two priority-10 items"
+    );
 
     // All items processed
     assert_eq!(processed_order.len(), 6, "All 6 items should be processed");
@@ -561,7 +567,7 @@ async fn test_queue_lock_contention_resolution() -> Result<(), Box<dyn std::erro
         .map(|i| {
             let queue = Arc::clone(&queue);
             tokio::spawn(async move {
-                let agent_id = format!("agent-{}", i);
+                let agent_id = format!("agent-{i}");
                 queue.next_with_lock(&agent_id).await
             })
         })
@@ -572,7 +578,7 @@ async fn test_queue_lock_contention_resolution() -> Result<(), Box<dyn std::erro
     // Count successful claims
     let successful_claims: usize = results
         .into_iter()
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .filter(|r| matches!(r, Ok(Some(_))))
         .count();
 

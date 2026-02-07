@@ -349,8 +349,8 @@ fn output_table(items: &[SessionStatusInfo], current_location: Option<&str>) {
     }
 
     // Display table rows
-    items.iter().for_each(|item| {
-        let is_current = current_location.is_some_and(|current| current == &item.name);
+    for item in items {
+        let is_current = current_location.is_some_and(|current| current == item.name);
 
         let marker = if is_current { "▶" } else { " " };
 
@@ -400,7 +400,7 @@ fn output_table(items: &[SessionStatusInfo], current_location: Option<&str>) {
                 bead_info
             );
         }
-    });
+    }
 
     // Display table footer
     if is_tty {

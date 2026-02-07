@@ -181,11 +181,10 @@ async fn diagnose_issues() -> Vec<Issue> {
                                 issues.push(Issue {
                                     code: "ORPHANED_SESSION".to_string(),
                                     description: format!(
-                                        "Session '{}' has missing workspace at {}",
-                                        name, path
+                                        "Session '{name}' has missing workspace at {path}",
                                     ),
                                     severity: "warning".to_string(),
-                                    fix_command: Some(format!("zjj remove {} --force", name)),
+                                    fix_command: Some(format!("zjj remove {name} --force")),
                                     fixed: false,
                                 });
                             }
@@ -197,9 +196,9 @@ async fn diagnose_issues() -> Vec<Issue> {
                     if status == "creating" {
                         issues.push(Issue {
                             code: "STALE_CREATING_SESSION".to_string(),
-                            description: format!("Session '{}' stuck in 'creating' state", name),
+                            description: format!("Session '{name}' stuck in 'creating' state"),
                             severity: "warning".to_string(),
-                            fix_command: Some(format!("zjj remove {} --force", name)),
+                            fix_command: Some(format!("zjj remove {name} --force")),
                             fixed: false,
                         });
                     }

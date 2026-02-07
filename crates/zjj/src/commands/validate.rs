@@ -58,7 +58,7 @@ pub struct ArgValidation {
 }
 
 /// Run the validate command
-pub async fn run(options: &ValidateOptions) -> Result<()> {
+pub fn run(options: &ValidateOptions) -> Result<()> {
     let result = validate_command(&options.command, &options.args);
 
     let is_valid = result.valid;

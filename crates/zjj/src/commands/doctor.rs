@@ -22,10 +22,10 @@ use chrono::{Duration, Utc};
 use futures::StreamExt;
 use tokio::process::Command;
 use zjj_core::{
-    config::load_config,
+    config::{load_config, Config},
     introspection::{CheckStatus, DoctorCheck, DoctorFixOutput, FixResult, UnfixableIssue},
     json::SchemaEnvelope,
-    workspace_integrity::IntegrityValidator,
+    workspace_integrity::{IntegrityValidator, ValidationResult},
     OutputFormat,
 };
 
@@ -93,7 +93,7 @@ pub async fn run(format: OutputFormat, fix: bool) -> Result<()> {
     if fix {
         run_fixes(&checks, format).await
     } else {
-        show_health_report(&checks, format).await
+        show_health_report(&checks, format)
     }
 }
 
@@ -102,9 +102,9 @@ async fn run_all_checks() -> Vec<DoctorCheck> {
     vec![
         check_jj_installed().await,
         check_zellij_installed().await,
-        check_zellij_running().await,
+        check_zellij_running(),
         check_jj_repo().await,
-        check_workspace_context().await,
+        check_workspace_context(),
         check_initialized().await,
         check_state_db().await,
         check_workspace_integrity().await,
@@ -117,7 +117,7 @@ async fn run_all_checks() -> Vec<DoctorCheck> {
 
 /// Check workspace integrity using the integrity validator
 async fn check_workspace_integrity() -> DoctorCheck {
-    let config = match load_config().await {
+    let config = match load_config_or_error().await {
         Ok(cfg) => cfg,
         Err(e) => {
             return DoctorCheck {
@@ -188,44 +188,54 @@ async fn check_workspace_integrity() -> DoctorCheck {
         }
     };
 
-    let invalid: Vec<_> = results.iter().filter(|r| !r.is_valid).collect();
+    let invalid: Vec<&ValidationResult> = results.iter().filter(|r| !r.is_valid).collect();
 
     if invalid.is_empty() {
-        DoctorCheck {
-            name: "Workspace Integrity".to_string(),
-            status: CheckStatus::Pass,
-            message: "All workspaces validated successfully".to_string(),
-            suggestion: None,
-            auto_fixable: false,
-            details: None,
-        }
+        create_pass_check()
     } else {
-        let details = serde_json::json!({
-            "invalid_workspaces": invalid.iter().map(|r| {
-                serde_json::json!({
-                    "workspace": r.workspace,
-                    "issue_count": r.issues.len(),
-                    "issues": r.issues.iter().map(|i| {
-                        serde_json::json!({
-                            "type": i.corruption_type.to_string(),
-                            "description": i.description,
-                            "path": i.affected_path.as_ref().map(|p| p.display().to_string()),
-                        })
-                    }).collect::<Vec<_>>(),
-                })
-            }).collect::<Vec<_>>()
-        });
+        create_fail_check(&invalid)
+    }
+}
 
-        DoctorCheck {
-            name: "Workspace Integrity".to_string(),
-            status: CheckStatus::Fail,
-            message: format!("Integrity issues found in {} workspace(s)", invalid.len()),
-            suggestion: Some(
-                "Run 'zjj integrity repair <workspace>' to attempt recovery".to_string(),
-            ),
-            auto_fixable: false,
-            details: Some(details),
-        }
+async fn load_config_or_error() -> Result<Config> {
+    load_config().await.map_err(std::convert::Into::into)
+}
+
+fn create_pass_check() -> DoctorCheck {
+    DoctorCheck {
+        name: "Workspace Integrity".to_string(),
+        status: CheckStatus::Pass,
+        message: "All workspaces validated successfully".to_string(),
+        suggestion: None,
+        auto_fixable: false,
+        details: None,
+    }
+}
+
+fn create_fail_check(invalid: &[&ValidationResult]) -> DoctorCheck {
+    let details = serde_json::json!({
+        "invalid_workspaces": invalid.iter().map(|r| {
+            serde_json::json!({
+                "workspace": r.workspace,
+                "issue_count": r.issues.len(),
+                "issues": r.issues.iter().map(|i| {
+                    serde_json::json!({
+                        "type": i.corruption_type.to_string(),
+                        "description": i.description,
+                        "path": i.affected_path.as_ref().map::<String, _>(|p| p.display().to_string()),
+                    })
+                }).collect::<Vec<_>>(),
+            })
+        }).collect::<Vec<_>>()
+    });
+
+    DoctorCheck {
+        name: "Workspace Integrity".to_string(),
+        status: CheckStatus::Fail,
+        message: format!("Integrity issues found in {} workspace(s)", invalid.len()),
+        suggestion: Some("Run 'zjj integrity repair <workspace>' to attempt recovery".to_string()),
+        auto_fixable: false,
+        details: Some(details),
     }
 }
 
@@ -282,7 +292,7 @@ async fn check_zellij_installed() -> DoctorCheck {
 }
 
 /// Check if Zellij is running
-async fn check_zellij_running() -> DoctorCheck {
+fn check_zellij_running() -> DoctorCheck {
     let running = is_inside_zellij();
 
     DoctorCheck {
@@ -337,7 +347,7 @@ async fn check_jj_repo() -> DoctorCheck {
 ///
 /// This helps AI agents understand they're already in the right place
 /// and should NOT clone the repository elsewhere.
-async fn check_workspace_context() -> DoctorCheck {
+fn check_workspace_context() -> DoctorCheck {
     let current_dir = std::env::current_dir().ok();
     let in_workspace = current_dir
         .as_ref()
@@ -740,18 +750,15 @@ async fn check_stale_sessions() -> DoctorCheck {
 
 /// Check for workflow violations that may confuse AI agents
 async fn check_workflow_violations() -> DoctorCheck {
-    let db = match get_session_db().await {
-        Ok(db) => db,
-        Err(_) => {
-            return DoctorCheck {
-                name: "Workflow Health".to_string(),
-                status: CheckStatus::Pass,
-                message: "No session database".to_string(),
-                suggestion: None,
-                auto_fixable: false,
-                details: None,
-            };
-        }
+    let Ok(db) = get_session_db().await else {
+        return DoctorCheck {
+            name: "Workflow Health".to_string(),
+            status: CheckStatus::Pass,
+            message: "No session database".to_string(),
+            suggestion: None,
+            auto_fixable: false,
+            details: None,
+        };
     };
 
     let sessions = db.list(None).await.unwrap_or_default();
@@ -819,7 +826,8 @@ async fn check_workflow_violations() -> DoctorCheck {
 /// - 0: All checks passed (healthy system)
 /// - 1: One or more checks failed (unhealthy system)
 /// - 2: System recovered from corruption (recovery detected)
-async fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
+#[allow(clippy::too_many_lines)]
+fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     // Calculate summary statistics
     let warnings = checks
         .iter()
@@ -869,7 +877,7 @@ async fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Res
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!();
 
-    checks.iter().for_each(|check| {
+    for check in checks {
         let symbol = match check.status {
             CheckStatus::Pass => "✓",
             CheckStatus::Warn => "⚠",
@@ -881,7 +889,7 @@ async fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Res
         if let Some(ref suggestion) = check.suggestion {
             println!("  → {suggestion}");
         }
-    });
+    }
 
     println!();
     println!("Health: {passed} passed, {warnings} warning(s), {errors} error(s)");
@@ -1044,20 +1052,20 @@ async fn fix_state_database(_check: &DoctorCheck) -> Result<String, String> {
 fn show_fix_results(output: &DoctorFixOutput) {
     if !output.fixed.is_empty() {
         println!("Fixed Issues:");
-        output.fixed.iter().for_each(|fix| {
+        for fix in &output.fixed {
             let symbol = if fix.success { "✓" } else { "✗" };
             println!(
                 "{symbol} {fix_issue}: {fix_action}",
                 fix_issue = fix.issue,
                 fix_action = fix.action
             );
-        });
+        }
         println!();
     }
 
     if !output.unable_to_fix.is_empty() {
         println!("Unable to Fix:");
-        output.unable_to_fix.iter().for_each(|issue| {
+        for issue in &output.unable_to_fix {
             println!(
                 "✗ {issue_name}: {issue_reason}",
                 issue_name = issue.issue,
@@ -1067,7 +1075,7 @@ fn show_fix_results(output: &DoctorFixOutput) {
                 "  → {issue_suggestion}",
                 issue_suggestion = issue.suggestion
             );
-        });
+        }
     }
 }
 
@@ -1156,8 +1164,6 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use serial_test::serial;
     use tempfile::TempDir;
 

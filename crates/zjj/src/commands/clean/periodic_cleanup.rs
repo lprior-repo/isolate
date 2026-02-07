@@ -105,10 +105,9 @@ async fn is_orphan_candidate(
     now: &DateTime<Utc>,
 ) -> Option<OrphanCandidate> {
     let age = calculate_age(session, now)?;
-    let workspace_exists = match tokio::fs::try_exists(&session.workspace_path).await {
-        Ok(exists) => exists,
-        Err(_) => false,
-    };
+    let workspace_exists = tokio::fs::try_exists(&session.workspace_path)
+        .await
+        .is_ok_and(|exists| exists);
     let has_active_bead = check_active_bead(session).await;
 
     // Orphan if workspace missing
@@ -368,7 +367,25 @@ mod tests {
     fn mock_session(name: &str, age_hours: i64, workspace_exists: bool) -> Session {
         let now = Utc::now();
         let created_at = now - chrono::Duration::hours(age_hours);
-        let created_timestamp = u64::try_from(created_at.timestamp()).unwrap_or_default();
+        let Ok(created_timestamp) = u64::try_from(created_at.timestamp()) else {
+            return Session {
+                id: None,
+                name: name.to_string(),
+                status: SessionStatus::Active,
+                state: WorkspaceState::default(),
+                workspace_path: if workspace_exists {
+                    "/tmp".to_string()
+                } else {
+                    "/nonexistent/path".to_string()
+                },
+                zellij_tab: format!("zjj:{name}"),
+                branch: None,
+                created_at: 0,
+                updated_at: 0,
+                last_synced: None,
+                metadata: Some(serde_json::Value::Null),
+            }
+        };
 
         Session {
             id: None,
@@ -398,7 +415,9 @@ mod tests {
         let result = is_orphan_candidate(&session, &threshold, &now).await;
 
         assert!(result.is_some());
-        let orphan = result.unwrap_or_else(|| panic!("Expected orphan"));
+        let Some(orphan) = result else {
+            panic!("Expected orphan");
+        };
         assert!(!orphan.workspace_exists);
     }
 
@@ -411,7 +430,9 @@ mod tests {
         let result = is_orphan_candidate(&session, &threshold, &now).await;
 
         assert!(result.is_some());
-        let orphan = result.unwrap_or_else(|| panic!("Expected orphan"));
+        let Some(orphan) = result else {
+            panic!("Expected orphan");
+        };
         assert!(orphan.workspace_exists);
         assert!(!orphan.has_active_bead);
     }

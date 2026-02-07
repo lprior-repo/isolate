@@ -185,7 +185,7 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
         );
         println!("{}", "-".repeat(120));
 
-        items.iter().for_each(|item| {
+        for item in items {
             let bead_info = item
                 .session
                 .metadata
@@ -208,7 +208,7 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
                 "{:<20} {:<12} {:<15} {:<30} {:<40}",
                 item.name, item.status, item.branch, bead_info, item.session.workspace_path
             );
-        });
+        }
     } else {
         // Normal mode: show standard columns
         println!(
@@ -217,12 +217,12 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
         );
         println!("{}", "-".repeat(70));
 
-        items.iter().for_each(|item| {
+        for item in items {
             println!(
                 "{:<20} {:<12} {:<15} {:<10} {:<12}",
                 item.name, item.status, item.branch, item.changes, item.beads
             );
-        });
+        }
     }
 }
 

@@ -39,7 +39,7 @@ pub async fn run(format: OutputFormat) -> Result<()> {
 }
 
 /// Introspect a specific command
-pub async fn run_command_introspect(command: &str, format: OutputFormat) -> Result<()> {
+pub fn run_command_introspect(command: &str, format: OutputFormat) -> Result<()> {
     let introspection = match command {
         "add" => get_add_introspection(),
         "remove" => get_remove_introspection(),
@@ -166,11 +166,11 @@ pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
     ];
 
     // Display categories in defined order using functional patterns
-    category_order.iter().for_each(|category| {
+    for category in &category_order {
         if let Some(flags_in_category) = grouped.get(*category) {
             let _ = write!(output, "\n\n  {}:", capitalize_category(category));
 
-            flags_in_category.iter().for_each(|flag| {
+            for flag in flags_in_category {
                 let short = flag
                     .short
                     .as_ref()
@@ -191,9 +191,9 @@ pub fn format_flags_by_category(flags: &[FlagSpec]) -> String {
                         flag.possible_values.join(", ")
                     );
                 }
-            });
+            }
         }
-    });
+    }
 
     output.push('\n');
     output
@@ -958,7 +958,7 @@ pub struct SessionStatesOutput {
 }
 
 /// Run introspect with --env-vars flag
-pub async fn run_env_vars(format: OutputFormat) -> Result<()> {
+pub fn run_env_vars(format: OutputFormat) -> Result<()> {
     let env_vars = vec![
         EnvVarInfo {
             name: "ZJJ_AGENT_ID".to_string(),
@@ -1034,7 +1034,7 @@ pub async fn run_env_vars(format: OutputFormat) -> Result<()> {
 
 /// Run introspect with --workflows flag
 #[allow(clippy::too_many_lines)]
-pub async fn run_workflows(format: OutputFormat) -> Result<()> {
+pub fn run_workflows(format: OutputFormat) -> Result<()> {
     let workflows = vec![
         WorkflowPattern {
             name: "Quick Work Session".to_string(),
@@ -1479,7 +1479,7 @@ pub async fn run_ai() -> Result<()> {
 }
 
 /// Run introspect with --session-states flag
-pub async fn run_session_states(format: OutputFormat) -> Result<()> {
+pub fn run_session_states(format: OutputFormat) -> Result<()> {
     let states = vec![
         "creating".to_string(),
         "active".to_string(),

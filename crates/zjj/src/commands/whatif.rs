@@ -102,7 +102,7 @@ pub enum PrerequisiteStatus {
 }
 
 /// Run the whatif command
-pub async fn run(options: &WhatIfOptions) -> Result<()> {
+pub fn run(options: &WhatIfOptions) -> Result<()> {
     let result = preview_command(&options.command, &options.args)?;
 
     if options.format.is_json() {

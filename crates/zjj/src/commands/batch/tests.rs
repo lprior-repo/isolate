@@ -25,7 +25,7 @@ async fn test_batch_all_succeed() {
 
 /// GIVEN: Atomic batch with partial failure
 /// WHEN: First operation succeeds, second fails
-/// THEN: Both rolled back, success=false, rolled_back=true
+/// THEN: Both rolled back, success=false, `rolled_back=true`
 #[tokio::test]
 async fn test_batch_partial_fails_rollback() {
     let request = BatchRequest {
@@ -93,7 +93,7 @@ async fn test_batch_respects_order() {
     assert!(request.operations[2].optional);
 }
 
-/// GIVEN: BatchItemStatus values
+/// GIVEN: `BatchItemStatus` values
 /// WHEN: Serialized
 /// THEN: All status types serialize correctly
 #[test]
@@ -108,12 +108,12 @@ fn test_batch_item_status_serialization() {
     ];
 
     for (status, expected) in statuses {
-        let json = serde_json::to_string(&status).expect("Serialization should succeed");
-        assert_eq!(json, format!("\"{}\"", expected));
+        let json = serde_json::to_string(&status).unwrap_or_else(|e| panic!("Serialization should succeed: {e}"));
+        assert_eq!(json, format!("\"{expected}\""));
     }
 }
 
-/// GIVEN: BatchRequest with atomic mode
+/// GIVEN: `BatchRequest` with atomic mode
 /// WHEN: Serialized and deserialized
 /// THEN: All fields preserved
 #[test]
@@ -128,12 +128,12 @@ fn test_batch_request_roundtrip() {
         }],
     };
 
-    let json = serde_json::to_string(&original).expect("Serialization should succeed");
+    let json = serde_json::to_string(&original).unwrap_or_else(|e| panic!("Serialization should succeed: {e}"));
 
     let deserialized: BatchRequest =
-        serde_json::from_str(&json).expect("Deserialization should succeed");
+        serde_json::from_str(&json).unwrap_or_else(|e| panic!("Deserialization should succeed: {e}"));
 
-    assert_eq!(deserialized.atomic, true);
+    assert!(deserialized.atomic);
     assert_eq!(deserialized.operations.len(), 1);
     assert_eq!(deserialized.operations[0].command, "add");
     assert_eq!(deserialized.operations[0].args, vec!["session-1"]);
@@ -141,9 +141,9 @@ fn test_batch_request_roundtrip() {
     assert!(!deserialized.operations[0].optional);
 }
 
-/// GIVEN: BatchResponse with all succeeded
+/// GIVEN: `BatchResponse` with all succeeded
 /// WHEN: Check response fields
-/// THEN: success=true, failed=0, checkpoint_id set
+/// THEN: success=true, failed=0, `checkpoint_id` set
 #[test]
 fn test_batch_response_success_fields() {
     let response = BatchResponse {
@@ -166,9 +166,9 @@ fn test_batch_response_success_fields() {
     assert!(!response.rolled_back);
 }
 
-/// GIVEN: BatchResponse with rollback
+/// GIVEN: `BatchResponse` with rollback
 /// WHEN: Check response fields
-/// THEN: success=false, rolled_back=true, results show RolledBack status
+/// THEN: success=false, `rolled_back=true`, results show `RolledBack` status
 #[test]
 fn test_batch_response_rollback_fields() {
     let results = vec![BatchItemResult {
@@ -198,7 +198,7 @@ fn test_batch_response_rollback_fields() {
     assert_eq!(response.results[0].status, BatchItemStatus::RolledBack);
 }
 
-/// GIVEN: to_duration_ms with valid duration
+/// GIVEN: `to_duration_ms` with valid duration
 /// WHEN: Called
 /// THEN: Returns Some(milliseconds)
 #[test]
@@ -209,7 +209,7 @@ fn test_to_duration_ms_valid() {
     assert_eq!(ms, Some(500));
 }
 
-/// GIVEN: to_duration_ms with zero duration
+/// GIVEN: `to_duration_ms` with zero duration
 /// WHEN: Called
 /// THEN: Returns Some(0)
 #[test]
@@ -220,19 +220,19 @@ fn test_to_duration_ms_zero() {
     assert_eq!(ms, Some(0));
 }
 
-/// GIVEN: to_duration_ms with overflow duration
+/// GIVEN: `to_duration_ms` with overflow duration
 /// WHEN: Called
 /// THEN: Returns None (gracefully handles overflow)
 #[test]
 fn test_to_duration_ms_overflow() {
-    let duration = std::time::Duration::from_secs(u64::MAX as u64);
+    let duration = std::time::Duration::from_secs(u64::MAX);
     let ms = to_duration_ms(duration);
 
     // Overflow case: should return None instead of panicking
     assert!(ms.is_none());
 }
 
-/// GIVEN: operation_is_optional_by_id with matching ID
+/// GIVEN: `operation_is_optional_by_id` with matching ID
 /// WHEN: Called
 /// THEN: Returns operation's optional flag
 #[test]
@@ -249,7 +249,7 @@ fn test_operation_is_optional_by_id_matching() {
     assert!(is_optional);
 }
 
-/// GIVEN: operation_is_optional_by_id with non-matching ID
+/// GIVEN: `operation_is_optional_by_id` with non-matching ID
 /// WHEN: Called
 /// THEN: Returns false (not found)
 #[test]
@@ -266,7 +266,7 @@ fn test_operation_is_optional_by_id_not_found() {
     assert!(!is_optional);
 }
 
-/// GIVEN: operation_is_optional_by_id with None ID
+/// GIVEN: `operation_is_optional_by_id` with None ID
 /// WHEN: Called
 /// THEN: Returns false (no ID to match)
 #[test]

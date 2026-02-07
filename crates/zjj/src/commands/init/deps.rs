@@ -28,9 +28,9 @@ pub(super) async fn check_dependencies() -> Result<()> {
 
     let mut msg = String::from("Missing required dependencies:\n\n");
 
-    missing.iter().for_each(|dep| {
+    for dep in &missing {
         let _ = writeln!(msg, "  - {dep}");
-    });
+    }
 
     msg.push_str("\nInstallation instructions:\n");
 

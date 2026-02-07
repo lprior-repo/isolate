@@ -3,9 +3,10 @@
 use std::{
     path::Path,
     str::FromStr,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 
+use chrono::Utc;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use tokio::time::sleep;
 
@@ -215,10 +216,8 @@ impl MergeQueue {
 
     #[allow(clippy::cast_possible_wrap)]
     fn now() -> i64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0)
+        // Use chrono's battle-tested timestamp() which cannot fail
+        Utc::now().timestamp()
     }
 
     pub async fn add(
@@ -712,11 +711,12 @@ mod tests {
         // Verify the claimed entry has the correct status
         let claimed = [entry1, entry2, entry3]
             .into_iter()
-            .find(|e| e.is_some())
+            .find(Option::is_some)
             .flatten();
 
-        assert!(claimed.is_some());
-        let entry = claimed.expect("claimed entry must exist after assert");
+        let entry = claimed.ok_or_else(|| Error::DatabaseError(
+            "Expected at least one claimed entry after assert".to_string(),
+        ))?;
         assert_eq!(entry.status, QueueStatus::Processing);
         assert_eq!(entry.workspace, "ws-1");
 

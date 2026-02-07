@@ -529,11 +529,10 @@ impl IntegrityValidator {
         if op_store_exists {
             match tokio::fs::read_dir(&op_store).await {
                 Ok(mut entries) => {
-                    let mut has_entries = false;
-                    while let Ok(Some(_)) = entries.next_entry().await {
-                        has_entries = true;
-                        break;
-                    }
+                    let has_entries = match entries.next_entry().await {
+                        Ok(Some(_)) => true,
+                        Ok(None) | Err(_) => false,
+                    };
                     if !has_entries {
                         return Err(IntegrityIssue::new(
                             CorruptionType::CorruptedJjDir,
@@ -670,8 +669,7 @@ impl RepairExecutor {
         }
 
         // Create backup if needed
-        let mut backup_id = None;
-        if self.always_backup {
+        let backup_id = if self.always_backup {
             let manager = self.backup_manager.clone().ok_or_else(|| {
                 Error::Unknown("Backup manager not configured for repair operation".to_string())
             })?;
@@ -679,8 +677,10 @@ impl RepairExecutor {
             let meta = manager
                 .create_backup(&validation.workspace, "Auto-repair")
                 .await?;
-            backup_id = Some(meta.id);
-        }
+            Some(meta.id)
+        } else {
+            None
+        };
 
         // Execute the repair
         let result = match strategy {

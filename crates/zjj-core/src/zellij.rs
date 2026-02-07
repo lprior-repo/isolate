@@ -113,7 +113,7 @@ impl LayoutConfig {
     /// Get the full tab name
     #[must_use]
     pub fn tab_name(&self) -> String {
-        format!("{}:{}", self.tab_prefix, self.session_name)
+        format!("{tab_prefix}:{session_name}", tab_prefix = self.tab_prefix, session_name = self.session_name)
     }
 }
 

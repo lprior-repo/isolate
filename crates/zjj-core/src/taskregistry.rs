@@ -50,8 +50,7 @@ impl TaskRegistry {
     ///
     /// Returns error if the lock is poisoned
     pub async fn register(&self, task: JoinHandle<()>) -> Result<()> {
-        let mut tasks = self.tasks.lock().await;
-        tasks.push(task);
+        self.tasks.lock().await.push(task);
         Ok(())
     }
 
@@ -80,6 +79,7 @@ impl TaskRegistry {
             task.abort();
         }
 
+        drop(tasks); // Release lock early
         Ok(())
     }
 
@@ -98,6 +98,7 @@ impl TaskRegistry {
         tasks.retain(|task| !task.is_finished());
 
         let removed = initial_count.saturating_sub(tasks.len());
+        drop(tasks); // Release lock early
         Ok(removed)
     }
 }

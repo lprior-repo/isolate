@@ -284,13 +284,13 @@ pub async fn run_list(options: &ListOptions) -> Result<()> {
         println!("No bookmarks found.");
     } else {
         println!("Bookmarks:");
-        bookmarks.iter().for_each(|bookmark| {
+        for bookmark in &bookmarks {
             let remote_marker = if bookmark.remote { " (remote)" } else { "" };
             println!(
                 "  {} → {}{}",
                 bookmark.name, bookmark.revision, remote_marker
             );
-        });
+        }
     }
 
     Ok(())

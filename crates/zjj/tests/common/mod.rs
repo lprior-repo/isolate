@@ -39,7 +39,7 @@ fn jj_availability() -> &'static bool {
 ///
 /// # Performance
 ///
-/// Uses OnceLock for thread-safe lazy initialization with O(1) access
+/// Uses `OnceLock` for thread-safe lazy initialization with O(1) access
 /// after first check.
 #[inline]
 pub fn jj_is_available() -> bool {
@@ -132,8 +132,8 @@ impl TestHarness {
     /// # Performance
     ///
     /// - Reuses environment variable setup across calls
-    /// - Uses functional error handling with map_or_else
-    /// - Minimizes string allocations with from_utf8_lossy
+    /// - Uses functional error handling with `map_or_else`
+    /// - Minimizes string allocations with `from_utf8_lossy`
     pub fn zjj(&self, args: &[&str]) -> CommandResult {
         let output = Command::new(&self.zjj_bin)
             .args(args)
@@ -346,9 +346,9 @@ impl TestHarness {
             .env("NO_COLOR", "1");
 
         // Functional approach: iterate over env vars
-        env_vars.iter().for_each(|(key, value)| {
+        for (key, value) in env_vars {
             cmd.env(key, value);
-        });
+        }
 
         cmd.output()
             .map(|output| CommandResult {

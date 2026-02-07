@@ -1,4 +1,4 @@
-//! Unified bead repository for managing issues in both SQLite and JSONL formats
+//! Unified bead repository for managing issues in both `SQLite` and JSONL formats
 
 use std::path::PathBuf;
 
@@ -78,21 +78,11 @@ impl BeadRepository {
 
     /// Update bead status
     pub async fn update_status(&self, id: &str, status: BeadStatus) -> Result<()> {
-        let mut updated = false;
-
-        // Update SQLite if it exists
         if self.beads_db_path().exists() {
             self.update_status_sqlite(id, status).await?;
-            updated = true;
-        }
-
-        // Update JSONL if it exists
-        if self.issues_jsonl_path().exists() {
+        } else if self.issues_jsonl_path().exists() {
             self.update_status_jsonl(id, status).await?;
-            updated = true;
-        }
-
-        if !updated {
+        } else {
             anyhow::bail!("No beads database or issues file found to update");
         }
 

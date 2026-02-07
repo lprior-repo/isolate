@@ -970,9 +970,11 @@ fn build_update_query(clauses: &[(&str, String)], name: &str) -> (String, Vec<St
 
 /// Execute UPDATE query
 async fn execute_update(pool: &SqlitePool, sql: &str, values: Vec<String>) -> Result<()> {
-    values
-        .into_iter()
-        .fold(sqlx::query(sql), |query, value| query.bind(value))
+    let mut query = sqlx::query(sql);
+    for value in values {
+        query = query.bind(value);
+    }
+    query
         .execute(pool)
         .await
         .map(|_| ())
@@ -1240,8 +1242,6 @@ mod tests {
     }
 
     mod brutal_database_failures {
-        use sqlx::sqlite::SqlitePool;
-
         use super::*;
 
         #[tokio::test]

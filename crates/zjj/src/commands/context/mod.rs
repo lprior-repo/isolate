@@ -365,14 +365,14 @@ fn generate_suggestions(
 
     match health {
         HealthStatus::Warn { issues } => {
-            issues.iter().for_each(|issue| {
+            for issue in issues {
                 suggestions.push(format!("Warning: {issue}"));
-            });
+            }
         }
         HealthStatus::Error { critical } => {
-            critical.iter().for_each(|error| {
+            for error in critical {
                 suggestions.push(format!("Error: {error}"));
-            });
+            }
         }
         HealthStatus::Good => {}
     }
@@ -431,23 +431,23 @@ fn print_human_readable(context: &ContextOutput) {
         HealthStatus::Good => println!("✅ Health: Good"),
         HealthStatus::Warn { issues } => {
             println!("⚠️  Health: Warning");
-            issues.iter().for_each(|issue| {
+            for issue in issues {
                 println!("  - {issue}");
-            });
+            }
         }
         HealthStatus::Error { critical } => {
             println!("❌ Health: Error");
-            critical.iter().for_each(|error| {
+            for error in critical {
                 println!("  - {error}");
-            });
+            }
         }
     }
 
     if !context.suggestions.is_empty() {
         println!("\n💡 Suggestions:");
-        context.suggestions.iter().for_each(|suggestion| {
+        for suggestion in &context.suggestions {
             println!("  • {suggestion}");
-        });
+        }
     }
 }
 

@@ -211,7 +211,7 @@ mod tests {
         ENV_MUTEX
             .get_or_init(|| Mutex::new(()))
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     // Helper to create a temporary workspace for testing
@@ -222,10 +222,13 @@ mod tests {
     // Test 1: No hooks configured - returns NoHooks
     #[tokio::test]
     async fn test_no_hooks_configured() -> Result<()> {
-        let _lock = get_env_lock();
-        let config = HooksConfig::default();
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        let (runner, workspace) = {
+            let _lock = get_env_lock();
+            let config = HooksConfig::default();
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
+            (runner, workspace)
+        }; // Lock dropped here
 
         let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
@@ -236,14 +239,17 @@ mod tests {
     // Test 2: Single successful hook
     #[tokio::test]
     async fn test_single_successful_hook() -> Result<()> {
-        let _lock = get_env_lock();
-        let config = HooksConfig {
-            post_create: vec!["echo 'Hello'".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        let (runner, workspace) = {
+            let _lock = get_env_lock();
+            let config = HooksConfig {
+                post_create: vec!["echo 'Hello'".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
+            (runner, workspace)
+        }; // Lock dropped here
 
         let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
@@ -265,14 +271,17 @@ mod tests {
     // Test 3: Multiple successful hooks execute in order
     #[tokio::test]
     async fn test_multiple_successful_hooks() -> Result<()> {
-        let _lock = get_env_lock();
-        let config = HooksConfig {
-            post_create: vec!["echo 'A'".to_string(), "echo 'B'".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        let (runner, workspace) = {
+            let _lock = get_env_lock();
+            let config = HooksConfig {
+                post_create: vec!["echo 'A'".to_string(), "echo 'B'".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
+            (runner, workspace)
+        }; // Lock dropped here
 
         let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
@@ -299,14 +308,17 @@ mod tests {
     // Test 4: Hook failure returns error
     #[tokio::test]
     async fn test_hook_failure() -> Result<()> {
-        let _lock = get_env_lock();
-        let config = HooksConfig {
-            post_create: vec!["exit 1".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        let (runner, workspace) = {
+            let _lock = get_env_lock();
+            let config = HooksConfig {
+                post_create: vec!["exit 1".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
+            (runner, workspace)
+        }; // Lock dropped here
 
         let result = runner.run(HookType::PostCreate, workspace.path()).await;
 
@@ -332,18 +344,21 @@ mod tests {
     // Test 5: Partial hook failure - second hook fails, third never runs
     #[tokio::test]
     async fn test_partial_hook_failure() -> Result<()> {
-        let _lock = get_env_lock();
-        let config = HooksConfig {
-            post_create: vec![
-                "echo 'A'".to_string(),
-                "exit 1".to_string(),
-                "echo 'C'".to_string(),
-            ],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        let (runner, workspace) = {
+            let _lock = get_env_lock();
+            let config = HooksConfig {
+                post_create: vec![
+                    "echo 'A'".to_string(),
+                    "exit 1".to_string(),
+                    "echo 'C'".to_string(),
+                ],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
+            (runner, workspace)
+        }; // Lock dropped here
 
         let result = runner.run(HookType::PostCreate, workspace.path()).await;
 
@@ -362,14 +377,17 @@ mod tests {
     // Test 6: Hook with workspace as cwd
     #[tokio::test]
     async fn test_hook_with_workspace_cwd() -> Result<()> {
-        let _lock = get_env_lock();
-        let config = HooksConfig {
-            post_create: vec!["pwd".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        let (runner, workspace) = {
+            let _lock = get_env_lock();
+            let config = HooksConfig {
+                post_create: vec!["pwd".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
+            (runner, workspace)
+        }; // Lock dropped here
 
         let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
@@ -393,14 +411,17 @@ mod tests {
     // Test 7: Hook stderr captured
     #[tokio::test]
     async fn test_hook_stderr_captured() -> Result<()> {
-        let _lock = get_env_lock();
-        let config = HooksConfig {
-            post_create: vec!["echo 'error' >&2".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        let (runner, workspace) = {
+            let _lock = get_env_lock();
+            let config = HooksConfig {
+                post_create: vec!["echo 'error' >&2".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
+            (runner, workspace)
+        }; // Lock dropped here
 
         let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
@@ -422,19 +443,22 @@ mod tests {
     // Test 8: Complex hook script (multi-command)
     #[tokio::test]
     async fn test_complex_hook_script() -> Result<()> {
-        let _lock = get_env_lock();
-        let workspace = create_test_workspace()?;
+        let (runner, workspace) = {
+            let _lock = get_env_lock();
+            let workspace = create_test_workspace()?;
 
-        // Create a subdirectory
-        let subdir = workspace.path().join("subdir");
-        fs::create_dir(&subdir)?;
+            // Create a subdirectory
+            let subdir = workspace.path().join("subdir");
+            fs::create_dir(&subdir)?;
 
-        let config = HooksConfig {
-            post_create: vec!["cd subdir && pwd".to_string()],
-            pre_remove: Vec::new(),
-            post_merge: Vec::new(),
-        };
-        let runner = HookRunner::new(config);
+            let config = HooksConfig {
+                post_create: vec!["cd subdir && pwd".to_string()],
+                pre_remove: Vec::new(),
+                post_merge: Vec::new(),
+            };
+            let runner = HookRunner::new(config);
+            (runner, workspace)
+        }; // Lock dropped here
 
         let result = runner.run(HookType::PostCreate, workspace.path()).await?;
 
@@ -457,14 +481,17 @@ mod tests {
     // Test 9: Different hook types use different configs
     #[tokio::test]
     async fn test_different_hook_types() -> Result<()> {
-        let _lock = get_env_lock();
-        let config = HooksConfig {
-            post_create: vec!["echo 'post_create'".to_string()],
-            pre_remove: vec!["echo 'pre_remove'".to_string()],
-            post_merge: vec!["echo 'post_merge'".to_string()],
-        };
-        let runner = HookRunner::new(config);
-        let workspace = create_test_workspace()?;
+        let (runner, workspace) = {
+            let _lock = get_env_lock();
+            let config = HooksConfig {
+                post_create: vec!["echo 'post_create'".to_string()],
+                pre_remove: vec!["echo 'pre_remove'".to_string()],
+                post_merge: vec!["echo 'post_merge'".to_string()],
+            };
+            let runner = HookRunner::new(config);
+            let workspace = create_test_workspace()?;
+            (runner, workspace)
+        }; // Lock dropped here
 
         // Test post_create
         let result = runner.run(HookType::PostCreate, workspace.path()).await?;

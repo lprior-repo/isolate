@@ -79,22 +79,46 @@ pub async fn run(options: &AiOptions) -> Result<()> {
     }
 }
 
-/// Run AI status - comprehensive state check with guidance
-async fn run_status(format: OutputFormat) -> Result<()> {
+/// Collect AI status information
+async fn collect_status_info() -> Result<(AiStatusOutput, OutputFormat)> {
     let initialized = zjj_data_dir().await.is_ok();
     let agent_id = std::env::var("ZJJ_AGENT_ID").ok();
     let inside_zellij = is_inside_zellij();
 
-    let (location, workspace) = super::check_in_jj_repo().await.map_or_else(
+    let (location, workspace) = detect_location().await;
+
+    let active_sessions = count_active_sessions().await;
+
+    let (ready, suggestion, next_command) =
+        determine_ready_state(initialized, &location, inside_zellij);
+
+    let output = AiStatusOutput {
+        location,
+        workspace,
+        agent_id,
+        initialized,
+        active_sessions,
+        ready,
+        suggestion,
+        next_command,
+    };
+
+    Ok((output, OutputFormat::Human))
+}
+
+async fn detect_location() -> (String, Option<String>) {
+    super::check_in_jj_repo().await.map_or_else(
         |_| ("not_in_repo".to_string(), None),
         |root| match context::detect_location(&root) {
             Ok(context::Location::Main) => ("main".to_string(), None),
             Ok(context::Location::Workspace { name, .. }) => ("workspace".to_string(), Some(name)),
             Err(_) => ("unknown".to_string(), None),
         },
-    );
+    )
+}
 
-    let active_sessions = match get_session_db().await {
+async fn count_active_sessions() -> usize {
+    match get_session_db().await {
         Ok(db) => db
             .list(None)
             .await
@@ -104,12 +128,18 @@ async fn run_status(format: OutputFormat) -> Result<()> {
                     .filter(|s| s.status.to_string() == "active")
                     .count()
             })
-            .unwrap_or(0),
+            .map_or(0, |count| count),
         Err(_) => 0,
-    };
+    }
+}
 
-    // Determine readiness and suggestion
-    let (ready, suggestion, next_command) = if !initialized {
+/// Determine readiness state and next command based on current context
+fn determine_ready_state(
+    initialized: bool,
+    location: &str,
+    inside_zellij: bool,
+) -> (bool, String, String) {
+    if !initialized {
         (
             false,
             "zjj not initialized".to_string(),
@@ -139,18 +169,42 @@ async fn run_status(format: OutputFormat) -> Result<()> {
             "Ready to start work".to_string(),
             "zjj work <task-name>".to_string(),
         )
-    };
+    }
+}
 
-    let output = AiStatusOutput {
-        location,
-        workspace,
-        agent_id,
-        initialized,
-        active_sessions,
-        ready,
-        suggestion,
-        next_command,
-    };
+/// Print AI status in human-readable format
+fn print_status_human(output: &AiStatusOutput) {
+    println!("AI Agent Status");
+    println!("===============");
+    println!();
+    println!("Location:      {}", output.location);
+    if let Some(ref ws) = output.workspace {
+        println!("Workspace:     {ws}");
+    }
+    if let Some(ref agent) = output.agent_id {
+        println!("Agent ID:      {agent}");
+    } else {
+        println!("Agent ID:      (not registered)");
+    }
+    println!(
+        "Initialized:   {}",
+        if output.initialized { "yes" } else { "no" }
+    );
+    println!("Active work:   {} sessions", output.active_sessions);
+    println!();
+    println!(
+        "Status: {}",
+        if output.ready { "READY" } else { "NOT READY" }
+    );
+    println!("Suggestion: {}", output.suggestion);
+    println!();
+    println!("Next command:");
+    println!("  {}", output.next_command);
+}
+
+/// Run AI status - comprehensive state check with guidance
+async fn run_status(format: OutputFormat) -> Result<()> {
+    let (output, _) = collect_status_info().await?;
 
     if format.is_json() {
         let envelope = SchemaEnvelope::new("ai-status-response", "single", &output);
@@ -158,32 +212,7 @@ async fn run_status(format: OutputFormat) -> Result<()> {
             .context("Failed to serialize AI status output")?;
         println!("{json_str}");
     } else {
-        println!("AI Agent Status");
-        println!("===============");
-        println!();
-        println!("Location:      {}", output.location);
-        if let Some(ref ws) = output.workspace {
-            println!("Workspace:     {ws}");
-        }
-        if let Some(ref agent) = output.agent_id {
-            println!("Agent ID:      {agent}");
-        } else {
-            println!("Agent ID:      (not registered)");
-        }
-        println!(
-            "Initialized:   {}",
-            if output.initialized { "yes" } else { "no" }
-        );
-        println!("Active work:   {} sessions", output.active_sessions);
-        println!();
-        println!(
-            "Status: {}",
-            if output.ready { "READY" } else { "NOT READY" }
-        );
-        println!("Suggestion: {}", output.suggestion);
-        println!();
-        println!("Next command:");
-        println!("  {}", output.next_command);
+        print_status_human(&output);
     }
 
     Ok(())

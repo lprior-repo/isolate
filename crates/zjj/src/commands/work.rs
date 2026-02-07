@@ -194,7 +194,7 @@ fn output_existing_workspace(root: &Path, name: &str, options: &WorkOptions) -> 
 
 /// Output for dry run
 fn output_dry_run(options: &WorkOptions) -> Result<()> {
-    let workspace_path = format!(".zjj/workspaces/{}", options.name);
+    let workspace_path = format!(".zjj/workspaces/{0}", options.name);
 
     let agent_id = if options.no_agent {
         None

@@ -87,7 +87,7 @@ async fn test_help_for_all_commands() {
             let command = command.to_string();
 
             async move {
-                let _permit = semaphore.acquire().await.unwrap();
+                let _permit = semaphore.acquire().await;
                 let result = run_zjj_async(&zjj_bin, &current_dir, &[&command, "--help"]).await;
                 (command, result)
             }
@@ -145,9 +145,11 @@ async fn test_smoke_json_core_commands() {
             let args = args.clone();
 
             async move {
-                let _permit = semaphore.acquire().await.unwrap();
+                let Ok(_permit) = semaphore.acquire().await else {
+                    return (args.clone(), Err(std::io::Error::other("semaphore acquire failed")));
+                };
                 let result = run_zjj_async(&zjj_bin, &current_dir, &args).await;
-                (args, result)
+                (args, Ok(result))
             }
         })
         .buffer_unordered(8) // Process up to 8 commands concurrently
@@ -156,7 +158,9 @@ async fn test_smoke_json_core_commands() {
 
     // Verify all results
     for (args, result) in results {
-        assert_json_output(&result, &args);
+        if let Ok(command_result) = result {
+            assert_json_output(&command_result, &args);
+        }
     }
 }
 

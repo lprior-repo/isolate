@@ -246,104 +246,109 @@ impl ErrorDetail {
     }
 }
 
+/// Map a `crate::Error` to (`ErrorCode`, message, optional suggestion)
+fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>) {
+    use crate::Error;
+
+    match err {
+        Error::InvalidConfig(msg) => (
+            ErrorCode::ConfigParseError,
+            format!("Invalid configuration: {msg}"),
+            Some("Check your configuration file for errors".to_string()),
+        ),
+        Error::IoError(msg) => (
+            ErrorCode::Unknown,
+            format!("IO error: {msg}"),
+            None,
+        ),
+        Error::ParseError(msg) => (
+            ErrorCode::ConfigParseError,
+            format!("Parse error: {msg}"),
+            None,
+        ),
+        Error::ValidationError(msg) => (
+            ErrorCode::InvalidArgument,
+            format!("Validation error: {msg}"),
+            None,
+        ),
+        Error::NotFound(msg) => (
+            ErrorCode::SessionNotFound,
+            format!("Not found: {msg}"),
+            Some("Use 'zjj list' to see available sessions".to_string()),
+        ),
+        Error::DatabaseError(msg) => (
+            ErrorCode::StateDbCorrupted,
+            format!("Database error: {msg}"),
+            Some("Try running 'zjj doctor --fix' to repair the database".to_string()),
+        ),
+        Error::Command(msg) => (
+            ErrorCode::Unknown,
+            format!("Command error: {msg}"),
+            None,
+        ),
+        Error::HookFailed {
+            hook_type,
+            command,
+            exit_code,
+            stdout: _,
+            stderr,
+        } => (
+            ErrorCode::HookFailed,
+            format!(
+                "Hook '{hook_type}' failed: {command}\nExit code: {exit_code:?}\nStderr: {stderr}"
+            ),
+            Some("Check your hook configuration and ensure the command is correct".to_string()),
+        ),
+        Error::HookExecutionFailed { command, source } => (
+            ErrorCode::HookExecutionError,
+            format!("Failed to execute hook '{command}': {source}"),
+            Some("Ensure the hook command exists and is executable".to_string()),
+        ),
+        Error::JjCommandError {
+            operation,
+            source,
+            is_not_found,
+        } => {
+            if *is_not_found {
+                (
+                    ErrorCode::JjNotInstalled,
+                    format!("Failed to {operation}: JJ is not installed or not in PATH"),
+                    Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
+                )
+            } else {
+                (
+                    ErrorCode::JjCommandFailed,
+                    format!("Failed to {operation}: {source}"),
+                    None,
+                )
+            }
+        }
+        Error::Unknown(msg) => (
+            ErrorCode::Unknown,
+            format!("Unknown error: {msg}"),
+            None,
+        ),
+        Error::SessionLocked { session, holder } => (
+            ErrorCode::Unknown,
+            format!("Session '{session}' is locked by agent '{holder}'"),
+            Some("Wait for the other agent to finish or check lock status".to_string()),
+        ),
+        Error::NotLockHolder { session, agent_id } => (
+            ErrorCode::Unknown,
+            format!("Agent '{agent_id}' does not hold the lock for session '{session}'"),
+            None,
+        ),
+        Error::OperationCancelled(reason) => (
+            ErrorCode::Unknown,
+            format!("Operation cancelled: {reason}"),
+            Some("Operation was interrupted by shutdown signal".to_string()),
+        ),
+    }
+}
+
 impl From<&crate::Error> for JsonError {
     fn from(err: &crate::Error) -> Self {
-        use crate::Error;
-
-        let (code, message, suggestion) = match err {
-            Error::InvalidConfig(msg) => (
-                ErrorCode::ConfigParseError,
-                format!("Invalid configuration: {msg}"),
-                Some("Check your configuration file for errors".to_string()),
-            ),
-            Error::IoError(msg) => (
-                ErrorCode::Unknown,
-                format!("IO error: {msg}"),
-                None,
-            ),
-            Error::ParseError(msg) => (
-                ErrorCode::ConfigParseError,
-                format!("Parse error: {msg}"),
-                None,
-            ),
-            Error::ValidationError(msg) => (
-                ErrorCode::InvalidArgument,
-                format!("Validation error: {msg}"),
-                None,
-            ),
-            Error::NotFound(msg) => (
-                ErrorCode::SessionNotFound,
-                format!("Not found: {msg}"),
-                Some("Use 'zjj list' to see available sessions".to_string()),
-            ),
-            Error::DatabaseError(msg) => (
-                ErrorCode::StateDbCorrupted,
-                format!("Database error: {msg}"),
-                Some("Try running 'zjj doctor --fix' to repair the database".to_string()),
-            ),
-            Error::Command(msg) => (
-                ErrorCode::Unknown,
-                format!("Command error: {msg}"),
-                None,
-            ),
-            Error::HookFailed {
-                hook_type,
-                command,
-                exit_code,
-                stdout: _,
-                stderr,
-            } => (
-                ErrorCode::HookFailed,
-                format!(
-                    "Hook '{hook_type}' failed: {command}\nExit code: {exit_code:?}\nStderr: {stderr}"
-                ),
-                Some("Check your hook configuration and ensure the command is correct".to_string()),
-            ),
-            Error::HookExecutionFailed { command, source } => (
-                ErrorCode::HookExecutionError,
-                format!("Failed to execute hook '{command}': {source}"),
-                Some("Ensure the hook command exists and is executable".to_string()),
-            ),
-            Error::JjCommandError {
-                operation,
-                source,
-                is_not_found,
-            } => {
-                if *is_not_found {
-                    (
-                        ErrorCode::JjNotInstalled,
-                        format!("Failed to {operation}: JJ is not installed or not in PATH"),
-                        Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
-                    )
-                } else {
-                    (
-                        ErrorCode::JjCommandFailed,
-                        format!("Failed to {operation}: {source}"),
-                        None,
-                    )
-                }
-            }
-            Error::Unknown(msg) => (
-                ErrorCode::Unknown,
-                format!("Unknown error: {msg}"),
-                None,
-            ),
-            Error::SessionLocked { session, holder } => (
-                ErrorCode::Unknown,
-                format!("Session '{session}' is locked by agent '{holder}'"),
-                Some("Wait for the other agent to finish or check lock status".to_string()),
-            ),
-            Error::NotLockHolder { session, agent_id } => (
-                ErrorCode::Unknown,
-                format!("Agent '{agent_id}' does not hold the lock for session '{session}'"),
-                None,
-            ),
-            Error::OperationCancelled(reason) => (
-                ErrorCode::Unknown,
-                format!("Operation cancelled: {reason}"),
-                Some("Operation was interrupted by shutdown signal".to_string()),
-            ),
-        };
+        let (code, message, suggestion) = map_error_to_parts(err);
 
         let mut json_error = Self::new(code, message);
         if let Some(sugg) = suggestion {

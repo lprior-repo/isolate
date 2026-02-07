@@ -87,13 +87,13 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
         println!("Use 'zjj template create <name>' to create a template.");
     } else {
         println!("Available templates:");
-        templates.iter().for_each(|template| {
+        for template in templates {
             if let Some(desc) = &template.metadata.description {
                 println!("  {} - {}", template.name, desc);
             } else {
                 println!("  {}", template.name);
             }
-        });
+        }
     }
 
     Ok(())

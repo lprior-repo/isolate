@@ -75,14 +75,14 @@ fn test_rapid_add_remove_interruption_cycle() {
 
     // Perform multiple rapid add/remove cycles to stress test cleanup
     // Use functional approach to track results
-    let cycle_results: Vec<_> = (0..cycle_count)
+    let completed_cycles = (0..cycle_count)
         .map(|i| {
-            let session_name = format!("cycle-session-{}", i);
+            let session_name = format!("cycle-session-{i}");
 
             // Add session - early return on failure using and_then
             let add_result = harness.zjj(&["add", &session_name, "--no-open"]);
             if !add_result.success {
-                return None; // Skip this cycle
+                return None;
             }
 
             // Immediately try to remove it
@@ -100,10 +100,10 @@ fn test_rapid_add_remove_interruption_cycle() {
 
             Some(())
         })
-        .collect();
+        .count();
 
     // Verify we attempted all cycles
-    assert_eq!(cycle_results.len(), cycle_count, "Should attempt all cycles");
+    assert_eq!(completed_cycles, cycle_count, "Should attempt all cycles");
 
     // Final state should be clean
     let result = harness.zjj(&["list"]);
@@ -124,7 +124,7 @@ fn test_shutdown_during_active_operations() {
     // OPTIMIZATION: Reduced from 10 to 5 sessions
     // Each session spawns multiple subprocesses (JJ, git, database ops)
     // 5 sessions provides sufficient coverage while 40% faster
-    let session_names: Vec<String> = (0..5).map(|i| format!("concurrent-{}", i)).collect();
+    let session_names: Vec<String> = (0..5).map(|i| format!("concurrent-{i}")).collect();
 
     // Create sessions - use functional map to collect results
     let create_results: Vec<_> = session_names
@@ -157,16 +157,13 @@ fn test_shutdown_during_active_operations() {
         .collect();
 
     // Verify all created sessions are valid in one pass
-    created_sessions
-        .iter()
-        .for_each(|name| {
-            let jj_result = harness.jj(&["workspace", "list"]);
-            assert!(
-                jj_result.success || result.stdout.contains(*name),
-                "Concurrent workspace should be valid: {}",
-                name
-            );
-        });
+    for name in created_sessions {
+        let jj_result = harness.jj(&["workspace", "list"]);
+        assert!(
+            jj_result.success || result.stdout.contains(name),
+            "Concurrent workspace should be valid: {name}"
+        );
+    }
 
     // Cleanup - functional approach with proper error handling
     let _remove_results: Vec<_> = session_names
@@ -184,9 +181,9 @@ fn test_concurrent_list_operations_with_interruption() {
 
     // Create some sessions first - use functional creation
     let sessions = ["session1", "session2", "session3"];
-    sessions
-        .iter()
-        .for_each(|name| harness.assert_success(&["add", name, "--no-open"]));
+    for name in sessions {
+        harness.assert_success(&["add", name, "--no-open"]);
+    }
 
     // Perform multiple list operations rapidly
     // In a real scenario, these could be interrupted by signals
@@ -208,11 +205,9 @@ fn test_concurrent_list_operations_with_interruption() {
     result.assert_stdout_contains("session3");
 
     // Cleanup - functional approach
-    sessions
-        .iter()
-        .for_each(|name| {
-            harness.assert_success(&["remove", name, "--force"]);
-        });
+    for name in sessions {
+        harness.assert_success(&["remove", name, "--force"]);
+    }
 }
 
 // ============================================================================
@@ -262,7 +257,7 @@ fn test_no_orphaned_workspaces_after_interrupted_add() {
     // Each session involves subprocess creation and filesystem operations
     // 3 sessions provides sufficient orphan detection while 40% faster
     let created_sessions: Vec<String> = (0..3)
-        .map(|i| format!("orphan-test-{}", i))
+        .map(|i| format!("orphan-test-{i}"))
         .filter_map(|session_name| {
             let result = harness.zjj(&["add", &session_name, "--no-open"]);
             if result.success {
@@ -274,18 +269,16 @@ fn test_no_orphaned_workspaces_after_interrupted_add() {
         .collect();
 
     // Verify all created sessions are valid - functional iteration
-    created_sessions
-        .iter()
-        .for_each(|session| {
-            let workspace_path = harness.workspace_path(session);
-            assert!(workspace_path.exists(), "Created workspace should exist");
+    for session in &created_sessions {
+        let workspace_path = harness.workspace_path(session);
+        assert!(workspace_path.exists(), "Created workspace should exist");
 
-            // Verify it's a valid JJ workspace
-            assert!(
-                workspace_path.join(".jj").exists(),
-                "Should have .jj directory"
-            );
-        });
+        // Verify it's a valid JJ workspace
+        assert!(
+            workspace_path.join(".jj").exists(),
+            "Should have .jj directory"
+        );
+    }
 
     // OPTIMIZATION: Short-circuit if no sessions created
     if created_sessions.is_empty() {
@@ -299,8 +292,8 @@ fn test_no_orphaned_workspaces_after_interrupted_add() {
         assert!(entries_result.is_ok(), "Should be able to read workspaces directory");
 
         let workspace_count = entries_result
-            .expect("Directory exists and is readable")
-            .filter_map(|e| e.ok())
+            .unwrap_or_else(|e| panic!("Directory exists and is readable: {e}"))
+            .filter_map(Result::ok)
             .filter(|e| e.path().is_dir())
             .count();
 
@@ -432,7 +425,7 @@ fn test_recovery_from_partial_state() {
 
     // Create multiple sessions
     for i in 0..3 {
-        harness.assert_success(&["add", &format!("recovery-{}", i), "--no-open"]);
+        harness.assert_success(&["add", &format!("recovery-{i}"), "--no-open"]);
     }
 
     // Manually remove one workspace to simulate partial state
@@ -442,17 +435,10 @@ fn test_recovery_from_partial_state() {
     }
 
     // Operations should handle missing workspace gracefully
-    let status_result = harness.zjj(&["status", "recovery-1"]);
+    let _status_result = harness.zjj(&["status", "recovery-1"]);
     // The system may succeed (graceful degradation) or report missing workspace
     // Both outcomes are acceptable for robust error handling
-    assert!(
-        !status_result.success
-            || status_result.stderr.contains("not found")
-            || status_result.stderr.contains("does not exist")
-            || status_result.success, // Graceful handling is also OK
-        "Missing workspace should be detected or handled gracefully"
-    );
-
+    
     // Other sessions should remain unaffected
     let list_result = harness.zjj(&["list"]);
     assert!(

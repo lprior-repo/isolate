@@ -10,7 +10,7 @@
 //! - Parallel template validation using functional patterns
 //! - Zero panics, zero unwraps using Railway-Oriented Programming
 //!
-//! # Note on expect() in tests
+//! # Note on `expect()` in tests
 //!
 //! This test file uses `.expect()` which is normally prohibited in production code.
 //! However, in test code, this is idiomatic and acceptable because:
@@ -105,10 +105,7 @@ fn validate_balanced_braces(kdl: &str) -> Result<(), String> {
     if open_braces == close_braces {
         Ok(())
     } else {
-        Err(format!(
-            "Unbalanced braces: {} open, {} close",
-            open_braces, close_braces
-        ))
+        Err(format!("Unbalanced braces: {open_braces} open, {close_braces} close"))
     }
 }
 
@@ -256,7 +253,7 @@ fn test_zellij_tab_name_validation_valid_names() {
 #[test]
 fn test_zellij_tab_name_validation_empty_name() {
     // Empty session name is technically valid but produces "zjj:" prefix
-    let config = LayoutConfig::new("".to_string(), PathBuf::from("/tmp"));
+    let config = LayoutConfig::new(String::new(), PathBuf::from("/tmp"));
     assert_eq!(
         config.tab_name(),
         "zjj:",
@@ -271,7 +268,7 @@ fn test_zellij_tab_name_validation_very_long_name() {
     let config = LayoutConfig::new(long_name.clone(), PathBuf::from("/tmp"));
 
     // The system should accept it (validation happens at a higher layer)
-    let expected = format!("zjj:{}", long_name);
+    let expected = format!("zjj:{long_name}");
     assert_eq!(
         config.tab_name(),
         expected,
@@ -374,7 +371,7 @@ async fn test_zellij_kdl_template_all_required_elements() {
 #[tokio::test]
 async fn test_zellij_workspace_path_in_layouts() {
     let workspace_path = PathBuf::from("/custom/workspace/path");
-    let config = LayoutConfig::new("test-session".to_string(), workspace_path.clone());
+    let config = LayoutConfig::new("test-session".to_string(), workspace_path);
 
     // Functional map: test all templates using const array
     let results: Vec<bool> = ALL_TEMPLATES

@@ -376,11 +376,7 @@ async fn execute_command(command: &str, args: &[String]) -> Result<String> {
 /// Convert Duration to milliseconds, clamping to u64 range.
 fn to_duration_ms(duration: std::time::Duration) -> Option<u64> {
     let ms = duration.as_millis();
-    if ms <= u64::MAX as u128 {
-        Some(ms as u64)
-    } else {
-        None
-    }
+    ms.try_into().ok()
 }
 
 /// Check if an operation is optional by ID.

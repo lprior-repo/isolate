@@ -94,7 +94,7 @@ impl FileWatcher {
     /// - Unable to create event channel
     pub fn watch_workspaces(
         config: &WatchConfig,
-        workspaces: Vec<PathBuf>,
+        workspaces: &[PathBuf],
     ) -> Result<mpsc::Receiver<WatchEvent>> {
         if !config.enabled {
             return Err(Error::InvalidConfig("File watcher is disabled".to_string()));
@@ -232,7 +232,7 @@ mod tests {
             paths: vec![".beads/beads.db".to_string()],
         };
 
-        let result = FileWatcher::watch_workspaces(&config, vec![]);
+        let result = FileWatcher::watch_workspaces(&config, &[]);
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(matches!(e, Error::InvalidConfig(_)));
@@ -251,7 +251,7 @@ mod tests {
             paths: vec![".beads/beads.db".to_string()],
         };
 
-        let result = FileWatcher::watch_workspaces(&config, vec![]);
+        let result = FileWatcher::watch_workspaces(&config, &[]);
         assert!(result.is_err());
         if let Err(err) = result {
             assert!(matches!(err, Error::InvalidConfig(_)));
@@ -270,7 +270,7 @@ mod tests {
             paths: vec![".beads/beads.db".to_string()],
         };
 
-        let result = FileWatcher::watch_workspaces(&config, vec![]);
+        let result = FileWatcher::watch_workspaces(&config, &[]);
         assert!(result.is_err());
         if let Err(err) = result {
             assert!(matches!(err, Error::InvalidConfig(_)));
