@@ -571,8 +571,14 @@ impl MergeQueue {
     }
 
     pub async fn extend_lock(&self, agent_id: &str, extra_secs: i64) -> Result<bool> {
-        let now = Self::now();
-        let new_expires = now + extra_secs;
+        // Get the current expiration time and extend from that, not from now
+        let current_lock = self.get_processing_lock().await?;
+
+        let new_expires = match current_lock {
+            Some(lock) => lock.expires_at + extra_secs,
+            None => return Ok(false), // No lock to extend
+        };
+
         let result = sqlx::query(
             "UPDATE queue_processing_lock SET expires_at = ?1 WHERE id = 1 AND agent_id = ?2",
         )
