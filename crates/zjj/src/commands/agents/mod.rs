@@ -246,16 +246,44 @@ fn print_human_readable(output: &AgentsOutput) {
 // Agent Self-Management Subcommands
 // ============================================================================
 
+/// Validate that an agent ID is non-empty and not just whitespace
+///
+/// # Errors
+///
+/// Returns error if the agent ID is empty or consists only of whitespace
+pub(crate) fn validate_agent_id(agent_id: &str) -> Result<()> {
+    let trimmed = agent_id.trim();
+
+    if trimmed.is_empty() {
+        anyhow::bail!("Agent ID cannot be empty or whitespace-only");
+    }
+
+    // If the trimmed version differs from the original, warn but accept it
+    if trimmed.len() != agent_id.len() {
+        // This is informational - we accept the trimmed version
+        log::warn!("Agent ID contained leading/trailing whitespace; using trimmed value");
+    }
+
+    Ok(())
+}
+
 /// Register a new agent
 ///
 /// # Errors
 ///
-/// Returns error if database access fails
+/// Returns error if database access fails or agent ID is invalid
 pub async fn run_register(args: &RegisterArgs, format: OutputFormat) -> Result<()> {
     let pool = get_db_pool().await?;
 
-    // Generate agent ID if not provided
-    let agent_id = args.agent_id.clone().unwrap_or_else(generate_agent_id);
+    // Generate or validate agent ID
+    let agent_id = match args.agent_id.clone() {
+        Some(id) => {
+            // Validate user-provided agent ID
+            validate_agent_id(&id)?;
+            id.trim().to_string()
+        }
+        None => generate_agent_id(),
+    };
 
     // Set the environment variable so subsequent commands can use it
     std::env::set_var("ZJJ_AGENT_ID", &agent_id);

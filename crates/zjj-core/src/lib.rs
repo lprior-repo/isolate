@@ -34,6 +34,7 @@ pub mod hooks;
 pub mod introspection;
 pub mod jj;
 pub mod json;
+pub mod kdl_validation;
 mod output_format;
 pub mod recovery;
 pub mod result;

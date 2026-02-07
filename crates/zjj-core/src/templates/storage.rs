@@ -559,7 +559,10 @@ mod tests {
 
         // Should fail - one byte over limit
         let result = save_template(&template, templates_base);
-        assert!(result.is_err(), "Template one byte over limit should be rejected");
+        assert!(
+            result.is_err(),
+            "Template one byte over limit should be rejected"
+        );
 
         Ok(())
     }
