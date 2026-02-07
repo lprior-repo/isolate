@@ -349,8 +349,178 @@ mod tests {
         };
 
         let json = serde_json::to_string(&result)?;
-        assert!(json.contains("\"source\":\"orig\""));
-        assert!(json.contains("\"target\":\"copy\""));
+        assert!(json.contains(r#""source":"orig""#));
+        assert!(json.contains(r#""target":"copy""#));
         Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CLONE VALIDATION TESTS (RED phase - should fail before implementation)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// RED: Clone should reject empty target names
+    #[test]
+    fn test_clone_rejects_empty_target_name() {
+        use crate::session::validate_session_name;
+
+        let result = validate_session_name("");
+        assert!(result.is_err(), "Empty session name should be rejected");
+
+        if let Err(e) = result {
+            assert_eq!(e.exit_code(), 1, "ValidationError should map to exit code 1");
+        }
+    }
+
+    /// RED: Clone should reject non-ASCII target names
+    #[test]
+    fn test_clone_rejects_non_ascii_target_name() {
+        use crate::session::validate_session_name;
+
+        let invalid_names = vec!["test-clone-🚀", "café", "日本語", "中文名字"];
+
+        for name in invalid_names {
+            let result = validate_session_name(name);
+            assert!(
+                result.is_err(),
+                "Non-ASCII name '{name}' should be rejected"
+            );
+
+            if let Err(e) = result {
+                assert_eq!(e.exit_code(), 1, "ValidationError should map to exit code 1");
+                assert!(
+                    matches!(e, zjj_core::Error::ValidationError(_)),
+                    "Should return ValidationError"
+                );
+            }
+        }
+    }
+
+    /// RED: Clone should reject target names starting with digit
+    #[test]
+    fn test_clone_rejects_target_starting_with_digit() {
+        use crate::session::validate_session_name;
+
+        let result = validate_session_name("123-clone-target");
+        assert!(result.is_err(), "Name starting with digit should be rejected");
+
+        if let Err(e) = result {
+            assert_eq!(e.exit_code(), 1);
+            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+        }
+    }
+
+    /// RED: Clone should reject target names with invalid characters
+    #[test]
+    fn test_clone_rejects_target_with_invalid_chars() {
+        use crate::session::validate_session_name;
+
+        let invalid_names = vec![
+            "clone target", // spaces
+            "clone/target", // slashes
+            "clone.target", // dots
+            "clone@target", // @ symbol
+            "clone!target", // exclamation
+        ];
+
+        for name in invalid_names {
+            let result = validate_session_name(name);
+            assert!(
+                result.is_err(),
+                "Name with invalid chars '{name}' should be rejected"
+            );
+
+            if let Err(e) = result {
+                assert_eq!(e.exit_code(), 1);
+                assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            }
+        }
+    }
+
+    /// RED: Clone should reject target names starting with dash/underscore
+    #[test]
+    fn test_clone_rejects_target_starting_with_dash_or_underscore() {
+        use crate::session::validate_session_name;
+
+        let invalid_names = vec!["-clone-target", "_clone_target"];
+
+        for name in invalid_names {
+            let result = validate_session_name(name);
+            assert!(
+                result.is_err(),
+                "Name starting with special char '{name}' should be rejected"
+            );
+
+            if let Err(e) = result {
+                assert_eq!(e.exit_code(), 1);
+                assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            }
+        }
+    }
+
+    /// RED: Clone should reject target names exceeding 64 characters
+    #[test]
+    fn test_clone_rejects_target_too_long() {
+        use crate::session::validate_session_name;
+
+        let long_name = "a".repeat(65);
+        let result = validate_session_name(&long_name);
+        assert!(result.is_err(), "Name > 64 chars should be rejected");
+
+        if let Err(e) = result {
+            assert_eq!(e.exit_code(), 1);
+            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+        }
+    }
+
+    /// RED: Clone should accept valid target names
+    #[test]
+    fn test_clone_accepts_valid_target_names() {
+        use crate::session::validate_session_name;
+
+        let valid_names = vec![
+            "valid-clone",
+            "valid_clone",
+            "ValidClone123",
+            "a", // single letter
+            "feature-branch-copy-2",
+        ];
+
+        for name in valid_names {
+            let result = validate_session_name(name);
+            assert!(
+                result.is_ok(),
+                "Valid name '{name}' should be accepted: {:?}",
+                result
+            );
+        }
+    }
+
+    /// RED: Clone should use same validation as add command
+    #[test]
+    fn test_clone_uses_same_validation_as_add() {
+        use crate::session::validate_session_name;
+
+        // Test cases from add.rs tests
+        let test_cases = vec![
+            ("my-session", true),
+            ("my_session", true),
+            ("MyName123", true),
+            ("", false),
+            ("test session", false),
+            ("-session", false),
+            ("_session", false),
+            ("123session", false),
+            ("test-🚀", false),
+        ];
+
+        for (name, should_pass) in test_cases {
+            let result = validate_session_name(name);
+            assert_eq!(
+                result.is_ok(),
+                should_pass,
+                "Name '{name}' validation mismatch: expected ok={should_pass}, got {:?}",
+                result
+            );
+        }
     }
 }
