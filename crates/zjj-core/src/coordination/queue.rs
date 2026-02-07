@@ -141,7 +141,7 @@ impl MergeQueue {
 
     /// Open an in-memory merge queue for testing
     ///
-    /// This creates a transient in-memory SQLite database that is
+    /// This creates a transient in-memory `SQLite` database that is
     /// discarded when the queue is dropped. Useful for testing and
     /// development without persisting state to disk.
     pub async fn open_in_memory() -> Result<Self> {

@@ -574,7 +574,7 @@ impl IntegrityValidator {
                 return Ok(Some(
                     IntegrityIssue::new(
                         CorruptionType::StaleLocks,
-                        format!("Stale lock file detected (age: {}s)", age_secs),
+                        format!("Stale lock file detected (age: {age_secs}s)"),
                     )
                     .with_path(&lock_file),
                 ));
@@ -848,7 +848,7 @@ impl BackupManager {
     }
 
     /// List available backups
-    pub fn list_backups(&self, _workspace_name: &str) -> Result<Vec<BackupMetadata>> {
+    pub const fn list_backups(&self, _workspace_name: &str) -> Result<Vec<BackupMetadata>> {
         // Mock implementation
         Ok(Vec::new())
     }
