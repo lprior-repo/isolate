@@ -549,13 +549,12 @@ impl SessionBeadsContext {
         let filtered_ids = issues
             .into_iter()
             .filter(|issue| match self.state {
-                SessionState::Created => false,
+                SessionState::Created | SessionState::Failed => false,
                 SessionState::Active => issue.is_open() && !issue.is_blocked(),
                 SessionState::Syncing => issue.is_open(),
                 SessionState::Synced => !issue.is_open(),
                 SessionState::Paused => issue.is_blocked(),
                 SessionState::Completed => true,
-                SessionState::Failed => false,
             })
             .map(|issue| issue.id)
             .collect();

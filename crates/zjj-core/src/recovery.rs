@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use sqlx::Row;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::{config::RecoveryConfig, Error, Result};
 
@@ -97,7 +97,6 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
     }
 
     // Check SQLite magic bytes
-    use tokio::io::AsyncReadExt;
     let mut file = tokio::fs::File::open(db_path)
         .await
         .map_err(|e| Error::DatabaseError(format!("Cannot open database: {e}")))?;
@@ -213,6 +212,7 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
     let db_url = format!("sqlite://{}", db_path.to_string_lossy());
 
     // Try to open database (might fail if corrupted)
+    #[allow(clippy::manual_let_else)]
     let pool = if let Ok(p) = SqlitePoolOptions::new()
         .max_connections(1)
         .connect(&db_url)
@@ -323,6 +323,7 @@ pub async fn periodic_cleanup(
     let db_url = format!("sqlite://{}", db_path.to_string_lossy());
 
     // Try to open database
+    #[allow(clippy::manual_let_else)]
     let pool = if let Ok(p) = SqlitePoolOptions::new()
         .max_connections(1)
         .connect(&db_url)

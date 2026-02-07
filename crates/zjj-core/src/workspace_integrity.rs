@@ -199,23 +199,23 @@ impl IntegrityIssue {
     const fn default_severity(corruption_type: CorruptionType) -> Severity {
         match corruption_type {
             CorruptionType::MissingDirectory => Severity::Critical,
-            CorruptionType::MissingJjDir => Severity::Fail,
-            CorruptionType::CorruptedJjDir => Severity::Fail,
             CorruptionType::StaleLocks => Severity::Warn,
-            CorruptionType::PermissionDenied => Severity::Fail,
-            CorruptionType::CorruptedGitIndex => Severity::Fail,
+            CorruptionType::MissingJjDir | CorruptionType::CorruptedJjDir
+            | CorruptionType::PermissionDenied | CorruptionType::CorruptedGitIndex => Severity::Fail,
         }
     }
 
     /// Determine the recommended repair strategy for a corruption type
     pub const fn recommended_strategy_for_type(corruption_type: CorruptionType) -> RepairStrategy {
         match corruption_type {
-            CorruptionType::MissingDirectory => RepairStrategy::ForgetAndRecreate,
+            CorruptionType::MissingDirectory | CorruptionType::CorruptedJjDir => {
+                RepairStrategy::ForgetAndRecreate
+            }
             CorruptionType::MissingJjDir => RepairStrategy::RecreateWorkspace,
-            CorruptionType::CorruptedJjDir => RepairStrategy::ForgetAndRecreate,
             CorruptionType::StaleLocks => RepairStrategy::ClearLocks,
-            CorruptionType::PermissionDenied => RepairStrategy::NoRepairPossible,
-            CorruptionType::CorruptedGitIndex => RepairStrategy::NoRepairPossible,
+            CorruptionType::PermissionDenied | CorruptionType::CorruptedGitIndex => {
+                RepairStrategy::NoRepairPossible
+            }
         }
     }
 }
