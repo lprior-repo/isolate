@@ -1187,7 +1187,7 @@ pub async fn run_cli() -> Result<()> {
 
     let on_success = matches.get_one::<String>("on-success").cloned();
     let on_failure = matches.get_one::<String>("on-failure").cloned();
-    let hooks_config = hooks::HooksConfig::from_args(on_success, on_failure);
+    let hooks_config = hooks::HooksConfig::from_args(on_success, on_failure)?;
 
     let result = match matches.subcommand() {
         Some(("init", sub_m)) => handle_init(sub_m).await,
