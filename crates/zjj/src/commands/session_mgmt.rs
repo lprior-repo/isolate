@@ -175,6 +175,8 @@ pub struct CloneOptions {
     pub target: String,
     /// Dry-run mode
     pub dry_run: bool,
+    /// Skip Zellij integration entirely
+    pub no_zellij: bool,
     /// Output format
     pub format: OutputFormat,
 }
@@ -286,7 +288,6 @@ pub async fn run_clone(options: &CloneOptions) -> Result<()> {
     };
     db.update(&options.target, update).await?;
 
-
     let result = CloneResult {
         success: true,
         source: options.source.clone(),
@@ -378,7 +379,11 @@ mod tests {
         assert!(result.is_err(), "Empty session name should be rejected");
 
         if let Err(e) = result {
-            assert_eq!(e.exit_code(), 1, "ValidationError should map to exit code 1");
+            assert_eq!(
+                e.exit_code(),
+                1,
+                "ValidationError should map to exit code 1"
+            );
         }
     }
 
@@ -397,7 +402,11 @@ mod tests {
             );
 
             if let Err(e) = result {
-                assert_eq!(e.exit_code(), 1, "ValidationError should map to exit code 1");
+                assert_eq!(
+                    e.exit_code(),
+                    1,
+                    "ValidationError should map to exit code 1"
+                );
                 assert!(
                     matches!(e, zjj_core::Error::ValidationError(_)),
                     "Should return ValidationError"
@@ -412,7 +421,10 @@ mod tests {
         use crate::session::validate_session_name;
 
         let result = validate_session_name("123-clone-target");
-        assert!(result.is_err(), "Name starting with digit should be rejected");
+        assert!(
+            result.is_err(),
+            "Name starting with digit should be rejected"
+        );
 
         if let Err(e) = result {
             assert_eq!(e.exit_code(), 1);
