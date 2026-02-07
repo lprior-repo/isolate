@@ -3,6 +3,8 @@
 [build]
 # Incremental compilation for faster rebuilds
 incremental = true
+# sccache compiler cache wrapper
+rustc-wrapper = "sccache"
 
 [term]
 # Better progress reporting
@@ -41,7 +43,3 @@ opt-level = "z"        # Minimum size (aggressive size optimization)
 panic = "abort"        # No unwinding - smaller and faster (safe with zero-unwrap code)
 strip = "symbols"      # Strip all symbols - smallest binary
 overflow-checks = true # Keep overflow checks for safety
-
-# Optional: Uncomment when sccache is installed for distributed caching
-# [build]
-# rustc-wrapper = "sccache"
