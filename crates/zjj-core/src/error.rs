@@ -324,9 +324,7 @@ impl fmt::Display for Error {
                 write!(
                     f,
                     "Hook '{hook_type}' failed: {command}\nExit code: {}\nStderr: {stderr}",
-                    exit_code
-                        .map(|c| c.to_string())
-                        .unwrap_or_else(|| "None".to_string())
+                    exit_code.map_or_else(|| "None".to_string(), |c| c.to_string())
                 )
             }
             Self::HookExecutionFailed { command, source } => {
@@ -677,6 +675,51 @@ impl Error {
         }
     }
 
+    /// Helper: Fix commands for JJ workspace conflicts by type
+    #[must_use]
+    fn jj_conflict_fix_commands(conflict_type: &JjConflictType, workspace_name: &str) -> Vec<String> {
+        match conflict_type {
+            JjConflictType::AlreadyExists => vec![
+                "jj workspace list".to_string(),
+                format!("jj workspace forget {workspace_name}"),
+            ],
+            JjConflictType::ConcurrentModification => {
+                vec!["pgrep -fl jj".to_string(), "jj workspace list".to_string()]
+            }
+            JjConflictType::Abandoned => vec![
+                format!("jj workspace forget {workspace_name}"),
+                "jj status".to_string(),
+            ],
+            JjConflictType::Stale => vec![
+                "jj workspace update-stale".to_string(),
+                "jj reload".to_string(),
+                "jj status".to_string(),
+            ],
+        }
+    }
+
+    /// Helper: Fix commands for IO errors based on message content
+    #[must_use]
+    fn io_error_fix_commands(msg: &str) -> Vec<String> {
+        if msg.contains("Permission") || msg.contains("not found") || msg.contains("No such file") {
+            vec!["ls -la".to_string(), "zjj doctor".to_string()]
+        } else {
+            vec!["df -h".to_string(), "zjj doctor".to_string()]
+        }
+    }
+
+    /// Helper: Fix commands for parse errors based on format type
+    #[must_use]
+    fn parse_error_fix_commands(msg: &str) -> Vec<String> {
+        if msg.contains("JSON") || msg.contains("json") {
+            vec!["echo '{}' | jq .".to_string(), "zjj doctor".to_string()]
+        } else if msg.contains("TOML") || msg.contains("toml") {
+            vec!["zjj config list".to_string(), "zjj doctor".to_string()]
+        } else {
+            vec!["zjj doctor".to_string()]
+        }
+    }
+
     /// Returns fix commands that can potentially resolve this error.
     ///
     /// These are copy-pastable shell commands that AI agents can execute.
@@ -723,24 +766,7 @@ impl Error {
                 conflict_type,
                 workspace_name,
                 ..
-            } => match conflict_type {
-                JjConflictType::AlreadyExists => vec![
-                    "jj workspace list".to_string(),
-                    format!("jj workspace forget {workspace_name}"),
-                ],
-                JjConflictType::ConcurrentModification => {
-                    vec!["pgrep -fl jj".to_string(), "jj workspace list".to_string()]
-                }
-                JjConflictType::Abandoned => vec![
-                    format!("jj workspace forget {workspace_name}"),
-                    "jj status".to_string(),
-                ],
-                JjConflictType::Stale => vec![
-                    "jj workspace update-stale".to_string(),
-                    "jj reload".to_string(),
-                    "jj status".to_string(),
-                ],
-            },
+            } => Self::jj_conflict_fix_commands(conflict_type, workspace_name),
             Self::SessionLocked { session, .. } => {
                 vec![
                     format!("zjj agent status {session}"),
@@ -765,33 +791,12 @@ impl Error {
                     "zjj config reset".to_string(),
                 ]
             }
-            Self::IoError(msg) => {
-                if msg.contains("Permission") {
-                    vec!["ls -la".to_string(), "zjj doctor".to_string()]
-                } else if msg.contains("not found") || msg.contains("No such file") {
-                    vec!["ls -la".to_string(), "zjj doctor".to_string()]
-                } else {
-                    vec!["df -h".to_string(), "zjj doctor".to_string()]
-                }
-            }
-            Self::ParseError(msg) => {
-                if msg.contains("JSON") || msg.contains("json") {
-                    vec!["echo '{}' | jq .".to_string(), "zjj doctor".to_string()]
-                } else if msg.contains("TOML") || msg.contains("toml") {
-                    vec!["zjj config list".to_string(), "zjj doctor".to_string()]
-                } else {
-                    vec!["zjj doctor".to_string()]
-                }
-            }
+            Self::IoError(msg) => Self::io_error_fix_commands(msg),
+            Self::ParseError(msg) => Self::parse_error_fix_commands(msg),
             Self::Command(msg) if msg.contains("not found") => {
                 vec!["which <command>".to_string(), "zjj doctor".to_string()]
             }
-            Self::Command(_) => {
-                vec!["zjj doctor".to_string()]
-            }
-            Self::Unknown(_) => {
-                vec!["zjj doctor".to_string()]
-            }
+            Self::Command(_) | Self::Unknown(_) => vec!["zjj doctor".to_string()],
             Self::OperationCancelled(_) => vec![],
             Self::HookExecutionFailed { .. } => vec!["zjj config list hooks".to_string()],
         }
@@ -1344,7 +1349,7 @@ mod tests {
         let err = Error::IoError("Permission denied".into());
         let suggestion = err.suggestion();
         assert!(suggestion.is_some(), "IO errors should have suggestions");
-        let sugg = suggestion.expect("suggestion exists");
+        let Some(sugg) = suggestion else { return };
         assert!(
             sugg.contains("permission") || sugg.contains("check"),
             "IO error suggestion should mention permissions or checking"
@@ -1372,7 +1377,7 @@ mod tests {
             suggestion.is_some(),
             "Session locked errors should have suggestions"
         );
-        let sugg = suggestion.expect("suggestion exists");
+        let Some(sugg) = suggestion else { return };
         assert!(
             sugg.contains("yield") || sugg.contains("status"),
             "Session locked suggestion should mention yield or status commands"
@@ -1547,8 +1552,7 @@ mod tests {
                 let has_actionable_hint = suggestion
                     .chars()
                     .next()
-                    .map(|c| c.is_alphabetic() || c == '\'')
-                    .unwrap_or(false)
+                    .is_some_and(|c| c.is_alphabetic() || c == '\'')
                     || suggestion.contains("zjj")
                     || suggestion.contains("jj ")
                     || suggestion.contains("cargo ");

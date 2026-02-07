@@ -379,7 +379,7 @@ async fn attempt_claim(
                 holder: Some(existing.holder.clone()),
                 expires_at: Some(existing.expires_at),
                 previous_holder: None,
-                error: Some(format!("Resource locked by {}", existing.holder)),
+                error: Some(format!("Resource locked by {holder}", holder = existing.holder)),
                 is_double_claim: Some(false),
                 claim_count: Some(claim_count),
             }

@@ -107,8 +107,8 @@ fn test_init_scaffolds_moon_config() -> Result<()> {
 
         // Check for project name templating
         if file == "tasks.yml" {
-            assert!(content.contains(&format!("target/release/{}", project_name)));
-            assert!(content.contains(&format!("~/.local/bin/{}", project_name)));
+            assert!(content.contains(&format!("target/release/{project_name}")));
+            assert!(content.contains(&format!("~/.local/bin/{project_name}")));
         }
     }
 

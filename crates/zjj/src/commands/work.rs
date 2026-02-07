@@ -147,7 +147,7 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     let output = WorkOutput {
         name: options.name.clone(),
         workspace_path: workspace_path.to_string_lossy().to_string(),
-        zellij_tab: format!("zjj:{}", options.name),
+        zellij_tab: format!("zjj:{name}", name = options.name),
         created: true,
         agent_id: agent_id.clone(),
         bead_id: options.bead_id.clone(),
@@ -210,7 +210,7 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
     let output = WorkOutput {
         name: options.name.clone(),
         workspace_path: workspace_path.clone(),
-        zellij_tab: format!("zjj:{}", options.name),
+        zellij_tab: format!("zjj:{name}", name = options.name),
         created: false,
         agent_id,
         bead_id: options.bead_id.clone(),
@@ -224,7 +224,7 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
                 value: workspace_path,
             },
         ],
-        enter_command: format!("cd .zjj/workspaces/{}", options.name),
+        enter_command: format!("cd .zjj/workspaces/{name}", name = options.name),
     };
 
     if options.format.is_json() {

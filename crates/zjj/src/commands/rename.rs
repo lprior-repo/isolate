@@ -169,7 +169,7 @@ pub async fn run(options: &RenameOptions) -> Result<()> {
     }
 
     let old_tab_name = session.zellij_tab.clone();
-    let new_tab_name = format!("zjj:{}", options.new_name);
+    let new_tab_name = format!("zjj:{name}", name = options.new_name);
 
     // Dry-run mode - preview changes without executing
     if options.dry_run {

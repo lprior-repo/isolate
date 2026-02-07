@@ -359,13 +359,13 @@ pub async fn run_retry(options: &RetryOptions) -> Result<()> {
                                     RetryOutput {
                                         has_command: true,
                                         command: Some(saved.command.clone()),
-                                        message: format!("Retry succeeded: {}", saved.command),
+                                        message: format!("Retry succeeded: {command}", command = saved.command),
                                     }
                                 }
                                 Ok(_) => RetryOutput {
                                     has_command: true,
                                     command: Some(saved.command.clone()),
-                                    message: format!("Retry failed again: {}", saved.command),
+                                    message: format!("Retry failed again: {command}", command = saved.command),
                                 },
                                 Err(e) => RetryOutput {
                                     has_command: true,

@@ -520,5 +520,5 @@ fn generate_agent_id() -> String {
     let timestamp_u32 = u32::try_from(timestamp).map_or(u32::MAX, |v| v);
     let pid_u16 = u16::try_from(pid).map_or(u16::MAX, |v| v);
 
-    format!("agent-{:08x}-{:04x}", timestamp_u32, pid_u16)
+    format!("agent-{timestamp_u32:08x}-{pid_u16:04x}")
 }

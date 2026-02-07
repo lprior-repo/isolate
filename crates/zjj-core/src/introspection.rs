@@ -525,15 +525,15 @@ pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestN
         .filter_map(|name| {
             let num_part = name
                 .get(prefix.len()..name.len().saturating_sub(suffix.len()))
-                .unwrap_or("");
+                .map_or("", |s| s);
             num_part.parse::<usize>().ok().map(|n| (n, name.clone()))
         })
         .unzip();
 
-    // Find next available number
+    // Find next available number - use map_or to avoid unwrap_or
     let next_n = (1..=used_numbers.len() + 2)
         .find(|n| !used_numbers.contains(n))
-        .unwrap_or(1);
+        .map_or(1, |n| n);
 
     let suggested = pattern.replace("{n}", &next_n.to_string());
 
@@ -691,7 +691,9 @@ mod tests {
         // Test the corrected example from the help text
         // zjj query suggest-name "feat{n}" should work
         let existing = vec!["feat1".to_string(), "feat2".to_string()];
-        let result = suggest_name("feat{n}", &existing).unwrap();
+        let result = suggest_name("feat{n}", &existing);
+        assert!(result.is_ok(), "suggest_name should succeed");
+        let result = result.unwrap_or_else(|e| panic!("suggest_name failed: {e}"));
         assert_eq!(result.suggested, "feat3");
         assert_eq!(result.next_available_n, 3);
         assert_eq!(result.existing_matches.len(), 2);

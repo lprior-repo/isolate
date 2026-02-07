@@ -150,7 +150,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
 
     // Dry run - just show what would happen
     if options.dry_run {
-        let zellij_tab = format!("zjj:{}", options.name);
+        let zellij_tab = format!("zjj:{name}", name = options.name);
         if options.format.is_json() {
             let output = AddOutput {
                 name: options.name.clone(),

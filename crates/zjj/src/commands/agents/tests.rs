@@ -719,7 +719,7 @@ async fn unregister_is_idempotent() -> Result<(), anyhow::Error> {
 // Test: Validate agent ID rejects empty strings
 #[test]
 fn validate_agent_id_rejects_empty() {
-    use super::super::validate_agent_id;
+    use super::validate_agent_id;
 
     let result = validate_agent_id("");
     assert!(result.is_err(), "empty agent_id should be rejected");
@@ -729,7 +729,7 @@ fn validate_agent_id_rejects_empty() {
 // Test: Validate agent ID rejects whitespace-only strings
 #[test]
 fn validate_agent_id_rejects_whitespace_only() {
-    use super::super::validate_agent_id;
+    use super::validate_agent_id;
 
     let test_cases = vec![" ", "  ", "\t", "\n", "\t\n", "   \t\n   "];
 
@@ -746,7 +746,7 @@ fn validate_agent_id_rejects_whitespace_only() {
 // Test: Validate agent ID accepts valid IDs
 #[test]
 fn validate_agent_id_accepts_valid_ids() {
-    use super::super::validate_agent_id;
+    use super::validate_agent_id;
 
     let valid_ids = vec![
         "agent-1",
@@ -772,7 +772,7 @@ fn validate_agent_id_accepts_valid_ids() {
 // Test: Validate agent ID trims whitespace
 #[test]
 fn validate_agent_id_trims_whitespace() {
-    use super::super::validate_agent_id;
+    use super::validate_agent_id;
 
     // Should succeed - whitespace is trimmed
     let result = validate_agent_id("  valid-agent  ");

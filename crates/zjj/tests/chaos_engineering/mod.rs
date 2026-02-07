@@ -413,6 +413,7 @@ pub struct ChaosTestHarness {
     /// Chaos executor for this test
     executor: ChaosExecutor,
 }
+} // Close impl ChaosExecutor
 
 impl ChaosTestHarness {
     /// Create a new chaos test harness

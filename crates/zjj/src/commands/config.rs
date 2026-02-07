@@ -171,7 +171,7 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
             // Format as TOML array: ["a", "b"]
             let items: Vec<String> = arr
                 .iter()
-                .map(|v| format!("\"{}\"", v.as_str().unwrap_or("")))
+                .map(|v| format!("\"{}\"", v.as_str().map_or("", |s| s)))
                 .collect();
             format!("[{}]", items.join(", "))
         }
@@ -187,7 +187,10 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
 /// Set a config value in the specified config file
 async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<()> {
     // Load existing config or create new
-    let mut doc = if tokio::fs::try_exists(config_path).await.unwrap_or(false) {
+    let mut doc = if tokio::fs::try_exists(config_path)
+        .await
+        .map_or(false, |v| v)
+    {
         let content = tokio::fs::read_to_string(config_path)
             .await
             .context(format!(

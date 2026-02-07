@@ -574,8 +574,8 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
                 "Audit entry operation should not be empty"
             );
             assert!(
-                entry.timestamp > chrono::DateTime::MIN_UTC,
-                "Audit entry timestamp should be valid"
+                !entry.timestamp.is_empty(),
+                "Audit entry timestamp should not be empty"
             );
         }
 

@@ -5,10 +5,15 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
+mod backup_internal;
+
 pub mod create;
 pub mod list;
 pub mod restore;
 pub mod retention;
+
+// Re-export backup types
+pub use backup_internal::{BackupConfig, BackupMetadata};
 
 use anyhow::{Context, Result};
 use zjj_core::OutputFormat;

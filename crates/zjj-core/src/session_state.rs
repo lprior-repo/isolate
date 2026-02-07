@@ -1195,7 +1195,7 @@ mod tests {
             .map(|m| m.session_id().to_string());
 
         assert!(result.is_ok());
-        assert!(result.map(|s| s == "test").unwrap_or(false));
+        assert!(result.is_ok_and(|s| s == "test"));
     }
 
     #[test]
@@ -1286,7 +1286,7 @@ mod tests {
         let state: std::result::Result<SessionState, serde_json::Error> =
             serde_json::from_str(state_json);
         assert!(state.is_ok());
-        let state_value = state.map(|s| s == SessionState::Active).unwrap_or(false);
+        let state_value = state.is_ok_and(|s| s == SessionState::Active);
         assert!(state_value);
     }
 }

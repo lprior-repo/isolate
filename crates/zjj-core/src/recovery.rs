@@ -7,7 +7,7 @@ use std::{fs::File, path::Path};
 
 use fs2::FileExt;
 use sqlx::Row;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 
 use crate::{config::RecoveryConfig, Error, Result};
 
@@ -44,6 +44,8 @@ pub async fn log_recovery(message: &str, config: &RecoveryConfig) -> Result<()> 
     // Use blocking file I/O with proper locking (fs2 works with std::fs::File)
     // spawn_blocking prevents blocking the async runtime
     tokio::task::spawn_blocking(move || {
+        use std::io::Write;
+
         // Open file with append mode (create if doesn't exist)
         let mut file = File::options()
             .create(true)
@@ -56,7 +58,6 @@ pub async fn log_recovery(message: &str, config: &RecoveryConfig) -> Result<()> 
             .map_err(|e| Error::IoError(format!("Failed to lock recovery log: {e}")))?;
 
         // Write log entry
-        use std::io::Write;
         file.write_all(log_entry.as_bytes())
             .map_err(|e| Error::IoError(format!("Failed to write to recovery log: {e}")))?;
 

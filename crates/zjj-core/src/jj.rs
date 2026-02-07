@@ -217,7 +217,7 @@ impl Status {
 #[must_use]
 fn detect_workspace_conflict(
     stderr: &str,
-    workspace_name: &str,
+    _workspace_name: &str,
 ) -> Option<crate::error::JjConflictType> {
     // Functional pipeline: check lines → find first matching pattern → return conflict type
     stderr.lines().find_map(|line| {
@@ -267,9 +267,7 @@ fn conflict_recovery_hint(
             )
         }
         crate::error::JjConflictType::ConcurrentModification => {
-            format!(
-                "Recovery options:\n\n                 1. Wait a moment and retry the operation\n\n                 2. Check for other JJ processes: pgrep -fl jj\n\n                 3. Verify workspace state: jj workspace list"
-            )
+            "Recovery options:\n\n                 1. Wait a moment and retry the operation\n\n                 2. Check for other JJ processes: pgrep -fl jj\n\n                 3. Verify workspace state: jj workspace list".to_string()
         }
         crate::error::JjConflictType::Abandoned => {
             format!(
@@ -277,9 +275,7 @@ fn conflict_recovery_hint(
             )
         }
         crate::error::JjConflictType::Stale => {
-            format!(
-                "Recovery options:\n\n                 1. Update the workspace: jj workspace update-stale\n\n                 2. Reload the repository: jj reload\n\n                 3. Check for conflicts: jj status"
-            )
+            "Recovery options:\n\n                 1. Update the workspace: jj workspace update-stale\n\n                 2. Reload the repository: jj reload\n\n                 3. Check for conflicts: jj status".to_string()
         }
     }
 }
@@ -599,21 +595,21 @@ pub fn parse_diff_stat(output: &str) -> DiffSummary {
     let summary_line = output
         .lines()
         .find(|line| line.contains("insertion") || line.contains("deletion"))
-        .unwrap_or_default();
+        .map_or("", |s| s);
 
     let insertions = insertions_re
         .as_ref()
         .and_then(|re| re.captures(summary_line))
         .and_then(|caps| caps.get(1))
         .and_then(|m| m.as_str().parse().ok())
-        .unwrap_or(0);
+        .map_or(0, |n| n);
 
     let deletions = deletions_re
         .as_ref()
         .and_then(|re| re.captures(summary_line))
         .and_then(|caps| caps.get(1))
         .and_then(|m| m.as_str().parse().ok())
-        .unwrap_or(0);
+        .map_or(0, |n| n);
 
     DiffSummary {
         insertions,
@@ -952,18 +948,16 @@ mod tests {
 fn test_detect_conflict_already_exists() {
     let stderr = "error: workspace 'my-workspace' already exists";
     let result = detect_workspace_conflict(stderr, "my-workspace");
-    assert!(result.is_some());
-    assert_eq!(result.unwrap(), crate::error::JjConflictType::AlreadyExists);
+    assert_eq!(result, Some(crate::error::JjConflictType::AlreadyExists));
 }
 
 #[test]
 fn test_detect_conflict_concurrent() {
     let stderr = "error: concurrent modification detected";
     let result = detect_workspace_conflict(stderr, "test");
-    assert!(result.is_some());
     assert_eq!(
-        result.unwrap(),
-        crate::error::JjConflictType::ConcurrentModification
+        result,
+        Some(crate::error::JjConflictType::ConcurrentModification)
     );
 }
 
@@ -971,16 +965,14 @@ fn test_detect_conflict_concurrent() {
 fn test_detect_conflict_abandoned() {
     let stderr = "error: workspace has been abandoned";
     let result = detect_workspace_conflict(stderr, "old-workspace");
-    assert!(result.is_some());
-    assert_eq!(result.unwrap(), crate::error::JjConflictType::Abandoned);
+    assert_eq!(result, Some(crate::error::JjConflictType::Abandoned));
 }
 
 #[test]
 fn test_detect_conflict_stale() {
     let stderr = "error: working copy is stale";
     let result = detect_workspace_conflict(stderr, "stale-workspace");
-    assert!(result.is_some());
-    assert_eq!(result.unwrap(), crate::error::JjConflictType::Stale);
+    assert_eq!(result, Some(crate::error::JjConflictType::Stale));
 }
 
 #[test]

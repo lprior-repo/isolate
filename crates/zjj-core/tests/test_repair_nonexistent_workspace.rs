@@ -5,15 +5,16 @@
 //! 2. No panic occurs when repairing non-existent workspace
 //! 3. Error message is clear and actionable
 
+use std::error::Error;
 use tempfile::TempDir;
 use zjj_core::workspace_integrity::{
     BackupManager, IntegrityValidator, RepairExecutor, ValidationResult,
 };
 
 #[tokio::test]
-async fn test_repair_nonexistent_workspace_returns_error() {
+async fn test_repair_nonexistent_workspace_returns_error() -> Result<(), Box<dyn Error>> {
     // Given: A temporary root directory
-    let root = TempDir::new().expect("Failed to create temp dir");
+    let root = TempDir::new()?;
     let validator = IntegrityValidator::new(root.path());
 
     // When: Validating a non-existent workspace
@@ -21,7 +22,10 @@ async fn test_repair_nonexistent_workspace_returns_error() {
 
     // Then: Validation should succeed but show issues
     assert!(result.is_ok(), "Validation should not panic");
-    let validation = result.unwrap();
+    let validation = match result {
+        Ok(v) => v,
+        Err(e) => return Err(format!("Validation should succeed but got error: {}", e).into()),
+    };
     assert!(
         !validation.is_valid,
         "Non-existent workspace should be invalid"
@@ -47,7 +51,10 @@ async fn test_repair_nonexistent_workspace_returns_error() {
         "Repair should not panic on non-existent workspace"
     );
 
-    let repair = repair_result.unwrap();
+    let repair = match repair_result {
+        Ok(r) => r,
+        Err(e) => return Err(format!("Repair should succeed but got error: {}", e).into()),
+    };
     assert!(
         !repair.success,
         "Repair should fail for non-existent workspace"
@@ -60,20 +67,22 @@ async fn test_repair_nonexistent_workspace_returns_error() {
         "Error message should clearly indicate the workspace is missing: {}",
         repair.summary
     );
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_repair_nonexistent_workspace_with_backup_manager() {
+async fn test_repair_nonexistent_workspace_with_backup_manager() -> Result<(), Box<dyn Error>> {
     // Given: A temporary root with backup manager
-    let root = TempDir::new().expect("Failed to create temp dir");
+    let root = TempDir::new()?;
     let validator = IntegrityValidator::new(root.path());
     let backup_manager = BackupManager::new(root.path());
 
     // When: Validating a non-existent workspace
-    let validation = validator
-        .validate("nonexistent-workspace")
-        .await
-        .expect("Validation should not panic");
+    let validation = match validator.validate("nonexistent-workspace").await {
+        Ok(v) => v,
+        Err(e) => return Err(format!("Validation should succeed but got error: {}", e).into()),
+    };
 
     // When: Attempting to repair with backup manager
     let executor = RepairExecutor::new().with_backup_manager(backup_manager);
@@ -85,7 +94,10 @@ async fn test_repair_nonexistent_workspace_with_backup_manager() {
         "Repair with backup manager should not panic on non-existent workspace"
     );
 
-    let repair = repair_result.unwrap();
+    let repair = match repair_result {
+        Ok(r) => r,
+        Err(e) => return Err(format!("Repair should succeed but got error: {}", e).into()),
+    };
     // Should fail gracefully without trying to create a backup
     assert!(
         !repair.success,
@@ -99,13 +111,15 @@ async fn test_repair_nonexistent_workspace_with_backup_manager() {
         "Error message should clearly indicate the workspace is missing: {}",
         repair.summary
     );
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_forget_and_recreate_nonexistent_workspace() {
+async fn test_forget_and_recreate_nonexistent_workspace() -> Result<(), Box<dyn Error>> {
     // This is a more direct test of the specific function that might panic
     // Given: A validation result for a non-existent workspace
-    let root = TempDir::new().expect("Failed to create temp dir");
+    let root = TempDir::new()?;
     let workspace_path = root.path().join("nonexistent-workspace");
 
     let validation = ValidationResult::invalid(
@@ -128,7 +142,10 @@ async fn test_forget_and_recreate_nonexistent_workspace() {
         "Repair should not panic for non-existent workspace"
     );
 
-    let repair = repair_result.unwrap();
+    let repair = match repair_result {
+        Ok(r) => r,
+        Err(e) => return Err(format!("Repair should succeed but got error: {}", e).into()),
+    };
     // Should fail gracefully
     assert!(
         !repair.success,
@@ -142,4 +159,6 @@ async fn test_forget_and_recreate_nonexistent_workspace() {
         "Summary should clearly describe the missing workspace: {}",
         repair.summary
     );
+
+    Ok(())
 }
