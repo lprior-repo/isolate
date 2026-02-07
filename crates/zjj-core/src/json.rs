@@ -220,6 +220,7 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
         // External command errors: exit code 4
         Error::Command(_)
         | Error::JjCommandError { .. }
+        | Error::JjWorkspaceConflict { .. }
         | Error::HookFailed { .. }
         | Error::HookExecutionFailed { .. }
         | Error::Unknown(_) => 4,
@@ -315,6 +316,16 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
                 )
             }
         }
+        Error::JjWorkspaceConflict {
+            conflict_type,
+            workspace_name,
+            source,
+            recovery_hint,
+        } => (
+            ErrorCode::JjCommandFailed,
+            format!("JJ workspace conflict: {conflict_type}\nWorkspace: {workspace_name}\n{recovery_hint}\nJJ error: {source}"),
+            Some("Follow the recovery hints in the error message".to_string()),
+        ),
         Error::Unknown(msg) => (ErrorCode::Unknown, format!("Unknown error: {msg}"), None),
         Error::SessionLocked { session, holder } => (
             ErrorCode::Unknown,

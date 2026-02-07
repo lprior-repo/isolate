@@ -232,7 +232,30 @@ impl RichError {
     }
 }
 
-#[derive(Debug, Clone)]
+/// Types of JJ workspace conflicts
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum JjConflictType {
+    /// Workspace name already exists in repository
+    AlreadyExists,
+    /// Concurrent modification detected (multiple operations)
+    ConcurrentModification,
+    /// Workspace was abandoned and is no longer valid
+    Abandoned,
+    /// Working copy is stale/out of sync with repository
+    Stale,
+}
+
+impl fmt::Display for JjConflictType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AlreadyExists => write!(f, "workspace already exists"),
+            Self::ConcurrentModification => write!(f, "concurrent modification detected"),
+            Self::Abandoned => write!(f, "workspace abandoned"),
+            Self::Stale => write!(f, "working copy stale"),
+        }
+    }
+}
+
 pub enum Error {
     InvalidConfig(String),
     IoError(String),
@@ -256,6 +279,17 @@ pub enum Error {
         operation: String,
         source: String,
         is_not_found: bool,
+    },
+    /// JJ workspace conflict with structured recovery information
+    JjWorkspaceConflict {
+        /// Type of conflict detected
+        conflict_type: JjConflictType,
+        /// Workspace name involved in conflict
+        workspace_name: String,
+        /// Original error from JJ
+        source: String,
+        /// Actionable recovery hint
+        recovery_hint: String,
     },
     SessionLocked {
         session: String,
@@ -310,6 +344,17 @@ impl fmt::Display for Error {
                 } else {
                     write!(f, "Failed to {operation}: {source}")
                 }
+            }
+            Self::JjWorkspaceConflict {
+                conflict_type,
+                workspace_name,
+                source,
+                recovery_hint,
+            } => {
+                write!(
+                    f,
+                    "JJ workspace conflict: {conflict_type}\n\nWorkspace: {workspace_name}\n\n{recovery_hint}\n\nJJ error: {source}"
+                )
             }
             Self::SessionLocked { session, holder } => {
                 write!(f, "Session '{session}' is locked by agent '{holder}'")
@@ -375,6 +420,7 @@ impl Error {
             Self::HookFailed { .. } => "HOOK_FAILED",
             Self::HookExecutionFailed { .. } => "HOOK_EXECUTION_FAILED",
             Self::JjCommandError { .. } => "JJ_COMMAND_ERROR",
+            Self::JjWorkspaceConflict { .. } => "JJ_WORKSPACE_CONFLICT",
             Self::SessionLocked { .. } => "SESSION_LOCKED",
             Self::NotLockHolder { .. } => "NOT_LOCK_HOLDER",
             Self::OperationCancelled(_) => "OPERATION_CANCELLED",
@@ -439,6 +485,16 @@ impl Error {
                 "source": source,
                 "is_not_found": is_not_found
             })),
+            Self::JjWorkspaceConflict {
+                conflict_type,
+                workspace_name,
+                source,
+                recovery_hint: _,
+            } => Some(serde_json::json!({
+                "conflict_type": conflict_type,
+                "workspace_name": workspace_name,
+                "source": source,
+            })),
             Self::SessionLocked { session, holder } => Some(serde_json::json!({
                 "session": session,
                 "holder": holder
@@ -480,6 +536,9 @@ impl Error {
             } => Some("Install JJ: cargo install jj-cli or brew install jj".to_string()),
             Self::JjCommandError { .. } => Some(
                 "Check JJ is working: 'jj status', or try 'zjj doctor' for diagnostics".to_string(),
+            ),
+            Self::JjWorkspaceConflict { .. } => Some(
+                "This is a JJ workspace conflict. Check the recovery hints in the error message for specific steps.".to_string()
             ),
             Self::HookFailed { hook_type, .. } => Some(
                 format!("Check hook '{hook_type}' configuration: 'zjj config get hooks.{hook_type}' or use --no-hooks to skip")
@@ -546,6 +605,7 @@ impl Error {
             // External command errors: exit code 4
             Self::Command(_)
             | Self::JjCommandError { .. }
+            | Self::JjWorkspaceConflict { .. }
             | Self::HookFailed { .. }
             | Self::HookExecutionFailed { .. }
             | Self::Unknown(_) => 4,
@@ -610,6 +670,7 @@ impl Error {
             | Self::HookFailed { .. }
             | Self::HookExecutionFailed { .. }
             | Self::JjCommandError { .. }
+            | Self::JjWorkspaceConflict { .. }
             | Self::OperationCancelled(_)
             | Self::Unknown(_) => vec![],
         }
@@ -655,6 +716,31 @@ impl Error {
                     vec!["jj workspace list".to_string(), "zjj doctor".to_string()]
                 } else {
                     vec!["jj status".to_string()]
+                }
+            }
+            Self::JjWorkspaceConflict {
+                conflict_type,
+                workspace_name,
+                ..
+            } => {
+                match conflict_type {
+                    JjConflictType::AlreadyExists => vec![
+                        "jj workspace list".to_string(),
+                        format!("jj workspace forget {workspace_name}"),
+                    ],
+                    JjConflictType::ConcurrentModification => vec![
+                        "pgrep -fl jj".to_string(),
+                        "jj workspace list".to_string(),
+                    ],
+                    JjConflictType::Abandoned => vec![
+                        format!("jj workspace forget {workspace_name}"),
+                        "jj status".to_string(),
+                    ],
+                    JjConflictType::Stale => vec![
+                        "jj workspace update-stale".to_string(),
+                        "jj reload".to_string(),
+                        "jj status".to_string(),
+                    ],
                 }
             }
             Self::SessionLocked { session, .. } => {
