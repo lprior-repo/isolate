@@ -28,6 +28,28 @@ fn parse_json(s: &str) -> Result<JsonValue, serde_json::Error> {
     serde_json::from_str(s)
 }
 
+/// Validation error type for better error reporting
+#[derive(Debug)]
+enum ValidationError {
+    MissingField(&'static str, String),
+    InvalidFormat(String),
+    SchemaMismatch(String),
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValidationError::MissingField(field, ctx) => {
+                write!(f, "Missing required field '{field}' in {ctx}")
+            }
+            ValidationError::InvalidFormat(msg) => write!(f, "Invalid format: {msg}"),
+            ValidationError::SchemaMismatch(msg) => write!(f, "Schema mismatch: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for ValidationError {}
+
 // ============================================================================
 // ROUND 1: JSON Schema Consistency Tests
 // ============================================================================
@@ -54,12 +76,12 @@ fn test_all_json_outputs_use_schema_envelope() -> Result<(), Box<dyn std::error:
         vec!["context", "--json"],
     ];
 
-    for args in json_commands {
-        let result = harness.zjj(&args);
-        if result.success {
-            validate_schema_envelope(&result.stdout, args[0])?;
-        }
-    }
+    // Use functional traversal: map results, filter successful ones, validate each
+    json_commands
+        .iter()
+        .map(|args| (args, harness.zjj(args)))
+        .filter(|(_, result)| result.success)
+        .try_for_each(|(args, result)| validate_schema_envelope(&result.stdout, args[0]))?;
 
     Ok(())
 }
@@ -247,20 +269,25 @@ fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
 
     harness.assert_success(&["init"]);
 
-    // Test session-count query
-    let result = harness.zjj(&["query", "session-count", "--json"]);
-    assert!(result.success);
-    let json: JsonValue = parse_json(&result.stdout)?;
-    assert_eq!(json["count"], 0, "Should have 0 sessions initially");
+    // Test session-count query using functional composition
+    let initial_count = || -> Result<usize, Box<dyn std::error::Error>> {
+        let result = harness.zjj(&["query", "session-count", "--json"]);
+        assert!(result.success);
+        let json: JsonValue = parse_json(&result.stdout)?;
+        json["count"]
+            .as_u64()
+            .map(|v| v as usize)
+            .ok_or_else(|| "Invalid count value".into())
+    };
+
+    assert_eq!(initial_count()?, 0, "Should have 0 sessions initially");
 
     // Add a session
     harness.assert_success(&["add", "test-session", "--no-open"]);
 
-    // Query again
-    let result2 = harness.zjj(&["query", "session-count", "--json"]);
-    assert!(result2.success);
-    let json2: JsonValue = parse_json(&result2.stdout)?;
-    assert_eq!(json2["count"], 1, "Should have 1 session after add");
+    // Query again and verify increment
+    let final_count = initial_count()?;
+    assert_eq!(final_count, 1, "Should have 1 session after add");
     Ok(())
 }
 
@@ -308,26 +335,41 @@ fn test_multiple_sessions_isolation() -> Result<(), Box<dyn std::error::Error>> 
     harness.assert_success(&["init"]);
 
     // Create multiple sessions (simulating multiple agents)
-    harness.assert_success(&["add", "session-a", "--no-open"]);
-    harness.assert_success(&["add", "session-b", "--no-open"]);
-    harness.assert_success(&["add", "session-c", "--no-open"]);
+    let sessions = ["session-a", "session-b", "session-c"];
+
+    // Functional chain: create all sessions, collect results
+    sessions
+        .iter()
+        .map(|session| harness.zjj(&["add", session, "--no-open"]))
+        .for_each(|result| {
+            assert!(result.success, "Failed to create session");
+        });
 
     // Verify all sessions exist independently
     let list_result = harness.zjj(&["list", "--json"]);
     let json: JsonValue = parse_json(&list_result.stdout)?;
-    let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
+    let count = json["sessions"]
+        .as_array()
+        .map(Vec::len)
+        .unwrap_or(0);
     assert_eq!(count, 3, "Should have 3 sessions");
 
-    // Verify each session can be queried independently
-    for session in ["session-a", "session-b", "session-c"] {
-        let result = harness.zjj(&["status", session, "--json"]);
-        assert!(result.success, "Status for {session} should succeed");
-    }
+    // Verify each session can be queried independently using functional traversal
+    sessions
+        .iter()
+        .map(|session| (session, harness.zjj(&["status", session, "--json"])))
+        .for_each(|(session, result)| {
+            assert!(result.success, "Status for {session} should succeed");
+        });
 
-    // Cleanup
-    harness.assert_success(&["remove", "session-a", "-f"]);
-    harness.assert_success(&["remove", "session-b", "-f"]);
-    harness.assert_success(&["remove", "session-c", "-f"]);
+    // Cleanup using functional chain
+    sessions
+        .iter()
+        .map(|session| harness.zjj(&["remove", session, "-f"]))
+        .for_each(|result| {
+            assert!(result.success, "Failed to remove session");
+        });
+
     Ok(())
 }
 
@@ -351,25 +393,28 @@ fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::e
 
     let json: JsonValue = parse_json(&result.stdout)?;
 
-    // Error responses must have these fields
-    assert!(
-        json.get("success").is_some(),
-        "Error should have success field"
-    );
-    assert_eq!(json["success"], false, "success should be false");
-    assert!(json.get("error").is_some(), "Error should have error field");
-    assert!(
-        json["error"].get("code").is_some(),
-        "Error should have code"
-    );
-    assert!(
-        json["error"].get("message").is_some(),
-        "Error should have message"
-    );
-    assert!(
-        json["error"].get("exit_code").is_some(),
-        "Error should have exit_code"
-    );
+    // Define required error fields
+    let error_fields: &[&str] = &["code", "message", "exit_code"];
+
+    // Error responses must have success=false and error object
+    json.get("success")
+        .and_then(JsonValue::as_bool)
+        .filter(|&v| !v)
+        .ok_or_else(|| "Error should have success=false".to_string())?;
+
+    json.get("error")
+        .ok_or_else(|| "Error should have error field".to_string())
+        .and_then(|error_obj| {
+            // Validate all required error fields exist using functional traversal
+            error_fields
+                .iter()
+                .try_for_each(|&field| {
+                    error_obj.get(field)
+                        .ok_or_else(|| format!("Error should have {field}"))
+                        .map(|_| ())
+                })
+        })?;
+
     Ok(())
 }
 
@@ -530,15 +575,19 @@ fn test_all_query_commands_use_schema_envelope() -> Result<(), Box<dyn std::erro
         "session-locked test-session",
     ];
 
-    for query in queries {
-        let result = harness.zjj(&["query", query, "--json"]);
-        if result.success {
-            validate_schema_envelope(
-                &result.stdout,
-                query.split_whitespace().next().unwrap_or(query),
-            )?;
-        }
-    }
+    // Use functional chain: execute queries, filter successful, validate each
+    queries
+        .iter()
+        .map(|query| {
+            let result = harness.zjj(&["query", query, "--json"]);
+            let command_name = query.split_whitespace().next().unwrap_or(query);
+            (query, result, command_name)
+        })
+        .filter(|(_, result, _)| result.success)
+        .try_for_each(|(_, result, command_name)| {
+            validate_schema_envelope(&result.stdout, command_name)
+        })?;
+
     Ok(())
 }
 
@@ -547,33 +596,49 @@ fn test_all_query_commands_use_schema_envelope() -> Result<(), Box<dyn std::erro
 // ============================================================================
 
 /// Validate that JSON output uses `SchemaEnvelope` structure
+///
+/// Uses functional composition for better error handling and clarity.
+/// Returns detailed validation errors instead of using assert! macros.
 fn validate_schema_envelope(
     json_str: &str,
     command_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let json = parse_json(json_str).map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
+    // Parse JSON with context
+    let json = parse_json(json_str)
+        .map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
 
-    assert!(
-        json.get("$schema").is_some(),
-        "{command_name}: Missing $schema field in output: {json_str}"
-    );
-    assert!(
-        json.get("_schema_version").is_some(),
-        "{command_name}: Missing _schema_version field"
-    );
-    assert!(
-        json.get("success").is_some(),
-        "{command_name}: Missing success field"
-    );
+    // Define required fields with their error messages
+    let required_fields: &[&str] = &["$schema", "_schema_version", "success"];
 
-    // Validate schema format
+    // Validate all required fields exist using functional traversal
+    required_fields
+        .iter()
+        .try_for_each(|&field| {
+            json.get(field)
+                .ok_or_else(|| {
+                    ValidationError::MissingField(
+                        field,
+                        format!("{command_name}: output: {json_str}")
+                    )
+                })
+                .map(|_| ())
+        })?;
+
+    // Validate schema format using and_then for composition
     let schema = json["$schema"]
         .as_str()
-        .ok_or_else(|| format!("{command_name}: $schema field is not a string"))?;
-    assert!(
-        schema.starts_with("zjj://"),
-        "{command_name}: $schema should start with 'zjj://', got: {schema}"
-    );
+        .ok_or_else(|| {
+            ValidationError::InvalidFormat(
+                format!("{command_name}: $schema field is not a string")
+            )
+        })?;
+
+    // Validate schema URI pattern
+    if !schema.starts_with("zjj://") {
+        return Err(ValidationError::SchemaMismatch(
+            format!("{command_name}: $schema should start with 'zjj://', got: {schema}")
+        ).into());
+    }
 
     Ok(())
 }
