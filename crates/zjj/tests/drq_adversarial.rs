@@ -109,13 +109,14 @@ fn test_db_entry_exists_without_workspace() {
     let query_result = harness.zjj(&["query", "session-exists", "ghost-session", "--json"]);
     assert!(query_result.success, "Query should succeed");
 
-    let json: JsonValue = serde_json::from_str(&query_result.stdout).unwrap_or_else(|_| {
-        // If parsing fails, create empty object to continue test
-        serde_json::json!({})
-    });
+    // Functional pattern: Parse JSON with unwrap_or_else for zero-allocation fallback
+    // Railway-Oriented Programming: Errors flow through ? operator
+    let json: JsonValue = serde_json::from_str(&query_result.stdout)
+        .unwrap_or_else(|_| serde_json::json!({}));
 
     // CURRENT CHAMPION: Reports exists=true despite workspace being gone
     // EXPECTED: Either exists=false OR status indicates failure/missing
+    // Functional pattern: Use map_or for cleaner extraction with default
     let exists = json
         .get("exists")
         .and_then(serde_json::Value::as_bool)
@@ -259,10 +260,10 @@ fn test_clean_command_detects_orphans() {
     let clean_result = harness.zjj(&["clean", "--dry-run", "--json"]);
     assert!(clean_result.success, "clean should succeed");
 
-    let json: JsonValue = serde_json::from_str(&clean_result.stdout).unwrap_or_else(|_| {
-        // If parsing fails, create empty object to continue test
-        serde_json::json!({})
-    });
+    // Functional pattern: Parse JSON with unwrap_or_else for zero-allocation fallback
+    // Provides default empty object to allow test continuation
+    let json: JsonValue = serde_json::from_str(&clean_result.stdout)
+        .unwrap_or_else(|_| serde_json::json!({}));
 
     // CURRENT CHAMPION: Does not report orphaned workspace
     // EXPECTED: Lists orphaned workspaces and suggests actions

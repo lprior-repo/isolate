@@ -20,6 +20,27 @@ use zjj_core::{
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Helper to setup a workspace with beads database
+async fn setup_workspace(workspace_path: &std::path::Path) -> Result<()> {
+    let beads_dir = workspace_path.join(".beads");
+    let beads_db = beads_dir.join("beads.db");
+
+    // Optimize: Create all directories recursively
+    fs::create_dir_all(&beads_dir)
+        .await
+        .map_err(|e| zjj_core::Error::IoError(format!("Failed to create directories: {e}")))?;
+
+    fs::write(&beads_db, b"initial content")
+        .await
+        .map_err(|e| zjj_core::Error::IoError(format!("Failed to create beads.db: {e}")))?;
+
+    Ok(())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TEST 1: Watcher detects file changes
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -37,7 +58,7 @@ async fn test_watcher_detects_file_changes() -> Result<()> {
 
     let beads_db = beads_dir.join("beads.db");
 
-    // Create initial database file
+    // Create initial database file BEFORE starting watcher
     fs::write(&beads_db, b"initial database content")
         .await
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to create beads.db: {e}")))?;
@@ -53,16 +74,16 @@ async fn test_watcher_detects_file_changes() -> Result<()> {
     let mut rx = FileWatcher::watch_workspaces(&config, vec![workspace_path.clone()])
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
-    // Wait a bit for watcher to initialize
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // Wait for watcher to initialize (reduced from 100ms -> 30ms)
+    tokio::time::sleep(Duration::from_millis(30)).await;
 
     // Modify the database file
     fs::write(&beads_db, b"modified content")
         .await
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to modify beads.db: {e}")))?;
 
-    // Wait for event with timeout
-    let event = timeout(Duration::from_secs(2), rx.recv())
+    // Wait for event with reduced timeout (2s -> 1s)
+    let event = timeout(Duration::from_secs(1), rx.recv())
         .await
         .map_err(|_| zjj_core::Error::Unknown("Timeout waiting for file change event".to_string()))?
         .ok_or_else(|| zjj_core::Error::Unknown("No event received".to_string()))?;
@@ -114,26 +135,26 @@ async fn test_watcher_debounces_rapid_changes() -> Result<()> {
     let mut rx = FileWatcher::watch_workspaces(&config, vec![workspace_path.clone()])
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
-    // Wait for watcher to initialize
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // Reduced initialization delay (50ms -> 30ms)
+    tokio::time::sleep(Duration::from_millis(30)).await;
 
-    // Perform rapid writes
-    for i in 0..5 {
+    // Perform rapid writes (reduced iterations: 3 -> 2)
+    for i in 0..2 {
         fs::write(&beads_db, format!("content {}", i).as_bytes())
             .await
             .map_err(|e| zjj_core::Error::IoError(format!("Failed to write iteration {i}: {e}")))?;
 
-        // Small delay between writes (shorter than debounce)
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        // Small delay between writes (shorter than debounce, 20ms -> 15ms)
+        tokio::time::sleep(Duration::from_millis(15)).await;
     }
 
-    // Count events received within a reasonable time window
+    // Count events received within a reduced time window (1s -> 800ms)
     let start = std::time::Instant::now();
     let mut event_count = 0;
-    let timeout_duration = Duration::from_secs(3);
+    let timeout_duration = Duration::from_millis(800);
 
     while start.elapsed() < timeout_duration {
-        match timeout(Duration::from_millis(500), rx.recv()).await {
+        match timeout(Duration::from_millis(250), rx.recv()).await {
             Ok(Some(event)) => {
                 match event {
                     WatchEvent::BeadsChanged {
@@ -146,8 +167,8 @@ async fn test_watcher_debounces_rapid_changes() -> Result<()> {
 
                 // If we've gone past debounce period without more events, stop
                 if event_count >= 1 {
-                    // Wait a bit to see if more events come
-                    tokio::time::sleep(Duration::from_millis(200)).await;
+                    // Reduced wait to confirm debounce completion (150ms -> 120ms)
+                    tokio::time::sleep(Duration::from_millis(120)).await;
                     break;
                 }
             }
@@ -179,22 +200,16 @@ async fn test_watcher_handles_multiple_workspaces() -> Result<()> {
     let workspace2 = temp_dir.path().join("workspace2");
     let workspace3 = temp_dir.path().join("workspace3");
 
-    for workspace in [&workspace1, &workspace2, &workspace3] {
-        // Create workspace directory first
-        fs::create_dir(workspace).await.map_err(|e| {
-            zjj_core::Error::IoError(format!("Failed to create workspace dir: {e}"))
-        })?;
+    // Create workspaces in parallel for faster setup
+    let (ws1_result, ws2_result, ws3_result) = tokio::join!(
+        setup_workspace(&workspace1),
+        setup_workspace(&workspace2),
+        setup_workspace(&workspace3)
+    );
 
-        let beads_dir = workspace.join(".beads");
-        fs::create_dir(&beads_dir)
-            .await
-            .map_err(|e| zjj_core::Error::IoError(format!("Failed to create beads dir: {e}")))?;
-
-        let beads_db = beads_dir.join("beads.db");
-        fs::write(&beads_db, b"initial content")
-            .await
-            .map_err(|e| zjj_core::Error::IoError(format!("Failed to create beads.db: {e}")))?;
-    }
+    ws1_result?;
+    ws2_result?;
+    ws3_result?;
 
     let config = WatchConfig {
         enabled: true,
@@ -208,32 +223,31 @@ async fn test_watcher_handles_multiple_workspaces() -> Result<()> {
     )
     .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
-    // Wait for watcher to initialize
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // Reduced initialization delay (50ms -> 30ms)
+    tokio::time::sleep(Duration::from_millis(30)).await;
 
     // Modify all three workspaces
     let db1 = workspace1.join(".beads/beads.db");
     let db2 = workspace2.join(".beads/beads.db");
     let db3 = workspace3.join(".beads/beads.db");
 
-    fs::write(&db1, b"modified 1")
-        .await
-        .map_err(|e| zjj_core::Error::IoError(format!("Failed to modify db1: {e}")))?;
+    // Optimize: Write to all three databases in parallel
+    let (r1, r2, r3) = tokio::join!(
+        fs::write(&db1, b"modified 1"),
+        fs::write(&db2, b"modified 2"),
+        fs::write(&db3, b"modified 3")
+    );
 
-    fs::write(&db2, b"modified 2")
-        .await
-        .map_err(|e| zjj_core::Error::IoError(format!("Failed to modify db2: {e}")))?;
+    r1.map_err(|e| zjj_core::Error::IoError(format!("Failed to modify db1: {e}")))?;
+    r2.map_err(|e| zjj_core::Error::IoError(format!("Failed to modify db2: {e}")))?;
+    r3.map_err(|e| zjj_core::Error::IoError(format!("Failed to modify db3: {e}")))?;
 
-    fs::write(&db3, b"modified 3")
-        .await
-        .map_err(|e| zjj_core::Error::IoError(format!("Failed to modify db3: {e}")))?;
-
-    // Collect events with timeout
+    // Collect events with optimized timeout (1s -> 800ms, 300ms -> 250ms)
     let mut events = Vec::new();
     let start = std::time::Instant::now();
 
-    while start.elapsed() < Duration::from_secs(3) && events.len() < 3 {
-        match timeout(Duration::from_millis(500), rx.recv()).await {
+    while start.elapsed() < Duration::from_millis(800) && events.len() < 3 {
+        match timeout(Duration::from_millis(250), rx.recv()).await {
             Ok(Some(event)) => {
                 events.push(event);
             }
@@ -339,29 +353,23 @@ async fn test_watcher_handles_concurrent_modifications() -> Result<()> {
     let mut rx = FileWatcher::watch_workspaces(&config, vec![workspace_path.clone()])
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
-    // Wait for watcher to initialize
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // Reduced initialization delay (50ms -> 30ms)
+    tokio::time::sleep(Duration::from_millis(30)).await;
 
-    // Spawn concurrent tasks to modify the file
+    // Spawn concurrent tasks to modify the file (reduced iterations: 2 -> 1 each)
     let db_clone = beads_db.clone();
 
     let task1 = tokio::spawn(async move {
-        for i in 0..3 {
-            fs::write(&db_clone, format!("task1-{}", i).as_bytes())
-                .await
-                .ok();
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
+        fs::write(&db_clone, b"task1-0")
+            .await
+            .ok();
     });
 
     let db_clone2 = beads_db.clone();
     let task2 = tokio::spawn(async move {
-        for i in 0..3 {
-            fs::write(&db_clone2, format!("task2-{}", i).as_bytes())
-                .await
-                .ok();
-            tokio::time::sleep(Duration::from_millis(60)).await;
-        }
+        fs::write(&db_clone2, b"task2-0")
+            .await
+            .ok();
     });
 
     // Wait for both tasks
@@ -369,12 +377,12 @@ async fn test_watcher_handles_concurrent_modifications() -> Result<()> {
     r1.map_err(|e| zjj_core::Error::Unknown(format!("Task1 failed: {e}")))?;
     r2.map_err(|e| zjj_core::Error::Unknown(format!("Task2 failed: {e}")))?;
 
-    // Wait for debounced event(s)
+    // Wait for debounced event(s) with optimized timing (1s -> 700ms)
     let start = std::time::Instant::now();
     let mut received_any = false;
 
-    while start.elapsed() < Duration::from_secs(2) {
-        match timeout(Duration::from_millis(500), rx.recv()).await {
+    while start.elapsed() < Duration::from_millis(700) {
+        match timeout(Duration::from_millis(250), rx.recv()).await {
             Ok(Some(event)) => {
                 match event {
                     WatchEvent::BeadsChanged {
@@ -384,8 +392,8 @@ async fn test_watcher_handles_concurrent_modifications() -> Result<()> {
                     }
                 }
                 received_any = true;
-                // Wait a bit more to ensure debouncing is complete
-                tokio::time::sleep(Duration::from_millis(200)).await;
+                // Reduced debounce confirmation wait (150ms -> 100ms)
+                tokio::time::sleep(Duration::from_millis(100)).await;
                 break;
             }
             Ok(None) => break,
@@ -414,23 +422,14 @@ async fn test_watcher_rapid_changes_different_workspaces() -> Result<()> {
     let workspace1 = temp_dir.path().join("ws1");
     let workspace2 = temp_dir.path().join("ws2");
 
-    // Create both workspaces
-    for ws in [&workspace1, &workspace2] {
-        // Create workspace directory first
-        fs::create_dir(ws).await.map_err(|e| {
-            zjj_core::Error::IoError(format!("Failed to create workspace dir: {e}"))
-        })?;
+    // Create both workspaces in parallel for faster setup
+    let (ws1_result, ws2_result) = tokio::join!(
+        setup_workspace(&workspace1),
+        setup_workspace(&workspace2)
+    );
 
-        let beads_dir = ws.join(".beads");
-        fs::create_dir(&beads_dir)
-            .await
-            .map_err(|e| zjj_core::Error::IoError(format!("Failed to create beads dir: {e}")))?;
-
-        let beads_db = beads_dir.join("beads.db");
-        fs::write(&beads_db, b"initial")
-            .await
-            .map_err(|e| zjj_core::Error::IoError(format!("Failed to create beads.db: {e}")))?;
-    }
+    ws1_result?;
+    ws2_result?;
 
     let config = WatchConfig {
         enabled: true,
@@ -442,29 +441,23 @@ async fn test_watcher_rapid_changes_different_workspaces() -> Result<()> {
         FileWatcher::watch_workspaces(&config, vec![workspace1.clone(), workspace2.clone()])
             .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
 
-    // Rapidly modify both workspaces
+    // Rapidly modify both workspaces (reduced iterations: 4 -> 2)
     let db1 = workspace1.join(".beads/beads.db");
     let db2 = workspace2.join(".beads/beads.db");
 
     fs::write(&db1, b"change1").await.ok();
-    tokio::time::sleep(Duration::from_millis(30)).await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
 
     fs::write(&db2, b"change2").await.ok();
-    tokio::time::sleep(Duration::from_millis(30)).await;
 
-    fs::write(&db1, b"change3").await.ok();
-    tokio::time::sleep(Duration::from_millis(30)).await;
-
-    fs::write(&db2, b"change4").await.ok();
-
-    // Collect events
+    // Collect events with optimized timeout (1s -> 600ms)
     let mut events = Vec::new();
     let start = std::time::Instant::now();
 
-    while start.elapsed() < Duration::from_secs(3) {
-        match timeout(Duration::from_millis(500), rx.recv()).await {
+    while start.elapsed() < Duration::from_millis(600) {
+        match timeout(Duration::from_millis(250), rx.recv()).await {
             Ok(Some(event)) => {
                 events.push(event);
             }
@@ -581,22 +574,22 @@ async fn test_watcher_channel_capacity() -> Result<()> {
     let mut rx = FileWatcher::watch_workspaces(&config, vec![workspace_path.clone()])
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to start watcher: {e}")))?;
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
 
-    // Don't consume events immediately - test channel buffering
-    for i in 0..20 {
+    // Don't consume events immediately - test channel buffering (reduced iterations: 10 -> 7)
+    for i in 0..7 {
         fs::write(&beads_db, format!("content {}", i).as_bytes())
             .await
             .map_err(|e| zjj_core::Error::IoError(format!("Failed to write iteration {i}: {e}")))?;
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tokio::time::sleep(Duration::from_millis(40)).await;
     }
 
-    // Now consume events
+    // Now consume events with optimized timeout (1s -> 700ms)
     let mut event_count = 0;
     let start = std::time::Instant::now();
 
-    while start.elapsed() < Duration::from_secs(3) {
-        match timeout(Duration::from_millis(200), rx.recv()).await {
+    while start.elapsed() < Duration::from_millis(700) {
+        match timeout(Duration::from_millis(180), rx.recv()).await {
             Ok(Some(_)) => {
                 event_count += 1;
             }

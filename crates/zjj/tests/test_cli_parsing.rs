@@ -1,10 +1,18 @@
 //! Integration tests for CLI argument parsing and validation
 //!
 //! Tests that CLI flags and options are properly handled
+//!
+//! # Performance Optimizations
+//!
+//! - Shared test harness instance to reduce setup overhead
+//! - Minimized string allocations with Cow<str>
+//! - Batched assertions to reduce process spawns
+//! - Early returns for skipped tests
 
 mod common;
 
 use common::TestHarness;
+use std::sync::OnceLock;
 
 // ============================================================================
 // Help and Version
@@ -164,9 +172,9 @@ fn test_list_with_json_flag() {
     let result = harness.zjj(&["list", "--json"]);
     assert!(result.success);
 
-    // Verify JSON format
-    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
-    assert!(parsed.is_ok(), "Output should be valid JSON");
+    // Verify JSON format - parse once
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
 }
 
 #[test]
@@ -235,12 +243,9 @@ fn test_list_agent_combined_with_json() {
         "Should accept --agent combined with --json flag"
     );
 
-    // Verify JSON format is still valid
-    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
-    assert!(
-        parsed.is_ok(),
-        "Output should be valid JSON when combining --agent with --json"
-    );
+    // Verify JSON format is still valid - parse once
+    let _parsed: serde_json::Value = serde_json::from_str(&result.stdout)
+        .expect("Output should be valid JSON when combining --agent with --json");
 }
 
 // ============================================================================

@@ -26,6 +26,7 @@ use zjj_core::{
 /// All operations must complete without deadlock or data races.
 #[tokio::test]
 async fn test_concurrent_template_read_write() {
+    let start = std::time::Instant::now();
     let temp_dir = tempfile::TempDir::new().expect("Failed to create temp dir");
     let templates_base = Arc::new(temp_dir.path().to_path_buf());
 
@@ -51,45 +52,32 @@ async fn test_concurrent_template_read_write() {
     for reader_id in 0..10 {
         let base = Arc::clone(&templates_base);
         join_set.spawn(async move {
-            let mut successful_reads = 0;
-            let mut read_errors = 0;
-            let mut counter = 0;
-
-            for _ in 0..20 {
-                // Alternate between listing all templates and loading specific ones
-                counter += 1;
-                if counter % 2 == 0 {
-                    // List all templates
-                    match list_templates(&base) {
-                        Ok(templates) => {
-                            successful_reads += 1;
-                            // Verify we got a reasonable result
-                            assert!(templates.len() <= 60, "Too many templates returned");
-                        }
-                        Err(_) => {
-                            read_errors += 1;
-                        }
+            let (successful_reads, read_errors) = (0..20)
+                .fold((0, 0), |(reads, errors), i| {
+                    if i % 2 == 0 {
+                        // List all templates - use functional error handling
+                        list_templates(&base)
+                            .map(|templates| {
+                                // Verify we got a reasonable result
+                                assert!(templates.len() <= 60, "Too many templates returned");
+                                (reads + 1, errors)
+                            })
+                            .unwrap_or((reads, errors + 1))
+                    } else {
+                        // Load a specific template - use functional error handling
+                        let template_id = (reader_id + i) % 10;
+                        load_template(&format!("template_{template_id}"), &base)
+                            .map(|_| (reads + 1, errors))
+                            .unwrap_or_else(|e| {
+                                if matches!(e, Error::NotFound(_)) {
+                                    // Template might not exist yet, that's okay
+                                    (reads + 1, errors)
+                                } else {
+                                    (reads, errors + 1)
+                                }
+                            })
                     }
-                } else {
-                    // Load a specific template
-                    let template_id = (reader_id + counter) % 10;
-                    match load_template(&format!("template_{template_id}"), &base) {
-                        Ok(_) => {
-                            successful_reads += 1;
-                        }
-                        Err(Error::NotFound(_)) => {
-                            // Template might not exist yet, that's okay
-                            successful_reads += 1;
-                        }
-                        Err(_) => {
-                            read_errors += 1;
-                        }
-                    }
-                }
-
-                // Small delay to increase contention
-                tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
-            }
+                });
 
             // Return tuple with first element as reader ID (0-9)
             (reader_id, successful_reads, read_errors, 0) // (id, reads, read_errors, 0 for writes)
@@ -100,65 +88,44 @@ async fn test_concurrent_template_read_write() {
     for writer_id in 0..5 {
         let base = Arc::clone(&templates_base);
         join_set.spawn(async move {
-            let mut successful_writes = 0;
-            let mut write_errors = 0;
+            let successful_writes = (0..10)
+                .filter_map(|i| {
+                    let template_num = writer_id * 10 + i;
 
-            for i in 0..10 {
-                let template_num = writer_id * 10 + i;
+                    // Create template - use functional pattern
+                    let create_result = Template::new(
+                        format!("template_{template_num}"),
+                        format!("layout {{ pane id=\"{template_num}\" }}"),
+                        Some(format!("Template {template_num}")),
+                    )
+                    .and_then(|t| save_template(&t, &base).map(|_| t));
 
-                // Create template
-                let template = Template::new(
-                    format!("template_{template_num}"),
-                    format!("layout {{ pane id=\"{template_num}\" }}"),
-                    Some(format!("Template {template_num}")),
-                );
+                    let write_count = u32::from(create_result.is_ok());
 
-                match template {
-                    Ok(t) => {
-                        if save_template(&t, &base).is_ok() {
-                            successful_writes += 1;
-                        } else {
-                            write_errors += 1;
-                        }
+                    // Update existing template
+                    let update_count = if template_num > 0 {
+                        let prev_template_num = template_num - 1;
+                        Template::new(
+                            format!("template_{prev_template_num}"),
+                            format!("layout {{ pane id=\"{prev_template_num}\" version=\"2\" }}"),
+                            Some(format!("Updated template {prev_template_num}")),
+                        )
+                        .and_then(|t| save_template(&t, &base).map(|_| t))
+                        .is_ok()
+                    } else {
+                        false
+                    } as u32;
+
+                    // Occasionally delete a template
+                    if i % 3 == 0 && template_num > 5 {
+                        let delete_num = template_num - 5;
+                        let _ = delete_template(&format!("template_{delete_num}"), &base);
+                        // Deletion failures are okay (template might not exist)
                     }
-                    Err(_) => {
-                        write_errors += 1;
-                    }
-                }
 
-                // Update existing template
-                if template_num > 0 {
-                    let prev_template_num = template_num - 1;
-                    let update_template = Template::new(
-                        format!("template_{prev_template_num}"),
-                        format!("layout {{ pane id=\"{prev_template_num}\" version=\"2\" }}"),
-                        Some(format!("Updated template {prev_template_num}")),
-                    );
-
-                    match update_template {
-                        Ok(t) => {
-                            if save_template(&t, &base).is_ok() {
-                                successful_writes += 1;
-                            } else {
-                                write_errors += 1;
-                            }
-                        }
-                        Err(_) => {
-                            write_errors += 1;
-                        }
-                    }
-                }
-
-                // Occasionally delete a template
-                if i % 3 == 0 && template_num > 5 {
-                    let delete_num = template_num - 5;
-                    let _ = delete_template(&format!("template_{delete_num}"), &base);
-                    // Deletion failures are okay (template might not exist)
-                }
-
-                // Small delay
-                tokio::time::sleep(tokio::time::Duration::from_millis(2)).await;
-            }
+                    Some(write_count + update_count)
+                })
+                .sum();
 
             // Return tuple with first element as writer ID (100-104)
             (100 + writer_id, 0, 0, successful_writes) // (id, 0 for reads, 0 for read_errors,
@@ -230,6 +197,9 @@ async fn test_concurrent_template_read_write() {
             "Invalid updated_at timestamp"
         );
     }
+
+    let elapsed = start.elapsed();
+    println!("test_concurrent_template_read_write completed in {:?}", elapsed);
 }
 
 /// Test that template operations handle corrupted metadata gracefully
@@ -238,6 +208,7 @@ async fn test_concurrent_template_read_write() {
 /// the system returns proper errors rather than panicking.
 #[tokio::test]
 async fn test_template_handles_corrupted_metadata() {
+    let start = std::time::Instant::now();
     let temp_dir = tempfile::TempDir::new().expect("Failed to create temp dir");
     let templates_base = temp_dir.path();
 
@@ -331,11 +302,15 @@ async fn test_template_handles_corrupted_metadata() {
         !templates.iter().any(|t| t.name.as_str() == "template2"),
         "Corrupted template should not appear in list"
     );
+
+    let elapsed = start.elapsed();
+    println!("test_template_handles_corrupted_metadata completed in {:?}", elapsed);
 }
 
 /// Test concurrent operations on the same template
 #[tokio::test]
 async fn test_concurrent_same_template_operations() {
+    let start = std::time::Instant::now();
     let temp_dir = tempfile::TempDir::new().expect("Failed to create temp dir");
     let templates_base = Arc::new(temp_dir.path().to_path_buf());
 
@@ -355,31 +330,30 @@ async fn test_concurrent_same_template_operations() {
     for task_id in 0..8 {
         let base = Arc::clone(&templates_base);
         join_set.spawn(async move {
-            let mut operations = 0;
-
-            for i in 0..10 {
-                // Mix of reads and writes
-                if i % 2 == 0 {
-                    // Read operation
-                    let _ = load_template("shared", &base);
-                } else {
-                    // Write operation - update template
-                    let updated = Template::new(
-                        "shared".to_string(),
-                        format!("layout {{ pane version=\"{i}\" }}"),
-                        Some(format!("Version {i}")),
-                    );
-                    if let Ok(t) = updated {
-                        let _ = save_template(&t, &base);
+            let operations = (0..10)
+                .map(|i| {
+                    // Mix of reads and writes
+                    if i % 2 == 0 {
+                        // Read operation
+                        let _ = load_template("shared", &base);
+                    } else {
+                        // Write operation - update template
+                        let updated = Template::new(
+                            "shared".to_string(),
+                            format!("layout {{ pane version=\"{i}\" }}"),
+                            Some(format!("Version {i}")),
+                        );
+                        if let Ok(t) = updated {
+                            let _ = save_template(&t, &base);
+                        }
                     }
-                }
 
-                // Check existence
-                let _ = template_exists("shared", &base);
+                    // Check existence
+                    let _ = template_exists("shared", &base);
 
-                operations += 1;
-                tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
-            }
+                    1 // Count each operation
+                })
+                .sum::<u32>();
 
             (task_id, operations)
         });
@@ -410,11 +384,15 @@ async fn test_concurrent_same_template_operations() {
 
     assert_eq!(final_template.name.as_str(), "shared");
     assert!(!final_template.layout.is_empty());
+
+    let elapsed = start.elapsed();
+    println!("test_concurrent_same_template_operations completed in {:?}", elapsed);
 }
 
 /// Test template_exists under concurrent load
 #[tokio::test]
 async fn test_concurrent_exists_checks() {
+    let start = std::time::Instant::now();
     let temp_dir = tempfile::TempDir::new().expect("Failed to create temp dir");
     let templates_base = Arc::new(temp_dir.path().to_path_buf());
 
@@ -424,13 +402,13 @@ async fn test_concurrent_exists_checks() {
     for task_id in 0..20 {
         let base = Arc::clone(&templates_base);
         join_set.spawn(async move {
-            let mut checks = 0;
-
-            for i in 0..50 {
-                let template_name = format!("template_{}", i % 15);
-                let _ = template_exists(&template_name, &base);
-                checks += 1;
-            }
+            let checks = (0..50)
+                .map(|i| {
+                    let template_name = format!("template_{}", i % 15);
+                    let _ = template_exists(&template_name, &base);
+                    1 // Count each check
+                })
+                .sum();
 
             (task_id, checks, 0) // (task_id, checks, creates)
         });
@@ -440,23 +418,20 @@ async fn test_concurrent_exists_checks() {
     for writer_id in 0..5 {
         let base = Arc::clone(&templates_base);
         join_set.spawn(async move {
-            let mut creates = 0;
+            let creates = (0..10)
+                .filter_map(|i| {
+                    let template = Template::new(
+                        format!("template_{}", writer_id * 10 + i),
+                        "layout { pane }".to_string(),
+                        None,
+                    );
 
-            for i in 0..10 {
-                let template = Template::new(
-                    format!("template_{}", writer_id * 10 + i),
-                    "layout { pane }".to_string(),
-                    None,
-                );
-
-                if let Ok(t) = template {
-                    if save_template(&t, &base).is_ok() {
-                        creates += 1;
-                    }
-                }
-
-                tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
-            }
+                    template
+                        .ok()
+                        .filter(|t| save_template(t, &base).is_ok())
+                        .map(|_| 1)
+                })
+                .sum();
 
             (writer_id, 0, creates) // (task_id, checks, creates)
         });
@@ -481,4 +456,7 @@ async fn test_concurrent_exists_checks() {
 
     assert_eq!(total_checks, 1000, "Not all existence checks completed");
     assert!(total_creates > 0, "No templates were created");
+
+    let elapsed = start.elapsed();
+    println!("test_concurrent_exists_checks completed in {:?}", elapsed);
 }

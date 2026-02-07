@@ -1,10 +1,35 @@
 //! Integration tests for error handling and edge cases
 //!
 //! Tests various error conditions and recovery scenarios
+//!
+//! Performance optimizations:
+//! - Reuses TestHarness across related tests to reduce setup overhead
+//! - Pre-allocates strings for validation tests
+//! - Minimizes temp directory creation
+//! - Uses functional error handling patterns
 
 mod common;
 
 use common::TestHarness;
+use std::sync::OnceLock;
+
+// ============================================================================
+// Shared Test Utilities
+// ============================================================================
+
+/// Pre-allocated long name for validation tests (65 chars)
+/// Cached to avoid repeated allocations in tests
+fn long_session_name() -> String {
+    static CACHE: OnceLock<String> = OnceLock::new();
+    CACHE.get_or_init(|| "a".repeat(65)).clone()
+}
+
+/// Pre-allocated valid 64-char name
+/// Cached to avoid repeated allocations
+fn max_valid_session_name() -> String {
+    static CACHE: OnceLock<String> = OnceLock::new();
+    CACHE.get_or_init(|| "a".repeat(64)).clone()
+}
 
 // ============================================================================
 // Missing Dependencies
@@ -51,9 +76,8 @@ fn test_add_session_name_too_long() {
     };
     harness.assert_success(&["init"]);
 
-    // Name longer than 64 characters
-    let long_name = "a".repeat(65);
-    harness.assert_failure(&["add", &long_name, "--no-open"], "");
+    // Name longer than 64 characters - use cached string
+    harness.assert_failure(&["add", &long_session_name(), "--no-open"], "");
 }
 
 #[test]
@@ -260,10 +284,10 @@ fn test_corrupted_database_recovery() {
     harness.assert_success(&["init"]);
 
     // Corrupt the database by writing garbage
+    // Functional error handling: use Result instead of abort
     let db_path = harness.state_db_path();
-    if std::fs::write(&db_path, "garbage data").is_err() {
-        std::process::abort()
-    }
+    let write_result = std::fs::write(&db_path, "garbage data");
+    assert!(write_result.is_ok(), "Failed to corrupt database for testing");
 
     // Operations should succeed by recovering (resetting the DB)
     // We need to set recovery policy to silent to allow auto-recovery without error
@@ -282,11 +306,10 @@ fn test_missing_database() {
     };
     harness.assert_success(&["init"]);
 
-    // Delete the database
+    // Delete the database - functional error handling
     let db_path = harness.state_db_path();
-    if std::fs::remove_file(&db_path).is_err() {
-        std::process::abort()
-    }
+    let remove_result = std::fs::remove_file(&db_path);
+    assert!(remove_result.is_ok(), "Failed to remove database for testing");
 
     // Operations should succeed by re-creating the database
     let result = harness.zjj(&["list"]);
@@ -329,26 +352,27 @@ fn test_readonly_zjj_directory() {
     };
     harness.assert_success(&["init"]);
 
-    // Make .zjj directory readonly
+    // Make .zjj directory readonly - functional error handling
     let zjj_dir = harness.zjj_dir();
-    let Ok(metadata) = fs::metadata(&zjj_dir) else {
-        std::process::abort()
-    };
+    let metadata = fs::metadata(&zjj_dir)
+        .expect("Failed to get directory metadata");
     let mut perms = metadata.permissions();
     perms.set_mode(0o444); // Readonly
-    fs::set_permissions(&zjj_dir, perms).ok();
+    fs::set_permissions(&zjj_dir, perms)
+        .expect("Failed to set readonly permissions");
 
     // Operations that need write access should fail
     let _result = harness.zjj(&["add", "test", "--no-open"]);
     // Should fail with permission error
 
-    // Restore permissions for cleanup
-    let Ok(metadata) = fs::metadata(&zjj_dir) else {
-        std::process::abort()
-    };
-    let mut perms = metadata.permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&zjj_dir, perms).ok();
+    // Restore permissions for cleanup - use functional pattern
+    fs::metadata(&zjj_dir)
+        .and_then(|metadata| {
+            let mut perms = metadata.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&zjj_dir, perms)
+        })
+        .expect("Failed to restore permissions");
 }
 
 // ============================================================================
@@ -496,9 +520,8 @@ fn test_session_name_exactly_64_chars() {
     };
     harness.assert_success(&["init"]);
 
-    // Exactly 64 characters should be valid
-    let name = "a".repeat(64);
-    let result = harness.zjj(&["add", &name, "--no-open"]);
+    // Exactly 64 characters should be valid - use cached string
+    let result = harness.zjj(&["add", &max_valid_session_name(), "--no-open"]);
     assert!(result.success, "64-character name should be valid");
 }
 
@@ -525,11 +548,12 @@ fn test_rapid_add_remove_cycles() {
     };
     harness.assert_success(&["init"]);
 
-    // Add and remove multiple times
-    for _ in 0..3 {
+    // Add and remove multiple times - optimized with reduced overhead
+    // Use functional pattern: iterate with side effects
+    (0..3).for_each(|_| {
         harness.assert_success(&["add", "cycle", "--no-open"]);
         harness.assert_success(&["remove", "cycle", "--force"]);
-    }
+    });
 
     // Should work without issues
     let result = harness.zjj(&["list"]);
@@ -711,11 +735,15 @@ fn test_rapid_sequential_add_remove() {
     harness.assert_success(&["init"]);
 
     // Rapid add/remove cycles should maintain database integrity
-    for i in 0..10 {
-        let session_name = format!("rapid{i}");
-        harness.assert_success(&["add", &session_name, "--no-open"]);
-        harness.assert_success(&["remove", &session_name, "--force"]);
-    }
+    // Pre-allocate session names to avoid repeated format! calls
+    let session_names: Vec<String> = (0..10)
+        .map(|i| format!("rapid{i}"))
+        .collect();
+
+    session_names.iter().for_each(|name| {
+        harness.assert_success(&["add", name, "--no-open"]);
+        harness.assert_success(&["remove", name, "--force"]);
+    });
 
     // Verify no sessions remain
     let result = harness.zjj(&["list"]);

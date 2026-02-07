@@ -1,9 +1,43 @@
 //! Smoke tests for CLI command availability and JSON output.
+//!
+//! Performance optimized with async/await and parallel command execution.
 
 mod common;
 
 use common::TestHarness;
+use futures::{stream, StreamExt};
+use std::path::PathBuf;
+use tokio::process::Command;
 
+/// Async helper: Execute zjj command and capture output
+async fn run_zjj_async(zjj_bin: &PathBuf, current_dir: &PathBuf, args: &[&str]) -> common::CommandResult {
+    let output = Command::new(zjj_bin)
+        .args(args)
+        .current_dir(current_dir)
+        .env("NO_COLOR", "1")
+        .env("ZJJ_TEST_MODE", "1")
+        .env("ZJJ_WORKSPACE_DIR", "workspaces")
+        .output()
+        .await
+        .map_err(|_| anyhow::anyhow!("Command execution failed"));
+
+    match output {
+        Ok(output) => common::CommandResult {
+            success: output.status.success(),
+            exit_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        },
+        Err(_) => common::CommandResult {
+            success: false,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: "Command execution failed".to_string(),
+        },
+    }
+}
+
+/// Assert JSON output with proper error handling
 fn assert_json_output(result: &common::CommandResult, args: &[&str]) {
     assert!(
         result.success,
@@ -23,83 +57,62 @@ fn assert_json_output(result: &common::CommandResult, args: &[&str]) {
     );
 }
 
-#[test]
-fn test_help_for_all_commands() {
+#[tokio::test]
+async fn test_help_for_all_commands() {
     let Some(harness) = TestHarness::try_new() else {
         return;
     };
 
     let commands = [
-        "init",
-        "add",
-        "agents",
-        "attach",
-        "list",
-        "remove",
-        "focus",
-        "switch",
-        "status",
-        "sync",
-        "diff",
-        "config",
-        "clean",
-        "dashboard",
-        "introspect",
-        "doctor",
-        "integrity",
-        "query",
-        "context",
-        "done",
-        "spawn",
-        "checkpoint",
-        "undo",
-        "revert",
-        "whereami",
-        "whoami",
-        "work",
-        "abort",
-        "ai",
-        "help",
-        "can-i",
-        "contract",
-        "examples",
-        "validate",
-        "whatif",
-        "claim",
-        "yield",
-        "batch",
-        "events",
-        "completions",
-        "rename",
-        "pause",
-        "resume",
-        "clone",
-        "export",
-        "import",
-        "wait",
-        "schema",
-        "recover",
-        "retry",
-        "rollback",
-        "queue",
+        "init", "add", "agents", "attach", "list", "remove", "focus", "switch",
+        "status", "sync", "diff", "config", "clean", "dashboard", "introspect",
+        "doctor", "integrity", "query", "context", "done", "spawn", "checkpoint",
+        "undo", "revert", "whereami", "whoami", "work", "abort", "ai", "help",
+        "can-i", "contract", "examples", "validate", "whatif", "claim", "yield",
+        "batch", "events", "completions", "rename", "pause", "resume", "clone",
+        "export", "import", "wait", "schema", "recover", "retry", "rollback", "queue",
     ];
 
-    for command in &commands {
-        let result = harness.zjj(&[command, "--help"]);
+    // Run commands concurrently with a semaphore to limit parallelism
+    // This prevents overwhelming the system while still being much faster than sequential
+    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(10));
+    let zjj_bin = std::sync::Arc::new(harness.zjj_bin.clone());
+    let current_dir = std::sync::Arc::new(harness.current_dir.clone());
+
+    let results = stream::iter(commands)
+        .map(|command| {
+            let semaphore = semaphore.clone();
+            let zjj_bin = zjj_bin.clone();
+            let current_dir = current_dir.clone();
+            let command = command.to_string();
+
+            async move {
+                let _permit = semaphore.acquire().await.unwrap();
+                let result = run_zjj_async(&zjj_bin, &current_dir, &[&command, "--help"]).await;
+                (command, result)
+            }
+        })
+        .buffer_unordered(10) // Process up to 10 commands concurrently
+        .collect::<Vec<_>>()
+        .await;
+
+    // Verify all results
+    for (command, result) in results {
         assert!(
             !result.stdout.trim().is_empty() || !result.stderr.trim().is_empty(),
             "Help output should not be empty for '{command}'"
         );
-        result.assert_output_contains(command);
+        result.assert_output_contains(&command);
     }
 }
 
-#[test]
-fn test_smoke_json_core_commands() {
+#[tokio::test]
+async fn test_smoke_json_core_commands() {
     let Some(harness) = TestHarness::try_new() else {
         return;
     };
 
+    // Run init synchronously first (required for other commands)
     harness.assert_success(&["init"]);
 
     let json_commands: Vec<Vec<&str>> = vec![
@@ -119,19 +132,41 @@ fn test_smoke_json_core_commands() {
         vec!["config", "--json"],
     ];
 
-    for args in json_commands {
-        let result = harness.zjj(&args);
+    // Run JSON commands concurrently with limited parallelism
+    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(8));
+    let zjj_bin = std::sync::Arc::new(harness.zjj_bin.clone());
+    let current_dir = std::sync::Arc::new(harness.current_dir.clone());
+
+    let results = stream::iter(json_commands)
+        .map(|args| {
+            let semaphore = semaphore.clone();
+            let zjj_bin = zjj_bin.clone();
+            let current_dir = current_dir.clone();
+            let args = args.clone();
+
+            async move {
+                let _permit = semaphore.acquire().await.unwrap();
+                let result = run_zjj_async(&zjj_bin, &current_dir, &args).await;
+                (args, result)
+            }
+        })
+        .buffer_unordered(8) // Process up to 8 commands concurrently
+        .collect::<Vec<_>>()
+        .await;
+
+    // Verify all results
+    for (args, result) in results {
         assert_json_output(&result, &args);
     }
 }
 
-#[test]
-fn test_completions_smoke() {
+#[tokio::test]
+async fn test_completions_smoke() {
     let Some(harness) = TestHarness::try_new() else {
         return;
     };
 
-    let result = harness.zjj(&["completions", "bash"]);
+    let result = run_zjj_async(&harness.zjj_bin, &harness.current_dir, &["completions", "bash"]).await;
     assert!(
         result.success,
         "completions bash should succeed\nStdout: {}\nStderr: {}",

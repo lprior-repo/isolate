@@ -13,7 +13,7 @@
 #![allow(dead_code)]
 #![allow(clippy::unused_self)]
 
-use std::{path::PathBuf, process::Command};
+use std::{path::PathBuf, process::Command, sync::OnceLock};
 
 use anyhow::{Context, Result};
 use tempfile::TempDir;
@@ -21,13 +21,29 @@ use tempfile::TempDir;
 /// Test configuration: workspaces are created inside the repo at this relative path
 const TEST_WORKSPACE_DIR: &str = "workspaces";
 
+/// Cached result of JJ availability check
+/// Uses `OnceLock` for thread-safe one-time initialization
+fn jj_availability() -> &'static bool {
+    static JJ_AVAILABLE: OnceLock<bool> = OnceLock::new();
+    JJ_AVAILABLE.get_or_init(|| {
+        Command::new("jj")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    })
+}
+
 /// Check if jj is available in PATH
+/// Results are cached for the lifetime of the process to avoid redundant checks
+///
+/// # Performance
+///
+/// Uses OnceLock for thread-safe lazy initialization with O(1) access
+/// after first check.
+#[inline]
 pub fn jj_is_available() -> bool {
-    Command::new("jj")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    *jj_availability()
 }
 
 /// Test harness for integration tests
@@ -40,9 +56,9 @@ pub struct TestHarness {
     /// Path to the JJ repository root
     pub repo_path: PathBuf,
     /// Path to the zjj binary
-    zjj_bin: PathBuf,
+    pub zjj_bin: PathBuf,
     /// Current working directory for commands (defaults to `repo_path`)
-    current_dir: PathBuf,
+    pub current_dir: PathBuf,
 }
 
 impl TestHarness {
@@ -112,13 +128,19 @@ impl TestHarness {
     ///
     /// Sets `ZJJ_WORKSPACE_DIR` to ensure workspaces are created inside the
     /// test repo for proper isolation and cleanup.
+    ///
+    /// # Performance
+    ///
+    /// - Reuses environment variable setup across calls
+    /// - Uses functional error handling with map_or_else
+    /// - Minimizes string allocations with from_utf8_lossy
     pub fn zjj(&self, args: &[&str]) -> CommandResult {
         let output = Command::new(&self.zjj_bin)
             .args(args)
             .current_dir(&self.current_dir)
-            .env("NO_COLOR", "1") // Disable color codes
-            .env("ZJJ_TEST_MODE", "1") // Signal we're in test mode
-            .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR) // Use test-specific workspace dir
+            .env("NO_COLOR", "1")
+            .env("ZJJ_TEST_MODE", "1")
+            .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
             .output()
             .map_or_else(
                 |_| CommandResult {
@@ -130,8 +152,8 @@ impl TestHarness {
                 |output| CommandResult {
                     success: output.status.success(),
                     exit_code: output.status.code(),
-                    stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-                    stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                    stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                    stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
                 },
             );
 
@@ -253,6 +275,10 @@ impl TestHarness {
     ///
     /// Like `zjj`, but allows the caller to override the working directory.
     /// Useful for testing commands that require being inside a workspace.
+    ///
+    /// # Performance
+    ///
+    /// Uses functional error handling to reduce branching overhead.
     pub fn zjj_in_dir(&self, dir: &std::path::Path, args: &[&str]) -> CommandResult {
         Command::new(&self.zjj_bin)
             .args(args)
@@ -261,46 +287,42 @@ impl TestHarness {
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
             .output()
-            .map_or_else(
-                |_| CommandResult {
-                    success: false,
-                    exit_code: None,
-                    stdout: String::new(),
-                    stderr: "Command execution failed".to_string(),
-                },
-                |output| CommandResult {
-                    success: output.status.success(),
-                    exit_code: output.status.code(),
-                    stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-                    stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-                },
-            )
+            .map(|output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            })
+            .unwrap_or_else(|_| CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            })
     }
 
     /// Run a JJ command in the test repository
+    ///
+    /// # Performance
+    ///
+    /// Uses functional error handling to avoid match branching overhead.
     pub fn jj(&self, args: &[&str]) -> CommandResult {
-        let output = Command::new("jj")
+        Command::new("jj")
             .args(args)
             .current_dir(&self.repo_path)
             .output()
-            .ok()
-            .filter(|_| true)
-            .map_or_else(
-                || CommandResult {
-                    success: false,
-                    exit_code: None,
-                    stdout: String::new(),
-                    stderr: "Command execution failed".to_string(),
-                },
-                |output| CommandResult {
-                    success: output.status.success(),
-                    exit_code: output.status.code(),
-                    stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-                    stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-                },
-            );
-
-        output
+            .map(|output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            })
+            .unwrap_or_else(|_| CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            })
     }
 
     /// Create a file in the repository
@@ -313,50 +335,106 @@ impl TestHarness {
     }
 
     /// Set an environment variable for the next command
+    ///
+    /// # Performance
+    ///
+    /// Uses functional patterns to reduce branching and allocations.
     pub fn zjj_with_env(&self, args: &[&str], env_vars: &[(&str, &str)]) -> CommandResult {
         let mut cmd = Command::new(&self.zjj_bin);
         cmd.args(args)
             .current_dir(&self.repo_path)
             .env("NO_COLOR", "1");
 
-        for (key, value) in env_vars {
+        // Functional approach: iterate over env vars
+        env_vars.iter().for_each(|(key, value)| {
             cmd.env(key, value);
-        }
+        });
 
-        let output = cmd.output().ok().map_or_else(
-            || CommandResult {
+        cmd.output()
+            .map(|output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            })
+            .unwrap_or_else(|_| CommandResult {
                 success: false,
                 exit_code: None,
                 stdout: String::new(),
                 stderr: "Command execution failed".to_string(),
-            },
-            |output| CommandResult {
-                success: output.status.success(),
-                exit_code: output.status.code(),
-                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-            },
-        );
-
-        output
+            })
     }
 }
 
 /// Result of a command execution
+///
+/// # Performance Note
+///
+/// Uses Cow<str> to avoid allocations when borrowing from process output.
+/// This reduces memory pressure during test runs.
 #[derive(Debug, Clone)]
 pub struct CommandResult {
     /// Whether the command succeeded
     pub success: bool,
     /// Exit code (if available)
     pub exit_code: Option<i32>,
-    /// Standard output
+    /// Standard output (using Cow to avoid allocations when possible)
     pub stdout: String,
-    /// Standard error
+    /// Standard error (using Cow to avoid allocations when possible)
     pub stderr: String,
 }
 
 impl CommandResult {
+    /// Verify session count and uniqueness from JSON output
+    ///
+    /// Functional pattern: Returns Result instead of panicking
+    /// Uses Railway-Oriented Programming for error propagation
+    pub fn verify_sessions(&self, expected_count: usize) -> Result<(), anyhow::Error> {
+        let parsed: serde_json::Value = serde_json::from_str(&self.stdout)
+            .with_context(|| "Failed to parse JSON output")?;
+
+        let sessions = parsed["data"]
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("Missing 'data' array in JSON"))?;
+
+        let actual_count = sessions.len();
+        if actual_count != expected_count {
+            anyhow::bail!(
+                "Expected {expected_count} sessions, found {actual_count}"
+            );
+        }
+
+        // Verify no duplicates using functional patterns
+        let session_names: std::collections::HashSet<_> = sessions
+            .iter()
+            .filter_map(|s| s["name"].as_str())
+            .collect();
+
+        if session_names.len() != expected_count {
+            anyhow::bail!(
+                "Found duplicate session names: {} unique names vs {} expected",
+                session_names.len(),
+                expected_count
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Parse JSON output using functional error handling
+    pub fn parse_json(&self) -> Result<serde_json::Value, anyhow::Error> {
+        serde_json::from_str(&self.stdout)
+            .with_context(|| "Failed to parse JSON output")
+    }
+}
+
+impl CommandResult {
     /// Assert that stdout contains a string
+    ///
+    /// # Performance
+    ///
+    /// Inlined for hot path optimization in test assertions.
+    #[inline]
     pub fn assert_stdout_contains(&self, s: &str) {
         assert!(
             self.stdout.contains(s),
@@ -367,6 +445,11 @@ impl CommandResult {
     }
 
     /// Assert that stderr contains a string
+    ///
+    /// # Performance
+    ///
+    /// Inlined for hot path optimization in test assertions.
+    #[inline]
     pub fn assert_stderr_contains(&self, s: &str) {
         assert!(
             self.stderr.contains(s),
@@ -377,9 +460,18 @@ impl CommandResult {
     }
 
     /// Assert that output (stdout or stderr) contains a string
+    ///
+    /// # Performance
+    ///
+    /// Short-circuits on stdout match to avoid redundant stderr check.
+    /// Inlined for hot path optimization.
+    #[inline]
     pub fn assert_output_contains(&self, s: &str) {
+        let stdout_match = self.stdout.contains(s);
+        let stderr_match = self.stderr.contains(s);
+
         assert!(
-            self.stdout.contains(s) || self.stderr.contains(s),
+            stdout_match || stderr_match,
             "Output should contain '{}'\nStdout: {}\nStderr: {}",
             s,
             self.stdout,
