@@ -1,6 +1,6 @@
 //! Clean stale sessions (sessions where workspace no longer exists)
 
-use std::{io::Write, path::Path, time::Duration};
+use std::{io::Write, time::Duration};
 
 use anyhow::Result;
 use futures::{StreamExt, TryStreamExt};
@@ -249,6 +249,7 @@ async fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn test_clean_options_default() {

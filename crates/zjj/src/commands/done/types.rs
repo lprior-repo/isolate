@@ -209,6 +209,7 @@ impl From<crate::commands::done::filesystem::FsError> for DoneError {
 }
 
 impl DoneError {
+    #[allow(dead_code)] // Public API method, tested but not used internally
     pub const fn error_code(&self) -> &'static str {
         match self {
             Self::NotInWorkspace { .. } => "NOT_IN_WORKSPACE",
@@ -224,8 +225,48 @@ impl DoneError {
         }
     }
 
+    #[allow(dead_code)] // Public API method, tested but not used internally
     pub const fn is_recoverable(&self) -> bool {
         matches!(self, Self::MergeConflict { .. })
+    }
+
+    #[allow(dead_code)] // Public API method, tested but not used internally
+    pub const fn phase(&self) -> DonePhase {
+        match self {
+            Self::NotInWorkspace { .. }
+            | Self::NotAJjRepo
+            | Self::WorkspaceNotFound { .. } => DonePhase::ValidatingLocation,
+            Self::CommitFailed { .. } => DonePhase::CommittingChanges,
+            Self::MergeConflict { .. }
+            | Self::MergeFailed { .. }
+            | Self::CleanupFailed { .. }
+            | Self::BeadUpdateFailed { .. }
+            | Self::JjCommandFailed { .. }
+            | Self::InvalidState { .. } => DonePhase::MergingToMain,
+        }
+    }
+}
+
+/// Phase of the done operation where an error occurred
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DonePhase {
+    /// Initial validation phase (checking workspace location)
+    ValidatingLocation,
+    /// Commit phase (committing uncommitted changes)
+    CommittingChanges,
+    /// Merge and cleanup phase (merging to main, cleanup, bead update)
+    MergingToMain,
+}
+
+impl DonePhase {
+    /// Returns the snake_case name of this phase
+    #[must_use]
+    pub const fn name(&self) -> &'static str {
+        match self {
+            Self::ValidatingLocation => "validating_location",
+            Self::CommittingChanges => "committing_changes",
+            Self::MergingToMain => "merging_to_main",
+        }
     }
 }
 

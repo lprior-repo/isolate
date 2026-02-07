@@ -319,11 +319,12 @@ mod brutal_edge_cases {
 
         // Then: Should return Timeout error
         assert!(result.is_err(), "Should return error");
-        let err = result.unwrap_err();
-        assert!(
-            matches!(err, SpawnError::Timeout { .. }),
-            "Expected Timeout error, got: {err:?}"
-        );
+        if let Err(err) = result {
+            assert!(
+                matches!(err, SpawnError::Timeout { .. }),
+                "Expected Timeout error, got: {err:?}"
+            );
+        }
     }
 
     // ========================================================================
@@ -611,7 +612,9 @@ exit 0
             }
         }
 
-        let options = test_spawn_options("test-bead-1", script_path.to_str().unwrap(), vec![]);
+        let script_path_str = script_path.to_str()
+            .expect("script path should be valid UTF-8");
+        let options = test_spawn_options("test-bead-1", script_path_str, vec![]);
 
         // When: Agent runs
         let result = execute_spawn(&options).await;

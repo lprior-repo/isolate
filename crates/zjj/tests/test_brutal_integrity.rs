@@ -37,10 +37,10 @@ struct IntegrityHarness {
 
 impl IntegrityHarness {
     async fn new() -> Self {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("failed to create temp dir");
         let root = temp_dir.path().to_path_buf();
         let workspaces_root = root.join(".zjj/workspaces");
-        fs::create_dir_all(&workspaces_root).unwrap();
+        fs::create_dir_all(&workspaces_root).expect("failed to create workspaces root");
 
         Self {
             _temp_dir: temp_dir,
@@ -51,12 +51,12 @@ impl IntegrityHarness {
 
     fn create_workspace(&self, name: &str) -> PathBuf {
         let ws_path = self.workspaces_root.join(name);
-        fs::create_dir_all(&ws_path).unwrap();
+        fs::create_dir_all(&ws_path).expect("failed to create workspace dir");
 
         // Valid JJ structure
         let jj_repo = ws_path.join(".jj/repo/op_store");
-        fs::create_dir_all(&jj_repo).unwrap();
-        fs::write(jj_repo.join("op1"), "data").unwrap();
+        fs::create_dir_all(&jj_repo).expect("failed to create JJ repo structure");
+        fs::write(jj_repo.join("op1"), "data").expect("failed to write op1 file");
 
         ws_path
     }
@@ -84,24 +84,26 @@ async fn scenario_deep_nested_corruption_detection() {
 
     // Issue 1: Corrupt JJ directory (empty op_store)
     let op_store = ws_path.join(".jj/repo/op_store");
-    for entry in fs::read_dir(&op_store).unwrap() {
-        fs::remove_file(entry.unwrap().path()).unwrap();
+    for entry in fs::read_dir(&op_store).expect("failed to read op_store") {
+        let entry = entry.expect("failed to read dir entry");
+        fs::remove_file(entry.path()).expect("failed to remove file");
     }
 
     // Issue 2: Stale lock file
     let lock_dir = ws_path.join(".jj/working_copy");
-    fs::create_dir_all(&lock_dir).unwrap();
+    fs::create_dir_all(&lock_dir).expect("failed to create lock dir");
     let lock_file = lock_dir.join("lock");
-    fs::write(&lock_file, "locked").unwrap();
+    fs::write(&lock_file, "locked").expect("failed to write lock file");
 
     // Set lock time to 2 hours ago
     let past = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
-    filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past)).unwrap();
+    filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past)).expect("failed to set file time");
 
     let validator = harness.validator();
 
     // WHEN: Validation is executed
-    let result = validator.validate(ws_name).await.unwrap();
+    let result = validator.validate(ws_name).await
+        .expect("validation should succeed");
 
     // THEN: It detects BOTH issues
     assert!(!result.is_valid);
@@ -138,10 +140,11 @@ async fn scenario_concurrent_repair_safety() {
 
     // Create stale lock
     let lock_file = ws_path.join(".jj/working_copy/lock");
-    fs::create_dir_all(lock_file.parent().unwrap()).unwrap();
-    fs::write(&lock_file, "locked").unwrap();
+    let parent = lock_file.parent().expect("lock file should have a parent");
+    fs::create_dir_all(parent).expect("failed to create lock directory");
+    fs::write(&lock_file, "locked").expect("failed to write lock file");
     let past = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
-    filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past)).unwrap();
+    filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past)).expect("failed to set file time");
 
     let validator = Arc::new(harness.validator());
     let executor = Arc::new(harness.executor());
@@ -150,19 +153,19 @@ async fn scenario_concurrent_repair_safety() {
     let v1 = Arc::clone(&validator);
     let e1 = Arc::clone(&executor);
     let h1 = tokio::spawn(async move {
-        let val = v1.validate("race-ws").await.unwrap();
+        let val = v1.validate("race-ws").await.expect("validation should succeed");
         e1.repair(&val).await
     });
 
     let v2 = Arc::clone(&validator);
     let e2 = Arc::clone(&executor);
     let h2 = tokio::spawn(async move {
-        let val = v2.validate("race-ws").await.unwrap();
+        let val = v2.validate("race-ws").await.expect("validation should succeed");
         e2.repair(&val).await
     });
 
-    let r1 = h1.await.unwrap();
-    let r2 = h2.await.unwrap();
+    let r1 = h1.await.expect("task 1 should complete");
+    let r2 = h2.await.expect("task 2 should complete");
 
     // THEN: Both should complete without crashing, and at least one should report success
     assert!(
@@ -171,7 +174,7 @@ async fn scenario_concurrent_repair_safety() {
     );
 
     // Final state should be clean
-    let final_val = validator.validate("race-ws").await.unwrap();
+    let final_val = validator.validate("race-ws").await.expect("final validation should succeed");
     assert!(
         final_val.is_valid,
         "Workspace should be valid after concurrent repairs"
@@ -191,27 +194,29 @@ async fn scenario_repair_failure_roll_forward_protection() {
     let ws_path = harness.create_workspace(ws_name);
 
     let lock_file = ws_path.join(".jj/working_copy/lock");
-    fs::create_dir_all(lock_file.parent().unwrap()).unwrap();
-    fs::write(&lock_file, "locked").unwrap();
+    let parent = lock_file.parent().expect("lock file should have a parent");
+    fs::create_dir_all(parent).expect("failed to create lock directory");
+    fs::write(&lock_file, "locked").expect("failed to write lock file");
     let past = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
-    filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past)).unwrap();
+    filetime::set_file_mtime(&lock_file, filetime::FileTime::from_system_time(past)).expect("failed to set file time");
 
     // Make the lock file unremovable by removing write permissions from parent
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(lock_file.parent().unwrap())
-            .unwrap()
+        let parent = lock_file.parent().expect("lock file should have a parent");
+        let mut perms = fs::metadata(parent)
+            .expect("failed to get metadata")
             .permissions();
         perms.set_mode(0o555); // Read and execute only
-        fs::set_permissions(lock_file.parent().unwrap(), perms).unwrap();
+        fs::set_permissions(parent, perms).expect("failed to set permissions");
     }
 
     let validator = harness.validator();
     let executor = harness.executor();
 
     // WHEN: Repair is attempted
-    let val = validator.validate(ws_name).await.unwrap();
+    let val = validator.validate(ws_name).await.expect("validation should succeed");
     let result = executor.repair(&val).await;
 
     // THEN: It returns a graceful error instead of panicking
@@ -221,11 +226,12 @@ async fn scenario_repair_failure_roll_forward_protection() {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(lock_file.parent().unwrap())
-            .unwrap()
+        let parent = lock_file.parent().expect("lock file should have a parent");
+        let mut perms = fs::metadata(parent)
+            .expect("failed to get metadata")
             .permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(lock_file.parent().unwrap(), perms).unwrap();
+        fs::set_permissions(parent, perms).expect("failed to restore permissions");
     }
 }
 
@@ -247,7 +253,7 @@ async fn scenario_mass_validation_stability() {
         // Every 5th workspace is corrupted
         if i % 5 == 0 {
             let ws_path = harness.workspaces_root.join(&name);
-            fs::remove_dir_all(ws_path.join(".jj")).unwrap();
+            fs::remove_dir_all(ws_path.join(".jj")).expect("failed to remove .jj dir");
         }
         names.push(name);
     }
@@ -255,7 +261,7 @@ async fn scenario_mass_validation_stability() {
     let validator = harness.validator();
 
     // WHEN: All are validated in parallel
-    let results = validator.validate_all(&names).await.unwrap();
+    let results = validator.validate_all(&names).await.expect("validation should succeed");
 
     // THEN: All results are returned and accurately reflect state
     assert_eq!(results.len(), 100);

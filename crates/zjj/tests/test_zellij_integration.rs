@@ -273,7 +273,7 @@ async fn test_zellij_kdl_template_is_valid_standard() {
     let result = zellij::generate_template_kdl(&config, LayoutTemplate::Standard);
     assert!(result.is_ok(), "Standard KDL should be valid");
 
-    let kdl = result.unwrap();
+    let kdl = result.expect("Standard KDL should be valid");
     let open_braces = kdl.chars().filter(|c| *c == '{').count();
     let close_braces = kdl.chars().filter(|c| *c == '}').count();
 
@@ -293,7 +293,7 @@ async fn test_zellij_kdl_template_is_valid_full() {
     let result = zellij::generate_template_kdl(&config, LayoutTemplate::Full);
     assert!(result.is_ok(), "Full KDL should be valid");
 
-    let kdl = result.unwrap();
+    let kdl = result.expect("Full KDL should be valid");
     let open_braces = kdl.chars().filter(|c| *c == '{').count();
     let close_braces = kdl.chars().filter(|c| *c == '}').count();
 
@@ -313,7 +313,7 @@ async fn test_zellij_kdl_template_is_valid_split() {
     let result = zellij::generate_template_kdl(&config, LayoutTemplate::Split);
     assert!(result.is_ok(), "Split KDL should be valid");
 
-    let kdl = result.unwrap();
+    let kdl = result.expect("Split KDL should be valid");
     let open_braces = kdl.chars().filter(|c| *c == '{').count();
     let close_braces = kdl.chars().filter(|c| *c == '}').count();
 
@@ -333,7 +333,7 @@ async fn test_zellij_kdl_template_is_valid_review() {
     let result = zellij::generate_template_kdl(&config, LayoutTemplate::Review);
     assert!(result.is_ok(), "Review KDL should be valid");
 
-    let kdl = result.unwrap();
+    let kdl = result.expect("Review KDL should be valid");
     let open_braces = kdl.chars().filter(|c| *c == '{').count();
     let close_braces = kdl.chars().filter(|c| *c == '}').count();
 
@@ -495,7 +495,7 @@ async fn test_zellij_layout_file_creation() {
 
     assert!(result.is_ok(), "Layout generation should succeed");
 
-    let layout = result.unwrap();
+    let layout = result.expect("layout generation should succeed");
     assert!(layout.file_path.exists(), "Layout file should be created");
     assert!(
         layout.kdl_content.contains("layout"),
@@ -527,7 +527,7 @@ async fn test_zellij_layout_file_overwrite() {
         "Second generation should succeed (overwrite)"
     );
 
-    let layout = result2.unwrap();
+    let layout = result2.expect("second layout generation should succeed");
     assert!(layout.file_path.exists(), "File should still exist");
 }
 
@@ -623,7 +623,7 @@ async fn test_zellij_validation_happens_automatically() {
             template
         );
 
-        let kdl = result.unwrap();
+        let kdl = result.expect("template should generate valid KDL");
 
         // Verify the KDL has the required structure
         assert!(
@@ -684,7 +684,7 @@ async fn test_zellij_all_templates_generate_valid_kdl() {
             template
         );
 
-        let kdl = result.unwrap();
+        let kdl = result.expect("template should generate valid KDL");
         let open_braces = kdl.chars().filter(|c| *c == '{').count();
         let close_braces = kdl.chars().filter(|c| *c == '}').count();
 

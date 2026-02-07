@@ -121,11 +121,13 @@ async fn test_queue_lock_timeout_allows_reacquisition() -> Result<(), Box<dyn st
     // Verify agent-1 holds the lock
     let lock = queue.get_processing_lock().await?;
     assert!(lock.is_some(), "Lock should be held");
-    assert_eq!(
-        lock.unwrap().agent_id,
-        "agent-1",
-        "Agent-1 should hold the lock"
-    );
+    if let Some(lock_val) = lock {
+        assert_eq!(
+            lock_val.agent_id,
+            "agent-1",
+            "Agent-1 should hold the lock"
+        );
+    }
 
     // Agent 2 tries to claim but should fail (lock held)
     let claimed2 = queue.next_with_lock("agent-2").await?;
@@ -157,11 +159,13 @@ async fn test_queue_lock_timeout_allows_reacquisition() -> Result<(), Box<dyn st
     // Verify agent-2 now holds the lock
     let lock = queue.get_processing_lock().await?;
     assert!(lock.is_some(), "Lock should be held by agent-2");
-    assert_eq!(
-        lock.unwrap().agent_id,
-        "agent-2",
-        "Agent-2 should hold the lock after acquisition"
-    );
+    if let Some(lock_val) = lock {
+        assert_eq!(
+            lock_val.agent_id,
+            "agent-2",
+            "Agent-2 should hold the lock after acquisition"
+        );
+    }
 
     // Cleanup
     let _ = queue.mark_completed("workspace-timeout").await;
@@ -190,7 +194,7 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Get initial lock info
     let lock1 = queue.get_processing_lock().await?;
     assert!(lock1.is_some(), "Lock should be held");
-    let initial_expires = lock1.unwrap().expires_at;
+    let initial_expires = lock1.as_ref().expect("lock should exist").expires_at;
 
     // Extend the lock by 100 seconds
     let extended = queue.extend_lock("agent-extender", 100).await?;
@@ -199,7 +203,7 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Verify lock was extended
     let lock2 = queue.get_processing_lock().await?;
     assert!(lock2.is_some(), "Lock should still be held");
-    let new_expires = lock2.unwrap().expires_at;
+    let new_expires = lock2.as_ref().expect("lock should exist").expires_at;
 
     assert!(
         new_expires > initial_expires,
@@ -216,11 +220,13 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Verify the lock is still held by the original agent
     let lock3 = queue.get_processing_lock().await?;
     assert!(lock3.is_some(), "Lock should still be held");
-    assert_eq!(
-        lock3.unwrap().agent_id,
-        "agent-extender",
-        "Original agent should still hold the lock"
-    );
+    if let Some(lock_val) = lock3 {
+        assert_eq!(
+            lock_val.agent_id,
+            "agent-extender",
+            "Original agent should still hold the lock"
+        );
+    }
 
     // Test that non-owner cannot extend the lock
     let extended_by_other = queue.extend_lock("agent-other", 100).await?;
@@ -232,7 +238,7 @@ async fn test_queue_lock_extension_prevents_expiration() -> Result<(), Box<dyn s
     // Verify lock expiration hasn't changed (still held by original agent)
     let lock4 = queue.get_processing_lock().await?;
     assert_eq!(
-        lock4.unwrap().expires_at,
+        lock4.as_ref().expect("lock should exist").expires_at,
         new_expires,
         "Lock expiration should not change when non-owner tries to extend"
     );
@@ -514,11 +520,13 @@ async fn test_queue_lock_contention_resolution() -> Result<(), Box<dyn std::erro
     // Verify workspace is in processing state
     let entry = queue.get_by_workspace("ws-single").await?;
     assert!(entry.is_some(), "Workspace should exist");
-    assert_eq!(
-        entry.unwrap().status,
-        QueueStatus::Processing,
-        "Workspace should be in processing state"
-    );
+    if let Some(entry_val) = entry {
+        assert_eq!(
+            entry_val.status,
+            QueueStatus::Processing,
+            "Workspace should be in processing state"
+        );
+    }
 
     Ok(())
 }

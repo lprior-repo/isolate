@@ -1269,11 +1269,12 @@ mod tests {
                 result.is_err(),
                 "Should fail when metadata JSON is corrupted"
             );
-            let err = result.unwrap_err();
-            assert!(
-                err.to_string().contains("metadata"),
-                "Error message should mention metadata: {err}"
-            );
+            if let Err(err) = result {
+                assert!(
+                    err.to_string().contains("metadata"),
+                    "Error message should mention metadata: {err}"
+                );
+            }
 
             Ok(())
         }
@@ -1326,10 +1327,12 @@ mod tests {
                     result.is_err(),
                     "parse_session_row should fail when fields are missing"
                 );
-                assert!(
-                    result.unwrap_err().to_string().contains("Failed to read"),
-                    "Error should indicate read failure"
-                );
+                if let Err(err) = result {
+                    assert!(
+                        err.to_string().contains("Failed to read"),
+                        "Error should indicate read failure"
+                    );
+                }
             }
 
             Ok(())

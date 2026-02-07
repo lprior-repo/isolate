@@ -524,23 +524,22 @@ impl SessionBeadsContext {
     ///
     /// Returns `Error::DatabaseError` if the beads database query fails.
     pub async fn query_beads_for_state(&self) -> Result<Vec<String>> {
-        let path = match &self.beads_db_path {
-            Some(p) => std::path::Path::new(p),
-            None => {
-                // Map each state to its appropriate beads using functional pattern matching
-                let beads = match self.state {
-                    SessionState::Created => vec![],
-                    SessionState::Active => vec!["bead-wip-1"],
-                    SessionState::Syncing => vec!["bead-merge-1"],
-                    SessionState::Synced => vec!["bead-done-1"],
-                    SessionState::Paused => vec!["bead-blocked-1"],
-                    SessionState::Completed => vec!["bead-all-1"],
-                    SessionState::Failed => vec!["bead-error-1"],
-                };
+        let path = if let Some(p) = &self.beads_db_path {
+            std::path::Path::new(p)
+        } else {
+            // Map each state to its appropriate beads using functional pattern matching
+            let beads = match self.state {
+                SessionState::Created => vec![],
+                SessionState::Active => vec!["bead-wip-1"],
+                SessionState::Syncing => vec!["bead-merge-1"],
+                SessionState::Synced => vec!["bead-done-1"],
+                SessionState::Paused => vec!["bead-blocked-1"],
+                SessionState::Completed => vec!["bead-all-1"],
+                SessionState::Failed => vec!["bead-error-1"],
+            };
 
-                // Convert string slices to owned strings using functional iterator
-                return Ok(beads.into_iter().map(String::from).collect());
-            }
+            // Convert string slices to owned strings using functional iterator
+            return Ok(beads.into_iter().map(String::from).collect());
         };
 
         // Query actual beads database

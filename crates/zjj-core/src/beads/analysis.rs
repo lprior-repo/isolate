@@ -104,7 +104,9 @@ pub fn find_ready(issues: &[BeadIssue]) -> Vec<BeadIssue> {
 #[must_use]
 #[allow(clippy::cast_possible_wrap)]
 pub fn find_stale(issues: &[BeadIssue], days: u64) -> Vec<BeadIssue> {
-    let cutoff = Utc::now() - Duration::days(days as i64);
+    // Use saturating subtraction to prevent overflow with extreme day values
+    let cutoff = Utc::now().checked_sub_signed(Duration::days(days as i64))
+        .unwrap_or_else(|| Utc::now());
 
     issues
         .iter()

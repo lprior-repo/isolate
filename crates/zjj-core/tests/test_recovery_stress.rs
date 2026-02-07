@@ -21,7 +21,8 @@ static TEST_MUTEX: Mutex<()> = Mutex::new(());
 /// Test concurrent recovery logging with multiple writers
 #[tokio::test]
 async fn test_concurrent_recovery_logging() -> Result<(), Error> {
-    let _guard = TEST_MUTEX.lock().unwrap();
+    let _guard = TEST_MUTEX.lock()
+        .expect("TEST_MUTEX lock should be available");
 
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {}", e)))?;
@@ -88,7 +89,8 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
 /// Test handling of large recovery logs
 #[tokio::test]
 async fn test_large_recovery_log_handling() -> Result<(), Error> {
-    let _guard = TEST_MUTEX.lock().unwrap();
+    let _guard = TEST_MUTEX.lock()
+        .expect("TEST_MUTEX lock should be available");
 
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {}", e)))?;
@@ -154,7 +156,8 @@ async fn test_large_recovery_log_handling() -> Result<(), Error> {
 /// Test concurrent logging with integrity checks
 #[tokio::test]
 async fn test_concurrent_logging_integrity() -> Result<(), Error> {
-    let _guard = TEST_MUTEX.lock().unwrap();
+    let _guard = TEST_MUTEX.lock()
+        .expect("TEST_MUTEX lock should be available");
 
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {}", e)))?;
@@ -236,7 +239,8 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
 /// Test recovery logging when disabled
 #[tokio::test]
 async fn test_recovery_log_disabled() -> Result<(), Error> {
-    let _guard = TEST_MUTEX.lock().unwrap();
+    let _guard = TEST_MUTEX.lock()
+        .expect("TEST_MUTEX lock should be available");
 
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {}", e)))?;
@@ -280,7 +284,8 @@ async fn test_recovery_log_disabled() -> Result<(), Error> {
 /// Test that recovery logging appends rather than overwrites
 #[tokio::test]
 async fn test_recovery_log_append_behavior() -> Result<(), Error> {
-    let _guard = TEST_MUTEX.lock().unwrap();
+    let _guard = TEST_MUTEX.lock()
+        .expect("TEST_MUTEX lock should be available");
 
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {}", e)))?;
@@ -332,9 +337,12 @@ async fn test_recovery_log_append_behavior() -> Result<(), Error> {
     assert!(content.contains("Third message"), "Missing third message");
 
     // Verify messages appear in order (first before second before third)
-    let first_pos = content.find("First message").unwrap();
-    let second_pos = content.find("Second message").unwrap();
-    let third_pos = content.find("Third message").unwrap();
+    let first_pos = content.find("First message")
+        .expect("First message should be in log");
+    let second_pos = content.find("Second message")
+        .expect("Second message should be in log");
+    let third_pos = content.find("Third message")
+        .expect("Third message should be in log");
 
     assert!(
         first_pos < second_pos && second_pos < third_pos,
@@ -347,7 +355,8 @@ async fn test_recovery_log_append_behavior() -> Result<(), Error> {
 /// Test recovery logging with special characters and unicode
 #[tokio::test]
 async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
-    let _guard = TEST_MUTEX.lock().unwrap();
+    let _guard = TEST_MUTEX.lock()
+        .expect("TEST_MUTEX lock should be available");
 
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {}", e)))?;
@@ -415,7 +424,8 @@ async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
 /// Test recovery logging with empty and whitespace messages
 #[tokio::test]
 async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
-    let _guard = TEST_MUTEX.lock().unwrap();
+    let _guard = TEST_MUTEX.lock()
+        .expect("TEST_MUTEX lock should be available");
 
     let temp_dir = tempfile::tempdir()
         .map_err(|e| Error::IoError(format!("Failed to create temp dir: {}", e)))?;
