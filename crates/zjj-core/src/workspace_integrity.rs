@@ -398,9 +398,7 @@ impl IntegrityValidator {
         let mut issues = Vec::new();
 
         // Check 1: Directory exists
-        let path_exists = tokio::fs::try_exists(&workspace_path)
-            .await
-            .unwrap_or(false);
+        let path_exists = tokio::fs::try_exists(&workspace_path).await?;
         if !path_exists {
             issues.push(
                 IntegrityIssue::new(
@@ -416,8 +414,12 @@ impl IntegrityValidator {
             // Can't continue validation if directory is missing
             let duration = start
                 .elapsed()
-                .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
-                .unwrap_or(0);
+                .map_err(|e| Error::Unknown(format!("Failed to measure duration: {e}")))
+                .and_then(|d| {
+                    u64::try_from(d.as_millis()).map_err(|_| {
+                        Error::Unknown("Duration overflow - operation took too long".to_string())
+                    })
+                })?;
             return Ok(
                 ValidationResult::invalid(workspace_name, &workspace_path, issues)
                     .with_duration(duration),
@@ -438,7 +440,7 @@ impl IntegrityValidator {
 
         // Check 3: .jj directory exists
         let jj_dir = workspace_path.join(".jj");
-        let jj_dir_exists = tokio::fs::try_exists(&jj_dir).await.unwrap_or(false);
+        let jj_dir_exists = tokio::fs::try_exists(&jj_dir).await?;
         if jj_dir_exists {
             // Check 4: .jj directory is valid
             if let Err(issue) = Self::validate_jj_directory(&jj_dir).await {
@@ -458,14 +460,18 @@ impl IntegrityValidator {
         }
 
         // Check 5: Lock files
-        if let Some(issue) = Self::check_stale_locks(&workspace_path).await {
+        if let Ok(Some(issue)) = Self::check_stale_locks(&workspace_path).await {
             issues.push(issue);
         }
 
         let duration = start
             .elapsed()
-            .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
-            .unwrap_or(0);
+            .map_err(|e| Error::Unknown(format!("Failed to measure duration: {e}")))
+            .and_then(|d| {
+                u64::try_from(d.as_millis()).map_err(|_| {
+                    Error::Unknown("Duration overflow - operation took too long".to_string())
+                })
+            })?;
 
         if issues.is_empty() {
             Ok(ValidationResult::valid(workspace_name, &workspace_path).with_duration(duration))
@@ -496,7 +502,13 @@ impl IntegrityValidator {
     /// Validate the .jj directory structure
     async fn validate_jj_directory(jj_dir: &Path) -> std::result::Result<(), IntegrityIssue> {
         let repo_dir = jj_dir.join("repo");
-        let repo_exists = tokio::fs::try_exists(&repo_dir).await.unwrap_or(false);
+        let repo_exists = tokio::fs::try_exists(&repo_dir).await.map_err(|e| {
+            IntegrityIssue::new(
+                CorruptionType::PermissionDenied,
+                format!("Cannot check repo directory: {e}"),
+            )
+            .with_path(&repo_dir)
+        })?;
         if !repo_exists {
             return Err(IntegrityIssue::new(
                 CorruptionType::CorruptedJjDir,
@@ -507,7 +519,13 @@ impl IntegrityValidator {
 
         // Check for empty critical directories
         let op_store = repo_dir.join("op_store");
-        let op_store_exists = tokio::fs::try_exists(&op_store).await.unwrap_or(false);
+        let op_store_exists = tokio::fs::try_exists(&op_store).await.map_err(|e| {
+            IntegrityIssue::new(
+                CorruptionType::PermissionDenied,
+                format!("Cannot check op_store directory: {e}"),
+            )
+            .with_path(&op_store)
+        })?;
         if op_store_exists {
             match tokio::fs::read_dir(&op_store).await {
                 Ok(mut entries) => {
@@ -538,32 +556,32 @@ impl IntegrityValidator {
     }
 
     /// Check for stale lock files in the workspace
-    async fn check_stale_locks(workspace_path: &Path) -> Option<IntegrityIssue> {
+    async fn check_stale_locks(workspace_path: &Path) -> Result<Option<IntegrityIssue>> {
         let lock_file = workspace_path.join(".jj").join("working_copy").join("lock");
 
-        let lock_exists = tokio::fs::try_exists(&lock_file).await.unwrap_or(false);
+        let lock_exists = tokio::fs::try_exists(&lock_file).await?;
         if lock_exists {
             // Check age of lock file
-            let metadata = tokio::fs::metadata(&lock_file).await.ok()?;
-            let modified = metadata.modified().ok()?;
+            let metadata = tokio::fs::metadata(&lock_file).await?;
+            let modified = metadata.modified()?;
             let age = SystemTime::now()
                 .duration_since(modified)
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
+                .map_err(|e| Error::Unknown(format!("Failed to calculate lock age: {e}")))?;
+            let age_secs = age.as_secs();
 
             // Lock older than 1 hour is suspicious
-            if age > 3600 {
-                return Some(
+            if age_secs > 3600 {
+                return Ok(Some(
                     IntegrityIssue::new(
                         CorruptionType::StaleLocks,
-                        format!("Stale lock file detected (age: {age}s"),
+                        format!("Stale lock file detected (age: {}s)", age_secs),
                     )
                     .with_path(&lock_file),
-                );
+                ));
             }
         }
 
-        None
+        Ok(None)
     }
 }
 
@@ -638,7 +656,7 @@ impl RepairExecutor {
                 RepairStrategy::RecreateWorkspace => 3,
                 RepairStrategy::ForgetAndRecreate => 4,
             })
-            .unwrap_or(RepairStrategy::NoRepair);
+            .ok_or_else(|| Error::Unknown("No issues found in validation result".to_string()))?;
 
         if matches!(
             strategy,
@@ -654,21 +672,14 @@ impl RepairExecutor {
         // Create backup if needed
         let mut backup_id = None;
         if self.always_backup {
-            let manager = self.backup_manager.clone().unwrap_or_else(|| {
-                BackupManager::new(
-                    validation
-                        .path
-                        .parent()
-                        .and_then(|p| p.parent())
-                        .unwrap_or_else(|| Path::new(".")),
-                )
-            });
-            if let Ok(meta) = manager
+            let manager = self.backup_manager.clone().ok_or_else(|| {
+                Error::Unknown("Backup manager not configured for repair operation".to_string())
+            })?;
+
+            let meta = manager
                 .create_backup(&validation.workspace, "Auto-repair")
-                .await
-            {
-                backup_id = Some(meta.id);
-            }
+                .await?;
+            backup_id = Some(meta.id);
         }
 
         // Execute the repair
@@ -699,7 +710,7 @@ impl RepairExecutor {
     /// Clear lock files in a workspace
     async fn clear_locks(workspace_path: &Path) -> Result<()> {
         let lock_file = workspace_path.join(".jj").join("working_copy").join("lock");
-        let lock_exists = tokio::fs::try_exists(&lock_file).await.unwrap_or(false);
+        let lock_exists = tokio::fs::try_exists(&lock_file).await?;
         if lock_exists {
             tokio::fs::remove_file(&lock_file).await.map_err(|e| {
                 Error::IoError(format!(
@@ -739,7 +750,7 @@ impl RepairExecutor {
         }
 
         // If directory is corrupted but exists, remove it
-        let workspace_exists = tokio::fs::try_exists(workspace_path).await.unwrap_or(false);
+        let workspace_exists = tokio::fs::try_exists(workspace_path).await?;
         if workspace_exists {
             tokio::fs::remove_dir_all(workspace_path)
                 .await
@@ -807,14 +818,10 @@ impl BackupManager {
         workspace_name: &str,
         reason: &str,
     ) -> Result<BackupMetadata> {
-        let backup_id = format!(
-            "{}_{}",
-            workspace_name,
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0)
-        );
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| Error::Unknown(format!("System time before Unix epoch: {e}")))?;
+        let backup_id = format!("{}_{}", workspace_name, timestamp.as_secs());
 
         // Ensure backup root exists
         tokio::fs::create_dir_all(&self.backup_root)
@@ -1018,7 +1025,7 @@ mod tests {
         let result = executor.repair(&validation).await?;
         assert!(result.success);
         assert_eq!(result.action, RepairStrategy::ClearLocks);
-        assert!(!tokio::fs::try_exists(&lock).await.unwrap_or(false));
+        assert!(!tokio::fs::try_exists(&lock).await?);
         Ok(())
     }
 
@@ -1032,8 +1039,7 @@ mod tests {
         assert_eq!(meta.reason, "Test");
         assert!(
             tokio::fs::try_exists(root.path().join(".zjj").join("backups"))
-                .await
-                .unwrap_or(false)
+                .await?
         );
         Ok(())
     }

@@ -101,12 +101,16 @@ pub fn find_ready(issues: &[BeadIssue]) -> Vec<BeadIssue> {
 }
 
 /// Find issues that haven't been updated in a while.
+///
+/// # Panics
+///
+/// Panics if `days` value would cause integer overflow when converting to i64.
+/// This is intentional - extremely large day values indicate a bug in the caller.
 #[must_use]
 #[allow(clippy::cast_possible_wrap)]
 pub fn find_stale(issues: &[BeadIssue], days: u64) -> Vec<BeadIssue> {
-    // Use saturating subtraction to prevent overflow with extreme day values
-    let cutoff = Utc::now().checked_sub_signed(Duration::days(days as i64))
-        .unwrap_or_else(|| Utc::now());
+    #[allow(clippy::arithmetic_side_effects)]
+    let cutoff = Utc::now() - Duration::days(days as i64);
 
     issues
         .iter()
@@ -214,7 +218,7 @@ pub fn calculate_critical_path(issues: &[BeadIssue]) -> Vec<BeadIssue> {
     all_paths
         .into_iter()
         .max_by_key(std::vec::Vec::len)
-        .unwrap_or_else(Vec::new)
+        .unwrap_or_default()
 }
 
 /// Extract issue IDs.

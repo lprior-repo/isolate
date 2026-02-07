@@ -70,7 +70,7 @@ pub const fn should_log_recovery(config: &RecoveryConfig) -> bool {
 /// Returns `Error::DatabaseError` if validation fails
 pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Result<()> {
     // Check if database file exists
-    if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(db_path).await? {
         return Err(Error::DatabaseError(format!(
             "Database file not found: {path}",
             path = db_path.display()
@@ -173,7 +173,7 @@ pub async fn repair_database(db_path: &Path, config: &RecoveryConfig) -> Result<
     }
 
     // Remove corrupted database file
-    if tokio::fs::try_exists(db_path).await.unwrap_or(false) {
+    if tokio::fs::try_exists(db_path).await? {
         tokio::fs::remove_file(db_path).await.map_err(|e| {
             Error::DatabaseError(format!("Failed to remove corrupted database: {e}"))
         })?;
@@ -182,12 +182,12 @@ pub async fn repair_database(db_path: &Path, config: &RecoveryConfig) -> Result<
         let wal_path = db_path.with_extension("db-wal");
         let shm_path = db_path.with_extension("db-shm");
 
-        if tokio::fs::try_exists(&wal_path).await.unwrap_or(false) {
-            let _ = tokio::fs::remove_file(&wal_path).await;
+        if tokio::fs::try_exists(&wal_path).await? {
+            tokio::fs::remove_file(&wal_path).await.ok();
         }
 
-        if tokio::fs::try_exists(&shm_path).await.unwrap_or(false) {
-            let _ = tokio::fs::remove_file(&shm_path).await;
+        if tokio::fs::try_exists(&shm_path).await? {
+            tokio::fs::remove_file(&shm_path).await.ok();
         }
     }
 
@@ -206,7 +206,7 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
     use sqlx::sqlite::SqlitePoolOptions;
 
     // Check if database exists
-    if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(db_path).await? {
         return Ok(0);
     }
 
@@ -316,7 +316,7 @@ pub async fn periodic_cleanup(
     use sqlx::sqlite::SqlitePoolOptions;
 
     // Check if database exists
-    if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(db_path).await? {
         return Ok(0);
     }
 
