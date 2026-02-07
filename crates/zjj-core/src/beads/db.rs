@@ -24,7 +24,7 @@ fn parse_datetime(datetime_str: Option<String>) -> Result<DateTime<Utc>, BeadsEr
         })
 }
 
-/// Parse a status string into IssueStatus.
+/// Parse a status string into `IssueStatus`.
 ///
 /// # Errors
 ///

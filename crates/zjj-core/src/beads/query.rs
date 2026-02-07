@@ -29,31 +29,31 @@ pub fn matches_filter(issue: &BeadIssue, filter: &BeadFilter) -> bool {
         && (filter
             .priority_min
             .as_ref()
-            .map_or(true, |min| issue.priority.map_or(true, |p| p >= *min)))
+            .is_none_or(|min| issue.priority.is_none_or(|p| p >= *min)))
         && (filter
             .priority_max
             .as_ref()
-            .map_or(true, |max| issue.priority.map_or(true, |p| p <= *max)))
+            .is_none_or(|max| issue.priority.is_none_or(|p| p <= *max)))
         && (filter.labels.is_empty()
             || issue
                 .labels
                 .as_ref()
                 .is_some_and(|issue_labels| filter.labels.iter().all(|l| issue_labels.contains(l))))
-        && (filter.assignee.as_ref().map_or(true, |assignee| {
-            issue.assignee.as_ref().map_or(false, |a| a == assignee)
+        && (filter.assignee.as_ref().is_none_or(|assignee| {
+            issue.assignee.as_ref() == Some(assignee)
         }))
-        && (filter.parent.as_ref().map_or(true, |parent| {
-            issue.parent.as_ref().map_or(false, |p| p == parent)
+        && (filter.parent.as_ref().is_none_or(|parent| {
+            issue.parent.as_ref() == Some(parent)
         }))
         && (!filter.has_parent || issue.parent.is_some())
         && (!filter.blocked_only || issue.is_blocked())
-        && filter.search_text.as_ref().map_or(true, |text| {
+        && filter.search_text.as_ref().is_none_or(|text| {
             let text_lower = text.to_lowercase();
             issue.title.to_lowercase().contains(&text_lower)
                 || issue
                     .description
                     .as_ref()
-                    .map_or(false, |d| d.to_lowercase().contains(&text_lower))
+                    .is_some_and(|d| d.to_lowercase().contains(&text_lower))
         })
 }
 

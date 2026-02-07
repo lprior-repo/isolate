@@ -53,7 +53,7 @@ impl WorkspaceGuard {
     /// Disarm the guard to prevent cleanup
     ///
     /// Call this when workspace creation succeeds and you want to keep it.
-    pub fn disarm(&mut self) {
+    pub const fn disarm(&mut self) {
         self.active = false;
     }
 
@@ -170,6 +170,7 @@ pub struct DiffSummary {
 
 /// Status of files in a workspace
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct Status {
     /// Modified files
     pub modified: Vec<PathBuf>,
@@ -186,7 +187,7 @@ pub struct Status {
 impl Status {
     /// Check if there are any changes
     #[must_use]
-    pub fn is_clean(&self) -> bool {
+    pub const fn is_clean(&self) -> bool {
         self.modified.is_empty()
             && self.added.is_empty()
             && self.deleted.is_empty()
@@ -195,7 +196,7 @@ impl Status {
 
     /// Count total number of changed files
     #[must_use]
-    pub fn change_count(&self) -> usize {
+    pub const fn change_count(&self) -> usize {
         self.modified.len() + self.added.len() + self.deleted.len() + self.renamed.len()
     }
 }
@@ -458,17 +459,6 @@ pub fn parse_status(output: &str) -> Status {
     })
 }
 
-impl Default for Status {
-    fn default() -> Self {
-        Self {
-            modified: Vec::new(),
-            added: Vec::new(),
-            deleted: Vec::new(),
-            renamed: Vec::new(),
-            unknown: Vec::new(),
-        }
-    }
-}
 
 /// Get diff summary for a workspace
 ///

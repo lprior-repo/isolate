@@ -63,7 +63,7 @@ pub const fn should_log_recovery(config: &RecoveryConfig) -> bool {
 /// Performs basic validation checks:
 /// - Database file exists and is readable
 /// - File is not empty
-/// - File has valid SQLite header
+/// - File has valid `SQLite` header
 ///
 /// # Errors
 ///
@@ -112,7 +112,7 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
         0x00,
     ];
 
-    if &header != expected_magic {
+    if header != expected_magic {
         let magic_hex: String = header
             .iter()
             .map(|b| format!("{b:02x}"))
@@ -302,7 +302,7 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
 /// Run periodic cleanup for stale database records
 ///
 /// Removes:
-/// - Sessions older than max_age_seconds that are in 'failed' or 'completed' status
+/// - Sessions older than `max_age_seconds` that are in 'failed' or 'completed' status
 /// - Orphaned state transition records
 ///
 /// # Errors
