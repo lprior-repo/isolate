@@ -255,8 +255,11 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 
 # Builder Agent 1 Transitions
 [2026-02-08 13:55:00] zjj-3ltb ready-builder → building (claimed by builder-1)
+[2026-02-08 14:19:50] zjj-26pf ready-builder → building (claimed by builder-1)
+[2026-02-08 14:19:50] IMPLEMENTATION COMPLETE: Session status update functionality added. Added new_status field to DoneOutput, update_session_status() function in done.rs, update_status() method to SessionDb. Session status now updates to "completed" when done command succeeds. Tests pass.
 [2026-02-08 14:10:30] REWORKER-1: Check 4 - no beads in stage:needs-rework
 [2026-02-08 14:10:45] REWORKER-1: Manual check 2 - no beads in stage:needs-rework
+[2026-02-08 14:19:55] zjj-26pf building → ready-qa-builder builder-1 IMPLEMENTATION COMPLETE
 
 # QA Builder Agent 1 Loop (2026-02-08)
 [2026-02-08 08:10:00] QA Builder 1 started - monitoring for stage:ready-qa-builder beads
@@ -331,6 +334,8 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 17:30:00] Loop 27 complete - waiting 90 seconds for next check
 [2026-02-08 17:31:30] Check 28 - No beads in stage:ready-qa-builder
 [2026-02-08 17:33:00] Loop 28 complete - waiting 90 seconds for next check
+[2026-02-08 17:34:30] Check 29 - No beads in stage:ready-qa-builder
+[2026-02-08 17:36:00] Loop 29 complete - waiting 90 seconds for next check
 
 # QA Builder Agent 3 Status Update
 [2026-02-08 14:11:00] QA Builder 3 status: All beads in stage:ready-qa-builder have been processed
@@ -351,3 +356,5 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 14:19:31] REWORKER-1: Check 10 - no beads in stage:needs-rework
 [2026-02-08 14:20:52] REWORKER-1: Manual check 8 - no beads in stage:needs-rework
 [2026-02-08 14:21:01] REWORKER-1: Check 11 - no beads in stage:needs-rework
+[2026-02-08 14:22:30] REWORKER-1: Manual check 9 - no beads in stage:needs-rework
+[2026-02-08 14:22:31] REWORKER-1: Check 12 - no beads in stage:needs-rework
