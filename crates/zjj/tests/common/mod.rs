@@ -379,14 +379,25 @@ impl TestHarness {
             std::env::var("PATH").unwrap_or_default()
         );
 
-        Command::new(&self.zjj_bin)
-            .args(args)
+        // Get absolute path to jj binary for subprocess
+        let jj_binary_path = jj_info().binary_path.as_ref();
+
+        let mut cmd = Command::new(&self.zjj_bin);
+        cmd.args(args)
             .current_dir(dir)
             .env("NO_COLOR", "1")
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
-            .env("PATH", &path_with_system_dirs)
-            .output()
+            .env("PATH", &path_with_system_dirs);
+
+        // Set ZJJ_JJ_PATH if jj binary was found
+        if let Some(path) = jj_binary_path {
+            if let Some(path_str) = path.to_str() {
+                cmd.env("ZJJ_JJ_PATH", path_str);
+            }
+        }
+
+        cmd.output()
             .map(|output| CommandResult {
                 success: output.status.success(),
                 exit_code: output.status.code(),
@@ -483,13 +494,28 @@ impl TestHarness {
             std::env::var("PATH").unwrap_or_default()
         );
 
+        let state_db = self.repo_path.join(".zjj").join("state.db");
+
+        // Get absolute path to jj binary for subprocess
+        let jj_binary_path = jj_info().binary_path.as_ref();
+
         let mut cmd = Command::new(&self.zjj_bin);
         cmd.args(args)
             .current_dir(&self.repo_path)
             .env("NO_COLOR", "1")
+            .env("ZJJ_TEST_MODE", "1")
+            .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .env("ZJJ_STATE_DB", state_db)
             .env("PATH", &path_with_system_dirs);
 
-        // Functional approach: iterate over env vars
+        // Set ZJJ_JJ_PATH if jj binary was found
+        if let Some(path) = jj_binary_path {
+            if let Some(path_str) = path.to_str() {
+                cmd.env("ZJJ_JJ_PATH", path_str);
+            }
+        }
+
+        // Functional approach: iterate over env vars (can override defaults)
         for (key, value) in env_vars {
             cmd.env(key, value);
         }
