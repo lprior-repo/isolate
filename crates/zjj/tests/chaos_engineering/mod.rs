@@ -36,6 +36,12 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
+// Test code uses unwrap/expect idioms for test clarity.
+// Production code (src/) must use Result<T, Error> patterns.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+#![allow(clippy::too_many_lines)]
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -49,6 +55,7 @@ use thiserror::Error;
 
 /// Domain errors for chaos engineering operations
 #[derive(Debug, Error)]
+#[allow(dead_code)]
 pub enum ChaosError {
     /// Chaos execution failed
     #[error("chaos execution failed: {0}")]
@@ -398,7 +405,9 @@ impl ChaosExecutor {
         Self::inject_failure(mode)?;
         // Then try to return T, but we can't construct T, so this always fails
         // This is only called when we WANT to fail, so the error above is what matters
-        Err(anyhow::anyhow!("chaos injection failed (should not reach here)"))
+        Err(anyhow::anyhow!(
+            "chaos injection failed (should not reach here)"
+        ))
     }
 }
 
@@ -518,6 +527,7 @@ impl ChaosTestHarness {
 
     /// Get the chaos executor for custom chaos scenarios
     #[must_use]
+    #[allow(dead_code)]
     pub const fn executor(&self) -> &ChaosExecutor {
         &self.executor
     }

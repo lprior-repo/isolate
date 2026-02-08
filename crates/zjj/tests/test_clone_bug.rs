@@ -3,6 +3,13 @@
 //! Bug: zjj clone reports 'Source session not found' error even when the source session exists.
 //! This test reproduces the issue to verify the fix.
 
+// Test code uses unwrap/expect idioms for test clarity.
+// Production code (src/) must use Result<T, Error> patterns.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+#![allow(clippy::too_many_lines)]
+
 mod common;
 
 use common::TestHarness;
@@ -12,6 +19,7 @@ use common::TestHarness;
 /// This test reproduces the bug where clone reports "not found" even when
 /// the source session exists in the database.
 #[test]
+#[allow(clippy::expect_used)]
 fn test_clone_finds_existing_source_session() {
     let Some(harness) = TestHarness::try_new() else {
         return;

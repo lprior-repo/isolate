@@ -3,6 +3,13 @@
 //! Tests full user workflows across multiple commands.
 //! Focuses on real-world usage patterns and integration points.
 
+// Test code uses unwrap/expect idioms for test clarity.
+// Production code (src/) must use Result<T, Error> patterns.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+#![allow(clippy::too_many_lines)]
+
 mod common;
 
 use common::TestHarness;
@@ -195,14 +202,14 @@ fn test_concurrent_session_operations() {
 
     // Create sessions in quick succession
     for i in 0..5 {
-        let name = format!("session-{}", i);
+        let name = format!("session-{i}");
         harness.assert_success(&["add", &name, "--no-open"]);
     }
 
     // Verify all exist
     let result = harness.zjj(&["list"]);
     for i in 0..5 {
-        result.assert_stdout_contains(&format!("session-{}", i));
+        result.assert_stdout_contains(&format!("session-{i}"));
     }
 
     // Remove half of them
