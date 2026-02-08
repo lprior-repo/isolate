@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use zjj_core::{OutputFormat, SchemaEnvelope};
 
 use crate::commands::get_session_db;
+use crate::db::SessionDb;
+use crate::session::Session;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORT
@@ -193,11 +195,163 @@ pub struct ImportResult {
     pub overwritten_sessions: Vec<String>,
 }
 
+/// Validate and parse import file
+///
+/// Reads the import file and validates it's properly formatted JSON
+/// matching the ExportResult schema.
+async fn validate_and_parse_import(input_path: &str) -> Result<ExportResult> {
+    let content = tokio::fs::read_to_string(input_path).await?;
+    let export_data: ExportResult = serde_json::from_str(&content)
+        .map_err(|e| anyhow::anyhow!("Invalid import file format: {e}"))?;
+    Ok(export_data)
+}
+
+/// Check if a session exists and determine the action to take
+///
+/// Returns:
+/// - Ok(Some(true)): session exists and should be overwritten
+/// - Ok(Some(false)): session exists and should be skipped
+/// - Ok(None): session doesn't exist, proceed with import
+/// - Err: session exists and action not allowed
+async fn check_session_conflict(
+    db: &SessionDb,
+    session_name: &str,
+    force: bool,
+    skip_existing: bool,
+) -> Result<Option<bool>> {
+    let session_exists: Option<Session> = db.get(session_name).await?;
+    let session_exists = session_exists.is_some();
+
+    if !session_exists {
+        return Ok(None);
+    }
+
+    if force {
+        Ok(Some(true))
+    } else if skip_existing {
+        Ok(Some(false))
+    } else {
+        anyhow::bail!("Session '{}' already exists (use --force to overwrite)", session_name)
+    }
+}
+
+/// Delete existing session for overwrite
+///
+/// Attempts to remove the existing session before importing a new version.
+async fn delete_existing_session(
+    db: &SessionDb,
+    session_name: &str,
+) -> Result<()> {
+    let _deleted: bool = db.delete(session_name).await
+        .map_err(|e| anyhow::anyhow!("Failed to delete existing session '{}': {e}", session_name))?;
+    Ok(())
+}
+
+/// Import a single session
+///
+/// Creates a new session in the database, handling both fresh imports and overwrites.
+async fn import_session(
+    db: &SessionDb,
+    session: &ExportedSession,
+    was_overwritten: bool,
+) -> Result<()> {
+    let workspace_path = session.workspace_path.as_deref().map_or("", |value| value);
+    let _created: Session = db.create(&session.name, workspace_path).await
+        .map_err(|e| anyhow::anyhow!("Failed to import '{}': {e}", session.name))?;
+
+    Ok(())
+}
+
+/// Process a single session import
+///
+/// Handles the full import flow for one session:
+/// - Check for conflicts
+/// - Delete if overwriting
+/// - Import the session
+/// - Track results
+async fn process_single_session(
+    db: &SessionDb,
+    session: &ExportedSession,
+    options: &ImportOptions,
+    result: &mut ImportResult,
+) -> Result<()> {
+    let session_name = &session.name;
+
+    // Check if session exists and determine action
+    let action = check_session_conflict(db, session_name, options.force, options.skip_existing).await?;
+
+    match action {
+        Some(true) => {
+            // Overwrite mode: delete existing session
+            delete_existing_session(db, session_name).await?;
+            let was_overwritten = true;
+
+            if options.dry_run {
+                result.overwritten += 1;
+                result.overwritten_sessions.push(session_name.clone());
+                return Ok(());
+            }
+
+            import_session(db, session, was_overwritten).await?;
+            result.overwritten += 1;
+            result.overwritten_sessions.push(session_name.clone());
+        }
+        Some(false) => {
+            // Skip mode: skip existing session
+            result.skipped += 1;
+            result.skipped_sessions.push(session_name.clone());
+        }
+        None => {
+            // New session: import it
+            if options.dry_run {
+                result.imported += 1;
+                result.imported_sessions.push(session_name.clone());
+                return Ok(());
+            }
+
+            import_session(db, session, false).await?;
+            result.imported += 1;
+            result.imported_sessions.push(session_name.clone());
+        }
+    }
+
+    Ok(())
+}
+
+/// Display import results in human-readable format
+fn display_import_results(result: &ImportResult) {
+    if result.dry_run {
+        println!("[dry-run] Would import {} sessions", result.imported);
+    } else {
+        println!(
+            "✓ Imported {} sessions, skipped {}, overwritten {}, failed {}",
+            result.imported, result.skipped, result.overwritten, result.failed
+        );
+    }
+
+    if !result.imported_sessions.is_empty() {
+        println!("  Imported: {}", result.imported_sessions.join(", "));
+    }
+
+    if !result.overwritten_sessions.is_empty() {
+        println!("  Overwritten: {}", result.overwritten_sessions.join(", "));
+    }
+
+    if !result.skipped_sessions.is_empty() {
+        println!("  Skipped: {}", result.skipped_sessions.join(", "));
+    }
+
+    if !result.errors.is_empty() {
+        eprintln!("Errors:");
+        for err in &result.errors {
+            eprintln!("  - {err}");
+        }
+    }
+}
+
 /// Run the import command
 pub async fn run_import(options: &ImportOptions) -> Result<()> {
-    let content = tokio::fs::read_to_string(&options.input).await?;
-    let export_data: ExportResult = serde_json::from_str(&content)?;
-
+    let export_data = validate_and_parse_import(&options.input).await?;
     let db = get_session_db().await?;
 
     let mut result = ImportResult {
@@ -213,66 +367,12 @@ pub async fn run_import(options: &ImportOptions) -> Result<()> {
         overwritten_sessions: vec![],
     };
 
-    for session in export_data.sessions {
-        let session_exists = db.get(&session.name).await?.is_some();
-        let was_overwritten = session_exists && options.force;
-
-        // Check if session already exists
-        if session_exists {
-            if options.force {
-                // Delete existing session before importing
-                if let Err(e) = db.delete(&session.name).await {
-                    result.failed += 1;
-                    result
-                        .errors
-                        .push(format!("Failed to overwrite '{}': {e}", session.name));
-                    result.success = false;
-                    continue;
-                }
-            } else if options.skip_existing {
-                result.skipped += 1;
-                result.skipped_sessions.push(session.name.clone());
-                continue;
-            } else {
-                result.failed += 1;
-                result
-                    .errors
-                    .push(format!("Session '{}' already exists", session.name));
-                result.success = false;
-                continue;
-            }
-        }
-
-        if options.dry_run {
-            result.imported += 1;
-            result.imported_sessions.push(session.name.clone());
-            continue;
-        }
-
-        // Create the session
-        match db
-            .create(
-                &session.name,
-                session.workspace_path.as_deref().map_or("", |value| value),
-            )
-            .await
-        {
-            Ok(_) => {
-                if was_overwritten {
-                    result.overwritten += 1;
-                    result.overwritten_sessions.push(session.name.clone());
-                } else {
-                    result.imported += 1;
-                    result.imported_sessions.push(session.name.clone());
-                }
-            }
-            Err(e) => {
-                result.failed += 1;
-                result
-                    .errors
-                    .push(format!("Failed to import '{}': {e}", session.name));
-                result.success = false;
-            }
+    // Process each session in the export
+    for session in &export_data.sessions {
+        if let Err(e) = process_single_session(&db, session, options, &mut result).await {
+            result.failed += 1;
+            result.errors.push(e.to_string());
+            result.success = false;
         }
     }
 
@@ -280,33 +380,7 @@ pub async fn run_import(options: &ImportOptions) -> Result<()> {
         let envelope = SchemaEnvelope::new("import-response", "single", &result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
-        if options.dry_run {
-            println!("[dry-run] Would import {} sessions", result.imported);
-        } else {
-            println!(
-                "✓ Imported {} sessions, skipped {}, overwritten {}, failed {}",
-                result.imported, result.skipped, result.overwritten, result.failed
-            );
-        }
-
-        if !result.imported_sessions.is_empty() {
-            println!("  Imported: {}", result.imported_sessions.join(", "));
-        }
-
-        if !result.overwritten_sessions.is_empty() {
-            println!("  Overwritten: {}", result.overwritten_sessions.join(", "));
-        }
-
-        if !result.skipped_sessions.is_empty() {
-            println!("  Skipped: {}", result.skipped_sessions.join(", "));
-        }
-
-        if !result.errors.is_empty() {
-            eprintln!("Errors:");
-            for err in &result.errors {
-                eprintln!("  - {err}");
-            }
-        }
+        display_import_results(&result);
     }
 
     if result.success {
