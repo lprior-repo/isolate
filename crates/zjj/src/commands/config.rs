@@ -1,10 +1,23 @@
 //! Configuration viewing and editing command
 
-use std::path::{Path, PathBuf};
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::{Context, Result};
 use serde_json::Value as JsonValue;
 use zjj_core::{config::Config, OutputFormat};
+
+/// File lock timeout - maximum time to wait for acquiring a file lock
+const LOCK_TIMEOUT: Duration = Duration::from_secs(5);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API
@@ -186,39 +199,89 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
 // SET OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Set a config value in the specified config file
+/// Set a config value in the specified config file with file locking to prevent data loss
+/// from concurrent writes
 async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<()> {
-    // Load existing config or create new
-    let mut doc = if tokio::fs::try_exists(config_path).await.is_ok_and(|v| v) {
+    use fs4::tokio::AsyncFileExt;
+    use tokio::fs::OpenOptions;
+
+    // Create parent directory if needed
+    if let Some(parent) = config_path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .context(format!(
+                "Failed to create config directory {}",
+                parent.display()
+            ))?;
+    }
+
+    // Open file with read and write access, creating if it doesn't exist
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(config_path)
+        .await
+        .context(format!(
+            "Failed to open config file {}",
+            config_path.display()
+        ))?;
+
+    // Try to acquire exclusive lock with timeout
+    let lock_result = tokio::time::timeout(LOCK_TIMEOUT, file.lock_exclusive()).await;
+
+    match lock_result {
+        Ok(inner_result) => {
+            inner_result.context(format!(
+                "Failed to acquire file lock on {}",
+                config_path.display()
+            ))?;
+        }
+        Err(_) => {
+            anyhow::bail!(
+                "Timeout waiting for file lock on {} after {} seconds. \
+                 Another process may be holding the lock.",
+                config_path.display(),
+                LOCK_TIMEOUT.as_secs()
+            );
+        }
+    }
+
+    // Load existing config or create new document
+    let mut doc = {
         let content = tokio::fs::read_to_string(config_path)
             .await
             .context(format!(
                 "Failed to read config file {}",
                 config_path.display()
             ))?;
-        content
-            .parse::<toml_edit::DocumentMut>()
-            .context("Failed to parse config file as TOML")?
-    } else {
-        // Create parent directory if needed
-        if let Some(parent) = config_path.parent() {
-            tokio::fs::create_dir_all(parent).await.context(format!(
-                "Failed to create config directory {}",
-                parent.display()
-            ))?;
+
+        if content.trim().is_empty() {
+            toml_edit::DocumentMut::new()
+        } else {
+            content
+                .parse::<toml_edit::DocumentMut>()
+                .context("Failed to parse config file as TOML")?
         }
-        toml_edit::DocumentMut::new()
     };
 
     // Parse dot notation and set value
     let parts: Vec<&str> = key.split('.').collect();
     set_nested_value(&mut doc, &parts, value)?;
 
-    // Write back to file
+    // Write back to file (still holding the lock)
     tokio::fs::write(config_path, doc.to_string())
         .await
         .context(format!(
             "Failed to write config file {}",
+            config_path.display()
+        ))?;
+
+    // Release the lock explicitly
+    file.unlock()
+        .await
+        .context(format!(
+            "Failed to release file lock on {}",
             config_path.display()
         ))?;
 

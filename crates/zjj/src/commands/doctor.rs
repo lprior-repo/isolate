@@ -1054,8 +1054,7 @@ fn show_dry_run_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<(
             println!(
                 "  • {}: {}",
                 check.name,
-                describe_fix(check)
-                    .unwrap_or_else(|| "No fix description available".to_string())
+                describe_fix(check).unwrap_or_else(|| "No fix description available".to_string())
             );
         }
         println!();

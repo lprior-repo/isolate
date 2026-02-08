@@ -290,7 +290,8 @@ async fn import_session(
     let name = &session.name;
 
     // Validate and parse the timestamp, using current time if not provided
-    let created_timestamp = validate_and_parse_timestamp(session.created_at.as_ref())?.unwrap_or_else(chrono::Utc::now);
+    let created_timestamp =
+        validate_and_parse_timestamp(session.created_at.as_ref())?.unwrap_or_else(chrono::Utc::now);
 
     // Convert DateTime to unix timestamp (timestamps are always positive in our usage)
     let created_ts = created_timestamp.timestamp().unsigned_abs();
