@@ -5,6 +5,7 @@ pub mod add;
 pub mod agents;
 pub mod ai;
 pub mod attach;
+pub mod broadcast;
 pub mod backup;
 pub mod batch;
 pub mod bookmark;
