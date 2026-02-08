@@ -947,6 +947,8 @@ pub fn cmd_doctor() -> ClapCommand {
             &[
                 "zjj doctor                    Run all system health checks",
                 "zjj doctor --fix              Auto-fix issues where possible",
+                "zjj doctor --fix --dry-run    Preview what would be fixed without making changes",
+                "zjj doctor --fix --verbose    Show detailed progress during fixes",
                 "zjj doctor --json             Export check results to JSON",
             ],
             Some(json_docs::doctor()),

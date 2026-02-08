@@ -1327,13 +1327,31 @@ fn show_fix_results(output: &DoctorFixOutput) {
 }
 
 /// Fix orphaned workspaces
-async fn fix_orphaned_workspaces(check: &DoctorCheck, _dry_run: bool) -> Result<String> {
+async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
     let orphaned_data = check
         .details
         .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("No orphaned workspaces data"))?;
+        .ok_or_else(|| "No orphaned workspaces data".to_string())?;
 
-    let root = jj_root().await?;
+    // In dry-run mode, just report what would be done
+    if dry_run {
+        let filesystem_count = orphaned_data
+            .get("filesystem_to_db")
+            .and_then(|v| v.as_array())
+            .map_or(0, |arr| arr.len());
+        let db_count = orphaned_data
+            .get("db_to_filesystem")
+            .and_then(|v| v.as_array())
+            .map_or(0, |arr| arr.len());
+
+        return Ok(format!(
+            "Would remove {filesystem_count} orphaned workspace(s) and {db_count} session(s) without workspaces"
+        ));
+    }
+
+    let root = jj_root()
+        .await
+        .map_err(|e| format!("Failed to get JJ root: {e}"))?;
 
     // Fix filesystem → DB orphans (workspaces without sessions)
     let filesystem_removed = if let Some(filesystem_orphans) = orphaned_data
@@ -1369,22 +1387,27 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck, _dry_run: bool) -> Result<
         .get("db_to_filesystem")
         .and_then(|v| v.as_array())
     {
-        if let Ok(db) = get_session_db().await {
-            futures::stream::iter(db_orphans)
-                .fold(0, |mut acc, session_name| {
-                    let db = &db;
-                    async move {
-                        if let Some(name) = session_name.as_str() {
-                            if db.delete(name).await.unwrap_or(false) {
-                                acc += 1;
+        match get_session_db().await {
+            Ok(db) => {
+                futures::stream::iter(db_orphans)
+                    .fold(0, |mut acc, session_name| {
+                        let db = &db;
+                        async move {
+                            if let Some(name) = session_name.as_str() {
+                                match db.delete(name).await {
+                                    Ok(true) => acc += 1,
+                                    Ok(false) => {}
+                                    Err(e) => {
+                                        tracing::warn!("Failed to delete orphaned session '{name}': {e}");
+                                    }
+                                }
                             }
+                            acc
                         }
-                        acc
-                    }
-                })
-                .await
-        } else {
-            0
+                    })
+                    .await
+            }
+            Err(_) => 0
         }
     } else {
         0
