@@ -4,7 +4,7 @@ pub mod atomic;
 
 use std::io::{self, Write};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{

@@ -7,10 +7,7 @@
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 #![cfg_attr(not(test), deny(clippy::panic))]
 
-use std::{
-    future::Future,
-    pin::Pin,
-};
+use std::{future::Future, pin::Pin};
 
 use thiserror::Error;
 
@@ -20,17 +17,11 @@ use crate::beads::{BeadRepository as RealBeadRepo, BeadStatus};
 /// Bead repository errors
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum BeadError {
-    #[error("Bead not found: {0}")]
-    NotFound(String),
-
     #[error("Invalid status: {0}")]
     InvalidStatus(String),
 
     #[error("Database error: {0}")]
     DatabaseError(String),
-
-    #[error("File locking error: {0}")]
-    LockError(String),
 }
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;

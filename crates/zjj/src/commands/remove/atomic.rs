@@ -18,10 +18,6 @@ use crate::{cli::run_command, db::SessionDb, session::Session};
 /// Errors that can occur during session removal
 #[derive(Debug, Error)]
 pub enum RemoveError {
-    /// Session not found in database
-    #[error("Session '{name}' not found")]
-    SessionNotFound { name: String },
-
     /// Workspace path invalid or inaccessible
     #[error("Workspace inaccessible: {path} - {reason}")]
     WorkspaceInaccessible { path: String, reason: String },
@@ -39,15 +35,7 @@ pub enum RemoveError {
     DatabaseDeletionFailed {
         name: String,
         #[source]
-        source: sqlx::Error,
-    },
-
-    /// JJ workspace forget failed (non-critical)
-    #[error("JJ workspace forget failed for '{name}': {source}")]
-    JjForgetFailed {
-        name: String,
-        #[source]
-        source: std::io::Error,
+        source: zjj_core::Error,
     },
 
     /// Zellij tab closure failed (non-critical)
@@ -55,7 +43,7 @@ pub enum RemoveError {
     ZellijTabCloseFailed {
         tab: String,
         #[source]
-        source: std::io::Error,
+        source: anyhow::Error,
     },
 }
 
@@ -64,12 +52,6 @@ pub enum RemoveError {
 pub struct RemoveResult {
     /// Whether removal was successful
     pub removed: bool,
-    /// Number of orphans cleaned up during removal
-    pub cleanup_count: usize,
-    /// Whether workspace was deleted
-    pub workspace_deleted: bool,
-    /// Whether session was deleted
-    pub session_deleted: bool,
 }
 
 /// Remove a session and its workspace atomically
@@ -103,7 +85,7 @@ pub async fn cleanup_session_atomically(
 ) -> Result<RemoveResult, RemoveError> {
     // Phase 1: Validate workspace path exists
     let workspace_path = Path::new(&session.workspace_path);
-    if !workspace_path.exists().await {
+    if !workspace_path.exists() {
         return Err(RemoveError::WorkspaceInaccessible {
             path: session.workspace_path.clone(),
             reason: "Workspace directory does not exist".to_string(),
@@ -129,22 +111,15 @@ pub async fn cleanup_session_atomically(
     }
 
     // Phase 4: Remove workspace directory (critical)
-    tokio::fs::remove_dir_all(workspace_path)
-        .await
-        .map_err(|e| {
-            // Mark session as removal_failed before returning error
-            let name = session.name.clone();
-            let error_msg = format!("Failed to remove workspace: {}", e);
-            let _ = tokio::runtime::Handle::try_current().map(|h| {
-                h.spawn(async move {
-                    let _ = db.mark_removal_failed(&name, &error_msg).await;
-                });
-            });
-            RemoveError::WorkspaceRemovalFailed {
-                path: session.workspace_path.clone(),
-                source: e,
-            }
-        })?;
+    if let Err(e) = tokio::fs::remove_dir_all(workspace_path).await {
+        let error_msg = format!("Failed to remove workspace: {e}");
+        let _ = db.mark_removal_failed(&session.name, &error_msg).await;
+
+        return Err(RemoveError::WorkspaceRemovalFailed {
+            path: session.workspace_path.clone(),
+            source: e,
+        });
+    }
 
     // Phase 5: Delete from database (critical, but workspace already deleted)
     db.delete(&session.name)
@@ -154,12 +129,7 @@ pub async fn cleanup_session_atomically(
             source: e,
         })?;
 
-    Ok(RemoveResult {
-        removed: true,
-        cleanup_count: 0,
-        workspace_deleted: true,
-        session_deleted: true,
-    })
+    Ok(RemoveResult { removed: true })
 }
 
 /// Close a Zellij tab by name
@@ -187,9 +157,10 @@ async fn close_zellij_tab(tab_name: &str) -> Result<(), RemoveError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
     use tokio::fs;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_cleanup_session_deletes_workspace_and_record() -> Result<()> {
@@ -202,13 +173,17 @@ mod tests {
         fs::create_dir_all(&workspace).await?;
 
         // Create session
-        db.create("test-session", workspace.to_str().ok_or_else(|| {
-            anyhow::anyhow!("Invalid workspace path")
-        })?)
+        db.create(
+            "test-session",
+            workspace
+                .to_str()
+                .ok_or_else(|| anyhow::anyhow!("Invalid workspace path"))?,
+        )
         .await?;
 
         // Get session
-        let session = db.get("test-session")
+        let session = db
+            .get("test-session")
             .await?
             .ok_or_else(|| anyhow::anyhow!("Session not found"))?;
 
@@ -223,9 +198,6 @@ mod tests {
         assert!(session_opt.is_none(), "Session should be deleted");
 
         assert!(result.removed);
-        assert!(result.workspace_deleted);
-        assert!(result.session_deleted);
-
         Ok(())
     }
 
@@ -239,7 +211,8 @@ mod tests {
         db.create("test-session", "/nonexistent/path").await?;
 
         // Get session
-        let session = db.get("test-session")
+        let session = db
+            .get("test-session")
             .await?
             .ok_or_else(|| anyhow::anyhow!("Session not found"))?;
 
@@ -262,9 +235,12 @@ mod tests {
         // Create session and workspace
         let workspace = dir.path().join("workspaces").join("orphan-test");
         fs::create_dir_all(&workspace).await?;
-        db.create("orphan-test", workspace.to_str().ok_or_else(|| {
-            anyhow::anyhow!("Invalid workspace path")
-        })?)
+        db.create(
+            "orphan-test",
+            workspace
+                .to_str()
+                .ok_or_else(|| anyhow::anyhow!("Invalid workspace path"))?,
+        )
         .await?;
 
         // Delete workspace manually (simulate external deletion)
@@ -288,9 +264,12 @@ mod tests {
         // Create session and workspace
         let workspace = dir.path().join("workspaces").join("cleanup-test");
         fs::create_dir_all(&workspace).await?;
-        db.create("cleanup-test", workspace.to_str().ok_or_else(|| {
-            anyhow::anyhow!("Invalid workspace path")
-        })?)
+        db.create(
+            "cleanup-test",
+            workspace
+                .to_str()
+                .ok_or_else(|| anyhow::anyhow!("Invalid workspace path"))?,
+        )
         .await?;
 
         // Delete workspace manually

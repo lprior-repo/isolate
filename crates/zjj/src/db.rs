@@ -1079,8 +1079,7 @@ async fn enable_wal_mode(pool: &SqlitePool) -> Result<()> {
         )));
     }
 
-    sqlx::query("PRAGMA busy_timeout = ?;")
-        .bind(SQLITE_BUSY_TIMEOUT_MS)
+    sqlx::query(&format!("PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS};"))
         .execute(pool)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to set busy_timeout: {e}")))?;
@@ -1094,8 +1093,7 @@ async fn enable_wal_mode(pool: &SqlitePool) -> Result<()> {
         )));
     }
 
-    sqlx::query("PRAGMA wal_autocheckpoint = ?;")
-        .bind(SQLITE_WAL_AUTOCHECKPOINT_PAGES)
+    sqlx::query(&format!("PRAGMA wal_autocheckpoint = {SQLITE_WAL_AUTOCHECKPOINT_PAGES};"))
         .execute(pool)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to set wal_autocheckpoint: {e}")))?;
