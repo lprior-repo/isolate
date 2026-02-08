@@ -357,6 +357,7 @@ mod tests {
             cleaned: true,
             bead_closed: true,
             session_updated: true,
+            new_status: Some("completed".to_string()),
             pushed_to_remote: false,
             dry_run: false,
             preview: None,
