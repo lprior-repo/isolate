@@ -113,11 +113,19 @@ impl IntegrationTestContext {
     /// Simulate timeout by resetting entry status back to pending
     /// This simulates what would happen when a lock expires in real system
     async fn simulate_timeout_recovery(&self, workspace: &str) -> Result<()> {
+        // Reset entry to pending
         sqlx::query("UPDATE merge_queue SET status = 'pending', started_at = NULL, agent_id = NULL WHERE workspace = ?1")
             .bind(workspace)
             .execute(&self.pool)
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to reset entry: {e}")))?;
+
+        // Release processing lock (simulating TTL expiry)
+        sqlx::query("DELETE FROM queue_processing_lock WHERE id = 1")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to release processing lock: {e}")))?;
+
         Ok(())
     }
 }
@@ -437,8 +445,8 @@ async fn lifecycle_cleanup_old_work() -> Result<()> {
     let stats = ctx.queue_stats().await?;
     assert_eq!(stats.completed, 1);
 
-    // Cleanup old entries (max_age = 1 second, should clean recent completions)
-    let cleaned = ctx.merge_queue.cleanup(Duration::from_secs(1)).await?;
+    // Cleanup old entries (max_age = 0, cleans all completed entries regardless of age)
+    let cleaned = ctx.merge_queue.cleanup(Duration::ZERO).await?;
     assert_eq!(cleaned, 1, "should clean 1 completed entry");
 
     // Verify cleanup
