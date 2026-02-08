@@ -467,6 +467,9 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 15:00:19] REWORKER-1: Manual check 31 - no beads in stage:needs-rework
 [2026-02-08 15:01:31] REWORKER-1: Check 38 - no beads in stage:needs-rework
 [2026-02-08 15:02:00] REWORKER-1: Manual check 32 - no beads in stage:needs-rework
+
+# Builder Agent 2 Transitions
+[2026-02-08 09:12:50] zjj-16ks ready-builder → building → ready-qa-builder builder-2 IMPLEMENTATION COMPLETE: Added file locking to config writes using fs4 crate. Implemented exclusive lock with 5-second timeout using retry loop. Zero unwrap/expect/panic violations. Added concurrency tests: concurrent_writes_respect_file_lock, concurrent_writes_no_data_loss, sequential_writes_performance, concurrent_mixed_read_write. All 4 new tests pass.
 [2026-02-08 15:03:01] REWORKER-1: Check 39 - no beads in stage:needs-rework
 [2026-02-08 15:03:40] REWORKER-1: Manual check 33 - no beads in stage:needs-rework
 
@@ -547,3 +550,5 @@ file locking code that has compilation errors.
 [2026-02-08 09:13:00] REWORKER-4: zjj-14hr needs-rework → reworking → ready-qa-builder reworker-4 Fixed clippy warnings in config.rs: changed |_| false to |()| false on line 543, fixed uninlined_format_args on lines 744-745 (changed format!("value_{i}") to format!("value_{}", i)). moon run :quick passed (11ms).
 [2026-02-08 09:14:14] Check 6 - No new beads in stage:ready-qa-builder
 [2026-02-08 09:14:14] Loop 6 complete - waiting 90 seconds for next check
+[2026-02-08 09:15:55] Check 7 - No new beads in stage:ready-qa-builder
+[2026-02-08 09:15:55] Loop 7 complete - waiting 90 seconds for next check
