@@ -590,4 +590,246 @@ mod tests {
         assert!(CHECKPOINT_SCHEMA.contains("branch TEXT"));
         assert!(CHECKPOINT_SCHEMA.contains("metadata TEXT"));
     }
+
+    // ── Session Name Validation Tests (zjj-3xuo) ───────────────────────────
+
+    #[tokio::test]
+    async fn test_restore_checkpoint_with_valid_session_names() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        // Ensure checkpoint tables exist
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to create checkpoint tables");
+
+        // Create a checkpoint with valid session names
+        let checkpoint_id = "chk-test-valid";
+        sqlx::query("INSERT INTO checkpoints (checkpoint_id) VALUES (?)")
+            .bind(checkpoint_id)
+            .execute(db.pool())
+            .await
+            .expect("Failed to create checkpoint");
+
+        // Insert sessions with valid names
+        let valid_sessions = vec![
+            ("my-session", "active", "/path/to/my-session"),
+            ("feature-auth", "active", "/path/to/feature-auth"),
+            ("test_123", "paused", "/path/to/test_123"),
+        ];
+
+        for (name, status, path) in valid_sessions {
+            sqlx::query(
+                "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path)
+                 VALUES (?, ?, ?, ?)",
+            )
+            .bind(checkpoint_id)
+            .bind(name)
+            .bind(status)
+            .bind(path)
+            .execute(db.pool())
+            .await
+            .expect("Failed to insert session");
+        }
+
+        // Restore the checkpoint
+        let result = restore_checkpoint(&db, checkpoint_id).await;
+
+        // Should succeed
+        assert!(result.is_ok(), "Restore with valid names should succeed");
+
+        // Verify all sessions were restored
+        let sessions = db
+            .list(None)
+            .await
+            .expect("Failed to list sessions");
+        assert_eq!(sessions.len(), 3, "All 3 valid sessions should be restored");
+    }
+
+    #[tokio::test]
+    async fn test_restore_checkpoint_with_invalid_session_names() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        // Ensure checkpoint tables exist
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to create checkpoint tables");
+
+        // Create a checkpoint with both valid and invalid session names
+        let checkpoint_id = "chk-test-invalid";
+        sqlx::query("INSERT INTO checkpoints (checkpoint_id) VALUES (?)")
+            .bind(checkpoint_id)
+            .execute(db.pool())
+            .await
+            .expect("Failed to create checkpoint");
+
+        // Insert a mix of valid and invalid session names
+        let test_cases = vec![
+            ("valid-session", "active", "/path/to/valid"),      // Valid
+            ("", "active", "/path/to/empty"),                    // Invalid: empty
+            ("  ", "active", "/path/to/space"),                  // Invalid: whitespace
+            ("../../etc/passwd", "active", "/path/to/traverse"), // Invalid: path traversal
+            ("feature-auth", "active", "/path/to/feature"),      // Valid
+            ("\t", "active", "/path/to/tab"),                    // Invalid: tab
+            ("123-starts-with-digit", "active", "/path/to/digit"), // Invalid: starts with digit
+        ];
+
+        for (name, status, path) in test_cases {
+            sqlx::query(
+                "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path)
+                 VALUES (?, ?, ?, ?)",
+            )
+            .bind(checkpoint_id)
+            .bind(name)
+            .bind(status)
+            .bind(path)
+            .execute(db.pool())
+            .await
+            .expect("Failed to insert session");
+        }
+
+        // Restore the checkpoint
+        let result = restore_checkpoint(&db, checkpoint_id).await;
+
+        // Should succeed (invalid sessions are skipped)
+        assert!(result.is_ok(), "Restore should succeed even with some invalid names");
+
+        // Verify only valid sessions were restored
+        let sessions = db
+            .list(None)
+            .await
+            .expect("Failed to list sessions");
+        assert_eq!(sessions.len(), 2, "Only 2 valid sessions should be restored");
+
+        // Verify the restored sessions are the valid ones
+        let session_names: Vec<_> = sessions.iter().map(|s| s.name.as_str()).collect();
+        assert!(
+            session_names.contains(&"valid-session"),
+            "valid-session should be restored"
+        );
+        assert!(
+            session_names.contains(&"feature-auth"),
+            "feature-auth should be restored"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_restore_checkpoint_with_only_invalid_names() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        // Ensure checkpoint tables exist
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to create checkpoint tables");
+
+        // Create a checkpoint with only invalid session names
+        let checkpoint_id = "chk-test-all-invalid";
+        sqlx::query("INSERT INTO checkpoints (checkpoint_id) VALUES (?)")
+            .bind(checkpoint_id)
+            .execute(db.pool())
+            .await
+            .expect("Failed to create checkpoint");
+
+        // Insert only invalid session names
+        let invalid_sessions = vec![
+            ("", "active", "/path/to/empty"),
+            ("  ", "active", "/path/to/space"),
+            ("../../etc/passwd", "active", "/path/to/traverse"),
+        ];
+
+        for (name, status, path) in invalid_sessions {
+            sqlx::query(
+                "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path)
+                 VALUES (?, ?, ?, ?)",
+            )
+            .bind(checkpoint_id)
+            .bind(name)
+            .bind(status)
+            .bind(path)
+            .execute(db.pool())
+            .await
+            .expect("Failed to insert session");
+        }
+
+        // Restore the checkpoint
+        let result = restore_checkpoint(&db, checkpoint_id).await;
+
+        // Should succeed (all sessions are skipped, but restore operation itself succeeds)
+        assert!(
+            result.is_ok(),
+            "Restore should succeed even if all sessions are invalid"
+        );
+
+        // Verify no sessions were restored
+        let sessions = db
+            .list(None)
+            .await
+            .expect("Failed to list sessions");
+        assert_eq!(sessions.len(), 0, "No sessions should be restored");
+    }
+
+    #[tokio::test]
+    async fn test_restore_checkpoint_preserves_valid_session_data() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        // Ensure checkpoint tables exist
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to create checkpoint tables");
+
+        // Create a checkpoint with detailed session data
+        let checkpoint_id = "chk-test-preserve";
+        sqlx::query("INSERT INTO checkpoints (checkpoint_id) VALUES (?)")
+            .bind(checkpoint_id)
+            .execute(db.pool())
+            .await
+            .expect("Failed to create checkpoint");
+
+        // Insert session with all fields
+        sqlx::query(
+            "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path, branch, metadata)
+             VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(checkpoint_id)
+        .bind("my-session")
+        .bind("active")
+        .bind("/workspace/path")
+        .bind("main")
+        .bind(r#"{"bead_id": "zjj-abc123"}"#)
+        .execute(db.pool())
+        .await
+        .expect("Failed to insert session");
+
+        // Restore the checkpoint
+        restore_checkpoint(&db, checkpoint_id)
+            .await
+            .expect("Restore should succeed");
+
+        // Verify the session was restored with all data intact
+        let session = db
+            .get("my-session")
+            .await
+            .expect("Failed to get session")
+            .expect("Session should exist");
+
+        assert_eq!(session.name, "my-session");
+        assert_eq!(session.workspace_path, "/workspace/path");
+        assert_eq!(session.branch, Some("main".to_string()));
+        assert!(session.metadata.is_some());
+    }
 }
