@@ -204,7 +204,10 @@ fn test_remove_with_force_succeeds_on_nonexistent_session() {
     // With --idempotent: Should succeed
     //
     // Document current behavior - --force on nonexistent session fails
-    assert!(!result.success, "--force should fail when session doesn't exist");
+    assert!(
+        !result.success,
+        "--force should fail when session doesn't exist"
+    );
 
     // THEN: Error message indicates session not found
     let output = result.stdout.to_lowercase() + &result.stderr.to_lowercase();

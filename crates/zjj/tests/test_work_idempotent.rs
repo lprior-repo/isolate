@@ -90,9 +90,7 @@ fn test_work_idempotent_creates_workspace_when_not_exists() {
 
     let json: JsonValue =
         serde_json::from_str(&list_result.stdout).expect("List should be valid JSON");
-    let sessions = json["data"]
-        .as_array()
-        .expect("Should have sessions");
+    let sessions = json["data"].as_array().expect("Should have sessions");
 
     assert!(
         sessions.iter().any(|s| s["name"] == "new-feature"),
@@ -364,9 +362,7 @@ fn test_work_idempotent_with_dry_run() {
     let list_result = harness.zjj(&["list", "--json"]);
     let json: JsonValue =
         serde_json::from_str(&list_result.stdout).expect("List should be valid JSON");
-    let sessions = json["data"]
-        .as_array()
-        .expect("Should have sessions");
+    let sessions = json["data"].as_array().expect("Should have sessions");
 
     assert!(
         !sessions.iter().any(|s| s["name"] == "dry-test"),

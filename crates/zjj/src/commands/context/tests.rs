@@ -45,7 +45,7 @@ fn test_context_output_serialization() {
     let context = sample_context();
     let json = serde_json::to_string(&context);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
+        panic!("serialization failed");
         return;
     };
     assert!(json_str.contains("location"));
@@ -60,7 +60,7 @@ fn test_location_main_serialization() {
     let location = Location::Main;
     let json = serde_json::to_string(&location);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
+        panic!("serialization failed");
         return;
     };
     assert!(json_str.contains("main"));
@@ -74,7 +74,7 @@ fn test_location_workspace_serialization() {
     };
     let json = serde_json::to_string(&location);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
+        panic!("serialization failed");
         return;
     };
     assert!(json_str.contains("workspace"));
@@ -138,7 +138,7 @@ fn test_session_context_serialization() {
     };
     let json = serde_json::to_string(&session);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
+        panic!("serialization failed");
         return;
     };
     assert!(json_str.contains("name"));
@@ -163,6 +163,7 @@ fn test_session_context_with_agent() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_session_context_serialization_with_agent() {
     let session = SessionContext {
         name: "test".to_string(),
@@ -174,7 +175,7 @@ fn test_session_context_serialization_with_agent() {
     };
     let json = serde_json::to_string(&session);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
+        panic!("serialization failed");
         return;
     };
     assert!(json_str.contains("agent"));
@@ -211,6 +212,7 @@ fn test_repository_context_dirty() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_repository_context_serialization() {
     let repo = RepositoryContext {
         root: "/path".to_string(),
@@ -221,7 +223,7 @@ fn test_repository_context_serialization() {
     };
     let json = serde_json::to_string(&repo);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
+        panic!("serialization failed");
         return;
     };
     assert!(json_str.contains("uncommitted_files"));
@@ -256,6 +258,7 @@ fn test_beads_context_blocked() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_beads_context_serialization() {
     let beads = BeadsContext {
         active: Some("test".to_string()),
@@ -265,7 +268,7 @@ fn test_beads_context_serialization() {
     };
     let json = serde_json::to_string(&beads);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
+        panic!("serialization failed");
         return;
     };
     assert!(json_str.contains("active"));
@@ -298,13 +301,14 @@ fn test_health_status_error() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_health_status_serialization() {
     let health = HealthStatus::Warn {
         issues: vec!["warning 1".to_string()],
     };
     let json = serde_json::to_string(&health);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
+        panic!("serialization failed");
         return;
     };
     assert!(json_str.contains("warn"));
@@ -383,8 +387,7 @@ fn test_field_pointer_conversion() {
     assert!(json_value.is_ok());
 
     let Ok(value) = json_value else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     // location.type should become /location/type
     let pointer = "/location/type".to_string();
@@ -399,8 +402,7 @@ fn test_nested_field_access() {
     assert!(json_value.is_ok());
 
     let Ok(value) = json_value else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     // repository.branch should be accessible
     let result = value.pointer("/repository/branch");

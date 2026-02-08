@@ -84,9 +84,7 @@ fn test_add_idempotent_creates_session_when_not_exists() {
 
     let json: JsonValue =
         serde_json::from_str(&list_result.stdout).expect("List output should be valid JSON");
-    let sessions = json["data"]
-        .as_array()
-        .expect("Should have sessions array");
+    let sessions = json["data"].as_array().expect("Should have sessions array");
 
     assert!(
         sessions.iter().any(|s| s["name"] == "new-session"),
@@ -184,9 +182,7 @@ fn test_add_idempotent_with_bead_id_succeeds_on_duplicate() {
 
     let json: JsonValue =
         serde_json::from_str(&list_result.stdout).expect("List output should be valid JSON");
-    let sessions = json["data"]
-        .as_array()
-        .expect("Should have sessions");
+    let sessions = json["data"].as_array().expect("Should have sessions");
 
     let count = sessions
         .iter()
@@ -228,9 +224,7 @@ fn test_add_idempotent_fails_on_invalid_session_name() {
 
     let json: JsonValue =
         serde_json::from_str(&list_result.stdout).expect("List output should be valid JSON");
-    let sessions = json["data"]
-        .as_array()
-        .expect("Should have sessions");
+    let sessions = json["data"].as_array().expect("Should have sessions");
 
     assert!(
         sessions.is_empty(),
