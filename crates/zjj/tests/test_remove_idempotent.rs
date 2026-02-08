@@ -2,8 +2,9 @@
 //!
 //! These tests verify that the `--idempotent` flag works correctly for the remove command.
 //!
-//! NOTE: As of the implementation date, the `remove` command does NOT have an --idempotent flag.
-//! These tests document the EXPECTED behavior once the flag is implemented.
+//! NOTE: As of the implementation date, the `remove` command accepts the `--idempotent` flag
+//! via clap, but `RemoveOptions`/`remove::run_with_options` does not implement behavior for it.
+//! These tests document the EXPECTED behavior once the flag is fully implemented.
 //!
 //! The contract (rust-contract-zjj-ftds.md) states:
 //! - If session doesn't exist and --idempotent is used, command should succeed (exit code 0)
@@ -32,8 +33,8 @@ fn test_remove_idempotent_succeeds_when_session_doesnt_exist() {
 
     harness.assert_success(&["init"]);
 
-    // WHEN: User runs `zjj remove nonexistent --idempotent`
-    let result = harness.zjj(&["remove", "nonexistent", "--idempotent"]);
+    // WHEN: User runs `zjj remove nonexistent --idempotent --force`
+    let result = harness.zjj(&["remove", "nonexistent", "--idempotent", "--force"]);
 
     // THEN: Command succeeds with exit code 0
     assert!(
@@ -74,8 +75,8 @@ fn test_remove_idempotent_removes_session_when_exists() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "old-session", "--no-open"]);
 
-    // WHEN: User runs `zjj remove old-session --idempotent`
-    let result = harness.zjj(&["remove", "old-session", "--idempotent"]);
+    // WHEN: User runs `zjj remove old-session --idempotent --force`
+    let result = harness.zjj(&["remove", "old-session", "--idempotent", "--force"]);
 
     // THEN: Command succeeds with exit code 0
     assert!(
@@ -138,8 +139,8 @@ fn test_remove_idempotent_fails_when_not_initialized() {
 
     // NOTE: Not running `zjj init`
 
-    // WHEN: User runs `zjj remove test --idempotent`
-    let result = harness.zjj(&["remove", "test", "--idempotent"]);
+    // WHEN: User runs `zjj remove test --idempotent --force`
+    let result = harness.zjj(&["remove", "test", "--idempotent", "--force"]);
 
     // THEN: Command fails with exit code 1
     assert!(
@@ -151,8 +152,7 @@ fn test_remove_idempotent_fails_when_not_initialized() {
     let output = result.stdout.to_lowercase() + &result.stderr.to_lowercase();
     assert!(
         output.contains("not initialized") || output.contains("init"),
-        "Error should indicate initialization required\noutput: {}",
-        output
+        "Error should indicate initialization required\noutput: {output}"
     );
 }
 
@@ -183,8 +183,7 @@ fn test_remove_without_idempotent_fails_on_nonexistent_session() {
     let output = result.stdout.to_lowercase() + &result.stderr.to_lowercase();
     assert!(
         output.contains("not found") || output.contains("no such"),
-        "Error should indicate session not found\noutput: {}",
-        output
+        "Error should indicate session not found\noutput: {output}"
     );
 }
 
@@ -204,9 +203,15 @@ fn test_remove_with_force_succeeds_on_nonexistent_session() {
     // Currently: --force skips confirmation but still fails if session doesn't exist
     // With --idempotent: Should succeed
     //
-    // This test documents current behavior
-    let _ = result;
-    // Assert whatever the current behavior is
+    // Document current behavior - --force on nonexistent session fails
+    assert!(!result.success, "--force should fail when session doesn't exist");
+
+    // THEN: Error message indicates session not found
+    let output = result.stdout.to_lowercase() + &result.stderr.to_lowercase();
+    assert!(
+        output.contains("not found") || output.contains("no such"),
+        "Error should indicate session not found\noutput: {output}"
+    );
 }
 
 // ============================================================================
@@ -223,8 +228,8 @@ fn test_remove_idempotent_json_output_includes_status() {
 
     harness.assert_success(&["init"]);
 
-    // WHEN: User runs `zjj remove nonexistent --idempotent --json`
-    let result = harness.zjj(&["remove", "nonexistent", "--idempotent", "--json"]);
+    // WHEN: User runs `zjj remove nonexistent --idempotent --json --force`
+    let result = harness.zjj(&["remove", "nonexistent", "--idempotent", "--json", "--force"]);
 
     // THEN: Command succeeds
     assert!(result.success, "Command should succeed");
@@ -233,19 +238,18 @@ fn test_remove_idempotent_json_output_includes_status() {
     let json: JsonValue =
         serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
 
-    // THEN: JSON indicates idempotent path
-    assert_eq!(json["schema"], "remove-response");
-    assert_eq!(json["type"], "single");
+    // THEN: JSON indicates idempotent path (SchemaEnvelope format)
+    assert_eq!(json["$schema"], "zjj://remove-response/v1");
+    assert_eq!(json["schema_type"], "single");
 
-    let data = &json["data"];
-    assert_eq!(data["name"], "nonexistent");
+    // Payload fields are at top level (flattened by SchemaEnvelope)
+    assert_eq!(json["name"], "nonexistent");
 
     // Should indicate already removed or no action needed
-    let message = data["message"].as_str().expect("Should have message");
+    let message = json["message"].as_str().expect("Should have message");
     assert!(
         message.to_lowercase().contains("already") || message.to_lowercase().contains("no such"),
-        "Message should indicate idempotent path\nmessage: {}",
-        message
+        "Message should indicate idempotent path\nmessage: {message}"
     );
 }
 
@@ -259,10 +263,10 @@ fn test_remove_idempotent_never_fails_on_nonexistent_session() {
 
     harness.assert_success(&["init"]);
 
-    // WHEN: User runs `zjj remove safe-remove --idempotent` multiple times
-    let result1 = harness.zjj(&["remove", "safe-remove", "--idempotent"]);
-    let result2 = harness.zjj(&["remove", "safe-remove", "--idempotent"]);
-    let result3 = harness.zjj(&["remove", "safe-remove", "--idempotent"]);
+    // WHEN: User runs `zjj remove safe-remove --idempotent --force` multiple times
+    let result1 = harness.zjj(&["remove", "safe-remove", "--idempotent", "--force"]);
+    let result2 = harness.zjj(&["remove", "safe-remove", "--idempotent", "--force"]);
+    let result3 = harness.zjj(&["remove", "safe-remove", "--idempotent", "--force"]);
 
     // THEN: All attempts succeed (safe to retry indefinitely)
     assert!(
