@@ -23,6 +23,8 @@ use crate::commands::backup::list;
 /// Returns error if:
 /// - Backup directory cannot be read
 /// - Old backups cannot be removed
+#[allow(dead_code)]
+// Core retention policy enforcement function
 pub async fn apply_retention_policy(
     _root: &Path,
     database_name: &str,
@@ -68,6 +70,8 @@ pub async fn apply_retention_policy(
 /// # Errors
 ///
 /// Returns error if any retention operation fails
+#[allow(dead_code)]
+// High-level retention orchestration function
 pub async fn apply_retention_policy_all(
     _root: &Path,
     config: &BackupConfig,
@@ -94,6 +98,8 @@ pub async fn apply_retention_policy_all(
 /// # Errors
 ///
 /// Returns error if backup metadata cannot be accessed
+#[allow(dead_code)]
+// Utility function for backup size analysis
 pub async fn calculate_backup_size(
     _root: &Path,
     database_name: &str,
@@ -112,6 +118,8 @@ pub async fn calculate_backup_size(
 /// # Errors
 ///
 /// Returns error if backup metadata cannot be accessed
+#[allow(dead_code)]
+// Utility function for retention planning
 pub async fn calculate_freed_space(
     _root: &Path,
     database_name: &str,
@@ -137,6 +145,8 @@ pub async fn calculate_freed_space(
 /// # Errors
 ///
 /// Returns error if backup information cannot be retrieved
+#[allow(dead_code)]
+// Status reporting function for retention policy
 pub async fn get_retention_status(
     _root: &Path,
     config: &BackupConfig,
@@ -182,6 +192,8 @@ pub struct RetentionStatus {
 
 impl RetentionStatus {
     /// Format size as human-readable string
+    #[allow(dead_code)]
+    // Utility method for human-readable size formatting
     pub fn format_size(bytes: u64) -> String {
         const KB: u64 = 1024;
         const MB: u64 = 1024 * KB;

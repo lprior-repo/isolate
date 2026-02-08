@@ -24,6 +24,8 @@ use super::backup_internal::{
 /// - Metadata cannot be parsed
 /// - Checksum verification fails
 /// - Target database file cannot be written
+#[allow(dead_code)]
+// Core restore functionality with checksum verification
 pub async fn restore_backup(
     backup_path: &Path,
     target_path: &Path,
@@ -87,6 +89,8 @@ pub async fn restore_backup(
 /// Returns error if:
 /// - Backup directory does not exist
 /// - No backups are found
+#[allow(dead_code)]
+// Helper function to locate most recent backup
 pub async fn find_latest_backup(
     _root: &Path,
     database_name: &str,
@@ -150,6 +154,8 @@ pub async fn find_latest_backup(
 /// Returns error if:
 /// - No backups exist
 /// - Restore operation fails
+#[allow(dead_code)]
+// Convenience function to restore from most recent backup
 pub async fn restore_from_latest(
     root: &Path,
     database_name: &str,

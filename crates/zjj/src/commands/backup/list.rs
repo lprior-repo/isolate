@@ -30,6 +30,8 @@ pub struct BackupInfo {
 
 impl BackupInfo {
     /// Create backup info from path and metadata
+    #[allow(dead_code)]
+    // Constructor for backup information structure
     pub fn new(
         path: PathBuf,
         timestamp: DateTime<Utc>,
@@ -52,6 +54,8 @@ impl BackupInfo {
 /// Returns error if:
 /// - Backup directory cannot be read
 /// - File metadata cannot be accessed
+#[allow(dead_code)]
+// Core listing functionality for backup discovery
 pub async fn list_database_backups(
     _root: &Path,
     database_name: &str,
@@ -116,6 +120,8 @@ pub async fn list_database_backups(
 /// # Errors
 ///
 /// Returns error if any backup directory cannot be read
+#[allow(dead_code)]
+// High-level listing orchestration function
 pub async fn list_all_backups(
     _root: &Path,
     config: &BackupConfig,

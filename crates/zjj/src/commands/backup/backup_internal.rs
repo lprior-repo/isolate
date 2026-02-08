@@ -33,6 +33,8 @@ impl BackupMetadata {
     /// # Errors
     ///
     /// Returns error if checksum computation fails
+    #[allow(dead_code)]
+    // Part of public API for backup metadata
     pub fn new(database_name: String, size_bytes: u64, checksum: String) -> Self {
         let created_at = Utc::now();
         Self {
@@ -64,12 +66,16 @@ impl Default for BackupConfig {
 
 impl BackupConfig {
     /// Create backup config with custom retention
+    #[allow(dead_code)]
+    // Builder pattern method for backup configuration
     pub fn with_retention(mut self, count: usize) -> Self {
         self.retention_count = count;
         self
     }
 
     /// Create backup config with custom backup directory
+    #[allow(dead_code)]
+    // Builder pattern method for backup configuration
     pub fn with_backup_dir(mut self, dir: PathBuf) -> Self {
         self.backup_dir = dir;
         self
@@ -81,6 +87,8 @@ impl BackupConfig {
 /// # Errors
 ///
 /// Returns error if file cannot be read
+#[allow(dead_code)]
+// Used by backup system for integrity verification
 pub async fn compute_checksum(path: &Path) -> Result<String> {
     use sha2::{Digest, Sha256};
     use tokio::{fs::File, io::AsyncReadExt};
@@ -117,6 +125,8 @@ pub async fn compute_checksum(path: &Path) -> Result<String> {
 /// # Errors
 ///
 /// Never fails (pure function)
+#[allow(dead_code)]
+// Helper function for backup file organization
 pub fn get_database_backup_dir(backup_root: &Path, database_name: &str) -> PathBuf {
     backup_root.join(database_name)
 }
@@ -126,6 +136,8 @@ pub fn get_database_backup_dir(backup_root: &Path, database_name: &str) -> PathB
 /// # Errors
 ///
 /// Never fails (pure function)
+#[allow(dead_code)]
+// Helper function for backup file naming
 pub fn generate_backup_filename(timestamp: &DateTime<Utc>) -> String {
     format!("backup-{}.db", timestamp.format("%Y%m%d-%H%M%S"))
 }
@@ -135,6 +147,8 @@ pub fn generate_backup_filename(timestamp: &DateTime<Utc>) -> String {
 /// # Errors
 ///
 /// Returns error if filename format is invalid
+#[allow(dead_code)]
+// Helper function for backup file parsing
 pub fn parse_backup_filename(filename: &str) -> Result<DateTime<Utc>> {
     filename
         .strip_prefix("backup-")
