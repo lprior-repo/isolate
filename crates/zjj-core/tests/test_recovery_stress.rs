@@ -47,6 +47,8 @@ async fn test_concurrent_recovery_logging() -> Result<(), Error> {
     let config = RecoveryConfig {
         policy: RecoveryPolicy::Silent,
         log_recovered: true,
+        auto_recover_corrupted_wal: true,
+        delete_corrupted_database: false,
     };
 
     // Change to temp directory so log_recovery creates the file there
@@ -115,6 +117,8 @@ async fn test_large_recovery_log_handling() -> Result<(), Error> {
     let config = RecoveryConfig {
         policy: RecoveryPolicy::Silent,
         log_recovered: true,
+        auto_recover_corrupted_wal: true,
+        delete_corrupted_database: false,
     };
 
     let temp_path = temp_dir.path().to_path_buf();
@@ -175,6 +179,8 @@ async fn test_concurrent_logging_integrity() -> Result<(), Error> {
     let config = RecoveryConfig {
         policy: RecoveryPolicy::Silent,
         log_recovered: true,
+        auto_recover_corrupted_wal: true,
+        delete_corrupted_database: false,
     };
 
     let temp_path = temp_dir.path().to_path_buf();
@@ -252,6 +258,8 @@ async fn test_recovery_log_disabled() -> Result<(), Error> {
     let config = RecoveryConfig {
         policy: RecoveryPolicy::Silent,
         log_recovered: false, // Disabled
+        auto_recover_corrupted_wal: true,
+        delete_corrupted_database: false,
     };
 
     let temp_path = temp_dir.path().to_path_buf();
@@ -289,6 +297,8 @@ async fn test_recovery_log_append_behavior() -> Result<(), Error> {
     let config = RecoveryConfig {
         policy: RecoveryPolicy::Silent,
         log_recovered: true,
+        auto_recover_corrupted_wal: true,
+        delete_corrupted_database: false,
     };
 
     let temp_path = temp_dir.path().to_path_buf();
@@ -347,6 +357,8 @@ async fn test_recovery_log_with_special_characters() -> Result<(), Error> {
     let config = RecoveryConfig {
         policy: RecoveryPolicy::Silent,
         log_recovered: true,
+        auto_recover_corrupted_wal: true,
+        delete_corrupted_database: false,
     };
 
     let temp_path = temp_dir.path().to_path_buf();
@@ -418,6 +430,8 @@ async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
     let config = RecoveryConfig {
         policy: RecoveryPolicy::Silent,
         log_recovered: true,
+        auto_recover_corrupted_wal: true,
+        delete_corrupted_database: false,
     };
 
     let temp_path = temp_dir.path().to_path_buf();
