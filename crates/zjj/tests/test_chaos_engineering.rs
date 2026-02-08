@@ -352,7 +352,7 @@ fn test_all_failure_modes() {
         // Test each failure mode independently
         let _result = executor.inject_chaos(|| {
             // Run a simple Result-returning operation
-            std::fs::write(harness.repo_path.join(format!("{:?}", mode)), "data")
+            std::fs::write(harness.repo_path.join(format!("{mode:?}")), "data")
         });
         // Verify no panic occurs for any mode
     }
@@ -403,7 +403,7 @@ fn test_zero_chaos_probability() {
         })
         .collect();
 
-    let all_success = results.iter().all(|r| r.is_ok());
+    let all_success = results.iter().all(std::result::Result::is_ok);
     assert!(all_success, "All operations should succeed with 0% chaos");
 }
 
@@ -418,7 +418,7 @@ fn test_max_chaos_probability() {
         .map(|_| executor.inject_chaos(|| Ok::<(), std::io::Error>(())))
         .collect();
 
-    let all_fail = results.iter().all(|r| r.is_err());
+    let all_fail = results.iter().all(std::result::Result::is_err);
     assert!(all_fail, "All operations should fail with 100% chaos");
 }
 
@@ -514,7 +514,7 @@ fn test_chaos_overhead() {
         .map(|_| executor.inject_chaos(|| Ok::<(), std::io::Error>(())))
         .collect();
 
-    let all_success = results.iter().all(|r| r.is_ok());
+    let all_success = results.iter().all(std::result::Result::is_ok);
     assert!(
         all_success,
         "Chaos injection should not affect normal operations"

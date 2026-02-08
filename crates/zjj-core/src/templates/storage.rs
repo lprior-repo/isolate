@@ -5,9 +5,9 @@
 //! - `layout.kdl` - The Zellij layout content
 //! - `metadata.json` - Template metadata (`created_at`, description, etc.)
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![warn(clippy::pedantic)]
 
 use std::{

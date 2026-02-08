@@ -11,9 +11,9 @@
 //! 8. Keeps workspace for 24h (unless --no-keep specified)
 //! 9. Switches back to main
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 
 pub mod bead;
 pub mod conflict;

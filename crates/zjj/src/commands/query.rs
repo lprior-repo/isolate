@@ -986,14 +986,10 @@ mod tests {
         let envelope = SchemaEnvelope::new("query-session-exists", "single", test_result);
         let json_str_result = serde_json::to_string(&envelope);
         assert!(json_str_result.is_ok(), "serialization should succeed");
-        let json_str = json_str_result
-            .ok()
-            .expect("Serialization should succeed");
+        let json_str = json_str_result.ok().expect("Serialization should succeed");
         let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&json_str);
         assert!(parsed_result.is_ok(), "parsing should succeed");
-        let parsed = parsed_result
-            .ok()
-            .expect("Parsing should succeed");
+        let parsed = parsed_result.ok().expect("Parsing should succeed");
 
         assert!(parsed.get("$schema").is_some());
         assert!(parsed.get("success").is_some());
@@ -1303,7 +1299,9 @@ mod tests {
             "suggest-name should have metadata"
         );
 
-        let error_msg = suggest_name_info.unwrap().format_error_message();
+        let error_msg = suggest_name_info
+            .expect("suggest-name should have metadata")
+            .format_error_message();
         assert!(
             error_msg.contains("Error: 'suggest-name' query requires"),
             "Error message should indicate it's an error about 'suggest-name' query"
@@ -1324,7 +1322,9 @@ mod tests {
             "session-count should have metadata"
         );
 
-        let error_msg = session_count_info.unwrap().format_error_message();
+        let error_msg = session_count_info
+            .expect("session-count should have metadata")
+            .format_error_message();
         assert!(
             error_msg.contains("optional"),
             "Error message should indicate the argument is optional"
@@ -1352,7 +1352,7 @@ mod tests {
                 "{query_name} should have metadata for consistent error messages"
             );
 
-            let info = info.unwrap();
+            let info = info.expect("Query should have metadata");
             assert!(
                 info.requires_arg,
                 "{query_name} should be marked as requiring an argument"

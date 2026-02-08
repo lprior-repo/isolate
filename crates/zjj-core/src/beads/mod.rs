@@ -1,5 +1,5 @@
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![deny(clippy::arithmetic_side_effects)]
 
 //! Beads issue tracking integration.

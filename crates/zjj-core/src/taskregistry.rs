@@ -17,9 +17,9 @@
 //! registry.shutdown_all().await;
 //! ```
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 
 use std::sync::Arc;
 

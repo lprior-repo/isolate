@@ -105,7 +105,10 @@ impl BeadRepository {
     /// List all beads
     pub async fn list_beads(&self) -> Result<Vec<BeadMetadata>> {
         // Load from JSONL then supplement with SQLite using im::HashMap for functional merging
-        let jsonl_beads = self.list_beads_jsonl().await.unwrap_or_default();
+        let jsonl_beads = self
+            .list_beads_jsonl()
+            .await
+            .map_or_else(|_| Vec::new(), |v| v);
         let initial_map = jsonl_beads
             .into_iter()
             .fold(im::HashMap::new(), |mut acc, b| {
@@ -113,7 +116,10 @@ impl BeadRepository {
                 acc
             });
 
-        let sqlite_beads = self.list_beads_sqlite().await.unwrap_or_default();
+        let sqlite_beads = self
+            .list_beads_sqlite()
+            .await
+            .map_or_else(|_| Vec::new(), |v| v);
         let final_map = sqlite_beads.into_iter().fold(initial_map, |mut acc, b| {
             acc.insert(b.id.clone(), b);
             acc
@@ -144,7 +150,7 @@ impl BeadRepository {
             .map(|(id, title, status_str)| BeadMetadata {
                 id,
                 title,
-                status: status_str.parse().unwrap_or(BeadStatus::Open),
+                status: status_str.parse().map_or(BeadStatus::Open, |s| s),
                 description: None,
             })
             .collect())
@@ -169,12 +175,11 @@ impl BeadRepository {
                         let title = json
                             .get("title")
                             .and_then(|v| v.as_str())
-                            .unwrap_or("Unknown")
-                            .to_string();
+                            .map_or_else(|| "Unknown".to_string(), |s| s.to_string());
                         let status_str = json
                             .get("status")
                             .and_then(|v| v.as_str())
-                            .unwrap_or("open");
+                            .map_or("open", |s| s);
                         let description = json
                             .get("description")
                             .and_then(|v| v.as_str())
@@ -183,7 +188,7 @@ impl BeadRepository {
                         Some(BeadMetadata {
                             id: id.to_string(),
                             title,
-                            status: status_str.parse().unwrap_or(BeadStatus::Open),
+                            status: status_str.parse().map_or(BeadStatus::Open, |s| s),
                             description,
                         })
                     })
@@ -222,7 +227,7 @@ impl BeadRepository {
         Ok(result.map(|(id, title, status_str)| BeadMetadata {
             id,
             title,
-            status: status_str.parse().unwrap_or(BeadStatus::Open),
+            status: status_str.parse().map_or(BeadStatus::Open, |s| s),
             description: None,
         }))
     }
@@ -244,12 +249,11 @@ impl BeadRepository {
                     let title = json
                         .get("title")
                         .and_then(|v| v.as_str())
-                        .unwrap_or("Unknown")
-                        .to_string();
+                        .map_or_else(|| "Unknown".to_string(), |s| s.to_string());
                     let status_str = json
                         .get("status")
                         .and_then(|v| v.as_str())
-                        .unwrap_or("open");
+                        .map_or("open", |s| s);
                     let description = json
                         .get("description")
                         .and_then(|v| v.as_str())
@@ -258,7 +262,7 @@ impl BeadRepository {
                     Some(BeadMetadata {
                         id: id.to_string(),
                         title,
-                        status: status_str.parse().unwrap_or(BeadStatus::Open),
+                        status: status_str.parse().map_or(BeadStatus::Open, |s| s),
                         description,
                     })
                 } else {

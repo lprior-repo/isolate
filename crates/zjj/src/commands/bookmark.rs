@@ -3,9 +3,9 @@
 //! This module provides a wrapper around JJ's bookmark commands to maintain
 //! zjj's single-interface principle - AI agents use 'zjj bookmark' not 'jj bookmark'.
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![warn(clippy::pedantic)]
 
 use anyhow::{Context, Result};

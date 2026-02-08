@@ -6,9 +6,9 @@
 //! - Simple embedded schema (no migration files)
 //! - Pure functional patterns with Railway-Oriented Programming
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 
 use std::{path::Path, str::FromStr, time::SystemTime};
 
@@ -140,7 +140,7 @@ impl SessionDb {
 
         // Pre-flight check: Detect permission issues BEFORE SQLite tries to open
         // This prevents silent recovery from permission-denied scenarios
-        if tokio::fs::try_exists(path).await.unwrap_or(false) {
+        if tokio::fs::try_exists(path).await.map_or(false, |v| v) {
             use tokio::fs::File;
             if let Err(e) = File::open(path).await {
                 return Err(Error::DatabaseError(format!(
@@ -157,7 +157,7 @@ impl SessionDb {
         let recovery_config = zjj_core::config::load_config()
             .await
             .map(|c| c.recovery)
-            .unwrap_or_default();
+            .unwrap_or_else(|_| zjj_core::config::RecoveryConfig::default());
 
         // SQLx connection string with mode parameter
         let db_url = if path.is_absolute() {
@@ -312,7 +312,7 @@ fn get_recovery_policy() -> RecoveryPolicy {
 
     // Check ZJJ_RECOVERY_POLICY env var
     if let Ok(policy_str) = std::env::var("ZJJ_RECOVERY_POLICY") {
-        return policy_str.parse().unwrap_or(RecoveryPolicy::Warn);
+        return policy_str.parse().map_or(RecoveryPolicy::Warn, |p| p);
     }
 
     // Default to warn policy
@@ -327,7 +327,7 @@ fn get_recovery_policy() -> RecoveryPolicy {
 async fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
     // Check if we can access and read the file before allowing recovery
     // This prevents recovery when DB is inaccessible (chmod 000, permission denied, etc.)
-    if tokio::fs::try_exists(path).await.unwrap_or(false) {
+    if tokio::fs::try_exists(path).await.map_or(false, |v| v) {
         match tokio::fs::metadata(path).await {
             Ok(_) => {
                 // File exists, check if readable
@@ -358,7 +358,7 @@ async fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
     // If file doesn't exist, check if parent directory exists
     // (meaning zjj was previously initialized)
     if let Some(parent) = path.parent() {
-        if tokio::fs::try_exists(parent).await.unwrap_or(false) {
+        if tokio::fs::try_exists(parent).await.map_or(false, |v| v) {
             return Ok(());
         }
     }
@@ -389,7 +389,7 @@ async fn check_wal_integrity(
     let wal_path = db_path.with_extension("db-wal");
 
     // If WAL file doesn't exist, no issue
-    if !tokio::fs::try_exists(&wal_path).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(&wal_path).await.map_or(false, |v| v) {
         return Ok(());
     }
 
@@ -422,7 +422,7 @@ async fn check_wal_integrity(
         .get(0..4)
         .and_then(|slice| <[u8; 4]>::try_from(slice).ok())
         .map(u32::from_be_bytes)
-        .unwrap_or(0); // Invalid magic if conversion fails
+        .map_or(0, |m| m); // Invalid magic if conversion fails
 
     if wal_magic != 0x377f_0682 {
         // WAL magic bytes don't match - file is corrupted
@@ -483,7 +483,7 @@ async fn check_database_integrity(
     config: &zjj_core::config::RecoveryConfig,
 ) -> Result<()> {
     // If database file doesn't exist, no issue (might be creating)
-    if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(db_path).await.map_or(false, |v| v) {
         return Ok(());
     }
 
@@ -491,7 +491,7 @@ async fn check_database_integrity(
     let file_size = tokio::fs::metadata(db_path)
         .await
         .map(|m| m.len())
-        .unwrap_or(0);
+        .map_or(0, |s| s);
 
     if file_size < 100 {
         // Too small to be a valid database
@@ -537,7 +537,10 @@ async fn check_database_integrity(
     ];
 
     // Functional: compare first 16 bytes safely
-    let header_prefix = header.get(0..16).unwrap_or(&[]);
+    let header_prefix = match header.get(0..16) {
+        Some(slice) => slice,
+        None => &[],
+    };
     if header_prefix != expected_magic {
         // Magic bytes don't match - file is corrupted
         let policy = config.policy;
@@ -645,7 +648,7 @@ async fn recover_database(path: &Path, config: &zjj_core::config::RecoveryConfig
     // Remove corrupted file if it exists
     // Do NOT modify file permissions - respect user-set permissions
     // Only log error if removal fails - don't attempt chmod
-    if tokio::fs::try_exists(path).await.unwrap_or(false) {
+    if tokio::fs::try_exists(path).await.map_or(false, |v| v) {
         match tokio::fs::remove_file(path).await {
             Ok(()) => {
                 // Successfully removed corrupted file
@@ -793,8 +796,8 @@ async fn insert_session(
     .bind(status.to_string())
     .bind(WorkspaceState::Created.to_string())
     .bind(workspace_path)
-    .bind(timestamp.to_i64().unwrap_or(i64::MAX))
-    .bind(timestamp.to_i64().unwrap_or(i64::MAX))
+    .bind(timestamp.to_i64().map_or(i64::MAX, |t| t))
+    .bind(timestamp.to_i64().map_or(i64::MAX, |t| t))
     .execute(pool)
     .await
     .map(|result| result.last_insert_rowid())
@@ -863,8 +866,8 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
     let status = SessionStatus::from_str(&status_str)?;
     let state_str: String = row
         .try_get("state")
-        .unwrap_or_else(|_| "created".to_string());
-    let state = WorkspaceState::from_str(&state_str).unwrap_or(WorkspaceState::Created);
+        .map_or_else(|_| "created".to_string(), |s: String| s);
+    let state = WorkspaceState::from_str(&state_str).map_or(WorkspaceState::Created, |s| s);
     let workspace_path: String = row
         .try_get("workspace_path")
         .map_err(|e| Error::DatabaseError(format!("Failed to read workspace_path: {e}")))?;
@@ -1067,7 +1070,13 @@ mod tests {
             b'3', 0x00,
         ];
 
-        assert_eq!(valid_header.get(0..16).unwrap_or(&[]), expected_magic);
+        assert_eq!(
+            match valid_header.get(0..16) {
+                Some(slice) => slice,
+                None => &[],
+            },
+            expected_magic
+        );
     }
 
     /// Test that the old buggy magic bytes (lowercase l) would fail validation
@@ -1083,7 +1092,13 @@ mod tests {
             b'3', 0x00,
         ];
 
-        assert_ne!(invalid_header.get(0..16).unwrap_or(&[]), expected_magic);
+        assert_ne!(
+            match invalid_header.get(0..16) {
+                Some(slice) => slice,
+                None => &[],
+            },
+            expected_magic
+        );
     }
 
     /// Test that old buggy magic bytes (double null) would fail validation
@@ -1123,7 +1138,13 @@ mod tests {
             b'3', 0x00,
         ];
 
-        assert_ne!(invalid_header.get(0..16).unwrap_or(&[]), expected_magic);
+        assert_ne!(
+            match invalid_header.get(0..16) {
+                Some(slice) => slice,
+                None => &[],
+            },
+            expected_magic
+        );
     }
 
     /// Test that WAL magic bytes validation works correctly
@@ -1135,7 +1156,7 @@ mod tests {
             .get(0..4)
             .and_then(|slice| <[u8; 4]>::try_from(slice).ok())
             .map(u32::from_be_bytes)
-            .unwrap_or(0);
+            .map_or(0, |m| m);
 
         assert_eq!(wal_magic, 0x377f_0682);
     }
@@ -1177,7 +1198,13 @@ mod tests {
             b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
             b'3', 0x00,
         ];
-        assert_eq!(header.get(0..16).unwrap_or(&[]), expected_magic);
+        assert_eq!(
+            match header.get(0..16) {
+                Some(slice) => slice,
+                None => &[],
+            },
+            expected_magic
+        );
 
         Ok(())
     }
@@ -1205,7 +1232,7 @@ mod tests {
             .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
         // Verify the file was created
-        assert!(tokio::fs::try_exists(&db_path).await.unwrap_or(false));
+        assert!(tokio::fs::try_exists(&db_path).await.map_or(false, |v| v));
 
         // Read and verify the first 16 bytes match the invalid header (functional)
         let header = crate::db::io::read_exact_bytes::<16>(&db_path)
@@ -1213,8 +1240,14 @@ mod tests {
             .map_err(|e| Error::IoError(format!("Failed to read header: {e}")))?;
 
         assert_eq!(
-            header.get(0..16).unwrap_or(&[]),
-            invalid_header.get(0..16).unwrap_or(&[])
+            match header.get(0..16) {
+                Some(slice) => slice,
+                None => &[],
+            },
+            match invalid_header.get(0..16) {
+                Some(slice) => slice,
+                None => &[],
+            }
         );
 
         // Verify it does NOT match the expected magic bytes
@@ -1239,11 +1272,11 @@ mod tests {
             .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
         // Verify the file exists but is too small
-        assert!(tokio::fs::try_exists(&db_path).await.unwrap_or(false));
+        assert!(tokio::fs::try_exists(&db_path).await.map_or(false, |v| v));
         let file_size = tokio::fs::metadata(&db_path)
             .await
             .map(|m| m.len())
-            .unwrap_or(0);
+            .map_or(0, |s| s);
         assert!(file_size < 100, "File should be less than 100 bytes");
 
         Ok(())

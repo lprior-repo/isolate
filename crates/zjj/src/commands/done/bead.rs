@@ -3,9 +3,9 @@
 //! This module provides a trait for interacting with the beads database,
 //! allowing for easy testing and potential future backends.
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 
 use std::{
     collections::HashMap,

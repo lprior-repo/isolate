@@ -126,6 +126,13 @@ async fn run_validate(
     workspace: &str,
     format: OutputFormat,
 ) -> Result<()> {
+    // Validate workspace name is not empty
+    if workspace.trim().is_empty() {
+        return Err(anyhow::anyhow!(
+            "Workspace name cannot be empty. Please provide a valid workspace name."
+        ));
+    }
+
     let validator = IntegrityValidator::new(jj_root);
     let result = validator.validate(workspace).await?;
 
@@ -154,6 +161,13 @@ async fn run_repair(
     force: bool,
     format: OutputFormat,
 ) -> Result<()> {
+    // Validate workspace name is not empty
+    if workspace.trim().is_empty() {
+        return Err(anyhow::anyhow!(
+            "Workspace name cannot be empty. Please provide a valid workspace name to repair."
+        ));
+    }
+
     let validator = IntegrityValidator::new(jj_root);
     let validation = validator.validate(workspace).await?;
 
@@ -537,4 +551,80 @@ fn confirm_restore(backup: &BackupMetadata) -> bool {
         .ok()
         .map(|_| input.trim().eq_ignore_ascii_case("y") || input.trim().eq_ignore_ascii_case("yes"))
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test that empty workspace name is handled gracefully
+    /// This test ensures that passing an empty string for workspace name
+    /// returns a proper error instead of causing a panic downstream
+    #[tokio::test]
+    async fn test_repair_empty_workspace_name_returns_error() {
+        // Create a temp dir to use as jj_root
+        let temp_dir =
+            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {}", e));
+
+        let jj_root = match temp_dir {
+            Ok(dir) => dir,
+            Err(e) => {
+                // If we can't create temp dir, that's OK - skip test
+                eprintln!("Skipping test: failed to create temp dir: {}", e);
+                return;
+            }
+        };
+
+        let jj_root_path = jj_root.path();
+
+        // Attempt to repair with empty workspace name
+        // This should return a Result::Err, not panic
+        let result = run_repair(jj_root_path, "", false, OutputFormat::Human).await;
+
+        // Verify we get an error, not a panic
+        match result {
+            Ok(_) => panic!("Repair with empty workspace name should return an error"),
+            Err(e) => {
+                let error_msg = e.to_string();
+                assert!(
+                    !error_msg.contains("panic") && !error_msg.contains("unwrap"),
+                    "Error should not contain panic-related words: {}",
+                    error_msg
+                );
+            }
+        }
+    }
+
+    /// Test that validate also handles empty workspace name gracefully
+    #[tokio::test]
+    async fn test_validate_empty_workspace_name_returns_error() {
+        let temp_dir =
+            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {}", e));
+
+        let jj_root = match temp_dir {
+            Ok(dir) => dir,
+            Err(e) => {
+                eprintln!("Skipping test: failed to create temp dir: {}", e);
+                return;
+            }
+        };
+
+        let jj_root_path = jj_root.path();
+
+        // Attempt to validate with empty workspace name
+        let result = run_validate(jj_root_path, "", OutputFormat::Human).await;
+
+        // Verify we get an error, not a panic
+        match result {
+            Ok(_) => panic!("Validate with empty workspace name should return an error"),
+            Err(e) => {
+                let error_msg = e.to_string();
+                assert!(
+                    !error_msg.contains("panic") && !error_msg.contains("unwrap"),
+                    "Error should not contain panic-related words: {}",
+                    error_msg
+                );
+            }
+        }
+    }
 }

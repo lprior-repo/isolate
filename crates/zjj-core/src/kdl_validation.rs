@@ -3,9 +3,9 @@
 //! This module provides KDL syntax validation using the kdl-rs parser.
 //! It validates KDL documents and provides detailed error messages.
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![warn(clippy::pedantic)]
 
 use std::str::FromStr;

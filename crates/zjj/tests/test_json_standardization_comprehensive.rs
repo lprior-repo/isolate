@@ -332,7 +332,7 @@ fn test_error_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
         // Check success is false
         let success = parsed
             .get("success")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .ok_or("Missing success field")?;
 
         assert!(!success, "Error response should have success=false");
@@ -387,8 +387,7 @@ fn test_schema_uri_consistency() -> Result<(), Box<dyn std::error::Error>> {
                 let expected_uri = format!("zjj://{expected_schema}/v1");
                 assert_eq!(
                     schema, expected_uri,
-                    "Schema URI for {:?} should be {expected_uri}, got {schema}",
-                    args
+                    "Schema URI for {args:?} should be {expected_uri}, got {schema}"
                 );
             }
         }
@@ -559,7 +558,7 @@ fn test_json_is_pretty_printed() {
     }
 }
 
-/// Test that exit codes match error.exit_code field
+/// Test that exit codes match `error.exit_code` field
 #[test]
 fn test_exit_code_matches_json() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
@@ -573,7 +572,7 @@ fn test_exit_code_matches_json() -> Result<(), Box<dyn std::error::Error>> {
         let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
 
         if let Some(error) = parsed.get("error") {
-            if let Some(exit_code) = error.get("exit_code").and_then(|v| v.as_i64()) {
+            if let Some(exit_code) = error.get("exit_code").and_then(serde_json::Value::as_i64) {
                 // Exit code in JSON should match process exit code
                 // Note: result.status.code() may not be available in all test harnesses
                 assert!(

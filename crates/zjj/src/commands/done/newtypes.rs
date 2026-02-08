@@ -3,9 +3,9 @@
 //! These types provide compile-time validation and type safety.
 //! All validation happens at construction time via TryFrom/From.
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 
 use std::{
     fmt,
