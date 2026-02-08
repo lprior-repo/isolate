@@ -2,6 +2,16 @@
 //!
 //! Provides exclusive locking so that only one agent operates on a session at a time.
 //! Locks have a TTL and can be extended via heartbeat.
+//!
+//! # Session Existence Validation
+//!
+//! The lock manager validates that a session exists in the sessions table before
+//! acquiring a lock. This prevents orphaned locks from being created for
+//! non-existent sessions.
+
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 
 use chrono::{DateTime, Duration, Utc};
 use sqlx::SqlitePool;
@@ -144,9 +154,14 @@ impl LockManager {
     /// Acquire an exclusive lock on a session.
     ///
     /// Returns `SessionLocked` error if another agent holds a valid lock.
+    /// Returns `SessionNotFound` error if the session doesn't exist in the sessions table.
     pub async fn lock(&self, session: &str, agent_id: &str) -> Result<LockResponse> {
         let now = Utc::now();
         let now_str = now.to_rfc3339();
+
+        // CRITICAL: Check session exists BEFORE creating lock
+        // This prevents orphaned locks for non-existent sessions
+        self.verify_session_exists(session).await?;
 
         // First, clean up expired locks for this session
         sqlx::query("DELETE FROM session_locks WHERE session = ? AND expires_at < ?")
@@ -223,6 +238,40 @@ impl LockManager {
             agent_id: agent_id.to_string(),
             expires_at,
         })
+    }
+
+    /// Verify that a session exists in the sessions table.
+    ///
+    /// This is called before acquiring a lock to prevent orphaned locks.
+    async fn verify_session_exists(&self, session: &str) -> Result<()> {
+        // Try to query the sessions table
+        let query_result = sqlx::query("SELECT name FROM sessions WHERE name = ?")
+            .bind(session)
+            .fetch_optional(&self.db)
+            .await;
+
+        match query_result {
+            Ok(None) => {
+                // Session doesn't exist
+                Err(Error::SessionNotFound {
+                    session: session.to_string(),
+                })
+            }
+            Ok(Some(_)) => {
+                // Session exists
+                Ok(())
+            }
+            Err(e) => {
+                // If sessions table doesn't exist (old database), allow the lock
+                // This maintains backward compatibility
+                let error_msg = e.to_string();
+                if error_msg.contains("no such table") || error_msg.contains("does not exist") {
+                    Ok(())
+                } else {
+                    Err(Error::DatabaseError(format!("Failed to query sessions: {e}")))
+                }
+            }
+        }
     }
 
     /// Release a lock. Only the holder can release it.
@@ -656,6 +705,177 @@ mod tests {
         mgr.unlock("session-1", "agent-a").await?;
         let state = mgr.get_lock_state("session-1").await?;
         assert!(state.holder.is_none(), "Expected no holder after unlock");
+
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SESSION VALIDATION TESTS (zjj-1w0d: Lock Non-Existent Session)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Test: Lock non-existent session returns error (when sessions table exists)
+    #[tokio::test]
+    async fn lock_nonexistent_session_returns_not_found_error() -> Result<()> {
+        let pool = test_pool().await?;
+        let mgr = LockManager::new(pool.clone());
+
+        // Initialize both lock tables and sessions table
+        mgr.init().await?;
+
+        // Create sessions table (normally done by SessionDb)
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS sessions (
+                name TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                state TEXT NOT NULL,
+                workspace_path TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Try to lock session that doesn't exist
+        let result = mgr.lock("ghost-session", "agent-1").await;
+
+        assert!(result.is_err(), "Should fail for non-existent session");
+
+        match result.unwrap_err() {
+            Error::SessionNotFound { session, .. } => {
+                assert_eq!(session, "ghost-session");
+            }
+            other => panic!("Expected SessionNotFound, got {:?}", other),
+        }
+
+        // Verify no lock was created
+        let locks = mgr.get_all_locks().await?;
+        assert!(locks.is_empty(), "No lock should exist for non-existent session");
+
+        Ok(())
+    }
+
+    // Test: Lock existing session succeeds (requires creating session in database)
+    #[tokio::test]
+    async fn lock_existing_session_succeeds() -> Result<()> {
+        let pool = test_pool().await?;
+        let mgr = LockManager::new(pool.clone());
+        mgr.init().await?;
+
+        // Create sessions table (normally done by SessionDb)
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS sessions (
+                name TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                state TEXT NOT NULL,
+                workspace_path TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Create session first
+        sqlx::query("INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)")
+            .bind("real-session")
+            .bind("active")
+            .bind("working")
+            .bind("/workspace")
+            .execute(&pool)
+            .await
+            .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Lock should succeed
+        let result = mgr.lock("real-session", "agent-1").await;
+
+        assert!(result.is_ok(), "Lock should succeed for existing session");
+
+        // Verify lock exists
+        let locks = mgr.get_all_locks().await?;
+        assert_eq!(locks.len(), 1);
+        assert_eq!(locks[0].session, "real-session");
+        assert_eq!(locks[0].agent_id, "agent-1");
+
+        Ok(())
+    }
+
+    // Test: Lock after session is deleted fails
+    #[tokio::test]
+    async fn lock_deleted_session_fails_with_not_found() -> Result<()> {
+        let pool = test_pool().await?;
+        let mgr = LockManager::new(pool.clone());
+        mgr.init().await?;
+
+        // Create sessions table (normally done by SessionDb)
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS sessions (
+                name TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                state TEXT NOT NULL,
+                workspace_path TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Create session
+        sqlx::query("INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)")
+            .bind("ephemeral-session")
+            .bind("active")
+            .bind("working")
+            .bind("/workspace")
+            .execute(&pool)
+            .await
+            .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Delete it
+        sqlx::query("DELETE FROM sessions WHERE name = ?")
+            .bind("ephemeral-session")
+            .execute(&pool)
+            .await
+            .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Try to lock - should fail
+        let result = mgr.lock("ephemeral-session", "agent-1").await;
+
+        assert!(result.is_err());
+        assert!(matches!(result, Err(Error::SessionNotFound { .. })));
+
+        Ok(())
+    }
+
+    // Regression: The exact reported bug - locking non-existent session no longer creates orphaned lock
+    #[tokio::test]
+    async fn regression_lock_nonexistent_session_no_longer_creates_orphaned_lock() -> Result<()> {
+        let pool = test_pool().await?;
+        let mgr = LockManager::new(pool.clone());
+        mgr.init().await?;
+
+        // Create sessions table (normally done by SessionDb)
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS sessions (
+                name TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                state TEXT NOT NULL,
+                workspace_path TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // No sessions exist
+
+        // Try to lock non-existent session (the bug)
+        let result = mgr.lock("ghost-session", "agent-1").await;
+
+        // Should fail
+        assert!(result.is_err(), "Lock must fail for non-existent session");
+
+        // Most important: NO orphaned lock should exist
+        let locks = mgr.get_all_locks().await?;
+        assert!(!locks.iter().any(|l| l.session == "ghost-session"),
+                "REGRESSION: Orphaned lock created for non-existent session!");
 
         Ok(())
     }

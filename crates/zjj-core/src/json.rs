@@ -214,7 +214,7 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
         // Validation errors: exit code 1
         Error::InvalidConfig(_) | Error::ValidationError(_) | Error::ParseError(_) => 1,
         // Not found errors: exit code 2
-        Error::NotFound(_) => 2,
+        Error::NotFound(_) | Error::SessionNotFound { .. } => 2,
         // System errors: exit code 3
         Error::IoError(_) | Error::DatabaseError(_) => 3,
         // External command errors: exit code 4
@@ -271,6 +271,11 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
         Error::NotFound(msg) => (
             ErrorCode::SessionNotFound,
             format!("Not found: {msg}"),
+            Some("Use 'zjj list' to see available sessions".to_string()),
+        ),
+        Error::SessionNotFound { session } => (
+            ErrorCode::SessionNotFound,
+            format!("Session '{session}' not found"),
             Some("Use 'zjj list' to see available sessions".to_string()),
         ),
         Error::DatabaseError(msg) => (

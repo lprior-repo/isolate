@@ -263,6 +263,10 @@ pub enum Error {
     ParseError(String),
     ValidationError(String),
     NotFound(String),
+    /// Session not found in database (specific to lock operations)
+    SessionNotFound {
+        session: String,
+    },
     DatabaseError(String),
     Command(String),
     HookFailed {
@@ -312,6 +316,9 @@ impl fmt::Display for Error {
             Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
             Self::ValidationError(msg) => write!(f, "Validation error: {msg}"),
             Self::NotFound(msg) => write!(f, "Not found: {msg}"),
+            Self::SessionNotFound { session } => {
+                write!(f, "Session '{session}' not found")
+            }
             Self::DatabaseError(msg) => write!(f, "Database error: {msg}"),
             Self::Command(msg) => write!(f, "Command error: {msg}"),
             Self::HookFailed {
@@ -414,6 +421,7 @@ impl Error {
             Self::ParseError(_) => "PARSE_ERROR",
             Self::ValidationError(_) => "VALIDATION_ERROR",
             Self::NotFound(_) => "NOT_FOUND",
+            Self::SessionNotFound { .. } => "SESSION_NOT_FOUND",
             Self::DatabaseError(_) => "DATABASE_ERROR",
             Self::Command(_) => "COMMAND_ERROR",
             Self::HookFailed { .. } => "HOOK_FAILED",
@@ -445,6 +453,11 @@ impl Error {
             Self::NotFound(msg) => Some(serde_json::json!({
                 "resource_type": "session",
                 "resource_id": msg,
+                "searched_in": "database"
+            })),
+            Self::SessionNotFound { session } => Some(serde_json::json!({
+                "resource_type": "session",
+                "session_name": session,
                 "searched_in": "database"
             })),
             Self::IoError(msg) => Some(serde_json::json!({
@@ -516,6 +529,7 @@ impl Error {
     pub fn suggestion(&self) -> Option<String> {
         match self {
             Self::NotFound(_) => Some("Try 'zjj list' to see available sessions".to_string()),
+            Self::SessionNotFound { .. } => Some("Use 'zjj list' to see available sessions".to_string()),
             Self::ValidationError(msg) => {
                 if msg.contains("name") {
                     Some(
@@ -598,7 +612,7 @@ impl Error {
             // Validation errors: exit code 1
             Self::InvalidConfig(_) | Self::ValidationError(_) | Self::ParseError(_) => 1,
             // Not found errors: exit code 2
-            Self::NotFound(_) => 2,
+            Self::NotFound(_) | Self::SessionNotFound { .. } => 2,
             // System errors: exit code 3
             Self::IoError(_) | Self::DatabaseError(_) => 3,
             // External command errors: exit code 4
@@ -664,6 +678,7 @@ impl Error {
             }
             Self::IoError(_)
             | Self::NotFound(_)
+            | Self::SessionNotFound { .. }
             | Self::DatabaseError(_)
             | Self::Command(_)
             | Self::HookFailed { .. }
@@ -735,6 +750,9 @@ impl Error {
                 } else {
                     vec!["zjj list".to_string()]
                 }
+            }
+            Self::SessionNotFound { session } => {
+                vec!["zjj list".to_string(), format!("zjj add {session}")]
             }
             Self::ValidationError(msg) => {
                 if msg.contains("name") {
