@@ -10,7 +10,7 @@ use serde::Serialize;
 use sqlx::Row;
 use zjj_core::OutputFormat;
 
-use crate::{commands::get_session_db, db::SessionDb};
+use crate::{commands::get_session_db, db::SessionDb, session::validate_session_name};
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -182,9 +182,16 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
         .await
         .context("Failed to clear sessions for restore")?;
 
+    // Track statistics for reporting
+    let mut total_sessions = 0;
+    let mut skipped_invalid = 0;
+    let mut restored_count = 0;
+
     let tx = futures::stream::iter(rows)
         .map(Ok::<sqlx::sqlite::SqliteRow, anyhow::Error>)
         .try_fold(tx, |mut tx, row| async move {
+            total_sessions += 1;
+
             let name: String = row.try_get("session_name").context("Missing session_name")?;
             let status: String = row.try_get("status").context("Missing status")?;
             let workspace_path: String =
@@ -192,25 +199,52 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
             let branch: Option<String> = row.try_get("branch").context("Missing branch")?;
             let metadata: Option<String> = row.try_get("metadata").context("Missing metadata")?;
 
-            sqlx::query(
-                "INSERT INTO sessions (name, status, workspace_path, branch, metadata, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'))",
-            )
-            .bind(&name)
-            .bind(&status)
-            .bind(&workspace_path)
-            .bind(&branch)
-            .bind(&metadata)
-            .execute(&mut *tx)
-            .await
-            .with_context(|| format!("Failed to restore session '{name}'"))?;
-            Ok::<_, anyhow::Error>(tx)
+            // Validate session name before restoring (zjj-3xuo)
+            match validate_session_name(&name) {
+                Ok(()) => {
+                    // Session name is valid, proceed with restore
+                    sqlx::query(
+                        "INSERT INTO sessions (name, status, workspace_path, branch, metadata, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'))",
+                    )
+                    .bind(&name)
+                    .bind(&status)
+                    .bind(&workspace_path)
+                    .bind(&branch)
+                    .bind(&metadata)
+                    .execute(&mut *tx)
+                    .await
+                    .with_context(|| format!("Failed to restore session '{name}'"))?;
+                    restored_count += 1;
+                    Ok::<_, anyhow::Error>(tx)
+                }
+                Err(e) => {
+                    // Session name is invalid, log warning and skip
+                    eprintln!(
+                        "Warning: Skipping invalid session name '{name}': {e}",
+                        name = name,
+                        e = e
+                    );
+                    skipped_invalid += 1;
+                    Ok(tx)
+                }
+            }
         })
         .await?;
 
     tx.commit()
         .await
         .context("Failed to commit restore transaction")?;
+
+    // Report summary if any sessions were skipped
+    if skipped_invalid > 0 {
+        eprintln!(
+            "Restore summary: {restored_count}/{total_sessions} sessions restored, {skipped_invalid} skipped due to invalid names",
+            restored_count = restored_count,
+            total_sessions = total_sessions,
+            skipped_invalid = skipped_invalid
+        );
+    }
 
     Ok(CheckpointResponse::Restored {
         checkpoint_id: checkpoint_id.to_string(),

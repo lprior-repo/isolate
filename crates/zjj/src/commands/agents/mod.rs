@@ -331,7 +331,10 @@ pub async fn run_register(args: &RegisterArgs, format: OutputFormat) -> Result<(
 ///
 /// # Errors
 ///
-/// Returns error if no agent ID set or database access fails
+/// Returns error if:
+/// - No agent ID set in environment
+/// - Agent ID not found in database (agent was unregistered)
+/// - Database access fails
 pub async fn run_heartbeat(args: &HeartbeatArgs, format: OutputFormat) -> Result<()> {
     let agent_id = std::env::var("ZJJ_AGENT_ID").map_err(|_| {
         anyhow::anyhow!("No agent registered. Set ZJJ_AGENT_ID or run 'zjj agent register'")
@@ -361,7 +364,12 @@ pub async fn run_heartbeat(args: &HeartbeatArgs, format: OutputFormat) -> Result
         .await
     };
 
-    result.map_err(|e| anyhow::anyhow!("Failed to send heartbeat: {e}"))?;
+    let result = result.map_err(|e| anyhow::anyhow!("Failed to send heartbeat: {e}"))?;
+
+    // Check if agent exists - 0 rows affected means agent was unregistered
+    if result.rows_affected() == 0 {
+        anyhow::bail!("Agent '{agent_id}' not found. Agent may have been unregistered. Please run 'zjj agent register' to re-register.");
+    }
 
     let output = HeartbeatOutput {
         agent_id: agent_id.clone(),

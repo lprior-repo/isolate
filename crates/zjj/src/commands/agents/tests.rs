@@ -712,6 +712,71 @@ async fn unregister_is_idempotent() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+// Test: BUG FIX - heartbeat after unregister returns error instead of silently succeeding
+#[tokio::test]
+async fn heartbeat_after_unregister_returns_error() -> Result<(), anyhow::Error> {
+    let ctx = TestContext::new().await?;
+
+    // Register agent
+    ctx.register_agent("test-agent").await?;
+
+    // Unregister agent
+    sqlx::query("DELETE FROM agents WHERE agent_id = ?")
+        .bind("test-agent")
+        .execute(&ctx.pool)
+        .await?;
+
+    // Verify agent is gone
+    let agents = ctx.get_all_agents().await?;
+    assert!(agents.is_empty(), "agent should be unregistered");
+
+    // Heartbeat should fail (0 rows affected)
+    let result = sqlx::query(
+        "UPDATE agents SET last_seen = ?, actions_count = actions_count + 1 WHERE agent_id = ?",
+    )
+    .bind(&Utc::now().to_rfc3339())
+    .bind("test-agent")
+    .execute(&ctx.pool)
+    .await;
+
+    assert!(result.is_ok(), "query execution should succeed");
+
+    let update_result = result?;
+    assert_eq!(
+        update_result.rows_affected(),
+        0,
+        "heartbeat should affect 0 rows for unregistered agent"
+    );
+
+    // Verify agent was NOT re-created by heartbeat
+    let agents = ctx.get_all_agents().await?;
+    assert!(
+        agents.is_empty(),
+        "heartbeat should not re-register unregistered agent"
+    );
+
+    // Verify that a subsequent register would recreate the agent
+    let now = Utc::now().to_rfc3339();
+    sqlx::query(
+        "INSERT INTO agents (agent_id, registered_at, last_seen, current_session, current_command, actions_count)
+         VALUES (?, ?, ?, NULL, NULL, 0)
+         ON CONFLICT(agent_id) DO UPDATE SET last_seen = ?"
+    )
+    .bind("test-agent")
+    .bind(&now)
+    .bind(&now)
+    .bind(&now)
+    .execute(&ctx.pool)
+    .await?;
+
+    // Now agent should exist again
+    let agents = ctx.get_all_agents().await?;
+    assert_eq!(agents.len(), 1, "register should recreate agent");
+    assert_eq!(agents[0].agent_id, "test-agent");
+
+    Ok(())
+}
+
 // ============================================================================
 // Agent ID Validation Unit Tests
 // ============================================================================
