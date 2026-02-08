@@ -8,9 +8,8 @@
 //! 5. Merges workspace changes to main
 //! 6. Logs undo history to .zjj/undo.log
 //! 7. Updates linked bead status to completed
-//! 8. Updates session status to "completed"
-//! 9. Keeps workspace for 24h (unless --no-keep specified)
-//! 10. Switches back to main
+//! 8. Keeps workspace for 24h (unless --no-keep specified)
+//! 9. Switches back to main
 
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 #![cfg_attr(not(test), deny(clippy::expect_used))]
@@ -35,11 +34,9 @@ use zjj_core::json::SchemaEnvelope;
 use self::conflict::ConflictDetector;
 use crate::{
     cli::jj_root,
-    commands::{
-        context::{detect_location, Location},
-        get_session_db,
-    },
-    session::{SessionStatus, SessionUpdate},
+    commands::{context::detect_location, context::Location, get_session_db},
+    session::SessionStatus,
+    session::SessionUpdate,
 };
 
 /// Run the done command with options
@@ -124,6 +121,7 @@ async fn execute_done(
             workspace_name,
             dry_run: true,
             preview,
+            session_updated: false,
             ..Default::default()
         });
     }
@@ -181,9 +179,7 @@ async fn execute_done(
     };
 
     // Phase 8.5: Update session status to Completed
-    // Session update always succeeds if we reach this point (errors propagated)
-    update_session_status(&workspace_name).await?;
-    let session_updated = true;
+    let session_updated = update_session_status(&workspace_name).await?;
 
     // Phase 9: Cleanup workspace
     let cleaned = if options.keep_workspace || !options.no_keep {
@@ -201,11 +197,6 @@ async fn execute_done(
         cleaned,
         bead_closed,
         session_updated,
-        new_status: if session_updated {
-            Some("completed".to_string())
-        } else {
-            None
-        },
         pushed_to_remote,
         dry_run: false,
         preview: None,
@@ -550,26 +541,6 @@ async fn update_bead_status(
         })
 }
 
-/// Update session status to Completed after successful done operation
-async fn update_session_status(workspace_name: &str) -> Result<(), DoneError> {
-    let db = get_session_db()
-        .await
-        .map_err(|e| DoneError::SessionUpdateFailed {
-            reason: format!("Failed to open session database: {e}"),
-        })?;
-
-    let session_update = SessionUpdate {
-        status: Some(SessionStatus::Completed),
-        ..Default::default()
-    };
-
-    db.update(workspace_name, session_update)
-        .await
-        .map_err(|e| DoneError::SessionUpdateFailed {
-            reason: format!("Failed to update session status: {e}"),
-        })
-}
-
 /// Cleanup the workspace directory
 async fn cleanup_workspace(
     root: &str,
@@ -589,6 +560,29 @@ async fn cleanup_workspace(
     } else {
         Ok(false)
     }
+}
+
+/// Update session status to Completed
+async fn update_session_status(workspace_name: &str) -> Result<bool, DoneError> {
+    let db = get_session_db().await.map_err(|e| DoneError::InvalidState {
+        reason: format!("Failed to open session database: {e}"),
+    })?;
+
+    let update = SessionUpdate {
+        status: Some(SessionStatus::Completed),
+        state: None,
+        branch: None,
+        last_synced: None,
+        metadata: None,
+    };
+
+    db.update(workspace_name, update)
+        .await
+        .map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to update session status: {e}"),
+        })?;
+
+    Ok(true)
 }
 
 /// Output the result in the appropriate format
@@ -633,6 +627,9 @@ fn output_result(result: &DoneOutput, format: zjj_core::OutputFormat) -> Result<
         }
         if result.bead_closed {
             println!("  Bead status updated to closed");
+        }
+        if result.session_updated {
+            println!("  Session status updated to completed");
         }
         // Post-command workflow guidance
         println!();

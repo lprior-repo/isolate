@@ -485,7 +485,7 @@ mod tests {
         // Check that error message mentions UTF-8 requirement
         let error_msg = match result {
             Err(e) => e.to_string(),
-            Ok(()) => return, // Should not happen due to assert above
+            Ok(_) => return, // Should not happen, but test passed
         };
         assert!(
             error_msg.contains("UTF-8") || error_msg.contains("utf-8"),

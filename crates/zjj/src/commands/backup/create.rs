@@ -134,23 +134,28 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_backup_creates_files() {
-        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_dir = match TempDir::new() {
+            Ok(dir) => dir,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
         let root = temp_dir.path();
 
         // Create test database file
         let db_path = root.join("test.db");
-        fs::write(&db_path, b"test data")
-            .await
-            .expect("Failed to write test data");
+        match fs::write(&db_path, b"test data").await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to write test data: {e}"),
+        };
 
         let config = BackupConfig {
             backup_dir: root.join("backups"),
             ..Default::default()
         };
 
-        let backup_path = create_backup(&db_path, &config)
-            .await
-            .expect("Failed to create backup");
+        let backup_path = match create_backup(&db_path, &config).await {
+            Ok(path) => path,
+            Err(e) => panic!("Failed to create backup: {e}"),
+        };
 
         assert!(backup_path.exists());
         assert!(backup_path.with_extension("json").exists());
@@ -158,7 +163,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_backup_nonexistent_database() {
-        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_dir = match TempDir::new() {
+            Ok(dir) => dir,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
         let root = temp_dir.path();
 
         let db_path = root.join("nonexistent.db");

@@ -153,9 +153,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_backups_empty() {
-        let temp_dir = TempDir::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"))
-            .expect("Failed to create temp dir");
+        let temp_dir = match TempDir::new() {
+            Ok(dir) => dir,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
         let root = temp_dir.path();
 
         let config = BackupConfig {
@@ -163,19 +164,20 @@ mod tests {
             ..Default::default()
         };
 
-        let backups = list_database_backups(root, "test.db", &config)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to list backups: {e}"))
-            .expect("Failed to list backups");
+        let backups = match list_database_backups(root, "test.db", &config).await {
+            Ok(backups) => backups,
+            Err(e) => panic!("Failed to list backups: {e}"),
+        };
 
         assert!(backups.is_empty());
     }
 
     #[tokio::test]
     async fn test_list_backups_sorted() {
-        let temp_dir = TempDir::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"))
-            .expect("Failed to create temp dir");
+        let temp_dir = match TempDir::new() {
+            Ok(dir) => dir,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
         let root = temp_dir.path();
 
         let config = BackupConfig {
@@ -184,33 +186,33 @@ mod tests {
         };
 
         let backup_dir = root.join("backups").join("test.db");
-        fs::create_dir_all(&backup_dir)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to create backup dir: {e}"))
-            .expect("Failed to create backup dir");
+        match fs::create_dir_all(&backup_dir).await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to create backup dir: {e}"),
+        }
 
         // Create multiple backups with different timestamps
         let backup_file1 = backup_dir.join("backup-20250101-100000.db");
         let backup_file2 = backup_dir.join("backup-20250101-120000.db");
         let backup_file3 = backup_dir.join("backup-20250101-110000.db");
 
-        fs::write(&backup_file1, b"data1")
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
-            .expect("Failed to write backup file 1");
-        fs::write(&backup_file2, b"data2")
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
-            .expect("Failed to write backup file 2");
-        fs::write(&backup_file3, b"data3")
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
-            .expect("Failed to write backup file 3");
+        match fs::write(&backup_file1, b"data1").await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to write backup file 1: {e}"),
+        }
+        match fs::write(&backup_file2, b"data2").await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to write backup file 2: {e}"),
+        }
+        match fs::write(&backup_file3, b"data3").await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to write backup file 3: {e}"),
+        }
 
-        let backups = list_database_backups(root, "test.db", &config)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to list backups: {e}"))
-            .expect("Failed to list backups");
+        let backups = match list_database_backups(root, "test.db", &config).await {
+            Ok(backups) => backups,
+            Err(e) => panic!("Failed to list backups: {e}"),
+        };
 
         assert_eq!(backups.len(), 3);
         // Should be sorted newest first

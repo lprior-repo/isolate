@@ -461,12 +461,12 @@ fn parse_bookmark_list(output: &[u8]) -> Result<Vec<BookmarkInfo>> {
                         // New format: skip change_id, get commit_id
                         tokens
                             .get(1)
-                            .map_or_else(|| "unknown".to_string(), std::string::ToString::to_string)
+                            .map_or_else(|| "unknown".to_string(), ToString::to_string)
                     } else {
                         // Legacy format: use first token
                         tokens
                             .first()
-                            .map_or_else(|| "unknown".to_string(), std::string::ToString::to_string)
+                            .map_or_else(|| "unknown".to_string(), ToString::to_string)
                     };
 
                     let remote = rest.contains("@origin");

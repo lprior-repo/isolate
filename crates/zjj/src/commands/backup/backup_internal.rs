@@ -164,9 +164,6 @@ pub fn parse_backup_filename(filename: &str) -> Result<DateTime<Utc>> {
                 .and_then(|s| s.strip_suffix(".db"))
                 .ok_or_else(|| anyhow::anyhow!("Invalid backup filename format"))
                 .and_then(|ts| {
-                    if ts.len() < 15 {
-                        return Err(anyhow::anyhow!("Timestamp string too short: {ts}"));
-                    }
                     DateTime::parse_from_rfc3339(&format!(
                         "{}-{}-{}T{}:{}:{}-00:00",
                         &ts[0..4],
@@ -192,8 +189,10 @@ mod tests {
     fn test_generate_and_parse_backup_filename() {
         let timestamp = Utc::now();
         let filename = generate_backup_filename(&timestamp);
-        let parsed =
-            parse_backup_filename(&filename).expect("Backup filename should parse successfully");
+        let parsed = match parse_backup_filename(&filename) {
+            Ok(parsed) => parsed,
+            Err(e) => panic!("Backup filename should parse successfully: {e}"),
+        };
         // Allow 1-second difference for formatting precision
         let diff = (timestamp - parsed).num_seconds().abs();
         assert!(diff <= 1, "Timestamps differ by {diff} seconds");

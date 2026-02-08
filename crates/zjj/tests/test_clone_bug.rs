@@ -33,11 +33,15 @@ fn test_clone_finds_existing_source_session() {
     assert!(result.success, "list should succeed");
 
     let json: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("list JSON should be valid");
+        match serde_json::from_str(&result.stdout) {
+            Ok(v) => v,
+            Err(e) => panic!("list JSON should be valid: {e}"),
+        };
 
-    let sessions = json["data"]
-        .as_array()
-        .expect("sessions should be an array");
+    let sessions = match json["data"].as_array() {
+        Some(arr) => arr,
+        None => panic!("sessions should be an array"),
+    };
 
     assert!(
         sessions.iter().any(|s| s["name"] == "source-session"),

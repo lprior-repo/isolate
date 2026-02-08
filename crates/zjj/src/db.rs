@@ -10,12 +10,7 @@
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 #![cfg_attr(not(test), deny(clippy::panic))]
 
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-    sync::Arc,
-    time::SystemTime,
-};
+use std::{path::Path, str::FromStr, time::SystemTime};
 
 /// Functional I/O helper module - wraps mutable buffer operations in pure functions
 mod io {
@@ -40,68 +35,12 @@ mod io {
 }
 
 use num_traits::cast::ToPrimitive;
-use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
-use tokio::{
-    sync::{mpsc, oneshot},
-    time::{sleep, Duration},
-};
-use zjj_core::{
-    config::RecoveryConfig,
-    log_recovery, should_log_recovery, Error, RecoveryPolicy, Result, WorkspaceState,
-};
+use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result, WorkspaceState};
 
-use crate::{
-    command_context,
-    session::{validate_session_name, Session, SessionStatus, SessionUpdate},
-};
+use crate::session::{validate_session_name, Session, SessionStatus, SessionUpdate};
 
 const CURRENT_SCHEMA_VERSION: i64 = 1;
-const STATE_WRITER_CHANNEL_SIZE: usize = 512;
-const STATE_WRITER_MAX_RETRIES: u8 = 3;
-const STATE_WRITER_RETRY_BACKOFF_MS: u64 = 20;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-enum SessionEvent {
-    Upsert { session: Session },
-    Delete { name: String },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct EventEnvelope {
-    version: u8,
-    timestamp: u64,
-    command_id: Option<String>,
-    event: SessionEvent,
-}
-
-#[derive(Debug)]
-enum WriteRequest {
-    Create {
-        name: String,
-        workspace_path: String,
-        created_at: u64,
-        command_id: Option<String>,
-        tx: oneshot::Sender<Result<Session>>,
-    },
-    Update {
-        name: String,
-        update: SessionUpdate,
-        command_id: Option<String>,
-        tx: oneshot::Sender<Result<()>>,
-    },
-    Delete {
-        name: String,
-        command_id: Option<String>,
-        tx: oneshot::Sender<Result<bool>>,
-    },
-}
-
-#[derive(Clone)]
-struct StateWriterHandle {
-    sender: mpsc::Sender<WriteRequest>,
-}
 
 /// Database schema as SQL string - executed once on init
 const SCHEMA: &str = r"
@@ -119,7 +58,10 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     last_synced INTEGER,
-    metadata TEXT
+    metadata TEXT,
+    removal_status TEXT DEFAULT NULL CHECK(removal_status IS NULL OR removal_status IN ('pending', 'failed', 'orphaned')),
+    removal_error TEXT DEFAULT NULL,
+    removal_attempted_at INTEGER DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS state_transitions (
@@ -131,20 +73,6 @@ CREATE TABLE IF NOT EXISTS state_transitions (
     agent_id TEXT,
     timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS processed_commands (
-    command_id TEXT PRIMARY KEY,
-    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
-);
-
-CREATE TABLE IF NOT EXISTS agents (
-    agent_id TEXT PRIMARY KEY,
-    registered_at TEXT NOT NULL,
-    last_seen TEXT NOT NULL,
-    current_session TEXT,
-    current_command TEXT,
-    actions_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_status ON sessions(status);
@@ -165,7 +93,6 @@ END;
 #[derive(Clone)]
 pub struct SessionDb {
     pool: SqlitePool,
-    writer: Arc<StateWriterHandle>,
 }
 
 impl SessionDb {
@@ -290,17 +217,10 @@ impl SessionDb {
         };
 
         // Try to initialize schema, with recovery for corrupted databases
-        let event_log_path = state_event_log_path(path);
-
         match init_schema(&pool).await {
             Ok(()) => {
                 check_schema_version(&pool).await?;
-                replay_event_log_if_needed(&pool, &event_log_path).await?;
-                let writer = start_state_writer(pool.clone(), event_log_path);
-                Ok(Self {
-                    pool,
-                    writer: Arc::new(writer),
-                })
+                Ok(Self { pool })
             }
             Err(e) => {
                 // Schema init failed - likely corrupted database
@@ -310,12 +230,7 @@ impl SessionDb {
                         let new_pool = create_connection_pool(&db_url).await?;
                         init_schema(&new_pool).await?;
                         check_schema_version(&new_pool).await?;
-                        replay_event_log_if_needed(&new_pool, &event_log_path).await?;
-                        let writer = start_state_writer(new_pool.clone(), event_log_path);
-                        Ok(Self {
-                            pool: new_pool,
-                            writer: Arc::new(writer),
-                        })
+                        Ok(Self { pool: new_pool })
                     }
                     Err(recovery_err) => Err(Error::DatabaseError(format!(
                         "{e}\n\nRecovery check failed: {recovery_err}"
@@ -331,42 +246,29 @@ impl SessionDb {
     ///
     /// Returns error if session name is invalid, already exists, or database operation fails
     pub async fn create(&self, name: &str, workspace_path: &str) -> Result<Session> {
-        let command_id = command_context::next_write_command_id("create", name);
-        self.create_with_command_id(name, workspace_path, command_id.as_deref())
-            .await
-    }
-
-    /// Create a new session with optional command ID for idempotency.
-    ///
-    /// If `command_id` has already been processed, this returns the persisted
-    /// result instead of executing the write again.
-    pub async fn create_with_command_id(
-        &self,
-        name: &str,
-        workspace_path: &str,
-        command_id: Option<&str>,
-    ) -> Result<Session> {
         // Validate session name BEFORE creating database record
         // This prevents backslash-n and other invalid characters from being stored
         validate_session_name(name)?;
 
         let now = get_current_timestamp()?;
+        let status = SessionStatus::Creating;
+        let state = WorkspaceState::Created;
 
-        let (tx, rx) = oneshot::channel();
-        self.writer
-            .sender
-            .send(WriteRequest::Create {
-                name: name.to_string(),
-                workspace_path: workspace_path.to_string(),
-                created_at: now,
-                command_id: command_id.map(std::string::ToString::to_string),
-                tx,
-            })
+        insert_session(&self.pool, name, &status, workspace_path, now)
             .await
-            .map_err(|e| Error::DatabaseError(format!("State writer unavailable: {e}")))?;
-
-        rx.await
-            .map_err(|e| Error::DatabaseError(format!("State writer dropped response: {e}")))?
+            .map(|id| Session {
+                id: Some(id),
+                name: name.to_string(),
+                status,
+                state,
+                workspace_path: workspace_path.to_string(),
+                zellij_tab: format!("zjj:{name}"),
+                branch: None,
+                created_at: now,
+                updated_at: now,
+                last_synced: None,
+                metadata: None,
+            })
     }
 
     /// Create a session with a specific creation timestamp
@@ -384,41 +286,27 @@ impl SessionDb {
         workspace_path: &str,
         created_at: u64,
     ) -> Result<Session> {
-        let command_id = command_context::next_write_command_id("create_with_timestamp", name);
-        self.create_with_timestamp_and_command_id(
-            name,
-            workspace_path,
-            created_at,
-            command_id.as_deref(),
-        )
-        .await
-    }
-
-    pub async fn create_with_timestamp_and_command_id(
-        &self,
-        name: &str,
-        workspace_path: &str,
-        created_at: u64,
-        command_id: Option<&str>,
-    ) -> Result<Session> {
         // Validate session name BEFORE creating database record
         validate_session_name(name)?;
 
-        let (tx, rx) = oneshot::channel();
-        self.writer
-            .sender
-            .send(WriteRequest::Create {
-                name: name.to_string(),
-                workspace_path: workspace_path.to_string(),
-                created_at,
-                command_id: command_id.map(std::string::ToString::to_string),
-                tx,
-            })
-            .await
-            .map_err(|e| Error::DatabaseError(format!("State writer unavailable: {e}")))?;
+        let status = SessionStatus::Creating;
+        let state = WorkspaceState::Created;
 
-        rx.await
-            .map_err(|e| Error::DatabaseError(format!("State writer dropped response: {e}")))?
+        insert_session(&self.pool, name, &status, workspace_path, created_at)
+            .await
+            .map(|id| Session {
+                id: Some(id),
+                name: name.to_string(),
+                status,
+                state,
+                workspace_path: workspace_path.to_string(),
+                zellij_tab: format!("zjj:{name}"),
+                branch: None,
+                created_at,
+                updated_at: created_at,
+                last_synced: None,
+                metadata: None,
+            })
     }
 
     /// Get a session by name
@@ -436,45 +324,7 @@ impl SessionDb {
     ///
     /// Returns error if database update fails
     pub async fn update(&self, name: &str, update: SessionUpdate) -> Result<()> {
-        let command_id = command_context::next_write_command_id("update", name);
-        self.update_with_command_id(name, update, command_id.as_deref())
-            .await
-    }
-
-    pub async fn update_with_command_id(
-        &self,
-        name: &str,
-        update: SessionUpdate,
-        command_id: Option<&str>,
-    ) -> Result<()> {
-        let (tx, rx) = oneshot::channel();
-        self.writer
-            .sender
-            .send(WriteRequest::Update {
-                name: name.to_string(),
-                update,
-                command_id: command_id.map(std::string::ToString::to_string),
-                tx,
-            })
-            .await
-            .map_err(|e| Error::DatabaseError(format!("State writer unavailable: {e}")))?;
-
-        rx.await
-            .map_err(|e| Error::DatabaseError(format!("State writer dropped response: {e}")))?
-    }
-
-    /// Update session status
-    ///
-    /// # Errors
-    ///
-    /// Returns error if database update fails
-    #[allow(dead_code)] // Part of public API, used by done command
-    pub async fn update_status(&self, name: &str, status: SessionStatus) -> Result<()> {
-        let update = SessionUpdate {
-            status: Some(status),
-            ..Default::default()
-        };
-        self.update(name, update).await
+        update_session(&self.pool, name, update).await
     }
 
     /// Delete a session by name
@@ -485,29 +335,7 @@ impl SessionDb {
     ///
     /// Returns error if database operation fails
     pub async fn delete(&self, name: &str) -> Result<bool> {
-        let command_id = command_context::next_write_command_id("delete", name);
-        self.delete_with_command_id(name, command_id.as_deref())
-            .await
-    }
-
-    pub async fn delete_with_command_id(
-        &self,
-        name: &str,
-        command_id: Option<&str>,
-    ) -> Result<bool> {
-        let (tx, rx) = oneshot::channel();
-        self.writer
-            .sender
-            .send(WriteRequest::Delete {
-                name: name.to_string(),
-                command_id: command_id.map(std::string::ToString::to_string),
-                tx,
-            })
-            .await
-            .map_err(|e| Error::DatabaseError(format!("State writer unavailable: {e}")))?;
-
-        rx.await
-            .map_err(|e| Error::DatabaseError(format!("State writer dropped response: {e}")))?
+        delete_session(&self.pool, name).await
     }
 
     /// List all sessions, optionally filtered by status
@@ -519,8 +347,67 @@ impl SessionDb {
         query_sessions(&self.pool, status_filter).await
     }
 
-    pub async fn is_command_processed(&self, command_id: &str) -> Result<bool> {
-        is_command_processed(&self.pool, command_id).await
+    /// Mark a session as failed removal
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database update fails
+    pub async fn mark_removal_failed(&self, name: &str, error: &str) -> Result<()> {
+        let now = get_current_timestamp()?;
+        sqlx::query(
+            "UPDATE sessions
+             SET removal_status = 'failed',
+                 removal_error = ?,
+                 removal_attempted_at = ?
+             WHERE name = ?"
+        )
+        .bind(error)
+        .bind(now.to_i64().map_or(i64::MAX, |t| t))
+        .bind(name)
+        .execute(&self.pool)
+        .await
+        .map(|_| ())
+        .map_err(|e| Error::DatabaseError(format!("Failed to mark removal as failed: {e}")))
+    }
+
+    /// Find orphaned workspaces (Type 1: session exists but workspace missing)
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails
+    pub async fn find_orphaned_sessions(&self) -> Result<Vec<String>> {
+        let sessions = self.list(None).await?;
+        let mut orphans = Vec::new();
+
+        for session in sessions {
+            let workspace_path = std::path::Path::new(&session.workspace_path);
+            let workspace_exists = tokio::fs::try_exists(workspace_path).await.is_ok_and(|v| v);
+            if !workspace_exists {
+                orphans.push(session.name);
+            }
+        }
+
+        Ok(orphans)
+    }
+
+    /// Cleanup orphaned sessions (Type 1: delete session records with missing workspaces)
+    ///
+    /// Returns count of cleaned sessions
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database deletion fails
+    pub async fn cleanup_orphaned_sessions(&self) -> Result<usize> {
+        let orphans = self.find_orphaned_sessions().await?;
+        let mut cleaned_count = 0;
+
+        for orphan_name in &orphans {
+            if self.delete(orphan_name).await? {
+                cleaned_count += 1;
+            }
+        }
+
+        Ok(cleaned_count)
     }
 }
 
@@ -607,12 +494,6 @@ async fn check_wal_integrity(
     db_path: &Path,
     config: &zjj_core::config::RecoveryConfig,
 ) -> Result<()> {
-    // WAL integrity is only meaningful when the main DB file exists.
-    // If DB is missing (fresh init or recovery), stale WAL should not block recreation.
-    if !tokio::fs::try_exists(db_path).await.is_ok_and(|v| v) {
-        return Ok(());
-    }
-
     let wal_path = db_path.with_extension("db-wal");
 
     // If WAL file doesn't exist, no issue
@@ -833,7 +714,7 @@ async fn check_database_integrity(
 /// - `FailFast`: Returns error without recovering
 /// - Warn: Logs warning, then recovers
 /// - Silent: Recovers without warning (old behavior)
-async fn recover_database(path: &Path, config: &RecoveryConfig) -> Result<()> {
+async fn recover_database(path: &Path, config: &zjj_core::config::RecoveryConfig) -> Result<()> {
     let policy = config.policy;
     let should_log = should_log_recovery(config);
 
@@ -911,758 +792,7 @@ fn get_current_timestamp() -> Result<u64> {
         .map_err(|e| Error::Unknown(format!("System time error: {e}")))
 }
 
-fn state_event_log_path(db_path: &Path) -> PathBuf {
-    db_path.with_extension("events.jsonl")
-}
-
-fn start_state_writer(pool: SqlitePool, event_log_path: PathBuf) -> StateWriterHandle {
-    let (sender, receiver) = mpsc::channel(STATE_WRITER_CHANNEL_SIZE);
-    tokio::spawn(async move {
-        run_state_reactor(pool, event_log_path, receiver).await;
-    });
-    StateWriterHandle { sender }
-}
-
-async fn run_state_reactor(
-    pool: SqlitePool,
-    event_log_path: PathBuf,
-    mut receiver: mpsc::Receiver<WriteRequest>,
-) {
-    while let Some(request) = receiver.recv().await {
-        match process_with_retry(&pool, &event_log_path, request).await {
-            Ok(()) => {}
-            Err(e) => {
-                eprintln!("State writer reactor recovered from write failure: {e}");
-            }
-        }
-    }
-}
-
-async fn process_with_retry(
-    pool: &SqlitePool,
-    event_log_path: &Path,
-    request: WriteRequest,
-) -> Result<()> {
-    let mut attempt: u8 = 0;
-    let mut pending_request = Some(request);
-
-    loop {
-        let Some(request) = pending_request.take() else {
-            return Err(Error::DatabaseError(
-                "Missing state-writer request".to_string(),
-            ))
-        };
-
-        let result = process_one_request(pool, event_log_path, request).await;
-
-        match result {
-            Ok(()) => return Ok(()),
-            Err((request, err)) => {
-                if attempt >= STATE_WRITER_MAX_RETRIES || !is_transient_state_writer_error(&err) {
-                    respond_with_error(request, err.clone());
-                    return Err(err);
-                }
-
-                attempt = attempt.saturating_add(1);
-                pending_request = Some(request);
-                sleep(Duration::from_millis(STATE_WRITER_RETRY_BACKOFF_MS)).await;
-            }
-        }
-    }
-}
-
-async fn process_one_request(
-    pool: &SqlitePool,
-    event_log_path: &Path,
-    request: WriteRequest,
-) -> std::result::Result<(), (WriteRequest, Error)> {
-    match request {
-        WriteRequest::Create {
-            name,
-            workspace_path,
-            created_at,
-            command_id,
-            tx,
-        } => {
-            let command_id_for_retry = command_id.clone();
-            let result = process_create_command(
-                pool,
-                event_log_path,
-                &name,
-                &workspace_path,
-                created_at,
-                command_id,
-            )
-            .await;
-            match result {
-                Ok(session) => {
-                    let _ = tx.send(Ok(session));
-                    Ok(())
-                }
-                Err(e) => {
-                    let request = WriteRequest::Create {
-                        name,
-                        workspace_path,
-                        created_at,
-                        command_id: command_id_for_retry,
-                        tx,
-                    };
-                    Err((request, e))
-                }
-            }
-        }
-        WriteRequest::Update {
-            name,
-            update,
-            command_id,
-            tx,
-        } => {
-            let command_id_for_retry = command_id.clone();
-            let result =
-                process_update_command(pool, event_log_path, &name, update.clone(), command_id)
-                    .await;
-            match result {
-                Ok(()) => {
-                    let _ = tx.send(Ok(()));
-                    Ok(())
-                }
-                Err(e) => {
-                    let request = WriteRequest::Update {
-                        name,
-                        update,
-                        command_id: command_id_for_retry,
-                        tx,
-                    };
-                    Err((request, e))
-                }
-            }
-        }
-        WriteRequest::Delete {
-            name,
-            command_id,
-            tx,
-        } => {
-            let command_id_for_retry = command_id.clone();
-            let result = process_delete_command(pool, event_log_path, &name, command_id).await;
-            match result {
-                Ok(deleted) => {
-                    let _ = tx.send(Ok(deleted));
-                    Ok(())
-                }
-                Err(e) => {
-                    let request = WriteRequest::Delete {
-                        name,
-                        command_id: command_id_for_retry,
-                        tx,
-                    };
-                    Err((request, e))
-                }
-            }
-        }
-    }
-}
-
-fn respond_with_error(request: WriteRequest, error: Error) {
-    match request {
-        WriteRequest::Create { tx, .. } => {
-            let _ = tx.send(Err(error));
-        }
-        WriteRequest::Update { tx, .. } => {
-            let _ = tx.send(Err(error));
-        }
-        WriteRequest::Delete { tx, .. } => {
-            let _ = tx.send(Err(error));
-        }
-    }
-}
-
-fn is_transient_state_writer_error(error: &Error) -> bool {
-    let message = error.to_string();
-    message.contains("database is locked")
-        || message.contains("database table is locked")
-        || message.contains("SQLITE_BUSY")
-        || message.contains("SQLITE_LOCKED")
-}
-
-fn session_from_insert(name: &str, workspace_path: &str, created_at: u64, id: i64) -> Session {
-    Session {
-        id: Some(id),
-        name: name.to_string(),
-        status: SessionStatus::Creating,
-        state: WorkspaceState::Created,
-        workspace_path: workspace_path.to_string(),
-        zellij_tab: format!("zjj:{name}"),
-        branch: None,
-        created_at,
-        updated_at: created_at,
-        last_synced: None,
-        metadata: None,
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn process_create_command(
-    pool: &SqlitePool,
-    event_log_path: &Path,
-    name: &str,
-    workspace_path: &str,
-    created_at: u64,
-    command_id: Option<String>,
-) -> Result<Session> {
-    if let Some(ref id) = command_id {
-        if is_command_processed(pool, id).await? {
-            return query_session_by_name(pool, name).await?.ok_or_else(|| {
-                Error::DatabaseError(format!(
-                    "Command {id} already processed but session missing"
-                ))
-            });
-        }
-    }
-
-    let row_id = insert_session(
-        pool,
-        name,
-        &SessionStatus::Creating,
-        workspace_path,
-        created_at,
-    )
-    .await?;
-    let session = session_from_insert(name, workspace_path, created_at, row_id);
-
-    append_event(
-        event_log_path,
-        EventEnvelope {
-            version: 1,
-            timestamp: get_current_timestamp()?,
-            command_id: command_id.clone(),
-            event: SessionEvent::Upsert {
-                session: session.clone(),
-            },
-        },
-    )
-    .await?;
-
-    if let Some(id) = command_id {
-        mark_command_processed(pool, &id).await?;
-    }
-
-    Ok(session)
-}
-
-async fn process_update_command(
-    pool: &SqlitePool,
-    event_log_path: &Path,
-    name: &str,
-    update: SessionUpdate,
-    command_id: Option<String>,
-) -> Result<()> {
-    if let Some(ref id) = command_id {
-        if is_command_processed(pool, id).await? {
-            return Ok(());
-        }
-    }
-
-    update_session(pool, name, update).await?;
-
-    if let Some(session) = query_session_by_name(pool, name).await? {
-        append_event(
-            event_log_path,
-            EventEnvelope {
-                version: 1,
-                timestamp: get_current_timestamp()?,
-                command_id: command_id.clone(),
-                event: SessionEvent::Upsert { session },
-            },
-        )
-        .await?;
-    }
-
-    if let Some(id) = command_id {
-        mark_command_processed(pool, &id).await?;
-    }
-
-    Ok(())
-}
-
-async fn process_delete_command(
-    pool: &SqlitePool,
-    event_log_path: &Path,
-    name: &str,
-    command_id: Option<String>,
-) -> Result<bool> {
-    if let Some(ref id) = command_id {
-        if is_command_processed(pool, id).await? {
-            return Ok(false);
-        }
-    }
-
-    let deleted = delete_session(pool, name).await?;
-    if deleted {
-        append_event(
-            event_log_path,
-            EventEnvelope {
-                version: 1,
-                timestamp: get_current_timestamp()?,
-                command_id: command_id.clone(),
-                event: SessionEvent::Delete {
-                    name: name.to_string(),
-                },
-            },
-        )
-        .await?;
-    }
-
-    if let Some(id) = command_id {
-        mark_command_processed(pool, &id).await?;
-    }
-
-    Ok(deleted)
-}
-
-async fn is_command_processed(pool: &SqlitePool, command_id: &str) -> Result<bool> {
-    let existing: Option<String> =
-        sqlx::query_scalar("SELECT command_id FROM processed_commands WHERE command_id = ?")
-            .bind(command_id)
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| Error::DatabaseError(format!("Failed to check processed command: {e}")))?;
-    Ok(existing.is_some())
-}
-
-async fn mark_command_processed(pool: &SqlitePool, command_id: &str) -> Result<()> {
-    sqlx::query("INSERT OR IGNORE INTO processed_commands (command_id) VALUES (?)")
-        .bind(command_id)
-        .execute(pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to mark command as processed: {e}")))?;
-    Ok(())
-}
-
-async fn append_event(event_log_path: &Path, envelope: EventEnvelope) -> Result<()> {
-    use tokio::io::AsyncWriteExt;
-
-    let serialized = serde_json::to_string(&envelope)
-        .map_err(|e| Error::ParseError(format!("Failed to serialize state event: {e}")))?;
-
-    if let Some(parent) = event_log_path.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to create event-log directory: {e}")))?;
-    }
-    let mut file = tokio::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(event_log_path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to open event log: {e}")))?;
-
-    file.write_all(serialized.as_bytes())
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to write event log: {e}")))?;
-    file.write_all(b"\n")
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to finalize event log line: {e}")))?;
-    file.flush()
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to flush event log: {e}")))?;
-
-    Ok(())
-}
-
-async fn replay_event_log_if_needed(pool: &SqlitePool, event_log_path: &Path) -> Result<()> {
-    let session_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sessions")
-        .fetch_one(pool)
-        .await
-        .map_err(|e| {
-            Error::DatabaseError(format!("Failed to check session count for replay: {e}"))
-        })?;
-
-    if session_count > 0 {
-        return Ok(());
-    }
-
-    if !tokio::fs::try_exists(event_log_path).await.is_ok_and(|v| v) {
-        return Ok(());
-    }
-
-    let contents = tokio::fs::read_to_string(event_log_path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to read state event log: {e}")))?;
-
-    for (line_index, line) in contents
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .enumerate()
-    {
-        match serde_json::from_str::<EventEnvelope>(line) {
-            Ok(envelope) => replay_event(pool, envelope).await?,
-            Err(parse_error) => {
-                eprintln!(
-                    "State replay skipped invalid event log line {}: {}",
-                    line_index.saturating_add(1),
-                    parse_error
-                );
-            }
-        }
-    }
-
-    Ok(())
-}
-
-async fn replay_event(pool: &SqlitePool, envelope: EventEnvelope) -> Result<()> {
-    let EventEnvelope {
-        version: _,
-        timestamp: _,
-        command_id,
-        event,
-    } = envelope;
-
-    match event {
-        SessionEvent::Upsert { session } => {
-            sqlx::query(
-                "INSERT INTO sessions (name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                 ON CONFLICT(name) DO UPDATE SET
-                     status = excluded.status,
-                     state = excluded.state,
-                     workspace_path = excluded.workspace_path,
-                     branch = excluded.branch,
-                     created_at = excluded.created_at,
-                     updated_at = excluded.updated_at,
-                     last_synced = excluded.last_synced,
-                     metadata = excluded.metadata",
-            )
-            .bind(session.name)
-            .bind(session.status.to_string())
-            .bind(session.state.to_string())
-            .bind(session.workspace_path)
-            .bind(session.branch)
-            .bind(session.created_at.to_i64().map_or(i64::MAX, |t| t))
-            .bind(session.updated_at.to_i64().map_or(i64::MAX, |t| t))
-            .bind(session.last_synced.and_then(|ts| ts.to_i64()))
-            .bind(
-                session
-                    .metadata
-                    .as_ref()
-                    .map(serde_json::to_string)
-                    .transpose()
-                    .map_err(|e| Error::ParseError(format!("Failed to serialize replay metadata: {e}")))?,
-            )
-            .execute(pool)
-            .await
-            .map_err(|e| Error::DatabaseError(format!("Failed to replay upsert event: {e}")))?;
-        }
-        SessionEvent::Delete { name } => {
-            sqlx::query("DELETE FROM sessions WHERE name = ?")
-                .bind(name)
-                .execute(pool)
-                .await
-                .map_err(|e| Error::DatabaseError(format!("Failed to replay delete event: {e}")))?;
-        }
-    }
-
-    if let Some(id) = command_id {
-        mark_command_processed(pool, &id).await?;
-    }
-
-    Ok(())
-}
-
 // === IMPERATIVE SHELL (Database Side Effects) ===
-
-/// Check WAL file integrity before attempting database connection
-///
-/// This validates the WAL (Write-Ahead Log) file to detect corruption early.
-/// A corrupted WAL can cause SQLite to fail opening the database.
-///
-/// # WAL File Format
-/// - First 4 bytes: Magic number 0x377f0682 (big-endian)
-/// - Next 4 bytes: Format version (currently 3007000)
-/// - Page size: 2 bytes at offset 8-9
-/// - Checkpoint sequence number: 8 bytes at offset 12-19
-///
-/// # Errors
-///
-/// Returns `Error::DatabaseError` if:
-/// - WAL file exists but is corrupted (invalid magic bytes)
-/// - WAL file is truncated (smaller than WAL header size)
-/// - WAL file permissions prevent reading
-async fn check_wal_integrity(
-    path: &Path,
-    config: &RecoveryConfig,
-) -> Result<()> {
-    let wal_path = path.with_extension("db-wal");
-
-    // If WAL doesn't exist, that's OK - SQLite will create it
-    let exists = tokio::fs::try_exists(&wal_path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to check WAL file existence: {e}")))?;
-
-    if !exists {
-        return Ok(());
-    }
-
-    // WAL exists - validate it
-    let metadata = tokio::fs::metadata(&wal_path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to read WAL metadata: {e}")))?;
-
-    // Check if WAL is empty (0 bytes) - common corruption pattern
-    if metadata.len() == 0 {
-        if config.auto_recover_corrupted_wal {
-            tracing::warn!(
-                "WAL file is empty (corrupted): {}, will attempt recovery",
-                wal_path.display()
-            );
-            return Err(Error::DatabaseError(format!(
-                "WAL file is corrupted (empty): {}\n\nAuto-recovery enabled",
-                wal_path.display()
-            )));
-        } else {
-            return Err(Error::DatabaseError(format!(
-                "WAL file is corrupted (empty): {}\n\nFix: rm -f {wal}\n\nOr set recovery.auto_recover_corrupted_wal = true in config",
-                wal_path.display(),
-                wal = wal_path.display()
-            )));
-        }
-    }
-
-    // Check minimum WAL header size (32 bytes)
-    if metadata.len() < 32 {
-        return Err(Error::DatabaseError(format!(
-            "WAL file is truncated ({} bytes, expected at least 32): {}\n\nFix: rm -f {wal}",
-            metadata.len(),
-            wal_path.display(),
-            wal = wal_path.display()
-        )));
-    }
-
-    // Read and validate WAL header (functional - no exposed mutation)
-    let wal_header = io::read_exact_bytes::<32>(&wal_path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to read WAL header: {e}")))?;
-
-    // Validate WAL magic bytes (first 4 bytes: 0x377f0682 big-endian)
-    let wal_magic = u32::from_be_bytes([
-        wal_header[0], wal_header[1], wal_header[2], wal_header[3],
-    ]);
-
-    if wal_magic != 0x377f_0682 {
-        if config.auto_recover_corrupted_wal {
-            tracing::warn!(
-                "WAL file has invalid magic bytes: {:#08x}, expected 0x377f0682",
-                wal_magic
-            );
-            return Err(Error::DatabaseError(format!(
-                "WAL file is corrupted (invalid magic bytes)\n\nAuto-recovery enabled"
-            )));
-        } else {
-            return Err(Error::DatabaseError(format!(
-                "WAL file is corrupted (invalid magic bytes: {:#08x}, expected 0x377f0682): {}\n\nFix: rm -f {wal}",
-                wal_magic,
-                wal_path.display(),
-                wal = wal_path.display()
-            )));
-        }
-    }
-
-    tracing::debug!("WAL file integrity check passed: {}", wal_path.display());
-    Ok(())
-}
-
-/// Check database file integrity before attempting connection
-///
-/// This validates the main database file to detect corruption early.
-///
-/// # Database File Format
-/// - First 16 bytes: "SQLite format 3\0" (magic string)
-/// - Page size: 2 bytes at offset 16
-/// - File format write version: 1 byte at offset 18
-/// - File format read version: 1 byte at offset 19
-///
-/// # Errors
-///
-/// Returns `Error::DatabaseError` if:
-/// - Database file exists but is corrupted (invalid magic bytes)
-/// - Database file is truncated
-/// - Database file permissions prevent reading
-async fn check_database_integrity(
-    path: &Path,
-    _config: &RecoveryConfig,
-) -> Result<()> {
-    // If database doesn't exist, that's OK (will be created)
-    let exists = tokio::fs::try_exists(path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to check database existence: {e}")))?;
-
-    if !exists {
-        return Ok(());
-    }
-
-    // Database exists - validate it
-    let metadata = tokio::fs::metadata(path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to read database metadata: {e}")))?;
-
-    // Check minimum database header size (100 bytes per SQLite spec)
-    if metadata.len() < 100 {
-        return Err(Error::DatabaseError(format!(
-            "Database file is truncated ({} bytes, expected at least 100): {}\n\nFix: rm {db} && zjj init",
-            metadata.len(),
-            path.display(),
-            db = path.display()
-        )));
-    }
-
-    // Read and validate database header (functional - no exposed mutation)
-    let db_header = io::read_exact_bytes::<16>(path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to read database header: {e}")))?;
-
-    // Validate SQLite magic string: "SQLite format 3\0"
-    let expected_magic: &[u8] = &[
-        b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ',
-        b'3', 0x00,
-    ];
-
-    if db_header != expected_magic {
-        return Err(Error::DatabaseError(format!(
-            "Database file has invalid magic bytes: {:?}\nExpected: {:?}\n\nFix: rm {db} && zjj init",
-            String::from_utf8_lossy(&db_header[..]),
-            String::from_utf8_lossy(expected_magic),
-            db = path.display()
-        )));
-    }
-
-    tracing::debug!("Database integrity check passed: {}", path.display());
-    Ok(())
-}
-
-/// Check if database recovery is allowed
-///
-/// This function enforces recovery policy based on:
-/// - Whether database creation is allowed (init vs normal operation)
-/// - User's recovery policy configuration
-/// - Whether backups exist (to prevent data loss)
-///
-/// # Errors
-///
-/// Returns `Error::DatabaseError` if recovery is not allowed
-async fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
-    // Check if user policy allows recovery
-    let policy = get_recovery_policy();
-    if policy == RecoveryPolicy::FailFast {
-        return Err(Error::DatabaseError(
-            "Database recovery disabled by policy (recovery.fail_fast = true)\n\n\
-             To enable recovery: zjj config set recovery.fail_fast false\n\
-             Or fix the database manually: zjj doctor".to_string()
-        ));
-    }
-
-    // For non-init operations, require database to exist
-    if !allow_create {
-        let db_exists = tokio::fs::try_exists(path)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to check database existence: {e}"))))?;
-
-        if !db_exists {
-            return Err(Error::DatabaseError(format!(
-                "Database not found: {}\n\nRun 'zjj init' to initialize",
-                path.display()
-            )));
-        }
-    }
-
-    // Check for backups (if they exist, recovery is safer)
-    let backup_path = path.with_extension(format!("db.{}", timestamp_now()));
-    let _backup_exists = tokio::fs::try_exists(&backup_path)
-        .await
-        .map_err(|e| Error::IoError(format!("Failed to check for backups: {e}"))))?;
-
-    // TODO: Check for recent backups and warn if none exist
-
-    Ok(())
-}
-
-/// Recover a corrupted database
-///
-/// This function attempts to recover from database corruption by:
-/// 1. Backing up the corrupted database (if it exists)
-/// 2. Removing corrupted WAL and SHM files
-/// 3. Running SQLite's PRAGMA integrity_check if possible
-///
-/// # Errors
-///
-/// Returns `Error::DatabaseError` if recovery fails
-async fn recover_database(path: &Path, config: &RecoveryConfig) -> Result<()> {
-    tracing::info!("Attempting database recovery: {}", path.display());
-
-    // Step 1: Backup corrupted database if it exists
-    if tokio::fs::try_exists(path).await.is_ok_and(|v| v) {
-        let backup_path = path.with_extension(format!(
-            "db.corrupted.{}",
-            timestamp_now()
-        ));
-
-        tokio::fs::copy(path, &backup_path)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to backup corrupted database: {e}")))?;
-
-        tracing::info!("Backed up corrupted database to: {}", backup_path.display());
-    }
-
-    // Step 2: Remove corrupted WAL and SHM files
-    let wal_path = path.with_extension("db-wal");
-    let shm_path = path.with_extension("db-shm");
-
-    if tokio::fs::try_exists(&wal_path).await.is_ok_and(|v| v) {
-        tokio::fs::remove_file(&wal_path)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to remove corrupted WAL: {e}")))?;
-
-        tracing::info!("Removed corrupted WAL file: {}", wal_path.display());
-    }
-
-    if tokio::fs::try_exists(&shm_path).await.is_ok_and(|v| v) {
-        tokio::fs::remove_file(&shm_path)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to remove SHM file: {e}")))?;
-
-        tracing::info!("Removed SHM file: {}", shm_path.display());
-    }
-
-    // Step 3: If database file exists but is corrupted, delete it
-    // (SQLite will recreate it on next open)
-    if tokio::fs::try_exists(path).await.is_ok_and(|v| v) {
-        if config.delete_corrupted_database {
-            tokio::fs::remove_file(path)
-                .await
-                .map_err(|e| Error::IoError(format!("Failed to delete corrupted database: {e}")))?;
-
-            tracing::warn!("Deleted corrupted database file: {}", path.display());
-        }
-    }
-
-    tracing::info!("Database recovery completed");
-    Ok(())
-}
-
-/// Get current timestamp for backup filenames
-fn timestamp_now() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let duration = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(Duration::from_secs(0), |d| d);
-    format!("{}.{:03}", duration.as_secs(), duration.subsec_millis())
-}
-
-/// Get the current recovery policy from config
-fn get_recovery_policy() -> RecoveryPolicy {
-    // Try to load config, fall back to default
-    zjj_core::config::load_config()
-        .map(|c| c.recovery.policy)
-        .unwrap_or_else(|_| RecoveryPolicy::AutoRecover)
-}
 
 /// Attempt database recovery (Railway pattern: error → recovery → retry)
 ///
@@ -1676,7 +806,7 @@ async fn attempt_database_recovery(
     allow_create: bool,
     db_url: &str,
     original_error: Error,
-    config: &RecoveryConfig,
+    config: &zjj_core::config::RecoveryConfig,
 ) -> Result<SqlitePool> {
     // Railway pattern: can_recover? → recover → retry
     if let Err(recovery_err) = can_recover_database(path, allow_create).await {
@@ -1751,16 +881,7 @@ async fn init_schema(pool: &SqlitePool) -> Result<()> {
 
     // Enable WAL mode for better concurrency and crash recovery
     // This prevents "session disappears" race conditions between operations
-    // In test mode, skip WAL mode to avoid file corruption issues with short-lived processes
-    if std::env::var("ZJJ_TEST_MODE").is_ok() {
-        tracing::debug!("TEST MODE: Using DELETE journal mode instead of WAL to avoid corruption");
-        sqlx::query("PRAGMA journal_mode=DELETE;")
-            .execute(pool)
-            .await
-            .map_err(|e| Error::DatabaseError(format!("Failed to set journal mode: {e}")))?;
-    } else {
-        enable_wal_mode(pool).await?;
-    }
+    enable_wal_mode(pool).await?;
 
     Ok(())
 }
@@ -1784,37 +905,8 @@ async fn check_schema_version(pool: &SqlitePool) -> Result<()> {
              The database may have been created by a different version of zjj.\n\n\
              To reset: rm .zjj/state.db && zjj init"
         ))),
-        None => {
-            sqlx::query("INSERT OR IGNORE INTO schema_version (version) VALUES (?)")
-                .bind(CURRENT_SCHEMA_VERSION)
-                .execute(pool)
-                .await
-                .map_err(|e| {
-                    Error::DatabaseError(format!("Failed to repair schema version row: {e}"))
-                })?;
-
-            let repaired: Option<i64> = sqlx::query("SELECT version FROM schema_version")
-                .fetch_optional(pool)
-                .await
-                .map_err(|e| Error::DatabaseError(format!("Failed to read schema version: {e}")))?
-                .map(|row| {
-                    row.try_get("version").map_err(|e| {
-                        Error::DatabaseError(format!("Failed to parse schema version: {e}"))
-                    })
-                })
-                .transpose()?;
-            match repaired {
-                Some(v) if v == CURRENT_SCHEMA_VERSION => Ok(()),
-                Some(v) => Err(Error::DatabaseError(format!(
-                    "Schema version mismatch after repair: database has version {v}, expected {CURRENT_SCHEMA_VERSION}"
-                ))),
-                None => Err(Error::DatabaseError(
-                    "Schema version not found in database after repair attempt.\n\n\
-                     To reset: rm .zjj/state.db && zjj init"
-                        .to_string(),
-                )),
-            }
-        }
+        None => Err(Error::DatabaseError("Schema version not found in database. The database may be corrupted.\n\n\
+             To reset: rm .zjj/state.db && zjj init".to_string())),
     }
 }
 
@@ -2044,8 +1136,6 @@ async fn delete_session(pool: &SqlitePool, name: &str) -> Result<bool> {
 }
 
 #[cfg(test)]
-#[allow(clippy::needless_collect)] // Tests use collect for clarity
-#[allow(clippy::items_after_statements)] // Tests have use statements after setup
 mod tests {
     use tempfile::TempDir;
 
@@ -2095,227 +1185,6 @@ mod tests {
         } else {
             return Err(Error::Unknown("Expected DatabaseError".to_string()));
         }
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_context_command_id_keeps_create_non_idempotent_for_distinct_calls() -> Result<()>
-    {
-        let (db, _dir) = setup_test_db().await?;
-
-        let (first, second) = crate::command_context::with_command_context(
-            "ctx-create-non-idem".to_string(),
-            async {
-                let first = db.create("same-name", "/workspace/a").await;
-                let second = db.create("same-name", "/workspace/b").await;
-                (first, second)
-            },
-        )
-        .await;
-        assert!(first.is_ok());
-        assert!(second.is_err());
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_context_command_id_replay_retry_returns_existing_for_same_base() -> Result<()> {
-        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
-        let db_path = dir.path().join("context-retry.db");
-
-        let db = SessionDb::create_or_open(&db_path).await?;
-        let first =
-            crate::command_context::with_command_context("ctx-replay-retry".to_string(), async {
-                db.create("context-idem", "/workspace/context-idem").await
-            })
-            .await?;
-
-        tokio::fs::remove_file(&db_path).await.map_err(|e| {
-            Error::IoError(format!(
-                "Failed to remove DB for context replay retry test: {e}"
-            ))
-        })?;
-
-        let recovered = SessionDb::create_or_open(&db_path).await?;
-        let retried =
-            crate::command_context::with_command_context("ctx-replay-retry".to_string(), async {
-                recovered
-                    .create("context-idem", "/workspace/context-idem")
-                    .await
-            })
-            .await?;
-
-        assert_eq!(first.name, retried.name);
-        assert_eq!(first.workspace_path, retried.workspace_path);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_idempotent_create_with_command_id_returns_existing_session() -> Result<()> {
-        let (db, _dir) = setup_test_db().await?;
-        let first = db
-            .create_with_command_id("idem-session", "/workspace", Some("cmd-123"))
-            .await?;
-        let second = db
-            .create_with_command_id("idem-session", "/workspace", Some("cmd-123"))
-            .await?;
-
-        assert_eq!(first.name, second.name);
-        assert_eq!(first.workspace_path, second.workspace_path);
-
-        let sessions = db.list(None).await?;
-        let count = sessions
-            .iter()
-            .filter(|session| session.name == "idem-session")
-            .count();
-        assert_eq!(count, 1);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_replay_rebuilds_state_from_event_log_on_empty_db() -> Result<()> {
-        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
-        let db_path = dir.path().join("replay.db");
-
-        let db = SessionDb::create_or_open(&db_path).await?;
-        db.create("replay-a", "/workspace/a").await?;
-        db.create("replay-b", "/workspace/b").await?;
-        db.delete("replay-a").await?;
-
-        let event_log_path = state_event_log_path(&db_path);
-        assert!(tokio::fs::try_exists(&event_log_path)
-            .await
-            .is_ok_and(|v| v));
-
-        tokio::fs::remove_file(&db_path).await.map_err(|e| {
-            Error::IoError(format!(
-                "Failed to remove database file for replay test: {e}"
-            ))
-        })?;
-
-        let recovered = SessionDb::create_or_open(&db_path).await?;
-        let replayed_sessions = recovered.list(None).await?;
-
-        assert_eq!(replayed_sessions.len(), 1);
-        assert_eq!(replayed_sessions[0].name, "replay-b");
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_replay_restores_processed_commands_for_idempotent_retry() -> Result<()> {
-        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
-        let db_path = dir.path().join("replay-processed.db");
-
-        let db = SessionDb::create_or_open(&db_path).await?;
-        let first = db
-            .create_with_command_id(
-                "replay-idem",
-                "/workspace/replay-idem",
-                Some("cmd-replay-1"),
-            )
-            .await?;
-
-        tokio::fs::remove_file(&db_path).await.map_err(|e| {
-            Error::IoError(format!(
-                "Failed to remove database file for processed-command replay test: {e}"
-            ))
-        })?;
-
-        let recovered = SessionDb::create_or_open(&db_path).await?;
-        let retried = recovered
-            .create_with_command_id(
-                "replay-idem",
-                "/workspace/replay-idem",
-                Some("cmd-replay-1"),
-            )
-            .await?;
-
-        assert_eq!(first.name, retried.name);
-        assert_eq!(first.workspace_path, retried.workspace_path);
-
-        let sessions = recovered.list(None).await?;
-        let count = sessions
-            .iter()
-            .filter(|session| session.name == "replay-idem")
-            .count();
-        assert_eq!(count, 1);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_create_or_open_ignores_stale_wal_when_db_missing() -> Result<()> {
-        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
-        let db_path = dir.path().join("missing-main.db");
-        let wal_path = db_path.with_extension("db-wal");
-
-        tokio::fs::write(&wal_path, b"BADWAL")
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to write stale WAL file: {e}")))?;
-
-        let opened = SessionDb::create_or_open(&db_path).await;
-        assert!(opened.is_ok(), "Expected open to succeed");
-
-        let db = opened?;
-        let created = db.create("wal-recovery", "/workspace/wal-recovery").await;
-        assert!(created.is_ok(), "Expected writes after open to succeed");
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_replay_skips_invalid_jsonl_lines_and_rebuilds_valid_events() -> Result<()> {
-        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
-        let db_path = dir.path().join("replay-invalid-line.db");
-
-        let db = SessionDb::create_or_open(&db_path).await?;
-        db.create("valid-a", "/workspace/valid-a").await?;
-        db.create("valid-b", "/workspace/valid-b").await?;
-
-        let event_log_path = state_event_log_path(&db_path);
-        use tokio::io::AsyncWriteExt;
-        let mut file = tokio::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&event_log_path)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to open event log for mutation: {e}")))?;
-        file.write_all(b"not-json\n")
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to append invalid replay line: {e}")))?;
-        file.flush()
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to flush invalid replay line: {e}")))?;
-
-        tokio::fs::remove_file(&db_path)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to remove DB for replay test: {e}")))?;
-
-        let recovered = SessionDb::create_or_open(&db_path).await?;
-        let sessions = recovered.list(None).await?;
-
-        let has_a = sessions.iter().any(|session| session.name == "valid-a");
-        let has_b = sessions.iter().any(|session| session.name == "valid-b");
-        assert!(has_a, "Expected replay to restore valid-a session");
-        assert!(has_b, "Expected replay to restore valid-b session");
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_reactor_continues_after_failed_write() -> Result<()> {
-        let (db, _dir) = setup_test_db().await?;
-        db.create("reactor-a", "/workspace/a").await?;
-
-        let duplicate_result = db.create("reactor-a", "/workspace/duplicate").await;
-        assert!(duplicate_result.is_err());
-
-        let follow_up = db.create("reactor-b", "/workspace/b").await;
-        assert!(follow_up.is_ok());
-
-        let created = db.get("reactor-b").await?;
-        assert!(created.is_some());
         Ok(())
     }
 
@@ -2642,275 +1511,5 @@ mod tests {
 
             Ok(())
         }
-    }
-
-    // ========== Contract Verification Tests ==========
-
-    /// Test precondition: session name validation happens before database write
-    ///
-    /// CONTRACT: Invalid session names MUST be rejected BEFORE any database operation.
-    /// This prevents database pollution with malformed data.
-    #[tokio::test]
-    async fn test_precondition_validates_session_name_before_write() -> Result<()> {
-        let (db, _dir) = setup_test_db().await?;
-
-        // Test invalid names that should be rejected
-        let invalid_names = vec![
-            "session\nwith\nnewlines",    // Newlines not allowed
-            "session\twith\ttabs",        // Tabs not allowed
-            "session\rwith\rcarriage",    // Carriage returns not allowed
-            "session/with/slashes",       // Forward slashes not allowed (path confusion)
-            "session\\with\\backslashes", // Backslashes not allowed (path confusion)
-            "session\x00with\x00null",    // Null bytes not allowed
-        ];
-
-        for invalid_name in invalid_names {
-            let result = db.create(invalid_name, "/workspace").await;
-            assert!(
-                result.is_err(),
-                "Session name with invalid characters should be rejected: {invalid_name:?}"
-            );
-
-            // Verify the session was NOT created in the database
-            let retrieved = db.get(invalid_name).await?;
-            assert!(
-                retrieved.is_none(),
-                "Invalid session should not exist in database: {invalid_name:?}"
-            );
-        }
-
-        // Verify valid names still work
-        let valid_names = vec![
-            "valid_session",
-            "Valid_With_Underscores",
-            "session123",
-            "A", // Single letter
-        ];
-
-        for valid_name in valid_names {
-            let result = db.create(valid_name, "/workspace").await;
-            assert!(
-                result.is_ok(),
-                "Valid session name should be accepted: {valid_name:?}"
-            );
-
-            // Clean up for next iteration
-            let _ = db.delete(valid_name).await;
-        }
-
-        Ok(())
-    }
-
-    /// Test postcondition: event is appended to event log for successful write
-    ///
-    /// CONTRACT: Every successful database write MUST append a corresponding event
-    /// to the event log for replay and recovery.
-    #[tokio::test]
-    async fn test_postcondition_appends_event_for_successful_write() -> Result<()> {
-        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
-        let db_path = dir.path().join("event-log-test.db");
-        let db = SessionDb::create_or_open(&db_path).await?;
-
-        let event_log_path = state_event_log_path(&db_path);
-
-        // Create a session
-        let session_name = "event-test-session";
-        let workspace_path = "/workspace/event-test";
-        let created = db.create(session_name, workspace_path).await?;
-
-        // Verify event log was created and contains the upsert event
-        assert!(
-            tokio::fs::try_exists(&event_log_path)
-                .await
-                .is_ok_and(|v| v),
-            "Event log should exist after session creation"
-        );
-
-        let event_log_content = tokio::fs::read_to_string(&event_log_path)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to read event log: {e}")))?;
-
-        // Parse the event log
-        let events: Vec<EventEnvelope> = event_log_content
-            .lines()
-            .filter(|line| !line.trim().is_empty())
-            .filter_map(|line| serde_json::from_str(line).ok())
-            .collect();
-
-        assert_eq!(
-            events.len(),
-            1,
-            "Event log should contain exactly one event after session creation"
-        );
-
-        let event = &events[0];
-        assert_eq!(event.version, 1, "Event version should be 1");
-
-        match &event.event {
-            SessionEvent::Upsert { session } => {
-                assert_eq!(
-                    session.name, created.name,
-                    "Event should contain the created session name"
-                );
-                assert_eq!(
-                    session.workspace_path, created.workspace_path,
-                    "Event should contain the workspace path"
-                );
-            }
-            SessionEvent::Delete { name } => {
-                panic!("Expected Upsert event, but got Delete event for session: {name}");
-            }
-        }
-
-        // Update the session
-        db.update(
-            session_name,
-            SessionUpdate {
-                status: Some(SessionStatus::Active),
-                ..Default::default()
-            },
-        )
-        .await?;
-
-        // Verify another event was appended
-        let event_log_content_after = tokio::fs::read_to_string(&event_log_path)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to read event log after update: {e}")))?;
-
-        let events_after: Vec<EventEnvelope> = event_log_content_after
-            .lines()
-            .filter(|line| !line.trim().is_empty())
-            .filter_map(|line| serde_json::from_str(line).ok())
-            .collect();
-
-        assert_eq!(
-            events_after.len(),
-            2,
-            "Event log should contain two events after update"
-        );
-
-        // Delete the session
-        let deleted = db.delete(session_name).await?;
-        assert!(deleted, "Session should be deleted");
-
-        // Verify delete event was appended
-        let event_log_content_final = tokio::fs::read_to_string(&event_log_path)
-            .await
-            .map_err(|e| Error::IoError(format!("Failed to read event log after delete: {e}")))?;
-
-        let events_final: Vec<EventEnvelope> = event_log_content_final
-            .lines()
-            .filter(|line| !line.trim().is_empty())
-            .filter_map(|line| serde_json::from_str(line).ok())
-            .collect();
-
-        assert_eq!(
-            events_final.len(),
-            3,
-            "Event log should contain three events after delete"
-        );
-
-        // Verify last event is a Delete event
-        match &events_final[2].event {
-            SessionEvent::Upsert { .. } => {
-                panic!("Expected Delete event as last event, but got Upsert");
-            }
-            SessionEvent::Delete { name } => {
-                assert_eq!(
-                    name, session_name,
-                    "Delete event should have correct session name"
-                );
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Test invariant: single writer reactor survives failed request
-    ///
-    /// CONTRACT: The state writer reactor MUST continue processing requests
-    /// even after a failed write operation. This ensures the system remains
-    /// available under error conditions.
-    #[tokio::test]
-    async fn test_invariant_single_writer_reactor_survives_failed_request() -> Result<()> {
-        let (db, _dir) = setup_test_db().await?;
-
-        // Create a session successfully
-        let first_session = db.create("reactor-test-1", "/workspace/1").await?;
-        assert_eq!(first_session.name, "reactor-test-1");
-
-        // Attempt to create a duplicate (should fail)
-        let duplicate_result = db.create("reactor-test-1", "/workspace/duplicate").await;
-        assert!(
-            duplicate_result.is_err(),
-            "Duplicate session creation should fail"
-        );
-
-        // CRITICAL: Reactor should still be alive and able to process new requests
-        // This is the invariant - a failed request must not crash the reactor
-        let second_session = db.create("reactor-test-2", "/workspace/2").await?;
-        assert_eq!(second_session.name, "reactor-test-2");
-
-        // Verify both sessions exist (the duplicate should not)
-        let sessions = db.list(None).await?;
-        let count = sessions.len();
-
-        assert_eq!(
-            count, 2,
-            "Should have exactly 2 sessions: reactor-test-1 and reactor-test-2"
-        );
-
-        let has_first = sessions.iter().any(|s| s.name == "reactor-test-1");
-        let has_second = sessions.iter().any(|s| s.name == "reactor-test-2");
-        let has_duplicate = sessions
-            .iter()
-            .any(|s| s.name == "reactor-test-1" && s.workspace_path == "/workspace/duplicate");
-
-        assert!(has_first, "First session should exist");
-        assert!(has_second, "Second session should exist");
-        assert!(!has_duplicate, "Duplicate should not exist");
-
-        // Test update operations also survive failures
-        let update_ok = db
-            .update(
-                "reactor-test-1",
-                SessionUpdate {
-                    status: Some(SessionStatus::Active),
-                    ..Default::default()
-                },
-            )
-            .await;
-        assert!(
-            update_ok.is_ok(),
-            "Update should succeed after reactor survived failure"
-        );
-
-        // Try to update non-existent session (should fail)
-        let update_fail = db
-            .update(
-                "non-existent-session",
-                SessionUpdate {
-                    status: Some(SessionStatus::Active),
-                    ..Default::default()
-                },
-            )
-            .await;
-        assert!(
-            update_fail.is_ok(),
-            "Update of non-existent session should not error"
-        );
-
-        // Reactor should still be alive
-        let third_session = db.create("reactor-test-3", "/workspace/3").await?;
-        assert_eq!(third_session.name, "reactor-test-3");
-
-        let final_sessions = db.list(None).await?;
-        assert_eq!(
-            final_sessions.len(),
-            3,
-            "Should have 3 sessions after all operations"
-        );
-
-        Ok(())
     }
 }

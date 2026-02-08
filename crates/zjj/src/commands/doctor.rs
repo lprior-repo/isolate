@@ -951,6 +951,16 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     let passed = checks.len() - warnings - errors;
     let healthy = errors == 0;
 
+    // Check if recovery occurred (any check with "recovered" in details)
+    let has_recovery = checks.iter().any(|check| {
+        check
+            .details
+            .as_ref()
+            .and_then(|d| d.get("recovered"))
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false)
+    });
+
     if format.is_json() {
         let response = DoctorJsonResponse {
             checks: checks.to_vec(),
@@ -964,12 +974,13 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         // If unhealthy in JSON mode, exit with 1 immediately to avoid
         // main.rs printing a second JSON error object
-        // Warnings should NOT cause non-zero exit - only failures do
         if !healthy {
             std::process::exit(1);
         }
-        // Recovery detected but system is healthy - exit 0 (warnings only)
-        // Exit code 2 is only for critical errors, not informational recovery
+        // If recovery occurred, exit with 2
+        if has_recovery {
+            std::process::exit(2);
+        }
         return Ok(());
     }
 
@@ -1004,8 +1015,11 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
         anyhow::bail!("Health check failed: {errors} error(s) detected");
     }
 
-    // Recovery detected but system is healthy - return Ok()
-    // Exit code 2 is only for critical errors, not informational recovery
+    // Exit with code 2 if recovery occurred
+    if has_recovery {
+        std::process::exit(2);
+    }
+
     Ok(())
 }
 
@@ -1040,7 +1054,8 @@ fn show_dry_run_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<(
             println!(
                 "  • {}: {}",
                 check.name,
-                describe_fix(check).unwrap_or_else(|| "No fix description available".to_string())
+                describe_fix(check)
+                    .unwrap_or_else(|| "No fix description available".to_string())
             );
         }
         println!();
@@ -1064,20 +1079,19 @@ fn describe_fix(check: &DoctorCheck) -> Option<String> {
             check.details.as_ref().map_or_else(
                 || Some("Remove orphaned workspaces and stale session records".to_string()),
                 |details| {
-                    details
-                        .get("filesystem_to_db")
-                        .and_then(|v| v.as_array())
-                        .map_or_else(
-                            || Some("Remove orphaned workspaces and stale session records".to_string()),
-                            |fs_orphans| {
-                                let db_orphans = details
-                                    .get("db_to_filesystem")
-                                    .and_then(|v| v.as_array())
-                                    .map_or(0, std::vec::Vec::len);
-                                let fs_count = fs_orphans.len();
-                                Some(format!("Remove {fs_count} orphaned workspace(s) and {db_orphans} session(s) without workspaces"))
-                            },
-                        )
+                    details.get("filesystem_to_db").and_then(|v| v.as_array()).map_or_else(
+                        || Some("Remove orphaned workspaces and stale session records".to_string()),
+                        |fs_orphans| {
+                            let db_orphans = details
+                                .get("db_to_filesystem")
+                                .and_then(|v| v.as_array())
+                                .map_or(0, Vec::len);
+                            let fs_count = fs_orphans.len();
+                            Some(format!(
+                                "Remove {fs_count} orphaned workspace(s) and {db_orphans} session(s) without workspaces"
+                            ))
+                        },
+                    )
                 },
             )
         }
@@ -1085,13 +1099,10 @@ fn describe_fix(check: &DoctorCheck) -> Option<String> {
             check.details.as_ref().map_or_else(
                 || Some("Remove stale/incomplete session records".to_string()),
                 |details| {
-                    details
-                        .get("stale_sessions")
-                        .and_then(|v| v.as_array())
-                        .map_or_else(
-                            || Some("Remove stale/incomplete session records".to_string()),
-                            |stale| Some(format!("Remove {} stale session(s)", stale.len())),
-                        )
+                    details.get("stale_sessions").and_then(|v| v.as_array()).map_or_else(
+                        || Some("Remove stale/incomplete session records".to_string()),
+                        |stale| Some(format!("Remove {} stale session(s)", stale.len())),
+                    )
                 },
             )
         }
@@ -1149,9 +1160,15 @@ async fn run_fixes(
 
                 // Try to fix the issue
                 let fix_result = match check.name.as_str() {
-                    "Orphaned Workspaces" => fix_orphaned_workspaces(check, dry_run).await,
-                    "Stale Sessions" => fix_stale_sessions(check, dry_run).await,
-                    "State Database" => fix_state_database(check, dry_run).await,
+                    "Orphaned Workspaces" => fix_orphaned_workspaces(check, dry_run)
+                        .await
+                        .map_err(|e| e),
+                    "Stale Sessions" => fix_stale_sessions(check, dry_run)
+                        .await
+                        .map_err(|e| e),
+                    "State Database" => fix_state_database(check, dry_run)
+                        .await
+                        .map_err(|e| e),
                     _ => Err("No auto-fix available".to_string()),
                 };
 
@@ -1257,11 +1274,11 @@ async fn fix_stale_sessions(check: &DoctorCheck, dry_run: bool) -> Result<String
     }
 }
 
-async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
+async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<String> {
     let db_path = std::path::Path::new(".zjj/state.db");
     if !tokio::fs::try_exists(db_path)
         .await
-        .map_err(|e| format!("Failed to check database: {e}"))?
+        .map_err(|e| anyhow::anyhow!("Failed to check database: {e}"))?
     {
         return Ok("Database file does not exist".to_string());
     }
@@ -1276,7 +1293,7 @@ async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<Strin
     // Attempt to delete the corrupted database
     tokio::fs::remove_file(db_path)
         .await
-        .map_err(|e| format!("Failed to delete database: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("Failed to delete database: {e}"))?;
     Ok("Deleted corrupted database file. It will be recreated on next run.".to_string())
 }
 
@@ -1322,11 +1339,11 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<S
         let filesystem_count = orphaned_data
             .get("filesystem_to_db")
             .and_then(|v| v.as_array())
-            .map_or(0, std::vec::Vec::len);
+            .map_or(0, Vec::len);
         let db_count = orphaned_data
             .get("db_to_filesystem")
             .and_then(|v| v.as_array())
-            .map_or(0, std::vec::Vec::len);
+            .map_or(0, Vec::len);
 
         return Ok(format!(
             "Would remove {filesystem_count} orphaned workspace(s) and {db_count} session(s) without workspaces"

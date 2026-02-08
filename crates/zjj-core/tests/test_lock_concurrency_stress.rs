@@ -18,7 +18,7 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
-#![allow(clippy::cast_possible_truncation)] // Test code using intentional casts
+#![allow(clippy::cast_possible_truncation)]  // Test code using intentional casts
 #![forbid(unsafe_code)]
 // Test code uses unwrap/expect idioms for test clarity.
 // Production code (src/) must use Result<T, Error> patterns.
@@ -57,7 +57,7 @@ async fn setup_lock_manager() -> Result<LockManager, Error> {
 
 /// Metrics collected during stress test
 #[derive(Debug, Clone, Default)]
-#[allow(dead_code)] // duplicate_acquisitions reserved for future use
+#[allow(dead_code)]  // duplicate_acquisitions reserved for future use
 struct StressTestMetrics {
     successful_acquisitions: usize,
     failed_acquisitions: usize,
@@ -412,8 +412,8 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     }
 
     // Collect results
-    let mut total_successful: usize = 0;
-    let mut total_failed: usize = 0;
+    let mut total_successful = 0;
+    let mut total_failed = 0;
     let mut agent_results: Vec<(String, String, usize, usize)> = Vec::new();
 
     while let Some(result) = join_set.join_next().await {
@@ -444,7 +444,7 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     // THEN: Total operations should be successful
     let total_operations = total_successful + total_failed;
     let success_rate = if total_operations > 0 {
-        total_successful as f64 / total_operations as f64 * 100.0
+        (total_successful as f64) / (total_operations as f64) * 100.0
     } else {
         0.0
     };

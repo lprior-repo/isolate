@@ -126,7 +126,7 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     hook: hook_name.to_string(),
                     success: true,
                     command: command.to_string(),
-                    output: (!stdout.is_empty()).then_some(stdout),
+                    output: stdout.is_empty().then_some(stdout),
                     error: None,
                 }
             } else {
@@ -134,7 +134,7 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     hook: hook_name.to_string(),
                     success: false,
                     command: command.to_string(),
-                    output: (!stdout.is_empty()).then_some(stdout),
+                    output: stdout.is_empty().then_some(stdout),
                     error: Some(if stderr.is_empty() {
                         exit_code_msg
                     } else {
@@ -220,28 +220,40 @@ mod tests {
     fn test_hooks_config_rejects_empty_success() {
         let result = HooksConfig::from_args(Some(String::new()), None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+        let Err(err) = result else {
+            panic!("Expected error but got Ok");
+        };
+        assert!(err.to_string().contains("cannot be empty"));
     }
 
     #[test]
     fn test_hooks_config_rejects_whitespace_only_success() {
         let result = HooksConfig::from_args(Some("   ".to_string()), None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+        let Err(err) = result else {
+            panic!("Expected error but got Ok");
+        };
+        assert!(err.to_string().contains("cannot be empty"));
     }
 
     #[test]
     fn test_hooks_config_rejects_empty_failure() {
         let result = HooksConfig::from_args(None, Some(String::new()));
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+        let Err(err) = result else {
+            panic!("Expected error but got Ok");
+        };
+        assert!(err.to_string().contains("cannot be empty"));
     }
 
     #[test]
     fn test_hooks_config_rejects_whitespace_only_failure() {
         let result = HooksConfig::from_args(None, Some("\t\n".to_string()));
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+        let Err(err) = result else {
+            panic!("Expected error but got Ok");
+        };
+        assert!(err.to_string().contains("cannot be empty"));
     }
 
     #[test]

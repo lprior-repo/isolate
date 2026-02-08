@@ -734,7 +734,7 @@ async fn heartbeat_after_unregister_returns_error() -> Result<(), anyhow::Error>
     let result = sqlx::query(
         "UPDATE agents SET last_seen = ?, actions_count = actions_count + 1 WHERE agent_id = ?",
     )
-    .bind(Utc::now().to_rfc3339())
+    .bind(&Utc::now().to_rfc3339())
     .bind("test-agent")
     .execute(&ctx.pool)
     .await;
@@ -783,13 +783,15 @@ async fn heartbeat_after_unregister_returns_error() -> Result<(), anyhow::Error>
 
 // Test: Validate agent ID rejects empty strings
 #[test]
-#[allow(clippy::unwrap_used)]
 fn validate_agent_id_rejects_empty() {
     use super::validate_agent_id;
 
     let result = validate_agent_id("");
     assert!(result.is_err(), "empty agent_id should be rejected");
-    assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+    let Err(err) = result else {
+        panic!("Expected error but got Ok");
+    };
+    assert!(err.to_string().contains("cannot be empty"));
 }
 
 // Test: Validate agent ID rejects whitespace-only strings

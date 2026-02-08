@@ -469,33 +469,51 @@ async fn query_lock_status(session: &str) -> Result<()> {
             match db.get(session).await {
                 Ok(Some(_)) => {
                     // Try to get lock info
-                    let lock_info = async {
-                        let db_path = super::get_db_path().await.ok()?;
-                        let pool =
-                            sqlx::SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
+                    match zjj_data_dir().await {
+                        Ok(data_dir) => {
+                            let db_path = data_dir.join("state.db");
+
+                            let lock_info = async {
+                                let pool = sqlx::SqlitePool::connect(&format!(
+                                    "sqlite:{}",
+                                    db_path.display()
+                                ))
                                 .await
                                 .ok()?;
-                        let lock_mgr = zjj_core::coordination::locks::LockManager::new(pool);
-                        lock_mgr.init().await.ok()?;
-                        let all_locks = lock_mgr.get_all_locks().await.ok()?;
-                        all_locks.into_iter().find(|l| l.session == session)
-                    }
-                    .await;
+                                let lock_mgr =
+                                    zjj_core::coordination::locks::LockManager::new(pool);
+                                lock_mgr.init().await.ok()?;
+                                let all_locks = lock_mgr.get_all_locks().await.ok()?;
+                                all_locks.into_iter().find(|l| l.session == session)
+                            }
+                            .await;
 
-                    match lock_info {
-                        Some(lock) => LockStatusResult {
-                            session: session.to_string(),
-                            locked: true,
-                            holder: Some(lock.agent_id.clone()),
-                            expires_at: Some(lock.expires_at.to_rfc3339()),
-                            error: None,
-                        },
-                        None => LockStatusResult {
+                            match lock_info {
+                                Some(lock) => LockStatusResult {
+                                    session: session.to_string(),
+                                    locked: true,
+                                    holder: Some(lock.agent_id.clone()),
+                                    expires_at: Some(lock.expires_at.to_rfc3339()),
+                                    error: None,
+                                },
+                                None => LockStatusResult {
+                                    session: session.to_string(),
+                                    locked: false,
+                                    holder: None,
+                                    expires_at: None,
+                                    error: None,
+                                },
+                            }
+                        }
+                        Err(e) => LockStatusResult {
                             session: session.to_string(),
                             locked: false,
                             holder: None,
                             expires_at: None,
-                            error: None,
+                            error: Some(QueryError {
+                                code: "DATA_DIR_ERROR".to_string(),
+                                message: e.to_string(),
+                            }),
                         },
                     }
                 }
@@ -968,10 +986,16 @@ mod tests {
         let envelope = SchemaEnvelope::new("query-session-exists", "single", test_result);
         let json_str_result = serde_json::to_string(&envelope);
         assert!(json_str_result.is_ok(), "serialization should succeed");
-        let json_str = json_str_result.expect("Serialization should succeed");
+        let json_str = match json_str_result {
+            Ok(s) => s,
+            Err(e) => panic!("Serialization should succeed: {e}"),
+        };
         let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&json_str);
         assert!(parsed_result.is_ok(), "parsing should succeed");
-        let parsed = parsed_result.expect("Parsing should succeed");
+        let parsed = match parsed_result {
+            Ok(p) => p,
+            Err(e) => panic!("Parsing should succeed: {e}"),
+        };
 
         assert!(parsed.get("$schema").is_some());
         assert!(parsed.get("success").is_some());
@@ -1230,9 +1254,10 @@ mod tests {
             "session-exists should have metadata"
         );
 
-        let error_msg = session_exists_info
-            .expect("session-exists should have metadata")
-            .format_error_message();
+        let error_msg = match session_exists_info {
+            Some(info) => info.format_error_message(),
+            None => panic!("session-exists should have metadata"),
+        };
         assert!(
             error_msg.contains("Error: 'session-exists' query requires"),
             "Error message should indicate it's an error about 'session-exists' query"
@@ -1262,9 +1287,10 @@ mod tests {
         let can_run_info = QueryTypeInfo::find("can-run");
         assert!(can_run_info.is_some(), "can-run should have metadata");
 
-        let error_msg = can_run_info
-            .expect("can-run should have metadata")
-            .format_error_message();
+        let error_msg = match can_run_info {
+            Some(info) => info.format_error_message(),
+            None => panic!("can-run should have metadata"),
+        };
         assert!(
             error_msg.contains("Error: 'can-run' query requires"),
             "Error message should indicate it's an error about 'can-run' query"
@@ -1281,9 +1307,10 @@ mod tests {
             "suggest-name should have metadata"
         );
 
-        let error_msg = suggest_name_info
-            .expect("suggest-name should have metadata")
-            .format_error_message();
+        let error_msg = match suggest_name_info {
+            Some(info) => info.format_error_message(),
+            None => panic!("suggest-name should have metadata"),
+        };
         assert!(
             error_msg.contains("Error: 'suggest-name' query requires"),
             "Error message should indicate it's an error about 'suggest-name' query"
@@ -1304,9 +1331,10 @@ mod tests {
             "session-count should have metadata"
         );
 
-        let error_msg = session_count_info
-            .expect("session-count should have metadata")
-            .format_error_message();
+        let error_msg = match session_count_info {
+            Some(info) => info.format_error_message(),
+            None => panic!("session-count should have metadata"),
+        };
         assert!(
             error_msg.contains("optional"),
             "Error message should indicate the argument is optional"
@@ -1334,7 +1362,10 @@ mod tests {
                 "{query_name} should have metadata for consistent error messages"
             );
 
-            let info = info.expect("Query should have metadata");
+            let info = match info {
+                Some(i) => i,
+                None => panic!("Query should have metadata"),
+            };
             assert!(
                 info.requires_arg,
                 "{query_name} should be marked as requiring an argument"
