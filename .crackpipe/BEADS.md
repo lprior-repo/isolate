@@ -263,6 +263,10 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 08:10:30] No beads in ready-qa-builder stage - zjj-vpcx already closed, zjj-xcso already verified
 [2026-02-08 08:11:00] VERIFIED PASS: moon run :quick passed (11ms), clippy warnings fixed (doctor.rs), include_files flag removed (export), zero unwrap/expect/panic violations found
 [2026-02-08 08:11:30] Loop 1 complete - waiting 90 seconds for next check
+[2026-02-08 08:13:00] Check 2 - No beads in stage:ready-qa-builder
+[2026-02-08 08:14:30] Loop 2 complete - waiting 90 seconds for next check
+[2026-02-08 08:16:00] Check 3 - No beads in stage:ready-qa-builder
+[2026-02-08 08:17:30] Loop 3 complete - waiting 90 seconds for next check
 [2026-02-08 14:09:59] zjj-xcso ready-qa-builder → qa-in-progress qa-builder-3 (claimed for QA verification)
 [2026-02-08 14:10:20] zjj-xcso qa-in-progress → complete qa-builder-3 VERIFIED PASS: moon run :quick passed (10ms), --include-files flag removed from CLI and ExportOptions struct, help text no longer mentions tarball, export --help shows clean output. CI failed due to sccache doc build issues unrelated to this bead.
 
