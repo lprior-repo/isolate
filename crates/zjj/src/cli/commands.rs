@@ -259,6 +259,17 @@ pub fn cmd_agents() -> ClapCommand {
                         .help("Agent ID to unregister (uses ZJJ_AGENT_ID if not provided)"),
                 ),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj agents                      List all active agents",
+                "zjj agents --all                Include stale agents",
+                "zjj agents --session work       Filter by session",
+                "zjj agents register             Register as an agent",
+                "zjj agents heartbeat -c build   Send heartbeat with command",
+                "zjj agents unregister           Unregister current agent",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_list() -> ClapCommand {
@@ -422,6 +433,17 @@ pub fn cmd_bookmark() -> ClapCommand {
                         .help("Output as JSON"),
                 ),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj bookmark list                List bookmarks in current workspace",
+                "zjj bookmark list --all          Show all bookmarks including remote",
+                "zjj bookmark create feature-x    Create bookmark at current revision",
+                "zjj bookmark create -p stable    Create and push to remote",
+                "zjj bookmark delete old-fix      Delete a bookmark",
+                "zjj bookmark move stable --to @  Move bookmark to current revision",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_remove() -> ClapCommand {
@@ -791,6 +813,17 @@ pub fn cmd_template() -> ClapCommand {
                         .help("Output as JSON"),
                 ),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj template list                List all available templates",
+                "zjj template create custom       Create a new template",
+                "zjj template create -d 'My layout' custom  Create with description",
+                "zjj template create -b minimal custom  Based on builtin template",
+                "zjj template show custom         Show template details",
+                "zjj template delete -f custom    Delete without confirmation",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_dashboard() -> ClapCommand {
@@ -973,6 +1006,16 @@ pub fn cmd_integrity() -> ClapCommand {
                         ),
                 ),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj integrity validate feature-x    Validate workspace integrity",
+                "zjj integrity repair feature-x      Repair corrupted workspace",
+                "zjj integrity repair -f feature-x   Repair without confirmation",
+                "zjj integrity backup list           List available backups",
+                "zjj integrity backup restore 123    Restore from backup ID",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_query() -> ClapCommand {
@@ -1350,6 +1393,14 @@ pub fn cmd_undo() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj undo                        Undo most recent done",
+                "zjj undo --list                 Show undo history",
+                "zjj undo --dry-run              Preview undo",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_revert() -> ClapCommand {
@@ -1380,6 +1431,13 @@ pub fn cmd_revert() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj revert feature-x            Revert specific session merge",
+                "zjj revert --dry-run feat       Preview revert",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_whereami() -> ClapCommand {
@@ -1404,6 +1462,13 @@ pub fn cmd_whereami() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj whereami                    Returns 'main' or 'workspace:<name>'",
+                "zjj whereami --json             Output location as JSON",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_whoami() -> ClapCommand {
@@ -1428,6 +1493,13 @@ pub fn cmd_whoami() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj whoami                      Returns agent ID or 'unregistered'",
+                "zjj whoami --json               Output identity as JSON",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_work() -> ClapCommand {
@@ -1592,6 +1664,15 @@ pub fn cmd_ai() -> ClapCommand {
                     - priority: high, medium, or low",
                 ),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj ai status                   Show AI-optimized status",
+                "zjj ai workflow                 Display 7-step agent workflow",
+                "zjj ai quick-start              Show essential commands",
+                "zjj ai next                     Get next action with command",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_can_i() -> ClapCommand {
@@ -1621,6 +1702,14 @@ pub fn cmd_can_i() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj can-i done                  Check if done will succeed",
+                "zjj can-i add feature-x         Check if session can be created",
+                "zjj can-i spawn zjj-abc1        Check if bead can be spawned",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_contract() -> ClapCommand {
@@ -1651,6 +1740,14 @@ pub fn cmd_contract() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj contract                    Show all command contracts",
+                "zjj contract add                Show contract for 'add' command",
+                "zjj contract --json             Output as JSON",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_examples() -> ClapCommand {
@@ -1729,6 +1826,14 @@ pub fn cmd_validate() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj validate add feature-x       Validate inputs for 'add' command",
+                "zjj validate spawn zjj-abc1      Validate bead spawn inputs",
+                "zjj validate --json              Output validation as JSON",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_whatif() -> ClapCommand {
@@ -1765,6 +1870,14 @@ pub fn cmd_whatif() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj whatif done add feature-x    Preview 'add' command execution",
+                "zjj whatif spawn zjj-abc1        Preview bead spawn",
+                "zjj whatif --json                Output preview as JSON",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_claim() -> ClapCommand {
@@ -1804,6 +1917,14 @@ pub fn cmd_claim() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj claim session:feature-x      Claim exclusive lock on session",
+                "zjj claim file:/tmp/data         Claim lock on file",
+                "zjj claim -t 120 bead:zjj-abc1   Claim with 120s timeout",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_yield() -> ClapCommand {
@@ -1826,6 +1947,13 @@ pub fn cmd_yield() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj yield session:feature-x      Release lock on session",
+                "zjj yield file:/tmp/data         Release lock on file",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_batch() -> ClapCommand {
@@ -1875,6 +2003,14 @@ pub fn cmd_batch() -> ClapCommand {
                 .num_args(0..)
                 .help("Commands to execute"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj batch add feat1 add feat2     Execute multiple commands",
+                "zjj batch -f commands.txt        Execute commands from file",
+                "zjj batch --atomic add feat1 add feat2  All or nothing execution",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_events() -> ClapCommand {
@@ -1918,6 +2054,15 @@ pub fn cmd_events() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj events                       Show recent events",
+                "zjj events --follow             Stream events in real-time",
+                "zjj events -l 20                Show last 20 events",
+                "zjj events --type session       Filter by event type",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_lock() -> ClapCommand {
@@ -1948,6 +2093,14 @@ pub fn cmd_lock() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj lock feature-x               Lock session with 5min TTL",
+                "zjj lock --ttl 600 feature-x     Lock session with 10min TTL",
+                "zjj lock --agent-id agent1 work  Lock as specific agent",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_unlock() -> ClapCommand {
@@ -1970,6 +2123,13 @@ pub fn cmd_unlock() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj unlock feature-x             Unlock session",
+                "zjj unlock --agent-id agent1 work  Unlock as specific agent",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_completions() -> ClapCommand {
@@ -1987,6 +2147,14 @@ pub fn cmd_completions() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON (only for errors)"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj completions bash             Generate bash completions",
+                "zjj completions zsh              Generate zsh completions",
+                "zjj completions fish             Generate fish completions",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_rename() -> ClapCommand {
@@ -2004,6 +2172,12 @@ pub fn cmd_rename() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj rename old-name new-name      Rename a session",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_pause() -> ClapCommand {
@@ -2016,6 +2190,12 @@ pub fn cmd_pause() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj pause feature-x              Pause session",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_resume() -> ClapCommand {
@@ -2028,6 +2208,12 @@ pub fn cmd_resume() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj resume feature-x             Resume paused session",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_clone() -> ClapCommand {
@@ -2055,6 +2241,13 @@ pub fn cmd_clone() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj clone feature-x feature-y     Clone session",
+                "zjj clone --no-zellij src dest   Clone without Zellij",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_export() -> ClapCommand {
@@ -2079,6 +2272,13 @@ pub fn cmd_export() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj export feature-x -o state.json  Export session to file",
+                "zjj export --include-files     Export with workspace files",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_import() -> ClapCommand {
@@ -2110,6 +2310,14 @@ pub fn cmd_import() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj import state.json           Import session from file",
+                "zjj import -f state.json        Force overwrite existing",
+                "zjj import --dry-run state.json  Preview import",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_wait() -> ClapCommand {
@@ -2152,6 +2360,13 @@ pub fn cmd_wait() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj wait session-exists feat      Wait for session to exist",
+                "zjj wait -t 60 healthy           Wait up to 60s for healthy state",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_schema() -> ClapCommand {
@@ -2178,6 +2393,14 @@ pub fn cmd_schema() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj schema                      Show all schemas",
+                "zjj schema add-response          Show specific schema",
+                "zjj schema --list               List available schemas",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_recover() -> ClapCommand {
@@ -2223,6 +2446,14 @@ pub fn cmd_recover() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj recover                      Auto-diagnose and fix issues",
+                "zjj recover --diagnose           Only diagnose, don't fix",
+                "zjj recover feature-x            Recover specific session",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_retry() -> ClapCommand {
@@ -2234,6 +2465,12 @@ pub fn cmd_retry() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj retry                       Retry last failed operation",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_rollback() -> ClapCommand {
@@ -2258,6 +2495,13 @@ pub fn cmd_rollback() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj rollback feature-x --to 123  Rollback to checkpoint",
+                "zjj rollback --dry-run feature-x --to 123  Preview rollback",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_pane() -> ClapCommand {
@@ -2304,6 +2548,15 @@ pub fn cmd_pane() -> ClapCommand {
                         .help("Output as JSON"),
                 ),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj pane focus feature-x         Focus pane in session",
+                "zjj pane focus -d left feat     Focus pane to the left",
+                "zjj pane list feature-x         List all panes in session",
+                "zjj pane next feature-x         Focus next pane",
+            ],
+            None,
+        ))
 }
 
 pub fn cmd_abort() -> ClapCommand {
@@ -2340,6 +2593,15 @@ pub fn cmd_abort() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .after_help(after_help_text(
+            &[
+                "zjj abort                       Abandon current workspace",
+                "zjj abort -w feature-x          Abort specific workspace",
+                "zjj abort --keep-workspace      Keep files, just remove from zjj",
+                "zjj abort --dry-run             Preview abort without executing",
+            ],
+            None,
+        ))
 }
 
 /// Backup command - manage database backups
