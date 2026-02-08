@@ -80,6 +80,8 @@ pub struct DoneOutput {
     pub cleaned: bool,
     pub bead_closed: bool,
     pub session_updated: bool,
+    /// New status of the session after done command (if updated)
+    pub new_status: Option<String>,
     pub pushed_to_remote: bool,
     pub dry_run: bool,
     pub preview: Option<DonePreview>,
@@ -144,6 +146,10 @@ pub enum DoneError {
     BeadUpdateFailed {
         reason: String,
     },
+    /// Failed to update session status in database
+    SessionUpdateFailed {
+        reason: String,
+    },
     JjCommandFailed {
         command: String,
         reason: String,
@@ -172,6 +178,9 @@ impl fmt::Display for DoneError {
             Self::CleanupFailed { reason } => write!(f, "Failed to cleanup workspace: {reason}"),
             Self::BeadUpdateFailed { reason } => {
                 write!(f, "Failed to update bead status: {reason}")
+            }
+            Self::SessionUpdateFailed { reason } => {
+                write!(f, "Failed to update session status: {reason}")
             }
             Self::JjCommandFailed { command, reason } => {
                 write!(f, "JJ command '{command}' failed: {reason}")
