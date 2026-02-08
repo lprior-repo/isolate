@@ -278,9 +278,32 @@ impl LockManager {
             .await
             .map_err(|e| Error::DatabaseError(e.to_string()))?;
 
-        // Check for existing lock
-        let existing: Option<(String, String)> = sqlx::query_as(
-            "SELECT agent_id, expires_at FROM session_locks WHERE session = ? AND expires_at >= ?",
+        // Check if we already hold the lock (idempotent re-lock)
+        let existing: Option<(String, String, String)> = sqlx::query_as(
+            "SELECT lock_id, session, expires_at FROM session_locks WHERE session = ? AND agent_id = ?",
+        )
+        .bind(session)
+        .bind(agent_id)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        if let Some((existing_lock_id, existing_session, existing_expires_str)) = existing {
+            let existing_expires = DateTime::parse_from_rfc3339(&existing_expires_str)
+                .map_err(|e| Error::ParseError(e.to_string()))?
+                .with_timezone(&Utc);
+
+            return Ok(LockResponse {
+                lock_id: existing_lock_id,
+                session: existing_session,
+                agent_id: agent_id.to_string(),
+                expires_at: existing_expires,
+            });
+        }
+
+        // Check if someone else holds the lock
+        let holder: Option<(String,)> = sqlx::query_as(
+            "SELECT agent_id FROM session_locks WHERE session = ? AND expires_at >= ?",
         )
         .bind(session)
         .bind(&now_str)
@@ -288,35 +311,14 @@ impl LockManager {
         .await
         .map_err(|e| Error::DatabaseError(e.to_string()))?;
 
-        if let Some((holder, _)) = existing {
-            // If same agent, just return the existing lock info
-            if holder == agent_id {
-                let row: (String, String, String) = sqlx::query_as(
-                    "SELECT lock_id, session, expires_at FROM session_locks WHERE session = ? AND agent_id = ?",
-                )
-                .bind(session)
-                .bind(agent_id)
-                .fetch_one(&self.db)
-                .await
-                .map_err(|e| Error::DatabaseError(e.to_string()))?;
-
-                let expires_at = DateTime::parse_from_rfc3339(&row.2)
-                    .map_err(|e| Error::ParseError(e.to_string()))?
-                    .with_timezone(&Utc);
-
-                return Ok(LockResponse {
-                    lock_id: row.0,
-                    session: row.1,
-                    agent_id: agent_id.to_string(),
-                    expires_at,
-                });
-            }
+        if let Some((holder_agent_id,)) = holder {
             return Err(Error::SessionLocked {
                 session: session.to_string(),
-                holder,
+                holder: holder_agent_id,
             });
         }
 
+        // Attempt atomic insert - UNIQUE constraint prevents double-lock
         let expires_at = now + self.ttl;
         let expires_str = expires_at.to_rfc3339();
         let nanos = now
@@ -324,7 +326,7 @@ impl LockManager {
             .ok_or_else(|| Error::ParseError("Failed to get timestamp nanos".into()))?;
         let lock_id = format!("lock-{session}-{nanos}");
 
-        sqlx::query(
+        let insert_result = sqlx::query(
             "INSERT INTO session_locks (lock_id, session, agent_id, acquired_at, expires_at) VALUES (?, ?, ?, ?, ?)",
         )
         .bind(&lock_id)
@@ -333,18 +335,46 @@ impl LockManager {
         .bind(&now_str)
         .bind(&expires_str)
         .execute(&self.db)
-        .await
-        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+        .await;
 
-        // Log the lock operation
-        self.log_operation(session, agent_id, "lock").await?;
+        match insert_result {
+            Ok(_) => {
+                // Log the lock operation
+                self.log_operation(session, agent_id, "lock").await?;
 
-        Ok(LockResponse {
-            lock_id,
-            session: session.to_string(),
-            agent_id: agent_id.to_string(),
-            expires_at,
-        })
+                Ok(LockResponse {
+                    lock_id,
+                    session: session.to_string(),
+                    agent_id: agent_id.to_string(),
+                    expires_at,
+                })
+            }
+            Err(e) => {
+                // Check if this was a UNIQUE constraint violation (race condition)
+                let error_msg = e.to_string().to_lowercase();
+                if error_msg.contains("unique") || error_msg.contains("constraint") {
+                    // Another agent beat us to the lock - fetch current holder
+                    let holder: Option<(String,)> = sqlx::query_as(
+                        "SELECT agent_id FROM session_locks WHERE session = ?",
+                    )
+                    .bind(session)
+                    .fetch_optional(&self.db)
+                    .await
+                    .map_err(|db_err| Error::DatabaseError(format!("Failed to query lock holder after conflict: {db_err}")))?;
+
+                    let holder_agent_id = holder
+                        .map(|(id,)| id)
+                        .unwrap_or_else(|| "unknown".to_string());
+
+                    Err(Error::SessionLocked {
+                        session: session.to_string(),
+                        holder: holder_agent_id,
+                    })
+                } else {
+                    Err(Error::DatabaseError(format!("Failed to acquire lock: {e}")))
+                }
+            }
+        }
     }
 
     /// Verify that a session exists in the sessions table.
