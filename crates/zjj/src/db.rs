@@ -75,6 +75,11 @@ CREATE TABLE IF NOT EXISTS state_transitions (
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS processed_commands (
+    command_id TEXT PRIMARY KEY,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_status ON sessions(status);
 CREATE INDEX IF NOT EXISTS idx_state ON sessions(state);
 CREATE INDEX IF NOT EXISTS idx_name ON sessions(name);
@@ -280,6 +285,121 @@ impl SessionDb {
             })
     }
 
+    /// Create a new session with optional command idempotency key.
+    ///
+    /// When `command_id` is present this operation is atomic: check, insert,
+    /// and processed mark happen in a single immediate transaction.
+    pub async fn create_with_command_id(
+        &self,
+        name: &str,
+        workspace_path: &str,
+        command_id: Option<&str>,
+    ) -> Result<Session> {
+        if command_id.is_none() {
+            return self.create(name, workspace_path).await;
+        }
+
+        validate_session_name(name)?;
+        let now = get_current_timestamp()?;
+
+        let mut conn = self.pool.acquire().await.map_err(|e| {
+            Error::DatabaseError(format!("Failed to acquire database connection: {e}"))
+        })?;
+
+        sqlx::query("BEGIN IMMEDIATE")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| {
+                Error::DatabaseError(format!("Failed to begin create transaction: {e}"))
+            })?;
+
+        let command_id_value = match command_id {
+            Some(id) => id,
+            None => {
+                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                return Err(Error::DatabaseError("Missing command id".to_string()));
+            }
+        };
+
+        if is_command_processed_conn(&mut conn, command_id_value).await? {
+            let existing = query_session_by_name_conn(&mut conn, name).await?;
+            sqlx::query("COMMIT")
+                .execute(&mut *conn)
+                .await
+                .map_err(|e| {
+                    Error::DatabaseError(format!("Failed to commit replay transaction: {e}"))
+                })?;
+
+            return existing.ok_or_else(|| {
+                Error::DatabaseError(format!(
+                    "Command {command_id_value} already processed but session '{name}' is missing"
+                ))
+            });
+        }
+
+        let insert = sqlx::query(
+            "INSERT INTO sessions (name, status, state, workspace_path, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(name)
+        .bind(SessionStatus::Creating.to_string())
+        .bind(WorkspaceState::Created.to_string())
+        .bind(workspace_path)
+        .bind(now.to_i64().map_or(i64::MAX, |t| t))
+        .bind(now.to_i64().map_or(i64::MAX, |t| t))
+        .execute(&mut *conn)
+        .await;
+
+        let session = match insert {
+            Ok(result) => Session {
+                id: Some(result.last_insert_rowid()),
+                name: name.to_string(),
+                status: SessionStatus::Creating,
+                state: WorkspaceState::Created,
+                workspace_path: workspace_path.to_string(),
+                zellij_tab: format!("zjj:{name}"),
+                branch: None,
+                created_at: now,
+                updated_at: now,
+                last_synced: None,
+                metadata: None,
+            },
+            Err(e) => {
+                if e.to_string().to_lowercase().contains("unique") {
+                    let existing = query_session_by_name_conn(&mut conn, name).await?;
+                    let existing_session = existing.ok_or_else(|| {
+                        Error::DatabaseError(format!(
+                            "Session '{name}' already exists but could not be loaded"
+                        ))
+                    })?;
+                    if existing_session.workspace_path != workspace_path {
+                        let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                        return Err(Error::DatabaseError(format!(
+                            "Session '{name}' already exists with different workspace path"
+                        )));
+                    }
+                    existing_session
+                } else {
+                    let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                    return Err(Error::DatabaseError(format!(
+                        "Failed to create session: {e}"
+                    )));
+                }
+            }
+        };
+
+        mark_command_processed_conn(&mut conn, command_id_value).await?;
+
+        sqlx::query("COMMIT")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| {
+                Error::DatabaseError(format!("Failed to commit create transaction: {e}"))
+            })?;
+
+        Ok(session)
+    }
+
     /// Create a session with a specific creation timestamp
     ///
     /// This is used internally by the import command to preserve original timestamps.
@@ -336,6 +456,76 @@ impl SessionDb {
         update_session(&self.pool, name, update).await
     }
 
+    /// Update an existing session with optional command idempotency key.
+    pub async fn update_with_command_id(
+        &self,
+        name: &str,
+        update: SessionUpdate,
+        command_id: Option<&str>,
+    ) -> Result<()> {
+        if command_id.is_none() {
+            return self.update(name, update).await;
+        }
+
+        let mut conn = self.pool.acquire().await.map_err(|e| {
+            Error::DatabaseError(format!("Failed to acquire database connection: {e}"))
+        })?;
+
+        sqlx::query("BEGIN IMMEDIATE")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| {
+                Error::DatabaseError(format!("Failed to begin update transaction: {e}"))
+            })?;
+
+        let command_id_value = match command_id {
+            Some(id) => id,
+            None => {
+                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                return Err(Error::DatabaseError("Missing command id".to_string()));
+            }
+        };
+
+        if is_command_processed_conn(&mut conn, command_id_value).await? {
+            sqlx::query("COMMIT")
+                .execute(&mut *conn)
+                .await
+                .map_err(|e| {
+                    Error::DatabaseError(format!("Failed to commit replay transaction: {e}"))
+                })?;
+            return Ok(());
+        }
+
+        let updates = build_update_clauses(&update)?;
+        if updates.is_empty() {
+            mark_command_processed_conn(&mut conn, command_id_value).await?;
+            sqlx::query("COMMIT")
+                .execute(&mut *conn)
+                .await
+                .map_err(|e| {
+                    Error::DatabaseError(format!("Failed to commit update transaction: {e}"))
+                })?;
+            return Ok(());
+        }
+
+        let (sql, values) = build_update_query(&updates, name);
+        let rows_affected = execute_update_conn(&mut conn, &sql, values).await?;
+        if rows_affected == 0 {
+            let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+            return Err(Error::NotFound(format!("Session '{name}' not found")));
+        }
+
+        mark_command_processed_conn(&mut conn, command_id_value).await?;
+        sqlx::query("COMMIT")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| {
+                Error::DatabaseError(format!("Failed to commit update transaction: {e}"))
+            })?;
+
+        Ok(())
+    }
+
     /// Delete a session by name
     ///
     /// Returns `true` if session was deleted, `false` if it didn't exist
@@ -368,7 +558,7 @@ impl SessionDb {
              SET removal_status = 'failed',
                  removal_error = ?,
                  removal_attempted_at = ?
-             WHERE name = ?"
+             WHERE name = ?",
         )
         .bind(error)
         .bind(now.to_i64().map_or(i64::MAX, |t| t))
@@ -417,6 +607,11 @@ impl SessionDb {
         }
 
         Ok(cleaned_count)
+    }
+
+    /// Check whether a command id was already processed.
+    pub async fn is_command_processed(&self, command_id: &str) -> Result<bool> {
+        is_command_processed_pool(&self.pool, command_id).await
     }
 }
 
