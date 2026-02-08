@@ -1566,7 +1566,7 @@ async fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
     if !allow_create {
         let db_exists = tokio::fs::try_exists(path)
             .await
-            .map_err(|e| Error::IoError(format!("Failed to check database existence: {e}"))?;
+            .map_err(|e| Error::IoError(format!("Failed to check database existence: {e}"))))?;
 
         if !db_exists {
             return Err(Error::DatabaseError(format!(
@@ -1580,7 +1580,7 @@ async fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
     let backup_path = path.with_extension(format!("db.{}", timestamp_now()));
     let _backup_exists = tokio::fs::try_exists(&backup_path)
         .await
-        .map_err(|e| Error::IoError(format!("Failed to check for backups: {e}"))?;
+        .map_err(|e| Error::IoError(format!("Failed to check for backups: {e}"))))?;
 
     // TODO: Check for recent backups and warn if none exist
 
