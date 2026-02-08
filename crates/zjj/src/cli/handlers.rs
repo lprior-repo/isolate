@@ -10,7 +10,7 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 use crate::{
     cli::commands::build_cli,
     commands::{
-        abort, add, agents, ai, attach, backup, batch, bookmark, can_i, checkpoint, claim, clean,
+        abort, add, agents, ai, attach, batch, bookmark, can_i, checkpoint, claim, clean,
         completions, config, context, contract, dashboard, diff, doctor, done, events, examples,
         export_import, focus, get_session_db, init, integrity, introspect, list, pane, query,
         queue, recover, remove, rename, revert, schema, session_mgmt, spawn, status, switch, sync,
@@ -210,7 +210,7 @@ pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_diff(sub_m: &ArgMatches) -> Result<()> {
-    let name = sub_m.get_one::<String>("name").map(|s| s.as_str());
+    let name = sub_m.get_one::<String>("name").map(String::as_str);
     let stat = sub_m.get_flag("stat");
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
