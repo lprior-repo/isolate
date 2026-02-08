@@ -988,8 +988,10 @@ mod tests {
             "load_config should succeed even without config files"
         );
 
-        #[allow(clippy::unnecessary_result_map_or_else)]
-        let config = result.map_or_else(|_| Config::default(), |c| c);
+        let config = match result {
+            Ok(c) => c,
+            Err(_) => Config::default(),
+        };
         // Check that we got a valid config (global config may override workspace_dir)
         assert!(!config.workspace_dir.is_empty());
         assert_eq!(config.default_template, "standard");

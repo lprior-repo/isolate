@@ -37,8 +37,10 @@ where
 {
     items.into_iter().fold(im::HashMap::new(), |mut map, item| {
         let key = key_fn(&item);
-        #[allow(clippy::unnecessary_option_map_or_else)]
-        let mut group = map.get(&key).cloned().map_or_else(Vec::new, |v| v);
+        let mut group = match map.get(&key) {
+            Some(v) => v.clone(),
+            None => Vec::new(),
+        };
         group.push(item);
         map.insert(key, group);
         map
