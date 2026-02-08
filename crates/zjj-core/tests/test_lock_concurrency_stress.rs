@@ -208,7 +208,7 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
     println!("  - Acquisition rate: {acquisition_rate:.2} locks/sec");
     println!("  - Average acquisition time: {avg_time:.2}ms");
     println!("  - Contention percentage: {contention:.1}%");
-    println!("  - Total duration: {:?}", total_duration);
+    println!("  - Total duration: {total_duration:?}");
 
     Ok(())
 }
@@ -305,8 +305,7 @@ async fn test_50_agents_claim_unique_resources() -> Result<(), Error> {
     assert_eq!(
         all_locks.len(),
         num_agents,
-        "Database should contain exactly {} locks",
-        num_agents
+        "Database should contain exactly {num_agents} locks"
     );
 
     // THEN: Verify each session has correct holder
@@ -331,7 +330,7 @@ async fn test_50_agents_claim_unique_resources() -> Result<(), Error> {
         "  - Average per-lock time: {:.2}ms",
         total_duration.as_millis() as f64 / num_agents as f64
     );
-    println!("  - Total duration: {:?}", total_duration);
+    println!("  - Total duration: {total_duration:?}");
 
     Ok(())
 }
@@ -433,8 +432,7 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     assert_eq!(
         agent_results.len(),
         num_agents as usize,
-        "All {} agents should complete",
-        num_agents
+        "All {num_agents} agents should complete"
     );
 
     // THEN: Total operations should be successful
@@ -449,7 +447,7 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     println!("  - Total successful operations: {total_successful}");
     println!("  - Total failed operations: {total_failed}");
     println!("  - Success rate: {success_rate:.1}%");
-    println!("  - Total duration: {:?}", total_duration);
+    println!("  - Total duration: {total_duration:?}");
     println!(
         "  - Operations per second: {:.2}",
         total_operations as f64 / total_duration.as_secs_f64()
@@ -550,8 +548,7 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
         // State should be valid (either locked or unlocked, not corrupted)
         assert!(
             lock_state.holder.is_some() || lock_state.holder.is_none(),
-            "Lock state for {} should be valid (not corrupted)",
-            session_name
+            "Lock state for {session_name} should be valid (not corrupted)"
         );
 
         // Check audit trail
@@ -583,7 +580,7 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
 
     println!("test_lock_unlock_storm_consistency metrics:");
     println!("  - Total operations completed: {total_operations}");
-    println!("  - Duration: {:?}", total_duration);
+    println!("  - Duration: {total_duration:?}");
     println!(
         "  - Operations per second: {:.2}",
         total_operations as f64 / total_duration.as_secs_f64()
@@ -671,8 +668,7 @@ async fn test_claim_transfer_under_load() -> Result<(), Error> {
     // THEN: All transfers should succeed
     assert_eq!(
         successful_transfers, num_transfer_cycles,
-        "All {} transfers should succeed",
-        num_transfer_cycles
+        "All {num_transfer_cycles} transfers should succeed"
     );
 
     assert_eq!(failed_transfers, 0, "No transfers should fail");
@@ -696,7 +692,7 @@ async fn test_claim_transfer_under_load() -> Result<(), Error> {
     println!("  - Successful transfers: {successful_transfers}");
     println!("  - Failed transfers: {failed_transfers}");
     println!("  - Total audit entries: {}", audit_log.len());
-    println!("  - Duration: {:?}", total_duration);
+    println!("  - Duration: {total_duration:?}");
 
     Ok(())
 }
@@ -796,9 +792,9 @@ async fn test_lock_contention_metrics() -> Result<(), Error> {
     println!("  - Successful acquisitions: {successes}");
     println!("  - Failed acquisitions (contention): {failures}");
     println!("  - Contention rate: {contention_rate:.1}%");
-    println!("  - Avg success time: {:.2}ms", avg_success_time);
-    println!("  - Avg failure time: {:.2}ms", avg_failure_time);
-    println!("  - Total duration: {:?}", total_duration);
+    println!("  - Avg success time: {avg_success_time:.2}ms");
+    println!("  - Avg failure time: {avg_failure_time:.2}ms");
+    println!("  - Total duration: {total_duration:?}");
 
     // THEN: All agents should complete
     assert_eq!(
@@ -817,9 +813,7 @@ async fn test_lock_contention_metrics() -> Result<(), Error> {
     if avg_success_time > 0.0 && avg_failure_time > 0.0 {
         assert!(
             avg_failure_time < avg_success_time,
-            "Failed lock attempts should be faster than successful ones (fail fast): {:.2}ms vs {:.2}ms",
-            avg_failure_time,
-            avg_success_time
+            "Failed lock attempts should be faster than successful ones (fail fast): {avg_failure_time:.2}ms vs {avg_success_time:.2}ms"
         );
     }
 
@@ -909,8 +903,7 @@ async fn test_no_deadlocks_under_load() -> Result<(), Error> {
     // THEN: All agents should complete
     assert_eq!(
         completed_agents, num_agents,
-        "All {} agents should complete without deadlock",
-        num_agents
+        "All {num_agents} agents should complete without deadlock"
     );
 
     // THEN: Test should complete well before timeout
@@ -921,8 +914,8 @@ async fn test_no_deadlocks_under_load() -> Result<(), Error> {
 
     println!("test_no_deadlocks_under_load results:");
     println!("  - Agents completed: {completed_agents}");
-    println!("  - Duration: {:?}", total_duration);
-    println!("  - Timeout limit: {:?}", timeout_duration);
+    println!("  - Duration: {total_duration:?}");
+    println!("  - Timeout limit: {timeout_duration:?}");
     println!("  - Status: No deadlocks detected");
 
     Ok(())

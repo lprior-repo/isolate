@@ -5,11 +5,12 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-use anyhow::{Context, Result};
 use std::path::Path;
 
-use super::{list::BackupInfo, BackupConfig};
+use anyhow::{Context, Result};
 use tokio::fs;
+
+use super::{list::BackupInfo, BackupConfig};
 
 /// Apply retention policy to backups for a specific database
 ///
@@ -46,14 +47,12 @@ pub async fn apply_retention_policy(
         // Remove metadata file if exists
         let metadata_path = backup.path.with_extension("json");
         if metadata_path.exists() {
-            fs::remove_file(&metadata_path)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed to remove backup metadata: {}",
-                        metadata_path.display()
-                    )
-                })?;
+            fs::remove_file(&metadata_path).await.with_context(|| {
+                format!(
+                    "Failed to remove backup metadata: {}",
+                    metadata_path.display()
+                )
+            })?;
         }
 
         removed_paths.push(backup.path.display().to_string());
@@ -67,10 +66,7 @@ pub async fn apply_retention_policy(
 /// # Errors
 ///
 /// Returns error if any retention operation fails
-pub async fn apply_retention_policy_all(
-    root: &Path,
-    config: &BackupConfig,
-) -> Result<Vec<String>> {
+pub async fn apply_retention_policy_all(root: &Path, config: &BackupConfig) -> Result<Vec<String>> {
     let databases = vec!["state.db", "queue.db", "beads.db"];
 
     let mut all_removed = Vec::new();
@@ -198,9 +194,10 @@ impl RetentionStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Utc;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_apply_retention_policy_removes_old_backups() {

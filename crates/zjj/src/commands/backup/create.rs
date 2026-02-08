@@ -5,15 +5,16 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result};
 use chrono::Utc;
-use std::path::{Path, PathBuf};
+use tokio::fs;
 
 use super::backup_internal::{
     compute_checksum, generate_backup_filename, get_database_backup_dir, BackupConfig,
     BackupMetadata,
 };
-use tokio::fs;
 
 /// Create a backup of a database file
 ///
@@ -24,10 +25,7 @@ use tokio::fs;
 /// - Backup directory cannot be created
 /// - File copy fails
 /// - Metadata cannot be written
-pub async fn create_backup(
-    database_path: &Path,
-    config: &BackupConfig,
-) -> Result<PathBuf> {
+pub async fn create_backup(database_path: &Path, config: &BackupConfig) -> Result<PathBuf> {
     // Validate source database exists
     anyhow::ensure!(
         database_path.exists(),
@@ -124,8 +122,9 @@ pub async fn backup_all_databases(root: &Path, config: &BackupConfig) -> Result<
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_create_backup_creates_files() {
@@ -141,9 +140,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_path = create_backup(&db_path, &config)
-            .await
-            .unwrap();
+        let backup_path = create_backup(&db_path, &config).await.unwrap();
 
         assert!(backup_path.exists());
         assert!(backup_path.with_extension("json").exists());

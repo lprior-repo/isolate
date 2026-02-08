@@ -8,10 +8,11 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 
 /// Backup metadata stored alongside backup files
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,8 +83,7 @@ impl BackupConfig {
 /// Returns error if file cannot be read
 pub async fn compute_checksum(path: &Path) -> Result<String> {
     use sha2::{Digest, Sha256};
-    use tokio::fs::File;
-    use tokio::io::AsyncReadExt;
+    use tokio::{fs::File, io::AsyncReadExt};
 
     let mut file = File::open(path)
         .await
