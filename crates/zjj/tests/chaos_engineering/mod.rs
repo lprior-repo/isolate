@@ -40,7 +40,6 @@
 // Production code (src/) must use Result<T, Error> patterns.
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
-#![allow(clippy::panic)]
 #![allow(clippy::too_many_lines)]
 
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -656,6 +655,8 @@ pub fn calculate_chaos_stats<T>(results: &[Result<T>]) -> (usize, usize, f64) {
 
     let successes = results.iter().filter(|r| r.is_ok()).count();
     let failures = total - successes;
+    #[allow(clippy::cast_precision_loss)]
+    // Safe because success rate is a ratio; precision loss beyond f64 mantissa is negligible
     let success_rate = successes as f64 / total as f64;
 
     (successes, failures, success_rate)

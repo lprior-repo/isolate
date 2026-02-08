@@ -541,8 +541,7 @@ mod tests {
             assert_eq!(
                 result.is_ok(),
                 should_pass,
-                "Name '{name}' validation mismatch: expected ok={should_pass}, got {:?}",
-                result
+                "Name '{name}' validation mismatch: expected ok={should_pass}, got {result:?}"
             );
         }
     }

@@ -737,8 +737,7 @@ fn validate_agent_id_rejects_whitespace_only() {
         let result = validate_agent_id(whitespace_id);
         assert!(
             result.is_err(),
-            "whitespace-only agent_id '{:?}' should be rejected",
-            whitespace_id
+            "whitespace-only agent_id '{whitespace_id:?}' should be rejected"
         );
     }
 }
@@ -762,9 +761,7 @@ fn validate_agent_id_accepts_valid_ids() {
         let result = validate_agent_id(valid_id);
         assert!(
             result.is_ok(),
-            "valid agent_id '{}' should be accepted: {:?}",
-            valid_id,
-            result
+            "valid agent_id '{valid_id}' should be accepted: {result:?}"
         );
     }
 }

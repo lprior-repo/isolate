@@ -289,6 +289,30 @@ pub async fn run_show(name: &str, format: OutputFormat) -> Result<()> {
 ///
 /// Returns error if template not found or unable to delete
 pub async fn run_delete(name: &str, force: bool, format: OutputFormat) -> Result<()> {
+    // Protect builtin templates from deletion
+    let builtin_templates = ["minimal", "standard", "full", "split", "review"];
+    if builtin_templates.contains(&name) {
+        let error_msg = format!(
+            "Cannot delete builtin template '{name}'. Builtin templates are: {}",
+            builtin_templates.join(", ")
+        );
+        if format.is_json() {
+            let error_output = serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "CANNOT_DELETE_BUILTIN",
+                    "message": error_msg,
+                    "template": name
+                }
+            });
+            writeln!(std::io::stdout(), "{}", serde_json::to_string_pretty(&error_output)?)?;
+        } else {
+            anyhow::bail!(error_msg);
+        }
+        return Err(anyhow::anyhow!(error_msg));
+    }
+
+
     let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;
 
@@ -481,7 +505,7 @@ mod tests {
         if let Err(Error::ValidationError(msg)) = result {
             assert!(msg.contains("empty") || msg.contains("Empty"));
         } else {
-            panic!("Expected ValidationError, got: {:?}", result);
+            panic!("Expected ValidationError, got: {result:?}");
         }
     }
 
@@ -493,7 +517,7 @@ mod tests {
         if let Err(Error::ValidationError(msg)) = result {
             assert!(msg.contains("64"));
         } else {
-            panic!("Expected ValidationError, got: {:?}", result);
+            panic!("Expected ValidationError, got: {result:?}");
         }
     }
 
@@ -504,7 +528,7 @@ mod tests {
         if let Err(Error::ValidationError(msg)) = result {
             assert!(msg.contains("ASCII"));
         } else {
-            panic!("Expected ValidationError, got: {:?}", result);
+            panic!("Expected ValidationError, got: {result:?}");
         }
     }
 
@@ -515,7 +539,7 @@ mod tests {
         if let Err(Error::ValidationError(msg)) = result {
             assert!(msg.contains("start with a letter"));
         } else {
-            panic!("Expected ValidationError, got: {:?}", result);
+            panic!("Expected ValidationError, got: {result:?}");
         }
     }
 
@@ -526,7 +550,7 @@ mod tests {
         if let Err(Error::ValidationError(msg)) = result {
             assert!(msg.contains("start with a letter"));
         } else {
-            panic!("Expected ValidationError, got: {:?}", result);
+            panic!("Expected ValidationError, got: {result:?}");
         }
     }
 
@@ -537,7 +561,7 @@ mod tests {
         if let Err(Error::ValidationError(msg)) = result {
             assert!(msg.contains("start with a letter"));
         } else {
-            panic!("Expected ValidationError, got: {:?}", result);
+            panic!("Expected ValidationError, got: {result:?}");
         }
     }
 
@@ -548,7 +572,7 @@ mod tests {
         if let Err(Error::ValidationError(msg)) = result {
             assert!(msg.contains("alphanumeric") || msg.contains("character"));
         } else {
-            panic!("Expected ValidationError, got: {:?}", result);
+            panic!("Expected ValidationError, got: {result:?}");
         }
     }
 
