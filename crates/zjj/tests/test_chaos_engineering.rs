@@ -25,6 +25,9 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::too_many_lines)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::uninlined_format_args)]
 
 mod chaos_engineering;
 mod common;

@@ -11,6 +11,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::too_many_lines)]
+#![allow(clippy::float_cmp)]
 
 mod common;
 
@@ -552,7 +553,7 @@ fn test_json_is_pretty_printed() {
             "JSON should be pretty-printed with newlines"
         );
         assert!(
-            json_str.contains("  ") || json_str.contains("\t"),
+            json_str.contains("  ") || json_str.contains('\t'),
             "JSON should be pretty-printed with indentation"
         );
     }
@@ -568,7 +569,7 @@ fn test_exit_code_matches_json() -> Result<(), Box<dyn std::error::Error>> {
     // Try a command that will fail
     let result = harness.zjj(&["focus", "does-not-exist", "--json"]);
 
-    if !result.success && result.stdout.contains("{") {
+    if !result.success && result.stdout.contains('{') {
         let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
 
         if let Some(error) = parsed.get("error") {
@@ -576,7 +577,7 @@ fn test_exit_code_matches_json() -> Result<(), Box<dyn std::error::Error>> {
                 // Exit code in JSON should match process exit code
                 // Note: result.status.code() may not be available in all test harnesses
                 assert!(
-                    exit_code >= 1 && exit_code <= 130,
+                    (1..=130).contains(&exit_code),
                     "Exit code should be in valid range 1-130, got {exit_code}"
                 );
             }

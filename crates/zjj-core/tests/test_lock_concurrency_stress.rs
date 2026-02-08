@@ -18,6 +18,7 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
+#![allow(clippy::cast_possible_truncation)]  // Test code using intentional casts
 #![forbid(unsafe_code)]
 // Test code uses unwrap/expect idioms for test clarity.
 // Production code (src/) must use Result<T, Error> patterns.
@@ -57,12 +58,14 @@ async fn setup_lock_manager() -> Result<LockManager, Error> {
 
 /// Metrics collected during stress test
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]  // duplicate_acquisitions reserved for future use
 struct StressTestMetrics {
     successful_acquisitions: usize,
     failed_acquisitions: usize,
     contentions: usize,
     acquisition_times_ms: Vec<f64>,
     unique_holders: HashSet<String>,
+    #[allow(dead_code)]
     duplicate_acquisitions: usize,
     deadlocks_detected: usize,
 }
@@ -141,7 +144,6 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
 
     // Collect results using functional pattern
     let mut metrics = StressTestMetrics::default();
-    let mut holders: Vec<String> = Vec::new();
 
     while let Some(result) = join_set.join_next().await {
         match result {
@@ -305,7 +307,7 @@ async fn test_50_agents_claim_unique_resources() -> Result<(), Error> {
     // THEN: Verify no duplicate session locks
     assert_eq!(
         successful_locks.len(),
-        HashSet::<&String>::from_iter(successful_locks.keys()).len(),
+        successful_locks.keys().collect::<HashSet<&String>>().len(),
         "No duplicate session locks should exist"
     );
 
@@ -321,10 +323,7 @@ async fn test_50_agents_claim_unique_resources() -> Result<(), Error> {
     for (session, expected_holder) in &successful_locks {
         let lock_state = mgr.get_lock_state(session).await?;
         assert!(
-            lock_state
-                .holder
-                .as_ref()
-                .map_or(false, |h| h == expected_holder),
+            lock_state.holder.as_ref() == Some(expected_holder),
             "Session {session} holder mismatch: expected {expected_holder}, got {:?}",
             lock_state.holder
         );
@@ -383,7 +382,7 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
                         // Immediately unlock
                         let unlock_result = mgr_clone.unlock(&session_name, &agent_name).await;
                         match unlock_result {
-                            Ok(_) => {
+                            Ok(()) => {
                                 successful_operations += 1;
                             }
                             Err(_) => {
@@ -459,7 +458,7 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     println!("  - Total duration: {total_duration:?}");
     println!(
         "  - Operations per second: {:.2}",
-        total_operations as f64 / total_duration.as_secs_f64()
+        f64::from(total_operations) / total_duration.as_secs_f64()
     );
 
     // THEN: Verify database integrity (no partial/corrupted state)
@@ -592,7 +591,7 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
     println!("  - Duration: {total_duration:?}");
     println!(
         "  - Operations per second: {:.2}",
-        total_operations as f64 / total_duration.as_secs_f64()
+        f64::from(total_operations) / total_duration.as_secs_f64()
     );
 
     Ok(())
@@ -791,7 +790,7 @@ async fn test_lock_contention_metrics() -> Result<(), Error> {
     };
 
     let contention_rate = if num_agents > 0 {
-        (failures as f64) / (num_agents as f64) * 100.0
+        f64::from(failures) / f64::from(num_agents) * 100.0
     } else {
         0.0
     };

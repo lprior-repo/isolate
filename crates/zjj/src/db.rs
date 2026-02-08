@@ -1232,7 +1232,7 @@ mod tests {
             .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
         // Verify the file was created
-        assert!(tokio::fs::try_exists(&db_path).await.map_or(false, |v| v));
+        assert!(tokio::fs::try_exists(&db_path).await.is_ok_and(|v| v));
 
         // Read and verify the first 16 bytes match the invalid header (functional)
         let header = crate::db::io::read_exact_bytes::<16>(&db_path)
@@ -1272,7 +1272,7 @@ mod tests {
             .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
 
         // Verify the file exists but is too small
-        assert!(tokio::fs::try_exists(&db_path).await.map_or(false, |v| v));
+        assert!(tokio::fs::try_exists(&db_path).await.is_ok_and(|v| v));
         let file_size = tokio::fs::metadata(&db_path)
             .await
             .map(|m| m.len())
