@@ -8,11 +8,6 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-pub mod create;
-pub mod list;
-pub mod restore;
-pub mod retention;
-
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

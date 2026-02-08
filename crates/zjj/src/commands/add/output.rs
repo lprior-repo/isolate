@@ -50,7 +50,7 @@ mod tests {
         // Test that idempotent mode shows "already exists" not "Created"
         let name = "test-session";
         let workspace_path = "/path/to/workspace";
-        let zellij_tab = "zjj:test-session";
+        let _zellij_tab = "zjj:test-session";
         let mode = "already exists (idempotent)";
 
         // Test JSON format
@@ -84,7 +84,7 @@ mod tests {
     fn test_output_result_normal_mode() {
         // Test that normal mode shows "Created"
         let name = "test-session";
-        let workspace_path = "/path/to/workspace";
+        let _workspace_path = "/path/to/workspace";
         let mode = "with Zellij tab";
 
         let status_msg = if mode.contains("idempotent") {

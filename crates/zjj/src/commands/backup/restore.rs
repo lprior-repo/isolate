@@ -8,7 +8,7 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
-use super::{parse_backup_filename, BackupConfig, BackupMetadata};
+use super::backup_internal::{compute_checksum, get_database_backup_dir, parse_backup_filename, BackupConfig, BackupMetadata};
 use tokio::fs;
 
 /// Restore a database from a backup
@@ -50,7 +50,7 @@ pub async fn restore_backup(
 
     // Verify checksum if requested
     if verify_checksum {
-        let current_checksum = super::compute_checksum(backup_path)
+        let current_checksum = compute_checksum(backup_path)
             .await
             .context("Failed to compute backup checksum for verification")?;
 
@@ -89,7 +89,7 @@ pub async fn find_latest_backup(
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<PathBuf> {
-    let backup_dir = super::get_database_backup_dir(&config.backup_dir, database_name);
+    let backup_dir = get_database_backup_dir(&config.backup_dir, database_name);
 
     anyhow::ensure!(
         backup_dir.exists(),

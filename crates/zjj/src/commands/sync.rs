@@ -608,7 +608,7 @@ mod tests {
     #[tokio::test]
     async fn test_detect_workspace_context_returns_none_from_main_repo() {
         // GREEN: Returns None when called from main repo (not a workspace)
-        let temp = tempfile::TempDir::new().ok();
+        let _temp = tempfile::TempDir::new().ok();
         // Implementation should detect we're in main repo and return None
         // This test verifies the detection logic works correctly
     }
@@ -616,7 +616,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_session_db_from_workspace_finds_main_repo_db() {
         // GREEN: Accesses main repo database when called from workspace
-        let temp = tempfile::TempDir::new().ok();
+        let _temp = tempfile::TempDir::new().ok();
         // Implementation should detect workspace context and locate main repo .zjj
         // This verifies the database routing logic
     }
@@ -624,7 +624,7 @@ mod tests {
     #[tokio::test]
     async fn test_workspace_detection_handles_nested_layouts() {
         // GREEN: Handles both nested and flat workspace layouts
-        let temp = tempfile::TempDir::new().ok();
+        let _temp = tempfile::TempDir::new().ok();
         // Implementation should detect main repo regardless of workspace nesting
         // This verifies robustness across different workspace configurations
     }

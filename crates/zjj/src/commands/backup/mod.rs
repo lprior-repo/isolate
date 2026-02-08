@@ -25,7 +25,7 @@ pub async fn run_create(format: OutputFormat) -> Result<()> {
     let root = jj_root().await.context("Failed to get JJ root")?;
     let root_path = std::path::PathBuf::from(&root);
 
-    let config = retention::BackupConfig::default();
+    let config = BackupConfig::default();
 
     let backup_paths = create::backup_all_databases(&root_path, &config).await?;
 
@@ -61,7 +61,7 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
     let root = jj_root().await.context("Failed to get JJ root")?;
     let root_path = std::path::PathBuf::from(&root);
 
-    let config = retention::BackupConfig::default();
+    let config = BackupConfig::default();
     let all_backups = list::list_all_backups(&root_path, &config).await?;
 
     match format {
@@ -116,7 +116,7 @@ pub async fn run_restore(
     let root = jj_root().await.context("Failed to get JJ root")?;
     let root_path = std::path::PathBuf::from(&root);
 
-    let config = retention::BackupConfig::default();
+    let config = BackupConfig::default();
 
     // If timestamp provided, find specific backup
     // Otherwise use latest
@@ -166,7 +166,7 @@ pub async fn run_retention(format: OutputFormat) -> Result<()> {
     let root = jj_root().await.context("Failed to get JJ root")?;
     let root_path = std::path::PathBuf::from(&root);
 
-    let config = retention::BackupConfig::default();
+    let config = BackupConfig::default();
     let removed = retention::apply_retention_policy_all(&root_path, &config).await?;
 
     match format {
@@ -198,7 +198,7 @@ pub async fn run_status(format: OutputFormat) -> Result<()> {
     let root = jj_root().await.context("Failed to get JJ root")?;
     let root_path = std::path::PathBuf::from(&root);
 
-    let config = retention::BackupConfig::default();
+    let config = BackupConfig::default();
     let statuses = retention::get_retention_status(&root_path, &config).await?;
 
     match format {

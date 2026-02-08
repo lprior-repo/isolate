@@ -195,7 +195,7 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
             lock_state
                 .holder
                 .as_deref()
-                .ok_or_else(|| { Error::Validation("Failed to convert holder to &str".into()) })?
+                .ok_or_else(|| { Error::ValidationError("Failed to convert holder to &str".into()) })?
         ),
         "Lock holder should match successful agent"
     );
@@ -893,7 +893,7 @@ async fn test_no_deadlocks_under_load() -> Result<(), Error> {
     let deadline = Instant::now() + timeout_duration;
     while let Some(result) = join_set.join_next().await {
         if Instant::now() > deadline {
-            return Err(Error::Validation(
+            return Err(Error::ValidationError(
                 "Potential deadlock detected - test exceeded timeout".into(),
             ));
         }

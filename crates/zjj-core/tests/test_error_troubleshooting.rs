@@ -121,8 +121,7 @@ fn test_all_errors_have_fix_commands_or_none_reasonably() {
                         || cmd.starts_with("ls ")
                         || cmd.starts_with("echo ")
                         || cmd.starts_with("df "),
-                    "Fix command should start with a known command: '{}'",
-                    cmd
+                    "Fix command should start with a known command: '{cmd}'"
                 );
             }
         }
