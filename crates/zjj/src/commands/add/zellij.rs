@@ -1,3 +1,7 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
+
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
@@ -30,13 +34,11 @@ pub(super) async fn create_zellij_tab(
 ) -> Result<()> {
     let template_type = parse_template(template)?;
 
-    let config = LayoutConfig::new(
-        tab_name
-            .strip_prefix("zjj:")
-            .unwrap_or(tab_name)
-            .to_string(),
-        Path::new(workspace_path).to_path_buf(),
-    );
+    let stripped_name = tab_name
+        .strip_prefix("zjj:")
+        .map_or_else(|| tab_name.to_string(), |s| s.to_string());
+
+    let config = LayoutConfig::new(stripped_name, Path::new(workspace_path).to_path_buf());
 
     // Use a temporary directory for the layout file
     let temp_dir = std::env::temp_dir();
@@ -67,13 +69,11 @@ pub(super) fn create_session_layout(
 ) -> Result<String> {
     let template_type = parse_template(template)?;
 
-    let config = LayoutConfig::new(
-        tab_name
-            .strip_prefix("zjj:")
-            .unwrap_or(tab_name)
-            .to_string(),
-        Path::new(workspace_path).to_path_buf(),
-    );
+    let stripped_name = tab_name
+        .strip_prefix("zjj:")
+        .map_or_else(|| tab_name.to_string(), |s| s.to_string());
+
+    let config = LayoutConfig::new(stripped_name, Path::new(workspace_path).to_path_buf());
 
     zellij::generate_template_kdl(&config, template_type)
         .map_err(|e| anyhow!("Failed to generate layout KDL: {e}"))
@@ -81,6 +81,9 @@ pub(super) fn create_session_layout(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+
     use super::*;
 
     #[test]
