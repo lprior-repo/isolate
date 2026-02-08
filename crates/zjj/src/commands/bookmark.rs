@@ -582,8 +582,8 @@ mod tests {
     #[test]
     fn test_parse_bookmark_list_multiline_with_remotes() {
         // Real JJ output format with indented remote bookmarks
-        let output = b"main: ntzomurw e553bf6b feat: Implement handle_broadcast function\n\
-  @git: ntzomurw e553bf6b feat: Implement handle_broadcast function\n\
+        let output = b"main: ntzomurw e553bf6b feat: Implement handle_broadcast function\n
+  @git: ntzomurw e553bf6b feat: Implement handle_broadcast function\n
   @origin: ntzomurw e553bf6b feat: Implement handle_broadcast function\n";
 
         let result = parse_bookmark_list(output);
@@ -601,7 +601,7 @@ mod tests {
     #[test]
     fn test_parse_bookmark_list_with_deleted() {
         // Bookmarks marked as (deleted) should be filtered out
-        let output = b"main: abc123def456\n\
+        let output = b"main: abc123def456\n
 old-feature: xyz789 (deleted)\n";
 
         let result = parse_bookmark_list(output);
@@ -617,11 +617,11 @@ old-feature: xyz789 (deleted)\n";
     #[test]
     fn test_parse_bookmark_list_mixed_format() {
         // Complex mixed format with multiple bookmarks, remotes, and deleted
-        let output = b"main: ntzomurw e553bf6b feat: Broadcast command\n\
-  @origin: ntzomurw e553bf6b feat: Broadcast command\n\
-feature: pqrlsyvw 195a784b test: Another feature\n\
-deprecated: vwxyz123 (deleted)\n\
-  @git: vwxyz123 deprecated bookmark\n\
+        let output = b"main: ntzomurw e553bf6b feat: Broadcast command\n
+  @origin: ntzomurw e553bf6b feat: Broadcast command\n
+feature: pqrlsyvw 195a784b test: Another feature\n
+deprecated: vwxyz123 (deleted)\n
+  @git: vwxyz123 deprecated bookmark\n
 bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
 
         let result = parse_bookmark_list(output);
