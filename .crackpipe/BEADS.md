@@ -222,3 +222,4 @@ zjj-vpcx ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 07:31:02] [2026-02-08 07:30:44] Found bead: zjj-a7lu
 zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-builder-6
 [2026-02-08 07:31:16] zjj-3c27 needs-rework → reworking → ready-qa-builder reworker-3 (Fixed E0063: added session_updated: false to DoneOutput initializer in done/mod.rs:185)
+[2026-02-08 07:33:28] zjj-xcso needs-rework → reworking → ready-qa-builder reworker-2 (VERIFIED: --include-files flag already removed from CLI, ExportOptions struct clean, no dead code remains)

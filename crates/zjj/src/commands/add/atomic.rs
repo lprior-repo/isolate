@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use zjj_core::jj;
 
 use crate::{db::SessionDb, session::SessionUpdate};
 

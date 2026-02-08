@@ -325,9 +325,9 @@ mod tests {
                 assert!(msg.contains("parent directory"));
             }
             Err(other) => {
-                panic!("Expected InvalidConfig error, got: {:?}", other);
+                panic!("Expected InvalidConfig error, got: {other:?}");
             }
-            Ok(_) => {
+            Ok(()) => {
                 panic!("Expected InvalidConfig error, but got Ok");
             }
         }

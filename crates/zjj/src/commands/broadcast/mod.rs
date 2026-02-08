@@ -133,12 +133,12 @@ fn print_human_readable(response: &BroadcastResponse) {
     println!("  Sent to: {} agents", response.sent_to.len());
     println!("  Timestamp: {}", response.timestamp);
 
-    if !response.sent_to.is_empty() {
+    if response.sent_to.is_empty() {
+        println!("  No other active agents");
+    } else {
         println!("  Recipients:");
         for agent_id in &response.sent_to {
             println!("    - {agent_id}");
         }
-    } else {
-        println!("  No other active agents");
     }
 }

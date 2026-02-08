@@ -217,10 +217,10 @@ async fn count_commits_ahead(root: &PathBuf) -> Result<usize> {
 /// Extract agent ID from session metadata
 ///
 /// # Returns
-/// - Some(agent_id) if metadata contains valid string agent_id
-/// - None if metadata doesn't contain agent_id
-/// - None if agent_id is not a string
-/// - None if agent_id is empty string
+/// - `Some(agent_id)` if metadata contains valid string `agent_id`
+/// - None if metadata doesn't contain `agent_id`
+/// - None if `agent_id` is not a string
+/// - None if `agent_id` is empty string
 fn extract_agent_from_metadata(metadata: Option<&serde_json::Value>) -> Option<String> {
     metadata
         .and_then(|m| m.get("agent_id"))

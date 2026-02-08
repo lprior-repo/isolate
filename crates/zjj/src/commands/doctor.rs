@@ -1045,23 +1045,21 @@ fn show_dry_run_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<(
             }).collect::<Vec<_>>()
         });
         println!("{}", serde_json::to_string_pretty(&dry_run_output)?);
+    } else if fixable_checks.is_empty() {
+        println!("Dry-run mode: No auto-fixable issues found");
     } else {
-        if fixable_checks.is_empty() {
-            println!("Dry-run mode: No auto-fixable issues found");
-        } else {
-            println!("Dry-run mode: would fix the following:");
-            println!();
-            for check in fixable_checks {
-                println!(
-                    "  • {}: {}",
-                    check.name,
-                    describe_fix(check)
-                        .unwrap_or_else(|| "No fix description available".to_string())
-                );
-            }
-            println!();
-            println!("No changes will be made. Run without --dry-run to apply fixes.");
+        println!("Dry-run mode: would fix the following:");
+        println!();
+        for check in fixable_checks {
+            println!(
+                "  • {}: {}",
+                check.name,
+                describe_fix(check)
+                    .unwrap_or_else(|| "No fix description available".to_string())
+            );
         }
+        println!();
+        println!("No changes will be made. Run without --dry-run to apply fixes.");
     }
 
     Ok(())
@@ -1078,32 +1076,39 @@ fn describe_fix(check: &DoctorCheck) -> Option<String> {
             Some("Delete corrupted database file (will be recreated on next run)".to_string())
         }
         "Orphaned Workspaces" => {
-            if let Some(details) = &check.details {
-                if let Some(fs_orphans) = details.get("filesystem_to_db").and_then(|v| v.as_array())
-                {
-                    let db_orphans = details
-                        .get("db_to_filesystem")
+            check.details.as_ref().map_or_else(
+                || Some("Remove orphaned workspaces and stale session records".to_string()),
+                |details| {
+                    details
+                        .get("filesystem_to_db")
                         .and_then(|v| v.as_array())
-                        .map_or(0, |arr| arr.len());
-                    let fs_count = fs_orphans.len();
-                    Some(format!("Remove {fs_count} orphaned workspace(s) and {db_orphans} session(s) without workspaces"))
-                } else {
-                    Some("Remove orphaned workspaces and stale session records".to_string())
-                }
-            } else {
-                Some("Remove orphaned workspaces and stale session records".to_string())
-            }
+                        .map_or_else(
+                            || Some("Remove orphaned workspaces and stale session records".to_string()),
+                            |fs_orphans| {
+                                let db_orphans = details
+                                    .get("db_to_filesystem")
+                                    .and_then(|v| v.as_array())
+                                    .map_or(0, std::vec::Vec::len);
+                                let fs_count = fs_orphans.len();
+                                Some(format!("Remove {fs_count} orphaned workspace(s) and {db_orphans} session(s) without workspaces"))
+                            },
+                        )
+                },
+            )
         }
         "Stale Sessions" => {
-            if let Some(details) = &check.details {
-                if let Some(stale) = details.get("stale_sessions").and_then(|v| v.as_array()) {
-                    Some(format!("Remove {} stale session(s)", stale.len()))
-                } else {
-                    Some("Remove stale/incomplete session records".to_string())
-                }
-            } else {
-                Some("Remove stale/incomplete session records".to_string())
-            }
+            check.details.as_ref().map_or_else(
+                || Some("Remove stale/incomplete session records".to_string()),
+                |details| {
+                    details
+                        .get("stale_sessions")
+                        .and_then(|v| v.as_array())
+                        .map_or_else(
+                            || Some("Remove stale/incomplete session records".to_string()),
+                            |stale| Some(format!("Remove {} stale session(s)", stale.len())),
+                        )
+                },
+            )
         }
         _ => None,
     }
@@ -1332,11 +1337,11 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<S
         let filesystem_count = orphaned_data
             .get("filesystem_to_db")
             .and_then(|v| v.as_array())
-            .map_or(0, |arr| arr.len());
+            .map_or(0, std::vec::Vec::len);
         let db_count = orphaned_data
             .get("db_to_filesystem")
             .and_then(|v| v.as_array())
-            .map_or(0, |arr| arr.len());
+            .map_or(0, std::vec::Vec::len);
 
         return Ok(format!(
             "Would remove {filesystem_count} orphaned workspace(s) and {db_count} session(s) without workspaces"

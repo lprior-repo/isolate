@@ -46,7 +46,6 @@ fn test_context_output_serialization() {
     let json = serde_json::to_string(&context);
     let Ok(json_str) = json else {
         panic!("serialization failed");
-        return;
     };
     assert!(json_str.contains("location"));
     assert!(json_str.contains("repository"));
@@ -61,7 +60,6 @@ fn test_location_main_serialization() {
     let json = serde_json::to_string(&location);
     let Ok(json_str) = json else {
         panic!("serialization failed");
-        return;
     };
     assert!(json_str.contains("main"));
 }
@@ -75,7 +73,6 @@ fn test_location_workspace_serialization() {
     let json = serde_json::to_string(&location);
     let Ok(json_str) = json else {
         panic!("serialization failed");
-        return;
     };
     assert!(json_str.contains("workspace"));
     assert!(json_str.contains("test-ws"));
@@ -139,7 +136,6 @@ fn test_session_context_serialization() {
     let json = serde_json::to_string(&session);
     let Ok(json_str) = json else {
         panic!("serialization failed");
-        return;
     };
     assert!(json_str.contains("name"));
     assert!(json_str.contains("status"));
@@ -176,7 +172,6 @@ fn test_session_context_serialization_with_agent() {
     let json = serde_json::to_string(&session);
     let Ok(json_str) = json else {
         panic!("serialization failed");
-        return;
     };
     assert!(json_str.contains("agent"));
     assert!(json_str.contains("builder-3"));
@@ -224,7 +219,6 @@ fn test_repository_context_serialization() {
     let json = serde_json::to_string(&repo);
     let Ok(json_str) = json else {
         panic!("serialization failed");
-        return;
     };
     assert!(json_str.contains("uncommitted_files"));
     assert!(json_str.contains("commits_ahead"));
@@ -269,7 +263,6 @@ fn test_beads_context_serialization() {
     let json = serde_json::to_string(&beads);
     let Ok(json_str) = json else {
         panic!("serialization failed");
-        return;
     };
     assert!(json_str.contains("active"));
     assert!(json_str.contains("blocked_by"));
@@ -309,7 +302,6 @@ fn test_health_status_serialization() {
     let json = serde_json::to_string(&health);
     let Ok(json_str) = json else {
         panic!("serialization failed");
-        return;
     };
     assert!(json_str.contains("warn"));
     assert!(json_str.contains("issues"));
