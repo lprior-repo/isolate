@@ -321,9 +321,10 @@ fn test_response_serialization() {
     // Assert: Valid JSON with expected fields
     assert!(json.is_ok(), "Serialization failed");
     if let Ok(json_str) = json {
-        assert!(json_str.contains("\"success\":true"));
-        assert!(json_str.contains("\"message\":\"Hello, world!\""));
-        assert!(json_str.contains("\"timestamp\":\"2024-01-15T12:30:45Z\""));
+        // Pretty-printed JSON has spaces after colons
+        assert!(json_str.contains("\"success\": true"));
+        assert!(json_str.contains("\"message\": \"Hello, world!\""));
+        assert!(json_str.contains("\"timestamp\": \"2024-01-15T12:30:45Z\""));
     }
 }
 
