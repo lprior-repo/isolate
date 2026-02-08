@@ -788,7 +788,7 @@ async fn test_lock_contention_metrics() -> Result<(), Error> {
     };
 
     let contention_rate = if num_agents > 0 {
-        failures as f64 / f64::from(num_agents) * 100.0
+        failures as f64 / num_agents as f64 * 100.0
     } else {
         0.0
     };

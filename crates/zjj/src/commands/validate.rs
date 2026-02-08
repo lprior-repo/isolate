@@ -422,60 +422,89 @@ mod tests {
     #[test]
     fn test_validate_session_name_backslash_n_rejected() {
         let result = validate_session_name("test\\nname");
-        assert!(!result.valid, "Session name with literal backslash-n should be rejected");
-        assert!(result.error.is_some());
         assert!(
-            result.error.as_ref().unwrap().contains("invalid characters"),
-            "Error should mention invalid characters"
+            !result.valid,
+            "Session name with literal backslash-n should be rejected"
         );
+        assert!(result.error.is_some());
+        if let Some(error) = result.error.as_ref() {
+            assert!(
+                error.contains("invalid characters"),
+                "Error should mention invalid characters"
+            );
+        }
     }
 
     #[test]
     fn test_validate_session_name_backslash_t_rejected() {
         let result = validate_session_name("test\\tname");
-        assert!(!result.valid, "Session name with literal backslash-t should be rejected");
+        assert!(
+            !result.valid,
+            "Session name with literal backslash-t should be rejected"
+        );
     }
 
     #[test]
     fn test_validate_session_name_backslash_r_rejected() {
         let result = validate_session_name("test\\rname");
-        assert!(!result.valid, "Session name with literal backslash-r should be rejected");
+        assert!(
+            !result.valid,
+            "Session name with literal backslash-r should be rejected"
+        );
     }
 
     #[test]
     fn test_validate_session_name_backslash_zero_rejected() {
         let result = validate_session_name("test\\0name");
-        assert!(!result.valid, "Session name with literal backslash-zero should be rejected");
+        assert!(
+            !result.valid,
+            "Session name with literal backslash-zero should be rejected"
+        );
     }
 
     #[test]
     fn test_validate_session_name_plain_backslash_rejected() {
         let result = validate_session_name("test\\name");
-        assert!(!result.valid, "Session name with plain backslash should be rejected");
+        assert!(
+            !result.valid,
+            "Session name with plain backslash should be rejected"
+        );
     }
 
     #[test]
     fn test_validate_session_name_multiple_backslashes_rejected() {
         let result = validate_session_name("test\\n\\t\\r");
-        assert!(!result.valid, "Session name with multiple escape sequences should be rejected");
+        assert!(
+            !result.valid,
+            "Session name with multiple escape sequences should be rejected"
+        );
     }
 
     #[test]
     fn test_validate_session_name_backslash_at_start_rejected() {
         let result = validate_session_name("\\ntest");
-        assert!(!result.valid, "Session name with backslash at start should be rejected");
+        assert!(
+            !result.valid,
+            "Session name with backslash at start should be rejected"
+        );
     }
 
     #[test]
     fn test_validate_session_name_backslash_at_end_rejected() {
         let result = validate_session_name("test\\n");
-        assert!(!result.valid, "Session name with backslash at end should be rejected");
+        assert!(
+            !result.valid,
+            "Session name with backslash at end should be rejected"
+        );
     }
 
     #[test]
     fn test_validate_session_name_only_backslash_rejected() {
         let result = validate_session_name("\\");
-        assert!(!result.valid, "Session name that is only a backslash should be rejected");
+        assert!(
+            !result.valid,
+            "Session name that is only a backslash should be rejected"
+        );
     }
 
     #[test]

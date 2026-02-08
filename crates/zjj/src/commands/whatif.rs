@@ -865,7 +865,7 @@ mod tests {
 
     #[test]
     fn test_whatif_validates_session_name_empty() {
-        let result = preview_add(&["".to_string()]);
+        let result = preview_add(&[String::new()]);
         assert!(result.is_err());
         if let Err(e) = result {
             let err_msg = e.to_string().to_lowercase();
@@ -922,6 +922,7 @@ mod tests {
         }
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     #[test]
     fn test_whatif_validates_session_name_valid() -> Result<()> {
         let valid_names = vec!["test-session", "test_session", "TestSession", "abc123", "a"];

@@ -226,8 +226,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_apply_retention_policy_removes_old_backups() -> Result<()> {
-        let temp_dir = TempDir::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {e}"))?;
+        let temp_dir =
+            TempDir::new().map_err(|e| anyhow::anyhow!("Failed to create temp directory: {e}"))?;
         let root = temp_dir.path();
 
         let config = BackupConfig {
@@ -266,8 +266,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_calculate_backup_size() -> Result<()> {
-        let temp_dir = TempDir::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {e}"))?;
+        let temp_dir =
+            TempDir::new().map_err(|e| anyhow::anyhow!("Failed to create temp directory: {e}"))?;
         let root = temp_dir.path();
 
         let config = BackupConfig {
@@ -301,8 +301,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_retention_status_within_limit() -> Result<()> {
-        let temp_dir = TempDir::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {e}"))?;
+        let temp_dir =
+            TempDir::new().map_err(|e| anyhow::anyhow!("Failed to create temp directory: {e}"))?;
         let root = temp_dir.path();
 
         let config = BackupConfig {

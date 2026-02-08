@@ -587,7 +587,7 @@ mod tests {
             Ok(dir) => dir,
             Err(e) => {
                 // If we can't create temp dir, that's OK - skip test
-                eprintln!("Skipping test: failed to create temp dir: {}", e);
+                eprintln!("Skipping test: failed to create temp dir: {e}");
                 return;
             }
         };
@@ -600,13 +600,12 @@ mod tests {
 
         // Verify we get an error, not a panic
         match result {
-            Ok(_) => panic!("Repair with empty workspace name should return an error"),
+            Ok(()) => panic!("Repair with empty workspace name should return an error"),
             Err(e) => {
                 let error_msg = e.to_string();
                 assert!(
                     !error_msg.contains("panic") && !error_msg.contains("unwrap"),
-                    "Error should not contain panic-related words: {}",
-                    error_msg
+                    "Error should not contain panic-related words: {error_msg}"
                 );
             }
         }
@@ -621,7 +620,7 @@ mod tests {
         let jj_root = match temp_dir {
             Ok(dir) => dir,
             Err(e) => {
-                eprintln!("Skipping test: failed to create temp dir: {}", e);
+                eprintln!("Skipping test: failed to create temp dir: {e}");
                 return;
             }
         };
@@ -633,13 +632,12 @@ mod tests {
 
         // Verify we get an error, not a panic
         match result {
-            Ok(_) => panic!("Validate with empty workspace name should return an error"),
+            Ok(()) => panic!("Validate with empty workspace name should return an error"),
             Err(e) => {
                 let error_msg = e.to_string();
                 assert!(
                     !error_msg.contains("panic") && !error_msg.contains("unwrap"),
-                    "Error should not contain panic-related words: {}",
-                    error_msg
+                    "Error should not contain panic-related words: {error_msg}"
                 );
             }
         }
@@ -659,7 +657,7 @@ mod tests {
         let jj_root = match temp_dir {
             Ok(dir) => dir,
             Err(e) => {
-                eprintln!("Skipping test: failed to create temp dir: {}", e);
+                eprintln!("Skipping test: failed to create temp dir: {e}");
                 return;
             }
         };
@@ -668,20 +666,27 @@ mod tests {
 
         // Attempt to repair a workspace that doesn't exist
         // The validator should detect the missing directory and return an error
-        let result = run_repair(jj_root_path, "nonexistent-workspace", false, OutputFormat::Human).await;
+        let result = run_repair(
+            jj_root_path,
+            "nonexistent-workspace",
+            false,
+            OutputFormat::Human,
+        )
+        .await;
 
         // Verify the result is Ok (command succeeded) but reports repair failure
         match result {
-            Ok(_) => {
+            Ok(()) => {
                 // Command succeeded, repair executor should handle missing workspace gracefully
             }
             Err(e) => {
                 // If we get an error, it should not be a panic
                 let error_msg = e.to_string();
                 assert!(
-                    !error_msg.contains("panic") && !error_msg.contains("unwrap") && !error_msg.contains("internal error"),
-                    "Error should be a proper error, not a panic: {}",
-                    error_msg
+                    !error_msg.contains("panic")
+                        && !error_msg.contains("unwrap")
+                        && !error_msg.contains("internal error"),
+                    "Error should be a proper error, not a panic: {error_msg}"
                 );
             }
         }

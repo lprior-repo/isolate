@@ -112,7 +112,7 @@ async fn main() {
 
         let code = err
             .downcast_ref::<zjj_core::Error>()
-            .map_or(1, |e| e.exit_code());
+            .map_or(1, zjj_core::Error::exit_code);
 
         #[allow(clippy::exit)]
         process::exit(code);

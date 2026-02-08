@@ -420,7 +420,7 @@ impl ChaosExecutor {
 /// Integrates chaos injection with the existing `TestHarness` infrastructure.
 pub struct ChaosTestHarness {
     /// Inner test harness
-    _inner: super::common::TestHarness,
+    inner: super::common::TestHarness,
 
     /// Chaos executor for this test
     executor: ChaosExecutor,
@@ -447,12 +447,12 @@ impl ChaosTestHarness {
     /// );
     /// ```
     pub fn new(config: ChaosConfig) -> Result<Self> {
-        let _inner = super::common::TestHarness::new()
+        let inner = super::common::TestHarness::new()
             .map_err(|e| anyhow::anyhow!("failed to create test harness: {e}"))?;
 
         let executor = ChaosExecutor::new(config);
 
-        Ok(Self { _inner, executor })
+        Ok(Self { inner, executor })
     }
 
     /// Try to create a chaos test harness, returning None if setup fails
@@ -521,7 +521,7 @@ impl ChaosTestHarness {
             }
         } else {
             // No chaos - run normally
-            self._inner.zjj(args)
+            self.inner.zjj(args)
         }
     }
 
@@ -535,7 +535,7 @@ impl ChaosTestHarness {
     /// Get the inner test harness
     #[must_use]
     pub const fn inner(&self) -> &super::common::TestHarness {
-        &self._inner
+        &self.inner
     }
 }
 
