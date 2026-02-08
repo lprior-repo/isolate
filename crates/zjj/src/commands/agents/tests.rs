@@ -718,6 +718,7 @@ async fn unregister_is_idempotent() -> Result<(), anyhow::Error> {
 
 // Test: Validate agent ID rejects empty strings
 #[test]
+#[allow(clippy::unwrap_used)]
 fn validate_agent_id_rejects_empty() {
     use super::validate_agent_id;
 

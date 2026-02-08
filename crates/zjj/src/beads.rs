@@ -108,7 +108,7 @@ impl BeadRepository {
         let jsonl_beads = self
             .list_beads_jsonl()
             .await
-            .map_or_else(|_| Vec::new(), |v| v);
+            .unwrap_or_else(|_| Vec::new());
         let initial_map = jsonl_beads
             .into_iter()
             .fold(im::HashMap::new(), |mut acc, b| {
@@ -119,7 +119,7 @@ impl BeadRepository {
         let sqlite_beads = self
             .list_beads_sqlite()
             .await
-            .map_or_else(|_| Vec::new(), |v| v);
+            .unwrap_or_else(|_| Vec::new());
         let final_map = sqlite_beads.into_iter().fold(initial_map, |mut acc, b| {
             acc.insert(b.id.clone(), b);
             acc
@@ -175,7 +175,7 @@ impl BeadRepository {
                         let title = json
                             .get("title")
                             .and_then(|v| v.as_str())
-                            .map_or_else(|| "Unknown".to_string(), |s| s.to_string());
+                            .map_or_else(|| "Unknown".to_string(), String::from);
                         let status_str = json
                             .get("status")
                             .and_then(|v| v.as_str())
@@ -249,7 +249,7 @@ impl BeadRepository {
                     let title = json
                         .get("title")
                         .and_then(|v| v.as_str())
-                        .map_or_else(|| "Unknown".to_string(), |s| s.to_string());
+                        .map_or_else(|| "Unknown".to_string(), String::from);
                     let status_str = json
                         .get("status")
                         .and_then(|v| v.as_str())

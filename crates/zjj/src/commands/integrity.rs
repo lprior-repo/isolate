@@ -154,6 +154,7 @@ async fn run_validate(
 }
 
 /// Repair a workspace
+#[allow(clippy::too_many_lines)]
 async fn run_repair(
     jj_root: &std::path::Path,
     workspace: &str,
@@ -236,26 +237,25 @@ async fn run_repair(
 
     // Get the most severe issue to determine the repair strategy
     // If there are no issues (validation passed), return early
-    let strategy = match validation.most_severe_issue() {
-        Some(issue) => issue.recommended_strategy,
-        None => {
-            // No issues found - workspace is valid, no repair needed
-            if format.is_json() {
-                let envelope = SchemaEnvelope::new(
-                    "integrity-repair-response",
-                    "single",
-                    RepairResponse {
-                        workspace: workspace.to_string(),
-                        success: true,
-                        summary: "Workspace is already valid, no repair needed".to_string(),
-                    },
-                );
-                println!("{}", serde_json::to_string_pretty(&envelope)?);
-            } else {
-                println!("Workspace '{workspace}' is valid - no repair needed");
-            }
-            return Ok(());
+    let strategy = if let Some(issue) = validation.most_severe_issue() {
+        issue.recommended_strategy
+    } else {
+        // No issues found - workspace is valid, no repair needed
+        if format.is_json() {
+            let envelope = SchemaEnvelope::new(
+                "integrity-repair-response",
+                "single",
+                RepairResponse {
+                    workspace: workspace.to_string(),
+                    success: true,
+                    summary: "Workspace is already valid, no repair needed".to_string(),
+                },
+            );
+            println!("{}", serde_json::to_string_pretty(&envelope)?);
+        } else {
+            println!("Workspace '{workspace}' is valid - no repair needed");
         }
+        return Ok(());
     };
 
     match executor

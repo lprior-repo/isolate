@@ -607,7 +607,7 @@ macro_rules! chaos_test_suite {
 /// println!("Success rate: {:.1}%", success_rate * 100.0);
 /// ```
 pub fn run_chaos_iterations<T, E, F>(
-    config: ChaosConfig,
+    config: &ChaosConfig,
     iterations: usize,
     operation: F,
 ) -> Vec<Result<T, anyhow::Error>>
@@ -736,7 +736,8 @@ mod tests {
         let config = ChaosConfig::new(0.2, vec![FailureMode::Corruption]).expect("valid config");
         let executor = ChaosExecutor::new(config);
 
-        assert_eq!(executor.config.probability(), 0.2);
+        // Float comparison - allow small tolerance
+        assert!((executor.config.probability() - 0.2).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -782,7 +783,7 @@ mod tests {
             .expect("valid config")
             .with_seed(42);
 
-        let results = run_chaos_iterations(config, 10, || Ok::<(), std::io::Error>(()));
+        let results = run_chaos_iterations(&config, 10, || Ok::<(), std::io::Error>(()));
 
         assert_eq!(results.len(), 10);
     }
@@ -811,7 +812,8 @@ mod tests {
 
         assert_eq!(successes, 0);
         assert_eq!(failures, 0);
-        assert_eq!(rate, 0.0);
+        // Float comparison - allow small tolerance
+        assert!((rate - 0.0).abs() < f64::EPSILON);
     }
 
     #[test]

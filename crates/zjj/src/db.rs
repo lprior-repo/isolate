@@ -744,6 +744,24 @@ async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
         .map_err(|e| Error::DatabaseError(format!("Failed to connect to database: {e}")))
 }
 
+/// Enable `WAL` mode on the `SQLite` connection for better crash recovery and concurrency
+///
+/// WAL (Write-Ahead Logging) mode provides:
+/// - Better concurrency (readers don't block writers)
+/// - Faster commit times
+/// - Better crash recovery
+///
+/// # Errors
+///
+/// Returns `Error::DatabaseError` if the PRAGMA statement fails
+async fn enable_wal_mode(pool: &SqlitePool) -> Result<()> {
+    sqlx::query("PRAGMA journal_mode=WAL;")
+        .execute(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to enable WAL mode: {e}")))?;
+    Ok(())
+}
+
 /// Initialize database schema
 async fn init_schema(pool: &SqlitePool) -> Result<()> {
     sqlx::query(SCHEMA)
@@ -756,6 +774,10 @@ async fn init_schema(pool: &SqlitePool) -> Result<()> {
         .execute(pool)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to set schema version: {e}")))?;
+
+    // Enable WAL mode for better concurrency and crash recovery
+    // This prevents "session disappears" race conditions between operations
+    enable_wal_mode(pool).await?;
 
     Ok(())
 }

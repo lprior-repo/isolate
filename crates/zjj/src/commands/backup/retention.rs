@@ -26,12 +26,12 @@ use crate::commands::backup::list;
 #[allow(dead_code)]
 // Core retention policy enforcement function
 pub async fn apply_retention_policy(
-    _root: &Path,
+    root: &Path,
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<Vec<String>> {
     let backups: Vec<list::BackupInfo> =
-        list::list_database_backups(_root, database_name, config).await?;
+        list::list_database_backups(root, database_name, config).await?;
 
     if backups.len() <= config.retention_count {
         return Ok(Vec::new());
@@ -73,7 +73,7 @@ pub async fn apply_retention_policy(
 #[allow(dead_code)]
 // High-level retention orchestration function
 pub async fn apply_retention_policy_all(
-    _root: &Path,
+    root: &Path,
     config: &BackupConfig,
 ) -> Result<Vec<String>> {
     let databases = vec!["state.db", "queue.db", "beads.db"];
@@ -81,7 +81,7 @@ pub async fn apply_retention_policy_all(
     let mut all_removed = Vec::new();
 
     for db_name in databases {
-        match apply_retention_policy(_root, db_name, config).await {
+        match apply_retention_policy(root, db_name, config).await {
             Ok(removed) => all_removed.extend(removed),
             Err(e) => {
                 tracing::warn!("Failed to apply retention policy to {}: {}", db_name, e);
@@ -101,12 +101,12 @@ pub async fn apply_retention_policy_all(
 #[allow(dead_code)]
 // Utility function for backup size analysis
 pub async fn calculate_backup_size(
-    _root: &Path,
+    root: &Path,
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<u64> {
     let backups: Vec<list::BackupInfo> =
-        list::list_database_backups(_root, database_name, config).await?;
+        list::list_database_backups(root, database_name, config).await?;
 
     let total_size = backups.iter().map(|b| b.size_bytes).sum();
 
@@ -121,12 +121,12 @@ pub async fn calculate_backup_size(
 #[allow(dead_code)]
 // Utility function for retention planning
 pub async fn calculate_freed_space(
-    _root: &Path,
+    root: &Path,
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<u64> {
     let backups: Vec<list::BackupInfo> =
-        list::list_database_backups(_root, database_name, config).await?;
+        list::list_database_backups(root, database_name, config).await?;
 
     if backups.len() <= config.retention_count {
         return Ok(0);
@@ -148,7 +148,7 @@ pub async fn calculate_freed_space(
 #[allow(dead_code)]
 // Status reporting function for retention policy
 pub async fn get_retention_status(
-    _root: &Path,
+    root: &Path,
     config: &BackupConfig,
 ) -> Result<Vec<RetentionStatus>> {
     let databases = vec!["state.db", "queue.db", "beads.db"];
@@ -156,9 +156,9 @@ pub async fn get_retention_status(
     let mut statuses = Vec::new();
 
     for db_name in databases {
-        let backups = super::list::list_database_backups(_root, db_name, config).await?;
-        let total_size = calculate_backup_size(_root, db_name, config).await?;
-        let freed_space = calculate_freed_space(_root, db_name, config).await?;
+        let backups = super::list::list_database_backups(root, db_name, config).await?;
+        let total_size = calculate_backup_size(root, db_name, config).await?;
+        let freed_space = calculate_freed_space(root, db_name, config).await?;
 
         statuses.push(RetentionStatus {
             database_name: db_name.to_string(),

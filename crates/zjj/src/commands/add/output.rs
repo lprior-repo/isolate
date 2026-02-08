@@ -43,6 +43,8 @@ pub(super) fn output_result(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::no_effect_underscore_binding)]
+
     #[test]
     fn test_output_result_idempotent_mode() {
         // Test that idempotent mode shows "already exists" not "Created"

@@ -15,11 +15,10 @@ use zjj_core::zellij::{self, LayoutConfig, LayoutTemplate};
 fn parse_template(template: Option<&str>) -> Result<LayoutTemplate> {
     match template {
         Some("minimal") => Ok(LayoutTemplate::Minimal),
-        Some("standard") => Ok(LayoutTemplate::Standard),
+        Some("standard") | None => Ok(LayoutTemplate::Standard),
         Some("full") => Ok(LayoutTemplate::Full),
         Some("split") => Ok(LayoutTemplate::Split),
         Some("review") => Ok(LayoutTemplate::Review),
-        None => Ok(LayoutTemplate::Standard),
         Some(invalid) => Err(anyhow!(
             "Invalid template name: '{invalid}'. Valid options: minimal, standard, full, split, review"
         )),
@@ -36,7 +35,7 @@ pub(super) async fn create_zellij_tab(
 
     let stripped_name = tab_name
         .strip_prefix("zjj:")
-        .map_or_else(|| tab_name.to_string(), |s| s.to_string());
+        .map_or_else(|| tab_name.to_string(), String::from);
 
     let config = LayoutConfig::new(stripped_name, Path::new(workspace_path).to_path_buf());
 
@@ -71,7 +70,7 @@ pub(super) fn create_session_layout(
 
     let stripped_name = tab_name
         .strip_prefix("zjj:")
-        .map_or_else(|| tab_name.to_string(), |s| s.to_string());
+        .map_or_else(|| tab_name.to_string(), String::from);
 
     let config = LayoutConfig::new(stripped_name, Path::new(workspace_path).to_path_buf());
 

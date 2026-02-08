@@ -2,6 +2,7 @@
 //!
 //! Provides progress bars and status indicators for operations that take >2 seconds.
 //! Supports both terminal and Zellij environments, with --quiet flag support.
+#![allow(dead_code)]
 
 use std::{
     io::{self, Write},
@@ -12,6 +13,7 @@ use thiserror::Error;
 
 /// Configuration for progress reporting
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // Fields are part of public API
 pub struct ProgressConfig {
     /// Minimum duration before showing progress (default: 2 seconds)
     pub min_duration: Duration,
@@ -99,6 +101,7 @@ pub type ProgressResult<T> = Result<T, ProgressError>;
 
 /// Phases of a long-running operation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[allow(dead_code)] // Part of public API
 pub enum OperationPhase {
     /// Operation is starting
     Initializing,
@@ -117,6 +120,7 @@ pub enum OperationPhase {
 impl OperationPhase {
     /// Get display name for the phase
     #[must_use]
+    #[allow(dead_code)] // Part of public API
     pub const fn display_name(&self) -> &'static str {
         match self {
             Self::Initializing => "Initializing",
@@ -130,12 +134,14 @@ impl OperationPhase {
 
     /// Check if this is a terminal phase (no transitions out)
     #[must_use]
+    #[allow(dead_code)] // Part of public API
     pub const fn is_terminal(&self) -> bool {
         matches!(self, Self::Complete | Self::Failed)
     }
 
     /// Check if this is a starting phase
     #[must_use]
+    #[allow(dead_code)] // Part of public API
     pub const fn is_starting(&self) -> bool {
         matches!(self, Self::Initializing)
     }

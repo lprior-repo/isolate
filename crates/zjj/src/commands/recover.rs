@@ -633,41 +633,38 @@ pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
 /// Run operation log recovery or listing
 pub async fn run_op_recover(options: &OpRecoverOptions) -> Result<()> {
     // Determine workspace path from session or current location
-    let workspace_path = match &options.session {
-        Some(session_name) => {
-            // Get session from database
-            let db = get_session_db().await?;
-            let session = db
-                .get(session_name)
-                .await?
-                .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
+    let workspace_path = if let Some(session_name) = &options.session {
+        // Get session from database
+        let db = get_session_db().await?;
+        let session = db
+            .get(session_name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
 
-            session
-                .metadata
-                .as_ref()
-                .and_then(|m| m.get("workspace_path"))
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' has no workspace path"))?
-                .to_string()
-        }
-        None => {
-            // Use current workspace - detect using jj root
-            use crate::cli::jj_root;
-            let root = jj_root().await?;
-            let root_path = std::path::PathBuf::from(&root);
-            let location = detect_location(&root_path)?;
-            match location {
-                Location::Workspace { path, .. } => path,
-                Location::Main => {
-                    anyhow::bail!("Not in a workspace. Specify a session name or run from within a workspace.");
-                }
+        session
+            .metadata
+            .as_ref()
+            .and_then(|m| m.get("workspace_path"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' has no workspace path"))?
+            .to_string()
+    } else {
+        // Use current workspace - detect using jj root
+        use crate::cli::jj_root;
+        let root = jj_root().await?;
+        let root_path = std::path::PathBuf::from(&root);
+        let location = detect_location(&root_path)?;
+        match location {
+            Location::Workspace { path, .. } => path,
+            Location::Main => {
+                anyhow::bail!("Not in a workspace. Specify a session name or run from within a workspace.");
             }
         }
     };
 
     // If listing or no operation specified, show operation log
     if options.list_only || options.operation.is_none() && !options.last {
-        return show_operation_log(&workspace_path, &options.session, options.format).await;
+        return show_operation_log(&workspace_path, options.session.as_ref(), options.format).await;
     }
 
     // Restore to specific operation
@@ -723,7 +720,7 @@ async fn get_operation_log(workspace_path: &str) -> Result<Vec<OperationEntry>> 
             if parts.len() >= 4 {
                 Some(OperationEntry {
                     id: parts
-                        .get(0)
+                        .first()
                         .map(|s| s.trim().to_string())
                         .unwrap_or_default(),
                     operation: parts
@@ -749,7 +746,7 @@ async fn get_operation_log(workspace_path: &str) -> Result<Vec<OperationEntry>> 
                         .unwrap_or_default(),
                     current: current_op_id
                         .as_ref()
-                        .is_some_and(|id| parts.get(0).is_some_and(|p| p.trim() == id)),
+                        .is_some_and(|id| parts.first().is_some_and(|p| p.trim() == id)),
                 })
             } else {
                 None
@@ -781,15 +778,16 @@ async fn get_current_operation_id(workspace_path: &str) -> Result<String> {
 /// Show operation log
 async fn show_operation_log(
     workspace_path: &str,
-    session_name: &Option<String>,
+    session_name: Option<&String>,
     format: OutputFormat,
 ) -> Result<()> {
     let operations = get_operation_log(workspace_path).await?;
     let current_op_id = get_current_operation_id(workspace_path).await.ok();
 
     let session = session_name
-        .clone()
-        .unwrap_or_else(|| "<current>".to_string());
+        .map(std::string::String::as_str)
+        .unwrap_or("<current>")
+        .to_string();
 
     if format.is_json() {
         let total = operations.len();

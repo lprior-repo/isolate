@@ -54,7 +54,7 @@ struct DoctorSummary {
 async fn check_for_recent_recovery() -> Option<String> {
     let log_path = Path::new(".zjj/recovery.log");
 
-    if !tokio::fs::try_exists(log_path).await.map_or(false, |v| v) {
+    if !tokio::fs::try_exists(log_path).await.is_ok_and(|v| v) {
         return None;
     }
 

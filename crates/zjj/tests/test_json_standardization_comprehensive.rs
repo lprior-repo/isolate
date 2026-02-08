@@ -324,7 +324,7 @@ fn test_error_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     let result = harness.zjj(&["focus", "nonexistent", "--json"]);
 
     // Should fail but produce JSON error output
-    if result.stdout.contains("{") {
+    if result.stdout.contains('{') {
         let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
 
         // Error responses should have envelope
