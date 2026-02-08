@@ -1,8 +1,8 @@
 //! Backup restoration functionality
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![forbid(unsafe_code)]
 
 use std::path::{Path, PathBuf};
@@ -184,52 +184,82 @@ mod tests {
 
     #[tokio::test]
     async fn test_restore_backup_creates_target() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"))
+            .expect("Failed to create temp dir");
         let root = temp_dir.path();
 
         // Create backup file
         let backup_dir = root.join("backups").join("test.db");
-        fs::create_dir_all(&backup_dir).await.unwrap();
+        fs::create_dir_all(&backup_dir)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to create backup dir: {e}"))
+            .expect("Failed to create backup dir");
 
         let backup_path = backup_dir.join("backup-20250101-120000.db");
-        fs::write(&backup_path, b"backup data").await.unwrap();
+        fs::write(&backup_path, b"backup data")
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
+            .expect("Failed to write backup file");
 
         // Create metadata
         let metadata = BackupMetadata::new("test.db".to_string(), 11, "checksum123".to_string());
         let metadata_path = backup_path.with_extension("json");
-        let metadata_json = serde_json::to_string_pretty(&metadata).unwrap();
-        fs::write(&metadata_path, metadata_json).await.unwrap();
+        let metadata_json = serde_json::to_string_pretty(&metadata)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize metadata: {e}"))
+            .expect("Failed to serialize metadata");
+        fs::write(&metadata_path, metadata_json)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to write metadata: {e}"))
+            .expect("Failed to write metadata");
 
         // Restore
         let target_path = root.join("restored.db");
         restore_backup(&backup_path, &target_path, false)
             .await
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("Failed to restore backup: {e}"))
+            .expect("Failed to restore backup");
 
         assert!(target_path.exists());
         assert_eq!(
-            fs::read_to_string(&target_path).await.unwrap(),
+            fs::read_to_string(&target_path)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to read target file: {e}"))
+                .expect("Failed to read target file"),
             "backup data"
         );
     }
 
     #[tokio::test]
     async fn test_restore_backup_checksum_verification() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"))
+            .expect("Failed to create temp dir");
         let root = temp_dir.path();
 
         // Create backup file
         let backup_dir = root.join("backups").join("test.db");
-        fs::create_dir_all(&backup_dir).await.unwrap();
+        fs::create_dir_all(&backup_dir)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to create backup dir: {e}"))
+            .expect("Failed to create backup dir");
 
         let backup_path = backup_dir.join("backup-20250101-120000.db");
-        fs::write(&backup_path, b"backup data").await.unwrap();
+        fs::write(&backup_path, b"backup data")
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
+            .expect("Failed to write backup file");
 
         // Create metadata with WRONG checksum
         let metadata = BackupMetadata::new("test.db".to_string(), 11, "wrongchecksum".to_string());
         let metadata_path = backup_path.with_extension("json");
-        let metadata_json = serde_json::to_string_pretty(&metadata).unwrap();
-        fs::write(&metadata_path, metadata_json).await.unwrap();
+        let metadata_json = serde_json::to_string_pretty(&metadata)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize metadata: {e}"))
+            .expect("Failed to serialize metadata");
+        fs::write(&metadata_path, metadata_json)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to write metadata: {e}"))
+            .expect("Failed to write metadata");
 
         let target_path = root.join("restored.db");
 

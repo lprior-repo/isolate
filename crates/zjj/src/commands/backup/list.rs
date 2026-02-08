@@ -1,8 +1,8 @@
 //! Backup listing functionality
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![forbid(unsafe_code)]
 
 use std::path::{Path, PathBuf};
@@ -151,7 +151,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_backups_empty() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"))
+            .expect("Failed to create temp dir");
         let root = temp_dir.path();
 
         let config = BackupConfig {
@@ -161,14 +163,17 @@ mod tests {
 
         let backups = list_database_backups(root, "test.db", &config)
             .await
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("Failed to list backups: {e}"))
+            .expect("Failed to list backups");
 
         assert!(backups.is_empty());
     }
 
     #[tokio::test]
     async fn test_list_backups_sorted() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"))
+            .expect("Failed to create temp dir");
         let root = temp_dir.path();
 
         let config = BackupConfig {
@@ -177,20 +182,33 @@ mod tests {
         };
 
         let backup_dir = root.join("backups").join("test.db");
-        fs::create_dir_all(&backup_dir).await.unwrap();
+        fs::create_dir_all(&backup_dir)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to create backup dir: {e}"))
+            .expect("Failed to create backup dir");
 
         // Create multiple backups with different timestamps
         let backup_file1 = backup_dir.join("backup-20250101-100000.db");
         let backup_file2 = backup_dir.join("backup-20250101-120000.db");
         let backup_file3 = backup_dir.join("backup-20250101-110000.db");
 
-        fs::write(&backup_file1, b"data1").await.unwrap();
-        fs::write(&backup_file2, b"data2").await.unwrap();
-        fs::write(&backup_file3, b"data3").await.unwrap();
+        fs::write(&backup_file1, b"data1")
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
+            .expect("Failed to write backup file 1");
+        fs::write(&backup_file2, b"data2")
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
+            .expect("Failed to write backup file 2");
+        fs::write(&backup_file3, b"data3")
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
+            .expect("Failed to write backup file 3");
 
         let backups = list_database_backups(root, "test.db", &config)
             .await
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("Failed to list backups: {e}"))
+            .expect("Failed to list backups");
 
         assert_eq!(backups.len(), 3);
         // Should be sorted newest first

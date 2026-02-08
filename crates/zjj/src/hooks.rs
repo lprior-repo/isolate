@@ -2,6 +2,10 @@
 //!
 //! Provides --on-success and --on-failure hooks for command execution.
 
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
+
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
@@ -200,13 +204,15 @@ mod tests {
 
     #[test]
     fn test_hooks_config_with_success() {
-        let config = HooksConfig::from_args(Some("echo success".to_string()), None).unwrap();
+        let config = HooksConfig::from_args(Some("echo success".to_string()), None)
+            .expect("Failed to create hooks config");
         assert!(config.has_hooks());
     }
 
     #[test]
     fn test_hooks_config_with_failure() {
-        let config = HooksConfig::from_args(None, Some("echo failed".to_string())).unwrap();
+        let config = HooksConfig::from_args(None, Some("echo failed".to_string()))
+            .expect("Failed to create hooks config");
         assert!(config.has_hooks());
     }
 
@@ -240,7 +246,8 @@ mod tests {
 
     #[test]
     fn test_hooks_config_accepts_whitespace_padded_command() {
-        let config = HooksConfig::from_args(Some("  echo test  ".to_string()), None).unwrap();
+        let config = HooksConfig::from_args(Some("  echo test  ".to_string()), None)
+            .expect("Failed to create hooks config");
         assert_eq!(config.on_success, Some("echo test".to_string()));
     }
 

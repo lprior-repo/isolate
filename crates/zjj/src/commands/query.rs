@@ -3,6 +3,10 @@
 //! This command provides programmatic access to system state
 //! for AI agents to make informed decisions.
 
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
+
 use anyhow::Result;
 use zjj_core::{
     introspection::{Blocker, CanRunQuery, QueryError, SessionExistsQuery, SessionInfo},
@@ -353,7 +357,7 @@ async fn query_can_run(command: &str) -> Result<()> {
     }
 
     // Check JJ repo
-    let jj_repo = is_jj_repo().await.unwrap_or_default();
+    let jj_repo = is_jj_repo().await.unwrap_or(false);
     if !jj_repo && requires_jj_repo(command) {
         blockers.push(Blocker {
             check: "jj_repo".to_string(),
@@ -656,7 +660,7 @@ async fn query_pending_merges() -> Result<()> {
                                 let output = String::from_utf8_lossy(&o.stdout);
                                 !output.contains("The working copy is clean")
                             })
-                            .unwrap_or_else(|_| false);
+                            .unwrap_or(false);
 
                         active_sessions.push(SessionWithChanges {
                             name: s.name,
@@ -763,6 +767,9 @@ async fn query_location() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+
     use super::*;
 
     // ===== PHASE 2 (RED): SchemaEnvelope Wrapping Tests =====
@@ -979,14 +986,14 @@ mod tests {
         let envelope = SchemaEnvelope::new("query-session-exists", "single", test_result);
         let json_str_result = serde_json::to_string(&envelope);
         assert!(json_str_result.is_ok(), "serialization should succeed");
-        let Some(json_str) = json_str_result.ok() else {
-            return;
-        };
+        let json_str = json_str_result
+            .ok()
+            .expect("Serialization should succeed");
         let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&json_str);
         assert!(parsed_result.is_ok(), "parsing should succeed");
-        let Some(parsed) = parsed_result.ok() else {
-            return;
-        };
+        let parsed = parsed_result
+            .ok()
+            .expect("Parsing should succeed");
 
         assert!(parsed.get("$schema").is_some());
         assert!(parsed.get("success").is_some());
@@ -1245,7 +1252,9 @@ mod tests {
             "session-exists should have metadata"
         );
 
-        let error_msg = session_exists_info.unwrap().format_error_message();
+        let error_msg = session_exists_info
+            .expect("session-exists should have metadata")
+            .format_error_message();
         assert!(
             error_msg.contains("Error: 'session-exists' query requires"),
             "Error message should indicate it's an error about 'session-exists' query"
@@ -1275,7 +1284,9 @@ mod tests {
         let can_run_info = QueryTypeInfo::find("can-run");
         assert!(can_run_info.is_some(), "can-run should have metadata");
 
-        let error_msg = can_run_info.unwrap().format_error_message();
+        let error_msg = can_run_info
+            .expect("can-run should have metadata")
+            .format_error_message();
         assert!(
             error_msg.contains("Error: 'can-run' query requires"),
             "Error message should indicate it's an error about 'can-run' query"
