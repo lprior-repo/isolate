@@ -483,3 +483,6 @@ fn extract_and_print_field(context: &ContextOutput, field_path: &str) -> Result<
     println!("{value}");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
