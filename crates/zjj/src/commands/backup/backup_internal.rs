@@ -3,9 +3,9 @@
 //! Provides backup and restore functionality for `SQLite` databases (`state.db`, `beads.db`)
 //! with configurable retention policies and automated periodic backups.
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![forbid(unsafe_code)]
 
 use std::path::{Path, PathBuf};
@@ -189,7 +189,8 @@ mod tests {
     fn test_generate_and_parse_backup_filename() {
         let timestamp = Utc::now();
         let filename = generate_backup_filename(&timestamp);
-        let parsed = parse_backup_filename(&filename).unwrap();
+        let parsed =
+            parse_backup_filename(&filename).expect("Backup filename should parse successfully");
         // Allow 1-second difference for formatting precision
         let diff = (timestamp - parsed).num_seconds().abs();
         assert!(diff <= 1, "Timestamps differ by {diff} seconds");
