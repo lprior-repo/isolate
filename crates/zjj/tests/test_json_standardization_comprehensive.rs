@@ -1,7 +1,7 @@
 //! Comprehensive JSON standardization tests
 //!
 //! This test file verifies that all commands follow consistent JSON output standards:
-//! 1. All JSON outputs use SchemaEnvelope or SchemaEnvelopeArray
+//! 1. All JSON outputs use `SchemaEnvelope` or `SchemaEnvelopeArray`
 //! 2. Schema names follow consistent naming conventions
 //! 3. Error outputs use standardized error format
 //! 4. Success outputs include all required fields
