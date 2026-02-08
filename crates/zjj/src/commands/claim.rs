@@ -242,24 +242,27 @@ async fn write_lock(path: &std::path::Path, lock_info: &LockInfo) -> Result<()> 
     Ok(())
 }
 
-/// Create audit entry for claim operation
-fn create_audit_entry(
-    agent_id: &str,
-    resource: &str,
+/// Parameters for creating a claim audit entry
+struct AuditEntryParams<'a> {
+    agent_id: &'a str,
+    resource: &'a str,
     now: u64,
     action: ClaimAction,
     expires_at: Option<u64>,
     previous_holder: Option<String>,
-) -> ClaimAuditEntry {
-    let success = matches!(action, ClaimAction::InitialClaim | ClaimAction::DoubleClaim | ClaimAction::ExpiredClaim);
+}
+
+/// Create audit entry for claim operation
+fn create_audit_entry(params: AuditEntryParams) -> ClaimAuditEntry {
+    let success = matches!(params.action, ClaimAction::InitialClaim | ClaimAction::DoubleClaim | ClaimAction::ExpiredClaim);
     ClaimAuditEntry {
-        agent_id: agent_id.to_string(),
-        resource: resource.to_string(),
-        timestamp: now,
-        action,
+        agent_id: params.agent_id.to_string(),
+        resource: params.resource.to_string(),
+        timestamp: params.now,
+        action: params.action,
         success,
-        expires_at,
-        previous_holder,
+        expires_at: params.expires_at,
+        previous_holder: params.previous_holder,
     }
 }
 
@@ -298,6 +301,10 @@ fn create_error_result(resource: &str, agent_id: &str, error: String, claim_coun
 }
 
 /// Handle expired lock takeover
+#[allow(clippy::too_many_arguments)]
+// Many parameters needed because: each represents distinct claim operation context
+// (paths, lock state, resource metadata, timing, audit data). Grouping into
+// struct would reduce clarity and make it harder to understand what data flows through.
 async fn handle_expired_lock(
     lock_path: &std::path::Path,
     audit_path: &std::path::Path,
@@ -309,14 +316,14 @@ async fn handle_expired_lock(
     claim_count: usize,
 ) -> ClaimResult {
     let write_result = write_lock(lock_path, new_lock).await;
-    let audit_entry = create_audit_entry(
+    let audit_entry = create_audit_entry(AuditEntryParams {
         agent_id,
         resource,
         now,
-        ClaimAction::ExpiredClaim,
-        Some(new_lock.expires_at),
-        Some(existing.holder.clone()),
-    );
+        action: ClaimAction::ExpiredClaim,
+        expires_at: Some(new_lock.expires_at),
+        previous_holder: Some(existing.holder.clone()),
+    });
     let _ = write_audit_entry(audit_path, audit_entry).await;
 
     match write_result {
@@ -335,6 +342,10 @@ async fn handle_expired_lock(
 }
 
 /// Handle double claim (agent re-claims their own lock)
+#[allow(clippy::too_many_arguments)]
+// Many parameters needed because: each represents distinct claim operation context
+// (paths, lock state, resource metadata, timing, audit data). Grouping into
+// struct would reduce clarity and make it harder to understand what data flows through.
 async fn handle_double_claim(
     lock_path: &std::path::Path,
     audit_path: &std::path::Path,
@@ -344,14 +355,14 @@ async fn handle_double_claim(
     now: u64,
     claim_count: usize,
 ) -> ClaimResult {
-    let audit_entry = create_audit_entry(
+    let audit_entry = create_audit_entry(AuditEntryParams {
         agent_id,
         resource,
         now,
-        ClaimAction::DoubleClaim,
-        Some(new_lock.expires_at),
-        None,
-    );
+        action: ClaimAction::DoubleClaim,
+        expires_at: Some(new_lock.expires_at),
+        previous_holder: None,
+    });
     let _ = write_audit_entry(audit_path, audit_entry).await;
 
     match write_lock(lock_path, new_lock).await {
@@ -379,6 +390,10 @@ async fn handle_double_claim(
 }
 
 /// Handle failed claim (locked by another agent)
+#[allow(clippy::too_many_arguments)]
+// Many parameters needed because: each represents distinct claim operation context
+// (paths, lock state, resource metadata, timing, audit data). Grouping into
+// struct would reduce clarity and make it harder to understand what data flows through.
 async fn handle_failed_claim(
     audit_path: &std::path::Path,
     existing: &LockInfo,
@@ -387,14 +402,14 @@ async fn handle_failed_claim(
     now: u64,
     claim_count: usize,
 ) -> ClaimResult {
-    let audit_entry = create_audit_entry(
+    let audit_entry = create_audit_entry(AuditEntryParams {
         agent_id,
         resource,
         now,
-        ClaimAction::FailedClaim,
-        None,
-        Some(existing.holder.clone()),
-    );
+        action: ClaimAction::FailedClaim,
+        expires_at: None,
+        previous_holder: Some(existing.holder.clone()),
+    });
     let _ = write_audit_entry(audit_path, audit_entry).await;
 
     ClaimResult {
@@ -410,6 +425,10 @@ async fn handle_failed_claim(
 }
 
 /// Handle corrupt/missing lock file
+#[allow(clippy::too_many_arguments)]
+// Many parameters needed because: each represents distinct claim operation context
+// (paths, lock state, resource metadata, timing, audit data). Grouping into
+// struct would reduce clarity and make it harder to understand what data flows through.
 async fn handle_corrupt_lock(
     lock_path: &std::path::Path,
     audit_path: &std::path::Path,
@@ -420,14 +439,14 @@ async fn handle_corrupt_lock(
     claim_count: usize,
 ) -> ClaimResult {
     let write_result = write_lock(lock_path, new_lock).await;
-    let audit_entry = create_audit_entry(
+    let audit_entry = create_audit_entry(AuditEntryParams {
         agent_id,
         resource,
         now,
-        ClaimAction::InitialClaim,
-        Some(new_lock.expires_at),
-        None,
-    );
+        action: ClaimAction::InitialClaim,
+        expires_at: Some(new_lock.expires_at),
+        previous_holder: None,
+    });
     let _ = write_audit_entry(audit_path, audit_entry).await;
 
     match write_result {
@@ -446,6 +465,10 @@ async fn handle_corrupt_lock(
 }
 
 /// Try to claim a resource, returning the result
+#[allow(clippy::too_many_arguments)]
+// Many parameters needed because: each represents distinct claim operation context
+// (paths, lock state, resource metadata, timing, audit data). Grouping into
+// struct would reduce clarity and make it harder to understand what data flows through.
 async fn attempt_claim(
     lock_path: &std::path::Path,
     audit_path: &std::path::Path,
@@ -463,14 +486,14 @@ async fn attempt_claim(
 
     // Try atomic create first (prevents TOCTOU)
     if try_atomic_create_lock(lock_path, &new_lock).await? {
-        let audit_entry = create_audit_entry(
+        let audit_entry = create_audit_entry(AuditEntryParams {
             agent_id,
             resource,
             now,
-            ClaimAction::InitialClaim,
-            Some(expires_at),
-            None,
-        );
+            action: ClaimAction::InitialClaim,
+            expires_at: Some(expires_at),
+            previous_holder: None,
+        });
         let _ = write_audit_entry(audit_path, audit_entry).await;
 
         return Ok(create_success_result(resource, agent_id, expires_at, 1, false));
