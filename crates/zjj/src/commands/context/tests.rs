@@ -406,3 +406,78 @@ fn test_nested_field_access() {
     let result = value.pointer("/repository/branch");
     assert!(result.is_some());
 }
+
+// ── extract_agent_from_metadata Tests ────────────────────────────────────
+
+#[test]
+fn test_extract_agent_from_metadata_with_valid_agent() {
+    let metadata = serde_json::json!({
+        "bead_id": "zjj-abc12",
+        "agent_id": "architect-1"
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert_eq!(result, Some("architect-1".to_string()));
+}
+
+#[test]
+fn test_extract_agent_from_metadata_without_agent() {
+    let metadata = serde_json::json!({
+        "bead_id": "zjj-abc12"
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_null_metadata() {
+    let result = extract_agent_from_metadata(None);
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_non_string_agent_id() {
+    let metadata = serde_json::json!({
+        "agent_id": 123
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_empty_agent_id() {
+    let metadata = serde_json::json!({
+        "agent_id": ""
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_null_agent_id() {
+    let metadata = serde_json::json!({
+        "agent_id": null
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_rich_metadata() {
+    let metadata = serde_json::json!({
+        "bead_id": "zjj-123",
+        "agent_id": "architect-1",
+        "priority": 2,
+        "tags": ["feature", "auth"]
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert_eq!(result, Some("architect-1".to_string()));
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_unicode_agent_id() {
+    let metadata = serde_json::json!({
+        "agent_id": "agent-中文-тест"
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert_eq!(result, Some("agent-中文-тест".to_string()));
+}

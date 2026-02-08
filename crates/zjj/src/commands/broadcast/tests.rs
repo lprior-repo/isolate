@@ -143,7 +143,7 @@ fn test_empty_recipient_list_no_other_agents() {
 /// Edge case: Single agent (sender only) → sent_to is empty
 fn test_single_agent_sender_only() {
     // Setup
-    let active_agents = vec!["agent-solo".to_string()];
+    let active_agents = ["agent-solo".to_string()];
     let sender = "agent-solo";
 
     // Act
@@ -404,7 +404,7 @@ fn test_args_to_response_data_flow() {
 /// Behavior: Filtering logic is pure (no side effects)
 fn test_filtering_is_pure() {
     // Setup
-    let active_agents = vec!["agent-1".to_string(), "agent-2".to_string()];
+    let active_agents = ["agent-1".to_string(), "agent-2".to_string()];
     let sender = "agent-1";
 
     // Act: Filter twice (should return same result)

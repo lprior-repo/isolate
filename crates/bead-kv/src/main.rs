@@ -97,8 +97,9 @@ struct BeadKV {
 
 impl BeadKV {
     fn new(path: PathBuf) -> Result<Self> {
-        let path = shellexpand::tilde(&path.to_string_lossy());
-        let db = sled::open(&path)?;
+        let path_str = path.to_string_lossy().to_string();
+        let path = shellexpand::tilde(&path_str);
+        let db = sled::open(path.as_ref())?;
         let tree = db.open_tree("beads")?;
         Ok(Self { db, tree })
     }
