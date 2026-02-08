@@ -3,9 +3,9 @@
 //! This module provides zero-panic, type-safe transaction management
 //! for spawn operations, including signal handling and agent monitoring.
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 

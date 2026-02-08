@@ -195,7 +195,10 @@ async fn lifecycle_agent_failure_during_processing() -> Result<()> {
 
     // Agent 2 cannot claim yet (lock held by dead agent, entry is processing)
     let entry2 = ctx.merge_queue.next_with_lock("agent-2").await?;
-    assert!(entry2.is_none(), "should not claim while entry is processing");
+    assert!(
+        entry2.is_none(),
+        "should not claim while entry is processing"
+    );
 
     // Simulate timeout by resetting entry status back to pending
     // (in real system, this would happen via timeout/recovery mechanism)
@@ -203,7 +206,10 @@ async fn lifecycle_agent_failure_during_processing() -> Result<()> {
 
     // Now agent 2 can claim
     let entry3 = ctx.merge_queue.next_with_lock("agent-2").await?;
-    assert!(entry3.is_some(), "should claim after timeout and status reset");
+    assert!(
+        entry3.is_some(),
+        "should claim after timeout and status reset"
+    );
 
     // Complete work
     ctx.merge_queue.mark_completed("workspace-1").await?;

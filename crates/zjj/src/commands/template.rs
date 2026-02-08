@@ -7,9 +7,9 @@
 //! - delete: Remove a template
 //! - use: Apply a template to current session (future)
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![warn(clippy::pedantic)]
 
 use std::io::{self, Write};
@@ -305,13 +305,16 @@ pub async fn run_delete(name: &str, force: bool, format: OutputFormat) -> Result
                     "template": name
                 }
             });
-            writeln!(std::io::stdout(), "{}", serde_json::to_string_pretty(&error_output)?)?;
+            writeln!(
+                std::io::stdout(),
+                "{}",
+                serde_json::to_string_pretty(&error_output)?
+            )?;
         } else {
             anyhow::bail!(error_msg);
         }
         return Err(anyhow::anyhow!(error_msg));
     }
-
 
     let data_dir = zjj_data_dir().await?;
     let templates_base = storage::templates_dir(&data_dir)?;

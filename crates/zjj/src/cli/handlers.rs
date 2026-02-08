@@ -347,7 +347,9 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
             let workspace = validate_m
                 .get_one::<String>("workspace")
                 .cloned()
-                .unwrap_or_default();
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Workspace argument is required for validate command")
+                })?;
             integrity::run(&integrity::IntegrityOptions {
                 subcommand: integrity::IntegritySubcommand::Validate { workspace },
                 format,
@@ -358,7 +360,9 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
             let workspace = repair_m
                 .get_one::<String>("workspace")
                 .cloned()
-                .unwrap_or_default();
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Workspace argument is required for repair command")
+                })?;
             let force = repair_m.get_flag("force");
             integrity::run(&integrity::IntegrityOptions {
                 subcommand: integrity::IntegritySubcommand::Repair { workspace, force },

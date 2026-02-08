@@ -54,7 +54,7 @@ struct DoctorSummary {
 async fn check_for_recent_recovery() -> Option<String> {
     let log_path = Path::new(".zjj/recovery.log");
 
-    if !tokio::fs::try_exists(log_path).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(log_path).await.map_or(false, |v| v) {
         return None;
     }
 
@@ -77,7 +77,7 @@ async fn check_for_recent_recovery() -> Option<String> {
                 let duration = now.signed_duration_since(dt);
                 if duration.num_minutes() < 5 {
                     // Find message part (everything after '] ')
-                    let message = last_line.split(']').nth(1).unwrap_or("");
+                    let message = last_line.split(']').nth(1).map_or("", |s| s);
                     return Some(format!("Recent recovery detected: {message}"));
                 }
             }

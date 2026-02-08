@@ -354,10 +354,7 @@ impl ChaosExecutor {
                     _ => "Input/output error",
                 };
 
-                Err(anyhow::anyhow!(
-                    "{} (chaos injection: I/O error)",
-                    error_msg
-                ))
+                Err(anyhow::anyhow!("{error_msg} (chaos injection: I/O error)"))
             }
 
             FailureMode::Timeout => {
@@ -391,8 +388,7 @@ impl ChaosExecutor {
                 };
 
                 Err(anyhow::anyhow!(
-                    "{} (chaos injection: resource exhaustion)",
-                    error_msg
+                    "{error_msg} (chaos injection: resource exhaustion)"
                 ))
             }
         }

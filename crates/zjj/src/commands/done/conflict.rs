@@ -22,9 +22,9 @@
 //! 4. Get files modified in trunk since merge base
 //! 5. Identify overlapping files (potential conflicts)
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 
 use std::collections::HashSet;
 
