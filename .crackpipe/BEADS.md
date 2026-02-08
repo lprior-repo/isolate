@@ -257,9 +257,12 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 13:55:00] zjj-3ltb ready-builder → building (claimed by builder-1)
 [2026-02-08 14:19:50] zjj-26pf ready-builder → building (claimed by builder-1)
 [2026-02-08 14:19:50] IMPLEMENTATION COMPLETE: Session status update functionality added. Added new_status field to DoneOutput, update_session_status() function in done.rs, update_status() method to SessionDb. Session status now updates to "completed" when done command succeeds. Tests pass.
+[2026-02-08 14:30:00] zjj-1w0d ready-builder → building (claimed by builder-1)
+[2026-02-08 14:30:00] IMPLEMENTATION COMPLETE: Session validation for lock() added. Added SessionNotFound error, verify_session_exists() method, lock() now checks session exists before creating lock. Backward compatible - if sessions table doesn't exist, allows lock. All 17 lock tests pass.
 [2026-02-08 14:10:30] REWORKER-1: Check 4 - no beads in stage:needs-rework
 [2026-02-08 14:10:45] REWORKER-1: Manual check 2 - no beads in stage:needs-rework
 [2026-02-08 14:19:55] zjj-26pf building → ready-qa-builder builder-1 IMPLEMENTATION COMPLETE
+[2026-02-08 14:30:10] zjj-1w0d building → ready-qa-builder builder-1 IMPLEMENTATION COMPLETE
 
 # QA Builder Agent 1 Loop (2026-02-08)
 [2026-02-08 08:10:00] QA Builder 1 started - monitoring for stage:ready-qa-builder beads
