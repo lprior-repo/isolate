@@ -14,7 +14,7 @@ pub mod retention;
 
 // Re-export backup types
 use anyhow::{Context, Result};
-pub use backup_internal::{BackupConfig, BackupMetadata};
+pub use backup_internal::BackupConfig;
 use zjj_core::OutputFormat;
 
 use crate::cli::jj_root;
