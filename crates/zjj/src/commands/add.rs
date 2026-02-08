@@ -220,10 +220,8 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
             if let Some(obj) = envelope.as_object_mut() {
                 obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
             }
-            let output_json = match serde_json::to_string_pretty(&envelope) {
-                Ok(s) => s,
-                Err(_) => r#"{"error": "serialization failed"}"#.to_string(),
-            };
+            let output_json = serde_json::to_string_pretty(&envelope)
+                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
             println!("{output_json}");
         } else {
             println!("[DRY RUN] Would create session '{}'", options.name);

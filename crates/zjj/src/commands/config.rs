@@ -81,10 +81,8 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
                     },
                 };
                 let envelope = SchemaEnvelope::new("config-set", "single", output);
-                let output_json = match serde_json::to_string_pretty(&envelope) {
-                    Ok(s) => s,
-                    Err(_) => r#"{"error": "serialization failed"}"#.to_string(),
-                };
+                let output_json = serde_json::to_string_pretty(&envelope)
+                    .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
                 println!("{output_json}");
             } else {
                 println!("✓ Set {key} = {value}");
@@ -113,10 +111,8 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
 fn show_all_config(config: &Config, global_only: bool, format: OutputFormat) -> Result<()> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("config-response", "single", config.clone());
-        let output_json = match serde_json::to_string_pretty(&envelope) {
-            Ok(s) => s,
-            Err(_) => r#"{"error": "serialization failed"}"#.to_string(),
-        };
+        let output_json = serde_json::to_string_pretty(&envelope)
+            .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
         println!("{output_json}");
         return Ok(());
     }
@@ -170,10 +166,8 @@ fn show_config_value(config: &Config, key: &str, format: OutputFormat) -> Result
             value: current.clone(),
         };
         let envelope = SchemaEnvelope::new("config-get", "single", output);
-        let output_json = match serde_json::to_string_pretty(&envelope) {
-            Ok(s) => s,
-            Err(_) => r#"{"error": "serialization failed"}"#.to_string(),
-        };
+        let output_json = serde_json::to_string_pretty(&envelope)
+            .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
         println!("{output_json}");
         return Ok(());
     }
