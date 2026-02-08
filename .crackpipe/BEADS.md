@@ -479,3 +479,33 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 09:03:42] Found 2 beads with stage:ready-qa-builder: zjj-1w0d, zjj-26pf (already processed per BEADS.md history, need sync)
 [2026-02-08 09:03:42] STATUS: All beads already processed - awaiting new beads
 [2026-02-08 15:04:31] REWORKER-1: Check 40 - no beads in stage:needs-rework
+[2026-02-08 15:05:26] REWORKER-1: Manual check 34 - no beads in stage:needs-rework
+[2026-02-08 09:05:41] Check 1 - No new beads in stage:ready-qa-builder (zjj-1w0d, zjj-26pf already processed per BEADS.md)
+[2026-02-08 09:05:41] Loop 1 complete - waiting 90 seconds for next check
+[2026-02-08 15:06:01] REWORKER-1: Check 41 - no beads in stage:needs-rework
+
+[2026-02-08 15:05:52] zjj-14hr qa-in-progress → needs-rework,needs-qa-fix qa-builder-5 FAILED: Compilation errors in config.rs. E0432: fs4::tokio not found (needs tokio feature in Cargo.toml), E0599: lock_exclusive/unlock methods not found, E0282: type annotations needed, E0308: type mismatch (std::io::Error vs anyhow::Error in test), clippy warning: uninlined_format_args at line 749.
+[2026-02-08 15:07:06] REWORKER-1: Manual check 35 - no beads in stage:needs-rework
+[2026-02-08 15:07:31] REWORKER-1: Check 42 - no beads in stage:needs-rework
+[2026-02-08 09:07:20] Check 2 - No new beads in stage:ready-qa-builder
+[2026-02-08 09:07:20] Loop 2 complete - waiting 90 seconds for next check
+
+[2026-02-08 15:07:33] zjj-14hr needs-rework,needs-qa-fix qa-builder-5 UPDATED ERROR REPORT:
+Command: moon run :quick
+Exit: 1
+Errors:
+1. E0277: `std::result::Result<(), std::io::Error>` is not a future (line 229)
+   - file.lock_exclusive() returns Result, not a Future
+   - tokio::time::timeout expects a Future
+   - Root cause: fs4::tokio::AsyncFileExt::lock_exclusive() is SYNC, not async
+2. E0282: type annotations needed for lock_result (line 229)
+3. 4 compilation errors total in zjj binary
+
+Fix Required: The file locking implementation is fundamentally broken. Either:
+   a) Wrap lock_exclusive() in tokio::task::spawn_blocking for async compatibility
+   b) Use a different async-compatible locking mechanism
+   c) Remove async wrapper and handle locking synchronously
+
+Note: This is about zjj-14hr (config exit codes) but the implementation introduced
+file locking code that has compilation errors.
+[2026-02-08 09:08:07] zjj-141d: explored → ready-builder planner-2 (contract + tests created)
