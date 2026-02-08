@@ -24,6 +24,10 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::too_many_lines)]
+// Test code for lock contention metrics uses integer-to-float casts.
+// Precision loss is acceptable for statistical calculations in tests.
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
 
 use std::{
     collections::{HashMap, HashSet},
