@@ -10,7 +10,7 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 use crate::{
     cli::commands::build_cli,
     commands::{
-        abort, add, agents, ai, attach, batch, bookmark, can_i, checkpoint, claim, clean,
+        abort, add, agents, ai, attach, broadcast, batch, bookmark, can_i, checkpoint, claim, clean,
         completions, config, context, contract, dashboard, diff, doctor, done, events, examples,
         export_import, focus, get_session_db, init, integrity, introspect, list, pane, query,
         queue, recover, remove, rename, revert, schema, session_mgmt, spawn, status, switch, sync,
@@ -1228,6 +1228,7 @@ pub async fn run_cli() -> Result<()> {
         Some(("add", sub_m)) => handle_add(sub_m).await,
         Some(("agents", sub_m)) => handle_agents(sub_m).await,
         Some(("list", sub_m)) => handle_list(sub_m).await,
+        Some(("broadcast", sub_m)) => handle_broadcast(sub_m).await,
         Some(("bookmark", sub_m)) => handle_bookmark(sub_m).await,
         Some(("pane", sub_m)) => handle_pane(sub_m).await,
         Some(("remove", sub_m)) => handle_remove(sub_m).await,
