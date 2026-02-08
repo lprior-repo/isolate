@@ -97,16 +97,33 @@ pub struct Config {
     pub dashboard: DashboardConfig,
     pub agent: AgentConfig,
     pub session: SessionConfig,
+    #[serde(default)]
     pub recovery: RecoveryConfig,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct RecoveryConfig {
+    #[serde(default = "default_recovery_policy")]
     pub policy: RecoveryPolicy,
+    #[serde(default = "default_true")]
     pub log_recovered: bool,
+    #[serde(default = "default_true")]
     pub auto_recover_corrupted_wal: bool,
+    #[serde(default = "default_false")]
     pub delete_corrupted_database: bool,
+}
+
+const fn default_recovery_policy() -> RecoveryPolicy {
+    RecoveryPolicy::Warn
+}
+
+const fn default_true() -> bool {
+    true
+}
+
+const fn default_false() -> bool {
+    false
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
