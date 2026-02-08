@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::{anyhow, Result};
 use zjj_core::zellij::{self, LayoutConfig, LayoutTemplate};
 
-/// Validate template name and convert to LayoutTemplate
+/// Validate template name and convert to `LayoutTemplate`
 ///
 /// # Errors
 ///

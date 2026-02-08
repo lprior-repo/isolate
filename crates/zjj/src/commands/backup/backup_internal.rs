@@ -1,6 +1,6 @@
 //! Automated database backup system for zjj
 //!
-//! Provides backup and restore functionality for SQLite databases (state.db, beads.db)
+//! Provides backup and restore functionality for `SQLite` databases (`state.db`, `beads.db`)
 //! with configurable retention policies and automated periodic backups.
 
 #![deny(clippy::unwrap_used)]

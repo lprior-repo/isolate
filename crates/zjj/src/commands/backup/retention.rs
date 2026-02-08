@@ -14,7 +14,7 @@ use super::{BackupConfig};
 
 /// Apply retention policy to backups for a specific database
 ///
-/// Keeps the most recent N backups as configured in `` `BackupConfig` ``.
+/// Keeps the most recent N backups as configured in `BackupConfig`.
 /// Removes older backups beyond the retention count.
 ///
 /// # Errors

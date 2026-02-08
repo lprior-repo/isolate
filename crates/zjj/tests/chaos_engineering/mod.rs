@@ -7,8 +7,8 @@
 //! ## Design Principles
 //!
 //! - **Deterministic chaos**: All randomness is seed-based for reproducibility
-//! - **Zero panic**: No unwrap/expect/panic - only Result<T, Error>
-//! - **Functional style**: Railway-oriented programming with map/and_then
+//! - **Zero panic**: No `unwrap`/`expect`/`panic` - only `Result<T, Error>`
+//! - **Functional style**: Railway-oriented programming with `map`/`and_then`
 //! - **Isolation**: Each chaos executor has independent state
 //!
 //! ## Example
@@ -132,7 +132,7 @@ impl ChaosConfig {
     ///
     /// Returns `Err(ChaosError::InvalidConfig)` if:
     /// - probability is not in range [0.0, 1.0]
-    /// - failure_modes is empty
+    /// - `failure_modes` is empty
     ///
     /// # Examples
     ///
@@ -408,7 +408,7 @@ impl ChaosExecutor {
 
 /// Chaos-enabled test harness wrapper
 ///
-/// Integrates chaos injection with the existing TestHarness infrastructure.
+/// Integrates chaos injection with the existing `TestHarness` infrastructure.
 pub struct ChaosTestHarness {
     /// Inner test harness
     _inner: super::common::TestHarness,
@@ -423,8 +423,8 @@ impl ChaosTestHarness {
     /// # Errors
     ///
     /// Returns `Err` if:
-    /// - TestHarness creation fails
-    /// - ChaosConfig is invalid
+    /// - `TestHarness` creation fails
+    /// - `ChaosConfig` is invalid
     ///
     /// # Examples
     ///
@@ -615,7 +615,7 @@ where
 
 /// Calculate chaos statistics from iteration results
 ///
-/// Returns (success_count, failure_count, success_rate)
+/// Returns `(success_count, failure_count, success_rate)`
 ///
 /// # Examples
 ///
