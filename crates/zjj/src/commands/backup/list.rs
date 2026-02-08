@@ -53,7 +53,7 @@ impl BackupInfo {
 /// - Backup directory cannot be read
 /// - File metadata cannot be accessed
 pub async fn list_database_backups(
-    root: &Path,
+    _root: &Path,
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<Vec<BackupInfo>> {
@@ -117,7 +117,7 @@ pub async fn list_database_backups(
 ///
 /// Returns error if any backup directory cannot be read
 pub async fn list_all_backups(
-    root: &Path,
+    _root: &Path,
     config: &BackupConfig,
 ) -> Result<Vec<(String, Vec<BackupInfo>)>> {
     let databases = vec!["state.db", "queue.db", "beads.db"];
@@ -125,7 +125,7 @@ pub async fn list_all_backups(
     let mut all_backups = Vec::new();
 
     for db_name in databases {
-        let backups = list_database_backups(root, db_name, config).await?;
+        let backups = list_database_backups(_root, db_name, config).await?;
         if !backups.is_empty() {
             all_backups.push((db_name.to_string(), backups));
         }

@@ -88,7 +88,7 @@ pub async fn restore_backup(
 /// - Backup directory does not exist
 /// - No backups are found
 pub async fn find_latest_backup(
-    root: &Path,
+    _root: &Path,
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<PathBuf> {
@@ -156,7 +156,7 @@ pub async fn restore_from_latest(
     config: &BackupConfig,
     verify_checksum: bool,
 ) -> Result<PathBuf> {
-    let backup_path = find_latest_backup(root, database_name, config).await?;
+    let backup_path = find_latest_backup(_root, database_name, config).await?;
 
     // Determine target path based on database name
     let target_path = match database_name {
