@@ -963,6 +963,19 @@ pub fn cmd_doctor() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Auto-fix issues where possible"),
         )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview what would be fixed without making changes"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .action(clap::ArgAction::SetTrue)
+                .help("Show detailed progress during fixes"),
+        )
 }
 
 pub fn cmd_integrity() -> ClapCommand {

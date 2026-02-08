@@ -2,11 +2,7 @@
 //!
 //! Binary name: `zjj`
 
-use std::{
-    panic,
-    process,
-    time::Duration,
-};
+use std::{panic, process, time::Duration};
 
 mod beads;
 mod cli;
@@ -181,7 +177,8 @@ mod tests {
 
         for msg in test_cases {
             let msg_string = msg.to_string();
-            let contains_broken_pipe = msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
+            let contains_broken_pipe =
+                msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
             assert!(
                 contains_broken_pipe,
                 "Message should be detected as broken pipe: {msg}"
@@ -201,7 +198,8 @@ mod tests {
 
         for msg in test_cases {
             let msg_string = msg.to_string();
-            let contains_broken_pipe = msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
+            let contains_broken_pipe =
+                msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
             assert!(
                 !contains_broken_pipe,
                 "Message should NOT be detected as broken pipe: {msg}"

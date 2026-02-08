@@ -642,10 +642,7 @@ mod tests {
         assert!(result.is_ok(), "Restore with valid names should succeed");
 
         // Verify all sessions were restored
-        let sessions = db
-            .list(None)
-            .await
-            .expect("Failed to list sessions");
+        let sessions = db.list(None).await.expect("Failed to list sessions");
         assert_eq!(sessions.len(), 3, "All 3 valid sessions should be restored");
     }
 
@@ -672,12 +669,12 @@ mod tests {
 
         // Insert a mix of valid and invalid session names
         let test_cases = vec![
-            ("valid-session", "active", "/path/to/valid"),      // Valid
-            ("", "active", "/path/to/empty"),                    // Invalid: empty
-            ("  ", "active", "/path/to/space"),                  // Invalid: whitespace
+            ("valid-session", "active", "/path/to/valid"), // Valid
+            ("", "active", "/path/to/empty"),              // Invalid: empty
+            ("  ", "active", "/path/to/space"),            // Invalid: whitespace
             ("../../etc/passwd", "active", "/path/to/traverse"), // Invalid: path traversal
-            ("feature-auth", "active", "/path/to/feature"),      // Valid
-            ("\t", "active", "/path/to/tab"),                    // Invalid: tab
+            ("feature-auth", "active", "/path/to/feature"), // Valid
+            ("\t", "active", "/path/to/tab"),              // Invalid: tab
             ("123-starts-with-digit", "active", "/path/to/digit"), // Invalid: starts with digit
         ];
 
@@ -699,14 +696,18 @@ mod tests {
         let result = restore_checkpoint(&db, checkpoint_id).await;
 
         // Should succeed (invalid sessions are skipped)
-        assert!(result.is_ok(), "Restore should succeed even with some invalid names");
+        assert!(
+            result.is_ok(),
+            "Restore should succeed even with some invalid names"
+        );
 
         // Verify only valid sessions were restored
-        let sessions = db
-            .list(None)
-            .await
-            .expect("Failed to list sessions");
-        assert_eq!(sessions.len(), 2, "Only 2 valid sessions should be restored");
+        let sessions = db.list(None).await.expect("Failed to list sessions");
+        assert_eq!(
+            sessions.len(),
+            2,
+            "Only 2 valid sessions should be restored"
+        );
 
         // Verify the restored sessions are the valid ones
         let session_names: Vec<_> = sessions.iter().map(|s| s.name.as_str()).collect();
@@ -772,10 +773,7 @@ mod tests {
         );
 
         // Verify no sessions were restored
-        let sessions = db
-            .list(None)
-            .await
-            .expect("Failed to list sessions");
+        let sessions = db.list(None).await.expect("Failed to list sessions");
         assert_eq!(sessions.len(), 0, "No sessions should be restored");
     }
 

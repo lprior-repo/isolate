@@ -45,7 +45,8 @@ fn test_remove_idempotent_succeeds_when_session_doesnt_exist() {
 
     // THEN: No error message about session not found
     assert!(
-        !result.stdout.to_lowercase().contains("not found") && !result.stderr.to_lowercase().contains("not found"),
+        !result.stdout.to_lowercase().contains("not found")
+            && !result.stderr.to_lowercase().contains("not found"),
         "Should not show 'not found' error with --idempotent\nstdout: {}\nstderr: {}",
         result.stdout,
         result.stderr
@@ -54,7 +55,9 @@ fn test_remove_idempotent_succeeds_when_session_doesnt_exist() {
     // THEN: Output indicates "already removed" or similar
     let output = &result.stdout.to_lowercase();
     assert!(
-        output.contains("already removed") || output.contains("no such session") || output.is_empty(),
+        output.contains("already removed")
+            || output.contains("no such session")
+            || output.is_empty(),
         "Output should indicate idempotent path\noutput: {}",
         result.stdout
     );
@@ -78,17 +81,18 @@ fn test_remove_idempotent_removes_session_when_exists() {
     assert!(
         result.success,
         "Command should succeed when removing existing session\nstdout: {}\nstderr: {}",
-        result.stdout,
-        result.stderr
+        result.stdout, result.stderr
     );
 
     // THEN: Session is removed from database
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success, "List should succeed");
 
-    let json: JsonValue = serde_json::from_str(&list_result.stdout)
-        .expect("List should be valid JSON");
-    let sessions = json["data"]["sessions"].as_array().expect("Should have sessions");
+    let json: JsonValue =
+        serde_json::from_str(&list_result.stdout).expect("List should be valid JSON");
+    let sessions = json["data"]["sessions"]
+        .as_array()
+        .expect("Should have sessions");
 
     assert!(
         !sessions.iter().any(|s| s["name"] == "old-session"),
@@ -113,8 +117,7 @@ fn test_remove_idempotent_with_force_flag_is_redundant() {
     assert!(
         result.success,
         "Command should succeed with both flags\nstdout: {}\nstderr: {}",
-        result.stdout,
-        result.stderr
+        result.stdout, result.stderr
     );
 
     // THEN: No conflict between flags
@@ -139,7 +142,10 @@ fn test_remove_idempotent_fails_when_not_initialized() {
     let result = harness.zjj(&["remove", "test", "--idempotent"]);
 
     // THEN: Command fails with exit code 1
-    assert!(!result.success, "Command should fail when ZJJ not initialized");
+    assert!(
+        !result.success,
+        "Command should fail when ZJJ not initialized"
+    );
 
     // THEN: Error message indicates ZJJ not initialized
     let output = result.stdout.to_lowercase() + &result.stderr.to_lowercase();
@@ -168,7 +174,10 @@ fn test_remove_without_idempotent_fails_on_nonexistent_session() {
 
     // THEN: Command fails with exit code 2 (not found)
     // Note: Currently this might fail with exit code 1
-    assert!(!result.success, "Command should fail when session doesn't exist");
+    assert!(
+        !result.success,
+        "Command should fail when session doesn't exist"
+    );
 
     // THEN: Error message indicates session not found
     let output = result.stdout.to_lowercase() + &result.stderr.to_lowercase();
@@ -221,8 +230,8 @@ fn test_remove_idempotent_json_output_includes_status() {
     assert!(result.success, "Command should succeed");
 
     // THEN: Output is valid JSON
-    let json: JsonValue = serde_json::from_str(&result.stdout)
-        .expect("Output should be valid JSON");
+    let json: JsonValue =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
 
     // THEN: JSON indicates idempotent path
     assert_eq!(json["schema"], "remove-response");

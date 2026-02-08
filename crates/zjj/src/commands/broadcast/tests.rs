@@ -12,9 +12,10 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-use super::types::{BroadcastArgs, BroadcastResponse};
 use chrono::{DateTime, Utc};
 use serde_json::{from_str, to_string_pretty};
+
+use super::types::{BroadcastArgs, BroadcastResponse};
 
 /// Helper: Create test broadcast args
 #[allow(dead_code)]
@@ -27,11 +28,7 @@ fn create_args(message: &str, agent_id: &str) -> BroadcastArgs {
 
 /// Helper: Create test broadcast response
 #[allow(dead_code)]
-fn create_response(
-    message: &str,
-    sent_to: Vec<String>,
-    timestamp: &str,
-) -> BroadcastResponse {
+fn create_response(message: &str, sent_to: Vec<String>, timestamp: &str) -> BroadcastResponse {
     BroadcastResponse {
         success: true,
         message: message.to_string(),
@@ -164,9 +161,7 @@ fn test_single_agent_sender_only() {
 /// Edge case: Multiple agents → sent_to excludes sender
 fn test_multiple_agents_excludes_sender() {
     // Setup: Large agent list
-    let active_agents: Vec<String> = (1..=10)
-        .map(|i| format!("agent-{}", i))
-        .collect();
+    let active_agents: Vec<String> = (1..=10).map(|i| format!("agent-{}", i)).collect();
     let sender = "agent-5";
 
     // Act
@@ -228,7 +223,10 @@ fn test_sender_never_in_recipient_list() {
     // Property: For any agent list and sender, sender not in recipients
     let test_cases = vec![
         (vec!["agent-1".to_string()], "agent-1"),
-        (vec!["agent-1".to_string(), "agent-2".to_string()], "agent-1"),
+        (
+            vec!["agent-1".to_string(), "agent-2".to_string()],
+            "agent-1",
+        ),
         (
             (1..=100).map(|i| format!("agent-{}", i)).collect(),
             "agent-50",
@@ -469,9 +467,7 @@ fn test_empty_agent_list() {
 /// Performance: Filtering is O(n) where n = agent count
 fn test_filtering_performance() {
     // Setup: Large agent list (1,000 agents)
-    let active_agents: Vec<String> = (1..=1000)
-        .map(|i| format!("agent-{}", i))
-        .collect();
+    let active_agents: Vec<String> = (1..=1000).map(|i| format!("agent-{}", i)).collect();
     let sender = "agent-500";
 
     // Act: Filter (should be fast)
@@ -493,11 +489,7 @@ fn test_filtering_performance() {
 fn test_serialization_performance() {
     // Setup: Large recipient list (100 agents)
     let sent_to: Vec<String> = (1..=100).map(|i| format!("agent-{}", i)).collect();
-    let response = create_response(
-        "Performance test",
-        sent_to,
-        "2024-01-01T00:00:00Z",
-    );
+    let response = create_response("Performance test", sent_to, "2024-01-01T00:00:00Z");
 
     // Act: Serialize
     let start = std::time::Instant::now();

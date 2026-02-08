@@ -459,16 +459,14 @@ fn parse_bookmark_list(output: &[u8]) -> Result<Vec<BookmarkInfo>> {
                     let tokens: Vec<&str> = rest.split_whitespace().collect();
                     let revision = if tokens.len() >= 2 {
                         // New format: skip change_id, get commit_id
-                        tokens.get(1).map_or_else(
-                            || "unknown".to_string(),
-                            |id| id.to_string()
-                        )
+                        tokens
+                            .get(1)
+                            .map_or_else(|| "unknown".to_string(), |id| id.to_string())
                     } else {
                         // Legacy format: use first token
-                        tokens.first().map_or_else(
-                            || "unknown".to_string(),
-                            |id| id.to_string()
-                        )
+                        tokens
+                            .first()
+                            .map_or_else(|| "unknown".to_string(), |id| id.to_string())
                     };
 
                     let remote = rest.contains("@origin");
@@ -479,7 +477,7 @@ fn parse_bookmark_list(output: &[u8]) -> Result<Vec<BookmarkInfo>> {
                         remote,
                     })
                 }
-                _ => Err(anyhow::anyhow!("invalid bookmark list output: {line}"))
+                _ => Err(anyhow::anyhow!("invalid bookmark list output: {line}")),
             }
         })
         .collect();

@@ -232,10 +232,7 @@ async fn validate_and_parse_import(input_path: &str) -> Result<ExportResult> {
         if let Some(ref ts_str) = session.created_at {
             // Validate timestamp format - will error if invalid
             validate_and_parse_timestamp(Some(ts_str)).map_err(|e| {
-                anyhow::anyhow!(
-                    "Invalid timestamp for session '{}': {e}",
-                    session.name
-                )
+                anyhow::anyhow!("Invalid timestamp for session '{}': {e}", session.name)
             })?;
         }
     }
@@ -528,7 +525,10 @@ mod tests {
     fn test_validate_and_parse_timestamp_valid_rfc3339() -> anyhow::Result<()> {
         let valid_ts = "2025-01-15T12:30:45Z";
         let result = validate_and_parse_timestamp(Some(&valid_ts.to_string()))?;
-        assert!(result.is_some(), "Valid timestamp should parse successfully");
+        assert!(
+            result.is_some(),
+            "Valid timestamp should parse successfully"
+        );
         Ok(())
     }
 
@@ -536,7 +536,10 @@ mod tests {
     fn test_validate_and_parse_timestamp_with_offset() -> anyhow::Result<()> {
         let valid_ts = "2025-01-15T12:30:45+08:00";
         let result = validate_and_parse_timestamp(Some(&valid_ts.to_string()))?;
-        assert!(result.is_some(), "Timestamp with offset should parse successfully");
+        assert!(
+            result.is_some(),
+            "Timestamp with offset should parse successfully"
+        );
         Ok(())
     }
 
@@ -562,7 +565,10 @@ mod tests {
             result.is_err(),
             "Invalid timestamp format should return an error"
         );
-        assert!(result.unwrap_err().to_string().contains("invalid timestamp format"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("invalid timestamp format"));
     }
 
     #[test]
