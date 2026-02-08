@@ -11,7 +11,7 @@ use anyhow::{Context, Result};
 use tokio::fs;
 
 use super::{BackupConfig};
-use crate::commands::backup::list;
+use crate::commands::backup::list::{self, BackupInfo};
 
 /// Apply retention policy to backups for a specific database
 ///
