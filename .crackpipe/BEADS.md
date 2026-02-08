@@ -246,6 +246,7 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 # QA Builder Agent 2 Transitions (2026-02-08 Continuous)
 [2026-02-08 14:00:00] QA Builder 2 started - continuous monitoring for stage:ready-qa-builder beads
 [2026-02-08 14:00:15] zjj-xcso ready-qa-builder → qa-in-progress qa-builder-2 (claimed for QA verification)
+[2026-02-08 16:09:00] zjj-xcso qa-in-progress → complete qa-builder-2 VERIFIED PASS: moon run :quick passed (6ms), release build succeeded, --include-files flag removed from CLI and ExportOptions struct, help text no longer mentions tarball, export flag removal tests pass (3/3 ok), CLI correctly rejects --include-files flag with "unexpected argument" error. CI failed due to sccache issues unrelated to this bead.
 
 # Builder Agent 1 Transitions
 [2026-02-08 13:55:00] zjj-3ltb ready-builder → building (claimed by builder-1)
