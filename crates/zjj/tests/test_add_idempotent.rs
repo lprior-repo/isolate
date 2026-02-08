@@ -82,11 +82,10 @@ fn test_add_idempotent_creates_session_when_not_exists() {
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success, "List command should succeed");
 
-    let json: JsonValue =
-        match serde_json::from_str(&list_result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("List output should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&list_result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("List output should be valid JSON: {e}"),
+    };
     let sessions = match json["data"]["sessions"].as_array() {
         Some(arr) => arr,
         None => panic!("Should have sessions array"),
@@ -118,11 +117,10 @@ fn test_add_idempotent_with_json_output_includes_created_field() {
     );
 
     // THEN: Output is valid JSON
-    let json: JsonValue =
-        match serde_json::from_str(&result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("Output should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("Output should be valid JSON: {e}"),
+    };
 
     // THEN: JSON matches schema
     assert_eq!(json["schema"], "add-response");
@@ -146,11 +144,10 @@ fn test_add_idempotent_with_json_output_includes_created_field() {
     );
 
     // THEN: JSON indicates already exists
-    let json2: JsonValue =
-        match serde_json::from_str(&result2.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("Second output should be valid JSON: {e}"),
-        };
+    let json2: JsonValue = match serde_json::from_str(&result2.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("Second output should be valid JSON: {e}"),
+    };
 
     let data2 = &json2["data"];
     assert_eq!(data2["name"], "new-session");
@@ -197,11 +194,10 @@ fn test_add_idempotent_with_bead_id_succeeds_on_duplicate() {
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success, "List should succeed");
 
-    let json: JsonValue =
-        match serde_json::from_str(&list_result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("List output should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&list_result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("List output should be valid JSON: {e}"),
+    };
     let sessions = match json["data"]["sessions"].as_array() {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
@@ -246,11 +242,10 @@ fn test_add_idempotent_fails_on_invalid_session_name() {
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success, "List should succeed");
 
-    let json: JsonValue =
-        match serde_json::from_str(&list_result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("List output should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&list_result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("List output should be valid JSON: {e}"),
+    };
     let sessions = match json["data"]["sessions"].as_array() {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
@@ -366,11 +361,10 @@ fn test_add_idempotent_json_output_schema_validation() {
     let result = harness.zjj(&["add", "schema-test", "--idempotent", "--json", "--no-open"]);
 
     // THEN: Output is valid JSON
-    let json: JsonValue =
-        match serde_json::from_str(&result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("Output should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("Output should be valid JSON: {e}"),
+    };
 
     // THEN: JSON matches SchemaEnvelope structure
     assert_eq!(json["schema"], "add-response");
@@ -413,15 +407,13 @@ fn test_add_idempotent_preserves_existing_session_metadata() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let session1 = match json1["data"]["sessions"]
-        .as_array()
-    {
+    let session1 = match json1["data"]["sessions"].as_array() {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     }
     .iter()
-    .find(|s| s["name"] == "metadata-test")
-    {
+    .find(|s| s["name"] == "metadata-test");
+    let session1 = match session1 {
         Some(s) => s,
         None => panic!("Should find session"),
     };
@@ -445,15 +437,13 @@ fn test_add_idempotent_preserves_existing_session_metadata() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let session2 = match json2["data"]["sessions"]
-        .as_array()
-    {
+    let session2 = match json2["data"]["sessions"].as_array() {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     }
     .iter()
-    .find(|s| s["name"] == "metadata-test")
-    {
+    .find(|s| s["name"] == "metadata-test");
+    let session2 = match session2 {
         Some(s) => s,
         None => panic!("Should find session"),
     };
