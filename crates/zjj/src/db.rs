@@ -42,13 +42,18 @@ mod io {
 use num_traits::cast::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
-use tokio::sync::{mpsc, oneshot};
+use tokio::{
+    sync::{mpsc, oneshot},
+    time::{sleep, Duration},
+};
 use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result, WorkspaceState};
 
 use crate::session::{validate_session_name, Session, SessionStatus, SessionUpdate};
 
 const CURRENT_SCHEMA_VERSION: i64 = 1;
 const STATE_WRITER_CHANNEL_SIZE: usize = 512;
+const STATE_WRITER_MAX_RETRIES: u8 = 3;
+const STATE_WRITER_RETRY_BACKOFF_MS: u64 = 20;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -445,7 +450,7 @@ impl SessionDb {
             status: Some(status),
             ..Default::default()
         };
-        update_session(&self.pool, name, update).await
+        self.update(name, update).await
     }
 
     /// Delete a session by name
@@ -877,18 +882,61 @@ fn state_event_log_path(db_path: &Path) -> PathBuf {
 fn start_state_writer(pool: SqlitePool, event_log_path: PathBuf) -> StateWriterHandle {
     let (sender, receiver) = mpsc::channel(STATE_WRITER_CHANNEL_SIZE);
     tokio::spawn(async move {
-        run_state_writer(pool, event_log_path, receiver).await;
+        run_state_reactor(pool, event_log_path, receiver).await;
     });
     StateWriterHandle { sender }
 }
 
-async fn run_state_writer(
+async fn run_state_reactor(
     pool: SqlitePool,
     event_log_path: PathBuf,
     mut receiver: mpsc::Receiver<WriteRequest>,
 ) {
     while let Some(request) = receiver.recv().await {
-        match request {
+        match process_with_retry(&pool, &event_log_path, request).await {
+            Ok(()) => {}
+            Err(e) => {
+                eprintln!("State writer reactor recovered from write failure: {e}");
+            }
+        }
+    }
+}
+
+async fn process_with_retry(pool: &SqlitePool, event_log_path: &Path, request: WriteRequest) -> Result<()> {
+    let mut attempt: u8 = 0;
+    let mut pending_request = Some(request);
+
+    loop {
+        let maybe_request = pending_request.take();
+        let request = match maybe_request {
+            Some(r) => r,
+            None => return Err(Error::DatabaseError("Missing state-writer request".to_string())),
+        };
+
+        let result = process_one_request(pool, event_log_path, request).await;
+
+        match result {
+            Ok(()) => return Ok(()),
+            Err((request, err)) => {
+                if attempt >= STATE_WRITER_MAX_RETRIES || !is_transient_state_writer_error(&err) {
+                    respond_with_error(request, err.clone());
+                    return Err(err);
+                }
+
+                attempt = attempt.saturating_add(1);
+                pending_request = Some(request);
+                sleep(Duration::from_millis(STATE_WRITER_RETRY_BACKOFF_MS)).await;
+            }
+        }
+    }
+}
+
+async fn process_one_request(
+    pool: &SqlitePool,
+    event_log_path: &Path,
+    request: WriteRequest,
+) -> std::result::Result<(), (WriteRequest, Error)> {
+    match request {
             WriteRequest::Create {
                 name,
                 workspace_path,
@@ -905,7 +953,22 @@ async fn run_state_writer(
                     command_id,
                 )
                 .await;
-                let _ = tx.send(result);
+                match result {
+                    Ok(session) => {
+                        let _ = tx.send(Ok(session));
+                        Ok(())
+                    }
+                    Err(e) => {
+                        let request = WriteRequest::Create {
+                            name,
+                            workspace_path,
+                            created_at,
+                            command_id: None,
+                            tx,
+                        };
+                        Err((request, e))
+                    }
+                }
             }
             WriteRequest::Update {
                 name,
@@ -913,21 +976,68 @@ async fn run_state_writer(
                 command_id,
                 tx,
             } => {
-                let result =
-                    process_update_command(&pool, &event_log_path, &name, update, command_id).await;
-                let _ = tx.send(result);
+                let result = process_update_command(pool, event_log_path, &name, update.clone(), command_id).await;
+                match result {
+                    Ok(()) => {
+                        let _ = tx.send(Ok(()));
+                        Ok(())
+                    }
+                    Err(e) => {
+                        let request = WriteRequest::Update {
+                            name,
+                            update,
+                            command_id: None,
+                            tx,
+                        };
+                        Err((request, e))
+                    }
+                }
             }
             WriteRequest::Delete {
                 name,
                 command_id,
                 tx,
             } => {
-                let result =
-                    process_delete_command(&pool, &event_log_path, &name, command_id).await;
-                let _ = tx.send(result);
+                let result = process_delete_command(pool, event_log_path, &name, command_id).await;
+                match result {
+                    Ok(deleted) => {
+                        let _ = tx.send(Ok(deleted));
+                        Ok(())
+                    }
+                    Err(e) => {
+                        let request = WriteRequest::Delete {
+                            name,
+                            command_id: None,
+                            tx,
+                        };
+                        Err((request, e))
+                    }
+                }
             }
+    }
+}
+
+fn respond_with_error(request: WriteRequest, error: Error) {
+    match request {
+        WriteRequest::Create { tx, .. } => {
+            let _ = tx.send(Err(error));
+        }
+        WriteRequest::Update { tx, .. } => {
+            let _ = tx.send(Err(error));
+        }
+        WriteRequest::Delete { tx, .. } => {
+            let _ = tx.send(Err(error));
         }
     }
+}
+
+fn is_transient_state_writer_error(error: &Error) -> bool {
+    let message = error.to_string();
+    message.contains("database is locked")
+        || message.contains("database table is locked")
+        || message.contains("SQLITE_BUSY")
+        || message.contains("SQLITE_LOCKED")
+}
 }
 
 fn session_from_insert(name: &str, workspace_path: &str, created_at: u64, id: i64) -> Session {
