@@ -947,14 +947,10 @@ async fn process_with_retry(
     let mut pending_request = Some(request);
 
     loop {
-        let maybe_request = pending_request.take();
-        let request = match maybe_request {
-            Some(r) => r,
-            None => {
-                return Err(Error::DatabaseError(
-                    "Missing state-writer request".to_string(),
-                ))
-            }
+        let Some(request) = pending_request.take() else {
+            return Err(Error::DatabaseError(
+                "Missing state-writer request".to_string(),
+            ))
         };
 
         let result = process_one_request(pool, event_log_path, request).await;
@@ -1104,6 +1100,7 @@ fn session_from_insert(name: &str, workspace_path: &str, created_at: u64, id: i6
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn process_create_command(
     pool: &SqlitePool,
     event_log_path: &Path,
