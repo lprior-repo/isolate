@@ -692,8 +692,10 @@ mod tests {
         // zjj query suggest-name "feat{n}" should work
         let existing = vec!["feat1".to_string(), "feat2".to_string()];
         let result = suggest_name("feat{n}", &existing);
-        assert!(result.is_ok(), "suggest_name should succeed");
-        let result = result.unwrap_or_else(|e| panic!("suggest_name failed: {e}"));
+        let result = match result {
+            Ok(r) => r,
+            Err(e) => panic!("suggest_name failed: {e}"),
+        };
         assert_eq!(result.suggested, "feat3");
         assert_eq!(result.next_available_n, 3);
         assert_eq!(result.existing_matches.len(), 2);
