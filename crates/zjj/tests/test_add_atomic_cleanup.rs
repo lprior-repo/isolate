@@ -84,10 +84,9 @@ fn test_add_workspace_creation_failure_rolls_back_file_workspace_path() {
     let Some(parsed) = parsed_result.ok() else {
         return;
     };
-    assert_eq!(
-        session_status_from_list_json(&parsed, session_name).as_deref(),
-        Some("creating"),
-        "workspace-creation failure should leave db status as creating"
+    assert!(
+        session_status_from_list_json(&parsed, session_name).is_none(),
+        "workspace-creation failure should remove db session record"
     );
 }
 
