@@ -93,8 +93,7 @@ pub async fn find_latest_backup(
 
     anyhow::ensure!(
         backup_dir.exists(),
-        "No backups found for database: {}",
-        database_name
+        "No backups found for database: {database_name}"
     );
 
     // Read backup directory and find most recent backup
@@ -140,7 +139,7 @@ pub async fn find_latest_backup(
 
     latest_backup
         .map(|(path, _)| path)
-        .ok_or_else(|| anyhow::anyhow!("No valid backups found for database: {}", database_name))
+        .ok_or_else(|| anyhow::anyhow!("No valid backups found for database: {database_name}"))
 }
 
 /// Restore database from latest backup

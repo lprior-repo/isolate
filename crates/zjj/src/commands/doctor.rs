@@ -18,9 +18,9 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use sqlx::Row;
 use chrono::{Duration, Utc};
 use futures::StreamExt;
+use sqlx::Row;
 use tokio::process::Command;
 use zjj_core::{
     config::{load_config, Config},
@@ -550,7 +550,7 @@ async fn check_state_db() -> DoctorCheck {
     }
 }
 
-/// Run PRAGMA integrity_check on the database
+/// Run PRAGMA `integrity_check` on the database
 ///
 /// Returns Ok with details if integrity check passes (result is "ok")
 /// Returns Err with error message if integrity check fails or connection fails

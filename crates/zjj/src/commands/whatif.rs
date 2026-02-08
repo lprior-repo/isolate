@@ -128,7 +128,7 @@ pub fn run(options: &WhatIfOptions) -> Result<()> {
     Ok(())
 }
 
-/// Format human-readable output from WhatIfResult
+/// Format human-readable output from `WhatIfResult`
 fn format_human_output(result: &WhatIfResult) -> Result<String> {
     use std::fmt::Write;
 
@@ -246,6 +246,7 @@ fn truncate_output_if_needed(result: &WhatIfResult, limit: usize) -> Result<Stri
     let truncate_at = limit.saturating_sub(200);
 
     // Find a good truncation point (newline)
+    #[allow(clippy::option_if_let_else)]
     let truncated = if let Some(pos) = output[..truncate_at].rfind('\n') {
         Ok(format!(
             "{}\n\n... (truncated, {} bytes total) ...",

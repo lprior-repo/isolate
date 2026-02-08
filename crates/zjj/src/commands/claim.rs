@@ -202,7 +202,7 @@ async fn write_audit_entry(path: &std::path::Path, entry: ClaimAuditEntry) -> Re
 }
 
 /// Count claims by a specific agent for a resource
-async fn count_claims_by_agent(audit: &ClaimAudit, agent_id: &str) -> usize {
+fn count_claims_by_agent(audit: &ClaimAudit, agent_id: &str) -> usize {
     audit
         .entries
         .iter()
@@ -379,7 +379,10 @@ async fn attempt_claim(
                 holder: Some(existing.holder.clone()),
                 expires_at: Some(existing.expires_at),
                 previous_holder: None,
-                error: Some(format!("Resource locked by {holder}", holder = existing.holder)),
+                error: Some(format!(
+                    "Resource locked by {holder}",
+                    holder = existing.holder
+                )),
                 is_double_claim: Some(false),
                 claim_count: Some(claim_count),
             }

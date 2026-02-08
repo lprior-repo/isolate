@@ -3,9 +3,9 @@
 pub mod abort;
 pub mod add;
 pub mod agents;
-pub mod backup;
 pub mod ai;
 pub mod attach;
+pub mod backup;
 pub mod batch;
 pub mod bookmark;
 pub mod can_i;
