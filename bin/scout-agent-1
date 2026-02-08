@@ -46,8 +46,8 @@ while [ $COUNTER -lt $MAX_ITERATIONS ]; do
   fi
 
   # Get full bead info
-  BEAD_INFO=$(timeout 5 br show "$BEAD_ID" --format json 2>/dev/null || echo '{}')
-  CURRENT_LABELS=$(echo "$BEAD_INFO" | jq -r '.labels // [] | join(" ")' 2>/dev/null)
+  BEAD_INFO=$(timeout 5 br show "$BEAD_ID" --format json 2>/dev/null || echo '[{}]')
+  CURRENT_LABELS=$(echo "$BEAD_INFO" | jq -r '.[0].labels // [] | join(" ")' 2>/dev/null)
 
   # Skip if already processed
   if echo "$CURRENT_LABELS" | grep -qE "stage:(explored|ready-architect)"; then
