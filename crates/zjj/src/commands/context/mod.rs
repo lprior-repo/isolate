@@ -214,6 +214,21 @@ async fn count_commits_ahead(root: &PathBuf) -> Result<usize> {
     Ok(count)
 }
 
+/// Extract agent ID from session metadata
+///
+/// # Returns
+/// - Some(agent_id) if metadata contains valid string agent_id
+/// - None if metadata doesn't contain agent_id
+/// - None if agent_id is not a string
+/// - None if agent_id is empty string
+fn extract_agent_from_metadata(metadata: Option<&serde_json::Value>) -> Option<String> {
+    metadata
+        .and_then(|m| m.get("agent_id"))
+        .and_then(|v| v.as_str())
+        .filter(|id| !id.is_empty())
+        .map(String::from)
+}
+
 async fn get_session_info() -> Result<SessionContext> {
     let session_db = get_session_db().await?;
     let sessions = session_db.list(None).await?;
@@ -236,6 +251,8 @@ async fn get_session_info() -> Result<SessionContext> {
         .and_then(|v| v.as_str())
         .map(String::from);
 
+    let agent = extract_agent_from_metadata(session.metadata.as_ref());
+
     #[allow(clippy::cast_possible_wrap)]
     let created_at = chrono::DateTime::from_timestamp(session.created_at as i64, 0)
         .ok_or_else(|| anyhow::anyhow!("Invalid created_at timestamp"))?;
@@ -253,6 +270,7 @@ async fn get_session_info() -> Result<SessionContext> {
         name: session.name.clone(),
         status: session.status.to_string(),
         bead_id,
+        agent,
         created_at,
         last_synced,
     })
@@ -404,6 +422,9 @@ fn print_human_readable(context: &ContextOutput) {
 
     if let Some(ref session) = context.session {
         println!("🎯 Session: {} ({})", session.name, session.status);
+        if let Some(ref agent) = session.agent {
+            println!("🤖 Agent: {agent}");
+        }
     }
 
     println!("🌿 Branch: {}", context.repository.branch);

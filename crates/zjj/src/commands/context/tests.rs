@@ -101,12 +101,14 @@ fn test_session_context_with_bead() {
         name: "feature-auth".to_string(),
         status: "active".to_string(),
         bead_id: Some("zjj-abc123".to_string()),
+        agent: None,
         created_at: Utc::now(),
         last_synced: Some(Utc::now()),
     };
     assert_eq!(session.name, "feature-auth");
     assert_eq!(session.bead_id, Some("zjj-abc123".to_string()));
     assert!(session.last_synced.is_some());
+    assert!(session.agent.is_none());
 }
 
 #[test]
@@ -115,11 +117,13 @@ fn test_session_context_without_bead() {
         name: "test".to_string(),
         status: "active".to_string(),
         bead_id: None,
+        agent: None,
         created_at: Utc::now(),
         last_synced: None,
     };
     assert!(session.bead_id.is_none());
     assert!(session.last_synced.is_none());
+    assert!(session.agent.is_none());
 }
 
 #[test]
@@ -128,6 +132,7 @@ fn test_session_context_serialization() {
         name: "test".to_string(),
         status: "active".to_string(),
         bead_id: None,
+        agent: None,
         created_at: Utc::now(),
         last_synced: None,
     };
@@ -139,6 +144,41 @@ fn test_session_context_serialization() {
     assert!(json_str.contains("name"));
     assert!(json_str.contains("status"));
     assert!(json_str.contains("created_at"));
+    assert!(json_str.contains("agent"));
+}
+
+#[test]
+fn test_session_context_with_agent() {
+    let session = SessionContext {
+        name: "feature-auth".to_string(),
+        status: "active".to_string(),
+        bead_id: Some("zjj-abc123".to_string()),
+        agent: Some("architect-1".to_string()),
+        created_at: Utc::now(),
+        last_synced: Some(Utc::now()),
+    };
+    assert_eq!(session.name, "feature-auth");
+    assert_eq!(session.agent, Some("architect-1".to_string()));
+    assert_eq!(session.bead_id, Some("zjj-abc123".to_string()));
+}
+
+#[test]
+fn test_session_context_serialization_with_agent() {
+    let session = SessionContext {
+        name: "test".to_string(),
+        status: "active".to_string(),
+        bead_id: None,
+        agent: Some("builder-3".to_string()),
+        created_at: Utc::now(),
+        last_synced: None,
+    };
+    let json = serde_json::to_string(&session);
+    let Ok(json_str) = json else {
+        assert!(false, "serialization failed");
+        return;
+    };
+    assert!(json_str.contains("agent"));
+    assert!(json_str.contains("builder-3"));
 }
 
 // ── RepositoryContext Tests ──────────────────────────────────────────

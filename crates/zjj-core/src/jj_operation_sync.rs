@@ -31,7 +31,8 @@ use crate::{Error, Result};
 /// This ensures that workspace creations are serialized, preventing
 /// operation graph divergence when multiple workspaces are created
 /// in quick succession.
-static WORKSPACE_CREATION_LOCK: Mutex<()> = Mutex::new(());
+static WORKSPACE_CREATION_LOCK: std::sync::LazyLock<Mutex<()>> =
+    std::sync::LazyLock::new(|| Mutex::new(()));
 
 /// Information about the current repository operation
 #[derive(Debug, Clone)]
@@ -161,10 +162,7 @@ pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
         ));
     }
 
-    // Acquire global lock to serialize workspace creation
-    let _lock = WORKSPACE_CREATION_LOCK.lock().await;
-
-    // Determine repository root from parent directory
+    // Validate path has parent BEFORE acquiring lock
     let repo_root = path
         .parent()
         .ok_or_else(|| {
@@ -172,6 +170,9 @@ pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
                 "workspace path must have a parent directory (repo root)".into(),
             )
         })?;
+
+    // Acquire global lock to serialize workspace creation
+    let _lock = WORKSPACE_CREATION_LOCK.lock().await;
 
     // Step 1: Get current repository operation ID
     let operation_info = get_current_operation(repo_root).await?;
@@ -333,7 +334,10 @@ mod tests {
             Err(Error::InvalidConfig(msg)) => {
                 assert!(msg.contains("parent directory"));
             }
-            _ => panic!("Expected InvalidConfig error"),
+            Err(other) => {
+                eprintln!("Got error: {:?}", other);
+                panic!("Expected InvalidConfig error, got: {:?}", other);
+            }
         }
     }
 }

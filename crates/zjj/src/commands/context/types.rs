@@ -39,6 +39,8 @@ pub struct SessionContext {
     pub status: String,
     /// Associated bead ID if any
     pub bead_id: Option<String>,
+    /// Agent ID if session is owned by an agent
+    pub agent: Option<String>,
     /// When the session was created
     pub created_at: DateTime<Utc>,
     /// Last sync timestamp if any
