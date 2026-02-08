@@ -38,7 +38,7 @@ use num_traits::cast::ToPrimitive;
 use sqlx::{Row, SqlitePool};
 use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result, WorkspaceState};
 
-use crate::session::{Session, SessionStatus, SessionUpdate};
+use crate::session::{validate_session_name, Session, SessionStatus, SessionUpdate};
 
 const CURRENT_SCHEMA_VERSION: i64 = 1;
 
@@ -140,7 +140,7 @@ impl SessionDb {
 
         // Pre-flight check: Detect permission issues BEFORE SQLite tries to open
         // This prevents silent recovery from permission-denied scenarios
-        if tokio::fs::try_exists(path).await.map_or(false, |v| v) {
+        if tokio::fs::try_exists(path).await.is_ok_and(|v| v) {
             use tokio::fs::File;
             if let Err(e) = File::open(path).await {
                 return Err(Error::DatabaseError(format!(
@@ -241,8 +241,12 @@ impl SessionDb {
     ///
     /// # Errors
     ///
-    /// Returns error if session name already exists or database operation fails
+    /// Returns error if session name is invalid, already exists, or database operation fails
     pub async fn create(&self, name: &str, workspace_path: &str) -> Result<Session> {
+        // Validate session name BEFORE creating database record
+        // This prevents backslash-n and other invalid characters from being stored
+        validate_session_name(name)?;
+
         let now = get_current_timestamp()?;
         let status = SessionStatus::Creating;
         let state = WorkspaceState::Created;
@@ -327,7 +331,7 @@ fn get_recovery_policy() -> RecoveryPolicy {
 async fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
     // Check if we can access and read the file before allowing recovery
     // This prevents recovery when DB is inaccessible (chmod 000, permission denied, etc.)
-    if tokio::fs::try_exists(path).await.map_or(false, |v| v) {
+    if tokio::fs::try_exists(path).await.is_ok_and(|v| v) {
         match tokio::fs::metadata(path).await {
             Ok(_) => {
                 // File exists, check if readable
@@ -358,7 +362,7 @@ async fn can_recover_database(path: &Path, allow_create: bool) -> Result<()> {
     // If file doesn't exist, check if parent directory exists
     // (meaning zjj was previously initialized)
     if let Some(parent) = path.parent() {
-        if tokio::fs::try_exists(parent).await.map_or(false, |v| v) {
+        if tokio::fs::try_exists(parent).await.is_ok_and(|v| v) {
             return Ok(());
         }
     }
@@ -389,7 +393,7 @@ async fn check_wal_integrity(
     let wal_path = db_path.with_extension("db-wal");
 
     // If WAL file doesn't exist, no issue
-    if !tokio::fs::try_exists(&wal_path).await.map_or(false, |v| v) {
+    if !tokio::fs::try_exists(&wal_path).await.is_ok_and(|v| v) {
         return Ok(());
     }
 
@@ -483,7 +487,7 @@ async fn check_database_integrity(
     config: &zjj_core::config::RecoveryConfig,
 ) -> Result<()> {
     // If database file doesn't exist, no issue (might be creating)
-    if !tokio::fs::try_exists(db_path).await.map_or(false, |v| v) {
+    if !tokio::fs::try_exists(db_path).await.is_ok_and(|v| v) {
         return Ok(());
     }
 
@@ -648,7 +652,7 @@ async fn recover_database(path: &Path, config: &zjj_core::config::RecoveryConfig
     // Remove corrupted file if it exists
     // Do NOT modify file permissions - respect user-set permissions
     // Only log error if removal fails - don't attempt chmod
-    if tokio::fs::try_exists(path).await.map_or(false, |v| v) {
+    if tokio::fs::try_exists(path).await.is_ok_and(|v| v) {
         match tokio::fs::remove_file(path).await {
             Ok(()) => {
                 // Successfully removed corrupted file
@@ -864,9 +868,12 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
         .try_get("status")
         .map_err(|e| Error::DatabaseError(format!("Failed to read status: {e}")))?;
     let status = SessionStatus::from_str(&status_str)?;
+    #[allow(clippy::unnecessary_result_map_or_else)]
+    // Note: Cannot use unwrap_or_else (forbidden by project policy)
+    // Identity closure is required here for type correctness
     let state_str: String = row
         .try_get("state")
-        .map_or_else(|_| "created".to_string(), |s: String| s);
+        .map_or_else(|_| "created".to_string(), |s| s);
     let state = WorkspaceState::from_str(&state_str).map_or(WorkspaceState::Created, |s| s);
     let workspace_path: String = row
         .try_get("workspace_path")

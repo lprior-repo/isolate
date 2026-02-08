@@ -216,13 +216,18 @@ impl RetentionStatus {
 
 #[cfg(test)]
 mod tests {
+    // Test code uses expect() for test clarity.
+    // Production code must use Result<T, Error> patterns.
+    #![allow(clippy::expect_used)]
+
     use tempfile::TempDir;
 
     use super::*;
 
     #[tokio::test]
-    async fn test_apply_retention_policy_removes_old_backups() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_apply_retention_policy_removes_old_backups() -> Result<()> {
+        let temp_dir = TempDir::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {e}"))?;
         let root = temp_dir.path();
 
         let config = BackupConfig {
@@ -231,32 +236,38 @@ mod tests {
         };
 
         let backup_dir = root.join("backups").join("test.db");
-        fs::create_dir_all(&backup_dir).await.unwrap();
+        fs::create_dir_all(&backup_dir)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to create backup directory for test: {e}"))?;
 
         // Create 3 backups
         for i in 1..=3 {
             let backup_path = backup_dir.join(format!("backup-2025010{i}-120000.db"));
-            fs::write(&backup_path, b"data").await.unwrap();
+            fs::write(&backup_path, b"data")
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to write test backup file: {e}"))?;
         }
 
         // Apply retention (keep 2, remove 1)
         let removed = apply_retention_policy(root, "test.db", &config)
             .await
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("Failed to apply retention policy: {e}"))?;
 
         assert_eq!(removed.len(), 1);
 
         // Verify 2 backups remain
         let backups: Vec<list::BackupInfo> = list::list_database_backups(root, "test.db", &config)
             .await
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("Failed to list backups: {e}"))?;
 
         assert_eq!(backups.len(), 2);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_calculate_backup_size() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_calculate_backup_size() -> Result<()> {
+        let temp_dir = TempDir::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {e}"))?;
         let root = temp_dir.path();
 
         let config = BackupConfig {
@@ -265,25 +276,33 @@ mod tests {
         };
 
         let backup_dir = root.join("backups").join("test.db");
-        fs::create_dir_all(&backup_dir).await.unwrap();
+        fs::create_dir_all(&backup_dir)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to create backup directory for test: {e}"))?;
 
         // Create backups with known sizes
         let backup1 = backup_dir.join("backup-20250101-100000.db");
         let backup2 = backup_dir.join("backup-20250101-120000.db");
 
-        fs::write(&backup1, vec![0u8; 1000]).await.unwrap();
-        fs::write(&backup2, vec![0u8; 2000]).await.unwrap();
+        fs::write(&backup1, vec![0u8; 1000])
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to write test backup file: {e}"))?;
+        fs::write(&backup2, vec![0u8; 2000])
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to write test backup file: {e}"))?;
 
         let total_size = calculate_backup_size(root, "test.db", &config)
             .await
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("Failed to calculate backup size: {e}"))?;
 
         assert_eq!(total_size, 3000);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_retention_status_within_limit() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_retention_status_within_limit() -> Result<()> {
+        let temp_dir = TempDir::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {e}"))?;
         let root = temp_dir.path();
 
         let config = BackupConfig {
@@ -292,23 +311,30 @@ mod tests {
         };
 
         let backup_dir = root.join("backups").join("test.db");
-        fs::create_dir_all(&backup_dir).await.unwrap();
+        fs::create_dir_all(&backup_dir)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to create backup directory for test: {e}"))?;
 
         // Create 3 backups (under limit of 5)
         for i in 1..=3 {
             let backup_path = backup_dir.join(format!("backup-2025010{i}-120000.db"));
-            fs::write(&backup_path, vec![0u8; 1000]).await.unwrap();
+            fs::write(&backup_path, vec![0u8; 1000])
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to write test backup file: {e}"))?;
         }
 
-        let statuses = get_retention_status(root, &config).await.unwrap();
+        let statuses = get_retention_status(root, &config)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to get retention status for test: {e}"))?;
 
         let test_status = statuses
             .iter()
             .find(|s| s.database_name == "test.db")
-            .unwrap_or_else(|| panic!("test.db status not found"));
+            .ok_or_else(|| anyhow::anyhow!("test.db status not found"))?;
 
         assert_eq!(test_status.backup_count, 3);
         assert!(test_status.within_limit);
         assert_eq!(test_status.would_free_bytes, 0);
+        Ok(())
     }
 }
