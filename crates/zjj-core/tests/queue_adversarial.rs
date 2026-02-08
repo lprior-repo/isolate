@@ -153,11 +153,11 @@ async fn adv_cleanup_with_mixed_states() -> Result<()> {
     queue.mark_processing("ws-failed").await?;
     queue.mark_failed("ws-failed", "test error").await?;
 
-    // Wait a moment to ensure entries are "old"
-    sleep(Duration::from_millis(100)).await;
+    // Wait to ensure entries are old enough (>1 second)
+    sleep(Duration::from_secs(2)).await;
 
-    // Cleanup old entries - delete entries completed more than 0 seconds ago
-    let cleaned = queue.cleanup(Duration::from_secs(0)).await?;
+    // Cleanup old entries - delete entries completed more than 1 second ago
+    let cleaned = queue.cleanup(Duration::from_secs(1)).await?;
     
     // Should only clean completed/failed
     assert_eq!(cleaned, 2, "Should clean completed and failed entries");

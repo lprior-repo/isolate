@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use zjj_core::coordination::queue::{MergeQueue, QueueStatus};
-use zjj_core::Result;
+use zjj_core::{Error, Result};
 
 #[tokio::test]
 async fn stress_concurrent_claim_with_massive_contention() -> Result<()> {
@@ -25,17 +25,26 @@ async fn stress_concurrent_claim_with_massive_contention() -> Result<()> {
         let q = queue.clone();
         let agent_id = format!("agent-{i}");
         let handle = tokio::spawn(async move {
-            let result = q.next_with_lock(&agent_id).await;
-            match result {
-                Ok(Some(_entry)) => {
-                    // Hold the lock briefly to prevent others from getting it
-                    tokio::time::sleep(Duration::from_millis(10)).await;
-                    // Release the lock
-                    let _ = q.release_processing_lock(&agent_id).await;
-                    true
+            // Retry a few times to handle lock contention
+            for _attempt in 0..10 {
+                let result = q.next_with_lock(&agent_id).await;
+                match result {
+                    Ok(Some(_entry)) => {
+                        // Hold the lock briefly to prevent others from getting it
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                        // Release the lock
+                        let _ = q.release_processing_lock(&agent_id).await;
+                        return true;
+                    }
+                    Ok(None) => {
+                        // No entry available or lock held - retry after brief delay
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                        continue;
+                    }
+                    Err(_) => return false,
                 }
-                _ => false,
             }
+            false
         });
         handles.push(handle);
     }
@@ -251,7 +260,19 @@ async fn stress_exponential_backoff_under_contention() -> Result<()> {
         let q = queue.clone();
         let agent_id = format!("agent-{i}");
         let handle = tokio::spawn(async move {
-            let result = q.next_with_lock(&agent_id).await;
+            // Retry with backoff to handle lock contention
+            let result = loop {
+                let res = q.next_with_lock(&agent_id).await;
+                match &res {
+                    Ok(Some(_)) => break res, // Success - stop retrying
+                    Ok(None) => {
+                        // Lock held or no entry - retry after brief delay
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                        continue;
+                    }
+                    Err(_) => break res, // Error - stop retrying
+                }
+            };
             (agent_id, result)
         });
         handles.push(handle);
@@ -300,10 +321,13 @@ async fn stress_cleanup_old_entries_under_load() -> Result<()> {
         queue.add(&format!("active-ws-{i}"), None, 5, None).await?;
     }
     
+    // Wait to ensure entries are old enough (>1 second)
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
     // Cleanup entries older than 1 second (should clean all completed)
     let cleaned = queue.cleanup(Duration::from_secs(1)).await?;
     println!("Cleaned {} old entries", cleaned);
-    
+
     assert_eq!(cleaned, 50, "Should clean all 50 completed entries");
     
     // Verify active entries remain

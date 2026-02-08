@@ -109,6 +109,8 @@ commit_prefix = "wip:"
 [recovery]
 policy = "warn"
 log_recovered = true
+auto_recover_corrupted_wal = true
+delete_corrupted_database = false
 "#;
 
 /// Create .jjignore to prevent .zjj directory from being tracked
