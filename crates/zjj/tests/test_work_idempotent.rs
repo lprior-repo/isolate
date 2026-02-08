@@ -88,11 +88,10 @@ fn test_work_idempotent_creates_workspace_when_not_exists() {
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success, "List should succeed");
 
-    let json: JsonValue =
-        match serde_json::from_str(&list_result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("List should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&list_result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("List should be valid JSON: {e}"),
+    };
     let sessions = match json["data"]["sessions"].as_array() {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
@@ -131,11 +130,10 @@ fn test_work_idempotent_json_output_includes_created_field() {
     );
 
     // THEN: Output is valid JSON
-    let json: JsonValue =
-        match serde_json::from_str(&result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("Output should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("Output should be valid JSON: {e}"),
+    };
 
     // THEN: JSON includes created: true for new workspace
     let data = &json["data"];
@@ -164,11 +162,10 @@ fn test_work_idempotent_json_output_includes_created_field() {
     );
 
     // THEN: JSON includes created: false
-    let json2: JsonValue =
-        match serde_json::from_str(&result2.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("Second output should be valid JSON: {e}"),
-        };
+    let json2: JsonValue = match serde_json::from_str(&result2.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("Second output should be valid JSON: {e}"),
+    };
 
     let data2 = &json2["data"];
     assert_eq!(
@@ -253,11 +250,10 @@ fn test_work_idempotent_fails_when_in_different_workspace() {
 
     // THEN: No new workspace created
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue =
-        match serde_json::from_str(&list_result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("List should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&list_result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("List should be valid JSON: {e}"),
+    };
     let sessions = match json["data"]["sessions"].as_array() {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
@@ -323,6 +319,32 @@ fn test_work_without_idempotent_existing_session_fails() {
     assert!(
         output.contains("already exists"),
         "Error should indicate session exists\noutput: {}",
+        output
+    );
+}
+
+#[test]
+fn test_work_rejects_path_traversal_name() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&[
+        "work",
+        "../../../etc/passwd",
+        "--idempotent",
+        "--no-zellij",
+        "--no-agent",
+    ]);
+
+    assert!(!result.success, "Path traversal name must be rejected");
+
+    let output = result.stdout.to_lowercase() + &result.stderr.to_lowercase();
+    assert!(
+        output.contains("invalid session name") || output.contains("validation"),
+        "Expected validation error for invalid name\noutput: {}",
         output
     );
 }
@@ -403,11 +425,10 @@ fn test_work_idempotent_with_dry_run() {
 
     // THEN: No workspace created
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue =
-        match serde_json::from_str(&list_result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("List should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&list_result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("List should be valid JSON: {e}"),
+    };
     let sessions = match json["data"]["sessions"].as_array() {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
@@ -439,11 +460,10 @@ fn test_work_idempotent_json_output_schema_validation() {
     ]);
 
     // THEN: Output is valid JSON
-    let json: JsonValue =
-        match serde_json::from_str(&result.stdout) {
-            Ok(v) => v,
-            Err(e) => panic!("Output should be valid JSON: {e}"),
-        };
+    let json: JsonValue = match serde_json::from_str(&result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("Output should be valid JSON: {e}"),
+    };
 
     // THEN: JSON matches schema
     assert_eq!(json["schema"], "work-response");

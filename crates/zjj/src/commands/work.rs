@@ -15,7 +15,7 @@ use serde::Serialize;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use super::{add, context};
-use crate::db::SessionDb;
+use crate::{db::SessionDb, session::validate_session_name};
 
 /// Output for work command
 #[derive(Debug, Clone, Serialize)]
@@ -76,6 +76,8 @@ pub struct WorkOptions {
 /// - Session creation fails
 /// - Already in a workspace (unless idempotent)
 pub async fn run(options: &WorkOptions) -> Result<()> {
+    validate_session_name(&options.name).map_err(anyhow::Error::new)?;
+
     let root = super::check_in_jj_repo().await?;
     let location = context::detect_location(&root)?;
 
