@@ -246,7 +246,7 @@ impl ProgressIndicator {
     pub fn total_elapsed(&self) -> Duration {
         self.state
             .total_elapsed
-            .unwrap_or_else(|| self.state.operation_start.elapsed())
+            .map_or_else(|| self.state.operation_start.elapsed(), |duration| duration)
     }
 
     /// Check if progress should be displayed
@@ -415,8 +415,8 @@ mod tests {
         /// GIVEN: New progress indicator
         /// WHEN: Created with default config
         /// THEN: Should start in Initializing phase
-        #[tokio::test]
-        async fn indicator_starts_in_initializing() {
+        #[test]
+        fn indicator_starts_in_initializing() {
             let indicator = ProgressIndicator::new(ProgressConfig::default());
 
             assert_eq!(indicator.phase(), OperationPhase::Initializing);
@@ -425,8 +425,8 @@ mod tests {
         /// GIVEN: Progress indicator in active phase
         /// WHEN: Transition to new phase
         /// THEN: Phase should update
-        #[tokio::test]
-        async fn can_transition_from_active_phases() {
+        #[test]
+        fn can_transition_from_active_phases() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
             indicator.start();
 
@@ -439,33 +439,38 @@ mod tests {
         /// GIVEN: Progress indicator in terminal phase
         /// WHEN: Attempt to transition
         /// THEN: Should return error
-        #[tokio::test]
-        async fn cannot_transition_from_terminal_phases() {
+        #[test]
+        fn cannot_transition_from_terminal_phases() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
             indicator.start();
-            indicator.complete().unwrap();
+            assert!(
+                indicator.complete().is_ok(),
+                "Setup: should complete to reach terminal phase"
+            );
 
             let result = indicator.transition_to(OperationPhase::Executing);
 
             assert!(result.is_err(), "Should not transition from Complete");
-            assert!(matches!(
-                result.unwrap_err(),
-                ProgressError::InvalidPhaseTransition {
-                    from: OperationPhase::Complete,
-                    to: OperationPhase::Executing
-                }
-            ));
+            if let Err(ProgressError::InvalidPhaseTransition { from, to }) = result {
+                assert_eq!(from, OperationPhase::Complete);
+                assert_eq!(to, OperationPhase::Executing);
+            } else {
+                panic!("Expected InvalidPhaseTransition error, got: {:?}", result);
+            }
         }
 
         /// GIVEN: Progress indicator
         /// WHEN: Mark as complete
         /// THEN: Should be in Complete phase
-        #[tokio::test]
-        async fn complete_moves_to_terminal_state() {
+        #[test]
+        fn complete_moves_to_terminal_state() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
             indicator.start();
 
-            indicator.complete().unwrap();
+            assert!(
+                indicator.complete().is_ok(),
+                "Should complete successfully"
+            );
 
             assert_eq!(indicator.phase(), OperationPhase::Complete);
             assert!(indicator.phase().is_terminal());
@@ -474,12 +479,15 @@ mod tests {
         /// GIVEN: Progress indicator
         /// WHEN: Mark as failed
         /// THEN: Should be in Failed phase
-        #[tokio::test]
-        async fn fail_moves_to_terminal_state() {
+        #[test]
+        fn fail_moves_to_terminal_state() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
             indicator.start();
 
-            indicator.fail().unwrap();
+            assert!(
+                indicator.fail().is_ok(),
+                "Should fail successfully"
+            );
 
             assert_eq!(indicator.phase(), OperationPhase::Failed);
             assert!(indicator.phase().is_terminal());
@@ -488,8 +496,8 @@ mod tests {
         /// GIVEN: Progress indicator with 2 second min duration
         /// WHEN: Only 1 second has elapsed
         /// THEN: Should not display
-        #[tokio::test]
-        async fn should_display_respects_min_duration() {
+        #[test]
+        fn should_display_respects_min_duration() {
             let config = ProgressConfig {
                 min_duration: Duration::from_secs(2),
                 quiet: false,
@@ -504,8 +512,8 @@ mod tests {
         /// GIVEN: Progress indicator in quiet mode
         /// WHEN: Any time has elapsed
         /// THEN: Should never display
-        #[tokio::test]
-        async fn quiet_mode_never_displays() {
+        #[test]
+        fn quiet_mode_never_displays() {
             let config = ProgressConfig::quiet();
             let indicator = ProgressIndicator::new(config);
 
@@ -535,7 +543,10 @@ mod tests {
             indicator.start();
 
             tokio::time::sleep(Duration::from_millis(10)).await;
-            indicator.complete().unwrap();
+            assert!(
+                indicator.complete().is_ok(),
+                "Setup: should complete to measure elapsed time"
+            );
 
             let elapsed1 = indicator.total_elapsed();
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -618,15 +629,11 @@ mod tests {
             let mut indicator = ProgressIndicator::new(config);
             let mut reporter = TerminalReporter::new();
 
-            // Start in runtime to call async
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async {
-                indicator.start();
+            indicator.start();
 
-                let result = reporter.report(&indicator);
+            let result = reporter.report(&indicator);
 
-                assert!(result.is_ok());
-            });
+            assert!(result.is_ok());
         }
 
         /// GIVEN: Quiet reporter
@@ -652,15 +659,15 @@ mod tests {
             let mut indicator = ProgressIndicator::new(config);
             let mut reporter = TerminalReporter::new();
 
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async {
-                indicator.start();
-                indicator.complete().unwrap();
+            indicator.start();
+            assert!(
+                indicator.complete().is_ok(),
+                "Setup: should complete indicator for test"
+            );
 
-                let result = reporter.finalize(&indicator);
+            let result = reporter.finalize(&indicator);
 
-                assert!(result.is_ok());
-            });
+            assert!(result.is_ok());
         }
 
         /// GIVEN: Terminal reporter
@@ -672,15 +679,15 @@ mod tests {
             let mut indicator = ProgressIndicator::new(config);
             let mut reporter = TerminalReporter::new();
 
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async {
-                indicator.start();
-                indicator.fail().unwrap();
+            indicator.start();
+            assert!(
+                indicator.fail().is_ok(),
+                "Setup: should fail indicator for test"
+            );
 
-                let result = reporter.finalize(&indicator);
+            let result = reporter.finalize(&indicator);
 
-                assert!(result.is_ok());
-            });
+            assert!(result.is_ok());
         }
     }
 }
