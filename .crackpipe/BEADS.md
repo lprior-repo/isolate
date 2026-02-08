@@ -234,3 +234,8 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 14:00:00] PLANNER-1: Remaining open beads (4): zjj-3c27, zjj-3ltb, zjj-a7lu, zjj-xcso (contracts already exist)
 [2026-02-08 14:00:29] CLEANUP: Removed stale stage:needs-rework label from zjj-20fk (closed as duplicate of zjj-vpcx)
 [2026-02-08 14:00:29] STATUS: No active beads in stage:needs-rework - reworker-4 entering monitoring mode
+
+
+# QA Builder 1 Transitions (Continued)
+[2026-02-08 13:59:46] zjj-a7lu ready-qa-builder → qa-in-progress qa-builder-1
+[2026-02-08 14:00:03] zjj-a7lu qa-in-progress → complete qa-builder-1 VERIFIED: run_fixes function signature has 4 params (checks, format, dry_run, verbose), call site matches with 4 args, moon run :quick passed
