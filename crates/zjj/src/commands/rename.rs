@@ -216,7 +216,9 @@ pub async fn run(options: &RenameOptions) -> Result<()> {
         let old_path = std::path::Path::new(workspace_path);
         let new_path = old_path.parent().map(|p| p.join(&options.new_name));
         if let Some(ref new_path) = new_path {
-            if tokio::fs::try_exists(old_path).await.unwrap_or(false) {
+            // Use map to handle Result without unwrap
+            let path_exists = tokio::fs::try_exists(old_path).await;
+            if let Ok(true) = path_exists {
                 tokio::fs::rename(old_path, new_path).await?;
             }
         }
