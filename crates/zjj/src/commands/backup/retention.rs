@@ -10,7 +10,8 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use tokio::fs;
 
-use super::{list::BackupInfo, BackupConfig};
+use super::{BackupConfig};
+use super::list::{self, BackupInfo};
 
 /// Apply retention policy to backups for a specific database
 ///

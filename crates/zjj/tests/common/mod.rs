@@ -13,7 +13,11 @@
 #![allow(dead_code)]
 #![allow(clippy::unused_self)]
 
-use std::{path::PathBuf, process::Command, sync::OnceLock};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+    sync::OnceLock,
+};
 
 use anyhow::{Context, Result};
 use tempfile::TempDir;

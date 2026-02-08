@@ -572,7 +572,7 @@ pub async fn show_current_holders() -> Result<Vec<LockInfo>> {
     let mut locks = Vec::new();
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "lock") {
+        if path.extension().is_some_and(|ext| ext == "lock") {
             if let Some(lock_info) = read_lock(&path).await {
                 // Only include non-expired locks
                 let now = current_timestamp()?;

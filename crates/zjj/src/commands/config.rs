@@ -187,10 +187,7 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
 /// Set a config value in the specified config file
 async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<()> {
     // Load existing config or create new
-    let mut doc = if tokio::fs::try_exists(config_path)
-        .await
-        .map_or(false, |v| v)
-    {
+    let mut doc = if tokio::fs::try_exists(config_path).await.is_ok_and(|v| v) {
         let content = tokio::fs::read_to_string(config_path)
             .await
             .context(format!(
