@@ -268,6 +268,44 @@ impl SessionDb {
             })
     }
 
+    /// Create a session with a specific creation timestamp
+    ///
+    /// This is used internally by the import command to preserve original timestamps.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - Session name is invalid
+    /// - Database insertion fails
+    pub async fn create_with_timestamp(
+        &self,
+        name: &str,
+        workspace_path: &str,
+        created_at: u64,
+    ) -> Result<Session> {
+        // Validate session name BEFORE creating database record
+        validate_session_name(name)?;
+
+        let status = SessionStatus::Creating;
+        let state = WorkspaceState::Created;
+
+        insert_session(&self.pool, name, &status, workspace_path, created_at)
+            .await
+            .map(|id| Session {
+                id: Some(id),
+                name: name.to_string(),
+                status,
+                state,
+                workspace_path: workspace_path.to_string(),
+                zellij_tab: format!("zjj:{name}"),
+                branch: None,
+                created_at,
+                updated_at: created_at,
+                last_synced: None,
+                metadata: None,
+            })
+    }
+
     /// Get a session by name
     ///
     /// # Errors
