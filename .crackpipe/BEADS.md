@@ -240,3 +240,7 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 13:59:46] zjj-a7lu ready-qa-builder → qa-in-progress qa-builder-1
 [2026-02-08 14:00:03] zjj-a7lu qa-in-progress → complete qa-builder-1 VERIFIED: run_fixes function signature has 4 params (checks, format, dry_run, verbose), call site matches with 4 args, moon run :quick passed
 [2026-02-08 14:04:24] REWORKER-1: Monitoring started - waiting for beads with stage:needs-rework label
+
+# Reworker 2 Transitions (Monitoring Mode)
+[2026-02-08] REWORKER-2: Monitoring started - waiting for beads with stage:needs-rework label
+[2026-02-08] REWORKER-2: Cleaned up stale stage:needs-rework label from closed bead zjj-20fk
