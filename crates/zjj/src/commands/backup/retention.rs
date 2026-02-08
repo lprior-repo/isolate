@@ -24,7 +24,7 @@ use super::list::{self, BackupInfo};
 /// - Backup directory cannot be read
 /// - Old backups cannot be removed
 pub async fn apply_retention_policy(
-    root: &Path,
+    _root: &Path,
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<Vec<String>> {
@@ -67,13 +67,13 @@ pub async fn apply_retention_policy(
 /// # Errors
 ///
 /// Returns error if any retention operation fails
-pub async fn apply_retention_policy_all(root: &Path, config: &BackupConfig) -> Result<Vec<String>> {
+pub async fn apply_retention_policy_all(_root: &Path, config: &BackupConfig) -> Result<Vec<String>> {
     let databases = vec!["state.db", "queue.db", "beads.db"];
 
     let mut all_removed = Vec::new();
 
     for db_name in databases {
-        match apply_retention_policy(root, db_name, config).await {
+        match apply_retention_policy(_root, db_name, config).await {
             Ok(removed) => all_removed.extend(removed),
             Err(e) => {
                 tracing::warn!("Failed to apply retention policy to {}: {}", db_name, e);
@@ -91,7 +91,7 @@ pub async fn apply_retention_policy_all(root: &Path, config: &BackupConfig) -> R
 ///
 /// Returns error if backup metadata cannot be accessed
 pub async fn calculate_backup_size(
-    root: &Path,
+    _root: &Path,
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<u64> {
@@ -108,7 +108,7 @@ pub async fn calculate_backup_size(
 ///
 /// Returns error if backup metadata cannot be accessed
 pub async fn calculate_freed_space(
-    root: &Path,
+    _root: &Path,
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<u64> {
@@ -132,7 +132,7 @@ pub async fn calculate_freed_space(
 ///
 /// Returns error if backup information cannot be retrieved
 pub async fn get_retention_status(
-    root: &Path,
+    _root: &Path,
     config: &BackupConfig,
 ) -> Result<Vec<RetentionStatus>> {
     let databases = vec!["state.db", "queue.db", "beads.db"];
@@ -140,9 +140,9 @@ pub async fn get_retention_status(
     let mut statuses = Vec::new();
 
     for db_name in databases {
-        let backups = super::list::list_database_backups(root, db_name, config).await?;
-        let total_size = calculate_backup_size(root, db_name, config).await?;
-        let freed_space = calculate_freed_space(root, db_name, config).await?;
+        let backups = super::list::list_database_backups(_root, db_name, config).await?;
+        let total_size = calculate_backup_size(_root, db_name, config).await?;
+        let freed_space = calculate_freed_space(_root, db_name, config).await?;
 
         statuses.push(RetentionStatus {
             database_name: db_name.to_string(),
