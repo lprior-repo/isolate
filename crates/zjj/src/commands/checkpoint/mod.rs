@@ -183,15 +183,13 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
         .context("Failed to clear sessions for restore")?;
 
     // Track statistics for reporting
-    let mut total_sessions = 0;
-    let mut skipped_invalid = 0;
-    let mut restored_count = 0;
+    let total_sessions = 0;
+    let skipped_invalid = 0;
+    let restored_count = 0;
 
     let tx = futures::stream::iter(rows)
         .map(Ok::<sqlx::sqlite::SqliteRow, anyhow::Error>)
         .try_fold(tx, |mut tx, row| async move {
-            total_sessions += 1;
-
             let name: String = row.try_get("session_name").context("Missing session_name")?;
             let status: String = row.try_get("status").context("Missing status")?;
             let workspace_path: String =
@@ -215,17 +213,15 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
                     .execute(&mut *tx)
                     .await
                     .with_context(|| format!("Failed to restore session '{name}'"))?;
-                    restored_count += 1;
+                    // Session restored successfully
                     Ok::<_, anyhow::Error>(tx)
                 }
                 Err(e) => {
                     // Session name is invalid, log warning and skip
                     eprintln!(
-                        "Warning: Skipping invalid session name '{name}': {e}",
-                        name = name,
-                        e = e
+                        "Warning: Skipping invalid session name '{name}': {e}"
                     );
-                    skipped_invalid += 1;
+                    // Session skipped due to invalid name
                     Ok(tx)
                 }
             }
@@ -239,10 +235,7 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
     // Report summary if any sessions were skipped
     if skipped_invalid > 0 {
         eprintln!(
-            "Restore summary: {restored_count}/{total_sessions} sessions restored, {skipped_invalid} skipped due to invalid names",
-            restored_count = restored_count,
-            total_sessions = total_sessions,
-            skipped_invalid = skipped_invalid
+            "Restore summary: {restored_count}/{total_sessions} sessions restored, {skipped_invalid} skipped due to invalid names"
         );
     }
 
@@ -355,6 +348,10 @@ fn output_response(response: &CheckpointResponse, format: OutputFormat) -> Resul
 
 #[cfg(test)]
 mod tests {
+    // Allow expect/unwrap in tests - tests need to assert on success cases
+    #![allow(clippy::expect_used)]
+    #![allow(clippy::unwrap_used)]
+
     use super::*;
 
     // ── Type Structure Tests ─────────────────────────────────────────────
@@ -642,10 +639,7 @@ mod tests {
         assert!(result.is_ok(), "Restore with valid names should succeed");
 
         // Verify all sessions were restored
-        let sessions = db
-            .list(None)
-            .await
-            .expect("Failed to list sessions");
+        let sessions = db.list(None).await.expect("Failed to list sessions");
         assert_eq!(sessions.len(), 3, "All 3 valid sessions should be restored");
     }
 
@@ -672,12 +666,12 @@ mod tests {
 
         // Insert a mix of valid and invalid session names
         let test_cases = vec![
-            ("valid-session", "active", "/path/to/valid"),      // Valid
-            ("", "active", "/path/to/empty"),                    // Invalid: empty
-            ("  ", "active", "/path/to/space"),                  // Invalid: whitespace
+            ("valid-session", "active", "/path/to/valid"), // Valid
+            ("", "active", "/path/to/empty"),              // Invalid: empty
+            ("  ", "active", "/path/to/space"),            // Invalid: whitespace
             ("../../etc/passwd", "active", "/path/to/traverse"), // Invalid: path traversal
-            ("feature-auth", "active", "/path/to/feature"),      // Valid
-            ("\t", "active", "/path/to/tab"),                    // Invalid: tab
+            ("feature-auth", "active", "/path/to/feature"), // Valid
+            ("\t", "active", "/path/to/tab"),              // Invalid: tab
             ("123-starts-with-digit", "active", "/path/to/digit"), // Invalid: starts with digit
         ];
 
@@ -699,14 +693,18 @@ mod tests {
         let result = restore_checkpoint(&db, checkpoint_id).await;
 
         // Should succeed (invalid sessions are skipped)
-        assert!(result.is_ok(), "Restore should succeed even with some invalid names");
+        assert!(
+            result.is_ok(),
+            "Restore should succeed even with some invalid names"
+        );
 
         // Verify only valid sessions were restored
-        let sessions = db
-            .list(None)
-            .await
-            .expect("Failed to list sessions");
-        assert_eq!(sessions.len(), 2, "Only 2 valid sessions should be restored");
+        let sessions = db.list(None).await.expect("Failed to list sessions");
+        assert_eq!(
+            sessions.len(),
+            2,
+            "Only 2 valid sessions should be restored"
+        );
 
         // Verify the restored sessions are the valid ones
         let session_names: Vec<_> = sessions.iter().map(|s| s.name.as_str()).collect();
@@ -772,10 +770,7 @@ mod tests {
         );
 
         // Verify no sessions were restored
-        let sessions = db
-            .list(None)
-            .await
-            .expect("Failed to list sessions");
+        let sessions = db.list(None).await.expect("Failed to list sessions");
         assert_eq!(sessions.len(), 0, "No sessions should be restored");
     }
 

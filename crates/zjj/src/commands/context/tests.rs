@@ -45,8 +45,7 @@ fn test_context_output_serialization() {
     let context = sample_context();
     let json = serde_json::to_string(&context);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     assert!(json_str.contains("location"));
     assert!(json_str.contains("repository"));
@@ -60,8 +59,7 @@ fn test_location_main_serialization() {
     let location = Location::Main;
     let json = serde_json::to_string(&location);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     assert!(json_str.contains("main"));
 }
@@ -74,8 +72,7 @@ fn test_location_workspace_serialization() {
     };
     let json = serde_json::to_string(&location);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     assert!(json_str.contains("workspace"));
     assert!(json_str.contains("test-ws"));
@@ -138,8 +135,7 @@ fn test_session_context_serialization() {
     };
     let json = serde_json::to_string(&session);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     assert!(json_str.contains("name"));
     assert!(json_str.contains("status"));
@@ -163,6 +159,7 @@ fn test_session_context_with_agent() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_session_context_serialization_with_agent() {
     let session = SessionContext {
         name: "test".to_string(),
@@ -174,8 +171,7 @@ fn test_session_context_serialization_with_agent() {
     };
     let json = serde_json::to_string(&session);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     assert!(json_str.contains("agent"));
     assert!(json_str.contains("builder-3"));
@@ -211,6 +207,7 @@ fn test_repository_context_dirty() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_repository_context_serialization() {
     let repo = RepositoryContext {
         root: "/path".to_string(),
@@ -221,8 +218,7 @@ fn test_repository_context_serialization() {
     };
     let json = serde_json::to_string(&repo);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     assert!(json_str.contains("uncommitted_files"));
     assert!(json_str.contains("commits_ahead"));
@@ -256,6 +252,7 @@ fn test_beads_context_blocked() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_beads_context_serialization() {
     let beads = BeadsContext {
         active: Some("test".to_string()),
@@ -265,8 +262,7 @@ fn test_beads_context_serialization() {
     };
     let json = serde_json::to_string(&beads);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     assert!(json_str.contains("active"));
     assert!(json_str.contains("blocked_by"));
@@ -298,14 +294,14 @@ fn test_health_status_error() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_health_status_serialization() {
     let health = HealthStatus::Warn {
         issues: vec!["warning 1".to_string()],
     };
     let json = serde_json::to_string(&health);
     let Ok(json_str) = json else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     assert!(json_str.contains("warn"));
     assert!(json_str.contains("issues"));
@@ -383,8 +379,7 @@ fn test_field_pointer_conversion() {
     assert!(json_value.is_ok());
 
     let Ok(value) = json_value else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     // location.type should become /location/type
     let pointer = "/location/type".to_string();
@@ -399,10 +394,84 @@ fn test_nested_field_access() {
     assert!(json_value.is_ok());
 
     let Ok(value) = json_value else {
-        assert!(false, "serialization failed");
-        return;
+        panic!("serialization failed");
     };
     // repository.branch should be accessible
     let result = value.pointer("/repository/branch");
     assert!(result.is_some());
+}
+
+// ── extract_agent_from_metadata Tests ────────────────────────────────────
+
+#[test]
+fn test_extract_agent_from_metadata_with_valid_agent() {
+    let metadata = serde_json::json!({
+        "bead_id": "zjj-abc12",
+        "agent_id": "architect-1"
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert_eq!(result, Some("architect-1".to_string()));
+}
+
+#[test]
+fn test_extract_agent_from_metadata_without_agent() {
+    let metadata = serde_json::json!({
+        "bead_id": "zjj-abc12"
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_null_metadata() {
+    let result = extract_agent_from_metadata(None);
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_non_string_agent_id() {
+    let metadata = serde_json::json!({
+        "agent_id": 123
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_empty_agent_id() {
+    let metadata = serde_json::json!({
+        "agent_id": ""
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_null_agent_id() {
+    let metadata = serde_json::json!({
+        "agent_id": null
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_rich_metadata() {
+    let metadata = serde_json::json!({
+        "bead_id": "zjj-123",
+        "agent_id": "architect-1",
+        "priority": 2,
+        "tags": ["feature", "auth"]
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert_eq!(result, Some("architect-1".to_string()));
+}
+
+#[test]
+fn test_extract_agent_from_metadata_with_unicode_agent_id() {
+    let metadata = serde_json::json!({
+        "agent_id": "agent-中文-тест"
+    });
+    let result = extract_agent_from_metadata(Some(&metadata));
+    assert_eq!(result, Some("agent-中文-тест".to_string()));
 }

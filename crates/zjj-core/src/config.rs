@@ -335,7 +335,7 @@ pub struct ConfigManager {
     inner: Arc<RwLock<ConfigManagerInner>>,
 }
 
-struct ConfigManagerInner {
+pub(crate) struct ConfigManagerInner {
     config: Config,
 }
 
@@ -1186,10 +1186,10 @@ mod tests {
     fn test_project_config_path() {
         let result = project_config_path();
         assert!(result.is_ok());
-        let Ok(path) = result else {
-            panic!("project_config_path failed");
-        };
-        assert!(path.ends_with("config.toml"));
+        let path_str = result
+            .as_ref()
+            .map_or(String::new(), |p| p.to_string_lossy().to_string());
+        assert!(path_str.ends_with("config.toml"));
     }
 
     #[test]
@@ -1390,11 +1390,10 @@ mod tests {
         let result = ConfigManager::new().await;
         assert!(result.is_ok(), "ConfigManager::new should succeed");
 
-        let manager = match result {
-            Ok(m) => m,
-            Err(e) => panic!("ConfigManager::new failed: {e}"),
+        let config = match &result {
+            Ok(manager) => manager.get().await,
+            Err(_) => Config::default(),
         };
-        let config = manager.get().await;
 
         // Verify we got a valid config
         assert!(!config.workspace_dir.is_empty());
@@ -1408,11 +1407,21 @@ mod tests {
         let result = ConfigManager::new().await;
         assert!(result.is_ok());
 
-        let manager1 = match result {
-            Ok(m) => m,
-            Err(e) => panic!("ConfigManager::new failed: {e}"),
-        };
-        let manager2 = manager1.clone();
+        let (manager1, manager2) = result.as_ref().map_or_else(
+            |_| {
+                let default = ConfigManager {
+                    inner: std::sync::Arc::new(tokio::sync::RwLock::new(ConfigManagerInner {
+                        config: Config::default(),
+                    })),
+                };
+                (default.clone(), default)
+            },
+            |manager| {
+                let m1 = manager.clone();
+                let m2 = manager.clone();
+                (m1, m2)
+            },
+        );
 
         // Both managers should provide the same config
         let config1 = manager1.get().await;

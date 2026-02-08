@@ -36,8 +36,9 @@ pub struct BroadcastResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Utc;
+
+    use super::*;
 
     #[test]
     fn test_broadcast_args() {

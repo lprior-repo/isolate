@@ -2,11 +2,7 @@
 //!
 //! Binary name: `zjj`
 
-use std::{
-    panic,
-    process,
-    time::Duration,
-};
+use std::{panic, process, time::Duration};
 
 mod beads;
 mod cli;
@@ -34,13 +30,17 @@ fn install_broken_pipe_handler() {
 
     panic::set_hook(Box::new(move |panic_info| {
         // Match on panic payload to detect broken pipe
-        let is_broken_pipe = match panic_info.payload().downcast_ref::<String>() {
-            Some(msg) => msg.contains("Broken pipe") || msg.contains("os error 32"),
-            None => match panic_info.payload().downcast_ref::<&str>() {
-                Some(msg) => msg.contains("Broken pipe") || msg.contains("os error 32"),
-                None => false,
-            },
-        };
+        let is_broken_pipe = panic_info
+            .payload()
+            .downcast_ref::<String>()
+            .map(|msg| msg.contains("Broken pipe") || msg.contains("os error 32"))
+            .or_else(|| {
+                panic_info
+                    .payload()
+                    .downcast_ref::<&str>()
+                    .map(|msg| msg.contains("Broken pipe") || msg.contains("os error 32"))
+            })
+            .unwrap_or(false);
 
         if is_broken_pipe {
             // Broken pipe is not an error - exit silently with code 0
@@ -181,7 +181,8 @@ mod tests {
 
         for msg in test_cases {
             let msg_string = msg.to_string();
-            let contains_broken_pipe = msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
+            let contains_broken_pipe =
+                msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
             assert!(
                 contains_broken_pipe,
                 "Message should be detected as broken pipe: {msg}"
@@ -201,7 +202,8 @@ mod tests {
 
         for msg in test_cases {
             let msg_string = msg.to_string();
-            let contains_broken_pipe = msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
+            let contains_broken_pipe =
+                msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
             assert!(
                 !contains_broken_pipe,
                 "Message should NOT be detected as broken pipe: {msg}"

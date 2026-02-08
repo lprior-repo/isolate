@@ -18,11 +18,10 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::{
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use tokio::sync::Mutex;
+
 use crate::{Error, Result};
 
 /// Global workspace creation lock to prevent concurrent JJ workspace operations
@@ -75,9 +74,7 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
         });
     }
 
-    let operation_id = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
+    let operation_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     if operation_id.is_empty() {
         return Err(Error::JjCommandError {
@@ -162,13 +159,9 @@ pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
     }
 
     // Validate path has parent BEFORE acquiring lock
-    let repo_root = path
-        .parent()
-        .ok_or_else(|| {
-            Error::InvalidConfig(
-                "workspace path must have a parent directory (repo root)".into(),
-            )
-        })?;
+    let repo_root = path.parent().ok_or_else(|| {
+        Error::InvalidConfig("workspace path must have a parent directory (repo root)".into())
+    })?;
 
     // Acquire global lock to serialize workspace creation
     let _lock = WORKSPACE_CREATION_LOCK.lock().await;
@@ -271,9 +264,7 @@ async fn verify_workspace_consistency(
     }
 
     // Verify operation matches
-    let workspace_operation = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
+    let workspace_operation = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     // Operations should match - if not, we have graph divergence
     if workspace_operation != expected_operation.operation_id {
@@ -334,9 +325,9 @@ mod tests {
                 assert!(msg.contains("parent directory"));
             }
             Err(other) => {
-                panic!("Expected InvalidConfig error, got: {:?}", other);
+                panic!("Expected InvalidConfig error, got: {other:?}");
             }
-            Ok(_) => {
+            Ok(()) => {
                 panic!("Expected InvalidConfig error, but got Ok");
             }
         }

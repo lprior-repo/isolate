@@ -88,11 +88,11 @@ async fn check_for_recent_recovery() -> Option<String> {
 }
 
 /// Run health checks
-pub async fn run(format: OutputFormat, fix: bool) -> Result<()> {
+pub async fn run(format: OutputFormat, fix: bool, dry_run: bool, verbose: bool) -> Result<()> {
     let checks = run_all_checks().await;
 
     if fix {
-        run_fixes(&checks, format).await
+        run_fixes(&checks, format, dry_run, verbose).await
     } else {
         show_health_report(&checks, format)
     }
@@ -1023,18 +1023,126 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     Ok(())
 }
 
+/// Show what fixes would be attempted (dry-run mode)
+///
+/// # Returns
+/// - Ok(()) after printing dry-run report
+fn show_dry_run_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
+    let fixable_checks: Vec<&DoctorCheck> = checks
+        .iter()
+        .filter(|c| c.auto_fixable && c.status != CheckStatus::Pass)
+        .collect();
+
+    if format.is_json() {
+        let dry_run_output = serde_json::json!({
+            "dry_run": true,
+            "would_fix": fixable_checks.iter().map(|c| {
+                serde_json::json!({
+                    "name": c.name,
+                    "status": format!("{:?}", c.status),
+                    "description": describe_fix(c)
+                })
+            }).collect::<Vec<_>>()
+        });
+        println!("{}", serde_json::to_string_pretty(&dry_run_output)?);
+    } else if fixable_checks.is_empty() {
+        println!("Dry-run mode: No auto-fixable issues found");
+    } else {
+        println!("Dry-run mode: would fix the following:");
+        println!();
+        for check in fixable_checks {
+            println!(
+                "  • {}: {}",
+                check.name,
+                describe_fix(check)
+                    .unwrap_or_else(|| "No fix description available".to_string())
+            );
+        }
+        println!();
+        println!("No changes will be made. Run without --dry-run to apply fixes.");
+    }
+
+    Ok(())
+}
+
+/// Get human-readable description of what fix would do
+///
+/// # Returns
+/// - Some(String) describing the fix
+/// - None if no fix available
+fn describe_fix(check: &DoctorCheck) -> Option<String> {
+    match check.name.as_str() {
+        "State Database" => {
+            Some("Delete corrupted database file (will be recreated on next run)".to_string())
+        }
+        "Orphaned Workspaces" => {
+            check.details.as_ref().map_or_else(
+                || Some("Remove orphaned workspaces and stale session records".to_string()),
+                |details| {
+                    details
+                        .get("filesystem_to_db")
+                        .and_then(|v| v.as_array())
+                        .map_or_else(
+                            || Some("Remove orphaned workspaces and stale session records".to_string()),
+                            |fs_orphans| {
+                                let db_orphans = details
+                                    .get("db_to_filesystem")
+                                    .and_then(|v| v.as_array())
+                                    .map_or(0, std::vec::Vec::len);
+                                let fs_count = fs_orphans.len();
+                                Some(format!("Remove {fs_count} orphaned workspace(s) and {db_orphans} session(s) without workspaces"))
+                            },
+                        )
+                },
+            )
+        }
+        "Stale Sessions" => {
+            check.details.as_ref().map_or_else(
+                || Some("Remove stale/incomplete session records".to_string()),
+                |details| {
+                    details
+                        .get("stale_sessions")
+                        .and_then(|v| v.as_array())
+                        .map_or_else(
+                            || Some("Remove stale/incomplete session records".to_string()),
+                            |stale| Some(format!("Remove {} stale session(s)", stale.len())),
+                        )
+                },
+            )
+        }
+        _ => None,
+    }
+}
+
 /// Run auto-fixes
 ///
 /// # Exit Codes
 /// - 0: All critical issues were fixed or none existed
 /// - 1: Critical issues remain unfixed
-async fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
+async fn run_fixes(
+    checks: &[DoctorCheck],
+    format: OutputFormat,
+    dry_run: bool,
+    verbose: bool,
+) -> Result<()> {
+    // If dry-run, show what would be fixed and exit
+    if dry_run {
+        show_dry_run_report(checks, format)?;
+        return Ok(());
+    }
+
+    // Show verbose header
+    if verbose && !format.is_json() {
+        println!("Attempting to fix auto-fixable issues...");
+        println!();
+    }
     let (fixed, unable_to_fix) = futures::stream::iter(checks)
         .fold(
             (vec![], vec![]),
             |(mut fixed, mut unable_to_fix), check| async move {
+                // Only report non-auto-fixable issues if they failed (not Pass/Warn)
                 if !check.auto_fixable {
-                    if check.status != CheckStatus::Pass {
+                    if check.status == CheckStatus::Fail {
                         unable_to_fix.push(UnfixableIssue {
                             issue: check.name.clone(),
                             reason: "Requires manual intervention".to_string(),
@@ -1044,18 +1152,29 @@ async fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
                     return (fixed, unable_to_fix);
                 }
 
+                // Skip auto-fixable checks that are passing
+                if check.status == CheckStatus::Pass {
+                    return (fixed, unable_to_fix);
+                }
+
+                // Show verbose progress
+                if verbose && !format.is_json() {
+                    println!("Fixing {}...", check.name);
+                }
+
                 // Try to fix the issue
                 let fix_result = match check.name.as_str() {
-                    "Orphaned Workspaces" => fix_orphaned_workspaces(check)
-                        .await
-                        .map_err(|e| e.to_string()),
-                    "Stale Sessions" => fix_stale_sessions(check).await,
-                    "State Database" => fix_state_database(check).await,
+                    "Orphaned Workspaces" => fix_orphaned_workspaces(check, dry_run).await,
+                    "Stale Sessions" => fix_stale_sessions(check, dry_run).await,
+                    "State Database" => fix_state_database(check, dry_run).await,
                     _ => Err("No auto-fix available".to_string()),
                 };
 
                 match fix_result {
                     Ok(action) => {
+                        if verbose && !format.is_json() {
+                            println!("  ✓ {}: {}", check.name, action);
+                        }
                         fixed.push(FixResult {
                             issue: check.name.clone(),
                             action,
@@ -1063,6 +1182,9 @@ async fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
                         });
                     }
                     Err(reason) => {
+                        if verbose && !format.is_json() {
+                            println!("  ✗ {}: Fix failed: {}", check.name, reason);
+                        }
                         unable_to_fix.push(UnfixableIssue {
                             issue: check.name.clone(),
                             reason: format!("Fix failed: {reason}"),
@@ -1105,7 +1227,7 @@ async fn run_fixes(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     Ok(())
 }
 
-async fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
+async fn fix_stale_sessions(check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
     let stale_data = check
         .details
         .as_ref()
@@ -1115,6 +1237,11 @@ async fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
     let sessions = stale_data
         .as_array()
         .ok_or_else(|| "Stale sessions data is not an array".to_string())?;
+
+    // In dry-run mode, just report what would be done
+    if dry_run {
+        return Ok(format!("Would remove {} stale session(s)", sessions.len()));
+    }
 
     let db = get_session_db()
         .await
@@ -1145,19 +1272,27 @@ async fn fix_stale_sessions(check: &DoctorCheck) -> Result<String, String> {
     }
 }
 
-async fn fix_state_database(_check: &DoctorCheck) -> Result<String, String> {
+async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
     let db_path = std::path::Path::new(".zjj/state.db");
-    if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
-        return Err("Database file does not exist".to_string());
+    if !tokio::fs::try_exists(db_path)
+        .await
+        .map_err(|e| format!("Failed to check database: {e}"))?
+    {
+        return Ok("Database file does not exist".to_string());
+    }
+
+    // In dry-run mode, just report what would be done
+    if dry_run {
+        return Ok(
+            "Would delete corrupted database file (will be recreated on next run)".to_string(),
+        );
     }
 
     // Attempt to delete the corrupted database
-    match tokio::fs::remove_file(db_path).await {
-        Ok(()) => {
-            Ok("Deleted corrupted database file. It will be recreated on next run.".to_string())
-        }
-        Err(e) => Err(format!("Failed to delete corrupted database: {e}")),
-    }
+    tokio::fs::remove_file(db_path)
+        .await
+        .map_err(|e| format!("Failed to delete database: {e}"))?;
+    Ok("Deleted corrupted database file. It will be recreated on next run.".to_string())
 }
 
 fn show_fix_results(output: &DoctorFixOutput) {
@@ -1191,13 +1326,31 @@ fn show_fix_results(output: &DoctorFixOutput) {
 }
 
 /// Fix orphaned workspaces
-async fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
+async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
     let orphaned_data = check
         .details
         .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("No orphaned workspaces data"))?;
+        .ok_or_else(|| "No orphaned workspaces data".to_string())?;
 
-    let root = jj_root().await?;
+    // In dry-run mode, just report what would be done
+    if dry_run {
+        let filesystem_count = orphaned_data
+            .get("filesystem_to_db")
+            .and_then(|v| v.as_array())
+            .map_or(0, std::vec::Vec::len);
+        let db_count = orphaned_data
+            .get("db_to_filesystem")
+            .and_then(|v| v.as_array())
+            .map_or(0, std::vec::Vec::len);
+
+        return Ok(format!(
+            "Would remove {filesystem_count} orphaned workspace(s) and {db_count} session(s) without workspaces"
+        ));
+    }
+
+    let root = jj_root()
+        .await
+        .map_err(|e| format!("Failed to get JJ root: {e}"))?;
 
     // Fix filesystem → DB orphans (workspaces without sessions)
     let filesystem_removed = if let Some(filesystem_orphans) = orphaned_data
@@ -1233,22 +1386,29 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck) -> Result<String> {
         .get("db_to_filesystem")
         .and_then(|v| v.as_array())
     {
-        if let Ok(db) = get_session_db().await {
-            futures::stream::iter(db_orphans)
-                .fold(0, |mut acc, session_name| {
-                    let db = &db;
-                    async move {
-                        if let Some(name) = session_name.as_str() {
-                            if db.delete(name).await.unwrap_or(false) {
-                                acc += 1;
+        match get_session_db().await {
+            Ok(db) => {
+                futures::stream::iter(db_orphans)
+                    .fold(0, |mut acc, session_name| {
+                        let db = &db;
+                        async move {
+                            if let Some(name) = session_name.as_str() {
+                                match db.delete(name).await {
+                                    Ok(true) => acc += 1,
+                                    Ok(false) => {}
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "Failed to delete orphaned session '{name}': {e}"
+                                        );
+                                    }
+                                }
                             }
+                            acc
                         }
-                        acc
-                    }
-                })
-                .await
-        } else {
-            0
+                    })
+                    .await
+            }
+            Err(_) => 0,
         }
     } else {
         0
