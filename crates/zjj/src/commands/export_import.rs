@@ -3,10 +3,35 @@
 //! Allows saving and restoring session state for backup or transfer.
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use zjj_core::{OutputFormat, SchemaEnvelope};
 
 use crate::{commands::get_session_db, db::SessionDb, session::Session};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIMESTAMP VALIDATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Validate and parse a timestamp string
+///
+/// Accepts RFC3339-formatted timestamps (e.g., "2025-01-15T12:30:45Z").
+/// Returns None if the input is None or empty string, indicating the current
+/// timestamp should be used instead.
+///
+/// # Errors
+///
+/// Returns an error if the timestamp string is not empty and not valid RFC3339.
+fn validate_and_parse_timestamp(timestamp: Option<&String>) -> Result<Option<DateTime<Utc>>> {
+    timestamp
+        .filter(|s| !s.is_empty())
+        .map(|ts| {
+            DateTime::parse_from_rfc3339(ts)
+                .map(|dt| dt.with_timezone(&Utc))
+                .map_err(|e| anyhow::anyhow!("invalid timestamp format '{ts}': {e}"))
+        })
+        .transpose()
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORT
@@ -196,11 +221,25 @@ pub struct ImportResult {
 /// Validate and parse import file
 ///
 /// Reads the import file and validates it's properly formatted JSON
-/// matching the `ExportResult` schema.
+/// matching the `ExportResult` schema. Also validates all timestamp fields.
 async fn validate_and_parse_import(input_path: &str) -> Result<ExportResult> {
     let content = tokio::fs::read_to_string(input_path).await?;
     let export_data: ExportResult = serde_json::from_str(&content)
         .map_err(|e| anyhow::anyhow!("Invalid import file format: {e}"))?;
+
+    // Validate all session timestamps
+    for session in &export_data.sessions {
+        if let Some(ref ts_str) = session.created_at {
+            // Validate timestamp format - will error if invalid
+            validate_and_parse_timestamp(Some(ts_str)).map_err(|e| {
+                anyhow::anyhow!(
+                    "Invalid timestamp for session '{}': {e}",
+                    session.name
+                )
+            })?;
+        }
+    }
+
     Ok(export_data)
 }
 
@@ -247,6 +286,7 @@ async fn delete_existing_session(db: &SessionDb, session_name: &str) -> Result<(
 /// Import a single session
 ///
 /// Creates a new session in the database, handling both fresh imports and overwrites.
+/// Preserves the original creation timestamp if provided and valid.
 async fn import_session(
     db: &SessionDb,
     session: &ExportedSession,
@@ -254,8 +294,16 @@ async fn import_session(
 ) -> Result<()> {
     let workspace_path = session.workspace_path.as_deref().map_or("", |value| value);
     let name = &session.name;
+
+    // Validate and parse the timestamp, using current time if not provided
+    let created_timestamp = validate_and_parse_timestamp(session.created_at.as_ref())?
+        .map_or_else(|| chrono::Utc::now(), |dt| dt);
+
+    // Convert DateTime to unix timestamp
+    let created_ts = created_timestamp.timestamp() as u64;
+
     let _created: Session = db
-        .create(name, workspace_path)
+        .create_with_timestamp(name, workspace_path, created_ts)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to import '{name}': {e}"))?;
 
@@ -474,5 +522,57 @@ mod tests {
         assert_eq!(parsed.count, original.count);
         assert_eq!(parsed.sessions.len(), original.sessions.len());
         Ok(())
+    }
+
+    #[test]
+    fn test_validate_and_parse_timestamp_valid_rfc3339() -> anyhow::Result<()> {
+        let valid_ts = "2025-01-15T12:30:45Z";
+        let result = validate_and_parse_timestamp(Some(&valid_ts.to_string()))?;
+        assert!(result.is_some(), "Valid timestamp should parse successfully");
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_and_parse_timestamp_with_offset() -> anyhow::Result<()> {
+        let valid_ts = "2025-01-15T12:30:45+08:00";
+        let result = validate_and_parse_timestamp(Some(&valid_ts.to_string()))?;
+        assert!(result.is_some(), "Timestamp with offset should parse successfully");
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_and_parse_timestamp_none_returns_none() -> anyhow::Result<()> {
+        let result = validate_and_parse_timestamp(None)?;
+        assert!(result.is_none(), "None input should return None");
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_and_parse_timestamp_empty_string_returns_none() -> anyhow::Result<()> {
+        let result = validate_and_parse_timestamp(Some(&String::new()))?;
+        assert!(result.is_none(), "Empty string should return None");
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_and_parse_timestamp_invalid_format() {
+        let invalid_ts = "not-a-timestamp";
+        let result = validate_and_parse_timestamp(Some(&invalid_ts.to_string()));
+        assert!(
+            result.is_err(),
+            "Invalid timestamp format should return an error"
+        );
+        assert!(result.unwrap_err().to_string().contains("invalid timestamp format"));
+    }
+
+    #[test]
+    fn test_validate_and_parse_timestamp_iso8601_without_tz() {
+        // ISO 8601 without timezone is not valid RFC3339
+        let invalid_ts = "2025-01-15T12:30:45";
+        let result = validate_and_parse_timestamp(Some(&invalid_ts.to_string()));
+        assert!(
+            result.is_err(),
+            "Timestamp without timezone should return an error"
+        );
     }
 }
