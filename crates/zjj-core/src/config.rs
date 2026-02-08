@@ -1186,8 +1186,9 @@ mod tests {
     fn test_project_config_path() {
         let result = project_config_path();
         assert!(result.is_ok());
-        let Ok(path) = result else {
-            panic!("project_config_path failed");
+        let path = match result {
+            Ok(p) => p,
+            Err(e) => panic!("project_config_path failed: {e}"),
         };
         assert!(path.ends_with("config.toml"));
     }
