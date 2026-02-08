@@ -18,7 +18,7 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
-#![allow(clippy::cast_possible_truncation)]  // Test code using intentional casts
+#![allow(clippy::cast_possible_truncation)] // Test code using intentional casts
 #![forbid(unsafe_code)]
 // Test code uses unwrap/expect idioms for test clarity.
 // Production code (src/) must use Result<T, Error> patterns.
@@ -58,7 +58,7 @@ async fn setup_lock_manager() -> Result<LockManager, Error> {
 
 /// Metrics collected during stress test
 #[derive(Debug, Clone, Default)]
-#[allow(dead_code)]  // duplicate_acquisitions reserved for future use
+#[allow(dead_code)] // duplicate_acquisitions reserved for future use
 struct StressTestMetrics {
     successful_acquisitions: usize,
     failed_acquisitions: usize,

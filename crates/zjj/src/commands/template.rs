@@ -455,12 +455,9 @@ mod tests {
     #[tokio::test]
     async fn test_binary_file_error_message() {
         // Create a temporary binary file
-        let temp_dir = match tempfile::tempdir() {
-            Ok(dir) => dir,
-            Err(_) => {
-                // Skip test if tempfile fails
-                return;
-            }
+        let Ok(temp_dir) = tempfile::tempdir() else {
+            // Skip test if tempfile fails
+            return;
         };
 
         let binary_file_path = temp_dir.path().join("binary.kdl");
@@ -486,7 +483,10 @@ mod tests {
         assert!(result.is_err());
 
         // Check that error message mentions UTF-8 requirement
-        let error_msg = result.unwrap_err().to_string();
+        let error_msg = match result {
+            Err(e) => e.to_string(),
+            Ok(()) => return, // Should not happen due to assert above
+        };
         assert!(
             error_msg.contains("UTF-8") || error_msg.contains("utf-8"),
             "Error message should mention UTF-8 requirement. Got: {error_msg}"

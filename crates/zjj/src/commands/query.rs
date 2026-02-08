@@ -986,10 +986,10 @@ mod tests {
         let envelope = SchemaEnvelope::new("query-session-exists", "single", test_result);
         let json_str_result = serde_json::to_string(&envelope);
         assert!(json_str_result.is_ok(), "serialization should succeed");
-        let json_str = json_str_result.ok().expect("Serialization should succeed");
+        let json_str = json_str_result.expect("Serialization should succeed");
         let parsed_result: Result<serde_json::Value, _> = serde_json::from_str(&json_str);
         assert!(parsed_result.is_ok(), "parsing should succeed");
-        let parsed = parsed_result.ok().expect("Parsing should succeed");
+        let parsed = parsed_result.expect("Parsing should succeed");
 
         assert!(parsed.get("$schema").is_some());
         assert!(parsed.get("success").is_some());
