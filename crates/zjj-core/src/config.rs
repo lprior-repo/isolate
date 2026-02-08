@@ -101,6 +101,7 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct RecoveryConfig {
     pub policy: RecoveryPolicy,
     pub log_recovered: bool,
