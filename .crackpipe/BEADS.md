@@ -255,3 +255,5 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 
 # Builder Agent 1 Transitions
 [2026-02-08 13:55:00] zjj-3ltb ready-builder → building (claimed by builder-1)
+[2026-02-08 14:10:30] REWORKER-1: Check 4 - no beads in stage:needs-rework
+[2026-02-08 14:10:45] REWORKER-1: Manual check 2 - no beads in stage:needs-rework
