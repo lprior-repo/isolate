@@ -427,54 +427,76 @@ async fn check_initialized() -> DoctorCheck {
 
 async fn check_state_db() -> DoctorCheck {
     // Check if recovery occurred recently BEFORE checking database
-    if let Some(recovery_info) = check_for_recent_recovery().await {
-        return DoctorCheck {
-            name: "State Database".to_string(),
-            status: CheckStatus::Warn,
-            message: format!("Database recovered: {recovery_info}"),
-            suggestion: Some(
-                "Recovery completed. Review .zjj/recovery.log for details.".to_string(),
-            ),
-            auto_fixable: false,
-            details: Some(serde_json::json!({
-                "recovered": true,
-                "details": recovery_info
-            })),
-        };
+    if let Some(ref recovery_info) = check_for_recent_recovery().await {
+        return create_recovery_check(recovery_info);
     }
 
     // Read-only database check - don't trigger recovery in doctor mode
     // Check file existence, readability, and basic validity without opening DB
     let db_path = std::path::Path::new(".zjj/state.db");
 
+    let file_check_result = check_db_file_exists(db_path).await;
+    let metadata = match file_check_result {
+        Ok(m) => m,
+        Err(check) => return check,
+    };
+
+    let readability_result = check_db_readable(db_path).await;
+    let file_size = metadata.len();
+
+    match readability_result {
+        Ok(()) => check_db_file_size_and_integrity(file_size, db_path).await,
+        Err(check) => check,
+    }
+}
+
+/// Create a recovery check result when recent recovery is detected
+fn create_recovery_check(recovery_info: &str) -> DoctorCheck {
+    DoctorCheck {
+        name: "State Database".to_string(),
+        status: CheckStatus::Warn,
+        message: format!("Database recovered: {recovery_info}"),
+        suggestion: Some(
+            "Recovery completed. Review .zjj/recovery.log for details.".to_string(),
+        ),
+        auto_fixable: false,
+        details: Some(serde_json::json!({
+            "recovered": true,
+            "details": recovery_info
+        })),
+    }
+}
+
+/// Check if database file exists
+/// Returns Ok with metadata if exists, Err with `DoctorCheck` if missing
+async fn check_db_file_exists(db_path: &Path) -> Result<std::fs::Metadata, DoctorCheck> {
     if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
-        return DoctorCheck {
+        return Err(DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
             message: "Database file does not exist".to_string(),
             suggestion: Some("Run 'zjj init' to create database".to_string()),
             auto_fixable: false,
             details: None,
-        };
+        });
     }
 
-    // Check file permissions and readability
-    let metadata = match db_path.metadata() {
-        Ok(m) => m,
-        Err(e) => {
-            return DoctorCheck {
-                name: "State Database".to_string(),
-                status: CheckStatus::Warn,
-                message: format!("Cannot access database metadata: {e}"),
-                suggestion: Some("Check file permissions".to_string()),
-                auto_fixable: false,
-                details: None,
-            };
-        }
-    };
+    db_path.metadata().map_err(|e| DoctorCheck {
+        name: "State Database".to_string(),
+        status: CheckStatus::Warn,
+        message: format!("Cannot access database metadata: {e}"),
+        suggestion: Some("Check file permissions".to_string()),
+        auto_fixable: false,
+        details: None,
+    })
+}
 
-    if let Err(e) = tokio::fs::File::open(db_path).await {
-        return DoctorCheck {
+/// Check if database file is readable
+/// Returns Ok(()) if readable, Err with `DoctorCheck` if not
+async fn check_db_readable(db_path: &Path) -> Result<(), DoctorCheck> {
+    tokio::fs::File::open(db_path)
+        .await
+        .map_err(|e| DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Fail,
             message: format!("Database file is not readable: {e}"),
@@ -484,13 +506,15 @@ async fn check_state_db() -> DoctorCheck {
                 "path": db_path.display().to_string(),
                 "permission_denied": true
             })),
-        };
-    }
+        })?;
 
-    let is_read_only = metadata.permissions().readonly();
+    Ok(())
+}
 
+/// Check if database file size is valid (not corrupted) and run integrity check
+/// Returns DoctorCheck with final result
+async fn check_db_file_size_and_integrity(file_size: u64, db_path: &Path) -> DoctorCheck {
     // Check file size (corrupted databases often have wrong size)
-    let file_size = metadata.len();
     if file_size == 0 || file_size < 100 {
         return DoctorCheck {
             name: "State Database".to_string(),
@@ -510,7 +534,22 @@ async fn check_state_db() -> DoctorCheck {
         };
     }
 
-    // Run PRAGMA integrity_check for better diagnostics
+    // Get metadata for read-only status
+    let metadata = match db_path.metadata() {
+        Ok(m) => m,
+        Err(e) => {
+            return DoctorCheck {
+                name: "State Database".to_string(),
+                status: CheckStatus::Warn,
+                message: format!("Cannot access database metadata: {e}"),
+                suggestion: Some("Check file permissions".to_string()),
+                auto_fixable: false,
+                details: None,
+            };
+        }
+    };
+
+    let is_read_only = metadata.permissions().readonly();
     let integrity_result = run_integrity_check(db_path).await;
 
     match integrity_result {
