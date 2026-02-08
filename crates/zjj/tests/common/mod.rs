@@ -33,7 +33,7 @@ fn jj_availability() -> &'static bool {
         Command::new("jj")
             .arg("--version")
             .output()
-            .map_or(false, |o| o.status.success())
+            .is_ok_and(|o| o.status.success())
     })
 }
 
@@ -547,7 +547,7 @@ mod tests {
     /// RED Phase: Test that zjj receives correct workspace path from environment variable
     ///
     /// This test validates that when `ZJJ_WORKSPACE_DIR` is set to a relative path,
-    /// zjj correctly resolves it relative to the JJ repo root (not current_dir).
+    /// zjj correctly resolves it relative to the JJ repo root (not `current_dir`).
     #[test]
     fn test_workspace_path_from_env_var_is_resolved_correctly() {
         let Some(harness) = TestHarness::try_new() else {
@@ -561,15 +561,13 @@ mod tests {
         let result = harness.zjj(&["add", "test-workspace-path", "--no-zellij", "--no-hooks"]);
 
         // The command should succeed
-        if !result.success {
-            // Fail with clear error message for debugging
-            panic!(
-                "zjj add failed: {}\nstdout: {}\nstderr: {}",
-                result.exit_code.map_or(-1, |c| c),
-                result.stdout,
-                result.stderr
-            );
-        }
+        assert!(
+            result.success,
+            "zjj add failed: {}\nstdout: {}\nstderr: {}",
+            result.exit_code.map_or(-1, |c| c),
+            result.stdout,
+            result.stderr
+        );
 
         // Verify the workspace was created in the correct location
         // Expected: {temp_repo}/workspaces/test-workspace-path
@@ -622,7 +620,7 @@ mod tests {
         let _ = harness.zjj(&["remove", session_name, "--merge"]);
     }
 
-    /// RED Phase: Test that workspace_dir can be configured per test
+    /// RED Phase: Test that `workspace_dir` can be configured per test
     ///
     /// This validates that tests can override the workspace location
     /// if needed for specific test scenarios.
