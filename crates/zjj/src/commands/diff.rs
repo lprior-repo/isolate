@@ -2,7 +2,7 @@
 
 use std::{path::Path, process::Stdio};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::Serialize;
 use tokio::{io::AsyncWriteExt, process::Command};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};

@@ -360,11 +360,13 @@ mod tests {
             success: true,
             imported: 2,
             skipped: 1,
+            overwritten: 0,
             failed: 0,
             dry_run: false,
             errors: vec![],
             imported_sessions: vec!["s1".to_string(), "s2".to_string()],
             skipped_sessions: vec!["s3".to_string()],
+            overwritten_sessions: vec![],
         };
 
         let json = serde_json::to_string(&result)?;

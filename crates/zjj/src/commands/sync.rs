@@ -23,9 +23,9 @@ use crate::{
 
 /// Detect if current directory is in a JJ workspace and return main repo path
 ///
-/// Returns Ok(Some(main_repo_path)) if in a workspace
-/// Returns Ok(None) if in main repo (not a workspace)
-/// Returns Err if not in a JJ repo at all
+/// Returns `Ok(Some(main_repo_path))` if in a workspace
+/// Returns `Ok(None)` if in main repo (not a workspace)
+/// Returns `Err` if not in a JJ repo at all
 async fn detect_workspace_context() -> Result<Option<String>> {
     // Try to get workspace root - this works from both main repo and workspace
     let output = Command::new("jj")
@@ -82,7 +82,7 @@ async fn detect_workspace_context() -> Result<Option<String>> {
 /// Get session database, handling both main repo and workspace contexts
 ///
 /// This function detects if we're in a workspace and routes to the main repo database.
-/// If in the main repo, uses the normal get_session_db() path.
+/// If in the main repo, uses the normal `get_session_db()` path.
 async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionDb> {
     match detect_workspace_context().await? {
         Some(main_repo_path) => {

@@ -43,8 +43,6 @@ pub(super) fn output_result(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_output_result_idempotent_mode() {
         // Test that idempotent mode shows "already exists" not "Created"

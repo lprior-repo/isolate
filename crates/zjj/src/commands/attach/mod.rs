@@ -41,7 +41,11 @@ pub async fn run_with_options(opts: &AttachOptions) -> Result<()> {
 
     // 3. Try to go to existing tab first (if zellij is running)
     let status = Command::new("zellij")
-        .args(["action", "go-to-tab-name", &format!("zjj:{name}", name = opts.name)])
+        .args([
+            "action",
+            "go-to-tab-name",
+            &format!("zjj:{name}", name = opts.name),
+        ])
         .status()
         .await
         .ok();

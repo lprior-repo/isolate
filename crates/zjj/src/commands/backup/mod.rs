@@ -184,7 +184,7 @@ pub async fn run_retention(format: OutputFormat) -> Result<()> {
             } else {
                 println!("Removed {} old backup(s):", removed.len());
                 for path in &removed {
-                    println!("  - {}", path);
+                    println!("  - {path}");
                 }
             }
         }

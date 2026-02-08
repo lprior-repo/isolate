@@ -14,7 +14,7 @@
 
 use std::io::{self, Write};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use zjj_core::{
     json::SchemaEnvelope,
     kdl_validation,
@@ -192,9 +192,8 @@ pub async fn run_create(options: &CreateOptions) -> Result<()> {
                 let valid_up_to = e.utf8_error().valid_up_to();
                 anyhow::anyhow!(
                     "Template files must be valid UTF-8 text. \
-                     File '{file_path}' contains invalid UTF-8 data at byte {}. \
-                     This may be a binary file. Please provide a text-based KDL layout file.",
-                    valid_up_to
+                     File '{file_path}' contains invalid UTF-8 data at byte {valid_up_to}. \
+                     This may be a binary file. Please provide a text-based KDL layout file."
                 )
             })?
         }
