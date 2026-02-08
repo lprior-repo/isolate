@@ -196,7 +196,11 @@ async fn validate_bead_status(bead_repo: &BeadRepository, bead_id: &str) -> Resu
     }
 }
 
-/// Create a JJ workspace for the bead
+/// Create a JJ workspace for the bead with operation graph synchronization
+///
+/// This uses the synchronized workspace creation to prevent operation graph
+/// corruption when multiple workspaces are created concurrently or in quick
+/// succession.
 async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, SpawnError> {
     let workspaces_dir = Path::new(root).join(".zjj/workspaces");
     tokio::fs::create_dir_all(&workspaces_dir)
@@ -207,25 +211,18 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
 
     let workspace_path = workspaces_dir.join(bead_id);
 
-    // Create JJ workspace
-    let output = tokio::process::Command::new("jj")
-        .args(["workspace", "add", "--name", bead_id])
-        .arg(&workspace_path)
-        .current_dir(root)
-        .output()
+    // Use synchronized workspace creation to prevent operation graph corruption
+    // This ensures:
+    // 1. Workspace creations are serialized (prevents concurrent modification)
+    // 2. All workspaces are based on the same repository operation
+    // 3. Operation graph consistency is verified after creation
+    zjj_core::jj_operation_sync::create_workspace_synced(bead_id, &workspace_path)
         .await
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
-            reason: format!("Failed to execute jj workspace add: {e}"),
-        })?;
-
-    if !output.status.success() {
-        return Err(SpawnError::WorkspaceCreationFailed {
             reason: format!(
-                "jj workspace add failed: {}",
-                String::from_utf8_lossy(&output.stderr)
+                "Failed to create workspace with operation sync: {e}"
             ),
-        });
-    }
+        })?;
 
     // Create AI discoverability files in the workspace
     create_workspace_discoverability(&workspace_path).await?;
