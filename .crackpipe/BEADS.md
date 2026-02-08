@@ -223,3 +223,29 @@ zjj-vpcx ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-builder-6
 [2026-02-08 07:31:16] zjj-3c27 needs-rework → reworking → ready-qa-builder reworker-3 (Fixed E0063: added session_updated: false to DoneOutput initializer in done/mod.rs:185)
 [2026-02-08 07:33:28] zjj-xcso needs-rework → reworking → ready-qa-builder reworker-2 (VERIFIED: --include-files flag already removed from CLI, ExportOptions struct clean, no dead code remains)
+
+# Reworker Agent 1 Transitions
+[2026-02-08 14:00:00] CLEANUP: Removed stale stage:needs-rework label from zjj-20fk (closed as duplicate of zjj-vpcx)
+[2026-02-08 14:00:00] STATUS: No active beads in stage:needs-rework - reworker-1 entering monitoring mode
+
+# QA Builder Agent 3 Transitions
+[2026-02-08 13:54:30] zjj-a7lu ready-qa-builder → qa-in-progress qa-builder-3 (claimed for QA testing)
+
+# QA Builder Agent 4 Transitions
+[2026-02-08 13:54:30] QA Builder 4 started - monitoring for beads with stage:ready-qa-builder label
+[2026-02-08 13:54:45] zjj-vpcx ready-qa-builder → qa-in-progress qa-builder-4 (claimed for QA verification)
+
+# QA Builder Agent 5 Transitions
+[2026-02-08 13:33:00] QA Builder 5 started - monitoring for beads with stage:ready-qa-builder label
+[2026-02-08 13:33:15] zjj-a7lu ready-qa-builder → qa-in-progress qa-builder-5 (claimed for QA verification)
+
+# QA Builder Agent 6 Transitions
+[2026-02-08 13:54:56] QA Builder 6 started - monitoring for beads with stage:ready-qa-builder label
+[2026-02-08 13:54:56] zjj-vpcx ready-qa-builder → qa-in-progress qa-builder-6 (claimed for QA verification)
+
+# QA Builder Agent 2 Transitions (2026-02-08 Continuous)
+[2026-02-08 14:00:00] QA Builder 2 started - continuous monitoring for stage:ready-qa-builder beads
+[2026-02-08 14:00:15] zjj-xcso ready-qa-builder → qa-in-progress qa-builder-2 (claimed for QA verification)
+
+# Builder Agent 1 Transitions
+[2026-02-08 13:55:00] zjj-3ltb ready-builder → building (claimed by builder-1)
