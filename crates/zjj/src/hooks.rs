@@ -36,11 +36,12 @@ impl HooksConfig {
     /// Validate a callback command string is non-empty after trimming whitespace
     fn validate_command(cmd: &str) -> Result<&str> {
         let trimmed = cmd.trim();
-        match trimmed.is_empty() {
-            true => Err(anyhow!(
+        if trimmed.is_empty() {
+            Err(anyhow!(
                 "callback command cannot be empty or whitespace-only"
-            )),
-            false => Ok(trimmed),
+            ))
+        } else {
+            Ok(trimmed)
         }
     }
 
@@ -102,12 +103,12 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
             // Print hook execution output for visibility in tests
             #[allow(clippy::print_stderr)]
             {
-                eprintln!("Hook [{}]: {}", hook_name, command);
+                eprintln!("Hook [{hook_name}]: {command}");
                 if !stdout.is_empty() {
-                    eprintln!("Hook stdout:\n{}", stdout);
+                    eprintln!("Hook stdout:\n{stdout}");
                 }
                 if !stderr.is_empty() {
-                    eprintln!("Hook stderr:\n{}", stderr);
+                    eprintln!("Hook stderr:\n{stderr}");
                 }
             }
 
@@ -124,7 +125,7 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     output: if stdout.is_empty() {
                         None
                     } else {
-                        Some(stdout.clone())
+                        Some(stdout)
                     },
                     error: None,
                 }
@@ -136,12 +137,12 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     output: if stdout.is_empty() {
                         None
                     } else {
-                        Some(stdout.clone())
+                        Some(stdout)
                     },
                     error: Some(if stderr.is_empty() {
                         exit_code_msg
                     } else {
-                        stderr.clone()
+                        stderr
                     }),
                 }
             }
@@ -149,7 +150,7 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
         Err(e) => {
             #[allow(clippy::print_stderr)]
             {
-                eprintln!("Hook [{}] failed to execute: {}", hook_name, e);
+                eprintln!("Hook [{hook_name}] failed to execute: {e}");
             }
             HookResult {
                 hook: hook_name.to_string(),
@@ -177,10 +178,7 @@ where
         // Result is already printed by run_hook_command
         // Return error if hook failed
         if !hook_result.success {
-            let error_msg = match &hook_result.error {
-                Some(msg) => msg.as_str(),
-                None => "unknown error",
-            };
+            let error_msg = hook_result.error.as_ref().map_or("unknown error", |msg| msg.as_str());
             return Err(anyhow::anyhow!(
                 "Hook '{}' failed: {}",
                 hook_result.hook,
