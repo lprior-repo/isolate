@@ -893,11 +893,11 @@ pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
     let old_name = sub_m
         .get_one::<String>("old_name")
         .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("old_name is required"))?;
     let new_name = sub_m
         .get_one::<String>("new_name")
         .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("new_name is required"))?;
     let options = rename::RenameOptions {
         old_name,
         new_name,
