@@ -581,7 +581,7 @@ mod tests {
     async fn test_repair_empty_workspace_name_returns_error() {
         // Create a temp dir to use as jj_root
         let temp_dir =
-            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {}", e));
+            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"));
 
         let jj_root = match temp_dir {
             Ok(dir) => dir,
@@ -616,7 +616,7 @@ mod tests {
     #[tokio::test]
     async fn test_validate_empty_workspace_name_returns_error() {
         let temp_dir =
-            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {}", e));
+            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"));
 
         let jj_root = match temp_dir {
             Ok(dir) => dir,
@@ -654,7 +654,7 @@ mod tests {
     #[tokio::test]
     async fn test_repair_nonexistent_workspace_returns_error() {
         let temp_dir =
-            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {}", e));
+            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"));
 
         let jj_root = match temp_dir {
             Ok(dir) => dir,
