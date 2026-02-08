@@ -28,7 +28,6 @@
 // Test code for lock contention metrics uses integer-to-float casts.
 // Precision loss is acceptable for statistical calculations in tests.
 #![allow(clippy::cast_precision_loss)]
-#![allow(clippy::cast_possible_truncation)]
 
 use std::{
     collections::{HashMap, HashSet},
@@ -151,8 +150,7 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
                 if success {
                     metrics.successful_acquisitions += 1;
                     metrics.acquisition_times_ms.push(elapsed_ms as f64);
-                    metrics.unique_holders.insert(agent.clone());
-                    holders.push(agent);
+                    metrics.unique_holders.insert(agent);
                 } else {
                     metrics.failed_acquisitions += 1;
                     metrics.contentions += 1;
@@ -458,7 +456,7 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     println!("  - Total duration: {total_duration:?}");
     println!(
         "  - Operations per second: {:.2}",
-        f64::from(total_operations) / total_duration.as_secs_f64()
+        total_operations as f64 / total_duration.as_secs_f64()
     );
 
     // THEN: Verify database integrity (no partial/corrupted state)
@@ -591,7 +589,7 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
     println!("  - Duration: {total_duration:?}");
     println!(
         "  - Operations per second: {:.2}",
-        f64::from(total_operations) / total_duration.as_secs_f64()
+        total_operations as f64 / total_duration.as_secs_f64()
     );
 
     Ok(())

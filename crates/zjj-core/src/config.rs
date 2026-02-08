@@ -464,6 +464,119 @@ impl ConfigManager {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CONFIG KEY VALIDATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// All valid configuration keys in dot-notation
+///
+/// This list defines the complete schema of supported configuration keys.
+/// Any key not in this list will be rejected with a helpful error message.
+const VALID_KEYS: &[&str] = &[
+    // Top-level keys
+    "workspace_dir",
+    "main_branch",
+    "default_template",
+    "state_db",
+    "watch",
+    "hooks",
+    "zellij",
+    "dashboard",
+    "agent",
+    "session",
+    "recovery",
+    // Watch config
+    "watch.enabled",
+    "watch.debounce_ms",
+    "watch.paths",
+    // Hooks config
+    "hooks.post_create",
+    "hooks.pre_remove",
+    "hooks.post_merge",
+    // Zellij config
+    "zellij.session_prefix",
+    "zellij.use_tabs",
+    "zellij.layout_dir",
+    "zellij.panes.main.command",
+    "zellij.panes.main.args",
+    "zellij.panes.main.size",
+    "zellij.panes.beads.command",
+    "zellij.panes.beads.args",
+    "zellij.panes.beads.size",
+    "zellij.panes.status.command",
+    "zellij.panes.status.args",
+    "zellij.panes.status.size",
+    "zellij.panes.float.enabled",
+    "zellij.panes.float.command",
+    "zellij.panes.float.width",
+    "zellij.panes.float.height",
+    // Dashboard config
+    "dashboard.refresh_ms",
+    "dashboard.theme",
+    "dashboard.columns",
+    "dashboard.vim_keys",
+    // Agent config
+    "agent.command",
+    "agent.env",
+    // Session config
+    "session.auto_commit",
+    "session.commit_prefix",
+    // Recovery config
+    "recovery.policy",
+    "recovery.log_recovered",
+];
+
+/// Validate a configuration key
+///
+/// Checks if the given key is in the list of valid configuration keys.
+/// Returns an error if the key is not recognized.
+///
+/// # Errors
+///
+/// Returns `Error::ValidationError` if the key is not valid.
+/// The error message includes a list of valid keys to help the user.
+///
+/// # Examples
+///
+/// ```rust
+/// use zjj_core::config::validate_key;
+///
+/// assert!(validate_key("workspace_dir").is_ok());
+/// assert!(validate_key("zellij.use_tabs").is_ok());
+/// assert!(validate_key("invalid_key").is_err());
+/// ```
+pub fn validate_key(key: &str) -> Result<()> {
+    // Check if the key exactly matches a valid key or is a parent of a valid key
+    // For example:
+    // - "watch" is valid (parent of watch.enabled, watch.debounce_ms, etc.)
+    // - "watch.enabled" is valid (exact match)
+    // - "watch.invalid" is invalid (not in list)
+    let is_valid = VALID_KEYS.iter().any(|valid_key| {
+        key == *valid_key || valid_key.starts_with(&format!("{key}."))
+    });
+
+    if is_valid {
+        Ok(())
+    } else {
+        // Build a helpful error message with valid keys grouped by category
+        let mut error_msg = format!("Unknown configuration key: '{key}'\n\n");
+
+        error_msg.push_str("Valid keys:\n");
+        error_msg.push_str("  workspace_dir, main_branch, default_template, state_db\n");
+        error_msg.push_str("  watch.enabled, watch.debounce_ms, watch.paths\n");
+        error_msg.push_str("  hooks.post_create, hooks.pre_remove, hooks.post_merge\n");
+        error_msg.push_str("  zellij.session_prefix, zellij.use_tabs, zellij.layout_dir\n");
+        error_msg.push_str("  zellij.panes.{main,beads,status,float}.{command,args,size,width,height,enabled}\n");
+        error_msg.push_str("  dashboard.refresh_ms, dashboard.theme, dashboard.columns, dashboard.vim_keys\n");
+        error_msg.push_str("  agent.command, agent.env\n");
+        error_msg.push_str("  session.auto_commit, session.commit_prefix\n");
+        error_msg.push_str("  recovery.policy, recovery.log_recovered\n");
+        error_msg.push_str("\nUse 'zjj config' to see current configuration.");
+
+        Err(Error::ValidationError(error_msg))
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1152,6 +1265,125 @@ mod tests {
         let mut config = Config::default();
         config.dashboard.refresh_ms = 10000;
         assert!(config.validate().is_ok());
+    }
+
+    // Test: Valid top-level keys pass validation
+    #[test]
+    fn test_validate_key_valid_top_level() {
+        let valid_keys = [
+            "workspace_dir",
+            "main_branch",
+            "default_template",
+            "state_db",
+            "watch",
+            "hooks",
+            "zellij",
+            "dashboard",
+            "agent",
+            "session",
+            "recovery",
+        ];
+
+        for key in valid_keys {
+            assert!(
+                validate_key(key).is_ok(),
+                "Key '{key}' should be valid"
+            );
+        }
+    }
+
+    // Test: Valid nested keys pass validation
+    #[test]
+    fn test_validate_key_valid_nested() {
+        let valid_keys = [
+            "watch.enabled",
+            "watch.debounce_ms",
+            "watch.paths",
+            "hooks.post_create",
+            "hooks.pre_remove",
+            "hooks.post_merge",
+            "zellij.session_prefix",
+            "zellij.use_tabs",
+            "zellij.layout_dir",
+            "zellij.panes.main.command",
+            "zellij.panes.main.args",
+            "zellij.panes.main.size",
+            "zellij.panes.beads.command",
+            "zellij.panes.beads.args",
+            "zellij.panes.beads.size",
+            "zellij.panes.status.command",
+            "zellij.panes.status.args",
+            "zellij.panes.status.size",
+            "zellij.panes.float.enabled",
+            "zellij.panes.float.command",
+            "zellij.panes.float.width",
+            "zellij.panes.float.height",
+            "dashboard.refresh_ms",
+            "dashboard.theme",
+            "dashboard.columns",
+            "dashboard.vim_keys",
+            "agent.command",
+            "agent.env",
+            "session.auto_commit",
+            "session.commit_prefix",
+            "recovery.policy",
+            "recovery.log_recovered",
+        ];
+
+        for key in valid_keys {
+            assert!(
+                validate_key(key).is_ok(),
+                "Key '{key}' should be valid"
+            );
+        }
+    }
+
+    // Test: Invalid keys return error
+    #[test]
+    fn test_validate_key_invalid_returns_error() {
+        let invalid_keys = [
+            "nonexistent",
+            "typo_key",
+            "zjj_agant_id", // Typo: should be zjj_agent_id
+            "invalid.nested",
+            "watch.invalid_field",
+            "zellij.panes.invalid_pane",
+        ];
+
+        for key in invalid_keys {
+            let result = validate_key(key);
+            assert!(
+                result.is_err(),
+                "Key '{key}' should be invalid but passed validation"
+            );
+
+            if let Err(e) = result {
+                let error_msg = e.to_string();
+                assert!(
+                    error_msg.contains("Unknown configuration key"),
+                    "Error should mention unknown key for '{key}': {error_msg}"
+                );
+                assert!(
+                    error_msg.contains("Valid keys:"),
+                    "Error should list valid keys for '{key}'"
+                );
+            }
+        }
+    }
+
+    // Test: Empty key returns error
+    #[test]
+    fn test_validate_key_empty_returns_error() {
+        let result = validate_key("");
+        assert!(result.is_err());
+
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(
+                error_msg.contains("Unknown configuration key"),
+                "Error should mention unknown key for empty string"
+            );
+        }
     }
 
     // Test 13: ConfigManager creation and retrieval
