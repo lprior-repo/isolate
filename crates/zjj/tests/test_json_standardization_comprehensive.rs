@@ -10,7 +10,6 @@
 // Production code (src/) must use Result<T, Error> patterns.
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
-#![allow(clippy::panic)]
 #![allow(clippy::too_many_lines)]
 
 mod common;
@@ -82,12 +81,20 @@ fn test_init_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
 
     // Check for expected fields
     assert!(
-        parsed.get("zjj_dir").is_some(),
-        "init response should have zjj_dir field"
+        parsed.get("root").is_some(),
+        "init response should have root field"
     );
     assert!(
-        parsed.get("config_file").is_some(),
-        "init response should have config_file field"
+        parsed.get("paths").is_some(),
+        "init response should have paths field"
+    );
+    assert!(
+        parsed.get("message").is_some(),
+        "init response should have message field"
+    );
+    assert!(
+        parsed.get("jj_initialized").is_some(),
+        "init response should have jj_initialized field"
     );
 
     Ok(())
@@ -181,7 +188,7 @@ fn test_focus_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "focus-test", "--no-open"]);
 
-    let result = harness.zjj(&["focus", "focus-test", "--json"]);
+    let result = harness.zjj(&["focus", "focus-test", "--json", "--no-zellij"]);
 
     if !result.success {
         eprintln!("stdout: {}", result.stdout);

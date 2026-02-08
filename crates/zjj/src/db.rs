@@ -984,11 +984,11 @@ async fn execute_update(pool: &SqlitePool, sql: &str, values: Vec<String>) -> Re
 /// Delete a session from the database
 async fn delete_session(pool: &SqlitePool, name: &str) -> Result<bool> {
     // First, delete any locks for this session (manual cascade)
-    sqlx::query("DELETE FROM session_locks WHERE session = ?")
+    // Use IGNORE to handle cases where session_locks table doesn't exist yet
+    let _ = sqlx::query("DELETE FROM session_locks WHERE session = ?")
         .bind(name)
         .execute(pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to delete session locks: {e}")))?;
+        .await; // Ignore errors - table might not exist if LockManager was never initialized
 
     // Then delete the session itself
     sqlx::query("DELETE FROM sessions WHERE name = ?")
