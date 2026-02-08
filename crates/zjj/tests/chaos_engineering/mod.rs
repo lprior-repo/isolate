@@ -37,9 +37,7 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-use std::{
-    sync::atomic::{AtomicU64, Ordering},
-};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::Result;
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -396,8 +394,13 @@ impl ChaosExecutor {
 
     /// Inject chaos with generic return type
     fn inject_failure_t<T>(mode: FailureMode) -> Result<T, anyhow::Error> {
-        Self::inject_failure(mode).map_err(|e| anyhow::anyhow!("{e}"))
+        // First inject the failure (which returns Result<(), _>)
+        Self::inject_failure(mode)?;
+        // Then try to return T, but we can't construct T, so this always fails
+        // This is only called when we WANT to fail, so the error above is what matters
+        Err(anyhow::anyhow!("chaos injection failed (should not reach here)"))
     }
+}
 
 // ============================================================================
 // Test Harness Integration
@@ -413,7 +416,6 @@ pub struct ChaosTestHarness {
     /// Chaos executor for this test
     executor: ChaosExecutor,
 }
-} // Close impl ChaosExecutor
 
 impl ChaosTestHarness {
     /// Create a new chaos test harness
@@ -482,17 +484,17 @@ impl ChaosTestHarness {
     /// ```
     pub fn zjj_with_chaos(&self, args: &[&str]) -> super::common::CommandResult {
         // Create RNG from executor config
-        let seed = self.executor.config().seed();
+        let seed = self.executor.config.seed();
         let mut rng = StdRng::seed_from_u64(seed);
 
         // Roll the dice
         let roll: f64 = rng.gen();
-        let should_inject = roll < self.executor.config().probability();
+        let should_inject = roll < self.executor.config.probability();
 
         if should_inject {
             // Inject chaos
-            let mode_idx = rng.gen_range(0..self.executor.config().failure_modes().len());
-            let mode = self.executor.config().failure_modes()[mode_idx];
+            let mode_idx = rng.gen_range(0..self.executor.config.failure_modes().len());
+            let mode = self.executor.config.failure_modes()[mode_idx];
 
             let error_msg = match mode {
                 FailureMode::IoError => "I/O error (chaos injection)",
@@ -722,7 +724,7 @@ mod tests {
         let config = ChaosConfig::new(0.2, vec![FailureMode::Corruption]).expect("valid config");
         let executor = ChaosExecutor::new(config);
 
-        assert_eq!(executor.config().probability(), 0.2);
+        assert_eq!(executor.config.probability(), 0.2);
     }
 
     #[test]

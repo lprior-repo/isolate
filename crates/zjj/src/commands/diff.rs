@@ -65,7 +65,7 @@ fn map_jj_error(e: &std::io::Error, operation: &str) -> anyhow::Error {
 
 /// Detect session name from current workspace directory
 ///
-/// Returns Ok(Some(session_name)) if in a workspace
+/// Returns `Ok(Some(session_name))` if in a workspace
 /// Returns Ok(None) if not in a workspace
 /// Returns Err if workspace detection fails
 async fn detect_session_from_workspace(db: &crate::db::SessionDb) -> Result<Option<String>> {
