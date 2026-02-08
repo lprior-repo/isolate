@@ -23,6 +23,7 @@ use zellij::{create_session_layout, create_zellij_tab};
 use crate::json::AddOutput;
 use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij},
+    command_context,
     commands::{check_prerequisites, get_session_db},
     session::{validate_session_name, SessionStatus, SessionUpdate},
 };
@@ -44,9 +45,15 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
     validate_session_name(&options.name).map_err(anyhow::Error::new)?;
 
     let db = get_session_db().await?;
+    let create_command_id = command_context::next_write_command_id("create", &options.name);
 
     // Check if session already exists (REQ-ERR-004)
     if db.get(&options.name).await?.is_some() {
+        if let Some(ref command_id) = create_command_id {
+            if db.is_command_processed(command_id).await? {
+                return Ok(());
+            }
+        }
         return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
             format!("Session '{}' already exists", options.name),
         )));
@@ -72,7 +79,14 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
     let workspace_path_str = workspace_path.display().to_string();
 
     // ATOMIC SESSION CREATION
-    atomic_create_session(&options.name, &workspace_path, &db, bead_metadata).await?;
+    atomic_create_session(
+        &options.name,
+        &workspace_path,
+        &db,
+        bead_metadata,
+        create_command_id.as_deref(),
+    )
+    .await?;
 
     // Execute post_create hooks unless --no-hooks
     if !options.no_hooks {
@@ -112,6 +126,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     validate_session_name(&options.name).map_err(anyhow::Error::new)?;
 
     let db = get_session_db().await?;
+    let create_command_id = command_context::next_write_command_id("create", &options.name);
     let root = check_prerequisites().await?;
 
     // Query bead metadata if bead_id provided
@@ -144,6 +159,19 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
 
     match existing_session {
         Some(existing) => {
+            if let Some(ref command_id) = create_command_id {
+                if db.is_command_processed(command_id).await? {
+                    output_result(
+                        &options.name,
+                        &existing.workspace_path,
+                        &existing.zellij_tab,
+                        "already exists (command replay)",
+                        options.format,
+                    );
+                    return Ok(());
+                }
+            }
+
             if options.idempotent {
                 // Idempotent mode: return success with existing session info
                 tracing::info!(
@@ -207,7 +235,14 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
 
     // ATOMIC SESSION CREATION (zjj-bw0x)
     // Order: DB first (detectable), then workspace (cleanable)
-    atomic_create_session(&options.name, &workspace_path, &db, bead_metadata).await?;
+    atomic_create_session(
+        &options.name,
+        &workspace_path,
+        &db,
+        bead_metadata,
+        create_command_id.as_deref(),
+    )
+    .await?;
 
     let mut session = db
         .get(&options.name)
