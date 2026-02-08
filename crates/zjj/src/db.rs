@@ -10,7 +10,12 @@
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 #![cfg_attr(not(test), deny(clippy::panic))]
 
-use std::{path::Path, str::FromStr, time::SystemTime};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
+    time::SystemTime,
+};
 
 /// Functional I/O helper module - wraps mutable buffer operations in pure functions
 mod io {
@@ -35,12 +40,57 @@ mod io {
 }
 
 use num_traits::cast::ToPrimitive;
+use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
+use tokio::sync::{mpsc, oneshot};
 use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result, WorkspaceState};
 
 use crate::session::{validate_session_name, Session, SessionStatus, SessionUpdate};
 
 const CURRENT_SCHEMA_VERSION: i64 = 1;
+const STATE_WRITER_CHANNEL_SIZE: usize = 512;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum SessionEvent {
+    Upsert { session: Session },
+    Delete { name: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct EventEnvelope {
+    version: u8,
+    timestamp: u64,
+    command_id: Option<String>,
+    event: SessionEvent,
+}
+
+#[derive(Debug)]
+enum WriteRequest {
+    Create {
+        name: String,
+        workspace_path: String,
+        created_at: u64,
+        command_id: Option<String>,
+        tx: oneshot::Sender<Result<Session>>,
+    },
+    Update {
+        name: String,
+        update: SessionUpdate,
+        command_id: Option<String>,
+        tx: oneshot::Sender<Result<()>>,
+    },
+    Delete {
+        name: String,
+        command_id: Option<String>,
+        tx: oneshot::Sender<Result<bool>>,
+    },
+}
+
+#[derive(Clone)]
+struct StateWriterHandle {
+    sender: mpsc::Sender<WriteRequest>,
+}
 
 /// Database schema as SQL string - executed once on init
 const SCHEMA: &str = r"
@@ -72,6 +122,11 @@ CREATE TABLE IF NOT EXISTS state_transitions (
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS processed_commands (
+    command_id TEXT PRIMARY KEY,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_status ON sessions(status);
 CREATE INDEX IF NOT EXISTS idx_state ON sessions(state);
 CREATE INDEX IF NOT EXISTS idx_name ON sessions(name);
@@ -90,6 +145,7 @@ END;
 #[derive(Clone)]
 pub struct SessionDb {
     pool: SqlitePool,
+    writer: Arc<StateWriterHandle>,
 }
 
 impl SessionDb {
@@ -214,10 +270,17 @@ impl SessionDb {
         };
 
         // Try to initialize schema, with recovery for corrupted databases
+        let event_log_path = state_event_log_path(path);
+
         match init_schema(&pool).await {
             Ok(()) => {
                 check_schema_version(&pool).await?;
-                Ok(Self { pool })
+                replay_event_log_if_needed(&pool, &event_log_path).await?;
+                let writer = start_state_writer(pool.clone(), event_log_path);
+                Ok(Self {
+                    pool,
+                    writer: Arc::new(writer),
+                })
             }
             Err(e) => {
                 // Schema init failed - likely corrupted database
@@ -227,7 +290,12 @@ impl SessionDb {
                         let new_pool = create_connection_pool(&db_url).await?;
                         init_schema(&new_pool).await?;
                         check_schema_version(&new_pool).await?;
-                        Ok(Self { pool: new_pool })
+                        replay_event_log_if_needed(&new_pool, &event_log_path).await?;
+                        let writer = start_state_writer(new_pool.clone(), event_log_path);
+                        Ok(Self {
+                            pool: new_pool,
+                            writer: Arc::new(writer),
+                        })
                     }
                     Err(recovery_err) => Err(Error::DatabaseError(format!(
                         "{e}\n\nRecovery check failed: {recovery_err}"
@@ -243,29 +311,41 @@ impl SessionDb {
     ///
     /// Returns error if session name is invalid, already exists, or database operation fails
     pub async fn create(&self, name: &str, workspace_path: &str) -> Result<Session> {
+        self.create_with_command_id(name, workspace_path, None)
+            .await
+    }
+
+    /// Create a new session with optional command ID for idempotency.
+    ///
+    /// If `command_id` has already been processed, this returns the persisted
+    /// result instead of executing the write again.
+    pub async fn create_with_command_id(
+        &self,
+        name: &str,
+        workspace_path: &str,
+        command_id: Option<&str>,
+    ) -> Result<Session> {
         // Validate session name BEFORE creating database record
         // This prevents backslash-n and other invalid characters from being stored
         validate_session_name(name)?;
 
         let now = get_current_timestamp()?;
-        let status = SessionStatus::Creating;
-        let state = WorkspaceState::Created;
 
-        insert_session(&self.pool, name, &status, workspace_path, now)
-            .await
-            .map(|id| Session {
-                id: Some(id),
+        let (tx, rx) = oneshot::channel();
+        self.writer
+            .sender
+            .send(WriteRequest::Create {
                 name: name.to_string(),
-                status,
-                state,
                 workspace_path: workspace_path.to_string(),
-                zellij_tab: format!("zjj:{name}"),
-                branch: None,
                 created_at: now,
-                updated_at: now,
-                last_synced: None,
-                metadata: None,
+                command_id: command_id.map(std::string::ToString::to_string),
+                tx,
             })
+            .await
+            .map_err(|e| Error::DatabaseError(format!("State writer unavailable: {e}")))?;
+
+        rx.await
+            .map_err(|e| Error::DatabaseError(format!("State writer dropped response: {e}")))?
     }
 
     /// Create a session with a specific creation timestamp
@@ -283,27 +363,35 @@ impl SessionDb {
         workspace_path: &str,
         created_at: u64,
     ) -> Result<Session> {
+        self.create_with_timestamp_and_command_id(name, workspace_path, created_at, None)
+            .await
+    }
+
+    pub async fn create_with_timestamp_and_command_id(
+        &self,
+        name: &str,
+        workspace_path: &str,
+        created_at: u64,
+        command_id: Option<&str>,
+    ) -> Result<Session> {
         // Validate session name BEFORE creating database record
         validate_session_name(name)?;
 
-        let status = SessionStatus::Creating;
-        let state = WorkspaceState::Created;
-
-        insert_session(&self.pool, name, &status, workspace_path, created_at)
-            .await
-            .map(|id| Session {
-                id: Some(id),
+        let (tx, rx) = oneshot::channel();
+        self.writer
+            .sender
+            .send(WriteRequest::Create {
                 name: name.to_string(),
-                status,
-                state,
                 workspace_path: workspace_path.to_string(),
-                zellij_tab: format!("zjj:{name}"),
-                branch: None,
                 created_at,
-                updated_at: created_at,
-                last_synced: None,
-                metadata: None,
+                command_id: command_id.map(std::string::ToString::to_string),
+                tx,
             })
+            .await
+            .map_err(|e| Error::DatabaseError(format!("State writer unavailable: {e}")))?;
+
+        rx.await
+            .map_err(|e| Error::DatabaseError(format!("State writer dropped response: {e}")))?
     }
 
     /// Get a session by name
@@ -321,7 +409,29 @@ impl SessionDb {
     ///
     /// Returns error if database update fails
     pub async fn update(&self, name: &str, update: SessionUpdate) -> Result<()> {
-        update_session(&self.pool, name, update).await
+        self.update_with_command_id(name, update, None).await
+    }
+
+    pub async fn update_with_command_id(
+        &self,
+        name: &str,
+        update: SessionUpdate,
+        command_id: Option<&str>,
+    ) -> Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.writer
+            .sender
+            .send(WriteRequest::Update {
+                name: name.to_string(),
+                update,
+                command_id: command_id.map(std::string::ToString::to_string),
+                tx,
+            })
+            .await
+            .map_err(|e| Error::DatabaseError(format!("State writer unavailable: {e}")))?;
+
+        rx.await
+            .map_err(|e| Error::DatabaseError(format!("State writer dropped response: {e}")))?
     }
 
     /// Update session status
@@ -346,7 +456,27 @@ impl SessionDb {
     ///
     /// Returns error if database operation fails
     pub async fn delete(&self, name: &str) -> Result<bool> {
-        delete_session(&self.pool, name).await
+        self.delete_with_command_id(name, None).await
+    }
+
+    pub async fn delete_with_command_id(
+        &self,
+        name: &str,
+        command_id: Option<&str>,
+    ) -> Result<bool> {
+        let (tx, rx) = oneshot::channel();
+        self.writer
+            .sender
+            .send(WriteRequest::Delete {
+                name: name.to_string(),
+                command_id: command_id.map(std::string::ToString::to_string),
+                tx,
+            })
+            .await
+            .map_err(|e| Error::DatabaseError(format!("State writer unavailable: {e}")))?;
+
+        rx.await
+            .map_err(|e| Error::DatabaseError(format!("State writer dropped response: {e}")))?
     }
 
     /// List all sessions, optionally filtered by status
@@ -738,6 +868,326 @@ fn get_current_timestamp() -> Result<u64> {
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .map_err(|e| Error::Unknown(format!("System time error: {e}")))
+}
+
+fn state_event_log_path(db_path: &Path) -> PathBuf {
+    db_path.with_extension("events.jsonl")
+}
+
+fn start_state_writer(pool: SqlitePool, event_log_path: PathBuf) -> StateWriterHandle {
+    let (sender, receiver) = mpsc::channel(STATE_WRITER_CHANNEL_SIZE);
+    tokio::spawn(async move {
+        run_state_writer(pool, event_log_path, receiver).await;
+    });
+    StateWriterHandle { sender }
+}
+
+async fn run_state_writer(
+    pool: SqlitePool,
+    event_log_path: PathBuf,
+    mut receiver: mpsc::Receiver<WriteRequest>,
+) {
+    while let Some(request) = receiver.recv().await {
+        match request {
+            WriteRequest::Create {
+                name,
+                workspace_path,
+                created_at,
+                command_id,
+                tx,
+            } => {
+                let result = process_create_command(
+                    &pool,
+                    &event_log_path,
+                    &name,
+                    &workspace_path,
+                    created_at,
+                    command_id,
+                )
+                .await;
+                let _ = tx.send(result);
+            }
+            WriteRequest::Update {
+                name,
+                update,
+                command_id,
+                tx,
+            } => {
+                let result =
+                    process_update_command(&pool, &event_log_path, &name, update, command_id).await;
+                let _ = tx.send(result);
+            }
+            WriteRequest::Delete {
+                name,
+                command_id,
+                tx,
+            } => {
+                let result =
+                    process_delete_command(&pool, &event_log_path, &name, command_id).await;
+                let _ = tx.send(result);
+            }
+        }
+    }
+}
+
+fn session_from_insert(name: &str, workspace_path: &str, created_at: u64, id: i64) -> Session {
+    Session {
+        id: Some(id),
+        name: name.to_string(),
+        status: SessionStatus::Creating,
+        state: WorkspaceState::Created,
+        workspace_path: workspace_path.to_string(),
+        zellij_tab: format!("zjj:{name}"),
+        branch: None,
+        created_at,
+        updated_at: created_at,
+        last_synced: None,
+        metadata: None,
+    }
+}
+
+async fn process_create_command(
+    pool: &SqlitePool,
+    event_log_path: &Path,
+    name: &str,
+    workspace_path: &str,
+    created_at: u64,
+    command_id: Option<String>,
+) -> Result<Session> {
+    if let Some(ref id) = command_id {
+        if is_command_processed(pool, id).await? {
+            return query_session_by_name(pool, name).await?.ok_or_else(|| {
+                Error::DatabaseError(format!(
+                    "Command {id} already processed but session missing"
+                ))
+            });
+        }
+    }
+
+    let row_id = insert_session(
+        pool,
+        name,
+        &SessionStatus::Creating,
+        workspace_path,
+        created_at,
+    )
+    .await?;
+    let session = session_from_insert(name, workspace_path, created_at, row_id);
+
+    append_event(
+        event_log_path,
+        EventEnvelope {
+            version: 1,
+            timestamp: get_current_timestamp()?,
+            command_id: command_id.clone(),
+            event: SessionEvent::Upsert {
+                session: session.clone(),
+            },
+        },
+    )
+    .await?;
+
+    if let Some(id) = command_id {
+        mark_command_processed(pool, &id).await?;
+    }
+
+    Ok(session)
+}
+
+async fn process_update_command(
+    pool: &SqlitePool,
+    event_log_path: &Path,
+    name: &str,
+    update: SessionUpdate,
+    command_id: Option<String>,
+) -> Result<()> {
+    if let Some(ref id) = command_id {
+        if is_command_processed(pool, id).await? {
+            return Ok(());
+        }
+    }
+
+    update_session(pool, name, update).await?;
+
+    if let Some(session) = query_session_by_name(pool, name).await? {
+        append_event(
+            event_log_path,
+            EventEnvelope {
+                version: 1,
+                timestamp: get_current_timestamp()?,
+                command_id: command_id.clone(),
+                event: SessionEvent::Upsert { session },
+            },
+        )
+        .await?;
+    }
+
+    if let Some(id) = command_id {
+        mark_command_processed(pool, &id).await?;
+    }
+
+    Ok(())
+}
+
+async fn process_delete_command(
+    pool: &SqlitePool,
+    event_log_path: &Path,
+    name: &str,
+    command_id: Option<String>,
+) -> Result<bool> {
+    if let Some(ref id) = command_id {
+        if is_command_processed(pool, id).await? {
+            return Ok(false);
+        }
+    }
+
+    let deleted = delete_session(pool, name).await?;
+    if deleted {
+        append_event(
+            event_log_path,
+            EventEnvelope {
+                version: 1,
+                timestamp: get_current_timestamp()?,
+                command_id: command_id.clone(),
+                event: SessionEvent::Delete {
+                    name: name.to_string(),
+                },
+            },
+        )
+        .await?;
+    }
+
+    if let Some(id) = command_id {
+        mark_command_processed(pool, &id).await?;
+    }
+
+    Ok(deleted)
+}
+
+async fn is_command_processed(pool: &SqlitePool, command_id: &str) -> Result<bool> {
+    let existing: Option<String> =
+        sqlx::query_scalar("SELECT command_id FROM processed_commands WHERE command_id = ?")
+            .bind(command_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to check processed command: {e}")))?;
+    Ok(existing.is_some())
+}
+
+async fn mark_command_processed(pool: &SqlitePool, command_id: &str) -> Result<()> {
+    sqlx::query("INSERT OR IGNORE INTO processed_commands (command_id) VALUES (?)")
+        .bind(command_id)
+        .execute(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to mark command as processed: {e}")))?;
+    Ok(())
+}
+
+async fn append_event(event_log_path: &Path, envelope: EventEnvelope) -> Result<()> {
+    let serialized = serde_json::to_string(&envelope)
+        .map_err(|e| Error::ParseError(format!("Failed to serialize state event: {e}")))?;
+
+    if let Some(parent) = event_log_path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to create event-log directory: {e}")))?;
+    }
+
+    use tokio::io::AsyncWriteExt;
+    let mut file = tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(event_log_path)
+        .await
+        .map_err(|e| Error::IoError(format!("Failed to open event log: {e}")))?;
+
+    file.write_all(serialized.as_bytes())
+        .await
+        .map_err(|e| Error::IoError(format!("Failed to write event log: {e}")))?;
+    file.write_all(b"\n")
+        .await
+        .map_err(|e| Error::IoError(format!("Failed to finalize event log line: {e}")))?;
+    file.flush()
+        .await
+        .map_err(|e| Error::IoError(format!("Failed to flush event log: {e}")))?;
+
+    Ok(())
+}
+
+async fn replay_event_log_if_needed(pool: &SqlitePool, event_log_path: &Path) -> Result<()> {
+    let session_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sessions")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to check session count for replay: {e}"))
+        })?;
+
+    if session_count > 0 {
+        return Ok(());
+    }
+
+    if !tokio::fs::try_exists(event_log_path).await.is_ok_and(|v| v) {
+        return Ok(());
+    }
+
+    let contents = tokio::fs::read_to_string(event_log_path)
+        .await
+        .map_err(|e| Error::IoError(format!("Failed to read state event log: {e}")))?;
+
+    for line in contents.lines().filter(|line| !line.trim().is_empty()) {
+        let envelope: EventEnvelope = serde_json::from_str(line)
+            .map_err(|e| Error::ParseError(format!("Invalid state event log line: {e}")))?;
+        replay_event(pool, envelope.event).await?;
+    }
+
+    Ok(())
+}
+
+async fn replay_event(pool: &SqlitePool, event: SessionEvent) -> Result<()> {
+    match event {
+        SessionEvent::Upsert { session } => {
+            sqlx::query(
+                "INSERT INTO sessions (name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(name) DO UPDATE SET
+                     status = excluded.status,
+                     state = excluded.state,
+                     workspace_path = excluded.workspace_path,
+                     branch = excluded.branch,
+                     created_at = excluded.created_at,
+                     updated_at = excluded.updated_at,
+                     last_synced = excluded.last_synced,
+                     metadata = excluded.metadata",
+            )
+            .bind(session.name)
+            .bind(session.status.to_string())
+            .bind(session.state.to_string())
+            .bind(session.workspace_path)
+            .bind(session.branch)
+            .bind(session.created_at.to_i64().map_or(i64::MAX, |t| t))
+            .bind(session.updated_at.to_i64().map_or(i64::MAX, |t| t))
+            .bind(session.last_synced.and_then(|ts| ts.to_i64()))
+            .bind(
+                session
+                    .metadata
+                    .as_ref()
+                    .map(serde_json::to_string)
+                    .transpose()
+                    .map_err(|e| Error::ParseError(format!("Failed to serialize replay metadata: {e}")))?,
+            )
+            .execute(pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to replay upsert event: {e}")))?;
+        }
+        SessionEvent::Delete { name } => {
+            sqlx::query("DELETE FROM sessions WHERE name = ?")
+                .bind(name)
+                .execute(pool)
+                .await
+                .map_err(|e| Error::DatabaseError(format!("Failed to replay delete event: {e}")))?;
+        }
+    }
+    Ok(())
 }
 
 // === IMPERATIVE SHELL (Database Side Effects) ===
