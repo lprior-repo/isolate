@@ -104,6 +104,8 @@ pub struct Config {
 pub struct RecoveryConfig {
     pub policy: RecoveryPolicy,
     pub log_recovered: bool,
+    pub auto_recover_corrupted_wal: bool,
+    pub delete_corrupted_database: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -299,6 +301,8 @@ impl Default for RecoveryConfig {
         Self {
             policy: RecoveryPolicy::Warn,
             log_recovered: true,
+            auto_recover_corrupted_wal: true,
+            delete_corrupted_database: false,
         }
     }
 }
