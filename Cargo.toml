@@ -13,14 +13,16 @@ repository = "https://github.com/lprior-repo/zjj"
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "allow"
+dead_code = "deny"
+unused_must_use = "deny"
 
 [workspace.lints.clippy]
 # Zero unwrap law - COMPILE ERRORS (relaxed in tests)
-unwrap_used = "deny"  # Changed to deny so tests can use #[allow]
+unwrap_used = "deny"
 expect_used = "deny"
-panic = "forbid"
-todo = "forbid"
-unimplemented = "forbid"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
 
 # Quality enforcement (with priority)
 all = { level = "warn", priority = -1 }
