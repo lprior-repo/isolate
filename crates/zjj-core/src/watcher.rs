@@ -22,7 +22,7 @@
 //! };
 //!
 //! let workspaces = vec![PathBuf::from("/path/to/workspace")];
-//! let mut rx = FileWatcher::watch_workspaces(&config, workspaces)?;
+//! let mut rx = FileWatcher::watch_workspaces(&config, &workspaces)?;
 //!
 //! while let Some(event) = rx.recv().await {
 //!     match event {

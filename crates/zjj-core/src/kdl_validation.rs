@@ -26,7 +26,13 @@ use crate::{Error, Result};
 /// ```
 /// use zjj_core::kdl_validation::validate_kdl_syntax;
 ///
-/// let valid_kdl = "layout { pane { command \"bash\" } }";
+/// let valid_kdl = r#"
+/// layout {
+///     pane {
+///         command "bash"
+///     }
+/// }
+/// "#;
 /// assert!(validate_kdl_syntax(valid_kdl).is_ok());
 ///
 /// let invalid_kdl = "layout { pane { mismatched brace ";
