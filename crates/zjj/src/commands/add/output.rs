@@ -10,14 +10,15 @@ pub(super) fn output_result(
     mode: &str,
     format: OutputFormat,
 ) {
-    // For idempotent mode, use clearer messaging
-    let status_msg = if mode.contains("idempotent") {
+    let is_replay = mode.contains("idempotent") || mode.contains("command replay");
+
+    let status_msg = if is_replay {
         format!("Session '{name}' already exists (idempotent)")
     } else {
         format!("Created session '{name}' ({mode})")
     };
 
-    let human_msg = if mode.contains("idempotent") {
+    let human_msg = if is_replay {
         format!("Session '{name}' already exists (idempotent)")
     } else {
         format!("Created session '{name}' (workspace at {workspace_path})")
@@ -98,5 +99,24 @@ mod tests {
             "Created session 'test-session' (with Zellij tab)"
         );
         assert!(status_msg.contains("Created"));
+    }
+
+    #[test]
+    fn test_output_result_command_replay_mode() {
+        let name = "test-session";
+        let mode = "already exists (command replay)";
+
+        let is_replay = mode.contains("idempotent") || mode.contains("command replay");
+        let status_msg = if is_replay {
+            format!("Session '{name}' already exists (idempotent)")
+        } else {
+            format!("Created session '{name}' ({mode})")
+        };
+
+        assert_eq!(
+            status_msg,
+            "Session 'test-session' already exists (idempotent)"
+        );
+        assert!(!status_msg.contains("Created"));
     }
 }
