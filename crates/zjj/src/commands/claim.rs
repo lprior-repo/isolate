@@ -285,7 +285,7 @@ async fn attempt_claim(
 
     // Lock file exists - check if we can take it
     let audit = read_audit(audit_path).await?;
-    let claim_count = count_claims_by_agent(&audit, agent_id).await;
+    let claim_count = count_claims_by_agent(&audit, agent_id);
 
     let result = if let Some(existing) = read_lock(lock_path).await {
         if existing.expires_at < now {
@@ -1135,7 +1135,7 @@ mod tests {
                 previous_holder: Some("agent-2".to_string()),
             });
 
-            let count = count_claims_by_agent(&audit, "agent-1").await;
+            let count = count_claims_by_agent(&audit, "agent-1");
             assert_eq!(count, 3, "Should count only successful claims");
         }
 

@@ -90,8 +90,7 @@ fn test_all_errors_have_suggestions_or_reasonable_default() {
                     || suggestion.contains("cargo")
                     || suggestion.contains("must")
                     || suggestion.contains("should"),
-                "Suggestion should be actionable: '{}'",
-                suggestion
+                "Suggestion should be actionable: '{suggestion}'"
             );
         }
     }
@@ -167,8 +166,7 @@ fn test_error_codes_are_unique() {
         let code = err.code();
         assert!(
             codes.insert(code),
-            "Error code '{}' should be unique (duplicate found)",
-            code
+            "Error code '{code}' should be unique (duplicate found)"
         );
     }
 }

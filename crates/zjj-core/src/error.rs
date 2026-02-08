@@ -677,7 +677,10 @@ impl Error {
 
     /// Helper: Fix commands for JJ workspace conflicts by type
     #[must_use]
-    fn jj_conflict_fix_commands(conflict_type: &JjConflictType, workspace_name: &str) -> Vec<String> {
+    fn jj_conflict_fix_commands(
+        conflict_type: &JjConflictType,
+        workspace_name: &str,
+    ) -> Vec<String> {
         match conflict_type {
             JjConflictType::AlreadyExists => vec![
                 "jj workspace list".to_string(),

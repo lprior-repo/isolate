@@ -178,7 +178,10 @@ where
         // Result is already printed by run_hook_command
         // Return error if hook failed
         if !hook_result.success {
-            let error_msg = hook_result.error.as_ref().map_or("unknown error", |msg| msg.as_str());
+            let error_msg = hook_result
+                .error
+                .as_ref()
+                .map_or("unknown error", |msg| msg.as_str());
             return Err(anyhow::anyhow!(
                 "Hook '{}' failed: {}",
                 hook_result.hook,

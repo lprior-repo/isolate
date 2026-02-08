@@ -5,12 +5,15 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 
-use super::backup_internal::{get_database_backup_dir, parse_backup_filename, BackupConfig, BackupMetadata};
+use super::backup_internal::{
+    get_database_backup_dir, parse_backup_filename, BackupConfig, BackupMetadata,
+};
 
 /// Information about a backup
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,10 +89,7 @@ pub async fn list_database_backups(
         };
 
         // Get file size
-        let size_bytes = fs::metadata(&path)
-            .await
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let size_bytes = fs::metadata(&path).await.map(|m| m.len()).unwrap_or(0);
 
         // Try to load metadata
         let metadata_path = path.with_extension("json");
@@ -138,9 +138,10 @@ use tokio::fs;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Timelike;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_list_backups_empty() {

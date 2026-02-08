@@ -5,11 +5,14 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
-use super::backup_internal::{compute_checksum, get_database_backup_dir, parse_backup_filename, BackupConfig, BackupMetadata};
+use anyhow::{Context, Result};
 use tokio::fs;
+
+use super::backup_internal::{
+    compute_checksum, get_database_backup_dir, parse_backup_filename, BackupConfig, BackupMetadata,
+};
 
 /// Restore a database from a backup
 ///
@@ -45,8 +48,8 @@ pub async fn restore_backup(
         .await
         .context("Failed to read backup metadata")?;
 
-    let metadata: BackupMetadata = serde_json::from_str(&metadata_json)
-        .context("Failed to parse backup metadata")?;
+    let metadata: BackupMetadata =
+        serde_json::from_str(&metadata_json).context("Failed to parse backup metadata")?;
 
     // Verify checksum if requested
     if verify_checksum {
@@ -118,18 +121,16 @@ pub async fn find_latest_backup(
 
         // Parse timestamp from filename
         match parse_backup_filename(filename) {
-            Ok(timestamp) => {
-                match &latest_backup {
-                    None => {
+            Ok(timestamp) => match &latest_backup {
+                None => {
+                    latest_backup = Some((path, timestamp));
+                }
+                Some((_, latest_ts)) => {
+                    if timestamp > *latest_ts {
                         latest_backup = Some((path, timestamp));
                     }
-                    Some((_, latest_ts)) => {
-                        if timestamp > *latest_ts {
-                            latest_backup = Some((path, timestamp));
-                        }
-                    }
                 }
-            }
+            },
             Err(_) => {
                 // Skip files with invalid names
                 continue;
@@ -171,9 +172,10 @@ pub async fn restore_from_latest(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Utc;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_restore_backup_creates_target() {
@@ -200,7 +202,10 @@ mod tests {
             .unwrap();
 
         assert!(target_path.exists());
-        assert_eq!(fs::read_to_string(&target_path).await.unwrap(), "backup data");
+        assert_eq!(
+            fs::read_to_string(&target_path).await.unwrap(),
+            "backup data"
+        );
     }
 
     #[tokio::test]
@@ -216,8 +221,7 @@ mod tests {
         fs::write(&backup_path, b"backup data").await.unwrap();
 
         // Create metadata with WRONG checksum
-        let metadata =
-            BackupMetadata::new("test.db".to_string(), 11, "wrongchecksum".to_string());
+        let metadata = BackupMetadata::new("test.db".to_string(), 11, "wrongchecksum".to_string());
         let metadata_path = backup_path.with_extension("json");
         let metadata_json = serde_json::to_string_pretty(&metadata).unwrap();
         fs::write(&metadata_path, metadata_json).await.unwrap();
