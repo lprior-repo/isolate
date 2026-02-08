@@ -157,6 +157,24 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
     }
 }
 
+
+pub async fn handle_broadcast(sub_m: &ArgMatches) -> Result<()> {
+    let message = sub_m
+        .get_one::<String>("message")
+        .ok_or_else(|| anyhow::anyhow!("Message is required"))?
+        .clone();
+    let agent_id = sub_m
+        .get_one::<String>("agent-id")
+        .cloned()
+        .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
+        .ok_or_else(|| anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id"))?;
+
+    let json = sub_m.get_flag("json");
+    let format = OutputFormat::from_json_flag(json);
+
+    let args = broadcast::types::BroadcastArgs { message, agent_id };
+    broadcast::run(&args, format).await
+}
 pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m
         .get_one::<String>("name")
