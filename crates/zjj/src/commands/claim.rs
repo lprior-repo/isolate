@@ -242,6 +242,209 @@ async fn write_lock(path: &std::path::Path, lock_info: &LockInfo) -> Result<()> 
     Ok(())
 }
 
+/// Create audit entry for claim operation
+fn create_audit_entry(
+    agent_id: &str,
+    resource: &str,
+    now: u64,
+    action: ClaimAction,
+    expires_at: Option<u64>,
+    previous_holder: Option<String>,
+) -> ClaimAuditEntry {
+    let success = matches!(action, ClaimAction::InitialClaim | ClaimAction::DoubleClaim | ClaimAction::ExpiredClaim);
+    ClaimAuditEntry {
+        agent_id: agent_id.to_string(),
+        resource: resource.to_string(),
+        timestamp: now,
+        action,
+        success,
+        expires_at,
+        previous_holder,
+    }
+}
+
+/// Create successful claim result
+fn create_success_result(
+    resource: &str,
+    agent_id: &str,
+    expires_at: u64,
+    claim_count: usize,
+    is_double_claim: bool,
+) -> ClaimResult {
+    ClaimResult {
+        claimed: true,
+        resource: resource.to_string(),
+        holder: Some(agent_id.to_string()),
+        expires_at: Some(expires_at),
+        previous_holder: None,
+        error: None,
+        is_double_claim: Some(is_double_claim),
+        claim_count: Some(claim_count),
+    }
+}
+
+/// Create failed claim result with error message
+fn create_error_result(resource: &str, agent_id: &str, error: String, claim_count: usize) -> ClaimResult {
+    ClaimResult {
+        claimed: false,
+        resource: resource.to_string(),
+        holder: Some(agent_id.to_string()),
+        expires_at: None,
+        previous_holder: None,
+        error: Some(error),
+        is_double_claim: None,
+        claim_count: Some(claim_count),
+    }
+}
+
+/// Handle expired lock takeover
+async fn handle_expired_lock(
+    lock_path: &std::path::Path,
+    audit_path: &std::path::Path,
+    new_lock: &LockInfo,
+    existing: &LockInfo,
+    resource: &str,
+    agent_id: &str,
+    now: u64,
+    claim_count: usize,
+) -> ClaimResult {
+    let write_result = write_lock(lock_path, new_lock).await;
+    let audit_entry = create_audit_entry(
+        agent_id,
+        resource,
+        now,
+        ClaimAction::ExpiredClaim,
+        Some(new_lock.expires_at),
+        Some(existing.holder.clone()),
+    );
+    let _ = write_audit_entry(audit_path, audit_entry).await;
+
+    match write_result {
+        Ok(()) => ClaimResult {
+            claimed: true,
+            resource: resource.to_string(),
+            holder: Some(agent_id.to_string()),
+            expires_at: Some(new_lock.expires_at),
+            previous_holder: Some(existing.holder.clone()),
+            error: None,
+            is_double_claim: Some(false),
+            claim_count: Some(claim_count + 1),
+        },
+        Err(e) => create_error_result(resource, agent_id, format!("Failed to write lock: {e}"), claim_count),
+    }
+}
+
+/// Handle double claim (agent re-claims their own lock)
+async fn handle_double_claim(
+    lock_path: &std::path::Path,
+    audit_path: &std::path::Path,
+    new_lock: &LockInfo,
+    resource: &str,
+    agent_id: &str,
+    now: u64,
+    claim_count: usize,
+) -> ClaimResult {
+    let audit_entry = create_audit_entry(
+        agent_id,
+        resource,
+        now,
+        ClaimAction::DoubleClaim,
+        Some(new_lock.expires_at),
+        None,
+    );
+    let _ = write_audit_entry(audit_path, audit_entry).await;
+
+    match write_lock(lock_path, new_lock).await {
+        Ok(()) => ClaimResult {
+            claimed: true,
+            resource: resource.to_string(),
+            holder: Some(agent_id.to_string()),
+            expires_at: Some(new_lock.expires_at),
+            previous_holder: None,
+            error: None,
+            is_double_claim: Some(true),
+            claim_count: Some(claim_count + 1),
+        },
+        Err(e) => ClaimResult {
+            claimed: false,
+            resource: resource.to_string(),
+            holder: Some(agent_id.to_string()),
+            expires_at: None,
+            previous_holder: None,
+            error: Some(format!("Failed to extend lock: {e}")),
+            is_double_claim: Some(true),
+            claim_count: Some(claim_count),
+        },
+    }
+}
+
+/// Handle failed claim (locked by another agent)
+async fn handle_failed_claim(
+    audit_path: &std::path::Path,
+    existing: &LockInfo,
+    resource: &str,
+    agent_id: &str,
+    now: u64,
+    claim_count: usize,
+) -> ClaimResult {
+    let audit_entry = create_audit_entry(
+        agent_id,
+        resource,
+        now,
+        ClaimAction::FailedClaim,
+        None,
+        Some(existing.holder.clone()),
+    );
+    let _ = write_audit_entry(audit_path, audit_entry).await;
+
+    ClaimResult {
+        claimed: false,
+        resource: resource.to_string(),
+        holder: Some(existing.holder.clone()),
+        expires_at: Some(existing.expires_at),
+        previous_holder: None,
+        error: Some(format!("Resource locked by {holder}", holder = existing.holder)),
+        is_double_claim: Some(false),
+        claim_count: Some(claim_count),
+    }
+}
+
+/// Handle corrupt/missing lock file
+async fn handle_corrupt_lock(
+    lock_path: &std::path::Path,
+    audit_path: &std::path::Path,
+    new_lock: &LockInfo,
+    resource: &str,
+    agent_id: &str,
+    now: u64,
+    claim_count: usize,
+) -> ClaimResult {
+    let write_result = write_lock(lock_path, new_lock).await;
+    let audit_entry = create_audit_entry(
+        agent_id,
+        resource,
+        now,
+        ClaimAction::InitialClaim,
+        Some(new_lock.expires_at),
+        None,
+    );
+    let _ = write_audit_entry(audit_path, audit_entry).await;
+
+    match write_result {
+        Ok(()) => ClaimResult {
+            claimed: true,
+            resource: resource.to_string(),
+            holder: Some(agent_id.to_string()),
+            expires_at: Some(new_lock.expires_at),
+            previous_holder: None,
+            error: None,
+            is_double_claim: Some(false),
+            claim_count: Some(claim_count + 1),
+        },
+        Err(e) => create_error_result(resource, agent_id, format!("Failed to write lock: {e}"), claim_count),
+    }
+}
+
 /// Try to claim a resource, returning the result
 async fn attempt_claim(
     lock_path: &std::path::Path,
@@ -260,27 +463,17 @@ async fn attempt_claim(
 
     // Try atomic create first (prevents TOCTOU)
     if try_atomic_create_lock(lock_path, &new_lock).await? {
-        let audit_entry = ClaimAuditEntry {
-            agent_id: agent_id.to_string(),
-            resource: resource.to_string(),
-            timestamp: now,
-            action: ClaimAction::InitialClaim,
-            success: true,
-            expires_at: Some(expires_at),
-            previous_holder: None,
-        };
+        let audit_entry = create_audit_entry(
+            agent_id,
+            resource,
+            now,
+            ClaimAction::InitialClaim,
+            Some(expires_at),
+            None,
+        );
         let _ = write_audit_entry(audit_path, audit_entry).await;
 
-        return Ok(ClaimResult {
-            claimed: true,
-            resource: resource.to_string(),
-            holder: Some(agent_id.to_string()),
-            expires_at: Some(expires_at),
-            previous_holder: None,
-            error: None,
-            is_double_claim: Some(false),
-            claim_count: Some(1),
-        });
+        return Ok(create_success_result(resource, agent_id, expires_at, 1, false));
     }
 
     // Lock file exists - check if we can take it
@@ -290,139 +483,27 @@ async fn attempt_claim(
     let result = if let Some(existing) = read_lock(lock_path).await {
         if existing.expires_at < now {
             // Lock expired - take it
-            let write_result = write_lock(lock_path, &new_lock).await;
-
-            let audit_entry = ClaimAuditEntry {
-                agent_id: agent_id.to_string(),
-                resource: resource.to_string(),
-                timestamp: now,
-                action: ClaimAction::ExpiredClaim,
-                success: write_result.is_ok(),
-                expires_at: Some(expires_at),
-                previous_holder: Some(existing.holder.clone()),
-            };
-            let _ = write_audit_entry(audit_path, audit_entry).await;
-
-            write_result
-                .map(|()| ClaimResult {
-                    claimed: true,
-                    resource: resource.to_string(),
-                    holder: Some(agent_id.to_string()),
-                    expires_at: Some(expires_at),
-                    previous_holder: Some(existing.holder),
-                    error: None,
-                    is_double_claim: Some(false),
-                    claim_count: Some(claim_count + 1),
-                })
-                .unwrap_or_else(|e| ClaimResult {
-                    claimed: false,
-                    resource: resource.to_string(),
-                    holder: None,
-                    expires_at: None,
-                    previous_holder: None,
-                    error: Some(format!("Failed to write lock: {e}")),
-                    is_double_claim: None,
-                    claim_count: Some(claim_count),
-                })
+            handle_expired_lock(
+                lock_path,
+                audit_path,
+                &new_lock,
+                &existing,
+                resource,
+                agent_id,
+                now,
+                claim_count,
+            )
+            .await
         } else if existing.holder == agent_id {
             // DOUBLE CLAIM DETECTED - we already hold it
-            let audit_entry = ClaimAuditEntry {
-                agent_id: agent_id.to_string(),
-                resource: resource.to_string(),
-                timestamp: now,
-                action: ClaimAction::DoubleClaim,
-                success: true,
-                expires_at: Some(expires_at),
-                previous_holder: None,
-            };
-            let _ = write_audit_entry(audit_path, audit_entry).await;
-
-            // Still extend the lock, but flag as double claim
-            write_lock(lock_path, &new_lock)
-                .await
-                .map(|()| ClaimResult {
-                    claimed: true,
-                    resource: resource.to_string(),
-                    holder: Some(agent_id.to_string()),
-                    expires_at: Some(expires_at),
-                    previous_holder: None,
-                    error: None,
-                    is_double_claim: Some(true),
-                    claim_count: Some(claim_count + 1),
-                })
-                .unwrap_or_else(|e| ClaimResult {
-                    claimed: false,
-                    resource: resource.to_string(),
-                    holder: Some(agent_id.to_string()),
-                    expires_at: None,
-                    previous_holder: None,
-                    error: Some(format!("Failed to extend lock: {e}")),
-                    is_double_claim: Some(true),
-                    claim_count: Some(claim_count),
-                })
+            handle_double_claim(lock_path, audit_path, &new_lock, resource, agent_id, now, claim_count).await
         } else {
             // Someone else holds valid lock
-            let audit_entry = ClaimAuditEntry {
-                agent_id: agent_id.to_string(),
-                resource: resource.to_string(),
-                timestamp: now,
-                action: ClaimAction::FailedClaim,
-                success: false,
-                expires_at: None,
-                previous_holder: Some(existing.holder.clone()),
-            };
-            let _ = write_audit_entry(audit_path, audit_entry).await;
-
-            ClaimResult {
-                claimed: false,
-                resource: resource.to_string(),
-                holder: Some(existing.holder.clone()),
-                expires_at: Some(existing.expires_at),
-                previous_holder: None,
-                error: Some(format!(
-                    "Resource locked by {holder}",
-                    holder = existing.holder
-                )),
-                is_double_claim: Some(false),
-                claim_count: Some(claim_count),
-            }
+            handle_failed_claim(audit_path, &existing, resource, agent_id, now, claim_count).await
         }
     } else {
         // Lock file unreadable/corrupt - try to take it
-        let write_result = write_lock(lock_path, &new_lock).await;
-
-        let audit_entry = ClaimAuditEntry {
-            agent_id: agent_id.to_string(),
-            resource: resource.to_string(),
-            timestamp: now,
-            action: ClaimAction::InitialClaim,
-            success: write_result.is_ok(),
-            expires_at: Some(expires_at),
-            previous_holder: None,
-        };
-        let _ = write_audit_entry(audit_path, audit_entry).await;
-
-        write_result
-            .map(|()| ClaimResult {
-                claimed: true,
-                resource: resource.to_string(),
-                holder: Some(agent_id.to_string()),
-                expires_at: Some(expires_at),
-                previous_holder: None,
-                error: None,
-                is_double_claim: Some(false),
-                claim_count: Some(claim_count + 1),
-            })
-            .unwrap_or_else(|e| ClaimResult {
-                claimed: false,
-                resource: resource.to_string(),
-                holder: None,
-                expires_at: None,
-                previous_holder: None,
-                error: Some(format!("Failed to write lock: {e}")),
-                is_double_claim: None,
-                claim_count: Some(claim_count),
-            })
+        handle_corrupt_lock(lock_path, audit_path, &new_lock, resource, agent_id, now, claim_count).await
     };
 
     Ok(result)
