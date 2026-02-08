@@ -550,9 +550,9 @@ pub fn validate_key(key: &str) -> Result<()> {
     // - "watch" is valid (parent of watch.enabled, watch.debounce_ms, etc.)
     // - "watch.enabled" is valid (exact match)
     // - "watch.invalid" is invalid (not in list)
-    let is_valid = VALID_KEYS.iter().any(|valid_key| {
-        key == *valid_key || valid_key.starts_with(&format!("{key}."))
-    });
+    let is_valid = VALID_KEYS
+        .iter()
+        .any(|valid_key| key == *valid_key || valid_key.starts_with(&format!("{key}.")));
 
     if is_valid {
         Ok(())
@@ -565,8 +565,12 @@ pub fn validate_key(key: &str) -> Result<()> {
         error_msg.push_str("  watch.enabled, watch.debounce_ms, watch.paths\n");
         error_msg.push_str("  hooks.post_create, hooks.pre_remove, hooks.post_merge\n");
         error_msg.push_str("  zellij.session_prefix, zellij.use_tabs, zellij.layout_dir\n");
-        error_msg.push_str("  zellij.panes.{main,beads,status,float}.{command,args,size,width,height,enabled}\n");
-        error_msg.push_str("  dashboard.refresh_ms, dashboard.theme, dashboard.columns, dashboard.vim_keys\n");
+        error_msg.push_str(
+            "  zellij.panes.{main,beads,status,float}.{command,args,size,width,height,enabled}\n",
+        );
+        error_msg.push_str(
+            "  dashboard.refresh_ms, dashboard.theme, dashboard.columns, dashboard.vim_keys\n",
+        );
         error_msg.push_str("  agent.command, agent.env\n");
         error_msg.push_str("  session.auto_commit, session.commit_prefix\n");
         error_msg.push_str("  recovery.policy, recovery.log_recovered\n");
@@ -1285,10 +1289,7 @@ mod tests {
         ];
 
         for key in valid_keys {
-            assert!(
-                validate_key(key).is_ok(),
-                "Key '{key}' should be valid"
-            );
+            assert!(validate_key(key).is_ok(), "Key '{key}' should be valid");
         }
     }
 
@@ -1331,10 +1332,7 @@ mod tests {
         ];
 
         for key in valid_keys {
-            assert!(
-                validate_key(key).is_ok(),
-                "Key '{key}' should be valid"
-            );
+            assert!(validate_key(key).is_ok(), "Key '{key}' should be valid");
         }
     }
 

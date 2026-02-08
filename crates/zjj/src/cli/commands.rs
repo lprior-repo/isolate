@@ -2173,9 +2173,7 @@ pub fn cmd_rename() -> ClapCommand {
                 .help("Output as JSON"),
         )
         .after_help(after_help_text(
-            &[
-                "zjj rename old-name new-name      Rename a session",
-            ],
+            &["zjj rename old-name new-name      Rename a session"],
             None,
         ))
 }
@@ -2191,9 +2189,7 @@ pub fn cmd_pause() -> ClapCommand {
                 .help("Output as JSON"),
         )
         .after_help(after_help_text(
-            &[
-                "zjj pause feature-x              Pause session",
-            ],
+            &["zjj pause feature-x              Pause session"],
             None,
         ))
 }
@@ -2209,9 +2205,7 @@ pub fn cmd_resume() -> ClapCommand {
                 .help("Output as JSON"),
         )
         .after_help(after_help_text(
-            &[
-                "zjj resume feature-x             Resume paused session",
-            ],
+            &["zjj resume feature-x             Resume paused session"],
             None,
         ))
 }
@@ -2466,9 +2460,7 @@ pub fn cmd_retry() -> ClapCommand {
                 .help("Output as JSON"),
         )
         .after_help(after_help_text(
-            &[
-                "zjj retry                       Retry last failed operation",
-            ],
+            &["zjj retry                       Retry last failed operation"],
             None,
         ))
 }
