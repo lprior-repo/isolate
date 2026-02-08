@@ -305,7 +305,7 @@ mod tests {
         let test_status = statuses
             .iter()
             .find(|s| s.database_name == "test.db")
-            .expect("test.db status not found");
+            .unwrap_or_else(|| panic!("test.db status not found"));
 
         assert_eq!(test_status.backup_count, 3);
         assert!(test_status.within_limit);
