@@ -231,6 +231,7 @@ impl TestHarness {
         // Set ZJJ_JJ_PATH if jj binary was found
         if let Some(path) = jj_binary_path {
             if let Some(path_str) = path.to_str() {
+                eprintln!("DEBUG: Test harness setting ZJJ_JJ_PATH to: {}", path_str);
                 cmd.env("ZJJ_JJ_PATH", path_str);
             }
         }
@@ -393,6 +394,7 @@ impl TestHarness {
         // Set ZJJ_JJ_PATH if jj binary was found
         if let Some(path) = jj_binary_path {
             if let Some(path_str) = path.to_str() {
+                eprintln!("DEBUG: Test harness setting ZJJ_JJ_PATH to: {}", path_str);
                 cmd.env("ZJJ_JJ_PATH", path_str);
             }
         }
@@ -511,6 +513,7 @@ impl TestHarness {
         // Set ZJJ_JJ_PATH if jj binary was found
         if let Some(path) = jj_binary_path {
             if let Some(path_str) = path.to_str() {
+                eprintln!("DEBUG: Test harness setting ZJJ_JJ_PATH to: {}", path_str);
                 cmd.env("ZJJ_JJ_PATH", path_str);
             }
         }
