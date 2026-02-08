@@ -741,8 +741,8 @@ mod tests {
         let start = std::time::Instant::now();
 
         for i in 0..50 {
-            let key = format!("perf_key_{}", i);
-            set_config_value(&config_path, &key, &format!("value_{}", i)).await?;
+            let key = format!("perf_key_{i}");
+            set_config_value(&config_path, &key, &format!("value_{i}")).await?;
         }
 
         let elapsed = start.elapsed();
