@@ -1039,11 +1039,9 @@ pub async fn handle_export(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let session = sub_m.get_one::<String>("session").cloned();
     let output = sub_m.get_one::<String>("output").cloned();
-    let include_files = sub_m.get_flag("include-files");
     let options = export_import::ExportOptions {
         session,
         output,
-        include_files,
         format,
     };
     export_import::run_export(&options).await
