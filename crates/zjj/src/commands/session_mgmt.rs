@@ -168,7 +168,6 @@ pub async fn run_resume(options: &ResumeOptions) -> Result<()> {
 
 /// Options for the clone command
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Field is part of public API
 pub struct CloneOptions {
     /// Session to clone
     pub source: String,
@@ -177,6 +176,7 @@ pub struct CloneOptions {
     /// Dry-run mode
     pub dry_run: bool,
     /// Skip Zellij integration entirely
+    #[allow(dead_code)]  // Reserved for future use
     pub no_zellij: bool,
     /// Output format
     pub format: OutputFormat,

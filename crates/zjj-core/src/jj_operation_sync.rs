@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 
 use tokio::sync::Mutex;
 
-use crate::{jj::get_jj_command, Error, Result};
+use crate::{Error, Result};
 
 /// Global workspace creation lock to prevent concurrent JJ workspace operations
 ///
@@ -54,7 +54,7 @@ pub struct RepoOperationInfo {
 /// - Not in a JJ repository
 /// - Unable to parse JJ output
 pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
-    let output = get_jj_command()
+    let output = tokio::process::Command::new("jj")
         .args(["log", "--no-graph", "--limit", "1", "-T", "change_id"])
         .current_dir(root)
         .output()
@@ -85,7 +85,7 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
     }
 
     // Get repo root
-    let root_output = get_jj_command()
+    let root_output = tokio::process::Command::new("jj")
         .args(["root"])
         .current_dir(root)
         .output()
@@ -177,7 +177,7 @@ pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
     }
 
     // Step 3: Execute jj workspace add --name <name> <path>
-    let output = get_jj_command()
+    let output = tokio::process::Command::new("jj")
         .args(["workspace", "add", "--name", name])
         .arg(path)
         .current_dir(repo_root)
@@ -221,7 +221,7 @@ async fn verify_workspace_consistency(
     expected_operation: &RepoOperationInfo,
 ) -> Result<()> {
     // Get the operation ID in the new workspace
-    let output = get_jj_command()
+    let output = tokio::process::Command::new("jj")
         .args(["log", "--no-graph", "--limit", "1", "-T", "change_id"])
         .current_dir(path)
         .output()

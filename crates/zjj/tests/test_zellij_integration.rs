@@ -78,8 +78,10 @@ fn get_cached_kdl(template: LayoutTemplate) -> &'static str {
             ALL_TEMPLATES
                 .iter()
                 .map(|&t| {
-                    let kdl = zellij::generate_template_kdl(config, t)
-                        .expect("KDL generation should succeed");
+                    let kdl = match zellij::generate_template_kdl(config, t) {
+                        Ok(kdl) => kdl,
+                        Err(e) => panic!("KDL generation should succeed: {e}"),
+                    };
                     CachedKdl { template: t, kdl }
                 })
                 .collect()
@@ -486,7 +488,10 @@ async fn test_zellij_both_custom_commands() {
 
 #[tokio::test]
 async fn test_zellij_layout_file_creation() {
-    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let temp_dir = match tempfile::tempdir() {
+        Ok(d) => d,
+        Err(e) => panic!("Failed to create temp dir: {e}"),
+    };
     let output_dir = temp_dir.path();
 
     let config = test_config();
@@ -495,7 +500,10 @@ async fn test_zellij_layout_file_creation() {
 
     assert!(result.is_ok(), "Layout generation should succeed");
 
-    let layout = result.expect("layout generation should succeed");
+    let layout = match result {
+        Ok(layout) => layout,
+        Err(e) => panic!("layout generation should succeed: {e}"),
+    };
     assert!(layout.file_path.exists(), "Layout file should be created");
     assert!(
         layout.kdl_content.contains("layout"),
@@ -509,7 +517,10 @@ async fn test_zellij_layout_file_creation() {
 
 #[tokio::test]
 async fn test_zellij_layout_file_overwrite() {
-    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let temp_dir = match tempfile::tempdir() {
+        Ok(d) => d,
+        Err(e) => panic!("Failed to create temp dir: {e}"),
+    };
     let output_dir = temp_dir.path();
 
     let config = test_config();
@@ -524,7 +535,10 @@ async fn test_zellij_layout_file_overwrite() {
         "Second generation should succeed (overwrite)"
     );
 
-    let layout = result2.expect("second layout generation should succeed");
+    let layout = match result2 {
+        Ok(layout) => layout,
+        Err(e) => panic!("second layout generation should succeed: {e}"),
+    };
     assert!(layout.file_path.exists(), "File should still exist");
 }
 

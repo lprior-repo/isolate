@@ -159,7 +159,6 @@ fn test_session_context_with_agent() {
 }
 
 #[test]
-#[allow(clippy::assertions_on_constants)]
 fn test_session_context_serialization_with_agent() {
     let session = SessionContext {
         name: "test".to_string(),
@@ -207,7 +206,6 @@ fn test_repository_context_dirty() {
 }
 
 #[test]
-#[allow(clippy::assertions_on_constants)]
 fn test_repository_context_serialization() {
     let repo = RepositoryContext {
         root: "/path".to_string(),
@@ -252,7 +250,6 @@ fn test_beads_context_blocked() {
 }
 
 #[test]
-#[allow(clippy::assertions_on_constants)]
 fn test_beads_context_serialization() {
     let beads = BeadsContext {
         active: Some("test".to_string()),
@@ -294,7 +291,6 @@ fn test_health_status_error() {
 }
 
 #[test]
-#[allow(clippy::assertions_on_constants)]
 fn test_health_status_serialization() {
     let health = HealthStatus::Warn {
         issues: vec!["warning 1".to_string()],

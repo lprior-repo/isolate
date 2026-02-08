@@ -1,13 +1,16 @@
 //! Remove a session and its workspace
 
+pub mod atomic;
+
 use std::io::{self, Write};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
-    cli::{is_inside_zellij, run_command},
+    cli::is_inside_zellij,
     commands::get_session_db,
+    commands::remove::atomic::{cleanup_session_atomically, RemoveError},
     json::RemoveOutput,
 };
 
@@ -70,28 +73,61 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
         merge_to_main(name, &session.workspace_path)?;
     }
 
-    // Close Zellij tab if inside Zellij
-    if is_inside_zellij() {
-        // Try to close the tab - ignore errors if tab doesn't exist
-        let _ = close_zellij_tab(&session.zellij_tab).await;
-    }
+    // Use atomic cleanup to prevent orphaned resources
+    let inside_zellij = is_inside_zellij();
+    match cleanup_session_atomically(&db, &session, true).await {
+        Ok(result) => {
+            if options.format.is_json() {
+                let output = RemoveOutput {
+                    name: name.to_string(),
+                    message: if result.removed {
+                        format!("Removed session '{name}'")
+                    } else {
+                        "Session removal completed with warnings".to_string()
+                    },
+                };
+                let envelope = SchemaEnvelope::new("remove-response", "single", output);
+                let json_str = serde_json::to_string(&envelope)?;
+                writeln!(std::io::stdout(), "{json_str}")?;
+            } else {
+                if result.removed {
+                    writeln!(std::io::stdout(), "Removed session '{name}'")?;
+                }
+            }
+            Ok(())
+        }
+        Err(RemoveError::SessionNotFound { .. }) => {
+            // Return NotFound error for exit code 2
+            Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
+                "Session '{name}' not found"
+            ))))
+        }
+        Err(RemoveError::WorkspaceInaccessible { .. }) => {
+            // Workspace already gone - try to clean up database record
+            let _ = db.delete(name).await;
+            if options.format.is_json() {
+                let output = RemoveOutput {
+                    name: name.to_string(),
+                    message: format!("Session '{name}' removed (workspace was already gone)"),
+                };
+                let envelope = SchemaEnvelope::new("remove-response", "single", output);
+                let json_str = serde_json::to_string(&envelope)?;
+                writeln!(std::io::stdout(), "{json_str}")?;
+            } else {
+                writeln!(std::io::stdout(), "Removed session '{name}' (workspace was already gone)")?;
+            }
+            Ok(())
+        }
+        Err(e) => {
+            // Log error details
+            tracing::error!("Failed to remove session '{}': {}", name, e);
 
-    // Remove JJ workspace (this removes the workspace from JJ's tracking)
-    let workspace_result = run_command("jj", &["workspace", "forget", name]).await;
-    if let Err(e) = workspace_result {
-        tracing::warn!("Failed to forget JJ workspace: {e}");
+            // Return IoError for exit code 3
+            Err(anyhow::Error::new(zjj_core::Error::IoError(format!(
+                "Failed to remove session: {e}"
+            ))))
+        }
     }
-
-    // Remove the workspace directory
-    let workspace_path = std::path::Path::new(&session.workspace_path);
-    if tokio::fs::metadata(workspace_path).await.is_ok() {
-        tokio::fs::remove_dir_all(workspace_path)
-            .await
-            .context("Failed to remove workspace directory")?;
-    }
-
-    // Remove from database
-    db.delete(name).await?;
 
     if options.format.is_json() {
         let output = RemoveOutput {
@@ -137,19 +173,6 @@ fn merge_to_main(_name: &str, _workspace_path: &str) -> Result<()> {
     // 2. Squash commits
     // 3. Merge to main
     anyhow::bail!("--merge is not yet implemented")
-}
-
-/// Close a Zellij tab by name
-async fn close_zellij_tab(tab_name: &str) -> Result<()> {
-    // First, go to the tab
-    run_command("zellij", &["action", "go-to-tab-name", tab_name])
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to switch to tab: {e}"))?;
-    // Then close it
-    run_command("zellij", &["action", "close-tab"])
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to close tab: {e}"))?;
-    Ok(())
 }
 
 #[cfg(test)]

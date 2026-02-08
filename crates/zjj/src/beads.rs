@@ -105,7 +105,10 @@ impl BeadRepository {
     /// List all beads
     pub async fn list_beads(&self) -> Result<Vec<BeadMetadata>> {
         // Load from JSONL then supplement with SQLite using im::HashMap for functional merging
-        let jsonl_beads = self.list_beads_jsonl().await.unwrap_or_else(|_| Vec::new());
+        let jsonl_beads = self
+            .list_beads_jsonl()
+            .await
+            .unwrap_or_else(|_| Vec::new());
         let initial_map = jsonl_beads
             .into_iter()
             .fold(im::HashMap::new(), |mut acc, b| {
@@ -172,7 +175,7 @@ impl BeadRepository {
                         let title = json
                             .get("title")
                             .and_then(|v| v.as_str())
-                            .map_or_else(|| "Unknown".to_string(), String::from);
+                            .map_or_else(|| "Unknown".to_string(), |s| s.to_string());
                         let status_str = json
                             .get("status")
                             .and_then(|v| v.as_str())
@@ -246,7 +249,7 @@ impl BeadRepository {
                     let title = json
                         .get("title")
                         .and_then(|v| v.as_str())
-                        .map_or_else(|| "Unknown".to_string(), String::from);
+                        .map_or_else(|| "Unknown".to_string(), |s| s.to_string());
                     let status_str = json
                         .get("status")
                         .and_then(|v| v.as_str())

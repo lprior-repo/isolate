@@ -111,7 +111,10 @@ mod tests {
         // Invalid template names should be rejected with an error
         let result = create_session_layout("zjj:test", "/path", Some("nonexistent"));
         assert!(result.is_err(), "Invalid template should cause error");
-        let err_msg = result.unwrap_err().to_string();
+        let Err(err) = result else {
+            panic!("Expected error but got Ok");
+        };
+        let err_msg = err.to_string();
         assert!(
             err_msg.contains("Invalid template name"),
             "Error should mention invalid template: {err_msg}"
@@ -154,7 +157,10 @@ mod tests {
         // Runtime: create_zellij_tab should return error for invalid templates
         let result = create_zellij_tab("zjj:test", "/path", Some("nonexistent")).await;
         assert!(result.is_err(), "Invalid template should cause error");
-        let err_msg = result.unwrap_err().to_string();
+        let Err(err) = result else {
+            panic!("Expected error but got Ok");
+        };
+        let err_msg = err.to_string();
         assert!(
             err_msg.contains("Invalid template name"),
             "Error should mention invalid template: {err_msg}"

@@ -922,16 +922,14 @@ mod tests {
         }
     }
 
-    #[allow(clippy::unnecessary_wraps)]
     #[test]
-    fn test_whatif_validates_session_name_valid() -> Result<()> {
+    fn test_whatif_validates_session_name_valid() {
         let valid_names = vec!["test-session", "test_session", "TestSession", "abc123", "a"];
 
         for name in valid_names {
             let result = preview_add(&[name.to_string()]);
             assert!(result.is_ok(), "Expected success for valid name '{name}'");
         }
-        Ok(())
     }
 
     #[test]

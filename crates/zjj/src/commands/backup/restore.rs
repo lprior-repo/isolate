@@ -182,82 +182,86 @@ mod tests {
 
     #[tokio::test]
     async fn test_restore_backup_creates_target() {
-        let temp_dir = TempDir::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"))
-            .expect("Failed to create temp dir");
+        let temp_dir = match TempDir::new() {
+            Ok(dir) => dir,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
         let root = temp_dir.path();
 
         // Create backup file
         let backup_dir = root.join("backups").join("test.db");
-        fs::create_dir_all(&backup_dir)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to create backup dir: {e}"))
-            .expect("Failed to create backup dir");
+        match fs::create_dir_all(&backup_dir).await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to create backup dir: {e}"),
+        }
 
         let backup_path = backup_dir.join("backup-20250101-120000.db");
-        fs::write(&backup_path, b"backup data")
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
-            .expect("Failed to write backup file");
+        match fs::write(&backup_path, b"backup data").await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to write backup file: {e}"),
+        }
 
         // Create metadata
         let metadata = BackupMetadata::new("test.db".to_string(), 11, "checksum123".to_string());
         let metadata_path = backup_path.with_extension("json");
-        let metadata_json = serde_json::to_string_pretty(&metadata)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize metadata: {e}"))
-            .expect("Failed to serialize metadata");
-        fs::write(&metadata_path, metadata_json)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to write metadata: {e}"))
-            .expect("Failed to write metadata");
+        let metadata_json = match serde_json::to_string_pretty(&metadata) {
+            Ok(json) => json,
+            Err(e) => panic!("Failed to serialize metadata: {e}"),
+        };
+        match fs::write(&metadata_path, metadata_json).await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to write metadata: {e}"),
+        }
 
         // Restore
         let target_path = root.join("restored.db");
-        restore_backup(&backup_path, &target_path, false)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to restore backup: {e}"))
-            .expect("Failed to restore backup");
+        match restore_backup(&backup_path, &target_path, false).await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to restore backup: {e}"),
+        }
 
         assert!(target_path.exists());
         assert_eq!(
-            fs::read_to_string(&target_path)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to read target file: {e}"))
-                .expect("Failed to read target file"),
+            match fs::read_to_string(&target_path).await {
+                Ok(s) => s,
+                Err(e) => panic!("Failed to read target file: {e}"),
+            },
             "backup data"
         );
     }
 
     #[tokio::test]
     async fn test_restore_backup_checksum_verification() {
-        let temp_dir = TempDir::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"))
-            .expect("Failed to create temp dir");
+        let temp_dir = match TempDir::new() {
+            Ok(dir) => dir,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
         let root = temp_dir.path();
 
         // Create backup file
         let backup_dir = root.join("backups").join("test.db");
-        fs::create_dir_all(&backup_dir)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to create backup dir: {e}"))
-            .expect("Failed to create backup dir");
+        match fs::create_dir_all(&backup_dir).await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to create backup dir: {e}"),
+        }
 
         let backup_path = backup_dir.join("backup-20250101-120000.db");
-        fs::write(&backup_path, b"backup data")
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to write backup file: {e}"))
-            .expect("Failed to write backup file");
+        match fs::write(&backup_path, b"backup data").await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to write backup file: {e}"),
+        }
 
         // Create metadata with WRONG checksum
         let metadata = BackupMetadata::new("test.db".to_string(), 11, "wrongchecksum".to_string());
         let metadata_path = backup_path.with_extension("json");
-        let metadata_json = serde_json::to_string_pretty(&metadata)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize metadata: {e}"))
-            .expect("Failed to serialize metadata");
-        fs::write(&metadata_path, metadata_json)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to write metadata: {e}"))
-            .expect("Failed to write metadata");
+        let metadata_json = match serde_json::to_string_pretty(&metadata) {
+            Ok(json) => json,
+            Err(e) => panic!("Failed to serialize metadata: {e}"),
+        };
+        match fs::write(&metadata_path, metadata_json).await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to write metadata: {e}"),
+        }
 
         let target_path = root.join("restored.db");
 

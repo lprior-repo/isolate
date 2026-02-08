@@ -154,7 +154,6 @@ async fn run_validate(
 }
 
 /// Repair a workspace
-#[allow(clippy::too_many_lines)]
 async fn run_repair(
     jj_root: &std::path::Path,
     workspace: &str,
@@ -236,26 +235,27 @@ async fn run_repair(
     let workspace_path = jj_root.join(workspace);
 
     // Get the most severe issue to determine the repair strategy
-    // If there are no issues (validation passed), return early
-    let strategy = if let Some(issue) = validation.most_severe_issue() {
-        issue.recommended_strategy
-    } else {
-        // No issues found - workspace is valid, no repair needed
-        if format.is_json() {
-            let envelope = SchemaEnvelope::new(
-                "integrity-repair-response",
-                "single",
-                RepairResponse {
-                    workspace: workspace.to_string(),
-                    success: true,
-                    summary: "Workspace is already valid, no repair needed".to_string(),
-                },
-            );
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
-        } else {
-            println!("Workspace '{workspace}' is valid - no repair needed");
+    // If there are no issues (validation passed), use NoRepairPossible
+    let strategy = match validation.most_severe_issue() {
+        Some(issue) => issue.recommended_strategy,
+        None => {
+            // No issues found - workspace is valid
+            if format.is_json() {
+                let envelope = SchemaEnvelope::new(
+                    "integrity-repair-response",
+                    "single",
+                    RepairResponse {
+                        workspace: workspace.to_string(),
+                        success: true,
+                        summary: "Workspace is already valid, no repair needed".to_string(),
+                    },
+                );
+                println!("{}", serde_json::to_string_pretty(&envelope)?);
+            } else {
+                println!("Workspace '{workspace}' is valid - no repair needed");
+            }
+            return Ok(());
         }
-        return Ok(());
     };
 
     match executor
@@ -581,7 +581,7 @@ mod tests {
     async fn test_repair_empty_workspace_name_returns_error() {
         // Create a temp dir to use as jj_root
         let temp_dir =
-            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"));
+            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {}", e));
 
         let jj_root = match temp_dir {
             Ok(dir) => dir,
@@ -600,7 +600,7 @@ mod tests {
 
         // Verify we get an error, not a panic
         match result {
-            Ok(()) => panic!("Repair with empty workspace name should return an error"),
+            Ok(_) => panic!("Repair with empty workspace name should return an error"),
             Err(e) => {
                 let error_msg = e.to_string();
                 assert!(
@@ -615,7 +615,7 @@ mod tests {
     #[tokio::test]
     async fn test_validate_empty_workspace_name_returns_error() {
         let temp_dir =
-            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"));
+            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {}", e));
 
         let jj_root = match temp_dir {
             Ok(dir) => dir,
@@ -652,12 +652,12 @@ mod tests {
     #[tokio::test]
     async fn test_repair_nonexistent_workspace_returns_error() {
         let temp_dir =
-            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {e}"));
+            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {}", e));
 
         let jj_root = match temp_dir {
             Ok(dir) => dir,
             Err(e) => {
-                eprintln!("Skipping test: failed to create temp dir: {e}");
+                eprintln!("Skipping test: failed to create temp dir: {}", e);
                 return;
             }
         };
@@ -666,27 +666,21 @@ mod tests {
 
         // Attempt to repair a workspace that doesn't exist
         // The validator should detect the missing directory and return an error
-        let result = run_repair(
-            jj_root_path,
-            "nonexistent-workspace",
-            false,
-            OutputFormat::Human,
-        )
-        .await;
+        let result = run_repair(jj_root_path, "nonexistent-workspace", false, OutputFormat::Human).await;
 
         // Verify the result is Ok (command succeeded) but reports repair failure
         match result {
-            Ok(()) => {
-                // Command succeeded, repair executor should handle missing workspace gracefully
+            Ok(_) => {
+                // Command succeeded, check output contains appropriate error message
+                // The repair should gracefully handle missing workspace
             }
             Err(e) => {
                 // If we get an error, it should not be a panic
                 let error_msg = e.to_string();
                 assert!(
-                    !error_msg.contains("panic")
-                        && !error_msg.contains("unwrap")
-                        && !error_msg.contains("internal error"),
-                    "Error should be a proper error, not a panic: {error_msg}"
+                    !error_msg.contains("panic") && !error_msg.contains("unwrap") && !error_msg.contains("internal error"),
+                    "Error should be a proper error, not a panic: {}",
+                    error_msg
                 );
             }
         }

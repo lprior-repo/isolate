@@ -114,8 +114,6 @@ fn export_options_no_include_files_field() {
     //    crates/zjj/src/commands/export_import.rs
     // 2. Remove #[allow(dead_code)] attribute
     // 3. Remove this test entirely (it's just a documentation placeholder)
-
-    // This test documents the planned changes
 }
 
 /// Test that help text doesn't mention tarball

@@ -25,15 +25,12 @@ pub(super) async fn atomic_create_session(
     workspace_path: &std::path::Path,
     db: &SessionDb,
     bead_metadata: Option<serde_json::Value>,
-    create_command_id: Option<&str>,
 ) -> Result<()> {
     let workspace_path_str = workspace_path.display().to_string();
 
     // STEP 1: Create DB record with 'creating' status FIRST
     // This makes the creation attempt detectable by doctor
-    let db_result = db
-        .create_with_command_id(name, &workspace_path_str, create_command_id)
-        .await;
+    let db_result = db.create(name, &workspace_path_str).await;
 
     let _session = match db_result {
         Ok(s) => s,
