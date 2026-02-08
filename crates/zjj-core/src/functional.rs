@@ -120,8 +120,9 @@ mod tests {
         let composed = compose_result(double, add_one);
 
         let result = composed(5);
-        let Ok(value) = result else {
-            panic!("composition failed");
+        let value = match result {
+            Ok(v) => v,
+            Err(e) => panic!("composition failed: {e}"),
         };
         assert_eq!(value, 11);
     }
@@ -149,8 +150,9 @@ mod tests {
     fn test_fold_result() {
         let items = vec![1, 2, 3, 4, 5];
         let result = fold_result(items, 0, |acc, x| Ok(acc + x));
-        let Ok(value) = result else {
-            panic!("fold failed");
+        let value = match result {
+            Ok(v) => v,
+            Err(e) => panic!("fold failed: {e}"),
         };
         assert_eq!(value, 15);
     }
@@ -159,8 +161,9 @@ mod tests {
     fn test_map_result() {
         let items = vec![1, 2, 3];
         let result = map_result(items, |x| Ok(x * 2));
-        let Ok(value) = result else {
-            panic!("map failed");
+        let value = match result {
+            Ok(v) => v,
+            Err(e) => panic!("map failed: {e}"),
         };
         assert_eq!(value, vec![2, 4, 6]);
     }
@@ -169,8 +172,9 @@ mod tests {
     fn test_filter_result() {
         let items = vec![1, 2, 3, 4, 5];
         let result = filter_result(items, |x| Ok(x % 2 == 0));
-        let Ok(value) = result else {
-            panic!("filter failed");
+        let value = match result {
+            Ok(v) => v,
+            Err(e) => panic!("filter failed: {e}"),
         };
         assert_eq!(value, vec![2, 4]);
     }

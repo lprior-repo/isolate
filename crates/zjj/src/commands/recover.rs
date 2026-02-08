@@ -657,7 +657,9 @@ pub async fn run_op_recover(options: &OpRecoverOptions) -> Result<()> {
         match location {
             Location::Workspace { path, .. } => path,
             Location::Main => {
-                anyhow::bail!("Not in a workspace. Specify a session name or run from within a workspace.");
+                anyhow::bail!(
+                    "Not in a workspace. Specify a session name or run from within a workspace."
+                );
             }
         }
     };

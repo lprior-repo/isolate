@@ -44,9 +44,6 @@ pub struct ExportOptions {
     pub session: Option<String>,
     /// Output file path (stdout if None)
     pub output: Option<String>,
-    /// Include workspace files
-    #[allow(dead_code)]
-    pub include_files: bool,
     /// Output format
     pub format: OutputFormat,
 }
@@ -232,10 +229,7 @@ async fn validate_and_parse_import(input_path: &str) -> Result<ExportResult> {
         if let Some(ref ts_str) = session.created_at {
             // Validate timestamp format - will error if invalid
             validate_and_parse_timestamp(Some(ts_str)).map_err(|e| {
-                anyhow::anyhow!(
-                    "Invalid timestamp for session '{}': {e}",
-                    session.name
-                )
+                anyhow::anyhow!("Invalid timestamp for session '{}': {e}", session.name)
             })?;
         }
     }
@@ -296,11 +290,10 @@ async fn import_session(
     let name = &session.name;
 
     // Validate and parse the timestamp, using current time if not provided
-    let created_timestamp = validate_and_parse_timestamp(session.created_at.as_ref())?
-        .map_or_else(|| chrono::Utc::now(), |dt| dt);
+    let created_timestamp = validate_and_parse_timestamp(session.created_at.as_ref())?.unwrap_or_else(chrono::Utc::now);
 
-    // Convert DateTime to unix timestamp
-    let created_ts = created_timestamp.timestamp() as u64;
+    // Convert DateTime to unix timestamp (timestamps are always positive in our usage)
+    let created_ts = created_timestamp.timestamp().unsigned_abs();
 
     let _created: Session = db
         .create_with_timestamp(name, workspace_path, created_ts)
@@ -528,7 +521,10 @@ mod tests {
     fn test_validate_and_parse_timestamp_valid_rfc3339() -> anyhow::Result<()> {
         let valid_ts = "2025-01-15T12:30:45Z";
         let result = validate_and_parse_timestamp(Some(&valid_ts.to_string()))?;
-        assert!(result.is_some(), "Valid timestamp should parse successfully");
+        assert!(
+            result.is_some(),
+            "Valid timestamp should parse successfully"
+        );
         Ok(())
     }
 
@@ -536,7 +532,10 @@ mod tests {
     fn test_validate_and_parse_timestamp_with_offset() -> anyhow::Result<()> {
         let valid_ts = "2025-01-15T12:30:45+08:00";
         let result = validate_and_parse_timestamp(Some(&valid_ts.to_string()))?;
-        assert!(result.is_some(), "Timestamp with offset should parse successfully");
+        assert!(
+            result.is_some(),
+            "Timestamp with offset should parse successfully"
+        );
         Ok(())
     }
 
@@ -558,11 +557,13 @@ mod tests {
     fn test_validate_and_parse_timestamp_invalid_format() {
         let invalid_ts = "not-a-timestamp";
         let result = validate_and_parse_timestamp(Some(&invalid_ts.to_string()));
-        assert!(
-            result.is_err(),
-            "Invalid timestamp format should return an error"
-        );
-        assert!(result.unwrap_err().to_string().contains("invalid timestamp format"));
+        match result {
+            Err(err) => assert!(
+                err.to_string().contains("invalid timestamp format"),
+                "error message should mention invalid timestamp format: {err}"
+            ),
+            Ok(_) => panic!("should return error for invalid timestamp"),
+        }
     }
 
     #[test]

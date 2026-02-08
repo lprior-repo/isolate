@@ -72,10 +72,7 @@ pub async fn apply_retention_policy(
 /// Returns error if any retention operation fails
 #[allow(dead_code)]
 // High-level retention orchestration function
-pub async fn apply_retention_policy_all(
-    root: &Path,
-    config: &BackupConfig,
-) -> Result<Vec<String>> {
+pub async fn apply_retention_policy_all(root: &Path, config: &BackupConfig) -> Result<Vec<String>> {
     let databases = vec!["state.db", "queue.db", "beads.db"];
 
     let mut all_removed = Vec::new();

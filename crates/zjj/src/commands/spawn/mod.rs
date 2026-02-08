@@ -219,9 +219,7 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
     zjj_core::jj_operation_sync::create_workspace_synced(bead_id, &workspace_path)
         .await
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
-            reason: format!(
-                "Failed to create workspace with operation sync: {e}"
-            ),
+            reason: format!("Failed to create workspace with operation sync: {e}"),
         })?;
 
     // Create AI discoverability files in the workspace

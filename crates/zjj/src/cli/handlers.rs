@@ -10,11 +10,11 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 use crate::{
     cli::commands::build_cli,
     commands::{
-        abort, add, agents, ai, attach, broadcast, batch, bookmark, can_i, checkpoint, claim, clean,
-        completions, config, context, contract, dashboard, diff, doctor, done, events, examples,
-        export_import, focus, get_session_db, init, integrity, introspect, list, pane, query,
-        queue, recover, remove, rename, revert, schema, session_mgmt, spawn, status, switch, sync,
-        template, undo, validate, wait, whatif, whereami, whoami, work,
+        abort, add, agents, ai, attach, batch, bookmark, broadcast, can_i, checkpoint, claim,
+        clean, completions, config, context, contract, dashboard, diff, doctor, done, events,
+        examples, export_import, focus, get_session_db, init, integrity, introspect, list, pane,
+        query, queue, recover, remove, rename, revert, schema, session_mgmt, spawn, status, switch,
+        sync, template, undo, validate, wait, whatif, whereami, whoami, work,
     },
     hooks, json,
 };
@@ -157,7 +157,6 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
     }
 }
 
-
 pub async fn handle_broadcast(sub_m: &ArgMatches) -> Result<()> {
     let message = sub_m
         .get_one::<String>("message")
@@ -167,7 +166,9 @@ pub async fn handle_broadcast(sub_m: &ArgMatches) -> Result<()> {
         .get_one::<String>("agent-id")
         .cloned()
         .or_else(|| std::env::var("ZJJ_AGENT_ID").ok())
-        .ok_or_else(|| anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id")
+        })?;
 
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
@@ -354,7 +355,9 @@ pub async fn handle_doctor(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let fix = sub_m.get_flag("fix");
-    doctor::run(format, fix).await
+    let dry_run = sub_m.get_flag("dry-run");
+    let verbose = sub_m.get_flag("verbose");
+    doctor::run(format, fix, dry_run, verbose).await
 }
 
 pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
@@ -1036,11 +1039,9 @@ pub async fn handle_export(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let session = sub_m.get_one::<String>("session").cloned();
     let output = sub_m.get_one::<String>("output").cloned();
-    let include_files = sub_m.get_flag("include-files");
     let options = export_import::ExportOptions {
         session,
         output,
-        include_files,
         format,
     };
     export_import::run_export(&options).await

@@ -947,6 +947,8 @@ pub fn cmd_doctor() -> ClapCommand {
             &[
                 "zjj doctor                    Run all system health checks",
                 "zjj doctor --fix              Auto-fix issues where possible",
+                "zjj doctor --fix --dry-run    Preview what would be fixed without making changes",
+                "zjj doctor --fix --verbose    Show detailed progress during fixes",
                 "zjj doctor --json             Export check results to JSON",
             ],
             Some(json_docs::doctor()),
@@ -962,6 +964,19 @@ pub fn cmd_doctor() -> ClapCommand {
                 .long("fix")
                 .action(clap::ArgAction::SetTrue)
                 .help("Auto-fix issues where possible"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview what would be fixed without making changes"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .action(clap::ArgAction::SetTrue)
+                .help("Show detailed progress during fixes"),
         )
 }
 
@@ -2292,12 +2307,6 @@ pub fn cmd_export() -> ClapCommand {
                 .help("Output file path"),
         )
         .arg(
-            Arg::new("include-files")
-                .long("include-files")
-                .action(clap::ArgAction::SetTrue)
-                .help("Include workspace files in export (creates tarball)"),
-        )
-        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
@@ -2306,7 +2315,8 @@ pub fn cmd_export() -> ClapCommand {
         .after_help(after_help_text(
             &[
                 "zjj export feature-x -o state.json  Export session to file",
-                "zjj export --include-files     Export with workspace files",
+                "zjj export --json                  Export all sessions as JSON",
+                "zjj export                         Export to stdout",
             ],
             None,
         ))
