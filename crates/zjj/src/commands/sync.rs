@@ -95,7 +95,7 @@ async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionD
                  Run 'zjj init' in the main repository first."
             );
 
-            let db_path = main_repo_zjj.join("state.db");
+            let db_path = super::get_db_path().await?;
 
             // Security: Verify database is not a symlink
             if db_path.is_symlink() {

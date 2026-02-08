@@ -147,6 +147,11 @@ impl MergeQueue {
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to open in-memory database: {e}")))?;
 
+        Self::new(pool).await
+    }
+
+    /// Create a new merge queue from an existing connection pool
+    pub async fn new(pool: SqlitePool) -> Result<Self> {
         let queue = Self {
             pool,
             lock_timeout_secs: Self::DEFAULT_LOCK_TIMEOUT_SECS,

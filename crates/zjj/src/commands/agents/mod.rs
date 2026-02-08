@@ -66,8 +66,7 @@ pub async fn run(args: &AgentsArgs, format: OutputFormat) -> Result<()> {
 
 /// Get database pool from session database
 async fn get_db_pool() -> Result<SqlitePool> {
-    let data_dir = crate::commands::zjj_data_dir().await?;
-    let db_path = data_dir.join("state.db");
+    let db_path = crate::commands::get_db_path().await?;
 
     // Check if database exists
     if !db_path.exists() {

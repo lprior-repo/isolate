@@ -171,6 +171,13 @@ impl TestHarness {
         // Get the zjj binary path from the build
         let zjj_bin = PathBuf::from(env!("CARGO_BIN_EXE_zjj"));
 
+        // Set environment variables for the current process to ensure isolation
+        // when calling internal functions directly (not just via subprocess)
+        std::env::set_var("ZJJ_TEST_MODE", "1");
+        std::env::set_var("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR);
+        let state_db_path = repo_path.join(".zjj").join("state.db");
+        std::env::set_var("ZJJ_STATE_DB", state_db_path);
+
         Ok(Self {
             _temp_dir: temp_dir,
             repo_path: repo_path.clone(),
@@ -207,28 +214,41 @@ impl TestHarness {
             std::env::var("PATH").unwrap_or_default()
         );
 
-        let output = Command::new(&self.zjj_bin)
-            .args(args)
+        let state_db = self.repo_path.join(".zjj").join("state.db");
+
+        // Get absolute path to jj binary for subprocess
+        let jj_binary_path = jj_info().binary_path.as_ref();
+
+        let mut cmd = Command::new(&self.zjj_bin);
+        cmd.args(args)
             .current_dir(&self.current_dir)
             .env("NO_COLOR", "1")
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
-            .env("PATH", &path_with_system_dirs)
-            .output()
-            .map_or_else(
-                |_| CommandResult {
-                    success: false,
-                    exit_code: None,
-                    stdout: String::new(),
-                    stderr: "Command execution failed".to_string(),
-                },
-                |output| CommandResult {
-                    success: output.status.success(),
-                    exit_code: output.status.code(),
-                    stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-                    stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-                },
-            );
+            .env("ZJJ_STATE_DB", state_db)
+            .env("PATH", &path_with_system_dirs);
+
+        // Set ZJJ_JJ_PATH if jj binary was found
+        if let Some(path) = jj_binary_path {
+            if let Some(path_str) = path.to_str() {
+                cmd.env("ZJJ_JJ_PATH", path_str);
+            }
+        }
+
+        let output = cmd.output().map_or_else(
+            |_| CommandResult {
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "Command execution failed".to_string(),
+            },
+            |output| CommandResult {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            },
+        );
 
         output
     }

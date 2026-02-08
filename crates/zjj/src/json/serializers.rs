@@ -128,6 +128,23 @@ pub struct TemplateDeleteOutput {
     pub message: String,
 }
 
+/// Config get command JSON output
+#[derive(Debug, Serialize)]
+#[allow(dead_code)]
+pub struct ConfigValueOutput {
+    pub key: String,
+    pub value: serde_json::Value,
+}
+
+/// Config set command JSON output
+#[derive(Debug, Serialize)]
+#[allow(dead_code)]
+pub struct ConfigSetOutput {
+    pub key: String,
+    pub value: String,
+    pub scope: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

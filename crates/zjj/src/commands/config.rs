@@ -14,7 +14,9 @@ use std::{
 
 use anyhow::{Context, Result};
 use serde_json::Value as JsonValue;
-use zjj_core::{config::Config, OutputFormat};
+use zjj_core::{config::Config, json::SchemaEnvelope, OutputFormat};
+
+use crate::json::{ConfigSetOutput, ConfigValueOutput};
 
 /// File lock timeout - maximum time to wait for acquiring a file lock
 const LOCK_TIMEOUT: Duration = Duration::from_secs(5);
@@ -69,12 +71,21 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
             set_config_value(&config_path, &key, &value).await?;
 
             if options.format.is_json() {
-                println!(
-                    "{{ \"success\": true, \"key\": \"{}\", \"value\": \"{}\", \"scope\": \"{}\" }}",
-                    key,
-                    value,
-                    if options.global { "global" } else { "project" }
-                );
+                let output = ConfigSetOutput {
+                    key: key.clone(),
+                    value: value.clone(),
+                    scope: if options.global {
+                        "global".to_string()
+                    } else {
+                        "project".to_string()
+                    },
+                };
+                let envelope = SchemaEnvelope::new("config-set", "single", output);
+                let output_json = match serde_json::to_string_pretty(&envelope) {
+                    Ok(s) => s,
+                    Err(_) => r#"{"error": "serialization failed"}"#.to_string(),
+                };
+                println!("{output_json}");
             } else {
                 println!("✓ Set {key} = {value}");
                 if options.global {
@@ -101,9 +112,12 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
 /// Show all configuration
 fn show_all_config(config: &Config, global_only: bool, format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let json_val =
-            serde_json::to_string_pretty(config).context("Failed to serialize config to JSON")?;
-        println!("{json_val}");
+        let envelope = SchemaEnvelope::new("config-response", "single", config.clone());
+        let output_json = match serde_json::to_string_pretty(&envelope) {
+            Ok(s) => s,
+            Err(_) => r#"{"error": "serialization failed"}"#.to_string(),
+        };
+        println!("{output_json}");
         return Ok(());
     }
 
@@ -151,7 +165,16 @@ fn show_config_value(config: &Config, key: &str, format: OutputFormat) -> Result
             })
         })?;
 
-        println!("{}", serde_json::to_string_pretty(current)?);
+        let output = ConfigValueOutput {
+            key: key.to_string(),
+            value: current.clone(),
+        };
+        let envelope = SchemaEnvelope::new("config-get", "single", output);
+        let output_json = match serde_json::to_string_pretty(&envelope) {
+            Ok(s) => s,
+            Err(_) => r#"{"error": "serialization failed"}"#.to_string(),
+        };
+        println!("{output_json}");
         return Ok(());
     }
 

@@ -19,6 +19,7 @@ use std::{panic, process, time::Duration};
 
 mod beads;
 mod cli;
+mod command_context;
 mod commands;
 mod db;
 mod hooks;

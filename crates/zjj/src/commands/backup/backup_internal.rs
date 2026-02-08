@@ -164,6 +164,9 @@ pub fn parse_backup_filename(filename: &str) -> Result<DateTime<Utc>> {
                 .and_then(|s| s.strip_suffix(".db"))
                 .ok_or_else(|| anyhow::anyhow!("Invalid backup filename format"))
                 .and_then(|ts| {
+                    if ts.len() < 15 {
+                        return Err(anyhow::anyhow!("Timestamp string too short: {ts}"));
+                    }
                     DateTime::parse_from_rfc3339(&format!(
                         "{}-{}-{}T{}:{}:{}-00:00",
                         &ts[0..4],

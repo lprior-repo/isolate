@@ -9,6 +9,7 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     cli::commands::build_cli,
+    command_context,
     commands::{
         abort, add, agents, ai, attach, batch, bookmark, broadcast, can_i, checkpoint, claim,
         clean, completions, config, context, contract, dashboard, diff, doctor, done, events,
@@ -1222,89 +1223,100 @@ pub async fn run_cli() -> Result<()> {
     let matches = match cli.try_get_matches() {
         Ok(m) => m,
         Err(e) => {
+            // Check if this is a --help or --version request (should exit 0)
+            // Clap returns Kind::DisplayHelp or Kind::DisplayVersion for these
+            use clap::error::ErrorKind;
+            let should_exit_zero =
+                matches!(e.kind(), ErrorKind::DisplayHelp | ErrorKind::DisplayVersion);
+
             if json_mode {
-                let json_err = serde_json::json!({ "success": false, "error": { "code": "INVALID_ARGUMENT", "message": e.to_string(), "exit_code": 2 } });
+                let json_err = serde_json::json!({ "success": false, "error": { "code": "INVALID_ARGUMENT", "message": e.to_string(), "exit_code": if should_exit_zero { 0 } else { 2 } } });
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&json_err).unwrap_or_default()
                 );
             }
             let _ = e.print();
-            process::exit(2);
+            process::exit(if should_exit_zero { 0 } else { 2 });
         }
     };
 
     let on_success = matches.get_one::<String>("on-success").cloned();
     let on_failure = matches.get_one::<String>("on-failure").cloned();
     let hooks_config = hooks::HooksConfig::from_args(on_success, on_failure)?;
+    let explicit_command_id = matches.get_one::<String>("command-id").map(String::as_str);
+    let base_command_id = command_context::resolve_base_command_id(explicit_command_id);
 
-    let result = match matches.subcommand() {
-        Some(("init", sub_m)) => handle_init(sub_m).await,
-        Some(("attach", sub_m)) => {
-            let options = attach::AttachOptions::from_matches(sub_m)?;
-            attach::run_with_options(&options).await
+    let result = command_context::with_command_context(base_command_id, async {
+        match matches.subcommand() {
+            Some(("init", sub_m)) => handle_init(sub_m).await,
+            Some(("attach", sub_m)) => {
+                let options = attach::AttachOptions::from_matches(sub_m)?;
+                attach::run_with_options(&options).await
+            }
+            Some(("add", sub_m)) => handle_add(sub_m).await,
+            Some(("agents", sub_m)) => handle_agents(sub_m).await,
+            Some(("list", sub_m)) => handle_list(sub_m).await,
+            Some(("broadcast", sub_m)) => handle_broadcast(sub_m).await,
+            Some(("bookmark", sub_m)) => handle_bookmark(sub_m).await,
+            Some(("pane", sub_m)) => handle_pane(sub_m).await,
+            Some(("remove", sub_m)) => handle_remove(sub_m).await,
+            Some(("focus", sub_m)) => handle_focus(sub_m).await,
+            Some(("switch", sub_m)) => handle_switch(sub_m).await,
+            Some(("status", sub_m)) => handle_status(sub_m).await,
+            Some(("sync", sub_m)) => handle_sync(sub_m).await,
+            Some(("diff", sub_m)) => handle_diff(sub_m).await,
+            Some(("config", sub_m)) => handle_config(sub_m).await,
+            Some(("clean", sub_m)) => handle_clean(sub_m).await,
+            Some(("template", sub_m)) => handle_template(sub_m).await,
+            Some(("dashboard" | "dash", _)) => dashboard::run().await,
+            Some(("introspect", sub_m)) => handle_introspect(sub_m).await,
+            Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m).await,
+            Some(("integrity", sub_m)) => handle_integrity(sub_m).await,
+            Some(("query", sub_m)) => handle_query(sub_m).await,
+            Some(("queue", sub_m)) => handle_queue(sub_m).await,
+            Some(("context", sub_m)) => handle_context(sub_m).await,
+            Some(("done", sub_m)) => handle_done(sub_m).await,
+            Some(("spawn", sub_m)) => handle_spawn(sub_m).await,
+            Some(("checkpoint" | "ckpt", sub_m)) => handle_checkpoint(sub_m).await,
+            Some(("undo", sub_m)) => handle_undo(sub_m).await,
+            Some(("revert", sub_m)) => handle_revert(sub_m).await,
+            Some(("whereami", sub_m)) => handle_whereami(sub_m).await,
+            Some(("whoami", sub_m)) => handle_whoami(sub_m),
+            Some(("work", sub_m)) => handle_work(sub_m).await,
+            Some(("abort", sub_m)) => handle_abort(sub_m).await,
+            Some(("ai", sub_m)) => handle_ai(sub_m).await,
+            Some(("help", sub_m)) => handle_help(sub_m),
+            Some(("can-i", sub_m)) => handle_can_i(sub_m).await,
+            Some(("contract", sub_m)) => handle_contract(sub_m),
+            Some(("examples", sub_m)) => handle_examples(sub_m),
+            Some(("validate", sub_m)) => handle_validate(sub_m),
+            Some(("whatif", sub_m)) => handle_whatif(sub_m),
+            Some(("claim", sub_m)) => handle_claim(sub_m).await,
+            Some(("yield", sub_m)) => handle_yield(sub_m).await,
+            Some(("batch", sub_m)) => handle_batch(sub_m).await,
+            Some(("events", sub_m)) => handle_events(sub_m).await,
+            Some(("completions", sub_m)) => handle_completions(sub_m),
+            Some(("rename", sub_m)) => handle_rename(sub_m).await,
+            Some(("pause", sub_m)) => handle_pause(sub_m).await,
+            Some(("resume", sub_m)) => handle_resume(sub_m).await,
+            Some(("lock", sub_m)) => handle_lock(sub_m).await,
+            Some(("unlock", sub_m)) => handle_unlock(sub_m).await,
+            Some(("clone", sub_m)) => handle_clone(sub_m).await,
+            Some(("export", sub_m)) => handle_export(sub_m).await,
+            Some(("import", sub_m)) => handle_import(sub_m).await,
+            Some(("wait", sub_m)) => handle_wait(sub_m).await,
+            Some(("schema", sub_m)) => handle_schema(sub_m),
+            Some(("recover", sub_m)) => handle_recover(sub_m).await,
+            Some(("retry", sub_m)) => handle_retry(sub_m).await,
+            Some(("rollback", sub_m)) => handle_rollback(sub_m).await,
+            _ => {
+                build_cli().print_help()?;
+                Ok(())
+            }
         }
-        Some(("add", sub_m)) => handle_add(sub_m).await,
-        Some(("agents", sub_m)) => handle_agents(sub_m).await,
-        Some(("list", sub_m)) => handle_list(sub_m).await,
-        Some(("broadcast", sub_m)) => handle_broadcast(sub_m).await,
-        Some(("bookmark", sub_m)) => handle_bookmark(sub_m).await,
-        Some(("pane", sub_m)) => handle_pane(sub_m).await,
-        Some(("remove", sub_m)) => handle_remove(sub_m).await,
-        Some(("focus", sub_m)) => handle_focus(sub_m).await,
-        Some(("switch", sub_m)) => handle_switch(sub_m).await,
-        Some(("status", sub_m)) => handle_status(sub_m).await,
-        Some(("sync", sub_m)) => handle_sync(sub_m).await,
-        Some(("diff", sub_m)) => handle_diff(sub_m).await,
-        Some(("config", sub_m)) => handle_config(sub_m).await,
-        Some(("clean", sub_m)) => handle_clean(sub_m).await,
-        Some(("template", sub_m)) => handle_template(sub_m).await,
-        Some(("dashboard" | "dash", _)) => dashboard::run().await,
-        Some(("introspect", sub_m)) => handle_introspect(sub_m).await,
-        Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m).await,
-        Some(("integrity", sub_m)) => handle_integrity(sub_m).await,
-        Some(("query", sub_m)) => handle_query(sub_m).await,
-        Some(("queue", sub_m)) => handle_queue(sub_m).await,
-        Some(("context", sub_m)) => handle_context(sub_m).await,
-        Some(("done", sub_m)) => handle_done(sub_m).await,
-        Some(("spawn", sub_m)) => handle_spawn(sub_m).await,
-        Some(("checkpoint" | "ckpt", sub_m)) => handle_checkpoint(sub_m).await,
-        Some(("undo", sub_m)) => handle_undo(sub_m).await,
-        Some(("revert", sub_m)) => handle_revert(sub_m).await,
-        Some(("whereami", sub_m)) => handle_whereami(sub_m).await,
-        Some(("whoami", sub_m)) => handle_whoami(sub_m),
-        Some(("work", sub_m)) => handle_work(sub_m).await,
-        Some(("abort", sub_m)) => handle_abort(sub_m).await,
-        Some(("ai", sub_m)) => handle_ai(sub_m).await,
-        Some(("help", sub_m)) => handle_help(sub_m),
-        Some(("can-i", sub_m)) => handle_can_i(sub_m).await,
-        Some(("contract", sub_m)) => handle_contract(sub_m),
-        Some(("examples", sub_m)) => handle_examples(sub_m),
-        Some(("validate", sub_m)) => handle_validate(sub_m),
-        Some(("whatif", sub_m)) => handle_whatif(sub_m),
-        Some(("claim", sub_m)) => handle_claim(sub_m).await,
-        Some(("yield", sub_m)) => handle_yield(sub_m).await,
-        Some(("batch", sub_m)) => handle_batch(sub_m).await,
-        Some(("events", sub_m)) => handle_events(sub_m).await,
-        Some(("completions", sub_m)) => handle_completions(sub_m),
-        Some(("rename", sub_m)) => handle_rename(sub_m).await,
-        Some(("pause", sub_m)) => handle_pause(sub_m).await,
-        Some(("resume", sub_m)) => handle_resume(sub_m).await,
-        Some(("lock", sub_m)) => handle_lock(sub_m).await,
-        Some(("unlock", sub_m)) => handle_unlock(sub_m).await,
-        Some(("clone", sub_m)) => handle_clone(sub_m).await,
-        Some(("export", sub_m)) => handle_export(sub_m).await,
-        Some(("import", sub_m)) => handle_import(sub_m).await,
-        Some(("wait", sub_m)) => handle_wait(sub_m).await,
-        Some(("schema", sub_m)) => handle_schema(sub_m),
-        Some(("recover", sub_m)) => handle_recover(sub_m).await,
-        Some(("retry", sub_m)) => handle_retry(sub_m).await,
-        Some(("rollback", sub_m)) => handle_rollback(sub_m).await,
-        _ => {
-            build_cli().print_help()?;
-            Ok(())
-        }
-    };
+    })
+    .await;
 
     if let Err(ref e) = result {
         if json_mode {

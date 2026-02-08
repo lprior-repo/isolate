@@ -120,6 +120,24 @@ pub async fn zjj_data_dir() -> Result<PathBuf> {
     Ok(root.join(".zjj"))
 }
 
+/// Get the path to the session database, respecting environment variable overrides
+///
+/// # Errors
+///
+/// Returns an error if prerequisites are not met and no override is provided
+pub async fn get_db_path() -> Result<PathBuf> {
+    if let Ok(env_db) = std::env::var("ZJJ_STATE_DB") {
+        let p = PathBuf::from(env_db);
+        eprintln!("DEBUG: Using ZJJ_STATE_DB override: {}", p.display());
+        return Ok(p);
+    }
+
+    let data_dir = zjj_data_dir().await?;
+    let p = data_dir.join("state.db");
+    eprintln!("DEBUG: Using default database path: {}", p.display());
+    Ok(p)
+}
+
 /// Get the session database for the current repository
 ///
 /// # Errors
@@ -129,14 +147,16 @@ pub async fn zjj_data_dir() -> Result<PathBuf> {
 /// - ZJJ is not initialized
 /// - Unable to open the database
 pub async fn get_session_db() -> Result<SessionDb> {
-    let data_dir = zjj_data_dir().await?;
+    let db_path = get_db_path().await?;
 
-    anyhow::ensure!(
-        tokio::fs::try_exists(&data_dir).await.unwrap_or(false),
-        "ZJJ not initialized. Run 'zjj init' first."
-    );
-
-    let db_path = data_dir.join("state.db");
+    // Check for initialization unless we have an override
+    if std::env::var("ZJJ_STATE_DB").is_err() {
+        let data_dir = zjj_data_dir().await?;
+        anyhow::ensure!(
+            tokio::fs::try_exists(&data_dir).await.unwrap_or(false),
+            "ZJJ not initialized. Run 'zjj init' first."
+        );
+    }
 
     // Security consideration: Verify database is not a symlink before opening
     // Symlinks could potentially be used to redirect database access

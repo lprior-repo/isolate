@@ -83,7 +83,7 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     if let context::Location::Workspace { name, .. } = &location {
         if options.idempotent && name == &options.name {
             // Already in the target workspace - return success
-            return output_existing_workspace(&root, name, options);
+            return output_existing_workspace(&root, name, options).await;
         }
         anyhow::bail!(
             "Already in workspace '{name}'. Use 'zjj done' to complete or 'zjj abort' to abandon."
@@ -96,8 +96,7 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     }
 
     // Check if session already exists
-    let data_dir = root.join(".zjj");
-    let db_path = data_dir.join("state.db");
+    let db_path = super::get_db_path().await?;
     let session_db = SessionDb::open(&db_path)
         .await
         .context("Failed to open session database")?;
@@ -106,7 +105,7 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
 
     if existing.is_some() {
         if options.idempotent {
-            return output_existing_workspace(&root, &options.name, options);
+            return output_existing_workspace(&root, &options.name, options).await;
         }
         anyhow::bail!(
             "Session '{}' already exists. Use --idempotent to reuse existing session.",
@@ -129,6 +128,9 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
 
     // Suppress add command output by running internally
     add::run_internal(&add_options).await?;
+
+    // Get data directory for workspace path
+    let data_dir = super::zjj_data_dir().await?;
 
     // Generate agent ID if needed
     let agent_id = if options.no_agent {
@@ -164,8 +166,9 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
 }
 
 /// Output result for an existing workspace (idempotent mode)
-fn output_existing_workspace(root: &Path, name: &str, options: &WorkOptions) -> Result<()> {
-    let workspace_path = root.join(".zjj/workspaces").join(name);
+async fn output_existing_workspace(_root: &Path, name: &str, options: &WorkOptions) -> Result<()> {
+    let data_dir = super::zjj_data_dir().await?;
+    let workspace_path = data_dir.join("workspaces").join(name);
 
     let agent_id = if options.no_agent {
         None
