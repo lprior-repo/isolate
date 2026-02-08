@@ -42,3 +42,4 @@ workspaces/
 .bv/
 .beads/.br_history/
 bead-rmjy-test/
+.scout-agent-1.pid
