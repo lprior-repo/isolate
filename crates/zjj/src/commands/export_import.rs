@@ -290,11 +290,10 @@ async fn import_session(
     let name = &session.name;
 
     // Validate and parse the timestamp, using current time if not provided
-    let created_timestamp = validate_and_parse_timestamp(session.created_at.as_ref())?
-        .map_or_else(|| chrono::Utc::now(), |dt| dt);
+    let created_timestamp = validate_and_parse_timestamp(session.created_at.as_ref())?.unwrap_or_else(chrono::Utc::now);
 
-    // Convert DateTime to unix timestamp
-    let created_ts = created_timestamp.timestamp() as u64;
+    // Convert DateTime to unix timestamp (timestamps are always positive in our usage)
+    let created_ts = created_timestamp.timestamp().unsigned_abs();
 
     let _created: Session = db
         .create_with_timestamp(name, workspace_path, created_ts)
@@ -558,14 +557,13 @@ mod tests {
     fn test_validate_and_parse_timestamp_invalid_format() {
         let invalid_ts = "not-a-timestamp";
         let result = validate_and_parse_timestamp(Some(&invalid_ts.to_string()));
-        assert!(
-            result.is_err(),
-            "Invalid timestamp format should return an error"
-        );
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("invalid timestamp format"));
+        match result {
+            Err(err) => assert!(
+                err.to_string().contains("invalid timestamp format"),
+                "error message should mention invalid timestamp format: {err}"
+            ),
+            Ok(_) => panic!("should return error for invalid timestamp"),
+        }
     }
 
     #[test]

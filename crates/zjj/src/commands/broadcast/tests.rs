@@ -45,7 +45,7 @@ fn create_response(message: &str, sent_to: Vec<String>, timestamp: &str) -> Broa
 /// EARS #1: When broadcast runs, system shall send message to all active agents except sender
 fn test_broadcast_sends_to_all_active() {
     // Setup: Multiple active agents
-    let active_agents = vec![
+    let active_agents = [
         "agent-1".to_string(),
         "agent-2".to_string(),
         "agent-3".to_string(),
@@ -67,7 +67,7 @@ fn test_broadcast_sends_to_all_active() {
 }
 
 #[test]
-/// EARS #2: When storing message, system shall record timestamp and sender agent_id
+/// EARS #2: When storing message, system shall record timestamp and sender `agent_id`
 fn test_message_timestamp_recorded() {
     // Setup
     let message = "Hello, agents!";
@@ -103,7 +103,7 @@ fn test_message_timestamp_recorded() {
 /// EARS #3: When retrieving messages, agents shall see only unread messages for them
 fn test_recipient_filtering() {
     // Setup: Broadcast to specific recipients
-    let all_recipients = vec!["agent-1".to_string(), "agent-2".to_string()];
+    let all_recipients = ["agent-1".to_string(), "agent-2".to_string()];
     let querying_agent = "agent-2";
 
     // Act: Filter messages for this agent
@@ -122,10 +122,10 @@ fn test_recipient_filtering() {
 // ============================================================================
 
 #[test]
-/// Edge case: No other agents → sent_to is empty
+/// Edge case: No other agents → `sent_to` is empty
 fn test_empty_recipient_list_no_other_agents() {
     // Setup: Only sender is active
-    let active_agents = vec!["agent-1".to_string()];
+    let active_agents = ["agent-1".to_string()];
     let sender = "agent-1";
 
     // Act
@@ -140,7 +140,7 @@ fn test_empty_recipient_list_no_other_agents() {
 }
 
 #[test]
-/// Edge case: Single agent (sender only) → sent_to is empty
+/// Edge case: Single agent (sender only) → `sent_to` is empty
 fn test_single_agent_sender_only() {
     // Setup
     let active_agents = ["agent-solo".to_string()];
@@ -158,10 +158,10 @@ fn test_single_agent_sender_only() {
 }
 
 #[test]
-/// Edge case: Multiple agents → sent_to excludes sender
+/// Edge case: Multiple agents → `sent_to` excludes sender
 fn test_multiple_agents_excludes_sender() {
     // Setup: Large agent list
-    let active_agents: Vec<String> = (1..=10).map(|i| format!("agent-{}", i)).collect();
+    let active_agents: Vec<String> = (1..=10).map(|i| format!("agent-{i}")).collect();
     let sender = "agent-5";
 
     // Act
@@ -185,7 +185,7 @@ fn test_empty_message() {
     let args = create_args("", "agent-1");
     let response = BroadcastResponse {
         success: true,
-        message: args.message.clone(),
+        message: args.message,
         sent_to: vec!["agent-2".to_string()],
         timestamp: chrono::Utc::now().to_rfc3339(),
     };
@@ -203,7 +203,7 @@ fn test_large_message() {
     let args = create_args(&large_message, "agent-1");
     let response = BroadcastResponse {
         success: true,
-        message: args.message.clone(),
+        message: args.message,
         sent_to: vec!["agent-2".to_string()],
         timestamp: chrono::Utc::now().to_rfc3339(),
     };
@@ -218,7 +218,7 @@ fn test_large_message() {
 // ============================================================================
 
 #[test]
-/// Invariant: Sender never appears in sent_to list
+/// Invariant: Sender never appears in `sent_to` list
 fn test_sender_never_in_recipient_list() {
     // Property: For any agent list and sender, sender not in recipients
     let test_cases = vec![
@@ -228,7 +228,7 @@ fn test_sender_never_in_recipient_list() {
             "agent-1",
         ),
         (
-            (1..=100).map(|i| format!("agent-{}", i)).collect(),
+            (1..=100).map(|i| format!("agent-{i}")).collect(),
             "agent-50",
         ),
     ];
@@ -256,7 +256,7 @@ fn test_timestamp_always_valid_rfc3339() {
 
     for timestamp in timestamps {
         let parsed: Result<DateTime<Utc>, _> = timestamp.parse();
-        assert!(parsed.is_ok(), "Invalid RFC3339: {}", timestamp);
+        assert!(parsed.is_ok(), "Invalid RFC3339: {timestamp}");
     }
 }
 
@@ -467,7 +467,7 @@ fn test_empty_agent_list() {
 /// Performance: Filtering is O(n) where n = agent count
 fn test_filtering_performance() {
     // Setup: Large agent list (1,000 agents)
-    let active_agents: Vec<String> = (1..=1000).map(|i| format!("agent-{}", i)).collect();
+    let active_agents: Vec<String> = (1..=1000).map(|i| format!("agent-{i}")).collect();
     let sender = "agent-500";
 
     // Act: Filter (should be fast)
@@ -488,7 +488,7 @@ fn test_filtering_performance() {
 /// Performance: Serialization is efficient for large recipient lists
 fn test_serialization_performance() {
     // Setup: Large recipient list (100 agents)
-    let sent_to: Vec<String> = (1..=100).map(|i| format!("agent-{}", i)).collect();
+    let sent_to: Vec<String> = (1..=100).map(|i| format!("agent-{i}")).collect();
     let response = create_response("Performance test", sent_to, "2024-01-01T00:00:00Z");
 
     // Act: Serialize
