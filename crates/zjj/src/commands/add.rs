@@ -130,22 +130,52 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     let workspace_path_str = workspace_path.display().to_string();
 
     // Check if session already exists
-    if let Some(existing) = db.get(&options.name).await? {
-        if options.idempotent {
-            // Idempotent mode: return success with existing session info
-            output_result(
-                &options.name,
-                &existing.workspace_path,
-                &existing.zellij_tab,
-                "already exists (idempotent)",
-                options.format,
+    // Use explicit pattern matching with error handling for better diagnostics
+    let existing_session_result = db.get(&options.name).await;
+    let existing_session = existing_session_result
+        .map_err(|e| {
+            // Log the database query error for debugging
+            tracing::error!(
+                name = %options.name,
+                error = %e,
+                "Failed to query session database for idempotent check"
             );
-            return Ok(());
+            e
+        })?;
+
+    match existing_session {
+        Some(existing) => {
+            if options.idempotent {
+                // Idempotent mode: return success with existing session info
+                tracing::info!(
+                    name = %options.name,
+                    workspace_path = %existing.workspace_path,
+                    status = %existing.status,
+                    "Idempotent mode: reusing existing session"
+                );
+                output_result(
+                    &options.name,
+                    &existing.workspace_path,
+                    &existing.zellij_tab,
+                    "already exists (idempotent)",
+                    options.format,
+                );
+                return Ok(());
+            }
+            // Return zjj_core::Error::ValidationError to get exit code 1
+            return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
+                format!("Session '{}' already exists", options.name),
+            )));
         }
-        // Return zjj_core::Error::ValidationError to get exit code 1
-        return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
-            format!("Session '{}' already exists", options.name),
-        )));
+        None => {
+            // Session doesn't exist, proceed with creation
+            if options.idempotent {
+                tracing::debug!(
+                    name = %options.name,
+                    "Idempotent mode: session not found, will create new session"
+                );
+            }
+        }
     }
 
     // Dry run - just show what would happen
