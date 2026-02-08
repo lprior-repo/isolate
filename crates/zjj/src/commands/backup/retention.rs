@@ -194,6 +194,9 @@ impl RetentionStatus {
     /// Format size as human-readable string
     #[allow(dead_code)]
     // Utility method for human-readable size formatting
+    #[allow(clippy::cast_precision_loss)]
+    // Safe because we're displaying sizes with 2 decimal places; precision loss beyond f64 mantissa
+    // is negligible for human-readable output
     pub fn format_size(bytes: u64) -> String {
         const KB: u64 = 1024;
         const MB: u64 = 1024 * KB;
