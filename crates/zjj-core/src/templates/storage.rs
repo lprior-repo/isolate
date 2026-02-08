@@ -177,9 +177,14 @@ fn validate_template_size(content: &str, description: &str) -> Result<()> {
 /// # Errors
 ///
 /// Returns error if the path cannot be constructed
+///
+/// # Note
+///
+/// The `repo_root` parameter should be the `.zjj` data directory (not the repo root),
+/// as returned by `zjj_data_dir()`. This prevents double `.zjj` in the path.
 pub fn templates_dir(repo_root: &Path) -> Result<PathBuf> {
-    let zjj_dir = repo_root.join(".zjj");
-    let templates_path = zjj_dir.join("templates");
+    // repo_root is already the .zjj directory, so just join "templates"
+    let templates_path = repo_root.join("templates");
     Ok(templates_path)
 }
 
