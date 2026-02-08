@@ -512,8 +512,7 @@ mod tests {
             let result = validate_session_name(name);
             assert!(
                 result.is_ok(),
-                "Valid name '{name}' should be accepted: {:?}",
-                result
+                "Valid name '{name}' should be accepted: {result:?}"
             );
         }
     }

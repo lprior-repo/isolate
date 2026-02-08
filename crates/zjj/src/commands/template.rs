@@ -486,13 +486,11 @@ mod tests {
         let error_msg = result.unwrap_err().to_string();
         assert!(
             error_msg.contains("UTF-8") || error_msg.contains("utf-8"),
-            "Error message should mention UTF-8 requirement. Got: {}",
-            error_msg
+            "Error message should mention UTF-8 requirement. Got: {error_msg}"
         );
         assert!(
             error_msg.contains("binary") || error_msg.contains("text"),
-            "Error message should mention binary vs text. Got: {}",
-            error_msg
+            "Error message should mention binary vs text. Got: {error_msg}"
         );
     }
 
@@ -593,8 +591,7 @@ mod tests {
             let result = validate_template_name(name);
             assert!(
                 result.is_ok(),
-                "Expected '{name}' to be valid, got: {:?}",
-                result
+                "Expected '{name}' to be valid, got: {result:?}"
             );
         }
     }
