@@ -756,3 +756,5 @@ The quick checks pass and the core functionality works correctly.
 [2026-02-08 10:29:41] Duration: ~75 minutes
 [2026-02-08 10:29:41] New beads found: 0
 [2026-02-08 10:29:41] STATUS: No new ready-qa-builder beads during session
+[2026-02-08 16:43:17] REWORKER-1: Manual check 90 - no OPEN beads in stage:needs-rework
+[2026-02-08 16:44:53] REWORKER-1: Manual check 91 - no OPEN beads in stage:needs-rework
