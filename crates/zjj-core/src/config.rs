@@ -819,9 +819,11 @@ impl SessionConfig {
 }
 
 impl RecoveryConfig {
-    const fn merge(&mut self, other: Self) {
+    fn merge(&mut self, other: Self) {
         self.policy = other.policy;
         self.log_recovered = other.log_recovered;
+        self.auto_recover_corrupted_wal = other.auto_recover_corrupted_wal;
+        self.delete_corrupted_database = other.delete_corrupted_database;
     }
 }
 
