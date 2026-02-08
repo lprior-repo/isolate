@@ -259,10 +259,13 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 14:19:50] IMPLEMENTATION COMPLETE: Session status update functionality added. Added new_status field to DoneOutput, update_session_status() function in done.rs, update_status() method to SessionDb. Session status now updates to "completed" when done command succeeds. Tests pass.
 [2026-02-08 14:30:00] zjj-1w0d ready-builder → building (claimed by builder-1)
 [2026-02-08 14:30:00] IMPLEMENTATION COMPLETE: Session validation for lock() added. Added SessionNotFound error, verify_session_exists() method, lock() now checks session exists before creating lock. Backward compatible - if sessions table doesn't exist, allows lock. All 17 lock tests pass.
+[2026-02-08 14:33:00] zjj-14hr ready-builder → building (claimed by builder-1)
+[2026-02-08 14:37:00] VERIFIED: Config exit codes already working correctly. Tested: zjj config nonexistent_key returns exit code 1, zjj config workspace_dir returns exit code 0, zjj config zellij.nonexistent returns exit code 1, invalid TOML returns exit code 1. Issue already fixed or bead filed incorrectly.
 [2026-02-08 14:10:30] REWORKER-1: Check 4 - no beads in stage:needs-rework
 [2026-02-08 14:10:45] REWORKER-1: Manual check 2 - no beads in stage:needs-rework
 [2026-02-08 14:19:55] zjj-26pf building → ready-qa-builder builder-1 IMPLEMENTATION COMPLETE
 [2026-02-08 14:30:10] zjj-1w0d building → ready-qa-builder builder-1 IMPLEMENTATION COMPLETE
+[2026-02-08 14:37:50] zjj-14hr building → ready-qa-builder builder-1 VERIFIED ALREADY FIXED
 
 # QA Builder Agent 1 Loop (2026-02-08)
 [2026-02-08 08:10:00] QA Builder 1 started - monitoring for stage:ready-qa-builder beads
@@ -430,3 +433,8 @@ zjj-a7lu ready-qa-builder → qa-building → needs-rework,needs-qa-fix qa-build
 [2026-02-08 14:33:01] REWORKER-1: Check 19 - no beads in stage:needs-rework
 [2026-02-08 14:34:16] REWORKER-1: Manual check 16 - no beads in stage:needs-rework
 [2026-02-08 14:34:31] REWORKER-1: Check 20 - no beads in stage:needs-rework
+[2026-02-08 14:35:54] REWORKER-1: Manual check 17 - no beads in stage:needs-rework
+[2026-02-08 14:36:01] REWORKER-1: Check 21 - no beads in stage:needs-rework
+[2026-02-08 14:37:31] REWORKER-1: Check 22 - no beads in stage:needs-rework
+[2026-02-08 14:37:33] REWORKER-1: Manual check 18 - no beads in stage:needs-rework
+[2026-02-08 14:39:01] REWORKER-1: Check 23 - no beads in stage:needs-rework
