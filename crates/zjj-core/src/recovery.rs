@@ -413,10 +413,14 @@ mod tests {
         let config_true = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
             log_recovered: true,
+            auto_recover_corrupted_wal: true,
+            delete_corrupted_database: false,
         };
         let config_false = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
             log_recovered: false,
+            auto_recover_corrupted_wal: true,
+            delete_corrupted_database: false,
         };
         assert!(should_log_recovery(&config_true));
         assert!(!should_log_recovery(&config_false));
@@ -433,6 +437,8 @@ mod tests {
         let config = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
             log_recovered: true,
+            auto_recover_corrupted_wal: true,
+            delete_corrupted_database: false,
         };
 
         // This should succeed even if file doesn't exist yet
@@ -453,6 +459,8 @@ mod tests {
         let config = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
             log_recovered: true,
+            auto_recover_corrupted_wal: true,
+            delete_corrupted_database: false,
         };
         // If .zjj doesn't exist, log_recovery should succeed silently
         let result = log_recovery("Test recovery action", &config).await;
