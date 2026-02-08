@@ -33,6 +33,10 @@
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::used_underscore_binding)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::uninlined_format_args)]
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
@@ -95,18 +99,19 @@ pub enum FailureMode {
 impl FailureMode {
     /// Get all available failure modes
     #[must_use]
-    pub const fn all() -> &'static [FailureMode] {
+    pub const fn all() -> &'static [Self] {
         &[
-            FailureMode::IoError,
-            FailureMode::Timeout,
-            FailureMode::Corruption,
-            FailureMode::DeadlockSimulation,
-            FailureMode::ResourceExhaustion,
+            Self::IoError,
+            Self::Timeout,
+            Self::Corruption,
+            Self::DeadlockSimulation,
+            Self::ResourceExhaustion,
         ]
     }
 
     /// Get a human-readable description
     #[must_use]
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub const fn description(&self) -> &'static str {
         match self {
             Self::IoError => "I/O error (permissions, device full, etc.)",

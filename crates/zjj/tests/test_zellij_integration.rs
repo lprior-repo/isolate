@@ -18,9 +18,9 @@
 //! 2. `.expect()` provides better error messages than `.unwrap()`
 //! 3. The test harness will report test failures properly
 
-#![allow(clippy::expect_used)]
 // Test code uses unwrap/expect idioms for test clarity.
 // Production code (src/) must use Result<T, Error> patterns.
+#![allow(clippy::expect_used)]
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::too_many_lines)]
 
