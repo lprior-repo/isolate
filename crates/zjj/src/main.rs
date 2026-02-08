@@ -2,6 +2,19 @@
 //!
 //! Binary name: `zjj`
 
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::todo,
+        clippy::unimplemented,
+        dead_code,
+        unused_must_use
+    )
+)]
+
 use std::{panic, process, time::Duration};
 
 mod beads;

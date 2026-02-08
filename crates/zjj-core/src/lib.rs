@@ -3,7 +3,20 @@
 //! Core functionality for ZJJ - strictly functional Rust with zero unwraps.
 //!
 //! ## Laws (Compiler Enforced)
-//!
+
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::todo,
+        clippy::unimplemented,
+        dead_code,
+        unused_must_use
+    )
+)]
+
 //! - No `unwrap()` - returns `Result` instead
 //! - No `expect()` - returns `Result` instead
 //! - No `panic!()` - returns `Result` instead
