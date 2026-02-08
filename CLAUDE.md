@@ -7,7 +7,7 @@
 1. **NO_CLIPPY_EDITS** - NEVER modify `.clippy.toml`, `#![allow]`, `#![deny]`, Cargo.toml lint sections, `moon.yml` lint rules. Fix **code**, not rules.
 2. **MOON_ONLY** - NEVER `cargo fmt|clippy|test|build`. ALWAYS `moon run :quick|:test|:build|:ci|:fmt-fix|:check`
 3. **CODANNA_ONLY** - NEVER Grep|Glob|Read for exploration. ALWAYS use `mcp__codanna__` tools for code search
-4. **ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC** - **ZERO unwrap()**, **ZERO unwrap_or()**, **ZERO unwrap_or_else()**, **ZERO unwrap_or_default()**. **ZERO expect()**, **ZERO expect_err()**. **ZERO panic!()**, **ZERO todo!()**, **ZERO unimplemented!()**. Required: `Result<T, Error>`, `map`, `and_then`, `?` operator. **USE functional-rust-generator SKILL for ALL Rust implementation**.
+4. **ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC** - **ZERO unwrap()**, **ZERO unwrap_or()**, **ZERO unwrap_or_else()**, **ZERO unwrap_or_default()**. **ZERO expect()**, **ZERO expect_err()**. **ZERO panic!()**, **ZERO todo!()**, **ZERO unimplemented!()**. **Strictly enforced for `src` code; Permissive for `test` code.**
 5. **GIT_PUSH_MANDATORY** - Work NOT done until `git push` succeeds. NEVER stop before pushing. **YOU** must push (not "ready when you are")
 6. **BR_SYNC** - `br` never runs git. After `br sync`, manually commit `.beads/` directory
 7. **FUNCTIONAL_RUST_SKILL** - **ALWAYS load and use functional-rust-generator skill for ANY Rust implementation**. This skill enforces zero unwrap/expect/panic patterns with Railway-Oriented Programming.
@@ -53,13 +53,10 @@ Files: `.clippy.toml`, `clippy.toml`, `#![allow(...)]`, `#![deny(...)]`, `Cargo.
 **NEVER:** Grep ❌ Glob ❌ Read-for-exploration ❌
 **Index:** 5,592 symbols, 155 files, 817 doc chunks. Reindex: `codanna index && codanna documents index --collection docs`
 
-### Code Quality
-- **ZERO unwrap:** `unwrap()`, `unwrap_or()`, `unwrap_or_else()`, `unwrap_or_default()` **ALL FORBIDDEN**
-- **ZERO expect:** `expect()`, `expect_err()` **FORBIDDEN**
-- **ZERO panic:** `panic!()`, `todo!()`, `unimplemented!()` **FORBIDDEN**
-- All errors: `Result<T, Error>` with proper propagation
-- Functional patterns: `map`, `and_then`, `?` operator
-- **USE functional-rust-generator SKILL for ALL Rust implementation**
+### Code Quality (Strict Source / Permissive Tests)
+- **Production Code (`src`):** Zero tolerance for `unwrap`, `expect`, `panic`, `todo`, `unimplemented`, `dead_code`, or `unused_must_use`. Enforced via workspace `deny`.
+- **Test Code (`test`):** Pragmatically relaxed via `#![cfg_attr(test, allow(...))]` in crate roots to allow for brutal test scenarios and placeholders.
+- **Patterns:** Always prefer `Result<T, Error>`, `map`, `and_then`, and the `?` operator in production code.
 
 ### Project Structure
 ```
