@@ -54,6 +54,13 @@ fn test_add_workspace_creation_failure_rolls_back_file_workspace_path() {
         "add should fail when workspace path is a file\nstdout: {}\nstderr: {}",
         result.stdout, result.stderr
     );
+    assert!(
+        result.stderr.contains("Failed to create workspace")
+            || result.stdout.contains("Failed to create workspace"),
+        "failure should surface workspace creation error\nstdout: {}\nstderr: {}",
+        result.stdout,
+        result.stderr
+    );
 
     assert!(
         !workspace_path.exists(),
@@ -101,6 +108,13 @@ fn test_add_hook_failure_marks_failed_and_rolls_back_workspace() {
         !result.success,
         "add should fail when post_create hook fails\nstdout: {}\nstderr: {}",
         result.stdout, result.stderr
+    );
+    assert!(
+        result.stderr.contains("post_create hook failed")
+            || result.stdout.contains("post_create hook failed"),
+        "failure should surface hook error\nstdout: {}\nstderr: {}",
+        result.stdout,
+        result.stderr
     );
 
     harness.assert_workspace_not_exists(session_name);

@@ -101,6 +101,15 @@ impl SessionDb {
         &self.pool
     }
 
+    /// Get a LockManager instance for this database
+    ///
+    /// Returns a LockManager that shares the same database connection pool.
+    /// The LockManager tables are initialized when the SessionDb is created.
+    #[must_use]
+    pub const fn lock_manager(&self) -> LockManager {
+        LockManager::new(self.pool)
+    }
+
     /// Open or create a session database at the given path
     ///
     /// # Errors

@@ -10,7 +10,7 @@ mod output;
 mod types;
 mod zellij;
 
-use atomic::atomic_create_session;
+use atomic::{atomic_create_session, rollback_partial_state};
 use beads::query_bead_metadata;
 use hooks::execute_post_create_hooks;
 use output::output_result;
@@ -25,8 +25,40 @@ use crate::{
     cli::{attach_to_zellij_session, is_inside_zellij},
     command_context,
     commands::{check_prerequisites, get_session_db},
+    db::SessionDb,
     session::{validate_session_name, SessionStatus, SessionUpdate},
 };
+
+async fn handle_post_create_hook_failure(
+    name: &str,
+    workspace_path: &std::path::Path,
+    db: &SessionDb,
+    hook_error: anyhow::Error,
+) -> Result<()> {
+    let rollback_result = rollback_partial_state(name, workspace_path).await;
+    let failed_status_result = db
+        .update(
+            name,
+            SessionUpdate {
+                status: Some(SessionStatus::Failed),
+                ..Default::default()
+            },
+        )
+        .await
+        .context("Failed to mark session as failed");
+
+    match (rollback_result, failed_status_result) {
+        (Ok(()), Ok(())) => Err(hook_error).context("post_create hook failed"),
+        (Err(rollback_error), Ok(())) => Err(hook_error)
+            .context(format!("post_create hook failed and rollback failed: {rollback_error}")),
+        (Ok(()), Err(status_error)) => Err(hook_error).context(format!(
+            "post_create hook failed and failed status update failed: {status_error}"
+        )),
+        (Err(rollback_error), Err(status_error)) => Err(hook_error).context(format!(
+            "post_create hook failed, rollback failed: {rollback_error}, status update failed: {status_error}"
+        )),
+    }
+}
 
 /// Run the add command
 #[allow(dead_code)]
@@ -91,16 +123,7 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
     // Execute post_create hooks unless --no-hooks
     if !options.no_hooks {
         if let Err(e) = execute_post_create_hooks(&workspace_path_str).await {
-            let _ = db
-                .update(
-                    &options.name,
-                    SessionUpdate {
-                        status: Some(SessionStatus::Failed),
-                        ..Default::default()
-                    },
-                )
-                .await;
-            return Err(e).context("post_create hook failed");
+            return handle_post_create_hook_failure(&options.name, &workspace_path, &db, e).await;
         }
     }
 
@@ -252,18 +275,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     // Recovery: User can retry with 'zjj done' to complete or 'zjj remove' to clean up
     if !options.no_hooks {
         if let Err(e) = execute_post_create_hooks(&workspace_path_str).await {
-            // Hook failure → status 'failed' (REQ-HOOKS-003)
-            // Attempt to mark session as failed (may also fail)
-            let _ = db
-                .update(
-                    &options.name,
-                    SessionUpdate {
-                        status: Some(SessionStatus::Failed),
-                        ..Default::default()
-                    },
-                )
-                .await;
-            return Err(e).context("post_create hook failed");
+            return handle_post_create_hook_failure(&options.name, &workspace_path, &db, e).await;
         }
     }
 

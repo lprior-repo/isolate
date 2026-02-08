@@ -1397,7 +1397,7 @@ mod tests {
         let result = ConfigManager::new().await;
 
         // Use assert on the Result directly - no unwrap needed
-        assert!(result.is_ok(), "ConfigManager::new should succeed: {:?}", result);
+        assert!(result.is_ok(), "ConfigManager::new should succeed");
 
         // Use and_then to chain operations - we know it's Ok from the assert above
         let retrieved_config = result.as_ref().map(|manager| {
@@ -1409,7 +1409,7 @@ mod tests {
         });
 
         // Extract the config using map
-        let config = result.map(|manager| {
+        let _config = result.as_ref().map(|manager| {
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(manager.get())
         });
@@ -1444,7 +1444,7 @@ mod tests {
         let result = ConfigManager::new().await;
 
         // Use assert on the Result directly - no unwrap needed
-        assert!(result.is_ok(), "ConfigManager::new should succeed: {:?}", result);
+        assert!(result.is_ok(), "ConfigManager::new should succeed");
 
         let manager1 = result.expect("ConfigManager::new failed");
         let manager2 = manager1.clone();

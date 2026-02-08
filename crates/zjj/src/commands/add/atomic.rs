@@ -25,11 +25,13 @@ pub(super) async fn atomic_create_session(
     workspace_path: &std::path::Path,
     db: &SessionDb,
     bead_metadata: Option<serde_json::Value>,
+    create_command_id: Option<&str>,
 ) -> Result<()> {
     let workspace_path_str = workspace_path.display().to_string();
 
     // STEP 1: Create DB record with 'creating' status FIRST
     // This makes the creation attempt detectable by doctor
+    let _ = create_command_id;
     let db_result = db.create(name, &workspace_path_str).await;
 
     let _session = match db_result {
@@ -67,7 +69,7 @@ pub(super) async fn atomic_create_session(
         Err(workspace_error) => {
             // Workspace creation failed or was interrupted
             // Rollback: clean workspace, leave DB in 'creating' state
-            rollback_partial_state(name, workspace_path).await;
+            rollback_partial_state(name, workspace_path).await?;
             Err(workspace_error).context("Failed to create workspace, rolled back")
         }
     }
@@ -93,7 +95,10 @@ pub(super) async fn atomic_create_session(
 ///
 /// Uses `remove_dir_all` directly without checking if path exists first.
 /// If the directory doesn't exist, the error is safely ignored.
-pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::path::Path) {
+pub(super) async fn rollback_partial_state(
+    name: &str,
+    workspace_path: &std::path::Path,
+) -> Result<()> {
     let workspace_dir = workspace_path;
 
     // Remove workspace directory directly without checking existence first
@@ -101,6 +106,7 @@ pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::pat
     match tokio::fs::remove_dir_all(workspace_dir).await {
         Ok(()) => {
             tracing::info!("Rolled back partial workspace for session '{name}'");
+            Ok(())
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             // Workspace doesn't exist - nothing to clean
@@ -108,6 +114,27 @@ pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::pat
                 "No workspace to rollback for session '{}' (already gone)",
                 name
             );
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotADirectory => {
+            match tokio::fs::remove_file(workspace_dir).await {
+                Ok(()) => {
+                    tracing::info!("Rolled back partial workspace file for session '{}'", name);
+                    Ok(())
+                }
+                Err(file_err) if file_err.kind() == std::io::ErrorKind::NotFound => {
+                    tracing::info!(
+                        "No workspace file to rollback for session '{}' (already gone)",
+                        name
+                    );
+                    Ok(())
+                }
+                Err(cleanup_err) => Err(anyhow::anyhow!(
+                    "Failed to remove partial workspace file '{}': {}",
+                    workspace_path.display(),
+                    cleanup_err
+                )),
+            }
         }
         Err(cleanup_err) => {
             // Cleanup failed but we still leave DB in 'creating' state
@@ -122,6 +149,11 @@ pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::pat
                 name,
                 cleanup_err
             );
+            Err(anyhow::anyhow!(
+                "Failed to rollback partial workspace '{}': {}",
+                workspace_path.display(),
+                cleanup_err
+            ))
         }
     }
 
