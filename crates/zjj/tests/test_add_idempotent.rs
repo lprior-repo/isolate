@@ -33,8 +33,7 @@ fn test_add_idempotent_succeeds_when_session_already_exists() {
     assert!(
         result.success,
         "Command should succeed when session exists with --idempotent flag\nstdout: {}\nstderr: {}",
-        result.stdout,
-        result.stderr
+        result.stdout, result.stderr
     );
 
     // THEN: No error message is displayed
@@ -83,9 +82,11 @@ fn test_add_idempotent_creates_session_when_not_exists() {
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success, "List command should succeed");
 
-    let json: JsonValue = serde_json::from_str(&list_result.stdout)
-        .expect("List output should be valid JSON");
-    let sessions = json["data"]["sessions"].as_array().expect("Should have sessions array");
+    let json: JsonValue =
+        serde_json::from_str(&list_result.stdout).expect("List output should be valid JSON");
+    let sessions = json["data"]["sessions"]
+        .as_array()
+        .expect("Should have sessions array");
 
     assert!(
         sessions.iter().any(|s| s["name"] == "new-session"),
@@ -106,11 +107,15 @@ fn test_add_idempotent_with_json_output_includes_created_field() {
     let result = harness.zjj(&["add", "new-session", "--idempotent", "--json", "--no-open"]);
 
     // THEN: Command succeeds with exit code 0
-    assert!(result.success, "Command should succeed\nstdout: {}", result.stdout);
+    assert!(
+        result.success,
+        "Command should succeed\nstdout: {}",
+        result.stdout
+    );
 
     // THEN: Output is valid JSON
-    let json: JsonValue = serde_json::from_str(&result.stdout)
-        .expect("Output should be valid JSON");
+    let json: JsonValue =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
 
     // THEN: JSON matches schema
     assert_eq!(json["schema"], "add-response");
@@ -127,17 +132,25 @@ fn test_add_idempotent_with_json_output_includes_created_field() {
     let result2 = harness.zjj(&["add", "new-session", "--idempotent", "--json", "--no-open"]);
 
     // THEN: Command still succeeds
-    assert!(result2.success, "Second command should succeed (idempotent)\nstdout: {}", result2.stdout);
+    assert!(
+        result2.success,
+        "Second command should succeed (idempotent)\nstdout: {}",
+        result2.stdout
+    );
 
     // THEN: JSON indicates already exists
-    let json2: JsonValue = serde_json::from_str(&result2.stdout)
-        .expect("Second output should be valid JSON");
+    let json2: JsonValue =
+        serde_json::from_str(&result2.stdout).expect("Second output should be valid JSON");
 
     let data2 = &json2["data"];
     assert_eq!(data2["name"], "new-session");
     assert!(
-        json2["data"]["status"].as_str().map_or(false, |s| s.contains("idempotent"))
-            || json2["data"]["status"].as_str().map_or(false, |s| s.contains("already")),
+        json2["data"]["status"]
+            .as_str()
+            .map_or(false, |s| s.contains("idempotent"))
+            || json2["data"]["status"]
+                .as_str()
+                .map_or(false, |s| s.contains("already")),
         "Status should indicate idempotent path\ngot: {:?}",
         json2["data"]["status"]
     );
@@ -151,13 +164,7 @@ fn test_add_idempotent_with_bead_id_succeeds_on_duplicate() {
     };
 
     harness.assert_success(&["init"]);
-    harness.assert_success(&[
-        "add",
-        "bugfix-123",
-        "--bead",
-        "zjj-abc",
-        "--no-open",
-    ]);
+    harness.assert_success(&["add", "bugfix-123", "--bead", "zjj-abc", "--no-open"]);
 
     // WHEN: User runs same command with --idempotent
     let result = harness.zjj(&[
@@ -173,17 +180,18 @@ fn test_add_idempotent_with_bead_id_succeeds_on_duplicate() {
     assert!(
         result.success,
         "Command should succeed with --idempotent on duplicate\nstdout: {}\nstderr: {}",
-        result.stdout,
-        result.stderr
+        result.stdout, result.stderr
     );
 
     // THEN: No duplicate session created
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success, "List should succeed");
 
-    let json: JsonValue = serde_json::from_str(&list_result.stdout)
-        .expect("List output should be valid JSON");
-    let sessions = json["data"]["sessions"].as_array().expect("Should have sessions");
+    let json: JsonValue =
+        serde_json::from_str(&list_result.stdout).expect("List output should be valid JSON");
+    let sessions = json["data"]["sessions"]
+        .as_array()
+        .expect("Should have sessions");
 
     let count = sessions
         .iter()
@@ -224,9 +232,11 @@ fn test_add_idempotent_fails_on_invalid_session_name() {
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success, "List should succeed");
 
-    let json: JsonValue = serde_json::from_str(&list_result.stdout)
-        .expect("List output should be valid JSON");
-    let sessions = json["data"]["sessions"].as_array().expect("Should have sessions");
+    let json: JsonValue =
+        serde_json::from_str(&list_result.stdout).expect("List output should be valid JSON");
+    let sessions = json["data"]["sessions"]
+        .as_array()
+        .expect("Should have sessions");
 
     assert!(
         sessions.is_empty(),
@@ -247,7 +257,10 @@ fn test_add_idempotent_fails_when_not_initialized() {
     let result = harness.zjj(&["add", "test", "--idempotent", "--no-open"]);
 
     // THEN: Command fails with exit code 1
-    assert!(!result.success, "Command should fail when ZJJ not initialized");
+    assert!(
+        !result.success,
+        "Command should fail when ZJJ not initialized"
+    );
 
     // THEN: Error message indicates ZJJ not initialized
     let output = result.stdout.to_lowercase() + &result.stderr.to_lowercase();
@@ -272,7 +285,10 @@ fn test_add_without_idempotent_existing_session_fails() {
     let result = harness.zjj(&["add", "existing-session", "--no-open"]);
 
     // THEN: Command fails with exit code 1
-    assert!(!result.success, "Command should fail without --idempotent flag");
+    assert!(
+        !result.success,
+        "Command should fail without --idempotent flag"
+    );
 
     // THEN: Error message indicates session already exists
     let output = result.stdout.to_lowercase() + &result.stderr.to_lowercase();
@@ -332,8 +348,8 @@ fn test_add_idempotent_json_output_schema_validation() {
     let result = harness.zjj(&["add", "schema-test", "--idempotent", "--json", "--no-open"]);
 
     // THEN: Output is valid JSON
-    let json: JsonValue = serde_json::from_str(&result.stdout)
-        .expect("Output should be valid JSON");
+    let json: JsonValue =
+        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
 
     // THEN: JSON matches SchemaEnvelope structure
     assert_eq!(json["schema"], "add-response");
@@ -345,8 +361,14 @@ fn test_add_idempotent_json_output_schema_validation() {
 
     // Required fields
     assert!(data.get("name").is_some(), "Should have 'name' field");
-    assert!(data.get("workspace_path").is_some(), "Should have 'workspace_path' field");
-    assert!(data.get("zellij_tab").is_some(), "Should have 'zellij_tab' field");
+    assert!(
+        data.get("workspace_path").is_some(),
+        "Should have 'workspace_path' field"
+    );
+    assert!(
+        data.get("zellij_tab").is_some(),
+        "Should have 'zellij_tab' field"
+    );
     assert!(data.get("status").is_some(), "Should have 'status' field");
 }
 
@@ -362,18 +384,11 @@ fn test_add_idempotent_preserves_existing_session_metadata() {
     };
 
     harness.assert_success(&["init"]);
-    harness.assert_success(&[
-        "add",
-        "metadata-test",
-        "--bead",
-        "zjj-123",
-        "--no-open",
-    ]);
+    harness.assert_success(&["add", "metadata-test", "--bead", "zjj-123", "--no-open"]);
 
     // Get initial session info
     let list1 = harness.zjj(&["list", "--json"]);
-    let json1: JsonValue = serde_json::from_str(&list1.stdout)
-        .expect("List should be valid JSON");
+    let json1: JsonValue = serde_json::from_str(&list1.stdout).expect("List should be valid JSON");
     let session1 = json1["data"]["sessions"]
         .as_array()
         .expect("Should have sessions")
@@ -396,8 +411,7 @@ fn test_add_idempotent_preserves_existing_session_metadata() {
 
     // THEN: bead_id remains unchanged
     let list2 = harness.zjj(&["list", "--json"]);
-    let json2: JsonValue = serde_json::from_str(&list2.stdout)
-        .expect("List should be valid JSON");
+    let json2: JsonValue = serde_json::from_str(&list2.stdout).expect("List should be valid JSON");
     let session2 = json2["data"]["sessions"]
         .as_array()
         .expect("Should have sessions")

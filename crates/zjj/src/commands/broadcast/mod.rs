@@ -13,11 +13,7 @@ pub mod types;
 use anyhow::Result;
 use chrono::Utc;
 use sqlx::SqlitePool;
-use zjj_core::{
-    agents::registry::AgentRegistry,
-    json::SchemaEnvelope,
-    OutputFormat,
-};
+use zjj_core::{agents::registry::AgentRegistry, json::SchemaEnvelope, OutputFormat};
 
 use self::types::{BroadcastArgs, BroadcastResponse};
 

@@ -132,16 +132,15 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     // Check if session already exists
     // Use explicit pattern matching with error handling for better diagnostics
     let existing_session_result = db.get(&options.name).await;
-    let existing_session = existing_session_result
-        .map_err(|e| {
-            // Log the database query error for debugging
-            tracing::error!(
-                name = %options.name,
-                error = %e,
-                "Failed to query session database for idempotent check"
-            );
-            e
-        })?;
+    let existing_session = existing_session_result.map_err(|e| {
+        // Log the database query error for debugging
+        tracing::error!(
+            name = %options.name,
+            error = %e,
+            "Failed to query session database for idempotent check"
+        );
+        e
+    })?;
 
     match existing_session {
         Some(existing) => {
