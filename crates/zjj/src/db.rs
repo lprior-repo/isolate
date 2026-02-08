@@ -43,6 +43,8 @@ use crate::session::{validate_session_name, Session, SessionStatus, SessionUpdat
 const CURRENT_SCHEMA_VERSION: i64 = 1;
 const SQLITE_BUSY_TIMEOUT_MS: i64 = 5000;
 const SQLITE_WAL_AUTOCHECKPOINT_PAGES: i64 = 1000;
+const SQLITE_BUSY_RETRY_ATTEMPTS: u32 = 8;
+const SQLITE_BUSY_RETRY_BASE_MS: u64 = 25;
 
 /// Database schema as SQL string - executed once on init
 const SCHEMA: &str = r"
@@ -307,12 +309,7 @@ impl SessionDb {
             Error::DatabaseError(format!("Failed to acquire database connection: {e}"))
         })?;
 
-        sqlx::query("BEGIN IMMEDIATE")
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                Error::DatabaseError(format!("Failed to begin create transaction: {e}"))
-            })?;
+        begin_immediate_with_retry(&mut conn, "create transaction").await?;
 
         let command_id_value = match command_id {
             Some(id) => id,
@@ -338,9 +335,10 @@ impl SessionDb {
             });
         }
 
-        let insert = sqlx::query(
+        let insert_result = sqlx::query(
             "INSERT INTO sessions (name, status, state, workspace_path, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(name) DO NOTHING",
         )
         .bind(name)
         .bind(SessionStatus::Creating.to_string())
@@ -349,11 +347,12 @@ impl SessionDb {
         .bind(now.to_i64().map_or(i64::MAX, |t| t))
         .bind(now.to_i64().map_or(i64::MAX, |t| t))
         .execute(&mut *conn)
-        .await;
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create session: {e}")))?;
 
-        let session = match insert {
-            Ok(result) => Session {
-                id: Some(result.last_insert_rowid()),
+        let session = if insert_result.rows_affected() > 0 {
+            Session {
+                id: Some(insert_result.last_insert_rowid()),
                 name: name.to_string(),
                 status: SessionStatus::Creating,
                 state: WorkspaceState::Created,
@@ -364,29 +363,21 @@ impl SessionDb {
                 updated_at: now,
                 last_synced: None,
                 metadata: None,
-            },
-            Err(e) => {
-                if e.to_string().to_lowercase().contains("unique") {
-                    let existing = query_session_by_name_conn(&mut conn, name).await?;
-                    let existing_session = existing.ok_or_else(|| {
-                        Error::DatabaseError(format!(
-                            "Session '{name}' already exists but could not be loaded"
-                        ))
-                    })?;
-                    if existing_session.workspace_path != workspace_path {
-                        let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
-                        return Err(Error::DatabaseError(format!(
-                            "Session '{name}' already exists with different workspace path"
-                        )));
-                    }
-                    existing_session
-                } else {
-                    let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
-                    return Err(Error::DatabaseError(format!(
-                        "Failed to create session: {e}"
-                    )));
-                }
             }
+        } else {
+            let existing = query_session_by_name_conn(&mut conn, name).await?;
+            let existing_session = existing.ok_or_else(|| {
+                Error::DatabaseError(format!(
+                    "Session '{name}' already exists but could not be loaded"
+                ))
+            })?;
+            if existing_session.workspace_path != workspace_path {
+                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                return Err(Error::DatabaseError(format!(
+                    "Session '{name}' already exists with different workspace path"
+                )));
+            }
+            existing_session
         };
 
         mark_command_processed_conn(&mut conn, command_id_value).await?;
@@ -473,12 +464,7 @@ impl SessionDb {
             Error::DatabaseError(format!("Failed to acquire database connection: {e}"))
         })?;
 
-        sqlx::query("BEGIN IMMEDIATE")
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                Error::DatabaseError(format!("Failed to begin update transaction: {e}"))
-            })?;
+        begin_immediate_with_retry(&mut conn, "update transaction").await?;
 
         let command_id_value = match command_id {
             Some(id) => id,
@@ -618,6 +604,16 @@ impl SessionDb {
     /// Check whether a command id was already processed.
     pub async fn is_command_processed(&self, command_id: &str) -> Result<bool> {
         is_command_processed_pool(&self.pool, command_id).await
+    }
+
+    /// Remove an idempotency marker so failed operations can be retried safely.
+    pub async fn unmark_command_processed(&self, command_id: &str) -> Result<()> {
+        sqlx::query("DELETE FROM processed_commands WHERE command_id = ?")
+            .bind(command_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+            .map_err(|e| Error::DatabaseError(format!("Failed to unmark processed command: {e}")))
     }
 }
 
@@ -1093,10 +1089,12 @@ async fn enable_wal_mode(pool: &SqlitePool) -> Result<()> {
         )));
     }
 
-    sqlx::query(&format!("PRAGMA wal_autocheckpoint = {SQLITE_WAL_AUTOCHECKPOINT_PAGES};"))
-        .execute(pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to set wal_autocheckpoint: {e}")))?;
+    sqlx::query(&format!(
+        "PRAGMA wal_autocheckpoint = {SQLITE_WAL_AUTOCHECKPOINT_PAGES};"
+    ))
+    .execute(pool)
+    .await
+    .map_err(|e| Error::DatabaseError(format!("Failed to set wal_autocheckpoint: {e}")))?;
     let auto_checkpoint: i64 = sqlx::query_scalar("PRAGMA wal_autocheckpoint;")
         .fetch_one(pool)
         .await
@@ -1162,26 +1160,80 @@ async fn insert_session(
     workspace_path: &str,
     timestamp: u64,
 ) -> Result<i64> {
-    sqlx::query(
-        "INSERT INTO sessions (name, status, state, workspace_path, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)",
-    )
-    .bind(name)
-    .bind(status.to_string())
-    .bind(WorkspaceState::Created.to_string())
-    .bind(workspace_path)
-    .bind(timestamp.to_i64().map_or(i64::MAX, |t| t))
-    .bind(timestamp.to_i64().map_or(i64::MAX, |t| t))
-    .execute(pool)
-    .await
-    .map(|result| result.last_insert_rowid())
-    .map_err(|e| {
-        if e.to_string().to_lowercase().contains("unique") {
-            Error::DatabaseError(format!("Session '{name}' already exists"))
-        } else {
-            Error::DatabaseError(format!("Failed to create session: {e}"))
+    for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
+        let insert_result = sqlx::query(
+            "INSERT INTO sessions (name, status, state, workspace_path, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(name)
+        .bind(status.to_string())
+        .bind(WorkspaceState::Created.to_string())
+        .bind(workspace_path)
+        .bind(timestamp.to_i64().map_or(i64::MAX, |t| t))
+        .bind(timestamp.to_i64().map_or(i64::MAX, |t| t))
+        .execute(pool)
+        .await;
+
+        match insert_result {
+            Ok(result) => return Ok(result.last_insert_rowid()),
+            Err(error) => {
+                let message = error.to_string();
+                if message.to_lowercase().contains("unique") {
+                    return Err(Error::DatabaseError(format!(
+                        "Session '{name}' already exists"
+                    )));
+                }
+                if is_sqlite_busy_error(&message) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
+                    let backoff_ms =
+                        SQLITE_BUSY_RETRY_BASE_MS * u64::from(attempt.saturating_add(1));
+                    tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                    continue;
+                }
+                return Err(Error::DatabaseError(format!(
+                    "Failed to create session: {error}"
+                )));
+            }
         }
-    })
+    }
+
+    Err(Error::DatabaseError(
+        "Failed to create session after retry budget".to_string(),
+    ))
+}
+
+fn is_sqlite_busy_error(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("sqlite_busy")
+        || lower.contains("database is locked")
+        || lower.contains("database table is locked")
+}
+
+async fn begin_immediate_with_retry(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    context: &str,
+) -> Result<()> {
+    for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
+        let begin_result = sqlx::query("BEGIN IMMEDIATE").execute(&mut **conn).await;
+        match begin_result {
+            Ok(_) => return Ok(()),
+            Err(error) => {
+                let message = error.to_string();
+                if is_sqlite_busy_error(&message) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
+                    let backoff_ms =
+                        SQLITE_BUSY_RETRY_BASE_MS * u64::from(attempt.saturating_add(1));
+                    tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                    continue;
+                }
+                return Err(Error::DatabaseError(format!(
+                    "Failed to begin {context}: {error}"
+                )));
+            }
+        }
+    }
+
+    Err(Error::DatabaseError(format!(
+        "Failed to begin {context} after retry budget"
+    )))
 }
 
 /// Query a session by name

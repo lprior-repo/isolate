@@ -2,24 +2,23 @@ use anyhow::{Context, Result};
 
 use crate::{db::SessionDb, session::SessionUpdate};
 
-/// Create session atomically to prevent partial state on SIGKILL
+/// Create session atomically to prevent partial state between DB and workspace.
 ///
 /// This implements atomicity by:
-/// 1. Creating DB record with 'creating' status FIRST (detectable)
+/// 1. Creating DB record with 'creating' status FIRST
 /// 2. Creating JJ workspace SECOND (interruptible by SIGKILL)
-/// 3. On failure: cleaning workspace, leaving DB in 'creating' state for doctor
+/// 3. On failure: cleaning workspace and deleting DB record
 ///
 /// # Atomicity Guarantee
 ///
 /// If SIGKILL occurs during step 2:
-/// - DB record exists in 'creating' state (detectable by doctor)
+/// - DB record exists in 'creating' state until cleanup completes
 /// - Partial workspace may exist (cleaned by `rollback_partial_state`)
-/// - No partial state that prevents recovery
+/// - No durable partial state remains after cleanup path
 ///
 /// # Errors
 ///
-/// Returns error on any failure, leaving DB in 'creating' state
-/// and triggering cleanup of partial workspace state.
+/// Returns error on any failure and triggers cleanup of partial state.
 pub(super) async fn atomic_create_session(
     name: &str,
     workspace_path: &std::path::Path,
@@ -30,9 +29,13 @@ pub(super) async fn atomic_create_session(
     let workspace_path_str = workspace_path.display().to_string();
 
     // STEP 1: Create DB record with 'creating' status FIRST
-    // This makes the creation attempt detectable by doctor
-    let _ = create_command_id;
-    let db_result = db.create(name, &workspace_path_str).await;
+    let db_result = match create_command_id {
+        Some(command_id) => {
+            db.create_with_command_id(name, &workspace_path_str, Some(command_id))
+                .await
+        }
+        None => db.create(name, &workspace_path_str).await,
+    };
 
     let _session = match db_result {
         Ok(s) => s,
@@ -44,15 +47,20 @@ pub(super) async fn atomic_create_session(
 
     // Update session with bead metadata if provided
     if let Some(metadata) = bead_metadata {
-        db.update(
-            name,
-            SessionUpdate {
-                metadata: Some(metadata),
-                ..Default::default()
-            },
-        )
-        .await
-        .context("Failed to update session metadata")?;
+        let metadata_result = db
+            .update(
+                name,
+                SessionUpdate {
+                    metadata: Some(metadata),
+                    ..Default::default()
+                },
+            )
+            .await;
+
+        if let Err(metadata_error) = metadata_result {
+            rollback_database_state(name, db, create_command_id).await?;
+            return Err(metadata_error).context("Failed to update session metadata");
+        }
     }
 
     // STEP 2: Create JJ workspace (can be interrupted by SIGKILL)
@@ -67,23 +75,41 @@ pub(super) async fn atomic_create_session(
             Ok(())
         }
         Err(workspace_error) => {
-            // Workspace creation failed or was interrupted
-            // Rollback: clean workspace, leave DB in 'creating' state
+            // Workspace creation failed or was interrupted. Roll back both sides.
             rollback_partial_state(name, workspace_path).await?;
+            rollback_database_state(name, db, create_command_id).await?;
             Err(workspace_error).context("Failed to create workspace, rolled back")
         }
     }
 }
 
+async fn rollback_database_state(
+    name: &str,
+    db: &SessionDb,
+    create_command_id: Option<&str>,
+) -> Result<()> {
+    db.delete(name)
+        .await
+        .map(|_| ())
+        .context("Failed to remove partial session record")?;
+
+    if let Some(command_id) = create_command_id {
+        db.unmark_command_processed(command_id)
+            .await
+            .context("Failed to clear command idempotency marker")?;
+    }
+
+    Ok(())
+}
+
 /// Rollback partial state after failed or interrupted session creation
 ///
-/// This cleans up filesystem state while leaving the DB record
-/// in 'creating' state for detection by doctor.
+/// This cleans up filesystem state for failed session creation.
 ///
 /// # Rollback Strategy
 ///
 /// 1. Remove workspace directory if it exists (partial state cleanup)
-/// 2. DO NOT remove DB record (leave for doctor detection)
+/// 2. Database rollback happens separately in `rollback_database_state`
 /// 3. Handle missing paths gracefully (no panic on cleanup failure)
 ///
 /// # Atomicity Contract
@@ -156,8 +182,6 @@ pub(super) async fn rollback_partial_state(
             ))
         }
     }
-
-    // DB record intentionally left in 'creating' state for doctor detection
 }
 
 /// Create a JJ workspace for the session with operation graph synchronization
