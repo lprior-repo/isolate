@@ -38,6 +38,7 @@ use crate::{
     session::SessionStatus,
     session::SessionUpdate,
 };
+use zjj_core::WorkspaceState;
 
 /// Run the done command with options
 pub async fn run_with_options(options: &DoneOptions) -> Result<()> {
@@ -562,7 +563,7 @@ async fn cleanup_workspace(
     }
 }
 
-/// Update session status to Completed
+/// Update session status to Completed and state to Merged
 async fn update_session_status(workspace_name: &str) -> Result<bool, DoneError> {
     let db = get_session_db().await.map_err(|e| DoneError::InvalidState {
         reason: format!("Failed to open session database: {e}"),
@@ -570,7 +571,7 @@ async fn update_session_status(workspace_name: &str) -> Result<bool, DoneError> 
 
     let update = SessionUpdate {
         status: Some(SessionStatus::Completed),
-        state: None,
+        state: Some(WorkspaceState::Merged),
         branch: None,
         last_synced: None,
         metadata: None,

@@ -41,6 +41,8 @@ use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result,
 use crate::session::{validate_session_name, Session, SessionStatus, SessionUpdate};
 
 const CURRENT_SCHEMA_VERSION: i64 = 1;
+const SQLITE_BUSY_TIMEOUT_MS: i64 = 5000;
+const SQLITE_WAL_AUTOCHECKPOINT_PAGES: i64 = 1000;
 
 /// Database schema as SQL string - executed once on init
 const SCHEMA: &str = r"
@@ -1063,10 +1065,46 @@ async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
 ///
 /// Returns `Error::DatabaseError` if the PRAGMA statement fails
 async fn enable_wal_mode(pool: &SqlitePool) -> Result<()> {
-    sqlx::query("PRAGMA journal_mode=WAL;")
-        .execute(pool)
+    let mode: String = sqlx::query_scalar("PRAGMA journal_mode=WAL;")
+        .fetch_one(pool)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to enable WAL mode: {e}")))?;
+    if !mode.eq_ignore_ascii_case("wal") {
+        return Err(Error::DatabaseError(format!(
+            "Failed to set journal_mode to WAL (actual: {mode})"
+        )));
+    }
+
+    sqlx::query("PRAGMA busy_timeout = ?;")
+        .bind(SQLITE_BUSY_TIMEOUT_MS)
+        .execute(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to set busy_timeout: {e}")))?;
+    let busy_timeout: i64 = sqlx::query_scalar("PRAGMA busy_timeout;")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to verify busy_timeout: {e}")))?;
+    if busy_timeout < SQLITE_BUSY_TIMEOUT_MS {
+        return Err(Error::DatabaseError(format!(
+            "busy_timeout too low: expected at least {SQLITE_BUSY_TIMEOUT_MS}, got {busy_timeout}"
+        )));
+    }
+
+    sqlx::query("PRAGMA wal_autocheckpoint = ?;")
+        .bind(SQLITE_WAL_AUTOCHECKPOINT_PAGES)
+        .execute(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to set wal_autocheckpoint: {e}")))?;
+    let auto_checkpoint: i64 = sqlx::query_scalar("PRAGMA wal_autocheckpoint;")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to verify wal_autocheckpoint: {e}")))?;
+    if auto_checkpoint < SQLITE_WAL_AUTOCHECKPOINT_PAGES {
+        return Err(Error::DatabaseError(format!(
+            "wal_autocheckpoint too low: expected at least {SQLITE_WAL_AUTOCHECKPOINT_PAGES}, got {auto_checkpoint}"
+        )));
+    }
+
     Ok(())
 }
 
@@ -1310,15 +1348,86 @@ fn build_update_query(clauses: &[(&str, String)], name: &str) -> (String, Vec<St
 
 /// Execute UPDATE query
 async fn execute_update(pool: &SqlitePool, sql: &str, values: Vec<String>) -> Result<()> {
+    execute_update_conn_internal(pool, sql, values)
+        .await
+        .map(|_| ())
+}
+
+async fn execute_update_conn(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    sql: &str,
+    values: Vec<String>,
+) -> Result<u64> {
+    execute_update_conn_internal(&mut **conn, sql, values).await
+}
+
+async fn execute_update_conn_internal<'e, E>(
+    executor: E,
+    sql: &str,
+    values: Vec<String>,
+) -> Result<u64>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let mut query = sqlx::query(sql);
     for value in values {
         query = query.bind(value);
     }
     query
-        .execute(pool)
+        .execute(executor)
+        .await
+        .map(|r| r.rows_affected())
+        .map_err(|e| Error::DatabaseError(format!("Failed to update session: {e}")))
+}
+
+async fn is_command_processed_pool(pool: &SqlitePool, command_id: &str) -> Result<bool> {
+    let existing: Option<String> =
+        sqlx::query_scalar("SELECT command_id FROM processed_commands WHERE command_id = ?")
+            .bind(command_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to check processed command: {e}")))?;
+    Ok(existing.is_some())
+}
+
+async fn is_command_processed_conn(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    command_id: &str,
+) -> Result<bool> {
+    let existing: Option<String> =
+        sqlx::query_scalar("SELECT command_id FROM processed_commands WHERE command_id = ?")
+            .bind(command_id)
+            .fetch_optional(&mut **conn)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to check processed command: {e}")))?;
+    Ok(existing.is_some())
+}
+
+async fn mark_command_processed_conn(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    command_id: &str,
+) -> Result<()> {
+    sqlx::query("INSERT OR IGNORE INTO processed_commands (command_id) VALUES (?)")
+        .bind(command_id)
+        .execute(&mut **conn)
         .await
         .map(|_| ())
-        .map_err(|e| Error::DatabaseError(format!("Failed to update session: {e}")))
+        .map_err(|e| Error::DatabaseError(format!("Failed to mark command as processed: {e}")))
+}
+
+async fn query_session_by_name_conn(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    name: &str,
+) -> Result<Option<Session>> {
+    sqlx::query(
+        "SELECT id, name, status, state, workspace_path, branch, created_at, updated_at, last_synced, metadata
+         FROM sessions WHERE name = ?",
+    )
+    .bind(name)
+    .fetch_optional(&mut **conn)
+    .await
+    .map_err(|e| Error::DatabaseError(format!("Failed to query session: {e}")))
+    .and_then(|opt_row| opt_row.map(parse_session_row).transpose())
 }
 
 /// Delete a session from the database
@@ -1389,6 +1498,70 @@ mod tests {
         } else {
             return Err(Error::Unknown("Expected DatabaseError".to_string()));
         }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_create_with_command_id_replay_returns_existing_session() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+
+        let first = db
+            .create_with_command_id("idem-create", "/workspace/idem", Some("cmd-create-1"))
+            .await?;
+        let second = db
+            .create_with_command_id("idem-create", "/workspace/idem", Some("cmd-create-1"))
+            .await?;
+
+        assert_eq!(first.name, second.name);
+        assert_eq!(first.workspace_path, second.workspace_path);
+
+        let sessions = db.list(None).await?;
+        let count = sessions
+            .iter()
+            .filter(|session| session.name == "idem-create")
+            .count();
+        assert_eq!(count, 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_create_with_command_id_rejects_workspace_path_mismatch() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+
+        let _ = db
+            .create_with_command_id("idem-mismatch", "/workspace/one", Some("cmd-mismatch-1"))
+            .await?;
+
+        let err = db
+            .create_with_command_id("idem-mismatch", "/workspace/two", Some("cmd-mismatch-2"))
+            .await
+            .err()
+            .ok_or_else(|| Error::Unknown("Expected mismatch error".to_string()))?;
+
+        let message = err.to_string();
+        assert!(message.contains("different workspace path"));
+        assert!(!db.is_command_processed("cmd-mismatch-2").await?);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_with_command_id_missing_session_does_not_mark_processed() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+
+        let update = SessionUpdate {
+            status: Some(SessionStatus::Active),
+            ..Default::default()
+        };
+
+        let result = db
+            .update_with_command_id("missing-session", update, Some("cmd-update-missing"))
+            .await;
+
+        assert!(result.is_err());
+        assert!(!db.is_command_processed("cmd-update-missing").await?);
+
         Ok(())
     }
 
