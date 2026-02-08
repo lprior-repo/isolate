@@ -172,7 +172,6 @@ pub async fn restore_from_latest(
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
     use tempfile::TempDir;
 
     use super::*;

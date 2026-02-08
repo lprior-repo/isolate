@@ -408,7 +408,7 @@ async fn check_initialized() -> DoctorCheck {
         status: if initialized {
             CheckStatus::Pass
         } else {
-            CheckStatus::Fail
+            CheckStatus::Warn
         },
         message: if initialized {
             ".zjj directory exists with valid config".to_string()
@@ -456,9 +456,7 @@ fn create_recovery_check(recovery_info: &str) -> DoctorCheck {
         name: "State Database".to_string(),
         status: CheckStatus::Warn,
         message: format!("Database recovered: {recovery_info}"),
-        suggestion: Some(
-            "Recovery completed. Review .zjj/recovery.log for details.".to_string(),
-        ),
+        suggestion: Some("Recovery completed. Review .zjj/recovery.log for details.".to_string()),
         auto_fixable: false,
         details: Some(serde_json::json!({
             "recovered": true,

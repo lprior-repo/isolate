@@ -6,9 +6,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use zjj_core::{OutputFormat, SchemaEnvelope};
 
-use crate::commands::get_session_db;
-use crate::db::SessionDb;
-use crate::session::Session;
+use crate::{commands::get_session_db, db::SessionDb, session::Session};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORT
@@ -238,11 +236,10 @@ async fn check_session_conflict(
 /// Delete existing session for overwrite
 ///
 /// Attempts to remove the existing session before importing a new version.
-async fn delete_existing_session(
-    db: &SessionDb,
-    session_name: &str,
-) -> Result<()> {
-    let _deleted: bool = db.delete(session_name).await
+async fn delete_existing_session(db: &SessionDb, session_name: &str) -> Result<()> {
+    let _deleted: bool = db
+        .delete(session_name)
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to delete existing session '{session_name}': {e}"))?;
     Ok(())
 }
@@ -253,11 +250,13 @@ async fn delete_existing_session(
 async fn import_session(
     db: &SessionDb,
     session: &ExportedSession,
-    was_overwritten: bool,
+    _was_overwritten: bool,
 ) -> Result<()> {
     let workspace_path = session.workspace_path.as_deref().map_or("", |value| value);
     let name = &session.name;
-    let _created: Session = db.create(name, workspace_path).await
+    let _created: Session = db
+        .create(name, workspace_path)
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to import '{name}': {e}"))?;
 
     Ok(())
@@ -279,7 +278,8 @@ async fn process_single_session(
     let session_name = &session.name;
 
     // Check if session exists and determine action
-    let action = check_session_conflict(db, session_name, options.force, options.skip_existing).await?;
+    let action =
+        check_session_conflict(db, session_name, options.force, options.skip_existing).await?;
 
     match action {
         Some(true) => {

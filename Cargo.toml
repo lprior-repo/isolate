@@ -16,8 +16,8 @@ missing_docs = "allow"
 
 [workspace.lints.clippy]
 # Zero unwrap law - COMPILE ERRORS (relaxed in tests)
-unwrap_used = "forbid"
-expect_used = "deny"  # Changed from forbid to allow test macros
+unwrap_used = "deny"  # Changed to deny so tests can use #[allow]
+expect_used = "deny"
 panic = "forbid"
 todo = "forbid"
 unimplemented = "forbid"

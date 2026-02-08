@@ -1129,11 +1129,32 @@ pub async fn handle_pane(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_recover(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    let options = recover::RecoverOptions {
-        diagnose_only: sub_m.get_flag("diagnose"),
-        format,
-    };
-    recover::run_recover(&options).await
+
+    // Check if this is operation log recovery (has session arg or op flag)
+    let session = sub_m.get_one::<String>("session").cloned();
+    let operation = sub_m.get_one::<String>("op").cloned();
+    let last = sub_m.get_flag("last");
+    let list_ops = sub_m.get_flag("list-ops");
+
+    if session.is_some() || operation.is_some() || last || list_ops {
+        // Operation log recovery mode
+        let list_only = list_ops || operation.as_ref().map_or(true, |_| false) && !last;
+        let options = recover::OpRecoverOptions {
+            session,
+            operation: operation.clone(),
+            last,
+            list_only,
+            format,
+        };
+        recover::run_op_recover(&options).await
+    } else {
+        // System recovery mode
+        let options = recover::RecoverOptions {
+            diagnose_only: sub_m.get_flag("diagnose"),
+            format,
+        };
+        recover::run_recover(&options).await
+    }
 }
 
 pub async fn handle_retry(sub_m: &ArgMatches) -> Result<()> {

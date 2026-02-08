@@ -199,7 +199,7 @@ impl LockManager {
         let expires_str = expires_at.to_rfc3339();
         let nanos = now
             .timestamp_nanos_opt()
-            .unwrap_or_else(|| now.timestamp() * 1_000_000_000);
+            .ok_or_else(|| Error::ParseError("Failed to get timestamp nanos".into()))?;
         let lock_id = format!("lock-{session}-{nanos}");
 
         sqlx::query(

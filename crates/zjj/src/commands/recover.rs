@@ -3,6 +3,9 @@
 //! Provides recovery operations:
 //! - `zjj recover` - Auto-detect and fix issues
 //! - `zjj recover --diagnose` - Show issues without fixing
+//! - `zjj recover <session>` - Show JJ operation log for session
+//! - `zjj recover <session> --op=<id>` - Restore to specific operation
+//! - `zjj recover <session> --last` - Restore to previous operation
 //! - `zjj retry` - Retry last failed command
 //! - `zjj rollback <session> --to <checkpoint>` - Restore to checkpoint
 
@@ -12,7 +15,10 @@ use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
-use super::get_session_db;
+use super::{
+    context::{detect_location, Location},
+    get_session_db,
+};
 use crate::cli::is_command_available;
 
 /// Options for recover command
@@ -42,6 +48,64 @@ pub struct RollbackOptions {
     pub dry_run: bool,
     /// Output format
     pub format: OutputFormat,
+}
+
+/// Options for operation log recovery
+#[derive(Debug, Clone)]
+pub struct OpRecoverOptions {
+    /// Session name (optional - if None, use current workspace)
+    pub session: Option<String>,
+    /// Operation ID to restore to
+    pub operation: Option<String>,
+    /// Restore to last operation (undo)
+    pub last: bool,
+    /// List only, don't restore
+    pub list_only: bool,
+    /// Output format
+    pub format: OutputFormat,
+}
+
+/// JJ Operation log entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationEntry {
+    /// Operation ID
+    pub id: String,
+    /// Operation type
+    pub operation: String,
+    /// Description
+    pub description: String,
+    /// Timestamp
+    pub timestamp: String,
+    /// User who performed the operation
+    pub user: String,
+    /// Current state after this operation
+    pub current: bool,
+}
+
+/// Operation log output
+#[derive(Debug, Clone, Serialize)]
+pub struct OperationLogOutput {
+    /// Session name
+    pub session: String,
+    /// Operations found
+    pub operations: Vec<OperationEntry>,
+    /// Total operations
+    pub total: usize,
+    /// Current operation ID
+    pub current_operation: Option<String>,
+}
+
+/// Operation restore output
+#[derive(Debug, Clone, Serialize)]
+pub struct OperationRestoreOutput {
+    /// Session name
+    pub session: String,
+    /// Operation ID restored to
+    pub operation_id: String,
+    /// Success
+    pub success: bool,
+    /// Message
+    pub message: String,
 }
 
 /// Issue found during diagnosis
@@ -561,6 +625,249 @@ pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
 
     if !output.success && !options.dry_run {
         anyhow::bail!("Rollback failed");
+    }
+
+    Ok(())
+}
+
+/// Run operation log recovery or listing
+pub async fn run_op_recover(options: &OpRecoverOptions) -> Result<()> {
+    // Determine workspace path from session or current location
+    let workspace_path = match &options.session {
+        Some(session_name) => {
+            // Get session from database
+            let db = get_session_db().await?;
+            let session = db
+                .get(session_name)
+                .await?
+                .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' not found"))?;
+
+            session
+                .metadata
+                .as_ref()
+                .and_then(|m| m.get("workspace_path"))
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow::anyhow!("Session '{session_name}' has no workspace path"))?
+                .to_string()
+        }
+        None => {
+            // Use current workspace - detect using jj root
+            use crate::cli::jj_root;
+            let root = jj_root().await?;
+            let root_path = std::path::PathBuf::from(&root);
+            let location = detect_location(&root_path)?;
+            match location {
+                Location::Workspace { path, .. } => path,
+                Location::Main => {
+                    anyhow::bail!("Not in a workspace. Specify a session name or run from within a workspace.");
+                }
+            }
+        }
+    };
+
+    // If listing or no operation specified, show operation log
+    if options.list_only || options.operation.is_none() && !options.last {
+        return show_operation_log(&workspace_path, &options.session, options.format).await;
+    }
+
+    // Restore to specific operation
+    let operation_id = if options.last {
+        // Get previous operation
+        let operations = get_operation_log(&workspace_path).await?;
+        if operations.len() < 2 {
+            anyhow::bail!("No previous operation to restore to");
+        }
+        operations
+            .get(1)
+            .map(|op| op.id.clone())
+            .ok_or_else(|| anyhow::anyhow!("Could not find previous operation"))?
+    } else {
+        options
+            .operation
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("Operation ID required"))?
+    };
+
+    restore_to_operation(&workspace_path, &operation_id, options.format).await
+}
+
+/// Get operation log from workspace
+async fn get_operation_log(workspace_path: &str) -> Result<Vec<OperationEntry>> {
+    let output = Command::new("jj")
+        .current_dir(workspace_path)
+        .args([
+            "op",
+            "log",
+            "--no-graph",
+            "-T",
+            r"id | operation | time | user | description",
+            "--limit",
+            "50",
+        ])
+        .output()
+        .await
+        .context("Failed to run jj op log")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("jj op log failed: {stderr}");
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let current_op_id = get_current_operation_id(workspace_path).await.ok();
+
+    let operations = stdout
+        .lines()
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split('|').collect();
+            if parts.len() >= 4 {
+                Some(OperationEntry {
+                    id: parts
+                        .get(0)
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_default(),
+                    operation: parts
+                        .get(1)
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_default(),
+                    description: parts
+                        .get(4)
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_else(|| {
+                            parts
+                                .get(1)
+                                .map(|s| s.trim().to_string())
+                                .unwrap_or_default()
+                        }),
+                    timestamp: parts
+                        .get(2)
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_default(),
+                    user: parts
+                        .get(3)
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_default(),
+                    current: current_op_id
+                        .as_ref()
+                        .is_some_and(|id| parts.get(0).is_some_and(|p| p.trim() == id)),
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Ok(operations)
+}
+
+/// Get current operation ID
+async fn get_current_operation_id(workspace_path: &str) -> Result<String> {
+    let output = Command::new("jj")
+        .current_dir(workspace_path)
+        .args(["op", "log", "--no-graph", "-T", "id", "--limit", "1"])
+        .output()
+        .await
+        .context("Failed to get current operation")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Failed to get current operation: {stderr}");
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(stdout.trim().to_string())
+}
+
+/// Show operation log
+async fn show_operation_log(
+    workspace_path: &str,
+    session_name: &Option<String>,
+    format: OutputFormat,
+) -> Result<()> {
+    let operations = get_operation_log(workspace_path).await?;
+    let current_op_id = get_current_operation_id(workspace_path).await.ok();
+
+    let session = session_name
+        .clone()
+        .unwrap_or_else(|| "<current>".to_string());
+
+    if format.is_json() {
+        let total = operations.len();
+        let output = OperationLogOutput {
+            session,
+            operations: operations.clone(),
+            total,
+            current_operation: current_op_id,
+        };
+        let envelope = SchemaEnvelope::new("op-log-response", "single", &output);
+        let json_str =
+            serde_json::to_string_pretty(&envelope).context("Failed to serialize operation log")?;
+        println!("{json_str}");
+    } else {
+        println!("Operation log for session '{session}':\n");
+        if operations.is_empty() {
+            println!("No operations found.");
+        } else {
+            for (idx, op) in operations.iter().enumerate() {
+                let marker = if op.current { " (current)" } else { "" };
+                println!(
+                    "  {}. {}{} - {} @ {}",
+                    idx, op.id, marker, op.operation, op.timestamp
+                );
+                if !op.description.is_empty() {
+                    println!("     {}", op.description);
+                }
+                println!();
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Restore to specific operation
+async fn restore_to_operation(
+    workspace_path: &str,
+    operation_id: &str,
+    format: OutputFormat,
+) -> Result<()> {
+    let output = Command::new("jj")
+        .current_dir(workspace_path)
+        .args(["op", "restore", "--operation", operation_id])
+        .output()
+        .await
+        .context("Failed to run jj op restore")?;
+
+    let session = "workspace"; // Could be enhanced to get actual session name
+
+    let result = if output.status.success() {
+        OperationRestoreOutput {
+            session: session.to_string(),
+            operation_id: operation_id.to_string(),
+            success: true,
+            message: format!("Restored to operation {operation_id}"),
+        }
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        OperationRestoreOutput {
+            session: session.to_string(),
+            operation_id: operation_id.to_string(),
+            success: false,
+            message: format!("Failed to restore: {stderr}"),
+        }
+    };
+
+    if format.is_json() {
+        let envelope = SchemaEnvelope::new("op-restore-response", "single", &result);
+        let json_str = serde_json::to_string_pretty(&envelope)
+            .context("Failed to serialize restore output")?;
+        println!("{json_str}");
+    } else {
+        println!("{}", result.message);
+    }
+
+    if !result.success {
+        anyhow::bail!("Operation restore failed");
     }
 
     Ok(())

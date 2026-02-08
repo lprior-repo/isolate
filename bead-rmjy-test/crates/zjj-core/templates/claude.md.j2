@@ -1,0 +1,13 @@
+# {{ project_name }}
+
+{{ description }}
+
+Version: {{ version }}
+{% for author in authors %}
+- {{ author }}
+{% endfor %}
+{% match repository_url %}
+{% when Some with (url) %}
+Repository: {{ url }}
+{% when None %}
+{% endmatch %}

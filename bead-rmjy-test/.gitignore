@@ -1,0 +1,43 @@
+# Rust
+/target/
+Cargo.lock
+
+# Moon
+.moon/cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
+
+# Reports
+.llm-*.json
+.llm-*.md
+.cd-gates-*
+.mutations-report/
+
+# Codanna (local index)
+.codanna/
+.fastembed_cache
+
+# OC Workflow engine
+.oc-workflow/
+
+# ZJJ runtime data
+.zjj/
+workspaces/
+.tdd15-worktree/
+
+# bv (beads viewer) local config and caches
+.bv/
+.beads/.br_history/

@@ -458,7 +458,7 @@ mod tests {
                 assert_eq!(from, OperationPhase::Complete);
                 assert_eq!(to, OperationPhase::Executing);
             } else {
-                panic!("Expected InvalidPhaseTransition error, got: {:?}", result);
+                panic!("Expected InvalidPhaseTransition error, got: {result:?}");
             }
         }
 
@@ -470,10 +470,7 @@ mod tests {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
             indicator.start();
 
-            assert!(
-                indicator.complete().is_ok(),
-                "Should complete successfully"
-            );
+            assert!(indicator.complete().is_ok(), "Should complete successfully");
 
             assert_eq!(indicator.phase(), OperationPhase::Complete);
             assert!(indicator.phase().is_terminal());
@@ -487,10 +484,7 @@ mod tests {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
             indicator.start();
 
-            assert!(
-                indicator.fail().is_ok(),
-                "Should fail successfully"
-            );
+            assert!(indicator.fail().is_ok(), "Should fail successfully");
 
             assert_eq!(indicator.phase(), OperationPhase::Failed);
             assert!(indicator.phase().is_terminal());
