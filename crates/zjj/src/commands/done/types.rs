@@ -230,6 +230,7 @@ impl DoneError {
             Self::MergeFailed { .. } => "MERGE_FAILED",
             Self::CleanupFailed { .. } => "CLEANUP_FAILED",
             Self::BeadUpdateFailed { .. } => "BEAD_UPDATE_FAILED",
+            Self::SessionUpdateFailed { .. } => "SESSION_UPDATE_FAILED",
             Self::JjCommandFailed { .. } => "JJ_COMMAND_FAILED",
             Self::InvalidState { .. } => "INVALID_STATE",
         }
@@ -251,6 +252,7 @@ impl DoneError {
             | Self::MergeFailed { .. }
             | Self::CleanupFailed { .. }
             | Self::BeadUpdateFailed { .. }
+            | Self::SessionUpdateFailed { .. }
             | Self::JjCommandFailed { .. }
             | Self::InvalidState { .. } => DonePhase::MergingToMain,
         }

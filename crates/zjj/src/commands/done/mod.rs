@@ -35,6 +35,7 @@ use self::conflict::ConflictDetector;
 use crate::{
     cli::jj_root,
     commands::context::{detect_location, Location},
+    session::{SessionStatus, SessionUpdate},
 };
 
 /// Run the done command with options
