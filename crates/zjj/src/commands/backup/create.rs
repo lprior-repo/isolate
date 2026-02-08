@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use std::path::{Path, PathBuf};
 
-use super::{
+use super::backup_internal::{
     compute_checksum, generate_backup_filename, get_database_backup_dir, BackupConfig,
     BackupMetadata,
 };

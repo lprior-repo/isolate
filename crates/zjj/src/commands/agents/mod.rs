@@ -261,7 +261,7 @@ pub(crate) fn validate_agent_id(agent_id: &str) -> Result<()> {
     // If the trimmed version differs from the original, warn but accept it
     if trimmed.len() != agent_id.len() {
         // This is informational - we accept the trimmed version
-        log::warn!("Agent ID contained leading/trailing whitespace; using trimmed value");
+        tracing::warn!("Agent ID contained leading/trailing whitespace; using trimmed value");
     }
 
     Ok(())

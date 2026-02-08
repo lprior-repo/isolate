@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use super::{parse_backup_filename, BackupConfig, BackupMetadata};
+use super::backup_internal::{get_database_backup_dir, parse_backup_filename, BackupConfig, BackupMetadata};
 
 /// Information about a backup
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,7 +54,7 @@ pub async fn list_database_backups(
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<Vec<BackupInfo>> {
-    let backup_dir = super::get_database_backup_dir(&config.backup_dir, database_name);
+    let backup_dir = get_database_backup_dir(&config.backup_dir, database_name);
 
     if !backup_dir.exists() {
         return Ok(Vec::new());

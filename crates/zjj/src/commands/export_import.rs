@@ -103,7 +103,7 @@ pub async fn run_export(options: &ExportOptions) -> Result<()> {
             bead_id: None, // bead_id not in Session struct
             workspace_path: Some(session.workspace_path),
             owner: None,
-            created_at: Some(format!("{session.created_at}")),
+            created_at: Some(format!("{}", session.created_at)),
             commits: vec![],
             metadata: session.metadata,
         }]
@@ -117,7 +117,7 @@ pub async fn run_export(options: &ExportOptions) -> Result<()> {
                 bead_id: None,
                 workspace_path: Some(s.workspace_path),
                 owner: None,
-                created_at: Some(format!("{s.created_at}")),
+                created_at: Some(format!("{}", s.created_at)),
                 commits: vec![],
                 metadata: s.metadata,
             })

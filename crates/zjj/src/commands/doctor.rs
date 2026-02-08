@@ -18,6 +18,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use sqlx::Row;
 use chrono::{Duration, Utc};
 use futures::StreamExt;
 use tokio::process::Command;
@@ -575,7 +576,7 @@ async fn run_integrity_check(db_path: &Path) -> Result<String, String> {
     };
 
     // The result is a single row with a column named "integrity_check"
-    let integrity_result: String = match result.get("integrity_check") {
+    let integrity_result: String = match result.try_get("integrity_check") {
         Ok(r) => r,
         Err(e) => {
             pool.close().await;
