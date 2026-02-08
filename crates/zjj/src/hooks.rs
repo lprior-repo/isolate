@@ -187,6 +187,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+
     use super::*;
 
     #[test]
@@ -209,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_hooks_config_rejects_empty_success() {
-        let result = HooksConfig::from_args(Some("".to_string()), None);
+        let result = HooksConfig::from_args(Some(String::new()), None);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("cannot be empty"));
     }
@@ -223,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_hooks_config_rejects_empty_failure() {
-        let result = HooksConfig::from_args(None, Some("".to_string()));
+        let result = HooksConfig::from_args(None, Some(String::new()));
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("cannot be empty"));
     }

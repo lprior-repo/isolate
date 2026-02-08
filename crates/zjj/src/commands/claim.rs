@@ -96,13 +96,13 @@ struct ClaimAuditEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum ClaimAction {
     #[serde(rename = "initial_claim")]
-    InitialClaim,
+    Initial,
     #[serde(rename = "double_claim")]
-    DoubleClaim,
+    Double,
     #[serde(rename = "expired_claim")]
-    ExpiredClaim,
+    Expired,
     #[serde(rename = "failed_claim")]
-    FailedClaim,
+    Failed,
 }
 
 /// Complete audit log for a resource
@@ -112,7 +112,7 @@ struct ClaimAudit {
 }
 
 impl ClaimAudit {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             entries: Vec::new(),
         }
@@ -254,7 +254,10 @@ struct AuditEntryParams<'a> {
 
 /// Create audit entry for claim operation
 fn create_audit_entry(params: AuditEntryParams) -> ClaimAuditEntry {
-    let success = matches!(params.action, ClaimAction::InitialClaim | ClaimAction::DoubleClaim | ClaimAction::ExpiredClaim);
+    let success = matches!(
+        params.action,
+        ClaimAction::Initial | ClaimAction::Double | ClaimAction::Expired
+    );
     ClaimAuditEntry {
         agent_id: params.agent_id.to_string(),
         resource: params.resource.to_string(),
@@ -287,7 +290,12 @@ fn create_success_result(
 }
 
 /// Create failed claim result with error message
-fn create_error_result(resource: &str, agent_id: &str, error: String, claim_count: usize) -> ClaimResult {
+fn create_error_result(
+    resource: &str,
+    agent_id: &str,
+    error: String,
+    claim_count: usize,
+) -> ClaimResult {
     ClaimResult {
         claimed: false,
         resource: resource.to_string(),
@@ -320,7 +328,7 @@ async fn handle_expired_lock(
         agent_id,
         resource,
         now,
-        action: ClaimAction::ExpiredClaim,
+        action: ClaimAction::Expired,
         expires_at: Some(new_lock.expires_at),
         previous_holder: Some(existing.holder.clone()),
     });
@@ -337,7 +345,12 @@ async fn handle_expired_lock(
             is_double_claim: Some(false),
             claim_count: Some(claim_count + 1),
         },
-        Err(e) => create_error_result(resource, agent_id, format!("Failed to write lock: {e}"), claim_count),
+        Err(e) => create_error_result(
+            resource,
+            agent_id,
+            format!("Failed to write lock: {e}"),
+            claim_count,
+        ),
     }
 }
 
@@ -359,7 +372,7 @@ async fn handle_double_claim(
         agent_id,
         resource,
         now,
-        action: ClaimAction::DoubleClaim,
+        action: ClaimAction::Double,
         expires_at: Some(new_lock.expires_at),
         previous_holder: None,
     });
@@ -406,7 +419,7 @@ async fn handle_failed_claim(
         agent_id,
         resource,
         now,
-        action: ClaimAction::FailedClaim,
+        action: ClaimAction::Failed,
         expires_at: None,
         previous_holder: Some(existing.holder.clone()),
     });
@@ -418,7 +431,10 @@ async fn handle_failed_claim(
         holder: Some(existing.holder.clone()),
         expires_at: Some(existing.expires_at),
         previous_holder: None,
-        error: Some(format!("Resource locked by {holder}", holder = existing.holder)),
+        error: Some(format!(
+            "Resource locked by {holder}",
+            holder = existing.holder
+        )),
         is_double_claim: Some(false),
         claim_count: Some(claim_count),
     }
@@ -443,7 +459,7 @@ async fn handle_corrupt_lock(
         agent_id,
         resource,
         now,
-        action: ClaimAction::InitialClaim,
+        action: ClaimAction::Initial,
         expires_at: Some(new_lock.expires_at),
         previous_holder: None,
     });
@@ -460,7 +476,12 @@ async fn handle_corrupt_lock(
             is_double_claim: Some(false),
             claim_count: Some(claim_count + 1),
         },
-        Err(e) => create_error_result(resource, agent_id, format!("Failed to write lock: {e}"), claim_count),
+        Err(e) => create_error_result(
+            resource,
+            agent_id,
+            format!("Failed to write lock: {e}"),
+            claim_count,
+        ),
     }
 }
 
@@ -490,13 +511,15 @@ async fn attempt_claim(
             agent_id,
             resource,
             now,
-            action: ClaimAction::InitialClaim,
+            action: ClaimAction::Initial,
             expires_at: Some(expires_at),
             previous_holder: None,
         });
         let _ = write_audit_entry(audit_path, audit_entry).await;
 
-        return Ok(create_success_result(resource, agent_id, expires_at, 1, false));
+        return Ok(create_success_result(
+            resource, agent_id, expires_at, 1, false,
+        ));
     }
 
     // Lock file exists - check if we can take it
@@ -519,14 +542,32 @@ async fn attempt_claim(
             .await
         } else if existing.holder == agent_id {
             // DOUBLE CLAIM DETECTED - we already hold it
-            handle_double_claim(lock_path, audit_path, &new_lock, resource, agent_id, now, claim_count).await
+            handle_double_claim(
+                lock_path,
+                audit_path,
+                &new_lock,
+                resource,
+                agent_id,
+                now,
+                claim_count,
+            )
+            .await
         } else {
             // Someone else holds valid lock
             handle_failed_claim(audit_path, &existing, resource, agent_id, now, claim_count).await
         }
     } else {
         // Lock file unreadable/corrupt - try to take it
-        handle_corrupt_lock(lock_path, audit_path, &new_lock, resource, agent_id, now, claim_count).await
+        handle_corrupt_lock(
+            lock_path,
+            audit_path,
+            &new_lock,
+            resource,
+            agent_id,
+            now,
+            claim_count,
+        )
+        .await
     };
 
     Ok(result)
@@ -1174,7 +1215,7 @@ mod tests {
                 agent_id: "agent-123".to_string(),
                 resource: "session:feature-x".to_string(),
                 timestamp: 1_609_459_200,
-                action: ClaimAction::InitialClaim,
+                action: ClaimAction::Initial,
                 success: true,
                 expires_at: Some(1_609_462_800),
                 previous_holder: None,
@@ -1197,7 +1238,7 @@ mod tests {
                 agent_id: "agent-1".to_string(),
                 resource: "session:test".to_string(),
                 timestamp: 1000,
-                action: ClaimAction::InitialClaim,
+                action: ClaimAction::Initial,
                 success: true,
                 expires_at: Some(2000),
                 previous_holder: None,
@@ -1221,7 +1262,7 @@ mod tests {
                     agent_id: "agent-1".to_string(),
                     resource: "session:test".to_string(),
                     timestamp: 1000 + i,
-                    action: ClaimAction::InitialClaim,
+                    action: ClaimAction::Initial,
                     success: true,
                     expires_at: Some(2000 + i),
                     previous_holder: None,
@@ -1233,7 +1274,7 @@ mod tests {
                 agent_id: "agent-1".to_string(),
                 resource: "session:test".to_string(),
                 timestamp: 1003,
-                action: ClaimAction::FailedClaim,
+                action: ClaimAction::Failed,
                 success: false,
                 expires_at: None,
                 previous_holder: Some("agent-2".to_string()),
@@ -1249,10 +1290,10 @@ mod tests {
         #[test]
         fn claim_action_serializes_correctly() -> Result<(), Box<dyn std::error::Error>> {
             let actions = [
-                (ClaimAction::InitialClaim, "initial_claim"),
-                (ClaimAction::DoubleClaim, "double_claim"),
-                (ClaimAction::ExpiredClaim, "expired_claim"),
-                (ClaimAction::FailedClaim, "failed_claim"),
+                (ClaimAction::Initial, "initial_claim"),
+                (ClaimAction::Double, "double_claim"),
+                (ClaimAction::Expired, "expired_claim"),
+                (ClaimAction::Failed, "failed_claim"),
             ];
 
             for (action, expected) in actions {
@@ -1275,13 +1316,13 @@ mod tests {
                 agent_id: "agent-1".to_string(),
                 resource: "session:test".to_string(),
                 timestamp: 2000,
-                action: ClaimAction::DoubleClaim,
+                action: ClaimAction::Double,
                 success: true,
                 expires_at: Some(3000),
                 previous_holder: None,
             };
 
-            assert!(matches!(entry.action, ClaimAction::DoubleClaim));
+            assert!(matches!(entry.action, ClaimAction::Double));
             assert!(entry.success);
         }
     }

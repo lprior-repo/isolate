@@ -10,8 +10,8 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use tokio::fs;
 
-use super::{BackupConfig};
-use crate::commands::backup::list::{self, BackupInfo};
+use super::BackupConfig;
+use crate::commands::backup::list;
 
 /// Apply retention policy to backups for a specific database
 ///
@@ -28,7 +28,8 @@ pub async fn apply_retention_policy(
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<Vec<String>> {
-    let backups = list::list_database_backups(_root, database_name, config).await?;
+    let backups: Vec<list::BackupInfo> =
+        list::list_database_backups(_root, database_name, config).await?;
 
     if backups.len() <= config.retention_count {
         return Ok(Vec::new());
@@ -67,7 +68,10 @@ pub async fn apply_retention_policy(
 /// # Errors
 ///
 /// Returns error if any retention operation fails
-pub async fn apply_retention_policy_all(_root: &Path, config: &BackupConfig) -> Result<Vec<String>> {
+pub async fn apply_retention_policy_all(
+    _root: &Path,
+    config: &BackupConfig,
+) -> Result<Vec<String>> {
     let databases = vec!["state.db", "queue.db", "beads.db"];
 
     let mut all_removed = Vec::new();
@@ -95,7 +99,8 @@ pub async fn calculate_backup_size(
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<u64> {
-    let backups = list::list_database_backups(_root, database_name, config).await?;
+    let backups: Vec<list::BackupInfo> =
+        list::list_database_backups(_root, database_name, config).await?;
 
     let total_size = backups.iter().map(|b| b.size_bytes).sum();
 
@@ -112,7 +117,8 @@ pub async fn calculate_freed_space(
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<u64> {
-    let backups = list::list_database_backups(_root, database_name, config).await?;
+    let backups: Vec<list::BackupInfo> =
+        list::list_database_backups(_root, database_name, config).await?;
 
     if backups.len() <= config.retention_count {
         return Ok(0);
@@ -226,7 +232,7 @@ mod tests {
         assert_eq!(removed.len(), 1);
 
         // Verify 2 backups remain
-        let backups: Vec<BackupInfo> = list::list_database_backups(root, "test.db", &config)
+        let backups: Vec<list::BackupInfo> = list::list_database_backups(root, "test.db", &config)
             .await
             .unwrap();
 

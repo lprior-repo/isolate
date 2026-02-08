@@ -2182,13 +2182,40 @@ pub fn cmd_schema() -> ClapCommand {
 
 pub fn cmd_recover() -> ClapCommand {
     ClapCommand::new("recover")
-        .about("Recover from inconsistent state")
+        .about("Recover from inconsistent state or restore from operation log")
+        .arg(
+            Arg::new("session")
+                .value_name("SESSION")
+                .help("Session name to recover (optional, uses current workspace if not specified)")
+                .num_args(0..=1)
+                .value_parser(clap::value_parser!(String)),
+        )
         .arg(
             Arg::new("diagnose")
                 .short('d')
                 .long("diagnose")
                 .action(clap::ArgAction::SetTrue)
-                .help("Only diagnose issues without fixing"),
+                .help("Only diagnose system issues without fixing (system recovery mode)"),
+        )
+        .arg(
+            Arg::new("op")
+                .long("op")
+                .value_name("ID")
+                .help("Restore to specific operation ID (operation log mode)")
+                .num_args(1)
+                .value_parser(clap::value_parser!(String)),
+        )
+        .arg(
+            Arg::new("last")
+                .long("last")
+                .action(clap::ArgAction::SetTrue)
+                .help("Restore to previous operation (quick undo)"),
+        )
+        .arg(
+            Arg::new("list-ops")
+                .long("list")
+                .action(clap::ArgAction::SetTrue)
+                .help("List operation log without restoring (default when no --op or --last)"),
         )
         .arg(
             Arg::new("json")

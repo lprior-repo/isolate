@@ -174,13 +174,13 @@ mod tests {
         fs::create_dir_all(&backup_dir).await.unwrap();
 
         // Create multiple backups with different timestamps
-        let backup1 = backup_dir.join("backup-20250101-100000.db");
-        let backup2 = backup_dir.join("backup-20250101-120000.db");
-        let backup3 = backup_dir.join("backup-20250101-110000.db");
+        let backup_file1 = backup_dir.join("backup-20250101-100000.db");
+        let backup_file2 = backup_dir.join("backup-20250101-120000.db");
+        let backup_file3 = backup_dir.join("backup-20250101-110000.db");
 
-        fs::write(&backup1, b"data1").await.unwrap();
-        fs::write(&backup2, b"data2").await.unwrap();
-        fs::write(&backup3, b"data3").await.unwrap();
+        fs::write(&backup_file1, b"data1").await.unwrap();
+        fs::write(&backup_file2, b"data2").await.unwrap();
+        fs::write(&backup_file3, b"data3").await.unwrap();
 
         let backups = list_database_backups(root, "test.db", &config)
             .await
