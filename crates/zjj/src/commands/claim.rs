@@ -73,7 +73,7 @@ pub struct YieldResult {
 
 /// Lock file content
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct LockInfo {
+pub struct LockInfo {
     holder: String,
     resource: String,
     acquired_at: u64,
@@ -82,7 +82,7 @@ struct LockInfo {
 
 /// Audit entry for claim operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ClaimAuditEntry {
+pub struct ClaimAuditEntry {
     agent_id: String,
     resource: String,
     timestamp: u64,

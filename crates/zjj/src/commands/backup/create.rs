@@ -126,6 +126,8 @@ pub async fn backup_all_databases(root: &Path, config: &BackupConfig) -> Result<
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
     use tempfile::TempDir;
 
     use super::*;

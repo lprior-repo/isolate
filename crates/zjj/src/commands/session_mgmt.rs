@@ -168,6 +168,7 @@ pub async fn run_resume(options: &ResumeOptions) -> Result<()> {
 
 /// Options for the clone command
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Field is part of public API
 pub struct CloneOptions {
     /// Session to clone
     pub source: String,

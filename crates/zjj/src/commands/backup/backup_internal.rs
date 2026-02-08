@@ -68,7 +68,7 @@ impl BackupConfig {
     /// Create backup config with custom retention
     #[allow(dead_code)]
     // Builder pattern method for backup configuration
-    pub fn with_retention(mut self, count: usize) -> Self {
+    pub const fn with_retention(mut self, count: usize) -> Self {
         self.retention_count = count;
         self
     }
@@ -98,7 +98,6 @@ pub async fn compute_checksum(path: &Path) -> Result<String> {
         .context("Failed to open file for checksum")?;
 
     let mut hasher = Sha256::new();
-    let mut buffer = Vec::new();
 
     // Read file in chunks to avoid loading entire file into memory
     let mut chunk_buffer = vec![0u8; 8192];
@@ -113,7 +112,6 @@ pub async fn compute_checksum(path: &Path) -> Result<String> {
         }
 
         hasher.update(&chunk_buffer[..bytes_read]);
-        buffer.extend_from_slice(&chunk_buffer[..bytes_read]);
     }
 
     let result = hasher.finalize();
@@ -183,6 +181,8 @@ pub fn parse_backup_filename(filename: &str) -> Result<DateTime<Utc>> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
     use super::*;
 
     #[test]

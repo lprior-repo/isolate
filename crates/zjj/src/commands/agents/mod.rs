@@ -251,7 +251,7 @@ fn print_human_readable(output: &AgentsOutput) {
 /// # Errors
 ///
 /// Returns error if the agent ID is empty or consists only of whitespace
-pub(crate) fn validate_agent_id(agent_id: &str) -> Result<()> {
+pub fn validate_agent_id(agent_id: &str) -> Result<()> {
     let trimmed = agent_id.trim();
 
     if trimmed.is_empty() {

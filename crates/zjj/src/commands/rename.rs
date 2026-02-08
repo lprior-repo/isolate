@@ -218,7 +218,7 @@ pub async fn run(options: &RenameOptions) -> Result<()> {
         if let Some(ref new_path) = new_path {
             // Use map to handle Result without unwrap
             let path_exists = tokio::fs::try_exists(old_path).await;
-            if let Ok(true) = path_exists {
+            if matches!(path_exists, Ok(true)) {
                 tokio::fs::rename(old_path, new_path).await?;
             }
         }

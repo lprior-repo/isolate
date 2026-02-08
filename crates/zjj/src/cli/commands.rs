@@ -272,6 +272,43 @@ pub fn cmd_agents() -> ClapCommand {
         ))
 }
 
+pub fn cmd_broadcast() -> ClapCommand {
+    ClapCommand::new("broadcast")
+        .about("Send a message to all active agents")
+        .long_about(
+            "Broadcast a message to all active agents except yourself.
+
+            Messages are stored in the database with timestamp and recipient list.
+
+            Requires ZJJ_AGENT_ID to be set (run 'zjj agent register' first).",
+        )
+        .after_help(after_help_text(
+            &[
+                "zjj broadcast 'Hello, team!'     Send message to all agents",
+                "zjj broadcast 'Work complete'    Notify other agents",
+                "zjj broadcast --json             Output in JSON format",
+            ],
+            None,
+        ))
+        .arg(
+            Arg::new("message")
+                .required(true)
+                .help("Message to broadcast to all agents"),
+        )
+        .arg(
+            Arg::new("agent-id")
+                .long("agent-id")
+                .value_name("AGENT_ID")
+                .help("Agent ID of the sender (uses ZJJ_AGENT_ID if not provided)"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 pub fn cmd_list() -> ClapCommand {
     ClapCommand::new("list")
         .about("List all sessions")
@@ -2694,6 +2731,7 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_add())
         .subcommand(cmd_agents())
         .subcommand(cmd_attach())
+        .subcommand(cmd_broadcast())
         .subcommand(cmd_list())
         .subcommand(cmd_bookmark())
         .subcommand(cmd_remove())

@@ -124,8 +124,8 @@ pub async fn find_latest_backup(
             .ok_or_else(|| anyhow::anyhow!("Invalid backup filename"))?;
 
         // Parse timestamp from filename
-        match parse_backup_filename(filename) {
-            Ok(timestamp) => match &latest_backup {
+        if let Ok(timestamp) = parse_backup_filename(filename) {
+            match &latest_backup {
                 None => {
                     latest_backup = Some((path, timestamp));
                 }
@@ -134,10 +134,6 @@ pub async fn find_latest_backup(
                         latest_backup = Some((path, timestamp));
                     }
                 }
-            },
-            Err(_) => {
-                // Skip files with invalid names
-                continue;
             }
         }
     }
@@ -166,7 +162,6 @@ pub async fn restore_from_latest(
 
     // Determine target path based on database name
     let target_path = match database_name {
-        "state.db" | "queue.db" => root.join(".zjj").join(database_name),
         "beads.db" => root.join(".beads").join(database_name),
         _ => root.join(".zjj").join(database_name),
     };
@@ -178,6 +173,9 @@ pub async fn restore_from_latest(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+    #![allow(clippy::unwrap_used)]
+
     use tempfile::TempDir;
 
     use super::*;

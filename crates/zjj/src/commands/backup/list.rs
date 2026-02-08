@@ -32,7 +32,7 @@ impl BackupInfo {
     /// Create backup info from path and metadata
     #[allow(dead_code)]
     // Constructor for backup information structure
-    pub fn new(
+    pub const fn new(
         path: PathBuf,
         timestamp: DateTime<Utc>,
         metadata: Option<BackupMetadata>,
@@ -57,10 +57,11 @@ impl BackupInfo {
 #[allow(dead_code)]
 // Core listing functionality for backup discovery
 pub async fn list_database_backups(
-    _root: &Path,
+    root: &Path,
     database_name: &str,
     config: &BackupConfig,
 ) -> Result<Vec<BackupInfo>> {
+    let _ = root; // Currently unused but kept for API consistency
     let backup_dir = get_database_backup_dir(&config.backup_dir, database_name);
 
     if !backup_dir.exists() {
@@ -87,9 +88,8 @@ pub async fn list_database_backups(
             .ok_or_else(|| anyhow::anyhow!("Invalid backup filename"))?;
 
         // Parse timestamp from filename
-        let timestamp = match parse_backup_filename(filename) {
-            Ok(ts) => ts,
-            Err(_) => continue, // Skip invalid filenames
+        let Ok(timestamp) = parse_backup_filename(filename) else {
+            continue; // Skip invalid filenames
         };
 
         // Get file size
@@ -123,7 +123,7 @@ pub async fn list_database_backups(
 #[allow(dead_code)]
 // High-level listing orchestration function
 pub async fn list_all_backups(
-    _root: &Path,
+    root: &Path,
     config: &BackupConfig,
 ) -> Result<Vec<(String, Vec<BackupInfo>)>> {
     let databases = vec!["state.db", "queue.db", "beads.db"];
@@ -131,7 +131,7 @@ pub async fn list_all_backups(
     let mut all_backups = Vec::new();
 
     for db_name in databases {
-        let backups = list_database_backups(_root, db_name, config).await?;
+        let backups = list_database_backups(root, db_name, config).await?;
         if !backups.is_empty() {
             all_backups.push((db_name.to_string(), backups));
         }
@@ -144,6 +144,8 @@ use tokio::fs;
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
     use chrono::Timelike;
     use tempfile::TempDir;
 

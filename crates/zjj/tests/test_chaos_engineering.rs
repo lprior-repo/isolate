@@ -371,7 +371,7 @@ fn test_chaos_iteration_statistics() {
         .expect("valid config")
         .with_seed(555);
 
-    let results = run_chaos_iterations(config, 100, || Ok::<(), std::io::Error>(()));
+    let results = run_chaos_iterations(&config, 100, || Ok::<(), std::io::Error>(()));
 
     let (successes, failures, rate) = calculate_chaos_stats(&results);
 
