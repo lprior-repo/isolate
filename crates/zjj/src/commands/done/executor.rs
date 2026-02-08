@@ -1,17 +1,14 @@
 //! JJ command executor trait for dependency injection
 //!
-//! This module provides a trait for executing JJ commands, allowing
-//! for easy testing via `MockJjExecutor`.
+//! This module provides a trait for executing JJ commands.
 
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 #![cfg_attr(not(test), deny(clippy::panic))]
 
 use std::{
-    collections::HashMap,
     future::Future,
     pin::Pin,
-    sync::{Arc, Mutex},
 };
 
 use thiserror::Error;
@@ -63,7 +60,6 @@ impl RealJjExecutor {
     }
 
     /// Create with a specific working directory
-    #[expect(dead_code)] // For future workspace-specific execution
     pub const fn with_working_dir(working_dir: String) -> Self {
         Self {
             working_dir: Some(working_dir),
@@ -112,89 +108,6 @@ impl JjExecutor for RealJjExecutor {
                 .map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))?;
 
             JjOutput::new(stdout).map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))
-        })
-    }
-}
-
-/// Mock JJ executor for testing
-#[derive(Debug, Clone)]
-pub struct MockJjExecutor {
-    responses: Arc<Mutex<HashMap<String, Result<String, ExecutorError>>>>,
-    calls: Arc<Mutex<Vec<Vec<String>>>>,
-}
-
-impl MockJjExecutor {
-    /// Create a new `MockJjExecutor`
-    pub fn new() -> Self {
-        Self {
-            responses: Arc::new(Mutex::new(HashMap::new())),
-            calls: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-
-    /// Configure expected output for specific args
-    #[expect(dead_code)] // For future test expansion
-    pub fn expect(&self, args: &[&str], output: Result<String, ExecutorError>) {
-        let key = args.join(" ");
-        if let Ok(mut responses) = self.responses.lock() {
-            responses.insert(key, output);
-        }
-    }
-
-    /// Get recorded calls
-    #[expect(dead_code)] // For future test expansion
-    pub fn calls(&self) -> Vec<Vec<String>> {
-        self.calls.lock().map(|c| c.clone()).unwrap_or_default()
-    }
-
-    /// Simulate a command failure
-    #[expect(dead_code)] // For future test expansion
-    pub fn fail_next(&self, args: &[&str], code: i32, stderr: String) {
-        let key = args.join(" ");
-        if let Ok(mut responses) = self.responses.lock() {
-            responses.insert(key, Err(ExecutorError::CommandFailed { code, stderr }));
-        }
-    }
-}
-
-impl Default for MockJjExecutor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl JjExecutor for MockJjExecutor {
-    fn run<'a>(&'a self, args: &'a [&'a str]) -> BoxFuture<'a, Result<JjOutput, ExecutorError>> {
-        Box::pin(async move { self.run_with_env(args, &[]).await })
-    }
-
-    fn run_with_env<'a>(
-        &'a self,
-        args: &'a [&'a str],
-        _env: &'a [(&'a str, &'a str)],
-    ) -> BoxFuture<'a, Result<JjOutput, ExecutorError>> {
-        Box::pin(async move {
-            // Record the call
-            if let Ok(mut calls) = self.calls.lock() {
-                calls.push(args.iter().map(std::string::ToString::to_string).collect());
-            }
-
-            // Look up response
-            let key = args.join(" ");
-            let response = self
-                .responses
-                .lock()
-                .ok()
-                .and_then(|responses| responses.get(&key).cloned());
-
-            match response {
-                Some(Ok(output)) => {
-                    JjOutput::new(output).map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))
-                }
-                Some(Err(e)) => Err(e),
-                None => Ok(JjOutput::new(String::new())
-                    .map_err(|e| ExecutorError::InvalidUtf8(e.to_string()))?),
-            }
         })
     }
 }
