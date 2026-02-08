@@ -1,3 +1,10 @@
+// Test code uses unwrap/expect idioms for test clarity.
+// Production code (src/) must use Result<T, Error> patterns.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+#![allow(clippy::too_many_lines)]
+
 use std::process::Command;
 
 fn run_cue_export() -> Result<Option<String>, Box<dyn std::error::Error>> {

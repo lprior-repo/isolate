@@ -11,6 +11,13 @@
 //! 2. Expose a real-world failure mode
 //! 3. Become a permanent test once fixed (regression must not reoccur)
 
+// Test code uses unwrap/expect idioms for test clarity.
+// Production code (src/) must use Result<T, Error> patterns.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+#![allow(clippy::too_many_lines)]
+
 // Import from the test common module
 mod common;
 use std::fs;

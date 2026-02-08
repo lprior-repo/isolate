@@ -20,6 +20,13 @@
 //! cargo test --test test_chaos_engineering test_init_with_io_chaos
 //! ```
 
+// Test code uses unwrap/expect idioms for test clarity.
+// Production code (src/) must use Result<T, Error> patterns.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+#![allow(clippy::too_many_lines)]
+
 mod chaos_engineering;
 mod common;
 
@@ -36,6 +43,7 @@ use common::TestHarness;
 // ============================================================================
 
 /// Pre-configured chaos config for aggressive testing (50% failure rate)
+#[allow(clippy::expect_used)]
 fn aggressive_chaos_config() -> ChaosConfig {
     static CONFIG: OnceLock<ChaosConfig> = OnceLock::new();
     CONFIG
@@ -54,6 +62,7 @@ fn aggressive_chaos_config() -> ChaosConfig {
 }
 
 /// Pre-configured chaos config for mild testing (10% failure rate)
+#[allow(clippy::expect_used)]
 fn mild_chaos_config() -> ChaosConfig {
     static CONFIG: OnceLock<ChaosConfig> = OnceLock::new();
     CONFIG
@@ -82,7 +91,7 @@ fn test_init_with_io_chaos() {
     };
 
     let config = ChaosConfig::new(0.3, vec![FailureMode::IoError])
-        .expect("valid config")
+        .expect("valid config")  // Test code - allowed to panic on invalid config
         .with_seed(42);
 
     let executor = ChaosExecutor::new(config);

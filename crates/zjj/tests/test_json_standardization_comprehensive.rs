@@ -6,11 +6,18 @@
 //! 3. Error outputs use standardized error format
 //! 4. Success outputs include all required fields
 
+// Test code uses unwrap/expect idioms for test clarity.
+// Production code (src/) must use Result<T, Error> patterns.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+#![allow(clippy::too_many_lines)]
+
 mod common;
 
 use common::TestHarness;
 
-/// Test helper to validate SchemaEnvelope structure
+/// Test helper to validate `SchemaEnvelope` structure
 fn validate_envelope(json: &serde_json::Value, expected_schema: &str) -> Result<(), String> {
     // Check for $schema field
     let schema = json
@@ -484,7 +491,7 @@ fn test_meta_field() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Test array responses use SchemaEnvelopeArray
+/// Test array responses use `SchemaEnvelopeArray`
 #[test]
 fn test_array_envelope_for_collections() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {

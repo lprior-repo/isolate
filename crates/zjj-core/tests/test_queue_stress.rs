@@ -4,6 +4,13 @@
 //! from multiple agents, ensuring no duplicate workspace assignments and proper
 //! lock timeout/extension behavior.
 
+// Test code uses unwrap/expect idioms for test clarity.
+// Production code (src/) must use Result<T, Error> patterns.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+#![allow(clippy::too_many_lines)]
+
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use futures::future::join_all;

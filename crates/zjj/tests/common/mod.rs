@@ -10,8 +10,14 @@
 //! - Configuring `workspace_dir` to be inside the repo (not the default sibling directory)
 //! - Providing helper methods for common assertions
 
+// Test code uses unwrap/expect idioms for test clarity.
+// Production code (src/) must use Result<T, Error> patterns.
 #![allow(dead_code)]
 #![allow(clippy::unused_self)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+#![allow(clippy::too_many_lines)]
 
 use std::{
     path::{Path, PathBuf},
