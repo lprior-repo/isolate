@@ -244,9 +244,10 @@ impl ProgressIndicator {
     /// Get total elapsed time for operation
     #[must_use]
     pub fn total_elapsed(&self) -> Duration {
-        self.state
-            .total_elapsed
-            .map_or_else(|| self.state.operation_start.elapsed(), |duration| duration)
+        match self.state.total_elapsed {
+            Some(duration) => duration,
+            None => self.state.operation_start.elapsed(),
+        }
     }
 
     /// Check if progress should be displayed

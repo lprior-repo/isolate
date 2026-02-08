@@ -56,7 +56,7 @@ pub struct BeadMetadata {
     pub description: Option<String>,
 }
 
-/// Enable `WAL` mode on the SQLite connection for better crash recovery.
+/// Enable `WAL` mode on the `SQLite` connection for better crash recovery.
 ///
 /// # Errors
 ///

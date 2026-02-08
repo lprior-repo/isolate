@@ -521,9 +521,9 @@ fn test_array_envelope_for_collections() -> Result<(), Box<dyn std::error::Error
 
 /// Test that JSON output is pretty-printed
 #[test]
-fn test_json_is_pretty_printed() -> Result<(), Box<dyn std::error::Error>> {
+fn test_json_is_pretty_printed() {
     let Some(harness) = TestHarness::try_new() else {
-        return Ok(());
+        return;
     };
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "pretty-test", "--no-open"]);
@@ -543,8 +543,6 @@ fn test_json_is_pretty_printed() -> Result<(), Box<dyn std::error::Error>> {
             "JSON should be pretty-printed with indentation"
         );
     }
-
-    Ok(())
 }
 
 /// Test that exit codes match error.exit_code field
