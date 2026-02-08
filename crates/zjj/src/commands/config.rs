@@ -41,11 +41,13 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
 
         // Key, no value: Show specific value
         (Some(key), None) => {
+            zjj_core::config::validate_key(&key)?;
             show_config_value(&config, &key, options.format)?;
         }
 
         // Key + value: Set value
         (Some(key), Some(value)) => {
+            zjj_core::config::validate_key(&key)?;
             let config_path = if options.global {
                 global_config_path()?
             } else {
