@@ -415,35 +415,76 @@ async fn resolve_workspace_path(session: Option<&str>) -> Result<String> {
 }
 
 /// Parse JJ bookmark list output
+///
+/// Handles multi-line format:
+/// - Main bookmarks: "name: change_id commit_id description"
+/// - Remote bookmarks (indented): "  @remote: change_id commit_id description"
+/// - Deleted bookmarks: "name: ... (deleted)" on following line
+/// - Legacy format: "name: revision_hash"
+///
+/// Only returns non-deleted local bookmarks (skips indented remote lines).
 fn parse_bookmark_list(output: &[u8]) -> Result<Vec<BookmarkInfo>> {
     let stdout = String::from_utf8_lossy(output);
 
-    stdout
+    // Use functional parsing with zero unwrap
+    let bookmarks: std::result::Result<Vec<BookmarkInfo>, anyhow::Error> = stdout
         .lines()
-        .filter(|line| !line.trim().is_empty())
+        .filter(|line| {
+            // Skip empty lines
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                return false;
+            }
+
+            // Skip indented remote bookmark lines (start with "  @")
+            if line.starts_with("  @") {
+                return false;
+            }
+
+            // Filter out lines marked as deleted
+            !trimmed.contains("(deleted)")
+        })
         .map(|line| {
-            // Parse format: "bookmark_name: revision_hash"
+            // Parse format: "bookmark_name: change_id commit_id description"
+            // or legacy: "bookmark_name: revision_hash"
             let parts: Vec<&str> = line.splitn(2, ':').collect();
 
-            if parts.len() == 2 {
-                let name = parts[0].trim().to_string();
-                let revision = parts[1]
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("unknown")
-                    .to_string();
-                let remote = line.contains("@origin") || line.contains("(remote)");
+            match parts.as_slice() {
+                [name_part, rest] => {
+                    let name = name_part.trim().to_string();
 
-                Ok(BookmarkInfo {
-                    name,
-                    revision,
-                    remote,
-                })
-            } else {
-                Err(anyhow::anyhow!("invalid bookmark list output: {line}"))
+                    // Extract revision (handle both formats)
+                    // New format: "change_id commit_id description" -> get commit_id
+                    // Legacy format: "revision_hash" -> get first token
+                    let tokens: Vec<&str> = rest.split_whitespace().collect();
+                    let revision = if tokens.len() >= 2 {
+                        // New format: skip change_id, get commit_id
+                        tokens.get(1).map_or_else(
+                            || "unknown".to_string(),
+                            |id| id.to_string()
+                        )
+                    } else {
+                        // Legacy format: use first token
+                        tokens.first().map_or_else(
+                            || "unknown".to_string(),
+                            |id| id.to_string()
+                        )
+                    };
+
+                    let remote = rest.contains("@origin");
+
+                    Ok(BookmarkInfo {
+                        name,
+                        revision,
+                        remote,
+                    })
+                }
+                _ => Err(anyhow::anyhow!("invalid bookmark list output: {line}"))
             }
         })
-        .collect()
+        .collect();
+
+    bookmarks
 }
 
 /// Get current revision hash
@@ -535,6 +576,68 @@ mod tests {
             assert_eq!(bookmarks.len(), 2);
             assert_eq!(bookmarks[0].name, "main");
             assert_eq!(bookmarks[1].name, "feature");
+        }
+    }
+
+    #[test]
+    fn test_parse_bookmark_list_multiline_with_remotes() {
+        // Real JJ output format with indented remote bookmarks
+        let output = b"main: ntzomurw e553bf6b feat: Implement handle_broadcast function\n\
+  @git: ntzomurw e553bf6b feat: Implement handle_broadcast function\n\
+  @origin: ntzomurw e553bf6b feat: Implement handle_broadcast function\n";
+
+        let result = parse_bookmark_list(output);
+        assert!(result.is_ok(), "Parsing should succeed: {:?}", result.err());
+
+        if let Ok(bookmarks) = result {
+            // Should only return main bookmark, skip indented remote lines
+            assert_eq!(bookmarks.len(), 1);
+            assert_eq!(bookmarks[0].name, "main");
+            assert_eq!(bookmarks[0].revision, "e553bf6b");
+            assert!(!bookmarks[0].remote);
+        }
+    }
+
+    #[test]
+    fn test_parse_bookmark_list_with_deleted() {
+        // Bookmarks marked as (deleted) should be filtered out
+        let output = b"main: abc123def456\n\
+old-feature: xyz789 (deleted)\n";
+
+        let result = parse_bookmark_list(output);
+        assert!(result.is_ok(), "Parsing should succeed: {:?}", result.err());
+
+        if let Ok(bookmarks) = result {
+            // Should only return non-deleted bookmarks
+            assert_eq!(bookmarks.len(), 1);
+            assert_eq!(bookmarks[0].name, "main");
+        }
+    }
+
+    #[test]
+    fn test_parse_bookmark_list_mixed_format() {
+        // Complex mixed format with multiple bookmarks, remotes, and deleted
+        let output = b"main: ntzomurw e553bf6b feat: Broadcast command\n\
+  @origin: ntzomurw e553bf6b feat: Broadcast command\n\
+feature: pqrlsyvw 195a784b test: Another feature\n\
+deprecated: vwxyz123 (deleted)\n\
+  @git: vwxyz123 deprecated bookmark\n\
+bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
+
+        let result = parse_bookmark_list(output);
+        assert!(result.is_ok(), "Parsing should succeed: {:?}", result.err());
+
+        if let Ok(bookmarks) = result {
+            // Should return main, feature, and bugfix (skip deleted and remotes)
+            assert_eq!(bookmarks.len(), 3);
+            assert_eq!(bookmarks[0].name, "main");
+            assert_eq!(bookmarks[1].name, "feature");
+            assert_eq!(bookmarks[2].name, "bugfix");
+
+            // Verify revisions extracted correctly
+            assert_eq!(bookmarks[0].revision, "e553bf6b");
+            assert_eq!(bookmarks[1].revision, "195a784b");
+            assert_eq!(bookmarks[2].revision, "2d4e5f6c");
         }
     }
 
