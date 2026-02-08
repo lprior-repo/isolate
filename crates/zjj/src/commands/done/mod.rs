@@ -29,16 +29,17 @@ use std::{
 
 use anyhow::Result;
 pub use types::{DoneError, DoneOptions, DoneOutput, UndoEntry};
-use zjj_core::json::SchemaEnvelope;
+use zjj_core::{json::SchemaEnvelope, WorkspaceState};
 
 use self::conflict::ConflictDetector;
 use crate::{
     cli::jj_root,
-    commands::{context::detect_location, context::Location, get_session_db},
-    session::SessionStatus,
-    session::SessionUpdate,
+    commands::{
+        context::{detect_location, Location},
+        get_session_db,
+    },
+    session::{SessionStatus, SessionUpdate},
 };
-use zjj_core::WorkspaceState;
 
 /// Run the done command with options
 pub async fn run_with_options(options: &DoneOptions) -> Result<()> {
@@ -198,6 +199,11 @@ async fn execute_done(
         cleaned,
         bead_closed,
         session_updated,
+        new_status: if session_updated {
+            Some("completed".to_string())
+        } else {
+            None
+        },
         pushed_to_remote,
         dry_run: false,
         preview: None,
@@ -565,9 +571,11 @@ async fn cleanup_workspace(
 
 /// Update session status to Completed and state to Merged
 async fn update_session_status(workspace_name: &str) -> Result<bool, DoneError> {
-    let db = get_session_db().await.map_err(|e| DoneError::InvalidState {
-        reason: format!("Failed to open session database: {e}"),
-    })?;
+    let db = get_session_db()
+        .await
+        .map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to open session database: {e}"),
+        })?;
 
     let update = SessionUpdate {
         status: Some(SessionStatus::Completed),

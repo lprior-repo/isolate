@@ -188,10 +188,13 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
     for row in rows {
         total_sessions += 1;
 
-        let name: String = row.try_get("session_name").context("Missing session_name")?;
+        let name: String = row
+            .try_get("session_name")
+            .context("Missing session_name")?;
         let status: String = row.try_get("status").context("Missing status")?;
-        let workspace_path: String =
-            row.try_get("workspace_path").context("Missing workspace_path")?;
+        let workspace_path: String = row
+            .try_get("workspace_path")
+            .context("Missing workspace_path")?;
         let branch: Option<String> = row.try_get("branch").context("Missing branch")?;
         let metadata: Option<String> = row.try_get("metadata").context("Missing metadata")?;
 

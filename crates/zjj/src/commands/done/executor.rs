@@ -6,10 +6,7 @@
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 #![cfg_attr(not(test), deny(clippy::panic))]
 
-use std::{
-    future::Future,
-    pin::Pin,
-};
+use std::{future::Future, pin::Pin};
 
 use thiserror::Error;
 use tokio::process::Command;
@@ -57,13 +54,6 @@ impl RealJjExecutor {
     /// Create a new `RealJjExecutor`
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Create with a specific working directory
-    pub const fn with_working_dir(working_dir: String) -> Self {
-        Self {
-            working_dir: Some(working_dir),
-        }
     }
 }
 

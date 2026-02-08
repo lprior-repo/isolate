@@ -1054,8 +1054,7 @@ fn show_dry_run_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<(
             println!(
                 "  • {}: {}",
                 check.name,
-                describe_fix(check)
-                    .unwrap_or_else(|| "No fix description available".to_string())
+                describe_fix(check).unwrap_or_else(|| "No fix description available".to_string())
             );
         }
         println!();
@@ -1160,15 +1159,13 @@ async fn run_fixes(
 
                 // Try to fix the issue
                 let fix_result = match check.name.as_str() {
-                    "Orphaned Workspaces" => fix_orphaned_workspaces(check, dry_run)
-                        .await
-                        .map_err(|e| e),
-                    "Stale Sessions" => fix_stale_sessions(check, dry_run)
-                        .await
-                        .map_err(|e| e),
+                    "Orphaned Workspaces" => {
+                        fix_orphaned_workspaces(check, dry_run).await.map_err(|e| e)
+                    }
+                    "Stale Sessions" => fix_stale_sessions(check, dry_run).await.map_err(|e| e),
                     "State Database" => fix_state_database(check, dry_run)
                         .await
-                        .map_err(|e| e),
+                        .map_err(|e| e.to_string()),
                     _ => Err("No auto-fix available".to_string()),
                 };
 

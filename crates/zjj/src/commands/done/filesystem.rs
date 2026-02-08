@@ -6,11 +6,7 @@
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 #![cfg_attr(not(test), deny(clippy::panic))]
 
-use std::{
-    future::Future,
-    path::Path,
-    pin::Pin,
-};
+use std::{future::Future, path::Path, pin::Pin};
 
 use thiserror::Error;
 
@@ -40,9 +36,6 @@ pub trait FileSystem: Send + Sync {
 
     /// Check if file exists
     fn exists<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, bool>;
-
-    /// Remove a file
-    fn remove_file<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, Result<(), FsError>>;
 
     /// Remove a directory and all its contents
     fn remove_dir_all<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, Result<(), FsError>>;
@@ -92,20 +85,6 @@ impl FileSystem for RealFileSystem {
 
     fn exists<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, bool> {
         Box::pin(async move { tokio::fs::try_exists(path).await.unwrap_or(false) })
-    }
-
-    fn remove_file<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
-        Box::pin(async move {
-            tokio::fs::remove_file(path).await.map_err(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    FsError::NotFound(path.display().to_string())
-                } else if e.kind() == std::io::ErrorKind::PermissionDenied {
-                    FsError::PermissionDenied(path.display().to_string())
-                } else {
-                    FsError::IoError(e.to_string())
-                }
-            })
-        })
     }
 
     fn remove_dir_all<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
