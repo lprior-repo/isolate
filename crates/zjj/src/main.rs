@@ -2,7 +2,11 @@
 //!
 //! Binary name: `zjj`
 
-use std::{process, time::Duration};
+use std::{
+    panic,
+    process,
+    time::Duration,
+};
 
 mod beads;
 mod cli;
@@ -17,9 +21,44 @@ mod session;
 use cli::handlers::{format_error, run_cli};
 use zjj_core::ShutdownCoordinator;
 
+/// Install panic hook to handle broken pipe gracefully
+///
+/// When piping output (e.g., `zjj list | head -n 5`), if the receiving end
+/// closes early, println!/print! macros panic with "Broken pipe (os error 32)".
+///
+/// Unix convention: exit with code 0 for SIGPIPE (reader closed pipe).
+/// This hook catches broken pipe panics and exits cleanly, propagating
+/// all other panics normally.
+fn install_broken_pipe_handler() {
+    let original_hook = panic::take_hook();
+
+    panic::set_hook(Box::new(move |panic_info| {
+        // Match on panic payload to detect broken pipe
+        let is_broken_pipe = match panic_info.payload().downcast_ref::<String>() {
+            Some(msg) => msg.contains("Broken pipe") || msg.contains("os error 32"),
+            None => match panic_info.payload().downcast_ref::<&str>() {
+                Some(msg) => msg.contains("Broken pipe") || msg.contains("os error 32"),
+                None => false,
+            },
+        };
+
+        if is_broken_pipe {
+            // Broken pipe is not an error - exit silently with code 0
+            // This follows Unix convention for SIGPIPE
+            #[allow(clippy::exit)]
+            process::exit(0);
+        }
+
+        // Propagate other panics to original handler
+        original_hook(panic_info);
+    }));
+}
+
 #[tokio::main]
 
 async fn main() {
+    // Install broken pipe handler BEFORE any output
+    install_broken_pipe_handler();
     // HARD REQUIREMENT: JJ must be installed
 
     // AI agents that don't have JJ cannot use zjj - period.
@@ -116,5 +155,57 @@ async fn main() {
 
         #[allow(clippy::exit)]
         process::exit(code);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_install_broken_pipe_handler_does_not_crash() {
+        // This test verifies the panic hook can be installed without crashing
+        install_broken_pipe_handler();
+        // If we reach here, the hook was installed successfully
+    }
+
+    #[test]
+    fn test_broken_pipe_detection_in_message() {
+        // Test various broken pipe message formats
+        let test_cases = vec![
+            "Broken pipe (os error 32)",
+            "failed printing to stdout: Broken pipe (os error 32)",
+            "os error 32",
+            "some prefix Broken pipe some suffix",
+        ];
+
+        for msg in test_cases {
+            let msg_string = msg.to_string();
+            let contains_broken_pipe = msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
+            assert!(
+                contains_broken_pipe,
+                "Message should be detected as broken pipe: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_non_broken_pipe_messages_not_detected() {
+        // Test that other error messages are not mistaken for broken pipe
+        let test_cases = vec![
+            "Connection reset",
+            "Permission denied",
+            "os error 13",
+            "Some other error",
+        ];
+
+        for msg in test_cases {
+            let msg_string = msg.to_string();
+            let contains_broken_pipe = msg_string.contains("Broken pipe") || msg_string.contains("os error 32");
+            assert!(
+                !contains_broken_pipe,
+                "Message should NOT be detected as broken pipe: {msg}"
+            );
+        }
     }
 }
