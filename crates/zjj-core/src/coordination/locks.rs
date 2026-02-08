@@ -151,6 +151,113 @@ impl LockManager {
         Ok(())
     }
 
+    /// Acquire an exclusive lock on a session with custom TTL.
+    ///
+    /// Returns `SessionLocked` error if another agent holds a valid lock.
+    /// Returns `SessionNotFound` error if the session doesn't exist in the sessions table.
+    ///
+    /// # Arguments
+    ///
+    /// * `session` - The session name to lock
+    /// * `agent_id` - The agent acquiring the lock
+    /// * `ttl_seconds` - Time-to-live in seconds (0 uses default TTL)
+    pub async fn lock_with_ttl(
+        &self,
+        session: &str,
+        agent_id: &str,
+        ttl_seconds: u64,
+    ) -> Result<LockResponse> {
+        // Calculate TTL
+        let ttl = if ttl_seconds > 0 {
+            Duration::seconds(i64::try_from(ttl_seconds).map_or(300, |v| v))
+        } else {
+            self.ttl
+        };
+
+        let now = Utc::now();
+        let now_str = now.to_rfc3339();
+
+        // CRITICAL: Check session exists BEFORE creating lock
+        // This prevents orphaned locks for non-existent sessions
+        self.verify_session_exists(session).await?;
+
+        // First, clean up expired locks for this session
+        sqlx::query("DELETE FROM session_locks WHERE session = ? AND expires_at < ?")
+            .bind(session)
+            .bind(&now_str)
+            .execute(&self.db)
+            .await
+            .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Check for existing lock
+        let existing: Option<(String, String)> = sqlx::query_as(
+            "SELECT agent_id, expires_at FROM session_locks WHERE session = ? AND expires_at >= ?",
+        )
+        .bind(session)
+        .bind(&now_str)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        if let Some((holder, _)) = existing {
+            // If same agent, just return the existing lock info
+            if holder == agent_id {
+                let row: (String, String, String) = sqlx::query_as(
+                    "SELECT lock_id, session, expires_at FROM session_locks WHERE session = ? AND agent_id = ?",
+                )
+                .bind(session)
+                .bind(agent_id)
+                .fetch_one(&self.db)
+                .await
+                .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+                let expires_at = DateTime::parse_from_rfc3339(&row.2)
+                    .map_err(|e| Error::ParseError(e.to_string()))?
+                    .with_timezone(&Utc);
+
+                return Ok(LockResponse {
+                    lock_id: row.0,
+                    session: row.1,
+                    agent_id: agent_id.to_string(),
+                    expires_at,
+                });
+            }
+            return Err(Error::SessionLocked {
+                session: session.to_string(),
+                holder,
+            });
+        }
+
+        let expires_at = now + ttl;
+        let expires_str = expires_at.to_rfc3339();
+        let nanos = now
+            .timestamp_nanos_opt()
+            .ok_or_else(|| Error::ParseError("Failed to get timestamp nanos".into()))?;
+        let lock_id = format!("lock-{session}-{nanos}");
+
+        sqlx::query(
+            "INSERT INTO session_locks (lock_id, session, agent_id, acquired_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(&lock_id)
+        .bind(session)
+        .bind(agent_id)
+        .bind(&now_str)
+        .bind(&expires_str)
+        .execute(&self.db)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Log the lock operation
+        self.log_operation(session, agent_id, "lock").await?;
+
+        Ok(LockResponse {
+            lock_id,
+            session: session.to_string(),
+            agent_id: agent_id.to_string(),
+            expires_at,
+        })
+    }
+
     /// Acquire an exclusive lock on a session.
     ///
     /// Returns `SessionLocked` error if another agent holds a valid lock.
@@ -887,6 +994,179 @@ mod tests {
         assert!(
             !locks.iter().any(|l| l.session == "ghost-session"),
             "REGRESSION: Orphaned lock created for non-existent session!"
+        );
+
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CONCURRENT LOCKING TESTS (zjj-ggji: Lock Race Condition)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Regression test: TOCTOU race in lock acquisition
+    // When 10 agents try to lock the same session simultaneously,
+    // exactly ONE should succeed, not 2.
+    #[tokio::test]
+    async fn regression_concurrent_lock_mutual_exclusion() -> Result<()> {
+        let pool = test_pool().await?;
+        let mgr = LockManager::new(pool.clone());
+        mgr.init().await?;
+
+        // Create sessions table
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS sessions (
+                name TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                state TEXT NOT NULL,
+                workspace_path TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Create a session to lock
+        sqlx::query(
+            "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
+        )
+        .bind("contended-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Spawn 10 concurrent agents trying to lock the same session
+        let tasks: Vec<_> = (0..10)
+            .map(|i| {
+                let mgr = mgr.clone();
+                tokio::spawn(async move {
+                    mgr.lock("contended-session", &format!("agent-{i}"))
+                        .await
+                })
+            })
+            .collect();
+
+        // Wait for all tasks to complete
+        let results: Vec<std::result::Result<LockResponse, Error>> = futures::future::join_all(tasks)
+            .await
+            .into_iter()
+            .map(|r| r.unwrap())
+            .collect();
+
+        // Count successes and failures
+        let successful_locks = results
+            .iter()
+            .filter(|r| r.is_ok())
+            .count();
+
+        let failed_locks = results
+            .iter()
+            .filter(|r| r.is_err() && matches!(r, Err(Error::SessionLocked { .. })))
+            .count();
+
+        // CRITICAL: Exactly ONE agent should acquire the lock
+        assert_eq!(
+            successful_locks, 1,
+            "Expected exactly 1 successful lock, got {successful_locks}"
+        );
+
+        // All other agents should receive SessionLocked error
+        assert_eq!(
+            failed_locks, 9,
+            "Expected 9 agents to receive SessionLocked, got {failed_locks}"
+        );
+
+        // Verify only one lock exists in database
+        let locks = mgr.get_all_locks().await?;
+        assert_eq!(
+            locks.len(), 1,
+            "Expected exactly 1 lock in database, got {}",
+            locks.len()
+        );
+
+        // Verify the lock holder is consistent
+        let lock_state = mgr.get_lock_state("contended-session").await?;
+        assert!(
+            lock_state.holder.is_some(),
+            "Expected a lock holder to exist"
+        );
+
+        Ok(())
+    }
+
+    // Stress test: 100 concurrent lock attempts across 10 sessions
+    #[tokio::test]
+    async fn stress_test_concurrent_locks_multiple_sessions() -> Result<()> {
+        let pool = test_pool().await?;
+        let mgr = LockManager::new(pool.clone());
+        mgr.init().await?;
+
+        // Create sessions table
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS sessions (
+                name TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                state TEXT NOT NULL,
+                workspace_path TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        // Create 10 sessions
+        for i in 0..10 {
+            sqlx::query(
+                "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
+            )
+            .bind(&format!("session-{i}"))
+            .bind("active")
+            .bind("working")
+            .bind("/workspace")
+            .execute(&pool)
+            .await
+            .map_err(|e| Error::DatabaseError(e.to_string()))?;
+        }
+
+        // Spawn 100 agents (10 per session) trying to lock concurrently
+        let tasks: Vec<_> = (0..100)
+            .map(|i| {
+                let mgr = mgr.clone();
+                let session_id = i % 10;
+                tokio::spawn(async move {
+                    mgr.lock(&format!("session-{session_id}"), &format!("agent-{i}"))
+                        .await
+                })
+            })
+            .collect();
+
+        // Wait for all tasks
+        let results: Vec<std::result::Result<LockResponse, Error>> = futures::future::join_all(tasks)
+            .await
+            .into_iter()
+            .map(|r| r.unwrap())
+            .collect();
+
+        // Count successful locks
+        let successful_count = results
+            .iter()
+            .filter(|r| r.is_ok())
+            .count();
+
+        // Each session should have exactly 1 lock holder
+        assert_eq!(
+            successful_count, 10,
+            "Expected 10 successful locks (1 per session), got {successful_count}"
+        );
+
+        // Verify database state
+        let locks = mgr.get_all_locks().await?;
+        assert_eq!(
+            locks.len(), 10,
+            "Expected 10 locks in database, got {}",
+            locks.len()
         );
 
         Ok(())
