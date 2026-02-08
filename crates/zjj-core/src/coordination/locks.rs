@@ -266,57 +266,53 @@ impl LockManager {
         let now = Utc::now();
         let now_str = now.to_rfc3339();
 
+        // FAIL-FAST OPTIMIZATION: Check for existing lock FIRST
+        // This is the cheapest check and fails fastest under contention
+        // Query by session only (UNIQUE constraint = fast lookup), filter expired in Rust
+        let existing: Option<(String, String, String)> = sqlx::query_as(
+            "SELECT lock_id, agent_id, expires_at FROM session_locks WHERE session = ?",
+        )
+        .bind(session)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        if let Some((existing_lock_id, holder_agent_id, existing_expires_str)) = existing {
+            // Check if lock is expired
+            let existing_expires = DateTime::parse_from_rfc3339(&existing_expires_str)
+                .map_err(|e| Error::ParseError(e.to_string()))?
+                .with_timezone(&Utc);
+
+            if existing_expires < now {
+                // Lock is expired, fall through to acquire it
+            } else if holder_agent_id == agent_id {
+                // We already hold the lock - return existing lock info (idempotent)
+                return Ok(LockResponse {
+                    lock_id: existing_lock_id,
+                    session: session.to_string(),
+                    agent_id: agent_id.to_string(),
+                    expires_at: existing_expires,
+                });
+            } else {
+                // Another agent holds the lock - fail fast
+                return Err(Error::SessionLocked {
+                    session: session.to_string(),
+                    holder: holder_agent_id,
+                });
+            }
+        }
+
         // CRITICAL: Check session exists BEFORE creating lock
         // This prevents orphaned locks for non-existent sessions
         self.verify_session_exists(session).await?;
 
-        // First, clean up expired locks for this session
+        // Clean up expired locks for this session
         sqlx::query("DELETE FROM session_locks WHERE session = ? AND expires_at < ?")
             .bind(session)
             .bind(&now_str)
             .execute(&self.db)
             .await
             .map_err(|e| Error::DatabaseError(e.to_string()))?;
-
-        // Check if we already hold the lock (idempotent re-lock)
-        let existing: Option<(String, String, String)> = sqlx::query_as(
-            "SELECT lock_id, session, expires_at FROM session_locks WHERE session = ? AND agent_id = ?",
-        )
-        .bind(session)
-        .bind(agent_id)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| Error::DatabaseError(e.to_string()))?;
-
-        if let Some((existing_lock_id, existing_session, existing_expires_str)) = existing {
-            let existing_expires = DateTime::parse_from_rfc3339(&existing_expires_str)
-                .map_err(|e| Error::ParseError(e.to_string()))?
-                .with_timezone(&Utc);
-
-            return Ok(LockResponse {
-                lock_id: existing_lock_id,
-                session: existing_session,
-                agent_id: agent_id.to_string(),
-                expires_at: existing_expires,
-            });
-        }
-
-        // Check if someone else holds the lock
-        let holder: Option<(String,)> = sqlx::query_as(
-            "SELECT agent_id FROM session_locks WHERE session = ? AND expires_at >= ?",
-        )
-        .bind(session)
-        .bind(&now_str)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| Error::DatabaseError(e.to_string()))?;
-
-        if let Some((holder_agent_id,)) = holder {
-            return Err(Error::SessionLocked {
-                session: session.to_string(),
-                holder: holder_agent_id,
-            });
-        }
 
         // Attempt atomic insert - UNIQUE constraint prevents double-lock
         let expires_at = now + self.ttl;
@@ -362,9 +358,10 @@ impl LockManager {
                     .await
                     .map_err(|db_err| Error::DatabaseError(format!("Failed to query lock holder after conflict: {db_err}")))?;
 
-                    let holder_agent_id = holder
-                        .map(|(id,)| id)
-                        .unwrap_or_else(|| "unknown".to_string());
+                    let holder_agent_id = holder.map_or_else(
+                        || "unknown".to_string(),
+                        |(id,)| id,
+                    );
 
                     Err(Error::SessionLocked {
                         session: session.to_string(),
