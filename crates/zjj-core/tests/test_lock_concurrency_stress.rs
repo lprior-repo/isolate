@@ -136,7 +136,7 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
 
     while let Some(result) = join_set.join_next().await {
         match result {
-            Ok((agent, success, elapsed_ms, maybe_holder)) => {
+            Ok((agent, success, elapsed_ms, _holder)) => {
                 if success {
                     metrics.successful_acquisitions += 1;
                     metrics.acquisition_times_ms.push(elapsed_ms as f64);
@@ -191,12 +191,11 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
         "Lock should be held in database"
     );
     assert!(
-        metrics.unique_holders.contains(
-            lock_state
-                .holder
-                .as_deref()
-                .ok_or_else(|| { Error::ValidationError("Failed to convert holder to &str".into()) })?
-        ),
+        metrics
+            .unique_holders
+            .contains(lock_state.holder.as_deref().ok_or_else(|| {
+                Error::ValidationError("Failed to convert holder to &str".into())
+            })?),
         "Lock holder should match successful agent"
     );
 
@@ -227,7 +226,6 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
 async fn test_50_agents_claim_unique_resources() -> Result<(), Error> {
     let mgr = Arc::new(setup_lock_manager().await?);
     let num_agents = 50;
-    let sessions_per_agent = 1;
 
     let mut join_set = JoinSet::new();
     let start = Instant::now();
@@ -327,7 +325,7 @@ async fn test_50_agents_claim_unique_resources() -> Result<(), Error> {
     // Log performance metrics
     let acquisition_rate = (num_agents as f64) / (total_duration.as_secs_f64());
     println!("test_50_agents_claim_unique_resources metrics:");
-    println!("  - Total locks: {}", num_agents);
+    println!("  - Total locks: {num_agents}");
     println!("  - Acquisition rate: {acquisition_rate:.2} locks/sec");
     println!(
         "  - Average per-lock time: {:.2}ms",
@@ -434,7 +432,7 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     // THEN: All agents should complete without crashes
     assert_eq!(
         agent_results.len(),
-        num_agents,
+        num_agents as usize,
         "All {} agents should complete",
         num_agents
     );
@@ -448,8 +446,8 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     };
 
     println!("test_100_agents_concurrent_operations metrics:");
-    println!("  - Total successful operations: {}", total_successful);
-    println!("  - Total failed operations: {}", total_failed);
+    println!("  - Total successful operations: {total_successful}");
+    println!("  - Total failed operations: {total_failed}");
     println!("  - Success rate: {success_rate:.1}%");
     println!("  - Total duration: {:?}", total_duration);
     println!(
@@ -573,10 +571,7 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
                 !entry.operation.is_empty(),
                 "Audit entry operation should not be empty"
             );
-            assert!(
-                !entry.timestamp.is_empty(),
-                "Audit entry timestamp should not be empty"
-            );
+            // timestamp is DateTime<Utc>, always valid if present
         }
 
         println!(
@@ -587,7 +582,7 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
     }
 
     println!("test_lock_unlock_storm_consistency metrics:");
-    println!("  - Total operations completed: {}", total_operations);
+    println!("  - Total operations completed: {total_operations}");
     println!("  - Duration: {:?}", total_duration);
     println!(
         "  - Operations per second: {:.2}",
@@ -698,8 +693,8 @@ async fn test_claim_transfer_under_load() -> Result<(), Error> {
     );
 
     println!("test_claim_transfer_under_load metrics:");
-    println!("  - Successful transfers: {}", successful_transfers);
-    println!("  - Failed transfers: {}", failed_transfers);
+    println!("  - Successful transfers: {successful_transfers}");
+    println!("  - Failed transfers: {failed_transfers}");
     println!("  - Total audit entries: {}", audit_log.len());
     println!("  - Duration: {:?}", total_duration);
 
@@ -797,9 +792,9 @@ async fn test_lock_contention_metrics() -> Result<(), Error> {
     };
 
     println!("test_lock_contention_metrics results:");
-    println!("  - Total agents: {}", num_agents);
-    println!("  - Successful acquisitions: {}", successes);
-    println!("  - Failed acquisitions (contention): {}", failures);
+    println!("  - Total agents: {num_agents}");
+    println!("  - Successful acquisitions: {successes}");
+    println!("  - Failed acquisitions (contention): {failures}");
     println!("  - Contention rate: {contention_rate:.1}%");
     println!("  - Avg success time: {:.2}ms", avg_success_time);
     println!("  - Avg failure time: {:.2}ms", avg_failure_time);
@@ -925,7 +920,7 @@ async fn test_no_deadlocks_under_load() -> Result<(), Error> {
     );
 
     println!("test_no_deadlocks_under_load results:");
-    println!("  - Agents completed: {}", completed_agents);
+    println!("  - Agents completed: {completed_agents}");
     println!("  - Duration: {:?}", total_duration);
     println!("  - Timeout limit: {:?}", timeout_duration);
     println!("  - Status: No deadlocks detected");

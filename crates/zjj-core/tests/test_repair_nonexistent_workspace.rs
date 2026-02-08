@@ -6,6 +6,7 @@
 //! 3. Error message is clear and actionable
 
 use std::error::Error;
+
 use tempfile::TempDir;
 use zjj_core::workspace_integrity::{
     BackupManager, IntegrityValidator, RepairExecutor, ValidationResult,
@@ -24,7 +25,7 @@ async fn test_repair_nonexistent_workspace_returns_error() -> Result<(), Box<dyn
     assert!(result.is_ok(), "Validation should not panic");
     let validation = match result {
         Ok(v) => v,
-        Err(e) => return Err(format!("Validation should succeed but got error: {}", e).into()),
+        Err(e) => return Err(format!("Validation should succeed but got error: {e}").into()),
     };
     assert!(
         !validation.is_valid,
@@ -53,7 +54,7 @@ async fn test_repair_nonexistent_workspace_returns_error() -> Result<(), Box<dyn
 
     let repair = match repair_result {
         Ok(r) => r,
-        Err(e) => return Err(format!("Repair should succeed but got error: {}", e).into()),
+        Err(e) => return Err(format!("Repair should succeed but got error: {e}").into()),
     };
     assert!(
         !repair.success,
@@ -81,7 +82,7 @@ async fn test_repair_nonexistent_workspace_with_backup_manager() -> Result<(), B
     // When: Validating a non-existent workspace
     let validation = match validator.validate("nonexistent-workspace").await {
         Ok(v) => v,
-        Err(e) => return Err(format!("Validation should succeed but got error: {}", e).into()),
+        Err(e) => return Err(format!("Validation should succeed but got error: {e}").into()),
     };
 
     // When: Attempting to repair with backup manager
@@ -96,7 +97,7 @@ async fn test_repair_nonexistent_workspace_with_backup_manager() -> Result<(), B
 
     let repair = match repair_result {
         Ok(r) => r,
-        Err(e) => return Err(format!("Repair should succeed but got error: {}", e).into()),
+        Err(e) => return Err(format!("Repair should succeed but got error: {e}").into()),
     };
     // Should fail gracefully without trying to create a backup
     assert!(
@@ -144,7 +145,7 @@ async fn test_forget_and_recreate_nonexistent_workspace() -> Result<(), Box<dyn 
 
     let repair = match repair_result {
         Ok(r) => r,
-        Err(e) => return Err(format!("Repair should succeed but got error: {}", e).into()),
+        Err(e) => return Err(format!("Repair should succeed but got error: {e}").into()),
     };
     // Should fail gracefully
     assert!(
