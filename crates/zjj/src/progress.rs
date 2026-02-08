@@ -243,6 +243,8 @@ impl ProgressIndicator {
 
     /// Get total elapsed time for operation
     #[must_use]
+    #[allow(clippy::option_if_let_else)]
+    // Match is clearer than map_or_else for explaining fallback logic
     pub fn total_elapsed(&self) -> Duration {
         match self.state.total_elapsed {
             Some(duration) => duration,
