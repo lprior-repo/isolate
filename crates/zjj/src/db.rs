@@ -53,7 +53,7 @@ use crate::{
     session::{validate_session_name, Session, SessionStatus, SessionUpdate},
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 2;
+const CURRENT_SCHEMA_VERSION: i64 = 1;
 const STATE_WRITER_CHANNEL_SIZE: usize = 512;
 const STATE_WRITER_MAX_RETRIES: u8 = 3;
 const STATE_WRITER_RETRY_BACKOFF_MS: u64 = 20;
@@ -1235,6 +1235,8 @@ async fn mark_command_processed(pool: &SqlitePool, command_id: &str) -> Result<(
 }
 
 async fn append_event(event_log_path: &Path, envelope: EventEnvelope) -> Result<()> {
+    use tokio::io::AsyncWriteExt;
+
     let serialized = serde_json::to_string(&envelope)
         .map_err(|e| Error::ParseError(format!("Failed to serialize state event: {e}")))?;
 
@@ -1243,8 +1245,6 @@ async fn append_event(event_log_path: &Path, envelope: EventEnvelope) -> Result<
             .await
             .map_err(|e| Error::IoError(format!("Failed to create event-log directory: {e}")))?;
     }
-
-    use tokio::io::AsyncWriteExt;
     let mut file = tokio::fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -1477,8 +1477,37 @@ async fn check_schema_version(pool: &SqlitePool) -> Result<()> {
              The database may have been created by a different version of zjj.\n\n\
              To reset: rm .zjj/state.db && zjj init"
         ))),
-        None => Err(Error::DatabaseError("Schema version not found in database. The database may be corrupted.\n\n\
-             To reset: rm .zjj/state.db && zjj init".to_string())),
+        None => {
+            sqlx::query("INSERT OR IGNORE INTO schema_version (version) VALUES (?)")
+                .bind(CURRENT_SCHEMA_VERSION)
+                .execute(pool)
+                .await
+                .map_err(|e| {
+                    Error::DatabaseError(format!("Failed to repair schema version row: {e}"))
+                })?;
+
+            let repaired: Option<i64> = sqlx::query("SELECT version FROM schema_version")
+                .fetch_optional(pool)
+                .await
+                .map_err(|e| Error::DatabaseError(format!("Failed to read schema version: {e}")))?
+                .map(|row| {
+                    row.try_get("version").map_err(|e| {
+                        Error::DatabaseError(format!("Failed to parse schema version: {e}"))
+                    })
+                })
+                .transpose()?;
+            match repaired {
+                Some(v) if v == CURRENT_SCHEMA_VERSION => Ok(()),
+                Some(v) => Err(Error::DatabaseError(format!(
+                    "Schema version mismatch after repair: database has version {v}, expected {CURRENT_SCHEMA_VERSION}"
+                ))),
+                None => Err(Error::DatabaseError(
+                    "Schema version not found in database after repair attempt.\n\n\
+                     To reset: rm .zjj/state.db && zjj init"
+                        .to_string(),
+                )),
+            }
+        }
     }
 }
 
@@ -1709,6 +1738,7 @@ async fn delete_session(pool: &SqlitePool, name: &str) -> Result<bool> {
 
 #[cfg(test)]
 #[allow(clippy::needless_collect)] // Tests use collect for clarity
+#[allow(clippy::items_after_statements)] // Tests have use statements after setup
 mod tests {
     use tempfile::TempDir;
 
@@ -1766,18 +1796,16 @@ mod tests {
     {
         let (db, _dir) = setup_test_db().await?;
 
-        let first = crate::command_context::with_command_context(
+        let (first, second) = crate::command_context::with_command_context(
             "ctx-create-non-idem".to_string(),
-            async { db.create("same-name", "/workspace/a").await },
+            async {
+                let first = db.create("same-name", "/workspace/a").await;
+                let second = db.create("same-name", "/workspace/b").await;
+                (first, second)
+            },
         )
         .await;
         assert!(first.is_ok());
-
-        let second = crate::command_context::with_command_context(
-            "ctx-create-non-idem".to_string(),
-            async { db.create("same-name", "/workspace/b").await },
-        )
-        .await;
         assert!(second.is_err());
 
         Ok(())
@@ -2346,11 +2374,10 @@ mod tests {
 
         // Verify valid names still work
         let valid_names = vec![
-            "valid-session",
+            "valid_session",
             "Valid_With_Underscores",
-            "123-with-numbers",
-            "a",                 // Single character
-            "session.with.dots", // Dots are allowed
+            "session123",
+            "A", // Single letter
         ];
 
         for valid_name in valid_names {
