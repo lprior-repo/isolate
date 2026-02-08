@@ -307,6 +307,63 @@ mod tests {
     }
 
     #[test]
+    fn test_session_name_rejects_backslash_n() {
+        // Literal backslash-n should be rejected
+        let result = validate_session_name("test\\nname");
+        assert!(result.is_err(), "Should reject literal backslash-n");
+        if let Err(Error::ValidationError(msg)) = result {
+            assert!(
+                msg.contains("invalid") || msg.contains("character"),
+                "Error message should mention invalid characters: {msg}"
+            );
+        } else {
+            panic!("Expected ValidationError, got: {result:?}");
+        }
+    }
+
+    #[test]
+    fn test_session_name_rejects_backslash_t() {
+        // Literal backslash-t should be rejected
+        let result = validate_session_name("test\\tname");
+        assert!(result.is_err(), "Should reject literal backslash-t");
+    }
+
+    #[test]
+    fn test_session_name_rejects_backslash_r() {
+        // Literal backslash-r should be rejected
+        let result = validate_session_name("test\\rname");
+        assert!(result.is_err(), "Should reject literal backslash-r");
+    }
+
+    #[test]
+    fn test_session_name_rejects_plain_backslash() {
+        // Plain backslash should be rejected
+        let result = validate_session_name("test\\name");
+        assert!(result.is_err(), "Should reject plain backslash");
+    }
+
+    #[test]
+    fn test_session_name_rejects_multiple_backslashes() {
+        // Multiple escape sequences should be rejected
+        let result = validate_session_name("test\\n\\t\\r");
+        assert!(result.is_err(), "Should reject multiple backslashes");
+    }
+
+    #[test]
+    fn test_session_name_rejects_backslash_at_start() {
+        // Backslash at start should be rejected
+        let result = validate_session_name("\\ntest");
+        assert!(result.is_err(), "Should reject backslash at start");
+    }
+
+    #[test]
+    fn test_session_name_rejects_backslash_at_end() {
+        // Backslash at end should be rejected
+        let result = validate_session_name("test\\n");
+        assert!(result.is_err(), "Should reject backslash at end");
+    }
+
+    #[test]
     fn test_status_display() {
         assert_eq!(SessionStatus::Creating.to_string(), "creating");
         assert_eq!(SessionStatus::Active.to_string(), "active");
