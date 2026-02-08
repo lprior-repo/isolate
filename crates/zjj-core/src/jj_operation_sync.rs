@@ -326,17 +326,19 @@ mod tests {
     #[tokio::test]
     async fn test_workspace_without_parent_returns_error() {
         // Test that workspace path without parent directory returns error
-        let workspace_path = PathBuf::from("workspace-without-parent");
+        // Use "/" which has no parent
+        let workspace_path = PathBuf::from("/");
         let result = create_workspace_synced("test", &workspace_path).await;
-        assert!(result.is_err());
 
         match result {
             Err(Error::InvalidConfig(msg)) => {
                 assert!(msg.contains("parent directory"));
             }
             Err(other) => {
-                eprintln!("Got error: {:?}", other);
                 panic!("Expected InvalidConfig error, got: {:?}", other);
+            }
+            Ok(_) => {
+                panic!("Expected InvalidConfig error, but got Ok");
             }
         }
     }
