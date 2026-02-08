@@ -1159,15 +1159,9 @@ async fn run_fixes(
 
                 // Try to fix the issue
                 let fix_result = match check.name.as_str() {
-                    "Orphaned Workspaces" => fix_orphaned_workspaces(check, dry_run)
-                        .await
-                        .map_err(|e| e.to_string()),
-                    "Stale Sessions" => fix_stale_sessions(check, dry_run)
-                        .await
-                        .map_err(|e| e.to_string()),
-                    "State Database" => fix_state_database(check, dry_run)
-                        .await
-                        .map_err(|e| e.to_string()),
+                    "Orphaned Workspaces" => fix_orphaned_workspaces(check, dry_run).await,
+                    "Stale Sessions" => fix_stale_sessions(check, dry_run).await,
+                    "State Database" => fix_state_database(check, dry_run).await,
                     _ => Err("No auto-fix available".to_string()),
                 };
 
@@ -1273,11 +1267,11 @@ async fn fix_stale_sessions(check: &DoctorCheck, dry_run: bool) -> Result<String
     }
 }
 
-async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<String> {
+async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
     let db_path = std::path::Path::new(".zjj/state.db");
     if !tokio::fs::try_exists(db_path)
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to check database: {e}"))?
+        .map_err(|e| format!("Failed to check database: {e}"))?
     {
         return Ok("Database file does not exist".to_string());
     }
@@ -1292,7 +1286,7 @@ async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<Strin
     // Attempt to delete the corrupted database
     tokio::fs::remove_file(db_path)
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to delete database: {e}"))?;
+        .map_err(|e| format!("Failed to delete database: {e}"))?;
     Ok("Deleted corrupted database file. It will be recreated on next run.".to_string())
 }
 
@@ -1398,7 +1392,9 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<S
                                     Ok(true) => acc += 1,
                                     Ok(false) => {}
                                     Err(e) => {
-                                        tracing::warn!("Failed to delete orphaned session '{name}': {e}");
+                                        tracing::warn!(
+                                            "Failed to delete orphaned session '{name}': {e}"
+                                        );
                                     }
                                 }
                             }
@@ -1407,7 +1403,7 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<S
                     })
                     .await
             }
-            Err(_) => 0
+            Err(_) => 0,
         }
     } else {
         0

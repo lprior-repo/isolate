@@ -60,10 +60,8 @@ impl BeadKV {
                     }
                 }
 
-                if !labels.is_empty() {
-                    if !labels.iter().all(|l| bead.labels.contains(l)) {
-                        continue;
-                    }
+                if !labels.is_empty() && !labels.iter().all(|l| bead.labels.contains(l)) {
+                    continue;
                 }
 
                 beads.push(bead);
