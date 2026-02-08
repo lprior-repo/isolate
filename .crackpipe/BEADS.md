@@ -727,4 +727,6 @@ The quick checks pass and the core functionality works correctly.
 [2026-02-08 16:17:51] REWORKER-3: Check 8 - No open beads with needs-rework
 [2026-02-08 16:19:34] REWORKER-3: Check 9 - No open beads with needs-rework
 [2026-02-08 16:21:24] REWORKER-3: Check 10 - No open beads with needs-rework
+[2026-02-08 16:21:52] REWORKER-1: Manual check 77 - no OPEN beads in stage:needs-rework
 [2026-02-08 16:23:31] REWORKER-1: Manual check 78 - no OPEN beads in stage:needs-rework
+[2026-02-08 16:24:19] REWORKER-1: Check 93 - no beads in stage:needs-rework
