@@ -17,7 +17,7 @@
 1. **NO_CLIPPY_EDITS** - NEVER modify `.clippy.toml`, `#![allow]`, `#![deny]`, Cargo.toml lint sections. Fix **code**, not rules.
 2. **MOON_ONLY** - NEVER `cargo fmt|clippy|test|build`. ALWAYS `moon run :quick|:test|:build|:ci|:fmt-fix|:check`
 3. **CODANNA_ONLY** - NEVER Grep|Glob|Read for exploration. ALWAYS use `mcp__codanna__ semantic_search|find_symbol|search_symbols|search_documents|get_calls|find_callers|analyze_impact`
-4. **ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC** - **ZERO unwrap()**, **ZERO unwrap_or()**, **ZERO unwrap_or_else()**, **ZERO unwrap_or_default()**. **ZERO expect()**. **ZERO panic!()**, **ZERO todo!()**, **ZERO unimplemented!()**. Required: `Result<T, Error>`, `map`, `and_then`, `?` operator. **USE functional-rust-generator SKILL for ALL Rust implementation**.
+4. **ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC** - **ZERO unwrap()**, **ZERO unwrap_or()**, **ZERO unwrap_or_else()**, **ZERO unwrap_or_default()**. **ZERO expect()**. **ZERO panic!()**, **ZERO todo!()**, **ZERO unimplemented!()**. Required: `Result<T, Error>`, `map`, `and_then`, `?` operator. **Strictly enforced for `src` via workspace `deny`; Permissive for `test` via crate root `allow`.**
 5. **GIT_PUSH_MANDATORY** - Work NOT done until `git push` succeeds. NEVER stop before pushing. **YOU** must push (not "ready when you are").
 6. **BR_SYNC** - `br` never runs git. After `br sync --flush-only`, manually `git add .beads/ && git commit -m 'sync beads'`
 7. **FUNCTIONAL_RUST_SKILL** - **ALWAYS load and use functional-rust-generator skill for ANY Rust implementation**. This skill enforces zero unwrap/expect/panic patterns with Railway-Oriented Programming.
