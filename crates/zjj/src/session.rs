@@ -135,11 +135,11 @@ pub struct SessionUpdate {
 /// - Not exceed 64 characters
 /// - Only contain ASCII alphanumeric characters, dashes, and underscores
 /// - Start with a letter (a-z, A-Z)
+pub const SESSION_NAME_EMPTY_ERROR: &str = "Session name cannot be empty";
+
 pub fn validate_session_name(name: &str) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::ValidationError(
-            "Session name cannot be empty".into(),
-        ));
+        return Err(Error::ValidationError(SESSION_NAME_EMPTY_ERROR.into()));
     }
 
     // Check for non-ASCII characters first (prevents unicode bypasses)
@@ -228,6 +228,11 @@ mod tests {
     fn test_session_name_empty() {
         let result = validate_session_name("");
         assert!(result.is_err());
+        if let Err(Error::ValidationError(message)) = result {
+            assert_eq!(message, SESSION_NAME_EMPTY_ERROR);
+        } else {
+            panic!("Expected validation error for empty session name");
+        }
     }
 
     #[test]
