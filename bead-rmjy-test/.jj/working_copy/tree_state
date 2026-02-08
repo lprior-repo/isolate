@@ -1,808 +1,0 @@
-!
-.ai-instructions.md
-ëôçØÃ3ôE
-7.bead-progress/zjj-20260207144555-zsihv1p2/progress.txt
-ëôçØÃ3–
-.beads/.gitignore
-ëôçØÃ3•
-.beads/README.md
-ëôçØÃ3© 
-.beads/config.yaml
-ëôçØÃ3¬7
-).beads/export-state/39d08d6e081821e1.json
-ëôçØÃ37
-).beads/export-state/47b63ce0ba736101.json
-ëôçØÃ3§7
-).beads/export-state/4b6d06081af58f28.json
-ëôçØÃ3£7
-).beads/export-state/501b03042118b490.json
-ëôçØÃ3š7
-).beads/export-state/7b4f0077918b4bdc.json
-ëôçØÃ37
-).beads/export-state/8c2066f50e9b4945.json
-ëôçØÃ3¥7
-).beads/export-state/bc883a1d4f0eeaa3.json
-ëôçØÃ3¥$
-.beads/interactions.jsonlëôçØÃ3#
-.beads/issues.jsonlîôçØÃ3¨……!
-.beads/metadata.json	îôçØÃ3><
-..beads/schemas/zjj-20260207144235-odxxgkq9.cue
-îôçØÃ3ù<
-..beads/schemas/zjj-20260207144235-qesapmvu.cue
-îôçØÃ3ƒ<
-..beads/schemas/zjj-20260207144235-rwtl8oi2.cue
-îôçØÃ3í<
-..beads/schemas/zjj-20260207144235-stzh9qtm.cue
-îôçØÃ3è<
-..beads/schemas/zjj-20260207144555-3edarubd.cue
-îôçØÃ3<
-..beads/schemas/zjj-20260207144555-bxq7nlhv.cue
-ïôçØÃ3á<
-..beads/schemas/zjj-20260207144555-cn9k0uhn.cue
-ïôçØÃ3ë<
-..beads/schemas/zjj-20260207144555-qbzo7sxy.cue
-ïôçØÃ3¼<
-..beads/schemas/zjj-20260207144555-updhyw0k.cue
-ïôçØÃ3 <
-..beads/schemas/zjj-20260207144555-vnunxgt4.cue
-ïôçØÃ3Û<
-..beads/schemas/zjj-20260207144555-yh2xmbqw.cue
-ïôçØÃ3Ø<
-..beads/schemas/zjj-20260207144555-zsihv1p2.cue
-ïôçØÃ3ÿ<
-..beads/schemas/zjj-20260207144601-78lrhozj.cue
-ïôçØÃ3<
-..beads/schemas/zjj-20260207144601-aohsi4bm.cue
-ïôçØÃ3¢<
-..beads/schemas/zjj-20260207144601-fwgu0w7t.cue
-ïôçØÃ3æ<
-..beads/schemas/zjj-20260207144601-pywekemy.cue
-ïôçØÃ3ú<
-..beads/schemas/zjj-20260207144750-4y9dnfnt.cue
-ïôçØÃ3Í<
-..beads/schemas/zjj-20260207144750-qgklgrdz.cue
-ïôçØÃ3‹ 
-.cargo/config.toml
-ïôçØÃ3®
-.clippy.toml
-ïôçØÃ3™
-.codannaignore
-ïôçØÃ3Å
-.codecov.yml
-ïôçØÃ3ö
-.env.example
-ïôçØÃ3Å
-.gitattributes	ïôçØÃ3N
-
-.gitignore
-ïôçØÃ3¨
-	.jjignore	ïôçØÃ3
-.moon/tasks.yml
-ïôçØÃ3Ó.!
-.moon/toolchain.yml
-ïôçØÃ3Í!
-.moon/workspace.yml
-ïôçØÃ3ï
-.sqlx/.gitkeep
-ïôçØÃ3¥!
-.sqlx/sqlx-data.json	ïôçØÃ3.
-.tdd15-cache/zjj-1tmx/bead.jsonïôçØÃ3ê°1
-#.tdd15-cache/zjj-2x2p-b0m/bead.json
-ïôçØÃ3ªb-
-.tdd15-cache/zjj-4ksr/bead.json
-ïôçØÃ3Õ1
-#.tdd15-cache/zjj-4ksr/progress.json
-ïôçØÃ3›.
-.tdd15-cache/zjj-6tkz/bead.jsonïôçØÃ3ø-
-.tdd15-cache/zjj-97a2/bead.json
-ïôçØÃ3ã1
-#.tdd15-cache/zjj-97a2/progress.json
-ğôçØÃ3Î.
-.tdd15-cache/zjj-dudm/bead.jsonğôçØÃ3ÒŞ1
-#.tdd15-cache/zjj-dudm/progress.json
-ğôçØÃ3«.
-.tdd15-cache/zjj-eou9/bead.jsonğôçØÃ3øº.
-.tdd15-cache/zjj-gv3f/bead.jsonòôçØÃ3üÈ1
-#.tdd15-cache/zjj-gv3f/progress.json
-òôçØÃ3¿.
-.tdd15-cache/zjj-ic8z/bead.jsonòôçØÃ3Ö²1
-#.tdd15-cache/zjj-ic8z/progress.json
-òôçØÃ3Ï-
-.tdd15-cache/zjj-iklh/bead.json
-òôçØÃ3Å1
-#.tdd15-cache/zjj-iklh/progress.json
-òôçØÃ3½-
-.tdd15-cache/zjj-m54b/bead.json
-òôçØÃ3á1
-#.tdd15-cache/zjj-m54b/progress.json
-òôçØÃ3Ä.
-.tdd15-cache/zjj-tthd/bead.jsonòôçØÃ3·š
-	AGENTS.md
-òôçØÃ3¶3'
-AGGRESSIVE_REFACTORING.md
-òôçØÃ3ö'0
-"AGGRESSIVE_REFACTORING_COMPLETE.md
-òôçØÃ3›6
-CHANGELOG.md
-óôçØÃ3ä
-	CLAUDE.md
-óôçØÃ3›r
-
-Cargo.toml
-óôçØÃ3©	-
-DONE-REWRITE-SESSION2-STATUS.md
-óôçØÃ3 e'
-IMPLEMENTATION_SUMMARY.md
-óôçØÃ3¦C
-JSON_SCHEMAS.md
-óôçØÃ3ªV
-LICENSE
-óôçØÃ3ŞX
-	README.md
-óôçØÃ3òR7
-)ZJJ_2MX1_KDL_VALIDATION_IMPLEMENTATION.md
-óôçØÃ3á4/
-!ZJJ_2R9Q_INVESTIGATION_SUMMARY.md
-óôçØÃ3-#
-__zjj-audit-report.md
-óôçØÃ3
-architecture.cue
-óôçØÃ3’@
-cicd.cueóôçØÃ3íÉ
-commands.cue
-óôçØÃ3ˆD
-
-config.cue
-óôçØÃ3Ë:#
-crates/zjj/Cargo.toml
-óôçØÃ3ù%
-crates/zjj/src/beads.rs
-óôçØÃ3–P-
-crates/zjj/src/cli/commands.rsóôçØÃ3’…-
-crates/zjj/src/cli/handlers.rsôôçØÃ3¼Œ-
-crates/zjj/src/cli/json_docs.rs
-ôôçØÃ3¿;'
-crates/zjj/src/cli/mod.rs
-ôôçØÃ3ˆ'.
- crates/zjj/src/commands/abort.rs
-ôôçØÃ3ób3
-%crates/zjj/src/commands/add/atomic.rs
-ôôçØÃ3Ï'2
-$crates/zjj/src/commands/add/beads.rs
-ôôçØÃ3Ğ2
-$crates/zjj/src/commands/add/hooks.rs
-ôôçØÃ3¼3
-%crates/zjj/src/commands/add/output.rs
-ôôçØÃ3”2
-$crates/zjj/src/commands/add/types.rs
-ôôçØÃ3·	3
-%crates/zjj/src/commands/add/zellij.rs
-ôôçØÃ3¾+-
-crates/zjj/src/commands/add.rsõôçØÃ3è‡3
-%crates/zjj/src/commands/agents/mod.rs
-õôçØÃ3¸}6
-'crates/zjj/src/commands/agents/tests.rsõôçØÃ3Ç½5
-'crates/zjj/src/commands/agents/types.rs
-õôçØÃ3ü7,
-crates/zjj/src/commands/ai.rsõôçØÃ3ªÚ3
-%crates/zjj/src/commands/attach/mod.rs
-õôçØÃ3ë5
-'crates/zjj/src/commands/attach/tests.rs
-õôçØÃ3Ó?
-1crates/zjj/src/commands/backup/backup_internal.rs
-õôçØÃ3 +6
-(crates/zjj/src/commands/backup/create.rs
-õôçØÃ3Œ%4
-&crates/zjj/src/commands/backup/list.rs
-õôçØÃ3˜)3
-%crates/zjj/src/commands/backup/mod.rs
-õôçØÃ3ƒE7
-)crates/zjj/src/commands/backup/restore.rs
-õôçØÃ3Ú89
-+crates/zjj/src/commands/backup/retention.rs
-õôçØÃ3ÄC2
-$crates/zjj/src/commands/batch/mod.rs
-öôçØÃ3­g4
-&crates/zjj/src/commands/batch/tests.rs
-öôçØÃ3¥C2
-#crates/zjj/src/commands/bookmark.rsöôçØÃ3/
- crates/zjj/src/commands/can_i.rsöôçØÃ3‚‹8
-)crates/zjj/src/commands/checkpoint/mod.rsöôçØÃ3¾¡/
- crates/zjj/src/commands/claim.rsöôçØÃ3Ú2
-$crates/zjj/src/commands/clean/mod.rs
-öôçØÃ3øq@
-1crates/zjj/src/commands/clean/periodic_cleanup.rs÷ôçØÃ3éˆ4
-&crates/zjj/src/commands/completions.rs
-÷ôçØÃ3›w0
-!crates/zjj/src/commands/config.rs÷ôçØÃ3Õ©4
-&crates/zjj/src/commands/context/mod.rs
-÷ôçØÃ3¬q6
-(crates/zjj/src/commands/context/tests.rs
-÷ôçØÃ3ÍY6
-(crates/zjj/src/commands/context/types.rs
-÷ôçØÃ3È2
-#crates/zjj/src/commands/contract.rs÷ôçØÃ3©²3
-$crates/zjj/src/commands/dashboard.rs÷ôçØÃ3 .
-crates/zjj/src/commands/diff.rs÷ôçØÃ3Œ0
-!crates/zjj/src/commands/doctor.rsøôçØÃ3òƒ2
-$crates/zjj/src/commands/done/bead.rs
-øôçØÃ3›.7
-(crates/zjj/src/commands/done/conflict.rsøôçØÃ3·Â6
-(crates/zjj/src/commands/done/executor.rs
-øôçØÃ3È/8
-*crates/zjj/src/commands/done/filesystem.rs
-øôçØÃ3Å52
-#crates/zjj/src/commands/done/mod.rsøôçØÃ3òª6
-(crates/zjj/src/commands/done/newtypes.rs
-øôçØÃ3ü:3
-%crates/zjj/src/commands/done/types.rs
-øôçØÃ3®]0
-!crates/zjj/src/commands/events.rsøôçØÃ3ÙÑ1
-#crates/zjj/src/commands/examples.rs
-øôçØÃ3c6
-(crates/zjj/src/commands/export_import.rs
-øôçØÃ3¹z.
- crates/zjj/src/commands/focus.rs
-ùôçØÃ3´\2
-$crates/zjj/src/commands/init/deps.rs
-ùôçØÃ3º1
-#crates/zjj/src/commands/init/mod.rs
-ùôçØÃ3®+<
-.crates/zjj/src/commands/init/scaffold_tests.rs
-ùôçØÃ3û"3
-%crates/zjj/src/commands/init/setup.rs
-ùôçØÃ3 p4
-%crates/zjj/src/commands/init/tests.rsùôçØÃ3ì3
-%crates/zjj/src/commands/init/types.rs
-ùôçØÃ3Æ3
-$crates/zjj/src/commands/integrity.rsùôçØÃ3•…@
-2crates/zjj/src/commands/introspect/dependencies.rs
-ùôçØÃ3Ë:
-,crates/zjj/src/commands/introspect/output.rs
-ùôçØÃ3Ø@
-2crates/zjj/src/commands/introspect/system_state.rs
-ùôçØÃ3©4
-%crates/zjj/src/commands/introspect.rsúôçØÃ3”ß.
-crates/zjj/src/commands/list.rsúôçØÃ3œÀ1
-#crates/zjj/src/commands/lock/mod.rs
-úôçØÃ3š3
-%crates/zjj/src/commands/lock/tests.rs
-úôçØÃ3ƒ03
-%crates/zjj/src/commands/lock/types.rs
-úôçØÃ3•,
-crates/zjj/src/commands/mod.rs
-úôçØÃ3äM.
-crates/zjj/src/commands/pane.rsúôçØÃ3…/
- crates/zjj/src/commands/query.rsúôçØÃ3çù/
- crates/zjj/src/commands/queue.rsúôçØÃ3·…1
-"crates/zjj/src/commands/recover.rsúôçØÃ3³/
-!crates/zjj/src/commands/remove.rs
-úôçØÃ3èT/
-!crates/zjj/src/commands/rename.rs
-úôçØÃ3·b3
-%crates/zjj/src/commands/revert/mod.rs
-úôçØÃ3şL5
-'crates/zjj/src/commands/revert/types.rs
-ûôçØÃ3¾X0
-!crates/zjj/src/commands/schema.rsûôçØÃ3ğı6
-'crates/zjj/src/commands/session_mgmt.rsûôçØÃ3•Œ8
-*crates/zjj/src/commands/spawn/heartbeat.rs
-ûôçØÃ3ÿT3
-$crates/zjj/src/commands/spawn/mod.rsûôçØÃ3Œ…7
-)crates/zjj/src/commands/spawn/rollback.rs
-ûôçØÃ3åq4
-&crates/zjj/src/commands/spawn/types.rs
-üôçØÃ3ÅU>
-/crates/zjj/src/commands/spawn_behavior_tests.rsüôçØÃ3¡°0
-!crates/zjj/src/commands/status.rsüôçØÃ3¥³/
-!crates/zjj/src/commands/switch.rs
-üôçØÃ3°.
-crates/zjj/src/commands/sync.rsüôçØÃ3â°2
-#crates/zjj/src/commands/template.rsüôçØÃ3Î–2
-#crates/zjj/src/commands/undo/mod.rsüôçØÃ3Ş†3
-%crates/zjj/src/commands/undo/types.rs
-ıôçØÃ3²]1
-#crates/zjj/src/commands/validate.rs
-ıôçØÃ3•g.
-crates/zjj/src/commands/wait.rsıôçØÃ3¾Ÿ0
-!crates/zjj/src/commands/whatif.rsıôçØÃ3—1
-#crates/zjj/src/commands/whereami.rs
-ıôçØÃ3ı;/
-!crates/zjj/src/commands/whoami.rs
-şôçØÃ3Ú@.
-crates/zjj/src/commands/work.rsşôçØÃ3¡Œ#
-crates/zjj/src/db.rsşôçØÃ3¨…%
-crates/zjj/src/hooks.rs
-şôçØÃ3ÒC*
-crates/zjj/src/json/error.rs
-şôçØÃ3ÈM(
-crates/zjj/src/json/mod.rs
-şôçØÃ3¶1
-"crates/zjj/src/json/serializers.rsşôçØÃ3ª€$
-crates/zjj/src/main.rs
-şôçØÃ3Š)
-crates/zjj/src/progress.rsşôçØÃ3™ (
-crates/zjj/src/selector.rs
-ÿôçØÃ3–2'
-crates/zjj/src/session.rs
-ÿôçØÃ3œa6
-(crates/zjj/tests/PERFORMANCE_ANALYSIS.md
-ÿôçØÃ3‰%=
-/crates/zjj/tests/agent_lifecycle_integration.rs
-ÿôçØÃ3¾~8
-)crates/zjj/tests/chaos_engineering/mod.rsÿôçØÃ3éÆ-
-crates/zjj/tests/common/mod.rsÿôçØÃ3ø­2
-#crates/zjj/tests/drq_adversarial.rs€õçØÃ3Ş›2
-#crates/zjj/tests/drq_agent_arena.rs€õçØÃ3›¯.
- crates/zjj/tests/schema_tests.rs
-€õçØÃ3í<A
-3crates/zjj/tests/template_validation_integration.rs
-€õçØÃ3¿27
-)crates/zjj/tests/test_brutal_integrity.rs
-€õçØÃ3v9
-*crates/zjj/tests/test_chaos_engineering.rs€õçØÃ3öƒ3
-$crates/zjj/tests/test_cli_parsing.rs€õçØÃ3¬0
-"crates/zjj/tests/test_cli_smoke.rs
-€õçØÃ3¢50
-"crates/zjj/tests/test_clone_bug.rs
-€õçØÃ3Ş
-<
--crates/zjj/tests/test_concurrent_workflows.rs€õçØÃ3Æ£9
-+crates/zjj/tests/test_conflict_detection.rs
-€õçØÃ3í,5
-(crates/zjj/tests/test_done_filesystem.rs	€õçØÃ34
-&crates/zjj/tests/test_error_display.rs
-€õçØÃ3Î&7
-(crates/zjj/tests/test_error_scenarios.rs€õçØÃ3ÂÅ5
-'crates/zjj/tests/test_hooks_refactor.rs
-€õçØÃ3–+
-crates/zjj/tests/test_init.rs
-õçØÃ3ùL<
-.crates/zjj/tests/test_integration_workflows.rs
-õçØÃ3¦dD
-6crates/zjj/tests/test_json_envelope_standardization.rs
-õçØÃ3Ú9
-*crates/zjj/tests/test_json_error_output.rsõçØÃ3Š€J
-;crates/zjj/tests/test_json_standardization_comprehensive.rsõçØÃ3œŠ@
-2crates/zjj/tests/test_json_validation_exit_code.rs
-õçØÃ3•8
-*crates/zjj/tests/test_session_lifecycle.rs
-õçØÃ3Õe7
-(crates/zjj/tests/test_signal_handling.rsõçØÃ3ª@
-2crates/zjj/tests/test_spawn_database_corruption.rs
-õçØÃ3¿^:
-+crates/zjj/tests/test_zellij_integration.rsõçØÃ3Ä¬(
-crates/zjj-core/Cargo.toml
-õçØÃ3îE
-7crates/zjj-core/proptest-regressions/kdl_validation.txt
-õçØÃ3 .
-!crates/zjj-core/src/agents/mod.rs	õçØÃ3C4
-&crates/zjj-core/src/agents/registry.rs
-õçØÃ3àJ3
-%crates/zjj-core/src/beads/analysis.rs
-õçØÃ3ÌZ-
-crates/zjj-core/src/beads/db.rs
-‚õçØÃ3İ4.
- crates/zjj-core/src/beads/mod.rs
-‚õçØÃ3í/0
-"crates/zjj-core/src/beads/query.rs
-‚õçØÃ310
-"crates/zjj-core/src/beads/types.rs
-‚õçØÃ3½F/
-!crates/zjj-core/src/checkpoint.rs
-‚õçØÃ3äW,
-crates/zjj-core/src/config.rs‚õçØÃ3Ò¯/
- crates/zjj-core/src/contracts.rs‚õçØÃ3Ò¹8
-)crates/zjj-core/src/coordination/locks.rs‚õçØÃ3¢®5
-'crates/zjj-core/src/coordination/mod.rs
-‚õçØÃ38
-)crates/zjj-core/src/coordination/queue.rs‚õçØÃ3·Ü+
-crates/zjj-core/src/error.rs‚õçØÃ3…Í(
-crates/zjj-core/src/fix.rs
-‚õçØÃ3W/
-!crates/zjj-core/src/functional.rs
-ƒõçØÃ3á"+
-crates/zjj-core/src/hints.rsƒõçØÃ3¾Á+
-crates/zjj-core/src/hooks.rsƒõçØÃ3çª3
-$crates/zjj-core/src/introspection.rsƒõçØÃ3’¶(
-crates/zjj-core/src/jj.rsƒõçØÃ3²„*
-crates/zjj-core/src/json.rsƒõçØÃ3ªß3
-%crates/zjj-core/src/kdl_validation.rs
-ƒõçØÃ3Æ+(
-crates/zjj-core/src/lib.rs
-„õçØÃ3›&3
-$crates/zjj-core/src/output_format.rs„õçØÃ3ó¿-
-crates/zjj-core/src/recovery.rs
-„õçØÃ3‹p+
-crates/zjj-core/src/result.rs
-„õçØÃ3ó3
-$crates/zjj-core/src/session_state.rs„õçØÃ3ü—-
-crates/zjj-core/src/shutdown.rs
-„õçØÃ3¹;1
-#crates/zjj-core/src/taskregistry.rs
-„õçØÃ3Û(5
-'crates/zjj-core/src/templates/askama.rs
-„õçØÃ3Û#2
-$crates/zjj-core/src/templates/mod.rs
-„õçØÃ3Ì$7
-(crates/zjj-core/src/templates/storage.rs„õçØÃ3ü‹+
-crates/zjj-core/src/types.rs…õçØÃ3Ìä-
-crates/zjj-core/src/watcher.rs…õçØÃ3Š9
-*crates/zjj-core/src/workspace_integrity.rs…õçØÃ3à¬5
-&crates/zjj-core/src/workspace_state.rs…õçØÃ3‰ç,
-crates/zjj-core/src/zellij.rs…õçØÃ3ÙÉ4
-&crates/zjj-core/templates/agents.md.j2
-…õçØÃ3ê3
-%crates/zjj-core/templates/beads.md.j2
-…õçØÃ3æ4
-&crates/zjj-core/templates/claude.md.j2
-…õçØÃ3ã;
-.crates/zjj-core/templates/error_handling.md.j2	…õçØÃ3A5
-'crates/zjj-core/templates/jujutsu.md.j2
-†õçØÃ3·7
-*crates/zjj-core/templates/moon_build.md.j2	†õçØÃ3*9
-+crates/zjj-core/templates/moon_tasks.yml.j2
-†õçØÃ3Ë	=
-/crates/zjj-core/templates/moon_toolchain.yml.j2
-†õçØÃ3¦=
-/crates/zjj-core/templates/moon_workspace.yml.j2
-†õçØÃ3õ;
-.crates/zjj-core/templates/rust_standards.md.j2	†õçØÃ3.6
-(crates/zjj-core/templates/workflow.md.j2
-†õçØÃ3éA
-3crates/zjj-core/tests/test_error_troubleshooting.rs
-†õçØÃ3·ZD
-5crates/zjj-core/tests/test_lock_concurrency_stress.rs†õçØÃ3İğ9
-*crates/zjj-core/tests/test_queue_stress.rs†õçØÃ3¸š;
--crates/zjj-core/tests/test_recovery_stress.rs
-†õçØÃ3ïH
-:crates/zjj-core/tests/test_repair_nonexistent_workspace.rs
-†õçØÃ3Ó+A
-2crates/zjj-core/tests/test_templates_concurrent.rs†õçØÃ3Ú‰4
-%crates/zjj-core/tests/test_watcher.rs‡õçØÃ3Ó´
-cue£õçØÃ3˜Á¨
-cueplsºõçØÃ3˜¡å
-doc/ref/spec.md»õçØÃ3ÿä+
-doc/tutorial/basics/README.md
-»õçØÃ3°/
-!doc/tutorial/kubernetes/README.md
-»õçØÃ3Š#
-docs/00_START_HERE.md
-¼õçØÃ3‰'
-docs/01_ERROR_HANDLING.md
-¼õçØÃ3¤O#
-docs/02_MOON_BUILD.md
-¼õçØÃ3±*!
-docs/03_WORKFLOW.md
-¼õçØÃ3¤=,
-docs/04_FUNCTIONAL_PATTERNS.md
-¼õçØÃ3–M'
-docs/05_RUST_STANDARDS.md
-¼õçØÃ3ù0$
-docs/06_COMBINATORS.md
-¼õçØÃ3à9 
-docs/07_TESTING.md
-¼õçØÃ3ï.
-docs/08_BEADS.md
-¼õçØÃ3®G 
-docs/09_JUJUTSU.md
-¼õçØÃ3æ7+
-docs/10_MOON_CICD_INDEXED.md¼õçØÃ3Ü€ 
-docs/11_ZELLIJ.md¼õçØÃ3©¯#
-docs/12_NAVIGATION.md
-¼õçØÃ3Ö-
-docs/13_AGENT_CRITICAL_RULES.md
-¼õçØÃ3’..
- docs/14_AGENT_QUICK_REFERENCE.md
-½õçØÃ3Ÿ.
- docs/15_AGENT_PROJECT_CONTEXT.md
-½õçØÃ3À0
-"docs/16_AGENT_PARALLEL_WORKFLOW.md
-½õçØÃ3µ1
-#docs/17_AGENT_SESSION_COMPLETION.md
-½õçØÃ3å+
-docs/18_AGENT_BV_REFERENCE.md
-½õçØÃ3¡,2
-$docs/19_CODANNA_QUERY_PERFORMANCE.md
-½õçØÃ3™x#
-docs/AI_QUICKSTART.md
-½õçØÃ3"$
-docs/ASYNC-PATTERNS.md
-½õçØÃ3‚.'
-docs/CHAOS_ENGINEERING.md
-½õçØÃ3ÙC'
-docs/CI-CD-PERFORMANCE.md
-½õçØÃ3âG)
-docs/CI-CD-SETUP-SUMMARY.md
-½õçØÃ3‚I+
-docs/ERROR_TROUBLESHOOTING.md
-½õçØÃ3ÆX
-docs/INDEX.md
-½õçØÃ3ÌL1
-#docs/JSON_OUTPUT_STANDARDIZATION.md
-¾õçØÃ3×'
-docs/P0-INFRASTRUCTURE.md
-¾õçØÃ3ı6!
-docs/PERFORMANCE.md
-¾õçØÃ3¼4
-
-install.sh¾õçØÃ3ö#
-integration-test.sh¾õçØÃ3…G
-layouts.cue
-¾õçØÃ3Ş5
-requirements.cue¾õçØÃ3¹Ê
-research.cue
-¾õçØÃ3öY!
-rust-toolchain.toml
-¾õçØÃ3¿
-rustfmt.toml
-¾õçØÃ3´'
-schemas/zjj_protocol.cue¾õçØÃ3„Œ+
-scripts/setup-perf-tools.sh¾õçØÃ3Ï
-spec-intent.cue
-¾õçØÃ3¬)
-sql_schemas/01_sessions.sql
-¾õçØÃ3ı.
- sql_schemas/02_session_locks.sql
-¾õçØÃ3¿)
-sql_schemas/03_triggers.sql
-¾õçØÃ3ø)
-sql_schemas/OFFLINE_MODE.md
-¾õçØÃ3³#
-sql_schemas/README.md
-¾õçØÃ3Ò$
-tools/audit/Cargo.toml
-¿õçØÃ3½%
-tools/audit/src/main.rs
-¿õçØÃ3¾>1
-#tools/audit/target/.rustc_info.json
-¿õçØÃ3¹-
-tools/audit/target/CACHEDIR.TAG
-¿õçØÃ3±/
-$tools/audit/target/debug/.cargo-lock¿õçØÃ3e
-Xtools/audit/target/debug/.fingerprint/aho-corasick-35fda5f119625250/dep-lib-aho_corasick	¿õçØÃ3b
-Utools/audit/target/debug/.fingerprint/aho-corasick-35fda5f119625250/invoked.timestamp	¿õçØÃ30a
-Ttools/audit/target/debug/.fingerprint/aho-corasick-35fda5f119625250/lib-aho_corasick	¿õçØÃ3g
-Ytools/audit/target/debug/.fingerprint/aho-corasick-35fda5f119625250/lib-aho_corasick.json
-¿õçØÃ3ç[
-Ntools/audit/target/debug/.fingerprint/colored-0faa21e5507b9ae0/dep-lib-colored	¿õçØÃ3]
-Ptools/audit/target/debug/.fingerprint/colored-0faa21e5507b9ae0/invoked.timestamp	¿õçØÃ30W
-Jtools/audit/target/debug/.fingerprint/colored-0faa21e5507b9ae0/lib-colored	¿õçØÃ3]
-Otools/audit/target/debug/.fingerprint/colored-0faa21e5507b9ae0/lib-colored.json
-¿õçØÃ3¥c
-Vtools/audit/target/debug/.fingerprint/lazy_static-87c02066b6621a70/dep-lib-lazy_static	¿õçØÃ3a
-Ttools/audit/target/debug/.fingerprint/lazy_static-87c02066b6621a70/invoked.timestamp	¿õçØÃ30_
-Rtools/audit/target/debug/.fingerprint/lazy_static-87c02066b6621a70/lib-lazy_static	¿õçØÃ3e
-Wtools/audit/target/debug/.fingerprint/lazy_static-87c02066b6621a70/lib-lazy_static.json
-¿õçØÃ3ıY
-Ltools/audit/target/debug/.fingerprint/memchr-3dd7c4eee1e54167/dep-lib-memchr	¿õçØÃ3\
-Otools/audit/target/debug/.fingerprint/memchr-3dd7c4eee1e54167/invoked.timestamp	¿õçØÃ30U
-Htools/audit/target/debug/.fingerprint/memchr-3dd7c4eee1e54167/lib-memchr	¿õçØÃ3[
-Mtools/audit/target/debug/.fingerprint/memchr-3dd7c4eee1e54167/lib-memchr.json
-¿õçØÃ3Ği
-\tools/audit/target/debug/.fingerprint/regex-automata-704c123e2f1f88a7/dep-lib-regex_automata	¿õçØÃ3d
-Wtools/audit/target/debug/.fingerprint/regex-automata-704c123e2f1f88a7/invoked.timestamp	¿õçØÃ30e
-Xtools/audit/target/debug/.fingerprint/regex-automata-704c123e2f1f88a7/lib-regex_automata	¿õçØÃ3k
-]tools/audit/target/debug/.fingerprint/regex-automata-704c123e2f1f88a7/lib-regex_automata.json
-¿õçØÃ3¸W
-Jtools/audit/target/debug/.fingerprint/regex-c8627fca78308c0f/dep-lib-regex	¿õçØÃ3[
-Ntools/audit/target/debug/.fingerprint/regex-c8627fca78308c0f/invoked.timestamp	¿õçØÃ30S
-Ftools/audit/target/debug/.fingerprint/regex-c8627fca78308c0f/lib-regex	¿õçØÃ3Y
-Ktools/audit/target/debug/.fingerprint/regex-c8627fca78308c0f/lib-regex.json
-¿õçØÃ3Â	e
-Xtools/audit/target/debug/.fingerprint/regex-syntax-bc020d83057bca35/dep-lib-regex_syntax	¿õçØÃ3b
-Utools/audit/target/debug/.fingerprint/regex-syntax-bc020d83057bca35/invoked.timestamp	¿õçØÃ30a
-Ttools/audit/target/debug/.fingerprint/regex-syntax-bc020d83057bca35/lib-regex_syntax	¿õçØÃ3g
-Ytools/audit/target/debug/.fingerprint/regex-syntax-bc020d83057bca35/lib-regex_syntax.json
-¿õçØÃ3½_
-Rtools/audit/target/debug/.fingerprint/same-file-123f710482a8b53b/dep-lib-same_file	¿õçØÃ3_
-Rtools/audit/target/debug/.fingerprint/same-file-123f710482a8b53b/invoked.timestamp	¿õçØÃ30[
-Ntools/audit/target/debug/.fingerprint/same-file-123f710482a8b53b/lib-same_file	¿õçØÃ3a
-Stools/audit/target/debug/.fingerprint/same-file-123f710482a8b53b/lib-same_file.json
-¿õçØÃ3à[
-Ntools/audit/target/debug/.fingerprint/walkdir-3557b61e28119794/dep-lib-walkdir	¿õçØÃ3]
-Ptools/audit/target/debug/.fingerprint/walkdir-3557b61e28119794/invoked.timestamp	¿õçØÃ30W
-Jtools/audit/target/debug/.fingerprint/walkdir-3557b61e28119794/lib-walkdir	¿õçØÃ3]
-Otools/audit/target/debug/.fingerprint/walkdir-3557b61e28119794/lib-walkdir.json
-¿õçØÃ3—[
-Ntools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/bin-zjj-audit	¿õçØÃ3a
-Stools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/bin-zjj-audit.json
-ÀõçØÃ3_
-Rtools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/dep-bin-zjj-audit	ÀõçØÃ3_
-Rtools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/invoked.timestamp	ÀõçØÃ30c
-Utools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/output-bin-zjj-audit
-ÀõçØÃ3ÕK
-=tools/audit/target/debug/deps/aho_corasick-35fda5f119625250.d
-ÀõçØÃ3º`F
-8tools/audit/target/debug/deps/colored-0faa21e5507b9ae0.d
-ÀõçØÃ3¼J
-<tools/audit/target/debug/deps/lazy_static-87c02066b6621a70.d
-ÀõçØÃ3˜S
-Ctools/audit/target/debug/deps/libaho_corasick-35fda5f119625250.rlibÈõçØÃ3Üä’S
-Dtools/audit/target/debug/deps/libaho_corasick-35fda5f119625250.rmetaËõçØÃ3½•qM
->tools/audit/target/debug/deps/libcolored-0faa21e5507b9ae0.rlibÌõçØÃ3œ£NN
-?tools/audit/target/debug/deps/libcolored-0faa21e5507b9ae0.rmetaÍõçØÃ3â€Q
-Btools/audit/target/debug/deps/liblazy_static-87c02066b6621a70.rlibÍõçØÃ3Ø­R
-Ctools/audit/target/debug/deps/liblazy_static-87c02066b6621a70.rmetaÍõçØÃ3Ù¡M
-=tools/audit/target/debug/deps/libmemchr-3dd7c4eee1e54167.rlibÏõçØÃ3ÚÙM
->tools/audit/target/debug/deps/libmemchr-3dd7c4eee1e54167.rmetaÑõçØÃ3¬¯NK
-<tools/audit/target/debug/deps/libregex-c8627fca78308c0f.rlibÒõçØÃ3ÚÁhL
-=tools/audit/target/debug/deps/libregex-c8627fca78308c0f.rmetaÓõçØÃ3ãÎ(U
-Etools/audit/target/debug/deps/libregex_automata-704c123e2f1f88a7.rlibåõçØÃ3—¶V
-Ftools/audit/target/debug/deps/libregex_automata-704c123e2f1f88a7.rmetaêõçØÃ3æÔÇS
-Ctools/audit/target/debug/deps/libregex_syntax-bc020d83057bca35.rlib÷õçØÃ3°ÑğT
-Dtools/audit/target/debug/deps/libregex_syntax-bc020d83057bca35.rmetaüõçØÃ3Òş™O
-@tools/audit/target/debug/deps/libsame_file-123f710482a8b53b.rlibıõçØÃ3ÀºP
-Atools/audit/target/debug/deps/libsame_file-123f710482a8b53b.rmetaıõçØÃ3ì„M
->tools/audit/target/debug/deps/libwalkdir-3557b61e28119794.rlibşõçØÃ3¨ËJN
-?tools/audit/target/debug/deps/libwalkdir-3557b61e28119794.rmetaÿõçØÃ3üœE
-7tools/audit/target/debug/deps/memchr-3dd7c4eee1e54167.d
-ÿõçØÃ3òWD
-6tools/audit/target/debug/deps/regex-c8627fca78308c0f.d
-ÿõçØÃ3ã"N
-?tools/audit/target/debug/deps/regex_automata-704c123e2f1f88a7.dÿõçØÃ3’ËK
-=tools/audit/target/debug/deps/regex_syntax-bc020d83057bca35.d
-ÿõçØÃ3ğjH
-:tools/audit/target/debug/deps/same_file-123f710482a8b53b.d
-ÿõçØÃ3æF
-8tools/audit/target/debug/deps/walkdir-3557b61e28119794.d
-ÿõçØÃ3®J
-8tools/audit/target/debug/deps/zjj_audit-08d959c66deb8a0d˜öçØÃ3È™×
-H
-:tools/audit/target/debug/deps/zjj_audit-08d959c66deb8a0d.d
-šöçØÃ3Å—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/03mvg9vpxjwpc099rf7tkxbed.ošöçØÃ3ØÂ–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/0l04grzp6l4sxjfwjv7fn2q86.o
-šöçØÃ3'—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/0oosj1kc15xua1nkrp3xqef39.ošöçØÃ3Ğ„–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/0ujlwu1a165gchgl9r1k3cxyr.o
-šöçØÃ3àQ–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/0w5rnuceoce33j8n1w4sf9gm8.o
-šöçØÃ3°0—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/126b9rply4w1lnjtj6geovyin.o›öçØÃ3ë–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/13ugn9ykp42n5ldcxrlmim3y0.o
-›öçØÃ3°"—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/1hxphjxm8hzfr4zgtrlbkhhkw.o›öçØÃ3Àº—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/25bxut9k74zcbi9zkz495e2z3.o›öçØÃ3Ø¹–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/29bfa8r2uas5di53xhbf6e02h.o
-›öçØÃ3Èr–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/2lnrbo855kij57x7qc6srvcad.o
-›öçØÃ3ÈB–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/2mvb6o9wu2gusobns6vbx28uc.o
-›öçØÃ3€,—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/2pnmxs6200f641x1a04jisxkt.o›öçØÃ3à—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/2q6xjou8hsii344rx432mhf0o.o›öçØÃ3ÀÆ–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/33nxl4kthds29sx063tn511oh.o
-›öçØÃ3è–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/3gweslazl9iao34mpi9ahcrlz.o
-›öçØÃ3ğ –
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/3se7j6h64je76pex1hm9aid0n.o
-›öçØÃ3À+–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/3yerytahuxfefrlkw6h6gw8b1.o
-›öçØÃ3¸N–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/49h1djjiih0yfcwah7n5jeo5m.o
-›öçØÃ3ğJ—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/4ns4q3g9c00h3mmyh13q9mhmr.o›öçØÃ3€¢–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/4reo59e2ib0rxnw4vex52u9ly.o
-›öçØÃ3¨Z—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/50r1edljo13m8z2hz88vcn8o2.o›öçØÃ3ğ–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5b3d91zndowntmtauhgbs9wwo.o
-›öçØÃ3°E–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5e46t2iy4nh84upvkc8bxh04c.o
-›öçØÃ3ğJ–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5kpo1wicnlb8k5x2q5fzaj92d.o
-›öçØÃ3¨M—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5ta2l9tcwfg5f6avhhoj6q9vv.o›öçØÃ3¸ò–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5xx9jpau0no0rupozpaqe7kxh.o
-›öçØÃ3ğ4—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/62qmltvy4d6epcq8ywm025izv.o›öçØÃ3ˆ­–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/64y4baqjccvjcym0lwvecyhq8.o
-›öçØÃ3\—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6q5e8izza3yf88pqia1lacgfl.o›öçØÃ3¸š–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6qjdlukhe1owhymsrzofz3ybq.o
-œöçØÃ3Ø&—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6r1p2p4qcibo5l5gyvmvuenm0.oœöçØÃ3øç–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6s3tgdv6coem7pw25xqe3lm62.o
-œöçØÃ3ˆ-–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6vcm2ezerogno9x4bfikycsj9.o
-œöçØÃ3¨7–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/725gakfczzqzgvhcgzvcysv3j.o
-œöçØÃ3ğl–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/75l8x0icu46s8ihxa9gj7cdce.o
-œöçØÃ3$—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7cdxyp56s2ga1166gpnwa6hqt.oœöçØÃ3Èà—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7csggfdgky6rwzgj6225wrvo9.oœöçØÃ3¸÷—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7ogc0bkuty6il4s29bm53xlns.oœöçØÃ3°
-—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7t5xxoeb3nsqf2fke0xp0z7xh.oœöçØÃ3¨¨–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7u5zw8p7ilu8pn4enh8wg0l5m.o
-œöçØÃ3°"–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7uagmeo76ky575vm4anlrisht.o
-œöçØÃ3ğ#–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7v6kfxmcvy1x8a8o9vunavdv0.o
-œöçØÃ3Ğ)–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7wti0ldp56ucwxeakqz3ll2p3.o
-œöçØÃ3ÈE–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/80m33dxolx6ct19bsglp959qb.o
-œöçØÃ3ø]—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/83hdw1u1c1ls01xtft1gsp8vh.oœöçØÃ3ˆ®—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/855of6q43tl207qy4p1ei0lsu.oœöçØÃ3€¢–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/8g8xfmmvv2tuw8udm8ygrtt27.o
-œöçØÃ3À$–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/8xtlky0fjaqm01b4wthv0yd3x.o
-œöçØÃ3¸Y—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/91o5ux26re2mmsycgzyv6v2q7.oœöçØÃ3Á—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/956lnqehw6jqir3kbpeeddzwk.oœöçØÃ3ğ¹–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/96hqgoowh7pp9wggbqrwyf768.o
-œöçØÃ3ø^—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9kyamt8pymi7ufj08peesos23.oöçØÃ3Øæ—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9lf9m5rxpby4mt9pqyzu7gtdb.oöçØÃ3¸¯—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9pgqvajso3sub5ddgamd9c1q3.oöçØÃ3ÀŒ—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9qqkmsvabki06dfokkzvav81b.oöçØÃ3ğ²–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9xr7j152htxi1w6jwnqgy3z9e.o
-öçØÃ3 @–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/a0h1gs3nwmzxxkmwj8h6x3s9l.o
-öçØÃ3Ğ,–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/anj73ai3yu8ayyjoltpkkuymt.o
-öçØÃ3a—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/anpibkip5hpr6th8abbejriw7.oöçØÃ3ĞÁ–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/apmly82lt5r5cgq2vsgusa00e.o
-öçØÃ3ˆA–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/arg7wxknefqzm5z755q0co5px.o
-öçØÃ3"–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/audu4f5mdr25rh19ftec1bi0w.o
-öçØÃ3ø\—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/b8h2hd3ekj02f8ksif8azhe9n.oöçØÃ3°™–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ba0v0gm8qtl8spxo6zulylmex.o
-öçØÃ3ğ7–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/bdzbyl0bh5ui15tyk4xiddhsj.o
-öçØÃ3à#–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/bp2g8yy5ak4y5uwytijbichyr.o
-öçØÃ3Ğy–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/bpo3tb6om5f8u9518h706qerk.o
-öçØÃ3 x—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ccsyxcqnkclhumvfodb6rurb7.oöçØÃ3Ø¥–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ce6bsc626xlk5o7rsdvype226.o
-öçØÃ3ğ/—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cfaecm42yzqanrg16scca6mer.oöçØÃ3°ƒ—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cj2r36in31bhlbsx6dn9ec88s.oöçØÃ3Àˆ–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cjwk5mxpjmmc6xu26or3nhnwy.o
-öçØÃ3ø%—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cowh8c9275pvxk2u15wxrrb87.oöçØÃ3 Î—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cpasvb9gssue04p5yf5tau6bq.oöçØÃ3ğ´	—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/d26m0poxv2m3j9mjs16etqvn3.oöçØÃ3 °‰
-ytools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dep-graph.bin¡öçØÃ3òˆ•–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dm6v2vthuwppqzbfduxu3jns7.o
-¡öçØÃ3Øh–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dmkg7njezvjbtc4nh4iqa86tu.o
-¡öçØÃ3Ğ+–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dmytmyfn0f5e0rxr9zcfanj74.o
-¡öçØÃ3˜I–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/donablmuq3t3p626nzz3u9sua.o
-¡öçØÃ3ğu—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dsz138253sxur8haxhy30im3g.o¡öçØÃ3Èâ—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dvd2o3sg8xx3smqm359k4dllp.o¡öçØÃ3¨ƒ—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dw5lc778hyn9a2td9u5kmtgjj.o¢öçØÃ3Ü—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dxviofwgd4pl2m0r2bmi7yof0.o¢öçØÃ3ØÁ—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/e0acra4n1ueut2kr7x6b8utsf.o¢öçØÃ3Èš–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/e298rfd7bb8j7etudu0bwaen7.o
-¢öçØÃ3¨Y–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ec3fb7v1q3ovo5z5gspc0tubm.o
-¢öçØÃ3È–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/eft9685d5tyik4c7rhwaskalc.o
-¢öçØÃ3Ğ–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/egn19y6m7jqtv28kkpssus6no.o
-¢öçØÃ38–
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ekas5cr7zmcjc3vfs0r9w4n4r.o
-¢öçØÃ3˜]—
-‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/exzr34ebj1yrlit7cn73t02bf.o¢öçØÃ3èóŠ
-{tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/query-cache.bin£öçØÃ3Ù;‹
-}tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/work-products.bin
-£öçØÃ3¾6a
-Vtools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7.lock£öçØÃ34
-"tools/audit/target/debug/zjj-auditºöçØÃ3È™×
-1
-$tools/audit/target/debug/zjj-audit.d	»öçØÃ3d&
-zjj-requirements.ears.md
-»öçØÃ3ˆ
- *8ê'æı¼)ğ¶eİ™Ò—ôBğ(0
