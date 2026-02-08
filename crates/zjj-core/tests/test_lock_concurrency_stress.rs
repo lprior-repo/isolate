@@ -444,7 +444,7 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     // THEN: Total operations should be successful
     let total_operations = total_successful + total_failed;
     let success_rate = if total_operations > 0 {
-        (total_successful as f64) / (total_operations as f64) * 100.0
+        total_successful as f64 / total_operations as f64 * 100.0
     } else {
         0.0
     };
@@ -788,7 +788,7 @@ async fn test_lock_contention_metrics() -> Result<(), Error> {
     };
 
     let contention_rate = if num_agents > 0 {
-        f64::from(failures) / f64::from(num_agents) * 100.0
+        failures as f64 / f64::from(num_agents) * 100.0
     } else {
         0.0
     };
