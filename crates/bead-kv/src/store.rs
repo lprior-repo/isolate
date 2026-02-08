@@ -26,8 +26,9 @@ pub struct BeadKV {
 
 impl BeadKV {
     pub fn new(path: PathBuf) -> Result<Self> {
-        let expanded = shellexpand::tilde(&path.to_string_lossy());
-        let db = sled::open(&expanded)?;
+        let path_str = path.to_string_lossy().to_string();
+        let expanded = shellexpand::tilde(&path_str);
+        let db = sled::open(expanded.as_ref())?;
         let tree = db.open_tree("beads")?;
         Ok(Self { db, tree })
     }
