@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -133,10 +133,8 @@ impl BeadKV {
                 }
 
                 // Label filter (all must match)
-                if !labels.is_empty() {
-                    if !labels.iter().all(|l| bead.labels.contains(l)) {
-                        continue;
-                    }
+                if !labels.is_empty() && !labels.iter().all(|l| bead.labels.contains(l)) {
+                    continue;
                 }
 
                 beads.push(bead);
@@ -176,7 +174,7 @@ fn main() -> Result<()> {
                     println!("{}", serde_json::to_string_pretty(&beads)?);
                 }
                 "table" => {
-                    println!("{:<20} {:<10} {:<20} {}", "ID", "STATUS", "LABELS", "TITLE");
+                    println!("{:<20} {:<10} {:<20} TITLE", "ID", "STATUS", "LABELS");
                     println!("{}", "-".repeat(80));
                     for bead in beads {
                         let labels = bead.labels.join(",");
