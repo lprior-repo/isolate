@@ -512,7 +512,7 @@ async fn check_db_readable(db_path: &Path) -> Result<(), DoctorCheck> {
 }
 
 /// Check if database file size is valid (not corrupted) and run integrity check
-/// Returns DoctorCheck with final result
+/// Returns `DoctorCheck` with final result
 async fn check_db_file_size_and_integrity(file_size: u64, db_path: &Path) -> DoctorCheck {
     // Check file size (corrupted databases often have wrong size)
     if file_size == 0 || file_size < 100 {
@@ -937,6 +937,9 @@ async fn check_workflow_violations() -> DoctorCheck {
 /// - 1: One or more checks failed (unhealthy system)
 /// - 2: System recovered from corruption (recovery detected)
 #[allow(clippy::too_many_lines)]
+// Long function because: single-pass report generation with format branching
+// (JSON vs human-readable). Splitting would require passing intermediate state
+// through multiple functions, reducing clarity.
 fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()> {
     // Calculate summary statistics
     let warnings = checks

@@ -198,7 +198,7 @@ pub struct ImportResult {
 /// Validate and parse import file
 ///
 /// Reads the import file and validates it's properly formatted JSON
-/// matching the ExportResult schema.
+/// matching the `ExportResult` schema.
 async fn validate_and_parse_import(input_path: &str) -> Result<ExportResult> {
     let content = tokio::fs::read_to_string(input_path).await?;
     let export_data: ExportResult = serde_json::from_str(&content)
@@ -231,7 +231,7 @@ async fn check_session_conflict(
     } else if skip_existing {
         Ok(Some(false))
     } else {
-        anyhow::bail!("Session '{}' already exists (use --force to overwrite)", session_name)
+        anyhow::bail!("Session '{session_name}' already exists (use --force to overwrite)")
     }
 }
 
@@ -243,7 +243,7 @@ async fn delete_existing_session(
     session_name: &str,
 ) -> Result<()> {
     let _deleted: bool = db.delete(session_name).await
-        .map_err(|e| anyhow::anyhow!("Failed to delete existing session '{}': {e}", session_name))?;
+        .map_err(|e| anyhow::anyhow!("Failed to delete existing session '{session_name}': {e}"))?;
     Ok(())
 }
 
@@ -256,8 +256,9 @@ async fn import_session(
     was_overwritten: bool,
 ) -> Result<()> {
     let workspace_path = session.workspace_path.as_deref().map_or("", |value| value);
-    let _created: Session = db.create(&session.name, workspace_path).await
-        .map_err(|e| anyhow::anyhow!("Failed to import '{}': {e}", session.name))?;
+    let name = &session.name;
+    let _created: Session = db.create(name, workspace_path).await
+        .map_err(|e| anyhow::anyhow!("Failed to import '{name}': {e}"))?;
 
     Ok(())
 }
