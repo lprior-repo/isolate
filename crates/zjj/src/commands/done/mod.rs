@@ -190,6 +190,7 @@ async fn execute_done(
         merged: true,
         cleaned,
         bead_closed,
+        session_updated: false,
         pushed_to_remote,
         dry_run: false,
         preview: None,

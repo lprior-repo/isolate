@@ -30,16 +30,64 @@ use tempfile::TempDir;
 /// Test configuration: workspaces are created inside the repo at this relative path
 const TEST_WORKSPACE_DIR: &str = "workspaces";
 
+/// Common system paths where jj might be installed
+const JJ_SYSTEM_PATHS: &[&str] = &[
+    "/usr/bin/jj",
+    "/usr/local/bin/jj",
+    "~/.cargo/bin/jj",
+];
+
+/// Find the jj binary in common system locations
+/// Returns the path if found, None otherwise
+fn find_jj_binary() -> Option<PathBuf> {
+    // First try PATH (handles cases where jj is in a custom location)
+    if let Ok(path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path) {
+            let jj_path = dir.join("jj");
+            if jj_path.exists() && jj_path.is_file() {
+                return Some(jj_path);
+            }
+        }
+    }
+
+    // Then check common system locations
+    for path_str in JJ_SYSTEM_PATHS {
+        let path = PathBuf::from(path_str);
+        // Expand ~ manually since shellexpand isn't available
+        let path = if let Some(stripped) = path_str.strip_prefix("~/") {
+            std::env::var("HOME").map_or(path, |home| PathBuf::from(home).join(stripped))
+        } else {
+            path
+        };
+
+        if path.exists() && path.is_file() {
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+/// Cached result of JJ availability check and binary path
+/// Uses `OnceLock` for thread-safe one-time initialization
+struct JJInfo {
+    available: bool,
+    binary_path: Option<PathBuf>,
+}
+
+fn jj_info() -> &'static JJInfo {
+    static JJ_INFO: OnceLock<JJInfo> = OnceLock::new();
+    JJ_INFO.get_or_init(|| {
+        let binary_path = find_jj_binary();
+        let available = binary_path.is_some();
+        JJInfo { available, binary_path }
+    })
+}
+
 /// Cached result of JJ availability check
 /// Uses `OnceLock` for thread-safe one-time initialization
 fn jj_availability() -> &'static bool {
-    static JJ_AVAILABLE: OnceLock<bool> = OnceLock::new();
-    JJ_AVAILABLE.get_or_init(|| {
-        Command::new("jj")
-            .arg("--version")
-            .output()
-            .is_ok_and(|o| o.status.success())
-    })
+    &jj_info().available
 }
 
 /// Check if jj is available in PATH
@@ -73,10 +121,13 @@ impl TestHarness {
     /// Create a new test harness with a fresh JJ repository
     /// Returns None if jj is not available
     pub fn new() -> Result<Self> {
-        // Check if jj is available first
-        if !jj_is_available() {
+        // Get jj binary path from cached check
+        let info = jj_info();
+        if !info.available {
             anyhow::bail!("jj is not installed - skipping test");
         }
+
+        let jj_binary = info.binary_path.as_ref().expect("jj binary path should exist");
 
         let temp_dir = TempDir::new().context("Failed to create temp directory")?;
         let repo_path = temp_dir.path().join("test-repo");
@@ -84,8 +135,8 @@ impl TestHarness {
         // Create repo directory
         std::fs::create_dir(&repo_path).context("Failed to create repo directory")?;
 
-        // Initialize JJ repository
-        let output = Command::new("jj")
+        // Initialize JJ repository using full path to binary
+        let output = Command::new(jj_binary)
             .args(["git", "init"])
             .current_dir(&repo_path)
             .output()
@@ -102,7 +153,7 @@ impl TestHarness {
         std::fs::write(repo_path.join("README.md"), "# Test Repository\n")
             .context("Failed to create README")?;
 
-        let output = Command::new("jj")
+        let output = Command::new(jj_binary)
             .args(["commit", "-m", "Initial commit"])
             .current_dir(&repo_path)
             .output()
@@ -137,18 +188,30 @@ impl TestHarness {
     /// Sets `ZJJ_WORKSPACE_DIR` to ensure workspaces are created inside the
     /// test repo for proper isolation and cleanup.
     ///
+    /// Also ensures PATH includes standard system directories (`/usr/bin`, `/usr/local/bin`)
+    /// so that subprocess commands (like `jj`) can be found even when the test environment
+    /// has a minimal PATH.
+    ///
     /// # Performance
     ///
     /// - Reuses environment variable setup across calls
     /// - Uses functional error handling with `map_or_else`
     /// - Minimizes string allocations with `from_utf8_lossy`
     pub fn zjj(&self, args: &[&str]) -> CommandResult {
+        // Ensure PATH includes standard system directories where jj might be installed
+        // This is critical because test environments often have minimal PATH
+        let path_with_system_dirs = format!(
+            "/usr/bin:/usr/local/bin:{}",
+            std::env::var("PATH").unwrap_or_default()
+        );
+
         let output = Command::new(&self.zjj_bin)
             .args(args)
             .current_dir(&self.current_dir)
             .env("NO_COLOR", "1")
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .env("PATH", &path_with_system_dirs)
             .output()
             .map_or_else(
                 |_| CommandResult {
@@ -288,12 +351,19 @@ impl TestHarness {
     ///
     /// Uses functional error handling to reduce branching overhead.
     pub fn zjj_in_dir(&self, dir: &std::path::Path, args: &[&str]) -> CommandResult {
+        // Ensure PATH includes standard system directories where jj might be installed
+        let path_with_system_dirs = format!(
+            "/usr/bin:/usr/local/bin:{}",
+            std::env::var("PATH").unwrap_or_default()
+        );
+
         Command::new(&self.zjj_bin)
             .args(args)
             .current_dir(dir)
             .env("NO_COLOR", "1")
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
+            .env("PATH", &path_with_system_dirs)
             .output()
             .map(|output| CommandResult {
                 success: output.status.success(),
@@ -315,7 +385,12 @@ impl TestHarness {
     ///
     /// Uses functional error handling to avoid match branching overhead.
     pub fn jj(&self, args: &[&str]) -> CommandResult {
-        Command::new("jj")
+        let jj_binary = jj_info()
+            .binary_path
+            .as_ref()
+            .expect("jj binary should be available");
+
+        Command::new(jj_binary)
             .args(args)
             .current_dir(&self.repo_path)
             .output()
@@ -342,7 +417,12 @@ impl TestHarness {
     ///
     /// Uses functional error handling to avoid match branching overhead.
     pub fn jj_in_dir(&self, dir: &Path, args: &[&str]) -> CommandResult {
-        Command::new("jj")
+        let jj_binary = jj_info()
+            .binary_path
+            .as_ref()
+            .expect("jj binary should be available");
+
+        Command::new(jj_binary)
             .args(args)
             .current_dir(dir)
             .output()
@@ -375,10 +455,17 @@ impl TestHarness {
     ///
     /// Uses functional patterns to reduce branching and allocations.
     pub fn zjj_with_env(&self, args: &[&str], env_vars: &[(&str, &str)]) -> CommandResult {
+        // Ensure PATH includes standard system directories where jj might be installed
+        let path_with_system_dirs = format!(
+            "/usr/bin:/usr/local/bin:{}",
+            std::env::var("PATH").unwrap_or_default()
+        );
+
         let mut cmd = Command::new(&self.zjj_bin);
         cmd.args(args)
             .current_dir(&self.repo_path)
-            .env("NO_COLOR", "1");
+            .env("NO_COLOR", "1")
+            .env("PATH", &path_with_system_dirs);
 
         // Functional approach: iterate over env vars
         for (key, value) in env_vars {

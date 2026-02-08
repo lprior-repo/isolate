@@ -39,7 +39,7 @@ async fn cli_rejects_include_files_flag() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let err_msg = format!("{}{}", stderr, stdout);
+    let err_msg = format!("{stderr}{stdout}");
 
     assert!(
         err_msg.contains("unexpected argument") || err_msg.contains("error:"),
@@ -82,13 +82,11 @@ async fn export_works_without_include_files_flag() {
     // Verify JSON file was created
     assert!(
         export_file.exists(),
-        "Export should create JSON file at {:?}",
-        export_file
+        "Export should create JSON file at {export_file:?}"
     );
 
     // Verify file contains JSON
-    let content = std::fs::read_to_string(&export_file)
-        .expect("Failed to read export file");
+    let content = std::fs::read_to_string(&export_file).expect("Failed to read export file");
 
     assert!(
         content.contains("\"version\"") || content.contains("version"),
@@ -96,7 +94,7 @@ async fn export_works_without_include_files_flag() {
     );
 }
 
-/// Test that ExportOptions struct does NOT have include_files field
+/// Test that `ExportOptions` struct does NOT have `include_files` field
 ///
 /// This is a compile-time test - if the field exists, this will fail to compile
 /// after we make the changes. For now, it documents the expected state.
@@ -112,11 +110,12 @@ fn export_options_no_include_files_field() {
     // - format: OutputFormat
 
     // TODO: After implementing the fix:
-    // 1. Remove include_files field from ExportOptions struct in crates/zjj/src/commands/export_import.rs
+    // 1. Remove include_files field from ExportOptions struct in
+    //    crates/zjj/src/commands/export_import.rs
     // 2. Remove #[allow(dead_code)] attribute
     // 3. Remove this test entirely (it's just a documentation placeholder)
 
-    assert!(true, "This test documents the planned changes");
+    // This test documents the planned changes
 }
 
 /// Test that help text doesn't mention tarball

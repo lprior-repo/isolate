@@ -1186,7 +1186,9 @@ mod tests {
     fn test_project_config_path() {
         let result = project_config_path();
         assert!(result.is_ok());
-        let path_str = result.as_ref().map_or(String::new(), |p| p.to_string_lossy().to_string());
+        let path_str = result
+            .as_ref()
+            .map_or(String::new(), |p| p.to_string_lossy().to_string());
         assert!(path_str.ends_with("config.toml"));
     }
 
@@ -1408,11 +1410,9 @@ mod tests {
         let (manager1, manager2) = result.as_ref().map_or_else(
             |_| {
                 let default = ConfigManager {
-                    inner: std::sync::Arc::new(tokio::sync::RwLock::new(
-                        ConfigManagerInner {
-                            config: Config::default(),
-                        },
-                    )),
+                    inner: std::sync::Arc::new(tokio::sync::RwLock::new(ConfigManagerInner {
+                        config: Config::default(),
+                    })),
                 };
                 (default.clone(), default)
             },

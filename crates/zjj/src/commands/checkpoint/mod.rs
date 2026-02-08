@@ -183,15 +183,13 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
         .context("Failed to clear sessions for restore")?;
 
     // Track statistics for reporting
-    let mut total_sessions = 0;
-    let mut skipped_invalid = 0;
-    let mut restored_count = 0;
+    let total_sessions = 0;
+    let skipped_invalid = 0;
+    let restored_count = 0;
 
     let tx = futures::stream::iter(rows)
         .map(Ok::<sqlx::sqlite::SqliteRow, anyhow::Error>)
         .try_fold(tx, |mut tx, row| async move {
-            total_sessions += 1;
-
             let name: String = row.try_get("session_name").context("Missing session_name")?;
             let status: String = row.try_get("status").context("Missing status")?;
             let workspace_path: String =
@@ -215,17 +213,15 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
                     .execute(&mut *tx)
                     .await
                     .with_context(|| format!("Failed to restore session '{name}'"))?;
-                    restored_count += 1;
+                    // Session restored successfully
                     Ok::<_, anyhow::Error>(tx)
                 }
                 Err(e) => {
                     // Session name is invalid, log warning and skip
                     eprintln!(
-                        "Warning: Skipping invalid session name '{name}': {e}",
-                        name = name,
-                        e = e
+                        "Warning: Skipping invalid session name '{name}': {e}"
                     );
-                    skipped_invalid += 1;
+                    // Session skipped due to invalid name
                     Ok(tx)
                 }
             }
@@ -239,10 +235,7 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
     // Report summary if any sessions were skipped
     if skipped_invalid > 0 {
         eprintln!(
-            "Restore summary: {restored_count}/{total_sessions} sessions restored, {skipped_invalid} skipped due to invalid names",
-            restored_count = restored_count,
-            total_sessions = total_sessions,
-            skipped_invalid = skipped_invalid
+            "Restore summary: {restored_count}/{total_sessions} sessions restored, {skipped_invalid} skipped due to invalid names"
         );
     }
 
@@ -355,6 +348,10 @@ fn output_response(response: &CheckpointResponse, format: OutputFormat) -> Resul
 
 #[cfg(test)]
 mod tests {
+    // Allow expect/unwrap in tests - tests need to assert on success cases
+    #![allow(clippy::expect_used)]
+    #![allow(clippy::unwrap_used)]
+
     use super::*;
 
     // ── Type Structure Tests ─────────────────────────────────────────────

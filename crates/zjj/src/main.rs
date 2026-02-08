@@ -30,13 +30,17 @@ fn install_broken_pipe_handler() {
 
     panic::set_hook(Box::new(move |panic_info| {
         // Match on panic payload to detect broken pipe
-        let is_broken_pipe = match panic_info.payload().downcast_ref::<String>() {
-            Some(msg) => msg.contains("Broken pipe") || msg.contains("os error 32"),
-            None => match panic_info.payload().downcast_ref::<&str>() {
-                Some(msg) => msg.contains("Broken pipe") || msg.contains("os error 32"),
-                None => false,
-            },
-        };
+        let is_broken_pipe = panic_info
+            .payload()
+            .downcast_ref::<String>()
+            .map(|msg| msg.contains("Broken pipe") || msg.contains("os error 32"))
+            .or_else(|| {
+                panic_info
+                    .payload()
+                    .downcast_ref::<&str>()
+                    .map(|msg| msg.contains("Broken pipe") || msg.contains("os error 32"))
+            })
+            .unwrap_or(false);
 
         if is_broken_pipe {
             // Broken pipe is not an error - exit silently with code 0

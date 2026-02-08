@@ -417,10 +417,10 @@ async fn resolve_workspace_path(session: Option<&str>) -> Result<String> {
 /// Parse JJ bookmark list output
 ///
 /// Handles multi-line format:
-/// - Main bookmarks: "name: change_id commit_id description"
-/// - Remote bookmarks (indented): "  @remote: change_id commit_id description"
+/// - Main bookmarks: "name: `change_id` `commit_id` description"
+/// - Remote bookmarks (indented): "  @remote: `change_id` `commit_id` description"
 /// - Deleted bookmarks: "name: ... (deleted)" on following line
-/// - Legacy format: "name: revision_hash"
+/// - Legacy format: "name: `revision_hash`"
 ///
 /// Only returns non-deleted local bookmarks (skips indented remote lines).
 fn parse_bookmark_list(output: &[u8]) -> Result<Vec<BookmarkInfo>> {
@@ -461,12 +461,12 @@ fn parse_bookmark_list(output: &[u8]) -> Result<Vec<BookmarkInfo>> {
                         // New format: skip change_id, get commit_id
                         tokens
                             .get(1)
-                            .map_or_else(|| "unknown".to_string(), |id| id.to_string())
+                            .map_or_else(|| "unknown".to_string(), std::string::ToString::to_string)
                     } else {
                         // Legacy format: use first token
                         tokens
                             .first()
-                            .map_or_else(|| "unknown".to_string(), |id| id.to_string())
+                            .map_or_else(|| "unknown".to_string(), std::string::ToString::to_string)
                     };
 
                     let remote = rest.contains("@origin");
