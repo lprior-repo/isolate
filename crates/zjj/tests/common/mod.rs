@@ -31,11 +31,7 @@ use tempfile::TempDir;
 const TEST_WORKSPACE_DIR: &str = "workspaces";
 
 /// Common system paths where jj might be installed
-const JJ_SYSTEM_PATHS: &[&str] = &[
-    "/usr/bin/jj",
-    "/usr/local/bin/jj",
-    "~/.cargo/bin/jj",
-];
+const JJ_SYSTEM_PATHS: &[&str] = &["/usr/bin/jj", "/usr/local/bin/jj", "~/.cargo/bin/jj"];
 
 /// Find the jj binary in common system locations
 /// Returns the path if found, None otherwise
@@ -80,7 +76,10 @@ fn jj_info() -> &'static JJInfo {
     JJ_INFO.get_or_init(|| {
         let binary_path = find_jj_binary();
         let available = binary_path.is_some();
-        JJInfo { available, binary_path }
+        JJInfo {
+            available,
+            binary_path,
+        }
     })
 }
 
@@ -127,7 +126,10 @@ impl TestHarness {
             anyhow::bail!("jj is not installed - skipping test");
         }
 
-        let jj_binary = info.binary_path.as_ref().expect("jj binary path should exist");
+        let jj_binary = info
+            .binary_path
+            .as_ref()
+            .expect("jj binary path should exist");
 
         let temp_dir = TempDir::new().context("Failed to create temp directory")?;
         let repo_path = temp_dir.path().join("test-repo");

@@ -35,11 +35,12 @@ use zjj_core::json::SchemaEnvelope;
 use self::conflict::ConflictDetector;
 use crate::{
     cli::jj_root,
-    commands::{context::detect_location, get_session_db},
+    commands::{
+        context::{detect_location, Location},
+        get_session_db,
+    },
     session::{SessionStatus, SessionUpdate},
 };
-
-use crate::commands::context::Location;
 
 /// Run the done command with options
 pub async fn run_with_options(options: &DoneOptions) -> Result<()> {

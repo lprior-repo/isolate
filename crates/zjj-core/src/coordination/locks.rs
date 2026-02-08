@@ -268,7 +268,9 @@ impl LockManager {
                 if error_msg.contains("no such table") || error_msg.contains("does not exist") {
                     Ok(())
                 } else {
-                    Err(Error::DatabaseError(format!("Failed to query sessions: {e}")))
+                    Err(Error::DatabaseError(format!(
+                        "Failed to query sessions: {e}"
+                    )))
                 }
             }
         }
@@ -749,7 +751,10 @@ mod tests {
 
         // Verify no lock was created
         let locks = mgr.get_all_locks().await?;
-        assert!(locks.is_empty(), "No lock should exist for non-existent session");
+        assert!(
+            locks.is_empty(),
+            "No lock should exist for non-existent session"
+        );
 
         Ok(())
     }
@@ -775,14 +780,16 @@ mod tests {
         .map_err(|e| Error::DatabaseError(e.to_string()))?;
 
         // Create session first
-        sqlx::query("INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)")
-            .bind("real-session")
-            .bind("active")
-            .bind("working")
-            .bind("/workspace")
-            .execute(&pool)
-            .await
-            .map_err(|e| Error::DatabaseError(e.to_string()))?;
+        sqlx::query(
+            "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
+        )
+        .bind("real-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
 
         // Lock should succeed
         let result = mgr.lock("real-session", "agent-1").await;
@@ -819,14 +826,16 @@ mod tests {
         .map_err(|e| Error::DatabaseError(e.to_string()))?;
 
         // Create session
-        sqlx::query("INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)")
-            .bind("ephemeral-session")
-            .bind("active")
-            .bind("working")
-            .bind("/workspace")
-            .execute(&pool)
-            .await
-            .map_err(|e| Error::DatabaseError(e.to_string()))?;
+        sqlx::query(
+            "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
+        )
+        .bind("ephemeral-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
 
         // Delete it
         sqlx::query("DELETE FROM sessions WHERE name = ?")
@@ -844,7 +853,8 @@ mod tests {
         Ok(())
     }
 
-    // Regression: The exact reported bug - locking non-existent session no longer creates orphaned lock
+    // Regression: The exact reported bug - locking non-existent session no longer creates orphaned
+    // lock
     #[tokio::test]
     async fn regression_lock_nonexistent_session_no_longer_creates_orphaned_lock() -> Result<()> {
         let pool = test_pool().await?;
@@ -874,8 +884,10 @@ mod tests {
 
         // Most important: NO orphaned lock should exist
         let locks = mgr.get_all_locks().await?;
-        assert!(!locks.iter().any(|l| l.session == "ghost-session"),
-                "REGRESSION: Orphaned lock created for non-existent session!");
+        assert!(
+            !locks.iter().any(|l| l.session == "ghost-session"),
+            "REGRESSION: Orphaned lock created for non-existent session!"
+        );
 
         Ok(())
     }
