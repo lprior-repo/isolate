@@ -746,7 +746,7 @@ mod tests {
             Error::SessionNotFound { session, .. } => {
                 assert_eq!(session, "ghost-session");
             }
-            other => panic!("Expected SessionNotFound, got {:?}", other),
+            other => panic!("Expected SessionNotFound, got {other:?}"),
         }
 
         // Verify no lock was created

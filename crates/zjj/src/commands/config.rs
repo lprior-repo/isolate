@@ -207,19 +207,18 @@ async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<
 
     // Create parent directory if needed
     if let Some(parent) = config_path.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .context(format!(
-                "Failed to create config directory {}",
-                parent.display()
-            ))?;
+        tokio::fs::create_dir_all(parent).await.context(format!(
+            "Failed to create config directory {}",
+            parent.display()
+        ))?;
     }
 
     // Open file with read and write access, creating if it doesn't exist
-    let mut file = OpenOptions::new()
+    let file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(config_path)
         .await
         .context(format!(
@@ -228,23 +227,23 @@ async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<
         ))?;
 
     // Try to acquire exclusive lock with timeout
-    let lock_result = tokio::time::timeout(LOCK_TIMEOUT, file.lock_exclusive()).await;
+    let mut acquired = false;
+    let start = std::time::Instant::now();
+    while start.elapsed() < LOCK_TIMEOUT {
+        if file.try_lock_exclusive().is_ok() {
+            acquired = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
 
-    match lock_result {
-        Ok(inner_result) => {
-            inner_result.context(format!(
-                "Failed to acquire file lock on {}",
-                config_path.display()
-            ))?;
-        }
-        Err(_) => {
-            anyhow::bail!(
-                "Timeout waiting for file lock on {} after {} seconds. \
-                 Another process may be holding the lock.",
-                config_path.display(),
-                LOCK_TIMEOUT.as_secs()
-            );
-        }
+    if !acquired {
+        anyhow::bail!(
+            "Timeout waiting for file lock on {} after {} seconds. \
+             Another process may be holding the lock.",
+            config_path.display(),
+            LOCK_TIMEOUT.as_secs()
+        );
     }
 
     // Load existing config or create new document
@@ -277,13 +276,8 @@ async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<
             config_path.display()
         ))?;
 
-    // Release the lock explicitly
-    file.unlock()
-        .await
-        .context(format!(
-            "Failed to release file lock on {}",
-            config_path.display()
-        ))?;
+    // Lock is released automatically when `file` is dropped
+    drop(file);
 
     Ok(())
 }
@@ -546,8 +540,7 @@ mod tests {
         let result = set_nested_value(&mut doc, &[], "value");
         let has_error = result
             .as_ref()
-            .map(|()| false)
-            .unwrap_or_else(|e| e.to_string().contains("Empty config key"));
+            .map_or_else(|e| e.to_string().contains("Empty config key"), |()| false);
         assert!(has_error);
     }
 
@@ -658,6 +651,151 @@ mod tests {
             "Config data should be preserved in envelope"
         );
 
+        Ok(())
+    }
+
+    // ===== Concurrency Tests (zjj-16ks) =====
+    // Tests for concurrent write data loss bug fix
+
+    #[tokio::test]
+    async fn concurrent_writes_respect_file_lock() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        let mut tasks = Vec::new();
+
+        // Spawn 10 concurrent writes
+        for i in 0..10 {
+            let path = config_path.clone();
+            let task = tokio::spawn(async move {
+                let key = format!("concurrent_key_{i}");
+                set_config_value(&path, &key, &format!("value_{i}")).await
+            });
+            tasks.push(task);
+        }
+
+        // Wait for all tasks
+        for task in tasks {
+            task.await
+                .context("Task join error")?
+                .context("Task execution error")?;
+        }
+
+        // Verify all keys present in the final config
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        for i in 0..10 {
+            let key = format!("concurrent_key_{i}");
+            assert!(
+                content.contains(&key),
+                "Key {key} not found in config after concurrent writes"
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn concurrent_writes_no_data_loss() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        let num_writes = 20;
+        let mut tasks = Vec::new();
+
+        // Spawn 20 concurrent writes
+        for i in 0..num_writes {
+            let path = config_path.clone();
+            let task = tokio::spawn(async move {
+                let key = format!("data_loss_test_key_{i:03}");
+                set_config_value(&path, &key, &format!("value_{i}")).await
+            });
+            tasks.push(task);
+        }
+
+        // Wait for all tasks
+        for task in tasks {
+            task.await
+                .context("Task join error")?
+                .context("Task execution error")?;
+        }
+
+        // Count how many unique keys are in the file
+        let content = tokio::fs::read_to_string(&config_path).await?;
+        let mut key_count = 0;
+        for i in 0..num_writes {
+            let key = format!("data_loss_test_key_{i:03}");
+            if content.contains(&key) {
+                key_count += 1;
+            }
+        }
+
+        assert_eq!(
+            key_count,
+            num_writes,
+            "Expected {} keys, got {} (data loss: {})",
+            num_writes,
+            key_count,
+            num_writes - key_count
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn sequential_writes_performance() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        let start = std::time::Instant::now();
+
+        for i in 0..50 {
+            let key = format!("perf_key_{i}");
+            set_config_value(&config_path, &key, &format!("value_{i}")).await?;
+        }
+
+        let elapsed = start.elapsed();
+        // Should complete in reasonable time (file locking adds overhead)
+        assert!(
+            elapsed.as_secs() < 30,
+            "50 writes took too long: {elapsed:?}"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn concurrent_mixed_read_write() -> Result<()> {
+        let (_temp_dir, config_path) = create_temp_config("")?;
+        let mut write_tasks = Vec::new();
+        let mut read_tasks = Vec::new();
+
+        // First, set some initial values
+        for i in 0..5 {
+            let key = format!("initial_key_{i}");
+            set_config_value(&config_path, &key, &format!("initial_value_{i}")).await?;
+        }
+
+        // Spawn concurrent readers and writers
+        for i in 0..10 {
+            let path = config_path.clone();
+            if i % 2 == 0 {
+                // Writer task
+                let task = tokio::spawn(async move {
+                    let key = format!("mixed_write_key_{i}");
+                    set_config_value(&path, &key, &format!("value_{i}")).await
+                });
+                write_tasks.push(task);
+            } else {
+                // Reader task (verify file is readable)
+                let task = tokio::spawn(async move { tokio::fs::read_to_string(&path).await });
+                read_tasks.push(task);
+            }
+        }
+
+        // All write tasks should complete without error
+        for task in write_tasks {
+            task.await
+                .context("Writer join error")?
+                .context("Writer execution error")?;
+        }
+
+        // All read tasks should complete
+        for task in read_tasks {
+            task.await
+                .context("Reader join error")?
+                .context("Reader execution error")?;
+        }
         Ok(())
     }
 }
