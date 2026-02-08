@@ -412,8 +412,8 @@ async fn test_100_agents_concurrent_operations() -> Result<(), Error> {
     }
 
     // Collect results
-    let mut total_successful = 0;
-    let mut total_failed = 0;
+    let mut total_successful: usize = 0;
+    let mut total_failed: usize = 0;
     let mut agent_results: Vec<(String, String, usize, usize)> = Vec::new();
 
     while let Some(result) = join_set.join_next().await {
@@ -589,7 +589,7 @@ async fn test_lock_unlock_storm_consistency() -> Result<(), Error> {
     println!("  - Duration: {total_duration:?}");
     println!(
         "  - Operations per second: {:.2}",
-        total_operations as f64 / total_duration.as_secs_f64()
+        f64::from(total_operations) / total_duration.as_secs_f64()
     );
 
     Ok(())
@@ -788,7 +788,7 @@ async fn test_lock_contention_metrics() -> Result<(), Error> {
     };
 
     let contention_rate = if num_agents > 0 {
-        failures as f64 / num_agents as f64 * 100.0
+        f64::from(failures) / f64::from(num_agents) * 100.0
     } else {
         0.0
     };
