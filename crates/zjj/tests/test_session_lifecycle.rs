@@ -84,6 +84,16 @@ fn test_add_invalid_session_name_with_special_chars() {
 }
 
 #[test]
+fn test_add_empty_session_name_rejected() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    harness.assert_failure(&["add", "", "--no-open"], "Session name cannot be empty");
+}
+
+#[test]
 fn test_add_valid_session_names() {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -320,6 +330,34 @@ fn test_remove_without_force_requires_confirmation() {
     // In non-interactive mode, it should fail
     let _result = harness.zjj(&["remove", "test"]);
     // Implementation may vary - either prompts (fails in CI) or requires --force
+}
+
+#[test]
+fn test_abort_keep_workspace_preserves_workspace_dir() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    harness.assert_success(&["add", "keep-workspace", "--no-open"]);
+    let workspace_path = harness.workspace_path("keep-workspace");
+    assert!(workspace_path.exists());
+
+    harness.assert_success(&[
+        "abort",
+        "--workspace",
+        "keep-workspace",
+        "--keep-workspace",
+        "--no-bead-update",
+    ]);
+
+    assert!(
+        workspace_path.exists(),
+        "workspace directory should remain when --keep-workspace is set"
+    );
+
+    let list_result = harness.zjj(&["list"]);
+    assert!(!list_result.stdout.contains("keep-workspace"));
 }
 
 // ============================================================================
