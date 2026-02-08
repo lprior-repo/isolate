@@ -33,6 +33,7 @@ pub mod hints;
 pub mod hooks;
 pub mod introspection;
 pub mod jj;
+pub mod jj_operation_sync;
 pub mod json;
 pub mod kdl_validation;
 mod output_format;
