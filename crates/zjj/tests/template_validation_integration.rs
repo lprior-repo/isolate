@@ -10,9 +10,10 @@
 use std::io::Write;
 
 use tempfile::TempDir;
-use zjj_core::{kdl_validation, OutputFormat};
+use zjj_core::kdl_validation;
 
 /// Helper: Create a temporary KDL file with given content
+#[allow(dead_code)]
 fn create_temp_kdl_file(content: &str) -> Result<(TempDir, String), Box<dyn std::error::Error>> {
     let temp_dir = TempDir::new()?;
     let file_path = temp_dir.path().join("test_layout.kdl");
@@ -56,7 +57,10 @@ fn test_kdl_validation_rejects_missing_brace() {
          This indicates KDL validation is NOT working!"
     );
 
-    let error_msg = result.unwrap_err().to_string();
+    let error_msg = match result {
+        Err(e) => e.to_string(),
+        Ok(()) => return,
+    };
     assert!(
         error_msg.contains("KDL") || error_msg.contains("syntax"),
         "Error message should mention KDL or syntax. Got: {error_msg}"
@@ -75,7 +79,10 @@ fn test_kdl_validation_rejects_invalid_syntax() {
          This indicates KDL validation is NOT working!"
     );
 
-    let error_msg = result.unwrap_err().to_string();
+    let error_msg = match result {
+        Err(e) => e.to_string(),
+        Ok(()) => return,
+    };
     assert!(
         error_msg.contains("KDL") || error_msg.contains("syntax") || error_msg.contains("parse"),
         "Error message should mention KDL, syntax, or parse. Got: {error_msg}"
@@ -96,7 +103,10 @@ fn test_kdl_validation_rejects_missing_layout() {
          This indicates Zellij-specific validation is NOT working!"
     );
 
-    let error_msg = result.unwrap_err().to_string();
+    let error_msg = match result {
+        Err(e) => e.to_string(),
+        Ok(()) => return,
+    };
     assert!(
         error_msg.contains("layout"),
         "Error message should mention 'layout'. Got: {error_msg}"
@@ -115,7 +125,10 @@ fn test_kdl_validation_rejects_missing_pane() {
          This indicates Zellij-specific validation is NOT working!"
     );
 
-    let error_msg = result.unwrap_err().to_string();
+    let error_msg = match result {
+        Err(e) => e.to_string(),
+        Ok(()) => return,
+    };
     assert!(
         error_msg.contains("pane"),
         "Error message should mention 'pane'. Got: {error_msg}"
@@ -198,7 +211,10 @@ fn test_kdl_validation_catches_multiple_errors() {
     let result = kdl_validation::validate_kdl_syntax(invalid_kdl);
     assert!(result.is_err(), "Invalid KDL should fail validation");
 
-    let error_msg = result.unwrap_err().to_string();
+    let error_msg = match result {
+        Err(e) => e.to_string(),
+        Ok(()) => return,
+    };
     assert!(!error_msg.is_empty(), "Error message should not be empty");
 }
 
