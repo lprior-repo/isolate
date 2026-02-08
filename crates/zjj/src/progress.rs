@@ -164,8 +164,8 @@ impl Default for ProgressState {
 /// let config = ProgressConfig::normal();
 /// let mut indicator = ProgressIndicator::new(config);
 ///
-/// indicator.start()?;
-/// indicator.complete().await?;
+/// indicator.start();
+/// indicator.complete()?;
 /// # Ok::<(), zjj::progress::ProgressError>(())
 /// ```
 #[derive(Debug)]
@@ -192,9 +192,8 @@ impl ProgressIndicator {
     }
 
     /// Start tracking progress
-    pub fn start(&mut self) -> ProgressResult<()> {
+    pub fn start(&mut self) {
         self.state = ProgressState::default();
-        Ok(())
     }
 
     /// Transition to a new phase
@@ -429,7 +428,7 @@ mod tests {
         #[tokio::test]
         async fn can_transition_from_active_phases() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
-            indicator.start().unwrap();
+            indicator.start();
 
             let result = indicator.transition_to(OperationPhase::Validating);
 
@@ -443,8 +442,8 @@ mod tests {
         #[tokio::test]
         async fn cannot_transition_from_terminal_phases() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
-            indicator.start().unwrap();
-            indicator.complete().await.unwrap();
+            indicator.start();
+            indicator.complete().unwrap();
 
             let result = indicator.transition_to(OperationPhase::Executing);
 
@@ -464,7 +463,7 @@ mod tests {
         #[tokio::test]
         async fn complete_moves_to_terminal_state() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
-            indicator.start().unwrap();
+            indicator.start();
 
             indicator.complete().unwrap();
 
@@ -478,7 +477,7 @@ mod tests {
         #[tokio::test]
         async fn fail_moves_to_terminal_state() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
-            indicator.start().unwrap();
+            indicator.start();
 
             indicator.fail().unwrap();
 
@@ -519,7 +518,7 @@ mod tests {
         #[tokio::test]
         async fn elapsed_time_increases() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
-            indicator.start().unwrap();
+            indicator.start();
 
             tokio::time::sleep(Duration::from_millis(10)).await;
 
@@ -533,10 +532,10 @@ mod tests {
         #[tokio::test]
         async fn total_elapsed_is_fixed_after_completion() {
             let mut indicator = ProgressIndicator::new(ProgressConfig::default());
-            indicator.start().unwrap();
+            indicator.start();
 
             tokio::time::sleep(Duration::from_millis(10)).await;
-            indicator.complete().await.unwrap();
+            indicator.complete().unwrap();
 
             let elapsed1 = indicator.total_elapsed();
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -622,7 +621,7 @@ mod tests {
             // Start in runtime to call async
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async {
-                indicator.start().unwrap();
+                indicator.start();
 
                 let result = reporter.report(&indicator);
 
@@ -655,7 +654,7 @@ mod tests {
 
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async {
-                indicator.start().unwrap();
+                indicator.start();
                 indicator.complete().unwrap();
 
                 let result = reporter.finalize(&indicator);
@@ -675,7 +674,7 @@ mod tests {
 
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async {
-                indicator.start().unwrap();
+                indicator.start();
                 indicator.fail().unwrap();
 
                 let result = reporter.finalize(&indicator);
