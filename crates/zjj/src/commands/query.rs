@@ -469,51 +469,33 @@ async fn query_lock_status(session: &str) -> Result<()> {
             match db.get(session).await {
                 Ok(Some(_)) => {
                     // Try to get lock info
-                    match zjj_data_dir().await {
-                        Ok(data_dir) => {
-                            let db_path = data_dir.join("state.db");
-
-                            let lock_info = async {
-                                let pool = sqlx::SqlitePool::connect(&format!(
-                                    "sqlite:{}",
-                                    db_path.display()
-                                ))
+                    let lock_info = async {
+                        let db_path = super::get_db_path().await.ok()?;
+                        let pool =
+                            sqlx::SqlitePool::connect(&format!("sqlite:{}", db_path.display()))
                                 .await
                                 .ok()?;
-                                let lock_mgr =
-                                    zjj_core::coordination::locks::LockManager::new(pool);
-                                lock_mgr.init().await.ok()?;
-                                let all_locks = lock_mgr.get_all_locks().await.ok()?;
-                                all_locks.into_iter().find(|l| l.session == session)
-                            }
-                            .await;
+                        let lock_mgr = zjj_core::coordination::locks::LockManager::new(pool);
+                        lock_mgr.init().await.ok()?;
+                        let all_locks = lock_mgr.get_all_locks().await.ok()?;
+                        all_locks.into_iter().find(|l| l.session == session)
+                    }
+                    .await;
 
-                            match lock_info {
-                                Some(lock) => LockStatusResult {
-                                    session: session.to_string(),
-                                    locked: true,
-                                    holder: Some(lock.agent_id.clone()),
-                                    expires_at: Some(lock.expires_at.to_rfc3339()),
-                                    error: None,
-                                },
-                                None => LockStatusResult {
-                                    session: session.to_string(),
-                                    locked: false,
-                                    holder: None,
-                                    expires_at: None,
-                                    error: None,
-                                },
-                            }
-                        }
-                        Err(e) => LockStatusResult {
+                    match lock_info {
+                        Some(lock) => LockStatusResult {
+                            session: session.to_string(),
+                            locked: true,
+                            holder: Some(lock.agent_id.clone()),
+                            expires_at: Some(lock.expires_at.to_rfc3339()),
+                            error: None,
+                        },
+                        None => LockStatusResult {
                             session: session.to_string(),
                             locked: false,
                             holder: None,
                             expires_at: None,
-                            error: Some(QueryError {
-                                code: "DATA_DIR_ERROR".to_string(),
-                                message: e.to_string(),
-                            }),
+                            error: None,
                         },
                     }
                 }

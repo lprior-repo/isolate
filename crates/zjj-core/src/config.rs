@@ -988,10 +988,7 @@ mod tests {
             "load_config should succeed even without config files"
         );
 
-        let config = match result {
-            Ok(c) => c,
-            Err(_) => Config::default(),
-        };
+        let config = result.unwrap_or_default();
         // Check that we got a valid config (global config may override workspace_dir)
         assert!(!config.workspace_dir.is_empty());
         assert_eq!(config.default_template, "standard");

@@ -2736,6 +2736,14 @@ pub fn build_cli() -> ClapCommand {
                 .value_name("CMD")
                 .help("Command to run after failed execution"),
         )
+        .arg(
+            Arg::new("command-id")
+                .long("command-id")
+                .global(true)
+                .hide(true)
+                .value_name("ID")
+                .help("Override idempotency command id base for retries"),
+        )
         .subcommand_required(true)
         .subcommand(cmd_init())
         .subcommand(cmd_add())

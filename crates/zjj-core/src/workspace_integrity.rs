@@ -10,9 +10,8 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tokio::process::Command;
 
-use crate::{Error, Result};
+use crate::{jj::get_jj_command, Error, Result};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -793,7 +792,7 @@ impl RepairExecutor {
             .ok_or_else(|| Error::Unknown("Could not determine repository root".to_string()))?;
 
         // Forget the workspace
-        let forget_output = Command::new("jj")
+        let forget_output = get_jj_command()
             .args(["workspace", "forget", workspace_name])
             .current_dir(root)
             .output()

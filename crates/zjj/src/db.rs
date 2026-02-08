@@ -48,9 +48,12 @@ use tokio::{
 };
 use zjj_core::{log_recovery, should_log_recovery, Error, RecoveryPolicy, Result, WorkspaceState};
 
-use crate::session::{validate_session_name, Session, SessionStatus, SessionUpdate};
+use crate::{
+    command_context,
+    session::{validate_session_name, Session, SessionStatus, SessionUpdate},
+};
 
-const CURRENT_SCHEMA_VERSION: i64 = 1;
+const CURRENT_SCHEMA_VERSION: i64 = 2;
 const STATE_WRITER_CHANNEL_SIZE: usize = 512;
 const STATE_WRITER_MAX_RETRIES: u8 = 3;
 const STATE_WRITER_RETRY_BACKOFF_MS: u64 = 20;
@@ -130,6 +133,15 @@ CREATE TABLE IF NOT EXISTS state_transitions (
 CREATE TABLE IF NOT EXISTS processed_commands (
     command_id TEXT PRIMARY KEY,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS agents (
+    agent_id TEXT PRIMARY KEY,
+    registered_at TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    current_session TEXT,
+    current_command TEXT,
+    actions_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_status ON sessions(status);
@@ -316,7 +328,8 @@ impl SessionDb {
     ///
     /// Returns error if session name is invalid, already exists, or database operation fails
     pub async fn create(&self, name: &str, workspace_path: &str) -> Result<Session> {
-        self.create_with_command_id(name, workspace_path, None)
+        let command_id = command_context::next_write_command_id("create", name);
+        self.create_with_command_id(name, workspace_path, command_id.as_deref())
             .await
     }
 
@@ -368,8 +381,14 @@ impl SessionDb {
         workspace_path: &str,
         created_at: u64,
     ) -> Result<Session> {
-        self.create_with_timestamp_and_command_id(name, workspace_path, created_at, None)
-            .await
+        let command_id = command_context::next_write_command_id("create_with_timestamp", name);
+        self.create_with_timestamp_and_command_id(
+            name,
+            workspace_path,
+            created_at,
+            command_id.as_deref(),
+        )
+        .await
     }
 
     pub async fn create_with_timestamp_and_command_id(
@@ -414,7 +433,9 @@ impl SessionDb {
     ///
     /// Returns error if database update fails
     pub async fn update(&self, name: &str, update: SessionUpdate) -> Result<()> {
-        self.update_with_command_id(name, update, None).await
+        let command_id = command_context::next_write_command_id("update", name);
+        self.update_with_command_id(name, update, command_id.as_deref())
+            .await
     }
 
     pub async fn update_with_command_id(
@@ -461,7 +482,9 @@ impl SessionDb {
     ///
     /// Returns error if database operation fails
     pub async fn delete(&self, name: &str) -> Result<bool> {
-        self.delete_with_command_id(name, None).await
+        let command_id = command_context::next_write_command_id("delete", name);
+        self.delete_with_command_id(name, command_id.as_deref())
+            .await
     }
 
     pub async fn delete_with_command_id(
@@ -577,6 +600,12 @@ async fn check_wal_integrity(
     db_path: &Path,
     config: &zjj_core::config::RecoveryConfig,
 ) -> Result<()> {
+    // WAL integrity is only meaningful when the main DB file exists.
+    // If DB is missing (fresh init or recovery), stale WAL should not block recreation.
+    if !tokio::fs::try_exists(db_path).await.is_ok_and(|v| v) {
+        return Ok(());
+    }
+
     let wal_path = db_path.with_extension("db-wal");
 
     // If WAL file doesn't exist, no issue
@@ -902,7 +931,11 @@ async fn run_state_reactor(
     }
 }
 
-async fn process_with_retry(pool: &SqlitePool, event_log_path: &Path, request: WriteRequest) -> Result<()> {
+async fn process_with_retry(
+    pool: &SqlitePool,
+    event_log_path: &Path,
+    request: WriteRequest,
+) -> Result<()> {
     let mut attempt: u8 = 0;
     let mut pending_request = Some(request);
 
@@ -910,7 +943,11 @@ async fn process_with_retry(pool: &SqlitePool, event_log_path: &Path, request: W
         let maybe_request = pending_request.take();
         let request = match maybe_request {
             Some(r) => r,
-            None => return Err(Error::DatabaseError("Missing state-writer request".to_string())),
+            None => {
+                return Err(Error::DatabaseError(
+                    "Missing state-writer request".to_string(),
+                ))
+            }
         };
 
         let result = process_one_request(pool, event_log_path, request).await;
@@ -937,83 +974,88 @@ async fn process_one_request(
     request: WriteRequest,
 ) -> std::result::Result<(), (WriteRequest, Error)> {
     match request {
-            WriteRequest::Create {
-                name,
-                workspace_path,
+        WriteRequest::Create {
+            name,
+            workspace_path,
+            created_at,
+            command_id,
+            tx,
+        } => {
+            let command_id_for_retry = command_id.clone();
+            let result = process_create_command(
+                pool,
+                event_log_path,
+                &name,
+                &workspace_path,
                 created_at,
                 command_id,
-                tx,
-            } => {
-                let result = process_create_command(
-                    &pool,
-                    &event_log_path,
-                    &name,
-                    &workspace_path,
-                    created_at,
-                    command_id,
-                )
-                .await;
-                match result {
-                    Ok(session) => {
-                        let _ = tx.send(Ok(session));
-                        Ok(())
-                    }
-                    Err(e) => {
-                        let request = WriteRequest::Create {
-                            name,
-                            workspace_path,
-                            created_at,
-                            command_id: None,
-                            tx,
-                        };
-                        Err((request, e))
-                    }
+            )
+            .await;
+            match result {
+                Ok(session) => {
+                    let _ = tx.send(Ok(session));
+                    Ok(())
+                }
+                Err(e) => {
+                    let request = WriteRequest::Create {
+                        name,
+                        workspace_path,
+                        created_at,
+                        command_id: command_id_for_retry,
+                        tx,
+                    };
+                    Err((request, e))
                 }
             }
-            WriteRequest::Update {
-                name,
-                update,
-                command_id,
-                tx,
-            } => {
-                let result = process_update_command(pool, event_log_path, &name, update.clone(), command_id).await;
-                match result {
-                    Ok(()) => {
-                        let _ = tx.send(Ok(()));
-                        Ok(())
-                    }
-                    Err(e) => {
-                        let request = WriteRequest::Update {
-                            name,
-                            update,
-                            command_id: None,
-                            tx,
-                        };
-                        Err((request, e))
-                    }
+        }
+        WriteRequest::Update {
+            name,
+            update,
+            command_id,
+            tx,
+        } => {
+            let command_id_for_retry = command_id.clone();
+            let result =
+                process_update_command(pool, event_log_path, &name, update.clone(), command_id)
+                    .await;
+            match result {
+                Ok(()) => {
+                    let _ = tx.send(Ok(()));
+                    Ok(())
+                }
+                Err(e) => {
+                    let request = WriteRequest::Update {
+                        name,
+                        update,
+                        command_id: command_id_for_retry,
+                        tx,
+                    };
+                    Err((request, e))
                 }
             }
-            WriteRequest::Delete {
-                name,
-                command_id,
-                tx,
-            } => {
-                let result = process_delete_command(pool, event_log_path, &name, command_id).await;
-                match result {
-                    Ok(deleted) => {
-                        let _ = tx.send(Ok(deleted));
-                        Ok(())
-                    }
-                    Err(e) => {
-                        let request = WriteRequest::Delete {
-                            name,
-                            command_id: None,
-                            tx,
-                        };
-                        Err((request, e))
-                    }
+        }
+        WriteRequest::Delete {
+            name,
+            command_id,
+            tx,
+        } => {
+            let command_id_for_retry = command_id.clone();
+            let result = process_delete_command(pool, event_log_path, &name, command_id).await;
+            match result {
+                Ok(deleted) => {
+                    let _ = tx.send(Ok(deleted));
+                    Ok(())
+                }
+                Err(e) => {
+                    let request = WriteRequest::Delete {
+                        name,
+                        command_id: command_id_for_retry,
+                        tx,
+                    };
+                    Err((request, e))
                 }
             }
+        }
     }
 }
 
@@ -1037,7 +1079,6 @@ fn is_transient_state_writer_error(error: &Error) -> bool {
         || message.contains("database table is locked")
         || message.contains("SQLITE_BUSY")
         || message.contains("SQLITE_LOCKED")
-}
 }
 
 fn session_from_insert(name: &str, workspace_path: &str, created_at: u64, id: i64) -> Session {
@@ -1244,16 +1285,34 @@ async fn replay_event_log_if_needed(pool: &SqlitePool, event_log_path: &Path) ->
         .await
         .map_err(|e| Error::IoError(format!("Failed to read state event log: {e}")))?;
 
-    for line in contents.lines().filter(|line| !line.trim().is_empty()) {
-        let envelope: EventEnvelope = serde_json::from_str(line)
-            .map_err(|e| Error::ParseError(format!("Invalid state event log line: {e}")))?;
-        replay_event(pool, envelope.event).await?;
+    for (line_index, line) in contents
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .enumerate()
+    {
+        match serde_json::from_str::<EventEnvelope>(line) {
+            Ok(envelope) => replay_event(pool, envelope).await?,
+            Err(parse_error) => {
+                eprintln!(
+                    "State replay skipped invalid event log line {}: {}",
+                    line_index.saturating_add(1),
+                    parse_error
+                );
+            }
+        }
     }
 
     Ok(())
 }
 
-async fn replay_event(pool: &SqlitePool, event: SessionEvent) -> Result<()> {
+async fn replay_event(pool: &SqlitePool, envelope: EventEnvelope) -> Result<()> {
+    let EventEnvelope {
+        version: _,
+        timestamp: _,
+        command_id,
+        event,
+    } = envelope;
+
     match event {
         SessionEvent::Upsert { session } => {
             sqlx::query(
@@ -1297,6 +1356,11 @@ async fn replay_event(pool: &SqlitePool, event: SessionEvent) -> Result<()> {
                 .map_err(|e| Error::DatabaseError(format!("Failed to replay delete event: {e}")))?;
         }
     }
+
+    if let Some(id) = command_id {
+        mark_command_processed(pool, &id).await?;
+    }
+
     Ok(())
 }
 
@@ -1644,6 +1708,7 @@ async fn delete_session(pool: &SqlitePool, name: &str) -> Result<bool> {
 }
 
 #[cfg(test)]
+#[allow(clippy::needless_collect)] // Tests use collect for clarity
 mod tests {
     use tempfile::TempDir;
 
@@ -1693,6 +1758,229 @@ mod tests {
         } else {
             return Err(Error::Unknown("Expected DatabaseError".to_string()));
         }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_context_command_id_keeps_create_non_idempotent_for_distinct_calls() -> Result<()>
+    {
+        let (db, _dir) = setup_test_db().await?;
+
+        let first = crate::command_context::with_command_context(
+            "ctx-create-non-idem".to_string(),
+            async { db.create("same-name", "/workspace/a").await },
+        )
+        .await;
+        assert!(first.is_ok());
+
+        let second = crate::command_context::with_command_context(
+            "ctx-create-non-idem".to_string(),
+            async { db.create("same-name", "/workspace/b").await },
+        )
+        .await;
+        assert!(second.is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_context_command_id_replay_retry_returns_existing_for_same_base() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("context-retry.db");
+
+        let db = SessionDb::create_or_open(&db_path).await?;
+        let first =
+            crate::command_context::with_command_context("ctx-replay-retry".to_string(), async {
+                db.create("context-idem", "/workspace/context-idem").await
+            })
+            .await?;
+
+        tokio::fs::remove_file(&db_path).await.map_err(|e| {
+            Error::IoError(format!(
+                "Failed to remove DB for context replay retry test: {e}"
+            ))
+        })?;
+
+        let recovered = SessionDb::create_or_open(&db_path).await?;
+        let retried =
+            crate::command_context::with_command_context("ctx-replay-retry".to_string(), async {
+                recovered
+                    .create("context-idem", "/workspace/context-idem")
+                    .await
+            })
+            .await?;
+
+        assert_eq!(first.name, retried.name);
+        assert_eq!(first.workspace_path, retried.workspace_path);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_idempotent_create_with_command_id_returns_existing_session() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+        let first = db
+            .create_with_command_id("idem-session", "/workspace", Some("cmd-123"))
+            .await?;
+        let second = db
+            .create_with_command_id("idem-session", "/workspace", Some("cmd-123"))
+            .await?;
+
+        assert_eq!(first.name, second.name);
+        assert_eq!(first.workspace_path, second.workspace_path);
+
+        let sessions = db.list(None).await?;
+        let count = sessions
+            .iter()
+            .filter(|session| session.name == "idem-session")
+            .count();
+        assert_eq!(count, 1);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_replay_rebuilds_state_from_event_log_on_empty_db() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("replay.db");
+
+        let db = SessionDb::create_or_open(&db_path).await?;
+        db.create("replay-a", "/workspace/a").await?;
+        db.create("replay-b", "/workspace/b").await?;
+        db.delete("replay-a").await?;
+
+        let event_log_path = state_event_log_path(&db_path);
+        assert!(tokio::fs::try_exists(&event_log_path)
+            .await
+            .is_ok_and(|v| v));
+
+        tokio::fs::remove_file(&db_path).await.map_err(|e| {
+            Error::IoError(format!(
+                "Failed to remove database file for replay test: {e}"
+            ))
+        })?;
+
+        let recovered = SessionDb::create_or_open(&db_path).await?;
+        let replayed_sessions = recovered.list(None).await?;
+
+        assert_eq!(replayed_sessions.len(), 1);
+        assert_eq!(replayed_sessions[0].name, "replay-b");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_replay_restores_processed_commands_for_idempotent_retry() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("replay-processed.db");
+
+        let db = SessionDb::create_or_open(&db_path).await?;
+        let first = db
+            .create_with_command_id(
+                "replay-idem",
+                "/workspace/replay-idem",
+                Some("cmd-replay-1"),
+            )
+            .await?;
+
+        tokio::fs::remove_file(&db_path).await.map_err(|e| {
+            Error::IoError(format!(
+                "Failed to remove database file for processed-command replay test: {e}"
+            ))
+        })?;
+
+        let recovered = SessionDb::create_or_open(&db_path).await?;
+        let retried = recovered
+            .create_with_command_id(
+                "replay-idem",
+                "/workspace/replay-idem",
+                Some("cmd-replay-1"),
+            )
+            .await?;
+
+        assert_eq!(first.name, retried.name);
+        assert_eq!(first.workspace_path, retried.workspace_path);
+
+        let sessions = recovered.list(None).await?;
+        let count = sessions
+            .iter()
+            .filter(|session| session.name == "replay-idem")
+            .count();
+        assert_eq!(count, 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_create_or_open_ignores_stale_wal_when_db_missing() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("missing-main.db");
+        let wal_path = db_path.with_extension("db-wal");
+
+        tokio::fs::write(&wal_path, b"BADWAL")
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to write stale WAL file: {e}")))?;
+
+        let opened = SessionDb::create_or_open(&db_path).await;
+        assert!(opened.is_ok(), "Expected open to succeed");
+
+        let db = opened?;
+        let created = db.create("wal-recovery", "/workspace/wal-recovery").await;
+        assert!(created.is_ok(), "Expected writes after open to succeed");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_replay_skips_invalid_jsonl_lines_and_rebuilds_valid_events() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("replay-invalid-line.db");
+
+        let db = SessionDb::create_or_open(&db_path).await?;
+        db.create("valid-a", "/workspace/valid-a").await?;
+        db.create("valid-b", "/workspace/valid-b").await?;
+
+        let event_log_path = state_event_log_path(&db_path);
+        use tokio::io::AsyncWriteExt;
+        let mut file = tokio::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&event_log_path)
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to open event log for mutation: {e}")))?;
+        file.write_all(b"not-json\n")
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to append invalid replay line: {e}")))?;
+        file.flush()
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to flush invalid replay line: {e}")))?;
+
+        tokio::fs::remove_file(&db_path)
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to remove DB for replay test: {e}")))?;
+
+        let recovered = SessionDb::create_or_open(&db_path).await?;
+        let sessions = recovered.list(None).await?;
+
+        let has_a = sessions.iter().any(|session| session.name == "valid-a");
+        let has_b = sessions.iter().any(|session| session.name == "valid-b");
+        assert!(has_a, "Expected replay to restore valid-a session");
+        assert!(has_b, "Expected replay to restore valid-b session");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_reactor_continues_after_failed_write() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+        db.create("reactor-a", "/workspace/a").await?;
+
+        let duplicate_result = db.create("reactor-a", "/workspace/duplicate").await;
+        assert!(duplicate_result.is_err());
+
+        let follow_up = db.create("reactor-b", "/workspace/b").await;
+        assert!(follow_up.is_ok());
+
+        let created = db.get("reactor-b").await?;
+        assert!(created.is_some());
         Ok(())
     }
 
@@ -2019,5 +2307,276 @@ mod tests {
 
             Ok(())
         }
+    }
+
+    // ========== Contract Verification Tests ==========
+
+    /// Test precondition: session name validation happens before database write
+    ///
+    /// CONTRACT: Invalid session names MUST be rejected BEFORE any database operation.
+    /// This prevents database pollution with malformed data.
+    #[tokio::test]
+    async fn test_precondition_validates_session_name_before_write() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+
+        // Test invalid names that should be rejected
+        let invalid_names = vec![
+            "session\nwith\nnewlines",    // Newlines not allowed
+            "session\twith\ttabs",        // Tabs not allowed
+            "session\rwith\rcarriage",    // Carriage returns not allowed
+            "session/with/slashes",       // Forward slashes not allowed (path confusion)
+            "session\\with\\backslashes", // Backslashes not allowed (path confusion)
+            "session\x00with\x00null",    // Null bytes not allowed
+        ];
+
+        for invalid_name in invalid_names {
+            let result = db.create(invalid_name, "/workspace").await;
+            assert!(
+                result.is_err(),
+                "Session name with invalid characters should be rejected: {invalid_name:?}"
+            );
+
+            // Verify the session was NOT created in the database
+            let retrieved = db.get(invalid_name).await?;
+            assert!(
+                retrieved.is_none(),
+                "Invalid session should not exist in database: {invalid_name:?}"
+            );
+        }
+
+        // Verify valid names still work
+        let valid_names = vec![
+            "valid-session",
+            "Valid_With_Underscores",
+            "123-with-numbers",
+            "a",                 // Single character
+            "session.with.dots", // Dots are allowed
+        ];
+
+        for valid_name in valid_names {
+            let result = db.create(valid_name, "/workspace").await;
+            assert!(
+                result.is_ok(),
+                "Valid session name should be accepted: {valid_name:?}"
+            );
+
+            // Clean up for next iteration
+            let _ = db.delete(valid_name).await;
+        }
+
+        Ok(())
+    }
+
+    /// Test postcondition: event is appended to event log for successful write
+    ///
+    /// CONTRACT: Every successful database write MUST append a corresponding event
+    /// to the event log for replay and recovery.
+    #[tokio::test]
+    async fn test_postcondition_appends_event_for_successful_write() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("event-log-test.db");
+        let db = SessionDb::create_or_open(&db_path).await?;
+
+        let event_log_path = state_event_log_path(&db_path);
+
+        // Create a session
+        let session_name = "event-test-session";
+        let workspace_path = "/workspace/event-test";
+        let created = db.create(session_name, workspace_path).await?;
+
+        // Verify event log was created and contains the upsert event
+        assert!(
+            tokio::fs::try_exists(&event_log_path)
+                .await
+                .is_ok_and(|v| v),
+            "Event log should exist after session creation"
+        );
+
+        let event_log_content = tokio::fs::read_to_string(&event_log_path)
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to read event log: {e}")))?;
+
+        // Parse the event log
+        let events: Vec<EventEnvelope> = event_log_content
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+
+        assert_eq!(
+            events.len(),
+            1,
+            "Event log should contain exactly one event after session creation"
+        );
+
+        let event = &events[0];
+        assert_eq!(event.version, 1, "Event version should be 1");
+
+        match &event.event {
+            SessionEvent::Upsert { session } => {
+                assert_eq!(
+                    session.name, created.name,
+                    "Event should contain the created session name"
+                );
+                assert_eq!(
+                    session.workspace_path, created.workspace_path,
+                    "Event should contain the workspace path"
+                );
+            }
+            SessionEvent::Delete { name } => {
+                panic!("Expected Upsert event, but got Delete event for session: {name}");
+            }
+        }
+
+        // Update the session
+        db.update(
+            session_name,
+            SessionUpdate {
+                status: Some(SessionStatus::Active),
+                ..Default::default()
+            },
+        )
+        .await?;
+
+        // Verify another event was appended
+        let event_log_content_after = tokio::fs::read_to_string(&event_log_path)
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to read event log after update: {e}")))?;
+
+        let events_after: Vec<EventEnvelope> = event_log_content_after
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+
+        assert_eq!(
+            events_after.len(),
+            2,
+            "Event log should contain two events after update"
+        );
+
+        // Delete the session
+        let deleted = db.delete(session_name).await?;
+        assert!(deleted, "Session should be deleted");
+
+        // Verify delete event was appended
+        let event_log_content_final = tokio::fs::read_to_string(&event_log_path)
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to read event log after delete: {e}")))?;
+
+        let events_final: Vec<EventEnvelope> = event_log_content_final
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+
+        assert_eq!(
+            events_final.len(),
+            3,
+            "Event log should contain three events after delete"
+        );
+
+        // Verify last event is a Delete event
+        match &events_final[2].event {
+            SessionEvent::Upsert { .. } => {
+                panic!("Expected Delete event as last event, but got Upsert");
+            }
+            SessionEvent::Delete { name } => {
+                assert_eq!(
+                    name, session_name,
+                    "Delete event should have correct session name"
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Test invariant: single writer reactor survives failed request
+    ///
+    /// CONTRACT: The state writer reactor MUST continue processing requests
+    /// even after a failed write operation. This ensures the system remains
+    /// available under error conditions.
+    #[tokio::test]
+    async fn test_invariant_single_writer_reactor_survives_failed_request() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+
+        // Create a session successfully
+        let first_session = db.create("reactor-test-1", "/workspace/1").await?;
+        assert_eq!(first_session.name, "reactor-test-1");
+
+        // Attempt to create a duplicate (should fail)
+        let duplicate_result = db.create("reactor-test-1", "/workspace/duplicate").await;
+        assert!(
+            duplicate_result.is_err(),
+            "Duplicate session creation should fail"
+        );
+
+        // CRITICAL: Reactor should still be alive and able to process new requests
+        // This is the invariant - a failed request must not crash the reactor
+        let second_session = db.create("reactor-test-2", "/workspace/2").await?;
+        assert_eq!(second_session.name, "reactor-test-2");
+
+        // Verify both sessions exist (the duplicate should not)
+        let sessions = db.list(None).await?;
+        let count = sessions.len();
+
+        assert_eq!(
+            count, 2,
+            "Should have exactly 2 sessions: reactor-test-1 and reactor-test-2"
+        );
+
+        let has_first = sessions.iter().any(|s| s.name == "reactor-test-1");
+        let has_second = sessions.iter().any(|s| s.name == "reactor-test-2");
+        let has_duplicate = sessions
+            .iter()
+            .any(|s| s.name == "reactor-test-1" && s.workspace_path == "/workspace/duplicate");
+
+        assert!(has_first, "First session should exist");
+        assert!(has_second, "Second session should exist");
+        assert!(!has_duplicate, "Duplicate should not exist");
+
+        // Test update operations also survive failures
+        let update_ok = db
+            .update(
+                "reactor-test-1",
+                SessionUpdate {
+                    status: Some(SessionStatus::Active),
+                    ..Default::default()
+                },
+            )
+            .await;
+        assert!(
+            update_ok.is_ok(),
+            "Update should succeed after reactor survived failure"
+        );
+
+        // Try to update non-existent session (should fail)
+        let update_fail = db
+            .update(
+                "non-existent-session",
+                SessionUpdate {
+                    status: Some(SessionStatus::Active),
+                    ..Default::default()
+                },
+            )
+            .await;
+        assert!(
+            update_fail.is_ok(),
+            "Update of non-existent session should not error"
+        );
+
+        // Reactor should still be alive
+        let third_session = db.create("reactor-test-3", "/workspace/3").await?;
+        assert_eq!(third_session.name, "reactor-test-3");
+
+        let final_sessions = db.list(None).await?;
+        assert_eq!(
+            final_sessions.len(),
+            3,
+            "Should have 3 sessions after all operations"
+        );
+
+        Ok(())
     }
 }

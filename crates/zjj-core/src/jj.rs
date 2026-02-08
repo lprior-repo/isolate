@@ -13,6 +13,43 @@ use tokio::process::Command;
 
 use crate::{Error, Result};
 
+static JJ_PATH: OnceLock<String> = OnceLock::new();
+
+#[allow(clippy::print_stderr)]
+fn resolve_jj_path() -> String {
+    let path = std::env::var("ZJJ_JJ_PATH")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| {
+            let paths = std::env::var_os("PATH").unwrap_or_default();
+            let found = std::env::split_paths(&paths)
+                .map(|p| p.join("jj"))
+                .find(|p| p.exists())
+                .map(|p| p.to_string_lossy().to_string());
+
+            if let Some(p) = &found {
+                eprintln!("DEBUG: Found jj at: {p}");
+            } else {
+                eprintln!("DEBUG: jj NOT FOUND in PATH: {}", paths.display());
+            }
+
+            found.unwrap_or_else(|| "jj".to_string())
+        });
+    path
+}
+
+/// Get a tokio Command for jj with absolute path
+pub fn get_jj_command() -> Command {
+    let path = JJ_PATH.get_or_init(resolve_jj_path);
+    Command::new(path)
+}
+
+/// Get a standard Command for jj with absolute path
+pub fn get_jj_command_sync() -> StdCommand {
+    let path = JJ_PATH.get_or_init(resolve_jj_path);
+    StdCommand::new(path)
+}
+
 /// RAII guard for JJ workspace lifecycle
 ///
 /// Ensures workspace cleanup (forget + directory removal) on drop,
@@ -88,7 +125,7 @@ impl WorkspaceGuard {
     /// Perform the actual cleanup operations synchronously (for Drop)
     fn perform_cleanup_sync(&self) -> Result<()> {
         // Step 1: Forget the JJ workspace (best effort, sync)
-        let forget_result = StdCommand::new("jj")
+        let forget_result = get_jj_command_sync()
             .args(["workspace", "forget", &self.name])
             .output()
             .map_err(|e| jj_command_error("forget workspace", &e))
@@ -139,8 +176,14 @@ impl Drop for WorkspaceGuard {
 }
 
 /// Helper to create a JJ command error with appropriate context
+#[allow(clippy::print_stderr)]
 fn jj_command_error(operation: &str, error: &std::io::Error) -> Error {
     let is_not_found = error.kind() == std::io::ErrorKind::NotFound;
+    eprintln!(
+        "DEBUG: JJ COMMAND ERROR: operation={operation}, error={error}, kind={error_kind:?}, path={path:?}",
+        error_kind = error.kind(),
+        path = JJ_PATH.get()
+    );
     Error::JjCommandError {
         operation: operation.to_string(),
         source: error.to_string(),
@@ -306,7 +349,7 @@ pub async fn workspace_create(name: &str, path: &Path) -> Result<()> {
     }
 
     // Execute: jj workspace add --name <name> <path>
-    let output = Command::new("jj")
+    let output = get_jj_command()
         .args(["workspace", "add", "--name", name])
         .arg(path)
         .output()
@@ -404,7 +447,7 @@ pub async fn workspace_forget(name: &str) -> Result<()> {
     }
 
     // Execute: jj workspace forget <name>
-    let output = Command::new("jj")
+    let output = get_jj_command()
         .args(["workspace", "forget", name])
         .output()
         .await
@@ -432,7 +475,7 @@ pub async fn workspace_forget(name: &str) -> Result<()> {
 /// - Unable to parse JJ output
 pub async fn workspace_list() -> Result<Vec<WorkspaceInfo>> {
     // Execute: jj workspace list
-    let output = Command::new("jj")
+    let output = get_jj_command()
         .args(["workspace", "list"])
         .output()
         .await
@@ -503,7 +546,7 @@ fn parse_workspace_list(output: &str) -> Result<Vec<WorkspaceInfo>> {
 /// - Unable to parse JJ output
 pub async fn workspace_status(path: &Path) -> Result<Status> {
     // Execute: jj status (in the workspace directory)
-    let output = Command::new("jj")
+    let output = get_jj_command()
         .args(["status"])
         .current_dir(path)
         .output()
@@ -561,7 +604,7 @@ pub fn parse_status(output: &str) -> Status {
 /// - Unable to parse JJ output
 pub async fn workspace_diff(path: &Path) -> Result<DiffSummary> {
     // Execute: jj diff --stat (in the workspace directory)
-    let output = Command::new("jj")
+    let output = get_jj_command()
         .args(["diff", "--stat"])
         .current_dir(path)
         .output()
@@ -617,13 +660,23 @@ pub fn parse_diff_stat(output: &str) -> DiffSummary {
     }
 }
 
+/// Check if JJ is installed and accessible (boolean)
+pub async fn is_jj_installed() -> bool {
+    check_jj_installed().await.is_ok()
+}
+
+/// Check if current directory is a JJ repository (boolean)
+pub async fn is_jj_repo() -> bool {
+    check_in_jj_repo().await.is_ok()
+}
+
 /// Check if JJ is installed and available
 ///
 /// # Errors
 ///
 /// Returns error if JJ is not found in PATH
 pub async fn check_jj_installed() -> Result<()> {
-    Command::new("jj")
+    get_jj_command()
         .arg("--version")
         .output()
         .await
@@ -647,7 +700,7 @@ pub async fn check_jj_installed() -> Result<()> {
 ///
 /// Returns error if not in a JJ repository
 pub async fn check_in_jj_repo() -> Result<PathBuf> {
-    let output = Command::new("jj")
+    let output = get_jj_command()
         .args(["root"])
         .output()
         .await

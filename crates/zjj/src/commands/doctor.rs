@@ -951,16 +951,6 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     let passed = checks.len() - warnings - errors;
     let healthy = errors == 0;
 
-    // Check if recovery occurred (any check with "recovered" in details)
-    let has_recovery = checks.iter().any(|check| {
-        check
-            .details
-            .as_ref()
-            .and_then(|d| d.get("recovered"))
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false)
-    });
-
     if format.is_json() {
         let response = DoctorJsonResponse {
             checks: checks.to_vec(),
@@ -974,13 +964,12 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         // If unhealthy in JSON mode, exit with 1 immediately to avoid
         // main.rs printing a second JSON error object
+        // Warnings should NOT cause non-zero exit - only failures do
         if !healthy {
             std::process::exit(1);
         }
-        // If recovery occurred, exit with 2
-        if has_recovery {
-            std::process::exit(2);
-        }
+        // Recovery detected but system is healthy - exit 0 (warnings only)
+        // Exit code 2 is only for critical errors, not informational recovery
         return Ok(());
     }
 
@@ -1015,11 +1004,8 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
         anyhow::bail!("Health check failed: {errors} error(s) detected");
     }
 
-    // Exit with code 2 if recovery occurred
-    if has_recovery {
-        std::process::exit(2);
-    }
-
+    // Recovery detected but system is healthy - return Ok()
+    // Exit code 2 is only for critical errors, not informational recovery
     Ok(())
 }
 

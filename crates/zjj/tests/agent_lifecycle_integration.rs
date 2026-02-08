@@ -52,8 +52,8 @@ impl IntegrationTestContext {
         let lock_manager = LockManager::new(pool.clone());
         lock_manager.init().await?;
 
-        // Initialize merge queue with in-memory database
-        let merge_queue = MergeQueue::open_in_memory().await?;
+        // Initialize merge queue sharing the same pool
+        let merge_queue = MergeQueue::new(pool.clone()).await?;
 
         Ok(Self {
             _temp_dir: temp_dir,
