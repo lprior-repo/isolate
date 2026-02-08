@@ -417,6 +417,97 @@ mod tests {
         assert!(!result.valid);
     }
 
+    // Tests for bead zjj-33ub: Reject backslash and escape sequences in session names
+
+    #[test]
+    fn test_validate_session_name_backslash_n_rejected() {
+        let result = validate_session_name("test\\nname");
+        assert!(!result.valid, "Session name with literal backslash-n should be rejected");
+        assert!(result.error.is_some());
+        assert!(
+            result.error.as_ref().unwrap().contains("invalid characters"),
+            "Error should mention invalid characters"
+        );
+    }
+
+    #[test]
+    fn test_validate_session_name_backslash_t_rejected() {
+        let result = validate_session_name("test\\tname");
+        assert!(!result.valid, "Session name with literal backslash-t should be rejected");
+    }
+
+    #[test]
+    fn test_validate_session_name_backslash_r_rejected() {
+        let result = validate_session_name("test\\rname");
+        assert!(!result.valid, "Session name with literal backslash-r should be rejected");
+    }
+
+    #[test]
+    fn test_validate_session_name_backslash_zero_rejected() {
+        let result = validate_session_name("test\\0name");
+        assert!(!result.valid, "Session name with literal backslash-zero should be rejected");
+    }
+
+    #[test]
+    fn test_validate_session_name_plain_backslash_rejected() {
+        let result = validate_session_name("test\\name");
+        assert!(!result.valid, "Session name with plain backslash should be rejected");
+    }
+
+    #[test]
+    fn test_validate_session_name_multiple_backslashes_rejected() {
+        let result = validate_session_name("test\\n\\t\\r");
+        assert!(!result.valid, "Session name with multiple escape sequences should be rejected");
+    }
+
+    #[test]
+    fn test_validate_session_name_backslash_at_start_rejected() {
+        let result = validate_session_name("\\ntest");
+        assert!(!result.valid, "Session name with backslash at start should be rejected");
+    }
+
+    #[test]
+    fn test_validate_session_name_backslash_at_end_rejected() {
+        let result = validate_session_name("test\\n");
+        assert!(!result.valid, "Session name with backslash at end should be rejected");
+    }
+
+    #[test]
+    fn test_validate_session_name_only_backslash_rejected() {
+        let result = validate_session_name("\\");
+        assert!(!result.valid, "Session name that is only a backslash should be rejected");
+    }
+
+    #[test]
+    fn test_validate_session_name_mixed_escape_and_valid_rejected() {
+        let result = validate_session_name("test-\\n-name");
+        assert!(
+            !result.valid,
+            "Session name with backslash surrounded by valid chars should be rejected"
+        );
+    }
+
+    #[test]
+    fn test_validate_session_name_valid_names_accepted() {
+        let valid_names = vec![
+            "my-session-123",
+            "feature_auth",
+            "testSession",
+            "abc",
+            "test_123",
+            "MY-SESSION",
+        ];
+
+        for name in valid_names {
+            let result = validate_session_name(name);
+            assert!(
+                result.valid,
+                "Valid session name '{name}' should be accepted, but was rejected: {:?}",
+                result.error
+            );
+        }
+    }
+
     #[test]
     fn test_validate_add_args_empty() {
         let result = validate_add_args("add", &[]);
