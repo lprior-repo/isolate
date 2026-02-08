@@ -129,11 +129,17 @@ pub(super) async fn rollback_partial_state(name: &str, workspace_path: &std::pat
     // DB record intentionally left in 'creating' state for doctor detection
 }
 
-/// Create a JJ workspace for the session
+/// Create a JJ workspace for the session with operation graph synchronization
+///
+/// This uses the synchronized workspace creation to prevent operation graph
+/// corruption when multiple workspaces are created concurrently.
 async fn create_jj_workspace(name: &str, workspace_path: &std::path::Path) -> Result<()> {
-    // Use the JJ workspace manager from core
-    // Preserve the zjj_core::Error to maintain exit code semantics
-    jj::workspace_create(name, workspace_path)
+    // Use the synchronized workspace creation to prevent operation graph corruption
+    // This ensures:
+    // 1. Workspace creations are serialized (prevents concurrent modification)
+    // 2. All workspaces are based on the same repository operation
+    // 3. Operation graph consistency is verified after creation
+    zjj_core::jj_operation_sync::create_workspace_synced(name, workspace_path)
         .await
         .map_err(anyhow::Error::new)?;
 
