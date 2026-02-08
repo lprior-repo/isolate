@@ -35,7 +35,7 @@ fn test_clone_finds_existing_source_session() {
     let json: serde_json::Value =
         serde_json::from_str(&result.stdout).expect("list JSON should be valid");
 
-    let sessions = json["data"]["sessions"]
+    let sessions = json["data"]
         .as_array()
         .expect("sessions should be an array");
 
