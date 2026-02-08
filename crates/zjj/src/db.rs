@@ -108,15 +108,6 @@ impl SessionDb {
         &self.pool
     }
 
-    /// Get a LockManager instance for this database
-    ///
-    /// Returns a LockManager that shares the same database connection pool.
-    /// The LockManager tables are initialized when the SessionDb is created.
-    #[must_use]
-    pub const fn lock_manager(&self) -> LockManager {
-        LockManager::new(self.pool)
-    }
-
     /// Open or create a session database at the given path
     ///
     /// # Errors
@@ -236,6 +227,9 @@ impl SessionDb {
         match init_schema(&pool).await {
             Ok(()) => {
                 check_schema_version(&pool).await?;
+                // Initialize lock manager tables (CRIT-001 fix)
+                let lock_mgr = zjj_core::coordination::locks::LockManager::new(pool.clone());
+                lock_mgr.init().await?;
                 Ok(Self { pool })
             }
             Err(e) => {
@@ -246,6 +240,10 @@ impl SessionDb {
                         let new_pool = create_connection_pool(&db_url).await?;
                         init_schema(&new_pool).await?;
                         check_schema_version(&new_pool).await?;
+                        // Initialize lock manager tables (CRIT-001 fix)
+                        let lock_mgr =
+                            zjj_core::coordination::locks::LockManager::new(new_pool.clone());
+                        lock_mgr.init().await?;
                         Ok(Self { pool: new_pool })
                     }
                     Err(recovery_err) => Err(Error::DatabaseError(format!(
@@ -291,6 +289,7 @@ impl SessionDb {
     ///
     /// When `command_id` is present this operation is atomic: check, insert,
     /// and processed mark happen in a single immediate transaction.
+    #[allow(dead_code)]
     pub async fn create_with_command_id(
         &self,
         name: &str,
@@ -455,10 +454,11 @@ impl SessionDb {
     ///
     /// Returns error if database update fails
     pub async fn update(&self, name: &str, update: SessionUpdate) -> Result<()> {
-        update_session(&self.pool, name, update).await
+        self.update_with_command_id(name, update, None).await
     }
 
     /// Update an existing session with optional command idempotency key.
+    #[allow(dead_code)]
     pub async fn update_with_command_id(
         &self,
         name: &str,
@@ -466,7 +466,7 @@ impl SessionDb {
         command_id: Option<&str>,
     ) -> Result<()> {
         if command_id.is_none() {
-            return self.update(name, update).await;
+            return update_session(&self.pool, name, update).await;
         }
 
         let mut conn = self.pool.acquire().await.map_err(|e| {
@@ -576,6 +576,8 @@ impl SessionDb {
     /// # Errors
     ///
     /// Returns error if database query fails
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     pub async fn find_orphaned_sessions(&self) -> Result<Vec<String>> {
         let sessions = self.list(None).await?;
         let mut orphans = Vec::new();
@@ -598,6 +600,8 @@ impl SessionDb {
     /// # Errors
     ///
     /// Returns error if database deletion fails
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     pub async fn cleanup_orphaned_sessions(&self) -> Result<usize> {
         let orphans = self.find_orphaned_sessions().await?;
         let mut cleaned_count = 0;
@@ -1353,6 +1357,7 @@ async fn execute_update(pool: &SqlitePool, sql: &str, values: Vec<String>) -> Re
         .map(|_| ())
 }
 
+#[allow(dead_code)]
 async fn execute_update_conn(
     conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
     sql: &str,
@@ -1390,6 +1395,7 @@ async fn is_command_processed_pool(pool: &SqlitePool, command_id: &str) -> Resul
     Ok(existing.is_some())
 }
 
+#[allow(dead_code)]
 async fn is_command_processed_conn(
     conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
     command_id: &str,
@@ -1403,6 +1409,7 @@ async fn is_command_processed_conn(
     Ok(existing.is_some())
 }
 
+#[allow(dead_code)]
 async fn mark_command_processed_conn(
     conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
     command_id: &str,
@@ -1415,6 +1422,7 @@ async fn mark_command_processed_conn(
         .map_err(|e| Error::DatabaseError(format!("Failed to mark command as processed: {e}")))
 }
 
+#[allow(dead_code)]
 async fn query_session_by_name_conn(
     conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
     name: &str,

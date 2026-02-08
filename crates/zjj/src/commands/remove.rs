@@ -9,8 +9,10 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     cli::is_inside_zellij,
-    commands::get_session_db,
-    commands::remove::atomic::{cleanup_session_atomically, RemoveError},
+    commands::{
+        get_session_db,
+        remove::atomic::{cleanup_session_atomically, RemoveError},
+    },
     json::RemoveOutput,
 };
 
@@ -74,7 +76,7 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
     }
 
     // Use atomic cleanup to prevent orphaned resources
-    let inside_zellij = is_inside_zellij();
+    let _inside_zellij = is_inside_zellij();
     match cleanup_session_atomically(&db, &session, true).await {
         Ok(result) => {
             if options.format.is_json() {
@@ -96,15 +98,9 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
             }
             Ok(())
         }
-        Err(RemoveError::SessionNotFound { .. }) => {
-            // Return NotFound error for exit code 2
-            Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
-                "Session '{name}' not found"
-            ))))
-        }
         Err(RemoveError::WorkspaceInaccessible { .. }) => {
             // Workspace already gone - try to clean up database record
-            let _ = db.delete(name).await;
+            db.delete(name).await?;
             if options.format.is_json() {
                 let output = RemoveOutput {
                     name: name.to_string(),
@@ -114,7 +110,10 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
                 let json_str = serde_json::to_string(&envelope)?;
                 writeln!(std::io::stdout(), "{json_str}")?;
             } else {
-                writeln!(std::io::stdout(), "Removed session '{name}' (workspace was already gone)")?;
+                writeln!(
+                    std::io::stdout(),
+                    "Removed session '{name}' (workspace was already gone)"
+                )?;
             }
             Ok(())
         }
@@ -128,20 +127,6 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
             ))))
         }
     }
-
-    if options.format.is_json() {
-        let output = RemoveOutput {
-            name: name.to_string(),
-            message: format!("Removed session '{name}'"),
-        };
-        let envelope = SchemaEnvelope::new("remove-response", "single", output);
-        let json_str = serde_json::to_string(&envelope)?;
-        writeln!(std::io::stdout(), "{json_str}")?;
-    } else {
-        writeln!(std::io::stdout(), "Removed session '{name}'")?;
-    }
-
-    Ok(())
 }
 
 /// Prompt user for confirmation
@@ -177,6 +162,7 @@ fn merge_to_main(_name: &str, _workspace_path: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Context;
     use tempfile::TempDir;
 
     use super::*;
@@ -211,7 +197,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_session_not_found() -> Result<()> {
-        let dir = TempDir::new().context("Failed to create temp dir")?;
+        let dir = TempDir::new()
+            .map_err(anyhow::Error::from)
+            .context("Failed to create temp dir")?;
         let db_path = dir.path().join("test.db");
         let _db = SessionDb::create_or_open(&db_path).await?;
 
