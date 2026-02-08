@@ -20,7 +20,6 @@
 
 use std::{
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use tokio::sync::Mutex;

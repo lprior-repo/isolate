@@ -364,11 +364,11 @@ fn test_suggestions_for_warning_health() {
 
 // ── check_health Tests ───────────────────────────────────────────────
 
-#[test]
-fn test_check_health_returns_good_for_valid_state() {
+#[tokio::test]
+async fn test_check_health_returns_good_for_valid_state() {
     // When db exists and session workspace exists, should be Good
     // This is a partial test since we can't easily mock the filesystem
-    let result = check_health(std::path::Path::new("/nonexistent"), None);
+    let result = check_health(std::path::Path::new("/nonexistent"), None).await;
     // With no session and nonexistent path, should return Error for missing db
     assert!(matches!(result, HealthStatus::Error { .. }));
 }
