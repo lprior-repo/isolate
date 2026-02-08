@@ -340,8 +340,6 @@ pub async fn handle_doctor(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
     match sub_m.subcommand() {
         Some(("validate", validate_m)) => {
             let workspace = validate_m
@@ -350,6 +348,8 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
                 .ok_or_else(|| {
                     anyhow::anyhow!("Workspace argument is required for validate command")
                 })?;
+            let json = validate_m.get_flag("json");
+            let format = OutputFormat::from_json_flag(json);
             integrity::run(&integrity::IntegrityOptions {
                 subcommand: integrity::IntegritySubcommand::Validate { workspace },
                 format,
@@ -364,6 +364,8 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
                     anyhow::anyhow!("Workspace argument is required for repair command")
                 })?;
             let force = repair_m.get_flag("force");
+            let json = repair_m.get_flag("json");
+            let format = OutputFormat::from_json_flag(json);
             integrity::run(&integrity::IntegrityOptions {
                 subcommand: integrity::IntegritySubcommand::Repair { workspace, force },
                 format,
@@ -1142,7 +1144,7 @@ pub async fn handle_recover(sub_m: &ArgMatches) -> Result<()> {
 
     if session.is_some() || operation.is_some() || last || list_ops {
         // Operation log recovery mode
-        let list_only = list_ops || operation.as_ref().map_or(true, |_| false) && !last;
+        let list_only = list_ops || operation.as_ref().is_none_or(|_| false) && !last;
         let options = recover::OpRecoverOptions {
             session,
             operation: operation.clone(),
