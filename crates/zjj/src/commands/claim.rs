@@ -701,6 +701,8 @@ pub async fn run_yield(options: &YieldOptions) -> Result<()> {
 }
 
 /// Query claim history for a resource
+#[allow(dead_code)]
+// Audit trail function for resource claim history
 pub async fn query_claim_history(resource: &str) -> Result<Vec<ClaimAuditEntry>> {
     let audit_path = audit_file_path(resource).await?;
     let audit = read_audit(&audit_path).await?;
@@ -708,6 +710,8 @@ pub async fn query_claim_history(resource: &str) -> Result<Vec<ClaimAuditEntry>>
 }
 
 /// Show current holders of all locked resources
+#[allow(dead_code)]
+// Audit function to display active resource locks
 pub async fn show_current_holders() -> Result<Vec<LockInfo>> {
     let locks_dir = get_locks_dir().await?;
     let mut entries = tokio::fs::read_dir(&locks_dir)

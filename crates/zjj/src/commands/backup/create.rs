@@ -25,6 +25,8 @@ use super::backup_internal::{
 /// - Backup directory cannot be created
 /// - File copy fails
 /// - Metadata cannot be written
+#[allow(dead_code)]
+// Core backup functionality used by backup commands
 pub async fn create_backup(database_path: &Path, config: &BackupConfig) -> Result<PathBuf> {
     // Validate source database exists
     anyhow::ensure!(
@@ -84,6 +86,8 @@ pub async fn create_backup(database_path: &Path, config: &BackupConfig) -> Resul
 /// # Errors
 ///
 /// Returns error if any backup operation fails
+#[allow(dead_code)]
+// High-level backup orchestration function
 pub async fn backup_all_databases(root: &Path, config: &BackupConfig) -> Result<Vec<PathBuf>> {
     let databases = vec!["state.db", "queue.db"];
 

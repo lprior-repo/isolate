@@ -34,6 +34,8 @@ impl Default for ProgressConfig {
 impl ProgressConfig {
     /// Create quiet configuration (no progress output)
     #[must_use]
+    #[allow(dead_code)]
+    // Constructor for quiet mode configuration
     pub const fn quiet() -> Self {
         Self {
             min_duration: Duration::ZERO,
@@ -44,6 +46,8 @@ impl ProgressConfig {
 
     /// Create normal configuration
     #[must_use]
+    #[allow(dead_code)]
+    // Constructor for normal mode configuration
     pub const fn normal() -> Self {
         Self {
             min_duration: Duration::from_secs(2),
@@ -54,6 +58,8 @@ impl ProgressConfig {
 
     /// Set Zellij mode
     #[must_use]
+    #[allow(dead_code)]
+    // Builder method for Zellij mode configuration
     pub const fn with_zellij(mut self, in_zellij: bool) -> Self {
         self.in_zellij = in_zellij;
         self
@@ -61,6 +67,8 @@ impl ProgressConfig {
 
     /// Set quiet mode
     #[must_use]
+    #[allow(dead_code)]
+    // Builder method for quiet mode configuration
     pub const fn with_quiet(mut self, quiet: bool) -> Self {
         self.quiet = quiet;
         self
@@ -69,6 +77,8 @@ impl ProgressConfig {
 
 /// Error type for progress operations
 #[derive(Debug, Clone, Error)]
+#[allow(dead_code)]
+// Error type for progress tracking operations
 pub enum ProgressError {
     /// Invalid phase transition
     #[error("invalid phase transition from {from:?} to {to:?}")]
@@ -83,6 +93,8 @@ pub enum ProgressError {
 }
 
 /// Result type for progress operations
+#[allow(dead_code)]
+// Type alias for progress operation results
 pub type ProgressResult<T> = Result<T, ProgressError>;
 
 /// Phases of a long-running operation
