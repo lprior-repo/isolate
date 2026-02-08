@@ -324,6 +324,20 @@ impl SessionDb {
         update_session(&self.pool, name, update).await
     }
 
+    /// Update session status
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database update fails
+    #[allow(dead_code)] // Part of public API, used by done command
+    pub async fn update_status(&self, name: &str, status: SessionStatus) -> Result<()> {
+        let update = SessionUpdate {
+            status: Some(status),
+            ..Default::default()
+        };
+        update_session(&self.pool, name, update).await
+    }
+
     /// Delete a session by name
     ///
     /// Returns `true` if session was deleted, `false` if it didn't exist

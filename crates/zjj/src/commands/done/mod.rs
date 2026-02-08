@@ -8,8 +8,9 @@
 //! 5. Merges workspace changes to main
 //! 6. Logs undo history to .zjj/undo.log
 //! 7. Updates linked bead status to completed
-//! 8. Keeps workspace for 24h (unless --no-keep specified)
-//! 9. Switches back to main
+//! 8. Updates session status to "completed"
+//! 9. Keeps workspace for 24h (unless --no-keep specified)
+//! 10. Switches back to main
 
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 #![cfg_attr(not(test), deny(clippy::expect_used))]
@@ -34,9 +35,11 @@ use zjj_core::json::SchemaEnvelope;
 use self::conflict::ConflictDetector;
 use crate::{
     cli::jj_root,
-    commands::context::{detect_location, Location},
+    commands::{context::detect_location, get_session_db},
     session::{SessionStatus, SessionUpdate},
 };
+
+use crate::commands::context::Location;
 
 /// Run the done command with options
 pub async fn run_with_options(options: &DoneOptions) -> Result<()> {
@@ -176,6 +179,11 @@ async fn execute_done(
         false
     };
 
+    // Phase 8.5: Update session status to Completed
+    // Session update always succeeds if we reach this point (errors propagated)
+    update_session_status(&workspace_name).await?;
+    let session_updated = true;
+
     // Phase 9: Cleanup workspace
     let cleaned = if options.keep_workspace || !options.no_keep {
         false
@@ -191,7 +199,12 @@ async fn execute_done(
         merged: true,
         cleaned,
         bead_closed,
-        session_updated: false,
+        session_updated,
+        new_status: if session_updated {
+            Some("completed".to_string())
+        } else {
+            None
+        },
         pushed_to_remote,
         dry_run: false,
         preview: None,
@@ -533,6 +546,26 @@ async fn update_bead_status(
         .await
         .map_err(|e| DoneError::BeadUpdateFailed {
             reason: e.to_string(),
+        })
+}
+
+/// Update session status to Completed after successful done operation
+async fn update_session_status(workspace_name: &str) -> Result<(), DoneError> {
+    let db = get_session_db()
+        .await
+        .map_err(|e| DoneError::SessionUpdateFailed {
+            reason: format!("Failed to open session database: {e}"),
+        })?;
+
+    let session_update = SessionUpdate {
+        status: Some(SessionStatus::Completed),
+        ..Default::default()
+    };
+
+    db.update(workspace_name, session_update)
+        .await
+        .map_err(|e| DoneError::SessionUpdateFailed {
+            reason: format!("Failed to update session status: {e}"),
         })
 }
 
