@@ -419,7 +419,7 @@ fn generate_short_id() -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_possible_truncation, clippy::unwrap_used, clippy::manual_unwrap_or_default, clippy::option_if_let_else, clippy::doc_markdown)]
 mod tests {
     use super::*;
 

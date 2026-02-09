@@ -225,7 +225,7 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
         | Error::HookExecutionFailed { .. }
         | Error::Unknown(_) => 4,
         // Lock contention errors: exit code 5
-        Error::SessionLocked { .. } | Error::NotLockHolder { .. } => 5,
+        Error::SessionLocked { .. } | Error::NotLockHolder { .. } | Error::LockTimeout { .. } => 5,
         // Operation cancelled: exit code 130
         Error::OperationCancelled(_) => 130,
     }
@@ -248,6 +248,7 @@ impl ErrorDetail {
 }
 
 /// Map a `crate::Error` to (`ErrorCode`, message, optional suggestion)
+#[allow(clippy::too_many_lines)]
 fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>) {
     use crate::Error;
 
@@ -341,6 +342,11 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
             ErrorCode::Unknown,
             format!("Agent '{agent_id}' does not hold the lock for session '{session}'"),
             None,
+        ),
+        Error::LockTimeout { operation, timeout_ms, retries } => (
+            ErrorCode::Unknown,
+            format!("Lock acquisition timeout for '{operation}' after {retries} retries (timeout: {timeout_ms}ms per attempt)"),
+            Some("System is under heavy load. Wait a few moments and retry".to_string()),
         ),
         Error::OperationCancelled(reason) => (
             ErrorCode::Unknown,

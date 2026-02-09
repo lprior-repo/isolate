@@ -1,6 +1,6 @@
 # Session Completion (Landing the Plane)
 
-> **🔙 Back to**: [AGENTS.md](../../AGENTS.md) | **📂 agents docs**: [Critical Rules](critical-rules.md) | [Quick Reference](quick-reference.md) | [Project Context](project-context.md) | [Parallel Workflow](parallel-workflow.md) | [Session Completion](session-completion.md) | [BV Reference](bv-reference.md)
+> **🔙 Back to**: [AGENTS.md](../AGENTS.md) | **📂 agents docs**: [Critical Rules](13_AGENT_CRITICAL_RULES.md) | [Quick Reference](14_AGENT_QUICK_REFERENCE.md) | [Project Context](15_AGENT_PROJECT_CONTEXT.md) | [Parallel Workflow](16_AGENT_PARALLEL_WORKFLOW.md) | [BV Reference](18_AGENT_BV_REFERENCE.md)
 
 ---
 
@@ -50,10 +50,10 @@ git add .beads/
 git commit -m "sync beads"
 git pull --rebase
 git push
-git status  # MUST show: "Your branch is up to date with 'origin/main'"
+git status # MUST show: "Your branch is up to date with 'origin/main'"
 
 # 5. Verify cache
-systemctl --user is-active bazel-remote  # Output: active
+systemctl --user is-active bazel-remote # Output: active
 
 # 6. Clean up
 git stash clear
@@ -88,12 +88,12 @@ If `git push` fails:
 
 Cache must be active for fast builds:
 ```bash
-systemctl --user is-active bazel-remote  # Should output: active
-curl http://localhost:9090/status | jq    # Should show cache stats
+systemctl --user is-active bazel-remote # Should output: active
+curl http://localhost:9090/status | jq  # Should show cache stats
 ```
 
 If inactive: `systemctl --user start bazel-remote`
 
 ---
 
-**🔙 Back to**: [AGENTS.md](../../AGENTS.md)
+**🔙 Back to**: [AGENTS.md](../AGENTS.md)

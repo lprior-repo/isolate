@@ -1,6 +1,6 @@
 # Project Context
 
-> **🔙 Back to**: [AGENTS.md](../../AGENTS.md) | **📂 agents docs**: [Critical Rules](critical-rules.md) | [Quick Reference](quick-reference.md) | [Project Context](project-context.md) | [Parallel Workflow](parallel-workflow.md) | [Session Completion](session-completion.md) | [BV Reference](bv-reference.md)
+> **🔙 Back to**: [AGENTS.md](../AGENTS.md) | **📂 agents docs**: [Critical Rules](13_AGENT_CRITICAL_RULES.md) | [Quick Reference](14_AGENT_QUICK_REFERENCE.md) | [Parallel Workflow](16_AGENT_PARALLEL_WORKFLOW.md) | [Session Completion](17_AGENT_SESSION_COMPLETION.md) | [BV Reference](18_AGENT_BV_REFERENCE.md)
 
 ---
 
@@ -42,10 +42,10 @@
 
 ## Documentation
 
-- [docs/11_ZELLIJ.md](../docs/11_ZELLIJ.md) - Complete Zellij layout configuration, KDL syntax, templates
-- [docs/CI-CD-PERFORMANCE.md](../docs/CI-CD-PERFORMANCE.md) - Benchmarks and optimization guide
-- [docs/INDEX.md](../docs/INDEX.md) - Documentation index
+- [docs/11_ZELLIJ.md](11_ZELLIJ.md) - Complete Zellij layout configuration, KDL syntax, templates
+- [docs/CI-CD-PERFORMANCE.md](CI-CD-PERFORMANCE.md) - Benchmarks and optimization guide
+- [docs/INDEX.md](INDEX.md) - Documentation index
 
 ---
 
-**🔙 Back to**: [AGENTS.md](../../AGENTS.md)
+**🔙 Back to**: [AGENTS.md](../AGENTS.md)
