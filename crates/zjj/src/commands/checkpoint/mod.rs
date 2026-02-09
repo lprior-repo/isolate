@@ -397,16 +397,14 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
 
     if !invalid_statuses.is_empty() {
         anyhow::bail!(
-            "Checkpoint '{}' contains invalid statuses; restore aborted before deleting sessions: {}",
+            "Checkpoint '{}' contains invalid statuses; restore aborted: {}",
             checkpoint_id,
             invalid_statuses.join(", ")
         );
     }
 
-    sqlx::query("DELETE FROM sessions")
-        .execute(&mut *tx)
-        .await
-        .context("Failed to clear sessions for restore")?;
+    // FIX: Removed DELETE FROM sessions to prevent data loss during restore
+    // Now using INSERT OR REPLACE to preserve existing sessions not in checkpoint
 
     // Track statistics for reporting
     let (mut total_sessions, mut restored_count) = (0usize, 0usize);
@@ -424,9 +422,17 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
         let branch: Option<String> = row.try_get("branch").context("Missing branch")?;
         let metadata: Option<String> = row.try_get("metadata").context("Missing metadata")?;
 
+        // FIX: Use INSERT with ON CONFLICT to handle both new and existing sessions
+        // This preserves existing sessions that aren't in the checkpoint
         sqlx::query(
             "INSERT INTO sessions (name, status, workspace_path, branch, metadata, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'))",
+             VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'))
+             ON CONFLICT(name) DO UPDATE SET
+                status = excluded.status,
+                workspace_path = excluded.workspace_path,
+                branch = excluded.branch,
+                metadata = excluded.metadata,
+                updated_at = strftime('%s', 'now')",
         )
         .bind(&name)
         .bind(&status)
