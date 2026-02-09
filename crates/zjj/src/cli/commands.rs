@@ -96,7 +96,7 @@ pub fn cmd_add() -> ClapCommand {
         ))
         .arg(
             Arg::new("name")
-                .required_unless_present("example-json")
+                .required_unless_present_any(["example-json", "contract", "ai-hints"])
                 .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Name for the new session (must start with a letter)"),
         )
@@ -1599,7 +1599,7 @@ pub fn cmd_work() -> ClapCommand {
         ))
         .arg(
             Arg::new("name")
-                .required(true)
+                .required_unless_present_any(["contract", "ai-hints"])
                 .help("Session name to create/use"),
         )
         .arg(
