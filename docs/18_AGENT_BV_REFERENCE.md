@@ -1,6 +1,6 @@
 # BV Complete Command Reference
 
-> **🔙 Back to**: [AGENTS.md](../../AGENTS.md) | **📂 agents docs**: [Critical Rules](critical-rules.md) | [Quick Reference](quick-reference.md) | [Project Context](project-context.md) | [Parallel Workflow](parallel-workflow.md) | [Session Completion](session-completion.md) | [BV Reference](bv-reference.md)
+> **🔙 Back to**: [AGENTS.md](../AGENTS.md) | **📂 agents docs**: [Critical Rules](13_AGENT_CRITICAL_RULES.md) | [Quick Reference](14_AGENT_QUICK_REFERENCE.md) | [Project Context](15_AGENT_PROJECT_CONTEXT.md) | [Parallel Workflow](16_AGENT_PARALLEL_WORKFLOW.md) | [Session Completion](17_AGENT_SESSION_COMPLETION.md)
 
 ---
 
@@ -16,10 +16,10 @@
 - `commands`: copy-paste shell commands for next steps
 
 ```bash
-bv --robot-triadge                           # THE MEGA-COMMAND: start here
-bv --robot-next                             # Minimal: just top pick + claim cmd
-bv --robot-triage --format toon             # Token-optimized output (TOON)
-export BV_OUTPUT_FORMAT=toon                # Default to TOON
+bv --robot-triadge              # THE MEGA-COMMAND: start here
+bv --robot-next               # Minimal: just top pick + claim cmd
+bv --robot-triage --format toon       # Token-optimized output (TOON)
+export BV_OUTPUT_FORMAT=toon        # Default to TOON
 ```
 
 ## All Robot Commands
@@ -46,12 +46,12 @@ export BV_OUTPUT_FORMAT=toon                # Default to TOON
 ## Scoping & Filtering
 
 ```bash
-bv --robot-plan --label backend              # Scope to label's subgraph
-bv --robot-insights --as-of HEAD~30          # Historical point-in-time analysis
-bv --recipe actionable --robot-plan          # Pre-filter: ready to work (no blockers)
-bv --recipe high-impact --robot-triage       # Pre-filter: top PageRank scores
-bv --robot-triage --robot-triage-by-track    # Group by parallel work streams
-bv --robot-triage --robot-triage-by-label    # Group by domain/label
+bv --robot-plan --label backend       # Scope to label's subgraph
+bv --robot-insights --as-of HEAD~30     # Historical point-in-time analysis
+bv --recipe actionable --robot-plan     # Pre-filter: ready to work (no blockers)
+bv --recipe high-impact --robot-triage    # Pre-filter: top PageRank scores
+bv --robot-triage --robot-triage-by-track  # Group by parallel work streams
+bv --robot-triage --robot-triage-by-label  # Group by domain/label
 ```
 
 ## Output Structure
@@ -114,4 +114,4 @@ bv
 
 ---
 
-**🔙 Back to**: [AGENTS.md](../../AGENTS.md)
+**🔙 Back to**: [AGENTS.md](../AGENTS.md)

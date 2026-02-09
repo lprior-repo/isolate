@@ -304,6 +304,12 @@ pub enum Error {
         session: String,
         agent_id: String,
     },
+    /// Lock acquisition timeout with fail-fast semantics
+    LockTimeout {
+        operation: String,
+        timeout_ms: u64,
+        retries: usize,
+    },
     OperationCancelled(String),
     Unknown(String),
 }
@@ -371,6 +377,16 @@ impl fmt::Display for Error {
                     "Agent '{agent_id}' does not hold the lock for session '{session}'"
                 )
             }
+            Self::LockTimeout {
+                operation,
+                timeout_ms,
+                retries,
+            } => {
+                write!(
+                    f,
+                    "Lock acquisition timeout for '{operation}' after {retries} retries (timeout: {timeout_ms}ms per attempt)"
+                )
+            }
             Self::OperationCancelled(msg) => write!(f, "Operation cancelled: {msg}"),
             Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
         }
@@ -430,6 +446,7 @@ impl Error {
             Self::JjWorkspaceConflict { .. } => "JJ_WORKSPACE_CONFLICT",
             Self::SessionLocked { .. } => "SESSION_LOCKED",
             Self::NotLockHolder { .. } => "NOT_LOCK_HOLDER",
+            Self::LockTimeout { .. } => "LOCK_TIMEOUT",
             Self::OperationCancelled(_) => "OPERATION_CANCELLED",
             Self::Unknown(_) => "UNKNOWN",
         }
@@ -515,6 +532,15 @@ impl Error {
                 "session": session,
                 "agent_id": agent_id
             })),
+            Self::LockTimeout {
+                operation,
+                timeout_ms,
+                retries,
+            } => Some(serde_json::json!({
+                "operation": operation,
+                "timeout_ms": timeout_ms,
+                "retries": retries
+            })),
             Self::OperationCancelled(reason) => Some(serde_json::json!({
                 "reason": reason
             })),
@@ -592,6 +618,9 @@ impl Error {
             Self::NotLockHolder { session, .. } => Some(
                 format!("You don't hold the lock for '{session}'. Use 'zjj claim {session}' to acquire it or check with 'zjj agents status'")
             ),
+            Self::LockTimeout { .. } => Some(
+                "System is under heavy load. Wait a few moments and retry, or check 'zjj agents status' for stuck operations".to_string(),
+            ),
             Self::Unknown(_) => Some(
                 "Run 'zjj doctor' to check system health and configuration".to_string(),
             ),
@@ -623,7 +652,7 @@ impl Error {
             | Self::HookExecutionFailed { .. }
             | Self::Unknown(_) => 4,
             // Lock contention errors: exit code 5
-            Self::SessionLocked { .. } | Self::NotLockHolder { .. } => 5,
+            Self::SessionLocked { .. } | Self::NotLockHolder { .. } | Self::LockTimeout { .. } => 5,
             // Operation cancelled: exit code 130 (SIGINT)
             Self::OperationCancelled(_) => 130,
         }
@@ -675,6 +704,10 @@ impl Error {
             Self::NotLockHolder { session, agent_id } => {
                 vec![ValidationHint::new("agent_id", "lock holder for session")
                     .with_received(format!("'{agent_id}' for session '{session}'"))]
+            }
+            Self::LockTimeout { operation, timeout_ms, .. } => {
+                vec![ValidationHint::new("lock", "acquired within timeout")
+                    .with_received(format!("'{operation}' timed out after {timeout_ms}ms"))]
             }
             Self::IoError(_)
             | Self::NotFound(_)
@@ -798,6 +831,12 @@ impl Error {
                 vec![
                     format!("zjj claim {session}"),
                     format!("zjj agent status {session}"),
+                ]
+            }
+            Self::LockTimeout { .. } => {
+                vec![
+                    "zjj agents status".to_string(),
+                    "sleep 2 && zjj <command> --retry".to_string(),
                 ]
             }
             Self::HookFailed { hook_type, .. } => {

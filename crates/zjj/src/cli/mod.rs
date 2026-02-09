@@ -4,13 +4,12 @@ pub mod commands;
 pub mod handlers;
 pub mod json_docs;
 
-pub use commands::build_cli;
-
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::process::Command as StdCommand;
 
 use anyhow::{Context, Result};
+pub use commands::build_cli;
 use tokio::process::Command;
 
 /// Execute a shell command and return its output

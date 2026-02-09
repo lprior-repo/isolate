@@ -1,6 +1,6 @@
 # Critical Rules
 
-> **🔙 Back to**: [AGENTS.md](../../AGENTS.md) | **📂 agents docs**: [Quick Reference](quick-reference.md) | [Project Context](project-context.md) | [Parallel Workflow](parallel-workflow.md) | [Session Completion](session-completion.md) | [BV Reference](bv-reference.md)
+> **🔙 Back to**: [AGENTS.md](../AGENTS.md) | **📂 agents docs**: [Quick Reference](14_AGENT_QUICK_REFERENCE.md) | [Project Context](15_AGENT_PROJECT_CONTEXT.md) | [Parallel Workflow](16_AGENT_PARALLEL_WORKFLOW.md) | [Session Completion](17_AGENT_SESSION_COMPLETION.md) | [BV Reference](18_AGENT_BV_REFERENCE.md)
 
 ---
 
@@ -114,4 +114,4 @@ Breaking these rules risks:
 
 ---
 
-**🔙 Back to**: [AGENTS.md](../../AGENTS.md)
+**🔙 Back to**: [AGENTS.md](../AGENTS.md)

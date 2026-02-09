@@ -2,7 +2,7 @@
 
 **Purpose**: Centralized, machine-readable catalog of all moon CICD tasks and pipelines from the project configuration.
 
-**Source**: `/home/lewis/src/zjj/moon.yml` + `/home/lewis/src/zjj/docs/02_MOON_BUILD.md`
+**Source**: `.moon/tasks.yml` + `.moon/workspace.yml` + `/home/lewis/src/zjj/docs/02_MOON_BUILD.md`
 
 **Last Updated**: 2026-01-08
 
@@ -590,7 +590,8 @@ Example: Sort function tested with 10,000 random arrays instead of hand-written 
 - **[02_MOON_BUILD.md](02_MOON_BUILD.md)** - Building & Testing with Moon (user guide)
 - **[03_WORKFLOW.md](03_WORKFLOW.md)** - Daily Workflow (how to use moon in practice)
 - **[07_TESTING.md](07_TESTING.md)** - Testing Patterns & Strategies
-- **[moon.yml](../moon.yml)** - Raw configuration file
+- **[.moon/tasks.yml](../.moon/tasks.yml)** - Task configuration
+- **[.moon/workspace.yml](../.moon/workspace.yml)** - Workspace configuration
 
 ---
 

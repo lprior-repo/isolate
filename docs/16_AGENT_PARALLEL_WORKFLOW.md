@@ -1,6 +1,6 @@
 # Parallel Agent Workflow
 
-> **🔙 Back to**: [AGENTS.md](../../AGENTS.md) | **📂 agents docs**: [Critical Rules](critical-rules.md) | [Quick Reference](quick-reference.md) | [Project Context](project-context.md) | [Parallel Workflow](parallel-workflow.md) | [Session Completion](session-completion.md) | [BV Reference](bv-reference.md)
+> **🔙 Back to**: [AGENTS.md](../AGENTS.md) | **📂 agents docs**: [Critical Rules](13_AGENT_CRITICAL_RULES.md) | [Quick Reference](14_AGENT_QUICK_REFERENCE.md) | [Project Context](15_AGENT_PROJECT_CONTEXT.md) | [Session Completion](17_AGENT_SESSION_COMPLETION.md) | [BV Reference](18_AGENT_BV_REFERENCE.md)
 
 ---
 
@@ -35,11 +35,11 @@
 1. CLAIM: `br update <bead-id> --status in_progress`
 2. ISOLATE: zjj skill → "<session-name>"
 3. IMPLEMENT: functional-rust-generator skill (Rust) or tdd15-gleam skill (Gleam)
-   - **ZERO unwrap(), unwrap_or(), unwrap_or_else(), unwrap_or_default()**
-   - **ZERO expect(), expect_err()**
-   - **ZERO panic!(), todo!(), unimplemented!()**
-   - Railway-Oriented Programming
-   - map, and_then, ? operator
+  - **ZERO unwrap(), unwrap_or(), unwrap_or_else(), unwrap_or_default()**
+  - **ZERO expect(), expect_err()**
+  - **ZERO panic!(), todo!(), unimplemented!()**
+  - Railway-Oriented Programming
+  - map, and_then, ? operator
 4. REVIEW: red-queen skill (adversarial QA)
 5. LAND: land skill (quality gates, sync, push)
 6. MERGE: zjj skill (merge to main)
@@ -84,4 +84,4 @@ bv --robot-triage --robot-triage-by-track
 
 ---
 
-**🔙 Back to**: [AGENTS.md](../../AGENTS.md)
+**🔙 Back to**: [AGENTS.md](../AGENTS.md)
