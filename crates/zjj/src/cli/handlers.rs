@@ -39,6 +39,18 @@ pub async fn handle_init(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
+    // AI: Show contract if requested
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::add());
+        return Ok(());
+    }
+
+    // AI: Show hints if requested
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     if sub_m.get_flag("example-json") {
         let example_output = json::AddOutput {
             name: "example-session".to_string(),
@@ -622,6 +634,18 @@ pub fn handle_whoami(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_work(sub_m: &ArgMatches) -> Result<()> {
+    // AI: Show contract if requested
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::work());
+        return Ok(());
+    }
+
+    // AI: Show hints if requested
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let name = sub_m

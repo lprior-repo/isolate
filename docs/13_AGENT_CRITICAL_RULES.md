@@ -114,4 +114,87 @@ Breaking these rules risks:
 
 ---
 
+## AI-Native CLI Usage
+
+### Query Command Contracts
+
+All zjj commands support `--contract` flag for machine-readable contracts:
+
+```bash
+zjj add --contract      # Show JSON schema of inputs/outputs/side-effects
+zjj work --contract     # Show workflow contract for automated tasks
+zjj spawn --contract    # Show agent spawning contract
+zjj done --contract     # Show completion/merge contract
+```
+
+**Contract includes:**
+- Intent description (what command does)
+- Prerequisites (what must exist first)
+- Side effects (what gets created/modified)
+- Input schema with types and validation
+- Output schema with success/error states
+- Example invocations
+- Next commands in workflow
+
+### Get AI Hints
+
+Use `--ai-hints` flag for workflow guidance:
+
+```bash
+zjj add --ai-hints     # Shows typical workflow patterns
+zjj work --ai-hints    # Shows agent integration patterns
+```
+
+**Hints include:**
+- Typical workflows (manual, automated, parallel)
+- Command prerequisites and ordering
+- Error recovery strategies
+- Common failure modes
+
+### Structured JSON Output
+
+All commands support `--json` for machine-readable output:
+
+```bash
+zjj list --json        # Returns SchemaEnvelopeArray
+zjj status --json      # Returns session state as JSON
+zjj context --json     # Returns full environment context (default)
+```
+
+### Example: AI Workflow
+
+```bash
+# 1. Check contract before starting work
+zjj work --contract
+
+# 2. Get hints on typical workflow
+zjj work --ai-hints
+
+# 3. Start work with bead ID
+zjj work zjj-abc123 --agent claude
+
+# 4. Check status as JSON
+zjj status --json
+
+# 5. Complete and merge
+zjj done --json
+```
+
+### Query System State
+
+Use `zjj context` for complete AI-queryable state:
+
+```bash
+zjj context --json | jq .
+{
+  "repository": {...},
+  "sessions": [...],
+  "beads": {...},
+  "health": {...},
+  "environment": {...}
+}
+```
+
+---
+
 **🔙 Back to**: [AGENTS.md](../AGENTS.md)

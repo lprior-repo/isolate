@@ -292,3 +292,334 @@ pub const fn checkpoint() -> &'static str {
     "checkpoints": [...]
   }"#
 }
+
+/// AI-Native contract documentation for commands
+pub mod ai_contracts {
+    /// Machine-readable contract for zjj add command
+    pub const fn add() -> &'static str {
+        r#"AI CONTRACT for zjj add:
+{
+  "command": "zjj add",
+  "intent": "Create isolated workspace for manual interactive development",
+  "prerequisites": [
+    "zjj init must have been run",
+    "JJ repository must be initialized",
+    "Zellij must be available (unless --no-open)"
+  ],
+  "side_effects": {
+    "creates": ["JJ workspace", "Zellij tab", "Database session record"],
+    "modifies": ["Zellij session layout"],
+    "state_transition": "none → active"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "validation": "Must be valid session name (alphanumeric, hyphens, underscores)",
+      "examples": ["feature-auth", "bugfix-123", "experiment-alpha"]
+    },
+    "template": {
+      "type": "string",
+      "required": false,
+      "flag": "-t|--template",
+      "examples": ["default", "minimal", "full"]
+    },
+    "no_open": {
+      "type": "boolean",
+      "required": false,
+      "flag": "--no-open",
+      "description": "Skip opening Zellij tab"
+    },
+    "no_hooks": {
+      "type": "boolean",
+      "required": false,
+      "flag": "--no-hooks",
+      "description": "Skip post-create hooks"
+    }
+  },
+  "outputs": {
+    "success": {
+      "name": "string",
+      "workspace_path": "string",
+      "zellij_tab": "string",
+      "status": "active"
+    },
+    "errors": [
+      "SessionAlreadyExists",
+      "InvalidSessionName",
+      "JJInitFailed",
+      "ZellijNotRunning",
+      "DatabaseError"
+    ]
+  },
+  "examples": [
+    "zjj add feature-auth",
+    "zjj add bugfix-123 --no-open",
+    "zjj add experiment -t minimal"
+  ],
+  "next_commands": [
+    "zjj focus <name>",
+    "zjj status <name>",
+    "zjj work <bead_id>"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj work command
+    pub const fn work() -> &'static str {
+        r#"AI CONTRACT for zjj work:
+{
+  "command": "zjj work",
+  "intent": "Create workspace and register agent for automated task execution",
+  "prerequisites": [
+    "zjj init must have been run",
+    "Beads database must contain specified bead_id",
+    "Agent must be registered (or --no-agent)"
+  ],
+  "side_effects": {
+    "creates": ["JJ workspace", "Agent session", "Database session record", "Agent lock"],
+    "modifies": ["Bead status (open → in_progress)"],
+    "state_transition": "none → active"
+  },
+  "inputs": {
+    "bead_id": {
+      "type": "string",
+      "required": true,
+      "position": 1,
+      "validation": "Must exist in beads database",
+      "examples": ["zjj-abc123", "zjj-def456"]
+    },
+    "agent": {
+      "type": "string",
+      "required": false,
+      "flag": "--agent",
+      "description": "Agent command to run"
+    },
+    "no_agent": {
+      "type": "boolean",
+      "required": false,
+      "flag": "--no-agent",
+      "description": "Don't spawn agent, just create workspace"
+    }
+  },
+  "outputs": {
+    "success": {
+      "session_name": "string",
+      "workspace_path": "string",
+      "bead_id": "string",
+      "agent_id": "string",
+      "status": "active"
+    },
+    "errors": [
+      "BeadNotFound",
+      "BeadAlreadyInProgress",
+      "AgentNotRegistered",
+      "WorkspaceCreationFailed"
+    ]
+  },
+  "examples": [
+    "zjj work zjj-abc123",
+    "zjj work zjj-abc123 --agent claude",
+    "zjj work zjj-abc123 --no-agent"
+  ],
+  "next_commands": [
+    "zjj done",
+    "zjj checkpoint create",
+    "zjj status"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj spawn command
+    pub const fn spawn() -> &'static str {
+        r#"AI CONTRACT for zjj spawn:
+{
+  "command": "zjj spawn",
+  "intent": "Create workspace and spawn automated agent with isolation",
+  "prerequisites": [
+    "zjj init must have been run",
+    "Beads database must be available",
+    "Agent system must be configured"
+  ],
+  "side_effects": {
+    "creates": ["JJ workspace", "Zellij tab", "Agent process", "Database records"],
+    "modifies": ["Bead status", "Agent registry"],
+    "state_transition": "open → in_progress"
+  },
+  "inputs": {
+    "bead_id": {
+      "type": "string",
+      "required": true,
+      "position": 1,
+      "validation": "Must be open bead in database"
+    },
+    "agent": {
+      "type": "string",
+      "required": false,
+      "flag": "-a|--agent",
+      "default": "claude"
+    }
+  },
+  "outputs": {
+    "success": {
+      "bead_id": "string",
+      "session_name": "string",
+      "workspace_path": "string",
+      "agent": "string",
+      "status": "started|running|completed|failed"
+    }
+  },
+  "examples": [
+    "zjj spawn zjj-abc123",
+    "zjj spawn zjj-abc123 --agent claude-opus"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj done command
+    pub const fn done() -> &'static str {
+        r#"AI CONTRACT for zjj done:
+{
+  "command": "zjj done",
+  "intent": "Complete work, merge changes to main, and cleanup workspace",
+  "prerequisites": [
+    "Session must be active",
+    "Workspace must have committed changes",
+    "No merge conflicts should exist"
+  ],
+  "side_effects": {
+    "creates": ["Merge commit on main"],
+    "deletes": ["JJ workspace", "Session record", "Zellij tab"],
+    "modifies": ["Main branch", "Bead status"],
+    "state_transition": "active → completed"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": false,
+      "default": "current session"
+    },
+    "force": {
+      "type": "boolean",
+      "flag": "--force",
+      "description": "Force merge even with conflicts"
+    }
+  },
+  "outputs": {
+    "success": {
+      "session_name": "string",
+      "merged": true,
+      "commit_id": "string"
+    },
+    "errors": [
+      "NoActiveSession",
+      "MergeConflict",
+      "WorkspaceDirty",
+      "SessionNotFound"
+    ]
+  },
+  "examples": [
+    "zjj done",
+    "zjj done feature-auth",
+    "zjj done --force"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj status command
+    pub const fn status() -> &'static str {
+        r#"AI CONTRACT for zjj status:
+{
+  "command": "zjj status",
+  "intent": "Query current state of sessions and workspaces",
+  "prerequisites": [
+    "zjj init must have been run"
+  ],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": false,
+      "description": "Specific session name, or all if omitted"
+    }
+  },
+  "outputs": {
+    "success": {
+      "sessions": [
+        {
+          "name": "string",
+          "status": "active|paused|completed|failed",
+          "workspace_path": "string",
+          "branch": "string",
+          "changes": {
+            "modified": "number",
+            "added": "number",
+            "deleted": "number"
+          },
+          "beads": {
+            "open": "number",
+            "in_progress": "number",
+            "blocked": "number"
+          }
+        }
+      ]
+    }
+  },
+  "examples": [
+    "zjj status",
+    "zjj status feature-auth"
+  ]
+}"#
+    }
+
+    /// AI hints for command sequencing
+    pub const fn command_flow() -> &'static str {
+        r#"AI COMMAND FLOW:
+{
+  "typical_workflows": {
+    "manual_feature_development": [
+      "zjj init",
+      "zjj add feature-name",
+      "zjj focus feature-name",
+      "... work ...",
+      "zjj checkpoint create",
+      "zjj done"
+    ],
+    "automated_agent_task": [
+      "zjj init",
+      "zjj work bead-id --agent claude",
+      "zjj focus session-name",
+      "... agent works ...",
+      "zjj done"
+    ],
+    "parallel_agent_tasks": [
+      "zjj init",
+      "zjj spawn bead-1",
+      "zjj spawn bead-2",
+      "zjj spawn bead-3",
+      "... agents work in parallel ...",
+      "zjj sync --all",
+      "zjj done --all"
+    ]
+  },
+  "command_preconditions": {
+    "zjj add": ["zjj init"],
+    "zjj work": ["zjj init"],
+    "zjj spawn": ["zjj init"],
+    "zjj done": ["active session"],
+    "zjj focus": ["Zellij running"],
+    "zjj sync": ["active session"]
+  },
+  "error_recovery": {
+    "MergeConflict": ["zjj resolve", "zjj done --force"],
+    "WorkspaceDirty": ["zjj checkpoint create", "jj commit"],
+    "SessionNotFound": ["zjj list", "zjj add"],
+    "AgentCrash": ["zjj attach", "zjj status"]
+  }
+}"#
+    }
+}
