@@ -90,18 +90,20 @@ pub const fn should_log_recovery(config: &RecoveryConfig) -> bool {
 ///
 /// Returns `Error::DatabaseError` if validation fails
 pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Result<()> {
-    // Check if database file exists
-    if !tokio::fs::try_exists(db_path).await? {
-        return Err(Error::DatabaseError(format!(
-            "Database file not found: {path}",
-            path = db_path.display()
-        )));
-    }
-
     // Check file size (must be at least 100 bytes for SQLite header)
-    let metadata = tokio::fs::metadata(db_path)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Cannot access database: {e}")))?;
+    // Try-metadata pattern eliminates TOCTTOU race from exists() check
+    let metadata = match tokio::fs::metadata(db_path).await {
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(Error::DatabaseError(format!(
+                "Database file not found: {path}",
+                path = db_path.display()
+            )));
+        }
+        Err(e) => {
+            return Err(Error::DatabaseError(format!("Cannot access database: {e}")));
+        }
+    };
 
     if metadata.len() < 100 {
         log_recovery(
@@ -196,23 +198,15 @@ pub async fn repair_database(db_path: &Path, config: &RecoveryConfig) -> Result<
     }
 
     // Remove corrupted database file
-    if tokio::fs::try_exists(db_path).await? {
-        tokio::fs::remove_file(db_path).await.map_err(|e| {
-            Error::DatabaseError(format!("Failed to remove corrupted database: {e}"))
-        })?;
+    // Try-remove pattern eliminates TOCTTOU race from exists() check
+    tokio::fs::remove_file(db_path).await.ok();
 
-        // Also remove WAL and SHM files if they exist
-        let wal_path = db_path.with_extension("db-wal");
-        let shm_path = db_path.with_extension("db-shm");
+    // Also remove WAL and SHM files (try-remove pattern eliminates TOCTTOU)
+    let wal_path = db_path.with_extension("db-wal");
+    let shm_path = db_path.with_extension("db-shm");
 
-        if tokio::fs::try_exists(&wal_path).await? {
-            tokio::fs::remove_file(&wal_path).await.ok();
-        }
-
-        if tokio::fs::try_exists(&shm_path).await? {
-            tokio::fs::remove_file(&shm_path).await.ok();
-        }
-    }
+    tokio::fs::remove_file(&wal_path).await.ok();
+    tokio::fs::remove_file(&shm_path).await.ok();
 
     Ok(())
 }
