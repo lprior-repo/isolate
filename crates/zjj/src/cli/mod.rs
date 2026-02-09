@@ -4,6 +4,8 @@ pub mod commands;
 pub mod handlers;
 pub mod json_docs;
 
+pub use commands::build_cli;
+
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::process::Command as StdCommand;
