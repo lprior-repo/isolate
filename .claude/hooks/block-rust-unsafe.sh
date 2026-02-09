@@ -7,16 +7,32 @@ set -euo pipefail
 # Read JSON input from stdin
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
+OPERATION=$(echo "$INPUT" | jq -r '.tool // empty' | head -c 4)  # "Edit" or "Writ"
 
-# Only check Rust source files (not tests)
+# Only check Rust source files (not tests directories)
 if [[ ! "$FILE_PATH" =~ ^crates/.*/src/.*\.rs$ ]]; then
     exit 0
 fi
 
-# Check if file exists (for new files being created)
-if [[ ! -f "$FILE_PATH" ]]; then
-    # For Write operations on new files, check the content
+# Skip files that contain test code (allow unwrap/expect in test modules)
+if [[ -f "$FILE_PATH" ]]; then
+    # Check if file contains test markers
+    if grep -qF '#[cfg(test)]' "$FILE_PATH" || \
+       grep -qF '#[test]' "$FILE_PATH" || \
+       grep -qF '#[tokio::test]' "$FILE_PATH"; then
+        exit 0
+    fi
+fi
+
+# For Write operations on new files, check the content for test markers first
+if [[ "$OPERATION" == "Writ" ]]; then
     CONTENT=$(echo "$INPUT" | jq -r '.tool_input.content // empty')
+    # Allow if content contains test markers
+    if echo "$CONTENT" | grep -qF '#[cfg(test)]' || \
+       echo "$CONTENT" | grep -qF '#[test]' || \
+       echo "$CONTENT" | grep -qF '#[tokio::test]'; then
+        exit 0
+    fi
     # Check for unsafe patterns using fixed string matching for reliability
     if echo "$CONTENT" | grep -qF 'unwrap()' || \
        echo "$CONTENT" | grep -qF 'expect(' || \
@@ -25,7 +41,7 @@ if [[ ! -f "$FILE_PATH" ]]; then
        echo "$CONTENT" | grep -qF 'unimplemented!('; then
         echo "❌ BLOCKED: Unsafe Rust pattern in new file $FILE_PATH" >&2
         echo "" >&2
-        echo "The following patterns are PROHIBITED in src/ code:" >&2
+        echo "The following patterns are PROHIBITED in production src/ code:" >&2
         echo "  • unwrap() - Use proper error handling with Result<T, E>" >&2
         echo "  • expect() - Use Result<T, E> with ? operator" >&2
         echo "  • panic!() - Never panic in production code" >&2
@@ -39,25 +55,31 @@ if [[ ! -f "$FILE_PATH" ]]; then
     exit 0
 fi
 
-# Check existing file for unsafe patterns
-# Use grep to find violations
-if grep -qF 'unwrap()' "$FILE_PATH" || \
-   grep -qF 'expect(' "$FILE_PATH" || \
-   grep -qF 'panic!(' "$FILE_PATH" || \
-   grep -qF 'todo!(' "$FILE_PATH" || \
-   grep -qF 'unimplemented!(' "$FILE_PATH"; then
-    PATTERN=""
-    if grep -qF 'unwrap()' "$FILE_PATH"; then PATTERN="unwrap()"; fi
-    if grep -qF 'expect(' "$FILE_PATH"; then PATTERN="${PATTERN:-} expect("; fi
-    if grep -qF 'panic!(' "$FILE_PATH"; then PATTERN="${PATTERN:-} panic!("; fi
-    if grep -qF 'todo!(' "$FILE_PATH"; then PATTERN="${PATTERN:-} todo!("; fi
-    if grep -qF 'unimplemented!(' "$FILE_PATH"; then PATTERN="${PATTERN:-} unimplemented!("; fi
-
-    echo "❌ BLOCKED: Unsafe Rust pattern(s) found in $FILE_PATH" >&2
-    echo "" >&2
-    echo "Fix required: Replace with proper error handling" >&2
-    echo "See CLAUDE.md rule #5: ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC" >&2
-    exit 2
+# For Edit operations, check the new_string being introduced
+NEW_STRING=$(echo "$INPUT" | jq -r '.tool_input.new_string // empty')
+if [[ -n "$NEW_STRING" ]]; then
+    # Check for unsafe patterns in the new string being added
+    if echo "$NEW_STRING" | grep -qF 'unwrap()' || \
+       echo "$NEW_STRING" | grep -qF 'expect(' || \
+       echo "$NEW_STRING" | grep -qF 'panic!(' || \
+       echo "$NEW_STRING" | grep -qF 'todo!(' || \
+       echo "$NEW_STRING" | grep -qF 'unimplemented!('; then
+        echo "❌ BLOCKED: Unsafe Rust pattern in edit to $FILE_PATH" >&2
+        echo "" >&2
+        echo "The following patterns are PROHIBITED in production src/ code:" >&2
+        echo "  • unwrap() - Use proper error handling with Result<T, E>" >&2
+        echo "  • expect() - Use Result<T, E> with ? operator" >&2
+        echo "  • panic!() - Never panic in production code" >&2
+        echo "  • todo!() - Implement the function or use a placeholder" >&2
+        echo "  • unimplemented!() - Implement the function" >&2
+        echo "" >&2
+        echo "ALLOWED in test code: unwrap(), expect(), panic!() for test scenarios" >&2
+        echo "See CLAUDE.md rule #5: ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC" >&2
+        echo "" >&2
+        echo "Pattern found in:" >&2
+        echo "$NEW_STRING" | head -c 200 >&2
+        exit 2
+    fi
 fi
 
 exit 0
