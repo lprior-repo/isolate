@@ -48,9 +48,9 @@ fn bdd_spawn_ai_hints_flag_does_not_panic() {
 
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("AI HINTS for zjj spawn"))
-        .stdout(predicate::str::contains("workflow"))
-        .stdout(predicate::str::contains("patterns"));
+        .stdout(predicate::str::contains("AI COMMAND FLOW"))
+        .stdout(predicate::str::contains("typical_workflows"))
+        .stdout(predicate::str::contains("command_preconditions"));
 }
 
 #[test]
