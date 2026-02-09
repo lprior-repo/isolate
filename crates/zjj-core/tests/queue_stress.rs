@@ -1,4 +1,6 @@
-//! Stress test for coordination queue - Run with: cargo test --test `queue_stress`
+//! Stress test for coordination queue - Run with: cargo test --test 'queue_stress'
+
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 
 use std::time::Duration;
 
@@ -51,10 +53,12 @@ async fn stress_concurrent_claim_with_massive_contention() -> Result<()> {
     let results: Vec<bool> = futures::future::join_all(handles)
         .await
         .into_iter()
-        .map(|r| r.unwrap_or_else(|e| {
-            eprintln!("Task join error: {e:?}");
-            false
-        }))
+        .map(|r| {
+            r.unwrap_or_else(|e| {
+                eprintln!("Task join error: {e:?}");
+                false
+            })
+        })
         .collect();
 
     let claims = results.iter().filter(|&&x| x).count();
@@ -97,9 +101,9 @@ async fn stress_rapid_add_remove_cycle() -> Result<()> {
         let handle = tokio::spawn(async move {
             for j in 0..10 {
                 let workspace = format!("ws-{i}-{j}");
-                let () = q.add(&workspace, None, 5, None).await;
-                let () = tokio::time::sleep(Duration::from_millis(1)).await;
-                let () = q.remove(&workspace).await;
+                q.add(&workspace, None, 5, None).await.unwrap();
+                tokio::time::sleep(Duration::from_millis(1)).await;
+                q.remove(&workspace).await.unwrap();
             }
         });
         handles.push(handle);
@@ -364,7 +368,7 @@ async fn stress_cleanup_old_entries_under_load() -> Result<()> {
 
     // Cleanup entries older than 1 second (should clean all completed)
     let cleaned = queue.cleanup(Duration::from_secs(1)).await?;
-    println!("Cleaned {} old entries", cleaned);
+    println!("Cleaned {cleaned} old entries");
 
     assert_eq!(cleaned, 50, "Should clean all 50 completed entries");
 

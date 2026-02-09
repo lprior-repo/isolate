@@ -592,12 +592,12 @@ pub fn parse_json_output(s: &str) -> Result<JsonValue, serde_json::Error> {
 }
 
 /// Return envelope payload (`data`) when present, otherwise return root object.
-pub fn payload<'a>(json: &'a JsonValue) -> &'a JsonValue {
-    json.get("data").unwrap_or(json)
+pub fn payload(json: &JsonValue) -> &JsonValue {
+    json.get("data").map_or(json, |v| v)
 }
 
 /// Return session entries from either `data.sessions` or array payload shapes.
-pub fn session_entries<'a>(json: &'a JsonValue) -> Option<&'a Vec<JsonValue>> {
+pub fn session_entries(json: &JsonValue) -> Option<&Vec<JsonValue>> {
     let root = payload(json);
     root.get("sessions")
         .and_then(JsonValue::as_array)
