@@ -278,7 +278,14 @@ pub async fn run_list(options: &ListOptions) -> Result<()> {
     let bookmarks = list(options).await?;
 
     if options.format.is_json() {
-        let envelope = SchemaEnvelope::new("bookmark-list-response", "array", bookmarks);
+        // Wrap bookmarks in a struct to work with SchemaEnvelope's flatten
+        #[derive(Serialize)]
+        struct BookmarkListResponse {
+            bookmarks: Vec<BookmarkInfo>,
+        }
+
+        let response = BookmarkListResponse { bookmarks };
+        let envelope = SchemaEnvelope::new("bookmark-list-response", "single", response);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else if bookmarks.is_empty() {
         println!("No bookmarks found.");
