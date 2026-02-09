@@ -106,15 +106,50 @@ tokio::spawn(async move {
 
 ### Pattern 5: Blocking Calls in Async Context
 
-When calling blocking code from async context:
+When calling blocking code from async context, use `tokio::task::spawn_blocking` to offload to the blocking thread pool:
 
 ```rust
 let result = tokio::task::spawn_blocking(move || {
-    // Blocking operation
+    // Blocking operation runs on blocking thread pool
     heavy_computation(data)
 })
-.await??;
+.await
+.context("Failed to join blocking task")??;
 ```
+
+#### Real-World Example: File I/O in Checkpoint
+
+The checkpoint command uses `spawn_blocking` for heavy tar/gz operations:
+
+```rust
+async fn backup_workspace(
+    session_name: &str,
+    workspace_path: &Path,
+    checkpoint_id: &str,
+) -> Result<String> {
+    let session_name = session_name.to_string();
+    let workspace_path = workspace_path.to_path_buf();
+    let checkpoint_id = checkpoint_id.to_string();
+
+    tokio::task::spawn_blocking(move || {
+        // Heavy blocking I/O: tarball creation, compression
+        let backup_file = File::create(&backup_path)?;
+        let gz_encoder = flate2::write::GzEncoder::new(backup_file, Compression::default());
+        let mut tar_builder = Builder::new(gz_encoder);
+        tar_builder.append_dir_all(".", &workspace_path)?;
+        // ... more blocking operations ...
+        Ok(backup_path.to_string_lossy().to_string())
+    })
+    .await
+    .context("Failed to join backup task")?
+}
+```
+
+**Why this matters:**
+- Blocking operations (tar/gz, file I/O) would block the entire async executor thread
+- `spawn_blocking` moves these to a dedicated blocking thread pool
+- Keeps async executor responsive for other tasks
+- Essential for I/O-heavy operations in async contexts
 
 ## Error Handling
 

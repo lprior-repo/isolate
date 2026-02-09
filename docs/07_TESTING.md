@@ -148,6 +148,55 @@ fn test_full_pipeline() {
 }
 ```
 
+## Integration Test Clippy Allowances
+
+Integration tests in `tests/` directories have **relaxed clippy settings** for brutal test scenarios. They are separate compilation units from the main crate, so they need their own lint allowances.
+
+### Test File Header Pattern
+
+All integration tests should include this header (after doc comments, before code):
+
+```rust
+// Integration tests have relaxed clippy settings for brutal test scenarios.
+// Production code (src/) must use strict zero-unwrap/panic patterns.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unimplemented,
+    clippy::todo,
+    clippy::unreachable,
+    clippy::indexing_slicing,
+    // Test code ergonomics
+    clippy::too_many_lines,
+    clippy::cognitive_complexity,
+    clippy::too_many_arguments,
+    // Format string ergonomics for tests
+    clippy::uninlined_format_args,
+    // Documentation relaxations for test-only code
+    clippy::doc_markdown,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    // Pattern matching relaxations
+    clippy::manual_let_else,
+    clippy::option_if_let_else,
+    clippy::match_same_arms,
+    clippy::ignored_unit_patterns,
+    // Test-specific patterns
+    clippy::needless_raw_string_hashes,
+    clippy::bool_assert_comparison,
+)]
+```
+
+### Common Test Modules
+
+- `crates/zjj/tests/common/mod.rs` - Utilities for zjj integration tests
+- `crates/zjj-core/tests/common/mod.rs` - Utilities for zjj-core integration tests
+
+These modules export helper functions and ensure consistent lint allowances across all integration tests.
+
+**Production code (src/) must NEVER use these relaxed settings** - strict zero-unwrap/panic patterns are enforced via workspace-level `deny` lints.
+
 ## Mocking and Testing Results
 
 ```rust
