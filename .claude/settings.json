@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-rust-unsafe.sh",
+            "command": "/home/lewis/.claude/hooks/claude-hook-block-unsafe-wrapper.sh",
             "statusMessage": "Enforcing ZERO_UNWRAP rule..."
           }
         ]
