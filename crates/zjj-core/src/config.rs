@@ -450,10 +450,11 @@ impl ConfigManager {
 
             // Watch each config path
             for path in paths_to_watch {
-                if path.exists() {
-                    let _ = watcher.watch(&path, notify::RecursiveMode::NonRecursive);
-                } else {
-                    // Watch parent directory for file creation
+                // Try watching the file directly first, fall back to parent on error
+                let watch_result = watcher.watch(&path, notify::RecursiveMode::NonRecursive);
+
+                // If file doesn't exist, watch parent directory for creation
+                if watch_result.is_err() {
                     if let Some(parent) = path.parent() {
                         let _ = watcher.watch(parent, notify::RecursiveMode::NonRecursive);
                     }
@@ -620,19 +621,25 @@ pub async fn load_config() -> Result<Config> {
     // 1. Start with built-in defaults
     let mut config = Config::default();
 
-    // 2. Load global config if exists
+    // 2. Load global config if exists (try-load pattern eliminates TOCTTOU race)
     if let Ok(global_path) = global_config_path() {
-        if global_path.exists() {
-            let global = load_toml_file(&global_path).await?;
-            config.merge(global);
+        match load_toml_file(&global_path).await {
+            Ok(global) => config.merge(global),
+            Err(Error::IoError(_)) => {
+                // Config file doesn't exist - skip silently
+            }
+            Err(e) => return Err(e),
         }
     }
 
-    // 3. Load project config if exists
+    // 3. Load project config if exists (try-load pattern eliminates TOCTTOU race)
     if let Ok(project_path) = project_config_path() {
-        if project_path.exists() {
-            let project = load_toml_file(&project_path).await?;
-            config.merge(project); // Project overrides global
+        match load_toml_file(&project_path).await {
+            Ok(project) => config.merge(project),
+            Err(Error::IoError(_)) => {
+                // Config file doesn't exist - skip silently
+            }
+            Err(e) => return Err(e),
         }
     }
 
