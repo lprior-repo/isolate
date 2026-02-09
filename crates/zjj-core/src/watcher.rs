@@ -128,13 +128,24 @@ impl FileWatcher {
         // Watch each workspace's beads database
         workspaces.iter().try_for_each(|workspace| {
             let beads_db = workspace.join(".beads/beads.db");
-            if beads_db.exists() {
-                debouncer
-                    .watcher()
-                    .watch(&beads_db, RecursiveMode::NonRecursive)
-                    .map_err(|e| {
-                        Error::IoError(format!("Failed to watch {}: {e}", beads_db.display()))
-                    })?;
+            let file_watch_result = debouncer
+                .watcher()
+                .watch(&beads_db, RecursiveMode::NonRecursive);
+
+            if file_watch_result.is_err() {
+                if let Some(parent) = beads_db.parent() {
+                    let parent_watch_result = debouncer
+                        .watcher()
+                        .watch(parent, RecursiveMode::NonRecursive);
+
+                    if parent_watch_result.is_err() {
+                        // Workspace may not have a .beads directory yet; skip and continue.
+                        tracing::debug!(
+                            "Skipping watcher for {} because neither file nor parent is watchable yet",
+                            beads_db.display()
+                        );
+                    }
+                }
             }
             Ok::<(), Error>(())
         })?;

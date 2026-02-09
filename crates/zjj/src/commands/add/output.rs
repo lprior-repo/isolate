@@ -8,6 +8,7 @@ pub(super) fn output_result(
     workspace_path: &str,
     zellij_tab: &str,
     mode: &str,
+    created: bool,
     format: OutputFormat,
 ) {
     let is_replay = mode.contains("idempotent") || mode.contains("command replay");
@@ -30,13 +31,33 @@ pub(super) fn output_result(
             workspace_path: workspace_path.to_string(),
             zellij_tab: zellij_tab.to_string(),
             status: status_msg,
+            created,
         };
-        let envelope = SchemaEnvelope::new("add-response", "single", output);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string())
-        );
+        let envelope_result =
+            serde_json::to_value(SchemaEnvelope::new("add-response", "single", &output));
+        match envelope_result {
+            Ok(mut value) => {
+                if let Some(obj) = value.as_object_mut() {
+                    obj.insert(
+                        "schema".to_string(),
+                        serde_json::Value::String("add-response".to_string()),
+                    );
+                    obj.insert(
+                        "type".to_string(),
+                        serde_json::Value::String("single".to_string()),
+                    );
+                    if let Ok(data_value) = serde_json::to_value(output) {
+                        obj.insert("data".to_string(), data_value);
+                    }
+                }
+
+                match serde_json::to_string_pretty(&value) {
+                    Ok(serialized) => println!("{serialized}"),
+                    Err(_) => println!("{{\"error\": \"serialization failed\"}}"),
+                }
+            }
+            Err(_) => println!("{{\"error\": \"serialization failed\"}}"),
+        }
     } else {
         println!("{human_msg}");
     }

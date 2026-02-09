@@ -23,6 +23,7 @@ pub struct AddOutput {
     pub workspace_path: String,
     pub zellij_tab: String,
     pub status: String,
+    pub created: bool,
 }
 
 /// Remove command JSON output
@@ -156,6 +157,7 @@ mod tests {
             workspace_path: "/path/to/workspace".to_string(),
             zellij_tab: "zjj:test-session".to_string(),
             status: "active".to_string(),
+            created: true,
         };
 
         let json = serde_json::to_value(&output)?;
@@ -182,6 +184,7 @@ mod tests {
             workspace_path: format!("/workspaces/{session_name}"),
             zellij_tab: format!("zjj:{session_name}"),
             status: "creating".to_string(),
+            created: true,
         };
 
         let json = serde_json::to_value(&output)?;
@@ -202,6 +205,7 @@ mod tests {
             workspace_path: "/path".to_string(),
             zellij_tab: "zjj:test".to_string(),
             status: "failed".to_string(),
+            created: false,
         };
 
         let json_str = serde_json::to_string(&output)?;
@@ -227,6 +231,7 @@ mod tests {
             workspace_path: "/workspace/test".to_string(),
             zellij_tab: "zjj:test".to_string(),
             status: "active".to_string(),
+            created: true,
         };
 
         let json = serde_json::to_value(&output)?;
@@ -241,6 +246,7 @@ mod tests {
             Some("zjj:test")
         );
         assert_eq!(json.get("status").and_then(|v| v.as_str()), Some("active"));
+        assert_eq!(json.get("created").and_then(|v| v.as_bool()), Some(true));
         Ok(())
     }
 
@@ -275,6 +281,7 @@ mod tests {
             workspace_path: "/workspace".to_string(),
             zellij_tab: "zjj:my-session".to_string(),
             status: "active".to_string(),
+            created: true,
         };
 
         let remove_output = RemoveOutput {
@@ -336,6 +343,7 @@ mod tests {
             workspace_path: "/workspace".to_string(),
             zellij_tab: "zjj:my-session".to_string(),
             status: "active".to_string(),
+            created: true,
         };
 
         let remove = RemoveOutput {

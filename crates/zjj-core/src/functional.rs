@@ -38,7 +38,9 @@ where
     items.into_iter().fold(im::HashMap::new(), |mut map, item| {
         let key = key_fn(&item);
         #[allow(clippy::unnecessary_option_map_or_else)]
-        let mut group = map.get(&key).map_or_else(Vec::new, std::clone::Clone::clone);
+        let mut group = map
+            .get(&key)
+            .map_or_else(Vec::new, std::clone::Clone::clone);
         group.push(item);
         map.insert(key, group);
         map

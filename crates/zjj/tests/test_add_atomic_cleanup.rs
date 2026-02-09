@@ -61,6 +61,12 @@ fn test_add_workspace_creation_failure_rolls_back_file_workspace_path() {
         result.stdout,
         result.stderr
     );
+    assert!(
+        result.stderr.contains("Recovery:") || result.stdout.contains("Recovery:"),
+        "failure should include recovery guidance\nstdout: {}\nstderr: {}",
+        result.stdout,
+        result.stderr
+    );
 
     assert!(
         !workspace_path.exists(),
@@ -87,6 +93,35 @@ fn test_add_workspace_creation_failure_rolls_back_file_workspace_path() {
     assert!(
         session_status_from_list_json(&parsed, session_name).is_none(),
         "workspace-creation failure should remove db session record"
+    );
+
+    let retry_result = harness.zjj(&["add", session_name, "--no-open", "--no-hooks"]);
+    assert!(
+        retry_result.success,
+        "retry should succeed after rollback cleanup\nstdout: {}\nstderr: {}",
+        retry_result.stdout, retry_result.stderr
+    );
+    harness.assert_workspace_exists(session_name);
+
+    let retry_list_result = harness.zjj(&["list", "--all", "--json"]);
+    assert!(
+        retry_list_result.success,
+        "list should succeed after retry: {}",
+        retry_list_result.stderr
+    );
+    let retry_parsed_result: Result<JsonValue, _> = serde_json::from_str(&retry_list_result.stdout);
+    assert!(
+        retry_parsed_result.is_ok(),
+        "list output should be valid json after retry: {}",
+        retry_list_result.stdout
+    );
+    let Some(retry_parsed) = retry_parsed_result.ok() else {
+        return;
+    };
+    assert_eq!(
+        session_status_from_list_json(&retry_parsed, session_name).as_deref(),
+        Some("active"),
+        "retry should produce active session"
     );
 }
 
@@ -140,4 +175,39 @@ fn test_add_hook_failure_marks_failed_and_rolls_back_workspace() {
         Some("failed"),
         "hook failure should mark session status as failed"
     );
+}
+
+#[test]
+fn test_add_hook_failure_recoverable_via_remove_then_retry() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    harness.assert_success(&["init"]);
+
+    let session_name = "hook-failure-recoverable";
+    let failed_add = harness.zjj_with_env(
+        &["add", session_name, "--no-open"],
+        &[("ZJJ_TEST_FAIL_POST_CREATE_HOOK", "1")],
+    );
+    assert!(
+        !failed_add.success,
+        "add should fail when hook fails\nstdout: {}\nstderr: {}",
+        failed_add.stdout, failed_add.stderr
+    );
+
+    let remove_result = harness.zjj(&["remove", session_name, "--force"]);
+    assert!(
+        remove_result.success,
+        "remove --force should recover failed session\nstdout: {}\nstderr: {}",
+        remove_result.stdout, remove_result.stderr
+    );
+
+    let retry_result = harness.zjj(&["add", session_name, "--no-open", "--no-hooks"]);
+    assert!(
+        retry_result.success,
+        "add retry should succeed after remove\nstdout: {}\nstderr: {}",
+        retry_result.stdout, retry_result.stderr
+    );
+    harness.assert_workspace_exists(session_name);
 }

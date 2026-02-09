@@ -177,7 +177,39 @@ impl LockManager {
         let now = Utc::now();
         let now_str = now.to_rfc3339();
 
-        // CRITICAL: Check session exists BEFORE creating lock
+        // FAIL-FAST: check existing lock before session validation so contention
+        // exits quickly and deterministically.
+        let existing: Option<(String, String, String)> = sqlx::query_as(
+            "SELECT lock_id, agent_id, expires_at
+             FROM session_locks
+             WHERE session = ? AND expires_at >= ?",
+        )
+        .bind(session)
+        .bind(&now_str)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        if let Some((existing_lock_id, holder_agent_id, existing_expires_str)) = existing {
+            if holder_agent_id == agent_id {
+                let existing_expires = DateTime::parse_from_rfc3339(&existing_expires_str)
+                    .map_err(|e| Error::ParseError(e.to_string()))?
+                    .with_timezone(&Utc);
+                return Ok(LockResponse {
+                    lock_id: existing_lock_id,
+                    session: session.to_string(),
+                    agent_id: agent_id.to_string(),
+                    expires_at: existing_expires,
+                });
+            } else {
+                return Err(Error::SessionLocked {
+                    session: session.to_string(),
+                    holder: holder_agent_id,
+                });
+            }
+        }
+
+        // CRITICAL: Check session exists BEFORE creating a new lock
         // This prevents orphaned locks for non-existent sessions
         self.verify_session_exists(session).await?;
 
@@ -189,45 +221,6 @@ impl LockManager {
             .await
             .map_err(|e| Error::DatabaseError(e.to_string()))?;
 
-        // Check for existing lock
-        let existing: Option<(String, String)> = sqlx::query_as(
-            "SELECT agent_id, expires_at FROM session_locks WHERE session = ? AND expires_at >= ?",
-        )
-        .bind(session)
-        .bind(&now_str)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| Error::DatabaseError(e.to_string()))?;
-
-        if let Some((holder, _)) = existing {
-            // If same agent, just return the existing lock info
-            if holder == agent_id {
-                let row: (String, String, String) = sqlx::query_as(
-                    "SELECT lock_id, session, expires_at FROM session_locks WHERE session = ? AND agent_id = ?",
-                )
-                .bind(session)
-                .bind(agent_id)
-                .fetch_one(&self.db)
-                .await
-                .map_err(|e| Error::DatabaseError(e.to_string()))?;
-
-                let expires_at = DateTime::parse_from_rfc3339(&row.2)
-                    .map_err(|e| Error::ParseError(e.to_string()))?
-                    .with_timezone(&Utc);
-
-                return Ok(LockResponse {
-                    lock_id: row.0,
-                    session: row.1,
-                    agent_id: agent_id.to_string(),
-                    expires_at,
-                });
-            }
-            return Err(Error::SessionLocked {
-                session: session.to_string(),
-                holder,
-            });
-        }
-
         let expires_at = now + ttl;
         let expires_str = expires_at.to_rfc3339();
         let nanos = now
@@ -235,7 +228,7 @@ impl LockManager {
             .ok_or_else(|| Error::ParseError("Failed to get timestamp nanos".into()))?;
         let lock_id = format!("lock-{session}-{nanos}");
 
-        sqlx::query(
+        let insert_result = sqlx::query(
             "INSERT INTO session_locks (lock_id, session, agent_id, acquired_at, expires_at) VALUES (?, ?, ?, ?, ?)",
         )
         .bind(&lock_id)
@@ -244,11 +237,41 @@ impl LockManager {
         .bind(&now_str)
         .bind(&expires_str)
         .execute(&self.db)
-        .await
-        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+        .await;
+
+        if let Err(e) = insert_result {
+            // Map UNIQUE/constraint races to SessionLocked for stable API behavior.
+            if is_constraint_conflict_error(&e) {
+                let holder: Option<(String,)> =
+                    sqlx::query_as("SELECT agent_id FROM session_locks WHERE session = ?")
+                        .bind(session)
+                        .fetch_optional(&self.db)
+                        .await
+                        .map_err(|db_err| {
+                            Error::DatabaseError(format!(
+                                "Failed to query lock holder after conflict: {db_err}"
+                            ))
+                        })?;
+
+                return Err(Error::SessionLocked {
+                    session: session.to_string(),
+                    holder: holder.map_or_else(|| "unknown".to_string(), |(id,)| id),
+                });
+            }
+
+            return Err(Error::DatabaseError(format!(
+                "Failed to acquire lock with TTL: {e}"
+            )));
+        }
 
         // Log the lock operation
-        self.log_operation(session, agent_id, "lock").await?;
+        if let Err(log_error) = self.log_operation(session, agent_id, "lock").await {
+            let _ = sqlx::query("DELETE FROM session_locks WHERE lock_id = ?")
+                .bind(&lock_id)
+                .execute(&self.db)
+                .await;
+            return Err(log_error);
+        }
 
         Ok(LockResponse {
             lock_id,
@@ -270,23 +293,22 @@ impl LockManager {
         // This is the cheapest check and fails fastest under contention
         // Query by session only (UNIQUE constraint = fast lookup), filter expired in Rust
         let existing: Option<(String, String, String)> = sqlx::query_as(
-            "SELECT lock_id, agent_id, expires_at FROM session_locks WHERE session = ?",
+            "SELECT lock_id, agent_id, expires_at
+             FROM session_locks
+             WHERE session = ? AND expires_at >= ?",
         )
         .bind(session)
+        .bind(&now_str)
         .fetch_optional(&self.db)
         .await
         .map_err(|e| Error::DatabaseError(e.to_string()))?;
 
         if let Some((existing_lock_id, holder_agent_id, existing_expires_str)) = existing {
-            // Check if lock is expired
-            let existing_expires = DateTime::parse_from_rfc3339(&existing_expires_str)
-                .map_err(|e| Error::ParseError(e.to_string()))?
-                .with_timezone(&Utc);
-
-            if existing_expires < now {
-                // Lock is expired, fall through to acquire it
-            } else if holder_agent_id == agent_id {
+            if holder_agent_id == agent_id {
                 // We already hold the lock - return existing lock info (idempotent)
+                let existing_expires = DateTime::parse_from_rfc3339(&existing_expires_str)
+                    .map_err(|e| Error::ParseError(e.to_string()))?
+                    .with_timezone(&Utc);
                 return Ok(LockResponse {
                     lock_id: existing_lock_id,
                     session: session.to_string(),
@@ -336,7 +358,13 @@ impl LockManager {
         match insert_result {
             Ok(_) => {
                 // Log the lock operation
-                self.log_operation(session, agent_id, "lock").await?;
+                if let Err(log_error) = self.log_operation(session, agent_id, "lock").await {
+                    let _ = sqlx::query("DELETE FROM session_locks WHERE lock_id = ?")
+                        .bind(&lock_id)
+                        .execute(&self.db)
+                        .await;
+                    return Err(log_error);
+                }
 
                 Ok(LockResponse {
                     lock_id,
@@ -347,21 +375,20 @@ impl LockManager {
             }
             Err(e) => {
                 // Check if this was a UNIQUE constraint violation (race condition)
-                let error_msg = e.to_string().to_lowercase();
-                if error_msg.contains("unique") || error_msg.contains("constraint") {
+                if is_constraint_conflict_error(&e) {
                     // Another agent beat us to the lock - fetch current holder
-                    let holder: Option<(String,)> = sqlx::query_as(
-                        "SELECT agent_id FROM session_locks WHERE session = ?",
-                    )
-                    .bind(session)
-                    .fetch_optional(&self.db)
-                    .await
-                    .map_err(|db_err| Error::DatabaseError(format!("Failed to query lock holder after conflict: {db_err}")))?;
+                    let holder: Option<(String,)> =
+                        sqlx::query_as("SELECT agent_id FROM session_locks WHERE session = ?")
+                            .bind(session)
+                            .fetch_optional(&self.db)
+                            .await
+                            .map_err(|db_err| {
+                                Error::DatabaseError(format!(
+                                    "Failed to query lock holder after conflict: {db_err}"
+                                ))
+                            })?;
 
-                    let holder_agent_id = holder.map_or_else(
-                        || "unknown".to_string(),
-                        |(id,)| id,
-                    );
+                    let holder_agent_id = holder.map_or_else(|| "unknown".to_string(), |(id,)| id);
 
                     Err(Error::SessionLocked {
                         session: session.to_string(),
@@ -591,6 +618,21 @@ impl LockManager {
                 expires_at: None,
             }),
         }
+    }
+}
+
+fn is_constraint_conflict_error(error: &sqlx::Error) -> bool {
+    match error {
+        sqlx::Error::Database(db_error) => {
+            let code = db_error
+                .code()
+                .map_or(String::new(), |value| value.to_string());
+            code == "1555"
+                || code == "2067"
+                || code.starts_with("SQLITE_CONSTRAINT")
+                || db_error.message().to_lowercase().contains("constraint")
+        }
+        _ => false,
     }
 }
 
@@ -1068,25 +1110,22 @@ mod tests {
         let tasks: Vec<_> = (0..10)
             .map(|i| {
                 let mgr = mgr.clone();
-                tokio::spawn(async move {
-                    mgr.lock("contended-session", &format!("agent-{i}"))
-                        .await
-                })
+                tokio::spawn(
+                    async move { mgr.lock("contended-session", &format!("agent-{i}")).await },
+                )
             })
             .collect();
 
         // Wait for all tasks to complete
-        let results: Vec<std::result::Result<LockResponse, Error>> = futures::future::join_all(tasks)
-            .await
-            .into_iter()
-            .map(|r| r.unwrap())
-            .collect();
+        let results: Vec<std::result::Result<LockResponse, Error>> =
+            futures::future::join_all(tasks)
+                .await
+                .into_iter()
+                .map(|r| r.unwrap())
+                .collect();
 
         // Count successes and failures
-        let successful_locks = results
-            .iter()
-            .filter(|r| r.is_ok())
-            .count();
+        let successful_locks = results.iter().filter(|r| r.is_ok()).count();
 
         let failed_locks = results
             .iter()
@@ -1108,7 +1147,8 @@ mod tests {
         // Verify only one lock exists in database
         let locks = mgr.get_all_locks().await?;
         assert_eq!(
-            locks.len(), 1,
+            locks.len(),
+            1,
             "Expected exactly 1 lock in database, got {}",
             locks.len()
         );
@@ -1170,17 +1210,15 @@ mod tests {
             .collect();
 
         // Wait for all tasks
-        let results: Vec<std::result::Result<LockResponse, Error>> = futures::future::join_all(tasks)
-            .await
-            .into_iter()
-            .map(|r| r.unwrap())
-            .collect();
+        let results: Vec<std::result::Result<LockResponse, Error>> =
+            futures::future::join_all(tasks)
+                .await
+                .into_iter()
+                .map(|r| r.unwrap())
+                .collect();
 
         // Count successful locks
-        let successful_count = results
-            .iter()
-            .filter(|r| r.is_ok())
-            .count();
+        let successful_count = results.iter().filter(|r| r.is_ok()).count();
 
         // Each session should have exactly 1 lock holder
         assert_eq!(
@@ -1191,10 +1229,127 @@ mod tests {
         // Verify database state
         let locks = mgr.get_all_locks().await?;
         assert_eq!(
-            locks.len(), 10,
+            locks.len(),
+            10,
             "Expected 10 locks in database, got {}",
             locks.len()
         );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Result<()> {
+        let pool = test_pool().await?;
+        let mgr = LockManager::new(pool.clone());
+        mgr.init().await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS sessions (
+                name TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                state TEXT NOT NULL,
+                workspace_path TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        sqlx::query(
+            "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
+        )
+        .bind("ttl-contended-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        let tasks: Vec<_> = (0..10)
+            .map(|i| {
+                let mgr = mgr.clone();
+                tokio::spawn(async move {
+                    mgr.lock_with_ttl("ttl-contended-session", &format!("agent-{i}"), 60)
+                        .await
+                })
+            })
+            .collect();
+
+        let results: Vec<std::result::Result<LockResponse, Error>> =
+            futures::future::join_all(tasks)
+                .await
+                .into_iter()
+                .map(|r| r.map_err(|e| Error::Unknown(e.to_string())))
+                .collect::<Result<Vec<_>>>()?;
+
+        let successful_locks = results.iter().filter(|r| r.is_ok()).count();
+        let session_locked_errors = results
+            .iter()
+            .filter(|r| matches!(r, Err(Error::SessionLocked { .. })))
+            .count();
+        let database_errors = results
+            .iter()
+            .filter(|r| matches!(r, Err(Error::DatabaseError(_))))
+            .count();
+
+        assert_eq!(successful_locks, 1, "expected exactly 1 successful lock");
+        assert_eq!(
+            session_locked_errors, 9,
+            "expected all losing attempts to map to SessionLocked"
+        );
+        assert_eq!(
+            database_errors, 0,
+            "contention should not leak DatabaseError"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn regression_lock_with_ttl_fails_fast_before_session_validation() -> Result<()> {
+        let pool = test_pool().await?;
+        let mgr = LockManager::new(pool.clone());
+        mgr.init().await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS sessions (
+                name TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                state TEXT NOT NULL,
+                workspace_path TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        sqlx::query(
+            "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
+        )
+        .bind("ordered-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        let _lock = mgr.lock("ordered-session", "agent-a").await?;
+
+        sqlx::query("DELETE FROM sessions WHERE name = ?")
+            .bind("ordered-session")
+            .execute(&pool)
+            .await
+            .map_err(|e| Error::DatabaseError(e.to_string()))?;
+
+        let result = mgr.lock_with_ttl("ordered-session", "agent-b", 60).await;
+        assert!(matches!(
+            result,
+            Err(Error::SessionLocked { session, holder })
+            if session == "ordered-session" && holder == "agent-a"
+        ));
 
         Ok(())
     }

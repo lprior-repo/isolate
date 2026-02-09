@@ -6,7 +6,7 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use zjj_core::coordination::locks::LockManager;
 
 use super::{
@@ -27,6 +27,13 @@ async fn test_pool() -> Result<sqlx::SqlitePool, zjj_core::Error> {
 async fn setup_lock_manager() -> Result<LockManager, zjj_core::Error> {
     let pool = test_pool().await?;
     let mgr = LockManager::new(pool);
+    mgr.init().await?;
+    Ok(mgr)
+}
+
+async fn setup_lock_manager_with_ttl(ttl_secs: i64) -> Result<LockManager, zjj_core::Error> {
+    let pool = test_pool().await?;
+    let mgr = LockManager::with_ttl(pool, Duration::seconds(ttl_secs));
     mgr.init().await?;
     Ok(mgr)
 }
@@ -217,5 +224,26 @@ async fn test_lock_respects_custom_ttl() -> anyhow::Result<()> {
 
     assert!((diff - 60).abs() < 5, "TTL difference too large: {diff}");
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lock_default_ttl_uses_manager_default() -> anyhow::Result<()> {
+    let mgr = setup_lock_manager_with_ttl(1).await?;
+
+    let args = LockArgs {
+        session: "test-session".to_string(),
+        agent_id: Some("agent1".to_string()),
+        ttl: 0,
+    };
+
+    let output = run_lock_async(&args, &mgr).await?;
+    let expires = output
+        .expires_at
+        .ok_or_else(|| anyhow::anyhow!("No expires_at"))?;
+    let now = Utc::now();
+    let diff = (expires - now).num_seconds();
+
+    assert!((0..=2).contains(&diff), "Expected ~1s TTL, got {diff}s");
     Ok(())
 }

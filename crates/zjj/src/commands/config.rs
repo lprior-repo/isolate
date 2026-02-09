@@ -14,6 +14,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use serde_json::Value as JsonValue;
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use zjj_core::{config::Config, json::SchemaEnvelope, OutputFormat};
 
 use crate::json::{ConfigSetOutput, ConfigValueOutput};
@@ -231,7 +232,7 @@ async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<
     }
 
     // Open file with read and write access, creating if it doesn't exist
-    let file = OpenOptions::new()
+    let mut file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
@@ -265,12 +266,23 @@ async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<
 
     // Load existing config or create new document
     let mut doc = {
-        let content = tokio::fs::read_to_string(config_path)
+        file.seek(std::io::SeekFrom::Start(0))
             .await
             .context(format!(
-                "Failed to read config file {}",
+                "Failed to seek config file {}",
                 config_path.display()
             ))?;
+
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).await.context(format!(
+            "Failed to read config file {}",
+            config_path.display()
+        ))?;
+
+        let content = String::from_utf8(bytes).context(format!(
+            "Config file contains invalid UTF-8: {}",
+            config_path.display()
+        ))?;
 
         if content.trim().is_empty() {
             toml_edit::DocumentMut::new()
@@ -286,12 +298,27 @@ async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<
     set_nested_value(&mut doc, &parts, value)?;
 
     // Write back to file (still holding the lock)
-    tokio::fs::write(config_path, doc.to_string())
+    let serialized = doc.to_string();
+    file.set_len(0).await.context(format!(
+        "Failed to truncate config file {}",
+        config_path.display()
+    ))?;
+    file.seek(std::io::SeekFrom::Start(0))
+        .await
+        .context(format!(
+            "Failed to seek config file {}",
+            config_path.display()
+        ))?;
+    file.write_all(serialized.as_bytes())
         .await
         .context(format!(
             "Failed to write config file {}",
             config_path.display()
         ))?;
+    file.flush().await.context(format!(
+        "Failed to flush config file {}",
+        config_path.display()
+    ))?;
 
     // Lock is released automatically when `file` is dropped
     drop(file);
