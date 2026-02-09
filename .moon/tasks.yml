@@ -189,7 +189,7 @@ tasks:
   # ============================================================================
 
   install:
-    command: "mkdir -p ~/.local/bin && cargo build --release --bin zjj --package zjj && cp target/release/zjj ~/.local/bin/zjj && chmod +x ~/.local/bin/zjj && echo '✅ Installed zjj to ~/.local/bin/zjj'"
+    command: "mkdir -p ~/.local/bin && cargo build --release --bin zjj --package zjj && cp ${MOON_WORKSPACE_ROOT}/target/release/zjj ~/.local/bin/zjj && chmod +x ~/.local/bin/zjj && echo '✅ Installed zjj to ~/.local/bin/zjj'"
     description: "Install zjj binary to ~/.local/bin (system-wide)"
     options:
       cache: false

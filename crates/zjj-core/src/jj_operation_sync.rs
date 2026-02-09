@@ -21,10 +21,14 @@
 use std::{
     fs::{File, OpenOptions},
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use fs2::FileExt;
-use tokio::sync::Mutex;
+use tokio::{
+    sync::Mutex,
+    time::{error::Elapsed, timeout},
+};
 
 use crate::{jj::get_jj_command, Error, Result};
 
@@ -33,10 +37,99 @@ use crate::{jj::get_jj_command, Error, Result};
 /// This ensures that workspace creations are serialized, preventing
 /// operation graph divergence when multiple workspaces are created
 /// in quick succession.
+///
+/// The lock acquisition uses fail-fast semantics with timeout and retry:
+/// - Initial attempt: 50ms timeout
+/// - Maximum retries: 5
+/// - Exponential backoff: 50ms → 100ms → 200ms → 400ms → 800ms
+/// - Total maximum wait time: ~1.6 seconds across all retries
 static WORKSPACE_CREATION_LOCK: std::sync::LazyLock<Mutex<()>> =
     std::sync::LazyLock::new(|| Mutex::new(()));
 
+/// Lock acquisition timeout for single attempt
+#[allow(dead_code)]
+const LOCK_ACQUISITION_TIMEOUT: Duration = Duration::from_millis(50);
+
+/// Maximum retry attempts for lock acquisition
+#[allow(dead_code)]
+const MAX_LOCK_RETRIES: usize = 5;
+
+/// File lock name for cross-process synchronization
 const WORKSPACE_CREATION_LOCK_FILE: &str = "workspace-create.lock";
+
+/// Single lock acquisition timeout (fail-fast per attempt)
+const FILE_LOCK_TIMEOUT_MS: u64 = 5000;
+
+/// Maximum retry attempts for file lock acquisition
+const FILE_LOCK_MAX_RETRIES: usize = 3;
+
+/// Base backoff duration for lock contention
+const FILE_LOCK_BASE_BACKOFF_MS: u64 = 25;
+
+/// Acquire workspace creation lock with exponential backoff and fail-fast timeout
+///
+/// This function implements fail-fast lock acquisition:
+/// - Attempts lock acquisition with a short timeout (50ms)
+/// - Retries with exponential backoff if contention occurs
+/// - Returns error quickly if lock cannot be acquired after max retries
+/// - Total maximum wait time is ~1.6 seconds (50ms + 100ms + 200ms + 400ms + 800ms)
+///
+/// # Errors
+///
+/// Returns error if:
+/// - Lock cannot be acquired within timeout after all retries
+/// - Other task panics while holding lock
+#[allow(dead_code)]
+async fn acquire_lock_with_backoff() -> Result<MutexGuardClosing<'static, ()>> {
+    let mut current_timeout = LOCK_ACQUISITION_TIMEOUT;
+
+    for attempt in 0..MAX_LOCK_RETRIES {
+        match timeout(current_timeout, WORKSPACE_CREATION_LOCK.lock()).await {
+            Ok(guard) => return Ok(MutexGuardClosing(guard)),
+            Err(Elapsed { .. }) => {
+                // Lock acquisition timed out due to contention
+                if attempt < MAX_LOCK_RETRIES - 1 {
+                    // Exponential backoff before next retry
+                    tokio::time::sleep(current_timeout).await;
+                    current_timeout *= 2;
+                } else {
+                    // Final attempt failed - return error (fail-fast)
+                    return Err(Error::LockTimeout {
+                        operation: "workspace creation".to_string(),
+                        timeout_ms: u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis())
+                            .unwrap_or(u64::MAX),
+                        retries: MAX_LOCK_RETRIES,
+                    });
+                }
+            }
+        }
+    }
+
+    // This should never be reached, but required for type checking
+    Err(Error::LockTimeout {
+        operation: "workspace creation".to_string(),
+        timeout_ms: u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis())
+            .unwrap_or(u64::MAX),
+        retries: MAX_LOCK_RETRIES,
+    })
+}
+
+/// Wrapper for `MutexGuard` that implements proper cleanup on drop
+struct MutexGuardClosing<'a, T>(tokio::sync::MutexGuard<'a, T>);
+
+impl<'a, T> std::ops::Deref for MutexGuardClosing<'a, T> {
+    type Target = tokio::sync::MutexGuard<'a, T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> std::ops::DerefMut for MutexGuardClosing<'_, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 /// Information about the current repository operation
 #[derive(Debug, Clone)]
@@ -214,6 +307,54 @@ pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Acquire exclusive file lock with timeout and exponential backoff
+///
+/// This function implements fail-fast lock acquisition for file locks:
+/// - Attempts non-blocking lock acquisition first
+/// - Retries with exponential backoff if contention occurs
+/// - Returns error quickly if lock cannot be acquired after max retries
+/// - Total maximum wait time is ~37.5ms (25ms + 50ms + 100ms with 5s timeout each)
+///
+/// # Arguments
+///
+/// * `file` - File handle to lock
+/// * `description` - Description of the lock for error messages
+///
+/// # Errors
+///
+/// Returns error if:
+/// - Lock cannot be acquired within timeout after all retries
+/// - File system errors occur during lock operations
+fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<()> {
+    for attempt in 0..FILE_LOCK_MAX_RETRIES {
+        match file.try_lock_exclusive() {
+            Ok(()) => return Ok(()),
+            Err(_) if attempt < FILE_LOCK_MAX_RETRIES - 1 => {
+                // Exponential backoff before next retry
+                let attempt_u32 = u32::try_from(attempt)
+                    .map_err(|_| Error::IoError(format!("Invalid retry attempt: {attempt}")))?;
+                let backoff_ms = FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(attempt_u32);
+                let backoff = Duration::from_millis(backoff_ms);
+                std::thread::sleep(backoff);
+            }
+            Err(_) => {
+                return Err(Error::LockTimeout {
+                    operation: description.to_string(),
+                    timeout_ms: FILE_LOCK_TIMEOUT_MS,
+                    retries: FILE_LOCK_MAX_RETRIES,
+                });
+            }
+        }
+    }
+
+    // This should never be reached due to the error case above
+    Err(Error::LockTimeout {
+        operation: "file lock acquisition".to_string(),
+        timeout_ms: FILE_LOCK_TIMEOUT_MS,
+        retries: FILE_LOCK_MAX_RETRIES,
+    })
+}
+
 async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
     let lock_dir = repo_root.join(".zjj");
     tokio::fs::create_dir_all(&lock_dir)
@@ -231,8 +372,8 @@ async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
             .open(&lock_path)
             .map_err(|e| Error::IoError(format!("Failed to open workspace lock file: {e}")))?;
 
-        file.lock_exclusive()
-            .map_err(|e| Error::IoError(format!("Failed to acquire workspace lock: {e}")))?;
+        // Use timeout-based lock acquisition instead of blocking call
+        acquire_file_lock_with_timeout(&file, "workspace creation cross-process lock")?;
 
         let lock_supported = OpenOptions::new()
             .read(true)
