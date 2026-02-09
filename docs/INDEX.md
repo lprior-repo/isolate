@@ -19,6 +19,13 @@ All ZJJ documentation in one place, token-efficient and searchable.
 | **09** | [JUJUTSU](09_JUJUTSU.md) | Version control, stacking commits | 20 min |
 | **10** | [MOON CICD INDEXED](10_MOON_CICD_INDEXED.md) | Complete moon task catalog (indexed) | Reference |
 | **11** | [ZELLIJ](11_ZELLIJ.md) | Terminal multiplexing, layouts, tab management | 25 min |
+| **12** | [NAVIGATION](12_NAVIGATION.md) | Documentation navigation and organization | 10 min |
+| **13** | [AGENT CRITICAL RULES](13_AGENT_CRITICAL_RULES.md) | 7 absolute mandatory rules for agents | 15 min |
+| **14** | [AGENT QUICK REFERENCE](14_AGENT_QUICK_REFERENCE.md) | Code search, build, issues, workspace commands | 20 min |
+| **15** | [AGENT PROJECT CONTEXT](15_AGENT_PROJECT_CONTEXT.md) | Structure, dependencies, key decisions | 15 min |
+| **16** | [AGENT PARALLEL WORKFLOW](16_AGENT_PARALLEL_WORKFLOW.md) | Multi-agent parallel execution pattern | 20 min |
+| **17** | [AGENT SESSION COMPLETION](17_AGENT_SESSION_COMPLETION.md) | Landing the plane, git push mandatory | 15 min |
+| **18** | [AGENT BV REFERENCE](18_AGENT_BV_REFERENCE.md) | Complete bv AI sidecar reference | 25 min |
 | **19** | [CODANNA QUERY PERFORMANCE](19_CODANNA_QUERY_PERFORMANCE.md) | Code search metrics, benchmarks, optimization | 20 min |
 | **INDEX** | This file | Document map | - |
 
