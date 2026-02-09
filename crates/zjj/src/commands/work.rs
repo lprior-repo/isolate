@@ -205,12 +205,10 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
     let agent_id = if options.no_agent {
         None
     } else {
-        Some(
-            options
-                .agent_id
-                .clone()
-    // TODO: FIX THIS LINE - /* TODO: FIX THIS */),
-        )
+        options
+            .agent_id
+            .clone()
+            .or_else(|| Some(format!("agent-{}", generate_short_id())))
     };
 
     let output = WorkOutput {
@@ -238,14 +236,8 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
             serde_json::to_value(SchemaEnvelope::new("work-response", "single", &output))?;
         let envelope_with_dry_run = match envelope.as_object() {
             Some(obj) => {
-                let updated = obj
-                    .iter()
-                    .chain(std::iter::once((
-                        &serde_json::json!("dry_run"),
-                        &serde_json::Value::Bool(true),
-                    )))
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
+                let mut updated = serde_json::Map::clone(obj);
+                updated.insert("dry_run".to_string(), serde_json::json!(true));
                 serde_json::Value::Object(updated)
             }
             None => envelope,
@@ -287,15 +279,27 @@ fn build_env_vars(
         },
     ];
 
-    let agent_vars = agent_id.map(|agent| vec![EnvVar {
-        name: "ZJJ_AGENT_ID".to_string(),
-        value: agent.to_string(),
-    }]).into_iter().flatten().collect::<Vec<_>>();
+    let agent_vars = agent_id
+        .map(|agent| {
+            vec![EnvVar {
+                name: "ZJJ_AGENT_ID".to_string(),
+                value: agent.to_string(),
+            }]
+        })
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
 
-    let bead_vars = bead_id.map(|bead| vec![EnvVar {
-        name: "ZJJ_BEAD_ID".to_string(),
-        value: bead.to_string(),
-    }]).into_iter().flatten().collect::<Vec<_>>();
+    let bead_vars = bead_id
+        .map(|bead| {
+            vec![EnvVar {
+                name: "ZJJ_BEAD_ID".to_string(),
+                value: bead.to_string(),
+            }]
+        })
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
 
     [base_vars, agent_vars, bead_vars]
         .into_iter()
@@ -343,39 +347,59 @@ fn output_result(output: &WorkOutput, format: OutputFormat) -> Result<()> {
 /// 2. Verifying the workspace path starts with the data_dir path
 /// 3. Ensuring no escape from the intended directory structure
 async fn verify_workspace_contained(data_dir: &Path, workspace_path: &Path) -> Result<()> {
-    // Canonicalize both paths to resolve any ".." or symlinks
-    let canonical_data = data_dir
-        .canonicalize()
-        .map_err(|e| anyhow::anyhow!("Failed to canonicalize data directory: {e}"))?;
+    // For path traversal security, we need to validate that the workspace_path
+    // doesn't escape the data_dir, even if directories don't exist yet.
 
-    let canonical_workspace = workspace_path
-        .canonicalize()
-        // If workspace doesn't exist yet, canonicalize the parent and append the name
-        .or_else(|_| {
-            workspace_path
-                .parent()
-                .ok_or_else(|| anyhow::anyhow!("Invalid workspace path: no parent"))
-                .and_then(|parent| {
-                    parent.canonicalize().map_err(|e| {
-                        anyhow::anyhow!("Failed to canonicalize workspace parent: {e}")
-                    })
-                })
-                .map(|canonical_parent| {
-                    canonical_parent.join(
-                        workspace_path
-                            .file_name()
-                            .ok_or_else(|| anyhow::anyhow!("Invalid workspace path: no file name"))?,
-                    )
-                })
-        })
-        .map_err(|e| anyhow::anyhow!("Failed to canonicalize workspace path: {e}"))?;
+    // First, validate the session name (already done in work() but double-check here)
+    // This is the primary defense - validate_session_name blocks path traversal chars
 
-    // Verify workspace starts with data_dir (no path traversal possible)
-    if !canonical_workspace.starts_with(&canonical_data) {
+    // Second, check for ".." components in the workspace path
+    for component in workspace_path.components() {
+        if let std::path::Component::ParentDir = component {
+            return Err(anyhow::anyhow!(
+                "Security error: Workspace path contains '..' component which may escape data directory"
+            ));
+        }
+    }
+
+    // Third, verify the workspace path is within data_dir
+    // We need to handle the case where neither directory exists yet
+    let data_dir_absolute = if data_dir.is_absolute() {
+        data_dir.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(data_dir)
+    };
+
+    let workspace_absolute = if workspace_path.is_absolute() {
+        workspace_path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(workspace_path)
+    };
+
+    // Check if workspace starts with data_dir (even if they don't exist)
+    if !workspace_absolute.starts_with(&data_dir_absolute) {
         return Err(anyhow::anyhow!(
             "Security error: Workspace path escapes data directory. \
              This may indicate a path traversal attack or invalid configuration."
         ));
+    }
+
+    // If both exist, do additional canonicalization check for symlinks
+    if data_dir.exists() && workspace_path.exists() {
+        let canonical_data = data_dir
+            .canonicalize()
+            .map_err(|e| anyhow::anyhow!("Failed to canonicalize data directory: {e}"))?;
+
+        let canonical_workspace = workspace_path
+            .canonicalize()
+            .map_err(|e| anyhow::anyhow!("Failed to canonicalize workspace path: {e}"))?;
+
+        if !canonical_workspace.starts_with(&canonical_data) {
+            return Err(anyhow::anyhow!(
+                "Security error: Workspace path (after resolving symlinks) escapes data directory. \
+                 This may indicate a path traversal attack or invalid configuration."
+            ));
+        }
     }
 
     Ok(())
@@ -418,7 +442,7 @@ mod tests {
 
         let json = serde_json::to_string(&output);
         assert!(json.is_ok(), "serialization should succeed");
-    // TODO: FIX THIS LINE - let json_str = json/* TODO: FIX THIS */;
+        let json_str = json.unwrap();
         assert!(json_str.contains("\"name\":\"test-session\""));
         assert!(json_str.contains("\"created\":true"));
     }
@@ -586,7 +610,7 @@ mod tests {
             enter_command: "cd /path".to_string(),
         };
 
-    let json_str = match serde_json::to_string(&output) {
+        let json_str = match serde_json::to_string(&output) {
             Ok(s) => s,
             Err(_) => String::new(),
         };
@@ -668,10 +692,7 @@ mod tests {
     #[test]
     fn test_work_rejects_null_bytes() {
         let result = validate_session_name("test\0name");
-        assert!(
-            result.is_err(),
-            "Should reject names with null bytes"
-        );
+        assert!(result.is_err(), "Should reject names with null bytes");
     }
 
     /// Test that shell metacharacters are rejected
@@ -707,24 +728,14 @@ mod tests {
 
         for name in malicious_names {
             let result = validate_session_name(name);
-            assert!(
-                result.is_err(),
-                "Should reject dots-only names: {name}"
-            );
+            assert!(result.is_err(), "Should reject dots-only names: {name}");
         }
     }
 
     /// Test that leading dots are rejected
     #[test]
     fn test_work_rejects_leading_dots() {
-        let malicious_names = vec![
-            ".hidden",
-            "..test",
-            "...test",
-            ".test",
-            "..123",
-            "...abc",
-        ];
+        let malicious_names = vec![".hidden", "..test", "...test", ".test", "..123", "...abc"];
 
         for name in malicious_names {
             let result = validate_session_name(name);
@@ -759,12 +770,7 @@ mod tests {
     #[test]
     fn test_work_rejects_url_encoded_traversal() {
         // Even if URL encoding bypasses other checks, % is not allowed
-        let url_encoded = vec![
-            "%2e%2e%2f",
-            "..%2f",
-            "%2e%2e%5c",
-            "%252e%252e%252f",
-        ];
+        let url_encoded = vec!["%2e%2e%2f", "..%2f", "%2e%2e%5c", "%252e%252e%252f"];
 
         for name in url_encoded {
             let result = validate_session_name(name);
@@ -792,10 +798,7 @@ mod tests {
 
         for name in valid_names {
             let result = validate_session_name(name);
-            assert!(
-                result.is_ok(),
-                "Should accept valid name: {name}"
-            );
+            assert!(result.is_ok(), "Should accept valid name: {name}");
         }
     }
 

@@ -1,4 +1,4 @@
-//! Stress test for coordination queue - Run with: cargo test --test 'queue_stress'
+//! Stress test for coordination queue - Run with: cargo test --test '`queue_stress`'
 
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
