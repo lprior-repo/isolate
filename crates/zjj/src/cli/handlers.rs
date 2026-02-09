@@ -485,10 +485,8 @@ pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    let priority = sub_m
-        .get_one::<String>("priority")
-        .and_then(|s| s.parse::<i32>().ok())
-        .map_or(0, |v| v);
+    // Priority is defined as i32 in clap with default_value("5")
+    let priority = sub_m.get_one::<i32>("priority").copied().unwrap_or(5);
     let options = queue::QueueOptions {
         format,
         add: sub_m.get_one::<String>("add").cloned(),
