@@ -246,7 +246,7 @@ mod tests {
             Some("zjj:test")
         );
         assert_eq!(json.get("status").and_then(|v| v.as_str()), Some("active"));
-        assert_eq!(json.get("created").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(json.get("created").and_then(serde_json::Value::as_bool), Some(true));
         Ok(())
     }
 

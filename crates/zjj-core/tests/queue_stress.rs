@@ -1,9 +1,6 @@
-//! Stress test for coordination queue - Run with: cargo test --test queue_stress
+//! Stress test for coordination queue - Run with: cargo test --test `queue_stress`
 
-use std::{
-    sync::atomic::{AtomicUsize, Ordering},
-    time::Duration,
-};
+use std::time::Duration;
 
 use zjj_core::{
     coordination::queue::{MergeQueue, QueueStatus},
@@ -19,9 +16,6 @@ async fn stress_concurrent_claim_with_massive_contention() -> Result<()> {
     for i in 0..5 {
         queue.add(&format!("ws-{i}"), None, 5, None).await?;
     }
-
-    let successful_claims = AtomicUsize::new(0);
-    let failed_attempts = AtomicUsize::new(0);
 
     let mut handles = vec![];
 
@@ -44,7 +38,6 @@ async fn stress_concurrent_claim_with_massive_contention() -> Result<()> {
                     Ok(None) => {
                         // No entry available or lock held - retry after brief delay
                         tokio::time::sleep(Duration::from_millis(5)).await;
-                        continue;
                     }
                     Err(_) => return false,
                 }
@@ -58,16 +51,16 @@ async fn stress_concurrent_claim_with_massive_contention() -> Result<()> {
     let results: Vec<bool> = futures::future::join_all(handles)
         .await
         .into_iter()
-        .map(|r| r.unwrap_or(false))
+        .map(|r| r.unwrap_or_else(|e| {
+            eprintln!("Task join error: {e:?}");
+            false
+        }))
         .collect();
 
     let claims = results.iter().filter(|&&x| x).count();
     let failures = results.len() - claims;
 
-    println!(
-        "Stress test results: {} successful claims, {} failed attempts",
-        claims, failures
-    );
+    println!("Stress test results: {claims} successful claims, {failures} failed attempts");
 
     // With 5 entries and 50 agents, we should have exactly 5 successful claims
     // This proves the queue correctly prevents duplicate processing
@@ -104,9 +97,9 @@ async fn stress_rapid_add_remove_cycle() -> Result<()> {
         let handle = tokio::spawn(async move {
             for j in 0..10 {
                 let workspace = format!("ws-{i}-{j}");
-                let _ = q.add(&workspace, None, 5, None).await;
-                let _ = tokio::time::sleep(Duration::from_millis(1)).await;
-                let _ = q.remove(&workspace).await;
+                let () = q.add(&workspace, None, 5, None).await;
+                let () = tokio::time::sleep(Duration::from_millis(1)).await;
+                let () = q.remove(&workspace).await;
             }
         });
         handles.push(handle);
