@@ -144,7 +144,8 @@ tasks:
       CARGO_BUILD_JOBS: "24"
 
   build-docs:
-    command: "cargo doc --no-deps --document-private-items"
+    command: "cargo"
+    args: "doc --no-deps --document-private-items"
     description: "Generate Rust documentation"
     inputs:
       - "crates/**/*.rs"
@@ -153,6 +154,7 @@ tasks:
     options:
       cache: true
       runInCI: true
+      mergeArgs: "replace"  # Prevent duplicate doc flags from inheritance
 
   # ============================================================================
   # COMPOSITE PIPELINES
