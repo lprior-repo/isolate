@@ -614,6 +614,18 @@ pub fn cmd_status() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Continuously update status (1s refresh)"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
 }
 
 pub fn cmd_switch() -> ClapCommand {
