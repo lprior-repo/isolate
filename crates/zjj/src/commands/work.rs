@@ -146,7 +146,7 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
 
     // Build output with path traversal protection
     let workspace_path = data_dir.join("workspaces").join(&options.name);
-    verify_workspace_contained(&data_dir, &workspace_path).await?;
+    verify_workspace_contained(&data_dir, &workspace_path)?;
     let output = WorkOutput {
         name: options.name.clone(),
         workspace_path: workspace_path.to_string_lossy().to_string(),
@@ -170,7 +170,7 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
 async fn output_existing_workspace(_root: &Path, name: &str, options: &WorkOptions) -> Result<()> {
     let data_dir = super::zjj_data_dir().await?;
     let workspace_path = data_dir.join("workspaces").join(name);
-    verify_workspace_contained(&data_dir, &workspace_path).await?;
+    verify_workspace_contained(&data_dir, &workspace_path)?;
 
     let agent_id = if options.no_agent {
         None
@@ -335,7 +335,7 @@ fn output_result(output: &WorkOutput, format: OutputFormat) -> Result<()> {
     Ok(())
 }
 
-/// Verify that workspace_path is contained within data_dir
+/// Verify that `workspace_path` is contained within `data_dir`
 ///
 /// This prevents path traversal attacks by canonicalizing both paths
 /// and ensuring the workspace is a subdirectory of the data directory.
@@ -343,10 +343,10 @@ fn output_result(output: &WorkOutput, format: OutputFormat) -> Result<()> {
 /// # Security
 ///
 /// This function provides defense-in-depth by:
-/// 1. Canonicalizing both paths to resolve any ".." or symlinks
+/// 1. Canonicalizing both paths to resolve any `".."` or symlinks
 /// 2. Verifying the workspace path starts with the data_dir path
 /// 3. Ensuring no escape from the intended directory structure
-async fn verify_workspace_contained(data_dir: &Path, workspace_path: &Path) -> Result<()> {
+fn verify_workspace_contained(data_dir: &Path, workspace_path: &Path) -> Result<()> {
     // For path traversal security, we need to validate that the workspace_path
     // doesn't escape the data_dir, even if directories don't exist yet.
 
@@ -419,7 +419,13 @@ fn generate_short_id() -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::cast_possible_truncation, clippy::unwrap_used, clippy::manual_unwrap_or_default, clippy::option_if_let_else, clippy::doc_markdown)]
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::unwrap_used,
+    clippy::manual_unwrap_or_default,
+    clippy::option_if_let_else,
+    clippy::doc_markdown
+)]
 mod tests {
     use super::*;
 
@@ -809,7 +815,7 @@ mod tests {
         let data_dir = temp_dir.join("zjj-test-data");
         let escaped_path = temp_dir.join("etc/passwd");
 
-        let result = verify_workspace_contained(&data_dir, &escaped_path).await;
+        let result = verify_workspace_contained(&data_dir, &escaped_path);
         assert!(
             result.is_err(),
             "Should block workspace paths escaping data directory"
@@ -825,7 +831,7 @@ mod tests {
 
         std::fs::create_dir_all(&valid_workspace).ok();
 
-        let result = verify_workspace_contained(&data_dir, &valid_workspace).await;
+        let result = verify_workspace_contained(&data_dir, &valid_workspace);
         assert!(
             result.is_ok(),
             "Should allow valid workspace paths within data directory"

@@ -294,7 +294,8 @@ async fn import_session(
         .map_or_else(|| chrono::Utc::now(), |dt| dt);
 
     // Convert DateTime to unix timestamp
-    let created_ts = created_timestamp.timestamp() as u64;
+    let created_ts = u64::try_from(created_timestamp.timestamp())
+        .unwrap_or(u64::MAX);
 
     let _created: Session = db
         .create_with_timestamp(name, workspace_path, created_ts)

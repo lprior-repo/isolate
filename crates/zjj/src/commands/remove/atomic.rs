@@ -72,7 +72,7 @@ pub struct RemoveResult {
 ///
 /// # Error Handling
 /// - Zellij/JJ failures: Log warning, continue (local cleanup more important)
-/// - Workspace removal failures: Mark session as "removal_failed" in database
+/// - Workspace removal failures: Mark session as `"removal_failed"` in database
 /// - Database deletion failures: Log critical error (workspace deleted, manual cleanup needed)
 ///
 /// # Errors
@@ -341,7 +341,7 @@ mod tests {
         .await?;
 
         // Get session
-        let session = db
+        let _session = db
             .get("jj-fail-test")
             .await?
             .ok_or_else(|| anyhow::anyhow!("Session not found"))?;
