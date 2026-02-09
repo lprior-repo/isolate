@@ -84,12 +84,13 @@ async fn adv_concurrent_add_same_workspace() -> Result<()> {
     // Test race condition: multiple agents adding same workspace
     let queue = Arc::new(MergeQueue::open_in_memory().await?);
 
-    let mut handles = vec![];
-    for i in 0..10 {
-        let q = queue.clone();
-        let handle = tokio::spawn(async move { q.add("ws-race", None, 5, None).await });
-        handles.push(handle);
-    }
+    // Spawn 10 concurrent add operations using functional approach
+    let handles: Vec<_> = (0..10)
+        .map(|_| {
+            let q = queue.clone();
+            tokio::spawn(async move { q.add("ws-race", None, 5, None).await })
+        })
+        .collect();
 
     let results: Vec<_> = futures::future::join_all(handles)
         .await
@@ -280,14 +281,13 @@ async fn adv_concurrent_mark_operations_same_entry() -> Result<()> {
 
     queue.add("ws-concurrent-mark", None, 5, None).await?;
 
-    let mut handles = vec![];
-
-    // Spawn tasks trying different mark operations
-    for i in 0..5 {
-        let q = queue.clone();
-        let handle = tokio::spawn(async move { q.mark_processing("ws-concurrent-mark").await });
-        handles.push(handle);
-    }
+    // Spawn tasks trying different mark operations using functional approach
+    let handles: Vec<_> = (0..5)
+        .map(|_| {
+            let q = queue.clone();
+            tokio::spawn(async move { q.mark_processing("ws-concurrent-mark").await })
+        })
+        .collect();
 
     let results: Vec<_> = futures::future::join_all(handles)
         .await

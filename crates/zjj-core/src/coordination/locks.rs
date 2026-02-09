@@ -201,12 +201,11 @@ impl LockManager {
                     agent_id: agent_id.to_string(),
                     expires_at: existing_expires,
                 });
-            } else {
-                return Err(Error::SessionLocked {
-                    session: session.to_string(),
-                    holder: holder_agent_id,
-                });
             }
+            return Err(Error::SessionLocked {
+                session: session.to_string(),
+                holder: holder_agent_id,
+            });
         }
 
         // CRITICAL: Check session exists BEFORE creating a new lock
@@ -315,13 +314,12 @@ impl LockManager {
                     agent_id: agent_id.to_string(),
                     expires_at: existing_expires,
                 });
-            } else {
-                // Another agent holds the lock - fail fast
-                return Err(Error::SessionLocked {
-                    session: session.to_string(),
-                    holder: holder_agent_id,
-                });
             }
+            // Another agent holds the lock - fail fast
+            return Err(Error::SessionLocked {
+                session: session.to_string(),
+                holder: holder_agent_id,
+            });
         }
 
         // CRITICAL: Check session exists BEFORE creating lock
@@ -922,7 +920,7 @@ mod tests {
             Error::SessionNotFound { session, .. } => {
                 assert_eq!(session, "ghost-session");
             }
-            other => panic!("Expected SessionNotFound, got {other:?}"),
+            other => panic!("Expected SessionNotFound, got: {other:?}"),
         }
 
         // Verify no lock was created
@@ -1116,12 +1114,15 @@ mod tests {
             })
             .collect();
 
-        // Wait for all tasks to complete
+        // Wait for all tasks to complete, flattening JoinError and nested Results
         let results: Vec<std::result::Result<LockResponse, Error>> =
             futures::future::join_all(tasks)
                 .await
                 .into_iter()
-                .map(|r| r.unwrap())
+                .map(|join_result| match join_result {
+                    Ok(inner_result) => inner_result,
+                    Err(join_err) => Err(Error::IoError(format!("Task join failed: {join_err}"))),
+                })
                 .collect();
 
         // Count successes and failures
@@ -1188,7 +1189,7 @@ mod tests {
             sqlx::query(
                 "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
             )
-            .bind(&format!("session-{i}"))
+            .bind(format!("session-{i}"))
             .bind("active")
             .bind("working")
             .bind("/workspace")
@@ -1209,12 +1210,15 @@ mod tests {
             })
             .collect();
 
-        // Wait for all tasks
+        // Wait for all tasks, flattening JoinError and nested Results
         let results: Vec<std::result::Result<LockResponse, Error>> =
             futures::future::join_all(tasks)
                 .await
                 .into_iter()
-                .map(|r| r.unwrap())
+                .map(|join_result| match join_result {
+                    Ok(inner_result) => inner_result,
+                    Err(join_err) => Err(Error::IoError(format!("Task join failed: {join_err}"))),
+                })
                 .collect();
 
         // Count successful locks

@@ -225,6 +225,7 @@ async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
     tokio::task::spawn_blocking(move || {
         let file = OpenOptions::new()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .open(&lock_path)
@@ -354,7 +355,8 @@ mod tests {
             Err(Error::InvalidConfig(msg)) => {
                 assert!(msg.contains("workspace name cannot be empty"));
             }
-            _ => panic!("Expected InvalidConfig error"),
+            Ok(()) => panic!("Expected InvalidConfig error, but got Ok"),
+            Err(other) => panic!("Expected InvalidConfig error, got: {other:?}"),
         }
     }
 
@@ -369,12 +371,8 @@ mod tests {
             Err(Error::InvalidConfig(msg)) => {
                 assert!(msg.contains("parent directory"));
             }
-            Err(other) => {
-                panic!("Expected InvalidConfig error, got: {other:?}");
-            }
-            Ok(()) => {
-                panic!("Expected InvalidConfig error, but got Ok");
-            }
+            Err(other) => panic!("Expected InvalidConfig error, got: {other:?}"),
+            Ok(()) => panic!("Expected InvalidConfig error, but got Ok"),
         }
     }
 
@@ -391,6 +389,7 @@ mod tests {
 
         let second_file = OpenOptions::new()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .open(lock_path)
@@ -416,6 +415,7 @@ mod tests {
             .join(WORKSPACE_CREATION_LOCK_FILE);
         let second_file = OpenOptions::new()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .open(lock_path)

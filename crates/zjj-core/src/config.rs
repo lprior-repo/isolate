@@ -844,7 +844,7 @@ impl SessionConfig {
 }
 
 impl RecoveryConfig {
-    fn merge(&mut self, other: Self) {
+    const fn merge(&mut self, other: Self) {
         self.policy = other.policy;
         self.log_recovered = other.log_recovered;
         self.auto_recover_corrupted_wal = other.auto_recover_corrupted_wal;
@@ -1219,7 +1219,7 @@ mod tests {
         assert!(result.is_ok());
 
         let path = result.map_or_else(
-            |e| {
+            |_e| {
                 // Return empty path on error - the assert!(result.is_ok()) above
                 // will fail with better context
                 String::new()

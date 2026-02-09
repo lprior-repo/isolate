@@ -45,7 +45,7 @@ fn create_response(message: &str, sent_to: Vec<String>, timestamp: &str) -> Broa
 /// EARS #1: When broadcast runs, system shall send message to all active agents except sender
 fn test_broadcast_sends_to_all_active() {
     // Setup: Multiple active agents
-    let active_agents = vec![
+    let active_agents = [
         "agent-1".to_string(),
         "agent-2".to_string(),
         "agent-3".to_string(),
@@ -103,7 +103,7 @@ fn test_message_timestamp_recorded() {
 /// EARS #3: When retrieving messages, agents shall see only unread messages for them
 fn test_recipient_filtering() {
     // Setup: Broadcast to specific recipients
-    let all_recipients = vec!["agent-1".to_string(), "agent-2".to_string()];
+    let all_recipients = ["agent-1".to_string(), "agent-2".to_string()];
     let querying_agent = "agent-2";
 
     // Act: Filter messages for this agent
@@ -125,7 +125,7 @@ fn test_recipient_filtering() {
 /// Edge case: No other agents → sent_to is empty
 fn test_empty_recipient_list_no_other_agents() {
     // Setup: Only sender is active
-    let active_agents = vec!["agent-1".to_string()];
+    let active_agents = ["agent-1".to_string()];
     let sender = "agent-1";
 
     // Act
