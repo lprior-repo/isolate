@@ -151,6 +151,7 @@ fn test_connection_pool_under_pressure() {
 // THEN: Exactly one execution, rest return cached result
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn test_command_idempotency_under_concurrency() {
     let Some(harness) = TestHarness::try_new() else {
         return;
@@ -340,8 +341,7 @@ fn test_command_idempotency_under_concurrency() {
     });
     assert_eq!(
         marker_count, 1,
-        "Expected one processed command marker for '{}', got {}",
-        command_id, marker_count
+        "Expected one processed command marker for '{command_id}', got {marker_count}"
     );
 }
 
@@ -474,8 +474,8 @@ fn test_high_frequency_update_storm() {
 
         // Note: Current CLI doesn't have direct "set status" command
         // This test documents the requirement for future implementation
-        let _result = harness.zjj(&["status", "update-storm"]);
-        assert!(_result.success, "Status check should succeed");
+        let result = harness.zjj(&["status", "update-storm"]);
+        assert!(result.success, "Status check should succeed");
     }
 
     // Verify session still exists and is consistent

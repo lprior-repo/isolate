@@ -8,6 +8,8 @@
 //! - Shared test fixtures to reduce redundant allocations
 //! - Cached KDL generation results for template validation
 //! - Parallel template validation using functional patterns
+
+#![cfg_attr(test, allow(clippy::expect_used))]
 //! - Zero panics, zero unwraps using Railway-Oriented Programming
 //!
 //! # Note on `expect()` in tests
