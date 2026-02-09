@@ -705,7 +705,11 @@ impl Error {
                 vec![ValidationHint::new("agent_id", "lock holder for session")
                     .with_received(format!("'{agent_id}' for session '{session}'"))]
             }
-            Self::LockTimeout { operation, timeout_ms, .. } => {
+            Self::LockTimeout {
+                operation,
+                timeout_ms,
+                ..
+            } => {
                 vec![ValidationHint::new("lock", "acquired within timeout")
                     .with_received(format!("'{operation}' timed out after {timeout_ms}ms"))]
             }

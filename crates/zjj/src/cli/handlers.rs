@@ -108,7 +108,7 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
             let name = create_m
                 .get_one::<String>("name")
                 .cloned()
-                .unwrap_or_default();
+                .map_or_else(|| String::new(), |v| v);
             let session = create_m.get_one::<String>("session").cloned();
             let push = create_m.get_flag("push");
             let json = create_m.get_flag("json");
@@ -125,7 +125,7 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
             let name = delete_m
                 .get_one::<String>("name")
                 .cloned()
-                .unwrap_or_default();
+                .map_or_else(|| String::new(), |v| v);
             let session = delete_m.get_one::<String>("session").cloned();
             let json = delete_m.get_flag("json");
             let format = OutputFormat::from_json_flag(json);
@@ -140,8 +140,11 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
             let name = move_m
                 .get_one::<String>("name")
                 .cloned()
-                .unwrap_or_default();
-            let to_revision = move_m.get_one::<String>("to").cloned().unwrap_or_default();
+                .map_or_else(|| String::new(), |v| v);
+            let to_revision = move_m
+                .get_one::<String>("to")
+                .cloned()
+                .map_or_else(|| String::new(), |v| v);
             let session = move_m.get_one::<String>("session").cloned();
             let json = move_m.get_flag("json");
             let format = OutputFormat::from_json_flag(json);
@@ -282,7 +285,10 @@ pub async fn handle_template(sub_m: &ArgMatches) -> Result<()> {
             template::run_list(format).await
         }
         Some(("create", sub)) => {
-            let name = sub.get_one::<String>("name").cloned().unwrap_or_default();
+            let name = sub
+                .get_one::<String>("name")
+                .cloned()
+                .map_or_else(|| String::new(), |v| v);
             let description = sub.get_one::<String>("description").cloned();
             let json = sub.get_flag("json");
             let format = OutputFormat::from_json_flag(json);
@@ -410,7 +416,7 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
                 let backup_id = restore_m
                     .get_one::<String>("backup_id")
                     .cloned()
-                    .unwrap_or_default();
+                    .map_or_else(|| String::new(), |v| v);
                 let force = restore_m.get_flag("force");
                 let json = restore_m.get_flag("json");
                 let format = OutputFormat::from_json_flag(json);
@@ -446,7 +452,7 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
     let priority = sub_m
         .get_one::<String>("priority")
         .and_then(|s| s.parse::<i32>().ok())
-        .unwrap_or(0);
+        .map_or(0, |v| v);
     let options = queue::QueueOptions {
         format,
         add: sub_m.get_one::<String>("add").cloned(),
@@ -668,7 +674,7 @@ pub async fn handle_can_i(sub_m: &ArgMatches) -> Result<()> {
     let action = sub_m
         .get_one::<String>("action")
         .cloned()
-        .unwrap_or_default();
+        .map_or_else(|| String::new(), |v| v);
     let resource = sub_m.get_one::<String>("resource").cloned();
     let options = can_i::CanIOptions {
         action,
@@ -728,11 +734,11 @@ pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
     let command = sub_m
         .get_one::<String>("command")
         .cloned()
-        .unwrap_or_default();
+        .map_or_else(|| String::new(), |v| v);
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
-        .unwrap_or_default();
+        .unwrap_or_else(|| Vec::new());
     let options = validate::ValidateOptions {
         command,
         args,
@@ -747,11 +753,11 @@ pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
     let command = sub_m
         .get_one::<String>("command")
         .cloned()
-        .unwrap_or_default();
+        .map_or_else(|| String::new(), |v| v);
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
-        .unwrap_or_default();
+        .unwrap_or_else(|| Vec::new());
     let options = whatif::WhatIfOptions {
         command,
         args,
@@ -766,11 +772,11 @@ pub async fn handle_claim(sub_m: &ArgMatches) -> Result<()> {
     let resource = sub_m
         .get_one::<String>("resource")
         .cloned()
-        .unwrap_or_default();
+        .map_or_else(|| String::new(), |v| v);
     let timeout: u64 = sub_m
         .get_one::<String>("timeout")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(30);
+        .map_or(30, |v| v);
     let options = claim::ClaimOptions {
         resource,
         timeout,
@@ -785,7 +791,7 @@ pub async fn handle_yield(sub_m: &ArgMatches) -> Result<()> {
     let resource = sub_m
         .get_one::<String>("resource")
         .cloned()
-        .unwrap_or_default();
+        .map_or_else(|| String::new(), |v| v);
     let options = claim::YieldOptions { resource, format };
     claim::run_yield(&options).await
 }
@@ -810,7 +816,7 @@ pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
         let raw_commands: Vec<String> = sub_m
             .get_many::<String>("commands")
             .map(|v| v.cloned().collect())
-            .unwrap_or_default();
+            .unwrap_or_else(|| Vec::new());
         if raw_commands.is_empty() {
             anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
         }
@@ -877,7 +883,7 @@ async fn handle_atomic_batch(
         let raw_commands: Vec<String> = sub_m
             .get_many::<String>("commands")
             .map(|v| v.cloned().collect())
-            .unwrap_or_default();
+            .unwrap_or_else(|| Vec::new());
         if raw_commands.is_empty() {
             anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
         }
@@ -977,7 +983,10 @@ pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_pause(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
+    let session = sub_m
+        .get_one::<String>("name")
+        .cloned()
+        .map_or_else(|| String::new(), |v| v);
     let options = session_mgmt::PauseOptions { session, format };
     session_mgmt::run_pause(&options).await
 }
@@ -985,7 +994,10 @@ pub async fn handle_pause(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_resume(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
+    let session = sub_m
+        .get_one::<String>("name")
+        .cloned()
+        .map_or_else(|| String::new(), |v| v);
     let options = session_mgmt::ResumeOptions { session, format };
     session_mgmt::run_resume(&options).await
 }
@@ -996,7 +1008,7 @@ pub async fn handle_lock(sub_m: &ArgMatches) -> Result<()> {
     let session = sub_m
         .get_one::<String>("session")
         .cloned()
-        .unwrap_or_default();
+        .map_or_else(|| String::new(), |v| v);
     let agent_id = sub_m.get_one::<String>("agent-id").cloned();
     let ttl = match sub_m.get_one::<u64>("ttl") {
         Some(value) => *value,
@@ -1035,7 +1047,7 @@ pub async fn handle_unlock(sub_m: &ArgMatches) -> Result<()> {
     let session = sub_m
         .get_one::<String>("session")
         .cloned()
-        .unwrap_or_default();
+        .map_or_else(|| String::new(), |v| v);
     let agent_id = sub_m.get_one::<String>("agent-id").cloned();
 
     let args = crate::commands::lock::types::UnlockArgs { session, agent_id };
@@ -1059,7 +1071,7 @@ pub async fn handle_clone(sub_m: &ArgMatches) -> Result<()> {
     let source = sub_m
         .get_one::<String>("source")
         .cloned()
-        .unwrap_or_default();
+        .map_or_else(|| String::new(), |v| v);
     let target = sub_m
         .get_one::<String>("dest")
         .cloned()
@@ -1118,11 +1130,11 @@ pub async fn handle_wait(sub_m: &ArgMatches) -> Result<()> {
     let timeout: u64 = sub_m
         .get_one::<String>("timeout")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(30);
+        .map_or(30, |v| v);
     let interval: u64 = sub_m
         .get_one::<String>("interval")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(30);
+        .map_or(30, |v| v);
     // TODO: FIX THIS LINE - /* TODO: FIX THIS */;
 
     let condition = match condition_str.as_str() {
