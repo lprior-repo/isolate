@@ -2,9 +2,6 @@
 //!
 //! These tests verify that the `--idempotent` flag works correctly for the remove command.
 //!
-//! NOTE: As of the implementation date, the `remove` command does NOT have an --idempotent flag.
-//! These tests document the EXPECTED behavior once the flag is implemented.
-//!
 //! The contract (rust-contract-zjj-ftds.md) states:
 //! - If session doesn't exist and --idempotent is used, command should succeed (exit code 0)
 //! - This differs from default behavior which fails with exit code 2 (not found)
@@ -15,15 +12,14 @@
 #![allow(clippy::expect_used)]
 
 mod common;
-use common::TestHarness;
+use common::{parse_json_output, payload, TestHarness};
 use serde_json::Value as JsonValue;
 
 // ============================================================================
-// P0 Tests: Happy Path - Must Pass (Once Flag is Implemented)
+// P0 Tests: Happy Path - Must Pass
 // ============================================================================
 
 #[test]
-#[ignore = "--idempotent flag not yet implemented for remove command"]
 fn test_remove_idempotent_succeeds_when_session_doesnt_exist() {
     // GIVEN: An initialized ZJJ repository with no session "nonexistent"
     let Some(harness) = TestHarness::try_new() else {
@@ -64,7 +60,6 @@ fn test_remove_idempotent_succeeds_when_session_doesnt_exist() {
 }
 
 #[test]
-#[ignore = "--idempotent flag not yet implemented for remove command"]
 fn test_remove_idempotent_removes_session_when_exists() {
     // GIVEN: An initialized ZJJ repository with existing session "old-session"
     let Some(harness) = TestHarness::try_new() else {
@@ -74,8 +69,9 @@ fn test_remove_idempotent_removes_session_when_exists() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "old-session", "--no-open"]);
 
-    // WHEN: User runs `zjj remove old-session --idempotent`
-    let result = harness.zjj(&["remove", "old-session", "--idempotent"]);
+    // WHEN: User runs `zjj remove old-session --idempotent --force`
+    // --force avoids interactive confirmation in test environment.
+    let result = harness.zjj(&["remove", "old-session", "--idempotent", "--force"]);
 
     // THEN: Command succeeds with exit code 0
     assert!(
@@ -89,10 +85,10 @@ fn test_remove_idempotent_removes_session_when_exists() {
     assert!(list_result.success, "List should succeed");
 
     let json: JsonValue =
-        serde_json::from_str(&list_result.stdout).expect("List should be valid JSON");
-    let sessions = json["data"]["sessions"]
-        .as_array()
-        .expect("Should have sessions");
+        parse_json_output(&list_result.stdout).expect("List should be valid JSON");
+    let data = payload(&json);
+    let sessions = data["sessions"].as_array().or_else(|| data.as_array());
+    let sessions = sessions.expect("Should have sessions");
 
     assert!(
         !sessions.iter().any(|s| s["name"] == "old-session"),
@@ -101,7 +97,6 @@ fn test_remove_idempotent_removes_session_when_exists() {
 }
 
 #[test]
-#[ignore = "--idempotent flag not yet implemented for remove command"]
 fn test_remove_idempotent_with_force_flag_is_redundant() {
     // GIVEN: An initialized ZJJ repository
     let Some(harness) = TestHarness::try_new() else {
@@ -129,7 +124,6 @@ fn test_remove_idempotent_with_force_flag_is_redundant() {
 // ============================================================================
 
 #[test]
-#[ignore = "--idempotent flag not yet implemented for remove command"]
 fn test_remove_idempotent_fails_when_not_initialized() {
     // GIVEN: A JJ repository without ZJJ initialized
     let Some(harness) = TestHarness::try_new() else {
@@ -208,11 +202,10 @@ fn test_remove_with_force_succeeds_on_nonexistent_session() {
 }
 
 // ============================================================================
-// P1 Tests: Edge Cases - Should Pass (Once Flag is Implemented)
+// P1 Tests: Edge Cases - Should Pass
 // ============================================================================
 
 #[test]
-#[ignore = "--idempotent flag not yet implemented for remove command"]
 fn test_remove_idempotent_json_output_includes_status() {
     // GIVEN: An initialized ZJJ repository
     let Some(harness) = TestHarness::try_new() else {
@@ -228,14 +221,13 @@ fn test_remove_idempotent_json_output_includes_status() {
     assert!(result.success, "Command should succeed");
 
     // THEN: Output is valid JSON
-    let json: JsonValue =
-        serde_json::from_str(&result.stdout).expect("Output should be valid JSON");
+    let json: JsonValue = parse_json_output(&result.stdout).expect("Output should be valid JSON");
 
     // THEN: JSON indicates idempotent path
-    assert_eq!(json["schema"], "remove-response");
-    assert_eq!(json["type"], "single");
+    assert_eq!(json["schema_type"], "single");
+    assert!(json.get("$schema").is_some());
 
-    let data = &json["data"];
+    let data = payload(&json);
     assert_eq!(data["name"], "nonexistent");
 
     // Should indicate already removed or no action needed
@@ -248,7 +240,6 @@ fn test_remove_idempotent_json_output_includes_status() {
 }
 
 #[test]
-#[ignore = "--idempotent flag not yet implemented for remove command"]
 fn test_remove_idempotent_never_fails_on_nonexistent_session() {
     // GIVEN: An initialized ZJJ repository
     let Some(harness) = TestHarness::try_new() else {

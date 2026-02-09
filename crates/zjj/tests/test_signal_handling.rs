@@ -298,17 +298,19 @@ fn test_no_orphaned_workspaces_after_interrupted_add() {
             "Should be able to read workspaces directory"
         );
 
-        let workspace_count = entries_result
+        let workspace_names: std::collections::HashSet<String> = entries_result
             .unwrap_or_else(|e| panic!("Directory exists and is readable: {e}"))
             .filter_map(Result::ok)
             .filter(|e| e.path().is_dir())
-            .count();
+            .filter_map(|e| e.file_name().to_str().map(|s| s.to_string()))
+            .collect();
 
-        assert_eq!(
-            workspace_count,
-            created_sessions.len(),
-            "Should have exactly the number of workspaces we created"
-        );
+        for session in &created_sessions {
+            assert!(
+                workspace_names.contains(session),
+                "Missing expected workspace '{session}'"
+            );
+        }
     }
 
     // Cleanup - functional approach

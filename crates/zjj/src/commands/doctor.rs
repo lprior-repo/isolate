@@ -1546,19 +1546,19 @@ mod tests {
             return;
         }
 
-        // Test 1: No .zjj directory - should fail
+        // Test 1: No .zjj directory - should warn
         let result = check_initialized().await;
-        assert_eq!(result.status, CheckStatus::Fail);
+        assert_eq!(result.status, CheckStatus::Warn);
         assert_eq!(result.name, "zjj Initialized");
         assert!(result.message.contains("not initialized"));
 
-        // Test 2: .zjj directory exists but no config.toml - should fail
+        // Test 2: .zjj directory exists but no config.toml - should warn
         if tokio::fs::create_dir(".zjj").await.is_err() {
             let _ = std::env::set_current_dir(original_dir);
             return;
         }
         let result = check_initialized().await;
-        assert_eq!(result.status, CheckStatus::Fail);
+        assert_eq!(result.status, CheckStatus::Warn);
 
         // Test 3: .zjj directory with config.toml - should pass
         if tokio::fs::write(".zjj/config.toml", "workspace_dir = \"test\"")

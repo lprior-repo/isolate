@@ -25,6 +25,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use serde_json::Value as JsonValue;
 use tempfile::TempDir;
 
 /// Test configuration: workspaces are created inside the repo at this relative path
@@ -171,13 +172,6 @@ impl TestHarness {
         // Get the zjj binary path from the build
         let zjj_bin = PathBuf::from(env!("CARGO_BIN_EXE_zjj"));
 
-        // Set environment variables for the current process to ensure isolation
-        // when calling internal functions directly (not just via subprocess)
-        std::env::set_var("ZJJ_TEST_MODE", "1");
-        std::env::set_var("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR);
-        let state_db_path = repo_path.join(".zjj").join("state.db");
-        std::env::set_var("ZJJ_STATE_DB", state_db_path);
-
         Ok(Self {
             _temp_dir: temp_dir,
             repo_path: repo_path.clone(),
@@ -231,7 +225,6 @@ impl TestHarness {
         // Set ZJJ_JJ_PATH if jj binary was found
         if let Some(path) = jj_binary_path {
             if let Some(path_str) = path.to_str() {
-                eprintln!("DEBUG: Test harness setting ZJJ_JJ_PATH to: {}", path_str);
                 cmd.env("ZJJ_JJ_PATH", path_str);
             }
         }
@@ -394,7 +387,6 @@ impl TestHarness {
         // Set ZJJ_JJ_PATH if jj binary was found
         if let Some(path) = jj_binary_path {
             if let Some(path_str) = path.to_str() {
-                eprintln!("DEBUG: Test harness setting ZJJ_JJ_PATH to: {}", path_str);
                 cmd.env("ZJJ_JJ_PATH", path_str);
             }
         }
@@ -513,7 +505,6 @@ impl TestHarness {
         // Set ZJJ_JJ_PATH if jj binary was found
         if let Some(path) = jj_binary_path {
             if let Some(path_str) = path.to_str() {
-                eprintln!("DEBUG: Test harness setting ZJJ_JJ_PATH to: {}", path_str);
                 cmd.env("ZJJ_JJ_PATH", path_str);
             }
         }
@@ -566,9 +557,8 @@ impl CommandResult {
         let parsed: serde_json::Value =
             serde_json::from_str(&self.stdout).with_context(|| "Failed to parse JSON output")?;
 
-        let sessions = parsed["data"]
-            .as_array()
-            .ok_or_else(|| anyhow::anyhow!("Missing 'data' array in JSON"))?;
+        let sessions = session_entries(&parsed)
+            .ok_or_else(|| anyhow::anyhow!("Missing sessions array in JSON response"))?;
 
         let actual_count = sessions.len();
         if actual_count != expected_count {
@@ -594,6 +584,78 @@ impl CommandResult {
     pub fn parse_json(&self) -> Result<serde_json::Value, anyhow::Error> {
         serde_json::from_str(&self.stdout).with_context(|| "Failed to parse JSON output")
     }
+}
+
+/// Parse JSON output from CLI commands.
+pub fn parse_json_output(s: &str) -> Result<JsonValue, serde_json::Error> {
+    serde_json::from_str(s)
+}
+
+/// Return envelope payload (`data`) when present, otherwise return root object.
+pub fn payload<'a>(json: &'a JsonValue) -> &'a JsonValue {
+    json.get("data").unwrap_or(json)
+}
+
+/// Return session entries from either `data.sessions` or array payload shapes.
+pub fn session_entries<'a>(json: &'a JsonValue) -> Option<&'a Vec<JsonValue>> {
+    let root = payload(json);
+    root.get("sessions")
+        .and_then(JsonValue::as_array)
+        .or_else(|| root.as_array())
+}
+
+/// Validation error type for schema envelope checks.
+#[derive(Debug)]
+pub enum ValidationError {
+    MissingField(&'static str, String),
+    InvalidFormat(String),
+    SchemaMismatch(String),
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingField(field, ctx) => {
+                write!(f, "Missing required field '{field}' in {ctx}")
+            }
+            Self::InvalidFormat(msg) => write!(f, "Invalid format: {msg}"),
+            Self::SchemaMismatch(msg) => write!(f, "Schema mismatch: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for ValidationError {}
+
+/// Validate that JSON output uses `SchemaEnvelope` structure.
+pub fn validate_schema_envelope(
+    json_str: &str,
+    command_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let json =
+        parse_json_output(json_str).map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
+
+    let required_fields: &[&str] = &["$schema", "_schema_version", "success"];
+
+    required_fields.iter().try_for_each(|&field| {
+        json.get(field)
+            .ok_or_else(|| {
+                ValidationError::MissingField(field, format!("{command_name}: output: {json_str}"))
+            })
+            .map(|_| ())
+    })?;
+
+    let schema = json["$schema"].as_str().ok_or_else(|| {
+        ValidationError::InvalidFormat(format!("{command_name}: $schema field is not a string"))
+    })?;
+
+    if !schema.starts_with("zjj://") {
+        return Err(ValidationError::SchemaMismatch(format!(
+            "{command_name}: $schema should start with 'zjj://', got: {schema}"
+        ))
+        .into());
+    }
+
+    Ok(())
 }
 
 impl CommandResult {

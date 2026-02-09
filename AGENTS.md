@@ -17,6 +17,11 @@
 1. **NO_CLIPPY_EDITS** - NEVER modify `.clippy.toml`, `#![allow]`, `#![deny]`, Cargo.toml lint sections. Fix **code**, not rules.
 2. **MOON_ONLY** - NEVER `cargo fmt|clippy|test|build`. ALWAYS `moon run :quick|:test|:build|:ci|:fmt-fix|:check`
 3. **CODANNA_ONLY** - NEVER Grep|Glob|Read for exploration. ALWAYS use `mcp__codanna__ semantic_search|find_symbol|search_symbols|search_documents|get_calls|find_callers|analyze_impact`
+
+### Codanna-Only Enforcement
+- BAN these operations outside Codanna: symbol lookup, fuzzy search, call graph (calls/callers), impact analysis, and docs/code discovery via Grep/Glob/Read.
+- REQUIRED flow: `codanna index` (or `codanna documents index --collection docs` when docs changed), then `codanna retrieve search|symbol|describe|calls|callers`.
+- Default sequence: `codanna retrieve search "<intent>"` -> `codanna retrieve symbol <name>` -> `codanna retrieve calls|callers symbol_id:<id>`.
 4. **ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC** - **ZERO unwrap()**, **ZERO unwrap_or()**, **ZERO unwrap_or_else()**, **ZERO unwrap_or_default()**. **ZERO expect()**. **ZERO panic!()**, **ZERO todo!()**, **ZERO unimplemented!()**. Required: `Result<T, Error>`, `map`, `and_then`, `?` operator. **Strictly enforced for `src` via workspace `deny`; Permissive for `test` via crate root `allow`.**
 5. **GIT_PUSH_MANDATORY** - Work NOT done until `git push` succeeds. NEVER stop before pushing. **YOU** must push (not "ready when you are").
 6. **BR_SYNC** - `br` never runs git. After `br sync --flush-only`, manually `git add .beads/ && git commit -m 'sync beads'`

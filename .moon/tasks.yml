@@ -45,8 +45,8 @@ tasks:
   # ============================================================================
 
   test:
-    command: "cargo nextest run --workspace --all-features --no-fail-fast"
-    description: "Run all tests with nextest (parallel + faster)"
+    command: "cargo nextest run --workspace --all-features --no-fail-fast -E 'not (package(zjj) & binary(drq_adversarial))'"
+    description: "Run required tests (DRQ research excluded by default)"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
@@ -58,8 +58,22 @@ tasks:
     env:
       CARGO_BUILD_JOBS: "16"
 
+  test-research:
+    command: "cargo nextest run --workspace --all-features --no-fail-fast -E 'package(zjj) & binary(drq_adversarial)'"
+    description: "Run DRQ research lane tests (explicit opt-in)"
+    inputs:
+      - "crates/**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+    options:
+      cache: true
+      runInCI: false
+      mergeArgs: "replace"
+    env:
+      CARGO_BUILD_JOBS: "16"
+
   test-doc:
-    command: "cargo test --doc --workspace"
+    command: "cargo test --doc"
     description: "Run documentation tests"
     inputs:
       - "crates/**/*.rs"

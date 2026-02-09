@@ -27,6 +27,8 @@ pub struct RemoveOptions {
     /// Preserve branch after removal
     #[allow(dead_code)]
     pub keep_branch: bool,
+    /// Succeed when target session is already absent (safe retries)
+    pub idempotent: bool,
     /// Output format
     pub format: OutputFormat,
 }
@@ -41,13 +43,30 @@ pub async fn run(name: &str) -> Result<()> {
 pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     let db = get_session_db().await?;
 
-    // Get the session
-    // Return zjj_core::Error::NotFound to get exit code 2 (not found)
-    let session = db.get(name).await?.ok_or_else(|| {
-        anyhow::Error::new(zjj_core::Error::NotFound(format!(
-            "Session '{name}' not found"
-        )))
-    })?;
+    // Get the session; idempotent mode treats missing as success.
+    let session = match db.get(name).await? {
+        Some(session) => session,
+        None if options.idempotent => {
+            let message = format!("Session '{name}' already removed");
+            if options.format.is_json() {
+                let output = RemoveOutput {
+                    name: name.to_string(),
+                    message,
+                };
+                let envelope = SchemaEnvelope::new("remove-response", "single", output);
+                let json_str = serde_json::to_string(&envelope)?;
+                writeln!(std::io::stdout(), "{json_str}")?;
+            } else {
+                writeln!(std::io::stdout(), "Session '{name}' already removed")?;
+            }
+            return Ok(());
+        }
+        None => {
+            return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
+                "Session '{name}' not found"
+            ))));
+        }
+    };
 
     // Confirm removal unless --force
     if !options.force && !confirm_removal(name)? {
@@ -193,6 +212,7 @@ mod tests {
         assert!(!opts.force);
         assert!(!opts.merge);
         assert!(!opts.keep_branch);
+        assert!(!opts.idempotent);
     }
 
     #[tokio::test]

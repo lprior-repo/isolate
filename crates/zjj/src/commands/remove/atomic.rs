@@ -13,7 +13,11 @@ use std::path::Path;
 use anyhow::Result;
 use thiserror::Error;
 
-use crate::{cli::run_command, db::SessionDb, session::Session};
+use crate::{
+    cli::{is_inside_zellij, run_command},
+    db::SessionDb,
+    session::Session,
+};
 
 /// Errors that can occur during session removal
 #[derive(Debug, Error)]
@@ -93,9 +97,13 @@ pub async fn cleanup_session_atomically(
     }
 
     // Phase 2: Close Zellij tab (non-critical)
-    if let Err(e) = close_zellij_tab(&session.zellij_tab).await {
-        tracing::warn!("Failed to close Zellij tab '{}': {}", session.zellij_tab, e);
-        // Continue - tab closure is UI cleanup, not data integrity
+    // Skip tab operations when not running inside a Zellij session to avoid
+    // blocking on `zellij action` calls in non-interactive contexts (tests/CI).
+    if is_inside_zellij() {
+        if let Err(e) = close_zellij_tab(&session.zellij_tab).await {
+            tracing::warn!("Failed to close Zellij tab '{}': {}", session.zellij_tab, e);
+            // Continue - tab closure is UI cleanup, not data integrity
+        }
     }
 
     // Phase 3: Forget from JJ (non-critical)

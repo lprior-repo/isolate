@@ -46,7 +46,7 @@ pub const fn remove() -> &'static str {
     "schema_type": "single",
     "success": true,
     "name": "<session_name>",
-    "message": "Removed session '<name>'"
+    "message": "Removed session '<name>' | Session '<name>' already removed"
   }"#
 }
 

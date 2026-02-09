@@ -148,35 +148,14 @@ pub fn generate_backup_filename(timestamp: &DateTime<Utc>) -> String {
 #[allow(dead_code)]
 // Helper function for backup file parsing
 pub fn parse_backup_filename(filename: &str) -> Result<DateTime<Utc>> {
-    filename
+    let ts = filename
         .strip_prefix("backup-")
         .and_then(|s| s.strip_suffix(".db"))
-        .ok_or_else(|| anyhow::anyhow!("Invalid backup filename format: {filename}"))
-        .and_then(|ts| {
-            DateTime::parse_from_rfc3339(&format!("{}-00:00", ts.replace('T', "-")))
-                .map(|dt| dt.with_timezone(&Utc))
-                .map_err(|_| anyhow::anyhow!("Invalid timestamp in backup filename: {ts}"))
-        })
-        .or_else(|_| {
-            // Try alternative format: YYYYMMDD-HHMMSS
-            filename
-                .strip_prefix("backup-")
-                .and_then(|s| s.strip_suffix(".db"))
-                .ok_or_else(|| anyhow::anyhow!("Invalid backup filename format"))
-                .and_then(|ts| {
-                    DateTime::parse_from_rfc3339(&format!(
-                        "{}-{}-{}T{}:{}:{}-00:00",
-                        &ts[0..4],
-                        &ts[4..6],
-                        &ts[6..8],
-                        &ts[9..11],
-                        &ts[11..13],
-                        &ts[13..15]
-                    ))
-                    .map(|dt| dt.with_timezone(&Utc))
-                    .map_err(|_| anyhow::anyhow!("Invalid timestamp format: {ts}"))
-                })
-        })
+        .ok_or_else(|| anyhow::anyhow!("Invalid backup filename format: {filename}"))?;
+
+    chrono::NaiveDateTime::parse_from_str(ts, "%Y%m%d-%H%M%S")
+        .map(|dt| dt.and_utc())
+        .map_err(|_| anyhow::anyhow!("Invalid timestamp in backup filename: {ts}"))
 }
 
 #[cfg(test)]

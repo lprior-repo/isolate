@@ -232,7 +232,7 @@ mod tests {
             retention_count: 2,
         };
 
-        let backup_dir = root.join("backups").join("test.db");
+        let backup_dir = root.join("backups").join("state.db");
         fs::create_dir_all(&backup_dir)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to create backup directory for test: {e}"))?;
@@ -246,14 +246,14 @@ mod tests {
         }
 
         // Apply retention (keep 2, remove 1)
-        let removed = apply_retention_policy(root, "test.db", &config)
+        let removed = apply_retention_policy(root, "state.db", &config)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to apply retention policy: {e}"))?;
 
         assert_eq!(removed.len(), 1);
 
         // Verify 2 backups remain
-        let backups: Vec<list::BackupInfo> = list::list_database_backups(root, "test.db", &config)
+        let backups: Vec<list::BackupInfo> = list::list_database_backups(root, "state.db", &config)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to list backups: {e}"))?;
 
@@ -272,7 +272,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_dir = root.join("backups").join("test.db");
+        let backup_dir = root.join("backups").join("state.db");
         fs::create_dir_all(&backup_dir)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to create backup directory for test: {e}"))?;
@@ -288,7 +288,7 @@ mod tests {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to write test backup file: {e}"))?;
 
-        let total_size = calculate_backup_size(root, "test.db", &config)
+        let total_size = calculate_backup_size(root, "state.db", &config)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to calculate backup size: {e}"))?;
 
@@ -307,7 +307,7 @@ mod tests {
             retention_count: 5,
         };
 
-        let backup_dir = root.join("backups").join("test.db");
+        let backup_dir = root.join("backups").join("state.db");
         fs::create_dir_all(&backup_dir)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to create backup directory for test: {e}"))?;
@@ -326,8 +326,8 @@ mod tests {
 
         let test_status = statuses
             .iter()
-            .find(|s| s.database_name == "test.db")
-            .ok_or_else(|| anyhow::anyhow!("test.db status not found"))?;
+            .find(|s| s.database_name == "state.db")
+            .ok_or_else(|| anyhow::anyhow!("state.db status not found"))?;
 
         assert_eq!(test_status.backup_count, 3);
         assert!(test_status.within_limit);
