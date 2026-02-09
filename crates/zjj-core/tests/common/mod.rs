@@ -1,6 +1,7 @@
+//! Common test utilities and relaxed clippy settings for zjj-core integration tests
+//!
+//! Integration tests need relaxed clippy settings for brutal test scenarios.
 
-// Integration tests have relaxed clippy settings for brutal test scenarios.
-// Production code (src/) must use strict zero-unwrap/panic patterns.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -8,6 +9,7 @@
     clippy::unimplemented,
     clippy::todo,
     clippy::unreachable,
+    clippy::indexing_slicing,
     // Test code ergonomics
     clippy::too_many_lines,
     clippy::cognitive_complexity,
@@ -23,9 +25,9 @@
     clippy::option_if_let_else,
     clippy::match_same_arms,
     clippy::ignored_unit_patterns,
+    // Test-specific patterns
+    clippy::needless_raw_string_hashes,
+    clippy::bool_assert_comparison,
 )]
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::expect_used)]
-#![allow(clippy::too_many_lines)]
+
+pub use std::path::PathBuf;
