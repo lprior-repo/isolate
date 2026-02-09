@@ -9,14 +9,8 @@
 #![allow(clippy::expect_used)]
 
 mod common;
-use common::TestHarness;
+use common::{payload, session_entries, TestHarness};
 use serde_json::Value as JsonValue;
-
-fn sessions_from_list_json(json: &JsonValue) -> Option<&Vec<JsonValue>> {
-    json["data"]["sessions"]
-        .as_array()
-        .or_else(|| json["data"].as_array())
-}
 
 // ============================================================================
 // P0 Tests: Happy Path - Must Pass
@@ -25,13 +19,13 @@ fn sessions_from_list_json(json: &JsonValue) -> Option<&Vec<JsonValue>> {
 #[test]
 fn test_work_idempotent_succeeds_when_already_in_target_workspace() {
     // GIVEN: User is in workspace "feature-auth"
-    let Some(harness) = TestHarness::try_new() else {
+    let Some(mut harness) = TestHarness::try_new() else {
         return;
     };
 
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "feature-auth", "--no-open"]);
-    harness.assert_success(&["work", "feature-auth", "--no-zellij", "--no-agent"]);
+    harness.current_dir = harness.workspace_path("feature-auth");
 
     // WHEN: User runs `zjj work feature-auth --idempotent`
     let result = harness.zjj(&[
@@ -98,7 +92,7 @@ fn test_work_idempotent_creates_workspace_when_not_exists() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let sessions = match sessions_from_list_json(&json) {
+    let sessions = match session_entries(&json) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     };
@@ -112,7 +106,7 @@ fn test_work_idempotent_creates_workspace_when_not_exists() {
 #[test]
 fn test_work_idempotent_json_output_includes_created_field() {
     // GIVEN: User is on main branch
-    let Some(harness) = TestHarness::try_new() else {
+    let Some(mut harness) = TestHarness::try_new() else {
         return;
     };
 
@@ -142,15 +136,15 @@ fn test_work_idempotent_json_output_includes_created_field() {
     };
 
     // THEN: JSON includes created: true for new workspace
-    let data = &json["data"];
+    let response = payload(&json);
     assert_eq!(
-        data["created"], true,
+        response["created"], true,
         "created should be true for new workspace"
     );
-    assert_eq!(data["name"], "new-feature");
+    assert_eq!(response["name"], "new-feature");
 
     // WHEN: Already in workspace, run again with --idempotent --json
-    harness.assert_success(&["work", "new-feature", "--no-zellij", "--no-agent"]);
+    harness.current_dir = harness.workspace_path("new-feature");
     let result2 = harness.zjj(&[
         "work",
         "new-feature",
@@ -173,9 +167,9 @@ fn test_work_idempotent_json_output_includes_created_field() {
         Err(e) => panic!("Second output should be valid JSON: {e}"),
     };
 
-    let data2 = &json2["data"];
+    let response2 = payload(&json2);
     assert_eq!(
-        data2["created"], false,
+        response2["created"], false,
         "created should be false when already in workspace"
     );
 }
@@ -183,13 +177,13 @@ fn test_work_idempotent_json_output_includes_created_field() {
 #[test]
 fn test_work_idempotent_with_agent_id_reregisters_successfully() {
     // GIVEN: An existing workspace with agent
-    let Some(harness) = TestHarness::try_new() else {
+    let Some(mut harness) = TestHarness::try_new() else {
         return;
     };
 
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "agent-task", "--no-open"]);
-    harness.assert_success(&["work", "agent-task", "--agent-id", "agent-1", "--no-zellij"]);
+    harness.current_dir = harness.workspace_path("agent-task");
 
     // WHEN: User runs `zjj work agent-task --idempotent --agent-id agent-1`
     let result = harness.zjj(&[
@@ -223,13 +217,13 @@ fn test_work_idempotent_with_agent_id_reregisters_successfully() {
 #[test]
 fn test_work_idempotent_fails_when_in_different_workspace() {
     // GIVEN: User is already in workspace "feature-auth"
-    let Some(harness) = TestHarness::try_new() else {
+    let Some(mut harness) = TestHarness::try_new() else {
         return;
     };
 
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "feature-auth", "--no-open"]);
-    harness.assert_success(&["work", "feature-auth", "--no-zellij", "--no-agent"]);
+    harness.current_dir = harness.workspace_path("feature-auth");
 
     // WHEN: User runs `zjj work different-feature --idempotent`
     let result = harness.zjj(&[
@@ -260,7 +254,7 @@ fn test_work_idempotent_fails_when_in_different_workspace() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let sessions = match sessions_from_list_json(&json) {
+    let sessions = match session_entries(&json) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     };
@@ -298,6 +292,7 @@ fn test_work_idempotent_fails_when_not_in_jj_repo() {
     assert!(
         output.contains("not a jj repo")
             || output.contains("jj repository")
+            || output.contains("failed to create workspace")
             || output.contains("not in"),
         "Error should indicate not in JJ repo\noutput: {}",
         output
@@ -435,7 +430,7 @@ fn test_work_idempotent_with_dry_run() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let sessions = match sessions_from_list_json(&json) {
+    let sessions = match session_entries(&json) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     };
@@ -472,23 +467,26 @@ fn test_work_idempotent_json_output_schema_validation() {
     };
 
     // THEN: JSON matches schema
-    assert_eq!(json["schema"], "work-response");
-    assert_eq!(json["type"], "single");
+    assert_eq!(json["$schema"], "zjj://work-response/v1");
+    assert_eq!(json["schema_type"], "single");
 
-    // THEN: data field includes required fields
-    let data = &json["data"];
-    assert!(data.get("name").is_some(), "Should have 'name' field");
+    // THEN: response includes required fields
+    let response = payload(&json);
+    assert!(response.get("name").is_some(), "Should have 'name' field");
     assert!(
-        data.get("workspace_path").is_some(),
+        response.get("workspace_path").is_some(),
         "Should have 'workspace_path' field"
     );
     assert!(
-        data.get("zellij_tab").is_some(),
+        response.get("zellij_tab").is_some(),
         "Should have 'zellij_tab' field"
     );
-    assert!(data.get("created").is_some(), "Should have 'created' field");
     assert!(
-        data.get("enter_command").is_some(),
+        response.get("created").is_some(),
+        "Should have 'created' field"
+    );
+    assert!(
+        response.get("enter_command").is_some(),
         "Should have 'enter_command' field"
     );
 }

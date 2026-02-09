@@ -492,6 +492,7 @@ pub fn cmd_remove() -> ClapCommand {
                 "zjj remove test-session -f        Force removal without prompt",
                 "zjj remove feature-x --merge       Merge changes to main first",
                 "zjj remove experiment -k -f       Keep branch, force removal",
+                "zjj remove stale-session --idempotent  Succeed if already removed",
             ],
             Some(json_docs::remove()),
         ))

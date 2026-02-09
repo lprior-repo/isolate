@@ -63,7 +63,7 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // Define paths for all essential files
     let config_path = zjj_dir.join("config.toml");
     let layouts_dir = zjj_dir.join("layouts");
-    let db_path = super::get_db_path().await?;
+    let db_path = zjj_dir.join("state.db");
 
     // Check if already fully initialized
     let is_fully_initialized = tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false)

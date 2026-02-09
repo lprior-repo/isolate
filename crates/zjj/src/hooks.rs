@@ -126,7 +126,7 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     hook: hook_name.to_string(),
                     success: true,
                     command: command.to_string(),
-                    output: stdout.is_empty().then_some(stdout),
+                    output: (!stdout.is_empty()).then_some(stdout),
                     error: None,
                 }
             } else {
@@ -134,7 +134,7 @@ async fn run_hook_command(hook_name: &str, command: &str) -> HookResult {
                     hook: hook_name.to_string(),
                     success: false,
                     command: command.to_string(),
-                    output: stdout.is_empty().then_some(stdout),
+                    output: (!stdout.is_empty()).then_some(stdout),
                     error: Some(if stderr.is_empty() {
                         exit_code_msg
                     } else {

@@ -1430,38 +1430,12 @@ mod tests {
         // Use assert on the Result directly - no unwrap needed
         assert!(result.is_ok(), "ConfigManager::new should succeed");
 
-        // Use and_then to chain operations - we know it's Ok from the assert above
-        let retrieved_config = result.as_ref().map(|manager| {
-            // Create a clone for testing
-            let manager_clone = manager.clone();
-            // Get config asynchronously
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(manager_clone.get())
-        });
-
-        // Extract the config using map
-        let _config = result.as_ref().map(|manager| {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(manager.get())
-        });
-
-        // We need to actually get the config - let's use a different approach
-        // Just verify the result is Ok, which we already did above
-        assert!(result.is_ok());
-
-        // Now get the actual config by using the result
-        let manager = &result.as_ref().map_err(|e| e.to_string()).ok();
-        assert!(manager.is_some());
-
-        // For the actual test, we need to get the config
-        // Since we verified it's Ok above, we can use match with a fallback
-        let test_config = match &result {
-            Ok(manager) => {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(manager.get())
-            }
-            Err(_) => Config::default(),
+        let manager = match result {
+            Ok(manager) => manager,
+            Err(e) => panic!("ConfigManager::new should succeed: {e}"),
         };
+
+        let test_config = manager.get().await;
 
         // Verify we got a valid config
         assert!(!test_config.workspace_dir.is_empty());

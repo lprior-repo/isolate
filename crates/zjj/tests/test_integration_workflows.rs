@@ -11,7 +11,7 @@
 
 mod common;
 
-use common::TestHarness;
+use common::{payload, TestHarness};
 
 // ============================================================================
 // Complete User Workflows
@@ -149,6 +149,10 @@ fn test_json_output_automation_workflow() {
     // Verify JSON structure includes session data
     if let Ok(json) = parsed {
         assert!(json.is_object());
+        assert!(
+            payload(&json).is_object(),
+            "status --json payload should be an object"
+        );
     }
 }
 
@@ -182,12 +186,12 @@ fn test_session_name_with_numbers() {
     // Valid session names with numbers
     harness.assert_success(&["add", "feature-123", "--no-open"]);
     harness.assert_success(&["add", "bug-456-fix", "--no-open"]);
-    harness.assert_success(&["add", "789-task", "--no-open"]);
+    harness.assert_success(&["add", "task-789", "--no-open"]);
 
     let result = harness.zjj(&["list"]);
     result.assert_stdout_contains("feature-123");
     result.assert_stdout_contains("bug-456-fix");
-    result.assert_stdout_contains("789-task");
+    result.assert_stdout_contains("task-789");
 }
 
 #[test]

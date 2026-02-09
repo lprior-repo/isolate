@@ -7,6 +7,11 @@
 1. **NO_CLIPPY_EDITS** - NEVER modify `.clippy.toml`, `#![allow]`, `#![deny]`, Cargo.toml lint sections, `moon.yml` lint rules. Fix **code**, not rules.
 2. **MOON_ONLY** - NEVER `cargo fmt|clippy|test|build`. ALWAYS `moon run :quick|:test|:build|:ci|:fmt-fix|:check`
 3. **CODANNA_ONLY** - NEVER Grep|Glob|Read for exploration. ALWAYS use `mcp__codanna__` tools for code search
+
+### Codanna-Only Enforcement
+- BAN these operations outside Codanna: symbol lookup, fuzzy search, call graph (calls/callers), impact analysis, and docs/code discovery via Grep/Glob/Read.
+- REQUIRED flow: `codanna index` (or `codanna documents index --collection docs` when docs changed), then `codanna retrieve search|symbol|describe|calls|callers`.
+- Default sequence: `codanna retrieve search "<intent>"` -> `codanna retrieve symbol <name>` -> `codanna retrieve calls|callers symbol_id:<id>`.
 4. **ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC** - **ZERO unwrap()**, **ZERO unwrap_or()**, **ZERO unwrap_or_else()**, **ZERO unwrap_or_default()**. **ZERO expect()**, **ZERO expect_err()**. **ZERO panic!()**, **ZERO todo!()**, **ZERO unimplemented!()**. **Strictly enforced for `src` code; Permissive for `test` code.**
 5. **GIT_PUSH_MANDATORY** - Work NOT done until `git push` succeeds. NEVER stop before pushing. **YOU** must push (not "ready when you are")
 6. **BR_SYNC** - `br` never runs git. After `br sync`, manually commit `.beads/` directory

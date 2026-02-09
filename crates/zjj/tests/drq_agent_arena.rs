@@ -26,42 +26,14 @@
 
 // Import from the test common module
 mod common;
-use common::TestHarness;
+use common::{parse_json_output, payload, session_entries, validate_schema_envelope, TestHarness};
 use serde_json::Value as JsonValue;
-
-/// Parse JSON from string, returning Result for error propagation
-fn parse_json(s: &str) -> Result<JsonValue, serde_json::Error> {
-    serde_json::from_str(s)
-}
-
-/// Validation error type for better error reporting
-#[derive(Debug)]
-enum ValidationError {
-    MissingField(&'static str, String),
-    InvalidFormat(String),
-    SchemaMismatch(String),
-}
-
-impl std::fmt::Display for ValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MissingField(field, ctx) => {
-                write!(f, "Missing required field '{field}' in {ctx}")
-            }
-            Self::InvalidFormat(msg) => write!(f, "Invalid format: {msg}"),
-            Self::SchemaMismatch(msg) => write!(f, "Schema mismatch: {msg}"),
-        }
-    }
-}
-
-impl std::error::Error for ValidationError {}
 
 // ============================================================================
 // ROUND 1: JSON Schema Consistency Tests
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_all_json_outputs_use_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     // Every command with --json should return SchemaEnvelope
     let Some(harness) = TestHarness::try_new() else {
@@ -78,22 +50,31 @@ fn test_all_json_outputs_use_schema_envelope() -> Result<(), Box<dyn std::error:
         vec!["status", "test-session", "--json"],
         vec!["sync", "test-session", "--json"],
         vec!["diff", "test-session", "--json"],
-        vec!["query", "session-count", "--json"],
+        vec!["query", "session-exists", "test-session", "--json"],
+        vec!["query", "can-run", "add", "--json"],
         vec!["context", "--json"],
     ];
 
-    // Use functional traversal: map results, filter successful ones, validate each
+    // Use functional traversal and validate each output shape directly
     json_commands
         .iter()
         .map(|args| (args, harness.zjj(args)))
-        .filter(|(_, result)| result.success)
-        .try_for_each(|(args, result)| validate_schema_envelope(&result.stdout, args[0]))?;
+        .try_for_each(|(args, result)| {
+            validate_schema_envelope(&result.stdout, args[0]).map_err(
+                |e| -> Box<dyn std::error::Error> {
+                    format!(
+                        "{} schema validation failed\nStdout: {}\nStderr: {}\nError: {}",
+                        args[0], result.stdout, result.stderr, e
+                    )
+                    .into()
+                },
+            )
+        })?;
 
     Ok(())
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_json_output_has_required_fields() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -106,7 +87,7 @@ fn test_json_output_has_required_fields() -> Result<(), Box<dyn std::error::Erro
     let result = harness.zjj(&["status", "test-session", "--json"]);
     assert!(result.success);
 
-    let json = parse_json(&result.stdout)?;
+    let json = parse_json_output(&result.stdout)?;
 
     // All JSON outputs must have these fields
     assert!(json.get("$schema").is_some(), "Missing $schema field");
@@ -120,7 +101,6 @@ fn test_json_output_has_required_fields() -> Result<(), Box<dyn std::error::Erro
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_diff_uses_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -143,7 +123,6 @@ fn test_diff_uses_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_failed_add_leaves_no_artifacts() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -166,15 +145,14 @@ fn test_failed_add_leaves_no_artifacts() -> Result<(), Box<dyn std::error::Error
     let list_result = harness.zjj(&["list", "--json"]);
     assert!(list_result.success);
 
-    let json = parse_json(&list_result.stdout)?;
-    let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
+    let json = parse_json_output(&list_result.stdout)?;
+    let count = session_entries(&json).map(Vec::len).unwrap_or(0);
     assert_eq!(count, 1, "Should have exactly 1 session");
 
     Ok(())
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_remove_cleans_up_all_artifacts() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -194,8 +172,8 @@ fn test_remove_cleans_up_all_artifacts() -> Result<(), Box<dyn std::error::Error
 
     // Verify session is not in database
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue = parse_json(&list_result.stdout)?;
-    let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
+    let json: JsonValue = parse_json_output(&list_result.stdout)?;
+    let count = session_entries(&json).map(Vec::len).unwrap_or(0);
     assert_eq!(count, 0, "Should have 0 sessions after remove");
     Ok(())
 }
@@ -205,7 +183,6 @@ fn test_remove_cleans_up_all_artifacts() -> Result<(), Box<dyn std::error::Error
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_complete_agent_workflow() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -225,22 +202,25 @@ fn test_complete_agent_workflow() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Query session state
     let query_result = harness.zjj(&["query", "session-exists", "feature-1", "--json"]);
     assert!(query_result.success);
-    let json: JsonValue = parse_json(&query_result.stdout)?;
-    assert_eq!(json["exists"], true);
+    let json: JsonValue = parse_json_output(&query_result.stdout)?;
+    assert_eq!(payload(&json)["exists"], true);
 
     // 5. Remove session (cleanup)
     harness.assert_success(&["remove", "feature-1", "-f"]);
 
     // 6. Verify cleanup
     let query_result2 = harness.zjj(&["query", "session-exists", "feature-1", "--json"]);
-    assert!(query_result2.success);
-    let json2: JsonValue = parse_json(&query_result2.stdout)?;
-    assert_eq!(json2["exists"], false);
+    let json2: JsonValue = parse_json_output(&query_result2.stdout)?;
+    assert_eq!(
+        json2["success"], true,
+        "session-exists should return success=true envelope\nStdout: {}\nStderr: {}",
+        query_result2.stdout, query_result2.stderr
+    );
+    assert_eq!(payload(&json2)["exists"], false);
     Ok(())
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_context_command_for_agents() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -253,20 +233,26 @@ fn test_context_command_for_agents() -> Result<(), Box<dyn std::error::Error>> {
     let result = harness.zjj(&["context", "--json"]);
     assert!(result.success, "context command should succeed");
 
-    let json: JsonValue = parse_json(&result.stdout)?;
+    let json: JsonValue = parse_json_output(&result.stdout)?;
 
-    // Context should provide all the information an AI agent needs
-    assert!(json.get("zjj").is_some(), "Context should have zjj section");
-    assert!(json.get("jj").is_some(), "Context should have jj section");
+    // Context should provide actionable environment and repository state
+    validate_schema_envelope(&result.stdout, "context")?;
     assert!(
-        json.get("zellij").is_some(),
-        "Context should have zellij section"
+        json.get("location").is_some(),
+        "Context should include location"
+    );
+    assert!(
+        json.get("repository").is_some(),
+        "Context should include repository details"
+    );
+    assert!(
+        json.get("suggestions").is_some(),
+        "Context should include suggestions"
     );
     Ok(())
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -275,16 +261,15 @@ fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
 
     harness.assert_success(&["init"]);
 
-    // Test session-count query using functional composition
-    let initial_count = || -> Result<usize, Box<dyn std::error::Error>> {
-        let result = harness.zjj(&["query", "session-count", "--json"]);
-        assert!(result.success);
-        let json: JsonValue = parse_json(&result.stdout)?;
-        json["count"]
-            .as_u64()
-            .and_then(|v| usize::try_from(v).ok())
-            .ok_or_else(|| "Invalid count value or overflow".into())
-    };
+    // session-count currently returns a plain numeric response
+    let initial_count =
+        || -> Result<usize, Box<dyn std::error::Error>> {
+            let result = harness.zjj(&["query", "session-count", "--json"]);
+            assert!(result.success);
+            result.stdout.trim().parse::<usize>().map_err(|e| {
+                format!("Invalid session-count output '{}': {e}", result.stdout).into()
+            })
+        };
 
     assert_eq!(initial_count()?, 0, "Should have 0 sessions initially");
 
@@ -302,7 +287,6 @@ fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_concurrent_add_same_name() {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -331,7 +315,6 @@ fn test_concurrent_add_same_name() {
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_multiple_sessions_isolation() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -353,8 +336,8 @@ fn test_multiple_sessions_isolation() -> Result<(), Box<dyn std::error::Error>> 
 
     // Verify all sessions exist independently
     let list_result = harness.zjj(&["list", "--json"]);
-    let json: JsonValue = parse_json(&list_result.stdout)?;
-    let count = json["sessions"].as_array().map(Vec::len).unwrap_or(0);
+    let json: JsonValue = parse_json_output(&list_result.stdout)?;
+    let count = session_entries(&json).map(Vec::len).unwrap_or(0);
     assert_eq!(count, 3, "Should have 3 sessions");
 
     // Verify each session can be queried independently using functional traversal
@@ -381,7 +364,6 @@ fn test_multiple_sessions_isolation() -> Result<(), Box<dyn std::error::Error>> 
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -394,7 +376,7 @@ fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::e
     let result = harness.zjj(&["status", "nonexistent", "--json"]);
     assert!(!result.success, "Should fail for non-existent session");
 
-    let json: JsonValue = parse_json(&result.stdout)?;
+    let json: JsonValue = parse_json_output(&result.stdout)?;
 
     // Define required error fields
     let error_fields: &[&str] = &["code", "message", "exit_code"];
@@ -421,7 +403,6 @@ fn test_error_responses_have_consistent_structure() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -432,7 +413,7 @@ fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::
 
     // Test not found error (exit code 2)
     let result1 = harness.zjj(&["status", "nonexistent", "--json"]);
-    let json1: JsonValue = parse_json(&result1.stdout)?;
+    let json1: JsonValue = parse_json_output(&result1.stdout)?;
     assert_eq!(
         json1["error"]["exit_code"], 2,
         "Not found should be exit code 2"
@@ -440,7 +421,7 @@ fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::
 
     // Test validation error (exit code 1)
     let result2 = harness.zjj(&["add", "123invalid", "--no-open", "--json"]);
-    let json2: JsonValue = parse_json(&result2.stdout)?;
+    let json2: JsonValue = parse_json_output(&result2.stdout)?;
     assert_eq!(
         json2["error"]["exit_code"], 1,
         "Validation error should be exit code 1"
@@ -453,8 +434,7 @@ fn test_not_found_vs_validation_error_codes() -> Result<(), Box<dyn std::error::
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_query_session_locked_no_locks() -> Result<(), Box<dyn std::error::Error>> {
+fn test_query_session_exists_for_missing_session() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
         return Ok(());
@@ -462,28 +442,30 @@ fn test_query_session_locked_no_locks() -> Result<(), Box<dyn std::error::Error>
 
     harness.assert_success(&["init"]);
 
-    // Query a non-existent session - should not be locked
-    let result = harness.zjj(&["query", "session-locked", "nonexistent", "--json"]);
-    assert!(
-        result.success,
-        "Query should succeed even for non-existent session"
-    );
+    // Query a non-existent session
+    let result = harness.zjj(&["query", "session-exists", "nonexistent", "--json"]);
 
-    let json: JsonValue = parse_json(&result.stdout)?;
+    let json: JsonValue = parse_json_output(&result.stdout)?;
+    validate_schema_envelope(&result.stdout, "query session-exists")?;
     assert_eq!(
-        json["locked"], false,
-        "Non-existent session should not be locked"
+        json["success"], true,
+        "session-exists should return success=true envelope\nStdout: {}\nStderr: {}",
+        result.stdout, result.stderr
+    );
+    assert_eq!(
+        payload(&json)["exists"],
+        false,
+        "Missing session should not exist"
     );
     assert!(
-        json["lock_info"].is_null(),
-        "lock_info should be null when not locked"
+        payload(&json).get("session").is_none(),
+        "Missing session should not include session details"
     );
     Ok(())
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_query_session_locked_with_session() -> Result<(), Box<dyn std::error::Error>> {
+fn test_query_session_exists_for_existing_session() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
         return Ok(());
@@ -492,14 +474,25 @@ fn test_query_session_locked_with_session() -> Result<(), Box<dyn std::error::Er
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "test-session", "--no-open"]);
 
-    // Query an existing session - should not be locked (no operations)
-    let result = harness.zjj(&["query", "session-locked", "test-session", "--json"]);
-    assert!(result.success);
+    // Query an existing session
+    let result = harness.zjj(&["query", "session-exists", "test-session", "--json"]);
 
-    let json: JsonValue = parse_json(&result.stdout)?;
+    let json: JsonValue = parse_json_output(&result.stdout)?;
+    validate_schema_envelope(&result.stdout, "query session-exists")?;
     assert_eq!(
-        json["locked"], false,
-        "Session should not be locked when idle"
+        json["success"], true,
+        "session-exists should return success=true envelope\nStdout: {}\nStderr: {}",
+        result.stdout, result.stderr
+    );
+    assert_eq!(
+        payload(&json)["exists"],
+        true,
+        "Created session should exist"
+    );
+    assert_eq!(
+        payload(&json)["session"]["name"],
+        "test-session",
+        "Session payload should include session metadata"
     );
 
     // Cleanup
@@ -508,8 +501,7 @@ fn test_query_session_locked_with_session() -> Result<(), Box<dyn std::error::Er
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_query_operations_in_progress_empty() -> Result<(), Box<dyn std::error::Error>> {
+fn test_query_can_run_includes_prerequisite_summary() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
         return Ok(());
@@ -517,50 +509,74 @@ fn test_query_operations_in_progress_empty() -> Result<(), Box<dyn std::error::E
 
     harness.assert_success(&["init"]);
 
-    // No active operations initially
-    let result = harness.zjj(&["query", "operations-in-progress", "--json"]);
-    assert!(result.success);
-
-    let json: JsonValue = parse_json(&result.stdout)?;
+    let result = harness.zjj(&["query", "can-run", "add", "--json"]);
+    let json: JsonValue = parse_json_output(&result.stdout)?;
+    validate_schema_envelope(&result.stdout, "query can-run")?;
     assert_eq!(
-        json["count"], 0,
-        "Should have 0 active operations initially"
+        json["success"], true,
+        "can-run should return success=true envelope\nStdout: {}\nStderr: {}",
+        result.stdout, result.stderr
     );
-    assert!(json["operations"]
-        .as_array()
-        .map(Vec::is_empty)
-        .unwrap_or(true));
+    assert!(
+        payload(&json)
+            .get("can_run")
+            .and_then(JsonValue::as_bool)
+            .is_some(),
+        "can-run should include boolean can_run"
+    );
+    assert!(
+        payload(&json)
+            .get("prerequisites_total")
+            .and_then(JsonValue::as_u64)
+            .is_some(),
+        "can-run should include prerequisite totals"
+    );
+    assert!(
+        payload(&json)
+            .get("prerequisites_met")
+            .and_then(JsonValue::as_u64)
+            .is_some(),
+        "can-run should include met prerequisite count"
+    );
     Ok(())
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
-fn test_query_operations_in_progress_with_session() -> Result<(), Box<dyn std::error::Error>> {
+fn test_query_suggest_name_finds_next_available_name() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
     harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "active-session", "--no-open"]);
+    harness.assert_success(&["add", "feature-1", "--no-open"]);
 
-    // Still no active operations just from creating a session
-    let result = harness.zjj(&["query", "operations-in-progress", "--json"]);
+    let result = harness.zjj(&["query", "suggest-name", "feature-{n}", "--json"]);
     assert!(result.success);
 
-    let json: JsonValue = parse_json(&result.stdout)?;
+    let json: JsonValue = parse_json_output(&result.stdout)?;
+    validate_schema_envelope(&result.stdout, "query suggest-name")?;
     assert_eq!(
-        json["count"], 0,
-        "Session creation doesn't create a persistent lock"
+        payload(&json)["pattern"],
+        "feature-{n}",
+        "Pattern should round-trip in response"
+    );
+    let suggested = payload(&json)["suggested"].as_str().unwrap_or("");
+    assert!(
+        suggested.starts_with("feature-"),
+        "Suggested name should follow requested pattern"
+    );
+    assert_ne!(
+        suggested, "feature-1",
+        "Suggested name should avoid existing session names"
     );
 
     // Cleanup
-    harness.assert_success(&["remove", "active-session", "-f"]);
+    harness.assert_success(&["remove", "feature-1", "-f"]);
     Ok(())
 }
 
 #[test]
-#[ignore = "DRQ test bank - run with: cargo test --test drq_agent_arena -- --ignored"]
 fn test_all_query_commands_use_schema_envelope() -> Result<(), Box<dyn std::error::Error>> {
     let Some(harness) = TestHarness::try_new() else {
         // Test framework will handle skipping - no output needed
@@ -569,69 +585,36 @@ fn test_all_query_commands_use_schema_envelope() -> Result<(), Box<dyn std::erro
 
     harness.assert_success(&["init"]);
 
-    // All query commands should output with SchemaEnvelope
+    harness.assert_success(&["add", "test-session", "--no-open"]);
+
+    // Query commands with JSON envelopes (session-count is intentionally scalar text)
     let queries = [
-        "session-count",
-        "session-exists test",
-        "operations-in-progress",
-        "session-locked test-session",
+        vec!["session-exists", "test-session"],
+        vec!["can-run", "add"],
+        vec!["suggest-name", "feature-{n}"],
     ];
 
-    // Use functional chain: execute queries, filter successful, validate each
+    // Use functional chain: execute queries and validate each envelope
     queries
         .iter()
-        .map(|query| {
-            let result = harness.zjj(&["query", query, "--json"]);
-            let command_name = query.split_whitespace().next().unwrap_or(query);
-            (query, result, command_name)
+        .map(|query_args| {
+            let mut args = vec!["query"];
+            args.extend(query_args.iter().copied());
+            args.push("--json");
+            let result = harness.zjj(&args);
+            (query_args[0], result)
         })
-        .filter(|(_, result, _)| result.success)
-        .try_for_each(|(_, result, command_name)| {
-            validate_schema_envelope(&result.stdout, command_name)
+        .try_for_each(|(query_name, result)| {
+            validate_schema_envelope(&result.stdout, query_name).map_err(
+                |e| -> Box<dyn std::error::Error> {
+                    format!(
+                        "{} schema validation failed\nStdout: {}\nStderr: {}\nError: {}",
+                        query_name, result.stdout, result.stderr, e
+                    )
+                    .into()
+                },
+            )
         })?;
-
-    Ok(())
-}
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/// Validate that JSON output uses `SchemaEnvelope` structure
-///
-/// Uses functional composition for better error handling and clarity.
-/// Returns detailed validation errors instead of using assert! macros.
-fn validate_schema_envelope(
-    json_str: &str,
-    command_name: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Parse JSON with context
-    let json = parse_json(json_str).map_err(|e| format!("{command_name}: Invalid JSON: {e}"))?;
-
-    // Define required fields with their error messages
-    let required_fields: &[&str] = &["$schema", "_schema_version", "success"];
-
-    // Validate all required fields exist using functional traversal
-    required_fields.iter().try_for_each(|&field| {
-        json.get(field)
-            .ok_or_else(|| {
-                ValidationError::MissingField(field, format!("{command_name}: output: {json_str}"))
-            })
-            .map(|_| ())
-    })?;
-
-    // Validate schema format using and_then for composition
-    let schema = json["$schema"].as_str().ok_or_else(|| {
-        ValidationError::InvalidFormat(format!("{command_name}: $schema field is not a string"))
-    })?;
-
-    // Validate schema URI pattern
-    if !schema.starts_with("zjj://") {
-        return Err(ValidationError::SchemaMismatch(format!(
-            "{command_name}: $schema should start with 'zjj://', got: {schema}"
-        ))
-        .into());
-    }
 
     Ok(())
 }

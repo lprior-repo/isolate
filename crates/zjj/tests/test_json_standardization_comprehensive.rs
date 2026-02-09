@@ -15,10 +15,12 @@
 
 mod common;
 
-use common::TestHarness;
+use common::{payload, session_entries, validate_schema_envelope, TestHarness};
 
 /// Test helper to validate `SchemaEnvelope` structure
 fn validate_envelope(json: &serde_json::Value, expected_schema: &str) -> Result<(), String> {
+    validate_schema_envelope(&json.to_string(), expected_schema).map_err(|e| e.to_string())?;
+
     // Check for $schema field
     let schema = json
         .get("$schema")
@@ -81,20 +83,21 @@ fn test_init_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     validate_envelope(&parsed, "init-response")?;
 
     // Check for expected fields
+    let response = payload(&parsed);
     assert!(
-        parsed.get("root").is_some(),
+        response.get("root").is_some(),
         "init response should have root field"
     );
     assert!(
-        parsed.get("paths").is_some(),
+        response.get("paths").is_some(),
         "init response should have paths field"
     );
     assert!(
-        parsed.get("message").is_some(),
+        response.get("message").is_some(),
         "init response should have message field"
     );
     assert!(
-        parsed.get("jj_initialized").is_some(),
+        response.get("jj_initialized").is_some(),
         "init response should have jj_initialized field"
     );
 
@@ -121,20 +124,21 @@ fn test_add_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     validate_envelope(&parsed, "add-response")?;
 
     // Check for expected fields
+    let response = payload(&parsed);
     assert!(
-        parsed.get("name").is_some(),
+        response.get("name").is_some(),
         "add response should have name field"
     );
     assert!(
-        parsed.get("workspace_path").is_some(),
+        response.get("workspace_path").is_some(),
         "add response should have workspace_path field"
     );
     assert!(
-        parsed.get("zellij_tab").is_some(),
+        response.get("zellij_tab").is_some(),
         "add response should have zellij_tab field"
     );
     assert!(
-        parsed.get("status").is_some(),
+        response.get("status").is_some(),
         "add response should have status field"
     );
 
@@ -231,8 +235,9 @@ fn test_status_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
         validate_envelope(&parsed, "status-response")?;
 
         // Check for expected fields
+        let response = payload(&parsed);
         assert!(
-            parsed.get("sessions").is_some(),
+            response.get("sessions").is_some(),
             "status response should have sessions field"
         );
     } else {
@@ -252,7 +257,7 @@ fn test_remove_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     harness.assert_success(&["init"]);
     harness.assert_success(&["add", "remove-test", "--no-open"]);
 
-    let result = harness.zjj(&["remove", "remove-test", "--json"]);
+    let result = harness.zjj(&["remove", "remove-test", "--json", "--force"]);
 
     if !result.success {
         eprintln!("stdout: {}", result.stdout);
@@ -264,12 +269,13 @@ fn test_remove_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     validate_envelope(&parsed, "remove-response")?;
 
     // Check for expected fields
+    let response = payload(&parsed);
     assert!(
-        parsed.get("name").is_some(),
+        response.get("name").is_some(),
         "remove response should have name field"
     );
     assert!(
-        parsed.get("message").is_some(),
+        response.get("message").is_some(),
         "remove response should have message field"
     );
 
@@ -297,16 +303,17 @@ fn test_sync_json_has_envelope() -> Result<(), Box<dyn std::error::Error>> {
     validate_envelope(&parsed, "sync-response")?;
 
     // Check for expected fields
+    let response = payload(&parsed);
     assert!(
-        parsed.get("name").is_some(),
+        response.get("name").is_some(),
         "sync response should have name field"
     );
     assert!(
-        parsed.get("synced_count").is_some(),
+        response.get("synced_count").is_some(),
         "sync response should have synced_count field"
     );
     assert!(
-        parsed.get("failed_count").is_some(),
+        response.get("failed_count").is_some(),
         "sync response should have failed_count field"
     );
 
@@ -518,11 +525,7 @@ fn test_array_envelope_for_collections() -> Result<(), Box<dyn std::error::Error
 
     let parsed: serde_json::Value = serde_json::from_str(result.stdout.trim())?;
 
-    // List returns array, so should have explicit "data" field
-    let data = parsed
-        .get("data")
-        .and_then(|v| v.as_array())
-        .ok_or("list response should have data array")?;
+    let data = session_entries(&parsed).ok_or("list response should have session entries")?;
 
     assert!(
         data.len() >= 2,

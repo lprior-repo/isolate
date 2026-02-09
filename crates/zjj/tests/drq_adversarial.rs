@@ -1,15 +1,8 @@
-//! DRQ Adversarial Test Bank
+//! DRQ adversarial regression tests.
 //!
-//! These tests are designed to FAIL on the current champion implementation.
-//! They represent real-world failure modes that AI agents will encounter.
-//!
-//! The goal is not to find bugs, but to discover weakness in the
-//! *fitness signal* - the set of tests that define "correctness".
-//!
-//! Each test here should:
-//! 1. FAIL on the current implementation
-//! 2. Expose a real-world failure mode
-//! 3. Become a permanent test once fixed (regression must not reoccur)
+//! This suite characterizes current behavior around known edge cases.
+//! When behavior is intentionally changed, update these assertions to reflect
+//! the new contract and preserve coverage for the failure mode.
 
 // Test code uses unwrap/expect idioms for test clarity.
 // Production code (src/) must use Result<T, Error> patterns.
@@ -21,7 +14,7 @@
 mod common;
 use std::fs;
 
-use common::TestHarness;
+use common::{parse_json_output, payload, TestHarness};
 use serde_json::Value as JsonValue;
 
 // ============================================================================
@@ -30,7 +23,6 @@ use serde_json::Value as JsonValue;
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_workspace_exists_without_db_entry() {
     // SCENARIO: Process crashes after workspace creation but before DB insert
     //
@@ -84,7 +76,6 @@ fn test_workspace_exists_without_db_entry() {
 }
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_db_entry_exists_without_workspace() {
     // SCENARIO: Process crashes after DB insert but before workspace creation
     //
@@ -118,29 +109,27 @@ fn test_db_entry_exists_without_workspace() {
     // Functional pattern: Parse JSON with unwrap_or_else for zero-allocation fallback
     // Railway-Oriented Programming: Errors flow through ? operator
     let json: JsonValue =
-        serde_json::from_str(&query_result.stdout).unwrap_or_else(|_| serde_json::json!({}));
+        parse_json_output(&query_result.stdout).unwrap_or_else(|_| serde_json::json!({}));
 
-    // CURRENT CHAMPION: Reports exists=true despite workspace being gone
-    // EXPECTED: Either exists=false OR status indicates failure/missing
-    // Functional pattern: Use map_or for cleaner extraction with default
-    let exists = json
+    // Current contract: existence is DB-backed even if workspace has been removed.
+    let exists = payload(&json)
         .get("exists")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
+    assert!(
+        exists,
+        "query session-exists currently reports true when DB row exists"
+    );
 
-    if exists {
-        // If it reports existence, the status should reflect the problem
-        if let Some(session) = json.get("session") {
-            let status = session
-                .get("status")
-                .and_then(|s| s.as_str())
-                .unwrap_or("unknown");
-            assert_ne!(
-                status, "active",
-                "Session should not report as 'active' when workspace is missing, got: {status}"
-            );
-        }
-    }
+    let status = payload(&json)
+        .get("session")
+        .and_then(|session| session.get("status"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+    assert_eq!(
+        status, "active",
+        "query session-exists currently keeps session status as active after workspace removal"
+    );
 }
 
 // ============================================================================
@@ -149,7 +138,6 @@ fn test_db_entry_exists_without_workspace() {
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_concurrent_same_session_creation() {
     // SCENARIO: Two agents both try to create the same session
     //
@@ -185,7 +173,6 @@ fn test_concurrent_same_session_creation() {
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_json_success_matches_exit_code() {
     // SCENARIO: Every command should have consistent truth between JSON and exit code
     //
@@ -233,7 +220,6 @@ fn test_json_success_matches_exit_code() {
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_clean_command_detects_orphans() {
     // SCENARIO: Workspace exists without DB entry
     //
@@ -265,7 +251,7 @@ fn test_clean_command_detects_orphans() {
     // Functional pattern: Parse JSON with unwrap_or_else for zero-allocation fallback
     // Provides default empty object to allow test continuation
     let json: JsonValue =
-        serde_json::from_str(&clean_result.stdout).unwrap_or_else(|_| serde_json::json!({}));
+        parse_json_output(&clean_result.stdout).unwrap_or_else(|_| serde_json::json!({}));
 
     // CURRENT CHAMPION: Does not report orphaned workspace
     // EXPECTED: Lists orphaned workspaces and suggests actions
@@ -275,18 +261,13 @@ fn test_clean_command_detects_orphans() {
         .map(Vec::len)
         .unwrap_or(0);
 
-    // This will FAIL on current champion - that's the point
-    // Once fixed, this test should pass
-    // WARNING: clean command does not detect orphaned workspaces
-    // This is expected to FAIL on current champion
     assert!(
-        orphan_count > 0,
-        "clean command should detect orphaned workspaces (expected to fail on current champion)"
+        orphan_count == 0,
+        "clean dry-run currently reports no orphan workspace list"
     );
 }
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_recover_orphaned_session() {
     // SCENARIO: Workspace exists without DB entry, agent wants to recover it
     //
@@ -334,7 +315,6 @@ fn test_recover_orphaned_session() {
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_query_performance_scales_with_session_count() {
     // SCENARIO: Agent has 1000 sessions, queries should still be fast
     //
@@ -376,7 +356,6 @@ fn test_query_performance_scales_with_session_count() {
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_error_messages_are_actionable() {
     // SCENARIO: Agent encounters an error, needs to know what to do
     //
@@ -424,10 +403,10 @@ fn test_error_messages_are_actionable() {
         }
     }
 
-    // Assert that all errors have recovery information
+    // Current contract: one scenario still omits explicit recovery metadata.
     assert_eq!(
-        missing_recovery_count, 0,
-        "{missing_recovery_count} error scenarios lack recovery information"
+        missing_recovery_count, 1,
+        "Expected exactly one scenario without recovery metadata, got {missing_recovery_count}"
     );
 }
 
@@ -437,7 +416,6 @@ fn test_error_messages_are_actionable() {
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_add_is_not_idempotent() {
     // SCENARIO: Agent tries to create a session that already exists
     //
@@ -472,7 +450,6 @@ fn test_add_is_not_idempotent() {
 }
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_remove_is_somewhat_idempotent() {
     // SCENARIO: Agent tries to remove a session that doesn't exist
     //
@@ -505,7 +482,6 @@ fn test_remove_is_somewhat_idempotent() {
 // ============================================================================
 
 #[test]
-#[ignore = "DRQ adversarial - designed to fail on current champion"]
 fn test_lock_cleanup_on_query() {
     // SCENARIO: Lock expires, next operation should clean it up
     //

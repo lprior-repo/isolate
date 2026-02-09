@@ -15,34 +15,22 @@ use crate::{Error, Result};
 
 static JJ_PATH: OnceLock<String> = OnceLock::new();
 
-#[allow(clippy::print_stderr)]
 fn resolve_jj_path() -> String {
     let env_path = std::env::var("ZJJ_JJ_PATH")
         .ok()
         .filter(|value| !value.trim().is_empty());
 
-    let path = env_path.as_ref().map_or_else(
-        || {
-            eprintln!("DEBUG: ZJJ_JJ_PATH not set, searching PATH");
+    let path = env_path.as_ref().map_or_else(search_path_for_jj, |p| {
+        if std::path::Path::new(p).exists() {
+            p.clone()
+        } else {
             search_path_for_jj()
-        },
-        |p| {
-            if std::path::Path::new(p).exists() {
-                eprintln!("DEBUG: ZJJ_JJ_PATH '{p}' exists, using it");
-                p.clone()
-            } else {
-                eprintln!("DEBUG: ZJJ_JJ_PATH '{p}' does NOT exist, falling back to PATH search");
-                search_path_for_jj()
-            }
-        },
-    );
-
-    eprintln!("DEBUG: resolve_jj_path returning: '{path}'");
+        }
+    });
     path
 }
 
 /// Search PATH for jj binary
-#[allow(clippy::print_stderr)]
 fn search_path_for_jj() -> String {
     let paths = std::env::var_os("PATH").unwrap_or_default();
     let found = std::env::split_paths(&paths)
@@ -50,35 +38,12 @@ fn search_path_for_jj() -> String {
         .find(|p| p.exists())
         .map(|p| p.to_string_lossy().to_string());
 
-    if let Some(p) = &found {
-        eprintln!("DEBUG: Found jj at: {p}");
-    } else {
-        eprintln!("DEBUG: jj NOT FOUND in PATH");
-    }
-
     found.unwrap_or_else(|| "jj".to_string())
 }
 
 /// Get a tokio Command for jj with absolute path
 pub fn get_jj_command() -> Command {
     let path = JJ_PATH.get_or_init(resolve_jj_path);
-    eprintln!(
-        "DEBUG: get_jj_command() path={:?}, len={}",
-        path,
-        path.len()
-    );
-
-    // Test if the file is actually executable
-    use std::os::unix::fs::PermissionsExt;
-    if let Ok(metadata) = std::fs::metadata(&path) {
-        let perms = metadata.permissions();
-        eprintln!("DEBUG: File permissions: {:o}", perms.mode());
-        let is_executable = perms.mode() & 0o111 != 0;
-        eprintln!("DEBUG: Is executable: {}", is_executable);
-    } else {
-        eprintln!("DEBUG: Failed to get file metadata!");
-    }
-
     Command::new(path.as_str())
 }
 
