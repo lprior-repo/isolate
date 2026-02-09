@@ -596,15 +596,22 @@ impl MergeQueue {
 
     #[allow(clippy::cast_possible_wrap)]
     pub async fn cleanup(&self, max_age: Duration) -> Result<usize> {
-        let cutoff = Self::now() - max_age.as_secs() as i64;
-        let result = sqlx::query(
-            "DELETE FROM merge_queue WHERE status IN ('completed', 'failed') \
-                 AND completed_at < ?1",
-        )
-        .bind(cutoff)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to cleanup: {e}")))?;
+        let result = if max_age.is_zero() {
+            sqlx::query("DELETE FROM merge_queue WHERE status IN ('completed', 'failed')")
+                .execute(&self.pool)
+                .await
+                .map_err(|e| Error::DatabaseError(format!("Failed to cleanup: {e}")))?
+        } else {
+            let cutoff = Self::now() - max_age.as_secs() as i64;
+            sqlx::query(
+                "DELETE FROM merge_queue WHERE status IN ('completed', 'failed') \
+                     AND completed_at <= ?1",
+            )
+            .bind(cutoff)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to cleanup: {e}")))?
+        };
         Ok(result.rows_affected() as usize)
     }
 }

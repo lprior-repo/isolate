@@ -3,6 +3,8 @@
 //! Provides atomic save/restore of all session state, enabling rollback
 //! to known-good configurations.
 
+use std::{collections::BTreeSet, str::FromStr};
+
 use anyhow::{Context, Result};
 use chrono::TimeZone;
 use futures::{StreamExt, TryStreamExt};
@@ -10,7 +12,11 @@ use serde::Serialize;
 use sqlx::Row;
 use zjj_core::OutputFormat;
 
-use crate::{commands::get_session_db, db::SessionDb, session::validate_session_name};
+use crate::{
+    commands::get_session_db,
+    db::SessionDb,
+    session::{validate_session_name, SessionStatus},
+};
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -67,7 +73,14 @@ CREATE TABLE IF NOT EXISTS checkpoint_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_checkpoint_sessions_id ON checkpoint_sessions(checkpoint_id);
+
+CREATE TABLE IF NOT EXISTS checkpoint_schema_meta (
+    id INTEGER PRIMARY KEY CHECK(id = 1),
+    version INTEGER NOT NULL
+);
 ";
+
+const CHECKPOINT_SCHEMA_VERSION: i64 = 2;
 
 // ── Public entry point ───────────────────────────────────────────────
 
@@ -95,7 +108,160 @@ async fn ensure_checkpoint_tables(db: &SessionDb) -> Result<()> {
         .execute(pool)
         .await
         .map(|_| ())
-        .context("Failed to create checkpoint tables")
+        .context("Failed to create checkpoint tables")?;
+
+    ensure_checkpoint_schema(pool).await
+}
+
+async fn ensure_checkpoint_schema(pool: &sqlx::SqlitePool) -> Result<()> {
+    recover_interrupted_checkpoint_migration(pool).await?;
+
+    let current_version: Option<i64> =
+        sqlx::query("SELECT version FROM checkpoint_schema_meta WHERE id = 1")
+            .fetch_optional(pool)
+            .await
+            .context("Failed to read checkpoint schema version")?
+            .map(|row| row.try_get("version"))
+            .transpose()
+            .context("Failed to parse checkpoint schema version")?;
+
+    if let Some(version) = current_version {
+        if version > CHECKPOINT_SCHEMA_VERSION {
+            anyhow::bail!(
+                "Checkpoint schema version mismatch: database has version {version}, but zjj expects version {CHECKPOINT_SCHEMA_VERSION}"
+            );
+        }
+    }
+
+    let needs_legacy_fk_migration = has_legacy_fk_to_sessions(pool).await?;
+
+    if needs_legacy_fk_migration {
+        migrate_legacy_checkpoint_fk(pool).await?;
+    }
+
+    sqlx::query(
+        "INSERT INTO checkpoint_schema_meta (id, version) VALUES (1, ?)
+         ON CONFLICT(id) DO UPDATE SET version = excluded.version",
+    )
+    .bind(CHECKPOINT_SCHEMA_VERSION)
+    .execute(pool)
+    .await
+    .context("Failed to set checkpoint schema version")?;
+
+    Ok(())
+}
+
+async fn table_exists(pool: &sqlx::SqlitePool, table_name: &str) -> Result<bool> {
+    let row: Option<(i64,)> =
+        sqlx::query_as("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1")
+            .bind(table_name)
+            .fetch_optional(pool)
+            .await
+            .with_context(|| format!("Failed to inspect sqlite_master for table '{table_name}'"))?;
+
+    Ok(row.is_some())
+}
+
+async fn recover_interrupted_checkpoint_migration(pool: &sqlx::SqlitePool) -> Result<()> {
+    let old_exists = table_exists(pool, "checkpoints_old").await?;
+    if !old_exists {
+        return Ok(());
+    }
+
+    let mut tx = pool
+        .begin()
+        .await
+        .context("Failed to begin interrupted checkpoint migration recovery")?;
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS checkpoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            checkpoint_id TEXT UNIQUE NOT NULL,
+            description TEXT,
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+        )",
+    )
+    .execute(&mut *tx)
+    .await
+    .context("Failed to ensure checkpoints table during migration recovery")?;
+
+    sqlx::query(
+        "INSERT INTO checkpoints (id, checkpoint_id, description, created_at)
+         SELECT id, checkpoint_id, description, created_at FROM checkpoints_old
+         WHERE NOT EXISTS (
+             SELECT 1 FROM checkpoints c WHERE c.checkpoint_id = checkpoints_old.checkpoint_id
+         )",
+    )
+    .execute(&mut *tx)
+    .await
+    .context("Failed to replay checkpoint rows from checkpoints_old")?;
+
+    sqlx::query("DROP TABLE checkpoints_old")
+        .execute(&mut *tx)
+        .await
+        .context("Failed to drop checkpoints_old during migration recovery")?;
+
+    tx.commit()
+        .await
+        .context("Failed to commit interrupted checkpoint migration recovery")
+}
+
+async fn has_legacy_fk_to_sessions(pool: &sqlx::SqlitePool) -> Result<bool> {
+    let checkpoint_fks = sqlx::query("PRAGMA foreign_key_list(checkpoints)")
+        .fetch_all(pool)
+        .await
+        .context("Failed to inspect checkpoints foreign keys")?;
+
+    Ok(checkpoint_fks.iter().any(|row| {
+        let table_name: String = row.try_get("table").map_or(String::new(), |value| value);
+        table_name == "sessions"
+    }))
+}
+
+async fn migrate_legacy_checkpoint_fk(pool: &sqlx::SqlitePool) -> Result<()> {
+    let mut tx = pool
+        .begin()
+        .await
+        .context("Failed to begin checkpoint schema migration")?;
+
+    sqlx::query("ALTER TABLE checkpoints RENAME TO checkpoints_old")
+        .execute(&mut *tx)
+        .await
+        .context("Failed to rename legacy checkpoints table")?;
+
+    sqlx::query(
+        "CREATE TABLE checkpoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            checkpoint_id TEXT UNIQUE NOT NULL,
+            description TEXT,
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+        )",
+    )
+    .execute(&mut *tx)
+    .await
+    .context("Failed to create migrated checkpoints table")?;
+
+    sqlx::query(
+        "INSERT INTO checkpoints (id, checkpoint_id, description, created_at)
+         SELECT id, checkpoint_id, description, created_at FROM checkpoints_old",
+    )
+    .execute(&mut *tx)
+    .await
+    .context("Failed to copy checkpoint rows during migration")?;
+
+    sqlx::query("DROP TABLE checkpoints_old")
+        .execute(&mut *tx)
+        .await
+        .context("Failed to drop legacy checkpoints table")?;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_checkpoint_sessions_id ON checkpoint_sessions(checkpoint_id)")
+        .execute(&mut *tx)
+        .await
+        .context("Failed to ensure checkpoint index")?;
+
+    tx.commit()
+        .await
+        .context("Failed to commit checkpoint schema migration")
 }
 
 async fn create_checkpoint(
@@ -151,10 +317,12 @@ async fn create_checkpoint(
 async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<CheckpointResponse> {
     let pool = db.pool();
 
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
     // Verify checkpoint exists
     let exists: bool = sqlx::query("SELECT 1 FROM checkpoints WHERE checkpoint_id = ?")
         .bind(checkpoint_id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await
         .context("Failed to query checkpoint")?
         .is_some();
@@ -169,13 +337,71 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
          FROM checkpoint_sessions WHERE checkpoint_id = ?",
     )
     .bind(checkpoint_id)
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await
     .context("Failed to fetch checkpoint sessions")?;
 
-    // Atomic restore: delete all current sessions, then re-insert from checkpoint
-    // Use a transaction for atomicity
-    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+    let invalid_names = rows.iter().try_fold(Vec::new(), |mut names, row| {
+        let name: String = row
+            .try_get("session_name")
+            .context("Missing session_name while validating checkpoint rows")?;
+        if validate_session_name(&name).is_err() {
+            names.push(name);
+        }
+        Ok::<Vec<String>, anyhow::Error>(names)
+    })?;
+
+    let duplicate_names = rows
+        .iter()
+        .try_fold(
+            (BTreeSet::new(), BTreeSet::new()),
+            |(mut seen, mut duplicates), row| {
+                let name: String = row
+                    .try_get("session_name")
+                    .context("Missing session_name while checking duplicate checkpoint rows")?;
+                if !seen.insert(name.clone()) {
+                    duplicates.insert(name);
+                }
+                Ok::<(BTreeSet<String>, BTreeSet<String>), anyhow::Error>((seen, duplicates))
+            },
+        )?
+        .1
+        .into_iter()
+        .collect::<Vec<_>>();
+
+    let invalid_statuses = rows.iter().try_fold(Vec::new(), |mut statuses, row| {
+        let status: String = row
+            .try_get("status")
+            .context("Missing status while validating checkpoint rows")?;
+        if SessionStatus::from_str(&status).is_err() {
+            statuses.push(status);
+        }
+        Ok::<Vec<String>, anyhow::Error>(statuses)
+    })?;
+
+    if !invalid_names.is_empty() {
+        anyhow::bail!(
+            "Checkpoint '{}' contains invalid session names; restore aborted before deleting sessions: {}",
+            checkpoint_id,
+            invalid_names.join(", ")
+        );
+    }
+
+    if !duplicate_names.is_empty() {
+        anyhow::bail!(
+            "Checkpoint '{}' contains duplicate session names; restore aborted before deleting sessions: {}",
+            checkpoint_id,
+            duplicate_names.join(", ")
+        );
+    }
+
+    if !invalid_statuses.is_empty() {
+        anyhow::bail!(
+            "Checkpoint '{}' contains invalid statuses; restore aborted before deleting sessions: {}",
+            checkpoint_id,
+            invalid_statuses.join(", ")
+        );
+    }
 
     sqlx::query("DELETE FROM sessions")
         .execute(&mut *tx)
@@ -183,7 +409,7 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
         .context("Failed to clear sessions for restore")?;
 
     // Track statistics for reporting
-    let (mut total_sessions, mut restored_count, mut skipped_invalid) = (0usize, 0usize, 0usize);
+    let (mut total_sessions, mut restored_count) = (0usize, 0usize);
 
     for row in rows {
         total_sessions += 1;
@@ -198,40 +424,26 @@ async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<Check
         let branch: Option<String> = row.try_get("branch").context("Missing branch")?;
         let metadata: Option<String> = row.try_get("metadata").context("Missing metadata")?;
 
-        // Validate session name before restoring (zjj-3xuo)
-        match validate_session_name(&name) {
-            Ok(()) => {
-                // Session name is valid, proceed with restore
-                sqlx::query(
-                    "INSERT INTO sessions (name, status, workspace_path, branch, metadata, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'))",
-                )
-                .bind(&name)
-                .bind(&status)
-                .bind(&workspace_path)
-                .bind(&branch)
-                .bind(&metadata)
-                .execute(&mut *tx)
-                .await
-                .with_context(|| format!("Failed to restore session '{name}'"))?;
-                restored_count += 1;
-            }
-            Err(e) => {
-                // Session name is invalid, log warning and skip
-                eprintln!("Warning: Skipping invalid session name '{name}': {e}");
-                skipped_invalid += 1;
-            }
-        }
+        sqlx::query(
+            "INSERT INTO sessions (name, status, workspace_path, branch, metadata, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'))",
+        )
+        .bind(&name)
+        .bind(&status)
+        .bind(&workspace_path)
+        .bind(&branch)
+        .bind(&metadata)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("Failed to restore session '{name}'"))?;
+        restored_count += 1;
     }
 
     tx.commit()
         .await
         .context("Failed to commit restore transaction")?;
 
-    // Report summary if any sessions were skipped
-    if skipped_invalid > 0 {
-        eprintln!("Restore summary: {restored_count}/{total_sessions} sessions restored, {skipped_invalid} skipped due to invalid names");
-    }
+    debug_assert_eq!(restored_count, total_sessions);
 
     Ok(CheckpointResponse::Restored {
         checkpoint_id: checkpoint_id.to_string(),
@@ -563,6 +775,11 @@ mod tests {
     }
 
     #[test]
+    fn test_checkpoint_schema_has_version_table() {
+        assert!(CHECKPOINT_SCHEMA.contains("CREATE TABLE IF NOT EXISTS checkpoint_schema_meta"));
+    }
+
+    #[test]
     fn test_checkpoint_schema_checkpoints_columns() {
         assert!(CHECKPOINT_SCHEMA.contains("checkpoint_id TEXT UNIQUE NOT NULL"));
         assert!(CHECKPOINT_SCHEMA.contains("description TEXT"));
@@ -634,7 +851,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_restore_checkpoint_with_invalid_session_names() {
+    async fn test_restore_checkpoint_with_invalid_session_names_aborts_without_delete() {
         let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
         let db_path = dir.path().join("test.db");
         let db = SessionDb::create_or_open(&db_path)
@@ -679,37 +896,32 @@ mod tests {
             .expect("Failed to insert session");
         }
 
+        // Seed an existing valid session; restore must not delete it on validation failure
+        db.create("existing-safe", "/path/to/existing")
+            .await
+            .expect("Failed to seed existing session");
+
         // Restore the checkpoint
         let result = restore_checkpoint(&db, checkpoint_id).await;
 
-        // Should succeed (invalid sessions are skipped)
+        // Should fail before deleting current sessions
         assert!(
-            result.is_ok(),
-            "Restore should succeed even with some invalid names"
+            result.is_err(),
+            "Restore should fail with invalid checkpoint names"
         );
 
-        // Verify only valid sessions were restored
+        // Verify existing sessions remain untouched
         let sessions = db.list(None).await.expect("Failed to list sessions");
         assert_eq!(
             sessions.len(),
-            2,
-            "Only 2 valid sessions should be restored"
+            1,
+            "Restore failure should not wipe existing sessions"
         );
-
-        // Verify the restored sessions are the valid ones
-        let session_names: Vec<_> = sessions.iter().map(|s| s.name.as_str()).collect();
-        assert!(
-            session_names.contains(&"valid-session"),
-            "valid-session should be restored"
-        );
-        assert!(
-            session_names.contains(&"feature-auth"),
-            "feature-auth should be restored"
-        );
+        assert_eq!(sessions[0].name, "existing-safe");
     }
 
     #[tokio::test]
-    async fn test_restore_checkpoint_with_only_invalid_names() {
+    async fn test_restore_checkpoint_with_only_invalid_names_aborts_without_delete() {
         let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
         let db_path = dir.path().join("test.db");
         let db = SessionDb::create_or_open(&db_path)
@@ -750,18 +962,28 @@ mod tests {
             .expect("Failed to insert session");
         }
 
+        // Seed an existing valid session; restore must not delete it on validation failure
+        db.create("existing-safe", "/path/to/existing")
+            .await
+            .expect("Failed to seed existing session");
+
         // Restore the checkpoint
         let result = restore_checkpoint(&db, checkpoint_id).await;
 
-        // Should succeed (all sessions are skipped, but restore operation itself succeeds)
+        // Should fail before deleting current sessions
         assert!(
-            result.is_ok(),
-            "Restore should succeed even if all sessions are invalid"
+            result.is_err(),
+            "Restore should fail when checkpoint contains only invalid names"
         );
 
-        // Verify no sessions were restored
+        // Verify existing sessions remain untouched
         let sessions = db.list(None).await.expect("Failed to list sessions");
-        assert_eq!(sessions.len(), 0, "No sessions should be restored");
+        assert_eq!(
+            sessions.len(),
+            1,
+            "Restore failure should not wipe existing sessions"
+        );
+        assert_eq!(sessions[0].name, "existing-safe");
     }
 
     #[tokio::test]
@@ -816,5 +1038,336 @@ mod tests {
         assert_eq!(session.workspace_path, "/workspace/path");
         assert_eq!(session.branch, Some("main".to_string()));
         assert!(session.metadata.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_restore_checkpoint_with_invalid_names_preserves_all_existing_sessions() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to create checkpoint tables");
+
+        db.create("keep-one", "/path/to/keep-one")
+            .await
+            .expect("Failed to seed keep-one");
+        db.create("keep-two", "/path/to/keep-two")
+            .await
+            .expect("Failed to seed keep-two");
+
+        let checkpoint_id = "chk-test-invalid-preserve-all";
+        sqlx::query("INSERT INTO checkpoints (checkpoint_id) VALUES (?)")
+            .bind(checkpoint_id)
+            .execute(db.pool())
+            .await
+            .expect("Failed to create checkpoint");
+
+        sqlx::query(
+            "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path)
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(checkpoint_id)
+        .bind("../../etc/passwd")
+        .bind("active")
+        .bind("/path/to/invalid")
+        .execute(db.pool())
+        .await
+        .expect("Failed to insert invalid checkpoint session");
+
+        let result = restore_checkpoint(&db, checkpoint_id).await;
+        assert!(
+            result.is_err(),
+            "Restore should fail on invalid session names"
+        );
+
+        let sessions = db.list(None).await.expect("Failed to list sessions");
+        assert_eq!(sessions.len(), 2, "All existing sessions must remain");
+        assert!(sessions.iter().any(|session| session.name == "keep-one"));
+        assert!(sessions.iter().any(|session| session.name == "keep-two"));
+    }
+
+    #[tokio::test]
+    async fn test_restore_checkpoint_duplicate_names_rolls_back_without_data_loss() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to create checkpoint tables");
+
+        db.create("existing-safe", "/path/to/existing")
+            .await
+            .expect("Failed to seed existing session");
+
+        let checkpoint_id = "chk-test-duplicate-rollback";
+        sqlx::query("INSERT INTO checkpoints (checkpoint_id) VALUES (?)")
+            .bind(checkpoint_id)
+            .execute(db.pool())
+            .await
+            .expect("Failed to create checkpoint");
+
+        for path in ["/path/to/one", "/path/to/two"] {
+            sqlx::query(
+                "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path)
+                 VALUES (?, ?, ?, ?)",
+            )
+            .bind(checkpoint_id)
+            .bind("dup-session")
+            .bind("active")
+            .bind(path)
+            .execute(db.pool())
+            .await
+            .expect("Failed to insert duplicate checkpoint session rows");
+        }
+
+        let result = restore_checkpoint(&db, checkpoint_id).await;
+        assert!(
+            result.is_err(),
+            "Restore should fail on duplicate session inserts"
+        );
+        let error_message = result.err().map_or_else(String::new, |err| err.to_string());
+        assert!(
+            error_message.contains("duplicate session names"),
+            "Restore should fail with duplicate preflight validation error"
+        );
+
+        let sessions = db.list(None).await.expect("Failed to list sessions");
+        assert_eq!(
+            sessions.len(),
+            1,
+            "Rollback must preserve pre-restore sessions"
+        );
+        assert_eq!(sessions[0].name, "existing-safe");
+    }
+
+    #[tokio::test]
+    async fn test_restore_checkpoint_invalid_status_aborts_without_delete() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to create checkpoint tables");
+
+        db.create("existing-safe", "/path/to/existing")
+            .await
+            .expect("Failed to seed existing session");
+
+        let checkpoint_id = "chk-test-invalid-status";
+        sqlx::query("INSERT INTO checkpoints (checkpoint_id) VALUES (?)")
+            .bind(checkpoint_id)
+            .execute(db.pool())
+            .await
+            .expect("Failed to create checkpoint");
+
+        sqlx::query(
+            "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path)
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(checkpoint_id)
+        .bind("restored-session")
+        .bind("bad-status")
+        .bind("/path/to/restored")
+        .execute(db.pool())
+        .await
+        .expect("Failed to insert invalid checkpoint status");
+
+        let result = restore_checkpoint(&db, checkpoint_id).await;
+        assert!(result.is_err(), "Restore should fail on invalid status");
+
+        let sessions = db.list(None).await.expect("Failed to list sessions");
+        assert_eq!(sessions.len(), 1, "Existing session must remain untouched");
+        assert_eq!(sessions[0].name, "existing-safe");
+    }
+
+    #[tokio::test]
+    async fn test_legacy_checkpoint_schema_migration_removes_session_fk() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        sqlx::query("DROP TABLE IF EXISTS checkpoint_sessions")
+            .execute(db.pool())
+            .await
+            .expect("Failed to drop checkpoint_sessions");
+        sqlx::query("DROP TABLE IF EXISTS checkpoints")
+            .execute(db.pool())
+            .await
+            .expect("Failed to drop checkpoints");
+
+        sqlx::query(
+            "CREATE TABLE checkpoints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                checkpoint_id TEXT UNIQUE NOT NULL,
+                description TEXT,
+                created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+                session_id INTEGER,
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .expect("Failed to create legacy checkpoints table");
+
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Failed to run checkpoint schema ensure/migration");
+
+        let fk_rows = sqlx::query("PRAGMA foreign_key_list(checkpoints)")
+            .fetch_all(db.pool())
+            .await
+            .expect("Failed to read checkpoint foreign keys");
+
+        let has_session_fk = fk_rows.iter().any(|row| {
+            let table_name: String = row.try_get("table").map_or(String::new(), |value| value);
+            table_name == "sessions"
+        });
+
+        assert!(
+            !has_session_fk,
+            "Legacy FK to sessions should be removed by migration"
+        );
+
+        let version: i64 = sqlx::query("SELECT version FROM checkpoint_schema_meta WHERE id = 1")
+            .fetch_one(db.pool())
+            .await
+            .expect("Failed to read checkpoint schema version")
+            .try_get("version")
+            .expect("Failed to parse checkpoint schema version");
+
+        assert_eq!(
+            version, CHECKPOINT_SCHEMA_VERSION,
+            "Checkpoint schema version should be updated after migration"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_schema_migration_is_idempotent_across_repeated_runs() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        sqlx::query("DROP TABLE IF EXISTS checkpoint_sessions")
+            .execute(db.pool())
+            .await
+            .expect("Failed to drop checkpoint_sessions");
+        sqlx::query("DROP TABLE IF EXISTS checkpoints")
+            .execute(db.pool())
+            .await
+            .expect("Failed to drop checkpoints");
+
+        sqlx::query(
+            "CREATE TABLE checkpoints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                checkpoint_id TEXT UNIQUE NOT NULL,
+                description TEXT,
+                created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+                session_id INTEGER,
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .expect("Failed to create legacy checkpoints table");
+
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("First migration run should succeed");
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Second migration run should be idempotent");
+
+        let fk_rows = sqlx::query("PRAGMA foreign_key_list(checkpoints)")
+            .fetch_all(db.pool())
+            .await
+            .expect("Failed to read checkpoint foreign keys");
+
+        let has_session_fk = fk_rows.iter().any(|row| {
+            let table_name: String = row.try_get("table").map_or(String::new(), |value| value);
+            table_name == "sessions"
+        });
+        assert!(
+            !has_session_fk,
+            "session FK should stay removed after re-run"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_schema_recovery_from_interrupted_rename_copy_drop_window() {
+        let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+        let db_path = dir.path().join("test.db");
+        let db = SessionDb::create_or_open(&db_path)
+            .await
+            .expect("Failed to create database");
+
+        sqlx::query("DROP TABLE IF EXISTS checkpoints")
+            .execute(db.pool())
+            .await
+            .expect("Failed to drop checkpoints");
+        sqlx::query("DROP TABLE IF EXISTS checkpoints_old")
+            .execute(db.pool())
+            .await
+            .expect("Failed to drop checkpoints_old");
+
+        sqlx::query(
+            "CREATE TABLE checkpoints_old (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                checkpoint_id TEXT UNIQUE NOT NULL,
+                description TEXT,
+                created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .expect("Failed to create checkpoints_old");
+
+        sqlx::query(
+            "INSERT INTO checkpoints_old (checkpoint_id, description, created_at)
+             VALUES ('chk-interrupted', 'from-old', strftime('%s', 'now'))",
+        )
+        .execute(db.pool())
+        .await
+        .expect("Failed to seed checkpoints_old");
+
+        ensure_checkpoint_tables(&db)
+            .await
+            .expect("Recovery should succeed for interrupted migration window");
+
+        let restored: Option<(String,)> = sqlx::query_as(
+            "SELECT description FROM checkpoints WHERE checkpoint_id = 'chk-interrupted'",
+        )
+        .fetch_optional(db.pool())
+        .await
+        .expect("Failed to query restored checkpoint");
+        assert_eq!(
+            restored.map(|row| row.0),
+            Some("from-old".to_string()),
+            "Interrupted migration data should be replayed into checkpoints"
+        );
+
+        let old_exists: Option<(i64,)> = sqlx::query_as(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'checkpoints_old' LIMIT 1",
+        )
+        .fetch_optional(db.pool())
+        .await
+        .expect("Failed to check checkpoints_old presence");
+        assert!(
+            old_exists.is_none(),
+            "checkpoints_old should be dropped after recovery"
+        );
     }
 }

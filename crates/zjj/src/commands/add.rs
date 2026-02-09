@@ -10,7 +10,7 @@ mod output;
 mod types;
 mod zellij;
 
-use atomic::{atomic_create_session, rollback_partial_state};
+use atomic::{atomic_create_session, replay_add_operation_journal, rollback_partial_state};
 use beads::query_bead_metadata;
 use hooks::execute_post_create_hooks;
 use output::output_result;
@@ -189,6 +189,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
                         &existing.workspace_path,
                         &existing.zellij_tab,
                         "already exists (command replay)",
+                        false,
                         options.format,
                     );
                     return Ok(());
@@ -196,6 +197,45 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
             }
 
             if options.idempotent {
+                if options.dry_run {
+                    let zellij_tab = existing.zellij_tab.clone();
+                    if options.format.is_json() {
+                        let output = AddOutput {
+                            name: options.name.clone(),
+                            workspace_path: existing.workspace_path.clone(),
+                            zellij_tab,
+                            status: "[DRY RUN] Session already exists (idempotent)".to_string(),
+                            created: false,
+                        };
+                        let mut envelope = serde_json::to_value(SchemaEnvelope::new(
+                            "add-response",
+                            "single",
+                            &output,
+                        ))?;
+                        if let Some(obj) = envelope.as_object_mut() {
+                            obj.insert(
+                                "schema".to_string(),
+                                serde_json::Value::String("add-response".to_string()),
+                            );
+                            obj.insert(
+                                "type".to_string(),
+                                serde_json::Value::String("single".to_string()),
+                            );
+                            obj.insert("data".to_string(), serde_json::to_value(output)?);
+                            obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
+                        }
+                        println!("{}", serde_json::to_string_pretty(&envelope)?);
+                    } else {
+                        println!(
+                            "[DRY RUN] Session '{}' already exists (idempotent)",
+                            options.name
+                        );
+                        println!("  Workspace: {}", existing.workspace_path);
+                        println!("  Zellij tab: {zellij_tab}");
+                    }
+                    return Ok(());
+                }
+
                 // Idempotent mode: return success with existing session info
                 tracing::info!(
                     name = %options.name,
@@ -208,6 +248,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
                     &existing.workspace_path,
                     &existing.zellij_tab,
                     "already exists (idempotent)",
+                    false,
                     options.format,
                 );
                 return Ok(());
@@ -237,15 +278,23 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
                 workspace_path: workspace_path_str,
                 zellij_tab,
                 status: "[DRY RUN] Would create session".to_string(),
+                created: true,
             };
             let mut envelope =
-                serde_json::to_value(SchemaEnvelope::new("add-response", "single", output))?;
+                serde_json::to_value(SchemaEnvelope::new("add-response", "single", &output))?;
             if let Some(obj) = envelope.as_object_mut() {
+                obj.insert(
+                    "schema".to_string(),
+                    serde_json::Value::String("add-response".to_string()),
+                );
+                obj.insert(
+                    "type".to_string(),
+                    serde_json::Value::String("single".to_string()),
+                );
+                obj.insert("data".to_string(), serde_json::to_value(output)?);
                 obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
             }
-            let output_json = serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
-            println!("{output_json}");
+            println!("{}", serde_json::to_string_pretty(&envelope)?);
         } else {
             println!("[DRY RUN] Would create session '{}'", options.name);
             println!("  Workspace: {workspace_path_str}");
@@ -311,6 +360,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
             &workspace_path_str,
             &session.zellij_tab,
             "workspace only",
+            true,
             options.format,
         );
     } else if is_inside_zellij() {
@@ -326,6 +376,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
             &workspace_path_str,
             &session.zellij_tab,
             "with Zellij tab",
+            true,
             options.format,
         );
     } else {
@@ -337,6 +388,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
                 &workspace_path_str,
                 &session.zellij_tab,
                 "launching Zellij",
+                true,
                 options.format,
             );
         } else {
@@ -355,6 +407,14 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub async fn replay_pending_add_operations(db: &SessionDb) -> Result<usize> {
+    replay_add_operation_journal(db).await
+}
+
+pub async fn pending_add_operation_count(db: &SessionDb) -> Result<usize> {
+    Ok(db.list_incomplete_add_operations().await?.len())
 }
 
 #[cfg(test)]

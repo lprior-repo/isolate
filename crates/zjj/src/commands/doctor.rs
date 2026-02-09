@@ -32,7 +32,10 @@ use zjj_core::{
 
 use crate::{
     cli::{is_command_available, is_inside_zellij, is_jj_repo, jj_root},
-    commands::get_session_db,
+    commands::{
+        add::{pending_add_operation_count, replay_pending_add_operations},
+        get_session_db,
+    },
     session::SessionStatus,
 };
 
@@ -111,9 +114,62 @@ async fn run_all_checks() -> Vec<DoctorCheck> {
         check_workspace_integrity().await,
         check_orphaned_workspaces().await,
         check_stale_sessions().await,
+        check_pending_add_operations().await,
         check_beads().await,
         check_workflow_violations().await,
     ]
+}
+
+async fn check_pending_add_operations() -> DoctorCheck {
+    let db = match get_session_db().await {
+        Ok(db) => db,
+        Err(_) => {
+            return DoctorCheck {
+                name: "Pending Add Operations".to_string(),
+                status: CheckStatus::Warn,
+                message: "Unable to open database for add operation journal check".to_string(),
+                suggestion: Some("Run 'zjj init' and retry doctor".to_string()),
+                auto_fixable: false,
+                details: None,
+            }
+        }
+    };
+
+    let pending_count = match pending_add_operation_count(&db).await {
+        Ok(count) => count,
+        Err(error) => {
+            return DoctorCheck {
+                name: "Pending Add Operations".to_string(),
+                status: CheckStatus::Warn,
+                message: format!("Failed to read add operation journal: {error}"),
+                suggestion: Some("Run 'zjj doctor --fix' to retry reconciliation".to_string()),
+                auto_fixable: true,
+                details: None,
+            }
+        }
+    };
+
+    if pending_count == 0 {
+        DoctorCheck {
+            name: "Pending Add Operations".to_string(),
+            status: CheckStatus::Pass,
+            message: "No pending add operations in journal".to_string(),
+            suggestion: None,
+            auto_fixable: true,
+            details: Some(serde_json::json!({ "pending_operations": 0 })),
+        }
+    } else {
+        DoctorCheck {
+            name: "Pending Add Operations".to_string(),
+            status: CheckStatus::Fail,
+            message: format!("Detected {pending_count} pending add operation(s)"),
+            suggestion: Some(
+                "Run 'zjj doctor --fix' to reconcile pending add operations".to_string(),
+            ),
+            auto_fixable: true,
+            details: Some(serde_json::json!({ "pending_operations": pending_count })),
+        }
+    }
 }
 
 /// Check workspace integrity using the integrity validator
@@ -1105,6 +1161,12 @@ fn describe_fix(check: &DoctorCheck) -> Option<String> {
                 },
             )
         }
+        "Pending Add Operations" => check
+            .details
+            .as_ref()
+            .and_then(|details| details.get("pending_operations"))
+            .and_then(serde_json::Value::as_u64)
+            .map(|count| format!("Replay and reconcile {count} pending add operation(s)")),
         _ => None,
     }
 }
@@ -1163,6 +1225,9 @@ async fn run_fixes(
                         fix_orphaned_workspaces(check, dry_run).await.map_err(|e| e)
                     }
                     "Stale Sessions" => fix_stale_sessions(check, dry_run).await.map_err(|e| e),
+                    "Pending Add Operations" => fix_pending_add_operations(check, dry_run)
+                        .await
+                        .map_err(|e| e),
                     "State Database" => fix_state_database(check, dry_run)
                         .await
                         .map_err(|e| e.to_string()),
@@ -1269,6 +1334,30 @@ async fn fix_stale_sessions(check: &DoctorCheck, dry_run: bool) -> Result<String
     } else {
         Err("Failed to remove any stale sessions".to_string())
     }
+}
+
+async fn fix_pending_add_operations(check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
+    let pending = check
+        .details
+        .as_ref()
+        .and_then(|value| value.get("pending_operations"))
+        .and_then(serde_json::Value::as_u64)
+        .map_or(0, std::convert::identity);
+
+    if dry_run {
+        return Ok(format!(
+            "Would reconcile {pending} pending add operation(s)"
+        ));
+    }
+
+    let db = get_session_db()
+        .await
+        .map_err(|error| format!("Failed to open DB for reconciliation: {error}"))?;
+
+    replay_pending_add_operations(&db)
+        .await
+        .map(|recovered| format!("Reconciled {recovered} pending add operation(s)"))
+        .map_err(|error| format!("Failed to reconcile add operations: {error}"))
 }
 
 async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<String> {

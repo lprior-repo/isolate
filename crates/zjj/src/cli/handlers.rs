@@ -45,6 +45,7 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
             workspace_path: "/path/to/.zjj/workspaces/example-session".to_string(),
             zellij_tab: "zjj:example-session".to_string(),
             status: "active".to_string(),
+            created: true,
         };
         let envelope = SchemaEnvelope::new("add-response", "single", example_output);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
@@ -965,7 +966,10 @@ pub async fn handle_lock(sub_m: &ArgMatches) -> Result<()> {
         .cloned()
         .unwrap_or_default();
     let agent_id = sub_m.get_one::<String>("agent-id").cloned();
-    let ttl = sub_m.get_one::<u64>("ttl").copied().unwrap_or(300);
+    let ttl = match sub_m.get_one::<u64>("ttl") {
+        Some(value) => *value,
+        None => 0,
+    };
 
     let args = crate::commands::lock::types::LockArgs {
         session,

@@ -25,7 +25,13 @@ pub async fn run_lock_async(args: &LockArgs, mgr: &LockManager) -> Result<LockOu
             anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id")
         })?;
 
-    match mgr.lock_with_ttl(&args.session, &agent_id, args.ttl).await {
+    let lock_result = if args.ttl == 0 {
+        mgr.lock(&args.session, &agent_id).await
+    } else {
+        mgr.lock_with_ttl(&args.session, &agent_id, args.ttl).await
+    };
+
+    match lock_result {
         Ok(lock) => Ok(LockOutput {
             success: true,
             locked: true,

@@ -2136,8 +2136,7 @@ pub fn cmd_lock() -> ClapCommand {
                 .long("ttl")
                 .value_name("SECONDS")
                 .value_parser(clap::value_parser!(u64))
-                .default_value("300")
-                .help("Lock TTL in seconds"),
+                .help("Lock TTL in seconds (omit to use default lock manager TTL)"),
         )
         .arg(
             Arg::new("json")

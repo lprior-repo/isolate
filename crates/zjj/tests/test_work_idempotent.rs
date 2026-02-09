@@ -12,6 +12,12 @@ mod common;
 use common::TestHarness;
 use serde_json::Value as JsonValue;
 
+fn sessions_from_list_json(json: &JsonValue) -> Option<&Vec<JsonValue>> {
+    json["data"]["sessions"]
+        .as_array()
+        .or_else(|| json["data"].as_array())
+}
+
 // ============================================================================
 // P0 Tests: Happy Path - Must Pass
 // ============================================================================
@@ -92,7 +98,7 @@ fn test_work_idempotent_creates_workspace_when_not_exists() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let sessions = match json["data"]["sessions"].as_array() {
+    let sessions = match sessions_from_list_json(&json) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     };
@@ -254,7 +260,7 @@ fn test_work_idempotent_fails_when_in_different_workspace() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let sessions = match json["data"]["sessions"].as_array() {
+    let sessions = match sessions_from_list_json(&json) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     };
@@ -429,7 +435,7 @@ fn test_work_idempotent_with_dry_run() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let sessions = match json["data"]["sessions"].as_array() {
+    let sessions = match sessions_from_list_json(&json) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     };

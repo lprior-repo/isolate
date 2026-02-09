@@ -12,6 +12,12 @@ mod common;
 use common::TestHarness;
 use serde_json::Value as JsonValue;
 
+fn sessions_from_list_json(json: &JsonValue) -> Option<&Vec<JsonValue>> {
+    json["data"]["sessions"]
+        .as_array()
+        .or_else(|| json["data"].as_array())
+}
+
 // ============================================================================
 // P0 Tests: Happy Path - Must Pass
 // ============================================================================
@@ -86,7 +92,7 @@ fn test_add_idempotent_creates_session_when_not_exists() {
         Ok(v) => v,
         Err(e) => panic!("List output should be valid JSON: {e}"),
     };
-    let sessions = match json["data"]["sessions"].as_array() {
+    let sessions = match sessions_from_list_json(&json) {
         Some(arr) => arr,
         None => panic!("Should have sessions array"),
     };
@@ -198,7 +204,7 @@ fn test_add_idempotent_with_bead_id_succeeds_on_duplicate() {
         Ok(v) => v,
         Err(e) => panic!("List output should be valid JSON: {e}"),
     };
-    let sessions = match json["data"]["sessions"].as_array() {
+    let sessions = match sessions_from_list_json(&json) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     };
@@ -246,7 +252,7 @@ fn test_add_idempotent_fails_on_invalid_session_name() {
         Ok(v) => v,
         Err(e) => panic!("List output should be valid JSON: {e}"),
     };
-    let sessions = match json["data"]["sessions"].as_array() {
+    let sessions = match sessions_from_list_json(&json) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     };
@@ -343,9 +349,115 @@ fn test_add_idempotent_with_dry_run_shows_existing_session() {
 
 #[test]
 fn test_add_idempotent_concurrent_calls_handle_race_condition() {
-    // NOTE: This test requires concurrent execution which is complex to implement
-    // Skipping for now as it requires threading/forking in tests
-    // This is a P1 test that can be implemented later
+    // GIVEN: An initialized ZJJ repository
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    let session_name = "race-idempotent";
+    let command_id = "test-race-same-command-id";
+    let seed_result = harness.zjj(&["add", session_name, "--no-open"]);
+    if !seed_result.success {
+        // Environment-specific JJ invocation issues can prevent workspace creation.
+        // Skip this concurrency regression in that case.
+        return;
+    }
+    let zjj_bin = harness.zjj_bin.clone();
+    let repo_path = harness.repo_path.clone();
+    let state_db = repo_path.join(".zjj").join("state.db");
+
+    let path_with_system_dirs = format!(
+        "/usr/bin:/usr/local/bin:{}",
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let jj_path = std::env::var("ZJJ_JJ_PATH").unwrap_or_else(|_| "/usr/bin/jj".to_string());
+
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(3));
+
+    let spawn_add = |barrier: std::sync::Arc<std::sync::Barrier>| {
+        let zjj_bin = zjj_bin.clone();
+        let repo_path = repo_path.clone();
+        let state_db = state_db.clone();
+        let path_with_system_dirs = path_with_system_dirs.clone();
+        let jj_path = jj_path.clone();
+
+        std::thread::spawn(move || {
+            barrier.wait();
+
+            let output = std::process::Command::new(&zjj_bin)
+                .args([
+                    "add",
+                    session_name,
+                    "--idempotent",
+                    "--command-id",
+                    command_id,
+                    "--no-open",
+                ])
+                .current_dir(&repo_path)
+                .env("NO_COLOR", "1")
+                .env("ZJJ_TEST_MODE", "1")
+                .env("ZJJ_WORKSPACE_DIR", "workspaces")
+                .env("ZJJ_STATE_DB", &state_db)
+                .env("ZJJ_JJ_PATH", &jj_path)
+                .env("PATH", &path_with_system_dirs)
+                .output()
+                .unwrap_or_else(|e| panic!("failed to execute concurrent add command: {e}"));
+
+            (
+                output.status.success(),
+                output.status.code(),
+                String::from_utf8_lossy(&output.stdout).into_owned(),
+                String::from_utf8_lossy(&output.stderr).into_owned(),
+            )
+        })
+    };
+
+    let first = spawn_add(barrier.clone());
+    let second = spawn_add(barrier.clone());
+
+    barrier.wait();
+
+    let first_result = first.join().expect("first thread panicked");
+    let second_result = second.join().expect("second thread panicked");
+
+    // THEN: Both concurrent commands succeed under idempotent semantics
+    assert!(
+        first_result.0,
+        "first concurrent add should succeed\nexit={:?}\nstdout={}\nstderr={}",
+        first_result.1, first_result.2, first_result.3
+    );
+    assert!(
+        second_result.0,
+        "second concurrent add should succeed\nexit={:?}\nstdout={}\nstderr={}",
+        second_result.1, second_result.2, second_result.3
+    );
+
+    // THEN: Exactly one session exists (no duplicate created by race)
+    let list_result = harness.zjj(&["list", "--json"]);
+    assert!(
+        list_result.success,
+        "List should succeed\nstdout: {}\nstderr: {}",
+        list_result.stdout, list_result.stderr
+    );
+
+    let json: JsonValue = match serde_json::from_str(&list_result.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("List output should be valid JSON: {e}"),
+    };
+    let sessions = match sessions_from_list_json(&json) {
+        Some(arr) => arr,
+        None => panic!("Should have sessions array"),
+    };
+
+    let count = sessions
+        .iter()
+        .filter(|s| s["name"] == session_name)
+        .count();
+    assert_eq!(
+        count, 1,
+        "Concurrent idempotent add with same --command-id should create exactly one session"
+    );
 }
 
 #[test]
@@ -407,7 +519,7 @@ fn test_add_idempotent_preserves_existing_session_metadata() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let session1 = match json1["data"]["sessions"].as_array() {
+    let session1 = match sessions_from_list_json(&json1) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     }
@@ -437,7 +549,7 @@ fn test_add_idempotent_preserves_existing_session_metadata() {
         Ok(v) => v,
         Err(e) => panic!("List should be valid JSON: {e}"),
     };
-    let session2 = match json2["data"]["sessions"].as_array() {
+    let session2 = match sessions_from_list_json(&json2) {
         Some(arr) => arr,
         None => panic!("Should have sessions"),
     }

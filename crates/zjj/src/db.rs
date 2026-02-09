@@ -10,7 +10,7 @@
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 #![cfg_attr(not(test), deny(clippy::panic))]
 
-use std::{path::Path, str::FromStr, time::SystemTime};
+use std::{future::Future, path::Path, str::FromStr, time::SystemTime};
 
 /// Functional I/O helper module - wraps mutable buffer operations in pure functions
 mod io {
@@ -45,6 +45,7 @@ const SQLITE_BUSY_TIMEOUT_MS: i64 = 5000;
 const SQLITE_WAL_AUTOCHECKPOINT_PAGES: i64 = 1000;
 const SQLITE_BUSY_RETRY_ATTEMPTS: u32 = 8;
 const SQLITE_BUSY_RETRY_BASE_MS: u64 = 25;
+const REQUEST_FINGERPRINT_VERSION: &str = "v1";
 
 /// Database schema as SQL string - executed once on init
 const SCHEMA: &str = r"
@@ -81,8 +82,21 @@ CREATE TABLE IF NOT EXISTS state_transitions (
 
 CREATE TABLE IF NOT EXISTS processed_commands (
     command_id TEXT PRIMARY KEY,
+    request_fingerprint TEXT,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
+
+CREATE TABLE IF NOT EXISTS add_operation_journal (
+    operation_id TEXT PRIMARY KEY,
+    session_name TEXT NOT NULL,
+    workspace_path TEXT NOT NULL,
+    command_id TEXT,
+    state TEXT NOT NULL CHECK(state IN ('pending_external', 'compensating', 'done', 'failed_compensation')),
+    last_error TEXT,
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_add_operation_state ON add_operation_journal(state);
 
 CREATE INDEX IF NOT EXISTS idx_status ON sessions(status);
 CREATE INDEX IF NOT EXISTS idx_state ON sessions(state);
@@ -102,6 +116,16 @@ END;
 #[derive(Clone)]
 pub struct SessionDb {
     pool: SqlitePool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AddOperationRecord {
+    pub operation_id: String,
+    pub session_name: String,
+    pub workspace_path: String,
+    pub command_id: Option<String>,
+    pub state: String,
+    pub last_error: Option<String>,
 }
 
 impl SessionDb {
@@ -166,10 +190,10 @@ impl SessionDb {
 
         // Load config to get recovery policy
         // We use a default config if loading fails to ensure we can still try to open DB
-        let recovery_config = zjj_core::config::load_config()
-            .await
-            .map(|c| c.recovery)
-            .unwrap_or_else(|_| zjj_core::config::RecoveryConfig::default());
+        let recovery_config = match zjj_core::config::load_config().await {
+            Ok(config) => config.recovery,
+            Err(_) => zjj_core::config::RecoveryConfig::default(),
+        };
 
         // SQLx connection string with mode parameter
         let db_url = if path.is_absolute() {
@@ -224,6 +248,9 @@ impl SessionDb {
                 .await?
             }
         };
+
+        // Configure WAL mode once for this process/pool.
+        enable_wal_mode(&pool).await?;
 
         // Try to initialize schema, with recovery for corrupted databases
         match init_schema(&pool).await {
@@ -314,19 +341,14 @@ impl SessionDb {
         let command_id_value = match command_id {
             Some(id) => id,
             None => {
-                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                rollback_best_effort(&mut conn).await;
                 return Err(Error::DatabaseError("Missing command id".to_string()));
             }
         };
 
         if is_command_processed_conn(&mut conn, command_id_value).await? {
             let existing = query_session_by_name_conn(&mut conn, name).await?;
-            sqlx::query("COMMIT")
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| {
-                    Error::DatabaseError(format!("Failed to commit replay transaction: {e}"))
-                })?;
+            commit_with_retry(&mut conn, "replay transaction").await?;
 
             return existing.ok_or_else(|| {
                 Error::DatabaseError(format!(
@@ -372,7 +394,7 @@ impl SessionDb {
                 ))
             })?;
             if existing_session.workspace_path != workspace_path {
-                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                rollback_best_effort(&mut conn).await;
                 return Err(Error::DatabaseError(format!(
                     "Session '{name}' already exists with different workspace path"
                 )));
@@ -380,14 +402,9 @@ impl SessionDb {
             existing_session
         };
 
-        mark_command_processed_conn(&mut conn, command_id_value).await?;
+        mark_command_processed_conn(&mut conn, command_id_value, None).await?;
 
-        sqlx::query("COMMIT")
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                Error::DatabaseError(format!("Failed to commit create transaction: {e}"))
-            })?;
+        commit_with_retry(&mut conn, "create transaction").await?;
 
         Ok(session)
     }
@@ -469,47 +486,67 @@ impl SessionDb {
         let command_id_value = match command_id {
             Some(id) => id,
             None => {
-                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                rollback_best_effort(&mut conn).await;
                 return Err(Error::DatabaseError("Missing command id".to_string()));
             }
         };
 
-        if is_command_processed_conn(&mut conn, command_id_value).await? {
-            sqlx::query("COMMIT")
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| {
-                    Error::DatabaseError(format!("Failed to commit replay transaction: {e}"))
-                })?;
+        if command_id_value.trim().is_empty() {
+            rollback_best_effort(&mut conn).await;
+            return Err(Error::ValidationError(
+                "Command id cannot be empty".to_string(),
+            ));
+        }
+
+        let request_fingerprint = update_request_fingerprint(name, &update)?;
+
+        if let Some(existing_fingerprint) =
+            query_command_fingerprint_conn(&mut conn, command_id_value).await?
+        {
+            if existing_fingerprint.as_ref().is_some_and(|stored| {
+                normalize_fingerprint_for_compare(stored) != request_fingerprint
+            }) {
+                rollback_best_effort(&mut conn).await;
+                return Err(Error::DatabaseError(format!(
+                    "Command {command_id_value} already processed with a different payload"
+                )));
+            }
+
+            commit_with_retry(&mut conn, "replay transaction").await?;
             return Ok(());
         }
 
         let updates = build_update_clauses(&update)?;
         if updates.is_empty() {
-            mark_command_processed_conn(&mut conn, command_id_value).await?;
-            sqlx::query("COMMIT")
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| {
-                    Error::DatabaseError(format!("Failed to commit update transaction: {e}"))
-                })?;
+            if query_session_by_name_conn(&mut conn, name).await?.is_none() {
+                rollback_best_effort(&mut conn).await;
+                return Err(Error::NotFound(format!("Session '{name}' not found")));
+            }
+
+            mark_command_processed_conn(
+                &mut conn,
+                command_id_value,
+                Some(request_fingerprint.as_str()),
+            )
+            .await?;
+            commit_with_retry(&mut conn, "update transaction").await?;
             return Ok(());
         }
 
         let (sql, values) = build_update_query(&updates, name);
         let rows_affected = execute_update_conn(&mut conn, &sql, values).await?;
         if rows_affected == 0 {
-            let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+            rollback_best_effort(&mut conn).await;
             return Err(Error::NotFound(format!("Session '{name}' not found")));
         }
 
-        mark_command_processed_conn(&mut conn, command_id_value).await?;
-        sqlx::query("COMMIT")
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                Error::DatabaseError(format!("Failed to commit update transaction: {e}"))
-            })?;
+        mark_command_processed_conn(
+            &mut conn,
+            command_id_value,
+            Some(request_fingerprint.as_str()),
+        )
+        .await?;
+        commit_with_retry(&mut conn, "update transaction").await?;
 
         Ok(())
     }
@@ -541,20 +578,22 @@ impl SessionDb {
     /// Returns error if database update fails
     pub async fn mark_removal_failed(&self, name: &str, error: &str) -> Result<()> {
         let now = get_current_timestamp()?;
-        sqlx::query(
-            "UPDATE sessions
-             SET removal_status = 'failed',
-                 removal_error = ?,
-                 removal_attempted_at = ?
-             WHERE name = ?",
-        )
-        .bind(error)
-        .bind(now.to_i64().map_or(i64::MAX, |t| t))
-        .bind(name)
-        .execute(&self.pool)
+        run_with_sqlite_busy_retry("mark removal as failed", || async {
+            sqlx::query(
+                "UPDATE sessions
+                 SET removal_status = 'failed',
+                     removal_error = ?,
+                     removal_attempted_at = ?
+                 WHERE name = ?",
+            )
+            .bind(error)
+            .bind(now.to_i64().map_or(i64::MAX, |t| t))
+            .bind(name)
+            .execute(&self.pool)
+            .await
+        })
         .await
         .map(|_| ())
-        .map_err(|e| Error::DatabaseError(format!("Failed to mark removal as failed: {e}")))
     }
 
     /// Find orphaned workspaces (Type 1: session exists but workspace missing)
@@ -608,12 +647,96 @@ impl SessionDb {
 
     /// Remove an idempotency marker so failed operations can be retried safely.
     pub async fn unmark_command_processed(&self, command_id: &str) -> Result<()> {
-        sqlx::query("DELETE FROM processed_commands WHERE command_id = ?")
+        run_with_sqlite_busy_retry("unmark processed command", || async {
+            sqlx::query("DELETE FROM processed_commands WHERE command_id = ?")
+                .bind(command_id)
+                .execute(&self.pool)
+                .await
+        })
+        .await
+        .map(|_| ())
+    }
+
+    pub async fn upsert_add_operation_journal(
+        &self,
+        operation_id: &str,
+        session_name: &str,
+        workspace_path: &str,
+        command_id: Option<&str>,
+        state: &str,
+        last_error: Option<&str>,
+    ) -> Result<()> {
+        run_with_sqlite_busy_retry("upsert add operation journal", || async {
+            sqlx::query(
+                "INSERT INTO add_operation_journal (operation_id, session_name, workspace_path, command_id, state, last_error, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
+                 ON CONFLICT(operation_id) DO UPDATE SET
+                    session_name = excluded.session_name,
+                    workspace_path = excluded.workspace_path,
+                    command_id = excluded.command_id,
+                    state = excluded.state,
+                    last_error = excluded.last_error,
+                    updated_at = strftime('%s', 'now')",
+            )
+            .bind(operation_id)
+            .bind(session_name)
+            .bind(workspace_path)
             .bind(command_id)
+            .bind(state)
+            .bind(last_error)
             .execute(&self.pool)
             .await
-            .map(|_| ())
-            .map_err(|e| Error::DatabaseError(format!("Failed to unmark processed command: {e}")))
+        })
+        .await
+        .map(|_| ())
+    }
+
+    pub async fn list_incomplete_add_operations(&self) -> Result<Vec<AddOperationRecord>> {
+        sqlx::query(
+            "SELECT operation_id, session_name, workspace_path, command_id, state, last_error
+             FROM add_operation_journal
+             WHERE state IN ('pending_external', 'compensating', 'failed_compensation')
+             ORDER BY updated_at ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to query add operation journal: {e}")))
+        .and_then(|rows| {
+            rows.into_iter()
+                .map(|row| {
+                    Ok(AddOperationRecord {
+                        operation_id: row.try_get("operation_id").map_err(|e| {
+                            Error::DatabaseError(format!(
+                                "Failed to parse add journal operation_id: {e}"
+                            ))
+                        })?,
+                        session_name: row.try_get("session_name").map_err(|e| {
+                            Error::DatabaseError(format!(
+                                "Failed to parse add journal session_name: {e}"
+                            ))
+                        })?,
+                        workspace_path: row.try_get("workspace_path").map_err(|e| {
+                            Error::DatabaseError(format!(
+                                "Failed to parse add journal workspace_path: {e}"
+                            ))
+                        })?,
+                        command_id: row.try_get("command_id").map_err(|e| {
+                            Error::DatabaseError(format!(
+                                "Failed to parse add journal command_id: {e}"
+                            ))
+                        })?,
+                        state: row.try_get("state").map_err(|e| {
+                            Error::DatabaseError(format!("Failed to parse add journal state: {e}"))
+                        })?,
+                        last_error: row.try_get("last_error").map_err(|e| {
+                            Error::DatabaseError(format!(
+                                "Failed to parse add journal last_error: {e}"
+                            ))
+                        })?,
+                    })
+                })
+                .collect()
+        })
     }
 }
 
@@ -711,21 +834,40 @@ async fn check_wal_integrity(
     let header = match io::read_exact_bytes::<32>(&wal_path).await {
         Ok(h) => h,
         Err(e) => {
-            // Can't read WAL file - likely corrupted or inaccessible
-            log_recovery(
-                &format!(
-                    "WAL file inaccessible or corrupted: {p}. Error: {e}",
-                    p = wal_path.display()
-                ),
-                config,
-            )
-            .await
-            .ok();
-            return Err(Error::DatabaseError(format!(
-                "WAL file is corrupted or inaccessible: {p}\n\
-                 Recovery logged. Run 'zjj doctor' for details.",
-                p = wal_path.display()
-            )));
+            // WAL can be transiently unreadable while concurrent writers are active.
+            // In non-strict modes, defer integrity decision to SQLite open path.
+            match config.policy {
+                RecoveryPolicy::FailFast => {
+                    log_recovery(
+                        &format!(
+                            "WAL file inaccessible or corrupted: {p}. Error: {e}",
+                            p = wal_path.display()
+                        ),
+                        config,
+                    )
+                    .await
+                    .ok();
+                    return Err(Error::DatabaseError(format!(
+                        "WAL file is corrupted or inaccessible: {p}\n\
+                         Recovery logged. Run 'zjj doctor' for details.",
+                        p = wal_path.display()
+                    )));
+                }
+                RecoveryPolicy::Warn | RecoveryPolicy::Silent => {
+                    if should_log_recovery(config) {
+                        log_recovery(
+                            &format!(
+                                "WAL file temporarily unreadable: {p}. Deferring to SQLite: {e}",
+                                p = wal_path.display()
+                            ),
+                            config,
+                        )
+                        .await
+                        .ok();
+                    }
+                    return Ok(());
+                }
+            }
         }
     };
 
@@ -1037,7 +1179,7 @@ async fn attempt_database_recovery(
 /// Create `SQLite` connection pool with resource limits
 ///
 /// Configures connection pool to prevent resource leaks:
-/// - `max_connections`: Maximum 10 concurrent connections
+/// - `max_connections`: Maximum 2 concurrent connections (CLI-local)
 /// - `acquire_timeout`: 5 second timeout for acquiring connections
 /// - `idle_timeout`: 10 minute timeout for idle connections
 ///
@@ -1046,9 +1188,23 @@ async fn attempt_database_recovery(
 /// Returns error if connection pool cannot be established
 async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
     sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(10)
+        .max_connections(2)
         .acquire_timeout(std::time::Duration::from_secs(5))
         .idle_timeout(Some(std::time::Duration::from_secs(600)))
+        .after_connect(|conn, _meta| {
+            Box::pin(async move {
+                sqlx::query(&format!("PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS};"))
+                    .execute(&mut *conn)
+                    .await?;
+                sqlx::query("PRAGMA foreign_keys = ON;")
+                    .execute(&mut *conn)
+                    .await?;
+                sqlx::query("PRAGMA synchronous = NORMAL;")
+                    .execute(&mut *conn)
+                    .await?;
+                Ok(())
+            })
+        })
         .connect(db_url)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to connect to database: {e}")))
@@ -1065,20 +1221,6 @@ async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
 ///
 /// Returns `Error::DatabaseError` if the PRAGMA statement fails
 async fn enable_wal_mode(pool: &SqlitePool) -> Result<()> {
-    let mode: String = sqlx::query_scalar("PRAGMA journal_mode=WAL;")
-        .fetch_one(pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to enable WAL mode: {e}")))?;
-    if !mode.eq_ignore_ascii_case("wal") {
-        return Err(Error::DatabaseError(format!(
-            "Failed to set journal_mode to WAL (actual: {mode})"
-        )));
-    }
-
-    sqlx::query(&format!("PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS};"))
-        .execute(pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to set busy_timeout: {e}")))?;
     let busy_timeout: i64 = sqlx::query_scalar("PRAGMA busy_timeout;")
         .fetch_one(pool)
         .await
@@ -1089,12 +1231,48 @@ async fn enable_wal_mode(pool: &SqlitePool) -> Result<()> {
         )));
     }
 
-    sqlx::query(&format!(
-        "PRAGMA wal_autocheckpoint = {SQLITE_WAL_AUTOCHECKPOINT_PAGES};"
-    ))
-    .execute(pool)
-    .await
-    .map_err(|e| Error::DatabaseError(format!("Failed to set wal_autocheckpoint: {e}")))?;
+    let current_mode: String = sqlx::query_scalar("PRAGMA journal_mode;")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to query current journal_mode: {e}")))?;
+
+    if current_mode.eq_ignore_ascii_case("wal") {
+        let auto_checkpoint: i64 = sqlx::query_scalar("PRAGMA wal_autocheckpoint;")
+            .fetch_one(pool)
+            .await
+            .map_err(|e| {
+                Error::DatabaseError(format!("Failed to verify wal_autocheckpoint: {e}"))
+            })?;
+        if auto_checkpoint < SQLITE_WAL_AUTOCHECKPOINT_PAGES {
+            return Err(Error::DatabaseError(format!(
+                "wal_autocheckpoint too low: expected at least {SQLITE_WAL_AUTOCHECKPOINT_PAGES}, got {auto_checkpoint}"
+            )));
+        }
+        return Ok(());
+    }
+
+    let mode: String = run_with_sqlite_busy_retry("enable WAL mode", || async {
+        sqlx::query_scalar("PRAGMA journal_mode=WAL;")
+            .fetch_one(pool)
+            .await
+    })
+    .await?;
+
+    if !mode.eq_ignore_ascii_case("wal") {
+        return Err(Error::DatabaseError(format!(
+            "Failed to set journal_mode to WAL (actual: {mode})"
+        )));
+    }
+
+    run_with_sqlite_busy_retry("set wal_autocheckpoint", || async {
+        sqlx::query(&format!(
+            "PRAGMA wal_autocheckpoint = {SQLITE_WAL_AUTOCHECKPOINT_PAGES};"
+        ))
+        .execute(pool)
+        .await
+    })
+    .await?;
+
     let auto_checkpoint: i64 = sqlx::query_scalar("PRAGMA wal_autocheckpoint;")
         .fetch_one(pool)
         .await
@@ -1115,15 +1293,50 @@ async fn init_schema(pool: &SqlitePool) -> Result<()> {
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to initialize schema: {e}")))?;
 
+    ensure_processed_commands_schema(pool).await?;
+
     sqlx::query("INSERT OR IGNORE INTO schema_version (version) VALUES (?)")
         .bind(CURRENT_SCHEMA_VERSION)
         .execute(pool)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to set schema version: {e}")))?;
 
-    // Enable WAL mode for better concurrency and crash recovery
-    // This prevents "session disappears" race conditions between operations
-    enable_wal_mode(pool).await?;
+    Ok(())
+}
+
+async fn ensure_processed_commands_schema(pool: &SqlitePool) -> Result<()> {
+    let has_request_fingerprint = sqlx::query("PRAGMA table_info(processed_commands)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to inspect processed_commands schema: {e}"))
+        })?
+        .into_iter()
+        .filter_map(|row| row.try_get::<String, _>("name").ok())
+        .any(|column| column == "request_fingerprint");
+
+    if !has_request_fingerprint {
+        sqlx::query("ALTER TABLE processed_commands ADD COLUMN request_fingerprint TEXT")
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                Error::DatabaseError(format!("Failed to migrate processed_commands schema: {e}"))
+            })?;
+    }
+
+    run_with_sqlite_busy_retry("migrate request fingerprint versions", || async {
+        sqlx::query(
+            "UPDATE processed_commands
+             SET request_fingerprint = ? || request_fingerprint
+             WHERE request_fingerprint IS NOT NULL
+               AND request_fingerprint <> ''
+               AND request_fingerprint NOT GLOB 'v[0-9]*:*'",
+        )
+        .bind(format!("{REQUEST_FINGERPRINT_VERSION}:"))
+        .execute(pool)
+        .await
+    })
+    .await?;
 
     Ok(())
 }
@@ -1160,8 +1373,8 @@ async fn insert_session(
     workspace_path: &str,
     timestamp: u64,
 ) -> Result<i64> {
-    for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
-        let insert_result = sqlx::query(
+    run_with_sqlite_busy_retry("create session", || async {
+        sqlx::query(
             "INSERT INTO sessions (name, status, state, workspace_path, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?)",
         )
@@ -1172,40 +1385,70 @@ async fn insert_session(
         .bind(timestamp.to_i64().map_or(i64::MAX, |t| t))
         .bind(timestamp.to_i64().map_or(i64::MAX, |t| t))
         .execute(pool)
-        .await;
+        .await
+    })
+    .await
+    .map(|result| result.last_insert_rowid())
+    .map_err(|error| {
+        let message = error.to_string().to_lowercase();
+        if message.contains("unique") {
+            Error::DatabaseError(format!("Session '{name}' already exists"))
+        } else {
+            error
+        }
+    })
+}
 
-        match insert_result {
-            Ok(result) => return Ok(result.last_insert_rowid()),
+fn sqlite_busy_backoff_duration(attempt: u32) -> std::time::Duration {
+    std::time::Duration::from_millis(
+        SQLITE_BUSY_RETRY_BASE_MS * u64::from(attempt.saturating_add(1)),
+    )
+}
+
+fn is_sqlite_busy_or_locked_message(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("sqlite_busy")
+        || lower.contains("sqlite_locked")
+        || lower.contains("database is locked")
+        || lower.contains("database table is locked")
+}
+
+fn is_sqlite_busy_or_locked_error(error: &sqlx::Error) -> bool {
+    match error {
+        sqlx::Error::Database(db_error) => {
+            let code_match = db_error.code().is_some_and(|code| {
+                code == "5" || code == "6" || code == "SQLITE_BUSY" || code == "SQLITE_LOCKED"
+            });
+            code_match || is_sqlite_busy_or_locked_message(db_error.message())
+        }
+        _ => is_sqlite_busy_or_locked_message(&error.to_string()),
+    }
+}
+
+async fn run_with_sqlite_busy_retry<T, F, Fut>(context: &str, mut operation: F) -> Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = std::result::Result<T, sqlx::Error>>,
+{
+    for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
+        match operation().await {
+            Ok(value) => return Ok(value),
             Err(error) => {
-                let message = error.to_string();
-                if message.to_lowercase().contains("unique") {
-                    return Err(Error::DatabaseError(format!(
-                        "Session '{name}' already exists"
-                    )));
-                }
-                if is_sqlite_busy_error(&message) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
-                    let backoff_ms =
-                        SQLITE_BUSY_RETRY_BASE_MS * u64::from(attempt.saturating_add(1));
-                    tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                if is_sqlite_busy_or_locked_error(&error) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
+                    tokio::time::sleep(sqlite_busy_backoff_duration(attempt)).await;
                     continue;
                 }
+
                 return Err(Error::DatabaseError(format!(
-                    "Failed to create session: {error}"
+                    "Failed to {context}: {error}"
                 )));
             }
         }
     }
 
-    Err(Error::DatabaseError(
-        "Failed to create session after retry budget".to_string(),
-    ))
-}
-
-fn is_sqlite_busy_error(message: &str) -> bool {
-    let lower = message.to_lowercase();
-    lower.contains("sqlite_busy")
-        || lower.contains("database is locked")
-        || lower.contains("database table is locked")
+    Err(Error::DatabaseError(format!(
+        "Failed to {context} after retry budget"
+    )))
 }
 
 async fn begin_immediate_with_retry(
@@ -1213,17 +1456,14 @@ async fn begin_immediate_with_retry(
     context: &str,
 ) -> Result<()> {
     for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
-        let begin_result = sqlx::query("BEGIN IMMEDIATE").execute(&mut **conn).await;
-        match begin_result {
+        match sqlx::query("BEGIN IMMEDIATE").execute(&mut **conn).await {
             Ok(_) => return Ok(()),
             Err(error) => {
-                let message = error.to_string();
-                if is_sqlite_busy_error(&message) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
-                    let backoff_ms =
-                        SQLITE_BUSY_RETRY_BASE_MS * u64::from(attempt.saturating_add(1));
-                    tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                if is_sqlite_busy_or_locked_error(&error) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
+                    tokio::time::sleep(sqlite_busy_backoff_duration(attempt)).await;
                     continue;
                 }
+
                 return Err(Error::DatabaseError(format!(
                     "Failed to begin {context}: {error}"
                 )));
@@ -1234,6 +1474,47 @@ async fn begin_immediate_with_retry(
     Err(Error::DatabaseError(format!(
         "Failed to begin {context} after retry budget"
     )))
+}
+
+async fn commit_with_retry(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    context: &str,
+) -> Result<()> {
+    for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
+        match sqlx::query("COMMIT").execute(&mut **conn).await {
+            Ok(_) => return Ok(()),
+            Err(error) => {
+                if is_sqlite_busy_or_locked_error(&error) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
+                    tokio::time::sleep(sqlite_busy_backoff_duration(attempt)).await;
+                    continue;
+                }
+
+                return Err(Error::DatabaseError(format!(
+                    "Failed to commit {context}: {error}"
+                )));
+            }
+        }
+    }
+
+    Err(Error::DatabaseError(format!(
+        "Failed to commit {context} after retry budget"
+    )))
+}
+
+async fn rollback_best_effort(conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>) {
+    for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
+        let result = sqlx::query("ROLLBACK").execute(&mut **conn).await;
+        match result {
+            Ok(_) => return,
+            Err(error) => {
+                if is_sqlite_busy_or_locked_error(&error) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
+                    tokio::time::sleep(sqlite_busy_backoff_duration(attempt)).await;
+                    continue;
+                }
+                return;
+            }
+        }
+    }
 }
 
 /// Query a session by name
@@ -1382,6 +1663,50 @@ fn build_update_clauses(update: &SessionUpdate) -> Result<Vec<(&'static str, Str
     Ok(clauses)
 }
 
+fn update_request_fingerprint(name: &str, update: &SessionUpdate) -> Result<String> {
+    let metadata = update
+        .metadata
+        .as_ref()
+        .map(serde_json::to_string)
+        .transpose()
+        .map_err(|e| Error::ParseError(format!("Failed to serialize metadata: {e}")))?
+        .map_or_else(String::new, std::convert::identity);
+
+    let status = update
+        .status
+        .as_ref()
+        .map(std::string::ToString::to_string)
+        .map_or_else(String::new, std::convert::identity);
+    let state = update
+        .state
+        .as_ref()
+        .map(std::string::ToString::to_string)
+        .map_or_else(String::new, std::convert::identity);
+    let branch = update
+        .branch
+        .clone()
+        .map_or_else(String::new, std::convert::identity);
+    let last_synced = update
+        .last_synced
+        .map_or_else(String::new, |value| value.to_string());
+
+    Ok(version_fingerprint(&format!(
+        "name={name}|status={status}|state={state}|branch={branch}|last_synced={last_synced}|metadata={metadata}"
+    )))
+}
+
+fn version_fingerprint(raw: &str) -> String {
+    format!("{REQUEST_FINGERPRINT_VERSION}:{raw}")
+}
+
+fn normalize_fingerprint_for_compare(stored: &str) -> String {
+    if stored.contains(':') {
+        stored.to_string()
+    } else {
+        version_fingerprint(stored)
+    }
+}
+
 /// Build SQL UPDATE query from clauses
 fn build_update_query(clauses: &[(&str, String)], name: &str) -> (String, Vec<String>) {
     let set_clauses: Vec<String> = clauses
@@ -1463,13 +1788,45 @@ async fn is_command_processed_conn(
 async fn mark_command_processed_conn(
     conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
     command_id: &str,
+    request_fingerprint: Option<&str>,
 ) -> Result<()> {
-    sqlx::query("INSERT OR IGNORE INTO processed_commands (command_id) VALUES (?)")
+    for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
+        let result = sqlx::query(
+            "INSERT OR IGNORE INTO processed_commands (command_id, request_fingerprint) VALUES (?, ?)",
+        )
         .bind(command_id)
+        .bind(request_fingerprint)
         .execute(&mut **conn)
+        .await;
+
+        match result {
+            Ok(_) => return Ok(()),
+            Err(error) => {
+                if is_sqlite_busy_or_locked_error(&error) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
+                    tokio::time::sleep(sqlite_busy_backoff_duration(attempt)).await;
+                    continue;
+                }
+                return Err(Error::DatabaseError(format!(
+                    "Failed to mark command as processed: {error}"
+                )));
+            }
+        }
+    }
+
+    Err(Error::DatabaseError(
+        "Failed to mark command as processed after retry budget".to_string(),
+    ))
+}
+
+async fn query_command_fingerprint_conn(
+    conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    command_id: &str,
+) -> Result<Option<Option<String>>> {
+    sqlx::query_scalar("SELECT request_fingerprint FROM processed_commands WHERE command_id = ?")
+        .bind(command_id)
+        .fetch_optional(&mut **conn)
         .await
-        .map(|_| ())
-        .map_err(|e| Error::DatabaseError(format!("Failed to mark command as processed: {e}")))
+        .map_err(|e| Error::DatabaseError(format!("Failed to read processed command marker: {e}")))
 }
 
 #[allow(dead_code)]
@@ -1492,18 +1849,23 @@ async fn query_session_by_name_conn(
 async fn delete_session(pool: &SqlitePool, name: &str) -> Result<bool> {
     // First, delete any locks for this session (manual cascade)
     // Use IGNORE to handle cases where session_locks table doesn't exist yet
-    let _ = sqlx::query("DELETE FROM session_locks WHERE session = ?")
-        .bind(name)
-        .execute(pool)
-        .await; // Ignore errors - table might not exist if LockManager was never initialized
+    let _ = run_with_sqlite_busy_retry("delete session locks", || async {
+        sqlx::query("DELETE FROM session_locks WHERE session = ?")
+            .bind(name)
+            .execute(pool)
+            .await
+    })
+    .await; // Ignore errors - table might not exist if LockManager was never initialized
 
     // Then delete the session itself
-    sqlx::query("DELETE FROM sessions WHERE name = ?")
-        .bind(name)
-        .execute(pool)
-        .await
-        .map(|result| result.rows_affected() > 0)
-        .map_err(|e| Error::DatabaseError(format!("Failed to delete session: {e}")))
+    run_with_sqlite_busy_retry("delete session", || async {
+        sqlx::query("DELETE FROM sessions WHERE name = ?")
+            .bind(name)
+            .execute(pool)
+            .await
+    })
+    .await
+    .map(|result| result.rows_affected() > 0)
 }
 
 #[cfg(test)]
@@ -1517,6 +1879,59 @@ mod tests {
         let db_path = dir.path().join("test.db");
         let db = SessionDb::create_or_open(&db_path).await?;
         Ok((db, dir))
+    }
+
+    #[tokio::test]
+    async fn test_busy_timeout_applied_per_connection() -> Result<()> {
+        let dir = TempDir::new().map_err(|e| Error::IoError(e.to_string()))?;
+        let db_path = dir.path().join("per-connection-timeout.db");
+        let path_str = db_path.to_str().ok_or_else(|| {
+            Error::DatabaseError("Database path contains invalid UTF-8".to_string())
+        })?;
+        let db_url = format!("sqlite:///{path_str}?mode=rwc");
+        let pool = create_connection_pool(&db_url).await?;
+
+        let mut conn_a = pool
+            .acquire()
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to acquire conn A: {e}")))?;
+        let timeout_a: i64 = sqlx::query_scalar("PRAGMA busy_timeout;")
+            .fetch_one(&mut *conn_a)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to query busy_timeout A: {e}")))?;
+
+        let mut conn_b = pool
+            .acquire()
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to acquire conn B: {e}")))?;
+        let timeout_b: i64 = sqlx::query_scalar("PRAGMA busy_timeout;")
+            .fetch_one(&mut *conn_b)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to query busy_timeout B: {e}")))?;
+
+        assert_eq!(timeout_a, SQLITE_BUSY_TIMEOUT_MS);
+        assert_eq!(timeout_b, SQLITE_BUSY_TIMEOUT_MS);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sqlite_busy_or_locked_message_detection() {
+        assert!(is_sqlite_busy_or_locked_message(
+            "SQLITE_BUSY: database is locked"
+        ));
+        assert!(is_sqlite_busy_or_locked_message(
+            "Error SQLITE_LOCKED: database table is locked"
+        ));
+        assert!(is_sqlite_busy_or_locked_message("database table is locked"));
+        assert!(!is_sqlite_busy_or_locked_message("constraint failed"));
+    }
+
+    #[test]
+    fn test_sqlite_busy_backoff_duration_is_deterministic() {
+        assert_eq!(sqlite_busy_backoff_duration(0).as_millis(), 25);
+        assert_eq!(sqlite_busy_backoff_duration(1).as_millis(), 50);
+        assert_eq!(sqlite_busy_backoff_duration(7).as_millis(), 200);
     }
 
     #[tokio::test]
@@ -1584,6 +1999,73 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_create_with_command_id_concurrent_same_command_id_single_row_and_marker(
+    ) -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+
+        let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(3));
+
+        let db_first = db.clone();
+        let barrier_first = barrier.clone();
+        let first_task = tokio::spawn(async move {
+            barrier_first.wait().await;
+            db_first
+                .create_with_command_id(
+                    "idem-concurrent-create",
+                    "/workspace/idem-concurrent",
+                    Some("cmd-create-concurrent-1"),
+                )
+                .await
+        });
+
+        let db_second = db.clone();
+        let barrier_second = barrier.clone();
+        let second_task = tokio::spawn(async move {
+            barrier_second.wait().await;
+            db_second
+                .create_with_command_id(
+                    "idem-concurrent-create",
+                    "/workspace/idem-concurrent",
+                    Some("cmd-create-concurrent-1"),
+                )
+                .await
+        });
+
+        barrier.wait().await;
+
+        let first_result = first_task
+            .await
+            .map_err(|e| Error::Unknown(format!("First task join error: {e}")))??;
+        let second_result = second_task
+            .await
+            .map_err(|e| Error::Unknown(format!("Second task join error: {e}")))??;
+
+        assert_eq!(first_result.name, second_result.name);
+        assert_eq!(first_result.workspace_path, second_result.workspace_path);
+
+        let session_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sessions WHERE name = ?")
+            .bind("idem-concurrent-create")
+            .fetch_one(db.pool())
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to count sessions: {e}")))?;
+        assert_eq!(session_count, 1);
+
+        let marker_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM processed_commands WHERE command_id = ?")
+                .bind("cmd-create-concurrent-1")
+                .fetch_one(db.pool())
+                .await
+                .map_err(|e| {
+                    Error::DatabaseError(format!("Failed to count command markers: {e}"))
+                })?;
+        assert_eq!(marker_count, 1);
+
+        assert!(db.is_command_processed("cmd-create-concurrent-1").await?);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_create_with_command_id_rejects_workspace_path_mismatch() -> Result<()> {
         let (db, _dir) = setup_test_db().await?;
 
@@ -1619,6 +2101,187 @@ mod tests {
 
         assert!(result.is_err());
         assert!(!db.is_command_processed("cmd-update-missing").await?);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_with_command_id_empty_update_missing_session_does_not_mark_processed(
+    ) -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+
+        let result = db
+            .update_with_command_id(
+                "missing-empty-session",
+                SessionUpdate::default(),
+                Some("cmd-update-missing-empty"),
+            )
+            .await;
+
+        assert!(result.is_err());
+        assert!(!db.is_command_processed("cmd-update-missing-empty").await?);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_with_command_id_replay_with_different_payload_returns_error() -> Result<()>
+    {
+        let (db, _dir) = setup_test_db().await?;
+        let _session = db.create("idem-update", "/workspace/idem-update").await?;
+
+        let first_update = SessionUpdate {
+            status: Some(SessionStatus::Active),
+            ..Default::default()
+        };
+        db.update_with_command_id(
+            "idem-update",
+            first_update,
+            Some("cmd-update-replay-mismatch"),
+        )
+        .await?;
+
+        let conflicting_update = SessionUpdate {
+            status: Some(SessionStatus::Failed),
+            ..Default::default()
+        };
+
+        let replay_result = db
+            .update_with_command_id(
+                "idem-update",
+                conflicting_update,
+                Some("cmd-update-replay-mismatch"),
+            )
+            .await;
+
+        assert!(replay_result.is_err());
+        let replay_message = replay_result
+            .err()
+            .map(|e| e.to_string())
+            .unwrap_or_default();
+        assert!(replay_message.contains("different payload"));
+
+        let current = db
+            .get("idem-update")
+            .await?
+            .ok_or_else(|| Error::NotFound("idem-update".to_string()))?;
+        assert_eq!(current.status, SessionStatus::Active);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_with_command_id_replay_succeeds_after_subsequent_updates() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+        let _session = db
+            .create("idem-update-replay", "/workspace/idem-update-replay")
+            .await?;
+
+        let activate_update = SessionUpdate {
+            status: Some(SessionStatus::Active),
+            ..Default::default()
+        };
+        db.update_with_command_id(
+            "idem-update-replay",
+            activate_update.clone(),
+            Some("cmd-update-replay-stable"),
+        )
+        .await?;
+
+        db.update(
+            "idem-update-replay",
+            SessionUpdate {
+                status: Some(SessionStatus::Failed),
+                ..Default::default()
+            },
+        )
+        .await?;
+
+        db.update_with_command_id(
+            "idem-update-replay",
+            activate_update,
+            Some("cmd-update-replay-stable"),
+        )
+        .await?;
+
+        let current = db
+            .get("idem-update-replay")
+            .await?
+            .ok_or_else(|| Error::NotFound("idem-update-replay".to_string()))?;
+        assert_eq!(current.status, SessionStatus::Failed);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_fingerprint_is_versioned() -> Result<()> {
+        let fingerprint = update_request_fingerprint("session-a", &SessionUpdate::default())?;
+        assert!(fingerprint.starts_with("v1:"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_legacy_fingerprint_migrates_and_replay_stays_compatible() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+        let _ = db
+            .create("legacy-fingerprint", "/workspace/legacy-fingerprint")
+            .await?;
+
+        let update = SessionUpdate {
+            status: Some(SessionStatus::Active),
+            ..Default::default()
+        };
+        let raw_legacy_fingerprint =
+            "name=legacy-fingerprint|status=active|state=|branch=|last_synced=|metadata=";
+
+        sqlx::query(
+            "INSERT INTO processed_commands (command_id, request_fingerprint) VALUES (?, ?)",
+        )
+        .bind("cmd-legacy-fingerprint")
+        .bind(raw_legacy_fingerprint)
+        .execute(db.pool())
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to insert legacy fingerprint: {e}")))?;
+
+        ensure_processed_commands_schema(db.pool()).await?;
+
+        let migrated: Option<String> = sqlx::query_scalar(
+            "SELECT request_fingerprint FROM processed_commands WHERE command_id = ?",
+        )
+        .bind("cmd-legacy-fingerprint")
+        .fetch_optional(db.pool())
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to query migrated fingerprint: {e}")))?
+        .flatten();
+        assert!(migrated
+            .as_ref()
+            .is_some_and(|fingerprint| fingerprint.starts_with("v1:")));
+
+        db.update_with_command_id("legacy-fingerprint", update, Some("cmd-legacy-fingerprint"))
+            .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_add_operation_journal_lists_only_incomplete_entries() -> Result<()> {
+        let (db, _dir) = setup_test_db().await?;
+
+        db.upsert_add_operation_journal(
+            "add:one",
+            "one",
+            "/tmp/one",
+            Some("cmd-one"),
+            "pending_external",
+            None,
+        )
+        .await?;
+        db.upsert_add_operation_journal("add:two", "two", "/tmp/two", None, "done", None)
+            .await?;
+
+        let incomplete = db.list_incomplete_add_operations().await?;
+        assert_eq!(incomplete.len(), 1);
+        assert_eq!(incomplete[0].operation_id, "add:one");
 
         Ok(())
     }

@@ -18,11 +18,15 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{File, OpenOptions},
+    path::{Path, PathBuf},
+};
 
+use fs2::FileExt;
 use tokio::sync::Mutex;
 
-use crate::{Error, Result};
+use crate::{jj::get_jj_command, Error, Result};
 
 /// Global workspace creation lock to prevent concurrent JJ workspace operations
 ///
@@ -31,6 +35,8 @@ use crate::{Error, Result};
 /// in quick succession.
 static WORKSPACE_CREATION_LOCK: std::sync::LazyLock<Mutex<()>> =
     std::sync::LazyLock::new(|| Mutex::new(()));
+
+const WORKSPACE_CREATION_LOCK_FILE: &str = "workspace-create.lock";
 
 /// Information about the current repository operation
 #[derive(Debug, Clone)]
@@ -54,8 +60,8 @@ pub struct RepoOperationInfo {
 /// - Not in a JJ repository
 /// - Unable to parse JJ output
 pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
-    let output = tokio::process::Command::new("jj")
-        .args(["log", "--no-graph", "--limit", "1", "-T", "change_id"])
+    let output = get_jj_command()
+        .args(["op", "log", "--no-graph", "--limit", "1", "-T", "id"])
         .current_dir(root)
         .output()
         .await
@@ -85,7 +91,7 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
     }
 
     // Get repo root
-    let root_output = tokio::process::Command::new("jj")
+    let root_output = get_jj_command()
         .args(["root"])
         .current_dir(root)
         .output()
@@ -166,18 +172,22 @@ pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
     // Acquire global lock to serialize workspace creation
     let _lock = WORKSPACE_CREATION_LOCK.lock().await;
 
-    // Step 1: Get current repository operation ID
-    let operation_info = get_current_operation(repo_root).await?;
+    // Acquire cross-process lock so independent zjj processes also serialize
+    // workspace creation against the same repository.
+    let _cross_process_lock = acquire_cross_process_lock(repo_root).await?;
 
-    // Step 2: Create parent directory if needed
+    // Step 1: Create parent directory if needed
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent)
             .await
             .map_err(|e| Error::IoError(format!("Failed to create workspace directory: {e}")))?;
     }
 
+    // Step 2: Verify repository is accessible before mutation.
+    let _ = get_current_operation(repo_root).await?;
+
     // Step 3: Execute jj workspace add --name <name> <path>
-    let output = tokio::process::Command::new("jj")
+    let output = get_jj_command()
         .args(["workspace", "add", "--name", name])
         .arg(path)
         .current_dir(repo_root)
@@ -199,9 +209,66 @@ pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
     }
 
     // Step 4: Verify workspace was created and is consistent
-    verify_workspace_consistency(name, path, &operation_info).await?;
+    verify_workspace_consistency(name, path).await?;
 
     Ok(())
+}
+
+async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
+    let lock_dir = repo_root.join(".zjj");
+    tokio::fs::create_dir_all(&lock_dir)
+        .await
+        .map_err(|e| Error::IoError(format!("Failed to create lock directory: {e}")))?;
+
+    let lock_path = lock_dir.join(WORKSPACE_CREATION_LOCK_FILE);
+
+    tokio::task::spawn_blocking(move || {
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(&lock_path)
+            .map_err(|e| Error::IoError(format!("Failed to open workspace lock file: {e}")))?;
+
+        file.lock_exclusive()
+            .map_err(|e| Error::IoError(format!("Failed to acquire workspace lock: {e}")))?;
+
+        let lock_supported = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&lock_path)
+            .map_err(|e| Error::IoError(format!("Failed to open probe lock file: {e}")))
+            .and_then(|probe| match probe.try_lock_exclusive() {
+                Ok(()) => {
+                    let unlock_result = probe.unlock();
+                    if let Err(unlock_error) = unlock_result {
+                        return Err(Error::IoError(format!(
+                            "Failed to unlock probe lock file: {unlock_error}"
+                        )));
+                    }
+                    Ok(false)
+                }
+                Err(_) => Ok(true),
+            })?;
+
+        if !lock_supported {
+            let warning = format!(
+                "{{\"event\":\"lock_portability_warning\",\"code\":\"LOCK_PORTABILITY_UNSUPPORTED\",\"lock_file\":\"{}\",\"fallback\":\"process_local_only\"}}",
+                lock_path.display()
+            );
+            tracing::warn!("{warning}");
+
+            if std::env::var("ZJJ_STRICT_LOCKS").is_ok() {
+                return Err(Error::ValidationError(format!(
+                    "LOCK_PORTABILITY_UNSUPPORTED: {warning}. Unset ZJJ_STRICT_LOCKS to continue with process-local lock fallback"
+                )));
+            }
+        }
+
+        Ok::<File, Error>(file)
+    })
+    .await
+    .map_err(|e| Error::IoError(format!("Failed to join lock task: {e}")))?
 }
 
 /// Verify workspace consistency after creation
@@ -215,14 +282,10 @@ pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
 /// - Workspace doesn't exist
 /// - Operation IDs don't match
 /// - Working copy is out of sync
-async fn verify_workspace_consistency(
-    name: &str,
-    path: &Path,
-    expected_operation: &RepoOperationInfo,
-) -> Result<()> {
-    // Get the operation ID in the new workspace
-    let output = tokio::process::Command::new("jj")
-        .args(["log", "--no-graph", "--limit", "1", "-T", "change_id"])
+async fn verify_workspace_consistency(name: &str, path: &Path) -> Result<()> {
+    // Ensure new workspace is readable by jj and has a valid working copy.
+    let output = get_jj_command()
+        .args(["status"])
         .current_dir(path)
         .output()
         .await
@@ -263,33 +326,15 @@ async fn verify_workspace_consistency(
         });
     }
 
-    // Verify operation matches
-    let workspace_operation = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-    // Operations should match - if not, we have graph divergence
-    if workspace_operation != expected_operation.operation_id {
-        return Err(Error::JjWorkspaceConflict {
-            conflict_type: crate::error::JjConflictType::Stale,
-            workspace_name: name.to_string(),
-            source: format!(
-                "Operation ID mismatch: expected '{}', got '{}'",
-                expected_operation.operation_id, workspace_operation
-            ),
-            recovery_hint: format!(
-                "The workspace '{name}' was created on a different operation than expected.\n\n\
-                 Expected: {}\n\
-                 Got: {}\n\n\
-                 Recovery: Run 'jj workspace forget {name}' and retry creation.",
-                expected_operation.operation_id, workspace_operation
-            ),
-        });
-    }
-
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use tokio::sync::Barrier;
+
     use super::*;
 
     #[test]
@@ -331,5 +376,103 @@ mod tests {
                 panic!("Expected InvalidConfig error, but got Ok");
             }
         }
+    }
+
+    #[tokio::test]
+    async fn regression_cross_process_lock_blocks_second_holder() -> Result<()> {
+        let repo_root = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+        let repo_root_path = repo_root.path().to_path_buf();
+
+        let _lock_file_handle = acquire_cross_process_lock(&repo_root_path).await?;
+
+        let lock_path = repo_root_path
+            .join(".zjj")
+            .join(WORKSPACE_CREATION_LOCK_FILE);
+
+        let second_file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(lock_path)
+            .map_err(|e| Error::IoError(e.to_string()))?;
+
+        let second_lock_attempt = second_file.try_lock_exclusive();
+        assert!(second_lock_attempt.is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn regression_cross_process_lock_releases_on_drop() -> Result<()> {
+        let repo_root = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+        let repo_root_path = repo_root.path().to_path_buf();
+
+        {
+            let _first = acquire_cross_process_lock(&repo_root_path).await?;
+        }
+
+        let lock_path = repo_root_path
+            .join(".zjj")
+            .join(WORKSPACE_CREATION_LOCK_FILE);
+        let second_file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(lock_path)
+            .map_err(|e| Error::IoError(e.to_string()))?;
+
+        let second_lock_attempt = second_file.try_lock_exclusive();
+        assert!(second_lock_attempt.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn stress_cross_process_lock_keeps_single_holder() -> Result<()> {
+        use std::sync::Arc;
+
+        let repo_root = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+        let repo_root_path = Arc::new(repo_root.path().to_path_buf());
+
+        let task_count = 24usize;
+        let barrier = Arc::new(Barrier::new(task_count));
+        let in_critical = Arc::new(AtomicUsize::new(0));
+        let max_critical = Arc::new(AtomicUsize::new(0));
+
+        let tasks: Vec<_> = (0..task_count)
+            .map(|_| {
+                let barrier = Arc::clone(&barrier);
+                let in_critical = Arc::clone(&in_critical);
+                let max_critical = Arc::clone(&max_critical);
+                let repo_root_path = Arc::clone(&repo_root_path);
+
+                tokio::spawn(async move {
+                    barrier.wait().await;
+
+                    let guard = acquire_cross_process_lock(&repo_root_path).await;
+                    if guard.is_err() {
+                        return;
+                    }
+
+                    let current = in_critical.fetch_add(1, Ordering::SeqCst) + 1;
+                    let _ = max_critical.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |prev| {
+                        if current > prev {
+                            Some(current)
+                        } else {
+                            None
+                        }
+                    });
+
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    in_critical.fetch_sub(1, Ordering::SeqCst);
+                })
+            })
+            .collect();
+
+        let join_results = futures::future::join_all(tasks).await;
+        assert!(join_results.iter().all(std::result::Result::is_ok));
+        assert_eq!(max_critical.load(Ordering::SeqCst), 1);
+
+        Ok(())
     }
 }

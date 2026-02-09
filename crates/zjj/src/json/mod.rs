@@ -56,6 +56,7 @@ mod tests {
             workspace_path: "/path/to/workspace".to_string(),
             zellij_tab: "zjj:test".to_string(),
             status: "active".to_string(),
+            created: true,
         };
 
         let result = super::output_json_success(&output);
