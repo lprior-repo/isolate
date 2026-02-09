@@ -219,6 +219,18 @@ pub async fn handle_focus(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
+    // AI: Show contract if requested
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::status());
+        return Ok(());
+    }
+
+    // AI: Show hints if requested
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
@@ -445,6 +457,18 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_spawn(sub_m: &ArgMatches) -> Result<()> {
+    // AI: Show contract if requested
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::spawn());
+        return Ok(());
+    }
+
+    // AI: Show hints if requested
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let args = spawn::SpawnArgs::from_matches(sub_m)?;
     let options = args.to_options();
     spawn::run_with_options(&options).await
@@ -570,6 +594,18 @@ pub async fn handle_revert(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_done(sub_m: &ArgMatches) -> Result<()> {
+    // AI: Show contract if requested
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::done());
+        return Ok(());
+    }
+
+    // AI: Show hints if requested
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let json = sub_m.get_flag("json");
     let args = done::types::DoneArgs {
         message: sub_m.get_one::<String>("message").cloned(),
