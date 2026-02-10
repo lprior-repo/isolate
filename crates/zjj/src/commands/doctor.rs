@@ -129,7 +129,7 @@ async fn check_pending_add_operations() -> DoctorCheck {
             suggestion: Some("Run 'zjj init' and retry doctor".to_string()),
             auto_fixable: false,
             details: None,
-        }
+        };
     };
 
     let pending_count = match pending_add_operation_count(&db).await {

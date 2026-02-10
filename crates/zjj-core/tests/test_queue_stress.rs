@@ -1,4 +1,3 @@
-
 // Integration tests have relaxed clippy settings for brutal test scenarios.
 // Production code (src/) must use strict zero-unwrap/panic patterns.
 #![allow(
@@ -29,7 +28,6 @@
 //! These tests verify that the merge queue correctly handles concurrent access
 //! from multiple agents, ensuring no duplicate workspace assignments and proper
 //! lock timeout/extension behavior.
-
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 

@@ -62,7 +62,11 @@ pub async fn run_pause(options: &PauseOptions) -> Result<()> {
             let json_str = serde_json::to_string_pretty(&envelope)?;
             writeln!(std::io::stdout(), "{json_str}")?;
         } else {
-            writeln!(std::io::stdout(), "✓ Session '{}' is already paused", &options.session)?;
+            writeln!(
+                std::io::stdout(),
+                "✓ Session '{}' is already paused",
+                &options.session
+            )?;
         }
         return Ok(());
     }
@@ -369,7 +373,10 @@ mod tests {
 
         assert!(result.success, "Pause should be idempotent");
         assert_eq!(result.status, "paused");
-        assert!(result.error.is_none(), "Already-paused session should not error");
+        assert!(
+            result.error.is_none(),
+            "Already-paused session should not error"
+        );
     }
 
     #[test]

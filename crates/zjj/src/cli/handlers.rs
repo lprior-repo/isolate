@@ -153,10 +153,7 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
                 .get_one::<String>("name")
                 .cloned()
                 .unwrap_or_default();
-            let to_revision = move_m
-                .get_one::<String>("to")
-                .cloned()
-                .unwrap_or_default();
+            let to_revision = move_m.get_one::<String>("to").cloned().unwrap_or_default();
             let session = move_m.get_one::<String>("session").cloned();
             let json = move_m.get_flag("json");
             let format = OutputFormat::from_json_flag(json);
@@ -309,10 +306,7 @@ pub async fn handle_template(sub_m: &ArgMatches) -> Result<()> {
             template::run_list(format).await
         }
         Some(("create", sub)) => {
-            let name = sub
-                .get_one::<String>("name")
-                .cloned()
-                .unwrap_or_default();
+            let name = sub.get_one::<String>("name").cloned().unwrap_or_default();
             let description = sub.get_one::<String>("description").cloned();
             let json = sub.get_flag("json");
             let format = OutputFormat::from_json_flag(json);
@@ -1042,10 +1036,7 @@ pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_pause(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    let session = sub_m
-        .get_one::<String>("name")
-        .cloned()
-        .unwrap_or_default();
+    let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
     let options = session_mgmt::PauseOptions { session, format };
     session_mgmt::run_pause(&options).await
 }
@@ -1053,10 +1044,7 @@ pub async fn handle_pause(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_resume(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    let session = sub_m
-        .get_one::<String>("name")
-        .cloned()
-        .unwrap_or_default();
+    let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
     let options = session_mgmt::ResumeOptions { session, format };
     session_mgmt::run_resume(&options).await
 }

@@ -1,4 +1,3 @@
-
 // Integration tests have relaxed clippy settings for brutal test scenarios.
 // Production code (src/) must use strict zero-unwrap/panic patterns.
 #![allow(
@@ -30,7 +29,6 @@
 //! 1. Attempting to repair a non-existent workspace returns a proper error
 //! 2. No panic occurs when repairing non-existent workspace
 //! 3. Error message is clear and actionable
-
 
 use std::error::Error;
 

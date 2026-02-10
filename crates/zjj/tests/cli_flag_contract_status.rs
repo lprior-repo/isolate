@@ -20,8 +20,7 @@ fn bdd_status_contract_flag_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("status")
-        .arg("--contract");
+    cmd.arg("status").arg("--contract");
 
     cmd.assert()
         .success()
@@ -41,8 +40,7 @@ fn bdd_status_ai_hints_flag_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("status")
-        .arg("--ai-hints");
+    cmd.arg("status").arg("--ai-hints");
 
     cmd.assert()
         .success()
@@ -59,8 +57,7 @@ fn bdd_status_with_invalid_session_still_works() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("status")
-        .arg("--contract");
+    cmd.arg("status").arg("--contract");
 
     // Should succeed with contract output, not fail on session validation
     cmd.assert()
@@ -76,14 +73,15 @@ fn bdd_status_without_flags_runs_normally() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("status")
-        .arg("--help");
+    cmd.arg("status").arg("--help");
 
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("--contract"))
         .stdout(predicate::str::contains("--ai-hints"))
-        .stdout(predicate::str::contains("AI: Show machine-readable contract"))
+        .stdout(predicate::str::contains(
+            "AI: Show machine-readable contract",
+        ))
         .stdout(predicate::str::contains("AI: Show execution hints"));
 }
 
@@ -110,11 +108,10 @@ fn bdd_status_no_panic_with_any_flag_combination() {
         }
 
         // Should not panic (exit code 134 is panic)
-        cmd.assert()
-            .code(
-                predicate::ne(134) // 134 = panic
-                    .and(predicate::ne(101)) // 101 = clap panic
-            );
+        cmd.assert().code(
+            predicate::ne(134) // 134 = panic
+                .and(predicate::ne(101)), // 101 = clap panic
+        );
     }
 }
 
@@ -126,12 +123,10 @@ fn bdd_status_json_flag_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("status")
-        .arg("--json");
+    cmd.arg("status").arg("--json");
 
     // Should succeed even if no sessions exist
-    cmd.assert()
-        .success();
+    cmd.assert().success();
 }
 
 #[test]
@@ -142,8 +137,7 @@ fn bdd_status_watch_flag_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("status")
-        .arg("--help");
+    cmd.arg("status").arg("--help");
 
     cmd.assert()
         .success()

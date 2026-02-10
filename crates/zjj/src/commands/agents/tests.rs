@@ -875,7 +875,13 @@ fn validate_agent_id_rejects_reserved_keywords() {
 fn validate_agent_id_rejects_embedded_spaces() {
     use super::validate_agent_id;
 
-    let invalid_ids = vec!["agent 1", "my agent", "a b c", "agent\ttab", "agent\nnewline"];
+    let invalid_ids = vec![
+        "agent 1",
+        "my agent",
+        "a b c",
+        "agent\ttab",
+        "agent\nnewline",
+    ];
 
     for invalid_id in invalid_ids {
         let result = validate_agent_id(invalid_id);

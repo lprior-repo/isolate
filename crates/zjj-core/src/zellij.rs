@@ -922,30 +922,30 @@ mod tests {
 
     #[test]
     fn test_escape_kdl_string_handles_backslashes() {
-        let input = r#"path\with\backslashes"#;
+        let input = r"path\with\backslashes";
         let escaped = escape_kdl_string(input);
-        assert_eq!(escaped, r#"path\\with\\backslashes"#);
+        assert_eq!(escaped, r"path\\with\\backslashes");
     }
 
     #[test]
     fn test_escape_kdl_string_handles_newlines() {
         let input = "line1\nline2";
         let escaped = escape_kdl_string(input);
-        assert_eq!(escaped, r#"line1\nline2"#);
+        assert_eq!(escaped, r"line1\nline2");
     }
 
     #[test]
     fn test_escape_kdl_string_handles_tabs() {
         let input = "col1\tcol2";
         let escaped = escape_kdl_string(input);
-        assert_eq!(escaped, r#"col1\tcol2"#);
+        assert_eq!(escaped, r"col1\tcol2");
     }
 
     #[test]
     fn test_escape_kdl_string_handles_carriage_returns() {
         let input = "line1\rline2";
         let escaped = escape_kdl_string(input);
-        assert_eq!(escaped, r#"line1\rline2"#);
+        assert_eq!(escaped, r"line1\rline2");
     }
 
     #[test]
