@@ -1,0 +1,304 @@
+{
+  "handoff_version": "1.0",
+  "generated_at": "2026-02-08T02:58:00Z",
+  "bead": {
+    "id": "zjj-ykzv",
+    "title": "Epic: ZJJ v0.3.0 Roadmap - Workflow Completion",
+    "type": "epic",
+    "priority": "P1",
+    "status": "in_progress",
+    "owner": "lewis",
+    "vision": "ZJJ as the Single AI Interface - AI agents should NEVER need to learn raw JJ, Zellij, or Beads commands"
+  },
+
+  "context": {
+    "epic_scope": "Complete ZJJ v0.3.0 roadmap to provide comprehensive AI agent interface",
+    "current_state": "P0 and P1 beads are CLOSED, but several command implementations are MISSING",
+    "blocking_issues": [
+      "Several beads marked CLOSED but commands not implemented",
+      "Need to verify implementation status of all roadmap items",
+      "remove.rs has TODO for merge_to_main() - just stub implementation",
+      "done/mod.rs has merge logic but may not be standalone 'merge' command"
+    ]
+  },
+
+  "implementation_requirements": {
+    "critical_rules": [
+      "ZERO unwrap(), expect(), panic!, todo!, unimplemented!() - USE Result<T, Error> with ? operator",
+      "ALWAYS use Moon (moon run :quick|:test|:ci) - NEVER cargo commands",
+      "ALWAYS use Codanna tools (mcp__codanna__*) for code search - NEVER Grep/Glob/Read for exploration",
+      "USE functional-rust-generator SKILL for ALL Rust implementation",
+      "Work NOT done until git push succeeds - MUST push before marking complete"
+    ],
+
+    "command_surface": {
+      "session_lifecycle": [
+        "zjj init              # Initialize",
+        "zjj add <name>        # Create session - EXISTS",
+        "zjj clone <from> <to> # Duplicate session - MISSING",
+        "zjj list              # List sessions - EXISTS",
+        "zjj status            # Show status - EXISTS",
+        "zjj focus <name>      # Switch to session - EXISTS",
+        "zjj attach <name>     # Attach from external terminal - MISSING",
+        "zjj sync [name]       # Rebase on main - EXISTS",
+        "zjj merge <name>      # Complete workflow - MISSING (stub in remove.rs)",
+        "zjj remove <name>     # Remove session - EXISTS (has --merge flag but stub)",
+        "zjj clean             # Remove stale sessions - MISSING",
+        "zjj exec --all <cmd>  # Run in all workspaces - needs --all flag check"
+      ],
+      "version_control": [
+        "zjj describe [session] -m <msg>  # Edit commit message - MISSING",
+        "zjj abandon [session]            # Discard changes - MISSING",
+        "zjj recover [session]            # Restore from op log - EXISTS (recover.rs)",
+        "zjj bookmark list/create/delete  # Branch management - EXISTS (bookmark.rs)",
+        "zjj diff [session]               # Show changes - EXISTS (diff.rs)"
+      ],
+      "terminal_ui": [
+        "zjj rename <session> <name>      # Rename tab - EXISTS (rename.rs)",
+        "zjj template list/create/use     # Layout management - EXISTS (template.rs)",
+        "zjj pane focus/resize/float      # Pane control - EXISTS (pane.rs)",
+        "zjj dashboard                    # Interactive TUI - EXISTS (dashboard.rs)"
+      ],
+      "issue_tracking": [
+        "zjj link <session> <bead-id>     # Associate bead - NEEDS CHECK",
+        "zjj unlink <session>             # Remove association - NEEDS CHECK"
+      ]
+    }
+  },
+
+  "missing_implementations": {
+    "critical_missing": [
+      {
+        "bead": "zjj-b5h5",
+        "command": "zjj merge <name>",
+        "priority": "P1",
+        "status": "CLOSED",
+        "file": "crates/zjj/src/commands/merge.rs",
+        "current_state": "MISSING - only stub in remove.rs line 133-140",
+        "requirements": [
+          "Squash commits to single commit",
+          "Rebase onto main",
+          "Push to remote",
+          "Remove session (unless --keep)",
+          "Update linked bead status to 'closed'",
+          "Support --json, --dry-run, --keep, --no-push, --all flags"
+        ],
+        "references": [
+          "done/mod.rs has merge_to_main logic",
+          "spawn/mod.rs merge_to_main uses 'jj workspace forget'",
+          "remove.rs has merge flag but stub implementation"
+        ]
+      },
+      {
+        "bead": "zjj-8nwv",
+        "command": "zjj attach <name>",
+        "priority": "P0",
+        "status": "CLOSED",
+        "file": "crates/zjj/src/commands/attach.rs",
+        "current_state": "MISSING - attach/ directory exists with tests.rs",
+        "requirements": [
+          "Switch to session's Zellij tab from any terminal",
+          "Detect inside/outside Zellij (ZELLIJ env var)",
+          "Use 'zellij action go-to-tab-name' if inside Zellij",
+          "Use 'zellij attach' if outside Zellij",
+          "Support --create, --dry-run, --json flags"
+        ],
+        "references": [
+          "cli/mod.rs has attach_to_zellij_session() functions",
+          "focus.rs uses is_inside_zellij() pattern",
+          "attach/tests.rs exists so tests were planned"
+        ]
+      },
+      {
+        "bead": "zjj-1fs1",
+        "command": "zjj clean",
+        "priority": "P0",
+        "status": "CLOSED",
+        "file": "crates/zjj/src/commands/clean.rs",
+        "current_state": "MISSING - clean/ directory exists",
+        "requirements": [
+          "Remove sessions with status 'completed'",
+          "Support --merged, --empty, --all filters",
+          "Require confirmation unless --force",
+          "Support --dry-run, --keep-workspace, --older-than=7d flags",
+          "Continue on failure, report partial success"
+        ],
+        "references": [
+          "clean/mod.rs and clean/periodic_cleanup.rs exist",
+          "remove.rs has session removal logic to reference",
+          "done/mod.rs has completed session logic"
+        ]
+      },
+      {
+        "bead": "zjj-wzwv",
+        "command": "zjj clone <from> <to>",
+        "priority": "P1",
+        "status": "CLOSED",
+        "file": "crates/zjj/src/commands/clone.rs",
+        "current_state": "MISSING",
+        "requirements": [
+          "Create new session based on existing session",
+          "Share same base commit as source",
+          "Include uncommitted changes from source",
+          "NOT copy bead association (unless --include-bead)",
+          "Support --no-open, --at-commit=<rev>, --template flags"
+        ],
+        "references": [
+          "add.rs for session creation pattern",
+          "JJ 'workspace add' for workspace cloning"
+        ]
+      },
+      {
+        "bead": "zjj-3i9h",
+        "command": "zjj describe [session] -m <msg>",
+        "priority": "P2",
+        "status": "UNKNOWN",
+        "file": "crates/zjj/src/commands/describe.rs",
+        "current_state": "MISSING",
+        "requirements": [
+          "Edit commit message for session",
+          "Use 'jj describe' command internally",
+          "Support session argument or default to current"
+        ]
+      },
+      {
+        "bead": "zjj-w13y",
+        "command": "zjj abandon [session]",
+        "priority": "P2",
+        "status": "UNKNOWN",
+        "file": "crates/zjj/src/commands/abandon.rs",
+        "current_state": "MISSING (note: abort.rs exists, different command)",
+        "requirements": [
+          "Discard changes in session",
+          "Use 'jj abandon' command internally",
+          "Support session argument or default to current",
+          "Require confirmation unless --force"
+        ]
+      }
+    ]
+  },
+
+  "verification_tasks": {
+    "verify_bead_status": [
+      "Check if zjj-zibs (exec --all) is fully implemented",
+      "Check if zjj-qgdz (add-batch positional args) is fully implemented",
+      "Check if zjj-7vx3 (progress streaming) is fully implemented",
+      "Verify status of P2 beads (describe, abandon, link, unlink)"
+    ],
+    "check_command_registry": [
+      "Verify all commands registered in CLI",
+      "Check if commands have --help documentation",
+      "Verify JSON output schema compliance"
+    ],
+    "test_coverage": [
+      "Run existing tests to verify current state",
+      "Identify missing test files for implemented commands",
+      "Check E2E test coverage for roadmap items"
+    ]
+  },
+
+  "implementation_approach": {
+    "recommended_workflow": [
+      "1. VERIFICATION PHASE:",
+      "   - Check actual implementation status of all roadmap beads",
+      "   - Run tests to identify what works vs. what's broken",
+      "   - Document discrepancies between bead status and code",
+      "",
+      "2. PRIORITIZATION:",
+      "   - Focus on P0 missing commands (attach, clean) first",
+      "   - Implement P1 missing commands (merge, clone) second",
+      "   - Address P2 wrappers (describe, abandon) third",
+      "",
+      "3. IMPLEMENTATION PATTERN:",
+      "   - Load functional-rust-generator skill",
+      "   - Use Codanna for code search and relationship analysis",
+      "   - Follow existing command patterns (see focus.rs, add.rs, remove.rs)",
+      "   - All functions return Result<T, Error> - zero unwraps/panics",
+      "   - Use run() and run_with_options() pattern",
+      "   - Support --json with SchemaEnvelope output",
+      "",
+      "4. QUALITY GATES:",
+      "   - moon run :quick (format + lint check)",
+      "   - moon run :test (test suite)",
+      "   - moon run :ci (full pipeline before committing)",
+      "",
+      "5. COMPLETION:",
+      "   - Update bead status as features are completed",
+      "   - Document any deviations from original bead specs",
+      "   - git commit + git push (MANDATORY)",
+      "   - br close for finished beads"
+    ]
+  },
+
+  "key_files": {
+    "command_patterns": [
+      "crates/zjj/src/commands/focus.rs - Good example of run_with_options pattern",
+      "crates/zjj/src/commands/remove.rs - Has merge flag with TODO stub",
+      "crates/zjj/src/commands/done/mod.rs - Has merge_to_main logic to reference",
+      "crates/zjj/src/commands/spawn/mod.rs - Has merge_to_main implementation",
+      "crates/zjj/src/commands/add.rs - Session creation pattern",
+      "crates/zjj/src/cli/mod.rs - is_inside_zellij(), run_command() utilities"
+    ],
+    "type_definitions": [
+      "crates/zjj-core/src/types.rs - Session, SessionStatus, Remove, Focus types",
+      "crates/zjj-core/src/session_state.rs - SessionStateManager",
+      "crates/zjj-core/src/workspace_state.rs - WorkspaceState transitions",
+      "crates/zjj/src/commands/done/types.rs - DoneOptions, DoneOutput pattern"
+    ],
+    "documentation": [
+      "docs/AI_QUICKSTART.md - Minimal command reference",
+      "docs/03_WORKFLOW.md - Daily workflow with sync and merge",
+      "docs/P0-INFRASTRUCTURE.md - State machine and conflict detection"
+    ]
+  },
+
+  "codanna_search_queries": {
+    "session_management": [
+      "mcp__codanna__semantic_search_with_context(query='session management workspace isolation', limit: 5)",
+      "mcp__codanna__find_symbol(name='Session')",
+      "mcp__codanna__search_symbols(query='Session Workspace Config', kind: 'Struct')"
+    ],
+    "command_patterns": [
+      "mcp__codanna__search_symbols(query='run_with_options', kind: 'Function')",
+      "mcp__codanna__semantic_search_with_context(query='command implementation init add focus remove', limit: 5)"
+    ],
+    "merge_logic": [
+      "mcp__codanna__find_symbol(name='merge_to_main')",
+      "mcp__codanna__semantic_search_with_context(query='merge command workflow squash rebase push remove', limit: 5)"
+    ]
+  },
+
+  "next_steps": [
+    "1. Verify implementation status of all roadmap beads",
+    "2. Identify which commands are truly missing vs. misclassified",
+    "3. Create separate handoff documents for each missing command",
+    "4. Implement P0 missing commands (attach, clean) first",
+    "5. Implement P1 missing commands (merge, clone) second",
+    "6. Update epic bead status as subtasks are completed"
+  ],
+
+  "acceptance_criteria": {
+    "epic_complete_when": [
+      "All P0 commands implemented and tested (attach, clean)",
+      "All P1 commands implemented and tested (merge, clone, add-batch, progress)",
+      "All P2 JJ wrappers implemented (describe, abandon)",
+      "All P2 Zellij wrappers implemented (rename - EXISTS, template - EXISTS)",
+      "All P2 Beads wrappers implemented (link, unlink)",
+      "Command surface matches epic vision document",
+      "All commands support --json output",
+      "All commands follow functional patterns (zero unwraps/panics)",
+      "Test coverage > 80% for new commands",
+      "Documentation updated with new commands"
+    ]
+  },
+
+  "risks_and_concerns": [
+    "Several beads marked CLOSED but commands not implemented - need verification",
+    "remove.rs has merge flag but merge_to_main() is just a stub - may break existing workflows",
+    "Multiple merge_to_main implementations with different logic - need consolidation",
+    "attach/ directory exists with tests but no implementation - incomplete migration?",
+    "clean/ directory exists but need to verify if implementation is complete"
+  ],
+
+  "notes": "This epic is a roadmap coordination bead. Individual feature beads (zjj-b5h5, zjj-8nwv, etc.) should be used for implementation tracking. This handoff focuses on the overall coordination and verification of the v0.3.0 roadmap completion."
+}

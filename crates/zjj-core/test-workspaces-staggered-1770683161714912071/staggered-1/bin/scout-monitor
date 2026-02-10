@@ -1,0 +1,28 @@
+#!/bin/bash
+# Scout Monitor - Performs Codanna searches for Scout Agent 1
+# This script runs in the background and processes queries
+
+QUERY_FILE="/tmp/scout-agent-1-query.txt"
+RESULT_FILE="/tmp/scout-agent-1-result.json"
+
+while true; do
+  if [ -f "$QUERY_FILE" ]; then
+    QUERY=$(cat "$QUERY_FILE")
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Monitor: Processing query: $QUERY" >> /home/lewis/src/zjj/scout-monitor.log
+
+    # NOTE: This is a placeholder - actual Codanna searches must be done
+    # through Claude Code's MCP tool interface. The scout agent will use
+    # title-based estimation as a fallback.
+
+    # Remove query file to signal we've processed it
+    rm -f "$QUERY_FILE"
+
+    # Create a dummy result file with estimated count
+    # In production, Claude Code would write actual Codanna results here
+    echo "[]" > "$RESULT_FILE"
+
+    sleep 1
+  fi
+
+  sleep 0.5
+done

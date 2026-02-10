@@ -1,0 +1,23 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 80
+        base: auto
+        threshold: 1%
+        if_ci_failed: error
+    patch:
+      default:
+        target: 80
+        base: auto
+        threshold: 1%
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+
+ignore:
+  - "**/tests/**"
+  - "**/*_test.rs"
+  - "**/main.rs"

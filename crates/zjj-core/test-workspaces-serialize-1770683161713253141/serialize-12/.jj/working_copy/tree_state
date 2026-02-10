@@ -1,0 +1,1055 @@
+!
+.ai-instructions.md
+–ŞÃ§Ä3ôE
+7.bead-progress/zjj-20260207144555-zsihv1p2/progress.txt
+–ŞÃ§Ä3–
+.beads/.bv.lock	–ŞÃ§Ä3V
+.beads/.gitignore
+–ŞÃ§Ä3•
+.beads/README.md
+–ŞÃ§Ä3© 
+.beads/config.yaml
+—ŞÃ§Ä3¬7
+).beads/export-state/39d08d6e081821e1.json
+—ŞÃ§Ä37
+).beads/export-state/47b63ce0ba736101.json
+—ŞÃ§Ä3§7
+).beads/export-state/4b6d06081af58f28.json
+—ŞÃ§Ä3£7
+).beads/export-state/501b03042118b490.json
+—ŞÃ§Ä3š7
+).beads/export-state/7b4f0077918b4bdc.json
+—ŞÃ§Ä37
+).beads/export-state/8c2066f50e9b4945.json
+—ŞÃ§Ä3¥7
+).beads/export-state/bc883a1d4f0eeaa3.json
+—ŞÃ§Ä3¥$
+.beads/interactions.jsonl—ŞÃ§Ä3#
+.beads/issues.jsonl›ŞÃ§Ä3‘â‡%
+.beads/issues.jsonl.bak
+œŞÃ§Ä3£!
+.beads/metadata.json	œŞÃ§Ä3><
+..beads/schemas/zjj-20260207144235-odxxgkq9.cue
+œŞÃ§Ä3ù<
+..beads/schemas/zjj-20260207144235-qesapmvu.cue
+œŞÃ§Ä3ƒ<
+..beads/schemas/zjj-20260207144235-rwtl8oi2.cue
+œŞÃ§Ä3í<
+..beads/schemas/zjj-20260207144235-stzh9qtm.cue
+œŞÃ§Ä3è<
+..beads/schemas/zjj-20260207144555-3edarubd.cue
+œŞÃ§Ä3<
+..beads/schemas/zjj-20260207144555-bxq7nlhv.cue
+œŞÃ§Ä3á<
+..beads/schemas/zjj-20260207144555-cn9k0uhn.cue
+œŞÃ§Ä3ë<
+..beads/schemas/zjj-20260207144555-qbzo7sxy.cue
+œŞÃ§Ä3¼<
+..beads/schemas/zjj-20260207144555-updhyw0k.cue
+œŞÃ§Ä3 <
+..beads/schemas/zjj-20260207144555-vnunxgt4.cue
+œŞÃ§Ä3Û<
+..beads/schemas/zjj-20260207144555-yh2xmbqw.cue
+œŞÃ§Ä3Ø<
+..beads/schemas/zjj-20260207144555-zsihv1p2.cue
+ŞÃ§Ä3ÿ<
+..beads/schemas/zjj-20260207144601-78lrhozj.cue
+ŞÃ§Ä3<
+..beads/schemas/zjj-20260207144601-aohsi4bm.cue
+ŞÃ§Ä3¢<
+..beads/schemas/zjj-20260207144601-fwgu0w7t.cue
+ŞÃ§Ä3æ<
+..beads/schemas/zjj-20260207144601-pywekemy.cue
+ŞÃ§Ä3ú<
+..beads/schemas/zjj-20260207144750-4y9dnfnt.cue
+ŞÃ§Ä3Í<
+..beads/schemas/zjj-20260207144750-qgklgrdz.cue
+ŞÃ§Ä3‹ 
+.cargo/config.toml
+ŞÃ§Ä3®#
+.claude/settings.json
+ŞÃ§Ä3É
+.clippy.toml
+ŞÃ§Ä3™
+.codannaignore
+ŞÃ§Ä3Å
+.codecov.yml
+ŞÃ§Ä3ö"
+.crackpipe/BEADS.mdŞÃ§Ä3ÅÑ1
+#.crackpipe/BUILDER-QUALITY-GATES.md
+ŞÃ§Ä3Ğ"2
+$.crackpipe/PLANNER-AGENT-1-STATUS.md
+ŞÃ§Ä3Ñ2
+$.crackpipe/PLANNER-AGENT-2-STATUS.md
+ŞÃ§Ä3•/
+!.crackpipe/QA-BUILDER-6-REPORT.md
+ŞÃ§Ä3”E-
+.crackpipe/REWORKER-3-STATUS.md
+ŞÃ§Ä3Â*6
+(.crackpipe/SCOUT-AGENT-1-FINAL-REPORT.md
+ŞÃ§Ä3¶R0
+".crackpipe/SCOUT-AGENT-1-STATUS.md
+ŞÃ§Ä3Û0
+".crackpipe/SCOUT-AGENT-6-STATUS.md
+ŞÃ§Ä3­1
+#.crackpipe/SCOUT-RACE-CONDITIONS.md
+ŞÃ§Ä3ıY4
+&.crackpipe/SCOUT-TEST-INVESTIGATION.md
+ŞÃ§Ä3ÚN9
++.crackpipe/builder-agent-prompt-template.md
+ŞÃ§Ä3‡(9
+).crackpipe/builder-agent-quality-gates.shŞÃ§Ä3Â(2
+$.crackpipe/contract-spec-zjj-3c27.md
+ŞÃ§Ä3Ù2
+$.crackpipe/contract-spec-zjj-3ltb.md
+ŞÃ§Ä3Øj7
+(.crackpipe/martin-fowler-tests-bd-2pj.mdŞÃ§Ä3ä6
+(.crackpipe/martin-fowler-tests-bd-4a6.md
+ŞÃ§Ä3üm9
+*.crackpipe/martin-fowler-tests-src-1xvj.mdŞÃ§Ä3Ø¼9
+*.crackpipe/martin-fowler-tests-src-38tm.mdŞÃ§Ä3‚¶8
+*.crackpipe/martin-fowler-tests-src-3ax5.md
+ŞÃ§Ä3°8
+*.crackpipe/martin-fowler-tests-src-3inn.md
+ŞÃ§Ä3°8
+*.crackpipe/martin-fowler-tests-src-wkni.md
+ŸŞÃ§Ä3°8
+*.crackpipe/martin-fowler-tests-zjj-141d.md
+ŸŞÃ§Ä3å#8
+*.crackpipe/martin-fowler-tests-zjj-14hr.md
+ŸŞÃ§Ä3ôx8
+*.crackpipe/martin-fowler-tests-zjj-16ks.md
+ŸŞÃ§Ä3´ 8
+*.crackpipe/martin-fowler-tests-zjj-1840.md
+ŸŞÃ§Ä3™18
+*.crackpipe/martin-fowler-tests-zjj-19n8.md
+ŸŞÃ§Ä3ó9
+*.crackpipe/martin-fowler-tests-zjj-1bx3.mdŸŞÃ§Ä3“€9
+*.crackpipe/martin-fowler-tests-zjj-1gm9.mdŸŞÃ§Ä3á£8
+*.crackpipe/martin-fowler-tests-zjj-1mch.md
+ŸŞÃ§Ä3ñ8
+*.crackpipe/martin-fowler-tests-zjj-1nyz.md
+ŸŞÃ§Ä3™%9
+*.crackpipe/martin-fowler-tests-zjj-1qj1.mdŸŞÃ§Ä3„†9
+*.crackpipe/martin-fowler-tests-zjj-1w0d.mdŸŞÃ§Ä3¨9
+*.crackpipe/martin-fowler-tests-zjj-26pf.mdŸŞÃ§Ä3¬8
+*.crackpipe/martin-fowler-tests-zjj-36lj.md
+ŸŞÃ§Ä3·d8
+*.crackpipe/martin-fowler-tests-zjj-3c27.md
+ŸŞÃ§Ä3ê/8
+*.crackpipe/martin-fowler-tests-zjj-3ca4.md
+ŸŞÃ§Ä3ël8
+*.crackpipe/martin-fowler-tests-zjj-3l87.md
+ŸŞÃ§Ä3ù9
+*.crackpipe/martin-fowler-tests-zjj-3ltb.mdŸŞÃ§Ä3Ú¡9
+*.crackpipe/martin-fowler-tests-zjj-6bp0.mdŸŞÃ§Ä3Ğ£9
+*.crackpipe/martin-fowler-tests-zjj-6jbc.md ŞÃ§Ä3¿‰8
+*.crackpipe/martin-fowler-tests-zjj-a7lu.md
+ ŞÃ§Ä3¢U9
+*.crackpipe/martin-fowler-tests-zjj-ftds.md ŞÃ§Ä3ı€8
+*.crackpipe/martin-fowler-tests-zjj-xcso.md
+ ŞÃ§Ä3äe-
+.crackpipe/planner-agent-1.sh ŞÃ§Ä3ñ2
+".crackpipe/planner-agent-2-loop.sh ŞÃ§Ä3·2
+".crackpipe/planner-agent-status.sh ŞÃ§Ä3*
+.crackpipe/qa-builder-6.sh ŞÃ§Ä3Ê&
+.crackpipe/reworker-3.log	 ŞÃ§Ä3)0
+".crackpipe/rust-contract-bd-2pj.md
+ ŞÃ§Ä3ºU0
+".crackpipe/rust-contract-bd-4a6.md
+ ŞÃ§Ä3¼U3
+$.crackpipe/rust-contract-src-1xvj.md ŞÃ§Ä3±…2
+$.crackpipe/rust-contract-src-38tm.md
+ ŞÃ§Ä3Ğk2
+$.crackpipe/rust-contract-src-3ax5.md
+ ŞÃ§Ä3„!3
+$.crackpipe/rust-contract-src-3inn.md ŞÃ§Ä3»ƒ2
+$.crackpipe/rust-contract-src-wkni.md
+ ŞÃ§Ä3ì2
+$.crackpipe/rust-contract-zjj-141d.md
+ ŞÃ§Ä3š!2
+$.crackpipe/rust-contract-zjj-14hr.md
+ ŞÃ§Ä3ÙN2
+$.crackpipe/rust-contract-zjj-16ks.md
+ ŞÃ§Ä3¬*2
+$.crackpipe/rust-contract-zjj-1840.md
+ ŞÃ§Ä3±!2
+$.crackpipe/rust-contract-zjj-19n8.md
+ ŞÃ§Ä3õ2
+$.crackpipe/rust-contract-zjj-1bx3.md
+ ŞÃ§Ä3”N2
+$.crackpipe/rust-contract-zjj-1gm9.md
+ ŞÃ§Ä3÷/2
+$.crackpipe/rust-contract-zjj-1mch.md
+¡ŞÃ§Ä3é2
+$.crackpipe/rust-contract-zjj-1nyz.md
+¡ŞÃ§Ä3… 2
+$.crackpipe/rust-contract-zjj-1qj1.md
+¡ŞÃ§Ä3C2
+$.crackpipe/rust-contract-zjj-1w0d.md
+¡ŞÃ§Ä3ÈS2
+$.crackpipe/rust-contract-zjj-26pf.md
+¡ŞÃ§Ä3ÚS2
+$.crackpipe/rust-contract-zjj-36lj.md
+¡ŞÃ§Ä3¬62
+$.crackpipe/rust-contract-zjj-3c27.md
+¡ŞÃ§Ä3³&2
+$.crackpipe/rust-contract-zjj-3ca4.md
+¡ŞÃ§Ä3ÈV2
+$.crackpipe/rust-contract-zjj-3l87.md
+¡ŞÃ§Ä3ï2
+$.crackpipe/rust-contract-zjj-3ltb.md
+¡ŞÃ§Ä3îo2
+$.crackpipe/rust-contract-zjj-6bp0.md
+¡ŞÃ§Ä3Ìe2
+$.crackpipe/rust-contract-zjj-6jbc.md
+¡ŞÃ§Ä3ĞF2
+$.crackpipe/rust-contract-zjj-a7lu.md
+¡ŞÃ§Ä3©82
+$.crackpipe/rust-contract-zjj-ftds.md
+¡ŞÃ§Ä3çL2
+$.crackpipe/rust-contract-zjj-xcso.md
+¡ŞÃ§Ä3¼9-
+.cursorrules-architect-agent.md
+¡ŞÃ§Ä3¨1
+.env.example
+¡ŞÃ§Ä3Å
+.gitattributes	¡ŞÃ§Ä3N
+
+.gitignore
+¡ŞÃ§Ä3ã
+	.jjignore	¡ŞÃ§Ä3
+.jjignore.lock¡ŞÃ§Ä3
+.moon/tasks.yml
+¡ŞÃ§Ä3î3!
+.moon/toolchain.yml
+¢ŞÃ§Ä3Í!
+.moon/workspace.yml
+¢ŞÃ§Ä3ï!
+.scout-agent-2.sh¢ŞÃ§Ä3
+.sqlx/.gitkeep
+¢ŞÃ§Ä3¥!
+.sqlx/sqlx-data.json	¢ŞÃ§Ä3.
+.tdd15-cache/zjj-1tmx/bead.json¢ŞÃ§Ä3ê°1
+#.tdd15-cache/zjj-2x2p-b0m/bead.json
+¢ŞÃ§Ä3ªb-
+.tdd15-cache/zjj-4ksr/bead.json
+¢ŞÃ§Ä3Õ1
+#.tdd15-cache/zjj-4ksr/progress.json
+¢ŞÃ§Ä3›.
+.tdd15-cache/zjj-6tkz/bead.json¢ŞÃ§Ä3ø-
+.tdd15-cache/zjj-97a2/bead.json
+¢ŞÃ§Ä3ã1
+#.tdd15-cache/zjj-97a2/progress.json
+¢ŞÃ§Ä3Î.
+.tdd15-cache/zjj-dudm/bead.json¢ŞÃ§Ä3ÒŞ1
+#.tdd15-cache/zjj-dudm/progress.json
+¢ŞÃ§Ä3«.
+.tdd15-cache/zjj-eou9/bead.json¢ŞÃ§Ä3øº.
+.tdd15-cache/zjj-gv3f/bead.json¦ŞÃ§Ä3üÈ1
+#.tdd15-cache/zjj-gv3f/progress.json
+¦ŞÃ§Ä3¿.
+.tdd15-cache/zjj-ic8z/bead.json¦ŞÃ§Ä3Ö²1
+#.tdd15-cache/zjj-ic8z/progress.json
+¦ŞÃ§Ä3Ï-
+.tdd15-cache/zjj-iklh/bead.json
+¦ŞÃ§Ä3Å1
+#.tdd15-cache/zjj-iklh/progress.json
+¦ŞÃ§Ä3½-
+.tdd15-cache/zjj-m54b/bead.json
+¦ŞÃ§Ä3á1
+#.tdd15-cache/zjj-m54b/progress.json
+¦ŞÃ§Ä3Ä.
+.tdd15-cache/zjj-tthd/bead.json¦ŞÃ§Ä3·š
+	AGENTS.md
+¦ŞÃ§Ä3Å7'
+AGGRESSIVE_REFACTORING.md
+¦ŞÃ§Ä3ö'0
+"AGGRESSIVE_REFACTORING_COMPLETE.md
+§ŞÃ§Ä3›6
+CHANGELOG.md
+§ŞÃ§Ä3ä
+	CLAUDE.md
+§ŞÃ§Ä3÷u/
+!COMPREHENSIVE_QA_REPORT_v0.4.0.md
+§ŞÃ§Ä3N2
+$CONCURRENT_OPERATIONS_TEST_REPORT.md
+§ŞÃ§Ä3äJ
+
+Cargo.toml
+§ŞÃ§Ä3¡	6
+'DATABASE_CONCURRENCY_ANALYSIS_PASS_1.md§ŞÃ§Ä3£©-
+DONE-REWRITE-SESSION2-STATUS.md
+§ŞÃ§Ä3 e*
+GATEKEEPER-AGENT-2-STATUS.md
+§ŞÃ§Ä3ÜA2
+$IDEMPOTENT_IMPLEMENTATION_SUMMARY.md
+§ŞÃ§Ä3·A'
+IMPLEMENTATION_SUMMARY.md
+§ŞÃ§Ä3¦C
+JSON_SCHEMAS.md
+§ŞÃ§Ä3ªV
+LICENSE
+§ŞÃ§Ä3ŞX(
+QA_AGENT_2_AUDIT_REPORT.md
+§ŞÃ§Ä3ªW)
+QA_COMPREHENSIVE_REPORT.md§ŞÃ§Ä3Ğ˜
+	README.md
+¨ŞÃ§Ä3òR"
+RED_QUEEN_VERDICT.md
+¨ŞÃ§Ä3š&%
+SCOUT-AGENT-1-STATUS.md
+¨ŞÃ§Ä3˜7
+)ZJJ_2MX1_KDL_VALIDATION_IMPLEMENTATION.md
+¨ŞÃ§Ä3á4/
+!ZJJ_2R9Q_INVESTIGATION_SUMMARY.md
+¨ŞÃ§Ä3-#
+__zjj-audit-report.md
+¨ŞÃ§Ä3
+architecture.cue
+¨ŞÃ§Ä3’@(
+bead-handoff-zjj-86qm.json
+¨ŞÃ§Ä3Õh(
+bead-handoff-zjj-d1je.json
+¨ŞÃ§Ä3ğe(
+bead-handoff-zjj-ykzv.json
+¨ŞÃ§Ä3Æf!
+bin/scout-agent-1¨ŞÃ§Ä3¥!
+bin/scout-monitor¨ŞÃ§Ä3ñ
+	check.log
+¨ŞÃ§Ä3ì
+cicd.cue¨ŞÃ§Ä3íÉ
+commands.cue
+¨ŞÃ§Ä3ˆD
+
+config.cue
+¨ŞÃ§Ä3Ë:)
+crates/zjj/.beads/beads.db©ŞÃ§Ä3€àV
+Hcrates/zjj/.beads/checkpoint_backups/chk-19c43d535d0-test-session.tar.gz
+©ŞÃ§Ä3¾V
+Hcrates/zjj/.beads/checkpoint_backups/chk-19c43d5aa2a-test-session.tar.gz
+©ŞÃ§Ä3À-
+crates/zjj/.beads/issues.jsonl©ŞÃ§Ä3Ïà#
+crates/zjj/Cargo.toml
+©ŞÃ§Ä3Ü%
+crates/zjj/src/beads.rs
+©ŞÃ§Ä3åP-
+crates/zjj/src/cli/commands.rsªŞÃ§Ä3÷…-
+crates/zjj/src/cli/handlers.rsªŞÃ§Ä3ÔÇ-
+crates/zjj/src/cli/json_docs.rs
+ªŞÃ§Ä3Á|'
+crates/zjj/src/cli/mod.rs
+ªŞÃ§Ä3¨*/
+!crates/zjj/src/command_context.rs
+ªŞÃ§Ä3Ğ.
+ crates/zjj/src/commands/abort.rs
+ªŞÃ§Ä3ób4
+%crates/zjj/src/commands/add/atomic.rsªŞÃ§Ä3¤2
+$crates/zjj/src/commands/add/beads.rs
+ªŞÃ§Ä3Ğ2
+$crates/zjj/src/commands/add/hooks.rs
+ªŞÃ§Ä3õ3
+%crates/zjj/src/commands/add/output.rs
+ªŞÃ§Ä3™$2
+$crates/zjj/src/commands/add/types.rs
+ªŞÃ§Ä3·	3
+%crates/zjj/src/commands/add/zellij.rs
+«ŞÃ§Ä3².-
+crates/zjj/src/commands/add.rs«ŞÃ§Ä3²4
+%crates/zjj/src/commands/agents/mod.rs«ŞÃ§Ä3§€6
+'crates/zjj/src/commands/agents/tests.rs«ŞÃ§Ä3İÍ5
+'crates/zjj/src/commands/agents/types.rs
+«ŞÃ§Ä3»8,
+crates/zjj/src/commands/ai.rs«ŞÃ§Ä3ªÚ3
+%crates/zjj/src/commands/attach/mod.rs
+«ŞÃ§Ä3ë5
+'crates/zjj/src/commands/attach/tests.rs
+«ŞÃ§Ä3Ó?
+1crates/zjj/src/commands/backup/backup_internal.rs
+«ŞÃ§Ä3’)6
+(crates/zjj/src/commands/backup/create.rs
+«ŞÃ§Ä3ˆ*4
+&crates/zjj/src/commands/backup/list.rs
+«ŞÃ§Ä3Š23
+%crates/zjj/src/commands/backup/mod.rs
+«ŞÃ§Ä3øG7
+)crates/zjj/src/commands/backup/restore.rs
+«ŞÃ§Ä3†C9
++crates/zjj/src/commands/backup/retention.rs
+«ŞÃ§Ä3æS2
+$crates/zjj/src/commands/batch/mod.rs
+«ŞÃ§Ä3ìg4
+&crates/zjj/src/commands/batch/tests.rs
+«ŞÃ§Ä3¥C2
+#crates/zjj/src/commands/bookmark.rs¬ŞÃ§Ä3¥°6
+(crates/zjj/src/commands/broadcast/mod.rs
+¬ŞÃ§Ä3†!8
+*crates/zjj/src/commands/broadcast/tests.rs
+¬ŞÃ§Ä3öy8
+*crates/zjj/src/commands/broadcast/types.rs
+¬ŞÃ§Ä3Ü/
+ crates/zjj/src/commands/can_i.rs¬ŞÃ§Ä3‚‹8
+)crates/zjj/src/commands/checkpoint/mod.rs¬ŞÃ§Ä3×û/
+ crates/zjj/src/commands/claim.rs¬ŞÃ§Ä3˜Ş2
+$crates/zjj/src/commands/clean/mod.rs
+¬ŞÃ§Ä3øq@
+1crates/zjj/src/commands/clean/periodic_cleanup.rs¬ŞÃ§Ä3¨‰4
+&crates/zjj/src/commands/completions.rs
+¬ŞÃ§Ä3›w0
+!crates/zjj/src/commands/config.rs¬ŞÃ§Ä3¸è4
+&crates/zjj/src/commands/context/mod.rs
+¬ŞÃ§Ä3şv6
+(crates/zjj/src/commands/context/tests.rs
+¬ŞÃ§Ä3ír6
+(crates/zjj/src/commands/context/types.rs
+¬ŞÃ§Ä3˜2
+#crates/zjj/src/commands/contract.rs¬ŞÃ§Ä3©²3
+$crates/zjj/src/commands/dashboard.rs­ŞÃ§Ä3 .
+crates/zjj/src/commands/diff.rs­ŞÃ§Ä3Œ0
+!crates/zjj/src/commands/doctor.rs­ŞÃ§Ä3éÌ2
+$crates/zjj/src/commands/done/bead.rs
+­ŞÃ§Ä3¦7
+(crates/zjj/src/commands/done/conflict.rs­ŞÃ§Ä3öÂ6
+(crates/zjj/src/commands/done/executor.rs
+­ŞÃ§Ä3®8
+*crates/zjj/src/commands/done/filesystem.rs
+­ŞÃ§Ä3’2
+#crates/zjj/src/commands/done/mod.rs­ŞÃ§Ä3”µ6
+(crates/zjj/src/commands/done/newtypes.rs
+­ŞÃ§Ä3»;3
+%crates/zjj/src/commands/done/types.rs
+­ŞÃ§Ä3_0
+!crates/zjj/src/commands/events.rs­ŞÃ§Ä3ÙÑ1
+#crates/zjj/src/commands/examples.rs
+­ŞÃ§Ä3c7
+(crates/zjj/src/commands/export_import.rs­ŞÃ§Ä3€›.
+ crates/zjj/src/commands/focus.rs
+®ŞÃ§Ä3´\2
+$crates/zjj/src/commands/init/deps.rs
+®ŞÃ§Ä3º1
+#crates/zjj/src/commands/init/mod.rs
+®ŞÃ§Ä3®+<
+.crates/zjj/src/commands/init/scaffold_tests.rs
+®ŞÃ§Ä3û"3
+%crates/zjj/src/commands/init/setup.rs
+®ŞÃ§Ä3øq4
+%crates/zjj/src/commands/init/tests.rs®ŞÃ§Ä3ì3
+%crates/zjj/src/commands/init/types.rs
+®ŞÃ§Ä3Æ3
+$crates/zjj/src/commands/integrity.rs®ŞÃ§Ä3ç±@
+2crates/zjj/src/commands/introspect/dependencies.rs
+®ŞÃ§Ä3Ë:
+,crates/zjj/src/commands/introspect/output.rs
+®ŞÃ§Ä3Ø@
+2crates/zjj/src/commands/introspect/system_state.rs
+®ŞÃ§Ä3©4
+%crates/zjj/src/commands/introspect.rs®ŞÃ§Ä3”ß.
+crates/zjj/src/commands/list.rs®ŞÃ§Ä3œÀ1
+#crates/zjj/src/commands/lock/mod.rs
+®ŞÃ§Ä3Ç3
+%crates/zjj/src/commands/lock/tests.rs
+¯ŞÃ§Ä3˜73
+%crates/zjj/src/commands/lock/types.rs
+¯ŞÃ§Ä3Ô,
+crates/zjj/src/commands/mod.rs
+¯ŞÃ§Ä3ÇS.
+crates/zjj/src/commands/pane.rs¯ŞÃ§Ä3Ä/
+ crates/zjj/src/commands/query.rs¯ŞÃ§Ä3¹€/
+ crates/zjj/src/commands/queue.rs¯ŞÃ§Ä3·…1
+"crates/zjj/src/commands/recover.rs¯ŞÃ§Ä3‹Ş6
+(crates/zjj/src/commands/remove/atomic.rs
+¯ŞÃ§Ä3b/
+!crates/zjj/src/commands/remove.rs
+¯ŞÃ§Ä3ò_/
+!crates/zjj/src/commands/rename.rs
+¯ŞÃ§Ä3ûb3
+%crates/zjj/src/commands/revert/mod.rs
+¯ŞÃ§Ä3½M5
+'crates/zjj/src/commands/revert/types.rs
+¯ŞÃ§Ä3¾X0
+!crates/zjj/src/commands/schema.rs°ŞÃ§Ä3ğı6
+'crates/zjj/src/commands/session_mgmt.rs°ŞÃ§Ä3¤Œ8
+*crates/zjj/src/commands/spawn/heartbeat.rs
+°ŞÃ§Ä3¾U3
+$crates/zjj/src/commands/spawn/mod.rs°ŞÃ§Ä3§†7
+)crates/zjj/src/commands/spawn/rollback.rs
+°ŞÃ§Ä3¤r4
+&crates/zjj/src/commands/spawn/types.rs
+°ŞÃ§Ä3ÅU>
+/crates/zjj/src/commands/spawn_behavior_tests.rs°ŞÃ§Ä3¡°0
+!crates/zjj/src/commands/status.rs°ŞÃ§Ä3¥³/
+!crates/zjj/src/commands/switch.rs
+°ŞÃ§Ä3°.
+crates/zjj/src/commands/sync.rs°ŞÃ§Ä3ß°2
+#crates/zjj/src/commands/template.rs°ŞÃ§Ä3„2
+#crates/zjj/src/commands/undo/mod.rs°ŞÃ§Ä3‡3
+%crates/zjj/src/commands/undo/types.rs
+°ŞÃ§Ä3²]2
+#crates/zjj/src/commands/validate.rs±ŞÃ§Ä3‹ƒ.
+crates/zjj/src/commands/wait.rs±ŞÃ§Ä3¾Ÿ0
+!crates/zjj/src/commands/whatif.rs±ŞÃ§Ä3ñ–1
+#crates/zjj/src/commands/whereami.rs
+±ŞÃ§Ä3ı;/
+!crates/zjj/src/commands/whoami.rs
+±ŞÃ§Ä3Ú@.
+crates/zjj/src/commands/work.rs±ŞÃ§Ä3˜â#
+crates/zjj/src/db.rs±ŞÃ§Ä3Àß%
+crates/zjj/src/hooks.rs
+±ŞÃ§Ä3ùH*
+crates/zjj/src/json/error.rs
+±ŞÃ§Ä3ÈM(
+crates/zjj/src/json/mod.rs
+±ŞÃ§Ä3ù1
+"crates/zjj/src/json/serializers.rs±ŞÃ§Ä3Â…"
+crates/zjj/src/lib.rs	²ŞÃ§Ä3$
+crates/zjj/src/main.rs
+²ŞÃ§Ä3Ä4)
+crates/zjj/src/progress.rs²ŞÃ§Ä3Ë£(
+crates/zjj/src/selector.rs
+²ŞÃ§Ä3–2'
+crates/zjj/src/session.rs
+²ŞÃ§Ä3°q6
+(crates/zjj/tests/PERFORMANCE_ANALYSIS.md
+²ŞÃ§Ä3‰%>
+/crates/zjj/tests/agent_lifecycle_integration.rs²ŞÃ§Ä3Ä8
+)crates/zjj/tests/chaos_engineering/mod.rs²ŞÃ§Ä3éË3
+%crates/zjj/tests/cli_flag_bookmark.rs
+²ŞÃ§Ä3±9
++crates/zjj/tests/cli_flag_contract_spawn.rs
+²ŞÃ§Ä3Õ:
+,crates/zjj/tests/cli_flag_contract_status.rs
+²ŞÃ§Ä3Ò%/
+!crates/zjj/tests/cli_flag_pane.rs
+²ŞÃ§Ä3‰0
+"crates/zjj/tests/cli_flag_queue.rs
+²ŞÃ§Ä3¬&,
+crates/zjj/tests/common/mod.rs
+²ŞÃ§Ä3°2
+#crates/zjj/tests/drq_adversarial.rs²ŞÃ§Ä3ú™2
+#crates/zjj/tests/drq_agent_arena.rs³ŞÃ§Ä3Å­.
+ crates/zjj/tests/schema_tests.rs
+³ŞÃ§Ä3çDA
+3crates/zjj/tests/template_validation_integration.rs
+³ŞÃ§Ä3¸:9
++crates/zjj/tests/test_add_atomic_cleanup.rs
+³ŞÃ§Ä3ˆ<6
+'crates/zjj/tests/test_add_idempotent.rs³ŞÃ§Ä3Ñ˜7
+)crates/zjj/tests/test_brutal_integrity.rs
+³ŞÃ§Ä3‡~9
+*crates/zjj/tests/test_chaos_engineering.rs³ŞÃ§Ä3õ3
+$crates/zjj/tests/test_cli_parsing.rs³ŞÃ§Ä3÷´0
+"crates/zjj/tests/test_cli_smoke.rs
+³ŞÃ§Ä3Œ>0
+"crates/zjj/tests/test_clone_bug.rs
+³ŞÃ§Ä3ı<
+-crates/zjj/tests/test_concurrent_workflows.rs³ŞÃ§Ä3°¬9
++crates/zjj/tests/test_conflict_detection.rs
+³ŞÃ§Ä3×5L
+=crates/zjj/tests/test_database_concurrency_race_conditions.rs³ŞÃ§Ä3À6
+(crates/zjj/tests/test_done_filesystem.rs
+³ŞÃ§Ä3ù4
+&crates/zjj/tests/test_error_display.rs
+³ŞÃ§Ä3¸/7
+(crates/zjj/tests/test_error_scenarios.rs´ŞÃ§Ä3¬Î:
+,crates/zjj/tests/test_export_flag_removal.rs
+´ŞÃ§Ä315
+'crates/zjj/tests/test_hooks_refactor.rs
+´ŞÃ§Ä3+
+crates/zjj/tests/test_init.rs
+´ŞÃ§Ä3ãU<
+.crates/zjj/tests/test_integration_workflows.rs
+´ŞÃ§Ä3“nD
+6crates/zjj/tests/test_json_envelope_standardization.rs
+´ŞÃ§Ä3Ä&9
+*crates/zjj/tests/test_json_error_output.rs´ŞÃ§Ä3ôˆJ
+;crates/zjj/tests/test_json_standardization_comprehensive.rs´ŞÃ§Ä3ÿ–@
+2crates/zjj/tests/test_json_validation_exit_code.rs
+´ŞÃ§Ä3+
+crates/zjj/tests/test_path.rs
+´ŞÃ§Ä3ˆ8
+*crates/zjj/tests/test_remove_idempotent.rs
+´ŞÃ§Ä3ÀN8
+*crates/zjj/tests/test_session_lifecycle.rs
+´ŞÃ§Ä3µv7
+(crates/zjj/tests/test_signal_handling.rs´ŞÃ§Ä3£‹@
+2crates/zjj/tests/test_spawn_database_corruption.rs
+´ŞÃ§Ä3©g6
+(crates/zjj/tests/test_work_idempotent.rs
+´ŞÃ§Ä3¸y:
++crates/zjj/tests/test_zellij_integration.rsµŞÃ§Ä3Ñ¶#
+crates/zjj-core/:memory:µŞÃ§Ä3(
+crates/zjj-core/Cargo.toml
+µŞÃ§Ä3ü2
+$crates/zjj-core/examples/test_kdl.rs
+µŞÃ§Ä3û&
+crates/zjj-core/moon.yml
+µŞÃ§Ä3ÈE
+7crates/zjj-core/proptest-regressions/kdl_validation.txt
+¶ŞÃ§Ä3 .
+!crates/zjj-core/src/agents/mod.rs	¶ŞÃ§Ä3C4
+&crates/zjj-core/src/agents/registry.rs
+¶ŞÃ§Ä3àJ3
+%crates/zjj-core/src/beads/analysis.rs
+¶ŞÃ§Ä3öZ-
+crates/zjj-core/src/beads/db.rs
+·ŞÃ§Ä3‡5.
+ crates/zjj-core/src/beads/mod.rs
+·ŞÃ§Ä3—00
+"crates/zjj-core/src/beads/query.rs
+·ŞÃ§Ä3Ç10
+"crates/zjj-core/src/beads/types.rs
+·ŞÃ§Ä3çF/
+!crates/zjj-core/src/checkpoint.rs
+·ŞÃ§Ä3äW,
+crates/zjj-core/src/config.rs·ŞÃ§Ä3Ãö/
+ crates/zjj-core/src/contracts.rs·ŞÃ§Ä3Ò¹8
+)crates/zjj-core/src/coordination/locks.rs·ŞÃ§Ä3öó5
+'crates/zjj-core/src/coordination/mod.rs
+¼ŞÃ§Ä38
+)crates/zjj-core/src/coordination/queue.rs¼ŞÃ§Ä3¤à+
+crates/zjj-core/src/error.rs½ŞÃ§Ä3à(
+crates/zjj-core/src/fix.rs
+½ŞÃ§Ä3ÌW/
+!crates/zjj-core/src/functional.rs
+½ŞÃ§Ä3•$+
+crates/zjj-core/src/hints.rs½ŞÃ§Ä3¾Á+
+crates/zjj-core/src/hooks.rs½ŞÃ§Ä3çª3
+$crates/zjj-core/src/introspection.rs½ŞÃ§Ä3ÿµ(
+crates/zjj-core/src/jj.rs¾ŞÃ§Ä3í7
+(crates/zjj-core/src/jj_operation_sync.rs¾ŞÃ§Ä3ª©*
+crates/zjj-core/src/json.rs¾ŞÃ§Ä3³ä3
+%crates/zjj-core/src/kdl_validation.rs
+¾ŞÃ§Ä3™,(
+crates/zjj-core/src/lib.rs
+¾ŞÃ§Ä3(3
+$crates/zjj-core/src/output_format.rs¾ŞÃ§Ä3²À-
+crates/zjj-core/src/recovery.rs
+¾ŞÃ§Ä3›r+
+crates/zjj-core/src/result.rs
+¾ŞÃ§Ä3ó3
+$crates/zjj-core/src/session_state.rs¾ŞÃ§Ä3»˜-
+crates/zjj-core/src/shutdown.rs
+¾ŞÃ§Ä3¹;1
+#crates/zjj-core/src/taskregistry.rs
+¾ŞÃ§Ä3š)5
+'crates/zjj-core/src/templates/askama.rs
+¾ŞÃ§Ä3Û#2
+$crates/zjj-core/src/templates/mod.rs
+¿ŞÃ§Ä3Ì$7
+(crates/zjj-core/src/templates/storage.rs¿ŞÃ§Ä3”+
+crates/zjj-core/src/types.rs¿ŞÃ§Ä3Ìä-
+crates/zjj-core/src/watcher.rs¿ŞÃ§Ä3ø9
+*crates/zjj-core/src/workspace_integrity.rs¿ŞÃ§Ä3Õ¬5
+&crates/zjj-core/src/workspace_state.rs¿ŞÃ§Ä3‰ç,
+crates/zjj-core/src/zellij.rs¿ŞÃ§Ä3ÙÉ4
+&crates/zjj-core/templates/agents.md.j2
+¿ŞÃ§Ä3ê3
+%crates/zjj-core/templates/beads.md.j2
+¿ŞÃ§Ä3æ4
+&crates/zjj-core/templates/claude.md.j2
+¿ŞÃ§Ä3ã;
+.crates/zjj-core/templates/error_handling.md.j2	¿ŞÃ§Ä3A5
+'crates/zjj-core/templates/jujutsu.md.j2
+¿ŞÃ§Ä3·7
+*crates/zjj-core/templates/moon_build.md.j2	ÀŞÃ§Ä3*9
++crates/zjj-core/templates/moon_tasks.yml.j2
+ÀŞÃ§Ä3Ë	=
+/crates/zjj-core/templates/moon_toolchain.yml.j2
+ÀŞÃ§Ä3¦=
+/crates/zjj-core/templates/moon_workspace.yml.j2
+ÀŞÃ§Ä3õ;
+.crates/zjj-core/templates/rust_standards.md.j2	ÉŞÃ§Ä3.6
+(crates/zjj-core/templates/workflow.md.j2
+ÉŞÃ§Ä3é1
+#crates/zjj-core/tests/common/mod.rs
+ÊŞÃ§Ä3ÛB
+4crates/zjj-core/tests/concurrent_workspace_stress.rs
+ÊŞÃ§Ä3¤r8
+*crates/zjj-core/tests/queue_adversarial.rs
+ÊŞÃ§Ä3©\3
+%crates/zjj-core/tests/queue_stress.rs
+ÊŞÃ§Ä3ígA
+3crates/zjj-core/tests/test_error_troubleshooting.rs
+ÊŞÃ§Ä3±bD
+5crates/zjj-core/tests/test_lock_concurrency_stress.rsÊŞÃ§Ä3¼9
+*crates/zjj-core/tests/test_queue_stress.rsÊŞÃ§Ä3²¢<
+-crates/zjj-core/tests/test_recovery_stress.rsÊŞÃ§Ä3µŒH
+:crates/zjj-core/tests/test_repair_nonexistent_workspace.rs
+ÊŞÃ§Ä3Í3A
+2crates/zjj-core/tests/test_templates_concurrent.rsËŞÃ§Ä3Ó‘4
+%crates/zjj-core/tests/test_watcher.rsËŞÃ§Ä3Í¼@
+2crates/zjj-core/tests/test_workspace_permission.rs
+ËŞÃ§Ä3â
+cue÷ŞÃ§Ä3˜Á¨
+cueplsšßÃ§Ä3˜¡å
+doc/ref/spec.md›ßÃ§Ä3ÿä+
+doc/tutorial/basics/README.md
+›ßÃ§Ä3°/
+!doc/tutorial/kubernetes/README.md
+›ßÃ§Ä3Š#
+docs/00_START_HERE.md
+›ßÃ§Ä3‰'
+docs/01_ERROR_HANDLING.md
+›ßÃ§Ä3¤O#
+docs/02_MOON_BUILD.md
+›ßÃ§Ä3±*!
+docs/03_WORKFLOW.md
+›ßÃ§Ä3¤=,
+docs/04_FUNCTIONAL_PATTERNS.md
+›ßÃ§Ä3–M'
+docs/05_RUST_STANDARDS.md
+›ßÃ§Ä3ù0$
+docs/06_COMBINATORS.md
+›ßÃ§Ä3à9 
+docs/07_TESTING.md
+œßÃ§Ä3½<
+docs/08_BEADS.md
+œßÃ§Ä3®G 
+docs/09_JUJUTSU.md
+œßÃ§Ä3æ7+
+docs/10_MOON_CICD_INDEXED.mdœßÃ§Ä3¿ 
+docs/11_ZELLIJ.mdœßÃ§Ä3©¯#
+docs/12_NAVIGATION.md
+œßÃ§Ä3Ö-
+docs/13_AGENT_CRITICAL_RULES.md
+œßÃ§Ä3ê<.
+ docs/14_AGENT_QUICK_REFERENCE.md
+œßÃ§Ä3Æ.
+ docs/15_AGENT_PROJECT_CONTEXT.md
+œßÃ§Ä3§0
+"docs/16_AGENT_PARALLEL_WORKFLOW.md
+œßÃ§Ä3«1
+#docs/17_AGENT_SESSION_COMPLETION.md
+œßÃ§Ä3Ù+
+docs/18_AGENT_BV_REFERENCE.md
+ßÃ§Ä3å+2
+$docs/19_CODANNA_QUERY_PERFORMANCE.md
+ßÃ§Ä3™x#
+docs/AI_QUICKSTART.md
+ßÃ§Ä3"$
+docs/ASYNC-PATTERNS.md
+ßÃ§Ä3İ8'
+docs/CHAOS_ENGINEERING.md
+ßÃ§Ä3ÙC'
+docs/CI-CD-PERFORMANCE.md
+ßÃ§Ä3âG)
+docs/CI-CD-SETUP-SUMMARY.md
+ßÃ§Ä3‚I+
+docs/ERROR_TROUBLESHOOTING.md
+ßÃ§Ä3ÆX
+docs/INDEX.md
+ßÃ§Ä3çR1
+#docs/JSON_OUTPUT_STANDARDIZATION.md
+ßÃ§Ä3×'
+docs/P0-INFRASTRUCTURE.md
+ßÃ§Ä3ı6!
+docs/PERFORMANCE.md
+ßÃ§Ä3¼40
+"docs/STATE_WRITER_CONTRACT_SPEC.md
+ßÃ§Ä3Á6
+(docs/STATE_WRITER_MARTIN_FOWLER_TESTS.md
+ßÃ§Ä3$
+docs/testing/README.md
+ßÃ§Ä3¾-
+docs/testing/first-run-audit.md
+ßÃ§Ä3å)/
+!docs/testing/first-run-skips.json
+ßÃ§Ä3†.
+ docs/testing/test-debt-matrix.md
+ßÃ§Ä3–
+fix_unwrap_or.py
+ßÃ§Ä3ñ +
+gatekeeper-agent-2-output.log
+ßÃ§Ä3â$
+gatekeeper-agent-2.log
+ßÃ§Ä3¬%
+gatekeeper-agent-2.shßÃ§Ä3¬?
+
+install.shßÃ§Ä3ö#
+integration-test.shßÃ§Ä3…G
+layouts.cue
+ßÃ§Ä3Ş5
+qa-builder-6.logŸßÃ§Ä3åÚp
+requirements.cue ßÃ§Ä3¹Ê
+research.cue
+ ßÃ§Ä3öY!
+rust-toolchain.toml
+ ßÃ§Ä3¿
+rustfmt.toml
+ ßÃ§Ä3´'
+schemas/zjj_protocol.cue ßÃ§Ä3„Œ 
+scout-agent-1.log ßÃ§Ä3ôå
+scout-agent-1.out
+ ßÃ§Ä3ú,
+scripts/architect-agent-1.sh ßÃ§Ä3Í"-
+scripts/continuous-improve.sh ßÃ§Ä3—&
+scripts/fix_expects.sh ßÃ§Ä3ö+
+scripts/setup-perf-tools.sh ßÃ§Ä3Ï
+spec-intent.cue
+ ßÃ§Ä3¬)
+sql_schemas/01_sessions.sql
+ ßÃ§Ä3ı.
+ sql_schemas/02_session_locks.sql
+ ßÃ§Ä3¿)
+sql_schemas/03_triggers.sql
+ ßÃ§Ä3ø)
+sql_schemas/OFFLINE_MODE.md
+ ßÃ§Ä3³#
+sql_schemas/README.md
+ ßÃ§Ä3Ò>
+.tests/integration/config_concurrency_stress.sh ßÃ§Ä3š$
+tools/audit/Cargo.toml
+¡ßÃ§Ä3½%
+tools/audit/src/main.rs
+¡ßÃ§Ä3¾>1
+#tools/audit/target/.rustc_info.json
+¡ßÃ§Ä3¹-
+tools/audit/target/CACHEDIR.TAG
+¡ßÃ§Ä3±/
+$tools/audit/target/debug/.cargo-lock¡ßÃ§Ä3e
+Xtools/audit/target/debug/.fingerprint/aho-corasick-35fda5f119625250/dep-lib-aho_corasick	¡ßÃ§Ä3b
+Utools/audit/target/debug/.fingerprint/aho-corasick-35fda5f119625250/invoked.timestamp	¡ßÃ§Ä30a
+Ttools/audit/target/debug/.fingerprint/aho-corasick-35fda5f119625250/lib-aho_corasick	¡ßÃ§Ä3g
+Ytools/audit/target/debug/.fingerprint/aho-corasick-35fda5f119625250/lib-aho_corasick.json
+¡ßÃ§Ä3ç[
+Ntools/audit/target/debug/.fingerprint/colored-0faa21e5507b9ae0/dep-lib-colored	¡ßÃ§Ä3]
+Ptools/audit/target/debug/.fingerprint/colored-0faa21e5507b9ae0/invoked.timestamp	¡ßÃ§Ä30W
+Jtools/audit/target/debug/.fingerprint/colored-0faa21e5507b9ae0/lib-colored	¡ßÃ§Ä3]
+Otools/audit/target/debug/.fingerprint/colored-0faa21e5507b9ae0/lib-colored.json
+¡ßÃ§Ä3¥c
+Vtools/audit/target/debug/.fingerprint/lazy_static-87c02066b6621a70/dep-lib-lazy_static	¡ßÃ§Ä3a
+Ttools/audit/target/debug/.fingerprint/lazy_static-87c02066b6621a70/invoked.timestamp	¡ßÃ§Ä30_
+Rtools/audit/target/debug/.fingerprint/lazy_static-87c02066b6621a70/lib-lazy_static	¡ßÃ§Ä3e
+Wtools/audit/target/debug/.fingerprint/lazy_static-87c02066b6621a70/lib-lazy_static.json
+¡ßÃ§Ä3ıY
+Ltools/audit/target/debug/.fingerprint/memchr-3dd7c4eee1e54167/dep-lib-memchr	¡ßÃ§Ä3\
+Otools/audit/target/debug/.fingerprint/memchr-3dd7c4eee1e54167/invoked.timestamp	¡ßÃ§Ä30U
+Htools/audit/target/debug/.fingerprint/memchr-3dd7c4eee1e54167/lib-memchr	¡ßÃ§Ä3[
+Mtools/audit/target/debug/.fingerprint/memchr-3dd7c4eee1e54167/lib-memchr.json
+¡ßÃ§Ä3Ği
+\tools/audit/target/debug/.fingerprint/regex-automata-704c123e2f1f88a7/dep-lib-regex_automata	¡ßÃ§Ä3d
+Wtools/audit/target/debug/.fingerprint/regex-automata-704c123e2f1f88a7/invoked.timestamp	¡ßÃ§Ä30e
+Xtools/audit/target/debug/.fingerprint/regex-automata-704c123e2f1f88a7/lib-regex_automata	¡ßÃ§Ä3k
+]tools/audit/target/debug/.fingerprint/regex-automata-704c123e2f1f88a7/lib-regex_automata.json
+¡ßÃ§Ä3¸W
+Jtools/audit/target/debug/.fingerprint/regex-c8627fca78308c0f/dep-lib-regex	¡ßÃ§Ä3[
+Ntools/audit/target/debug/.fingerprint/regex-c8627fca78308c0f/invoked.timestamp	¡ßÃ§Ä30S
+Ftools/audit/target/debug/.fingerprint/regex-c8627fca78308c0f/lib-regex	¢ßÃ§Ä3Y
+Ktools/audit/target/debug/.fingerprint/regex-c8627fca78308c0f/lib-regex.json
+¢ßÃ§Ä3Â	e
+Xtools/audit/target/debug/.fingerprint/regex-syntax-bc020d83057bca35/dep-lib-regex_syntax	¢ßÃ§Ä3b
+Utools/audit/target/debug/.fingerprint/regex-syntax-bc020d83057bca35/invoked.timestamp	¢ßÃ§Ä30a
+Ttools/audit/target/debug/.fingerprint/regex-syntax-bc020d83057bca35/lib-regex_syntax	¢ßÃ§Ä3g
+Ytools/audit/target/debug/.fingerprint/regex-syntax-bc020d83057bca35/lib-regex_syntax.json
+¢ßÃ§Ä3½_
+Rtools/audit/target/debug/.fingerprint/same-file-123f710482a8b53b/dep-lib-same_file	¢ßÃ§Ä3_
+Rtools/audit/target/debug/.fingerprint/same-file-123f710482a8b53b/invoked.timestamp	¢ßÃ§Ä30[
+Ntools/audit/target/debug/.fingerprint/same-file-123f710482a8b53b/lib-same_file	¢ßÃ§Ä3a
+Stools/audit/target/debug/.fingerprint/same-file-123f710482a8b53b/lib-same_file.json
+¢ßÃ§Ä3à[
+Ntools/audit/target/debug/.fingerprint/walkdir-3557b61e28119794/dep-lib-walkdir	¢ßÃ§Ä3]
+Ptools/audit/target/debug/.fingerprint/walkdir-3557b61e28119794/invoked.timestamp	¢ßÃ§Ä30W
+Jtools/audit/target/debug/.fingerprint/walkdir-3557b61e28119794/lib-walkdir	¢ßÃ§Ä3]
+Otools/audit/target/debug/.fingerprint/walkdir-3557b61e28119794/lib-walkdir.json
+¢ßÃ§Ä3—[
+Ntools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/bin-zjj-audit	¢ßÃ§Ä3a
+Stools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/bin-zjj-audit.json
+¢ßÃ§Ä3_
+Rtools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/dep-bin-zjj-audit	¢ßÃ§Ä3_
+Rtools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/invoked.timestamp	¢ßÃ§Ä30c
+Utools/audit/target/debug/.fingerprint/zjj-audit-08d959c66deb8a0d/output-bin-zjj-audit
+¢ßÃ§Ä3ÕK
+=tools/audit/target/debug/deps/aho_corasick-35fda5f119625250.d
+¢ßÃ§Ä3º`F
+8tools/audit/target/debug/deps/colored-0faa21e5507b9ae0.d
+¢ßÃ§Ä3¼J
+<tools/audit/target/debug/deps/lazy_static-87c02066b6621a70.d
+¢ßÃ§Ä3˜S
+Ctools/audit/target/debug/deps/libaho_corasick-35fda5f119625250.rlib¼ßÃ§Ä3Üä’S
+Dtools/audit/target/debug/deps/libaho_corasick-35fda5f119625250.rmetaÀßÃ§Ä3½•qM
+>tools/audit/target/debug/deps/libcolored-0faa21e5507b9ae0.rlibÈßÃ§Ä3œ£NN
+?tools/audit/target/debug/deps/libcolored-0faa21e5507b9ae0.rmetaÈßÃ§Ä3â€Q
+Btools/audit/target/debug/deps/liblazy_static-87c02066b6621a70.rlibÈßÃ§Ä3Ø­R
+Ctools/audit/target/debug/deps/liblazy_static-87c02066b6621a70.rmetaÉßÃ§Ä3Ù¡M
+=tools/audit/target/debug/deps/libmemchr-3dd7c4eee1e54167.rlibÏßÃ§Ä3ÚÙM
+>tools/audit/target/debug/deps/libmemchr-3dd7c4eee1e54167.rmetaÓßÃ§Ä3¬¯NK
+<tools/audit/target/debug/deps/libregex-c8627fca78308c0f.rlibÖßÃ§Ä3ÚÁhL
+=tools/audit/target/debug/deps/libregex-c8627fca78308c0f.rmetaÛßÃ§Ä3ãÎ(U
+Etools/audit/target/debug/deps/libregex_automata-704c123e2f1f88a7.rlibÿßÃ§Ä3—¶V
+Ftools/audit/target/debug/deps/libregex_automata-704c123e2f1f88a7.rmeta†àÃ§Ä3æÔÇS
+Ctools/audit/target/debug/deps/libregex_syntax-bc020d83057bca35.rlibŸàÃ§Ä3°ÑğT
+Dtools/audit/target/debug/deps/libregex_syntax-bc020d83057bca35.rmeta¯àÃ§Ä3Òş™O
+@tools/audit/target/debug/deps/libsame_file-123f710482a8b53b.rlib°àÃ§Ä3ÀºP
+Atools/audit/target/debug/deps/libsame_file-123f710482a8b53b.rmeta°àÃ§Ä3ì„M
+>tools/audit/target/debug/deps/libwalkdir-3557b61e28119794.rlibÂàÃ§Ä3¨ËJN
+?tools/audit/target/debug/deps/libwalkdir-3557b61e28119794.rmetaÃàÃ§Ä3üœE
+7tools/audit/target/debug/deps/memchr-3dd7c4eee1e54167.d
+ÄàÃ§Ä3òWD
+6tools/audit/target/debug/deps/regex-c8627fca78308c0f.d
+ÄàÃ§Ä3ã"N
+?tools/audit/target/debug/deps/regex_automata-704c123e2f1f88a7.dÄàÃ§Ä3’ËK
+=tools/audit/target/debug/deps/regex_syntax-bc020d83057bca35.d
+ÄàÃ§Ä3ğjH
+:tools/audit/target/debug/deps/same_file-123f710482a8b53b.d
+ÄàÃ§Ä3æF
+8tools/audit/target/debug/deps/walkdir-3557b61e28119794.d
+ÄàÃ§Ä3®J
+8tools/audit/target/debug/deps/zjj_audit-08d959c66deb8a0dáÃ§Ä3È™×
+H
+:tools/audit/target/debug/deps/zjj_audit-08d959c66deb8a0d.d
+‚áÃ§Ä3Å—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/03mvg9vpxjwpc099rf7tkxbed.oƒáÃ§Ä3ØÂ–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/0l04grzp6l4sxjfwjv7fn2q86.o
+ƒáÃ§Ä3'—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/0oosj1kc15xua1nkrp3xqef39.oƒáÃ§Ä3Ğ„–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/0ujlwu1a165gchgl9r1k3cxyr.o
+ƒáÃ§Ä3àQ–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/0w5rnuceoce33j8n1w4sf9gm8.o
+„áÃ§Ä3°0—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/126b9rply4w1lnjtj6geovyin.o„áÃ§Ä3ë–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/13ugn9ykp42n5ldcxrlmim3y0.o
+„áÃ§Ä3°"—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/1hxphjxm8hzfr4zgtrlbkhhkw.o„áÃ§Ä3Àº—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/25bxut9k74zcbi9zkz495e2z3.o„áÃ§Ä3Ø¹–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/29bfa8r2uas5di53xhbf6e02h.o
+„áÃ§Ä3Èr–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/2lnrbo855kij57x7qc6srvcad.o
+…áÃ§Ä3ÈB–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/2mvb6o9wu2gusobns6vbx28uc.o
+…áÃ§Ä3€,—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/2pnmxs6200f641x1a04jisxkt.o…áÃ§Ä3à—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/2q6xjou8hsii344rx432mhf0o.o…áÃ§Ä3ÀÆ–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/33nxl4kthds29sx063tn511oh.o
+…áÃ§Ä3è–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/3gweslazl9iao34mpi9ahcrlz.o
+…áÃ§Ä3ğ –
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/3se7j6h64je76pex1hm9aid0n.o
+…áÃ§Ä3À+–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/3yerytahuxfefrlkw6h6gw8b1.o
+…áÃ§Ä3¸N–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/49h1djjiih0yfcwah7n5jeo5m.o
+†áÃ§Ä3ğJ—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/4ns4q3g9c00h3mmyh13q9mhmr.o†áÃ§Ä3€¢–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/4reo59e2ib0rxnw4vex52u9ly.o
+†áÃ§Ä3¨Z—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/50r1edljo13m8z2hz88vcn8o2.o†áÃ§Ä3ğ–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5b3d91zndowntmtauhgbs9wwo.o
+†áÃ§Ä3°E–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5e46t2iy4nh84upvkc8bxh04c.o
+†áÃ§Ä3ğJ–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5kpo1wicnlb8k5x2q5fzaj92d.o
+†áÃ§Ä3¨M—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5ta2l9tcwfg5f6avhhoj6q9vv.o†áÃ§Ä3¸ò–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/5xx9jpau0no0rupozpaqe7kxh.o
+†áÃ§Ä3ğ4—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/62qmltvy4d6epcq8ywm025izv.o†áÃ§Ä3ˆ­–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/64y4baqjccvjcym0lwvecyhq8.o
+†áÃ§Ä3\—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6q5e8izza3yf88pqia1lacgfl.o†áÃ§Ä3¸š–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6qjdlukhe1owhymsrzofz3ybq.o
+†áÃ§Ä3Ø&—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6r1p2p4qcibo5l5gyvmvuenm0.o‡áÃ§Ä3øç–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6s3tgdv6coem7pw25xqe3lm62.o
+‡áÃ§Ä3ˆ-–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/6vcm2ezerogno9x4bfikycsj9.o
+‡áÃ§Ä3¨7–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/725gakfczzqzgvhcgzvcysv3j.o
+‡áÃ§Ä3ğl–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/75l8x0icu46s8ihxa9gj7cdce.o
+‡áÃ§Ä3$—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7cdxyp56s2ga1166gpnwa6hqt.o‡áÃ§Ä3Èà—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7csggfdgky6rwzgj6225wrvo9.o‡áÃ§Ä3¸÷—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7ogc0bkuty6il4s29bm53xlns.o‡áÃ§Ä3°
+—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7t5xxoeb3nsqf2fke0xp0z7xh.o‡áÃ§Ä3¨¨–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7u5zw8p7ilu8pn4enh8wg0l5m.o
+‡áÃ§Ä3°"–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7uagmeo76ky575vm4anlrisht.o
+ˆáÃ§Ä3ğ#–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7v6kfxmcvy1x8a8o9vunavdv0.o
+ˆáÃ§Ä3Ğ)–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/7wti0ldp56ucwxeakqz3ll2p3.o
+ˆáÃ§Ä3ÈE–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/80m33dxolx6ct19bsglp959qb.o
+ˆáÃ§Ä3ø]—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/83hdw1u1c1ls01xtft1gsp8vh.oˆáÃ§Ä3ˆ®—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/855of6q43tl207qy4p1ei0lsu.oˆáÃ§Ä3€¢–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/8g8xfmmvv2tuw8udm8ygrtt27.o
+ˆáÃ§Ä3À$–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/8xtlky0fjaqm01b4wthv0yd3x.o
+ˆáÃ§Ä3¸Y—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/91o5ux26re2mmsycgzyv6v2q7.oˆáÃ§Ä3Á—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/956lnqehw6jqir3kbpeeddzwk.oˆáÃ§Ä3ğ¹–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/96hqgoowh7pp9wggbqrwyf768.o
+ˆáÃ§Ä3ø^—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9kyamt8pymi7ufj08peesos23.oˆáÃ§Ä3Øæ—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9lf9m5rxpby4mt9pqyzu7gtdb.o‰áÃ§Ä3¸¯—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9pgqvajso3sub5ddgamd9c1q3.o‰áÃ§Ä3ÀŒ—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9qqkmsvabki06dfokkzvav81b.o‰áÃ§Ä3ğ²–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/9xr7j152htxi1w6jwnqgy3z9e.o
+‰áÃ§Ä3 @–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/a0h1gs3nwmzxxkmwj8h6x3s9l.o
+‰áÃ§Ä3Ğ,–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/anj73ai3yu8ayyjoltpkkuymt.o
+‰áÃ§Ä3a—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/anpibkip5hpr6th8abbejriw7.o‰áÃ§Ä3ĞÁ–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/apmly82lt5r5cgq2vsgusa00e.o
+‰áÃ§Ä3ˆA–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/arg7wxknefqzm5z755q0co5px.o
+‰áÃ§Ä3"–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/audu4f5mdr25rh19ftec1bi0w.o
+‰áÃ§Ä3ø\—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/b8h2hd3ekj02f8ksif8azhe9n.o‰áÃ§Ä3°™–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ba0v0gm8qtl8spxo6zulylmex.o
+‰áÃ§Ä3ğ7–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/bdzbyl0bh5ui15tyk4xiddhsj.o
+‰áÃ§Ä3à#–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/bp2g8yy5ak4y5uwytijbichyr.o
+‰áÃ§Ä3Ğy–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/bpo3tb6om5f8u9518h706qerk.o
+‰áÃ§Ä3 x—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ccsyxcqnkclhumvfodb6rurb7.oŠáÃ§Ä3Ø¥–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ce6bsc626xlk5o7rsdvype226.o
+ŠáÃ§Ä3ğ/—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cfaecm42yzqanrg16scca6mer.oŠáÃ§Ä3°ƒ—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cj2r36in31bhlbsx6dn9ec88s.oŠáÃ§Ä3Àˆ–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cjwk5mxpjmmc6xu26or3nhnwy.o
+ŠáÃ§Ä3ø%—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cowh8c9275pvxk2u15wxrrb87.oŠáÃ§Ä3 Î—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/cpasvb9gssue04p5yf5tau6bq.oŠáÃ§Ä3ğ´	—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/d26m0poxv2m3j9mjs16etqvn3.oŠáÃ§Ä3 °‰
+ytools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dep-graph.bináÃ§Ä3òˆ•–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dm6v2vthuwppqzbfduxu3jns7.o
+áÃ§Ä3Øh–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dmkg7njezvjbtc4nh4iqa86tu.o
+áÃ§Ä3Ğ+–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dmytmyfn0f5e0rxr9zcfanj74.o
+áÃ§Ä3˜I–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/donablmuq3t3p626nzz3u9sua.o
+áÃ§Ä3ğu—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dsz138253sxur8haxhy30im3g.oáÃ§Ä3Èâ—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dvd2o3sg8xx3smqm359k4dllp.oáÃ§Ä3¨ƒ—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dw5lc778hyn9a2td9u5kmtgjj.o‘áÃ§Ä3Ü—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/dxviofwgd4pl2m0r2bmi7yof0.o‘áÃ§Ä3ØÁ—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/e0acra4n1ueut2kr7x6b8utsf.o‘áÃ§Ä3Èš–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/e298rfd7bb8j7etudu0bwaen7.o
+‘áÃ§Ä3¨Y–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ec3fb7v1q3ovo5z5gspc0tubm.o
+‘áÃ§Ä3È–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/eft9685d5tyik4c7rhwaskalc.o
+‘áÃ§Ä3Ğ–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/egn19y6m7jqtv28kkpssus6no.o
+‘áÃ§Ä38–
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/ekas5cr7zmcjc3vfs0r9w4n4r.o
+‘áÃ§Ä3˜]—
+‡tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/exzr34ebj1yrlit7cn73t02bf.o‘áÃ§Ä3èóŠ
+{tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/query-cache.bin’áÃ§Ä3Ù;‹
+}tools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7-2brh9gq9zbxrg7uojv2h9i3b1/work-products.bin
+“áÃ§Ä3¾6a
+Vtools/audit/target/debug/incremental/zjj_audit-2jtfgtijc9kzw/s-heovh0bk3a-1hxydg7.lock“áÃ§Ä34
+"tools/audit/target/debug/zjj-auditÃáÃ§Ä3È™×
+1
+$tools/audit/target/debug/zjj-audit.d	ÄáÃ§Ä3d&
+zjj-requirements.ears.md
+ÄáÃ§Ä3ˆ
+ *çµÍEƒ Ä«„Ğ@ …,|mJò0

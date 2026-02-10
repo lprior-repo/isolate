@@ -1,0 +1,2 @@
+# This directory ensures SQLx offline mode works for CI/CD and offline development.
+# The sqlx-data.json file contains query metadata for compile-time verification.

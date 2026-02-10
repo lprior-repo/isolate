@@ -1,0 +1,15 @@
+[package]
+name = "zjj-audit"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[[bin]]
+name = "zjj-audit"
+path = "src/main.rs"
+
+[dependencies]
+regex = "1.10"
+walkdir = "2.4"
+colored = "2.1"
