@@ -68,6 +68,7 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
         .map_err(|e| Error::IoError(format!("Failed to get time: {e}")))?
         .as_nanos();
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-{}", test_id));
+    let repo_root = std::env::current_dir()?;
     tokio::fs::create_dir_all(&base_path).await?;
 
     let mut handles = vec![];
@@ -86,7 +87,7 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
             barrier.wait().await;
 
             // All tasks start creating workspaces at the same time
-            let result = create_workspace_synced(&workspace_name, &workspace_path).await;
+            let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
 
             match result {
                 Ok(()) => {
@@ -157,6 +158,7 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-staggered-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
 
+    let repo_root = std::env::current_dir()?;
     let mut handles = vec![];
 
     // Spawn tasks with staggered starts (every 10ms)
@@ -172,7 +174,7 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
             let delay_ms = ((i % 5) * 10) as u64; // 0-40ms stagger
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
 
-            let result = create_workspace_synced(&workspace_name, &workspace_path).await;
+            let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
 
             match result {
                 Ok(()) => {
@@ -241,6 +243,7 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-retry-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
 
+    let repo_root = std::env::current_dir()?;
     let mut handles = vec![];
 
     // Spawn 30 tasks all trying to create workspaces simultaneously
@@ -256,7 +259,7 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
             let max_attempts: u32 = 5;
 
             loop {
-                let result = create_workspace_synced(&workspace_name, &workspace_path).await;
+                let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
 
                 match result {
                     Ok(()) => {
@@ -357,6 +360,7 @@ async fn stress_workspace_serialization() -> Result<()> {
     tokio::fs::create_dir_all(&base_path).await?;
 
     let mut handles = vec![];
+    let repo_root = std::env::current_dir()?;
 
     // Spawn tasks that record their completion order
     for i in 0..task_count {
@@ -370,7 +374,7 @@ async fn stress_workspace_serialization() -> Result<()> {
             barrier.wait().await;
 
             let start = std::time::Instant::now();
-            let result = create_workspace_synced(&workspace_name, &workspace_path).await;
+            let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
             let duration = start.elapsed();
 
             if result.is_ok() {

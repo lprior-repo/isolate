@@ -22,7 +22,7 @@ use zellij::{create_session_layout, create_zellij_tab};
 /// Re-exported from `crate::json::serializers`
 use crate::json::AddOutput;
 use crate::{
-    cli::{attach_to_zellij_session, is_inside_zellij},
+    cli::{attach_to_zellij_session, is_inside_zellij, is_terminal},
     command_context,
     commands::{check_prerequisites, get_session_db},
     db::SessionDb,
@@ -366,7 +366,26 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
             options.format,
         );
     } else if is_inside_zellij() {
-        // Inside Zellij: Create tab and switch to it
+        // Inside Zellij: Check if we have an interactive terminal
+        if !is_terminal() {
+            // Non-interactive environment (e.g., agent, script)
+            // Session created successfully, but Zellij tab creation is skipped
+            output_result(
+                &options.name,
+                &workspace_path_str,
+                &session.zellij_tab,
+                "workspace only (non-interactive)",
+                true,
+                options.format,
+            );
+            if !options.format.is_json() {
+                eprintln!("Note: Zellij tab not created in non-interactive environment.");
+                eprintln!("Use --no-zellij flag to suppress this message, or run from an interactive terminal.");
+            }
+            return Ok(());
+        }
+
+        // Interactive terminal: Create tab and switch to it
         create_zellij_tab(
             &session.zellij_tab,
             &workspace_path_str,

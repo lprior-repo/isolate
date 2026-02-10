@@ -146,15 +146,28 @@ pub async fn cleanup_session_atomically(
         }
     }
 
-    // Phase 4: Remove workspace directory (critical)
-    if let Err(e) = tokio::fs::remove_dir_all(workspace_path).await {
-        let error_msg = format!("Failed to remove workspace: {e}");
-        let _ = db.mark_removal_failed(&session.name, &error_msg).await;
+    // Phase 4: Remove workspace directory (critical, with idempotent ENOENT handling)
+    match tokio::fs::remove_dir_all(workspace_path).await {
+        Ok(()) => {
+            // Successfully removed, continue to database deletion
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // Workspace already removed by another process (idempotent)
+            tracing::info!(
+                "Workspace '{}' already removed (concurrent removal). Proceeding with database cleanup.",
+                session.name
+            );
+            // Continue to database deletion
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to remove workspace: {e}");
+            let _ = db.mark_removal_failed(&session.name, &error_msg).await;
 
-        return Err(RemoveError::WorkspaceRemovalFailed {
-            path: session.workspace_path.clone(),
-            source: e,
-        });
+            return Err(RemoveError::WorkspaceRemovalFailed {
+                path: session.workspace_path.clone(),
+                source: e,
+            });
+        }
     }
 
     // Phase 5: Delete from database (critical, but workspace already deleted)
