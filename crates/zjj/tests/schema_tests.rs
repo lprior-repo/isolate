@@ -35,11 +35,11 @@ fn run_cue_export() -> Result<Option<String>, Box<dyn std::error::Error>> {
     }
 
     let output = Command::new("cue")
-        .args(["export", "schemas/zjj_protocol.cue", "--out", "json"])
+        .args(["export", "cue-schemas/zjj_protocol.cue", "--out", "json"])
         .output()?;
 
     if !output.status.success() {
-        // If schemas/zjj_protocol.cue doesn't exist, we should also skip or fail differently
+        // If cue-schemas/zjj_protocol.cue doesn't exist, we should also skip or fail differently
         // But for now let's assume if cue runs but fails, it's a real failure unless file missing
         let stderr = String::from_utf8_lossy(&output.stderr);
         if stderr.contains("no such file") {

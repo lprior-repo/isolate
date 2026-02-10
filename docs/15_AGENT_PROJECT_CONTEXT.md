@@ -32,6 +32,7 @@
 | SQLite | Session state persistence | sql_schemas/ |
 | Moon | Build orchestration | docs/02_MOON_BUILD.md |
 | Codanna | Code intelligence | .codanna/settings.toml |
+| CUE | Configuration schemas | cue-schemas/ |
 
 ## Performance
 
