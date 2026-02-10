@@ -69,6 +69,7 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
         .as_nanos();
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
+    let repo_root = std::env::current_dir()?;
 
     let mut handles = vec![];
 
@@ -80,13 +81,14 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
 
         let workspace_path = base_path.join(format!("stress-test-{}", i));
         let workspace_name = format!("stress-concurrent-{}-{}", test_id, i);
+        let repo_root = repo_root.clone();
 
         let handle = tokio::spawn(async move {
             // Wait for all tasks to be ready
             barrier.wait().await;
 
             // All tasks start creating workspaces at the same time
-            let result = create_workspace_synced(&workspace_name, &workspace_path).await;
+            let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
 
             match result {
                 Ok(()) => {
@@ -156,6 +158,7 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
         .as_nanos();
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-staggered-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
+    let repo_root = std::env::current_dir()?;
 
     let mut handles = vec![];
 
@@ -166,13 +169,14 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
 
         let workspace_path = base_path.join(format!("staggered-{}", i));
         let workspace_name = format!("stress-staggered-{}-{}", test_id, i);
+        let repo_root = repo_root.clone();
 
         let handle = tokio::spawn(async move {
             // Add a small random delay to simulate real-world timing
             let delay_ms = ((i % 5) * 10) as u64; // 0-40ms stagger
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
 
-            let result = create_workspace_synced(&workspace_name, &workspace_path).await;
+            let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
 
             match result {
                 Ok(()) => {
@@ -240,6 +244,7 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
         .as_nanos();
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-retry-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
+    let repo_root = std::env::current_dir()?;
 
     let mut handles = vec![];
 
@@ -249,6 +254,7 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
 
         let workspace_path = base_path.join(format!("retry-test-{}", i));
         let workspace_name = format!("stress-retry-{}-{}", test_id, i);
+        let repo_root = repo_root.clone();
 
         let handle = tokio::spawn(async move {
             // Retry logic with exponential backoff
@@ -256,7 +262,7 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
             let max_attempts: u32 = 5;
 
             loop {
-                let result = create_workspace_synced(&workspace_name, &workspace_path).await;
+                let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
 
                 match result {
                     Ok(()) => {
@@ -355,6 +361,7 @@ async fn stress_workspace_serialization() -> Result<()> {
         .as_nanos();
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-serialize-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
+    let repo_root = std::env::current_dir()?;
 
     let mut handles = vec![];
 
@@ -365,12 +372,13 @@ async fn stress_workspace_serialization() -> Result<()> {
 
         let workspace_path = base_path.join(format!("serialize-{}", i));
         let workspace_name = format!("stress-serialize-{}-{}", test_id, i);
+        let repo_root = repo_root.clone();
 
         let handle = tokio::spawn(async move {
             barrier.wait().await;
 
             let start = std::time::Instant::now();
-            let result = create_workspace_synced(&workspace_name, &workspace_path).await;
+            let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
             let duration = start.elapsed();
 
             if result.is_ok() {

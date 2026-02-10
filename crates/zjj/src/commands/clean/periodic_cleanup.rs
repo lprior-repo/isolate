@@ -254,29 +254,46 @@ fn skip_reason(orphan: &OrphanCandidate) -> String {
 async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<PeriodicCleanupOutput> {
     let now = Utc::now();
 
-    // 1. Fetch sessions (imperative I/O)
+    // 1. Recover incomplete sessions stuck in 'creating' status (timeout-based)
+    let db_path = std::path::Path::new(".zjj/beads.db");
+    let recovery_config = zjj_core::config::RecoveryConfig {
+        policy: if config.dry_run {
+            zjj_core::RecoveryPolicy::Silent
+        } else {
+            zjj_core::RecoveryPolicy::Warn
+        },
+        log_recovered: true,
+        auto_recover_corrupted_wal: true,
+        delete_corrupted_database: false,
+    };
+    let recovered_count = zjj_core::recover_incomplete_sessions(&db_path, &recovery_config)
+        .await
+        .map_err(anyhow::Error::msg)
+        .unwrap_or(0);
+
+    // 2. Fetch sessions (imperative I/O)
     let db = get_session_db().await?;
     let sessions = db.list(None).await.map_err(anyhow::Error::new)?;
 
-    // 2. Find orphan candidates (async functional)
+    // 3. Find orphan candidates (async functional)
     let orphan_candidates =
         find_orphan_candidates(&sessions[..], &config.age_threshold, &now).await;
 
-    // 3. Categorize (pure functional)
+    // 4. Categorize (pure functional)
     let (cleanable, skipped) = categorize_orphans(orphan_candidates);
 
-    // 4. Clean orphans (imperative I/O)
+    // 5. Clean orphans (imperative I/O)
     let cleaned_sessions = if config.dry_run {
         Vec::new()
     } else {
         clean_orphans(&db, &cleanable).await?
     };
 
-    // 5. Build result
+    // 6. Build result
     Ok(PeriodicCleanupOutput {
         timestamp: now.to_rfc3339(),
-        orphans_detected: cleanable.len() + skipped.len(),
-        orphans_cleaned: cleaned_sessions.len(),
+        orphans_detected: cleanable.len() + skipped.len() + recovered_count,
+        orphans_cleaned: cleaned_sessions.len() + recovered_count,
         cleaned_sessions,
         skipped_sessions: skipped,
     })
