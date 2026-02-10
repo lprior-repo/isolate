@@ -161,14 +161,12 @@ pub fn cmd_add() -> ClapCommand {
             Arg::new("contract")
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
-                .default_value("false")
                 .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
         )
         .arg(
             Arg::new("ai-hints")
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
-                .default_value("false")
                 .help("AI: Show execution hints and common patterns"),
         )
 }
@@ -620,14 +618,12 @@ pub fn cmd_status() -> ClapCommand {
             Arg::new("contract")
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
-                .default_value("false")
                 .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
         )
         .arg(
             Arg::new("ai-hints")
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
-                .default_value("false")
                 .help("AI: Show execution hints and common patterns"),
         )
 }
@@ -1168,6 +1164,7 @@ pub fn cmd_queue() -> ClapCommand {
             Arg::new("priority")
                 .long("priority")
                 .value_name("PRIORITY")
+                .value_parser(clap::value_parser!(i32))
                 .default_value("5")
                 .help("Queue priority (lower = higher priority, 1-10, default: 5)"),
         )
@@ -1328,14 +1325,12 @@ pub fn cmd_spawn() -> ClapCommand {
             Arg::new("contract")
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
-                .default_value("false")
                 .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
         )
         .arg(
             Arg::new("ai-hints")
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
-                .default_value("false")
                 .help("AI: Show execution hints and common patterns"),
         )
 }
@@ -2274,13 +2269,22 @@ pub fn cmd_rename() -> ClapCommand {
         )
         .arg(Arg::new("new_name").required(true).help("New session name"))
         .arg(
+            Arg::new("no-zellij")
+                .long("no-zellij")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip Zellij integration (for non-TTY environments)"),
+        )
+        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
         .after_help(after_help_text(
-            &["zjj rename old-name new-name      Rename a session"],
+            &[
+                "zjj rename old-name new-name        Rename a session",
+                "zjj rename --no-zellij old new      Rename without Zellij",
+            ],
             None,
         ))
 }

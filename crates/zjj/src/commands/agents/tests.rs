@@ -839,7 +839,56 @@ fn validate_agent_id_accepts_valid_ids() {
 fn validate_agent_id_trims_whitespace() {
     use super::validate_agent_id;
 
-    // Should succeed - whitespace is trimmed
+    // Should now fail - we no longer accept agent IDs with spaces
     let result = validate_agent_id("  valid-agent  ");
-    assert!(result.is_ok(), "trimmed agent_id should be accepted");
+    assert!(
+        result.is_err(),
+        "agent_id with spaces should be rejected (shell quoting issue)"
+    );
+}
+
+// Test: Validate agent ID rejects reserved keywords
+#[test]
+fn validate_agent_id_rejects_reserved_keywords() {
+    use super::validate_agent_id;
+
+    let reserved_ids = vec!["null", "undefined", "true", "false", "NONE", "Null"];
+
+    for reserved_id in reserved_ids {
+        let result = validate_agent_id(reserved_id);
+        assert!(
+            result.is_err(),
+            "reserved keyword '{reserved_id}' should be rejected"
+        );
+        if let Err(e) = result {
+            let msg = e.to_string();
+            assert!(
+                msg.contains("reserved"),
+                "error for '{reserved_id}' should mention reserved keyword: {msg}"
+            );
+        }
+    }
+}
+
+// Test: Validate agent ID rejects embedded spaces
+#[test]
+fn validate_agent_id_rejects_embedded_spaces() {
+    use super::validate_agent_id;
+
+    let invalid_ids = vec!["agent 1", "my agent", "a b c", "agent\ttab", "agent\nnewline"];
+
+    for invalid_id in invalid_ids {
+        let result = validate_agent_id(invalid_id);
+        assert!(
+            result.is_err(),
+            "agent_id with embedded whitespace '{invalid_id}' should be rejected"
+        );
+        if let Err(e) = result {
+            let msg = e.to_string();
+            assert!(
+                msg.contains("whitespace"),
+                "error for '{invalid_id}' should mention whitespace: {msg}"
+            );
+        }
+    }
 }

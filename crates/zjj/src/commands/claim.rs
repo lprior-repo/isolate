@@ -71,6 +71,72 @@ pub struct YieldResult {
     pub error: Option<String>,
 }
 
+/// Reserved keywords that cannot be used as resource or agent names
+const RESERVED_KEYWORDS: &[&str] = &[
+    "null", "undefined", "true", "false", "none", "nil", "void",
+];
+
+/// Validate a resource name for claim/yield operations
+///
+/// # Errors
+///
+/// Returns error if:
+/// - Name is empty or whitespace-only
+/// - Name contains only special characters
+/// - Name is a reserved keyword
+fn validate_resource_name(resource: &str) -> Result<()> {
+    let trimmed = resource.trim();
+
+    // Check for empty or whitespace-only
+    if trimmed.is_empty() {
+        anyhow::bail!("Resource name cannot be empty or whitespace-only");
+    }
+
+    // Check for reserved keywords (case-insensitive)
+    let lower = trimmed.to_lowercase();
+    if RESERVED_KEYWORDS.iter().any(|&keyword| keyword == lower) {
+        anyhow::bail!("Resource name '{0}' is a reserved keyword and cannot be used", trimmed);
+    }
+
+    // Check if name contains at least one alphanumeric character
+    // (prevent names like ":", ":::", "   ", etc.)
+    if !trimmed.chars().any(|c| c.is_alphanumeric()) {
+        anyhow::bail!("Resource name must contain at least one alphanumeric character");
+    }
+
+    Ok(())
+}
+
+/// Validate an agent ID to prevent shell quoting issues
+///
+/// # Errors
+///
+/// Returns error if:
+/// - ID is empty or whitespace-only
+/// - ID contains spaces or newlines (breaks shell quoting)
+/// - ID is a reserved keyword
+fn validate_agent_id_strict(agent_id: &str) -> Result<()> {
+    let trimmed = agent_id.trim();
+
+    // Check for empty or whitespace-only
+    if trimmed.is_empty() {
+        anyhow::bail!("Agent ID cannot be empty or whitespace-only");
+    }
+
+    // Check for spaces and newlines (breaks shell quoting)
+    if agent_id.chars().any(|c| c.is_whitespace()) {
+        anyhow::bail!("Agent ID cannot contain whitespace characters (spaces, tabs, newlines)");
+    }
+
+    // Check for reserved keywords
+    let lower = trimmed.to_lowercase();
+    if RESERVED_KEYWORDS.iter().any(|&keyword| keyword == lower) {
+        anyhow::bail!("Agent ID '{0}' is a reserved keyword and cannot be used", trimmed);
+    }
+
+    Ok(())
+}
+
 /// Lock file content
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct LockInfo {
@@ -78,6 +144,8 @@ pub(crate) struct LockInfo {
     resource: String,
     acquired_at: u64,
     expires_at: u64,
+    /// Process ID of the lock holder - security check to prevent other processes from releasing locks
+    pid: u32,
 }
 
 /// Audit entry for claim operations
@@ -498,11 +566,13 @@ async fn attempt_claim(
     now: u64,
     expires_at: u64,
 ) -> Result<ClaimResult> {
+    let current_pid = std::process::id();
     let new_lock = LockInfo {
         holder: agent_id.to_string(),
         resource: resource.to_string(),
         acquired_at: now,
         expires_at,
+        pid: current_pid,
     };
 
     // Try atomic create first (prevents TOCTOU)
@@ -575,7 +645,14 @@ async fn attempt_claim(
 
 /// Run the claim command
 pub async fn run_claim(options: &ClaimOptions) -> Result<()> {
+    // Validate resource name before proceeding
+    validate_resource_name(&options.resource)?;
+
     let agent_id = get_agent_id();
+
+    // Validate agent ID to prevent shell quoting issues
+    validate_agent_id_strict(&agent_id)?;
+
     let lock_path = lock_file_path(&options.resource).await?;
     let audit_path = audit_file_path(&options.resource).await?;
     let now = current_timestamp()?;
@@ -638,10 +715,25 @@ async fn attempt_yield(lock_path: &std::path::Path, resource: &str, agent_id: &s
         Ok(true) => {}
     }
 
+    let current_pid = std::process::id();
+
     // Try to read and verify ownership
     if let Some(lock) = read_lock(lock_path).await {
         if lock.holder == agent_id {
-            // We hold it - release
+            // Security check: verify the current PID matches the lock holder's PID
+            if lock.pid != current_pid {
+                return YieldResult {
+                    yielded: false,
+                    resource: resource.to_string(),
+                    agent_id: Some(agent_id.to_string()),
+                    error: Some(format!(
+                        "Lock held by different process (holder PID: {}, current PID: {})",
+                        lock.pid, current_pid
+                    )),
+                };
+            }
+
+            // We hold it and PIDs match - release
             tokio::fs::remove_file(lock_path)
                 .await
                 .map(|()| YieldResult {
@@ -679,7 +771,14 @@ async fn attempt_yield(lock_path: &std::path::Path, resource: &str, agent_id: &s
 
 /// Run the yield command
 pub async fn run_yield(options: &YieldOptions) -> Result<()> {
+    // Validate resource name before proceeding
+    validate_resource_name(&options.resource)?;
+
     let agent_id = get_agent_id();
+
+    // Validate agent ID to prevent shell quoting issues
+    validate_agent_id_strict(&agent_id)?;
+
     let lock_path = lock_file_path(&options.resource).await?;
 
     let result = attempt_yield(&lock_path, &options.resource, &agent_id).await;
@@ -817,6 +916,7 @@ mod tests {
             resource: "session:test".to_string(),
             acquired_at: 1000,
             expires_at: 2000,
+            pid: 12345,
         };
 
         let json = serde_json::to_string(&lock)?;
@@ -1018,12 +1118,14 @@ mod tests {
                 resource: "session:feature-x".to_string(),
                 acquired_at: 1_609_459_200, // 2021-01-01 00:00:00 UTC
                 expires_at: 1_609_462_800,  // 2021-01-01 01:00:00 UTC
+                pid: 12345,
             };
 
             assert!(!lock.holder.is_empty(), "Must have holder");
             assert!(!lock.resource.is_empty(), "Must have resource");
             assert!(lock.acquired_at > 0, "Must have acquired time");
             assert!(lock.expires_at > lock.acquired_at, "Expires after acquired");
+            assert!(lock.pid > 0, "Must have valid PID");
         }
 
         /// GIVEN: Lock with timestamps
@@ -1039,6 +1141,7 @@ mod tests {
                 resource: "res".to_string(),
                 acquired_at: 1_609_459_200,
                 expires_at: 1_609_462_800,
+                pid: 12345,
             };
             assert!(active_lock.expires_at > now, "Should not be expired");
 
@@ -1048,6 +1151,7 @@ mod tests {
                 resource: "res".to_string(),
                 acquired_at: 1_609_459_200,
                 expires_at: 1_609_459_300,
+                pid: 12345,
             };
             assert!(expired_lock.expires_at < now, "Should be expired");
         }
@@ -1062,6 +1166,7 @@ mod tests {
                 resource: "session:test".to_string(),
                 acquired_at: 1_234_567_890,
                 expires_at: 1_234_567_900,
+                pid: 12345,
             };
 
             let json = serde_json::to_string(&original)?;
@@ -1071,11 +1176,14 @@ mod tests {
             assert_eq!(parsed.resource, original.resource);
             assert_eq!(parsed.acquired_at, original.acquired_at);
             assert_eq!(parsed.expires_at, original.expires_at);
+            assert_eq!(parsed.pid, original.pid);
             Ok(())
         }
     }
 
     mod resource_naming_behavior {
+        use super::*;
+
         /// GIVEN: Resource names
         /// WHEN: Used in claims
         /// THEN: Should follow consistent naming convention
@@ -1096,6 +1204,167 @@ mod tests {
                 assert_eq!(parts.len(), 2, "Should have exactly one colon");
                 assert!(!parts[0].is_empty(), "Prefix should not be empty");
                 assert!(!parts[1].is_empty(), "Name should not be empty");
+            }
+        }
+
+        /// GIVEN: Empty or malformed resource names
+        /// WHEN: Validated
+        /// THEN: Should reject them
+        #[test]
+        fn validate_resource_name_rejects_empty() {
+            let invalid_names = ["", "   ", "\t\n", "  \t  "];
+
+            for name in invalid_names {
+                let result = validate_resource_name(name);
+                assert!(result.is_err(), "Should reject empty/whitespace name: '{name}'");
+                if let Err(e) = result {
+                    let msg = e.to_string();
+                    assert!(
+                        msg.contains("empty") || msg.contains("whitespace"),
+                        "Error should mention empty/whitespace for: '{name}'"
+                    );
+                }
+            }
+        }
+
+        /// GIVEN: Reserved keywords
+        /// WHEN: Used as resource names
+        /// THEN: Should reject them
+        #[test]
+        fn validate_resource_name_rejects_reserved_keywords() {
+            let reserved = ["null", "undefined", "true", "false", "NONE", "Null"];
+
+            for name in reserved {
+                let result = validate_resource_name(name);
+                assert!(
+                    result.is_err(),
+                    "Should reject reserved keyword: '{name}'"
+                );
+                if let Err(e) = result {
+                    let msg = e.to_string();
+                    assert!(
+                        msg.contains("reserved"),
+                        "Error should mention reserved keyword for: '{name}'"
+                    );
+                }
+            }
+        }
+
+        /// GIVEN: Resource names without alphanumeric characters
+        /// WHEN: Validated
+        /// THEN: Should reject them
+        #[test]
+        fn validate_resource_name_requires_alphanumeric() {
+            let invalid_names = [":::", "---", "___", ":-_"];
+
+            for name in invalid_names {
+                let result = validate_resource_name(name);
+                assert!(
+                    result.is_err(),
+                    "Should reject non-alphanumeric name: '{name}'"
+                );
+            }
+        }
+
+        /// GIVEN: Valid resource names
+        /// WHEN: Validated
+        /// THEN: Should accept them
+        #[test]
+        fn validate_resource_name_accepts_valid() {
+            let valid_names = [
+                "session:feature-1",
+                "workspace:main",
+                "bead:zjj-123",
+                "resource:test_name",
+            ];
+
+            for name in valid_names {
+                let result = validate_resource_name(name);
+                assert!(
+                    result.is_ok(),
+                    "Should accept valid name: '{name}' - error: {:?}",
+                    result.err()
+                );
+            }
+        }
+    }
+
+    mod agent_id_validation_behavior {
+        use super::*;
+
+        /// GIVEN: Agent IDs with spaces
+        /// WHEN: Validated
+        /// THEN: Should reject them (breaks shell quoting)
+        #[test]
+        fn validate_agent_id_rejects_spaces() {
+            let invalid_ids = ["agent 1", "agent\ttwo", "agent three", " agent-four ", "a b c"];
+
+            for id in invalid_ids {
+                let result = validate_agent_id_strict(id);
+                assert!(
+                    result.is_err(),
+                    "Should reject agent ID with whitespace: '{id}'"
+                );
+                if let Err(e) = result {
+                    let msg = e.to_string();
+                    assert!(
+                        msg.contains("whitespace"),
+                        "Error should mention whitespace for: '{id}'"
+                    );
+                }
+            }
+        }
+
+        /// GIVEN: Empty agent IDs
+        /// WHEN: Validated
+        /// THEN: Should reject them
+        #[test]
+        fn validate_agent_id_rejects_empty() {
+            let invalid_ids = ["", "   ", "\t", "\n"];
+
+            for id in invalid_ids {
+                let result = validate_agent_id_strict(id);
+                assert!(result.is_err(), "Should reject empty agent ID: '{id}'");
+            }
+        }
+
+        /// GIVEN: Reserved keywords as agent IDs
+        /// WHEN: Validated
+        /// THEN: Should reject them
+        #[test]
+        fn validate_agent_id_rejects_reserved() {
+            let reserved = ["null", "undefined", "true", "FALSE", "None"];
+
+            for id in reserved {
+                let result = validate_agent_id_strict(id);
+                assert!(
+                    result.is_err(),
+                    "Should reject reserved keyword: '{id}'"
+                );
+            }
+        }
+
+        /// GIVEN: Valid agent IDs
+        /// WHEN: Validated
+        /// THEN: Should accept them
+        #[test]
+        fn validate_agent_id_accepts_valid() {
+            let valid_ids = [
+                "agent-1",
+                "agent_2",
+                "pid-12345",
+                "my-agent",
+                "Agent007",
+                "test.agent",
+            ];
+
+            for id in valid_ids {
+                let result = validate_agent_id_strict(id);
+                assert!(
+                    result.is_ok(),
+                    "Should accept valid agent ID: '{id}' - error: {:?}",
+                    result.err()
+                );
             }
         }
     }

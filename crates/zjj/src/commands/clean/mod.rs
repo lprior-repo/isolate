@@ -114,7 +114,8 @@ fn output_no_stale(format: OutputFormat) {
             removed_count: 0,
             stale_sessions: Vec::new(),
         };
-        if let Ok(json_str) = serde_json::to_string_pretty(&output) {
+        let envelope = SchemaEnvelope::new("clean-response", "single", output);
+        if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
             println!("{json_str}");
         }
     } else {
@@ -131,7 +132,8 @@ fn output_dry_run(stale_names: &[String], format: OutputFormat) {
             removed_count: 0,
             stale_sessions: stale_names.to_vec(),
         };
-        if let Ok(json_str) = serde_json::to_string_pretty(&output) {
+        let envelope = SchemaEnvelope::new("clean-response", "single", output);
+        if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
             println!("{json_str}");
         }
     } else {
@@ -155,7 +157,8 @@ fn output_cancelled(stale_names: &[String], format: OutputFormat) {
             removed_count: 0,
             stale_sessions: stale_names.to_vec(),
         };
-        if let Ok(json_str) = serde_json::to_string_pretty(&output) {
+        let envelope = SchemaEnvelope::new("clean-response", "single", output);
+        if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
             println!("{json_str}");
         }
     } else {
@@ -171,7 +174,8 @@ fn output_result(removed_count: usize, stale_names: &[String], format: OutputFor
             removed_count,
             stale_sessions: stale_names.to_vec(),
         };
-        if let Ok(json_str) = serde_json::to_string_pretty(&output) {
+        let envelope = SchemaEnvelope::new("clean-response", "single", output);
+        if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
             println!("{json_str}");
         }
     } else {

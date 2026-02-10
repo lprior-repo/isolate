@@ -15,7 +15,7 @@ pub mod retention;
 // Re-export backup types
 use anyhow::{Context, Result};
 pub use backup_internal::BackupConfig;
-use zjj_core::OutputFormat;
+use zjj_core::{OutputFormat, SchemaEnvelope};
 
 use crate::cli::jj_root;
 
@@ -70,7 +70,6 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
     match format {
         OutputFormat::Json => {
             let output = serde_json::json!({
-                "success": true,
                 "databases": all_backups
                     .iter()
                     .map(|(name, backups)| {
@@ -86,7 +85,8 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
                     })
                     .collect::<Vec<_>>()
             });
-            println!("{}", serde_json::to_string_pretty(&output)?);
+            let envelope = SchemaEnvelope::new("backup-list-response", "single", output);
+            println!("{}", serde_json::to_string_pretty(&envelope)?);
         }
         OutputFormat::Human => {
             if all_backups.is_empty() {
