@@ -1,3 +1,0 @@
-
-# Use beads_rust merge for beads JSONL files
-.beads/issues.jsonl merge=beads
