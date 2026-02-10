@@ -1165,14 +1165,6 @@ pub fn cmd_queue() -> ClapCommand {
                 .help("Associate with bead/issue ID (used with --add)"),
         )
         .arg(
-            Arg::new("priority")
-                .long("priority")
-                .value_name("PRIORITY")
-                .value_parser(clap::value_parser!(i32))
-                .default_value("5")
-                .help("Queue priority (lower = higher priority, 1-10)"),
-        )
-        .arg(
             Arg::new("agent")
                 .long("agent")
                 .value_name("AGENT_ID")
