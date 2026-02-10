@@ -10,7 +10,8 @@ async fn test_workspace_creation_with_permission_denied() {
     let bad_path = Path::new(
         "/tmp/systemd-private-0123b8fe31e9478eb1644b37442da32c-bolt.service-GGpRnH/test-workspace",
     );
-    let result = create_workspace_synced("test-perm-denied", bad_path).await;
+    let repo_root = std::env::current_dir().unwrap();
+    let result = create_workspace_synced("test-perm-denied", bad_path, &repo_root).await;
 
     assert!(result.is_err(), "Should fail with permission denied");
 

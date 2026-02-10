@@ -90,6 +90,7 @@ fn log_add_state(name: &str, state: AddAtomicState, recoverable: bool, detail: &
 ///
 /// Returns error on any failure and triggers cleanup of partial state.
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn atomic_create_session(
     name: &str,
     workspace_path: &std::path::Path,
