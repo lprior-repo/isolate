@@ -216,7 +216,8 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
     // 1. Workspace creations are serialized (prevents concurrent modification)
     // 2. All workspaces are based on the same repository operation
     // 3. Operation graph consistency is verified after creation
-    zjj_core::jj_operation_sync::create_workspace_synced(bead_id, &workspace_path)
+    // CRITICAL-004 fix: Pass root explicitly to support sibling workspace directories
+    zjj_core::jj_operation_sync::create_workspace_synced(bead_id, &workspace_path, Path::new(root))
         .await
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
             reason: format!("Failed to create workspace with operation sync: {e}"),

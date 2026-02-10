@@ -1165,6 +1165,13 @@ pub fn cmd_queue() -> ClapCommand {
                 .help("Associate with bead/issue ID (used with --add)"),
         )
         .arg(
+            Arg::new("priority")
+                .long("priority")
+                .value_name("PRIORITY")
+                .default_value("5")
+                .help("Queue priority (lower = higher priority, 1-10, default: 5)"),
+        )
+        .arg(
             Arg::new("agent")
                 .long("agent")
                 .value_name("AGENT_ID")
@@ -1671,12 +1678,14 @@ pub fn cmd_work() -> ClapCommand {
             Arg::new("contract")
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("AI: Show machine-readable contract (JSON schema)"),
         )
         .arg(
             Arg::new("ai-hints")
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
+                .default_value("false")
                 .help("AI: Show workflow patterns and best practices"),
         )
 }
@@ -2614,12 +2623,14 @@ pub fn cmd_pane() -> ClapCommand {
                     Arg::new("contract")
                         .long("contract")
                         .action(clap::ArgAction::SetTrue)
+                        .default_value("false")
                         .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
                 )
                 .arg(
                     Arg::new("ai-hints")
                         .long("ai-hints")
                         .action(clap::ArgAction::SetTrue)
+                        .default_value("false")
                         .help("AI: Show execution hints and common patterns"),
                 ),
         )

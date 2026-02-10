@@ -96,6 +96,23 @@ CREATE TABLE IF NOT EXISTS add_operation_journal (
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 
+CREATE TABLE IF NOT EXISTS agents (
+    agent_id TEXT PRIMARY KEY,
+    registered_at TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    current_session TEXT,
+    current_command TEXT,
+    actions_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS broadcasts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT NOT NULL,
+    sender_id TEXT NOT NULL,
+    sent_to TEXT NOT NULL,
+    timestamp TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_add_operation_state ON add_operation_journal(state);
 
 CREATE INDEX IF NOT EXISTS idx_status ON sessions(status);
@@ -103,6 +120,9 @@ CREATE INDEX IF NOT EXISTS idx_state ON sessions(state);
 CREATE INDEX IF NOT EXISTS idx_name ON sessions(name);
 CREATE INDEX IF NOT EXISTS idx_transitions_session ON state_transitions(session_id);
 CREATE INDEX IF NOT EXISTS idx_transitions_timestamp ON state_transitions(timestamp);
+CREATE INDEX IF NOT EXISTS idx_agents_last_seen ON agents(last_seen);
+CREATE INDEX IF NOT EXISTS idx_agents_session ON agents(current_session);
+CREATE INDEX IF NOT EXISTS idx_broadcasts_timestamp ON broadcasts(timestamp);
 
 CREATE TRIGGER IF NOT EXISTS update_timestamp
 AFTER UPDATE ON sessions

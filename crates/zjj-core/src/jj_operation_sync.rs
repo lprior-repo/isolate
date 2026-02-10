@@ -249,7 +249,7 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
 /// # Ok(())
 /// # }
 /// ```
-pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
+pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) -> Result<()> {
     // Validate inputs
     if name.is_empty() {
         return Err(Error::InvalidConfig(
@@ -257,10 +257,10 @@ pub async fn create_workspace_synced(name: &str, path: &Path) -> Result<()> {
         ));
     }
 
-    // Validate path has parent BEFORE acquiring lock
-    let repo_root = path.parent().ok_or_else(|| {
-        Error::InvalidConfig("workspace path must have a parent directory (repo root)".into())
-    })?;
+    // Use provided repo_root instead of deriving from path parent
+    // This fixes CRITICAL-004: workspace creation fails when workspace_dir is sibling directory
+    // The repo_root parameter is required because the workspace path may not be a direct child
+    // of the repo root (e.g., workspace_dir = "../{repo}__workspaces")
 
     // Acquire global lock to serialize workspace creation
     let _lock = WORKSPACE_CREATION_LOCK.lock().await;

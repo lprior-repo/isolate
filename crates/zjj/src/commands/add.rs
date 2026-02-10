@@ -114,6 +114,7 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
     atomic_create_session(
         &options.name,
         &workspace_path,
+        &root,
         &db,
         bead_metadata,
         create_command_id.as_deref(),
@@ -308,6 +309,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     atomic_create_session(
         &options.name,
         &workspace_path,
+        &root,
         &db,
         bead_metadata,
         create_command_id.as_deref(),

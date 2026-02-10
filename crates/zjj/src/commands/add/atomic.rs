@@ -93,6 +93,7 @@ fn log_add_state(name: &str, state: AddAtomicState, recoverable: bool, detail: &
 pub(super) async fn atomic_create_session(
     name: &str,
     workspace_path: &std::path::Path,
+    repo_root: &std::path::Path,
     db: &SessionDb,
     bead_metadata: Option<serde_json::Value>,
     create_command_id: Option<&str>,
@@ -202,7 +203,7 @@ pub(super) async fn atomic_create_session(
         false,
         "creating jj workspace",
     );
-    let workspace_result = create_jj_workspace(name, workspace_path).await;
+    let workspace_result = create_jj_workspace(name, workspace_path, repo_root).await;
 
     match workspace_result {
         Ok(()) => {
@@ -593,13 +594,18 @@ pub(super) async fn rollback_partial_state(
 ///
 /// This uses the synchronized workspace creation to prevent operation graph
 /// corruption when multiple workspaces are created concurrently.
-async fn create_jj_workspace(name: &str, workspace_path: &std::path::Path) -> Result<()> {
+async fn create_jj_workspace(
+    name: &str,
+    workspace_path: &std::path::Path,
+    repo_root: &std::path::Path,
+) -> Result<()> {
     // Use the synchronized workspace creation to prevent operation graph corruption
     // This ensures:
     // 1. Workspace creations are serialized (prevents concurrent modification)
     // 2. All workspaces are based on the same repository operation
     // 3. Operation graph consistency is verified after creation
-    zjj_core::jj_operation_sync::create_workspace_synced(name, workspace_path)
+    // CRITICAL-004 fix: Pass repo_root explicitly to support sibling workspace directories
+    zjj_core::jj_operation_sync::create_workspace_synced(name, workspace_path, repo_root)
         .await
         .map_err(anyhow::Error::new)?;
 
