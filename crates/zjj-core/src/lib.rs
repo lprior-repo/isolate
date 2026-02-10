@@ -12,6 +12,18 @@
         clippy::panic,
         clippy::todo,
         clippy::unimplemented,
+        clippy::uninlined_format_args,
+        clippy::ignored_unit_patterns,
+        clippy::option_if_let_else,
+        clippy::manual_let_else,
+        clippy::needless_collect,
+        clippy::await_holding_lock,
+        clippy::significant_drop_tightening,
+        clippy::redundant_clone,
+        clippy::no_effect_underscore_binding,
+        clippy::doc_markdown,
+        clippy::unnecessary_semicolon,
+        clippy::needless_borrows_for_generic_args,
         dead_code,
         unused_must_use
     )

@@ -46,17 +46,6 @@
 //! cargo test --test test_chaos_engineering test_init_with_io_chaos
 //! ```
 
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::manual_let_else,
-    clippy::option_if_let_else,
-    clippy::ignored_unit_patterns,
-    clippy::doc_markdown
-)]
 mod chaos_engineering;
 mod common;
 

@@ -23,6 +23,9 @@
     clippy::option_if_let_else,
     clippy::match_same_arms,
     clippy::ignored_unit_patterns,
+    // Async and concurrency relaxations
+    clippy::await_holding_lock,
+    clippy::significant_drop_tightening,
 )]
 //! Async integration tests for file watcher
 //!
@@ -35,11 +38,6 @@
 //! All tests use async/await with tokio and verify events are received
 //! within appropriate timeouts.
 
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::expect_used)]
-#![allow(clippy::too_many_lines)]
 
 use std::time::Duration;
 

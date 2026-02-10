@@ -28,6 +28,10 @@
     // Test-specific patterns
     clippy::needless_raw_string_hashes,
     clippy::bool_assert_comparison,
+    // Async and concurrency relaxations for stress tests
+    clippy::await_holding_lock,
+    clippy::significant_drop_tightening,
+    clippy::needless_continue,
+    clippy::manual_clamp,
 )]
 
-pub use std::path::PathBuf;

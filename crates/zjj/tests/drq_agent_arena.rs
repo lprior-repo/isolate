@@ -44,18 +44,6 @@
 //! - **Round 4**: Concurrency (multi-agent scenarios)
 //! - **Round 5**: Error semantics (retryable vs permanent failures)
 
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-// Import from the test common module
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::manual_let_else,
-    clippy::option_if_let_else,
-    clippy::ignored_unit_patterns,
-    clippy::doc_markdown
-)]
 mod common;
 use common::{parse_json_output, payload, session_entries, validate_schema_envelope, TestHarness};
 use serde_json::Value as JsonValue;

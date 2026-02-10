@@ -6,11 +6,26 @@
 //! - Edge case coverage: Boundary conditions
 //! - Property-based testing: Invariants
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
-#![warn(clippy::pedantic)]
-#![warn(clippy::nursery)]
+// Test code allowances - allow pragmatic testing patterns
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::todo,
+    clippy::unimplemented,
+    clippy::uninlined_format_args,
+    clippy::ignored_unit_patterns,
+    clippy::option_if_let_else,
+    clippy::manual_let_else,
+    clippy::needless_collect,
+    clippy::await_holding_lock,
+    clippy::significant_drop_tightening,
+    clippy::redundant_clone,
+    clippy::no_effect_underscore_binding,
+    clippy::doc_markdown,
+    dead_code,
+    unused_must_use
+)]
 
 use chrono::{DateTime, Utc};
 use serde_json::{from_str, to_string_pretty};

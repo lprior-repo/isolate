@@ -154,7 +154,7 @@ async fn ensure_checkpoint_schema(pool: &sqlx::SqlitePool) -> Result<()> {
     }
 
     // Add backup columns if migrating from version 2
-    if current_version.map_or(false, |v| v < 3) {
+    if current_version.is_some_and(|v| v < 3) {
         migrate_add_backup_columns(pool).await?;
     }
 
@@ -384,6 +384,7 @@ async fn create_checkpoint(
     Ok(CheckpointResponse::Created { checkpoint_id })
 }
 
+#[allow(clippy::too_many_lines)]
 async fn restore_checkpoint(db: &SessionDb, checkpoint_id: &str) -> Result<CheckpointResponse> {
     let pool = db.pool();
 

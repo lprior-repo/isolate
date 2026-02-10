@@ -172,7 +172,7 @@ impl BeadRepository {
                         let title = json
                             .get("title")
                             .and_then(|v| v.as_str())
-                            .map_or_else(|| "Unknown".to_string(), |s| s.to_string());
+                            .map_or_else(|| String::from("Unknown"), String::from);
                         let status_str = json
                             .get("status")
                             .and_then(|v| v.as_str())
@@ -246,7 +246,7 @@ impl BeadRepository {
                     let title = json
                         .get("title")
                         .and_then(|v| v.as_str())
-                        .map_or_else(|| "Unknown".to_string(), |s| s.to_string());
+                        .map_or_else(|| String::from("Unknown"), String::from);
                     let status_str = json
                         .get("status")
                         .and_then(|v| v.as_str())

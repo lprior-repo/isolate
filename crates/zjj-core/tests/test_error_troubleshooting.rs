@@ -24,6 +24,7 @@
     clippy::match_same_arms,
     clippy::ignored_unit_patterns,
 )]
+
 //! Tests for error troubleshooting documentation
 //!
 //! These tests ensure that:
@@ -32,12 +33,6 @@
 //! 3. All error codes have fix commands
 //! 4. Error messages are clear and actionable
 //! 5. Troubleshooting guide is comprehensive
-
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::expect_used)]
-#![allow(clippy::too_many_lines)]
 
 use zjj_core::Error;
 

@@ -27,18 +27,7 @@
 //! Tests for --include-files flag removal (zjj-xcso)
 //!
 //! These tests verify that the misleading --include-files flag has been properly removed.
-//!
-//! Test code uses unwrap/expect idioms for test clarity.
-//! Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::manual_let_else,
-    clippy::option_if_let_else,
-    clippy::ignored_unit_patterns,
-    clippy::doc_markdown
-)]
+
 use std::process::Command;
 
 mod common;

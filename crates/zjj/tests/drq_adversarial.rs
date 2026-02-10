@@ -30,18 +30,6 @@
 //! When behavior is intentionally changed, update these assertions to reflect
 //! the new contract and preserve coverage for the failure mode.
 
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-// Import from the test common module
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::manual_let_else,
-    clippy::option_if_let_else,
-    clippy::ignored_unit_patterns,
-    clippy::doc_markdown
-)]
 mod common;
 use std::fs;
 

@@ -145,7 +145,7 @@ mod tests {
         match fs::write(&db_path, b"test data").await {
             Ok(_) => {}
             Err(e) => panic!("Failed to write test data: {e}"),
-        };
+        }
 
         let config = BackupConfig {
             backup_dir: root.join("backups"),

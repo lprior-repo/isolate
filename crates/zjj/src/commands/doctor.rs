@@ -121,17 +121,14 @@ async fn run_all_checks() -> Vec<DoctorCheck> {
 }
 
 async fn check_pending_add_operations() -> DoctorCheck {
-    let db = match get_session_db().await {
-        Ok(db) => db,
-        Err(_) => {
-            return DoctorCheck {
-                name: "Pending Add Operations".to_string(),
-                status: CheckStatus::Warn,
-                message: "Unable to open database for add operation journal check".to_string(),
-                suggestion: Some("Run 'zjj init' and retry doctor".to_string()),
-                auto_fixable: false,
-                details: None,
-            }
+    let Ok(db) = get_session_db().await else {
+        return DoctorCheck {
+            name: "Pending Add Operations".to_string(),
+            status: CheckStatus::Warn,
+            message: "Unable to open database for add operation journal check".to_string(),
+            suggestion: Some("Run 'zjj init' and retry doctor".to_string()),
+            auto_fixable: false,
+            details: None,
         }
     };
 
@@ -1221,13 +1218,9 @@ async fn run_fixes(
 
                 // Try to fix the issue
                 let fix_result = match check.name.as_str() {
-                    "Orphaned Workspaces" => {
-                        fix_orphaned_workspaces(check, dry_run).await.map_err(|e| e)
-                    }
-                    "Stale Sessions" => fix_stale_sessions(check, dry_run).await.map_err(|e| e),
-                    "Pending Add Operations" => fix_pending_add_operations(check, dry_run)
-                        .await
-                        .map_err(|e| e),
+                    "Orphaned Workspaces" => fix_orphaned_workspaces(check, dry_run).await,
+                    "Stale Sessions" => fix_stale_sessions(check, dry_run).await,
+                    "Pending Add Operations" => fix_pending_add_operations(check, dry_run).await,
                     "State Database" => fix_state_database(check, dry_run)
                         .await
                         .map_err(|e| e.to_string()),

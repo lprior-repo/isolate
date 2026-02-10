@@ -32,17 +32,6 @@
 //! - Proper cleanup of in-flight operations
 //! - Database consistency after shutdown
 
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::manual_let_else,
-    clippy::option_if_let_else,
-    clippy::ignored_unit_patterns,
-    clippy::doc_markdown
-)]
 mod common;
 
 use common::TestHarness;
@@ -333,7 +322,7 @@ fn test_no_orphaned_workspaces_after_interrupted_add() {
             .unwrap_or_else(|e| panic!("Directory exists and is readable: {e}"))
             .filter_map(Result::ok)
             .filter(|e| e.path().is_dir())
-            .filter_map(|e| e.file_name().to_str().map(|s| s.to_string()))
+            .filter_map(|e| e.file_name().to_str().map(String::from))
             .collect();
 
         for session in &created_sessions {

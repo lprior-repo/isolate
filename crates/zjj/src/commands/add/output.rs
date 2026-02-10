@@ -3,6 +3,7 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 use crate::json::AddOutput;
 
 /// Output the result in the appropriate format
+#[allow(clippy::too_many_arguments)]
 pub(super) fn output_result(
     name: &str,
     workspace_path: &str,
