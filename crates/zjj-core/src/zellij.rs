@@ -179,10 +179,33 @@ pub fn generate_template_kdl(config: &LayoutConfig, template: LayoutTemplate) ->
     Ok(kdl)
 }
 
+/// Escape special characters in KDL string values
+///
+/// KDL strings use double quotes, so we need to escape:
+/// - Backslashes and double quotes
+/// - Control characters (newlines, tabs, etc.)
+///
+/// This ensures that paths and commands with special characters
+/// don't break the KDL syntax.
+fn escape_kdl_string(s: &str) -> String {
+    s.chars()
+        .flat_map(|c| match c {
+            '\\' => vec!['\\', '\\'],
+            '"' => vec!['\\', '"'],
+            '\n' => vec!['\\', 'n'],
+            '\r' => vec!['\\', 'r'],
+            '\t' => vec!['\\', 't'],
+            // Other control characters become \uXXXX escapes
+            c if c.is_control() => format!("\\u{:04x}", c as u32).chars().collect(),
+            c => vec![c],
+        })
+        .collect()
+}
+
 /// Generate minimal template: single Claude pane
 fn generate_minimal_kdl(config: &LayoutConfig) -> String {
-    let cwd = config.workspace_path.display();
-    let cmd = &config.claude_command;
+    let cwd = escape_kdl_string(&config.workspace_path.display().to_string());
+    let cmd = escape_kdl_string(&config.claude_command);
 
     format!(
         r#"layout {{
@@ -198,9 +221,9 @@ fn generate_minimal_kdl(config: &LayoutConfig) -> String {
 
 /// Generate standard template: 70% Claude + 30% sidebar (beads 15% + status 15%)
 fn generate_standard_kdl(config: &LayoutConfig) -> String {
-    let cwd = config.workspace_path.display();
-    let claude_cmd = &config.claude_command;
-    let beads_cmd = &config.beads_command;
+    let cwd = escape_kdl_string(&config.workspace_path.display().to_string());
+    let claude_cmd = escape_kdl_string(&config.claude_command);
+    let beads_cmd = escape_kdl_string(&config.beads_command);
 
     format!(
         r#"layout {{
@@ -232,9 +255,9 @@ fn generate_standard_kdl(config: &LayoutConfig) -> String {
 
 /// Generate full template: standard + floating pane
 fn generate_full_kdl(config: &LayoutConfig) -> String {
-    let cwd = config.workspace_path.display();
-    let claude_cmd = &config.claude_command;
-    let beads_cmd = &config.beads_command;
+    let cwd = escape_kdl_string(&config.workspace_path.display().to_string());
+    let claude_cmd = escape_kdl_string(&config.claude_command);
+    let beads_cmd = escape_kdl_string(&config.beads_command);
 
     format!(
         r#"layout {{
@@ -277,8 +300,8 @@ fn generate_full_kdl(config: &LayoutConfig) -> String {
 
 /// Generate split template: two Claude instances side-by-side
 fn generate_split_kdl(config: &LayoutConfig) -> String {
-    let cwd = config.workspace_path.display();
-    let cmd = &config.claude_command;
+    let cwd = escape_kdl_string(&config.workspace_path.display().to_string());
+    let cmd = escape_kdl_string(&config.claude_command);
 
     format!(
         r#"layout {{
@@ -302,9 +325,9 @@ fn generate_split_kdl(config: &LayoutConfig) -> String {
 
 /// Generate review template: diff view + beads + Claude
 fn generate_review_kdl(config: &LayoutConfig) -> String {
-    let cwd = config.workspace_path.display();
-    let claude_cmd = &config.claude_command;
-    let beads_cmd = &config.beads_command;
+    let cwd = escape_kdl_string(&config.workspace_path.display().to_string());
+    let claude_cmd = escape_kdl_string(&config.claude_command);
+    let beads_cmd = escape_kdl_string(&config.beads_command);
 
     format!(
         r#"layout {{
@@ -886,5 +909,90 @@ mod tests {
         let unknown_json =
             serde_json::to_string(&TabStatus::Unknown).unwrap_or_else(|_| String::new());
         assert_eq!(unknown_json, "\"unknown\"");
+    }
+
+    // === Tests for KDL string escaping ===
+
+    #[test]
+    fn test_escape_kdl_string_handles_double_quotes() {
+        let input = r#"path/with/"quotes""#;
+        let escaped = escape_kdl_string(input);
+        assert_eq!(escaped, r#"path/with/\"quotes\""#);
+    }
+
+    #[test]
+    fn test_escape_kdl_string_handles_backslashes() {
+        let input = r#"path\with\backslashes"#;
+        let escaped = escape_kdl_string(input);
+        assert_eq!(escaped, r#"path\\with\\backslashes"#);
+    }
+
+    #[test]
+    fn test_escape_kdl_string_handles_newlines() {
+        let input = "line1\nline2";
+        let escaped = escape_kdl_string(input);
+        assert_eq!(escaped, r#"line1\nline2"#);
+    }
+
+    #[test]
+    fn test_escape_kdl_string_handles_tabs() {
+        let input = "col1\tcol2";
+        let escaped = escape_kdl_string(input);
+        assert_eq!(escaped, r#"col1\tcol2"#);
+    }
+
+    #[test]
+    fn test_escape_kdl_string_handles_carriage_returns() {
+        let input = "line1\rline2";
+        let escaped = escape_kdl_string(input);
+        assert_eq!(escaped, r#"line1\rline2"#);
+    }
+
+    #[test]
+    fn test_escape_kdl_string_handles_mixed_special_chars() {
+        let input = "path\\\"with\\mix\"ed"; // backslash, quote, backslash, quote
+        let escaped = escape_kdl_string(input);
+        // Each backslash becomes double, each quote becomes escaped
+        assert_eq!(escaped, r#"path\\\"with\\mix\"ed"#);
+    }
+
+    #[test]
+    fn test_escape_kdl_string_preserves_normal_characters() {
+        let input = "normal-path-123_abc";
+        let escaped = escape_kdl_string(input);
+        assert_eq!(escaped, input);
+    }
+
+    #[test]
+    fn test_escape_kdl_string_empty_input() {
+        let input = "";
+        let escaped = escape_kdl_string(input);
+        assert_eq!(escaped, "");
+    }
+
+    #[test]
+    fn test_generate_minimal_kdl_with_special_chars_in_path() {
+        let mut config = test_config();
+        // Simulate a path with quotes (though in practice paths wouldn't have quotes)
+        config.workspace_path = PathBuf::from(r#"/path/with/"quotes""#);
+
+        let kdl = generate_minimal_kdl(&config);
+        // Verify the KDL is still valid (balanced braces)
+        assert!(validate_kdl(&kdl).is_ok());
+        // Verify the path is in the KDL (escaped)
+        assert!(kdl.contains(r#"path/with/\"quotes\""#));
+    }
+
+    #[test]
+    fn test_generate_standard_kdl_with_special_chars_in_command() {
+        let mut config = test_config();
+        // Simulate a command with quotes (e.g., command with args)
+        config.claude_command = r#"my "custom" claude"#.to_string();
+
+        let kdl = generate_standard_kdl(&config);
+        // Verify the KDL is still valid
+        assert!(validate_kdl(&kdl).is_ok());
+        // Verify the command is in the KDL (escaped)
+        assert!(kdl.contains(r#"my \"custom\" claude"#));
     }
 }
