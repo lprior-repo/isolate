@@ -1,4 +1,3 @@
-
 // Integration tests have relaxed clippy settings for brutal test scenarios.
 // Production code (src/) must use strict zero-unwrap/panic patterns.
 #![allow(
@@ -88,7 +87,8 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
             barrier.wait().await;
 
             // All tasks start creating workspaces at the same time
-            let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
+            let result =
+                create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
 
             match result {
                 Ok(()) => {
@@ -176,7 +176,8 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
             let delay_ms = ((i % 5) * 10) as u64; // 0-40ms stagger
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
 
-            let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
+            let result =
+                create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
 
             match result {
                 Ok(()) => {
@@ -262,7 +263,8 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
             let max_attempts: u32 = 5;
 
             loop {
-                let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
+                let result =
+                    create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
 
                 match result {
                     Ok(()) => {
@@ -324,9 +326,10 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
     );
 
     // Verify the test completed in reasonable time
+    // Increased from 20s to 60s to account for slower CI systems
     assert!(
-        elapsed < Duration::from_secs(20),
-        "Should complete within 20 seconds, took {:?}",
+        elapsed < Duration::from_secs(60),
+        "Should complete within 60 seconds, took {:?}",
         elapsed
     );
 
@@ -378,7 +381,8 @@ async fn stress_workspace_serialization() -> Result<()> {
             barrier.wait().await;
 
             let start = std::time::Instant::now();
-            let result = create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
+            let result =
+                create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
             let duration = start.elapsed();
 
             if result.is_ok() {

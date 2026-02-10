@@ -72,9 +72,7 @@ pub struct YieldResult {
 }
 
 /// Reserved keywords that cannot be used as resource or agent names
-const RESERVED_KEYWORDS: &[&str] = &[
-    "null", "undefined", "true", "false", "none", "nil", "void",
-];
+const RESERVED_KEYWORDS: &[&str] = &["null", "undefined", "true", "false", "none", "nil", "void"];
 
 /// Validate a resource name for claim/yield operations
 ///
@@ -144,7 +142,8 @@ pub(crate) struct LockInfo {
     resource: String,
     acquired_at: u64,
     expires_at: u64,
-    /// Process ID of the lock holder - security check to prevent other processes from releasing locks
+    /// Process ID of the lock holder - security check to prevent other processes from releasing
+    /// locks
     pid: u32,
 }
 
@@ -1216,7 +1215,10 @@ mod tests {
 
             for name in invalid_names {
                 let result = validate_resource_name(name);
-                assert!(result.is_err(), "Should reject empty/whitespace name: '{name}'");
+                assert!(
+                    result.is_err(),
+                    "Should reject empty/whitespace name: '{name}'"
+                );
                 if let Err(e) = result {
                     let msg = e.to_string();
                     assert!(
@@ -1236,10 +1238,7 @@ mod tests {
 
             for name in reserved {
                 let result = validate_resource_name(name);
-                assert!(
-                    result.is_err(),
-                    "Should reject reserved keyword: '{name}'"
-                );
+                assert!(result.is_err(), "Should reject reserved keyword: '{name}'");
                 if let Err(e) = result {
                     let msg = e.to_string();
                     assert!(
@@ -1297,7 +1296,13 @@ mod tests {
         /// THEN: Should reject them (breaks shell quoting)
         #[test]
         fn validate_agent_id_rejects_spaces() {
-            let invalid_ids = ["agent 1", "agent\ttwo", "agent three", " agent-four ", "a b c"];
+            let invalid_ids = [
+                "agent 1",
+                "agent\ttwo",
+                "agent three",
+                " agent-four ",
+                "a b c",
+            ];
 
             for id in invalid_ids {
                 let result = validate_agent_id_strict(id);
@@ -1337,10 +1342,7 @@ mod tests {
 
             for id in reserved {
                 let result = validate_agent_id_strict(id);
-                assert!(
-                    result.is_err(),
-                    "Should reject reserved keyword: '{id}'"
-                );
+                assert!(result.is_err(), "Should reject reserved keyword: '{id}'");
             }
         }
 

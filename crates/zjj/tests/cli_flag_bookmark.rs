@@ -19,9 +19,7 @@ fn bdd_bookmark_list_json_valid() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("bookmark")
-        .arg("list")
-        .arg("--json");
+    cmd.arg("bookmark").arg("list").arg("--json");
 
     // Should not panic with serialization error
     cmd.assert()
@@ -36,9 +34,7 @@ fn bdd_bookmark_list_json_has_schema() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("bookmark")
-        .arg("list")
-        .arg("--json");
+    cmd.arg("bookmark").arg("list").arg("--json");
 
     cmd.assert()
         .success()
@@ -48,38 +44,34 @@ fn bdd_bookmark_list_json_has_schema() {
 }
 
 #[test]
-fn bdd_bookmark_list_json_has_bookmarks_field() {
-    // Scenario: JSON output includes bookmarks array
+fn bdd_bookmark_list_json_has_data_field() {
+    // Scenario: JSON output includes data array with bookmarks
     //   When I run "zjj bookmark list --json"
-    //   Then it should include a bookmarks field (not flattened)
+    //   Then it should include a data field (per schema envelope standard)
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("bookmark")
-        .arg("list")
-        .arg("--json");
+    cmd.arg("bookmark").arg("list").arg("--json");
 
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("\"bookmarks\""));
+        .stdout(predicate::str::contains("\"data\""));
 }
 
 #[test]
 fn bdd_bookmark_list_empty_returns_valid_json() {
     // Scenario: Empty bookmark list returns valid JSON
     //   When I run "zjj bookmark list --json"
-    //   Then it should return valid JSON with bookmarks field
-    //   And exit code should be 0 (bookmarks array may be empty or not)
+    //   Then it should return valid JSON with data field
+    //   And exit code should be 0 (data array may be empty or not)
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("bookmark")
-        .arg("list")
-        .arg("--json");
+    cmd.arg("bookmark").arg("list").arg("--json");
 
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("\"bookmarks\""))
-        .stdout(predicate::str::contains("["));  // Array marker
+        .stdout(predicate::str::contains("\"data\""))
+        .stdout(predicate::str::contains("[")); // Array marker
 }
 
 #[test]
@@ -90,12 +82,10 @@ fn bdd_bookmark_list_human_output_works() {
     //   Or show "No bookmarks found." if empty
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("bookmark")
-        .arg("list");
+    cmd.arg("bookmark").arg("list");
 
     // Should succeed (either shows bookmarks or "No bookmarks found.")
-    cmd.assert()
-        .success();
+    cmd.assert().success();
 }
 
 #[test]
@@ -106,9 +96,7 @@ fn bdd_bookmark_help_shows_json_flag() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("bookmark")
-        .arg("list")
-        .arg("--help");
+    cmd.arg("bookmark").arg("list").arg("--help");
 
     cmd.assert()
         .success()

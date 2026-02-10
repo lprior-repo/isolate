@@ -34,4 +34,3 @@
     clippy::needless_continue,
     clippy::manual_clamp,
 )]
-

@@ -279,10 +279,8 @@ pub async fn run_list(options: &ListOptions) -> Result<()> {
 
     if options.format.is_json() {
         // Use SchemaEnvelopeArray for Vec data because serde flatten cannot serialize sequences
-        let envelope = zjj_core::json::SchemaEnvelopeArray::new(
-            "bookmark-list-response",
-            bookmarks,
-        );
+        let envelope =
+            zjj_core::json::SchemaEnvelopeArray::new("bookmark-list-response", bookmarks);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else if bookmarks.is_empty() {
         println!("No bookmarks found.");

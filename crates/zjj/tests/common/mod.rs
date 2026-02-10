@@ -12,7 +12,6 @@
 
 // Allow dead code - not all test utilities are used by every test
 #![allow(dead_code)]
-
 // Integration tests have relaxed clippy settings for brutal test scenarios.
 // Production code (src/) must use strict zero-unwrap/panic patterns.
 #![allow(

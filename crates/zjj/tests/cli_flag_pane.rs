@@ -55,15 +55,15 @@ fn bdd_pane_focus_help_shows_new_flags() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("pane")
-        .arg("focus")
-        .arg("--help");
+    cmd.arg("pane").arg("focus").arg("--help");
 
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("--contract"))
         .stdout(predicate::str::contains("--ai-hints"))
-        .stdout(predicate::str::contains("AI: Show machine-readable contract"))
+        .stdout(predicate::str::contains(
+            "AI: Show machine-readable contract",
+        ))
         .stdout(predicate::str::contains("AI: Show execution hints"));
 }
 
@@ -89,11 +89,10 @@ fn bdd_pane_focus_no_panic_with_any_flag_combination() {
         }
 
         // Should not panic (exit code 134 is panic)
-        cmd.assert()
-            .code(
-                predicate::ne(134) // 134 = panic
-                    .and(predicate::ne(101)) // 101 = clap panic
-            );
+        cmd.assert().code(
+            predicate::ne(134) // 134 = panic
+                .and(predicate::ne(101)), // 101 = clap panic
+        );
     }
 }
 

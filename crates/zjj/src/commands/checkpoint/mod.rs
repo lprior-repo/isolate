@@ -656,7 +656,9 @@ async fn backup_workspace(
         // Add workspace contents to tarball
         tar_builder
             .append_dir_all(".", &workspace_path)
-            .with_context(|| format!("Failed to archive workspace: {}", workspace_path.display()))?;
+            .with_context(|| {
+                format!("Failed to archive workspace: {}", workspace_path.display())
+            })?;
 
         // Finish the tarball (this flushes the GzEncoder too)
         let gz_encoder = tar_builder
@@ -728,9 +730,7 @@ async fn restore_workspace(
         // Extract to workspace path
         let workspace_path_display = workspace_path.display().to_string();
         tar_archive.unpack(&workspace_path).map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to extract backup to workspace: {workspace_path_display}: {e}"
-            )
+            anyhow::anyhow!("Failed to extract backup to workspace: {workspace_path_display}: {e}")
         })?;
 
         Ok(())

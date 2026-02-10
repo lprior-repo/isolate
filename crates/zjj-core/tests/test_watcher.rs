@@ -1,4 +1,3 @@
-
 // Integration tests have relaxed clippy settings for brutal test scenarios.
 // Production code (src/) must use strict zero-unwrap/panic patterns.
 #![allow(
@@ -37,7 +36,6 @@
 //!
 //! All tests use async/await with tokio and verify events are received
 //! within appropriate timeouts.
-
 
 use std::time::Duration;
 

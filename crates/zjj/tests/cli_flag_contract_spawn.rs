@@ -20,9 +20,7 @@ fn bdd_spawn_contract_flag_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("spawn")
-        .arg("--contract")
-        .arg("zjj-test");
+    cmd.arg("spawn").arg("--contract").arg("zjj-test");
 
     cmd.assert()
         .success()
@@ -42,9 +40,7 @@ fn bdd_spawn_ai_hints_flag_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("spawn")
-        .arg("--ai-hints")
-        .arg("zjj-test");
+    cmd.arg("spawn").arg("--ai-hints").arg("zjj-test");
 
     cmd.assert()
         .success()
@@ -61,9 +57,7 @@ fn bdd_spawn_with_invalid_bead_still_works() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("spawn")
-        .arg("--contract")
-        .arg("zjj-nonexistent");
+    cmd.arg("spawn").arg("--contract").arg("zjj-nonexistent");
 
     // Should succeed with contract output, not fail on bead validation
     cmd.assert()
@@ -79,14 +73,15 @@ fn bdd_spawn_without_flags_runs_normally() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("spawn")
-        .arg("--help");
+    cmd.arg("spawn").arg("--help");
 
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("--contract"))
         .stdout(predicate::str::contains("--ai-hints"))
-        .stdout(predicate::str::contains("AI: Show machine-readable contract"))
+        .stdout(predicate::str::contains(
+            "AI: Show machine-readable contract",
+        ))
         .stdout(predicate::str::contains("AI: Show execution hints"));
 }
 
@@ -112,10 +107,9 @@ fn bdd_no_panic_with_any_flag_combination() {
         }
 
         // Should not panic (exit code 134 is panic)
-        cmd.assert()
-            .code(
-                predicate::ne(134) // 134 = panic
-                    .and(predicate::ne(101)) // 101 = clap panic
-            );
+        cmd.assert().code(
+            predicate::ne(134) // 134 = panic
+                .and(predicate::ne(101)), // 101 = clap panic
+        );
     }
 }

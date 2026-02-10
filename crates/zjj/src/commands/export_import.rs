@@ -290,12 +290,11 @@ async fn import_session(
     let name = &session.name;
 
     // Validate and parse the timestamp, using current time if not provided
-    let created_timestamp = validate_and_parse_timestamp(session.created_at.as_ref())?
-        .unwrap_or_else(chrono::Utc::now);
+    let created_timestamp =
+        validate_and_parse_timestamp(session.created_at.as_ref())?.unwrap_or_else(chrono::Utc::now);
 
     // Convert DateTime to unix timestamp
-    let created_ts = u64::try_from(created_timestamp.timestamp())
-        .unwrap_or(u64::MAX);
+    let created_ts = u64::try_from(created_timestamp.timestamp()).unwrap_or(u64::MAX);
 
     let _created: Session = db
         .create_with_timestamp(name, workspace_path, created_ts)

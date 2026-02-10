@@ -129,9 +129,8 @@ pub struct SessionUpdate {
 }
 
 /// Reserved keywords that cannot be used as session names
-const RESERVED_SESSION_NAMES: &[&str] = &[
-    "null", "undefined", "true", "false", "none", "nil", "void",
-];
+const RESERVED_SESSION_NAMES: &[&str] =
+    &["null", "undefined", "true", "false", "none", "nil", "void"];
 
 /// Validate a session name
 ///
@@ -184,10 +183,13 @@ pub fn validate_session_name(name: &str) -> Result<()> {
 
     // Check for reserved keywords (case-insensitive)
     let lower = name.to_lowercase();
-    if RESERVED_SESSION_NAMES.iter().any(|&keyword| keyword == lower) {
-        return Err(Error::ValidationError(
-            format!("Session name '{name}' is a reserved keyword and cannot be used"),
-        ));
+    if RESERVED_SESSION_NAMES
+        .iter()
+        .any(|&keyword| keyword == lower)
+    {
+        return Err(Error::ValidationError(format!(
+            "Session name '{name}' is a reserved keyword and cannot be used"
+        )));
     }
 
     Ok(())

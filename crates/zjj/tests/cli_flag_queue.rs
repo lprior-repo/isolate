@@ -20,8 +20,7 @@ fn bdd_queue_list_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("queue")
-        .arg("--list");
+    cmd.arg("queue").arg("--list");
 
     // Should not panic (exit code 134 is panic, 101 is clap panic)
     cmd.assert()
@@ -36,9 +35,7 @@ fn bdd_queue_list_json_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("queue")
-        .arg("--list")
-        .arg("--json");
+    cmd.arg("queue").arg("--list").arg("--json");
 
     // Should not panic and return valid JSON
     cmd.assert()
@@ -54,8 +51,7 @@ fn bdd_queue_stats_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("queue")
-        .arg("--stats");
+    cmd.arg("queue").arg("--stats");
 
     // Should not panic
     cmd.assert()
@@ -70,8 +66,7 @@ fn bdd_queue_next_does_not_panic() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("queue")
-        .arg("--next");
+    cmd.arg("queue").arg("--next");
 
     // Should not panic
     cmd.assert()
@@ -86,8 +81,7 @@ fn bdd_queue_priority_flag_type_correct() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("queue")
-        .arg("--help");
+    cmd.arg("queue").arg("--help");
 
     cmd.assert()
         .success()
@@ -119,11 +113,10 @@ fn bdd_queue_no_panic_with_any_subcommand() {
         }
 
         // Should not panic with type mismatch
-        cmd.assert()
-            .code(
-                predicate::ne(134) // 134 = panic
-                    .and(predicate::ne(101)) // 101 = clap panic
-            );
+        cmd.assert().code(
+            predicate::ne(134) // 134 = panic
+                .and(predicate::ne(101)), // 101 = clap panic
+        );
     }
 }
 
@@ -135,9 +128,7 @@ fn bdd_queue_json_output_valid() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("queue")
-        .arg("--list")
-        .arg("--json");
+    cmd.arg("queue").arg("--list").arg("--json");
 
     cmd.assert()
         .success()
@@ -154,9 +145,7 @@ fn bdd_queue_stats_json_valid() {
     //   And exit code should be 0
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-    cmd.arg("queue")
-        .arg("--stats")
-        .arg("--json");
+    cmd.arg("queue").arg("--stats").arg("--json");
 
     cmd.assert()
         .success()

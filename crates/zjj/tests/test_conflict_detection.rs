@@ -1,4 +1,3 @@
-
 // Integration tests have relaxed clippy settings for brutal test scenarios.
 // Production code (src/) must use strict zero-unwrap/panic patterns.
 #![allow(
@@ -28,4 +27,3 @@
 //!
 //! Tests for `zjj done --detect-conflicts` flag
 //! Behavior-driven tests following Martin Fowler's TDD approach
-

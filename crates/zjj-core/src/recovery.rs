@@ -248,11 +248,13 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
     let timeout_seconds = 300i64; // 5 minutes
     let cutoff_time = chrono::Utc::now().timestamp() - timeout_seconds;
 
-    let rows = sqlx::query("SELECT name, created_at FROM sessions WHERE status = 'creating' AND created_at < ?")
-        .bind(cutoff_time)
-        .fetch_all(&pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to query sessions: {e}")))?;
+    let rows = sqlx::query(
+        "SELECT name, created_at FROM sessions WHERE status = 'creating' AND created_at < ?",
+    )
+    .bind(cutoff_time)
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| Error::DatabaseError(format!("Failed to query sessions: {e}")))?;
 
     let recovered_count = rows.len();
 
@@ -282,12 +284,19 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
                     let created_at: i64 = row.get("created_at");
                     let age_seconds = chrono::Utc::now().timestamp() - created_at;
                     let age_mins = age_seconds / 60;
-                    eprintln!("  - {} (stuck for {}m {}s)", name, age_mins, age_seconds % 60);
+                    eprintln!(
+                        "  - {} (stuck for {}m {}s)",
+                        name,
+                        age_mins,
+                        age_seconds % 60
+                    );
                 }
                 eprintln!("Removing incomplete sessions...");
 
                 log_recovery(
-                    &format!("Removing {recovered_count} incomplete session(s) older than 5 minutes"),
+                    &format!(
+                        "Removing {recovered_count} incomplete session(s) older than 5 minutes"
+                    ),
                     config,
                 )
                 .await

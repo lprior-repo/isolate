@@ -246,9 +246,7 @@ fn print_human_readable(output: &AgentsOutput) {
 // ============================================================================
 
 /// Reserved keywords that cannot be used as agent IDs
-const RESERVED_AGENT_IDS: &[&str] = &[
-    "null", "undefined", "true", "false", "none", "nil", "void",
-];
+const RESERVED_AGENT_IDS: &[&str] = &["null", "undefined", "true", "false", "none", "nil", "void"];
 
 /// Validate that an agent ID is non-empty and not just whitespace
 ///

@@ -14,9 +14,8 @@ mod tests;
 use anyhow::Result;
 use zjj_core::coordination::locks::LockManager;
 
-use crate::commands::get_session_db;
-
 use self::types::{LockArgs, LockOutput, UnlockArgs, UnlockOutput};
+use crate::commands::get_session_db;
 
 pub async fn run_lock_async(args: &LockArgs, mgr: &LockManager) -> Result<LockOutput> {
     let agent_id = args
@@ -56,7 +55,10 @@ pub async fn run_unlock_async(args: &UnlockArgs, mgr: &LockManager) -> Result<Un
     let session_exists = db.get(&args.session).await?.is_some();
 
     if !session_exists {
-        anyhow::bail!("SESSION_NOT_FOUND: Session '{}' does not exist", args.session);
+        anyhow::bail!(
+            "SESSION_NOT_FOUND: Session '{}' does not exist",
+            args.session
+        );
     }
 
     let agent_id = args
