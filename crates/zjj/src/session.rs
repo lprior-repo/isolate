@@ -128,6 +128,11 @@ pub struct SessionUpdate {
     pub metadata: Option<serde_json::Value>,
 }
 
+/// Reserved keywords that cannot be used as session names
+const RESERVED_SESSION_NAMES: &[&str] = &[
+    "null", "undefined", "true", "false", "none", "nil", "void",
+];
+
 /// Validate a session name
 ///
 /// Session names must:
@@ -135,6 +140,7 @@ pub struct SessionUpdate {
 /// - Not exceed 64 characters
 /// - Only contain ASCII alphanumeric characters, dashes, and underscores
 /// - Start with a letter (a-z, A-Z)
+/// - Not be a reserved keyword
 pub fn validate_session_name(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::ValidationError(
@@ -174,6 +180,14 @@ pub fn validate_session_name(name: &str) -> Result<()> {
                 "Invalid session name: Session name must start with a letter (a-z, A-Z)".into(),
             ));
         }
+    }
+
+    // Check for reserved keywords (case-insensitive)
+    let lower = name.to_lowercase();
+    if RESERVED_SESSION_NAMES.iter().any(|&keyword| keyword == lower) {
+        return Err(Error::ValidationError(
+            format!("Session name '{name}' is a reserved keyword and cannot be used"),
+        ));
     }
 
     Ok(())

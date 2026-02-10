@@ -53,12 +53,7 @@ pub async fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, Und
         }
         Err(e) => {
             output_error(e, options.format)?;
-            Ok(match e {
-                UndoError::AlreadyPushedToRemote { .. } => UndoExitCode::AlreadyPushed,
-                UndoError::NoUndoHistory => UndoExitCode::NoHistory,
-                UndoError::InvalidState { .. } => UndoExitCode::InvalidState,
-                _ => UndoExitCode::OtherError,
-            })
+            Err(e)
         }
     }
 }

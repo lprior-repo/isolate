@@ -29,6 +29,8 @@ pub struct RenameOptions {
     pub new_name: String,
     /// Dry-run mode
     pub dry_run: bool,
+    /// Skip Zellij integration
+    pub no_zellij: bool,
     /// Output format
     pub format: OutputFormat,
 }
@@ -110,14 +112,10 @@ fn output_error_json(old_name: &str, new_name: &str, error_msg: &str) -> Result<
 /// - Exit 4: Other errors (Zellij command failed, database errors)
 #[allow(clippy::too_many_lines)]
 pub async fn run(options: &RenameOptions) -> Result<()> {
-    // REQUIREMENT [IF2]: If not inside Zellij, exit 2 with message
+    // REQUIREMENT [IF2]: If not inside Zellij and --no-zellij not set, exit 2 with message
     // Use ValidationError which maps to exit code 1 (validation failure)
-    if !is_inside_zellij() {
-        let error_msg = "Not inside a Zellij session. Use 'zjj rename' from within Zellij.";
-        if options.format.is_json() {
-            output_error_json(&options.old_name, &options.new_name, error_msg)?;
-        }
-        anyhow::bail!(error_msg);
+    if !options.no_zellij && !is_inside_zellij() {
+        anyhow::bail!("Not inside a Zellij session. Use 'zjj rename' from within Zellij or use --no-zellij flag.");
     }
 
     let db = get_session_db().await?;
@@ -161,11 +159,7 @@ pub async fn run(options: &RenameOptions) -> Result<()> {
 
     // Check new name doesn't exist
     if db.get(&options.new_name).await?.is_some() {
-        let error_msg = format!("Session '{}' already exists", options.new_name);
-        if options.format.is_json() {
-            output_error_json(&options.old_name, &options.new_name, &error_msg)?;
-        }
-        anyhow::bail!(error_msg);
+        anyhow::bail!("Session '{}' already exists", options.new_name);
     }
 
     let old_tab_name = session.zellij_tab.clone();
@@ -205,8 +199,10 @@ pub async fn run(options: &RenameOptions) -> Result<()> {
         return Ok(());
     }
 
-    // REQUIREMENT [E1]: Rename Zellij tab via action
-    rename_zellij_tab(&new_tab_name).await?;
+    // REQUIREMENT [E1]: Rename Zellij tab via action (skip if --no-zellij)
+    if !options.no_zellij {
+        rename_zellij_tab(&new_tab_name).await?;
+    }
 
     // Rename workspace directory
     let workspace_path = &session.workspace_path;
@@ -364,13 +360,28 @@ mod tests {
             old_name: "feature-a".to_string(),
             new_name: "feature-b".to_string(),
             dry_run: false,
+            no_zellij: false,
             format: OutputFormat::Human,
         };
 
         assert_eq!(options.old_name, "feature-a");
         assert_eq!(options.new_name, "feature-b");
         assert!(!options.dry_run);
+        assert!(!options.no_zellij);
         assert_eq!(options.format, OutputFormat::Human);
+    }
+
+    #[test]
+    fn test_rename_options_no_zellij() {
+        let options = RenameOptions {
+            old_name: "feature-a".to_string(),
+            new_name: "feature-b".to_string(),
+            dry_run: false,
+            no_zellij: true,
+            format: OutputFormat::Human,
+        };
+
+        assert!(options.no_zellij, "Should have no_zellij flag set");
     }
 
     #[test]

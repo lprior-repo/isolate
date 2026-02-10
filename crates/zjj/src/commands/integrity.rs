@@ -295,7 +295,7 @@ async fn run_repair(
                 eprintln!("Repair failed: {e}");
             }
 
-            Ok(())
+            Err(e)
         }
     }
 }
@@ -452,7 +452,7 @@ async fn run_backup_restore(
                 eprintln!("Restore failed: {e}");
             }
 
-            Ok(())
+            Err(e)
         }
     }
 }

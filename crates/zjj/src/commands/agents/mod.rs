@@ -245,16 +245,35 @@ fn print_human_readable(output: &AgentsOutput) {
 // Agent Self-Management Subcommands
 // ============================================================================
 
+/// Reserved keywords that cannot be used as agent IDs
+const RESERVED_AGENT_IDS: &[&str] = &[
+    "null", "undefined", "true", "false", "none", "nil", "void",
+];
+
 /// Validate that an agent ID is non-empty and not just whitespace
 ///
 /// # Errors
 ///
-/// Returns error if the agent ID is empty or consists only of whitespace
+/// Returns error if:
+/// - Agent ID is empty or consists only of whitespace
+/// - Agent ID contains spaces or newlines (breaks shell quoting)
+/// - Agent ID is a reserved keyword
 pub fn validate_agent_id(agent_id: &str) -> Result<()> {
     let trimmed = agent_id.trim();
 
     if trimmed.is_empty() {
         anyhow::bail!("Agent ID cannot be empty or whitespace-only");
+    }
+
+    // Check for spaces and newlines (breaks shell quoting)
+    if agent_id.chars().any(|c| c.is_whitespace()) {
+        anyhow::bail!("Agent ID cannot contain whitespace characters (spaces, tabs, newlines)");
+    }
+
+    // Check for reserved keywords (case-insensitive)
+    let lower = trimmed.to_lowercase();
+    if RESERVED_AGENT_IDS.iter().any(|&keyword| keyword == lower) {
+        anyhow::bail!("Agent ID '{0}' is a reserved keyword and cannot be used", trimmed);
     }
 
     // If the trimmed version differs from the original, warn but accept it

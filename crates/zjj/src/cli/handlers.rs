@@ -485,11 +485,7 @@ pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    // Parse priority as String to avoid clap type downcast issues
-    let priority = sub_m
-        .get_one::<String>("priority")
-        .and_then(|s| s.parse::<i32>().ok())
-        .unwrap_or(5);
+    let priority = sub_m.get_one::<i32>("priority").copied().unwrap_or(5);
     let options = queue::QueueOptions {
         format,
         add: sub_m.get_one::<String>("add").cloned(),
@@ -1032,10 +1028,12 @@ pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
         .get_one::<String>("new_name")
         .cloned()
         .ok_or_else(|| anyhow::anyhow!("new_name is required"))?;
+    let no_zellij = sub_m.get_flag("no-zellij");
     let options = rename::RenameOptions {
         old_name,
         new_name,
         dry_run: false,
+        no_zellij,
         format,
     };
     rename::run(&options).await

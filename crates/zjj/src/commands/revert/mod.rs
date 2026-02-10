@@ -43,12 +43,7 @@ pub async fn run_with_options(options: &RevertOptions) -> Result<RevertExitCode,
         }
         Err(e) => {
             output_error(e, options.format)?;
-            Ok(match e {
-                RevertError::SessionNotFound { .. } => RevertExitCode::SessionNotFound,
-                RevertError::AlreadyPushedToRemote { .. } => RevertExitCode::AlreadyPushed,
-                RevertError::InvalidState { .. } => RevertExitCode::InvalidState,
-                _ => RevertExitCode::OtherError,
-            })
+            Err(e)
         }
     }
 }

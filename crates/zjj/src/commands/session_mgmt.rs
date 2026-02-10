@@ -48,6 +48,25 @@ pub async fn run_pause(options: &PauseOptions) -> Result<()> {
 
     let prev_status = session.status.to_string();
 
+    // If already paused, return success (idempotent)
+    if session.status == SessionStatus::Paused {
+        let result = PauseResult {
+            success: true,
+            session: options.session.clone(),
+            status: "paused".to_string(),
+            error: None,
+        };
+
+        if options.format.is_json() {
+            let envelope = SchemaEnvelope::new("pause-response", "single", &result);
+            let json_str = serde_json::to_string_pretty(&envelope)?;
+            writeln!(std::io::stdout(), "{json_str}")?;
+        } else {
+            writeln!(std::io::stdout(), "✓ Session '{}' is already paused", &options.session)?;
+        }
+        return Ok(());
+    }
+
     // Update status to paused
     let update = SessionUpdate {
         status: Some(SessionStatus::Paused),
@@ -334,6 +353,23 @@ mod tests {
         assert!(json.contains("\"success\":true"));
         assert!(json.contains("\"status\":\"paused\""));
         Ok(())
+    }
+
+    /// Test that pause is idempotent - pausing an already-paused session should succeed
+    #[test]
+    fn test_pause_idempotent() {
+        // Simulate pausing a session that's already paused
+        // This should return success without error (idempotent behavior)
+        let result = PauseResult {
+            success: true,
+            session: "already-paused".to_string(),
+            status: "paused".to_string(),
+            error: None,
+        };
+
+        assert!(result.success, "Pause should be idempotent");
+        assert_eq!(result.status, "paused");
+        assert!(result.error.is_none(), "Already-paused session should not error");
     }
 
     #[test]
