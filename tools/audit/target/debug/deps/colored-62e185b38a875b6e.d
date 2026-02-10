@@ -1,0 +1,12 @@
+/home/lewis/src/zjj/tools/audit/target/debug/deps/colored-62e185b38a875b6e.d: /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/lib.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/color.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/control.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/error.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/style.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/customcolors.rs
+
+/home/lewis/src/zjj/tools/audit/target/debug/deps/libcolored-62e185b38a875b6e.rlib: /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/lib.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/color.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/control.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/error.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/style.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/customcolors.rs
+
+/home/lewis/src/zjj/tools/audit/target/debug/deps/libcolored-62e185b38a875b6e.rmeta: /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/lib.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/color.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/control.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/error.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/style.rs /cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/customcolors.rs
+
+/cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/lib.rs:
+/cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/color.rs:
+/cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/control.rs:
+/cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/error.rs:
+/cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/style.rs:
+/cache/cargo-shared/registry/src/index.crates.io-1949cf8c6b5b557f/colored-2.2.0/src/customcolors.rs:
