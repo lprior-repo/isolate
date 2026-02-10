@@ -38,6 +38,12 @@ Thumbs.db
 workspaces/
 .tdd15-worktree/
 
+# Test workspaces (contain nested .jj directories)
+crates/*/test-workspaces-*/
+crates/*/test-workspaces-retry-*/
+crates/*/test-workspaces-serialize-*/
+crates/*/test-workspaces-staggered-*/
+
 # bv (beads viewer) local config and caches
 .bv/
 .beads/.br_history/
