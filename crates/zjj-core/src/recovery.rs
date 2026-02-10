@@ -243,8 +243,13 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
         return Ok(0);
     };
 
-    // Query for incomplete sessions
-    let rows = sqlx::query("SELECT name, created_at FROM sessions WHERE status = 'creating'")
+    // Query for incomplete sessions older than timeout (5 minutes)
+    // Only recover sessions that have been stuck to avoid race conditions with active creation
+    let timeout_seconds = 300i64; // 5 minutes
+    let cutoff_time = chrono::Utc::now().timestamp() - timeout_seconds;
+
+    let rows = sqlx::query("SELECT name, created_at FROM sessions WHERE status = 'creating' AND created_at < ?")
+        .bind(cutoff_time)
         .fetch_all(&pool)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to query sessions: {e}")))?;
@@ -255,28 +260,34 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
         match config.policy {
             crate::RecoveryPolicy::FailFast => {
                 return Err(Error::DatabaseError(format!(
-                    "Found {recovered_count} incomplete session(s). Recovery disabled in fail-fast mode.\n\n\
+                    "Found {recovered_count} incomplete session(s) older than 5 minutes. Recovery disabled in fail-fast mode.\n\n\
                      Sessions stuck in 'creating' status:\n{}\
                      To fix, run: zjj doctor --fix",
                     rows.iter()
                         .map(|row| {
                             let name: String = row.get("name");
-                            format!("  - {name}")
+                            let created_at: i64 = row.get("created_at");
+                            let age_seconds = chrono::Utc::now().timestamp() - created_at;
+                            let age_mins = age_seconds / 60;
+                            format!("  - {} (stuck for {}m {}s)", name, age_mins, age_seconds % 60)
                         })
                         .collect::<Vec<_>>()
                         .join("\n")
                 )));
             }
             crate::RecoveryPolicy::Warn => {
-                eprintln!("⚠  Found {recovered_count} incomplete session(s)");
+                eprintln!("⚠  Found {recovered_count} incomplete session(s) older than 5 minutes");
                 for row in &rows {
                     let name: String = row.get("name");
-                    eprintln!("  - {name}");
+                    let created_at: i64 = row.get("created_at");
+                    let age_seconds = chrono::Utc::now().timestamp() - created_at;
+                    let age_mins = age_seconds / 60;
+                    eprintln!("  - {} (stuck for {}m {}s)", name, age_mins, age_seconds % 60);
                 }
                 eprintln!("Removing incomplete sessions...");
 
                 log_recovery(
-                    &format!("Removing {recovered_count} incomplete session(s)"),
+                    &format!("Removing {recovered_count} incomplete session(s) older than 5 minutes"),
                     config,
                 )
                 .await
