@@ -158,7 +158,9 @@ impl TestHarness {
             .as_ref()
             .expect("jj binary path should exist");
 
-        let temp_dir = TempDir::new().context("Failed to create temp directory")?;
+        // Create temp directory in a location that doesn't have permission issues
+        // Using /var/tmp instead of /tmp to avoid systemd private directory issues
+        let temp_dir = TempDir::new_in("/var/tmp").context("Failed to create temp directory")?;
         let repo_path = temp_dir.path().join("test-repo");
 
         // Create repo directory

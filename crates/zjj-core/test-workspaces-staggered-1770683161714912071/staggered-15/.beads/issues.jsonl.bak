@@ -1,0 +1,20 @@
+{
+  "id": "zjj-cz0f",
+  "title": "fix(config): Eliminate TOCTTOU race in config loading (DONE)",
+  "description": "During concurrency analysis, several Time-Of-Check-Time-Of-Use (TOCTTOU) race conditions were identified in the config loading code. These are acceptable trade-offs due to low severity and appropriate error handling.\n\n**Locations with acceptable TOCTTOU:**\n\n1. **crates/zjj-core/src/config.rs:625-629** - Global config loading\n   - Pattern: `if global_path.exists() { load... }`\n   - File could be deleted between exists() check and load_toml_file()\n   - Mitigated: load_toml_file handles IoError gracefully\n\n2. **crates/zjj-core/src/config.rs:633-637** - Project config loading\n   - Pattern: `if project_path.exists() { load... }`\n   - File could be deleted between exists() check and load_toml_file()\n   - Mitigated: load_toml_file handles IoError gracefully\n\n3. **crates/zjj-core/src/config.rs:453-461** - Watcher setup\n   - Pattern: `if watch_result.is_err() { watch parent }`\n   - Directory structure could change between watch attempts\n   - Mitigated: Watcher failures are non-fatal, logged as warnings\n\n**Why these are acceptable:**\n\n- **Low severity**: Errors handled gracefully with Result types, no data corruption\n- **Non-critical paths**: Config loading failures don't corrupt state, just use defaults\n- **Fail-fast behavior**: Appropriate for these scenarios - missing config shouldn't crash\n- **Core concurrency**: Critical paths (locks, queues, workspace creation) are properly protected\n\n**Mitigation strategies if they become problematic:**\n\n- Replace `exists() then load` with `try-load-and-handle-error` pattern\n- Document the error handling expectations more explicitly\n- Consider atomic file operations for config updates\n\n**Context:**\n\nThese were identified during a comprehensive concurrency audit. The critical concurrency primitives (database locks, session state, workspace creation) have proper synchronization. These config loading patterns are in warm paths where the occasional race is acceptable.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "docs",
+  "created_at": "2026-02-09T10:09:04.239342585Z",
+  "created_by": "lewis",
+  "updated_at": "2026-02-09T10:16:43.870493339Z",
+  "closed_at": "2026-02-09T10:16:43.870452570Z",
+  "source_repo": ".",
+  "compaction_level": 0,
+  "original_size": 0,
+  "labels": [
+    "acceptable-risk",
+    "concurrency",
+    "documentation"
+  ]
+}

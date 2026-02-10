@@ -1,0 +1,21 @@
+#!/bin/bash
+# Monitor Planner Agent 1 status
+
+echo "=== Planner Agent 1 Status ==="
+echo ""
+echo "Process Status:"
+ps aux | grep -E "[p]lanner-agent-1.sh|[p]lanner.*loop" || echo "  No planner agent process found"
+echo ""
+echo "Ready for Planning:"
+br list --label "stage:ready-planner" --status open --json | jq -r '.[].id' | wc -l | xargs echo "  Count:"
+br list --label "stage:ready-planner" --status open --json | jq -r '.[].id' | sed 's/^/    - /' || echo "    (none)"
+echo ""
+echo "Currently Planning:"
+br list --label "stage:planning" --status in_progress --json | jq -r '.[].id' | wc -l | xargs echo "  Count:"
+br list --label "stage:planning" --status in_progress --json | jq -r '.[].id' | sed 's/^/    - /' || echo "    (none)"
+echo ""
+echo "Ready for Architect:"
+br list --label "stage:ready-architect" --status open --json | jq -r '.[].id' | wc -l | xargs echo "  Count:"
+echo ""
+echo "Recent Planner Transitions (last 10):"
+tail -10 /home/lewis/src/zjj/.crackpipe/BEADS.md | grep "planner-1" || echo "  No recent transitions"

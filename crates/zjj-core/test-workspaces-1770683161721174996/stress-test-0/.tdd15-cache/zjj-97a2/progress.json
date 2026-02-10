@@ -1,0 +1,59 @@
+{
+  "bead_id": "zjj-97a2",
+  "phase": 1,
+  "phases": {
+    "0_TRIAGE": "complete",
+    "1_RESEARCH": "in_progress",
+    "2_PLAN": "pending",
+    "3_VERIFY": "pending",
+    "4_RED": "pending",
+    "5_GREEN": "pending",
+    "6_REFACTOR": "pending",
+    "7_MF1": "pending",
+    "8_IMPLEMENT": "pending",
+    "9_VERIFY_CRITERIA": "pending",
+    "10_FP_GATES": "pending",
+    "11_QA": "pending",
+    "12_MF2": "pending",
+    "13_CONSISTENCY": "pending",
+    "14_LIABILITY": "pending",
+    "15_LANDING": "pending"
+  },
+  "complexity": "ASSESSING",
+  "language": "rust",
+  "gates": {
+    "complexity_assessed": false,
+    "sufficient_context": false,
+    "plan_verified": false,
+    "plan_verified_llm": false,
+    "tests_fail": false,
+    "tests_pass": [],
+    "tests_green": false,
+    "martin_fowler_1": false,
+    "implementation_complete": false,
+    "criteria_met": false,
+    "no_critical_issues": false,
+    "qa_pass": false,
+    "martin_fowler_2": false,
+    "standards_met": false,
+    "minimized": false,
+    "push_succeeded": false
+  },
+  "files": {
+    "spawn_mod": "crates/zjj/src/commands/spawn/mod.rs",
+    "spawn_types": "crates/zjj/src/commands/spawn/types.rs",
+    "done_mod": "crates/zjj/src/commands/done/mod.rs",
+    "done_types": "crates/zjj/src/commands/done/types.rs",
+    "main": "crates/zjj/src/main.rs"
+  },
+  "criteria": [
+    "spawn command compiles without clippy warnings",
+    "done command compiles without clippy warnings",
+    "merge_to_main properly implemented in spawn",
+    "to_options() pattern used in main.rs handlers",
+    "integration tests added for both commands",
+    "zero panics (no unwrap, expect, todo, unimplemented)",
+    "Railway-Oriented Programming pattern maintained"
+  ],
+  "retries": {}
+}

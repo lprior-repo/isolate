@@ -1,0 +1,15 @@
+$schema: "https://moonrepo.dev/schemas/workspace.json"
+
+# Project: {{ project_name }}
+# Version: {{ version }}
+
+vcs:
+  manager: "git"
+  defaultBranch: "main"
+
+projects:
+  - "crates/*"
+
+runner:
+  cacheLifetime: "7 days"
+  logRunningCommand: true
