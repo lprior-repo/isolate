@@ -489,7 +489,8 @@ mod tests {
     #[tokio::test]
     async fn test_empty_workspace_name_returns_error() {
         let temp_dir = std::env::temp_dir().join("test-empty-name");
-        let result = create_workspace_synced("", &temp_dir).await;
+        let repo_root = std::env::temp_dir().join("test-repo-root");
+        let result = create_workspace_synced("", &temp_dir, &repo_root).await;
         assert!(result.is_err());
 
         match result {
@@ -506,7 +507,8 @@ mod tests {
         // Test that workspace path without parent directory returns error
         // Use "/" which has no parent
         let workspace_path = PathBuf::from("/");
-        let result = create_workspace_synced("test", &workspace_path).await;
+        let repo_root = std::env::temp_dir().join("test-repo-root");
+        let result = create_workspace_synced("test", &workspace_path, &repo_root).await;
 
         match result {
             Err(Error::InvalidConfig(msg)) => {
