@@ -266,14 +266,14 @@ pub fn validate_agent_id(agent_id: &str) -> Result<()> {
     }
 
     // Check for spaces and newlines (breaks shell quoting)
-    if agent_id.chars().any(|c| c.is_whitespace()) {
+    if agent_id.chars().any(char::is_whitespace) {
         anyhow::bail!("Agent ID cannot contain whitespace characters (spaces, tabs, newlines)");
     }
 
     // Check for reserved keywords (case-insensitive)
     let lower = trimmed.to_lowercase();
     if RESERVED_AGENT_IDS.iter().any(|&keyword| keyword == lower) {
-        anyhow::bail!("Agent ID '{0}' is a reserved keyword and cannot be used", trimmed);
+        anyhow::bail!("Agent ID '{trimmed}' is a reserved keyword and cannot be used");
     }
 
     // If the trimmed version differs from the original, warn but accept it
