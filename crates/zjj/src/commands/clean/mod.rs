@@ -5,7 +5,7 @@ use std::{io::Write, time::Duration};
 use anyhow::Result;
 use futures::{StreamExt, TryStreamExt};
 use serde::Serialize;
-use zjj_core::OutputFormat;
+use zjj_core::{OutputFormat, SchemaEnvelope};
 
 use crate::commands::get_session_db;
 

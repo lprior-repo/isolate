@@ -53,7 +53,7 @@ pub async fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, Und
         }
         Err(e) => {
             output_error(e, options.format)?;
-            Err(e)
+            Err(e.clone())
         }
     }
 }

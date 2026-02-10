@@ -83,24 +83,6 @@ async fn rename_zellij_tab(new_tab_name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Output error result as JSON and exit
-fn output_error_json(old_name: &str, new_name: &str, error_msg: &str) -> Result<()> {
-    let result = RenameResult {
-        success: false,
-        old_name: old_name.to_string(),
-        new_name: new_name.to_string(),
-        old_tab_name: None,
-        new_tab_name: None,
-        dry_run: false,
-        error: Some(error_msg.to_string()),
-    };
-
-    let envelope = SchemaEnvelope::new("rename-response", "single", &result);
-    let json_str = serde_json::to_string_pretty(&envelope)?;
-    writeln!(std::io::stdout(), "{json_str}")?;
-    Ok(())
-}
-
 /// Run the rename command
 ///
 /// # Errors

@@ -43,7 +43,7 @@ pub async fn run_with_options(options: &RevertOptions) -> Result<RevertExitCode,
         }
         Err(e) => {
             output_error(e, options.format)?;
-            Err(e)
+            Err(e.clone())
         }
     }
 }

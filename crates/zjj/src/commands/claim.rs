@@ -95,12 +95,12 @@ fn validate_resource_name(resource: &str) -> Result<()> {
     // Check for reserved keywords (case-insensitive)
     let lower = trimmed.to_lowercase();
     if RESERVED_KEYWORDS.iter().any(|&keyword| keyword == lower) {
-        anyhow::bail!("Resource name '{0}' is a reserved keyword and cannot be used", trimmed);
+        anyhow::bail!("Resource name '{trimmed}' is a reserved keyword and cannot be used");
     }
 
     // Check if name contains at least one alphanumeric character
     // (prevent names like ":", ":::", "   ", etc.)
-    if !trimmed.chars().any(|c| c.is_alphanumeric()) {
+    if !trimmed.chars().any(char::is_alphanumeric) {
         anyhow::bail!("Resource name must contain at least one alphanumeric character");
     }
 
@@ -124,14 +124,14 @@ fn validate_agent_id_strict(agent_id: &str) -> Result<()> {
     }
 
     // Check for spaces and newlines (breaks shell quoting)
-    if agent_id.chars().any(|c| c.is_whitespace()) {
+    if agent_id.chars().any(char::is_whitespace) {
         anyhow::bail!("Agent ID cannot contain whitespace characters (spaces, tabs, newlines)");
     }
 
     // Check for reserved keywords
     let lower = trimmed.to_lowercase();
     if RESERVED_KEYWORDS.iter().any(|&keyword| keyword == lower) {
-        anyhow::bail!("Agent ID '{0}' is a reserved keyword and cannot be used", trimmed);
+        anyhow::bail!("Agent ID '{trimmed}' is a reserved keyword and cannot be used");
     }
 
     Ok(())
