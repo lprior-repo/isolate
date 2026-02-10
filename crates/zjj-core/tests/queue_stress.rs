@@ -23,10 +23,12 @@
     clippy::option_if_let_else,
     clippy::match_same_arms,
     clippy::ignored_unit_patterns,
+    // Async and concurrency relaxations
+    clippy::await_holding_lock,
+    clippy::significant_drop_tightening,
+    clippy::needless_continue,
 )]
 //! Stress test for coordination queue - Run with: cargo test --test '`queue_stress`'
-
-#![cfg_attr(test, allow(clippy::unwrap_used))]
 
 use std::time::Duration;
 

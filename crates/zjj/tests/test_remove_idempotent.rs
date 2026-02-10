@@ -32,17 +32,6 @@
 //! - If session doesn't exist and --idempotent is used, command should succeed (exit code 0)
 //! - This differs from default behavior which fails with exit code 2 (not found)
 
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::manual_let_else,
-    clippy::option_if_let_else,
-    clippy::ignored_unit_patterns,
-    clippy::doc_markdown
-)]
 mod common;
 use common::{parse_json_output, payload, TestHarness};
 use serde_json::Value as JsonValue;

@@ -23,6 +23,10 @@
     clippy::option_if_let_else,
     clippy::match_same_arms,
     clippy::ignored_unit_patterns,
+    // Async and concurrency relaxations
+    clippy::await_holding_lock,
+    clippy::significant_drop_tightening,
+    clippy::manual_clamp,
 )]
 //! High-concurrency stress tests for lock system
 //!
@@ -46,11 +50,6 @@
 #![warn(clippy::nursery)]
 #![allow(clippy::cast_possible_truncation)] // Test code using intentional casts
 #![forbid(unsafe_code)]
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::expect_used)]
-#![allow(clippy::too_many_lines)]
 // Test code for lock contention metrics uses integer-to-float casts.
 // Precision loss is acceptable for statistical calculations in tests.
 #![allow(clippy::cast_precision_loss)]

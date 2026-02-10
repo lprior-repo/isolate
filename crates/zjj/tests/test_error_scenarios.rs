@@ -34,17 +34,6 @@
 //! - Minimizes temp directory creation
 //! - Uses functional error handling patterns
 
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::manual_let_else,
-    clippy::option_if_let_else,
-    clippy::ignored_unit_patterns,
-    clippy::doc_markdown
-)]
 mod common;
 
 use std::sync::OnceLock;

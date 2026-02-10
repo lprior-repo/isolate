@@ -110,10 +110,8 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
                 let envelope = SchemaEnvelope::new("remove-response", "single", output);
                 let json_str = serde_json::to_string(&envelope)?;
                 writeln!(std::io::stdout(), "{json_str}")?;
-            } else {
-                if result.removed {
-                    writeln!(std::io::stdout(), "Removed session '{name}'")?;
-                }
+            } else if result.removed {
+                writeln!(std::io::stdout(), "Removed session '{name}'")?;
             }
             Ok(())
         }

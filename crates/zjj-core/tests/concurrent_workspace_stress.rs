@@ -23,6 +23,11 @@
     clippy::option_if_let_else,
     clippy::match_same_arms,
     clippy::ignored_unit_patterns,
+    // Async and concurrency relaxations for stress tests
+    clippy::await_holding_lock,
+    clippy::significant_drop_tightening,
+    clippy::needless_continue,
+    clippy::manual_clamp,
 )]
 //! Concurrent workspace creation stress test - Run with: moon run :test concurrent_workspace_stress
 //!
@@ -247,8 +252,8 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
 
         let handle = tokio::spawn(async move {
             // Retry logic with exponential backoff
-            let mut attempt = 0;
-            let max_attempts = 5;
+            let mut attempt: u32 = 0;
+            let max_attempts: u32 = 5;
 
             loop {
                 let result = create_workspace_synced(&workspace_name, &workspace_path).await;
@@ -274,7 +279,7 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
                         }
 
                         // Exponential backoff: 10ms, 20ms, 40ms, 80ms
-                        let backoff_ms = 10 * 2_u64.pow(attempt as u32 - 1);
+                        let backoff_ms = 10 * 2_u64.pow(attempt - 1);
                         tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
                     }
                 }

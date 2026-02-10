@@ -291,7 +291,7 @@ async fn import_session(
 
     // Validate and parse the timestamp, using current time if not provided
     let created_timestamp = validate_and_parse_timestamp(session.created_at.as_ref())?
-        .map_or_else(|| chrono::Utc::now(), |dt| dt);
+        .unwrap_or_else(chrono::Utc::now);
 
     // Convert DateTime to unix timestamp
     let created_ts = u64::try_from(created_timestamp.timestamp())

@@ -234,14 +234,14 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
     if options.format.is_json() {
         let envelope =
             serde_json::to_value(SchemaEnvelope::new("work-response", "single", &output))?;
-        let envelope_with_dry_run = match envelope.as_object() {
-            Some(obj) => {
+        let envelope_with_dry_run = envelope.as_object().map_or_else(
+            || envelope.clone(),
+            |obj| {
                 let mut updated = serde_json::Map::clone(obj);
                 updated.insert("dry_run".to_string(), serde_json::json!(true));
                 serde_json::Value::Object(updated)
-            }
-            None => envelope,
-        };
+            },
+        );
         let json_str = serde_json::to_string_pretty(&envelope_with_dry_run)
             .context("Failed to serialize work dry-run output")?;
         println!("{json_str}");
@@ -344,7 +344,7 @@ fn output_result(output: &WorkOutput, format: OutputFormat) -> Result<()> {
 ///
 /// This function provides defense-in-depth by:
 /// 1. Canonicalizing both paths to resolve any `".."` or symlinks
-/// 2. Verifying the workspace path starts with the data_dir path
+/// 2. Verifying the workspace path starts with the `data_dir` path
 /// 3. Ensuring no escape from the intended directory structure
 fn verify_workspace_contained(data_dir: &Path, workspace_path: &Path) -> Result<()> {
     // For path traversal security, we need to validate that the workspace_path
@@ -355,7 +355,7 @@ fn verify_workspace_contained(data_dir: &Path, workspace_path: &Path) -> Result<
 
     // Second, check for ".." components in the workspace path
     for component in workspace_path.components() {
-        if let std::path::Component::ParentDir = component {
+        if component == std::path::Component::ParentDir {
             return Err(anyhow::anyhow!(
                 "Security error: Workspace path contains '..' component which may escape data directory"
             ));

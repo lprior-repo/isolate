@@ -29,17 +29,6 @@
 //! These tests verify that the `--idempotent` flag works correctly for the add command.
 //! Tests follow Martin Fowler's Given-When-Then format with descriptive names.
 
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::manual_let_else,
-    clippy::option_if_let_else,
-    clippy::ignored_unit_patterns,
-    clippy::doc_markdown
-)]
 mod common;
 use common::TestHarness;
 use serde_json::Value as JsonValue;
@@ -192,10 +181,10 @@ fn test_add_idempotent_with_json_output_includes_created_field() {
     assert!(
         json2["data"]["status"]
             .as_str()
-            .map_or(false, |s| s.contains("idempotent"))
+            .is_some_and(|s| s.contains("idempotent"))
             || json2["data"]["status"]
                 .as_str()
-                .map_or(false, |s| s.contains("already")),
+                .is_some_and(|s| s.contains("already")),
         "Status should indicate idempotent path\ngot: {:?}",
         json2["data"]["status"]
     );

@@ -29,15 +29,6 @@
 //! This test module verifies that template creation properly validates KDL syntax.
 //! Tests cover both valid and invalid KDL scenarios.
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
-// Test code uses unwrap/expect idioms for test clarity.
-// Production code (src/) must use Result<T, Error> patterns.
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::expect_used)]
-#![allow(clippy::too_many_lines)]
-
 use std::io::Write;
 
 use tempfile::TempDir;

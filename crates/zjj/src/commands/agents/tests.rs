@@ -734,7 +734,7 @@ async fn heartbeat_after_unregister_returns_error() -> Result<(), anyhow::Error>
     let result = sqlx::query(
         "UPDATE agents SET last_seen = ?, actions_count = actions_count + 1 WHERE agent_id = ?",
     )
-    .bind(&Utc::now().to_rfc3339())
+    .bind(Utc::now().to_rfc3339())
     .bind("test-agent")
     .execute(&ctx.pool)
     .await;

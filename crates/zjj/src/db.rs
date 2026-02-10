@@ -338,12 +338,9 @@ impl SessionDb {
 
         begin_immediate_with_retry(&mut conn, "create transaction").await?;
 
-        let command_id_value = match command_id {
-            Some(id) => id,
-            None => {
-                rollback_best_effort(&mut conn).await;
-                return Err(Error::DatabaseError("Missing command id".to_string()));
-            }
+        let Some(command_id_value) = command_id else {
+            rollback_best_effort(&mut conn).await;
+            return Err(Error::DatabaseError("Missing command id".to_string()));
         };
 
         if is_command_processed_conn(&mut conn, command_id_value).await? {
@@ -483,12 +480,9 @@ impl SessionDb {
 
         begin_immediate_with_retry(&mut conn, "update transaction").await?;
 
-        let command_id_value = match command_id {
-            Some(id) => id,
-            None => {
-                rollback_best_effort(&mut conn).await;
-                return Err(Error::DatabaseError("Missing command id".to_string()));
-            }
+        let Some(command_id_value) = command_id else {
+            rollback_best_effort(&mut conn).await;
+            return Err(Error::DatabaseError("Missing command id".to_string()));
         };
 
         if command_id_value.trim().is_empty() {
@@ -657,6 +651,7 @@ impl SessionDb {
         .map(|_| ())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn upsert_add_operation_journal(
         &self,
         operation_id: &str,
