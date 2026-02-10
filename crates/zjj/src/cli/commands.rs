@@ -2643,7 +2643,6 @@ pub fn cmd_pane() -> ClapCommand {
                     Arg::new("ai-hints")
                         .long("ai-hints")
                         .action(clap::ArgAction::SetTrue)
-                        .default_value("false")
                         .help("AI: Show execution hints and common patterns"),
                 ),
         )
