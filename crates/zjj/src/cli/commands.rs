@@ -1450,6 +1450,18 @@ pub fn cmd_done() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show workflow patterns and best practices"),
+        )
 }
 
 pub fn cmd_undo() -> ClapCommand {
@@ -1673,14 +1685,12 @@ pub fn cmd_work() -> ClapCommand {
             Arg::new("contract")
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
-                .default_value("false")
                 .help("AI: Show machine-readable contract (JSON schema)"),
         )
         .arg(
             Arg::new("ai-hints")
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
-                .default_value("false")
                 .help("AI: Show workflow patterns and best practices"),
         )
 }
@@ -2627,7 +2637,6 @@ pub fn cmd_pane() -> ClapCommand {
                     Arg::new("contract")
                         .long("contract")
                         .action(clap::ArgAction::SetTrue)
-                        .default_value("false")
                         .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
                 )
                 .arg(
