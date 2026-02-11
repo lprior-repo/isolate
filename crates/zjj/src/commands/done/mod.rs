@@ -120,8 +120,9 @@ async fn execute_done(
         .map_err(|e| DoneError::InvalidState {
             reason: format!("Failed to open session database: {e}"),
         })?;
-    
-    let session = db.get(&workspace_name)
+
+    let session = db
+        .get(&workspace_name)
         .await
         .map_err(|e| DoneError::InvalidState {
             reason: format!("Failed to query session: {e}"),
@@ -131,11 +132,21 @@ async fn execute_done(
         })?;
 
     // Create an executor that runs in the workspace directory if needed
-    let workspace_executor = executor::WorkspaceExecutor::new(executor, PathBuf::from(&session.workspace_path));
+    let workspace_executor =
+        executor::WorkspaceExecutor::new(executor, PathBuf::from(&session.workspace_path));
 
     // Phase 2: Build preview for dry-run
     let preview = if options.dry_run {
-        Some(build_preview(&root, &workspace_name, &workspace_executor, bead_repo, options).await?)
+        Some(
+            build_preview(
+                &root,
+                &workspace_name,
+                &workspace_executor,
+                bead_repo,
+                options,
+            )
+            .await?,
+        )
     } else {
         None
     };
@@ -157,7 +168,13 @@ async fn execute_done(
     let files_committed = if uncommitted_files.is_empty() {
         0
     } else {
-        commit_changes(&root, &workspace_name, options.message.as_deref(), &workspace_executor).await?
+        commit_changes(
+            &root,
+            &workspace_name,
+            options.message.as_deref(),
+            &workspace_executor,
+        )
+        .await?
     };
 
     // Phase 5: Check for conflicts
@@ -236,7 +253,7 @@ async fn execute_done(
 /// Validate we're in a workspace or a workspace name was provided
 async fn validate_location(options: &DoneOptions) -> Result<String, DoneError> {
     let root_str = jj_root().await.map_err(|_| DoneError::NotAJjRepo)?;
-    
+
     if options.workspace.is_some() {
         return Ok(root_str);
     }
@@ -517,9 +534,30 @@ async fn get_commits_to_merge(
 async fn merge_to_main(
     _root: &str,
     workspace_name: &str,
-    _squash: bool,
+    squash: bool,
     executor: &dyn executor::JjExecutor,
 ) -> Result<(), DoneError> {
+    if squash {
+        // If squash is requested, we squash all workspace-specific commits into main
+        // We use the revision set 'ancestors(workspace_name@) & ~ancestors(main)'
+        // to find all commits that are in the workspace but not yet in main.
+        let revset = format!("ancestors({}@) & ~ancestors(main)", workspace_name);
+
+        // Use squash to move changes.
+        // Note: we might need to handle the case where main is not the right branch name,
+        // but for now we follow the project convention.
+        let squash_result = executor
+            .run(&["squash", "--from", &revset, "--into", "main"])
+            .await;
+
+        if let Err(e) = squash_result {
+            // If squash fails, we report it. It might fail if there are conflicts.
+            return Err(DoneError::MergeFailed {
+                reason: format!("Squash failed: {}", e),
+            });
+        }
+    }
+
     // First, forget the workspace
     let result = executor.run(&["workspace", "forget", workspace_name]).await;
 

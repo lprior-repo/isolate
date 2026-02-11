@@ -126,7 +126,7 @@ impl<'a> JjExecutor for WorkspaceExecutor<'a> {
             // Actually, jj supports -R <path> to run in a different repo.
             // But here we want to run in a specific WORKSPACE.
             // If we are already in the repo, we can just cd to the workspace.
-            
+
             // For now, let's just forward to inner.run_with_env and add -R if needed.
             // Wait, if it's RealJjExecutor, we can just set current_dir.
             self.inner.run_with_env(args, &[]).await
@@ -140,13 +140,13 @@ impl<'a> JjExecutor for WorkspaceExecutor<'a> {
     ) -> BoxFuture<'b, Result<JjOutput, ExecutorError>> {
         Box::pin(async move {
             // We need a way to tell the inner executor to run in a specific dir.
-            // Since JjExecutor doesn't support changing dir easily, we might need 
+            // Since JjExecutor doesn't support changing dir easily, we might need
             // to use -R <path> or just wrap RealJjExecutor differently.
-            
+
             // Let's implement it by passing -R to jj.
             let mut new_args = vec!["-R", self.workspace_path.to_str().unwrap_or(".")];
             new_args.extend_from_slice(args);
-            
+
             self.inner.run_with_env(&new_args, env).await
         })
     }

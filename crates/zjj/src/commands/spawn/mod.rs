@@ -324,13 +324,19 @@ async fn handle_success(
     workspace_path: &Path,
     options: &SpawnOptions,
 ) -> Result<(bool, bool, SpawnStatus), SpawnError> {
-    let merged = if options.no_auto_merge {
+    // If we're not cleaning up, we can't merge (forget) the workspace because forgetting deletes
+    // it. So no_auto_cleanup implies no_auto_merge.
+    let merged = if options.no_auto_merge || options.no_auto_cleanup {
         false
     } else {
         merge_to_main(root, bead_id).await?
     };
 
-    let cleaned = cleanup_workspace(workspace_path).await?;
+    let cleaned = if options.no_auto_cleanup {
+        false
+    } else {
+        cleanup_workspace(workspace_path).await?
+    };
 
     let bead_repo = BeadRepository::new(root);
     // Update bead to completed

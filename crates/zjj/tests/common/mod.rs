@@ -196,6 +196,20 @@ impl TestHarness {
             );
         }
 
+        // Create main bookmark explicitly
+        let output = Command::new(jj_binary)
+            .args(["bookmark", "create", "main"])
+            .current_dir(&repo_path)
+            .output()
+            .context("Failed to create main bookmark")?;
+
+        if !output.status.success() {
+            anyhow::bail!(
+                "jj bookmark create main failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
         // Get the zjj binary path from the build
         let zjj_bin = PathBuf::from(env!("CARGO_BIN_EXE_zjj"));
 
@@ -610,6 +624,16 @@ impl CommandResult {
     /// Parse JSON output using functional error handling
     pub fn parse_json(&self) -> Result<serde_json::Value, anyhow::Error> {
         serde_json::from_str(&self.stdout).with_context(|| "Failed to parse JSON output")
+    }
+
+    /// Assert that the command succeeded
+    #[inline]
+    pub fn assert_success(&self) {
+        assert!(
+            self.success,
+            "Command failed\nExit code: {:?}\nStdout: {}\nStderr: {}",
+            self.exit_code, self.stdout, self.stderr
+        );
     }
 
     /// Assert that stdout contains a string

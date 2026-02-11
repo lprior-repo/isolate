@@ -375,7 +375,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     // Recovery: User can manually create tab or run 'zjj focus <name>'
     let zellij_installed = crate::cli::is_zellij_installed().await;
     let no_zellij = options.no_zellij || !crate::cli::is_terminal() || !zellij_installed;
-    
+
     if !crate::cli::is_terminal() && !options.no_zellij && !options.format.is_json() {
         println!("Note: Non-interactive environment detected, skipping Zellij integration.");
     } else if !zellij_installed && !options.no_zellij && !options.format.is_json() {
