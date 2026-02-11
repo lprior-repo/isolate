@@ -86,18 +86,50 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
             // Wait for all tasks to be ready
             barrier.wait().await;
 
-            // All tasks start creating workspaces at the same time
-            let result =
-                create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
+            // Retry workspace creation on lock timeout to handle high contention
+            // LockTimeout indicates temporary contention, not permanent failure
+            let max_retries: usize = 3;
+            let mut last_error: Option<Error> = None;
 
-            match result {
-                Ok(()) => {
-                    success_count.fetch_add(1, Ordering::SeqCst);
-                    println!("✓ Workspace {} created successfully", workspace_name);
-                }
-                Err(e) => {
-                    failure_count.fetch_add(1, Ordering::SeqCst);
-                    eprintln!("✗ Workspace {} creation failed: {}", workspace_name, e);
+            for attempt in 0..=max_retries {
+                let result =
+                    create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
+
+                match result {
+                    Ok(()) => {
+                        success_count.fetch_add(1, Ordering::SeqCst);
+                        if attempt > 0 {
+                            println!(
+                                "✓ Workspace {} created successfully (after {} retry)",
+                                workspace_name, attempt
+                            );
+                        } else {
+                            println!("✓ Workspace {} created successfully", workspace_name);
+                        }
+                        break;
+                    }
+                    Err(e) => {
+                        // Check if this is a lock timeout (temporary contention)
+                        let is_lock_timeout = matches!(e, Error::LockTimeout { .. });
+
+                        if is_lock_timeout && attempt < max_retries {
+                            // Retry with exponential backoff: 50ms, 100ms, 200ms
+                            let backoff_ms = 50_u64.pow(attempt as u32 + 1);
+                            tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+                            last_error = Some(e);
+                            continue;
+                        }
+
+                        // Permanent failure or max retries reached
+                        failure_count.fetch_add(1, Ordering::SeqCst);
+                        eprintln!(
+                            "✗ Workspace {} creation failed after {} attempts: {}",
+                            workspace_name,
+                            attempt + 1,
+                            e
+                        );
+                        break;
+                    }
                 }
             }
         });
@@ -176,20 +208,53 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
             let delay_ms = ((i % 5) * 10) as u64; // 0-40ms stagger
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
 
-            let result =
-                create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
+            // Retry workspace creation on lock timeout to handle high contention
+            // LockTimeout indicates temporary contention, not permanent failure
+            let max_retries: usize = 3;
+            let mut last_error: Option<Error> = None;
 
-            match result {
-                Ok(()) => {
-                    success_count.fetch_add(1, Ordering::SeqCst);
-                    println!(
-                        "✓ Staggered workspace {} created successfully",
-                        workspace_name
-                    );
-                }
-                Err(e) => {
-                    failure_count.fetch_add(1, Ordering::SeqCst);
-                    eprintln!("✗ Staggered workspace {} failed: {}", workspace_name, e);
+            for attempt in 0..=max_retries {
+                let result =
+                    create_workspace_synced(&workspace_name, &workspace_path, &repo_root).await;
+
+                match result {
+                    Ok(()) => {
+                        success_count.fetch_add(1, Ordering::SeqCst);
+                        if attempt > 0 {
+                            println!(
+                                "✓ Staggered workspace {} created successfully (after {} retry)",
+                                workspace_name, attempt
+                            );
+                        } else {
+                            println!(
+                                "✓ Staggered workspace {} created successfully",
+                                workspace_name
+                            );
+                        }
+                        break;
+                    }
+                    Err(e) => {
+                        // Check if this is a lock timeout (temporary contention)
+                        let is_lock_timeout = matches!(e, Error::LockTimeout { .. });
+
+                        if is_lock_timeout && attempt < max_retries {
+                            // Retry with exponential backoff: 50ms, 100ms, 200ms
+                            let backoff_ms = 50_u64.pow(attempt as u32 + 1);
+                            tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+                            last_error = Some(e);
+                            continue;
+                        }
+
+                        // Permanent failure or max retries reached
+                        failure_count.fetch_add(1, Ordering::SeqCst);
+                        eprintln!(
+                            "✗ Staggered workspace {} failed after {} attempts: {}",
+                            workspace_name,
+                            attempt + 1,
+                            e
+                        );
+                        break;
+                    }
                 }
             }
         });

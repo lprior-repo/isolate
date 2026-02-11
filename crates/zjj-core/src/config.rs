@@ -729,41 +729,26 @@ async fn load_toml_file(path: &std::path::Path) -> Result<Config> {
 
 impl WatchConfig {
     fn merge(&mut self, other: Self) {
-        // Always take other's value for primitives if different from default
         self.enabled = other.enabled;
-        if other.debounce_ms != 100 {
-            self.debounce_ms = other.debounce_ms;
-        }
-        if other.paths != vec![".beads/beads.db".to_string()] {
-            self.paths = other.paths;
-        }
+        self.debounce_ms = other.debounce_ms;
+        self.paths = other.paths;
     }
 }
 
 impl HooksConfig {
     fn merge(&mut self, other: Self) {
         // Replace (not append) for hooks
-        if !other.post_create.is_empty() {
-            self.post_create = other.post_create;
-        }
-        if !other.pre_remove.is_empty() {
-            self.pre_remove = other.pre_remove;
-        }
-        if !other.post_merge.is_empty() {
-            self.post_merge = other.post_merge;
-        }
+        self.post_create = other.post_create;
+        self.pre_remove = other.pre_remove;
+        self.post_merge = other.post_merge;
     }
 }
 
 impl ZellijConfig {
     fn merge(&mut self, other: Self) {
-        if other.session_prefix != "zjj" {
-            self.session_prefix = other.session_prefix;
-        }
+        self.session_prefix = other.session_prefix;
         self.use_tabs = other.use_tabs;
-        if other.layout_dir != ".zjj/layouts" {
-            self.layout_dir = other.layout_dir;
-        }
+        self.layout_dir = other.layout_dir;
         self.panes.merge(other.panes);
     }
 }
@@ -779,72 +764,41 @@ impl PanesConfig {
 
 impl PaneConfig {
     fn merge(&mut self, other: Self) {
-        if !other.command.is_empty() {
-            self.command = other.command;
-        }
-        if !other.args.is_empty() {
-            self.args = other.args;
-        }
-        if !other.size.is_empty() {
-            self.size = other.size;
-        }
+        self.command = other.command;
+        self.args = other.args;
+        self.size = other.size;
     }
 }
 
 impl FloatPaneConfig {
     fn merge(&mut self, other: Self) {
         self.enabled = other.enabled;
-        if !other.command.is_empty() {
-            self.command = other.command;
-        }
-        if other.width != "80%" {
-            self.width = other.width;
-        }
-        if other.height != "60%" {
-            self.height = other.height;
-        }
+        self.command = other.command;
+        self.width = other.width;
+        self.height = other.height;
     }
 }
 
 impl DashboardConfig {
     fn merge(&mut self, other: Self) {
-        if other.refresh_ms != 1000 {
-            self.refresh_ms = other.refresh_ms;
-        }
-        if other.theme != "default" {
-            self.theme = other.theme;
-        }
-        let default_columns = vec![
-            "name".to_string(),
-            "status".to_string(),
-            "branch".to_string(),
-            "changes".to_string(),
-            "beads".to_string(),
-        ];
-        if other.columns != default_columns {
-            self.columns = other.columns;
-        }
+        self.refresh_ms = other.refresh_ms;
+        self.theme = other.theme;
+        self.columns = other.columns;
         self.vim_keys = other.vim_keys;
     }
 }
 
 impl AgentConfig {
     fn merge(&mut self, other: Self) {
-        if other.command != "claude" {
-            self.command = other.command;
-        }
-        if !other.env.is_empty() {
-            self.env = other.env;
-        }
+        self.command = other.command;
+        self.env = other.env;
     }
 }
 
 impl SessionConfig {
     fn merge(&mut self, other: Self) {
         self.auto_commit = other.auto_commit;
-        if other.commit_prefix != "wip:" {
-            self.commit_prefix = other.commit_prefix;
-        }
+        self.commit_prefix = other.commit_prefix;
     }
 }
 
@@ -868,19 +822,13 @@ impl Config {
     /// For example, if `hooks.post_create` is `["a","b"]` in self and `["c"]` in other,
     /// result will be `["c"]`, not `["a","b","c"]`.
     fn merge(&mut self, other: Self) {
-        // Top-level string fields - replace if non-empty/non-default
-        if !other.workspace_dir.is_empty() {
-            self.workspace_dir = other.workspace_dir;
-        }
-        if !other.main_branch.is_empty() {
-            self.main_branch = other.main_branch;
-        }
-        if other.default_template != "standard" {
-            self.default_template = other.default_template;
-        }
-        if other.state_db != ".zjj/state.db" {
-            self.state_db = other.state_db;
-        }
+        // Top-level string fields - replace always (other takes precedence)
+        // We don't check against defaults here because an explicit project config
+        // should override a global config even if the project config matches the default.
+        self.workspace_dir = other.workspace_dir;
+        self.main_branch = other.main_branch;
+        self.default_template = other.default_template;
+        self.state_db = other.state_db;
 
         // Merge nested configs
         self.watch.merge(other.watch);
