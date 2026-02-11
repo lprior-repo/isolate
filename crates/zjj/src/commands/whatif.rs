@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use zjj_core::{OutputFormat, SchemaEnvelope};
+use zjj_core::OutputFormat;
 
 use crate::session::validate_session_name;
 
@@ -17,8 +17,15 @@ pub struct WhatIfOptions {
     pub command: String,
     /// Arguments for the command
     pub args: Vec<String>,
-    /// Output format
-    pub format: OutputFormat,
+}
+
+impl Default for WhatIfOptions {
+    fn default() -> Self {
+        Self {
+            command: String::new(),
+            args: Vec::new(),
+        }
+    }
 }
 
 /// What-if preview result
@@ -108,11 +115,11 @@ pub enum PrerequisiteStatus {
 /// Run the whatif command
 pub fn run(options: &WhatIfOptions) -> Result<WhatIfResult> {
     // Enhanced flag detection for workspace commands
-    let mut args = options.args.clone();
+    let args = options.args.clone();
     let has_workspace_flag = args.contains(&"--workspace".to_string());
     let has_force_flag = args.contains(&"--force".to_string());
     let has_keep_flag = args.contains(&"--keep-workspace".to_string());
-    let has_dry_run_flag = args.contains(&"--dry-run".to_string());
+    let _has_dry_run_flag = args.contains(&"--dry-run".to_string());
 
     // Special handling for workspace commands with --workspace flag
     if has_workspace_flag {
@@ -271,7 +278,7 @@ fn preview_work_with_flags(args: &[String]) -> Result<WhatIfResult> {
         validate_session_name(name).map_err(anyhow::Error::new)?;
     }
 
-    let mut result = WhatIfResult {
+    let result = WhatIfResult {
         command: "work".to_string(),
         args: args.to_vec(),
         steps: vec![
@@ -796,20 +803,6 @@ fn preview_spawn_with_flags(args: &[String]) -> Result<WhatIfResult> {
     })
 }
 
-// Test helper for flag detection
-fn detect_flags(args: &[String]) -> (bool, bool, bool, bool) {
-    let has_workspace_flag = args.contains(&"--workspace".to_string());
-    let has_force_flag = args.contains(&"--force".to_string());
-    let has_keep_flag = args.contains(&"--keep-workspace".to_string());
-    let has_dry_run_flag = args.contains(&"--dry-run".to_string());
-    (
-        has_workspace_flag,
-        has_force_flag,
-        has_keep_flag,
-        has_dry_run_flag,
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1056,7 +1049,6 @@ mod tests {
         let opts = WhatIfOptions {
             command: "unknown".to_string(),
             args: vec!["arg1".to_string()],
-            format: OutputFormat::Json,
         };
         let result = run(&opts).unwrap();
         assert_eq!(result.command, "unknown");

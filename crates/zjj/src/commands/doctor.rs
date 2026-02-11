@@ -563,8 +563,8 @@ async fn check_state_db() -> DoctorCheck {
 /// Run workspace integrity validation after recovery to detect corruption
 async fn run_integrity_after_recovery() -> Option<DoctorCheck> {
     let config = match load_config().await {
-        Ok(Some(cfg)) => cfg,
-        _ => return None,
+        Ok(cfg) => cfg,
+        Err(_) => return None,
     };
 
     let root = jj_root()
