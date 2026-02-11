@@ -146,75 +146,74 @@ const RESERVED_SESSION_NAMES: &[&str] =
 /// - Start with a letter (a-z, A-Z)
 /// - Not be a reserved keyword
 pub fn validate_session_name(name: &str) -> Result<()> {
-    if name.is_empty() {
-        return Err(Error::ValidationError {
+    // Check if name is empty
+    (!name.is_empty())
+        .then_some(())
+        .ok_or_else(|| Error::ValidationError {
             message: "Session name cannot be empty".into(),
             field: None,
             value: None,
             constraints: Vec::new(),
-        });
-    }
+        })?;
 
-    // Check for non-ASCII characters first (prevents unicode bypasses)
-    if !name.is_ascii() {
-        return Err(Error::ValidationError {
+    // Check for non-ASCII characters
+    name.is_ascii()
+        .then_some(())
+        .ok_or_else(|| Error::ValidationError {
             message: "Session name must contain only ASCII characters (a-z, A-Z, 0-9, -, _)".into(),
             field: None,
             value: None,
             constraints: Vec::new(),
-        });
-    }
+        })?;
 
-    if name.len() > 64 {
-        return Err(Error::ValidationError {
+    // Check length
+    (name.len() <= 64)
+        .then_some(())
+        .ok_or_else(|| Error::ValidationError {
             message: "Session name cannot exceed 64 characters".into(),
             field: None,
             value: None,
             constraints: Vec::new(),
-        });
-    }
+        })?;
 
     // Only allow ASCII alphanumeric, dash, and underscore
-    // Using is_ascii_alphanumeric() instead of is_alphanumeric() to reject unicode
-    if !name
-        .chars()
+    name.chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-    {
-        return Err(Error::ValidationError {
+        .then_some(())
+        .ok_or_else(|| Error::ValidationError {
              message: "Invalid session name: Session name can only contain ASCII alphanumeric characters, dashes, and underscores"
                  .into(),
              field: None,
              value: None,
              constraints: Vec::new(),
-         });
-    }
+         })?;
 
-    // Must start with a letter (not dash, underscore, or digit)
-    if let Some(first) = name.chars().next() {
-        if !first.is_ascii_alphabetic() {
-            return Err(Error::ValidationError {
-                message: "Invalid session name: Session name must start with a letter (a-z, A-Z)"
-                    .into(),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
-            });
-        }
-    }
-
-    // Check for reserved keywords (case-insensitive)
-    let lower = name.to_lowercase();
-    if RESERVED_SESSION_NAMES
-        .iter()
-        .any(|&keyword| keyword == lower)
-    {
-        return Err(Error::ValidationError {
-            message: format!("Session name '{name}' is a reserved keyword and cannot be used"),
+    // Must start with a letter
+    name.chars()
+        .next()
+        .map(|first| first.is_ascii_alphabetic())
+        .unwrap_or(false)
+        .then_some(())
+        .ok_or_else(|| Error::ValidationError {
+            message: "Invalid session name: Session name must start with a letter (a-z, A-Z)"
+                .into(),
             field: None,
             value: None,
             constraints: Vec::new(),
-        });
-    }
+        })?;
+
+    // Check for reserved keywords
+    let lower = name.to_lowercase();
+    (!RESERVED_SESSION_NAMES
+        .iter()
+        .any(|&keyword| keyword == lower))
+    .then_some(())
+    .ok_or_else(|| Error::ValidationError {
+        message: format!("Session name '{name}' is a reserved keyword and cannot be used"),
+        field: None,
+        value: None,
+        constraints: Vec::new(),
+    })?;
 
     Ok(())
 }

@@ -216,4 +216,75 @@ add session2 --no-zellij",
         // Verify workspace still exists
         assert!(workspace_path.exists());
     }
+
+    /// Scenario: Spawn with bead ID (failure case to keep workspace)
+    #[test]
+    fn test_spawn_with_bead_failure_keep() {
+        let temp_dir = tempdir().unwrap();
+        let repo_path = temp_dir.path();
+
+        // Initialize JJ and ZJJ
+        Command::new("jj").args(["git", "init"]).current_dir(repo_path).status().unwrap();
+        Command::cargo_bin("zjj").unwrap().args(["init"]).current_dir(repo_path).status().unwrap();
+        
+        // Add a bead via JSONL
+        let beads_dir = repo_path.join(".beads");
+        std::fs::create_dir_all(&beads_dir).unwrap();
+        let issues_file = beads_dir.join("issues.jsonl");
+        let bead_json = r#"{"id": "zjj-123", "title": "Test Bead", "status": "open"}"#;
+        std::fs::write(&issues_file, format!("{bead_json}\n")).unwrap();
+
+        // Now spawn with a command that fails
+        let mut cmd = Command::cargo_bin("zjj").unwrap();
+        cmd.args(["spawn", "zjj-123", "--no-auto-cleanup", "--agent-command", "false"])
+            .current_dir(repo_path)
+            .assert()
+            .failure(); // Spawn should return failure because the agent failed
+        
+        // Verify workspace still exists because of --no-auto-cleanup
+        let workspace_path = repo_path.join(".zjj/workspaces/zjj-123");
+        assert!(workspace_path.exists());
+    }
+
+    /// Scenario: Pause and Resume session
+    #[test]
+    fn test_pause_resume() {
+        let temp_dir = tempdir().unwrap();
+        let repo_path = temp_dir.path();
+
+        // Initialize JJ and ZJJ
+        Command::new("jj").args(["git", "init"]).current_dir(repo_path).status().unwrap();
+        Command::cargo_bin("zjj").unwrap().args(["init"]).current_dir(repo_path).status().unwrap();
+        Command::cargo_bin("zjj").unwrap().args(["add", "pause-test", "--no-zellij"]).current_dir(repo_path).status().unwrap();
+
+        // Pause
+        let mut cmd = Command::cargo_bin("zjj").unwrap();
+        cmd.args(["pause", "pause-test"])
+            .current_dir(repo_path)
+            .assert()
+            .success();
+        
+        // Verify status is paused
+        let mut cmd = Command::cargo_bin("zjj").unwrap();
+        cmd.args(["status", "pause-test", "--json"])
+            .current_dir(repo_path)
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("paused"));
+
+        // Resume
+        let mut cmd = Command::cargo_bin("zjj").unwrap();
+        cmd.args(["resume", "pause-test"])
+            .current_dir(repo_path)
+            .assert()
+            .success();
+        
+        // Verify status is active
+        let mut cmd = Command::cargo_bin("zjj").unwrap();
+        cmd.args(["status", "pause-test", "--json"])
+            .current_dir(repo_path)
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("active"));
+    }
 }

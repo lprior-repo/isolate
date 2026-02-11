@@ -107,13 +107,35 @@ async fn execute_done(
     bead_repo: &mut dyn bead::BeadRepository,
     filesystem: &dyn filesystem::FileSystem,
 ) -> Result<DoneOutput, DoneError> {
-    // Phase 1: Validate location (must be in workspace)
-    let root = validate_location().await?;
-    let workspace_name = get_workspace_name(&root)?;
+    // Phase 1: Validate location (must be in workspace or workspace name provided)
+    let root = validate_location(options).await?;
+    let workspace_name = match &options.workspace {
+        Some(name) => name.clone(),
+        None => get_workspace_name(&root)?,
+    };
+
+    // If a specific workspace was requested, we need to find its path
+    let db = get_session_db()
+        .await
+        .map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to open session database: {e}"),
+        })?;
+    
+    let session = db.get(&workspace_name)
+        .await
+        .map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to query session: {e}"),
+        })?
+        .ok_or_else(|| DoneError::WorkspaceNotFound {
+            workspace_name: workspace_name.clone(),
+        })?;
+
+    // Create an executor that runs in the workspace directory if needed
+    let workspace_executor = executor::WorkspaceExecutor::new(executor, PathBuf::from(&session.workspace_path));
 
     // Phase 2: Build preview for dry-run
     let preview = if options.dry_run {
-        Some(build_preview(&root, &workspace_name, executor, bead_repo, options).await?)
+        Some(build_preview(&root, &workspace_name, &workspace_executor, bead_repo, options).await?)
     } else {
         None
     };
@@ -129,31 +151,31 @@ async fn execute_done(
     }
 
     // Phase 3: Check uncommitted files
-    let uncommitted_files = get_uncommitted_files(&root, executor).await?;
+    let uncommitted_files = get_uncommitted_files(&root, &workspace_executor).await?;
 
     // Phase 4: Commit uncommitted changes
     let files_committed = if uncommitted_files.is_empty() {
         0
     } else {
-        commit_changes(&root, &workspace_name, options.message.as_deref(), executor).await?
+        commit_changes(&root, &workspace_name, options.message.as_deref(), &workspace_executor).await?
     };
 
     // Phase 5: Check for conflicts
-    check_conflicts(&root, executor)
+    check_conflicts(&root, &workspace_executor)
         .await
         .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
 
     // Phase 5.5: Get pre-merge commit ID (for undo)
-    let pre_merge_commit_id = get_current_commit_id(&root, executor).await?;
+    let pre_merge_commit_id = get_current_commit_id(&root, &workspace_executor).await?;
 
     // Phase 5.6: Check if pushed to remote (for undo)
-    let pushed_to_remote = is_pushed_to_remote(&root, executor).await?;
+    let pushed_to_remote = is_pushed_to_remote(&root, &workspace_executor).await?;
 
     // Phase 6: Get commits to merge
-    let commits_to_merge = get_commits_to_merge(&root, executor).await?;
+    let commits_to_merge = get_commits_to_merge(&root, &workspace_executor).await?;
 
     // Phase 7: Merge to main
-    merge_to_main(&root, &workspace_name, options.squash, executor)
+    merge_to_main(&root, &workspace_name, options.squash, &workspace_executor)
         .await
         .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
 
@@ -211,11 +233,15 @@ async fn execute_done(
     })
 }
 
-/// Validate we're in a workspace
-async fn validate_location() -> Result<String, DoneError> {
+/// Validate we're in a workspace or a workspace name was provided
+async fn validate_location(options: &DoneOptions) -> Result<String, DoneError> {
     let root_str = jj_root().await.map_err(|_| DoneError::NotAJjRepo)?;
-    let root = PathBuf::from(&root_str);
+    
+    if options.workspace.is_some() {
+        return Ok(root_str);
+    }
 
+    let root = PathBuf::from(&root_str);
     let location = detect_location(&root).map_err(|e| DoneError::InvalidState {
         reason: e.to_string(),
     })?;

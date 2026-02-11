@@ -2686,7 +2686,7 @@ pub fn cmd_abort() -> ClapCommand {
             Arg::new("workspace")
                 .short('w')
                 .long("workspace")
-                .alias("session")
+                .visible_alias("session")
                 .value_name("NAME")
                 .help("Workspace/session to abort (uses current if not specified)"),
         )

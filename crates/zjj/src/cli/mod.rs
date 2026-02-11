@@ -34,12 +34,20 @@ pub fn is_inside_zellij() -> bool {
 }
 
 /// Check if we're running in a terminal (TTY)
-/// Uses `std::io::IsTerminal` (Rust 1.70+)
+/// Uses `std::io::IsTerminal` (Rust 1.70+) and verifies TTY properties
 pub fn is_terminal() -> bool {
     use std::io::IsTerminal;
-    std::io::stdin().is_terminal()
+    let is_tty = std::io::stdin().is_terminal()
         && std::io::stdout().is_terminal()
-        && std::io::stderr().is_terminal()
+        && std::io::stderr().is_terminal();
+
+    if !is_tty {
+        return false;
+    }
+
+    // Additional check: can we get terminal size?
+    // This helps detect environments that claim to be TTYs but don't support TTY ioctls
+    crossterm::terminal::size().is_ok()
 }
 
 /// Check if current directory is a JJ repository

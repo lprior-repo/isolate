@@ -619,20 +619,24 @@ impl SessionDb {
     ///
     /// Returns error if database query fails
     #[allow(dead_code)]
-    #[allow(dead_code)]
     pub async fn find_orphaned_sessions(&self) -> Result<Vec<String>> {
+        use futures::stream::{self, StreamExt, TryStreamExt};
+
         let sessions = self.list(None).await?;
-        let mut orphans = Vec::new();
 
-        for session in sessions {
-            let workspace_path = std::path::Path::new(&session.workspace_path);
-            let workspace_exists = tokio::fs::try_exists(workspace_path).await.is_ok_and(|v| v);
-            if !workspace_exists {
-                orphans.push(session.name);
-            }
-        }
-
-        Ok(orphans)
+        stream::iter(sessions.into_iter().map(Ok))
+            .filter_map(|session_res: Result<Session>| async move {
+                match session_res {
+                    Ok(session) => {
+                        let workspace_path = std::path::Path::new(&session.workspace_path);
+                        (!tokio::fs::try_exists(workspace_path).await.is_ok_and(|v| v))
+                            .then_some(Ok(session.name))
+                    }
+                    Err(e) => Some(Err(e)),
+                }
+            })
+            .try_collect::<Vec<_>>()
+            .await
     }
 
     /// Cleanup orphaned sessions (Type 1: delete session records with missing workspaces)
@@ -643,18 +647,20 @@ impl SessionDb {
     ///
     /// Returns error if database deletion fails
     #[allow(dead_code)]
-    #[allow(dead_code)]
     pub async fn cleanup_orphaned_sessions(&self) -> Result<usize> {
+        use futures::stream::{self, StreamExt, TryStreamExt};
+
         let orphans = self.find_orphaned_sessions().await?;
-        let mut cleaned_count = 0;
 
-        for orphan_name in &orphans {
-            if self.delete(orphan_name).await? {
-                cleaned_count += 1;
-            }
-        }
-
-        Ok(cleaned_count)
+        stream::iter(orphans.into_iter().map(Ok))
+            .map(|orphan_name_res: Result<String>| async move {
+                let orphan_name = orphan_name_res?;
+                self.delete(&orphan_name).await
+            })
+            .buffered(5) // Delete up to 5 sessions concurrently
+            .try_collect::<Vec<bool>>()
+            .await
+            .map(|results| results.into_iter().filter(|&deleted| deleted).count())
     }
 
     /// Check whether a command id was already processed.
@@ -1443,13 +1449,21 @@ fn is_sqlite_busy_or_locked_error(error: &sqlx::Error) -> bool {
     }
 }
 
-async fn run_with_sqlite_busy_retry<T, F, Fut>(context: &str, mut operation: F) -> Result<T>
+async fn run_with_sqlite_busy_retry<T, F, Fut>(context: &str, operation: F) -> Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = std::result::Result<T, sqlx::Error>>,
+{
+    run_op_with_retry(operation, context).await
+}
+
+async fn run_op_with_retry<T, F, Fut>(mut op: F, context: &str) -> Result<T>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = std::result::Result<T, sqlx::Error>>,
 {
     for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
-        match operation().await {
+        match op().await {
             Ok(value) => return Ok(value),
             Err(error) => {
                 if is_sqlite_busy_or_locked_error(&error) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
@@ -1521,17 +1535,10 @@ async fn commit_with_retry(
 
 async fn rollback_best_effort(conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>) {
     for attempt in 0..=SQLITE_BUSY_RETRY_ATTEMPTS {
-        let result = sqlx::query("ROLLBACK").execute(&mut **conn).await;
-        match result {
-            Ok(_) => return,
-            Err(error) => {
-                if is_sqlite_busy_or_locked_error(&error) && attempt < SQLITE_BUSY_RETRY_ATTEMPTS {
-                    tokio::time::sleep(sqlite_busy_backoff_duration(attempt)).await;
-                    continue;
-                }
-                return;
-            }
+        if sqlx::query("ROLLBACK").execute(&mut **conn).await.is_ok() {
+            return;
         }
+        tokio::time::sleep(sqlite_busy_backoff_duration(attempt)).await;
     }
 }
 
@@ -1654,31 +1661,25 @@ async fn update_session(pool: &SqlitePool, name: &str, update: SessionUpdate) ->
 
 /// Build update clauses from `SessionUpdate`
 fn build_update_clauses(update: &SessionUpdate) -> Result<Vec<(&'static str, String)>> {
-    let mut clauses = Vec::new();
-
-    if let Some(ref status) = update.status {
-        clauses.push(("status", status.to_string()));
-    }
-
-    if let Some(ref state) = update.state {
-        clauses.push(("state", state.to_string()));
-    }
-
-    if let Some(ref branch) = update.branch {
-        clauses.push(("branch", branch.clone()));
-    }
-
-    if let Some(last_synced) = update.last_synced {
-        clauses.push(("last_synced", last_synced.to_string()));
-    }
-
-    if let Some(ref metadata) = update.metadata {
-        let json_str = serde_json::to_string(metadata)
-            .map_err(|e| Error::ParseError(format!("Failed to serialize metadata: {e}")))?;
-        clauses.push(("metadata", json_str));
-    }
-
-    Ok(clauses)
+    [
+        update.status.as_ref().map(|s| ("status", s.to_string())),
+        update.state.as_ref().map(|s| ("state", s.to_string())),
+        update.branch.as_ref().map(|s| ("branch", s.clone())),
+        update.last_synced.map(|s| ("last_synced", s.to_string())),
+        update
+            .metadata
+            .as_ref()
+            .map(|m| {
+                serde_json::to_string(m)
+                    .map(|json| ("metadata", json))
+                    .map_err(|e| Error::ParseError(format!("Failed to serialize metadata: {e}")))
+            })
+            .transpose()?,
+    ]
+    .into_iter()
+    .flatten()
+    .map(Ok)
+    .collect()
 }
 
 fn update_request_fingerprint(name: &str, update: &SessionUpdate) -> Result<String> {
