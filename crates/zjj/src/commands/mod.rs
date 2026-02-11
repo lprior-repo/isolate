@@ -131,7 +131,6 @@ pub async fn get_db_path() -> Result<PathBuf> {
     // 1. Environment variable has highest priority
     if let Ok(env_db) = std::env::var("ZJJ_STATE_DB") {
         let p = PathBuf::from(env_db);
-        eprintln!("DEBUG: Using ZJJ_STATE_DB override: {}", p.display());
         return Ok(p);
     }
 
@@ -152,7 +151,6 @@ pub async fn get_db_path() -> Result<PathBuf> {
     // 3. Default path: .zjj/state.db
     let data_dir = zjj_data_dir().await?;
     let p = data_dir.join("state.db");
-    eprintln!("DEBUG: Using default database path: {}", p.display());
     Ok(p)
 }
 
