@@ -212,7 +212,7 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
     use crate::Error;
     match error {
         // Validation errors: exit code 1
-        Error::InvalidConfig(_) | Error::ValidationError(_) | Error::ParseError(_) => 1,
+        Error::InvalidConfig(_) | Error::ValidationError { .. } | Error::ParseError(_) => 1,
         // Not found errors: exit code 2
         Error::NotFound(_) | Error::SessionNotFound { .. } => 2,
         // System errors: exit code 3
@@ -264,14 +264,14 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
             format!("Parse error: {msg}"),
             None,
         ),
-        Error::ValidationError(msg) => (
+        Error::ValidationError { .. } => (
             ErrorCode::InvalidArgument,
-            format!("Validation error: {msg}"),
+            "Validation error".to_string(),
             None,
         ),
-        Error::NotFound(msg) => (
+        Error::NotFound(_) => (
             ErrorCode::SessionNotFound,
-            format!("Not found: {msg}"),
+            "Not found".to_string(),
             Some("Use 'zjj list' to see available sessions".to_string()),
         ),
         Error::SessionNotFound { session } => (
@@ -936,7 +936,12 @@ mod tests {
     // Tests for ErrorDetail::from_error() constructor (zjj-lgkf Phase 4 - RED)
     #[test]
     fn test_error_detail_from_validation_error() {
-        let err = crate::Error::ValidationError("invalid session name".into());
+        let err = crate::Error::ValidationError {
+            message: "invalid session name".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let detail = ErrorDetail::from_error(&err);
 
         assert_eq!(detail.code, "VALIDATION_ERROR");
@@ -966,11 +971,18 @@ mod tests {
 
     #[test]
     fn test_error_detail_preserves_context() {
-        let err = crate::Error::ValidationError("invalid input".into());
+        let err = crate::Error::ValidationError {
+            message: "invalid input".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let detail = ErrorDetail::from_error(&err);
 
         // Should have context map populated
-        assert!(detail.details.is_some());
+        assert_eq!(detail.code, "VALIDATION_ERROR");
+        assert!(detail.message.contains("Validation error"));
+        assert_eq!(detail.exit_code, 1);
     }
 
     #[test]

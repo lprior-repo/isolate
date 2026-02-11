@@ -46,7 +46,12 @@ impl FromStr for SessionStatus {
             "paused" => Ok(Self::Paused),
             "completed" => Ok(Self::Completed),
             "failed" => Ok(Self::Failed),
-            _ => Err(Error::ValidationError(format!("Invalid status: {s}"))),
+            _ => Err(Error::ValidationError {
+                message: format!("Invalid status: {s}"),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            }),
         }
     }
 }
@@ -142,22 +147,31 @@ const RESERVED_SESSION_NAMES: &[&str] =
 /// - Not be a reserved keyword
 pub fn validate_session_name(name: &str) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::ValidationError(
-            "Session name cannot be empty".into(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Session name cannot be empty".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     // Check for non-ASCII characters first (prevents unicode bypasses)
     if !name.is_ascii() {
-        return Err(Error::ValidationError(
-            "Session name must contain only ASCII characters (a-z, A-Z, 0-9, -, _)".into(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Session name must contain only ASCII characters (a-z, A-Z, 0-9, -, _)".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     if name.len() > 64 {
-        return Err(Error::ValidationError(
-            "Session name cannot exceed 64 characters".into(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Session name cannot exceed 64 characters".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     // Only allow ASCII alphanumeric, dash, and underscore
@@ -166,18 +180,25 @@ pub fn validate_session_name(name: &str) -> Result<()> {
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
-        return Err(Error::ValidationError(
-            "Invalid session name: Session name can only contain ASCII alphanumeric characters, dashes, and underscores"
-                .into(),
-        ));
+        return Err(Error::ValidationError {
+             message: "Invalid session name: Session name can only contain ASCII alphanumeric characters, dashes, and underscores"
+                 .into(),
+             field: None,
+             value: None,
+             constraints: Vec::new(),
+         });
     }
 
     // Must start with a letter (not dash, underscore, or digit)
     if let Some(first) = name.chars().next() {
         if !first.is_ascii_alphabetic() {
-            return Err(Error::ValidationError(
-                "Invalid session name: Session name must start with a letter (a-z, A-Z)".into(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Invalid session name: Session name must start with a letter (a-z, A-Z)"
+                    .into(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
     }
 
@@ -187,9 +208,12 @@ pub fn validate_session_name(name: &str) -> Result<()> {
         .iter()
         .any(|&keyword| keyword == lower)
     {
-        return Err(Error::ValidationError(format!(
-            "Session name '{name}' is a reserved keyword and cannot be used"
-        )));
+        return Err(Error::ValidationError {
+            message: format!("Session name '{name}' is a reserved keyword and cannot be used"),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     Ok(())
@@ -218,9 +242,12 @@ pub fn validate_status_transition(from: SessionStatus, to: SessionStatus) -> Res
     if valid {
         Ok(())
     } else {
-        Err(Error::ValidationError(format!(
-            "Invalid status transition from {from} to {to}"
-        )))
+        Err(Error::ValidationError {
+            message: format!("Invalid status transition from {from} to {to}"),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        })
     }
 }
 
@@ -327,10 +354,10 @@ mod tests {
         // Literal backslash-n should be rejected
         let result = validate_session_name("test\\nname");
         assert!(result.is_err(), "Should reject literal backslash-n");
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message, .. }) = result {
             assert!(
-                msg.contains("invalid") || msg.contains("character"),
-                "Error message should mention invalid characters: {msg}"
+                message.contains("invalid") || message.contains("character"),
+                "Error message should mention invalid characters: {message}"
             );
         } else {
             // Test passed - error was correctly returned

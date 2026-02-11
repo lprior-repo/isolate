@@ -599,7 +599,12 @@ pub fn validate_key(key: &str) -> Result<()> {
         error_msg.push_str("  recovery.policy, recovery.log_recovered\n");
         error_msg.push_str("\nUse 'zjj config' to see current configuration.");
 
-        Err(Error::ValidationError(error_msg))
+        Err(Error::ValidationError {
+            message: error_msg,
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        })
     }
 }
 
@@ -973,16 +978,22 @@ impl Config {
     fn validate(&self) -> Result<()> {
         // Validate debounce_ms range [10-5000]
         if self.watch.debounce_ms < 10 || self.watch.debounce_ms > 5000 {
-            return Err(Error::ValidationError(
-                "debounce_ms must be 10-5000".to_string(),
-            ));
+            return Err(Error::ValidationError {
+                message: "debounce_ms must be 10-5000".to_string(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         // Validate refresh_ms range [100-10000]
         if self.dashboard.refresh_ms < 100 || self.dashboard.refresh_ms > 10000 {
-            return Err(Error::ValidationError(
-                "refresh_ms must be 100-10000".to_string(),
-            ));
+            return Err(Error::ValidationError {
+                message: "refresh_ms must be 100-10000".to_string(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         Ok(())

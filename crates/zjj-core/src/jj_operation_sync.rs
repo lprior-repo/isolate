@@ -239,12 +239,15 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
 /// # Example
 ///
 /// ```no_run
+/// use std::path::Path;
+///
 /// use zjj_core::jj_operation_sync::create_workspace_synced;
 ///
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let workspace_path = std::path::PathBuf::from("/tmp/workspace");
-/// create_workspace_synced("my-workspace", &workspace_path).await?;
+/// let repo_root = Path::new("/path/to/repo");
+/// create_workspace_synced("my-workspace", &workspace_path, repo_root).await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -399,11 +402,14 @@ async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
             );
             tracing::warn!("{warning}");
 
-            if std::env::var("ZJJ_STRICT_LOCKS").is_ok() {
-                return Err(Error::ValidationError(format!(
-                    "LOCK_PORTABILITY_UNSUPPORTED: {warning}. Unset ZJJ_STRICT_LOCKS to continue with process-local lock fallback"
-                )));
-            }
+if std::env::var("ZJJ_STRICT_LOCKS").is_ok() {
+                 return Err(Error::ValidationError {
+                     message: format!("LOCK_PORTABILITY_UNSUPPORTED: {warning}. Unset ZJJ_STRICT_LOCKS to continue with process-local lock fallback"),
+                     field: None,
+                     value: None,
+                     constraints: Vec::new(),
+                 });
+             }
         }
 
         Ok::<File, Error>(file)

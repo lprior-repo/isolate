@@ -156,9 +156,12 @@ fn show_config_value(config: &Config, key: &str, format: OutputFormat) -> Result
         let parts: Vec<&str> = key.split('.').collect();
         let current = parts.iter().try_fold(&json_val, |current_value, &part| {
             current_value.get(part).ok_or_else(|| {
-                anyhow::Error::new(zjj_core::Error::ValidationError(format!(
-                    "Config key '{key}' not found"
-                )))
+                anyhow::Error::new(zjj_core::Error::ValidationError {
+                    message: format!("Config key '{key}' not found"),
+                    field: None,
+                    value: None,
+                    constraints: Vec::new(),
+                })
             })
         })?;
 
@@ -189,9 +192,12 @@ fn get_nested_value(config: &Config, key: &str) -> Result<String> {
     // Navigate through nested keys using functional fold pattern
     let current = parts.iter().try_fold(&json, |current_value, &part| {
         current_value.get(part).ok_or_else(|| {
-            anyhow::Error::new(zjj_core::Error::ValidationError(format!(
-                "Config key '{key}' not found. Use 'zjj config' to see all keys."
-            )))
+            anyhow::Error::new(zjj_core::Error::ValidationError {
+                message: format!("Config key '{key}' not found. Use 'zjj config' to see all keys."),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            })
         })
     })?;
 
@@ -343,17 +349,23 @@ fn set_nested_value(doc: &mut toml_edit::DocumentMut, parts: &[&str], value: &st
                     current_table[part] = toml_edit::table();
                 }
                 current_table[part].as_table_mut().ok_or_else(|| {
-                    anyhow::Error::new(zjj_core::Error::ValidationError(format!(
-                        "{part} is not a table"
-                    )))
+                    anyhow::Error::new(zjj_core::Error::ValidationError {
+                        message: format!("{part} is not a table"),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    })
                 })
             })?;
 
     // Set the value
     let key = parts.last().ok_or_else(|| {
-        anyhow::Error::new(zjj_core::Error::ValidationError(
-            "Invalid key path".to_string(),
-        ))
+        anyhow::Error::new(zjj_core::Error::ValidationError {
+            message: "Invalid key path".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        })
     })?;
     let toml_value = parse_value(value)?;
     final_table[key] = toml_value;

@@ -133,10 +133,12 @@ impl StateTransition {
         if self.from.can_transition_to(self.to) {
             Ok(())
         } else {
-            Err(Error::ValidationError(format!(
-                "Invalid state transition: {:?} -> {:?}",
-                self.from, self.to
-            )))
+            Err(Error::ValidationError {
+                message: format!("Invalid state transition: {:?} -> {:?}", self.from, self.to),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            })
         }
     }
 }
@@ -572,10 +574,12 @@ impl SessionBeadsContext {
             self.state = new_state;
             Ok(())
         } else {
-            Err(Error::ValidationError(format!(
-                "Cannot transition from {:?} to {:?}",
-                self.state, new_state
-            )))
+            Err(Error::ValidationError {
+                message: format!("Cannot transition from {:?} to {:?}", self.state, new_state),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            })
         }
     }
 }

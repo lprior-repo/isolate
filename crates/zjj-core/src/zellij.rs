@@ -366,22 +366,31 @@ fn validate_kdl(content: &str) -> Result<()> {
     let close_braces = content.chars().filter(|c| *c == '}').count();
 
     if open_braces != close_braces {
-        return Err(Error::ValidationError(format!(
-            "Unbalanced braces: {open_braces} open, {close_braces} close"
-        )));
+        return Err(Error::ValidationError {
+            message: format!("Unbalanced braces: {open_braces} open, {close_braces} close"),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     // Check for basic structure
     if !content.contains("layout") {
-        return Err(Error::ValidationError(
-            "KDL must contain 'layout' node".to_string(),
-        ));
+        return Err(Error::ValidationError {
+            message: "KDL must contain 'layout' node".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     if !content.contains("pane") {
-        return Err(Error::ValidationError(
-            "KDL must contain at least one 'pane' node".to_string(),
-        ));
+        return Err(Error::ValidationError {
+            message: "KDL must contain at least one 'pane' node".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     Ok(())
@@ -725,7 +734,7 @@ mod tests {
         let result = validate_kdl(invalid_kdl);
 
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message: msg, .. }) = result {
             assert!(msg.contains("Unbalanced braces"));
         }
     }
@@ -736,7 +745,7 @@ mod tests {
         let result = validate_kdl(invalid_kdl);
 
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message: msg, .. }) = result {
             assert!(msg.contains("layout"));
         }
     }
@@ -747,7 +756,7 @@ mod tests {
         let result = validate_kdl(invalid_kdl);
 
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message: msg, .. }) = result {
             assert!(msg.contains("pane"));
         }
     }

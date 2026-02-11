@@ -147,44 +147,84 @@ impl Session {
     /// - Timestamps are in wrong order
     pub fn validate(&self) -> Result<()> {
         // Name validation
-        let name_regex = regex::Regex::new(r"^[a-zA-Z0-9_-]+$")
-            .map_err(|e| Error::ValidationError(format!("Invalid regex: {e}")))?;
+        let name_regex =
+            regex::Regex::new(r"^[a-zA-Z0-9_-]+$").map_err(|e| Error::ValidationError {
+                message: format!("Invalid regex: {e}"),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            })?;
 
         if !name_regex.is_match(&self.name) {
-            return Err(Error::ValidationError(format!(
-                "Session name '{}' must contain only alphanumeric characters, hyphens, and underscores",
-                self.name
-            )));
+            return Err(Error::ValidationError {
+                 message: format!(
+                     "Session name '{}' must contain only alphanumeric characters, hyphens, and underscores",
+                     self.name
+                 ),
+                 field: None,
+                 value: None,
+                 constraints: Vec::new(),
+             });
         }
 
         if self.name.len() > 64 {
-            return Err(Error::ValidationError(format!(
-                "Session name '{}' exceeds maximum length of 64 characters",
-                self.name
-            )));
+            return Err(Error::ValidationError {
+                message: format!(
+                    "Session name '{}' exceeds maximum length of 64 characters",
+                    self.name
+                ),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
+        }
+
+        if self.name.len() > 64 {
+            return Err(Error::ValidationError {
+                message: format!(
+                    "Session name '{}' exceeds maximum length of 64 characters",
+                    self.name
+                ),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         // Path validation
         if !self.workspace_path.is_absolute() {
-            return Err(Error::ValidationError(format!(
-                "Workspace path '{}' must be absolute",
-                self.workspace_path.display()
-            )));
+            return Err(Error::ValidationError {
+                message: format!(
+                    "Workspace path '{}' must be absolute",
+                    self.workspace_path.display()
+                ),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         // Existence check (except during creation)
         if self.status != SessionStatus::Creating && !self.workspace_path.exists() {
-            return Err(Error::ValidationError(format!(
-                "Workspace '{}' does not exist",
-                self.workspace_path.display()
-            )));
+            return Err(Error::ValidationError {
+                message: format!(
+                    "Workspace '{}' does not exist",
+                    self.workspace_path.display()
+                ),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         // Timestamp order
         if self.updated_at < self.created_at {
-            return Err(Error::ValidationError(
-                "Updated timestamp cannot be before created timestamp".to_string(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Updated timestamp cannot be before created timestamp".to_string(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         Ok(())
@@ -361,9 +401,12 @@ impl HasContract for FileChange {
 
     fn validate(&self) -> Result<()> {
         if self.status == FileStatus::Renamed && self.old_path.is_none() {
-            return Err(Error::ValidationError(
-                "Renamed files must have old_path set".to_string(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Renamed files must have old_path set".to_string(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
         Ok(())
     }
@@ -547,11 +590,16 @@ impl HasContract for DiffSummary {
 
     fn validate(&self) -> Result<()> {
         if self.files.len() != self.files_changed {
-            return Err(Error::ValidationError(format!(
-                "files_changed ({}) does not match files array length ({})",
-                self.files_changed,
-                self.files.len()
-            )));
+            return Err(Error::ValidationError {
+                message: format!(
+                    "files_changed ({}) does not match files array length ({})",
+                    self.files_changed,
+                    self.files.len()
+                ),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
         Ok(())
     }

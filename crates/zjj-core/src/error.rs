@@ -261,7 +261,12 @@ pub enum Error {
     InvalidConfig(String),
     IoError(String),
     ParseError(String),
-    ValidationError(String),
+    ValidationError {
+        message: String,
+        field: Option<String>,
+        value: Option<String>,
+        constraints: Vec<String>,
+    },
     NotFound(String),
     /// Session not found in database (specific to lock operations)
     SessionNotFound {
@@ -320,7 +325,7 @@ impl fmt::Display for Error {
             Self::InvalidConfig(msg) => write!(f, "Invalid configuration: {msg}"),
             Self::IoError(msg) => write!(f, "IO error: {msg}"),
             Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
-            Self::ValidationError(msg) => write!(f, "Validation error: {msg}"),
+            Self::ValidationError { message, .. } => write!(f, "Validation error: {message}"),
             Self::NotFound(msg) => write!(f, "Not found: {msg}"),
             Self::SessionNotFound { session } => {
                 write!(f, "Session '{session}' not found")
@@ -419,7 +424,12 @@ impl From<crate::beads::BeadsError> for Error {
             crate::beads::BeadsError::DatabaseError(msg)
             | crate::beads::BeadsError::QueryFailed(msg) => Self::DatabaseError(msg),
             crate::beads::BeadsError::NotFound(msg) => Self::NotFound(msg),
-            crate::beads::BeadsError::InvalidFilter(msg) => Self::ValidationError(msg),
+            crate::beads::BeadsError::InvalidFilter(msg) => Self::ValidationError {
+                message: msg,
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            },
             crate::beads::BeadsError::PathError(msg) => Self::IoError(msg),
         }
     }
@@ -435,7 +445,7 @@ impl Error {
             Self::InvalidConfig(_) => "INVALID_CONFIG",
             Self::IoError(_) => "IO_ERROR",
             Self::ParseError(_) => "PARSE_ERROR",
-            Self::ValidationError(_) => "VALIDATION_ERROR",
+            Self::ValidationError { .. } => "VALIDATION_ERROR",
             Self::NotFound(_) => "NOT_FOUND",
             Self::SessionNotFound { .. } => "SESSION_NOT_FOUND",
             Self::DatabaseError(_) => "DATABASE_ERROR",
@@ -463,8 +473,8 @@ impl Error {
                 "input": msg,
                 "expected_format": "valid TOML configuration"
             })),
-            Self::ValidationError(msg) => Some(serde_json::json!({
-                "input": msg,
+            Self::ValidationError { message, .. } => Some(serde_json::json!({
+                "input": message,
                 "expected_format": "alphanumeric, dash, underscore only"
             })),
             Self::NotFound(msg) => Some(serde_json::json!({
@@ -556,14 +566,14 @@ impl Error {
         match self {
             Self::NotFound(_) => Some("Try 'zjj list' to see available sessions".to_string()),
             Self::SessionNotFound { .. } => Some("Use 'zjj list' to see available sessions".to_string()),
-            Self::ValidationError(msg) => {
-                if msg.contains("name") {
+            Self::ValidationError { message, .. } => {
+                if message.contains("name") {
                     Some(
                         "Session name must start with letter and contain only alphanumeric, dash, underscore"
                             .to_string(),
                     )
                 } else {
-                    Some(format!("Invalid input: {msg}. Check the input format and try again."))
+                    Some(format!("Invalid input: {message}. Check the input format and try again."))
                 }
             }
             Self::DatabaseError(_) => {
@@ -639,7 +649,7 @@ impl Error {
     pub const fn exit_code(&self) -> i32 {
         match self {
             // Validation errors: exit code 1
-            Self::InvalidConfig(_) | Self::ValidationError(_) | Self::ParseError(_) => 1,
+            Self::InvalidConfig(_) | Self::ValidationError { .. } | Self::ParseError(_) => 1,
             // Not found errors: exit code 2
             Self::NotFound(_) | Self::SessionNotFound { .. } => 2,
             // System errors: exit code 3
@@ -664,19 +674,19 @@ impl Error {
     #[must_use]
     pub fn validation_hints(&self) -> Vec<ValidationHint> {
         match self {
-            Self::ValidationError(msg) => {
-                if msg.contains("name") || msg.contains("session") {
+            Self::ValidationError { message, .. } => {
+                if message.contains("name") || message.contains("session") {
                     vec![ValidationHint::new(
                         "session_name",
                         "alphanumeric with dashes/underscores",
                     )
                     .with_example("feature-auth")
                     .with_pattern("^[a-zA-Z][a-zA-Z0-9_-]*$")]
-                } else if msg.contains("empty") {
+                } else if message.contains("empty") {
                     vec![ValidationHint::new("input", "non-empty value")
                         .with_received("(empty string)")]
                 } else {
-                    vec![ValidationHint::new("input", "valid value").with_received(msg.clone())]
+                    vec![ValidationHint::new("input", "valid value").with_received(message.clone())]
                 }
             }
             Self::InvalidConfig(msg) => {
@@ -791,8 +801,8 @@ impl Error {
             Self::SessionNotFound { session } => {
                 vec!["zjj list".to_string(), format!("zjj add {session}")]
             }
-            Self::ValidationError(msg) => {
-                if msg.contains("name") {
+            Self::ValidationError { message, .. } => {
+                if message.contains("name") {
                     vec!["zjj add my-valid-session".to_string()]
                 } else {
                     vec![]
@@ -966,7 +976,12 @@ mod tests {
 
     #[test]
     fn test_error_code_validation_error() {
-        let err = Error::ValidationError("invalid input".into());
+        let err = Error::ValidationError {
+            message: "invalid input".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         assert_eq!(err.code(), "VALIDATION_ERROR");
     }
 
@@ -997,7 +1012,12 @@ mod tests {
 
     #[test]
     fn test_validation_error_context_has_field() {
-        let err = Error::ValidationError("Session name must be alphanumeric".into());
+        let err = Error::ValidationError {
+            message: "Session name must be alphanumeric".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let context = err.context_map();
         assert!(context.is_some());
         if let Some(ctx) = context {
@@ -1037,14 +1057,24 @@ mod tests {
 
     #[test]
     fn test_validation_error_suggests_format() {
-        let err = Error::ValidationError("invalid session name".into());
+        let err = Error::ValidationError {
+            message: "invalid session name".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let suggestion = err.suggestion();
         assert!(suggestion.is_some());
     }
 
     #[test]
     fn test_validation_error_maps_to_exit_code_1() {
-        let err = Error::ValidationError("invalid input".into());
+        let err = Error::ValidationError {
+            message: "invalid input".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         assert_eq!(err.exit_code(), 1);
     }
 
@@ -1166,7 +1196,12 @@ mod tests {
 
     #[test]
     fn test_validation_error_returns_hints() {
-        let err = Error::ValidationError("invalid session name".into());
+        let err = Error::ValidationError {
+            message: "invalid session name".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let hints = err.validation_hints();
         assert!(!hints.is_empty());
 
@@ -1178,7 +1213,12 @@ mod tests {
 
     #[test]
     fn test_empty_validation_error_returns_hints() {
-        let err = Error::ValidationError("value cannot be empty".into());
+        let err = Error::ValidationError {
+            message: "value cannot be empty".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let hints = err.validation_hints();
         assert!(!hints.is_empty());
     }
@@ -1272,7 +1312,12 @@ mod tests {
 
     #[test]
     fn test_validation_error_returns_fix_commands() {
-        let err = Error::ValidationError("invalid session name".into());
+        let err = Error::ValidationError {
+            message: "invalid session name".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let commands = err.fix_commands();
         assert!(!commands.is_empty());
     }
@@ -1322,7 +1367,12 @@ mod tests {
 
     #[test]
     fn test_rich_error_with_context() {
-        let err = Error::ValidationError("invalid".into());
+        let err = Error::ValidationError {
+            message: "invalid".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let ctx = FailureContext::new().with_working_directory("/tmp");
         let rich = RichError::from_error(&err).with_context(ctx);
 
@@ -1331,7 +1381,12 @@ mod tests {
 
     #[test]
     fn test_rich_error_with_validation_hints() {
-        let err = Error::ValidationError("invalid name".into());
+        let err = Error::ValidationError {
+            message: "invalid name".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let additional_hints = vec![ValidationHint::new("extra", "extra hint")];
         let rich = RichError::from_error(&err).with_validation_hints(additional_hints);
 
@@ -1606,7 +1661,12 @@ mod tests {
         // All suggestions should include specific commands, not just explanations
         let test_errors = vec![
             Error::NotFound("session 'test' not found".into()),
-            Error::ValidationError("invalid name".into()),
+            Error::ValidationError {
+                message: "invalid name".to_string(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            },
             Error::DatabaseError("corrupted".into()),
         ];
 

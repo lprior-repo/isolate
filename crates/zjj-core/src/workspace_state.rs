@@ -138,9 +138,14 @@ impl FromStr for WorkspaceState {
             "merged" => Ok(Self::Merged),
             "abandoned" => Ok(Self::Abandoned),
             "conflict" => Ok(Self::Conflict),
-            _ => Err(Error::ValidationError(format!(
-                "Invalid workspace state: '{s}'. Valid states: created, working, ready, merged, abandoned, conflict"
-            ))),
+            _ => Err(Error::ValidationError {
+                message: format!(
+                    "Invalid workspace state: '{s}'. Valid states: created, working, ready, merged, abandoned, conflict"
+                ),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            }),
         }
     }
 }
@@ -204,13 +209,18 @@ impl WorkspaceStateTransition {
         if self.from.can_transition_to(self.to) {
             Ok(())
         } else {
-            Err(Error::ValidationError(format!(
-                "Invalid workspace state transition: {} -> {}. Valid transitions from {} are: {:?}",
-                self.from,
-                self.to,
-                self.from,
-                self.from.valid_next_states()
-            )))
+            Err(Error::ValidationError {
+                 message: format!(
+                     "Invalid workspace state transition: {} -> {}. Valid transitions from {} are: {:?}",
+                     self.from,
+                     self.to,
+                     self.from,
+                     self.from.valid_next_states()
+                 ),
+                 field: None,
+                 value: None,
+                 constraints: Vec::new(),
+             })
         }
     }
 }

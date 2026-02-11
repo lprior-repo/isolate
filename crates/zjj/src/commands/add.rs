@@ -86,9 +86,12 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
                 return Ok(());
             }
         }
-        return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
-            format!("Session '{}' already exists", options.name),
-        )));
+        return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
+            message: format!("Session '{}' already exists", options.name),
+            field: Some("name".to_string()),
+            value: Some(options.name.clone()),
+            constraints: vec![],
+        }));
     }
 
     let root = check_prerequisites().await?;
@@ -197,6 +200,13 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
                 }
             }
 
+            // Session already exists and idempotent mode is not enabled
+            // Return rich error with workspace path and alternatives
+            let _hint = zjj_core::ValidationHint::new("session_name", "unique name")
+                .with_received(&options.name)
+                .with_example("my-unique-session")
+                .with_pattern("^[a-zA-Z][a-zA-Z0-9_-]*$");
+
             if options.idempotent {
                 if options.dry_run {
                     let zellij_tab = existing.zellij_tab.clone();
@@ -254,10 +264,18 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
                 );
                 return Ok(());
             }
-            // Return zjj_core::Error::ValidationError to get exit code 1
-            return Err(anyhow::Error::new(zjj_core::Error::ValidationError(
-                format!("Session '{}' already exists", options.name),
-            )));
+            // Return rich error with workspace path and alternatives
+            let session_path = existing.workspace_path.to_string();
+            let error = zjj_core::Error::ValidationError {
+                message: format!("Session '{}' already exists", options.name),
+                field: Some("session_name".to_string()),
+                value: Some(options.name.clone()),
+                constraints: vec!["unique session name required".to_string()],
+            };
+            return Err(anyhow::Error::new(error).context(format!(
+                 "Session path: {}\n\nAlternatives:\n  - Use a different name\n  - Use --idempotent to reuse\n  - Use --force to overwrite (if implemented)",
+                 session_path
+             )));
         }
         None => {
             // Session doesn't exist, proceed with creation
