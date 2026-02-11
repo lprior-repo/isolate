@@ -8,14 +8,15 @@ use futures::{StreamExt, TryStreamExt};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
-    cli::commands::build_cli,
+    cli::build_cli,
     command_context,
     commands::{
         abort, add, agents, ai, attach, backup, batch, bookmark, broadcast, can_i, checkpoint,
         claim, clean, completions, config, context, contract, dashboard, diff, doctor, done,
         events, examples, export_import, focus, get_session_db, init, integrity, introspect, list,
-        pane, query, queue, recover, remove, rename, revert, schema, session_mgmt, spawn, status,
-        switch, sync, template, undo, validate, wait, whatif, whereami, whoami, work,
+        pane, prune_invalid, query, queue, recover, remove, rename, revert, schema, session_mgmt,
+        spawn, status, switch, sync, template, undo, validate, wait, whatif, whereami, whoami,
+        work,
     },
     hooks, json,
 };
@@ -295,6 +296,19 @@ pub async fn handle_clean(sub_m: &ArgMatches) -> Result<()> {
         age_threshold,
     };
     clean::run_with_options(&options).await
+}
+
+pub async fn handle_prune_invalid(sub_m: &ArgMatches) -> Result<()> {
+    let yes = sub_m.get_flag("yes");
+    let dry_run = sub_m.get_flag("dry-run");
+    let json = sub_m.get_flag("json");
+    let format = OutputFormat::from_json_flag(json);
+    let options = prune_invalid::PruneInvalidOptions {
+        yes,
+        dry_run,
+        format,
+    };
+    prune_invalid::run(&options).await
 }
 
 pub async fn handle_template(sub_m: &ArgMatches) -> Result<()> {
@@ -820,7 +834,96 @@ pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
         args,
         format,
     };
-    whatif::run(&options)
+    let result = whatif::run(&options)?;
+
+    if format.is_json() {
+        let envelope = zjj_core::json::SchemaEnvelope::new("whatif-response", "single", result);
+        let json_str = serde_json::to_string_pretty(&envelope)?;
+        println!("{json_str}");
+    } else {
+        println!("What-if preview for '{}' command:", options.command);
+        println!();
+
+        for step in &result.steps {
+            println!("  {}. {}", step.order, step.description);
+            println!("     > {}", step.action);
+            if step.can_fail {
+                if let Some(failure) = &step.on_failure {
+                    println!("     (can fail: {failure})");
+                } else {
+                    println!("     (can fail)");
+                }
+            }
+            println!();
+        }
+
+        if !result.creates.is_empty() {
+            println!("  Creates:");
+            for create in &result.creates {
+                println!("    - {} ({})", create.resource, create.resource_type);
+                println!("      {}", create.description);
+            }
+            println!();
+        }
+
+        if !result.modifies.is_empty() {
+            println!("  Modifies:");
+            for modify in &result.modifies {
+                println!("    - {} ({})", modify.resource, modify.resource_type);
+                println!("      {}", modify.description);
+            }
+            println!();
+        }
+
+        if !result.deletes.is_empty() {
+            println!("  Deletes:");
+            for delete in &result.deletes {
+                println!("    - {} ({})", delete.resource, delete.resource_type);
+                println!("      {}", delete.description);
+            }
+            println!();
+        }
+
+        if !result.side_effects.is_empty() {
+            println!("  Side effects:");
+            for effect in &result.side_effects {
+                println!("    - {}", effect);
+            }
+            println!();
+        }
+
+        if result.reversible {
+            println!("  Reversible: Yes");
+            if let Some(undo) = &result.undo_command {
+                println!("  Undo command: {}", undo);
+            }
+            println!();
+        }
+
+        if !result.warnings.is_empty() {
+            println!("  Warnings:");
+            for warning in &result.warnings {
+                println!("    - {}", warning);
+            }
+            println!();
+        }
+
+        if !result.prerequisites.is_empty() {
+            println!("  Prerequisites:");
+            for prereq in &result.prerequisites {
+                let status = match prereq.status {
+                    whatif::PrerequisiteStatus::Met => "✓ Met",
+                    whatif::PrerequisiteStatus::NotMet => "✗ Not met",
+                    whatif::PrerequisiteStatus::Unknown => "? Unknown",
+                };
+                println!("    {} {}", status, prereq.check);
+                println!("      {}", prereq.description);
+            }
+            println!();
+        }
+    }
+
+    Ok(())
 }
 
 pub async fn handle_claim(sub_m: &ArgMatches) -> Result<()> {
@@ -1395,6 +1498,7 @@ pub async fn run_cli() -> Result<()> {
             Some(("diff", sub_m)) => handle_diff(sub_m).await,
             Some(("config", sub_m)) => handle_config(sub_m).await,
             Some(("clean", sub_m)) => handle_clean(sub_m).await,
+            Some(("prune-invalid", sub_m)) => handle_prune_invalid(sub_m).await,
             Some(("template", sub_m)) => handle_template(sub_m).await,
             Some(("dashboard" | "dash", _)) => dashboard::run().await,
             Some(("introspect", sub_m)) => handle_introspect(sub_m).await,
