@@ -262,9 +262,9 @@ async fn run_cleanup_iteration(config: &PeriodicCleanupConfig) -> Result<Periodi
         } else {
             zjj_core::RecoveryPolicy::Warn
         },
-        log_recovered: true,
-        auto_recover_corrupted_wal: true,
-        delete_corrupted_database: false,
+        log_recovered: true.into(),
+        auto_recover_corrupted_wal: true.into(),
+        delete_corrupted_database: false.into(),
     };
     let recovered_count = zjj_core::recover_incomplete_sessions(db_path, &recovery_config)
         .await

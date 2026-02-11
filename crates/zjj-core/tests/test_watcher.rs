@@ -93,7 +93,7 @@ async fn test_watcher_detects_file_changes() -> Result<()> {
 
     // Configure watcher with short debounce for fast tests
     let config = WatchConfig {
-        enabled: true,
+        enabled: true.into(),
         debounce_ms: 50, // Short debounce for faster test
         paths: vec![".beads/beads.db".to_string()],
     };
@@ -155,7 +155,7 @@ async fn test_watcher_debounces_rapid_changes() -> Result<()> {
 
     // Configure watcher with 100ms debounce
     let config = WatchConfig {
-        enabled: true,
+        enabled: true.into(),
         debounce_ms: 100,
         paths: vec![".beads/beads.db".to_string()],
     };
@@ -239,7 +239,7 @@ async fn test_watcher_handles_multiple_workspaces() -> Result<()> {
     ws3_result?;
 
     let config = WatchConfig {
-        enabled: true,
+        enabled: true.into(),
         debounce_ms: 50,
         paths: vec![".beads/beads.db".to_string()],
     };
@@ -325,7 +325,7 @@ async fn test_watcher_handles_missing_database() -> Result<()> {
 
     // Don't create beads.db - test that watcher handles missing database gracefully
     let config = WatchConfig {
-        enabled: true,
+        enabled: true.into(),
         debounce_ms: 50,
         paths: vec![".beads/beads.db".to_string()],
     };
@@ -367,7 +367,7 @@ async fn test_watcher_handles_concurrent_modifications() -> Result<()> {
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to create beads.db: {e}")))?;
 
     let config = WatchConfig {
-        enabled: true,
+        enabled: true.into(),
         debounce_ms: 100,
         paths: vec![".beads/beads.db".to_string()],
     };
@@ -449,7 +449,7 @@ async fn test_watcher_rapid_changes_different_workspaces() -> Result<()> {
     ws2_result?;
 
     let config = WatchConfig {
-        enabled: true,
+        enabled: true.into(),
         debounce_ms: 100,
         paths: vec![".beads/beads.db".to_string()],
     };
@@ -510,7 +510,7 @@ async fn test_watcher_rapid_changes_different_workspaces() -> Result<()> {
 #[test]
 fn test_watcher_rejects_invalid_debounce_too_low() {
     let config = WatchConfig {
-        enabled: true,
+        enabled: true.into(),
         debounce_ms: 5, // Too low (< 10)
         paths: vec![".beads/beads.db".to_string()],
     };
@@ -526,7 +526,7 @@ fn test_watcher_rejects_invalid_debounce_too_low() {
 #[test]
 fn test_watcher_rejects_invalid_debounce_too_high() {
     let config = WatchConfig {
-        enabled: true,
+        enabled: true.into(),
         debounce_ms: 10000, // Too high (> 5000)
         paths: vec![".beads/beads.db".to_string()],
     };
@@ -542,7 +542,7 @@ fn test_watcher_rejects_invalid_debounce_too_high() {
 #[test]
 fn test_watcher_rejects_disabled_config() {
     let config = WatchConfig {
-        enabled: false, // Disabled
+        enabled: false.into(), // Disabled
         debounce_ms: 100,
         paths: vec![".beads/beads.db".to_string()],
     };
@@ -577,7 +577,7 @@ async fn test_watcher_channel_capacity() -> Result<()> {
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to create beads.db: {e}")))?;
 
     let config = WatchConfig {
-        enabled: true,
+        enabled: true.into(),
         debounce_ms: 10, // Very short debounce
         paths: vec![".beads/beads.db".to_string()],
     };
