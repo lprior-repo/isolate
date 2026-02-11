@@ -352,12 +352,16 @@ fn make_skipped_result(operation: &BatchOperation, reason: &str) -> BatchItemRes
 
 /// Execute a command asynchronously and capture output.
 async fn execute_command(command: &str, args: &[String]) -> Result<String> {
-    let output = tokio::process::Command::new("zjj")
+    // Determine the executable. If it's a known zjj subcommand, we use the current executable.
+    // This is more robust than assuming "zjj" is in PATH.
+    let current_exe = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("zjj"));
+
+    let output = tokio::process::Command::new(current_exe)
         .arg(command)
         .args(args)
         .output()
         .await
-        .map_err(|e| Error::Command(format!("Failed to execute: {e}")))?;
+        .map_err(|e| Error::Command(format!("Failed to execute {command}: {e}")))?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())

@@ -287,8 +287,8 @@ fn create_fail_check(invalid: &[&ValidationResult]) -> DoctorCheck {
         name: "Workspace Integrity".to_string(),
         status: CheckStatus::Fail,
         message: format!("Integrity issues found in {} workspace(s)", invalid.len()),
-        suggestion: Some("Run 'zjj integrity repair <workspace>' to attempt recovery".to_string()),
-        auto_fixable: false,
+        suggestion: Some("Run 'zjj doctor --fix' to attempt recovery".to_string()),
+        auto_fixable: true,
         details: Some(details),
     }
 }
@@ -1221,6 +1221,7 @@ async fn run_fixes(
                     "Orphaned Workspaces" => fix_orphaned_workspaces(check, dry_run).await,
                     "Stale Sessions" => fix_stale_sessions(check, dry_run).await,
                     "Pending Add Operations" => fix_pending_add_operations(check, dry_run).await,
+                    "Workspace Integrity" => fix_workspace_integrity(check, dry_run).await,
                     "State Database" => fix_state_database(check, dry_run)
                         .await
                         .map_err(|e| e.to_string()),
@@ -1351,6 +1352,86 @@ async fn fix_pending_add_operations(check: &DoctorCheck, dry_run: bool) -> Resul
         .await
         .map(|recovered| format!("Reconciled {recovered} pending add operation(s)"))
         .map_err(|error| format!("Failed to reconcile add operations: {error}"))
+}
+
+async fn fix_workspace_integrity(check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
+    let details = check
+        .details
+        .as_ref()
+        .ok_or_else(|| "No workspace integrity data".to_string())?;
+
+    let invalid_workspaces = details
+        .get("invalid_workspaces")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| "Invalid workspaces data is not an array".to_string())?;
+
+    if dry_run {
+        return Ok(format!(
+            "Would attempt to repair {} workspace(s)",
+            invalid_workspaces.len()
+        ));
+    }
+
+    let config = load_config_or_error()
+        .await
+        .map_err(|e| format!("Unable to load config: {e}"))?;
+
+    let root = jj_root()
+        .await
+        .map(PathBuf::from)
+        .map_err(|e| format!("Unable to determine repository root: {e}"))?;
+
+    let workspace_dir = if Path::new(&config.workspace_dir).is_absolute() {
+        Path::new(&config.workspace_dir).to_path_buf()
+    } else {
+        root.join(Path::new(&config.workspace_dir))
+    };
+
+    let validator = IntegrityValidator::new(workspace_dir.clone());
+    let executor = zjj_core::workspace_integrity::RepairExecutor::new();
+
+    let mut fixed_count = 0;
+    let mut failed_workspaces = Vec::new();
+
+    for ws_value in invalid_workspaces {
+        let ws_name = ws_value
+            .get("workspace")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Missing workspace name".to_string())?;
+
+        // Re-validate to get fresh state before repair
+        let validation = validator
+            .validate(ws_name)
+            .await
+            .map_err(|e| format!("Failed to validate workspace '{ws_name}': {e}"))?;
+
+        match executor.repair(&validation).await {
+            Ok(result) if result.success => {
+                fixed_count += 1;
+            }
+            Ok(result) => {
+                failed_workspaces.push(format!("{}: {}", ws_name, result.summary));
+            }
+            Err(e) => {
+                failed_workspaces.push(format!("{}: {}", ws_name, e));
+            }
+        }
+    }
+
+    if failed_workspaces.is_empty() {
+        Ok(format!("Successfully repaired {fixed_count} workspace(s)"))
+    } else if fixed_count > 0 {
+        Ok(format!(
+            "Repaired {fixed_count} workspace(s), but {} failed: {}",
+            failed_workspaces.len(),
+            failed_workspaces.join("; ")
+        ))
+    } else {
+        Err(format!(
+            "Failed to repair any workspaces: {}",
+            failed_workspaces.join("; ")
+        ))
+    }
 }
 
 async fn fix_state_database(_check: &DoctorCheck, dry_run: bool) -> Result<String> {

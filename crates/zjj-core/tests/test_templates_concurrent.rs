@@ -273,10 +273,10 @@ async fn test_template_handles_corrupted_metadata() {
     );
 
     match load_result {
-        Err(Error::ValidationError(msg)) => {
+        Err(Error::ValidationError { message, .. }) => {
             assert!(
-                msg.contains("Invalid template metadata") || msg.contains("expected"),
-                "Error should mention invalid metadata: {msg}"
+                message.contains("Invalid template metadata") || message.contains("expected"),
+                "Error should mention invalid metadata: {message}"
             );
         }
         Err(e) => {

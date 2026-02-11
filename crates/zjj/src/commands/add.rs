@@ -265,7 +265,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
                 return Ok(());
             }
             // Return rich error with workspace path and alternatives
-            let session_path = existing.workspace_path.to_string();
+            let session_path = existing.workspace_path.clone();
             let error = zjj_core::Error::ValidationError {
                 message: format!("Session '{}' already exists", options.name),
                 field: Some("session_name".to_string()),
@@ -273,8 +273,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
                 constraints: vec!["unique session name required".to_string()],
             };
             return Err(anyhow::Error::new(error).context(format!(
-                 "Session path: {}\n\nAlternatives:\n  - Use a different name\n  - Use --idempotent to reuse\n  - Use --force to overwrite (if implemented)",
-                 session_path
+                 "Session path: {session_path}\n\nAlternatives:\n  - Use a different name\n  - Use --idempotent to reuse\n  - Use --force to overwrite (if implemented)"
              )));
         }
         None => {
@@ -374,7 +373,12 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     // Open Zellij tab unless --no-open or --no-zellij (REQ-CLI-003)
     // COMPENSATING ACTION: If this fails, session has 'active' status but Zellij tab doesn't exist
     // Recovery: User can manually create tab or run 'zjj focus <name>'
-    if options.no_open || options.no_zellij {
+    let no_zellij = options.no_zellij || !crate::cli::is_terminal();
+    if !crate::cli::is_terminal() && !options.no_zellij && !options.format.is_json() {
+        println!("Note: Non-interactive environment detected, skipping Zellij integration.");
+    }
+
+    if options.no_open || no_zellij {
         output_result(
             &options.name,
             &workspace_path_str,
@@ -458,7 +462,7 @@ mod tests {
         let result = validate_session_name("");
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert!(matches!(e, zjj_core::Error::ValidationError { .. }));
             assert_eq!(e.exit_code(), 1);
         }
 
@@ -466,7 +470,7 @@ mod tests {
         let result = validate_session_name("test-session-🚀");
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert!(matches!(e, zjj_core::Error::ValidationError { .. }));
             assert_eq!(e.exit_code(), 1);
         }
 
@@ -474,7 +478,7 @@ mod tests {
         let result = validate_session_name("123-test");
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert!(matches!(e, zjj_core::Error::ValidationError { .. }));
             assert_eq!(e.exit_code(), 1);
         }
 
@@ -482,7 +486,7 @@ mod tests {
         let result = validate_session_name("test session");
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert!(matches!(e, zjj_core::Error::ValidationError { .. }));
             assert_eq!(e.exit_code(), 1);
         }
     }
@@ -491,9 +495,14 @@ mod tests {
     fn test_duplicate_session_error_wraps_validation_error() {
         // This test verifies that the duplicate session check creates a ValidationError
         // which maps to exit code 1
-        let err = zjj_core::Error::ValidationError("Session 'test' already exists".into());
+        let err = zjj_core::Error::ValidationError {
+            message: "Session 'test' already exists".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         assert_eq!(err.exit_code(), 1);
-        assert!(matches!(err, zjj_core::Error::ValidationError(_)));
+        assert!(matches!(err, zjj_core::Error::ValidationError { .. }));
     }
 
     // === Tests for P4: Category-grouped help output (Phase 4 RED - should fail) ===

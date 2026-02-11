@@ -2686,8 +2686,9 @@ pub fn cmd_abort() -> ClapCommand {
             Arg::new("workspace")
                 .short('w')
                 .long("workspace")
+                .alias("session")
                 .value_name("NAME")
-                .help("Workspace to abort (uses current if not specified)"),
+                .help("Workspace/session to abort (uses current if not specified)"),
         )
         .arg(
             Arg::new("no-bead-update")
@@ -2716,7 +2717,7 @@ pub fn cmd_abort() -> ClapCommand {
         .after_help(after_help_text(
             &[
                 "zjj abort                       Abandon current workspace",
-                "zjj abort -w feature-x          Abort specific workspace",
+                "zjj abort --session feature-x   Abort specific workspace",
                 "zjj abort --keep-workspace      Keep files, just remove from zjj",
                 "zjj abort --dry-run             Preview abort without executing",
             ],

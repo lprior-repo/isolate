@@ -467,7 +467,7 @@ async fn test_recovery_log_empty_message_handling() -> Result<(), Error> {
         // Empty/whitespace messages should either succeed or fail gracefully
         // We don't prescribe the exact behavior, just ensure no panics
         match result {
-            Ok(()) | Err(Error::ValidationError(_)) => {
+            Ok(()) | Err(Error::ValidationError { .. }) => {
                 // Acceptable: success or empty messages rejected
             }
             Err(e) => {

@@ -118,6 +118,14 @@ enum InputAction {
 
 /// Run the interactive dashboard
 pub async fn run() -> Result<()> {
+    // Check if running in a TTY
+    if !crate::cli::is_terminal() {
+        anyhow::bail!(
+            "Cannot launch interactive dashboard in non-interactive environment.\n\
+             Use 'zjj status' for a non-interactive overview, or 'zjj dashboard --json' (if implemented) for machine-readable state."
+        );
+    }
+
     // Check if we're in a JJ repo
     let _root = crate::cli::jj_root()
         .await

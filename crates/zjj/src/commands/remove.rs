@@ -265,9 +265,14 @@ mod tests {
     #[tokio::test]
     async fn test_validation_error_maps_to_exit_code_1() {
         // Validation errors should map to exit code 1
-        let err = zjj_core::Error::ValidationError("Invalid name".into());
+        let err = zjj_core::Error::ValidationError {
+            message: "Invalid name".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         assert_eq!(err.exit_code(), 1);
-        assert!(matches!(err, zjj_core::Error::ValidationError(_)));
+        assert!(matches!(err, zjj_core::Error::ValidationError { .. }));
     }
 
     // Phase 1 RED tests: Remove JSON output should be wrapped with SchemaEnvelope
