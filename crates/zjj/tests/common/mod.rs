@@ -249,8 +249,6 @@ impl TestHarness {
             std::env::var("PATH").unwrap_or_default()
         );
 
-        let state_db = self.repo_path.join(".zjj").join("state.db");
-
         // Get absolute path to jj binary for subprocess
         let jj_binary_path = jj_info().binary_path.as_ref();
 
@@ -260,7 +258,6 @@ impl TestHarness {
             .env("NO_COLOR", "1")
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
-            .env("ZJJ_STATE_DB", state_db)
             .env("PATH", &path_with_system_dirs);
 
         // Set ZJJ_JJ_PATH if jj binary was found
@@ -530,8 +527,6 @@ impl TestHarness {
             std::env::var("PATH").unwrap_or_default()
         );
 
-        let state_db = self.repo_path.join(".zjj").join("state.db");
-
         // Get absolute path to jj binary for subprocess
         let jj_binary_path = jj_info().binary_path.as_ref();
 
@@ -541,7 +536,6 @@ impl TestHarness {
             .env("NO_COLOR", "1")
             .env("ZJJ_TEST_MODE", "1")
             .env("ZJJ_WORKSPACE_DIR", TEST_WORKSPACE_DIR)
-            .env("ZJJ_STATE_DB", state_db)
             .env("PATH", &path_with_system_dirs);
 
         // Set ZJJ_JJ_PATH if jj binary was found
