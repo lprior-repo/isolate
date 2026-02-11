@@ -75,8 +75,8 @@ pub async fn log_recovery(message: &str, config: &RecoveryConfig) -> Result<()> 
 
 /// Check if a recovery action should be logged based on policy
 #[must_use]
-pub const fn should_log_recovery(config: &RecoveryConfig) -> bool {
-    config.log_recovered
+pub fn should_log_recovery(config: &RecoveryConfig) -> bool {
+    config.log_recovered.into()
 }
 
 /// Validate database integrity
@@ -426,15 +426,15 @@ mod tests {
     fn test_should_log_recovery() {
         let config_true = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
-            log_recovered: true,
-            auto_recover_corrupted_wal: true,
-            delete_corrupted_database: false,
+            log_recovered: true.into(),
+            auto_recover_corrupted_wal: true.into(),
+            delete_corrupted_database: false.into(),
         };
         let config_false = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
-            log_recovered: false,
-            auto_recover_corrupted_wal: true,
-            delete_corrupted_database: false,
+            log_recovered: false.into(),
+            auto_recover_corrupted_wal: true.into(),
+            delete_corrupted_database: false.into(),
         };
         assert!(should_log_recovery(&config_true));
         assert!(!should_log_recovery(&config_false));
@@ -450,9 +450,9 @@ mod tests {
 
         let config = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
-            log_recovered: true,
-            auto_recover_corrupted_wal: true,
-            delete_corrupted_database: false,
+            log_recovered: true.into(),
+            auto_recover_corrupted_wal: true.into(),
+            delete_corrupted_database: false.into(),
         };
 
         // This should succeed even if file doesn't exist yet
@@ -472,9 +472,9 @@ mod tests {
     async fn test_log_recovery_no_error_when_zjj_missing() {
         let config = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
-            log_recovered: true,
-            auto_recover_corrupted_wal: true,
-            delete_corrupted_database: false,
+            log_recovered: true.into(),
+            auto_recover_corrupted_wal: true.into(),
+            delete_corrupted_database: false.into(),
         };
         // If .zjj doesn't exist, log_recovery should succeed silently
         let result = log_recovery("Test recovery action", &config).await;

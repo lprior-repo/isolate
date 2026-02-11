@@ -156,7 +156,7 @@ pub async fn run() -> Result<()> {
     let mut app = DashboardApp::new().await?;
 
     // Setup file watcher if enabled
-    let mut watcher_rx = if config.watch.enabled {
+    let mut watcher_rx = if config.watch.enabled.into() {
         setup_file_watcher(&config).await.ok()
     } else {
         None

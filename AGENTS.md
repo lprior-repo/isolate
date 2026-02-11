@@ -1,107 +1,105 @@
-# AGENTS.md - Agent Instructions
-
-> **📍 Navigation**: [Index](#agentsmd---agent-instructions) | [Critical Rules](#-critical-rules-read-first) | [Quick Reference](#-quick-reference-90-of-workflows) | [Project Context](#-project-context) | [Parallel Workflow](#-parallel-workflow-7-step-orchestration) | [Session Completion](#-session-completion-mandatory) | [BV Reference](#-bv-complete-reference)
->
-> **📂 Full docs**: docs/13-18 (Agent documentation) | **🔙 Back to**: [README.md](README.md) | [docs/](docs/)
-
----
-
-**Quick index** - Full details in linked files below.
-
-## 🚨 Critical Rules (READ FIRST)
-
-[docs/13_AGENT_CRITICAL_RULES.md](docs/13_AGENT_CRITICAL_RULES.md) - Full details
-
-**7 ABSOLUTE MANDATORY RULES:**
-
-1. **NO_CLIPPY_EDITS** - NEVER modify `.clippy.toml`, `#![allow]`, `#![deny]`, Cargo.toml lint sections. Fix **code**, not rules.
-2. **MOON_ONLY** - NEVER `cargo fmt|clippy|test|build`. ALWAYS `moon run :quick|:test|:build|:ci|:fmt-fix|:check`
-3. **CODANNA_ONLY** - NEVER Grep|Glob|Read for exploration. ALWAYS use `mcp__codanna__ semantic_search|find_symbol|search_symbols|search_documents|get_calls|find_callers|analyze_impact`
-
-### Codanna-Only Enforcement
-- BAN these operations outside Codanna: symbol lookup, fuzzy search, call graph (calls/callers), impact analysis, and docs/code discovery via Grep/Glob/Read.
-- REQUIRED flow: `codanna index` (or `codanna documents index --collection docs` when docs changed), then `codanna retrieve search|symbol|describe|calls|callers`.
-- Default sequence: `codanna retrieve search "<intent>"` -> `codanna retrieve symbol <name>` -> `codanna retrieve calls|callers symbol_id:<id>`.
-4. **ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC** - **ZERO unwrap()**, **ZERO unwrap_or()**, **ZERO unwrap_or_else()**, **ZERO unwrap_or_default()**. **ZERO expect()**. **ZERO panic!()**, **ZERO todo!()**, **ZERO unimplemented!()**. Required: `Result<T, Error>`, `map`, `and_then`, `?` operator. **Strictly enforced for `src` via workspace `deny`; Permissive for `test` via crate root `allow`.**
-5. **GIT_PUSH_MANDATORY** - Work NOT done until `git push` succeeds. NEVER stop before pushing. **YOU** must push (not "ready when you are").
-6. **BR_SYNC** - `br` never runs git. After `br sync --flush-only`, manually `git add .beads/ && git commit -m 'sync beads'`
-7. **FUNCTIONAL_RUST_SKILL** - **ALWAYS load and use functional-rust-generator skill for ANY Rust implementation**. This skill enforces zero unwrap/expect/panic patterns with Railway-Oriented Programming.
+# AGENTS.md
 
 ```jsonl
-{"rule": "NO_CLIPPY_EDITS", "severity": "MANDATORY", "link": "docs/13_AGENT_CRITICAL_RULES.md"}
-{"rule": "MOON_ONLY", "severity": "MANDATORY", "link": "docs/13_AGENT_CRITICAL_RULES.md"}
-{"rule": "CODANNA_ONLY", "severity": "MANDATORY", "link": "docs/13_AGENT_CRITICAL_RULES.md"}
-{"rule": "ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC", "severity": "MANDATORY", "link": "docs/13_AGENT_CRITICAL_RULES.md"}
-{"rule": "GIT_PUSH_MANDATORY", "severity": "MANDATORY", "link": "docs/13_AGENT_CRITICAL_RULES.md"}
-{"rule": "BR_SYNC", "severity": "MANDATORY", "link": "docs/13_AGENT_CRITICAL_RULES.md"}
-{"rule": "FUNCTIONAL_RUST_SKILL", "severity": "MANDATORY", "link": "docs/13_AGENT_CRITICAL_RULES.md"}
+{"id":"agents.swarm.min.v1","role":"Autonomous operator using CLI control planes only"}
+{"truth":["swarm=orchestration_state","bv=bead_triage","br=bead_lifecycle"]}
+{"hard_rule":"Never invent state. Every decision references latest CLI JSON"}
+{"hard_rule":"Never leak secrets: mask DATABASE_URL/tokens/.env as ********"}
+{"hard_rule":"Never claim success without post-action swarm status verification"}
+{"hard_rule":"Use moon for Rust checks/tests/builds; never run raw cargo commands"}
+{"hard_rule":"Do not modify lint/clippy config files or lint policy"}
+{"hard_rule":"Manual testing mandatory: we manually test all of our shit"}
 ```
 
-## 📚 Quick Reference (90% of workflows)
-
-[docs/14_AGENT_QUICK_REFERENCE.md](docs/14_AGENT_QUICK_REFERENCE.md) - CODE_SEARCH, BUILD, ISSUES, WORKSPACE, INDEX
+## Mandatory Rules
 
 ```jsonl
-{"category": "CODE_SEARCH", "tools": ["semantic_search_with_context", "find_symbol", "search_symbols", "search_documents", "analyze_impact"], "link": "docs/14_AGENT_QUICK_REFERENCE.md#code-search-codanna"}
-{"category": "BUILD", "cmds": ["moon run :quick", "moon run :ci", "moon run :fmt-fix"], "link": "docs/14_AGENT_QUICK_REFERENCE.md#build-moon"}
-{"category": "ISSUES", "cmds": ["bv --robot-triage", "br ready|show|update|close"], "link": "docs/14_AGENT_QUICK_REFERENCE.md#issue-tracking-beads"}
-{"category": "WORKSPACE", "cmds": ["zjj add|focus|remove|list"], "link": "docs/14_AGENT_QUICK_REFERENCE.md#workspace-zjj"}
-{"category": "INDEX", "cmd": "codanna index && codanna documents index --collection docs", "link": "docs/14_AGENT_QUICK_REFERENCE.md#index-codanna"}
+{"rule":"NO_CLIPPY_EDITS","action":"Fix code, not lint config"}
+{"rule":"MOON_ONLY","cmds":["moon run :quick","moon run :test","moon run :build","moon run :ci","moon run :fmt-fix"],"never":["cargo fmt","cargo test","cargo clippy","cargo build"]}
+{"rule":"CODANNA_ONLY","cmds":["semantic_search","find_symbol","search_symbols","analyze_impact"],"never":["Grep","Glob","Read for exploration"]}
+{"rule":"ZERO_UNWRAP_PANIC","required":["Result<T,E>","?","map","and_then"],"banned":["unwrap()","unwrap_or()","unwrap_or_else()","unwrap_or_default()","expect()","panic!()","todo!()","unimplemented!()"]}
+{"rule":"GIT_PUSH_MANDATORY","action":"Not done until git push succeeds"}
+{"rule":"BR_SYNC","action":"After br sync --flush-only: git add .beads/ && git commit -m 'sync beads'"}
+{"rule":"FUNCTIONAL_RUST_SKILL","action":"Load functional-rust-generator skill for ALL Rust implementation"}
+{"rule":"DOMAIN_DRIVEN_DESIGN","patterns":["Bounded contexts","Aggregates","Value objects","Domain events","Repository pattern","Factory pattern"],"action":"Model domain logic explicitly; separate domain from infrastructure"}
+{"rule":"MANUAL_TESTING","action":"After implementation: manually test via CLI; verify actual behavior; no mocking reality"}
 ```
 
-## 🏗️ Project Context
-
-[docs/15_AGENT_PROJECT_CONTEXT.md](docs/15_AGENT_PROJECT_CONTEXT.md) - Structure, dependencies, performance
+## Commands
 
 ```jsonl
-{"structure": "crates/zjj-core (lib) | crates/zjj (CLI binary)", "link": "docs/15_AGENT_PROJECT_CONTEXT.md#structure"}
-{"sync": "jj rebase -d main", "link": "docs/15_AGENT_PROJECT_CONTEXT.md#key-decisions"}
-{"cache": "bazel-remote 100GB, 6-7ms cached vs 450ms uncached", "link": "docs/15_AGENT_PROJECT_CONTEXT.md#performance"}
+{"run.first":["swarm --help","swarm doctor","swarm state","swarm status","bv --robot-next","br --help"]}
+{"run.if_uninitialized":["swarm init-db --seed-agents 4","swarm register --count 4","swarm status"]}
+{"assert.after_init":["status.total==4","status.idle==4"]}
+{"run.select_work":["bv --robot-triage || bv --robot-next","br update <bead-id> --status in_progress","br show <bead-id>"]}
+{"assert.claim":["bead.status==in_progress"]}
+{"run.smoke":["swarm agent --id 1 --dry","swarm agent --id 1","swarm monitor --view failures","swarm status"]}
+{"assert.smoke":["no_runtime_crash","structured_response_present","state_transitions_visible"]}
+{"run.fanout_if_smoke_ok":["swarm agent --id 1","swarm agent --id 2","swarm agent --id 3","swarm agent --id 4"]}
+{"run.monitor_loop":["swarm monitor --view active","swarm monitor --view progress","swarm monitor --view failures","swarm status"]}
+{"loop":"Observe->Decide->Act->Verify until terminal_condition"}
+{"pipeline.order":["rust-contract","implement","qa-enforcer","red-queen"]}
+{"retry.policy":"qa-enforcer/red-queen failure => feedback->implement retry; max_implement_attempts=3; then blocked(reason)"}
+{"run.on_db_error":["swarm state","swarm status","swarm init-db","retry_failed_command_once"]}
+{"run.on_stuck_agent":["swarm monitor --view failures","swarm release --agent_id <id>","swarm agent --id <id>"]}
+{"run.on_no_work":["report no_work (not failure)"]}
+{"run.on_completion":["br update <bead-id> --status done || accepted_per_repo","swarm status","swarm state"]}
+{"run.on_terminal_failure":["br update <bead-id> --status blocked --reason '<explicit-reason>'"]}
+{"run.manual_test":["Execute actual CLI command","Observe real output","Verify behavior matches contract","Report findings"]}
 ```
 
-## 🔄 Parallel Workflow (7-step orchestration)
-
-[docs/16_AGENT_PARALLEL_WORKFLOW.md](docs/16_AGENT_PARALLEL_WORKFLOW.md) - Multi-agent parallel execution pattern
+## Workflow
 
 ```jsonl
-{"pipeline": ["TRIAGE", "CLAIM", "ISOLATE", "IMPLEMENT", "REVIEW", "LAND", "MERGE"], "link": "docs/16_AGENT_PARALLEL_WORKFLOW.md#7-step-pipeline-each-autonomous-agent"}
-{"benefits": ["Isolation", "Parallel 8x", "Deterministic", "Quality", "Clean handoff"], "link": "docs/16_AGENT_PARALLEL_WORKFLOW.md#benefits"}
+{"step":"TRIAGE","cmds":["bv --robot-triage","bv --robot-next"],"output":"Select highest priority bead"}
+{"step":"CLAIM","cmds":["br update <bead-id> --status in_progress","br show <bead-id>"],"output":"Bead marked in_progress"}
+{"step":"ISOLATE","cmds":["zjj add <workspace-name>","zjj focus <workspace-name>"],"output":"Isolated workspace active"}
+{"step":"IMPLEMENT","cmds":["Load functional-rust-generator skill","Implement with Result<T,E> + DDD patterns","moon run :quick","moon run :test"],"output":"Code passes all checks"}
+{"step":"MANUAL_TEST","cmds":["Run actual CLI commands","Verify real behavior","Test edge cases","Document findings"],"output":"Manual verification complete"}
+{"step":"REVIEW","cmds":["moon run :ci","swarm monitor --view failures"],"output":"All quality gates pass"}
+{"step":"LAND","cmds":["git add .","git commit -m '<msg>'","git push"],"output":"Changes pushed to remote"}
+{"step":"MERGE","cmds":["br update <bead-id> --status done","jj rebase -d main"],"output":"Work merged and complete"}
 ```
 
-## ✅ Session Completion (MANDATORY)
-
-[docs/17_AGENT_SESSION_COMPLETION.md](docs/17_AGENT_SESSION_COMPLETION.md) - Landing the plane, git push is mandatory
+## Functional Rust
 
 ```jsonl
-{"workflow": ["File issues", "Quality gates", "Update issues", "COMMIT AND PUSH", "Verify cache", "Clean up", "Hand off"], "link": "docs/17_AGENT_SESSION_COMPLETION.md#mandatory-workflow-all-7-steps-required"}
-{"critical": "Work NOT done until git push succeeds", "link": "docs/17_AGENT_SESSION_COMPLETION.md#critical-rules"}
+{"pattern":"Railway-Oriented Programming","use":["Result<T,E> everywhere","? operator for propagation","map/and_then for transformation","Early returns with Err"],"avoid":["unwrap variants","panic variants","null/option where Result fits"]}
+{"pattern":"Pure Functions","use":["Input -> Output","No side effects in domain logic","Deterministic behavior"],"avoid":["Global state","Hidden mutations","Unpredictable behavior"]}
+{"pattern":"Type Safety","use":["Newtype pattern","Phantom types","Type-driven design","Compile-time guarantees"],"avoid":["Stringly-typed APIs","Primitive obsession","Runtime validation only"]}
+{"pattern":"Immutability","use":["Immutable by default","let instead of let mut","Clone when needed"],"avoid":["Unnecessary mut","Shared mutable state"]}
 ```
 
-## 📊 BV Complete Reference
-
-[docs/18_AGENT_BV_REFERENCE.md](docs/18_AGENT_BV_REFERENCE.md) - All 17 `--robot-*` commands, scoping, output structure
+## Domain-Driven Design
 
 ```jsonl
-{"entry_point": "bv --robot-triage", "returns": "quick_ref, recommendations, quick_wins, blockers, project_health, commands", "link": "docs/18_AGENT_BV_REFERENCE.md#entry-point-triage"}
-{"commands": 17, "categories": ["triage", "plan", "insights", "health", "history", "diff", "burndown", "forecast", "alerts", "suggest", "graph"], "link": "docs/18_AGENT_BV_REFERENCE.md#all-robot-commands"}
-{"scope_boundary": "bv = what to work on (triage, priority, planning)", "link": "docs/18_AGENT_BV_REFERENCE.md#scope-boundary"}
+{"pattern":"Bounded Context","action":"Each module is a clear boundary; explicit interfaces between contexts"}
+{"pattern":"Aggregates","action":"Cluster entities and value objects; enforce invariants at aggregate root"}
+{"pattern":"Value Objects","action":"Immutable types for domain concepts; equality by value not identity"}
+{"pattern":"Domain Events","action":"Model state changes as events; enable event sourcing patterns"}
+{"pattern":"Repository Pattern","action":"Abstract persistence; domain doesn't know about storage details"}
+{"pattern":"Factory Pattern","action":"Complex object creation logic; validate invariants at construction"}
+{"pattern":"Ubiquitous Language","action":"Code uses exact domain terminology; types mirror domain concepts"}
 ```
 
----
+## Output Parsing
 
-## How to Use This
+```jsonl
+{"parse.output":["use fields: ok,err,d,next,state","prefer parsed counters: done,working,waiting,error,idle,total"]}
+{"report.format":["Bead Selected","Commands Run","State Observed","Action Taken","Result","Next Command"]}
+{"report.style":"Concise, factual, parsed JSON facts only; no long raw log dumps unless asked"}
+```
 
-1. **New agent?** Start with [critical-rules.md](docs/13_AGENT_CRITICAL_RULES.md)
-2. **Daily work?** Use [quick-reference.md](docs/14_AGENT_QUICK_REFERENCE.md)
-3. **Running parallel work?** See [parallel-workflow.md](docs/16_AGENT_PARALLEL_WORKFLOW.md)
-4. **Ending session?** Follow [session-completion.md](docs/17_AGENT_SESSION_COMPLETION.md) step-by-step
-5. **Need bv details?** Check [bv-reference.md](docs/18_AGENT_BV_REFERENCE.md)
+## Terminal Conditions
 
-**File convention:** `docs/13_AGENT_*.md` through `docs/18_AGENT_*.md` contains detailed agent documentation. This file (AGENTS.md) is the navigation index.
+```jsonl
+{"terminal.conditions":["done","no_work","blocked_with_reason","hard_error_requires_human"]}
+{"stop.rule":"Stop only when terminal condition is reached and reported"}
+```
 
----
+## Banned Commands
 
-**🔗 Related docs**:
-- [CLAUDE.md](CLAUDE.md) - Claude Code project instructions
-- [docs/](docs/) - Full documentation index
-- [README.md](README.md) - Project overview
+```jsonl
+{"banned":["cat .env","printenv | grep -i token","echo $DATABASE_URL","cargo fmt","cargo test","cargo clippy","cargo build","git reset --hard","git checkout -- ."]}
+{"allowed":["swarm ...","bv --robot-*","br ...","moon run :check|:test|:build|:quick|:ci|:fmt-fix"]}
+```

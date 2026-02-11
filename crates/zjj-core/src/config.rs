@@ -82,10 +82,106 @@ impl std::fmt::Display for RecoveryPolicy {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// VALIDATED BOOLEAN TYPE - rejects string values for boolean fields
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(from = "bool", into = "bool")]
+pub struct ValidatedBool(bool);
+
+impl ValidatedBool {
+    #[inline]
+    pub fn as_bool(self) -> bool {
+        self.0
+    }
+}
+
+impl From<bool> for ValidatedBool {
+    fn from(b: bool) -> Self {
+        Self(b)
+    }
+}
+
+impl From<ValidatedBool> for bool {
+    fn from(v: ValidatedBool) -> Self {
+        v.0
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ValidatedBool {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct BoolVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for BoolVisitor {
+            type Value = ValidatedBool;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a boolean value (true or false)")
+            }
+
+            fn visit_bool<E>(self, v: bool) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ValidatedBool(v))
+            }
+
+            fn visit_str<E>(self, _v: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Err(serde::de::Error::invalid_type(
+                    serde::de::Unexpected::Str(_v),
+                    &self,
+                ))
+            }
+
+            fn visit_string<E>(self, _v: String) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Err(serde::de::Error::invalid_type(
+                    serde::de::Unexpected::Str(&_v),
+                    &self,
+                ))
+            }
+        }
+
+        deserializer.deserialize_bool(BoolVisitor)
+    }
+}
+
+impl FromStr for ValidatedBool {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "true" | "1" => Ok(Self(true)),
+            "false" | "0" => Ok(Self(false)),
+            _ => Err(Error::InvalidConfig(format!(
+                "Invalid boolean value: '{s}'. Must be 'true' or 'false'"
+            ))),
+        }
+    }
+}
+
+impl std::ops::Not for ValidatedBool {
+    type Output = bool;
+
+    fn not(self) -> Self::Output {
+        !self.0
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION STRUCTURES
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct Config {
     pub workspace_dir: String,
     pub main_branch: String,
@@ -97,7 +193,6 @@ pub struct Config {
     pub dashboard: DashboardConfig,
     pub agent: AgentConfig,
     pub session: SessionConfig,
-    #[serde(default)]
     pub recovery: RecoveryConfig,
 }
 
@@ -107,28 +202,28 @@ pub struct RecoveryConfig {
     #[serde(default = "default_recovery_policy")]
     pub policy: RecoveryPolicy,
     #[serde(default = "default_true")]
-    pub log_recovered: bool,
+    pub log_recovered: ValidatedBool,
     #[serde(default = "default_true")]
-    pub auto_recover_corrupted_wal: bool,
+    pub auto_recover_corrupted_wal: ValidatedBool,
     #[serde(default = "default_false")]
-    pub delete_corrupted_database: bool,
+    pub delete_corrupted_database: ValidatedBool,
 }
 
 const fn default_recovery_policy() -> RecoveryPolicy {
     RecoveryPolicy::Warn
 }
 
-const fn default_true() -> bool {
-    true
+const fn default_true() -> ValidatedBool {
+    ValidatedBool(true)
 }
 
-const fn default_false() -> bool {
-    false
+const fn default_false() -> ValidatedBool {
+    ValidatedBool(false)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WatchConfig {
-    pub enabled: bool,
+    pub enabled: ValidatedBool,
     pub debounce_ms: u32,
     pub paths: Vec<String>,
 }
@@ -143,7 +238,7 @@ pub struct HooksConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ZellijConfig {
     pub session_prefix: String,
-    pub use_tabs: bool,
+    pub use_tabs: ValidatedBool,
     pub layout_dir: String,
     pub panes: PanesConfig,
 }
@@ -165,7 +260,7 @@ pub struct PaneConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FloatPaneConfig {
-    pub enabled: bool,
+    pub enabled: ValidatedBool,
     pub command: String,
     pub width: String,
     pub height: String,
@@ -176,7 +271,7 @@ pub struct DashboardConfig {
     pub refresh_ms: u32,
     pub theme: String,
     pub columns: Vec<String>,
-    pub vim_keys: bool,
+    pub vim_keys: ValidatedBool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -187,7 +282,7 @@ pub struct AgentConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SessionConfig {
-    pub auto_commit: bool,
+    pub auto_commit: ValidatedBool,
     pub commit_prefix: String,
 }
 
@@ -216,7 +311,7 @@ impl Default for Config {
 impl Default for WatchConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: ValidatedBool(true),
             debounce_ms: 100,
             paths: vec![".beads/beads.db".to_string()],
         }
@@ -238,7 +333,7 @@ impl Default for ZellijConfig {
     fn default() -> Self {
         Self {
             session_prefix: "zjj".to_string(),
-            use_tabs: true,
+            use_tabs: ValidatedBool(true),
             layout_dir: ".zjj/layouts".to_string(),
             panes: PanesConfig::default(),
         }
@@ -271,7 +366,7 @@ impl Default for PanesConfig {
 impl Default for FloatPaneConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: ValidatedBool(true),
             command: String::new(),
             width: "80%".to_string(),
             height: "60%".to_string(),
@@ -291,7 +386,7 @@ impl Default for DashboardConfig {
                 "changes".to_string(),
                 "beads".to_string(),
             ],
-            vim_keys: true,
+            vim_keys: ValidatedBool(true),
         }
     }
 }
@@ -308,7 +403,7 @@ impl Default for AgentConfig {
 impl Default for SessionConfig {
     fn default() -> Self {
         Self {
-            auto_commit: false,
+            auto_commit: ValidatedBool(false),
             commit_prefix: "wip:".to_string(),
         }
     }
@@ -318,9 +413,9 @@ impl Default for RecoveryConfig {
     fn default() -> Self {
         Self {
             policy: RecoveryPolicy::Warn,
-            log_recovered: true,
-            auto_recover_corrupted_wal: true,
-            delete_corrupted_database: false,
+            log_recovered: ValidatedBool(true),
+            auto_recover_corrupted_wal: ValidatedBool(true),
+            delete_corrupted_database: ValidatedBool(false),
         }
     }
 }
@@ -1134,6 +1229,105 @@ mod tests {
         if let Err(e) = result {
             assert!(matches!(e, Error::ParseError(_)));
         }
+        Ok(())
+    }
+
+    // Test 10b: Invalid boolean string - Config should reject non-boolean values
+    #[tokio::test]
+    async fn test_invalid_boolean_string_rejected() -> Result<()> {
+        let temp_dir = tempfile::tempdir()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let config_path = temp_dir.path().join("bad_bool_config.toml");
+
+        // Write a config with an invalid boolean string value
+        tokio::fs::write(&config_path, b"[zellij]\nuse_tabs = \"not_a_bool\"")
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
+
+        let result = load_toml_file(&config_path).await;
+        assert!(
+            result.is_err(),
+            "String value for boolean field should be rejected"
+        );
+        Ok(())
+    }
+
+    // Test 10c: Valid boolean values in Config should work
+    #[tokio::test]
+    async fn test_valid_config_with_booleans() -> Result<()> {
+        let temp_dir = tempfile::tempdir()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let config_path = temp_dir.path().join("valid_bool_config.toml");
+
+        // Write a minimal valid config with boolean values
+        let toml_content = r#"
+workspace_dir = "../test"
+main_branch = "main"
+default_template = "standard"
+state_db = ".zjj/state.db"
+
+[watch]
+enabled = true
+debounce_ms = 100
+paths = [".beads/beads.db"]
+
+[hooks]
+post_create = []
+pre_remove = []
+post_merge = []
+
+[zellij]
+session_prefix = "zjj"
+use_tabs = true
+layout_dir = ".zjj/layouts"
+
+[zellij.panes.main]
+command = "claude"
+args = []
+size = "70%"
+
+[zellij.panes.beads]
+command = "bv"
+args = []
+size = "50%"
+
+[zellij.panes.status]
+command = "zjj"
+args = ["status", "--watch"]
+size = "50%"
+
+[zellij.panes.float]
+enabled = true
+command = ""
+width = "80%"
+height = "60%"
+
+[dashboard]
+refresh_ms = 1000
+theme = "default"
+columns = ["name", "status", "branch", "changes", "beads"]
+vim_keys = true
+
+[agent]
+command = "claude"
+env = {}
+
+[session]
+auto_commit = false
+commit_prefix = "wip:"
+
+[recovery]
+"#;
+        tokio::fs::write(&config_path, toml_content)
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
+
+        let result = load_toml_file(&config_path).await;
+        assert!(
+            result.is_ok(),
+            "Valid boolean values should be accepted: {:?}",
+            result
+        );
         Ok(())
     }
 
