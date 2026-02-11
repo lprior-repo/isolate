@@ -803,6 +803,50 @@ pub fn cmd_clean() -> ClapCommand {
         )
 }
 
+pub fn cmd_prune_invalid() -> ClapCommand {
+    ClapCommand::new("prune-invalid")
+        .about("Remove all invalid session records in one deterministic command")
+        .long_about(
+            "Bulk cleanup primitive to remove all invalid session records.
+
+Invalid sessions are those where the workspace directory no longer exists
+but the session record still exists in the database.
+
+This is useful for cleaning up after workspace directory deletions
+or when sessions become orphaned.
+
+Use --yes to skip confirmation for scripting/CI use.",
+        )
+        .after_help(after_help_text(
+            &[
+                "zjj prune-invalid                Remove invalid sessions (with prompt)",
+                "zjj prune-invalid --yes         Remove invalid sessions (no prompt)",
+                "zjj prune-invalid --dry-run     List invalid sessions without deleting",
+                "zjj prune-invalid --yes --json Remove with JSON output",
+            ],
+            None,
+        ))
+        .arg(
+            Arg::new("yes")
+                .long("yes")
+                .short('y')
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip confirmation prompt (for scripting/CI)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("List invalid sessions without removing"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
 pub fn cmd_template() -> ClapCommand {
     ClapCommand::new("template")
         .about("Manage Zellij layout templates")
@@ -2854,6 +2898,7 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_diff())
         .subcommand(cmd_config())
         .subcommand(cmd_clean())
+        .subcommand(cmd_prune_invalid())
         .subcommand(cmd_template())
         .subcommand(cmd_dashboard())
         .subcommand(cmd_introspect())

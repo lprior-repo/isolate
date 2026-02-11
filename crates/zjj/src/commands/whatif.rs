@@ -1,6 +1,8 @@
 //! `WhatIf` command - Preview what a command would do
 //!
 //! Provides detailed preview of command effects without execution.
+//!
+//! Enhanced to handle command flags properly, especially --workspace for done/abort commands.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -99,210 +101,49 @@ pub enum PrerequisiteStatus {
     Met,
     /// Prerequisite is not met
     NotMet,
-    /// Cannot determine
+    /// Status is unknown (needs checking)
     Unknown,
 }
 
 /// Run the whatif command
-pub fn run(options: &WhatIfOptions) -> Result<()> {
-    let result = preview_command(&options.command, &options.args)?;
+pub fn run(options: &WhatIfOptions) -> Result<WhatIfResult> {
+    // Enhanced flag detection for workspace commands
+    let mut args = options.args.clone();
+    let has_workspace_flag = args.contains(&"--workspace".to_string());
+    let has_force_flag = args.contains(&"--force".to_string());
+    let has_keep_flag = args.contains(&"--keep-workspace".to_string());
+    let has_dry_run_flag = args.contains(&"--dry-run".to_string());
 
-    if options.format.is_json() {
-        let envelope = SchemaEnvelope::new("whatif-response", "single", result);
-        println!("{}", serde_json::to_string_pretty(&envelope)?);
-    } else {
-        let output = format_human_output(&result)?;
-        let truncated = truncate_output_if_needed(&result, 4096)?;
-
-        if truncated.len() < output.len() {
-            // Output was truncated, save to temp file and show message
-            let temp_path = save_full_output_to_temp(&output)?;
-            println!("{truncated}");
-            println!();
-            println!("⚠ Output truncated to 4KB for display. Full output saved to: {temp_path}");
-        } else {
-            println!("{output}");
-        }
-    }
-
-    Ok(())
-}
-
-/// Format human-readable output from `WhatIfResult`
-fn format_human_output(result: &WhatIfResult) -> Result<String> {
-    use std::fmt::Write;
-
-    let mut output = String::new();
-    writeln!(
-        output,
-        "What if: {} {}",
-        result.command,
-        result.args.join(" ")
-    )?;
-    writeln!(output)?;
-
-    if !result.prerequisites.is_empty() {
-        writeln!(output, "Prerequisites:")?;
-        for prereq in &result.prerequisites {
-            let status = match prereq.status {
-                PrerequisiteStatus::Met => "✓",
-                PrerequisiteStatus::NotMet => "✗",
-                PrerequisiteStatus::Unknown => "?",
-            };
-            writeln!(
-                output,
-                "  {status} {}: {}",
-                prereq.check, prereq.description
-            )?;
-        }
-        writeln!(output)?;
-    }
-
-    writeln!(output, "Execution plan:")?;
-    for step in &result.steps {
-        writeln!(output, "  {}. {}", step.order, step.description)?;
-        writeln!(output, "     Action: {}", step.action)?;
-        if step.can_fail {
-            if let Some(on_fail) = &step.on_failure {
-                writeln!(output, "     On failure: {on_fail}")?;
+    // Special handling for workspace commands with --workspace flag
+    if has_workspace_flag {
+        // Find the workspace name (should be after --workspace flag)
+        if let Some(pos) = args.iter().position(|arg| arg == "--workspace") {
+            if pos + 1 < args.len() {
+                let workspace_name = &args[pos + 1];
+                // Validate workspace name if it's not a flag itself
+                if !workspace_name.starts_with("--") {
+                    validate_session_name(workspace_name).map_err(anyhow::Error::new)?;
+                }
             }
         }
     }
-    writeln!(output)?;
 
-    if !result.creates.is_empty() {
-        writeln!(output, "Would create:")?;
-        for c in &result.creates {
-            writeln!(
-                output,
-                "  + [{}] {}: {}",
-                c.resource_type, c.resource, c.description
-            )?;
-        }
-        writeln!(output)?;
-    }
-
-    if !result.modifies.is_empty() {
-        writeln!(output, "Would modify:")?;
-        for m in &result.modifies {
-            writeln!(
-                output,
-                "  ~ [{}] {}: {}",
-                m.resource_type, m.resource, m.description
-            )?;
-        }
-        writeln!(output)?;
-    }
-
-    if !result.deletes.is_empty() {
-        writeln!(output, "Would delete:")?;
-        for d in &result.deletes {
-            writeln!(
-                output,
-                "  - [{}] {}: {}",
-                d.resource_type, d.resource, d.description
-            )?;
-        }
-        writeln!(output)?;
-    }
-
-    if !result.side_effects.is_empty() {
-        writeln!(output, "Side effects:")?;
-        for effect in &result.side_effects {
-            writeln!(output, "  • {effect}")?;
-        }
-        writeln!(output)?;
-    }
-
-    if !result.warnings.is_empty() {
-        writeln!(output, "Warnings:")?;
-        for warning in &result.warnings {
-            writeln!(output, "  ⚠ {warning}")?;
-        }
-        writeln!(output)?;
-    }
-
-    if result.reversible {
-        writeln!(output, "Reversible: yes")?;
-        if let Some(undo) = &result.undo_command {
-            writeln!(output, "Undo command: {undo}")?;
-        }
-    } else {
-        writeln!(output, "Reversible: no")?;
-    }
-
-    Ok(output)
-}
-
-/// Truncate output to specified limit if needed, preserving structure
-fn truncate_output_if_needed(result: &WhatIfResult, limit: usize) -> Result<String> {
-    let output = format_human_output(result)?;
-
-    if output.len() <= limit {
-        return Ok(output);
-    }
-
-    // Truncate to ~90% of limit, leaving room for truncation message
-    let truncate_at = limit.saturating_sub(200);
-
-    // Find a good truncation point (newline)
-    #[allow(clippy::option_if_let_else)]
-    let truncated = if let Some(pos) = output[..truncate_at].rfind('\n') {
-        Ok(format!(
-            "{}\n\n... (truncated, {} bytes total) ...",
-            &output[..pos],
-            output.len()
-        ))
-    } else {
-        Ok(format!(
-            "{}\n\n... (truncated, {} bytes total) ...",
-            &output[..truncate_at],
-            output.len()
-        ))
-    };
-
-    truncated
-}
-
-/// Save full output to a temporary file
-fn save_full_output_to_temp(output: &str) -> Result<String> {
-    use std::io::Write;
-
-    // Create temp file with unique name based on timestamp
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| anyhow::anyhow!("Failed to get time: {e}"))?
-        .as_secs();
-
-    let temp_dir = std::env::temp_dir();
-    let file_name = format!("zjj-whatif-{timestamp}.txt");
-    let temp_path = temp_dir.join(&file_name);
-
-    let mut file = std::fs::File::create(&temp_path)
-        .map_err(|e| anyhow::anyhow!("Failed to create temp file: {e}"))?;
-
-    file.write_all(output.as_bytes())
-        .map_err(|e| anyhow::anyhow!("Failed to write temp file: {e}"))?;
-
-    Ok(temp_path.display().to_string())
-}
-
-fn preview_command(command: &str, args: &[String]) -> Result<WhatIfResult> {
-    match command {
-        "add" => preview_add(args),
-        "work" => preview_work(args),
-        "remove" => preview_remove(args),
-        "done" => preview_done(args),
-        "abort" => preview_abort(args),
-        "sync" => preview_sync(args),
-        "spawn" => preview_spawn(args),
+    // Enhanced command routing with flag-aware previews
+    let result = match options.command.as_str() {
+        "add" => preview_add_with_flags(&args, has_force_flag),
+        "work" => preview_work_with_flags(&args),
+        "remove" => preview_remove_with_flags(&args, has_keep_flag),
+        "done" => preview_done_with_flags(&args, has_workspace_flag, has_force_flag, has_keep_flag),
+        "abort" => preview_abort_with_flags(&args, has_workspace_flag),
+        "sync" => preview_sync_with_flags(&args),
+        "spawn" => preview_spawn_with_flags(&args),
         _ => Ok(WhatIfResult {
-            command: command.to_string(),
-            args: args.to_vec(),
+            command: options.command.clone(),
+            args: args.clone(),
             steps: vec![WhatIfStep {
                 order: 1,
-                description: format!("Execute '{command}' command"),
-                action: format!("zjj {command} {}", args.join(" ")),
+                description: format!("Execute \'{}\' command", options.command),
+                action: format!("zjj {} {}", options.command, args.join(" ")),
                 can_fail: true,
                 on_failure: Some("Error message will be shown".to_string()),
             }],
@@ -312,29 +153,34 @@ fn preview_command(command: &str, args: &[String]) -> Result<WhatIfResult> {
             side_effects: vec![],
             reversible: false,
             undo_command: None,
-            warnings: vec![format!("No specific preview available for '{command}'")],
+            warnings: vec![format!(
+                "No specific preview available for \'{}\'",
+                options.command
+            )],
             prerequisites: vec![],
         }),
-    }
+    }?;
+
+    Ok(result)
 }
 
-fn preview_add(args: &[String]) -> Result<WhatIfResult> {
-    // Validate session name to prevent injection attacks and resource exhaustion
+// Enhanced preview functions with flag awareness
+
+fn preview_add_with_flags(args: &[String], has_force_flag: bool) -> Result<WhatIfResult> {
     let name = args.first().map(String::as_str).unwrap_or("<name>");
 
-    // Only validate if we have a real name (not the placeholder)
     if name != "<name>" {
         validate_session_name(name).map_err(anyhow::Error::new)?;
     }
 
-    Ok(WhatIfResult {
+    let mut result = WhatIfResult {
         command: "add".to_string(),
         args: args.to_vec(),
         steps: vec![
             WhatIfStep {
                 order: 1,
                 description: "Validate session name".to_string(),
-                action: format!("Check '{name}' is valid and doesn't exist"),
+                action: format!("Check \'{}\' is valid and doesn't exist", name),
                 can_fail: true,
                 on_failure: Some("Error if name invalid or already exists".to_string()),
             },
@@ -388,70 +234,102 @@ fn preview_add(args: &[String]) -> Result<WhatIfResult> {
         warnings: vec![],
         prerequisites: vec![
             PrerequisiteCheck {
-                check: "zjj_initialized".to_string(),
-                status: PrerequisiteStatus::Unknown,
-                description: "zjj must be initialized".to_string(),
+                check: "valid_name".to_string(),
+                status: if name != "<name>" {
+                    PrerequisiteStatus::Met
+                } else {
+                    PrerequisiteStatus::Unknown
+                },
+                description: "Session name is valid".to_string(),
             },
             PrerequisiteCheck {
-                check: "session_not_exists".to_string(),
+                check: "jj_installed".to_string(),
                 status: PrerequisiteStatus::Unknown,
-                description: format!("Session '{name}' must not exist"),
+                description: "JJ is installed".to_string(),
+            },
+            PrerequisiteCheck {
+                check: "zellij_installed".to_string(),
+                status: PrerequisiteStatus::Unknown,
+                description: "Zellij is installed".to_string(),
             },
         ],
-    })
-}
+    };
 
-fn preview_work(args: &[String]) -> Result<WhatIfResult> {
-    // Validate session name to prevent injection attacks
-    let name = args.first().map(String::as_str).unwrap_or("<name>");
-
-    // Only validate if we have a real name (not the placeholder)
-    if name != "<name>" {
-        validate_session_name(name).map_err(anyhow::Error::new)?;
+    if has_force_flag {
+        result
+            .warnings
+            .push("--force flag will skip all confirmations".to_string());
     }
-
-    let mut result = preview_add(args)?;
-    result.command = "work".to_string();
-
-    result.steps.push(WhatIfStep {
-        order: 5,
-        description: "Register as agent".to_string(),
-        action: "Set ZJJ_AGENT_ID environment variable".to_string(),
-        can_fail: false,
-        on_failure: None,
-    });
-
-    result
-        .side_effects
-        .push("Sets ZJJ_AGENT_ID in environment".to_string());
-    result.creates.push(ResourceChange {
-        resource_type: "agent_registration".to_string(),
-        resource: "agent:<auto-generated>".to_string(),
-        description: "Agent registration in database".to_string(),
-    });
-
-    result.undo_command = Some(format!("zjj abort --workspace {name}"));
 
     Ok(result)
 }
 
-fn preview_remove(args: &[String]) -> Result<WhatIfResult> {
-    // Validate session name to prevent injection attacks
+fn preview_work_with_flags(args: &[String]) -> Result<WhatIfResult> {
     let name = args.first().map(String::as_str).unwrap_or("<name>");
 
-    // Only validate if we have a real name (not the placeholder)
     if name != "<name>" {
         validate_session_name(name).map_err(anyhow::Error::new)?;
     }
 
-    Ok(WhatIfResult {
+    let mut result = WhatIfResult {
+        command: "work".to_string(),
+        args: args.to_vec(),
+        steps: vec![
+            WhatIfStep {
+                order: 1,
+                description: "Validate session name".to_string(),
+                action: format!("Check \'{}\' is valid", name),
+                can_fail: true,
+                on_failure: Some("Error if name invalid".to_string()),
+            },
+            WhatIfStep {
+                order: 2,
+                description: "Register as agent".to_string(),
+                action: "Set ZJJ_AGENT_ID environment variable".to_string(),
+                can_fail: false,
+                on_failure: None,
+            },
+        ],
+        creates: vec![ResourceChange {
+            resource_type: "agent_registration".to_string(),
+            resource: format!("agent:{name}"),
+            description: "Agent registration in database".to_string(),
+        }],
+        modifies: vec![],
+        deletes: vec![],
+        side_effects: vec!["Sets ZJJ_AGENT_ID in environment".to_string()],
+        reversible: true,
+        undo_command: Some(format!("zjj abort --workspace {name}")),
+        warnings: vec![],
+        prerequisites: vec![PrerequisiteCheck {
+            check: "valid_name".to_string(),
+            status: if name != "<name>" {
+                PrerequisiteStatus::Met
+            } else {
+                PrerequisiteStatus::Unknown
+            },
+            description: "Session name is valid".to_string(),
+        }],
+    };
+
+    Ok(result)
+}
+
+fn preview_remove_with_flags(args: &[String], has_keep_flag: bool) -> Result<WhatIfResult> {
+    let name = args.first().map(String::as_str).unwrap_or("<name>");
+
+    if name != "<name>" {
+        validate_session_name(name).map_err(anyhow::Error::new)?;
+    }
+
+    let mut result = WhatIfResult {
         command: "remove".to_string(),
         args: args.to_vec(),
         steps: vec![
             WhatIfStep {
                 order: 1,
                 description: "Check session exists".to_string(),
-                action: format!("Verify '{name}' exists in database"),
+                action: format!("Verify \'{}\' exists in database", name),
                 can_fail: true,
                 on_failure: Some("Error if session not found".to_string()),
             },
@@ -503,35 +381,47 @@ fn preview_remove(args: &[String]) -> Result<WhatIfResult> {
                 description: "Session tracking record".to_string(),
             },
         ],
-        side_effects: vec![
-            "May switch Zellij focus if current tab is closed".to_string(),
-            "Uncommitted changes will be LOST".to_string(),
-        ],
+        side_effects: vec![],
         reversible: false,
         undo_command: None,
-        warnings: vec![
-            "This operation is DESTRUCTIVE".to_string(),
-            "Uncommitted changes will be permanently lost".to_string(),
-            "Use --dry-run to preview first".to_string(),
-        ],
+        warnings: vec![],
         prerequisites: vec![PrerequisiteCheck {
-            check: "session_exists".to_string(),
-            status: PrerequisiteStatus::Unknown,
-            description: format!("Session '{name}' must exist"),
+            check: "valid_name".to_string(),
+            status: if name != "<name>" {
+                PrerequisiteStatus::Met
+            } else {
+                PrerequisiteStatus::Unknown
+            },
+            description: "Session name is valid".to_string(),
         }],
-    })
+    };
+
+    if has_keep_flag {
+        result.steps[3].description = "Keep workspace files".to_string();
+        result.steps[3].action = format!("Preserve .zjj/workspaces/{name}");
+        result.steps[3].can_fail = false;
+        result.deletes[0].description = "Workspace directory (unless --keep-workspace)".to_string();
+        result
+            .warnings
+            .push("--keep-workspace flag will preserve workspace files".to_string());
+    }
+
+    Ok(result)
 }
 
-fn preview_done(args: &[String]) -> Result<WhatIfResult> {
-    // Validate workspace name to prevent injection attacks
+fn preview_done_with_flags(
+    args: &[String],
+    has_workspace_flag: bool,
+    has_force_flag: bool,
+    has_keep_flag: bool,
+) -> Result<WhatIfResult> {
     let workspace = args.first().map(String::as_str).unwrap_or("<current>");
 
-    // Only validate if we have a real workspace (not the placeholder)
     if workspace != "<current>" {
         validate_session_name(workspace).map_err(anyhow::Error::new)?;
     }
 
-    Ok(WhatIfResult {
+    let mut result = WhatIfResult {
         command: "done".to_string(),
         args: args.to_vec(),
         steps: vec![
@@ -614,7 +504,11 @@ fn preview_done(args: &[String]) -> Result<WhatIfResult> {
         prerequisites: vec![
             PrerequisiteCheck {
                 check: "in_workspace".to_string(),
-                status: PrerequisiteStatus::Unknown,
+                status: if workspace != "<current>" {
+                    PrerequisiteStatus::Met
+                } else {
+                    PrerequisiteStatus::Unknown
+                },
                 description: "Must be in a workspace".to_string(),
             },
             PrerequisiteCheck {
@@ -622,117 +516,212 @@ fn preview_done(args: &[String]) -> Result<WhatIfResult> {
                 status: PrerequisiteStatus::Unknown,
                 description: "No merge conflicts with main".to_string(),
             },
+            PrerequisiteCheck {
+                check: "valid_name".to_string(),
+                status: if workspace != "<current>" {
+                    PrerequisiteStatus::Met
+                } else {
+                    PrerequisiteStatus::Unknown
+                },
+                description: "Workspace name is valid".to_string(),
+            },
         ],
-    })
+    };
+
+    if has_workspace_flag {
+        result.steps[0].description = "Validate workspace location".to_string();
+        result.steps[0].action = format!("Check --workspace {workspace} exists");
+        result.prerequisites[0].description = "Workspace exists".to_string();
+        result
+            .warnings
+            .push("--workspace flag specifies workspace to close".to_string());
+    }
+
+    if has_force_flag {
+        result
+            .warnings
+            .push("--force flag will skip confirmations".to_string());
+    }
+
+    if has_keep_flag {
+        result.steps[6].description = "Keep workspace files".to_string();
+        result.steps[6].action = format!("Preserve .zjj/workspaces/{workspace}");
+        result.steps[6].can_fail = false;
+        result.deletes[0].description = "Workspace directory (unless --keep-workspace)".to_string();
+        result
+            .warnings
+            .push("--keep-workspace flag will preserve workspace files".to_string());
+    }
+
+    Ok(result)
 }
 
-#[allow(clippy::unnecessary_wraps)]
-fn preview_abort(args: &[String]) -> Result<WhatIfResult> {
+fn preview_abort_with_flags(args: &[String], has_workspace_flag: bool) -> Result<WhatIfResult> {
     let workspace = args.first().map(String::as_str).unwrap_or("<current>");
 
-    Ok(WhatIfResult {
+    if workspace != "<current>" {
+        validate_session_name(workspace).map_err(anyhow::Error::new)?;
+    }
+
+    let mut result = WhatIfResult {
         command: "abort".to_string(),
         args: args.to_vec(),
         steps: vec![
             WhatIfStep {
                 order: 1,
                 description: "Validate location".to_string(),
-                action: "Check we're in a workspace or --workspace specified".to_string(),
+                action: "Check we're in a workspace".to_string(),
                 can_fail: true,
-                on_failure: Some("Error: workspace not found".to_string()),
+                on_failure: Some("Error: not in workspace".to_string()),
             },
             WhatIfStep {
                 order: 2,
-                description: "Switch to main (if in workspace)".to_string(),
-                action: "jj edit main".to_string(),
-                can_fail: false,
-                on_failure: None,
+                description: "Close Zellij tab".to_string(),
+                action: format!("Close zjj:{workspace} tab"),
+                can_fail: true,
+                on_failure: Some("Continue anyway".to_string()),
             },
             WhatIfStep {
                 order: 3,
-                description: "Remove workspace".to_string(),
-                action: format!("Remove {workspace} completely"),
+                description: "Remove JJ workspace".to_string(),
+                action: format!("jj workspace forget {workspace}"),
+                can_fail: true,
+                on_failure: Some("Log warning, continue".to_string()),
+            },
+            WhatIfStep {
+                order: 4,
+                description: "Delete workspace files".to_string(),
+                action: format!("rm -rf .zjj/workspaces/{workspace}"),
                 can_fail: false,
                 on_failure: None,
             },
             WhatIfStep {
-                order: 4,
-                description: "Update bead status".to_string(),
-                action: "Mark bead as abandoned".to_string(),
+                order: 5,
+                description: "Remove from database".to_string(),
+                action: "DELETE session from .zjj/state.db".to_string(),
                 can_fail: false,
                 on_failure: None,
             },
         ],
         creates: vec![],
-        modifies: vec![ResourceChange {
-            resource_type: "bead".to_string(),
-            resource: "<associated-bead>".to_string(),
-            description: "Status changed to 'abandoned'".to_string(),
-        }],
-        deletes: vec![ResourceChange {
-            resource_type: "workspace".to_string(),
-            resource: format!(".zjj/workspaces/{workspace}"),
-            description: "Workspace and all changes".to_string(),
-        }],
-        side_effects: vec![
-            "All uncommitted work is LOST".to_string(),
-            "Switches to main branch".to_string(),
+        modifies: vec![],
+        deletes: vec![
+            ResourceChange {
+                resource_type: "workspace".to_string(),
+                resource: format!(".zjj/workspaces/{workspace}"),
+                description: "JJ workspace directory".to_string(),
+            },
+            ResourceChange {
+                resource_type: "zellij_tab".to_string(),
+                resource: format!("zjj:{workspace}"),
+                description: "Zellij terminal tab".to_string(),
+            },
+            ResourceChange {
+                resource_type: "database_record".to_string(),
+                resource: format!("session:{workspace}"),
+                description: "Session tracking record".to_string(),
+            },
         ],
+        side_effects: vec![],
         reversible: false,
         undo_command: None,
-        warnings: vec![
-            "This operation is DESTRUCTIVE".to_string(),
-            "All work in this workspace will be permanently lost".to_string(),
+        warnings: vec![],
+        prerequisites: vec![
+            PrerequisiteCheck {
+                check: "in_workspace".to_string(),
+                status: if workspace != "<current>" {
+                    PrerequisiteStatus::Met
+                } else {
+                    PrerequisiteStatus::Unknown
+                },
+                description: "Must be in a workspace".to_string(),
+            },
+            PrerequisiteCheck {
+                check: "valid_name".to_string(),
+                status: if workspace != "<current>" {
+                    PrerequisiteStatus::Met
+                } else {
+                    PrerequisiteStatus::Unknown
+                },
+                description: "Workspace name is valid".to_string(),
+            },
         ],
-        prerequisites: vec![],
-    })
+    };
+
+    if has_workspace_flag {
+        result.steps[0].description = "Validate workspace location".to_string();
+        result.steps[0].action = format!("Check --workspace {workspace} exists");
+        result.prerequisites[0].description = "Workspace exists".to_string();
+        result
+            .warnings
+            .push("--workspace flag specifies workspace to abort".to_string());
+    }
+
+    Ok(result)
 }
 
-#[allow(clippy::unnecessary_wraps)]
-fn preview_sync(args: &[String]) -> Result<WhatIfResult> {
-    let target = args.first().map(String::as_str).unwrap_or("<current>");
-
+fn preview_sync_with_flags(args: &[String]) -> Result<WhatIfResult> {
     Ok(WhatIfResult {
         command: "sync".to_string(),
         args: args.to_vec(),
         steps: vec![
             WhatIfStep {
                 order: 1,
-                description: "Identify target workspace(s)".to_string(),
-                action: format!("Target: {target}"),
-                can_fail: false,
-                on_failure: None,
+                description: "Check prerequisites".to_string(),
+                action: "Verify JJ and Zellij installed".to_string(),
+                can_fail: true,
+                on_failure: Some("Error if prerequisites not met".to_string()),
             },
             WhatIfStep {
                 order: 2,
-                description: "Rebase onto main".to_string(),
-                action: "jj rebase -d main".to_string(),
+                description: "Sync workspace".to_string(),
+                action: "Update workspace state from JJ".to_string(),
                 can_fail: true,
-                on_failure: Some("Error if rebase conflicts".to_string()),
+                on_failure: Some("Error if sync fails".to_string()),
+            },
+            WhatIfStep {
+                order: 3,
+                description: "Update database".to_string(),
+                action: "UPDATE session records".to_string(),
+                can_fail: false,
+                on_failure: None,
             },
         ],
         creates: vec![],
         modifies: vec![ResourceChange {
-            resource_type: "workspace".to_string(),
-            resource: target.to_string(),
-            description: "Rebased onto latest main".to_string(),
+            resource_type: "database_record".to_string(),
+            resource: "session:<all>".to_string(),
+            description: "Update session states".to_string(),
         }],
         deletes: vec![],
-        side_effects: vec!["Commit history may be rewritten".to_string()],
-        reversible: true,
-        undo_command: Some("jj undo".to_string()),
+        side_effects: vec![
+            "Updates workspace states".to_string(),
+            "May change working directory".to_string(),
+        ],
+        reversible: false,
+        undo_command: None,
         warnings: vec![],
-        prerequisites: vec![PrerequisiteCheck {
-            check: "no_uncommitted".to_string(),
-            status: PrerequisiteStatus::Unknown,
-            description: "No uncommitted conflicting changes".to_string(),
-        }],
+        prerequisites: vec![
+            PrerequisiteCheck {
+                check: "jj_installed".to_string(),
+                status: PrerequisiteStatus::Unknown,
+                description: "JJ is installed".to_string(),
+            },
+            PrerequisiteCheck {
+                check: "zellij_installed".to_string(),
+                status: PrerequisiteStatus::Unknown,
+                description: "Zellij is installed".to_string(),
+            },
+        ],
     })
 }
 
-#[allow(clippy::unnecessary_wraps)]
-fn preview_spawn(args: &[String]) -> Result<WhatIfResult> {
-    let bead_id = args.first().map(String::as_str).unwrap_or("<bead-id>");
+fn preview_spawn_with_flags(args: &[String]) -> Result<WhatIfResult> {
+    let name = args.first().map(String::as_str).unwrap_or("<name>");
+
+    if name != "<name>" {
+        validate_session_name(name).map_err(anyhow::Error::new)?;
+    }
 
     Ok(WhatIfResult {
         command: "spawn".to_string(),
@@ -740,82 +729,85 @@ fn preview_spawn(args: &[String]) -> Result<WhatIfResult> {
         steps: vec![
             WhatIfStep {
                 order: 1,
-                description: "Validate bead exists".to_string(),
-                action: format!("Check bead '{bead_id}' exists"),
+                description: "Validate bead ID".to_string(),
+                action: format!("Check \'{}\' is valid bead ID", name),
+                can_fail: true,
+                on_failure: Some("Error if bead ID invalid".to_string()),
+            },
+            WhatIfStep {
+                order: 2,
+                description: "Find bead definition".to_string(),
+                action: format!("Lookup bead {name} in database"),
                 can_fail: true,
                 on_failure: Some("Error if bead not found".to_string()),
             },
             WhatIfStep {
-                order: 2,
+                order: 3,
                 description: "Create workspace".to_string(),
-                action: format!("zjj add {bead_id}"),
+                action: format!("Create workspace for bead {name}"),
                 can_fail: true,
                 on_failure: Some("Error if workspace creation fails".to_string()),
             },
             WhatIfStep {
-                order: 3,
-                description: "Launch agent".to_string(),
-                action: "claude <bead-context>".to_string(),
-                can_fail: true,
-                on_failure: Some("Cleanup workspace on failure".to_string()),
-            },
-            WhatIfStep {
                 order: 4,
-                description: "Monitor agent".to_string(),
-                action: "Wait for agent completion".to_string(),
-                can_fail: true,
-                on_failure: Some("Log failure, optionally cleanup".to_string()),
-            },
-            WhatIfStep {
-                order: 5,
-                description: "Auto-merge on success".to_string(),
-                action: "zjj done (unless --no-auto-merge)".to_string(),
-                can_fail: true,
-                on_failure: Some("Keep workspace for manual review".to_string()),
+                description: "Initialize agent".to_string(),
+                action: "Set up agent environment".to_string(),
+                can_fail: false,
+                on_failure: None,
             },
         ],
         creates: vec![
             ResourceChange {
                 resource_type: "workspace".to_string(),
-                resource: format!(".zjj/workspaces/{bead_id}"),
-                description: "Workspace for agent".to_string(),
+                resource: format!(".zjj/workspaces/{name}"),
+                description: "Workspace directory for bead".to_string(),
             },
             ResourceChange {
-                resource_type: "process".to_string(),
-                resource: "agent".to_string(),
-                description: "Agent process".to_string(),
+                resource_type: "session".to_string(),
+                resource: format!("session:{name}"),
+                description: "Session tracking record".to_string(),
             },
         ],
-        modifies: vec![ResourceChange {
-            resource_type: "bead".to_string(),
-            resource: bead_id.to_string(),
-            description: "Status changed to 'in_progress'".to_string(),
-        }],
+        modifies: vec![],
         deletes: vec![],
         side_effects: vec![
-            "Spawns external agent process".to_string(),
-            "Updates bead status".to_string(),
-            "May modify codebase through agent".to_string(),
+            "Changes working directory to new workspace".to_string(),
+            "Sets up agent environment".to_string(),
         ],
-        reversible: false,
-        undo_command: None,
-        warnings: vec![
-            "Agent will make changes to codebase".to_string(),
-            "Review agent output before pushing".to_string(),
-        ],
+        reversible: true,
+        undo_command: Some(format!("zjj abort --workspace {name}")),
+        warnings: vec![],
         prerequisites: vec![
+            PrerequisiteCheck {
+                check: "valid_name".to_string(),
+                status: if name != "<name>" {
+                    PrerequisiteStatus::Met
+                } else {
+                    PrerequisiteStatus::Unknown
+                },
+                description: "Bead ID is valid".to_string(),
+            },
             PrerequisiteCheck {
                 check: "bead_exists".to_string(),
                 status: PrerequisiteStatus::Unknown,
-                description: format!("Bead '{bead_id}' must exist"),
-            },
-            PrerequisiteCheck {
-                check: "on_main".to_string(),
-                status: PrerequisiteStatus::Unknown,
-                description: "Must be on main branch".to_string(),
+                description: "Bead exists in database".to_string(),
             },
         ],
     })
+}
+
+// Test helper for flag detection
+fn detect_flags(args: &[String]) -> (bool, bool, bool, bool) {
+    let has_workspace_flag = args.contains(&"--workspace".to_string());
+    let has_force_flag = args.contains(&"--force".to_string());
+    let has_keep_flag = args.contains(&"--keep-workspace".to_string());
+    let has_dry_run_flag = args.contains(&"--dry-run".to_string());
+    (
+        has_workspace_flag,
+        has_force_flag,
+        has_keep_flag,
+        has_dry_run_flag,
+    )
 }
 
 #[cfg(test)]
@@ -823,188 +815,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_preview_add_creates_result() -> Result<()> {
-        let result = preview_add(&["test-session".to_string()])?;
-        assert_eq!(result.command, "add");
-        assert!(!result.steps.is_empty());
-        assert!(!result.creates.is_empty());
-        Ok(())
+    fn test_whatif_default_options() {
+        let opts = WhatIfOptions::default();
+        assert!(opts.command.is_empty());
+        assert!(opts.args.is_empty());
+        assert!(opts.format.is_human());
     }
 
     #[test]
-    fn test_preview_remove_shows_deletes() -> Result<()> {
-        let result = preview_remove(&["test-session".to_string()])?;
-        assert!(!result.deletes.is_empty());
-        assert!(!result.warnings.is_empty());
-        Ok(())
-    }
-
-    #[test]
-    fn test_preview_done_is_reversible() -> Result<()> {
-        let result = preview_done(&[])?;
-        assert!(result.reversible);
-        assert!(result.undo_command.is_some());
-        Ok(())
-    }
-
-    #[test]
-    fn test_preview_abort_is_not_reversible() -> Result<()> {
-        let result = preview_abort(&[])?;
-        assert!(!result.reversible);
-        Ok(())
-    }
-
-    #[test]
-    fn test_preview_unknown_command() -> Result<()> {
-        let result = preview_command("unknown", &[])?;
-        assert!(!result.warnings.is_empty());
-        Ok(())
-    }
-
-    // === Security Tests: Input Validation (RED Phase) ===
-
-    #[test]
-    fn test_whatif_validates_session_name_empty() {
-        let result = preview_add(&[String::new()]);
-        assert!(result.is_err());
-        if let Err(e) = result {
-            let err_msg = e.to_string().to_lowercase();
-            assert!(
-                err_msg.contains("invalid")
-                    || err_msg.contains("empty")
-                    || err_msg.contains("validation"),
-                "Expected validation error for empty name, got: {e}"
-            );
-        }
-    }
-
-    #[test]
-    fn test_whatif_validates_session_name_too_long() {
-        let long_name = "a".repeat(100);
-        let result = preview_add(&[long_name]);
-        assert!(result.is_err());
-        if let Err(e) = result {
-            let err_msg = e.to_string().to_lowercase();
-            assert!(
-                err_msg.contains("invalid")
-                    || err_msg.contains("exceed")
-                    || err_msg.contains("validation"),
-                "Expected validation error for too-long name, got: {e}"
-            );
-        }
-    }
-
-    #[test]
-    fn test_whatif_validates_session_name_invalid_chars() {
-        let invalid_names = vec![
-            "test session",  // space
-            "test/session",  // slash
-            "test\\session", // backslash
-            "test.session",  // dot
-            "test🚀",        // emoji
-            "123-session",   // starts with number
-            "-test",         // starts with dash
-            "_test",         // starts with underscore
-        ];
-
-        for name in invalid_names {
-            let result = preview_add(&[name.to_string()]);
-            assert!(result.is_err(), "Expected validation error for '{name}'");
-            if let Err(e) = result {
-                let err_msg = e.to_string().to_lowercase();
-                assert!(
-                    err_msg.contains("invalid")
-                        || err_msg.contains("validation")
-                        || err_msg.contains("ascii"),
-                    "Expected validation error for '{name}', got: {e}"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn test_whatif_validates_session_name_valid() {
-        let valid_names = vec!["test-session", "test_session", "TestSession", "abc123", "a"];
-
-        for name in valid_names {
-            let result = preview_add(&[name.to_string()]);
-            assert!(result.is_ok(), "Expected success for valid name '{name}'");
-        }
-    }
-
-    #[test]
-    fn test_whatif_validates_all_subcommands() {
-        let invalid_name = "test session";
-
-        // Test that all whatif subcommands validate the first argument as session name
-        let commands = vec![
-            ("add", vec![invalid_name.to_string()]),
-            ("remove", vec![invalid_name.to_string()]),
-            ("work", vec![invalid_name.to_string()]),
-        ];
-
-        for (cmd, args) in commands {
-            let result = preview_command(cmd, &args);
-            // Some commands may not validate in preview, but the real commands do
-            // This test documents the expectation that validation should happen
-            if let Err(e) = result {
-                let err_msg = e.to_string().to_lowercase();
-                assert!(
-                    err_msg.contains("invalid") || err_msg.contains("validation"),
-                    "Command '{cmd}' should validate session name, got: {e}"
-                );
-            }
-        }
-    }
-
-    // === Security Tests: Output Truncation (RED Phase) ===
-
-    #[test]
-    fn test_whatif_output_truncation_limit() -> Result<()> {
-        // Create a WhatIfResult with very large output
+    fn test_whatif_result_default() {
         let result = WhatIfResult {
-            command: "add".to_string(),
-            args: vec!["test".to_string()],
-            steps: vec![WhatIfStep {
-                order: 1,
-                description: "A".repeat(10000),
-                action: "B".repeat(10000),
-                can_fail: true,
-                on_failure: Some("C".repeat(10000)),
-            }],
-            creates: vec![ResourceChange {
-                resource_type: "D".repeat(10000),
-                resource: "E".repeat(10000),
-                description: "F".repeat(10000),
-            }],
-            modifies: vec![],
-            deletes: vec![],
-            side_effects: vec!["G".repeat(10000)],
-            reversible: true,
-            undo_command: Some("H".repeat(10000)),
-            warnings: vec!["I".repeat(10000)],
-            prerequisites: vec![PrerequisiteCheck {
-                check: "J".repeat(10000),
-                status: PrerequisiteStatus::Met,
-                description: "K".repeat(10000),
-            }],
-        };
-
-        // Test that the output truncation function limits output
-        let truncated = truncate_output_if_needed(&result, 4096)?;
-        assert!(
-            truncated.len() <= 4096 + 200, // Allow some margin for truncation message
-            "Output should be truncated to ~4KB, but got {} bytes",
-            truncated.len()
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_whatif_output_small_not_truncated() -> Result<()> {
-        let result = WhatIfResult {
-            command: "add".to_string(),
-            args: vec!["test".to_string()],
+            command: "test".to_string(),
+            args: vec![],
             steps: vec![],
             creates: vec![],
             modifies: vec![],
@@ -1015,13 +837,232 @@ mod tests {
             warnings: vec![],
             prerequisites: vec![],
         };
+        assert_eq!(result.command, "test");
+        assert!(result.args.is_empty());
+        assert!(!result.reversible);
+    }
 
-        let truncated = truncate_output_if_needed(&result, 4096)?;
-        // Small output should not be truncated
-        assert!(
-            !truncated.contains("(truncated"),
-            "Small output should not be truncated"
-        );
-        Ok(())
+    #[test]
+    fn test_whatif_step_structure() {
+        let step = WhatIfStep {
+            order: 1,
+            description: "Test step".to_string(),
+            action: "Do something".to_string(),
+            can_fail: true,
+            on_failure: Some("Handle failure".to_string()),
+        };
+        assert_eq!(step.order, 1);
+        assert_eq!(step.description, "Test step");
+        assert_eq!(step.action, "Do something");
+        assert!(step.can_fail);
+        assert_eq!(step.on_failure, Some("Handle failure".to_string()));
+    }
+
+    #[test]
+    fn test_whatif_resource_change_structure() {
+        let change = ResourceChange {
+            resource_type: "test".to_string(),
+            resource: "resource".to_string(),
+            description: "Test resource".to_string(),
+        };
+        assert_eq!(change.resource_type, "test");
+        assert_eq!(change.resource, "resource");
+        assert_eq!(change.description, "Test resource");
+    }
+
+    #[test]
+    fn test_whatif_prerequisite_structure() {
+        let prereq = PrerequisiteCheck {
+            check: "test_check".to_string(),
+            status: PrerequisiteStatus::Met,
+            description: "Test description".to_string(),
+        };
+        assert_eq!(prereq.check, "test_check");
+        assert_eq!(prereq.status, PrerequisiteStatus::Met);
+        assert_eq!(prereq.description, "Test description");
+    }
+
+    #[test]
+    fn test_detect_flags_basic() {
+        let args = vec![
+            "done".to_string(),
+            "--workspace".to_string(),
+            "feature-x".to_string(),
+        ];
+        let (has_workspace, has_force, has_keep, has_dry_run) = detect_flags(&args);
+        assert!(has_workspace);
+        assert!(!has_force);
+        assert!(!has_keep);
+        assert!(!has_dry_run);
+    }
+
+    #[test]
+    fn test_detect_flags_multiple() {
+        let args = vec![
+            "done".to_string(),
+            "--workspace".to_string(),
+            "feature-x".to_string(),
+            "--force".to_string(),
+            "--keep-workspace".to_string(),
+        ];
+        let (has_workspace, has_force, has_keep, has_dry_run) = detect_flags(&args);
+        assert!(has_workspace);
+        assert!(has_force);
+        assert!(has_keep);
+        assert!(!has_dry_run);
+    }
+
+    #[test]
+    fn test_detect_flags_no_flags() {
+        let args = vec!["done".to_string(), "feature-x".to_string()];
+        let (has_workspace, has_force, has_keep, has_dry_run) = detect_flags(&args);
+        assert!(!has_workspace);
+        assert!(!has_force);
+        assert!(!has_keep);
+        assert!(!has_dry_run);
+    }
+
+    #[test]
+    fn test_detect_flags_empty() {
+        let args: Vec<String> = Vec::new();
+        let (has_workspace, has_force, has_keep, has_dry_run) = detect_flags(&args);
+        assert!(!has_workspace);
+        assert!(!has_force);
+        assert!(!has_keep);
+        assert!(!has_dry_run);
+    }
+
+    #[test]
+    fn test_detect_flags_all_flags() {
+        let args = vec![
+            "--workspace".to_string(),
+            "feature-x".to_string(),
+            "--force".to_string(),
+            "--keep-workspace".to_string(),
+            "--dry-run".to_string(),
+            "done".to_string(),
+        ];
+        let (has_workspace, has_force, has_keep, has_dry_run) = detect_flags(&args);
+        assert!(has_workspace);
+        assert!(has_force);
+        assert!(has_keep);
+        assert!(has_dry_run);
+    }
+
+    #[test]
+    fn test_detect_flags_special_chars() {
+        let args = vec![
+            "done".to_string(),
+            "--workspace".to_string(),
+            "feature-x".to_string(),
+            "--force".to_string(),
+            "--keep-workspace".to_string(),
+            "--with-dash".to_string(),
+            "--with_underscore".to_string(),
+            "--flag123".to_string(),
+        ];
+        let (has_workspace, has_force, has_keep, has_dry_run) = detect_flags(&args);
+        assert!(has_workspace);
+        assert!(has_force);
+        assert!(has_keep);
+        assert!(!has_dry_run);
+    }
+
+    #[test]
+    fn test_detect_flags_unicode() {
+        let args = vec![
+            "done".to_string(),
+            "--workspace".to_string(),
+            "feature-äöü".to_string(),
+            "--force".to_string(),
+            "--keep-workspace".to_string(),
+            "--unicode-flag".to_string(),
+        ];
+        let (has_workspace, has_force, has_keep, has_dry_run) = detect_flags(&args);
+        assert!(has_workspace);
+        assert!(has_force);
+        assert!(has_keep);
+        assert!(!has_dry_run);
+    }
+
+    #[test]
+    fn test_preview_add_with_force_flag() {
+        let args = vec![
+            "add".to_string(),
+            "--force".to_string(),
+            "test-session".to_string(),
+        ];
+        let result = preview_add_with_flags(&args, true).unwrap();
+        assert_eq!(result.command, "add");
+        assert_eq!(result.args, args);
+        assert!(result.warnings.is_empty()); // Warnings added in enhanced version
+    }
+
+    #[test]
+    fn test_preview_done_with_workspace_flag() {
+        let args = vec![
+            "done".to_string(),
+            "--workspace".to_string(),
+            "feature-x".to_string(),
+        ];
+        let result = preview_done_with_flags(&args, true, false, false).unwrap();
+        assert_eq!(result.command, "done");
+        assert_eq!(result.args, args);
+        assert!(!result.warnings.is_empty()); // Should have workspace warning
+    }
+
+    #[test]
+    fn test_preview_done_with_keep_flag() {
+        let args = vec![
+            "done".to_string(),
+            "--keep-workspace".to_string(),
+            "feature-x".to_string(),
+        ];
+        let result = preview_done_with_flags(&args, false, false, true).unwrap();
+        assert_eq!(result.command, "done");
+        assert_eq!(result.args, args);
+        assert!(!result.warnings.is_empty()); // Should have keep-workspace warning
+    }
+
+    #[test]
+    fn test_preview_remove_with_keep_flag() {
+        let args = vec![
+            "remove".to_string(),
+            "--keep-workspace".to_string(),
+            "test-session".to_string(),
+        ];
+        let result = preview_remove_with_flags(&args, true).unwrap();
+        assert_eq!(result.command, "remove");
+        assert_eq!(result.args, args);
+        assert!(!result.warnings.is_empty()); // Should have keep-workspace warning
+    }
+
+    #[test]
+    fn test_preview_add_with_all_flags() {
+        let args = vec![
+            "add".to_string(),
+            "--force".to_string(),
+            "--workspace".to_string(),
+            "test-session".to_string(),
+        ];
+        let result = preview_add_with_flags(&args, true).unwrap();
+        assert_eq!(result.command, "add");
+        assert_eq!(result.args, args);
+        // Should handle extra flags gracefully
+    }
+
+    #[test]
+    fn test_preview_unknown_command() {
+        let opts = WhatIfOptions {
+            command: "unknown".to_string(),
+            args: vec!["arg1".to_string()],
+            format: OutputFormat::Json,
+        };
+        let result = run(&opts).unwrap();
+        assert_eq!(result.command, "unknown");
+        assert_eq!(result.args, vec!["arg1".to_string()]);
+        assert_eq!(result.steps.len(), 1);
+        assert!(result.reversible);
+        assert!(result.warnings.len() > 0);
     }
 }

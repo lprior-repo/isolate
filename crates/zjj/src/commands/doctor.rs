@@ -512,7 +512,33 @@ async fn check_initialized() -> DoctorCheck {
 async fn check_state_db() -> DoctorCheck {
     // Check if recovery occurred recently BEFORE checking database
     if let Some(ref recovery_info) = check_for_recent_recovery().await {
-        return create_recovery_check(recovery_info);
+        let recovery_check = create_recovery_check(recovery_info);
+
+        // Run integrity validation after recovery to check for any corruption
+        let integrity_check = run_integrity_after_recovery().await;
+        if let Some(integrity_check) = integrity_check {
+            return DoctorCheck {
+                name: "State Database + Integrity".to_string(),
+                status: CheckStatus::Warn,
+                message: format!(
+                    "Database recovered: {}\nIntegrity issues detected: {}",
+                    recovery_info, integrity_check.message
+                ),
+                suggestion: Some(format!(
+                    "{}\n{}",
+                    recovery_check.suggestion.unwrap_or_default(),
+                    integrity_check.suggestion.unwrap_or_default()
+                )),
+                auto_fixable: false,
+                details: Some(serde_json::json!({
+                    "recovered": true,
+                    "details": recovery_info,
+                    "integrity_issues": integrity_check.details
+                })),
+            };
+        }
+
+        return recovery_check;
     }
 
     // Read-only database check - don't trigger recovery in doctor mode
@@ -532,6 +558,76 @@ async fn check_state_db() -> DoctorCheck {
         Ok(()) => check_db_file_size_and_integrity(file_size, db_path).await,
         Err(check) => check,
     }
+}
+
+/// Run workspace integrity validation after recovery to detect corruption
+async fn run_integrity_after_recovery() -> Option<DoctorCheck> {
+    let config = match load_config().await {
+        Ok(Some(cfg)) => cfg,
+        _ => return None,
+    };
+
+    let root = jj_root()
+        .await
+        .ok()
+        .map(PathBuf::from)
+        .or_else(|| std::env::current_dir().ok());
+    let Some(root) = root else {
+        return None;
+    };
+
+    let workspace_dir = if Path::new(&config.workspace_dir).is_absolute() {
+        Path::new(&config.workspace_dir).to_path_buf()
+    } else {
+        root.join(Path::new(&config.workspace_dir))
+    };
+
+    let sessions = match get_session_db().await {
+        Ok(db) => db.list(None).await.unwrap_or_default(),
+        Err(_) => Vec::new(),
+    };
+
+    if sessions.is_empty() {
+        return None;
+    }
+
+    let workspace_roots = workspace_utils::candidate_workspace_roots(&root, &config.workspace_dir);
+    let validator = IntegrityValidator::new(workspace_dir);
+    let names: Vec<String> = sessions.iter().map(|s| s.name.clone()).collect();
+
+    let results = match validator.validate_all(&names).await {
+        Ok(values) => values,
+        Err(_) => return None,
+    };
+
+    let invalid: Vec<&ValidationResult> = results.iter().filter(|r| !r.is_valid).collect();
+
+    if invalid.is_empty() {
+        return None;
+    }
+
+    Some(DoctorCheck {
+        name: "Workspace Integrity After Recovery".to_string(),
+        status: CheckStatus::Warn,
+        message: format!(
+            "{} workspace(s) have integrity issues after recovery",
+            invalid.len()
+        ),
+        suggestion: Some(
+            "Run 'zjj integrity repair --rebind' to fix relocated workspaces".to_string(),
+        ),
+        auto_fixable: false,
+        details: Some(serde_json::json!({
+            "invalid_workspaces": invalid.len(),
+            "issues": invalid.iter().map(|r| {
+                serde_json::json!({
+                    "workspace": r.workspace,
+                    "issues": r.issues.len(),
+                    "corruptions": r.issues.iter().map(|i| i.corruption_type).collect::<Vec<_>>()
+                })
+            }).collect::<Vec<_>>()
+        })),
+    })
 }
 
 /// Create a recovery check result when recent recovery is detected

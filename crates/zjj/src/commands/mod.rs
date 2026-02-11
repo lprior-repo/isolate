@@ -31,6 +31,7 @@ pub mod introspect;
 pub mod list;
 pub mod lock;
 pub mod pane;
+pub mod prune_invalid;
 pub mod query;
 pub mod queue;
 pub mod recover;
