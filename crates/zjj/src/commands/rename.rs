@@ -96,8 +96,14 @@ async fn rename_zellij_tab(new_tab_name: &str) -> Result<()> {
 pub async fn run(options: &RenameOptions) -> Result<()> {
     // REQUIREMENT [IF2]: If not inside Zellij and --no-zellij not set, exit 2 with message
     // Use ValidationError which maps to exit code 1 (validation failure)
-    if !options.no_zellij && !is_inside_zellij() {
+    let no_zellij = options.no_zellij || !crate::cli::is_terminal();
+
+    if !no_zellij && !is_inside_zellij() {
         anyhow::bail!("Not inside a Zellij session. Use 'zjj rename' from within Zellij or use --no-zellij flag.");
+    }
+
+    if !crate::cli::is_terminal() && !options.no_zellij && !options.format.is_json() {
+        println!("Note: Non-interactive environment detected, skipping Zellij integration.");
     }
 
     let db = get_session_db().await?;
@@ -182,7 +188,7 @@ pub async fn run(options: &RenameOptions) -> Result<()> {
     }
 
     // REQUIREMENT [E1]: Rename Zellij tab via action (skip if --no-zellij)
-    if !options.no_zellij {
+    if !no_zellij {
         rename_zellij_tab(&new_tab_name).await?;
     }
 

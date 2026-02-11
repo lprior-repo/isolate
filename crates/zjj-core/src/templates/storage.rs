@@ -48,25 +48,34 @@ impl TemplateName {
     /// Validate a template name
     fn validate(name: &str) -> Result<()> {
         if name.is_empty() || name.len() > 64 {
-            return Err(Error::ValidationError(
-                "Template name must be 1-64 characters".to_string(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Template name must be 1-64 characters".to_string(),
+                field: Some("name".to_string()),
+                value: Some(name.to_string()),
+                constraints: vec!["length >= 1".to_string(), "length <= 64".to_string()],
+            });
         }
 
         if name.starts_with('-') {
-            return Err(Error::ValidationError(
-                "Template name cannot start with dash".to_string(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Template name cannot start with dash".to_string(),
+                field: Some("name".to_string()),
+                value: Some(name.to_string()),
+                constraints: vec!["must not start with '-'".to_string()],
+            });
         }
 
         if !name
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
         {
-            return Err(Error::ValidationError(
-                "Template name must contain only ASCII alphanumeric, dash, or underscore"
+            return Err(Error::ValidationError {
+                message: "Template name must contain only ASCII alphanumeric, dash, or underscore"
                     .to_string(),
-            ));
+                field: Some("name".to_string()),
+                value: Some(name.to_string()),
+                constraints: vec!["must only contain ASCII alphanumeric, '-', or '_'".to_string()],
+            });
         }
 
         Ok(())
@@ -165,9 +174,12 @@ fn current_timestamp() -> i64 {
 fn validate_template_size(content: &str, description: &str) -> Result<()> {
     let size = content.len();
     if size > MAX_TEMPLATE_SIZE {
-        return Err(Error::ValidationError(format!(
-            "Template {description} exceeds maximum size of {MAX_TEMPLATE_SIZE} bytes (got {size} bytes)"
-        )));
+        return Err(Error::ValidationError {
+            message: format!("Template {description} exceeds maximum size of {MAX_TEMPLATE_SIZE} bytes (got {size} bytes)"),
+            field: Some("content".to_string()),
+            value: Some(size.to_string()),
+            constraints: vec![format!("length <= {MAX_TEMPLATE_SIZE}")],
+        });
     }
     Ok(())
 }
@@ -229,8 +241,16 @@ fn load_template_from_dir(dir: &Path) -> Result<Template> {
     let metadata_content = std::fs::read_to_string(&metadata_path)
         .map_err(|e| Error::IoError(format!("Failed to read template metadata: {e}")))?;
 
-    let metadata: TemplateMetadata = serde_json::from_str(&metadata_content)
-        .map_err(|e| Error::ValidationError(format!("Invalid template metadata: {e}")))?;
+    let metadata: TemplateMetadata =
+        serde_json::from_str(&metadata_content).map_err(|e| Error::ValidationError {
+            message: format!("Invalid template metadata: {e}"),
+            field: Some("metadata".to_string()),
+            value: Some(metadata_content.clone()),
+            constraints: vec![
+                "must be valid JSON".to_string(),
+                "must contain required fields: name, created_at, updated_at".to_string(),
+            ],
+        })?;
 
     // Read layout
     let layout = std::fs::read_to_string(&layout_path)

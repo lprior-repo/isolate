@@ -120,18 +120,34 @@ pub async fn zjj_data_dir() -> Result<PathBuf> {
     Ok(root.join(".zjj"))
 }
 
-/// Get the path to the session database, respecting environment variable overrides
+/// Get the path to the session database, respecting environment variable overrides and config
 ///
 /// # Errors
 ///
 /// Returns an error if prerequisites are not met and no override is provided
 pub async fn get_db_path() -> Result<PathBuf> {
+    // 1. Environment variable has highest priority
     if let Ok(env_db) = std::env::var("ZJJ_STATE_DB") {
         let p = PathBuf::from(env_db);
         eprintln!("DEBUG: Using ZJJ_STATE_DB override: {}", p.display());
         return Ok(p);
     }
 
+    // 2. Load config to check for state_db override
+    // We try to load config but don't fail if it doesn't exist yet (e.g. during init)
+    if let Ok(cfg) = zjj_core::config::load_config().await {
+        if cfg.state_db != ".zjj/state.db" {
+            let p = PathBuf::from(cfg.state_db);
+            // If absolute, use as is. If relative, it's relative to repo root.
+            if p.is_absolute() {
+                return Ok(p);
+            }
+            let root = check_prerequisites().await?;
+            return Ok(root.join(p));
+        }
+    }
+
+    // 3. Default path: .zjj/state.db
     let data_dir = zjj_data_dir().await?;
     let p = data_dir.join("state.db");
     eprintln!("DEBUG: Using default database path: {}", p.display());

@@ -521,7 +521,7 @@ mod tests {
         let result = validate_template_name("");
         assert!(result.is_err());
         if let Err(Error::ValidationError { message, .. }) = result {
-            assert!(msg.contains("empty") || msg.contains("Empty"));
+            assert!(message.contains("empty") || message.contains("Empty"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
         }
@@ -533,7 +533,7 @@ mod tests {
         let result = validate_template_name(&long_name);
         assert!(result.is_err());
         if let Err(Error::ValidationError { message, .. }) = result {
-            assert!(msg.contains("64"));
+            assert!(message.contains("64"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
         }
@@ -544,7 +544,7 @@ mod tests {
         let result = validate_template_name("template-🚀");
         assert!(result.is_err());
         if let Err(Error::ValidationError { message, .. }) = result {
-            assert!(msg.contains("ASCII"));
+            assert!(message.contains("ASCII"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
         }
@@ -555,7 +555,7 @@ mod tests {
         let result = validate_template_name("123template");
         assert!(result.is_err());
         if let Err(Error::ValidationError { message, .. }) = result {
-            assert!(msg.contains("start with a letter"));
+            assert!(message.contains("start with a letter"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
         }
@@ -566,7 +566,7 @@ mod tests {
         let result = validate_template_name("-template");
         assert!(result.is_err());
         if let Err(Error::ValidationError { message, .. }) = result {
-            assert!(msg.contains("start with a letter"));
+            assert!(message.contains("start with a letter"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
         }
@@ -577,7 +577,7 @@ mod tests {
         let result = validate_template_name("_template");
         assert!(result.is_err());
         if let Err(Error::ValidationError { message, .. }) = result {
-            assert!(msg.contains("start with a letter"));
+            assert!(message.contains("start with a letter"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
         }
@@ -588,7 +588,7 @@ mod tests {
         let result = validate_template_name("template name");
         assert!(result.is_err());
         if let Err(Error::ValidationError { message, .. }) = result {
-            assert!(msg.contains("alphanumeric") || msg.contains("character"));
+            assert!(message.contains("alphanumeric") || message.contains("character"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
         }

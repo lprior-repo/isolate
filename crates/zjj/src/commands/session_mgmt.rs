@@ -452,7 +452,7 @@ mod tests {
                     "ValidationError should map to exit code 1"
                 );
                 assert!(
-                    matches!(e, zjj_core::Error::ValidationError(_)),
+                    matches!(e, zjj_core::Error::ValidationError { .. }),
                     "Should return ValidationError"
                 );
             }
@@ -472,7 +472,7 @@ mod tests {
 
         if let Err(e) = result {
             assert_eq!(e.exit_code(), 1);
-            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert!(matches!(e, zjj_core::Error::ValidationError { .. }));
         }
     }
 
@@ -498,7 +498,7 @@ mod tests {
 
             if let Err(e) = result {
                 assert_eq!(e.exit_code(), 1);
-                assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+                assert!(matches!(e, zjj_core::Error::ValidationError { .. }));
             }
         }
     }
@@ -519,7 +519,7 @@ mod tests {
 
             if let Err(e) = result {
                 assert_eq!(e.exit_code(), 1);
-                assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+                assert!(matches!(e, zjj_core::Error::ValidationError { .. }));
             }
         }
     }
@@ -535,7 +535,7 @@ mod tests {
 
         if let Err(e) = result {
             assert_eq!(e.exit_code(), 1);
-            assert!(matches!(e, zjj_core::Error::ValidationError(_)));
+            assert!(matches!(e, zjj_core::Error::ValidationError { .. }));
         }
     }
 

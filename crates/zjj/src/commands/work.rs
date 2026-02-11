@@ -116,13 +116,14 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     }
 
     // Create the session using add command infrastructure
+    let no_zellij = options.no_zellij || !crate::cli::is_terminal();
     let add_options = add::AddOptions {
         name: options.name.clone(),
         bead_id: None,
         no_hooks: false,
         template: None,
-        no_open: options.no_zellij,
-        no_zellij: options.no_zellij,
+        no_open: no_zellij,
+        no_zellij,
         format: OutputFormat::Human, // We'll handle our own output
         idempotent: false,
         dry_run: false,

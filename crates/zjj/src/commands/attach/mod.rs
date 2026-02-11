@@ -24,6 +24,15 @@ impl AttachOptions {
 
 /// Run the attach command with given options
 pub async fn run_with_options(opts: &AttachOptions) -> Result<()> {
+    // 0. Check if running in a TTY
+    if !crate::cli::is_terminal() {
+        anyhow::bail!(
+            "Cannot attach to Zellij in non-interactive environment.\n\
+             Use 'zjj status {}' to view session state without Zellij.",
+            opts.name
+        );
+    }
+
     let db = get_session_db().await?;
 
     // 1. Validate session exists

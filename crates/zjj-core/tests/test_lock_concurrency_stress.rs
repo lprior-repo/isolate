@@ -227,7 +227,12 @@ async fn test_10_agents_lock_same_session() -> Result<(), Error> {
         metrics
             .unique_holders
             .contains(lock_state.holder.as_deref().ok_or_else(|| {
-                Error::ValidationError("Failed to convert holder to &str".into())
+                Error::ValidationError {
+                    message: "Failed to convert holder to &str".into(),
+                    field: None,
+                    value: None,
+                    constraints: vec![],
+                }
             })?),
         "Lock holder should match successful agent"
     );
@@ -907,9 +912,12 @@ async fn test_contention_fail_fast_reports_consistent_holder() -> Result<(), Err
                 )));
             }
             Ok((Ok(_), _)) => {
-                return Err(Error::ValidationError(
-                    "contender unexpectedly acquired lock while holder still active".into(),
-                ));
+                return Err(Error::ValidationError {
+                    message: "contender unexpectedly acquired lock while holder still active".into(),
+                    field: None,
+                    value: None,
+                    constraints: Vec::new(),
+                });
             }
             Err(join_error) => {
                 return Err(Error::Unknown(format!(
@@ -993,9 +1001,12 @@ async fn test_repeated_contention_eventually_serves_all_agents() -> Result<(), E
                 if acquired {
                     acquired_agents.insert(agent_name);
                 } else {
-                    return Err(Error::ValidationError(format!(
-                        "agent starved under contention after {attempts} attempts"
-                    )));
+                    return Err(Error::ValidationError {
+                        message: format!("agent starved under contention after {attempts} attempts"),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    });
                 }
             }
             Ok(Err(task_error)) => {
@@ -1081,9 +1092,14 @@ async fn test_fairness_contract_bounded_attempt_success_per_contender() -> Resul
 
     for (contender, acquired_at) in &attempt_results {
         let attempts = acquired_at.ok_or_else(|| {
-            Error::ValidationError(format!(
-                "{contender} starved past bounded-attempt contract ({max_attempts_per_contender})"
-            ))
+            Error::ValidationError {
+                message: format!(
+                    "{contender} starved past bounded-attempt contract ({max_attempts_per_contender})"
+                ),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            }
         })?;
 
         assert!(
@@ -1157,9 +1173,12 @@ async fn test_no_deadlocks_under_load() -> Result<(), Error> {
     let deadline = Instant::now() + timeout_duration;
     while let Some(result) = join_set.join_next().await {
         if Instant::now() > deadline {
-            return Err(Error::ValidationError(
-                "Potential deadlock detected - test exceeded timeout".into(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Potential deadlock detected - test exceeded timeout".into(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         match result {

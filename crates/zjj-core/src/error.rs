@@ -35,23 +35,29 @@ impl ValidationHint {
 
     /// Add what was received
     #[must_use]
-    pub fn with_received(mut self, received: impl Into<String>) -> Self {
-        self.received = Some(received.into());
-        self
+    pub fn with_received(self, received: impl Into<String>) -> Self {
+        Self {
+            received: Some(received.into()),
+            ..self
+        }
     }
 
     /// Add an example
     #[must_use]
-    pub fn with_example(mut self, example: impl Into<String>) -> Self {
-        self.example = Some(example.into());
-        self
+    pub fn with_example(self, example: impl Into<String>) -> Self {
+        Self {
+            example: Some(example.into()),
+            ..self
+        }
     }
 
     /// Add a pattern
     #[must_use]
-    pub fn with_pattern(mut self, pattern: impl Into<String>) -> Self {
-        self.pattern = Some(pattern.into());
-        self
+    pub fn with_pattern(self, pattern: impl Into<String>) -> Self {
+        Self {
+            pattern: Some(pattern.into()),
+            ..self
+        }
     }
 }
 
@@ -107,54 +113,72 @@ impl FailureContext {
 
     /// Set working directory
     #[must_use]
-    pub fn with_working_directory(mut self, dir: impl Into<String>) -> Self {
-        self.working_directory = Some(dir.into());
-        self
+    pub fn with_working_directory(self, dir: impl Into<String>) -> Self {
+        Self {
+            working_directory: Some(dir.into()),
+            ..self
+        }
     }
 
     /// Set current workspace
     #[must_use]
-    pub fn with_workspace(mut self, workspace: impl Into<String>) -> Self {
-        self.current_workspace = Some(workspace.into());
-        self
+    pub fn with_workspace(self, workspace: impl Into<String>) -> Self {
+        Self {
+            current_workspace: Some(workspace.into()),
+            ..self
+        }
     }
 
     /// Add active sessions
     #[must_use]
-    pub fn with_active_sessions(mut self, sessions: Vec<String>) -> Self {
-        self.active_sessions = sessions;
-        self
+    pub fn with_active_sessions(self, sessions: Vec<String>) -> Self {
+        Self {
+            active_sessions: sessions,
+            ..self
+        }
     }
 
     /// Set the command and arguments
     #[must_use]
-    pub fn with_command(mut self, cmd: impl Into<String>, args: Vec<String>) -> Self {
-        self.command = Some(cmd.into());
-        self.arguments = args;
-        self
+    pub fn with_command(self, cmd: impl Into<String>, args: Vec<String>) -> Self {
+        Self {
+            command: Some(cmd.into()),
+            arguments: args,
+            ..self
+        }
     }
 
     /// Set the phase where failure occurred
     #[must_use]
-    pub fn with_phase(mut self, phase: impl Into<String>) -> Self {
-        self.phase = Some(phase.into());
-        self
+    pub fn with_phase(self, phase: impl Into<String>) -> Self {
+        Self {
+            phase: Some(phase.into()),
+            ..self
+        }
     }
 
     /// Add relevant environment variable
     #[must_use]
-    pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.relevant_env.push((key.into(), value.into()));
-        self
+    pub fn with_env(self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        let mut relevant_env = self.relevant_env;
+        relevant_env.push((key.into(), value.into()));
+        Self {
+            relevant_env,
+            ..self
+        }
     }
 
     /// Capture current working directory from environment
     #[must_use]
-    pub fn capture_cwd(mut self) -> Self {
+    pub fn capture_cwd(self) -> Self {
         if let Ok(cwd) = std::env::current_dir() {
-            self.working_directory = Some(cwd.to_string_lossy().to_string());
+            Self {
+                working_directory: Some(cwd.to_string_lossy().to_string()),
+                ..self
+            }
+        } else {
+            self
         }
-        self
     }
 }
 
@@ -212,23 +236,31 @@ impl RichError {
 
     /// Add failure context
     #[must_use]
-    pub fn with_context(mut self, context: FailureContext) -> Self {
-        self.context_at_failure = Some(context);
-        self
+    pub fn with_context(self, context: FailureContext) -> Self {
+        Self {
+            context_at_failure: Some(context),
+            ..self
+        }
     }
 
     /// Add additional fix commands
     #[must_use]
-    pub fn with_fix_commands(mut self, commands: Vec<String>) -> Self {
-        self.fix_commands = commands;
-        self
+    pub fn with_fix_commands(self, commands: Vec<String>) -> Self {
+        Self {
+            fix_commands: commands,
+            ..self
+        }
     }
 
     /// Add additional validation hints
     #[must_use]
-    pub fn with_validation_hints(mut self, hints: Vec<ValidationHint>) -> Self {
-        self.validation_hints.extend(hints);
-        self
+    pub fn with_validation_hints(self, hints: Vec<ValidationHint>) -> Self {
+        let mut validation_hints = self.validation_hints;
+        validation_hints.extend(hints);
+        Self {
+            validation_hints,
+            ..self
+        }
     }
 }
 

@@ -45,7 +45,7 @@ fn test_all_errors_have_documentation() {
         Error::InvalidConfig("test".into()),
         Error::IoError("test".into()),
         Error::ParseError("test".into()),
-        Error::ValidationError("test".into()),
+        Error::ValidationError { message: "test".into(), field: None, value: None, constraints: vec![] },
         Error::NotFound("test".into()),
         Error::DatabaseError("test".into()),
         Error::Command("test".into()),
@@ -92,7 +92,7 @@ fn test_all_errors_have_suggestions_or_reasonable_default() {
     // Most errors should have suggestions
     let test_errors = vec![
         Error::NotFound("session 'test' not found".into()),
-        Error::ValidationError("invalid session name".into()),
+        Error::ValidationError { message: "invalid session name".into(), field: None, value: None, constraints: vec![] },
         Error::DatabaseError("connection failed".into()),
         Error::InvalidConfig("unknown key".into()),
         Error::IoError("Permission denied".into()),
@@ -127,7 +127,7 @@ fn test_all_errors_have_fix_commands_or_none_reasonably() {
     // Most errors should have fix commands
     let test_errors = vec![
         Error::NotFound("session 'test' not found".into()),
-        Error::ValidationError("invalid name".into()),
+        Error::ValidationError { message: "invalid name".into(), field: None, value: None, constraints: vec![] },
         Error::DatabaseError("corrupted".into()),
         Error::InvalidConfig("unknown key".into()),
     ];
@@ -170,7 +170,7 @@ fn test_error_codes_are_unique() {
         Error::InvalidConfig("test".into()),
         Error::IoError("test".into()),
         Error::ParseError("test".into()),
-        Error::ValidationError("test".into()),
+        Error::ValidationError { message: "test".into(), field: None, value: None, constraints: vec![] },
         Error::NotFound("test".into()),
         Error::DatabaseError("test".into()),
         Error::Command("test".into()),
@@ -217,7 +217,7 @@ fn test_error_context_provides_useful_information() {
 #[test]
 fn test_validation_errors_provide_hints() {
     // Validation errors should provide hints about what was expected
-    let err = Error::ValidationError("invalid session name".into());
+    let err = Error::ValidationError { message: "invalid session name".into(), field: None, value: None, constraints: vec![] };
     let hints = err.validation_hints();
 
     assert!(!hints.is_empty(), "Validation errors should provide hints");
@@ -347,7 +347,7 @@ fn test_parse_errors_distinguish_json_vs_toml() {
 fn test_exit_codes_follow_semantic_conventions() {
     // Exit code 1: Validation errors
     assert_eq!(Error::InvalidConfig("test".into()).exit_code(), 1);
-    assert_eq!(Error::ValidationError("test".into()).exit_code(), 1);
+    assert_eq!(Error::ValidationError { message: "test".into(), field: None, value: None, constraints: vec![] }.exit_code(), 1);
     assert_eq!(Error::ParseError("test".into()).exit_code(), 1);
 
     // Exit code 2: Not found errors
