@@ -18,6 +18,7 @@
 //! !   Regardless of whether I include the 'zjj' prefix or not.
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use std::process::Command;
 

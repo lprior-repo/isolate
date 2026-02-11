@@ -349,8 +349,9 @@ fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<()> 
                 std::thread::sleep(backoff);
             }
             Err(_) => {
-                let total_wait_ms: u64 = (0..HIGH_CONTENTION_MAX_ATTEMPTS)
-                    .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i as u32))
+                let max_attempts_u32 = u32::try_from(HIGH_CONTENTION_MAX_ATTEMPTS).unwrap_or(8);
+                let total_wait_ms: u64 = (0u32..max_attempts_u32)
+                    .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i))
                     .sum();
                 return Err(Error::LockTimeout {
                     operation: description.to_string(),
@@ -362,8 +363,9 @@ fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<()> 
     }
 
     // This should never be reached due to the error case above
-    let total_wait_ms: u64 = (0..HIGH_CONTENTION_MAX_ATTEMPTS)
-        .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i as u32))
+    let max_attempts_u32 = u32::try_from(HIGH_CONTENTION_MAX_ATTEMPTS).unwrap_or(8);
+    let total_wait_ms: u64 = (0u32..max_attempts_u32)
+        .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i))
         .sum();
     Err(Error::LockTimeout {
         operation: "file lock acquisition".to_string(),
