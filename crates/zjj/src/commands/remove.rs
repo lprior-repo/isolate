@@ -168,13 +168,36 @@ const fn run_pre_remove_hooks(_name: &str, _workspace_path: &str) {
 }
 
 /// Merge session to main branch
-fn merge_to_main(_name: &str, _workspace_path: &str) -> Result<()> {
-    // TODO: Implement merge functionality
-    // This should:
-    // 1. Switch to the session workspace
-    // 2. Squash commits
-    // 3. Merge to main
-    anyhow::bail!("--merge is not yet implemented")
+fn merge_to_main(name: &str, _workspace_path: &str) -> Result<()> {
+    // Squash workspace changes into main
+    let revset = format!("ancestors({name}@) & ~ancestors(main)");
+
+    let output = std::process::Command::new("jj")
+        .args(["squash", "--from", &revset, "--into", "main"])
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // If there are no changes to squash, it might fail or do nothing.
+        // We only bail if it's a real error.
+        if !stderr.contains("No changes to squash") && !stderr.is_empty() {
+            anyhow::bail!("Failed to merge changes to main: {stderr}");
+        }
+    }
+
+    // Forget the workspace
+    let output = std::process::Command::new("jj")
+        .args(["workspace", "forget", name])
+        .output()?;
+
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to forget workspace after merge: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -10,12 +10,13 @@ use anyhow::Result;
 use serde::Serialize;
 use zjj_core::{
     workspace_integrity::{
-        BackupManager, BackupMetadata, IntegrityValidator, RepairExecutor, ValidationResult,
+        BackupManager, BackupMetadata, CorruptionType, IntegrityValidator, RepairExecutor,
+        ValidationResult,
     },
     OutputFormat, SchemaEnvelope,
 };
 
-use crate::commands::check_prerequisites;
+use crate::commands::{check_prerequisites, get_session_db, workspace_utils};
 
 /// Options for the integrity command
 #[derive(Debug, Clone)]
@@ -40,6 +41,8 @@ pub enum IntegritySubcommand {
         workspace: String,
         /// Force repair without confirmation
         force: bool,
+        /// Rebind session record when workspace moved
+        rebind: bool,
     },
     /// List available backups
     BackupList,
@@ -109,9 +112,11 @@ pub async fn run(options: &IntegrityOptions) -> Result<()> {
         IntegritySubcommand::Validate { workspace } => {
             run_validate(&jj_root, workspace, options.format).await
         }
-        IntegritySubcommand::Repair { workspace, force } => {
-            run_repair(&jj_root, workspace, *force, options.format).await
-        }
+        IntegritySubcommand::Repair {
+            workspace,
+            force,
+            rebind,
+        } => run_repair(&jj_root, workspace, *force, *rebind, options.format).await,
         IntegritySubcommand::BackupList => run_backup_list(&jj_root, options.format).await,
         IntegritySubcommand::BackupRestore { backup_id, force } => {
             run_backup_restore(&jj_root, backup_id, *force, options.format).await
@@ -159,6 +164,7 @@ async fn run_repair(
     jj_root: &std::path::Path,
     workspace: &str,
     force: bool,
+    rebind: bool,
     format: OutputFormat,
 ) -> Result<()> {
     // Validate workspace name is not empty
@@ -168,8 +174,15 @@ async fn run_repair(
         ));
     }
 
+    let config = zjj_core::config::load_config()
+        .await
+        .map_err(|e| anyhow::anyhow!("Unable to load config: {e}"))?;
+
+    let workspace_roots =
+        workspace_utils::candidate_workspace_roots(jj_root, &config.workspace_dir);
+
     let validator = IntegrityValidator::new(jj_root);
-    let validation = validator.validate(workspace).await?;
+    let mut validation = validator.validate(workspace).await?;
 
     if validation.is_valid {
         let response = RepairResponse {
@@ -186,6 +199,57 @@ async fn run_repair(
         }
 
         return Ok(());
+    }
+
+    let missing_directory_issue = validation
+        .issues
+        .iter()
+        .any(|issue| issue.corruption_type == CorruptionType::MissingDirectory);
+
+    let relocated_path = if missing_directory_issue {
+        workspace_utils::find_relocated_workspace(workspace, &workspace_roots).await
+    } else {
+        None
+    };
+
+    if rebind && missing_directory_issue {
+        if let Some(rebind_path) = relocated_path.as_ref() {
+            rebind_session(workspace, rebind_path).await?;
+            validation = validator.validate(workspace).await?;
+            if validation.is_valid {
+                let response = RepairResponse {
+                    workspace: workspace.to_string(),
+                    success: true,
+                    summary: format!(
+                        "Workspace re-bound to relocated path: {}",
+                        rebind_path.display()
+                    ),
+                };
+
+                if format.is_json() {
+                    let envelope =
+                        SchemaEnvelope::new("integrity-repair-response", "single", response);
+                    println!("{}", serde_json::to_string_pretty(&envelope)?);
+                } else {
+                    println!(
+                        "Rebound workspace '{workspace}' to current location: {}",
+                        rebind_path.display()
+                    );
+                }
+
+                return Ok(());
+            }
+        } else if format.is_json() {
+            let response = RepairResponse {
+                workspace: workspace.to_string(),
+                success: false,
+                summary: "Unable to detect relocated workspace for rebind".to_string(),
+            };
+            let envelope = SchemaEnvelope::new("integrity-repair-response", "single", response);
+            println!("{}", serde_json::to_string_pretty(&envelope)?);
+        } else {
+            println!("Rebind requested but no relocated workspace detected for '{workspace}'");
+        }
     }
 
     // Check if issues can be auto-repaired
@@ -570,6 +634,15 @@ fn confirm_restore(backup: &BackupMetadata) -> bool {
         .unwrap_or(false)
 }
 
+async fn rebind_session(workspace: &str, new_path: &std::path::Path) -> Result<()> {
+    let db = get_session_db().await?;
+    let path_str = new_path.display().to_string();
+    db.update_workspace_path(workspace, &path_str)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to update session path: {e}"))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -596,7 +669,7 @@ mod tests {
 
         // Attempt to repair with empty workspace name
         // This should return a Result::Err, not panic
-        let result = run_repair(jj_root_path, "", false, OutputFormat::Human).await;
+        let result = run_repair(jj_root_path, "", false, false, OutputFormat::Human).await;
 
         // Verify we get an error, not a panic
         match result {
@@ -669,6 +742,7 @@ mod tests {
         let result = run_repair(
             jj_root_path,
             "nonexistent-workspace",
+            false,
             false,
             OutputFormat::Human,
         )

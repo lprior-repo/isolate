@@ -16,6 +16,7 @@ use futures::{StreamExt, TryStreamExt};
 use serde::Serialize;
 use sqlx::Row;
 use tar::Builder;
+use tracing::warn;
 use zjj_core::OutputFormat;
 
 use crate::{
@@ -43,9 +44,16 @@ pub enum CheckpointAction {
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum CheckpointResponse {
-    Created { checkpoint_id: String },
-    Restored { checkpoint_id: String },
-    List { checkpoints: Vec<CheckpointInfo> },
+    Created {
+        checkpoint_id: String,
+        metadata_only: Vec<String>,
+    },
+    Restored {
+        checkpoint_id: String,
+    },
+    List {
+        checkpoints: Vec<CheckpointInfo>,
+    },
 }
 
 /// Information about a single checkpoint
@@ -93,8 +101,15 @@ const CHECKPOINT_SCHEMA_VERSION: i64 = 3;
 /// Directory where workspace backups are stored
 const CHECKPOINT_BACKUP_DIR: &str = ".beads/checkpoint_backups";
 
-/// Maximum backup size: 100MiB (prevent excessive disk usage)
-const MAX_BACKUP_SIZE: u64 = 100 * 1024 * 1024;
+/// Default maximum backup size: 100MiB (prevent excessive disk usage)
+const DEFAULT_MAX_BACKUP_SIZE: u64 = 100 * 1024 * 1024;
+
+fn checkpoint_max_backup_size_bytes() -> u64 {
+    std::env::var("ZJJ_CHECKPOINT_MAX_BACKUP_BYTES")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(DEFAULT_MAX_BACKUP_SIZE)
+}
 
 // ── Public entry point ───────────────────────────────────────────────
 
@@ -348,8 +363,8 @@ async fn create_checkpoint(
                     .transpose()
                     .context("Failed to serialize session metadata")?;
 
-                // Backup workspace directory to tarball
-                let backup_path = backup_workspace(
+                // Backup workspace directory to tarball (may skip if metadata-only)
+                let backup_result = backup_workspace(
                     &session.name,
                     Path::new(&session.workspace_path),
                     &checkpoint_id,
@@ -357,9 +372,12 @@ async fn create_checkpoint(
                 .await
                 .context("Failed to backup workspace")?;
 
-                let backup_size = fs::metadata(&backup_path)
-                    .map(|m| m.len())
-                    .unwrap_or(0);
+                let (backup_path, backup_size) = match backup_result {
+                    Some((path, size)) => (Some(path), size),
+                    None => (None, 0),
+                };
+
+                let backup_path_ref = backup_path.as_deref();
 
                 sqlx::query(
                     "INSERT INTO checkpoint_sessions (checkpoint_id, session_name, status, workspace_path, branch, metadata, backup_path, backup_size)
@@ -371,7 +389,7 @@ async fn create_checkpoint(
                 .bind(&session.workspace_path)
                 .bind(&session.branch)
                 .bind(&metadata_json)
-                .bind(&backup_path)
+                .bind(backup_path_ref)
                 .bind(i64::try_from(backup_size).unwrap_or(i64::MAX))
                 .execute(&pool)
                 .await
@@ -381,7 +399,21 @@ async fn create_checkpoint(
         })
         .await?;
 
-    Ok(CheckpointResponse::Created { checkpoint_id })
+    let metadata_only_sessions: Vec<String> = sqlx::query(
+        "SELECT session_name FROM checkpoint_sessions WHERE checkpoint_id = ? AND backup_path IS NULL",
+    )
+    .bind(&checkpoint_id)
+    .fetch_all(pool)
+    .await
+    .context("Failed to query metadata-only checkpoint sessions")?
+    .into_iter()
+    .filter_map(|row| row.try_get::<String, _>("session_name").ok())
+    .collect();
+
+    Ok(CheckpointResponse::Created {
+        checkpoint_id,
+        metadata_only: metadata_only_sessions,
+    })
 }
 
 #[allow(clippy::too_many_lines)]
@@ -625,7 +657,15 @@ async fn backup_workspace(
     session_name: &str,
     workspace_path: &Path,
     checkpoint_id: &str,
-) -> Result<String> {
+) -> Result<Option<(String, u64)>> {
+    let limit = checkpoint_max_backup_size_bytes();
+    if limit == 0 {
+        warn!(
+            "Checkpoint backups are disabled via ZJJ_CHECKPOINT_MAX_BACKUP_BYTES=0, recording metadata only"
+        );
+        return Ok(None);
+    }
+
     let session_name = session_name.to_string();
     let workspace_path = workspace_path.to_path_buf();
     let checkpoint_id = checkpoint_id.to_string();
@@ -672,19 +712,23 @@ async fn backup_workspace(
         // Verify backup size is within limits
         let backup_size = fs::metadata(&backup_path).map(|m| m.len()).unwrap_or(0);
 
-        if backup_size > MAX_BACKUP_SIZE {
+        if backup_size > limit {
             fs::remove_file(&backup_path).with_context(|| {
                 format!(
                     "Failed to remove oversized backup: {}",
                     backup_path.display()
                 )
             })?;
-            return Err(anyhow::anyhow!(
-                "Backup size ({backup_size}) exceeds maximum allowed size ({MAX_BACKUP_SIZE})"
-            ));
+            warn!(
+                "Workspace backup for {session_name} exceeded limit ({limit}); recording metadata only"
+            );
+            return Ok(None);
         }
 
-        Ok(backup_path.to_string_lossy().to_string())
+        Ok(Some((
+            backup_path.to_string_lossy().to_string(),
+            backup_size,
+        )))
     })
     .await
     .context("Failed to join backup task")?
@@ -746,8 +790,20 @@ fn output_response(response: &CheckpointResponse, format: OutputFormat) -> Resul
         println!("{json}");
     } else {
         match response {
-            CheckpointResponse::Created { checkpoint_id } => {
+            CheckpointResponse::Created {
+                checkpoint_id,
+                metadata_only,
+            } => {
                 println!("Checkpoint created: {checkpoint_id}");
+                if !metadata_only.is_empty() {
+                    println!(
+                        "Metadata-only snapshots recorded for {} session(s):",
+                        metadata_only.len()
+                    );
+                    for session in metadata_only {
+                        println!("  - {session}");
+                    }
+                }
             }
             CheckpointResponse::Restored { checkpoint_id } => {
                 println!("Restored to checkpoint: {checkpoint_id}");
@@ -824,6 +880,7 @@ mod tests {
     fn test_checkpoint_response_created_serialization() {
         let response = CheckpointResponse::Created {
             checkpoint_id: "chk-abc123".to_string(),
+            metadata_only: vec!["session1".to_string()],
         };
         let json = serde_json::to_string(&response);
         assert!(json.is_ok(), "serialization should succeed");
@@ -1691,7 +1748,7 @@ mod tests {
             .expect("Failed to create checkpoint");
 
         let checkpoint_id = match response {
-            CheckpointResponse::Created { checkpoint_id } => checkpoint_id,
+            CheckpointResponse::Created { checkpoint_id, .. } => checkpoint_id,
             _ => panic!("Expected Created response"),
         };
 

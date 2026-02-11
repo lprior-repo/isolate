@@ -53,6 +53,7 @@ pub mod whatif;
 pub mod whereami;
 pub mod whoami;
 pub mod work;
+pub mod workspace_utils;
 
 use std::path::{Path, PathBuf};
 

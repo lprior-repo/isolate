@@ -26,7 +26,7 @@ use zjj_core::{
     config::{load_config, Config},
     introspection::{CheckStatus, DoctorCheck, DoctorFixOutput, FixResult, UnfixableIssue},
     json::SchemaEnvelope,
-    workspace_integrity::{IntegrityValidator, ValidationResult},
+    workspace_integrity::{CorruptionType, IntegrityValidator, ValidationResult},
     OutputFormat,
 };
 
@@ -34,7 +34,7 @@ use crate::{
     cli::{is_command_available, is_inside_zellij, is_jj_repo, jj_root},
     commands::{
         add::{pending_add_operation_count, replay_pending_add_operations},
-        get_session_db,
+        get_session_db, workspace_utils,
     },
     session::SessionStatus,
 };
@@ -223,6 +223,7 @@ async fn check_workspace_integrity() -> DoctorCheck {
         };
     }
 
+    let workspace_roots = workspace_utils::candidate_workspace_roots(&root, &config.workspace_dir);
     let validator = IntegrityValidator::new(workspace_dir);
     let names: Vec<String> = sessions.iter().map(|s| s.name.clone()).collect();
 
@@ -247,7 +248,48 @@ async fn check_workspace_integrity() -> DoctorCheck {
     if invalid.is_empty() {
         create_pass_check()
     } else {
-        create_fail_check(&invalid)
+        let mut invalid_details = Vec::new();
+
+        for validation in &invalid {
+            let needs_relocation = validation
+                .issues
+                .iter()
+                .any(|issue| issue.corruption_type == CorruptionType::MissingDirectory);
+
+            let relocated_path = if needs_relocation {
+                workspace_utils::find_relocated_workspace(&validation.workspace, &workspace_roots)
+                    .await
+            } else {
+                None
+            };
+
+            let issues = validation
+                .issues
+                .iter()
+                .map(|issue| {
+                    serde_json::json!({
+                        "type": issue.corruption_type.to_string(),
+                        "description": issue.description.clone(),
+                        "path": issue
+                            .affected_path
+                            .as_ref()
+                            .map(|p| p.display().to_string()),
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            invalid_details.push(serde_json::json!({
+                "workspace": validation.workspace.clone(),
+                "path": validation.path.display().to_string(),
+                "issue_count": validation.issues.len(),
+                "issues": issues,
+                "relocated_path": relocated_path
+                    .as_ref()
+                    .map(|path| path.display().to_string()),
+            }));
+        }
+
+        create_fail_check_with_details(invalid_details)
     }
 }
 
@@ -266,30 +308,19 @@ fn create_pass_check() -> DoctorCheck {
     }
 }
 
-fn create_fail_check(invalid: &[&ValidationResult]) -> DoctorCheck {
-    let details = serde_json::json!({
-        "invalid_workspaces": invalid.iter().map(|r| {
-            serde_json::json!({
-                "workspace": r.workspace,
-                "issue_count": r.issues.len(),
-                "issues": r.issues.iter().map(|i| {
-                    serde_json::json!({
-                        "type": i.corruption_type.to_string(),
-                        "description": i.description,
-                        "path": i.affected_path.as_ref().map::<String, _>(|p| p.display().to_string()),
-                    })
-                }).collect::<Vec<_>>(),
-            })
-        }).collect::<Vec<_>>()
-    });
-
+fn create_fail_check_with_details(details: Vec<serde_json::Value>) -> DoctorCheck {
+    let invalid_count = details.len();
     DoctorCheck {
         name: "Workspace Integrity".to_string(),
         status: CheckStatus::Fail,
-        message: format!("Integrity issues found in {} workspace(s)", invalid.len()),
-        suggestion: Some("Run 'zjj doctor --fix' to attempt recovery".to_string()),
+        message: format!("Integrity issues found in {invalid_count} workspace(s)"),
+        suggestion: Some(
+            "Run 'zjj doctor --fix' to attempt recovery (or use 'zjj integrity repair --rebind <name>' when workspaces move)".to_string(),
+        ),
         auto_fixable: true,
-        details: Some(details),
+        details: Some(serde_json::json!({
+            "invalid_workspaces": details
+        })),
     }
 }
 
@@ -509,7 +540,7 @@ fn create_recovery_check(recovery_info: &str) -> DoctorCheck {
         name: "State Database".to_string(),
         status: CheckStatus::Warn,
         message: format!("Database recovered: {recovery_info}"),
-        suggestion: Some("Recovery completed. Review .zjj/recovery.log for details.".to_string()),
+        suggestion: Some("Recovery completed. Review .zjj/recovery.log for details and run 'zjj backup --create' to capture the recovered state.".to_string()),
         auto_fixable: false,
         details: Some(serde_json::json!({
             "recovered": true,

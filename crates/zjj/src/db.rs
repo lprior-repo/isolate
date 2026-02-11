@@ -482,6 +482,34 @@ impl SessionDb {
         self.update_with_command_id(name, update, None).await
     }
 
+    /// Update the workspace path for an existing session
+    pub async fn update_workspace_path(&self, name: &str, workspace_path: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let session_name = name.to_string();
+        let workspace_path = workspace_path.to_string();
+
+        let rows_affected = run_with_sqlite_busy_retry("update workspace path", move || {
+            let pool = pool.clone();
+            let workspace_path = workspace_path.clone();
+            let session_name = session_name.clone();
+            async move {
+                sqlx::query("UPDATE sessions SET workspace_path = ? WHERE name = ?")
+                    .bind(workspace_path)
+                    .bind(session_name)
+                    .execute(&pool)
+                    .await
+            }
+        })
+        .await?
+        .rows_affected();
+
+        if rows_affected == 0 {
+            return Err(Error::NotFound(format!("Session '{name}' not found")));
+        }
+
+        Ok(())
+    }
+
     /// Update an existing session with optional command idempotency key.
     #[allow(dead_code)]
     pub async fn update_with_command_id(

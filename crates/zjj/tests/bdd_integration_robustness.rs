@@ -1,21 +1,21 @@
-//! BDD Tests for CLI Integration & Environment Robustness
-//!
-//! Domain: CLI Integration & Environment Robustness
-//!
-//! Feature: Zellij Integration
-//!   As a user/agent in various environments (TTY, non-TTY, Zellij, no-Zellij)
-//!   I want zjj commands to be robust and skip integration when appropriate
-//!   So that my workflows don't fail due to environment mismatches.
-//!
-//! Feature: TUI Dashboard
-//!   As a user in a terminal
-//!   I want the dashboard to launch only when a TTY is available
-//!   So that I don't get obscure OS errors in non-interactive environments.
-//!
-//! Feature: Batch Execution
-//!   As an automation script
-//!   I want to execute multiple zjj commands in batch
-//!   Regardless of whether I include the 'zjj' prefix or not.
+//! ! BDD Tests for CLI Integration & Environment Robustness
+//! !
+//! ! Domain: CLI Integration & Environment Robustness
+//! !
+//! ! Feature: Zellij Integration
+//! !   As a user/agent in various environments (TTY, non-TTY, Zellij, no-Zellij)
+//! !   I want zjj commands to be robust and skip integration when appropriate
+//! !   So that my workflows don't fail due to environment mismatches.
+//! !
+//! ! Feature: TUI Dashboard
+//! !   As a user in a terminal
+//! !   I want the dashboard to launch only when a TTY is available
+//! !   So that I don't get obscure OS errors in non-interactive environments.
+//! !
+//! ! Feature: Batch Execution
+//! !   As an automation script
+//! !   I want to execute multiple zjj commands in batch
+//! !   Regardless of whether I include the 'zjj' prefix or not.
 
 #[cfg(test)]
 mod tests {
@@ -53,7 +53,7 @@ mod tests {
             .current_dir(repo_path)
             .assert()
             .success();
-        
+
         // Check list to confirm it was created
         let mut cmd = Command::cargo_bin("zjj").unwrap();
         cmd.args(["list"])
@@ -141,17 +141,38 @@ add session2 --no-zellij",
         let repo_path = temp_dir.path();
 
         // Initialize JJ and ZJJ
-        Command::new("jj").args(["git", "init"]).current_dir(repo_path).status().unwrap();
-        Command::cargo_bin("zjj").unwrap().args(["init"]).current_dir(repo_path).status().unwrap();
-        Command::cargo_bin("zjj").unwrap().args(["add", "lock-test", "--no-zellij"]).current_dir(repo_path).status().unwrap();
+        Command::new("jj")
+            .args(["git", "init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["add", "lock-test", "--no-zellij"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
 
         let mut cmd = Command::cargo_bin("zjj").unwrap();
-        cmd.args(["lock", "lock-test", "--ttl", "60", "--agent-id", "test-agent"])
-            .current_dir(repo_path)
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Locked session 'lock-test'"))
-            .stdout(predicate::str::contains("Expires at"));
+        cmd.args([
+            "lock",
+            "lock-test",
+            "--ttl",
+            "60",
+            "--agent-id",
+            "test-agent",
+        ])
+        .current_dir(repo_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Locked session 'lock-test'"))
+        .stdout(predicate::str::contains("Expires at"));
     }
 
     /// Scenario: Queue with priority
@@ -164,15 +185,24 @@ add session2 --no-zellij",
         let repo_path = temp_dir.path();
 
         // Initialize JJ and ZJJ
-        Command::new("jj").args(["git", "init"]).current_dir(repo_path).status().unwrap();
-        Command::cargo_bin("zjj").unwrap().args(["init"]).current_dir(repo_path).status().unwrap();
+        Command::new("jj")
+            .args(["git", "init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
 
         let mut cmd = Command::cargo_bin("zjj").unwrap();
         cmd.args(["queue", "--add", "q-session", "--priority", "1"])
             .current_dir(repo_path)
             .assert()
             .success();
-        
+
         let mut cmd = Command::cargo_bin("zjj").unwrap();
         cmd.args(["queue", "--list"])
             .current_dir(repo_path)
@@ -192,27 +222,50 @@ add session2 --no-zellij",
         let repo_path = temp_dir.path();
 
         // Initialize JJ and ZJJ
-        Command::new("jj").args(["git", "init"]).current_dir(repo_path).status().unwrap();
-        Command::cargo_bin("zjj").unwrap().args(["init"]).current_dir(repo_path).status().unwrap();
-        
+        Command::new("jj")
+            .args(["git", "init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+
         // Configure workspace_dir to be inside .zjj for easier testing
-        Command::cargo_bin("zjj").unwrap()
+        Command::cargo_bin("zjj")
+            .unwrap()
             .args(["config", "workspace_dir", ".zjj/workspaces"])
             .current_dir(repo_path)
-            .status().unwrap();
+            .status()
+            .unwrap();
 
-        Command::cargo_bin("zjj").unwrap().args(["add", "done-test", "--no-zellij"]).current_dir(repo_path).status().unwrap();
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["add", "done-test", "--no-zellij"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
 
         // Create a change
         let workspace_path = repo_path.join(".zjj/workspaces/done-test");
         std::fs::write(workspace_path.join("file.txt"), "content").unwrap();
 
         let mut cmd = Command::cargo_bin("zjj").unwrap();
-        cmd.args(["done", "--workspace", "done-test", "--keep-workspace", "-m", "Completed work"])
-            .current_dir(repo_path)
-            .assert()
-            .success();
-        
+        cmd.args([
+            "done",
+            "--workspace",
+            "done-test",
+            "--keep-workspace",
+            "-m",
+            "Completed work",
+        ])
+        .current_dir(repo_path)
+        .assert()
+        .success();
+
         // Verify workspace still exists
         assert!(workspace_path.exists());
     }
@@ -224,9 +277,18 @@ add session2 --no-zellij",
         let repo_path = temp_dir.path();
 
         // Initialize JJ and ZJJ
-        Command::new("jj").args(["git", "init"]).current_dir(repo_path).status().unwrap();
-        Command::cargo_bin("zjj").unwrap().args(["init"]).current_dir(repo_path).status().unwrap();
-        
+        Command::new("jj")
+            .args(["git", "init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+
         // Add a bead via JSONL
         let beads_dir = repo_path.join(".beads");
         std::fs::create_dir_all(&beads_dir).unwrap();
@@ -236,11 +298,17 @@ add session2 --no-zellij",
 
         // Now spawn with a command that fails
         let mut cmd = Command::cargo_bin("zjj").unwrap();
-        cmd.args(["spawn", "zjj-123", "--no-auto-cleanup", "--agent-command", "false"])
-            .current_dir(repo_path)
-            .assert()
-            .failure(); // Spawn should return failure because the agent failed
-        
+        cmd.args([
+            "spawn",
+            "zjj-123",
+            "--no-auto-cleanup",
+            "--agent-command",
+            "false",
+        ])
+        .current_dir(repo_path)
+        .assert()
+        .failure(); // Spawn should return failure because the agent failed
+
         // Verify workspace still exists because of --no-auto-cleanup
         let workspace_path = repo_path.join(".zjj/workspaces/zjj-123");
         assert!(workspace_path.exists());
@@ -253,9 +321,23 @@ add session2 --no-zellij",
         let repo_path = temp_dir.path();
 
         // Initialize JJ and ZJJ
-        Command::new("jj").args(["git", "init"]).current_dir(repo_path).status().unwrap();
-        Command::cargo_bin("zjj").unwrap().args(["init"]).current_dir(repo_path).status().unwrap();
-        Command::cargo_bin("zjj").unwrap().args(["add", "pause-test", "--no-zellij"]).current_dir(repo_path).status().unwrap();
+        Command::new("jj")
+            .args(["git", "init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["init"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["add", "pause-test", "--no-zellij"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
 
         // Pause
         let mut cmd = Command::cargo_bin("zjj").unwrap();
@@ -263,7 +345,7 @@ add session2 --no-zellij",
             .current_dir(repo_path)
             .assert()
             .success();
-        
+
         // Verify status is paused
         let mut cmd = Command::cargo_bin("zjj").unwrap();
         cmd.args(["status", "pause-test", "--json"])
@@ -278,7 +360,7 @@ add session2 --no-zellij",
             .current_dir(repo_path)
             .assert()
             .success();
-        
+
         // Verify status is active
         let mut cmd = Command::cargo_bin("zjj").unwrap();
         cmd.args(["status", "pause-test", "--json"])

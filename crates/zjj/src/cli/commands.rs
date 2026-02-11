@@ -1040,6 +1040,12 @@ pub fn cmd_integrity() -> ClapCommand {
                         .help("Skip confirmation prompt"),
                 )
                 .arg(
+                    Arg::new("rebind")
+                        .long("rebind")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Update session record when workspace is detected in a new location"),
+                )
+                .arg(
                     Arg::new("json")
                         .long("json")
                         .action(clap::ArgAction::SetTrue)

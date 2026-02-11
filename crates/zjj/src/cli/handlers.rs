@@ -412,10 +412,15 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
                     anyhow::anyhow!("Workspace argument is required for repair command")
                 })?;
             let force = repair_m.get_flag("force");
+            let rebind = repair_m.get_flag("rebind");
             let json = repair_m.get_flag("json");
             let format = OutputFormat::from_json_flag(json);
             integrity::run(&integrity::IntegrityOptions {
-                subcommand: integrity::IntegritySubcommand::Repair { workspace, force },
+                subcommand: integrity::IntegritySubcommand::Repair {
+                    workspace,
+                    force,
+                    rebind,
+                },
                 format,
             })
             .await
