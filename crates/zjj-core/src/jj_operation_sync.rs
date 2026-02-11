@@ -58,9 +58,11 @@ const MAX_LOCK_RETRIES: usize = 5;
 const WORKSPACE_CREATION_LOCK_FILE: &str = "workspace-create.lock";
 
 /// Single lock acquisition timeout (fail-fast per attempt)
+#[allow(dead_code)]
 const FILE_LOCK_TIMEOUT_MS: u64 = 5000;
 
 /// Maximum retry attempts for file lock acquisition
+#[allow(dead_code)]
 const FILE_LOCK_MAX_RETRIES: usize = 3;
 
 /// Base backoff duration for lock contention
@@ -311,11 +313,12 @@ pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) 
 
 /// Acquire exclusive file lock with timeout and exponential backoff
 ///
-/// This function implements fail-fast lock acquisition for file locks:
+/// This function implements robust lock acquisition for file locks:
 /// - Attempts non-blocking lock acquisition first
 /// - Retries with exponential backoff if contention occurs
-/// - Returns error quickly if lock cannot be acquired after max retries
-/// - Total maximum wait time is ~37.5ms (25ms + 50ms + 100ms with 5s timeout each)
+/// - Returns error if lock cannot be acquired after max retries
+/// - Total maximum wait time is ~6.4 seconds (25ms + 50ms + 100ms + 200ms + 400ms + 800ms + 1600ms
+///   + 3200ms = ~6.4 seconds with 8 retries)
 ///
 /// # Arguments
 ///
@@ -325,13 +328,19 @@ pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) 
 /// # Errors
 ///
 /// Returns error if:
-/// - Lock cannot be acquired within timeout after all retries
+/// - Lock cannot be acquired after all retries
 /// - File system errors occur during lock operations
 fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<()> {
-    for attempt in 0..FILE_LOCK_MAX_RETRIES {
+    // Use more attempts for high-contention scenarios (e.g., stress tests with 24+ concurrent
+    // tasks) Each attempt has exponential backoff: 25ms, 50ms, 100ms, 200ms, 400ms, 800ms,
+    // 1600ms, 3200ms Total wait time: ~6.4 seconds, which should be sufficient for most
+    // workspace creation operations
+    const HIGH_CONTENTION_MAX_ATTEMPTS: usize = 8;
+
+    for attempt in 0..HIGH_CONTENTION_MAX_ATTEMPTS {
         match file.try_lock_exclusive() {
             Ok(()) => return Ok(()),
-            Err(_) if attempt < FILE_LOCK_MAX_RETRIES - 1 => {
+            Err(_) if attempt < HIGH_CONTENTION_MAX_ATTEMPTS - 1 => {
                 // Exponential backoff before next retry
                 let attempt_u32 = u32::try_from(attempt)
                     .map_err(|_| Error::IoError(format!("Invalid retry attempt: {attempt}")))?;
@@ -340,20 +349,26 @@ fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<()> 
                 std::thread::sleep(backoff);
             }
             Err(_) => {
+                let total_wait_ms: u64 = (0..HIGH_CONTENTION_MAX_ATTEMPTS)
+                    .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i as u32))
+                    .sum();
                 return Err(Error::LockTimeout {
                     operation: description.to_string(),
-                    timeout_ms: FILE_LOCK_TIMEOUT_MS,
-                    retries: FILE_LOCK_MAX_RETRIES,
+                    timeout_ms: total_wait_ms,
+                    retries: HIGH_CONTENTION_MAX_ATTEMPTS,
                 });
             }
         }
     }
 
     // This should never be reached due to the error case above
+    let total_wait_ms: u64 = (0..HIGH_CONTENTION_MAX_ATTEMPTS)
+        .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i as u32))
+        .sum();
     Err(Error::LockTimeout {
         operation: "file lock acquisition".to_string(),
-        timeout_ms: FILE_LOCK_TIMEOUT_MS,
-        retries: FILE_LOCK_MAX_RETRIES,
+        timeout_ms: total_wait_ms,
+        retries: HIGH_CONTENTION_MAX_ATTEMPTS,
     })
 }
 
