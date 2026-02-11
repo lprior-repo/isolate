@@ -599,6 +599,7 @@ pub async fn handle_done(sub_m: &ArgMatches) -> Result<()> {
 
     let json = sub_m.get_flag("json");
     let args = done::types::DoneArgs {
+        workspace: sub_m.get_one::<String>("workspace").cloned(),
         message: sub_m.get_one::<String>("message").cloned(),
         keep_workspace: sub_m.get_flag("keep-workspace"),
         no_keep: sub_m.get_flag("no-keep"),
@@ -881,15 +882,21 @@ pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
             if parts.is_empty() {
                 return Ok(());
             }
-            let cmd = parts[0];
-            let args: Vec<String> = parts[1..]
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect();
+
+            let (cmd, args) = if parts[0] == "zjj" {
+                if parts.len() < 2 {
+                    return Err(anyhow::anyhow!(
+                        "Empty command after 'zjj' at index {index}"
+                    ));
+                }
+                (parts[1], &parts[2..])
+            } else {
+                (parts[0], &parts[1..])
+            };
 
             let output = tokio::process::Command::new("zjj")
                 .arg(cmd)
-                .args(&args)
+                .args(args)
                 .output()
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to execute: {e}"))?;

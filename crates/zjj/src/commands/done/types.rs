@@ -13,6 +13,9 @@ use super::conflict::ConflictDetectionResult;
 #[derive(Debug, Clone)]
 #[expect(clippy::struct_excessive_bools)] // CLI flags: >3 bools is appropriate for independent options
 pub struct DoneArgs {
+    /// Workspace to complete
+    pub workspace: Option<String>,
+
     /// Commit message (auto-generated if not provided)
     pub message: Option<String>,
 
@@ -42,6 +45,7 @@ impl DoneArgs {
     /// Convert to `DoneOptions`
     pub fn to_options(&self) -> DoneOptions {
         DoneOptions {
+            workspace: self.workspace.clone(),
             message: self.message.clone(),
             keep_workspace: self.keep_workspace,
             no_keep: self.no_keep,
@@ -58,6 +62,7 @@ impl DoneArgs {
 #[derive(Debug, Clone)]
 #[expect(clippy::struct_excessive_bools)]
 pub struct DoneOptions {
+    pub workspace: Option<String>,
     pub message: Option<String>,
     pub keep_workspace: bool,
     pub no_keep: bool,
@@ -281,6 +286,7 @@ mod tests {
     #[test]
     fn test_done_args_to_options() {
         let args = DoneArgs {
+            workspace: Some("test-ws".to_string()),
             message: Some("test commit".to_string()),
             keep_workspace: true,
             no_keep: false,
@@ -293,6 +299,7 @@ mod tests {
 
         let opts = args.to_options();
 
+        assert_eq!(opts.workspace, Some("test-ws".to_string()));
         assert_eq!(opts.message, Some("test commit".to_string()));
         assert!(opts.keep_workspace);
         assert!(!opts.no_keep);

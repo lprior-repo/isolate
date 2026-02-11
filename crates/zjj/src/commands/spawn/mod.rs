@@ -68,6 +68,11 @@ pub async fn run_with_options(options: &SpawnOptions) -> Result<()> {
     let result = execute_spawn(options).await?;
 
     output_result(&result, options.format)?;
+
+    if matches!(result.status, SpawnStatus::Failed) {
+        anyhow::bail!("Spawn operation failed");
+    }
+
     Ok(())
 }
 

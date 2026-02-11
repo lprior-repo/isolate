@@ -373,9 +373,13 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     // Open Zellij tab unless --no-open or --no-zellij (REQ-CLI-003)
     // COMPENSATING ACTION: If this fails, session has 'active' status but Zellij tab doesn't exist
     // Recovery: User can manually create tab or run 'zjj focus <name>'
-    let no_zellij = options.no_zellij || !crate::cli::is_terminal();
+    let zellij_installed = crate::cli::is_zellij_installed().await;
+    let no_zellij = options.no_zellij || !crate::cli::is_terminal() || !zellij_installed;
+    
     if !crate::cli::is_terminal() && !options.no_zellij && !options.format.is_json() {
         println!("Note: Non-interactive environment detected, skipping Zellij integration.");
+    } else if !zellij_installed && !options.no_zellij && !options.format.is_json() {
+        println!("Note: Zellij not found, skipping Zellij integration.");
     }
 
     if options.no_open || no_zellij {

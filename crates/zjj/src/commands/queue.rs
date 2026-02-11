@@ -337,6 +337,7 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
         .with_context(|| format!("Failed to enter workspace at {}", workspace_path.display()))?;
 
     let done_options = crate::commands::done::types::DoneOptions {
+        workspace: Some(entry.workspace.clone()),
         message: None,
         keep_workspace: false,
         no_keep: false,

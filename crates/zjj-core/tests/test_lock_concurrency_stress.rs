@@ -913,7 +913,8 @@ async fn test_contention_fail_fast_reports_consistent_holder() -> Result<(), Err
             }
             Ok((Ok(_), _)) => {
                 return Err(Error::ValidationError {
-                    message: "contender unexpectedly acquired lock while holder still active".into(),
+                    message: "contender unexpectedly acquired lock while holder still active"
+                        .into(),
                     field: None,
                     value: None,
                     constraints: Vec::new(),
@@ -1002,7 +1003,9 @@ async fn test_repeated_contention_eventually_serves_all_agents() -> Result<(), E
                     acquired_agents.insert(agent_name);
                 } else {
                     return Err(Error::ValidationError {
-                        message: format!("agent starved under contention after {attempts} attempts"),
+                        message: format!(
+                            "agent starved under contention after {attempts} attempts"
+                        ),
                         field: None,
                         value: None,
                         constraints: Vec::new(),
@@ -1091,15 +1094,13 @@ async fn test_fairness_contract_bounded_attempt_success_per_contender() -> Resul
     );
 
     for (contender, acquired_at) in &attempt_results {
-        let attempts = acquired_at.ok_or_else(|| {
-            Error::ValidationError {
-                message: format!(
-                    "{contender} starved past bounded-attempt contract ({max_attempts_per_contender})"
-                ),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
-            }
+        let attempts = acquired_at.ok_or_else(|| Error::ValidationError {
+            message: format!(
+                "{contender} starved past bounded-attempt contract ({max_attempts_per_contender})"
+            ),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
         })?;
 
         assert!(
