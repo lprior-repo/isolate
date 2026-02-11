@@ -66,22 +66,32 @@ pub enum TemplateSource {
 /// Returns `Error::ValidationError` if the template name is invalid
 fn validate_template_name(name: &str) -> Result<(), Error> {
     if name.is_empty() {
-        return Err(Error::ValidationError(
-            "Template name cannot be empty".into(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Template name cannot be empty".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     // Check for non-ASCII characters first (prevents unicode bypasses)
     if !name.is_ascii() {
-        return Err(Error::ValidationError(
-            "Template name must contain only ASCII characters (a-z, A-Z, 0-9, -, _)".into(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Template name must contain only ASCII characters (a-z, A-Z, 0-9, -, _)"
+                .into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     if name.len() > 64 {
-        return Err(Error::ValidationError(
-            "Template name cannot exceed 64 characters".into(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Template name cannot exceed 64 characters".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     // Only allow ASCII alphanumeric, dash, and underscore
@@ -89,18 +99,25 @@ fn validate_template_name(name: &str) -> Result<(), Error> {
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
-        return Err(Error::ValidationError(
-            "Invalid template name: Template name can only contain ASCII alphanumeric characters, dashes, and underscores"
-                .into(),
-        ));
+        return Err(Error::ValidationError {
+             message: "Invalid template name: Template name can only contain ASCII alphanumeric characters, dashes, and underscores"
+                 .into(),
+             field: None,
+             value: None,
+             constraints: Vec::new(),
+         });
     }
 
     // Must start with a letter (not dash, underscore, or digit)
     if let Some(first) = name.chars().next() {
         if !first.is_ascii_alphabetic() {
-            return Err(Error::ValidationError(
-                "Invalid template name: Template name must start with a letter (a-z, A-Z)".into(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Invalid template name: Template name must start with a letter (a-z, A-Z)"
+                    .into(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
     }
 
@@ -503,7 +520,7 @@ mod tests {
     fn test_validate_template_name_empty() {
         let result = validate_template_name("");
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message, .. }) = result {
             assert!(msg.contains("empty") || msg.contains("Empty"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
@@ -515,7 +532,7 @@ mod tests {
         let long_name = "a".repeat(65);
         let result = validate_template_name(&long_name);
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message, .. }) = result {
             assert!(msg.contains("64"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
@@ -526,7 +543,7 @@ mod tests {
     fn test_validate_template_name_non_ascii() {
         let result = validate_template_name("template-🚀");
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message, .. }) = result {
             assert!(msg.contains("ASCII"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
@@ -537,7 +554,7 @@ mod tests {
     fn test_validate_template_name_starts_with_digit() {
         let result = validate_template_name("123template");
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message, .. }) = result {
             assert!(msg.contains("start with a letter"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
@@ -548,7 +565,7 @@ mod tests {
     fn test_validate_template_name_starts_with_dash() {
         let result = validate_template_name("-template");
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message, .. }) = result {
             assert!(msg.contains("start with a letter"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
@@ -559,7 +576,7 @@ mod tests {
     fn test_validate_template_name_starts_with_underscore() {
         let result = validate_template_name("_template");
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message, .. }) = result {
             assert!(msg.contains("start with a letter"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");
@@ -570,7 +587,7 @@ mod tests {
     fn test_validate_template_name_invalid_characters() {
         let result = validate_template_name("template name");
         assert!(result.is_err());
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message, .. }) = result {
             assert!(msg.contains("alphanumeric") || msg.contains("character"));
         } else {
             panic!("Expected ValidationError, got: {result:?}");

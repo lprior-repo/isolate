@@ -172,11 +172,16 @@ impl FlagSpec {
         if VALID_CATEGORIES.contains(&category) {
             Ok(())
         } else {
-            Err(Error::ValidationError(format!(
-                "Invalid flag category: '{}'. Must be one of: {}",
-                category,
-                VALID_CATEGORIES.join(", ")
-            )))
+            Err(Error::ValidationError {
+                message: format!(
+                    "Invalid flag category: '{}'. Must be one of: {}",
+                    category,
+                    VALID_CATEGORIES.join(", ")
+                ),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            })
         }
     }
 }
@@ -498,25 +503,37 @@ impl DoctorOutput {
 pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestNameQuery> {
     // Find {n} placeholder
     if !pattern.contains("{n}") {
-        return Err(Error::ValidationError(
-            "Pattern must contain {n} placeholder".into(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Pattern must contain {n} placeholder".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     // Extract prefix and suffix
     let parts: Vec<&str> = pattern.split("{n}").collect();
     if parts.len() != 2 {
-        return Err(Error::ValidationError(
-            "Pattern must contain exactly one {n} placeholder".into(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Pattern must contain exactly one {n} placeholder".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
-    let prefix = parts
-        .first()
-        .ok_or_else(|| Error::ValidationError("Pattern parts missing".into()))?;
-    let suffix = parts
-        .get(1)
-        .ok_or_else(|| Error::ValidationError("Pattern parts missing suffix".into()))?;
+    let prefix = parts.first().ok_or_else(|| Error::ValidationError {
+        message: "Pattern parts missing".into(),
+        field: None,
+        value: None,
+        constraints: Vec::new(),
+    })?;
+    let suffix = parts.get(1).ok_or_else(|| Error::ValidationError {
+        message: "Pattern parts missing suffix".into(),
+        field: None,
+        value: None,
+        constraints: Vec::new(),
+    })?;
 
     // Find all numbers used in matching names using functional patterns
     let (used_numbers, matching): (Vec<usize>, Vec<String>) = existing_names
@@ -683,7 +700,7 @@ mod tests {
         // This documents the error when users run: zjj query suggest-name feat
         let result = suggest_name("feat", &[]);
         assert!(result.is_err());
-        assert!(matches!(result, Err(Error::ValidationError(_))));
+        assert!(matches!(result, Err(Error::ValidationError { .. })));
     }
 
     #[test]
@@ -981,47 +998,59 @@ mod tests {
         assert!(filters.iter().all(|f| f.flag_type == "string"));
     }
 
-    // ===== PHASE 4 (RED): CommandIntrospection Validation Tests for ADD Command =====
-    // These tests MUST FAIL initially - they define expected behavior that will be
-    // implemented in Phase 5 (GREEN).
-    // Tests validate session name rules: ^[a-zA-Z][a-zA-Z0-9_-]{0,63}$
-
     /// Validate session name against expected pattern using Railway-Oriented Programming
     /// Returns Result with descriptive error messages on validation failure
     fn validate_add_session_name(name: &str) -> Result<()> {
         // Check for empty string
         if name.is_empty() {
-            return Err(Error::ValidationError(
-                "Session name cannot be empty".into(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Session name cannot be empty".into(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         // Check maximum length (64 characters)
         if name.len() > 64 {
-            return Err(Error::ValidationError(
-                "Session name cannot exceed 64 characters".into(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Session name cannot exceed 64 characters".into(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         // Check first character is a letter (using ROP pattern)
         name.chars()
             .next()
-            .ok_or_else(|| Error::ValidationError("Session name is empty".into()))
+            .ok_or_else(|| Error::ValidationError {
+                message: "Session name is empty".into(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            })
             .and_then(|first| {
                 if first.is_ascii_alphabetic() {
                     Ok(())
                 } else {
-                    Err(Error::ValidationError(
-                        "Session name must start with a letter (a-z, A-Z)".into(),
-                    ))
+                    Err(Error::ValidationError {
+                        message: "Session name must start with a letter (a-z, A-Z)".into(),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    })
                 }
             })?;
 
         // Check for ASCII-only characters
         if !name.is_ascii() {
-            return Err(Error::ValidationError(
-                "Session name must contain only ASCII characters".into(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Session name must contain only ASCII characters".into(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         // Check that all characters are alphanumeric, dash, or underscore
@@ -1029,10 +1058,12 @@ mod tests {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
         {
-            return Err(Error::ValidationError(
-                "Session name can only contain ASCII alphanumeric characters, dashes (-), and underscores (_)"
-                    .into(),
-            ));
+            return Err(Error::ValidationError {
+                 message: "Session name can only contain ASCII alphanumeric characters, dashes (-), and underscores (_)".into(),
+                 field: None,
+                 value: None,
+                 constraints: Vec::new(),
+             });
         }
 
         Ok(())
@@ -1305,11 +1336,11 @@ mod tests {
             let result = validate_add_session_name(name);
             assert!(result.is_err(), "Name '{name}' should produce error");
 
-            if let Err(Error::ValidationError(msg)) = result {
-                let lowercase_msg = msg.to_lowercase();
+            if let Err(Error::ValidationError { message, .. }) = result {
+                let lowercase_msg = message.to_lowercase();
                 assert!(
                     lowercase_msg.contains(&expected_keyword.to_lowercase()),
-                    "Error for '{name}' should mention '{expected_keyword}', got: {msg}"
+                    "Error for '{name}' should mention '{expected_keyword}', got: {message}"
                 );
             }
         }
@@ -1445,7 +1476,7 @@ mod tests {
                 // Already asserted above, unreachable
                 continue;
             };
-            let is_validation_error = matches!(err, Error::ValidationError(_));
+            let is_validation_error = matches!(err, Error::ValidationError { .. });
             assert!(
                 is_validation_error,
                 "Name '{name}' should produce ValidationError, got: {err}"

@@ -390,9 +390,12 @@ mod tests {
                 assert_eq!(blocked, 1);
                 assert_eq!(closed, 3);
             } else {
-                return Err(Error::ValidationError(
-                    "Expected Counts, got NoBeads".to_string(),
-                ));
+                return Err(Error::ValidationError {
+                    message: "Expected Counts, got NoBeads".to_string(),
+                    field: None,
+                    value: None,
+                    constraints: Vec::new(),
+                });
             }
         }
         Ok(())

@@ -310,39 +310,55 @@ impl Constraint {
         match self {
             Self::Regex {
                 pattern,
-                description,
+                description: _,
             } => {
-                let re = regex::Regex::new(pattern)
-                    .map_err(|e| Error::ValidationError(format!("Invalid regex pattern: {e}")))?;
+                let re = regex::Regex::new(pattern).map_err(|e| Error::ValidationError {
+                    message: format!("Invalid regex pattern: {e}"),
+                    field: None,
+                    value: None,
+                    constraints: Vec::new(),
+                })?;
 
                 if !re.is_match(value) {
-                    return Err(Error::ValidationError(format!(
-                        "Value '{value}' does not match pattern: {description}"
-                    )));
+                    return Err(Error::ValidationError {
+                        message: format!("Value does not match regex pattern: {pattern}"),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    });
                 }
             }
             Self::Length { min, max } => {
                 let len = value.len();
                 if let Some(min_len) = min {
                     if len < *min_len {
-                        return Err(Error::ValidationError(format!(
-                            "Value length {len} is less than minimum {min_len}"
-                        )));
+                        return Err(Error::ValidationError {
+                            message: format!("Length {len} is less than minimum {min_len}"),
+                            field: None,
+                            value: None,
+                            constraints: Vec::new(),
+                        });
                     }
                 }
                 if let Some(max_len) = max {
                     if len > *max_len {
-                        return Err(Error::ValidationError(format!(
-                            "Value length {len} exceeds maximum {max_len}"
-                        )));
+                        return Err(Error::ValidationError {
+                            message: format!("Length {len} exceeds maximum {max_len}"),
+                            field: None,
+                            value: None,
+                            constraints: Vec::new(),
+                        });
                     }
                 }
             }
             Self::Enum { values } => {
                 if !values.contains(&value.to_string()) {
-                    return Err(Error::ValidationError(format!(
-                        "Value '{value}' not in allowed values: {values:?}"
-                    )));
+                    return Err(Error::ValidationError {
+                        message: format!("Value '{value}' is not in allowed values: {values:?}"),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    });
                 }
             }
             Self::Range { .. }
@@ -365,27 +381,43 @@ impl Constraint {
             if let Some(min_val) = min {
                 if *inclusive {
                     if value < *min_val {
-                        return Err(Error::ValidationError(format!(
-                            "Value {value} is less than minimum {min_val}"
-                        )));
+                        return Err(Error::ValidationError {
+                        message: format!("Value {value} is less than minimum {min_val} (inclusive: {inclusive})"),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    });
                     }
                 } else if value <= *min_val {
-                    return Err(Error::ValidationError(format!(
-                        "Value {value} must be greater than {min_val}"
-                    )));
+                    return Err(Error::ValidationError {
+                        message: format!(
+                            "Value {value} is less than or equal to minimum {min_val} (exclusive)"
+                        ),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    });
                 }
             }
             if let Some(max_val) = max {
                 if *inclusive {
                     if value > *max_val {
-                        return Err(Error::ValidationError(format!(
-                            "Value {value} exceeds maximum {max_val}"
-                        )));
+                        return Err(Error::ValidationError {
+                            message: format!(
+                                "Value {value} exceeds maximum {max_val} (inclusive: {inclusive})"
+                            ),
+                            field: None,
+                            value: None,
+                            constraints: Vec::new(),
+                        });
                     }
                 } else if value >= *max_val {
-                    return Err(Error::ValidationError(format!(
-                        "Value {value} must be less than {max_val}"
-                    )));
+                    return Err(Error::ValidationError {
+                        message: format!("Value {value} is greater than or equal to maximum {max_val} (exclusive)"),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    });
                 }
             }
         }
@@ -397,26 +429,32 @@ impl Constraint {
         match self {
             Self::PathAbsolute => {
                 if !path.is_absolute() {
-                    return Err(Error::ValidationError(format!(
-                        "Path '{}' must be absolute",
-                        path.display()
-                    )));
+                    return Err(Error::ValidationError {
+                        message: format!("Path '{}' must be absolute", path.display()),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    });
                 }
             }
             Self::PathExists { must_be_absolute } => {
                 if *must_be_absolute && !path.is_absolute() {
-                    return Err(Error::ValidationError(format!(
-                        "Path '{}' must be absolute",
-                        path.display()
-                    )));
+                    return Err(Error::ValidationError {
+                        message: format!("Path '{}' must be absolute", path.display()),
+                        field: None,
+                        value: None,
+                        constraints: Vec::new(),
+                    });
                 }
                 match path.try_exists() {
                     Ok(true) => {}
                     _ => {
-                        return Err(Error::ValidationError(format!(
-                            "Path '{}' does not exist",
-                            path.display()
-                        )));
+                        return Err(Error::ValidationError {
+                            message: format!("Path '{}' does not exist", path.display()),
+                            field: None,
+                            value: None,
+                            constraints: Vec::new(),
+                        });
                     }
                 }
             }

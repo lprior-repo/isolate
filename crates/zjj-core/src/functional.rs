@@ -91,7 +91,12 @@ mod tests {
         if *n > 0 {
             Ok(())
         } else {
-            Err(Error::ValidationError("not positive".into()))
+            Err(Error::ValidationError {
+                message: "not positive".into(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            })
         }
     }
 
@@ -99,7 +104,12 @@ mod tests {
         if n % 2 == 0 {
             Ok(())
         } else {
-            Err(Error::ValidationError("not even".into()))
+            Err(Error::ValidationError {
+                message: "not even".into(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            })
         }
     }
 

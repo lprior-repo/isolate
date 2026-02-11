@@ -132,15 +132,21 @@ impl Fix {
     /// - Automatic fix has non-safe impact level
     pub fn validate(&self) -> Result<(), Error> {
         if self.commands.is_empty() {
-            return Err(Error::ValidationError(
-                "Fix must have at least one command".to_string(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Fix must have at least one command".to_string(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         if self.automatic && !matches!(self.impact, FixImpact::Safe | FixImpact::Low) {
-            return Err(Error::ValidationError(
-                "Automatic fixes must be Safe or Low impact".to_string(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Automatic fixes must be Safe or Low impact".to_string(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         Ok(())
@@ -307,7 +313,12 @@ mod tests {
 
     #[test]
     fn test_error_with_fixes_creation() {
-        let error = Error::ValidationError("Session 'test' already exists".to_string());
+        let error = Error::ValidationError {
+            message: "Session 'test' already exists".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let fix = Fix::safe("Use different name", vec!["zjj add test2".to_string()]);
         let error_with_fixes = ErrorWithFixes::new(error, fix);
 
@@ -324,7 +335,12 @@ mod tests {
 
     #[test]
     fn test_error_with_multiple_fixes() {
-        let error = Error::ValidationError("Session 'test' already exists".to_string());
+        let error = Error::ValidationError {
+            message: "Session 'test' already exists".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let fixes = vec![
             Fix::safe("Use different name", vec!["zjj add test2".to_string()]),
             Fix::risky(
@@ -346,7 +362,12 @@ mod tests {
 
     #[test]
     fn test_first_automatic_fix() {
-        let error = Error::ValidationError("Test error".to_string());
+        let error = Error::ValidationError {
+            message: "Test error".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let fixes = vec![
             Fix::risky(
                 "Manual fix",
@@ -366,7 +387,12 @@ mod tests {
 
     #[test]
     fn test_automatic_fixes_iterator() {
-        let error = Error::ValidationError("Test error".to_string());
+        let error = Error::ValidationError {
+            message: "Test error".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
         let fixes = vec![
             Fix::safe("Auto 1", vec!["cmd1".to_string()]),
             Fix::risky("Manual", vec!["cmd2".to_string()], "Risky"),

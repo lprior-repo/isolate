@@ -38,7 +38,12 @@ pub fn validate_kdl_syntax(content: &str) -> Result<()> {
 
     parse_result.map_err(|kdl_error| {
         // Convert KDL error to validation error
-        Error::ValidationError(format!("KDL syntax error: {kdl_error}"))
+        Error::ValidationError {
+            message: format!("KDL syntax error: {kdl_error}"),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        }
     })?;
 
     // Additional Zellij-specific validation
@@ -51,8 +56,12 @@ pub fn validate_kdl_syntax(content: &str) -> Result<()> {
 ///
 /// Ensures the KDL document contains required Zellij layout structure
 fn validate_zellij_requirements(content: &str) -> Result<()> {
-    let doc = kdl::KdlDocument::from_str(content)
-        .map_err(|e| Error::ValidationError(format!("Failed to parse KDL for validation: {e}")))?;
+    let doc = kdl::KdlDocument::from_str(content).map_err(|e| Error::ValidationError {
+        message: format!("Failed to parse KDL for validation: {e}"),
+        field: None,
+        value: None,
+        constraints: Vec::new(),
+    })?;
 
     // Check for root 'layout' node
     let has_layout = doc
@@ -61,9 +70,12 @@ fn validate_zellij_requirements(content: &str) -> Result<()> {
         .any(|node| node.name().value() == "layout");
 
     if !has_layout {
-        return Err(Error::ValidationError(
-            "Zellij KDL must contain a 'layout' node at the root level".to_string(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Zellij KDL must contain a 'layout' node at the root level".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     // Check for at least one 'pane' node (in children or at root)
@@ -83,9 +95,12 @@ fn validate_zellij_requirements(content: &str) -> Result<()> {
     });
 
     if !has_pane {
-        return Err(Error::ValidationError(
-            "Zellij KDL must contain at least one 'pane' node".to_string(),
-        ));
+        return Err(Error::ValidationError {
+            message: "Zellij KDL must contain at least one 'pane' node".to_string(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
     }
 
     Ok(())
@@ -115,7 +130,7 @@ mod tests {
         let result = validate_kdl_syntax(invalid_kdl);
         assert!(result.is_err());
 
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message: msg, .. }) = result {
             assert!(msg.contains("KDL syntax error") || msg.contains("unexpected"));
         }
     }
@@ -130,7 +145,7 @@ mod tests {
         let result = validate_kdl_syntax(invalid_kdl);
         assert!(result.is_err());
 
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message: msg, .. }) = result {
             assert!(msg.contains("layout"));
         }
     }
@@ -143,7 +158,7 @@ mod tests {
         let result = validate_kdl_syntax(invalid_kdl);
         assert!(result.is_err());
 
-        if let Err(Error::ValidationError(msg)) = result {
+        if let Err(Error::ValidationError { message: msg, .. }) = result {
             assert!(msg.contains("pane"));
         }
     }

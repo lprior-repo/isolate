@@ -507,9 +507,12 @@ impl SessionDb {
 
         if command_id_value.trim().is_empty() {
             rollback_best_effort(&mut conn).await;
-            return Err(Error::ValidationError(
-                "Command id cannot be empty".to_string(),
-            ));
+            return Err(Error::ValidationError {
+                message: "Command id cannot be empty".to_string(),
+                field: None,
+                value: None,
+                constraints: Vec::new(),
+            });
         }
 
         let request_fingerprint = update_request_fingerprint(name, &update)?;
