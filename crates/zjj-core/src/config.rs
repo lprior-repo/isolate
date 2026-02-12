@@ -421,6 +421,147 @@ impl Default for RecoveryConfig {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PARTIAL CONFIG STRUCTURES (explicit-key merge semantics)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Partial configuration with Option<T> fields for explicit-key merge semantics.
+///
+/// When loading a config file, only fields explicitly present in the TOML
+/// will be `Some(value)`. Missing fields remain `None` and won't override
+/// lower-precedence config values during merge.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialConfig {
+    #[serde(default)]
+    pub workspace_dir: Option<String>,
+    #[serde(default)]
+    pub main_branch: Option<String>,
+    #[serde(default)]
+    pub default_template: Option<String>,
+    #[serde(default)]
+    pub state_db: Option<String>,
+    #[serde(default)]
+    pub watch: Option<PartialWatchConfig>,
+    #[serde(default)]
+    pub hooks: Option<PartialHooksConfig>,
+    #[serde(default)]
+    pub zellij: Option<PartialZellijConfig>,
+    #[serde(default)]
+    pub dashboard: Option<PartialDashboardConfig>,
+    #[serde(default)]
+    pub agent: Option<PartialAgentConfig>,
+    #[serde(default)]
+    pub session: Option<PartialSessionConfig>,
+    #[serde(default)]
+    pub recovery: Option<PartialRecoveryConfig>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialWatchConfig {
+    #[serde(default)]
+    pub enabled: Option<ValidatedBool>,
+    #[serde(default)]
+    pub debounce_ms: Option<u32>,
+    #[serde(default)]
+    pub paths: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialHooksConfig {
+    #[serde(default)]
+    pub post_create: Option<Vec<String>>,
+    #[serde(default)]
+    pub pre_remove: Option<Vec<String>>,
+    #[serde(default)]
+    pub post_merge: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialZellijConfig {
+    #[serde(default)]
+    pub session_prefix: Option<String>,
+    #[serde(default)]
+    pub use_tabs: Option<ValidatedBool>,
+    #[serde(default)]
+    pub layout_dir: Option<String>,
+    #[serde(default)]
+    pub panes: Option<PartialPanesConfig>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialPanesConfig {
+    #[serde(default)]
+    pub main: Option<PartialPaneConfig>,
+    #[serde(default)]
+    pub beads: Option<PartialPaneConfig>,
+    #[serde(default)]
+    pub status: Option<PartialPaneConfig>,
+    #[serde(default)]
+    pub float: Option<PartialFloatPaneConfig>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialPaneConfig {
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub args: Option<Vec<String>>,
+    #[serde(default)]
+    pub size: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialFloatPaneConfig {
+    #[serde(default)]
+    pub enabled: Option<ValidatedBool>,
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub width: Option<String>,
+    #[serde(default)]
+    pub height: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialDashboardConfig {
+    #[serde(default)]
+    pub refresh_ms: Option<u32>,
+    #[serde(default)]
+    pub theme: Option<String>,
+    #[serde(default)]
+    pub columns: Option<Vec<String>>,
+    #[serde(default)]
+    pub vim_keys: Option<ValidatedBool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialAgentConfig {
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub env: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialSessionConfig {
+    #[serde(default)]
+    pub auto_commit: Option<ValidatedBool>,
+    #[serde(default)]
+    pub commit_prefix: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialRecoveryConfig {
+    #[serde(default)]
+    pub policy: Option<RecoveryPolicy>,
+    #[serde(default)]
+    pub log_recovered: Option<ValidatedBool>,
+    #[serde(default)]
+    pub auto_recover_corrupted_wal: Option<ValidatedBool>,
+    #[serde(default)]
+    pub delete_corrupted_database: Option<ValidatedBool>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CONFIG MANAGER (HOT-RELOAD)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -722,9 +863,11 @@ pub async fn load_config() -> Result<Config> {
     let mut config = Config::default();
 
     // 2. Load global config if exists (try-load pattern eliminates TOCTTOU race)
+    // Use partial config merge to preserve precedence - only explicitly set
+    // fields in config files will override defaults
     if let Ok(global_path) = global_config_path() {
-        match load_toml_file(&global_path).await {
-            Ok(global) => config.merge(global),
+        match load_partial_toml_file(&global_path).await {
+            Ok(global) => config.merge_partial(global),
             Err(Error::IoError(_)) => {
                 // Config file doesn't exist - skip silently
             }
@@ -733,9 +876,11 @@ pub async fn load_config() -> Result<Config> {
     }
 
     // 3. Load project config if exists (try-load pattern eliminates TOCTTOU race)
+    // Use partial config merge to preserve precedence - only explicitly set
+    // fields in project config will override global/defaults
     if let Ok(project_path) = project_config_path() {
-        match load_toml_file(&project_path).await {
-            Ok(project) => config.merge(project),
+        match load_partial_toml_file(&project_path).await {
+            Ok(project) => config.merge_partial(project),
             Err(Error::IoError(_)) => {
                 // Config file doesn't exist - skip silently
             }
@@ -806,7 +951,30 @@ fn get_repo_name() -> Result<String> {
 /// Returns error if:
 /// - File cannot be read
 /// - TOML is malformed
+#[allow(dead_code)]
 async fn load_toml_file(path: &std::path::Path) -> Result<Config> {
+    let content = tokio::fs::read_to_string(path).await.map_err(|e| {
+        Error::IoError(format!(
+            "Failed to read config file {}: {e}",
+            path.display()
+        ))
+    })?;
+
+    toml::from_str(&content)
+        .map_err(|e| Error::ParseError(format!("Failed to parse config: {}: {e}", path.display())))
+}
+
+/// Load a TOML file into a PartialConfig for explicit-key merge semantics.
+///
+/// Only fields explicitly present in the TOML will be `Some(value)`.
+/// Missing fields remain `None` and won't override lower-precedence config values.
+///
+/// # Errors
+///
+/// Returns error if:
+/// - File cannot be read
+/// - TOML is malformed
+pub async fn load_partial_toml_file(path: &std::path::Path) -> Result<PartialConfig> {
     let content = tokio::fs::read_to_string(path).await.map_err(|e| {
         Error::IoError(format!(
             "Failed to read config file {}: {e}",
@@ -823,6 +991,7 @@ async fn load_toml_file(path: &std::path::Path) -> Result<Config> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 impl WatchConfig {
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         self.enabled = other.enabled;
         self.debounce_ms = other.debounce_ms;
@@ -831,6 +1000,7 @@ impl WatchConfig {
 }
 
 impl HooksConfig {
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         // Replace (not append) for hooks
         self.post_create = other.post_create;
@@ -840,6 +1010,7 @@ impl HooksConfig {
 }
 
 impl ZellijConfig {
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         self.session_prefix = other.session_prefix;
         self.use_tabs = other.use_tabs;
@@ -849,6 +1020,7 @@ impl ZellijConfig {
 }
 
 impl PanesConfig {
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         self.main.merge(other.main);
         self.beads.merge(other.beads);
@@ -858,6 +1030,7 @@ impl PanesConfig {
 }
 
 impl PaneConfig {
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         self.command = other.command;
         self.args = other.args;
@@ -866,6 +1039,7 @@ impl PaneConfig {
 }
 
 impl FloatPaneConfig {
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         self.enabled = other.enabled;
         self.command = other.command;
@@ -875,6 +1049,7 @@ impl FloatPaneConfig {
 }
 
 impl DashboardConfig {
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         self.refresh_ms = other.refresh_ms;
         self.theme = other.theme;
@@ -884,6 +1059,7 @@ impl DashboardConfig {
 }
 
 impl AgentConfig {
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         self.command = other.command;
         self.env = other.env;
@@ -891,6 +1067,7 @@ impl AgentConfig {
 }
 
 impl SessionConfig {
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         self.auto_commit = other.auto_commit;
         self.commit_prefix = other.commit_prefix;
@@ -898,11 +1075,175 @@ impl SessionConfig {
 }
 
 impl RecoveryConfig {
-    const fn merge(&mut self, other: Self) {
+    #[allow(dead_code)]
+    fn merge(&mut self, other: Self) {
         self.policy = other.policy;
         self.log_recovered = other.log_recovered;
         self.auto_recover_corrupted_wal = other.auto_recover_corrupted_wal;
         self.delete_corrupted_database = other.delete_corrupted_database;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PARTIAL MERGE IMPLEMENTATIONS (explicit-key merge semantics)
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl WatchConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialWatchConfig) {
+        if let Some(enabled) = partial.enabled {
+            self.enabled = enabled;
+        }
+        if let Some(debounce_ms) = partial.debounce_ms {
+            self.debounce_ms = debounce_ms;
+        }
+        if let Some(paths) = partial.paths {
+            self.paths = paths;
+        }
+    }
+}
+
+impl HooksConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialHooksConfig) {
+        if let Some(post_create) = partial.post_create {
+            self.post_create = post_create;
+        }
+        if let Some(pre_remove) = partial.pre_remove {
+            self.pre_remove = pre_remove;
+        }
+        if let Some(post_merge) = partial.post_merge {
+            self.post_merge = post_merge;
+        }
+    }
+}
+
+impl ZellijConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialZellijConfig) {
+        if let Some(session_prefix) = partial.session_prefix {
+            self.session_prefix = session_prefix;
+        }
+        if let Some(use_tabs) = partial.use_tabs {
+            self.use_tabs = use_tabs;
+        }
+        if let Some(layout_dir) = partial.layout_dir {
+            self.layout_dir = layout_dir;
+        }
+        if let Some(panes) = partial.panes {
+            self.panes.merge_partial(panes);
+        }
+    }
+}
+
+impl PanesConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialPanesConfig) {
+        if let Some(main) = partial.main {
+            self.main.merge_partial(main);
+        }
+        if let Some(beads) = partial.beads {
+            self.beads.merge_partial(beads);
+        }
+        if let Some(status) = partial.status {
+            self.status.merge_partial(status);
+        }
+        if let Some(float) = partial.float {
+            self.float.merge_partial(float);
+        }
+    }
+}
+
+impl PaneConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialPaneConfig) {
+        if let Some(command) = partial.command {
+            self.command = command;
+        }
+        if let Some(args) = partial.args {
+            self.args = args;
+        }
+        if let Some(size) = partial.size {
+            self.size = size;
+        }
+    }
+}
+
+impl FloatPaneConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialFloatPaneConfig) {
+        if let Some(enabled) = partial.enabled {
+            self.enabled = enabled;
+        }
+        if let Some(command) = partial.command {
+            self.command = command;
+        }
+        if let Some(width) = partial.width {
+            self.width = width;
+        }
+        if let Some(height) = partial.height {
+            self.height = height;
+        }
+    }
+}
+
+impl DashboardConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialDashboardConfig) {
+        if let Some(refresh_ms) = partial.refresh_ms {
+            self.refresh_ms = refresh_ms;
+        }
+        if let Some(theme) = partial.theme {
+            self.theme = theme;
+        }
+        if let Some(columns) = partial.columns {
+            self.columns = columns;
+        }
+        if let Some(vim_keys) = partial.vim_keys {
+            self.vim_keys = vim_keys;
+        }
+    }
+}
+
+impl AgentConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialAgentConfig) {
+        if let Some(command) = partial.command {
+            self.command = command;
+        }
+        if let Some(env) = partial.env {
+            self.env = env;
+        }
+    }
+}
+
+impl SessionConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialSessionConfig) {
+        if let Some(auto_commit) = partial.auto_commit {
+            self.auto_commit = auto_commit;
+        }
+        if let Some(commit_prefix) = partial.commit_prefix {
+            self.commit_prefix = commit_prefix;
+        }
+    }
+}
+
+impl RecoveryConfig {
+    /// Merge partial config, only updating fields that are `Some(value)`.
+    fn merge_partial(&mut self, partial: PartialRecoveryConfig) {
+        if let Some(policy) = partial.policy {
+            self.policy = policy;
+        }
+        if let Some(log_recovered) = partial.log_recovered {
+            self.log_recovered = log_recovered;
+        }
+        if let Some(auto_recover_corrupted_wal) = partial.auto_recover_corrupted_wal {
+            self.auto_recover_corrupted_wal = auto_recover_corrupted_wal;
+        }
+        if let Some(delete_corrupted_database) = partial.delete_corrupted_database {
+            self.delete_corrupted_database = delete_corrupted_database;
+        }
     }
 }
 
@@ -916,6 +1257,7 @@ impl Config {
     /// Note: This performs a deep replacement merge, not append.
     /// For example, if `hooks.post_create` is `["a","b"]` in self and `["c"]` in other,
     /// result will be `["c"]`, not `["a","b","c"]`.
+    #[allow(dead_code)]
     fn merge(&mut self, other: Self) {
         // Top-level string fields - replace always (other takes precedence)
         // We don't check against defaults here because an explicit project config
@@ -933,6 +1275,54 @@ impl Config {
         self.agent.merge(other.agent);
         self.session.merge(other.session);
         self.recovery.merge(other.recovery);
+    }
+
+    /// Merge partial config into this one using explicit-key semantics.
+    ///
+    /// Only fields that are `Some(value)` in the partial config will override
+    /// the corresponding fields in self. Fields that are `None` in the partial
+    /// config will NOT reset the values in self.
+    ///
+    /// This is the key to proper config layering: a partial config file that
+    /// only specifies `main_branch = "develop"` will NOT reset `workspace_dir`
+    /// or any other fields to their defaults.
+    pub fn merge_partial(&mut self, partial: PartialConfig) {
+        // Top-level string fields - only override if explicitly set
+        if let Some(workspace_dir) = partial.workspace_dir {
+            self.workspace_dir = workspace_dir;
+        }
+        if let Some(main_branch) = partial.main_branch {
+            self.main_branch = main_branch;
+        }
+        if let Some(default_template) = partial.default_template {
+            self.default_template = default_template;
+        }
+        if let Some(state_db) = partial.state_db {
+            self.state_db = state_db;
+        }
+
+        // Merge nested configs only if present
+        if let Some(watch) = partial.watch {
+            self.watch.merge_partial(watch);
+        }
+        if let Some(hooks) = partial.hooks {
+            self.hooks.merge_partial(hooks);
+        }
+        if let Some(zellij) = partial.zellij {
+            self.zellij.merge_partial(zellij);
+        }
+        if let Some(dashboard) = partial.dashboard {
+            self.dashboard.merge_partial(dashboard);
+        }
+        if let Some(agent) = partial.agent {
+            self.agent.merge_partial(agent);
+        }
+        if let Some(session) = partial.session {
+            self.session.merge_partial(session);
+        }
+        if let Some(recovery) = partial.recovery {
+            self.recovery.merge_partial(recovery);
+        }
     }
 
     /// Apply environment variable overrides
@@ -1613,5 +2003,160 @@ commit_prefix = "wip:"
 
         assert_eq!(config1.workspace_dir, config2.workspace_dir);
         assert_eq!(config1.default_template, config2.default_template);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PARTIAL CONFIG MERGE TESTS (bd-3bg: explicit-key merge semantics)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Test: Partial TOML with only one top-level field should not reset others
+    #[tokio::test]
+    async fn test_partial_config_single_field_preserves_defaults() -> Result<()> {
+        let temp_dir = tempfile::tempdir()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let config_path = temp_dir.path().join("partial_config.toml");
+
+        // Only set main_branch, nothing else
+        tokio::fs::write(&config_path, b"main_branch = \"develop\"")
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
+
+        let partial = load_partial_toml_file(&config_path).await?;
+
+        // Verify that only main_branch is set
+        assert!(
+            partial.main_branch.is_some(),
+            "main_branch should be set from TOML"
+        );
+        assert_eq!(partial.main_branch, Some("develop".to_string()));
+
+        // workspace_dir should NOT be set (it was not in the TOML)
+        assert!(
+            partial.workspace_dir.is_none(),
+            "workspace_dir should be None since it wasn't in the TOML"
+        );
+
+        Ok(())
+    }
+
+    // Test: Merging partial config should only override explicitly set fields
+    #[test]
+    fn test_merge_partial_only_overrides_set_fields() {
+        let mut base = Config::default();
+        let original_workspace_dir = base.workspace_dir.clone();
+        let original_template = base.default_template.clone();
+
+        // Create a partial that only sets main_branch
+        let partial = PartialConfig {
+            main_branch: Some("develop".to_string()),
+            ..Default::default()
+        };
+
+        base.merge_partial(partial);
+
+        // main_branch should be updated
+        assert_eq!(base.main_branch, "develop");
+
+        // Other fields should remain unchanged
+        assert_eq!(
+            base.workspace_dir, original_workspace_dir,
+            "workspace_dir should not be changed"
+        );
+        assert_eq!(
+            base.default_template, original_template,
+            "default_template should not be changed"
+        );
+    }
+
+    // Test: Partial nested config should only override set fields
+    #[test]
+    fn test_merge_partial_nested_only_overrides_set_fields() {
+        let mut base = Config::default();
+        let original_use_tabs = base.zellij.use_tabs;
+        let original_layout_dir = base.zellij.layout_dir.clone();
+
+        // Create a partial that only sets zellij.session_prefix
+        let partial = PartialConfig {
+            zellij: Some(PartialZellijConfig {
+                session_prefix: Some("custom".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        base.merge_partial(partial);
+
+        // session_prefix should be updated
+        assert_eq!(base.zellij.session_prefix, "custom");
+
+        // Other zellij fields should remain unchanged
+        assert_eq!(
+            base.zellij.use_tabs, original_use_tabs,
+            "use_tabs should not be changed"
+        );
+        assert_eq!(
+            base.zellij.layout_dir, original_layout_dir,
+            "layout_dir should not be changed"
+        );
+    }
+
+    // Test: Multi-layer precedence with partial configs
+    #[test]
+    fn test_multi_layer_precedence_preserves_lower_layers() {
+        // Start with defaults
+        let mut config = Config::default();
+
+        // Apply "global" partial that only sets workspace_dir
+        let global_partial = PartialConfig {
+            workspace_dir: Some("../global_workspaces".to_string()),
+            ..Default::default()
+        };
+        config.merge_partial(global_partial);
+
+        assert_eq!(config.workspace_dir, "../global_workspaces");
+        assert_eq!(config.main_branch, ""); // Default should be preserved
+
+        // Apply "project" partial that only sets main_branch
+        let project_partial = PartialConfig {
+            main_branch: Some("develop".to_string()),
+            ..Default::default()
+        };
+        config.merge_partial(project_partial);
+
+        // workspace_dir from "global" should be preserved
+        assert_eq!(
+            config.workspace_dir, "../global_workspaces",
+            "workspace_dir from global should NOT be reset by project partial"
+        );
+        // main_branch from "project" should be applied
+        assert_eq!(config.main_branch, "develop");
+    }
+
+    // Test: Partial with nested section that only sets some fields
+    #[test]
+    fn test_partial_nested_section_preserves_other_fields() {
+        let mut base = Config::default();
+        base.watch.debounce_ms = 500; // Set a custom value
+
+        // Create partial that only sets watch.enabled
+        let partial = PartialConfig {
+            watch: Some(PartialWatchConfig {
+                enabled: Some(ValidatedBool(false)),
+                debounce_ms: None,
+                paths: None,
+            }),
+            ..Default::default()
+        };
+
+        base.merge_partial(partial);
+
+        // enabled should be updated
+        assert!(!base.watch.enabled);
+
+        // debounce_ms should be preserved
+        assert_eq!(
+            base.watch.debounce_ms, 500,
+            "debounce_ms should be preserved from base"
+        );
     }
 }
