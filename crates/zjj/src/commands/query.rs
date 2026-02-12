@@ -643,12 +643,15 @@ async fn query_can_spawn(bead_id: Option<&str>) -> Result<QueryResult> {
     };
 
     let envelope = SchemaEnvelope::new("query-can-spawn", "single", result);
-    println!("{}", serde_json::to_string_pretty(&envelope)?);
-    Ok(())
+    let output = serde_json::to_string_pretty(&envelope)?;
+    Ok(QueryResult {
+        output,
+        exit_code: 0,
+    })
 }
 
 /// Query sessions with pending changes to merge
-async fn query_pending_merges() -> Result<()> {
+async fn query_pending_merges() -> Result<QueryResult> {
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -718,12 +721,15 @@ async fn query_pending_merges() -> Result<()> {
     };
 
     let envelope = SchemaEnvelope::new("query-pending-merges", "single", result);
-    println!("{}", serde_json::to_string_pretty(&envelope)?);
-    Ok(())
+    let output = serde_json::to_string_pretty(&envelope)?;
+    Ok(QueryResult {
+        output,
+        exit_code: 0,
+    })
 }
 
 /// Query current location (main or workspace)
-async fn query_location() -> Result<()> {
+async fn query_location() -> Result<QueryResult> {
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -778,8 +784,11 @@ async fn query_location() -> Result<()> {
     };
 
     let envelope = SchemaEnvelope::new("query-location", "single", result);
-    println!("{}", serde_json::to_string_pretty(&envelope)?);
-    Ok(())
+    let output = serde_json::to_string_pretty(&envelope)?;
+    Ok(QueryResult {
+        output,
+        exit_code: 0,
+    })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
