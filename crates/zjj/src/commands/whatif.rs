@@ -806,6 +806,16 @@ fn preview_spawn_with_flags(args: &[String]) -> Result<WhatIfResult> {
     })
 }
 
+/// Detect common flags in argument list
+#[cfg(test)]
+fn detect_flags(args: &[String]) -> (bool, bool, bool, bool) {
+    let has_workspace = args.contains(&"--workspace".to_string());
+    let has_force = args.contains(&"--force".to_string());
+    let has_keep = args.contains(&"--keep-workspace".to_string());
+    let has_dry_run = args.contains(&"--dry-run".to_string());
+    (has_workspace, has_force, has_keep, has_dry_run)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
