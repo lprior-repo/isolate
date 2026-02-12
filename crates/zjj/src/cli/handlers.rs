@@ -250,9 +250,10 @@ pub async fn handle_switch(sub_m: &ArgMatches) -> Result<()> {
 
 pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
+    let all = sub_m.get_flag("all");
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    let options = sync::SyncOptions { format };
+    let options = sync::SyncOptions { format, all };
     sync::run_with_options(name, options).await
 }
 
@@ -492,7 +493,20 @@ pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {
         .get_one::<String>("query_type")
         .ok_or_else(|| anyhow::anyhow!("Query type is required"))?;
     let args = sub_m.get_one::<String>("args").map(String::as_str);
-    query::run(query_type, args).await
+
+    let result = query::run(query_type, args).await?;
+
+    // Print output
+    if !result.output.is_empty() {
+        println!("{}", result.output);
+    }
+
+    // Exit with the specified exit code if non-zero
+    if result.exit_code != 0 {
+        std::process::exit(result.exit_code);
+    }
+
+    Ok(())
 }
 
 pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {

@@ -121,17 +121,83 @@ async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionD
 pub struct SyncOptions {
     /// Output format
     pub format: OutputFormat,
+    /// Sync all sessions (explicit --all flag)
+    pub all: bool,
 }
 
 /// Run the sync command with options
 ///
-/// If a session name is provided, syncs that session's workspace.
-/// Otherwise, syncs all sessions.
+/// Truth table for routing:
+/// - `sync <name>` → sync named session
+/// - `sync --all` → sync all sessions
+/// - `sync` (no args, from workspace) → sync current workspace
+/// - `sync` (no args, from main) → sync all sessions (convenience)
 pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
-    match name {
-        Some(n) => sync_session_with_options(n, options).await,
-        None => sync_all_with_options(options).await,
+    match (name, options.all) {
+        // Explicit name provided - sync that session
+        (Some(n), _) => sync_session_with_options(n, options).await,
+        // --all flag provided - sync all sessions
+        (None, true) => sync_all_with_options(options).await,
+        // No name, no --all flag - detect context
+        (None, false) => sync_current_or_all_with_options(options).await,
     }
+}
+
+/// Sync current workspace if in one, otherwise sync all sessions
+///
+/// This implements the convenience behavior for `zjj sync` with no arguments:
+/// - From within a workspace: sync only that workspace
+/// - From main repo: sync all sessions
+async fn sync_current_or_all_with_options(options: SyncOptions) -> Result<()> {
+    // Try to detect current workspace
+    match detect_current_workspace_name().await? {
+        Some(workspace_name) => {
+            // We're in a workspace - sync only this one
+            sync_session_with_options(&workspace_name, options).await
+        }
+        None => {
+            // We're in main repo - sync all for convenience
+            sync_all_with_options(options).await
+        }
+    }
+}
+
+/// Detect the name of the current workspace, if we're in one
+///
+/// Returns `Ok(Some(name))` if in a workspace, `Ok(None)` if in main repo
+async fn detect_current_workspace_name() -> Result<Option<String>> {
+    // Use jj workspace show to get the current workspace name
+    let output = Command::new("jj")
+        .args(["workspace", "show"])
+        .output()
+        .await
+        .context("Failed to run 'jj workspace show'")?;
+
+    if !output.status.success() {
+        // Not in a workspace or command failed
+        return Ok(None);
+    }
+
+    let workspace_info = String::from_utf8_lossy(&output.stdout);
+
+    // Parse workspace name from output
+    // Example output: "Working copy: default@abc123\n"
+    // We want to extract "default" as the workspace name
+    for line in workspace_info.lines() {
+        if let Some(stripped) = line.strip_prefix("Working copy: ") {
+            if let Some(name) = stripped.split('@').next() {
+                let workspace_name = name.trim().to_string();
+                // "default" is the main repo, not a workspace
+                if workspace_name == "default" || workspace_name.is_empty() {
+                    return Ok(None);
+                }
+                return Ok(Some(workspace_name));
+            }
+        }
+    }
+
+    // Couldn't parse workspace name - assume we're in main
+    Ok(None)
 }
 
 /// Sync a specific session's workspace

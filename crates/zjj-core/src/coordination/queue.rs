@@ -277,7 +277,9 @@ impl MergeQueue {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to create workspace_state index: {e}")))?;
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to create workspace_state index: {e}"))
+        })?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS queue_processing_lock (
@@ -307,7 +309,8 @@ impl MergeQueue {
         priority: i32,
         agent_id: Option<&str>,
     ) -> Result<QueueAddResponse> {
-        self.add_with_dedupe(workspace, bead_id, priority, agent_id, None).await
+        self.add_with_dedupe(workspace, bead_id, priority, agent_id, None)
+            .await
     }
 
     /// Add a workspace to the queue with an optional deduplication key.
@@ -342,8 +345,9 @@ impl MergeQueue {
             } else if error_str.contains("UNIQUE constraint failed: merge_queue.dedupe_key")
                 || error_str.contains("idx_merge_queue_dedupe_key")
             {
+                let key_display = dedupe_key.unwrap_or("<none>");
                 Error::InvalidConfig(format!(
-                    "An entry with dedupe_key '{dedupe_key}' already exists in the queue"
+                    "An entry with dedupe_key '{key_display}' already exists in the queue"
                 ))
             } else {
                 Error::DatabaseError(format!("Failed to add to queue: {e}"))
@@ -737,12 +741,10 @@ mod tests {
         let queue = MergeQueue::open_in_memory().await?;
 
         // Verify dedupe_key column exists by querying it
-        let _: Option<String> = sqlx::query_scalar(
-            "SELECT dedupe_key FROM merge_queue LIMIT 1",
-        )
-        .fetch_optional(&queue.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("dedupe_key column should exist: {e}")))?;
+        let _: Option<String> = sqlx::query_scalar("SELECT dedupe_key FROM merge_queue LIMIT 1")
+            .fetch_optional(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("dedupe_key column should exist: {e}")))?;
 
         Ok(())
     }
@@ -752,12 +754,13 @@ mod tests {
         let queue = MergeQueue::open_in_memory().await?;
 
         // Verify workspace_state column exists
-        let _: Option<String> = sqlx::query_scalar(
-            "SELECT workspace_state FROM merge_queue LIMIT 1",
-        )
-        .fetch_optional(&queue.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("workspace_state column should exist: {e}")))?;
+        let _: Option<String> =
+            sqlx::query_scalar("SELECT workspace_state FROM merge_queue LIMIT 1")
+                .fetch_optional(&queue.pool)
+                .await
+                .map_err(|e| {
+                    Error::DatabaseError(format!("workspace_state column should exist: {e}"))
+                })?;
 
         Ok(())
     }
@@ -767,10 +770,14 @@ mod tests {
         let queue = MergeQueue::open_in_memory().await?;
 
         // Add entry with dedupe_key
-        queue.add_with_dedupe("ws-1", None, 5, None, Some("unique-key-1")).await?;
+        queue
+            .add_with_dedupe("ws-1", None, 5, None, Some("unique-key-1"))
+            .await?;
 
         // Attempt to add another entry with same dedupe_key should fail
-        let result = queue.add_with_dedupe("ws-2", None, 5, None, Some("unique-key-1")).await;
+        let result = queue
+            .add_with_dedupe("ws-2", None, 5, None, Some("unique-key-1"))
+            .await;
         assert!(result.is_err(), "Duplicate dedupe_key should be rejected");
 
         let error_msg = result.err().map(|e| e.to_string()).unwrap_or_default();
@@ -791,7 +798,10 @@ mod tests {
         queue.add_with_dedupe("ws-3", None, 5, None, None).await?;
 
         let stats = queue.stats().await?;
-        assert_eq!(stats.total, 3, "Should have 3 entries with NULL dedupe_keys");
+        assert_eq!(
+            stats.total, 3,
+            "Should have 3 entries with NULL dedupe_keys"
+        );
 
         Ok(())
     }
@@ -802,14 +812,18 @@ mod tests {
 
         queue.add("ws-1", None, 5, None).await?;
 
-        let state: String = sqlx::query_scalar(
-            "SELECT workspace_state FROM merge_queue WHERE workspace = 'ws-1'",
-        )
-        .fetch_one(&queue.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to query workspace_state: {e}")))?;
+        let state: String =
+            sqlx::query_scalar("SELECT workspace_state FROM merge_queue WHERE workspace = 'ws-1'")
+                .fetch_one(&queue.pool)
+                .await
+                .map_err(|e| {
+                    Error::DatabaseError(format!("Failed to query workspace_state: {e}"))
+                })?;
 
-        assert_eq!(state, "created", "New entries should default to 'created' state");
+        assert_eq!(
+            state, "created",
+            "New entries should default to 'created' state"
+        );
 
         Ok(())
     }
