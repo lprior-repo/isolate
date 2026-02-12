@@ -14,9 +14,9 @@ use crate::{
         abort, add, agents, ai, attach, backup, batch, bookmark, broadcast, can_i, checkpoint,
         claim, clean, completions, config, context, contract, dashboard, diff, doctor, done,
         events, examples, export_import, focus, get_session_db, init, integrity, introspect, list,
-        pane, prune_invalid, query, queue, recover, remove, rename, revert, schema, session_mgmt,
-        spawn, status, switch, sync, template, undo, validate, wait, whatif, whereami, whoami,
-        work,
+        pane, prune_invalid, query, queue, queue_worker, recover, remove, rename, revert, schema,
+        session_mgmt, spawn, status, submit, switch, sync, template, undo, validate, wait, whatif,
+        whereami, whoami, work,
     },
     hooks, json,
 };
@@ -255,6 +255,27 @@ pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let options = sync::SyncOptions { format, all };
     sync::run_with_options(name, options).await
+}
+
+pub async fn handle_submit(sub_m: &ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let dry_run = sub_m.get_flag("dry-run");
+    let auto_commit = sub_m.get_flag("auto-commit");
+    let message = sub_m.get_one::<String>("message").cloned();
+    let format = OutputFormat::from_json_flag(json);
+
+    let options = submit::SubmitOptions {
+        format,
+        dry_run,
+        auto_commit,
+        message,
+    };
+
+    let exit_code = submit::run_with_options(&options).await?;
+    if exit_code != 0 {
+        std::process::exit(exit_code);
+    }
+    Ok(())
 }
 
 pub async fn handle_diff(sub_m: &ArgMatches) -> Result<()> {
@@ -510,6 +531,11 @@ pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
+    // Check for worker subcommand first
+    if let Some((_, worker_m)) = sub_m.subcommand() {
+        return handle_queue_worker(worker_m).await;
+    }
+
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
     let priority = sub_m.get_one::<i32>("priority").copied().unwrap_or(5);
@@ -527,6 +553,24 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
         stats: sub_m.get_flag("stats"),
     };
     queue::run_with_options(&options).await
+}
+
+pub async fn handle_queue_worker(sub_m: &ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = OutputFormat::from_json_flag(json);
+    let options = queue_worker::WorkerOptions {
+        loop_mode: sub_m.get_flag("loop"),
+        once: sub_m.get_flag("once"),
+        interval_secs: sub_m.get_one::<u64>("interval").copied().unwrap_or(10),
+        worker_id: sub_m.get_one::<String>("worker-id").cloned(),
+        format,
+    };
+
+    let exit_code = queue_worker::run_with_options(&options).await?;
+    if exit_code != 0 {
+        std::process::exit(exit_code);
+    }
+    Ok(())
 }
 
 pub async fn handle_context(sub_m: &ArgMatches) -> Result<()> {
@@ -1518,6 +1562,7 @@ pub async fn run_cli() -> Result<()> {
             Some(("queue", sub_m)) => handle_queue(sub_m).await,
             Some(("context", sub_m)) => handle_context(sub_m).await,
             Some(("done", sub_m)) => handle_done(sub_m).await,
+            Some(("submit", sub_m)) => handle_submit(sub_m).await,
             Some(("spawn", sub_m)) => handle_spawn(sub_m).await,
             Some(("checkpoint" | "ckpt", sub_m)) => handle_checkpoint(sub_m).await,
             Some(("undo", sub_m)) => handle_undo(sub_m).await,

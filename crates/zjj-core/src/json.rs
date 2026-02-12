@@ -52,6 +52,7 @@ pub mod schemas {
     pub const CHECKPOINT_RESPONSE: &str = "checkpoint-response";
     pub const CONTRACT_RESPONSE: &str = "contract-response";
     pub const CONTRACTS_RESPONSE: &str = "contracts-response";
+    pub const SUBMIT_RESPONSE: &str = "submit-response";
 
     // Diff schemas
     pub const DIFF_RESPONSE: &str = "diff-response";
@@ -100,6 +101,7 @@ pub mod schemas {
             CHECKPOINT_RESPONSE,
             CONTRACT_RESPONSE,
             CONTRACTS_RESPONSE,
+            SUBMIT_RESPONSE,
             DIFF_RESPONSE,
             DIFF_STAT_RESPONSE,
             QUERY_SESSION_EXISTS,

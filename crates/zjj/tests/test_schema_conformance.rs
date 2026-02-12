@@ -11,6 +11,7 @@
     clippy::too_many_lines,
     clippy::cognitive_complexity,
     clippy::too_many_arguments,
+    clippy::collapsible_if,
     // Format string ergonomics for tests
     clippy::uninlined_format_args,
     // Documentation relaxations for test-only code

@@ -697,6 +697,56 @@ pub fn cmd_sync() -> ClapCommand {
         )
 }
 
+pub fn cmd_submit() -> ClapCommand {
+    ClapCommand::new("submit")
+        .about("Submit changes for review/merge")
+        .long_about(
+            "Prepares and submits the current workspace changes for review or direct merge.
+
+            This command will:
+            1. Validate workspace state
+            2. Optionally commit changes
+            3. Create merge request or merge directly
+
+            Use --dry-run to preview what would happen.",
+        )
+        .after_help(after_help_text(
+            &[
+                "zjj submit                        Submit current workspace",
+                "zjj submit --dry-run              Preview submit without changes",
+                "zjj submit --auto-commit          Auto-commit before submitting",
+                "zjj submit -m \"Fix bug\"          Submit with custom commit message",
+                "zjj submit --json                 Output as JSON",
+            ],
+            None,
+        ))
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show what would happen without making changes"),
+        )
+        .arg(
+            Arg::new("auto-commit")
+                .long("auto-commit")
+                .action(clap::ArgAction::SetTrue)
+                .help("Automatically commit changes if needed"),
+        )
+        .arg(
+            Arg::new("message")
+                .long("message")
+                .short('m')
+                .value_name("MESSAGE")
+                .help("Custom commit message"),
+        )
+}
+
 pub fn cmd_diff() -> ClapCommand {
     ClapCommand::new("diff")
         .about("Show diff between session and main branch")
@@ -1194,10 +1244,13 @@ pub fn cmd_queue() -> ClapCommand {
                 "zjj queue --status <workspace>            Check workspace queue status",
                 "zjj queue --remove <workspace>            Remove workspace from queue",
                 "zjj queue --stats                         Show queue statistics",
+                "zjj queue worker --once                   Process one queue entry",
+                "zjj queue worker --loop                   Run worker continuously",
                 "zjj queue --list --json                   Show queue as JSON",
             ],
             None,
         ))
+        .subcommand(cmd_queue_worker())
         .arg(
             Arg::new("add")
                 .long("add")
@@ -1253,6 +1306,63 @@ pub fn cmd_queue() -> ClapCommand {
                 .long("stats")
                 .action(clap::ArgAction::SetTrue)
                 .help("Show queue statistics"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+pub fn cmd_queue_worker() -> ClapCommand {
+    ClapCommand::new("worker")
+        .about("Run a queue worker daemon to process queue entries")
+        .long_about(
+            "Process entries from the merge queue.
+
+            The worker can run in two modes:
+            - --once: Process exactly one item, then exit
+            - --loop: Run continuously, processing items until interrupted
+
+            On startup, the worker reclaims any stale entries (entries that were
+            claimed but whose lease has expired due to worker crash/disconnect).",
+        )
+        .after_help(after_help_text(
+            &[
+                "zjj queue worker --once                   Process one item and exit",
+                "zjj queue worker --loop                   Run continuously until Ctrl+C",
+                "zjj queue worker --loop --interval 30     Poll every 30 seconds",
+                "zjj queue worker --once --worker-id my-id Use custom worker ID",
+                "zjj queue worker --once --json            Output as JSON",
+            ],
+            None,
+        ))
+        .arg(
+            Arg::new("loop")
+                .long("loop")
+                .action(clap::ArgAction::SetTrue)
+                .help("Run continuously, processing items until interrupted"),
+        )
+        .arg(
+            Arg::new("once")
+                .long("once")
+                .action(clap::ArgAction::SetTrue)
+                .help("Process exactly one item, then exit"),
+        )
+        .arg(
+            Arg::new("interval")
+                .long("interval")
+                .value_name("SECONDS")
+                .value_parser(clap::value_parser!(u64))
+                .default_value("10")
+                .help("Polling interval in seconds (default: 10, used with --loop)"),
+        )
+        .arg(
+            Arg::new("worker-id")
+                .long("worker-id")
+                .value_name("ID")
+                .help("Unique worker identifier (default: hostname-pid)"),
         )
         .arg(
             Arg::new("json")
@@ -2907,6 +3017,7 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_query())
         .subcommand(cmd_context())
         .subcommand(cmd_done())
+        .subcommand(cmd_submit())
         .subcommand(cmd_spawn())
         .subcommand(cmd_checkpoint())
         .subcommand(cmd_undo())
