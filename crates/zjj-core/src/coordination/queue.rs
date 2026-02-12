@@ -42,6 +42,58 @@ impl FromStr for QueueStatus {
     }
 }
 
+/// Workspace state for the queue state machine
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WorkspaceQueueState {
+    #[default]
+    Created,
+    Working,
+    Ready,
+    Merged,
+    Abandoned,
+    Conflict,
+}
+
+impl WorkspaceQueueState {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Created => "created",
+            Self::Working => "working",
+            Self::Ready => "ready",
+            Self::Merged => "merged",
+            Self::Abandoned => "abandoned",
+            Self::Conflict => "conflict",
+        }
+    }
+}
+
+impl std::str::FromStr for WorkspaceQueueState {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "created" => Ok(Self::Created),
+            "working" => Ok(Self::Working),
+            "ready" => Ok(Self::Ready),
+            "merged" => Ok(Self::Merged),
+            "abandoned" => Ok(Self::Abandoned),
+            "conflict" => Ok(Self::Conflict),
+            _ => Err(Error::InvalidConfig(format!(
+                "Invalid workspace queue state: {s}"
+            ))),
+        }
+    }
+}
+
+impl TryFrom<String> for WorkspaceQueueState {
+    type Error = Error;
+
+    fn try_from(s: String) -> Result<Self> {
+        Self::from_str(&s)
+    }
+}
+
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct QueueEntry {
     pub id: i64,
@@ -55,6 +107,11 @@ pub struct QueueEntry {
     pub completed_at: Option<i64>,
     pub error_message: Option<String>,
     pub agent_id: Option<String>,
+    pub dedupe_key: Option<String>,
+    #[sqlx(default, try_from = "String")]
+    pub workspace_state: WorkspaceQueueState,
+    pub previous_state: Option<String>,
+    pub state_changed_at: Option<i64>,
 }
 
 impl TryFrom<String> for QueueStatus {
@@ -172,7 +229,11 @@ impl MergeQueue {
                 started_at INTEGER,
                 completed_at INTEGER,
                 error_message TEXT,
-                agent_id TEXT
+                agent_id TEXT,
+                dedupe_key TEXT,
+                workspace_state TEXT DEFAULT 'created',
+                previous_state TEXT,
+                state_changed_at INTEGER
             )",
         )
         .execute(&self.pool)
@@ -190,7 +251,6 @@ impl MergeQueue {
             .map_err(|e| Error::DatabaseError(format!("Failed to create priority index: {e}")))?;
 
         // Create unique index on workspace + started_at to prevent concurrent processing
-        // SQLite supports partial indexes via WHERE clause
         sqlx::query(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_queue_processing
              ON merge_queue(workspace, started_at)
@@ -199,6 +259,25 @@ impl MergeQueue {
         .execute(&self.pool)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to create processing index: {e}")))?;
+
+        // Create unique index on dedupe_key (partial index for non-null values)
+        sqlx::query(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_queue_dedupe_key
+             ON merge_queue(dedupe_key)
+             WHERE dedupe_key IS NOT NULL",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create dedupe_key index: {e}")))?;
+
+        // Create index on workspace_state for efficient queries
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_merge_queue_workspace_state
+             ON merge_queue(workspace_state)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create workspace_state index: {e}")))?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS queue_processing_lock (
@@ -228,21 +307,44 @@ impl MergeQueue {
         priority: i32,
         agent_id: Option<&str>,
     ) -> Result<QueueAddResponse> {
+        self.add_with_dedupe(workspace, bead_id, priority, agent_id, None).await
+    }
+
+    /// Add a workspace to the queue with an optional deduplication key.
+    ///
+    /// The dedupe_key allows preventing duplicate work by rejecting entries
+    /// with duplicate keys. NULL dedupe_keys are allowed multiple times.
+    pub async fn add_with_dedupe(
+        &self,
+        workspace: &str,
+        bead_id: Option<&str>,
+        priority: i32,
+        agent_id: Option<&str>,
+        dedupe_key: Option<&str>,
+    ) -> Result<QueueAddResponse> {
         let now = Self::now();
         let result = sqlx::query(
-            "INSERT INTO merge_queue (workspace, bead_id, priority, status, added_at, agent_id) \
-                 VALUES (?1, ?2, ?3, 'pending', ?4, ?5)",
+            "INSERT INTO merge_queue (workspace, bead_id, priority, status, added_at, agent_id, dedupe_key, workspace_state, state_changed_at) \
+                 VALUES (?1, ?2, ?3, 'pending', ?4, ?5, ?6, 'created', ?4)",
         )
         .bind(workspace)
         .bind(bead_id)
         .bind(priority)
         .bind(now)
         .bind(agent_id)
+        .bind(dedupe_key)
         .execute(&self.pool)
         .await
         .map_err(|e| {
-            if e.to_string().contains("UNIQUE constraint failed") {
+            let error_str = e.to_string();
+            if error_str.contains("UNIQUE constraint failed: merge_queue.workspace") {
                 Error::InvalidConfig(format!("Workspace '{workspace}' is already in the queue"))
+            } else if error_str.contains("UNIQUE constraint failed: merge_queue.dedupe_key")
+                || error_str.contains("idx_merge_queue_dedupe_key")
+            {
+                Error::InvalidConfig(format!(
+                    "An entry with dedupe_key '{dedupe_key}' already exists in the queue"
+                ))
             } else {
                 Error::DatabaseError(format!("Failed to add to queue: {e}"))
             }
@@ -269,7 +371,8 @@ impl MergeQueue {
     pub async fn get_by_id(&self, id: i64) -> Result<Option<QueueEntry>> {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
-                 completed_at, error_message, agent_id FROM merge_queue WHERE id = ?1",
+                 completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+                 previous_state, state_changed_at FROM merge_queue WHERE id = ?1",
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -280,7 +383,8 @@ impl MergeQueue {
     pub async fn get_by_workspace(&self, workspace: &str) -> Result<Option<QueueEntry>> {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
-                 completed_at, error_message, agent_id FROM merge_queue WHERE workspace = ?1",
+                 completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+                 previous_state, state_changed_at FROM merge_queue WHERE workspace = ?1",
         )
         .bind(workspace)
         .fetch_optional(&self.pool)
@@ -292,12 +396,14 @@ impl MergeQueue {
         let sql = match filter_status {
             Some(_) => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
-                 completed_at, error_message, agent_id FROM merge_queue WHERE status = ?1 \
+                 completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+                 previous_state, state_changed_at FROM merge_queue WHERE status = ?1 \
                  ORDER BY priority ASC, added_at ASC"
             }
             None => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
-                 completed_at, error_message, agent_id FROM merge_queue \
+                 completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+                 previous_state, state_changed_at FROM merge_queue \
                  ORDER BY priority ASC, added_at ASC"
             }
         };
@@ -318,7 +424,8 @@ impl MergeQueue {
     pub async fn next(&self) -> Result<Option<QueueEntry>> {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
-                 completed_at, error_message, agent_id FROM merge_queue WHERE status = 'pending' \
+                 completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+                 previous_state, state_changed_at FROM merge_queue WHERE status = 'pending' \
                  ORDER BY priority ASC, added_at ASC LIMIT 1",
         )
         .fetch_optional(&self.pool)
@@ -553,7 +660,8 @@ impl MergeQueue {
                  LIMIT 1
              )
              RETURNING id, workspace, bead_id, priority, status, added_at, started_at,
-                       completed_at, error_message, agent_id",
+                       completed_at, error_message, agent_id, dedupe_key, workspace_state,
+                       previous_state, state_changed_at",
         )
         .bind(now)
         .bind(agent_id)
@@ -619,6 +727,96 @@ impl MergeQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // SCHEMA TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[tokio::test]
+    async fn test_fresh_database_has_dedupe_key_column() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Verify dedupe_key column exists by querying it
+        let _: Option<String> = sqlx::query_scalar(
+            "SELECT dedupe_key FROM merge_queue LIMIT 1",
+        )
+        .fetch_optional(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("dedupe_key column should exist: {e}")))?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fresh_database_has_workspace_state_column() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Verify workspace_state column exists
+        let _: Option<String> = sqlx::query_scalar(
+            "SELECT workspace_state FROM merge_queue LIMIT 1",
+        )
+        .fetch_optional(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("workspace_state column should exist: {e}")))?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_dedupe_key_unique_constraint_enforced() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add entry with dedupe_key
+        queue.add_with_dedupe("ws-1", None, 5, None, Some("unique-key-1")).await?;
+
+        // Attempt to add another entry with same dedupe_key should fail
+        let result = queue.add_with_dedupe("ws-2", None, 5, None, Some("unique-key-1")).await;
+        assert!(result.is_err(), "Duplicate dedupe_key should be rejected");
+
+        let error_msg = result.err().map(|e| e.to_string()).unwrap_or_default();
+        assert!(
+            error_msg.contains("UNIQUE") || error_msg.contains("dedupe"),
+            "Error should mention UNIQUE constraint or dedupe, got: {error_msg}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_dedupe_key_null_allows_multiple() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add_with_dedupe("ws-1", None, 5, None, None).await?;
+        queue.add_with_dedupe("ws-2", None, 5, None, None).await?;
+        queue.add_with_dedupe("ws-3", None, 5, None, None).await?;
+
+        let stats = queue.stats().await?;
+        assert_eq!(stats.total, 3, "Should have 3 entries with NULL dedupe_keys");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_workspace_state_default_is_created() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add("ws-1", None, 5, None).await?;
+
+        let state: String = sqlx::query_scalar(
+            "SELECT workspace_state FROM merge_queue WHERE workspace = 'ws-1'",
+        )
+        .fetch_one(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to query workspace_state: {e}")))?;
+
+        assert_eq!(state, "created", "New entries should default to 'created' state");
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // EXISTING TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     #[tokio::test]
     async fn test_add_and_list() -> Result<()> {
