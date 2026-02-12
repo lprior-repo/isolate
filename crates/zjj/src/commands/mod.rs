@@ -34,6 +34,7 @@ pub mod pane;
 pub mod prune_invalid;
 pub mod query;
 pub mod queue;
+pub mod queue_worker;
 pub mod recover;
 pub mod remove;
 pub mod rename;
@@ -44,6 +45,7 @@ pub mod spawn;
 #[cfg(test)]
 mod spawn_behavior_tests;
 pub mod status;
+pub mod submit;
 pub mod switch;
 pub mod sync;
 #[cfg(test)]

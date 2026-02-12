@@ -1004,8 +1004,6 @@ mod tests {
 
     #[test]
     fn test_session_status_implements_lifecycle() {
-        use crate::lifecycle::LifecycleState;
-
         // SessionStatus implements LifecycleState trait
         let _can_transition = SessionStatus::Creating.can_transition_to(SessionStatus::Active);
         let _valid_next = SessionStatus::Creating.valid_next_states();

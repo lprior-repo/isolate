@@ -21,6 +21,30 @@ pub struct TransitionError {
     pub to: QueueStatus,
 }
 
+/// Error type for queue control operations (retry/cancel).
+#[derive(Debug, Clone, Error, PartialEq, Eq)]
+pub enum QueueControlError {
+    /// Entry not found in queue.
+    #[error("queue entry not found: {0}")]
+    NotFound(i64),
+
+    /// Entry is not in a retryable state.
+    #[error("entry {id} is not retryable (current status: {status})")]
+    NotRetryable { id: i64, status: QueueStatus },
+
+    /// Entry is in a terminal state and cannot be cancelled.
+    #[error("entry {id} is in terminal state and cannot be cancelled (current status: {status})")]
+    NotCancellable { id: i64, status: QueueStatus },
+
+    /// Maximum retry attempts exceeded.
+    #[error("entry {id} has exceeded maximum retry attempts ({attempt_count}/{max_attempts})")]
+    MaxAttemptsExceeded {
+        id: i64,
+        attempt_count: i32,
+        max_attempts: i32,
+    },
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // QUEUE STATUS STATE MACHINE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -31,15 +55,15 @@ pub struct TransitionError {
 /// - pending -> claimed
 /// - claimed -> rebasing
 /// - rebasing -> testing
-/// - testing -> ready_to_merge
-/// - ready_to_merge -> merging
+/// - testing -> `ready_to_merge`
+/// - `ready_to_merge` -> merging
 /// - merging -> merged
-/// - claimed|rebasing|testing|ready_to_merge|merging -> failed_retryable
-/// - claimed|rebasing|testing|ready_to_merge|merging -> failed_terminal
-/// - pending|claimed|rebasing|testing|ready_to_merge|failed_retryable -> cancelled
-/// - failed_retryable -> pending (manual retry path)
+/// - `claimed|rebasing|testing|ready_to_merge|merging` -> `failed_retryable`
+/// - `claimed|rebasing|testing|ready_to_merge|merging` -> `failed_terminal`
+/// - `pending|claimed|rebasing|testing|ready_to_merge|failed_retryable` -> cancelled
+/// - `failed_retryable` -> pending (manual retry path)
 ///
-/// Terminal states (no outgoing transitions): merged, failed_terminal, cancelled
+/// Terminal states (no outgoing transitions): merged, `failed_terminal`, cancelled
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueStatus {
     /// Item is waiting to be claimed by an agent.
@@ -85,10 +109,7 @@ impl QueueStatus {
     /// Returns true if this status is terminal (no valid outgoing transitions).
     #[must_use]
     pub const fn is_terminal(&self) -> bool {
-        matches!(
-            self,
-            Self::Merged | Self::FailedTerminal | Self::Cancelled
-        )
+        matches!(self, Self::Merged | Self::FailedTerminal | Self::Cancelled)
     }
 
     /// Returns true if a transition from `self` to `target` is valid.
@@ -116,37 +137,22 @@ impl QueueStatus {
 
         // Check specific valid transitions
         let is_valid = match self {
-            Self::Pending => matches!(
-                target,
-                Self::Claimed | Self::Cancelled
-            ),
+            Self::Pending => matches!(target, Self::Claimed | Self::Cancelled),
             Self::Claimed => matches!(
                 target,
-                Self::Rebasing
-                    | Self::FailedRetryable
-                    | Self::FailedTerminal
-                    | Self::Cancelled
+                Self::Rebasing | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled
             ),
             Self::Rebasing => matches!(
                 target,
-                Self::Testing
-                    | Self::FailedRetryable
-                    | Self::FailedTerminal
-                    | Self::Cancelled
+                Self::Testing | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled
             ),
             Self::Testing => matches!(
                 target,
-                Self::ReadyToMerge
-                    | Self::FailedRetryable
-                    | Self::FailedTerminal
-                    | Self::Cancelled
+                Self::ReadyToMerge | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled
             ),
             Self::ReadyToMerge => matches!(
                 target,
-                Self::Merging
-                    | Self::FailedRetryable
-                    | Self::FailedTerminal
-                    | Self::Cancelled
+                Self::Merging | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled
             ),
             Self::Merging => matches!(
                 target,
@@ -177,6 +183,7 @@ impl fmt::Display for QueueStatus {
 impl FromStr for QueueStatus {
     type Err = Error;
 
+    #[allow(clippy::match_same_arms)]
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "pending" => Ok(Self::Pending),
@@ -268,6 +275,15 @@ pub struct QueueEntry {
     pub workspace_state: WorkspaceQueueState,
     pub previous_state: Option<String>,
     pub state_changed_at: Option<i64>,
+    /// The HEAD SHA when this entry was last updated (for idempotent submit)
+    #[sqlx(default)]
+    pub head_sha: Option<String>,
+    /// Number of retry attempts made for this entry.
+    #[sqlx(default)]
+    pub attempt_count: i32,
+    /// Maximum number of retry attempts allowed.
+    #[sqlx(default)]
+    pub max_attempts: i32,
 }
 
 impl TryFrom<String> for QueueStatus {
@@ -299,6 +315,104 @@ pub struct ProcessingLock {
     pub agent_id: String,
     pub acquired_at: i64,
     pub expires_at: i64,
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// QUEUE EVENT (AUDIT TRAIL)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// Event types for queue entry lifecycle.
+///
+/// These events are appended to the `queue_events` table for audit purposes.
+/// Events are append-only and should not affect the main operation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QueueEventType {
+    /// Entry created.
+    Created,
+    /// Entry claimed by worker.
+    Claimed,
+    /// State transition occurred.
+    Transitioned,
+    /// Entry failed.
+    Failed,
+    /// Entry retried.
+    Retried,
+    /// Entry cancelled.
+    Cancelled,
+    /// Entry merged.
+    Merged,
+    /// Worker heartbeat.
+    Heartbeat,
+}
+
+impl QueueEventType {
+    /// Returns the string representation of this event type.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Created => "created",
+            Self::Claimed => "claimed",
+            Self::Transitioned => "transitioned",
+            Self::Failed => "failed",
+            Self::Retried => "retried",
+            Self::Cancelled => "cancelled",
+            Self::Merged => "merged",
+            Self::Heartbeat => "heartbeat",
+        }
+    }
+}
+
+impl fmt::Display for QueueEventType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl std::str::FromStr for QueueEventType {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "created" => Ok(Self::Created),
+            "claimed" => Ok(Self::Claimed),
+            "transitioned" => Ok(Self::Transitioned),
+            "failed" => Ok(Self::Failed),
+            "retried" => Ok(Self::Retried),
+            "cancelled" => Ok(Self::Cancelled),
+            "merged" => Ok(Self::Merged),
+            "heartbeat" => Ok(Self::Heartbeat),
+            _ => Err(Error::InvalidConfig(format!(
+                "Invalid queue event type: {s}"
+            ))),
+        }
+    }
+}
+
+/// An event in the queue audit trail.
+///
+/// Events are append-only with monotonically increasing IDs.
+/// They provide an audit trail for queue entry lifecycle.
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct QueueEvent {
+    /// Unique event ID (monotonically increasing).
+    pub id: i64,
+    /// The queue entry this event belongs to.
+    pub queue_id: i64,
+    /// The type of event.
+    #[sqlx(try_from = "String")]
+    pub event_type: QueueEventType,
+    /// Optional JSON details about the event.
+    pub details_json: Option<String>,
+    /// Unix timestamp when the event was created.
+    pub created_at: i64,
+}
+
+impl TryFrom<String> for QueueEventType {
+    type Error = Error;
+
+    fn try_from(s: String) -> std::result::Result<Self, Self::Error> {
+        Self::from_str(&s)
+    }
 }
 
 #[derive(Clone)]
@@ -389,7 +503,10 @@ impl MergeQueue {
                 dedupe_key TEXT,
                 workspace_state TEXT DEFAULT 'created',
                 previous_state TEXT,
-                state_changed_at INTEGER
+                state_changed_at INTEGER,
+                head_sha TEXT,
+                attempt_count INTEGER DEFAULT 0,
+                max_attempts INTEGER DEFAULT 3
             )",
         )
         .execute(&self.pool)
@@ -452,6 +569,29 @@ impl MergeQueue {
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to create lock table: {e}")))?;
 
+        // Create queue_events table for audit trail
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS queue_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                queue_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                details_json TEXT,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY (queue_id) REFERENCES merge_queue(id)
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create queue_events table: {e}")))?;
+
+        // Create index on queue_id for efficient event lookups
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_queue_events_queue_id ON queue_events(queue_id)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create queue_events index: {e}")))?;
+
         Ok(())
     }
 
@@ -474,8 +614,9 @@ impl MergeQueue {
 
     /// Add a workspace to the queue with an optional deduplication key.
     ///
-    /// The dedupe_key allows preventing duplicate work by rejecting entries
-    /// with duplicate keys. NULL dedupe_keys are allowed multiple times.
+    /// The `dedupe_key` allows preventing duplicate work by rejecting entries
+    /// with duplicate keys. NULL `dedupe_keys` are allowed multiple times.
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_with_dedupe(
         &self,
         workspace: &str,
@@ -531,11 +672,205 @@ impl MergeQueue {
         })
     }
 
+    /// Idempotent upsert for submit operations.
+    ///
+    /// This method implements the submit contract:
+    /// 1. If no entry with `dedupe_key` exists, create new pending entry
+    /// 2. If entry with `dedupe_key` is active (non-terminal) and workspace matches, UPDATE it
+    /// 3. If entry with `dedupe_key` is active (non-terminal) and workspace differs, return error
+    /// 4. If entry with `dedupe_key` is terminal:
+    ///    - If same workspace: RESET to pending (resubmit scenario)
+    ///    - If different workspace: release `dedupe_key` from terminal, INSERT new
+    ///
+    /// # Arguments
+    /// * `workspace` - The workspace name
+    /// * `bead_id` - Optional bead identifier
+    /// * `priority` - Queue priority (lower = higher priority)
+    /// * `agent_id` - Optional agent identifier
+    /// * `dedupe_key` - Deduplication key (required for idempotent behavior)
+    /// * `head_sha` - The current HEAD SHA to store/update
+    ///
+    /// # Returns
+    /// The created or updated `QueueEntry`
+    ///
+    /// # Errors
+    /// Returns an error if the database operation fails, if workspace uniqueness is violated,
+    /// or if an active entry with a different workspace already has this `dedupe_key`
+    #[allow(clippy::too_many_arguments)]
+    pub async fn upsert_for_submit(
+        &self,
+        workspace: &str,
+        bead_id: Option<&str>,
+        priority: i32,
+        agent_id: Option<&str>,
+        dedupe_key: &str,
+        head_sha: &str,
+    ) -> Result<QueueEntry> {
+        let now = Self::now();
+
+        // First, check if there's an existing entry with this dedupe_key
+        let existing = self.find_by_dedupe_key(dedupe_key).await?;
+
+        match existing {
+            // Case 1: No existing entry - INSERT new
+            None => {
+                self.insert_new_entry(
+                    workspace, bead_id, priority, agent_id, dedupe_key, head_sha, now,
+                )
+                .await
+            }
+
+            // Case 2: Existing entry exists
+            Some(entry) => {
+                if entry.status.is_terminal() {
+                    if entry.workspace == workspace {
+                        // Case 2a-i: Terminal entry with same workspace - RESET to pending
+                        // This handles the "resubmit after terminal" scenario
+                        self.reset_terminal_to_pending(entry.id, bead_id, priority, head_sha, now)
+                            .await
+                    } else {
+                        // Case 2a-ii: Terminal entry with different workspace
+                        // Release its dedupe_key and INSERT new entry
+                        self.release_dedupe_key(entry.id).await?;
+                        self.insert_new_entry(
+                            workspace, bead_id, priority, agent_id, dedupe_key, head_sha, now,
+                        )
+                        .await
+                    }
+                } else if entry.workspace == workspace {
+                    // Case 2b: Active entry with matching workspace - UPDATE in place
+                    self.update_active_entry(entry.id, head_sha, now).await
+                } else {
+                    // Case 2c: Active entry with DIFFERENT workspace - reject
+                    Err(Error::InvalidConfig(format!(
+                        "An active entry with dedupe_key '{dedupe_key}' already exists for workspace '{}'",
+                        entry.workspace
+                    )))
+                }
+            }
+        }
+    }
+
+    /// Reset a terminal entry back to pending status for resubmission.
+    #[allow(clippy::too_many_arguments)]
+    async fn reset_terminal_to_pending(
+        &self,
+        id: i64,
+        bead_id: Option<&str>,
+        priority: i32,
+        head_sha: &str,
+        now: i64,
+    ) -> Result<QueueEntry> {
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'pending', bead_id = ?1, priority = ?2, \
+                 head_sha = ?3, state_changed_at = ?4, started_at = NULL, completed_at = NULL, \
+                 error_message = NULL WHERE id = ?5",
+        )
+        .bind(bead_id)
+        .bind(priority)
+        .bind(head_sha)
+        .bind(now)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to reset terminal entry: {e}")))?;
+
+        self.get_by_id(id)
+            .await?
+            .ok_or_else(|| Error::DatabaseError("Failed to retrieve reset entry".to_string()))
+    }
+
+    /// Release (clear) the `dedupe_key` from an entry, making it available for reuse.
+    /// This is used when a terminal entry needs to allow a new entry with the same `dedupe_key`.
+    async fn release_dedupe_key(&self, id: i64) -> Result<()> {
+        sqlx::query("UPDATE merge_queue SET dedupe_key = NULL WHERE id = ?1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to release dedupe_key: {e}")))?;
+        Ok(())
+    }
+
+    /// Find an entry by `dedupe_key`.
+    async fn find_by_dedupe_key(&self, dedupe_key: &str) -> Result<Option<QueueEntry>> {
+        sqlx::query_as::<_, QueueEntry>(
+            "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
+                 completed_at, error_message, agent_id, dedupe_key, workspace_state, \
+                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE dedupe_key = ?1 \
+                 ORDER BY id DESC LIMIT 1",
+        )
+        .bind(dedupe_key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to find entry by dedupe_key: {e}")))
+    }
+
+    /// Insert a new queue entry.
+    #[allow(clippy::too_many_arguments)]
+    async fn insert_new_entry(
+        &self,
+        workspace: &str,
+        bead_id: Option<&str>,
+        priority: i32,
+        agent_id: Option<&str>,
+        dedupe_key: &str,
+        head_sha: &str,
+        now: i64,
+    ) -> Result<QueueEntry> {
+        let result = sqlx::query(
+            "INSERT INTO merge_queue (workspace, bead_id, priority, status, added_at, agent_id, dedupe_key, workspace_state, state_changed_at, head_sha) \
+                 VALUES (?1, ?2, ?3, 'pending', ?4, ?5, ?6, 'created', ?4, ?7)",
+        )
+        .bind(workspace)
+        .bind(bead_id)
+        .bind(priority)
+        .bind(now)
+        .bind(agent_id)
+        .bind(dedupe_key)
+        .bind(head_sha)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            let error_str = e.to_string();
+            if error_str.contains("UNIQUE constraint failed: merge_queue.workspace") {
+                Error::InvalidConfig(format!("Workspace '{workspace}' is already in the queue"))
+            } else if error_str.contains("idx_merge_queue_dedupe_key")
+                || error_str.contains("UNIQUE constraint failed")
+            {
+                Error::InvalidConfig(format!(
+                    "An active entry with dedupe_key '{dedupe_key}' already exists in the queue"
+                ))
+            } else {
+                Error::DatabaseError(format!("Failed to upsert entry: {e}"))
+            }
+        })?;
+
+        let id = result.last_insert_rowid();
+        self.get_by_id(id)
+            .await?
+            .ok_or_else(|| Error::DatabaseError("Failed to retrieve upserted entry".to_string()))
+    }
+
+    /// Update an active entry with new `head_sha` and timestamp.
+    async fn update_active_entry(&self, id: i64, head_sha: &str, now: i64) -> Result<QueueEntry> {
+        sqlx::query("UPDATE merge_queue SET head_sha = ?1, state_changed_at = ?2 WHERE id = ?3")
+            .bind(head_sha)
+            .bind(now)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update active entry: {e}")))?;
+
+        self.get_by_id(id)
+            .await?
+            .ok_or_else(|| Error::DatabaseError("Failed to retrieve updated entry".to_string()))
+    }
+
     pub async fn get_by_id(&self, id: i64) -> Result<Option<QueueEntry>> {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at FROM merge_queue WHERE id = ?1",
+                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE id = ?1",
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -547,7 +882,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at FROM merge_queue WHERE workspace = ?1",
+                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE workspace = ?1",
         )
         .bind(workspace)
         .fetch_optional(&self.pool)
@@ -560,13 +895,13 @@ impl MergeQueue {
             Some(_) => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at FROM merge_queue WHERE status = ?1 \
+                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE status = ?1 \
                  ORDER BY priority ASC, added_at ASC"
             }
             None => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at FROM merge_queue \
+                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue \
                  ORDER BY priority ASC, added_at ASC"
             }
         };
@@ -588,7 +923,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at FROM merge_queue WHERE status = 'pending' \
+                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE status = 'pending' \
                  ORDER BY priority ASC, added_at ASC LIMIT 1",
         )
         .fetch_optional(&self.pool)
@@ -824,7 +1159,7 @@ impl MergeQueue {
              )
              RETURNING id, workspace, bead_id, priority, status, added_at, started_at,
                        completed_at, error_message, agent_id, dedupe_key, workspace_state,
-                       previous_state, state_changed_at",
+                       previous_state, state_changed_at, head_sha, attempt_count, max_attempts",
         )
         .bind(now)
         .bind(agent_id)
@@ -884,6 +1219,255 @@ impl MergeQueue {
             .map_err(|e| Error::DatabaseError(format!("Failed to cleanup: {e}")))?
         };
         Ok(result.rows_affected() as usize)
+    }
+
+    /// Reclaim stale entries that have been claimed but whose lease has expired.
+    ///
+    /// This resets entries with `status = 'processing'` (claimed) back to `pending`
+    /// if they were claimed before the stale threshold. This is typically called
+    /// when a worker starts up to recover work from crashed/disconnected workers.
+    ///
+    /// # Arguments
+    /// * `stale_threshold_secs` - How long (in seconds) before a claimed entry is considered stale
+    ///
+    /// # Returns
+    /// The number of entries that were reclaimed.
+    #[allow(clippy::cast_sign_loss)]
+    pub async fn reclaim_stale(&self, stale_threshold_secs: i64) -> Result<usize> {
+        let cutoff = Self::now() - stale_threshold_secs;
+
+        // Also release any expired processing locks
+        sqlx::query("DELETE FROM queue_processing_lock WHERE expires_at < ?1")
+            .bind(Self::now())
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to release expired locks: {e}")))?;
+
+        // Reset stale processing entries back to pending
+        let result = sqlx::query(
+            "UPDATE merge_queue SET status = 'pending', started_at = NULL, agent_id = NULL \
+             WHERE status = 'processing' AND started_at IS NOT NULL AND started_at < ?1",
+        )
+        .bind(cutoff)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to reclaim stale entries: {e}")))?;
+
+        Ok(result.rows_affected() as usize)
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CONTROL OPERATIONS (Retry & Cancel)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// Retry a `failed_retryable` entry.
+    ///
+    /// Moves the entry from `failed_retryable` to `pending` and increments
+    /// the attempt count.
+    ///
+    /// # Errors
+    ///
+    /// Returns `QueueControlError::NotFound` if the entry does not exist.
+    /// Returns `QueueControlError::NotRetryable` if the entry is not in `failed_retryable` state.
+    /// Returns `QueueControlError::MaxAttemptsExceeded` if the attempt count has reached
+    /// `max_attempts`.
+    pub async fn retry_entry(&self, id: i64) -> std::result::Result<QueueEntry, QueueControlError> {
+        // Fetch the entry first
+        let entry = self
+            .get_by_id(id)
+            .await
+            .map_err(|_| QueueControlError::NotFound(id))?
+            .ok_or(QueueControlError::NotFound(id))?;
+
+        // Validate it's in failed_retryable state
+        if entry.status != QueueStatus::FailedRetryable {
+            return Err(QueueControlError::NotRetryable {
+                id,
+                status: entry.status,
+            });
+        }
+
+        // Validate attempt_count < max_attempts
+        // Note: attempt_count tracks how many times we've TRIED, not how many retries
+        // So if attempt_count == max_attempts, we've exhausted our attempts
+        let new_attempt_count = entry.attempt_count + 1;
+        if new_attempt_count > entry.max_attempts {
+            return Err(QueueControlError::MaxAttemptsExceeded {
+                id,
+                attempt_count: entry.attempt_count,
+                max_attempts: entry.max_attempts,
+            });
+        }
+
+        let now = Self::now();
+
+        // Transition to pending and increment attempt_count
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'pending', attempt_count = ?1, state_changed_at = ?2, \
+                 started_at = NULL, completed_at = NULL, error_message = NULL WHERE id = ?3",
+        )
+        .bind(new_attempt_count)
+        .bind(now)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_| QueueControlError::NotFound(id))?;
+
+        // Fetch and return the updated entry
+        self.get_by_id(id)
+            .await
+            .map_err(|_| QueueControlError::NotFound(id))?
+            .ok_or(QueueControlError::NotFound(id))
+    }
+
+    /// Cancel an active (non-terminal) entry.
+    ///
+    /// Moves the entry to `cancelled` state. Only non-terminal entries can be cancelled.
+    ///
+    /// # Errors
+    ///
+    /// Returns `QueueControlError::NotFound` if the entry does not exist.
+    /// Returns `QueueControlError::NotCancellable` if the entry is in a terminal state
+    /// (merged, `failed_terminal`, or cancelled).
+    pub async fn cancel_entry(
+        &self,
+        id: i64,
+    ) -> std::result::Result<QueueEntry, QueueControlError> {
+        // Fetch the entry first
+        let entry = self
+            .get_by_id(id)
+            .await
+            .map_err(|_| QueueControlError::NotFound(id))?
+            .ok_or(QueueControlError::NotFound(id))?;
+
+        // Validate it's not in a terminal state
+        if entry.status.is_terminal() {
+            return Err(QueueControlError::NotCancellable {
+                id,
+                status: entry.status,
+            });
+        }
+
+        let now = Self::now();
+
+        // Transition to cancelled
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'cancelled', state_changed_at = ?1, completed_at = ?1 \
+                 WHERE id = ?2",
+        )
+        .bind(now)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_| QueueControlError::NotFound(id))?;
+
+        // Fetch and return the updated entry
+        self.get_by_id(id)
+            .await
+            .map_err(|_| QueueControlError::NotFound(id))?
+            .ok_or(QueueControlError::NotFound(id))
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // EVENT AUDIT TRAIL
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// Append an event to the `queue_events` table.
+    ///
+    /// This is best-effort - failure should be logged but not fail the caller.
+    /// Events are for audit trail purposes and are not critical path.
+    ///
+    /// # Arguments
+    /// * `queue_id` - The queue entry ID this event belongs to
+    /// * `event_type` - The type of event (e.g., "created", "claimed", "transitioned")
+    /// * `details` - Optional JSON string with additional event details
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the database operation fails.
+    pub async fn append_event(
+        &self,
+        queue_id: i64,
+        event_type: &str,
+        details: Option<&str>,
+    ) -> Result<()> {
+        let now = Self::now();
+
+        sqlx::query(
+            "INSERT INTO queue_events (queue_id, event_type, details_json, created_at) \
+             VALUES (?1, ?2, ?3, ?4)",
+        )
+        .bind(queue_id)
+        .bind(event_type)
+        .bind(details)
+        .bind(now)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to append event: {e}")))?;
+
+        Ok(())
+    }
+
+    /// Append a typed event to the `queue_events` table.
+    ///
+    /// This is a convenience wrapper around `append_event` that accepts a `QueueEventType`.
+    pub async fn append_typed_event(
+        &self,
+        queue_id: i64,
+        event_type: QueueEventType,
+        details: Option<&str>,
+    ) -> Result<()> {
+        self.append_event(queue_id, event_type.as_str(), details)
+            .await
+    }
+
+    /// Fetch all events for a queue entry, ordered by id ascending.
+    ///
+    /// Returns an empty vector if no events exist for the given `queue_id`.
+    pub async fn fetch_events(&self, queue_id: i64) -> Result<Vec<QueueEvent>> {
+        sqlx::query_as::<_, QueueEvent>(
+            "SELECT id, queue_id, event_type, details_json, created_at \
+             FROM queue_events \
+             WHERE queue_id = ?1 \
+             ORDER BY id ASC",
+        )
+        .bind(queue_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to fetch events: {e}")))
+    }
+
+    /// Fetch recent events (limit N) for a queue entry, ordered by id ascending.
+    ///
+    /// Returns an empty vector if no events exist for the given `queue_id`.
+    /// If limit is 0, returns an empty vector.
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::cast_possible_wrap)]
+    pub async fn fetch_recent_events(
+        &self,
+        queue_id: i64,
+        limit: usize,
+    ) -> Result<Vec<QueueEvent>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        sqlx::query_as::<_, QueueEvent>(
+            "SELECT id, queue_id, event_type, details_json, created_at \
+             FROM queue_events \
+             WHERE queue_id = ?1 \
+             ORDER BY id DESC \
+             LIMIT ?2",
+        )
+        .bind(queue_id)
+        .bind(limit as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map(|mut events| {
+            // Reverse to get chronological order (oldest first)
+            events.reverse();
+            events
+        })
+        .map_err(|e| Error::DatabaseError(format!("Failed to fetch recent events: {e}")))
     }
 }
 
@@ -982,6 +1566,336 @@ mod tests {
         assert_eq!(
             state, "created",
             "New entries should default to 'created' state"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fresh_database_has_head_sha_column() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Verify head_sha column exists
+        let _: Option<String> = sqlx::query_scalar("SELECT head_sha FROM merge_queue LIMIT 1")
+            .fetch_optional(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("head_sha column should exist: {e}")))?;
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // UPSERT FOR SUBMIT TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[tokio::test]
+    async fn test_upsert_creates_new_entry_when_none_exists() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let entry = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "abc123")
+            .await?;
+
+        assert_eq!(entry.workspace, "ws-1");
+        assert_eq!(entry.bead_id, Some("bead-1".to_string()));
+        assert_eq!(entry.status, QueueStatus::Pending);
+        assert_eq!(entry.head_sha, Some("abc123".to_string()));
+        assert_eq!(entry.dedupe_key, Some("dedupe-key-1".to_string()));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upsert_updates_existing_active_entry() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // First upsert creates entry
+        let first = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "abc123")
+            .await?;
+
+        assert_eq!(first.head_sha, Some("abc123".to_string()));
+        let first_id = first.id;
+
+        // Second upsert with same dedupe_key should UPDATE (not create new)
+        let second = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "def456")
+            .await?;
+
+        // Same ID means it was updated, not created
+        assert_eq!(second.id, first_id, "Should update same entry");
+        assert_eq!(second.head_sha, Some("def456".to_string()));
+        assert_eq!(second.status, QueueStatus::Pending);
+
+        // Verify only one entry exists
+        let stats = queue.stats().await?;
+        assert_eq!(stats.pending, 1, "Should have exactly one pending entry");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upsert_resets_terminal_entry_same_workspace() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // First upsert creates entry
+        let first = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "abc123")
+            .await?;
+
+        // Manually set entry to terminal state (merged)
+        sqlx::query("UPDATE merge_queue SET status = 'merged' WHERE id = ?1")
+            .bind(first.id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Second upsert with SAME workspace should RESET the terminal entry
+        let second = queue
+            .upsert_for_submit(
+                "ws-1",         // Same workspace
+                Some("bead-2"), // New bead_id
+                3,              // New priority
+                None,
+                "dedupe-key-1", // Same dedupe_key
+                "def456",
+            )
+            .await?;
+
+        // SAME ID means entry was reset, not created
+        assert_eq!(
+            second.id, first.id,
+            "Should reset same entry for same workspace"
+        );
+        assert_eq!(second.head_sha, Some("def456".to_string()));
+        assert_eq!(second.status, QueueStatus::Pending);
+        assert_eq!(second.bead_id, Some("bead-2".to_string()));
+        assert_eq!(second.priority, 3);
+
+        // Verify only one entry exists
+        let all = queue.list(None).await?;
+        assert_eq!(all.len(), 1, "Should have exactly 1 entry");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upsert_creates_new_entry_different_workspace_after_terminal() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // First upsert creates entry with workspace ws-1
+        let first = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "abc123")
+            .await?;
+
+        // Manually set entry to terminal state (merged)
+        sqlx::query("UPDATE merge_queue SET status = 'merged' WHERE id = ?1")
+            .bind(first.id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Second upsert with DIFFERENT workspace should CREATE new entry
+        let second = queue
+            .upsert_for_submit(
+                "ws-2", // Different workspace
+                Some("bead-2"),
+                5,
+                None,
+                "dedupe-key-1", // Same dedupe_key
+                "def456",
+            )
+            .await?;
+
+        // Different ID means new entry was created
+        assert_ne!(
+            second.id, first.id,
+            "Should create new entry for different workspace"
+        );
+        assert_eq!(second.workspace, "ws-2");
+        assert_eq!(second.head_sha, Some("def456".to_string()));
+        assert_eq!(second.status, QueueStatus::Pending);
+
+        // Verify both entries exist (one merged with NULL dedupe_key, one pending)
+        let all = queue.list(None).await?;
+        assert_eq!(all.len(), 2, "Should have 2 entries");
+
+        // Old entry should have dedupe_key cleared
+        let old_entry = queue
+            .get_by_id(first.id)
+            .await?
+            .ok_or_else(|| Error::DatabaseError("Old entry not found".to_string()))?;
+        assert_eq!(
+            old_entry.dedupe_key, None,
+            "Old terminal entry should have dedupe_key cleared"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upsert_resets_failed_terminal_entry() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // First upsert creates entry
+        let first = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "abc123")
+            .await?;
+
+        // Manually set entry to failed_terminal
+        sqlx::query("UPDATE merge_queue SET status = 'failed_terminal' WHERE id = ?1")
+            .bind(first.id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Second upsert should reset the terminal entry
+        let second = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "def456")
+            .await?;
+
+        assert_eq!(second.id, first.id, "Should reset same entry");
+        assert_eq!(second.status, QueueStatus::Pending);
+        assert_eq!(second.head_sha, Some("def456".to_string()));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upsert_resets_cancelled_entry() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // First upsert creates entry
+        let first = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "abc123")
+            .await?;
+
+        // Manually set entry to cancelled
+        sqlx::query("UPDATE merge_queue SET status = 'cancelled' WHERE id = ?1")
+            .bind(first.id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Second upsert should reset the terminal entry
+        let second = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "def456")
+            .await?;
+
+        assert_eq!(second.id, first.id, "Should reset same entry");
+        assert_eq!(second.status, QueueStatus::Pending);
+        assert_eq!(second.head_sha, Some("def456".to_string()));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upsert_updates_claimed_entry() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // First upsert creates entry
+        let first = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "abc123")
+            .await?;
+
+        // Manually set to claimed (active but not pending)
+        sqlx::query("UPDATE merge_queue SET status = 'claimed' WHERE id = ?1")
+            .bind(first.id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Second upsert should UPDATE (claimed is active state)
+        let second = queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "def456")
+            .await?;
+
+        assert_eq!(second.id, first.id, "Should update same entry");
+        assert_eq!(second.head_sha, Some("def456".to_string()));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upsert_rejects_duplicate_dedupe_key_for_active_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // First upsert creates entry with dedupe_key
+        queue
+            .upsert_for_submit("ws-1", Some("bead-1"), 5, None, "dedupe-key-1", "abc123")
+            .await?;
+
+        // Attempt to upsert with SAME dedupe_key but DIFFERENT workspace should fail
+        let result = queue
+            .upsert_for_submit(
+                "ws-2", // Different workspace
+                Some("bead-2"),
+                5,
+                None,
+                "dedupe-key-1", // Same dedupe_key
+                "def456",
+            )
+            .await;
+
+        assert!(
+            result.is_err(),
+            "Should reject duplicate dedupe_key for active entries"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upsert_concurrent_same_dedupe_key() -> Result<()> {
+        // Test that concurrent upserts with the same dedupe_key are handled correctly
+        let queue = MergeQueue::open_in_memory().await?;
+        let queue1 = queue.clone();
+        let queue2 = queue.clone();
+        let queue3 = queue.clone();
+
+        // Spawn multiple concurrent upserts with same dedupe_key
+        let handle1 = tokio::spawn(async move {
+            queue1
+                .upsert_for_submit("ws-1", None, 5, None, "concurrent-key", "sha1")
+                .await
+        });
+        let handle2 = tokio::spawn(async move {
+            queue2
+                .upsert_for_submit("ws-1", None, 5, None, "concurrent-key", "sha2")
+                .await
+        });
+        let handle3 = tokio::spawn(async move {
+            queue3
+                .upsert_for_submit("ws-1", None, 5, None, "concurrent-key", "sha3")
+                .await
+        });
+
+        let (r1, r2, r3) = tokio::join!(handle1, handle2, handle3);
+
+        // Unwrap JoinHandle results
+        let results = [
+            r1.map_err(|e| Error::DatabaseError(format!("Task 1 join failed: {e}")))?,
+            r2.map_err(|e| Error::DatabaseError(format!("Task 2 join failed: {e}")))?,
+            r3.map_err(|e| Error::DatabaseError(format!("Task 3 join failed: {e}")))?,
+        ];
+
+        // Count successes and failures
+        let successes: Vec<_> = results.iter().filter(|r| r.is_ok()).collect();
+
+        // At least one should succeed
+        assert!(
+            !successes.is_empty(),
+            "At least one concurrent upsert should succeed"
+        );
+
+        // All entries in DB should have unique workspaces (due to workspace UNIQUE constraint)
+        let all = queue.list(None).await?;
+        let workspaces: std::collections::HashSet<_> =
+            all.iter().map(|e| e.workspace.as_str()).collect();
+        assert_eq!(
+            all.len(),
+            workspaces.len(),
+            "All entries should have unique workspaces"
         );
 
         Ok(())
@@ -1168,37 +2082,49 @@ mod tests {
     #[test]
     fn test_pending_to_claimed_is_valid() {
         assert!(QueueStatus::Pending.can_transition_to(QueueStatus::Claimed));
-        assert!(QueueStatus::Pending.validate_transition(QueueStatus::Claimed).is_ok());
+        assert!(QueueStatus::Pending
+            .validate_transition(QueueStatus::Claimed)
+            .is_ok());
     }
 
     #[test]
     fn test_claimed_to_rebasing_is_valid() {
         assert!(QueueStatus::Claimed.can_transition_to(QueueStatus::Rebasing));
-        assert!(QueueStatus::Claimed.validate_transition(QueueStatus::Rebasing).is_ok());
+        assert!(QueueStatus::Claimed
+            .validate_transition(QueueStatus::Rebasing)
+            .is_ok());
     }
 
     #[test]
     fn test_rebasing_to_testing_is_valid() {
         assert!(QueueStatus::Rebasing.can_transition_to(QueueStatus::Testing));
-        assert!(QueueStatus::Rebasing.validate_transition(QueueStatus::Testing).is_ok());
+        assert!(QueueStatus::Rebasing
+            .validate_transition(QueueStatus::Testing)
+            .is_ok());
     }
 
     #[test]
     fn test_testing_to_ready_to_merge_is_valid() {
         assert!(QueueStatus::Testing.can_transition_to(QueueStatus::ReadyToMerge));
-        assert!(QueueStatus::Testing.validate_transition(QueueStatus::ReadyToMerge).is_ok());
+        assert!(QueueStatus::Testing
+            .validate_transition(QueueStatus::ReadyToMerge)
+            .is_ok());
     }
 
     #[test]
     fn test_ready_to_merge_to_merging_is_valid() {
         assert!(QueueStatus::ReadyToMerge.can_transition_to(QueueStatus::Merging));
-        assert!(QueueStatus::ReadyToMerge.validate_transition(QueueStatus::Merging).is_ok());
+        assert!(QueueStatus::ReadyToMerge
+            .validate_transition(QueueStatus::Merging)
+            .is_ok());
     }
 
     #[test]
     fn test_merging_to_merged_is_valid() {
         assert!(QueueStatus::Merging.can_transition_to(QueueStatus::Merged));
-        assert!(QueueStatus::Merging.validate_transition(QueueStatus::Merged).is_ok());
+        assert!(QueueStatus::Merging
+            .validate_transition(QueueStatus::Merged)
+            .is_ok());
     }
 
     // --- Valid Failure Transitions ---
@@ -1343,10 +2269,7 @@ mod tests {
             QueueStatus::Merging,
             QueueStatus::FailedRetryable,
         ] {
-            assert!(
-                !status.is_terminal(),
-                "{status:?} should not be terminal"
-            );
+            assert!(!status.is_terminal(), "{status:?} should not be terminal");
         }
     }
 
@@ -1534,10 +2457,7 @@ mod tests {
         ] {
             let s = status.to_string();
             let parsed = QueueStatus::from_str(&s);
-            assert!(
-                parsed.is_ok(),
-                "Failed to parse '{s}' back to QueueStatus"
-            );
+            assert!(parsed.is_ok(), "Failed to parse '{s}' back to QueueStatus");
             assert_eq!(parsed?, status);
         }
         Ok(())
@@ -1602,5 +2522,675 @@ mod tests {
     fn test_try_from_string_invalid() {
         let result = QueueStatus::try_from("not_a_status".to_string());
         assert!(result.is_err());
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // RETRY ENTRY TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[tokio::test]
+    async fn test_retry_failed_retryable_succeeds() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add an entry and set it to failed_retryable
+        let resp = queue.add("ws-retry-1", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Manually set to failed_retryable with attempt_count = 0
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'failed_retryable', attempt_count = 0 WHERE id = ?1",
+        )
+        .bind(entry_id)
+        .execute(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Retry should succeed
+        let retried = queue
+            .retry_entry(entry_id)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Retry failed: {e}")))?;
+
+        assert_eq!(retried.status, QueueStatus::Pending);
+        assert_eq!(retried.attempt_count, 1);
+        assert!(retried.error_message.is_none());
+        assert!(retried.state_changed_at.is_some());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_retry_fails_when_not_failed_retryable() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add an entry (it will be in pending state)
+        let resp = queue.add("ws-retry-2", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Retry should fail because it's not in failed_retryable
+        let result = queue.retry_entry(entry_id).await;
+
+        assert!(result.is_err());
+        match result {
+            Err(QueueControlError::NotRetryable { id, status }) => {
+                assert_eq!(id, entry_id);
+                assert_eq!(status, QueueStatus::Pending);
+            }
+            _ => panic!("Expected NotRetryable error, got: {result:?}"),
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_retry_fails_when_max_attempts_exceeded() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add an entry
+        let resp = queue.add("ws-retry-3", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Manually set to failed_retryable with attempt_count at max (3)
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'failed_retryable', attempt_count = 3 WHERE id = ?1",
+        )
+        .bind(entry_id)
+        .execute(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Retry should fail because max_attempts exceeded
+        let result = queue.retry_entry(entry_id).await;
+
+        assert!(result.is_err());
+        match result {
+            Err(QueueControlError::MaxAttemptsExceeded {
+                id,
+                attempt_count,
+                max_attempts,
+            }) => {
+                assert_eq!(id, entry_id);
+                assert_eq!(attempt_count, 3);
+                assert_eq!(max_attempts, 3);
+            }
+            _ => panic!("Expected MaxAttemptsExceeded error, got: {result:?}"),
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_retry_fails_for_nonexistent_entry() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let result = queue.retry_entry(99999).await;
+
+        assert!(result.is_err());
+        match result {
+            Err(QueueControlError::NotFound(id)) => {
+                assert_eq!(id, 99999);
+            }
+            _ => panic!("Expected NotFound error, got: {result:?}"),
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_retry_allows_up_to_max_attempts() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add an entry
+        let resp = queue.add("ws-retry-4", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Set to failed_retryable with attempt_count = 2 (max is 3)
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'failed_retryable', attempt_count = 2 WHERE id = ?1",
+        )
+        .bind(entry_id)
+        .execute(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Retry should succeed (attempt_count becomes 3, which is still valid)
+        let retried = queue
+            .retry_entry(entry_id)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Retry failed: {e}")))?;
+
+        assert_eq!(retried.status, QueueStatus::Pending);
+        assert_eq!(retried.attempt_count, 3);
+
+        // Now set back to failed_retryable and retry should fail
+        sqlx::query("UPDATE merge_queue SET status = 'failed_retryable' WHERE id = ?1")
+            .bind(entry_id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        let result = queue.retry_entry(entry_id).await;
+        assert!(result.is_err());
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CANCEL ENTRY TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[tokio::test]
+    async fn test_cancel_pending_succeeds() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-cancel-1", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Cancel should succeed for pending
+        let cancelled = queue
+            .cancel_entry(entry_id)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Cancel failed: {e}")))?;
+
+        assert_eq!(cancelled.status, QueueStatus::Cancelled);
+        assert!(cancelled.state_changed_at.is_some());
+        assert!(cancelled.completed_at.is_some());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancel_claimed_succeeds() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-cancel-2", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Manually set to claimed
+        sqlx::query("UPDATE merge_queue SET status = 'claimed' WHERE id = ?1")
+            .bind(entry_id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Cancel should succeed for claimed
+        let cancelled = queue
+            .cancel_entry(entry_id)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Cancel failed: {e}")))?;
+
+        assert_eq!(cancelled.status, QueueStatus::Cancelled);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancel_failed_retryable_succeeds() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-cancel-3", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Manually set to failed_retryable
+        sqlx::query("UPDATE merge_queue SET status = 'failed_retryable' WHERE id = ?1")
+            .bind(entry_id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Cancel should succeed for failed_retryable
+        let cancelled = queue
+            .cancel_entry(entry_id)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Cancel failed: {e}")))?;
+
+        assert_eq!(cancelled.status, QueueStatus::Cancelled);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancel_fails_for_merged() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-cancel-4", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Manually set to merged
+        sqlx::query("UPDATE merge_queue SET status = 'merged' WHERE id = ?1")
+            .bind(entry_id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Cancel should fail for merged
+        let result = queue.cancel_entry(entry_id).await;
+
+        assert!(result.is_err());
+        match result {
+            Err(QueueControlError::NotCancellable { id, status }) => {
+                assert_eq!(id, entry_id);
+                assert_eq!(status, QueueStatus::Merged);
+            }
+            _ => panic!("Expected NotCancellable error, got: {result:?}"),
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancel_fails_for_failed_terminal() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-cancel-5", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Manually set to failed_terminal
+        sqlx::query("UPDATE merge_queue SET status = 'failed_terminal' WHERE id = ?1")
+            .bind(entry_id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Cancel should fail for failed_terminal
+        let result = queue.cancel_entry(entry_id).await;
+
+        assert!(result.is_err());
+        match result {
+            Err(QueueControlError::NotCancellable { id, status }) => {
+                assert_eq!(id, entry_id);
+                assert_eq!(status, QueueStatus::FailedTerminal);
+            }
+            _ => panic!("Expected NotCancellable error, got: {result:?}"),
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancel_fails_for_cancelled() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-cancel-6", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Manually set to cancelled
+        sqlx::query("UPDATE merge_queue SET status = 'cancelled' WHERE id = ?1")
+            .bind(entry_id)
+            .execute(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to update status: {e}")))?;
+
+        // Cancel should fail for already cancelled
+        let result = queue.cancel_entry(entry_id).await;
+
+        assert!(result.is_err());
+        match result {
+            Err(QueueControlError::NotCancellable { id, status }) => {
+                assert_eq!(id, entry_id);
+                assert_eq!(status, QueueStatus::Cancelled);
+            }
+            _ => panic!("Expected NotCancellable error, got: {result:?}"),
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancel_fails_for_nonexistent_entry() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let result = queue.cancel_entry(99999).await;
+
+        assert!(result.is_err());
+        match result {
+            Err(QueueControlError::NotFound(id)) => {
+                assert_eq!(id, 99999);
+            }
+            _ => panic!("Expected NotFound error, got: {result:?}"),
+        }
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // SCHEMA COLUMN TESTS (attempt_count, max_attempts)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[tokio::test]
+    async fn test_fresh_database_has_attempt_count_column() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Verify attempt_count column exists
+        let _: Option<i32> = sqlx::query_scalar("SELECT attempt_count FROM merge_queue LIMIT 1")
+            .fetch_optional(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("attempt_count column should exist: {e}")))?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fresh_database_has_max_attempts_column() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Verify max_attempts column exists
+        let _: Option<i32> = sqlx::query_scalar("SELECT max_attempts FROM merge_queue LIMIT 1")
+            .fetch_optional(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("max_attempts column should exist: {e}")))?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_new_entry_defaults_attempt_count_to_zero() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-default-attempt", None, 5, None).await?;
+
+        assert_eq!(
+            resp.entry.attempt_count, 0,
+            "New entries should have attempt_count = 0"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_new_entry_defaults_max_attempts_to_three() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-default-max", None, 5, None).await?;
+
+        assert_eq!(
+            resp.entry.max_attempts, 3,
+            "New entries should have max_attempts = 3"
+        );
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // EVENT AUDIT TRAIL TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[tokio::test]
+    async fn test_fresh_database_has_queue_events_table() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Verify queue_events table exists by querying it
+        let _: Option<i64> = sqlx::query_scalar("SELECT id FROM queue_events LIMIT 1")
+            .fetch_optional(&queue.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("queue_events table should exist: {e}")))?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_append_event_succeeds() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Add a queue entry first
+        let resp = queue.add("ws-event-1", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Append an event
+        queue
+            .append_event(entry_id, "created", Some(r#"{"source": "test"}"#))
+            .await?;
+
+        // Verify the event was inserted
+        let events = queue.fetch_events(entry_id).await?;
+        assert_eq!(events.len(), 1, "Should have exactly one event");
+        let event = events
+            .first()
+            .ok_or_else(|| Error::DatabaseError("Expected event to exist".to_string()))?;
+        assert_eq!(event.queue_id, entry_id);
+        assert_eq!(event.event_type, QueueEventType::Created);
+        assert_eq!(
+            event.details_json,
+            Some(r#"{"source": "test"}"#.to_string())
+        );
+        assert!(event.created_at > 0);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_append_typed_event_succeeds() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-event-typed", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Append a typed event
+        queue
+            .append_typed_event(entry_id, QueueEventType::Claimed, None)
+            .await?;
+
+        let events = queue.fetch_events(entry_id).await?;
+        assert_eq!(events.len(), 1);
+        let event = events
+            .first()
+            .ok_or_else(|| Error::DatabaseError("Expected event to exist".to_string()))?;
+        assert_eq!(event.event_type, QueueEventType::Claimed);
+        assert!(event.details_json.is_none());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fetch_events_returns_empty_for_nonexistent() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Fetch events for a queue_id that doesn't exist
+        let events = queue.fetch_events(99999).await?;
+        assert!(
+            events.is_empty(),
+            "Should return empty vector for nonexistent queue_id"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fetch_events_returns_events_in_order() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-event-order", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Append multiple events with small delays to ensure different timestamps
+        queue.append_event(entry_id, "created", None).await?;
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        queue.append_event(entry_id, "claimed", None).await?;
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        queue.append_event(entry_id, "transitioned", None).await?;
+
+        let events = queue.fetch_events(entry_id).await?;
+        assert_eq!(events.len(), 3, "Should have three events");
+
+        // Verify order is ascending by id
+        assert_eq!(events[0].event_type, QueueEventType::Created);
+        assert_eq!(events[1].event_type, QueueEventType::Claimed);
+        assert_eq!(events[2].event_type, QueueEventType::Transitioned);
+
+        // Verify IDs are monotonically increasing
+        assert!(events[0].id < events[1].id);
+        assert!(events[1].id < events[2].id);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fetch_recent_events_limits_results() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-event-limit", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Append 5 events
+        for i in 0..5 {
+            queue
+                .append_event(entry_id, "heartbeat", Some(&format!(r#"{{"seq": {i}}}"#)))
+                .await?;
+        }
+
+        // Fetch only 2 most recent
+        let events = queue.fetch_recent_events(entry_id, 2).await?;
+        assert_eq!(events.len(), 2, "Should return only 2 events");
+
+        // Should be the last 2 in chronological order
+        assert_eq!(events[0].details_json, Some(r#"{"seq": 3}"#.to_string()));
+        assert_eq!(events[1].details_json, Some(r#"{"seq": 4}"#.to_string()));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fetch_recent_events_with_limit_zero() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-event-zero", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        queue.append_event(entry_id, "created", None).await?;
+
+        // Limit of 0 should return empty
+        let events = queue.fetch_recent_events(entry_id, 0).await?;
+        assert!(events.is_empty(), "Limit 0 should return empty vector");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_events_have_monotonically_increasing_ids() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Create two different queue entries
+        let resp1 = queue.add("ws-event-mono-1", None, 5, None).await?;
+        let resp2 = queue.add("ws-event-mono-2", None, 5, None).await?;
+
+        // Append events to both queues in interleaved order
+        queue.append_event(resp1.entry.id, "created", None).await?;
+        queue.append_event(resp2.entry.id, "created", None).await?;
+        queue.append_event(resp1.entry.id, "claimed", None).await?;
+        queue.append_event(resp2.entry.id, "claimed", None).await?;
+
+        // Get all events from both queues
+        let events1 = queue.fetch_events(resp1.entry.id).await?;
+        let events2 = queue.fetch_events(resp2.entry.id).await?;
+
+        // Combine and sort by id to verify global monotonicity
+        let all_events: Vec<_> = events1.iter().chain(events2.iter()).collect();
+        let mut sorted_events = all_events.clone();
+        sorted_events.sort_by_key(|e| e.id);
+
+        // Verify sorted order matches the original combined order (proves IDs are unique)
+        let ids: Vec<i64> = sorted_events.iter().map(|e| e.id).collect();
+
+        // Verify IDs are strictly increasing when sorted
+        for i in 1..ids.len() {
+            assert!(
+                ids[i - 1] < ids[i],
+                "Event IDs should be monotonically increasing: {:?}",
+                ids
+            );
+        }
+
+        // Also verify that within each queue, events are in ID order (ascending)
+        for window in events1.windows(2) {
+            assert!(
+                window[0].id < window[1].id,
+                "Events within queue 1 should be ordered by ID"
+            );
+        }
+        for window in events2.windows(2) {
+            assert!(
+                window[0].id < window[1].id,
+                "Events within queue 2 should be ordered by ID"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_event_type_roundtrip() -> Result<()> {
+        // Test all event types roundtrip through string conversion
+        for event_type in [
+            QueueEventType::Created,
+            QueueEventType::Claimed,
+            QueueEventType::Transitioned,
+            QueueEventType::Failed,
+            QueueEventType::Retried,
+            QueueEventType::Cancelled,
+            QueueEventType::Merged,
+            QueueEventType::Heartbeat,
+        ] {
+            let s = event_type.to_string();
+            let parsed = QueueEventType::from_str(&s)?;
+            assert_eq!(parsed, event_type, "Roundtrip failed for {event_type:?}");
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_invalid_event_type_returns_error() -> Result<()> {
+        let result = QueueEventType::from_str("invalid_event_type");
+        assert!(result.is_err(), "Invalid event type should return error");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_append_event_with_null_details() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-event-null", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        // Append event with None details
+        queue.append_event(entry_id, "created", None).await?;
+
+        let events = queue.fetch_events(entry_id).await?;
+        assert_eq!(events.len(), 1);
+        let event = events
+            .first()
+            .ok_or_else(|| Error::DatabaseError("Expected event to exist".to_string()))?;
+        assert!(event.details_json.is_none());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fetch_events_isolated_per_queue_entry() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        // Create two queue entries
+        let resp1 = queue.add("ws-isolated-1", None, 5, None).await?;
+        let resp2 = queue.add("ws-isolated-2", None, 5, None).await?;
+
+        // Add events to each
+        queue
+            .append_event(resp1.entry.id, "created", Some(r#"{"queue": 1}"#))
+            .await?;
+        queue
+            .append_event(resp2.entry.id, "created", Some(r#"{"queue": 2}"#))
+            .await?;
+
+        // Fetch events for each - should be isolated
+        let events1 = queue.fetch_events(resp1.entry.id).await?;
+        let events2 = queue.fetch_events(resp2.entry.id).await?;
+
+        assert_eq!(events1.len(), 1);
+        assert_eq!(events2.len(), 1);
+        assert_eq!(events1[0].details_json, Some(r#"{"queue": 1}"#.to_string()));
+        assert_eq!(events2[0].details_json, Some(r#"{"queue": 2}"#.to_string()));
+
+        Ok(())
     }
 }

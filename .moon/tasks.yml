@@ -157,6 +157,32 @@ tasks:
       mergeArgs: "replace"  # Prevent duplicate doc flags from inheritance
 
   # ============================================================================
+  # DOCUMENTATION VALIDATION
+  # ============================================================================
+
+  docs-check:
+    command: "${MOON_WORKSPACE_ROOT}/tools/ci-docs-check.sh"
+    description: "Validate zjj command documentation against implementation"
+    inputs:
+      - "tools/ci-docs-check.sh"
+      - "docs/**/*.md"
+      - "target/release/zjj"
+    options:
+      cache: false
+      runInCI: true
+
+  tasks-check:
+    command: "${MOON_WORKSPACE_ROOT}/tools/ci-tasks-check.sh"
+    description: "Validate moon tasks documentation against .moon/tasks.yml"
+    inputs:
+      - "tools/ci-tasks-check.sh"
+      - ".moon/tasks.yml"
+      - "docs/**/*.md"
+    options:
+      cache: false
+      runInCI: true
+
+  # ============================================================================
   # COMPOSITE PIPELINES
   # ============================================================================
 
@@ -164,7 +190,7 @@ tasks:
     command: "true"
     description: "Fast lint check (format + clippy in parallel)"
     deps:
-      - "~:fmt"      # ~ prefix runs in parallel
+      - "~:fmt"
       - "~:clippy"
     options:
       cache: false  # Composite task - deps handle caching
@@ -173,14 +199,15 @@ tasks:
     command: "true"
     description: "Full CI pipeline (all checks in parallel where possible)"
     deps:
-      - "~:fmt"            # Parallel: formatting
-      - "~:clippy"         # Parallel: linting
-      - "~:test"           # Parallel: tests
-      - "~:test-doc"       # Parallel: doc tests
-      - "~:coverage-check" # Parallel: coverage threshold check
-      - "~:audit"          # Parallel: security
-      - "build"            # Sequential: needs tests to pass
-      - "build-docs"       # Sequential: needs clippy
+      - "~:fmt"
+      - "~:clippy"
+      - "~:test"
+      - "~:test-doc"
+      - "~:coverage-check"
+      - "~:docs-check"
+      - "~:tasks-check"
+      - "build"
+      - "build-docs"
     options:
       cache: false  # Composite task - deps handle caching
 

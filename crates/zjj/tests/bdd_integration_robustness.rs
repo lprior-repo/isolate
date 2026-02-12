@@ -17,6 +17,9 @@
 //! !   I want to execute multiple zjj commands in batch
 //! !   Regardless of whether I include the 'zjj' prefix or not.
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {

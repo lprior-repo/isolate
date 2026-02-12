@@ -91,7 +91,7 @@ pub struct ValidatedBool(bool);
 
 impl ValidatedBool {
     #[inline]
-    pub fn as_bool(self) -> bool {
+    pub const fn as_bool(self) -> bool {
         self.0
     }
 }
@@ -115,7 +115,7 @@ impl<'de> serde::Deserialize<'de> for ValidatedBool {
     {
         struct BoolVisitor;
 
-        impl<'de> serde::de::Visitor<'de> for BoolVisitor {
+        impl serde::de::Visitor<'_> for BoolVisitor {
             type Value = ValidatedBool;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -129,22 +129,22 @@ impl<'de> serde::Deserialize<'de> for ValidatedBool {
                 Ok(ValidatedBool(v))
             }
 
-            fn visit_str<E>(self, _v: &str) -> std::result::Result<Self::Value, E>
+            fn visit_str<E>(self, v: &str) -> std::result::Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
                 Err(serde::de::Error::invalid_type(
-                    serde::de::Unexpected::Str(_v),
+                    serde::de::Unexpected::Str(v),
                     &self,
                 ))
             }
 
-            fn visit_string<E>(self, _v: String) -> std::result::Result<Self::Value, E>
+            fn visit_string<E>(self, v: String) -> std::result::Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
                 Err(serde::de::Error::invalid_type(
-                    serde::de::Unexpected::Str(&_v),
+                    serde::de::Unexpected::Str(&v),
                     &self,
                 ))
             }
@@ -964,7 +964,7 @@ async fn load_toml_file(path: &std::path::Path) -> Result<Config> {
         .map_err(|e| Error::ParseError(format!("Failed to parse config: {}: {e}", path.display())))
 }
 
-/// Load a TOML file into a PartialConfig for explicit-key merge semantics.
+/// Load a TOML file into a `PartialConfig` for explicit-key merge semantics.
 ///
 /// Only fields explicitly present in the TOML will be `Some(value)`.
 /// Missing fields remain `None` and won't override lower-precedence config values.
@@ -1076,6 +1076,7 @@ impl SessionConfig {
 
 impl RecoveryConfig {
     #[allow(dead_code)]
+    #[allow(clippy::missing_const_for_fn)]
     fn merge(&mut self, other: Self) {
         self.policy = other.policy;
         self.log_recovered = other.log_recovered;
@@ -1231,6 +1232,8 @@ impl SessionConfig {
 
 impl RecoveryConfig {
     /// Merge partial config, only updating fields that are `Some(value)`.
+    #[allow(clippy::missing_const_for_fn)]
+    #[allow(clippy::needless_pass_by_value)]
     fn merge_partial(&mut self, partial: PartialRecoveryConfig) {
         if let Some(policy) = partial.policy {
             self.policy = policy;

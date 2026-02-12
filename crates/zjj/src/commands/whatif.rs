@@ -17,6 +17,8 @@ pub struct WhatIfOptions {
     pub command: String,
     /// Arguments for the command
     pub args: Vec<String>,
+    /// Output format
+    pub format: OutputFormat,
 }
 
 impl Default for WhatIfOptions {
@@ -24,6 +26,7 @@ impl Default for WhatIfOptions {
         Self {
             command: String::new(),
             args: Vec::new(),
+            format: OutputFormat::Human,
         }
     }
 }
@@ -101,7 +104,7 @@ pub struct PrerequisiteCheck {
 }
 
 /// Status of a prerequisite
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PrerequisiteStatus {
     /// Prerequisite is met

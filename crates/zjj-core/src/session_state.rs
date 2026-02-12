@@ -101,9 +101,9 @@ impl SessionState {
 
     /// Returns true if this is a terminal state.
     ///
-    /// Note: SessionState has NO truly terminal states - even Completed and Failed
+    /// Note: `SessionState` has NO truly terminal states - even Completed and Failed
     /// can transition back to Created for undo/retry operations. This is intentional
-    /// and differs from WorkspaceState which has permanent terminal states.
+    /// and differs from `WorkspaceState` which has permanent terminal states.
     #[must_use]
     pub const fn is_terminal(self) -> bool {
         // SessionState intentionally has no terminal states - all allow transitions
@@ -1347,8 +1347,6 @@ mod tests {
 
     #[test]
     fn test_session_state_implements_lifecycle() {
-        use crate::lifecycle::LifecycleState;
-
         // SessionState implements LifecycleState trait
         let _can_transition = SessionState::Created.can_transition_to(SessionState::Active);
         let _valid_next = SessionState::Created.valid_next_states();
