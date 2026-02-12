@@ -98,6 +98,53 @@ impl SessionState {
             Self::Completed | Self::Failed => vec![Self::Created],
         }
     }
+
+    /// Returns true if this is a terminal state.
+    ///
+    /// Note: SessionState has NO truly terminal states - even Completed and Failed
+    /// can transition back to Created for undo/retry operations. This is intentional
+    /// and differs from WorkspaceState which has permanent terminal states.
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {
+        // SessionState intentionally has no terminal states - all allow transitions
+        false
+    }
+
+    /// Returns all possible session states as a slice.
+    #[must_use]
+    pub const fn all_states() -> &'static [Self] {
+        &[
+            Self::Created,
+            Self::Active,
+            Self::Syncing,
+            Self::Synced,
+            Self::Paused,
+            Self::Completed,
+            Self::Failed,
+        ]
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIFECYCLE TRAIT IMPLEMENTATION (bd-bzl)
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl crate::lifecycle::LifecycleState for SessionState {
+    fn can_transition_to(self, next: Self) -> bool {
+        self.can_transition_to(next)
+    }
+
+    fn valid_next_states(self) -> Vec<Self> {
+        self.valid_next_states()
+    }
+
+    fn is_terminal(self) -> bool {
+        self.is_terminal()
+    }
+
+    fn all_states() -> &'static [Self] {
+        Self::all_states()
+    }
 }
 
 /// State transition event with timestamp
@@ -1292,5 +1339,37 @@ mod tests {
         assert!(state.is_ok());
         let state_value = state.is_ok_and(|s| s == SessionState::Active);
         assert!(state_value);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // LIFECYCLE TRAIT CONFORMANCE TESTS (bd-bzl)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[test]
+    fn test_session_state_implements_lifecycle() {
+        use crate::lifecycle::LifecycleState;
+
+        // SessionState implements LifecycleState trait
+        let _can_transition = SessionState::Created.can_transition_to(SessionState::Active);
+        let _valid_next = SessionState::Created.valid_next_states();
+        let _is_terminal = SessionState::Completed.is_terminal();
+        let _all = SessionState::all_states();
+    }
+
+    #[test]
+    fn test_session_state_conformance() {
+        use crate::lifecycle::conformance_tests;
+
+        // SessionState passes all conformance tests
+        conformance_tests::run_all_tests::<SessionState>();
+    }
+
+    #[test]
+    fn test_session_state_has_no_terminal_states() {
+        // SessionState intentionally has no terminal states - all allow undo/retry
+        assert!(!SessionState::Completed.is_terminal());
+        assert!(!SessionState::Failed.is_terminal());
+        assert!(!SessionState::Created.is_terminal());
+        assert!(!SessionState::Active.is_terminal());
     }
 }

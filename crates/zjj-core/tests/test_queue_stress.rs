@@ -612,8 +612,8 @@ async fn test_queue_lock_contention_resolution() -> Result<(), Box<dyn std::erro
     if let Some(entry_val) = entry {
         assert_eq!(
             entry_val.status,
-            QueueStatus::Processing,
-            "Workspace should be in processing state"
+            QueueStatus::Claimed,
+            "Workspace should be in claimed state"
         );
     }
 
