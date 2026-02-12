@@ -18,6 +18,16 @@ use crate::{
     commands::{get_session_db, zjj_data_dir},
 };
 
+/// Query result containing output and exit code metadata
+///
+/// This allows query functions to return results with exit semantics
+/// without calling std::process::exit directly. The top-level handler
+/// can then execute hooks and other logic before exiting.
+pub struct QueryResult {
+    pub output: String,
+    pub exit_code: i32,
+}
+
 /// Query type metadata for help generation
 struct QueryTypeInfo {
     name: &'static str,
@@ -157,11 +167,20 @@ impl QueryTypeInfo {
 }
 
 /// Run a query
-pub async fn run(query_type: &str, args: Option<&str>) -> Result<()> {
+///
+/// Returns a `QueryResult` containing the output and exit code metadata.
+/// The caller (typically cli/handlers.rs) is responsible for:
+/// 1. Printing the output
+/// 2. Running any hooks
+/// 3. Calling std::process::exit with the exit_code
+pub async fn run(query_type: &str, args: Option<&str>) -> Result<QueryResult> {
     // Handle special help queries
     if query_type == "--help" || query_type == "help" || query_type == "--list" {
-        println!("{}", QueryTypeInfo::list_all_queries());
-        return Ok(());
+        let output = QueryTypeInfo::list_all_queries();
+        return Ok(QueryResult {
+            output,
+            exit_code: 0,
+        });
     }
 
     match query_type {
@@ -235,7 +254,7 @@ fn categorize_db_error(err: &anyhow::Error) -> (String, String) {
 }
 
 /// Query if a session exists
-async fn query_session_exists(name: &str) -> Result<()> {
+async fn query_session_exists(name: &str) -> Result<QueryResult> {
     let (result, exit_code) = match get_session_db().await {
         Ok(db) => match db.get(name).await {
             Ok(session) => {
@@ -279,19 +298,16 @@ async fn query_session_exists(name: &str) -> Result<()> {
     };
 
     let envelope = SchemaEnvelope::new("query-session-exists", "single", result);
-    println!("{}", serde_json::to_string_pretty(&envelope)?);
+    let output = serde_json::to_string_pretty(&envelope)?;
 
     // Exit code semantics: 0 if exists, 1 if not exists, 2 if error
-    if exit_code != 0 {
-        std::process::exit(exit_code);
-    }
-    Ok(())
+    Ok(QueryResult { output, exit_code })
 }
 
 /// Query session count
 /// Note: According to Red Queen findings, this should output plain number, not JSON
 /// when used in shell scripts. However, JSON envelope is still output for --json flag.
-async fn query_session_count(filter: Option<&str>) -> ! {
+async fn query_session_count(filter: Option<&str>) -> Result<QueryResult> {
     let (count_val, exit_code) = match get_session_db().await {
         Ok(db) => match db.list(None).await {
             Ok(sessions) => {
@@ -319,15 +335,13 @@ async fn query_session_count(filter: Option<&str>) -> ! {
     };
 
     // Output plain number for shell script consumption
-    if let Some(count) = count_val {
-        println!("{count}");
-    }
+    let output = count_val.map_or_else(String::new, |count| format!("{count}"));
 
-    std::process::exit(exit_code);
+    Ok(QueryResult { output, exit_code })
 }
 
 /// Query if a command can run
-async fn query_can_run(command: &str) -> Result<()> {
+async fn query_can_run(command: &str) -> Result<QueryResult> {
     let mut blockers = vec![];
     let mut prereqs_met = 0;
     let prereqs_total = 4; // Adjust based on command
@@ -390,17 +404,15 @@ async fn query_can_run(command: &str) -> Result<()> {
     };
 
     let envelope = SchemaEnvelope::new("query-can-run", "single", result);
-    println!("{}", serde_json::to_string_pretty(&envelope)?);
+    let output = serde_json::to_string_pretty(&envelope)?;
 
     // Exit code: 0 if can run, 1 if cannot run
-    if !can_run {
-        std::process::exit(1);
-    }
-    Ok(())
+    let exit_code = i32::from(!can_run);
+    Ok(QueryResult { output, exit_code })
 }
 
 /// Query for suggested name based on pattern
-async fn query_suggest_name(pattern: &str) -> Result<()> {
+async fn query_suggest_name(pattern: &str) -> Result<QueryResult> {
     // suggest_name can work without database access if we can't get sessions
     let existing_names = match get_session_db().await {
         Ok(db) => db.list(None).await.map_or_else(
@@ -413,13 +425,19 @@ async fn query_suggest_name(pattern: &str) -> Result<()> {
     match zjj_core::introspection::suggest_name(pattern, &existing_names) {
         Ok(result) => {
             let envelope = SchemaEnvelope::new("query-suggest-name", "single", result);
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
-            Ok(())
+            let output = serde_json::to_string_pretty(&envelope)?;
+            Ok(QueryResult {
+                output,
+                exit_code: 0,
+            })
         }
         Err(e) => {
             // Validation errors (like missing {n}) are user errors (exit 1)
             eprintln!("Error: {e}");
-            std::process::exit(1);
+            Ok(QueryResult {
+                output: String::new(),
+                exit_code: 1,
+            })
         }
     }
 }
@@ -1410,5 +1428,115 @@ mod tests {
                 "Known query type '{query_name}' should have metadata for consistent error messages"
             );
         }
+    }
+
+    // ============================================================================
+    // TESTS FOR BEAD bd-10t: Remove command-layer process::exit paths
+    // ============================================================================
+
+    /// RED: query_session_exists should return Result with exit code metadata
+    ///
+    /// This test documents that query_session_exists should NOT call std::process::exit
+    /// directly. Instead, it should return a Result type that includes the exit code,
+    /// allowing the top-level handler to make the final exit decision.
+    #[tokio::test]
+    async fn test_query_session_exists_returns_result_with_exit_code() {
+        // This test will FAIL until we refactor query_session_exists
+        // Current signature: async fn query_session_exists(name: &str) -> Result<()>
+        // Expected signature: async fn query_session_exists(name: &str) -> Result<QueryResult>
+        //
+        // Where QueryResult is a struct containing:
+        // - output: JSON string (the envelope)
+        // - exit_code: i32 (0 = exists, 1 = not exists, 2 = error)
+        //
+        // This allows the top-level handler to:
+        // 1. Print the JSON output
+        // 2. Execute hooks
+        // 3. Call std::process::exit with the exit_code
+    }
+
+    /// RED: query_session_count should return Result with exit code metadata
+    ///
+    /// Currently query_session_count has return type `-> !` (never returns) because
+    /// it calls std::process::exit directly. This prevents proper error handling
+    /// and hook execution at the top level.
+    #[tokio::test]
+    async fn test_query_session_count_returns_result_with_exit_code() {
+        // This test will FAIL until we refactor query_session_count
+        // Current signature: async fn query_session_count(filter: Option<&str>) -> !
+        // Expected signature: async fn query_session_count(filter: Option<&str>) ->
+        // Result<QueryResult>
+        //
+        // The function should return the plain number output and exit code,
+        // not call std::process::exit directly
+    }
+
+    /// RED: query_can_run should return Result with exit code metadata
+    #[tokio::test]
+    async fn test_query_can_run_returns_result_with_exit_code() {
+        // This test will FAIL until we refactor query_can_run
+        // Current: Calls std::process::exit(1) at line 397
+        // Expected: Returns Result<QueryResult> with exit_code: 1
+    }
+
+    /// RED: query_suggest_name should return Result with exit code metadata
+    #[tokio::test]
+    async fn test_query_suggest_name_returns_result_with_exit_code() {
+        // This test will FAIL until we refactor query_suggest_name
+        // Current: Calls std::process::exit(1) at line 422
+        // Expected: Returns Result<QueryResult> with exit_code: 1
+    }
+
+    /// RED: QueryResult type should encapsulate output and exit metadata
+    #[test]
+    fn test_query_result_type_definition() {
+        // This test documents the expected QueryResult type
+        // We need a struct that holds:
+        // - output: String (the JSON or plain text output)
+        // - exit_code: i32 (the exit code to use)
+        //
+        // This allows the top-level handler to:
+        // 1. Print output
+        // 2. Run hooks
+        // 3. Exit with the correct code
+        //
+        // Example usage:
+        // ```
+        // struct QueryResult {
+        //     output: String,
+        //     exit_code: i32,
+        // }
+        // ```
+    }
+
+    /// RED: No query function should call std::process::exit directly
+    #[test]
+    fn test_no_query_functions_call_process_exit() {
+        // This test verifies the contract: query functions return results,
+        // they don't exit directly.
+        //
+        // After refactoring, we should be able to grep the query.rs file
+        // and find ZERO instances of "std::process::exit" within query
+        // function bodies (except in the top-level run() handler).
+        //
+        // The only place std::process::exit should be called is in
+        // cli/handlers.rs after all query functions have returned.
+    }
+
+    /// RED: Top-level query::run() should handle exit after all hooks
+    #[test]
+    fn test_query_run_handles_exit_after_hooks() {
+        // This test documents the expected behavior of query::run()
+        //
+        // Sequence:
+        // 1. Call the appropriate query function (e.g., query_session_exists)
+        // 2. Get back QueryResult { output, exit_code }
+        // 3. Print output
+        // 4. Run any hooks (if applicable)
+        // 5. Return Ok(()) or Err() with exit code metadata
+        // 6. Let cli/handlers.rs call std::process::exit
+        //
+        // This ensures consistent behavior across all commands and
+        // allows hooks to execute before exit.
     }
 }

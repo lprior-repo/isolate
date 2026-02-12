@@ -46,6 +46,8 @@ mod spawn_behavior_tests;
 pub mod status;
 pub mod switch;
 pub mod sync;
+#[cfg(test)]
+mod sync_behavior_tests;
 pub mod template;
 pub mod undo;
 pub mod validate;
