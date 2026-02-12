@@ -469,7 +469,7 @@ fn requires_zellij(command: &str) -> bool {
 }
 
 /// Query lock status for a session
-async fn query_lock_status(session: &str) -> Result<()> {
+async fn query_lock_status(session: &str) -> Result<QueryResult> {
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -570,12 +570,15 @@ async fn query_lock_status(session: &str) -> Result<()> {
     };
 
     let envelope = SchemaEnvelope::new("query-lock-status", "single", result);
-    println!("{}", serde_json::to_string_pretty(&envelope)?);
-    Ok(())
+    let output = serde_json::to_string_pretty(&envelope)?;
+    Ok(QueryResult {
+        output,
+        exit_code: 0,
+    })
 }
 
 /// Query if spawning is possible
-async fn query_can_spawn(bead_id: Option<&str>) -> Result<()> {
+async fn query_can_spawn(bead_id: Option<&str>) -> Result<QueryResult> {
     use serde::Serialize;
 
     #[derive(Serialize)]
