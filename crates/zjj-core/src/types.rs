@@ -51,6 +51,40 @@ impl SessionStatus {
         )
     }
 
+    /// Returns all valid next states from current state.
+    ///
+    /// Uses exhaustive pattern matching to ensure all states are covered.
+    #[must_use]
+    pub fn valid_next_states(self) -> Vec<Self> {
+        match self {
+            Self::Creating => vec![Self::Active, Self::Failed],
+            Self::Active => vec![Self::Paused, Self::Completed],
+            Self::Paused => vec![Self::Active, Self::Completed],
+            // Terminal states - no transitions out
+            Self::Completed | Self::Failed => vec![],
+        }
+    }
+
+    /// Returns true if this is a terminal state (no transitions out).
+    ///
+    /// SessionStatus.Completed and SessionStatus.Failed are terminal.
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {
+        matches!(self, Self::Completed | Self::Failed)
+    }
+
+    /// Returns all possible session status states.
+    #[must_use]
+    pub const fn all_states() -> &'static [Self] {
+        &[
+            Self::Creating,
+            Self::Active,
+            Self::Paused,
+            Self::Completed,
+            Self::Failed,
+        ]
+    }
+
     /// Allowed operations in this state
     pub const fn allowed_operations(self) -> &'static [Operation] {
         match self {
@@ -69,6 +103,28 @@ impl SessionStatus {
     /// Check if an operation is allowed in this state
     pub fn allows_operation(self, op: Operation) -> bool {
         self.allowed_operations().contains(&op)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIFECYCLE TRAIT IMPLEMENTATION (bd-bzl)
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl crate::lifecycle::LifecycleState for SessionStatus {
+    fn can_transition_to(self, next: Self) -> bool {
+        self.can_transition_to(next)
+    }
+
+    fn valid_next_states(self) -> Vec<Self> {
+        self.valid_next_states()
+    }
+
+    fn is_terminal(self) -> bool {
+        self.is_terminal()
+    }
+
+    fn all_states() -> &'static [Self] {
+        Self::all_states()
     }
 }
 
@@ -940,5 +996,38 @@ mod tests {
             .get("properties")
             .and_then(|v| v.as_object())
             .is_some());
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // LIFECYCLE TRAIT CONFORMANCE TESTS (bd-bzl)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[test]
+    fn test_session_status_implements_lifecycle() {
+        use crate::lifecycle::LifecycleState;
+
+        // SessionStatus implements LifecycleState trait
+        let _can_transition = SessionStatus::Creating.can_transition_to(SessionStatus::Active);
+        let _valid_next = SessionStatus::Creating.valid_next_states();
+        let _is_terminal = SessionStatus::Completed.is_terminal();
+        let _all = SessionStatus::all_states();
+    }
+
+    #[test]
+    fn test_session_status_conformance() {
+        use crate::lifecycle::conformance_tests;
+
+        // SessionStatus passes all conformance tests
+        conformance_tests::run_all_tests::<SessionStatus>();
+    }
+
+    #[test]
+    fn test_session_status_terminal_states() {
+        // SessionStatus.Completed and Failed are terminal
+        assert!(SessionStatus::Completed.is_terminal());
+        assert!(SessionStatus::Failed.is_terminal());
+        assert!(!SessionStatus::Creating.is_terminal());
+        assert!(!SessionStatus::Active.is_terminal());
+        assert!(!SessionStatus::Paused.is_terminal());
     }
 }

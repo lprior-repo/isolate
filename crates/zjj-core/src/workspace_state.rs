@@ -114,6 +114,32 @@ impl WorkspaceState {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LIFECYCLE TRAIT IMPLEMENTATION (bd-bzl)
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl crate::lifecycle::LifecycleState for WorkspaceState {
+    fn can_transition_to(self, next: Self) -> bool {
+        // Delegate to existing method
+        self.can_transition_to(next)
+    }
+
+    fn valid_next_states(self) -> Vec<Self> {
+        // Delegate to existing method
+        self.valid_next_states()
+    }
+
+    fn is_terminal(self) -> bool {
+        // Delegate to existing method
+        self.is_terminal()
+    }
+
+    fn all_states() -> &'static [Self] {
+        // Delegate to existing method
+        Self::all()
+    }
+}
+
 impl fmt::Display for WorkspaceState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -755,5 +781,34 @@ mod tests {
         // Invalid input returns Err, not panic
         let result = WorkspaceState::from_str("not-a-state");
         assert!(result.is_err());
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // LIFECYCLE TRAIT CONFORMANCE TESTS (bd-bzl)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// RED: WorkspaceState must implement LifecycleState trait
+    #[test]
+    fn test_workspace_state_implements_lifecycle() {
+        use crate::lifecycle::LifecycleState;
+
+        // This test will FAIL until WorkspaceState implements LifecycleState
+        // Expected signature:
+        // impl LifecycleState for WorkspaceState { ... }
+
+        // These methods must be available:
+        let _can_transition = WorkspaceState::Created.can_transition_to(WorkspaceState::Working);
+        let _valid_next = WorkspaceState::Created.valid_next_states();
+        let _is_terminal = WorkspaceState::Merged.is_terminal();
+        let _all = WorkspaceState::all_states();
+    }
+
+    /// RED: WorkspaceState must pass all conformance tests
+    #[test]
+    fn test_workspace_state_conformance() {
+        use crate::lifecycle::conformance_tests;
+
+        // This will FAIL until WorkspaceState implements LifecycleState correctly
+        conformance_tests::run_all_tests::<WorkspaceState>();
     }
 }

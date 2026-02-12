@@ -104,7 +104,7 @@ async fn stress_concurrent_claim_with_massive_contention() -> Result<()> {
     let all_entries = queue.list(None).await?;
     let processing_count = all_entries
         .iter()
-        .filter(|e| e.status == QueueStatus::Processing)
+        .filter(|e| e.status == QueueStatus::Claimed)
         .count();
 
     assert_eq!(

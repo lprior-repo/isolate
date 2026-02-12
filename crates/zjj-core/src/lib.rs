@@ -61,6 +61,7 @@ pub mod jj;
 pub mod jj_operation_sync;
 pub mod json;
 pub mod kdl_validation;
+pub mod lifecycle;
 mod output_format;
 pub mod recovery;
 pub mod result;
@@ -77,6 +78,7 @@ pub mod zellij;
 pub use config::{ConfigManager, RecoveryPolicy};
 pub use coordination::{
     MergeQueue, ProcessingLock, QueueAddResponse, QueueEntry, QueueStats, QueueStatus,
+    TransitionError,
 };
 pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};

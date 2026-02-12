@@ -6,6 +6,120 @@ use serde::{Deserialize, Serialize};
 
 use crate::{fix::Fix, hints::NextAction};
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SCHEMA REGISTRY - Single Source of Truth for Schema IDs
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Schema name constants for all CLI JSON output schemas.
+///
+/// These constants ensure that:
+/// 1. Contract documentation and runtime code use the same schema IDs
+/// 2. Schema IDs are compile-time checked
+/// 3. No drift between documentation and implementation
+///
+/// # Conformance
+///
+/// - Commands MUST use these constants when creating `SchemaEnvelope`
+/// - Contract.rs MUST reference these for `output_schema` documentation
+/// - Tests verify both contract and runtime use the same values
+pub mod schemas {
+    /// Schema version for all responses
+    pub const SCHEMA_VERSION: &str = "1.0";
+
+    /// Base URI for all schemas
+    pub const BASE_URI: &str = "zjj://";
+
+    // Command response schemas
+    pub const INIT_RESPONSE: &str = "init-response";
+    pub const ADD_RESPONSE: &str = "add-response";
+    pub const LIST_RESPONSE: &str = "list-response";
+    pub const REMOVE_RESPONSE: &str = "remove-response";
+    pub const FOCUS_RESPONSE: &str = "focus-response";
+    pub const STATUS_RESPONSE: &str = "status-response";
+    pub const SYNC_RESPONSE: &str = "sync-response";
+    pub const DONE_RESPONSE: &str = "done-response";
+    pub const UNDO_RESPONSE: &str = "undo-response";
+    pub const REVERT_RESPONSE: &str = "revert-response";
+    pub const WORK_RESPONSE: &str = "work-response";
+    pub const ABORT_RESPONSE: &str = "abort-response";
+    pub const SPAWN_RESPONSE: &str = "spawn-response";
+    pub const WHEREAMI_RESPONSE: &str = "whereami-response";
+    pub const WHOAMI_RESPONSE: &str = "whoami-response";
+    pub const DOCTOR_RESPONSE: &str = "doctor-response";
+    pub const CLEAN_RESPONSE: &str = "clean-response";
+    pub const CONTEXT_RESPONSE: &str = "context-response";
+    pub const INTROSPECT_RESPONSE: &str = "introspect-response";
+    pub const CHECKPOINT_RESPONSE: &str = "checkpoint-response";
+    pub const CONTRACT_RESPONSE: &str = "contract-response";
+    pub const CONTRACTS_RESPONSE: &str = "contracts-response";
+
+    // Diff schemas
+    pub const DIFF_RESPONSE: &str = "diff-response";
+    pub const DIFF_STAT_RESPONSE: &str = "diff-stat-response";
+
+    // Query schemas
+    pub const QUERY_SESSION_EXISTS: &str = "query-session-exists";
+    pub const QUERY_CAN_RUN: &str = "query-can-run";
+    pub const QUERY_SUGGEST_NAME: &str = "query-suggest-name";
+    pub const QUERY_LOCK_STATUS: &str = "query-lock-status";
+    pub const QUERY_CAN_SPAWN: &str = "query-can-spawn";
+    pub const QUERY_PENDING_MERGES: &str = "query-pending-merges";
+    pub const QUERY_LOCATION: &str = "query-location";
+
+    // Error schema
+    pub const ERROR_RESPONSE: &str = "error-response";
+
+    /// Build a full schema URI from a schema name
+    #[must_use]
+    pub fn uri(schema_name: &str) -> String {
+        format!("{BASE_URI}{schema_name}/v1")
+    }
+
+    /// Get all valid schema names for validation
+    pub fn all_valid_schemas() -> Vec<&'static str> {
+        vec![
+            INIT_RESPONSE,
+            ADD_RESPONSE,
+            LIST_RESPONSE,
+            REMOVE_RESPONSE,
+            FOCUS_RESPONSE,
+            STATUS_RESPONSE,
+            SYNC_RESPONSE,
+            DONE_RESPONSE,
+            UNDO_RESPONSE,
+            REVERT_RESPONSE,
+            WORK_RESPONSE,
+            ABORT_RESPONSE,
+            SPAWN_RESPONSE,
+            WHEREAMI_RESPONSE,
+            WHOAMI_RESPONSE,
+            DOCTOR_RESPONSE,
+            CLEAN_RESPONSE,
+            CONTEXT_RESPONSE,
+            INTROSPECT_RESPONSE,
+            CHECKPOINT_RESPONSE,
+            CONTRACT_RESPONSE,
+            CONTRACTS_RESPONSE,
+            DIFF_RESPONSE,
+            DIFF_STAT_RESPONSE,
+            QUERY_SESSION_EXISTS,
+            QUERY_CAN_RUN,
+            QUERY_SUGGEST_NAME,
+            QUERY_LOCK_STATUS,
+            QUERY_CAN_SPAWN,
+            QUERY_PENDING_MERGES,
+            QUERY_LOCATION,
+            ERROR_RESPONSE,
+        ]
+    }
+
+    /// Check if a schema name is valid
+    #[must_use]
+    pub fn is_valid_schema(schema_name: &str) -> bool {
+        all_valid_schemas().contains(&schema_name)
+    }
+}
+
 /// Standard JSON success response wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonSuccess<T> {
@@ -610,19 +724,21 @@ impl<T> SchemaEnvelope<T> {
     /// Create a new schema envelope
     ///
     /// # Arguments
-    /// * `schema_name` - Command/response type (e.g., "status-response")
+    /// * `schema_name` - Command/response type (e.g., "status-response") Should use a constant from
+    ///   `schemas` module for conformance
     /// * `schema_type` - Response shape ("single" or "array")
     /// * `data` - The response data to wrap
     ///
     /// # Example
     ///
     /// ```ignore
-    /// let envelope = SchemaEnvelope::new("status-response", "single", data);
+    /// use zjj_core::json::schemas;
+    /// let envelope = SchemaEnvelope::new(schemas::STATUS_RESPONSE, "single", data);
     /// ```
     pub fn new(schema_name: &str, schema_type: &str, data: T) -> Self {
         Self {
-            schema: format!("zjj://{schema_name}/v1"),
-            schema_version: "1.0".to_string(),
+            schema: schemas::uri(schema_name),
+            schema_version: schemas::SCHEMA_VERSION.to_string(),
             schema_type: schema_type.to_string(),
             success: true,
             data,
@@ -1361,5 +1477,89 @@ mod tests {
 
         assert_eq!(envelope.next.len(), 1);
         assert!(envelope.data.is_empty());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCHEMA REGISTRY TESTS (bd-2nv: cli-contracts)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_schema_registry_uri_format() {
+        assert_eq!(schemas::uri(schemas::ADD_RESPONSE), "zjj://add-response/v1");
+        assert_eq!(
+            schemas::uri(schemas::DONE_RESPONSE),
+            "zjj://done-response/v1"
+        );
+        assert_eq!(
+            schemas::uri(schemas::CONTEXT_RESPONSE),
+            "zjj://context-response/v1"
+        );
+    }
+
+    #[test]
+    fn test_schema_registry_all_schemas_are_valid() {
+        for schema in schemas::all_valid_schemas() {
+            assert!(!schema.is_empty(), "Schema name should not be empty");
+            assert!(
+                schema.contains('-') || schema.contains('_'),
+                "Schema '{schema}' should use kebab-case or snake_case"
+            );
+        }
+    }
+
+    #[test]
+    fn test_schema_registry_validation() {
+        assert!(schemas::is_valid_schema(schemas::ADD_RESPONSE));
+        assert!(schemas::is_valid_schema(schemas::DONE_RESPONSE));
+        assert!(schemas::is_valid_schema(schemas::DIFF_RESPONSE));
+        assert!(!schemas::is_valid_schema("invalid-schema"));
+        assert!(!schemas::is_valid_schema(""));
+    }
+
+    #[test]
+    fn test_schema_envelope_uses_registry() {
+        // Verify that SchemaEnvelope::new uses the registry format
+        let data = serde_json::json!({"test": "data"});
+        let envelope = SchemaEnvelope::new(schemas::ADD_RESPONSE, "single", data);
+
+        assert_eq!(envelope.schema, "zjj://add-response/v1");
+        assert_eq!(envelope.schema_version, schemas::SCHEMA_VERSION);
+        assert_eq!(envelope.schema_type, "single");
+    }
+
+    #[test]
+    fn test_all_contract_schemas_exist_in_registry() {
+        // This test verifies that all schemas used by contract.rs are in the registry
+        let contract_schemas = [
+            "init-response",
+            "add-response",
+            "list-response",
+            "remove-response",
+            "focus-response",
+            "status-response",
+            "sync-response",
+            "done-response",
+            "undo-response",
+            "revert-response",
+            "work-response",
+            "abort-response",
+            "spawn-response",
+            "whereami-response",
+            "whoami-response",
+            "doctor-response",
+            "clean-response",
+            "context-response",
+            "introspect-response",
+            "checkpoint-response",
+            "contract-response",
+            "contracts-response",
+        ];
+
+        for schema in contract_schemas {
+            assert!(
+                schemas::is_valid_schema(schema),
+                "Contract schema '{schema}' not found in registry"
+            );
+        }
     }
 }
