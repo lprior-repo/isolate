@@ -303,11 +303,15 @@ impl SessionDb {
         }
     }
 
-    /// Create a new session
+    /// Create a new session with atomic conflict detection
+    ///
+    /// This uses `ON CONFLICT(name) DO NOTHING` to prevent race conditions when
+    /// multiple processes try to create the same session simultaneously.
     ///
     /// # Errors
     ///
-    /// Returns error if session name is invalid, already exists, or database operation fails
+    /// Returns error if session name is invalid or database operation fails.
+    /// Returns `Error::DatabaseError` if session already exists (detected atomically).
     pub async fn create(&self, name: &str, workspace_path: &str) -> Result<Session> {
         // Validate session name BEFORE creating database record
         // This prevents backslash-n and other invalid characters from being stored
@@ -317,9 +321,11 @@ impl SessionDb {
         let status = SessionStatus::Creating;
         let state = WorkspaceState::Created;
 
-        insert_session(&self.pool, name, &status, workspace_path, now)
-            .await
-            .map(|id| Session {
+        // Try to insert, handling atomic conflict detection
+        let id_opt = insert_session(&self.pool, name, &status, workspace_path, now).await?;
+
+        match id_opt {
+            Some(id) => Ok(Session {
                 id: Some(id),
                 name: name.to_string(),
                 status,
@@ -331,7 +337,29 @@ impl SessionDb {
                 updated_at: now,
                 last_synced: None,
                 metadata: None,
-            })
+            }),
+            None => {
+                // Session already exists (atomic conflict detection)
+                // Load the existing session to verify workspace path matches
+                match query_session_by_name(&self.pool, name).await? {
+                    Some(existing) => {
+                        if existing.workspace_path != workspace_path {
+                            Err(Error::DatabaseError(format!(
+                                "Session '{name}' already exists with different workspace path.\n\
+                                 Existing: {}\n\
+                                 Requested: {workspace_path}",
+                                existing.workspace_path
+                            )))
+                        } else {
+                            Err(Error::DatabaseError(format!("Session '{name}' already exists")))
+                        }
+                    }
+                    None => Err(Error::DatabaseError(format!(
+                        "Session '{name}' creation conflict detected but session not found"
+                    ))),
+                }
+            }
+        }
     }
 
     /// Create a new session with optional command idempotency key.
@@ -1417,18 +1445,34 @@ async fn check_schema_version(pool: &SqlitePool) -> Result<()> {
     }
 }
 
-/// Insert a new session into database
+/// Insert a new session into database with atomic conflict detection
+///
+/// Returns `Ok(Some(id))` if the session was created, `Ok(None)` if a session
+/// with the same name already exists (atomic conflict detection via ON CONFLICT).
+///
+/// # Race Condition Prevention
+///
+/// Uses `ON CONFLICT(name) DO NOTHING` to ensure atomic insert-or-exist
+/// semantics. This prevents the check-then-act race condition where two
+/// concurrent processes could both check for existence, find no session,
+/// then both try to insert the same name.
+///
+/// # Errors
+///
+/// Returns error if database operation fails (except UNIQUE constraint which
+/// is handled by returning Ok(None)).
 async fn insert_session(
     pool: &SqlitePool,
     name: &str,
     status: &SessionStatus,
     workspace_path: &str,
     timestamp: u64,
-) -> Result<i64> {
-    run_with_sqlite_busy_retry("create session", || async {
+) -> Result<Option<i64>> {
+    let result = run_with_sqlite_busy_retry("create session", || async {
         sqlx::query(
             "INSERT INTO sessions (name, status, state, workspace_path, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(name) DO NOTHING",
         )
         .bind(name)
         .bind(status.to_string())
@@ -1439,15 +1483,13 @@ async fn insert_session(
         .execute(pool)
         .await
     })
-    .await
-    .map(|result| result.last_insert_rowid())
-    .map_err(|error| {
-        let message = error.to_string().to_lowercase();
-        if message.contains("unique") {
-            Error::DatabaseError(format!("Session '{name}' already exists"))
-        } else {
-            error
-        }
+    .await?;
+
+    // Return None if no row was inserted (conflict), Some(id) if inserted
+    Ok(if result.rows_affected() > 0 {
+        Some(result.last_insert_rowid())
+    } else {
+        None
     })
 }
 
