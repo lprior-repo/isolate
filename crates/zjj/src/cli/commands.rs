@@ -1250,6 +1250,7 @@ pub fn cmd_queue() -> ClapCommand {
             ],
             None,
         ))
+        .subcommand(cmd_queue_list())
         .subcommand(cmd_queue_worker())
         .arg(
             Arg::new("add")
@@ -1337,6 +1338,30 @@ pub fn cmd_queue() -> ClapCommand {
                 .default_missing_value("300")
                 .help("Reclaim entries with expired leases (default: 300s threshold)"),
         )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+pub fn cmd_queue_list() -> ClapCommand {
+    ClapCommand::new("list")
+        .about("List all queue entries in FIFO order")
+        .long_about(
+            "Display all queue entries in FIFO (first-in-first-out) order.
+
+            Shows entries with their status, priority, and associated metadata.
+            Non-terminal entries (pending, processing) are displayed by default.",
+        )
+        .after_help(after_help_text(
+            &[
+                "zjj queue list                  Show all queue entries",
+                "zjj queue list --json           Show queue as JSON with state counts",
+            ],
+            None,
+        ))
         .arg(
             Arg::new("json")
                 .long("json")
