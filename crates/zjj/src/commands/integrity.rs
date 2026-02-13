@@ -191,20 +191,16 @@ async fn run_repair(
     // Load config with graceful error handling for TOML parse errors
     let config = match zjj_core::config::load_config().await {
         Ok(config) => config,
-        Err(e) => {
-            // Check if this is a config-related error (TOML parse or load failure)
-            let error_msg = e.to_string().to_lowercase();
-            if error_msg.contains("config")
-                && (error_msg.contains("toml") || error_msg.contains("parse"))
-            {
+        Err(e) => match &e {
+            zjj_core::Error::ParseError(_) | zjj_core::Error::InvalidConfig(_) => {
                 let response = RepairResponse {
-                     workspace: workspace.to_string(),
-                     success: false,
-                     summary: format!(
-                         "Cannot load configuration due to TOML parse error: {e}. \
-                          Suggestion: Check .zjj/config.toml or ~/.config/zjj/config.toml for syntax errors."
-                     ),
-                 };
+                        workspace: workspace.to_string(),
+                        success: false,
+                        summary: format!(
+                            "Cannot load configuration due to config error: {e}. \
+                             Suggestion: Check .zjj/config.toml or ~/.config/zjj/config.toml for syntax errors."
+                        ),
+                    };
 
                 if format.is_json() {
                     let envelope =
@@ -219,8 +215,8 @@ async fn run_repair(
                 }
                 return Ok(());
             }
-            return Err(anyhow::anyhow!("Unable to load config: {e}"));
-        }
+            _ => return Err(anyhow::anyhow!("Unable to load config: {e}")),
+        },
     };
 
     let workspace_roots =

@@ -351,7 +351,9 @@ impl SessionDb {
                                 existing.workspace_path
                             )))
                         } else {
-                            Err(Error::DatabaseError(format!("Session '{name}' already exists")))
+                            Err(Error::DatabaseError(format!(
+                                "Session '{name}' already exists"
+                            )))
                         }
                     }
                     None => Err(Error::DatabaseError(format!(
@@ -478,7 +480,7 @@ impl SessionDb {
         insert_session(&self.pool, name, &status, workspace_path, created_at)
             .await
             .map(|id| Session {
-                id: Some(id),
+                id,
                 name: name.to_string(),
                 status,
                 state,
