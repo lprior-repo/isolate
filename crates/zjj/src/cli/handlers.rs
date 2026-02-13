@@ -531,9 +531,16 @@ pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
-    // Check for worker subcommand first
-    if let Some((_, worker_m)) = sub_m.subcommand() {
-        return handle_queue_worker(worker_m).await;
+    // Check for subcommands
+    if let Some((subcommand_name, subcommand_matches)) = sub_m.subcommand() {
+        return match subcommand_name {
+            "list" => handle_queue_list(subcommand_matches).await,
+            "worker" => handle_queue_worker(subcommand_matches).await,
+            _ => Err(anyhow::anyhow!(
+                "Unknown queue subcommand: {}",
+                subcommand_name
+            )),
+        };
     }
 
     let json = sub_m.get_flag("json");
@@ -551,6 +558,25 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
         remove: sub_m.get_one::<String>("remove").cloned(),
         status: sub_m.get_one::<String>("status").cloned(),
         stats: sub_m.get_flag("stats"),
+    };
+    queue::run_with_options(&options).await
+}
+
+pub async fn handle_queue_list(sub_m: &ArgMatches) -> Result<()> {
+    let json = sub_m.get_flag("json");
+    let format = OutputFormat::from_json_flag(json);
+    let options = queue::QueueOptions {
+        format,
+        add: None,
+        bead_id: None,
+        priority: 5,
+        agent_id: None,
+        list: true,
+        process: false,
+        next: false,
+        remove: None,
+        status: None,
+        stats: false,
     };
     queue::run_with_options(&options).await
 }

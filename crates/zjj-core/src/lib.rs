@@ -78,9 +78,8 @@ pub mod zellij;
 
 pub use config::{ConfigManager, RecoveryPolicy};
 pub use coordination::{
-    graceful_shutdown, wait_for_shutdown_signal, ActiveClaim, ClaimTracker, MergeQueue,
-    ProcessingLock, QueueAddResponse, QueueControlError, QueueEntry, QueueStats, QueueStatus,
-    ShutdownResult, TransitionError,
+    MergeQueue, ProcessingLock, QueueAddResponse, QueueEntry, QueueStats, QueueStatus,
+    TransitionError,
 };
 pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
@@ -91,8 +90,8 @@ pub use json::{
     ErrorCode, HateoasLink, RelatedResources, ResponseMeta, SchemaEnvelope, SchemaEnvelopeArray,
 };
 pub use moon_gates::{
-    classify_exit_code, combine_results, format_failure_message, parse_summary, GateError,
-    GateResult, GatesOutcome, GatesStatus, MoonGate,
+    classify_exit_code, combine_results, format_failure_message, GateError, GateResult,
+    GatesOutcome, GatesStatus, MoonGate, parse_summary,
 };
 pub use output_format::OutputFormat;
 pub use recovery::{

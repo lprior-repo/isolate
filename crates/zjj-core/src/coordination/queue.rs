@@ -1691,9 +1691,7 @@ impl MergeQueue {
         .execute(&self.pool)
         .await
         .map_err(|e| {
-            Error::DatabaseError(format!(
-                "Failed to update rebase metadata for '{workspace}': {e}"
-            ))
+            Error::DatabaseError(format!("Failed to update rebase metadata for '{workspace}': {e}"))
         })?;
 
         if result.rows_affected() == 0 {
@@ -1782,9 +1780,7 @@ impl MergeQueue {
         .execute(&self.pool)
         .await
         .map_err(|e| {
-            Error::DatabaseError(format!(
-                "Failed to transition '{workspace}' to rebasing: {e}"
-            ))
+            Error::DatabaseError(format!("Failed to transition '{workspace}' to rebasing: {e}"))
         })?;
 
         if result.rows_affected() == 0 {
@@ -3730,9 +3726,7 @@ mod tests {
 
         queue.add("ws-rebase-ev", None, 5, None).await?;
         let claimed = queue.next_with_lock("agent-ev").await?;
-        let entry_id = claimed
-            .ok_or_else(|| Error::DatabaseError("expected entry".into()))?
-            .id;
+        let entry_id = claimed.ok_or_else(|| Error::DatabaseError("expected entry".into()))?.id;
 
         queue
             .transition_to("ws-rebase-ev", QueueStatus::Rebasing)
@@ -3769,10 +3763,7 @@ mod tests {
 
         let event =
             rebase_transition_event.ok_or_else(|| Error::DatabaseError("expected event".into()))?;
-        assert!(event
-            .details_json
-            .as_ref()
-            .map_or(false, |d| d.contains("main012")));
+        assert!(event.details_json.as_ref().map_or(false, |d| d.contains("main012")));
 
         Ok(())
     }

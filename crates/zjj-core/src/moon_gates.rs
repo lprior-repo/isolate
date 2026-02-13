@@ -174,7 +174,10 @@ impl fmt::Display for GatesStatus {
 pub enum GateError {
     /// Failed to execute the moon command
     #[error("failed to execute moon {gate}: {reason}")]
-    ExecutionFailed { gate: MoonGate, reason: String },
+    ExecutionFailed {
+        gate: MoonGate,
+        reason: String,
+    },
 
     /// Moon binary not found
     #[error("moon binary not found in PATH")]
@@ -262,11 +265,14 @@ pub fn parse_summary(stdout: &str, stderr: &str) -> String {
 /// Extract a failure summary from output lines.
 fn extract_failure_summary(stdout_lines: &[&str], stderr_lines: &[&str]) -> String {
     // Look for error patterns
-    let error_line = stdout_lines.iter().chain(stderr_lines.iter()).find(|line| {
-        line.to_lowercase().contains("error")
-            || line.to_lowercase().contains("failed")
-            || line.contains("FAIL")
-    });
+    let error_line = stdout_lines
+        .iter()
+        .chain(stderr_lines.iter())
+        .find(|line| {
+            line.to_lowercase().contains("error")
+                || line.to_lowercase().contains("failed")
+                || line.contains("FAIL")
+        });
 
     error_line.map_or_else(
         || "Gate failed".to_string(),
@@ -295,10 +301,7 @@ fn extract_failure_summary(stdout_lines: &[&str], stderr_lines: &[&str]) -> Stri
 /// # Returns
 /// The combined gates outcome
 #[must_use]
-pub const fn combine_results(
-    quick_result: GateResult,
-    test_result: Option<GateResult>,
-) -> GatesOutcome {
+pub const fn combine_results(quick_result: GateResult, test_result: Option<GateResult>) -> GatesOutcome {
     let status = match (&quick_result, &test_result) {
         (quick, None) if !quick.passed => GatesStatus::QuickFailed,
         (_quick, None) => {
@@ -327,7 +330,8 @@ pub fn format_failure_message(outcome: &GatesOutcome) -> String {
         GatesStatus::QuickFailed => {
             format!(
                 "Quick gate failed (exit code {}): {}",
-                outcome.quick.exit_code, outcome.quick.summary
+                outcome.quick.exit_code,
+                outcome.quick.summary
             )
         }
         GatesStatus::TestFailed => {
@@ -398,7 +402,11 @@ mod tests {
 
     #[test]
     fn test_gate_result_passed() {
-        let result = GateResult::passed(MoonGate::Quick, "passed".to_string(), String::new());
+        let result = GateResult::passed(
+            MoonGate::Quick,
+            "passed".to_string(),
+            String::new(),
+        );
         assert!(result.passed);
         assert_eq!(result.exit_code, 0);
         assert_eq!(result.gate, MoonGate::Quick);
@@ -406,7 +414,12 @@ mod tests {
 
     #[test]
     fn test_gate_result_failed() {
-        let result = GateResult::failed(MoonGate::Quick, 1, "error".to_string(), String::new());
+        let result = GateResult::failed(
+            MoonGate::Quick,
+            1,
+            "error".to_string(),
+            String::new(),
+        );
         assert!(!result.passed);
         assert_eq!(result.exit_code, 1);
     }
@@ -461,7 +474,12 @@ mod tests {
     #[test]
     fn test_format_failure_message_test() {
         let quick = GateResult::passed(MoonGate::Quick, String::new(), String::new());
-        let test = GateResult::failed(MoonGate::Test, 1, "test failed".to_string(), String::new());
+        let test = GateResult::failed(
+            MoonGate::Test,
+            1,
+            "test failed".to_string(),
+            String::new(),
+        );
         let outcome = combine_results(quick, Some(test));
 
         let msg = format_failure_message(&outcome);
@@ -500,7 +518,10 @@ mod tests {
     #[test]
     fn test_gates_status_display() {
         assert_eq!(format!("{}", GatesStatus::AllPassed), "all gates passed");
-        assert_eq!(format!("{}", GatesStatus::QuickFailed), "quick gate failed");
+        assert_eq!(
+            format!("{}", GatesStatus::QuickFailed),
+            "quick gate failed"
+        );
         assert_eq!(format!("{}", GatesStatus::TestFailed), "test gate failed");
     }
 
