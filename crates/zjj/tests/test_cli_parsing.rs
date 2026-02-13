@@ -39,6 +39,136 @@ mod common;
 use common::TestHarness;
 
 // ============================================================================
+// Wait Command Regression Tests (zjj-2jph)
+// ============================================================================
+
+#[test]
+fn test_wait_help_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        // Test framework will handle skipping - no output needed
+        return;
+    };
+
+    let result = harness.zjj(&["wait", "--help"]);
+    result.assert_output_contains("wait");
+    result.assert_output_contains("condition");
+}
+
+#[test]
+fn test_wait_with_session_exists_condition() {
+    let Some(harness) = TestHarness::try_new() else {
+        // Test framework will handle skipping - no output needed
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Test: Command with valid arguments doesn't panic
+    // We use a very short timeout so it doesn't actually wait
+    let result = harness.zjj(&[
+        "wait",
+        "session-exists",
+        "nonexistent-session",
+        "-t",
+        "1",
+        "-i",
+        "1",
+    ]);
+    // Should not panic - just fail with timeout
+    assert!(!result.success, "Should fail when session doesn't exist");
+}
+
+#[test]
+fn test_wait_with_healthy_condition() {
+    let Some(harness) = TestHarness::try_new() else {
+        // Test framework will handle skipping - no output needed
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Test: Healthy condition with short timeout
+    let result = harness.zjj(&["wait", "healthy", "-t", "1", "-i", "1"]);
+    // May succeed or fail depending on system state, but should not panic
+    assert!(
+        result.success || !result.stdout.is_empty(),
+        "Should produce output"
+    );
+}
+
+#[test]
+fn test_wait_with_session_status_condition() {
+    let Some(harness) = TestHarness::try_new() else {
+        // Test framework will handle skipping - no output needed
+        return;
+    };
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["add", "test-session", "--no-zellij", "--no-hooks"]);
+
+    // Test: Session status condition with short timeout
+    let result = harness.zjj(&[
+        "wait",
+        "session-status",
+        "test-session",
+        "--status",
+        "active",
+        "-t",
+        "1",
+        "-i",
+        "1",
+    ]);
+    // Should not panic - may succeed if status matches or timeout if not
+    assert!(
+        result.success || !result.stdout.is_empty(),
+        "Should produce output"
+    );
+}
+
+#[test]
+fn test_wait_with_session_unlocked_condition() {
+    let Some(harness) = TestHarness::try_new() else {
+        // Test framework will handle skipping - no output needed
+        return;
+    };
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["add", "test-session", "--no-zellij", "--no-hooks"]);
+
+    // Test: Session unlocked condition with short timeout
+    let result = harness.zjj(&[
+        "wait",
+        "session-unlocked",
+        "test-session",
+        "-t",
+        "1",
+        "-i",
+        "1",
+    ]);
+    // Should not panic
+    assert!(
+        result.success || !result.stdout.is_empty(),
+        "Should produce output"
+    );
+}
+
+#[test]
+fn test_wait_with_json_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        // Test framework will handle skipping - no output needed
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Test: JSON output with short timeout
+    let result = harness.zjj(&["wait", "healthy", "-t", "1", "-i", "1", "--json"]);
+    // Should produce valid JSON output even if condition times out
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    assert!(
+        parsed.is_ok(),
+        "JSON output should be valid: {}\nstderr: {}",
+        result.stdout,
+        result.stderr
+    );
+}
+
+// ============================================================================
 // Help and Version
 // ============================================================================
 
@@ -1298,131 +1428,3 @@ fn test_add_example_json_output_fields_are_strings() {
 }
 
 // ============================================================================
-// Wait Command Regression Tests (zjj-2jph)
-// ============================================================================
-
-#[test]
-fn test_wait_help_flag() {
-    let Some(harness) = TestHarness::try_new() else {
-        // Test framework will handle skipping - no output needed
-        return;
-    };
-
-    let result = harness.zjj(&["wait", "--help"]);
-    result.assert_output_contains("wait");
-    result.assert_output_contains("condition");
-}
-
-#[test]
-fn test_wait_with_session_exists_condition() {
-    let Some(harness) = TestHarness::try_new() else {
-        // Test framework will handle skipping - no output needed
-        return;
-    };
-    harness.assert_success(&["init"]);
-
-    // Test: Command with valid arguments doesn't panic
-    // We use a very short timeout so it doesn't actually wait
-    let result = harness.zjj(&[
-        "wait",
-        "session-exists",
-        "nonexistent-session",
-        "-t",
-        "1",
-        "-i",
-        "1",
-    ]);
-    // Should not panic - just fail with timeout
-    assert!(!result.success, "Should fail when session doesn't exist");
-}
-
-#[test]
-fn test_wait_with_healthy_condition() {
-    let Some(harness) = TestHarness::try_new() else {
-        // Test framework will handle skipping - no output needed
-        return;
-    };
-    harness.assert_success(&["init"]);
-
-    // Test: Healthy condition with short timeout
-    let result = harness.zjj(&["wait", "healthy", "-t", "1", "-i", "1"]);
-    // May succeed or fail depending on system state, but should not panic
-    assert!(
-        result.success || !result.stdout.is_empty(),
-        "Should produce output"
-    );
-}
-
-#[test]
-fn test_wait_with_session_status_condition() {
-    let Some(harness) = TestHarness::try_new() else {
-        // Test framework will handle skipping - no output needed
-        return;
-    };
-    harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test-session", "--no-zellij", "--no-hooks"]);
-
-    // Test: Session status condition with short timeout
-    let result = harness.zjj(&[
-        "wait",
-        "session-status",
-        "test-session",
-        "--status",
-        "active",
-        "-t",
-        "1",
-        "-i",
-        "1",
-    ]);
-    // Should not panic - may succeed if status matches or timeout if not
-    assert!(
-        result.success || !result.stdout.is_empty(),
-        "Should produce output"
-    );
-}
-
-#[test]
-fn test_wait_with_session_unlocked_condition() {
-    let Some(harness) = TestHarness::try_new() else {
-        // Test framework will handle skipping - no output needed
-        return;
-    };
-    harness.assert_success(&["init"]);
-    harness.assert_success(&["add", "test-session", "--no-zellij", "--no-hooks"]);
-
-    // Test: Session unlocked condition with short timeout
-    let result = harness.zjj(&[
-        "wait",
-        "session-unlocked",
-        "test-session",
-        "-t",
-        "1",
-        "-i",
-        "1",
-    ]);
-    // Should not panic
-    assert!(
-        result.success || !result.stdout.is_empty(),
-        "Should produce output"
-    );
-}
-
-#[test]
-fn test_wait_with_json_flag() {
-    let Some(harness) = TestHarness::try_new() else {
-        // Test framework will handle skipping - no output needed
-        return;
-    };
-    harness.assert_success(&["init"]);
-
-    // Test: JSON output with short timeout
-    let result = harness.zjj(&["wait", "healthy", "-t", "1", "-i", "1", "--json"]);
-    // Should produce valid JSON output even if condition times out
-    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
-    assert!(
-        parsed.is_ok(),
-        "JSON output should be valid: {}\nstderr: {}",
-        result.stdout,
-        result.stderr
-    );
-}
