@@ -1645,6 +1645,119 @@ mod tests {
         Ok(())
     }
 
+    // Test 10b-2: bd-31c - Reject arbitrary string values like "invalid-value-not-bool"
+    #[tokio::test]
+    async fn test_invalid_boolean_string_exact_match_rejected() -> Result<()> {
+        let temp_dir = tempfile::tempdir()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let config_path = temp_dir.path().join("bad_bool_exact.toml");
+
+        // Write a config with the exact string from the bead requirement
+        tokio::fs::write(
+            &config_path,
+            b"[watch]\nenabled = \"invalid-value-not-bool\"",
+        )
+        .await
+        .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
+
+        let result = load_toml_file(&config_path).await;
+        assert!(
+            result.is_err(),
+            "String value 'invalid-value-not-bool' for boolean field should be rejected"
+        );
+
+        // Verify it's a parse error with type validation message
+        if let Err(Error::ParseError(msg)) = result {
+            assert!(
+                msg.contains("expected")
+                    || msg.contains("boolean")
+                    || msg.contains("true or false"),
+                "Error message should indicate type mismatch: {msg}"
+            );
+        }
+        Ok(())
+    }
+
+    // Test 10b-3: bd-31c - Verify valid booleans are accepted
+    #[tokio::test]
+    async fn test_valid_boolean_values_accepted() -> Result<()> {
+        let temp_dir = tempfile::tempdir()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let config_path = temp_dir.path().join("valid_bool.toml");
+
+        // Test both true and false values
+        for bool_val in [true, false] {
+            let content = format!(
+                r#"
+workspace_dir = "../test"
+main_branch = "main"
+default_template = "standard"
+state_db = ".zjj/state.db"
+
+[watch]
+enabled = {bool_val}
+debounce_ms = 100
+paths = [".beads/beads.db"]
+
+[hooks]
+post_create = []
+pre_remove = []
+post_merge = []
+
+[zellij]
+session_prefix = "zjj"
+use_tabs = {bool_val}
+layout_dir = ".zjj/layouts"
+
+[zellij.panes.main]
+command = "claude"
+args = []
+size = "70%"
+
+[zellij.panes.beads]
+command = "bv"
+args = []
+size = "50%"
+
+[zellij.panes.status]
+command = "zjj"
+args = ["status", "--watch"]
+size = "50%"
+
+[zellij.panes.float]
+enabled = {bool_val}
+command = ""
+width = "80%"
+height = "60%"
+
+[dashboard]
+refresh_ms = 1000
+theme = "default"
+columns = ["name", "status", "branch", "changes", "beads"]
+vim_keys = {bool_val}
+
+[agent]
+command = "claude"
+env = {{}}
+
+[session]
+auto_commit = {bool_val}
+commit_prefix = "wip:"
+"#
+            );
+            tokio::fs::write(&config_path, &content)
+                .await
+                .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
+
+            let result = load_toml_file(&config_path).await;
+            assert!(
+                result.is_ok(),
+                "Valid boolean value {bool_val} should be accepted"
+            );
+        }
+        Ok(())
+    }
+
     // Test 10c: Valid boolean values in Config should work
     #[tokio::test]
     async fn test_valid_config_with_booleans() -> Result<()> {

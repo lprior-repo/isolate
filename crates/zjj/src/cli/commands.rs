@@ -510,7 +510,6 @@ pub fn cmd_remove() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required(true)
-                .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Name of the session to remove"),
         )
         .arg(
@@ -568,7 +567,6 @@ pub fn cmd_focus() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required(false)
-                .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Name of the session to focus (interactive if omitted)"),
         )
         .arg(
@@ -762,7 +760,6 @@ pub fn cmd_diff() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required(false)
-                .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Session name to show diff for (auto-detected if not provided)"),
         )
         .arg(
@@ -1241,6 +1238,10 @@ pub fn cmd_queue() -> ClapCommand {
                 "zjj queue --add <workspace> --bead <id>  Add workspace to queue",
                 "zjj queue --next                          Get next pending entry",
                 "zjj queue --status <workspace>            Check workspace queue status",
+                "zjj queue --status-id <id>                Show entry details with events",
+                "zjj queue --cancel <id>                   Cancel a non-terminal entry",
+                "zjj queue --retry <id>                    Retry a failed_retryable entry",
+                "zjj queue --reclaim-stale [SECS]          Reclaim stale leased entries",
                 "zjj queue --remove <workspace>            Remove workspace from queue",
                 "zjj queue --stats                         Show queue statistics",
                 "zjj queue worker --once                   Process one queue entry",
@@ -1301,10 +1302,40 @@ pub fn cmd_queue() -> ClapCommand {
                 .help("Check queue status of workspace"),
         )
         .arg(
+            Arg::new("status-id")
+                .long("status-id")
+                .value_name("ID")
+                .value_parser(clap::value_parser!(i64))
+                .help("Show detailed status for queue entry with events"),
+        )
+        .arg(
+            Arg::new("cancel")
+                .long("cancel")
+                .value_name("ID")
+                .value_parser(clap::value_parser!(i64))
+                .help("Cancel a non-terminal queue entry (releases worker lease)"),
+        )
+        .arg(
+            Arg::new("retry")
+                .long("retry")
+                .value_name("ID")
+                .value_parser(clap::value_parser!(i64))
+                .help("Retry a failed_retryable entry (must be retryable and under max_attempts)"),
+        )
+        .arg(
             Arg::new("stats")
                 .long("stats")
                 .action(clap::ArgAction::SetTrue)
                 .help("Show queue statistics"),
+        )
+        .arg(
+            Arg::new("reclaim-stale")
+                .long("reclaim-stale")
+                .value_name("SECS")
+                .value_parser(clap::value_parser!(i64))
+                .num_args(0..=1)
+                .default_missing_value("300")
+                .help("Reclaim entries with expired leases (default: 300s threshold)"),
         )
         .arg(
             Arg::new("json")

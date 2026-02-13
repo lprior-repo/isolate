@@ -30,7 +30,6 @@
         clippy::unnecessary_semicolon,
         clippy::needless_borrows_for_generic_args,
         clippy::items_after_statements,
-        dead_code,
         unused_must_use
     )
 )]
