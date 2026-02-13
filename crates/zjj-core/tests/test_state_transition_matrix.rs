@@ -209,6 +209,21 @@ mod session_status_matrix {
             }
         }
     }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // SELF-TRANSITIONS ARE FORBIDDEN
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[test]
+    fn test_no_self_transitions() {
+        for &state in SessionStatus::all_states() {
+            assert!(
+                !state.can_transition_to(state),
+                "SessionStatus::{:?} should not allow self-transition",
+                state
+            );
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
