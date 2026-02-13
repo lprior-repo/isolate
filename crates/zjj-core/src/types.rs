@@ -6,10 +6,10 @@
 //! - JSON Schema generation
 //! - Self-documenting APIs
 
-use std::path::PathBuf;
+use std::{fmt, path::PathBuf, str::FromStr};
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as SerdeError, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
     contracts::{Constraint, ContextualHint, FieldContract, HasContract, HintType, TypeContract},
@@ -17,7 +17,180 @@ use crate::{
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SESSION TYPES
+// SESSION NAME VALUE OBJECT
+// ═════════════════════════════════════════════════════════════════════════
+
+/// A validated session name value object.
+///
+/// # Invariants
+/// - Must start with an ASCII letter (a-z, A-Z)
+/// - May contain only ASCII alphanumeric characters, dashes, or underscores
+/// - Maximum length of 64 characters
+/// - Minimum length of 1 character
+///
+/// # Example
+/// ```ignore
+/// use zjj_core::SessionName;
+/// use std::str::FromStr;
+///
+/// let name = SessionName::from_str("my-feature")?;
+/// assert_eq!(name.as_str(), "my-feature");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SessionName(String);
+
+impl SessionName {
+    /// Maximum allowed length for a session name.
+    pub const MAX_LENGTH: usize = 64;
+
+    /// Create a new SessionName from a string slice.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the name violates any invariant.
+    pub fn new(name: impl Into<String>) -> Result<Self> {
+        let name = name.into();
+        Self::validate(&name)?;
+        Ok(Self(name))
+    }
+
+    /// Get the session name as a string slice.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Validate a session name string.
+    fn validate(name: &str) -> Result<()> {
+        if name.is_empty() {
+            return Err(Error::ValidationError {
+                message: "Session name cannot be empty".to_string(),
+                field: Some("name".to_string()),
+                value: Some(name.to_string()),
+                constraints: vec!["non-empty".to_string()],
+            });
+        }
+
+        let first_char = name.chars().next();
+        let starts_with_letter = first_char.is_some_and(|c| c.is_ascii_alphabetic());
+
+        if !starts_with_letter {
+            return Err(Error::ValidationError {
+                message: "Session name must start with a letter".to_string(),
+                field: Some("name".to_string()),
+                value: Some(name.to_string()),
+                constraints: vec!["starts with letter (a-z, A-Z)".to_string()],
+            });
+        }
+
+        let valid_chars = name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+
+        if !valid_chars {
+            return Err(Error::ValidationError {
+                message:
+                    "Session name must contain only alphanumeric characters, dashes, or underscores"
+                        .to_string(),
+                field: Some("name".to_string()),
+                value: Some(name.to_string()),
+                constraints: vec!["alphanumeric, dash, underscore only".to_string()],
+            });
+        }
+
+        if name.len() > Self::MAX_LENGTH {
+            return Err(Error::ValidationError {
+                message: format!("Session name cannot exceed {} characters", Self::MAX_LENGTH),
+                field: Some("name".to_string()),
+                value: Some(name.to_string()),
+                constraints: vec![format!("max length {}", Self::MAX_LENGTH)],
+            });
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for SessionName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl AsRef<str> for SessionName {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for SessionName {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Self::new(s)
+    }
+}
+
+impl Serialize for SessionName {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for SessionName {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Self::new(s).map_err(|e| D::Error::custom(format!("{e}")))
+    }
+}
+
+impl From<SessionName> for String {
+    fn from(name: SessionName) -> Self {
+        name.0
+    }
+}
+
+impl HasContract for SessionName {
+    fn contract() -> TypeContract {
+        TypeContract::builder("SessionName")
+            .description("A validated session name")
+            .field(
+                "value",
+                FieldContract::builder("value", "String")
+                    .required()
+                    .description("The session name string")
+                    .constraint(Constraint::Regex {
+                        pattern: r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$".to_string(),
+                        description:
+                            "starts with letter, alphanumeric/dash/underscore, max 64 chars"
+                                .to_string(),
+                    })
+                    .constraint(Constraint::Length {
+                        min: Some(1),
+                        max: Some(Self::MAX_LENGTH),
+                    })
+                    .example("feature-auth")
+                    .example("bugfix-123")
+                    .example("experiment_idea")
+                    .build(),
+            )
+            .hint(ContextualHint {
+                hint_type: HintType::BestPractice,
+                message: "Use descriptive session names that indicate the purpose of the work"
+                    .to_string(),
+                condition: None,
+                related_to: Some("value".to_string()),
+            })
+            .build()
+    }
+
+    fn validate(&self) -> Result<()> {
+        Self::validate(&self.0)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSION STATUS
 // ═════════════════════════════════════════════════════════════════════════
 
 /// Session lifecycle states
@@ -150,10 +323,11 @@ pub struct Session {
     /// Human-readable session name
     ///
     /// # Contract
-    /// - MUST match regex: `^[a-zA-Z0-9_-]+$`
+    /// - MUST start with a letter
+    /// - MUST match regex: `^[a-zA-Z][a-zA-Z0-9_-]{0,63}$`
     /// - MUST be unique across all sessions
     /// - MUST NOT exceed 64 characters
-    pub name: String,
+    pub name: SessionName,
 
     /// Current session status
     pub status: SessionStatus,
@@ -192,50 +366,17 @@ pub struct Session {
 }
 
 impl Session {
-    /// Validate session invariants
+    /// Validate session invariants (pure domain validation, no I/O)
     ///
     /// # Errors
     ///
     /// Returns error if:
-    /// - Name doesn't match regex
+    /// - Name doesn't match validation rules
     /// - Workspace path is not absolute
-    /// - Workspace doesn't exist (if status != Creating)
     /// - Timestamps are in wrong order
-    pub fn validate(&self) -> Result<()> {
-        // Name validation
-        let name_regex =
-            regex::Regex::new(r"^[a-zA-Z0-9_-]+$").map_err(|e| Error::ValidationError {
-                message: format!("Invalid regex: {e}"),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
-            })?;
+    pub fn validate_pure(&self) -> Result<()> {
+        self.name.validate()?;
 
-        if !name_regex.is_match(&self.name) {
-            return Err(Error::ValidationError {
-                 message: format!(
-                     "Session name '{}' must contain only alphanumeric characters, hyphens, and underscores",
-                     self.name
-                 ),
-                 field: None,
-                 value: None,
-                 constraints: Vec::new(),
-             });
-        }
-
-        if self.name.len() > 64 {
-            return Err(Error::ValidationError {
-                message: format!(
-                    "Session name '{}' exceeds maximum length of 64 characters",
-                    self.name
-                ),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
-            });
-        }
-
-        // Path validation
         if !self.workspace_path.is_absolute() {
             return Err(Error::ValidationError {
                 message: format!(
@@ -248,20 +389,6 @@ impl Session {
             });
         }
 
-        // Existence check (except during creation)
-        if self.status != SessionStatus::Creating && !self.workspace_path.exists() {
-            return Err(Error::ValidationError {
-                message: format!(
-                    "Workspace '{}' does not exist",
-                    self.workspace_path.display()
-                ),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
-            });
-        }
-
-        // Timestamp order
         if self.updated_at < self.created_at {
             return Err(Error::ValidationError {
                 message: "Updated timestamp cannot be before created timestamp".to_string(),
@@ -273,6 +400,26 @@ impl Session {
 
         Ok(())
     }
+
+    /// Validate session invariants including filesystem checks
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - Name doesn't match validation rules
+    /// - Workspace path is not absolute
+    /// - Workspace doesn't exist (if status != Creating)
+    /// - Timestamps are in wrong order
+    pub fn validate(&self) -> Result<()> {
+        self.validate_pure()?;
+        crate::validation::validate_session_workspace_exists(self)
+    }
+
+    /// Get the session name as a string slice.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
 }
 
 impl HasContract for Session {
@@ -281,12 +428,14 @@ impl HasContract for Session {
             .description("A parallel workspace for isolating work")
             .field(
                 "name",
-                FieldContract::builder("name", "String")
+                FieldContract::builder("name", "SessionName")
                     .required()
                     .description("Human-readable session name")
                     .constraint(Constraint::Regex {
-                        pattern: r"^[a-zA-Z0-9_-]+$".to_string(),
-                        description: "alphanumeric with hyphens and underscores".to_string(),
+                        pattern: r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$".to_string(),
+                        description:
+                            "starts with letter, alphanumeric/dash/underscore, max 64 chars"
+                                .to_string(),
                     })
                     .constraint(Constraint::Length {
                         min: Some(1),
@@ -795,28 +944,25 @@ mod tests {
     }
 
     #[test]
-    fn test_session_validate_name_regex() {
-        let session = Session {
-            id: "id123".to_string(),
-            name: "invalid name".to_string(), // contains space
-            status: SessionStatus::Creating,
-            state: WorkspaceState::Created,
-            workspace_path: PathBuf::from("/tmp/test"),
-            branch: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            last_synced: None,
-            metadata: serde_json::Value::Null,
-        };
+    fn test_session_name_rejects_invalid() {
+        assert!(SessionName::new("invalid name").is_err());
+        assert!(SessionName::new("123-start-with-number").is_err());
+        assert!(SessionName::new("").is_err());
+        assert!(SessionName::new(&"x".repeat(65)).is_err());
+    }
 
-        assert!(session.validate().is_err());
+    #[test]
+    fn test_session_name_accepts_valid() {
+        assert!(SessionName::new("valid-name").is_ok());
+        assert!(SessionName::new("Feature_Auth").is_ok());
+        assert!(SessionName::new("a").is_ok());
     }
 
     #[test]
     fn test_session_validate_path_not_absolute() {
         let session = Session {
             id: "id123".to_string(),
-            name: "valid-name".to_string(),
+            name: SessionName::new("valid-name").expect("valid name"),
             status: SessionStatus::Creating,
             state: WorkspaceState::Created,
             workspace_path: PathBuf::from("relative/path"), // not absolute
@@ -837,7 +983,7 @@ mod tests {
 
         let session = Session {
             id: "id123".to_string(),
-            name: "valid-name".to_string(),
+            name: SessionName::new("valid-name").expect("valid name"),
             status: SessionStatus::Creating,
             state: WorkspaceState::Created,
             workspace_path: PathBuf::from("/tmp/test"),
@@ -1015,5 +1161,87 @@ mod tests {
         assert!(!SessionStatus::Creating.is_terminal());
         assert!(!SessionStatus::Active.is_terminal());
         assert!(!SessionStatus::Paused.is_terminal());
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // SESSION NAME VALUE OBJECT TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[test]
+    fn test_session_name_from_str() {
+        use std::str::FromStr;
+        let name = SessionName::from_str("my-feature").expect("valid name");
+        assert_eq!(name.as_str(), "my-feature");
+    }
+
+    #[test]
+    fn test_session_name_display() {
+        let name = SessionName::new("test-session").expect("valid name");
+        assert_eq!(format!("{name}"), "test-session");
+    }
+
+    #[test]
+    fn test_session_name_as_ref() {
+        let name = SessionName::new("session-name").expect("valid name");
+        let ref_str: &str = name.as_ref();
+        assert_eq!(ref_str, "session-name");
+    }
+
+    #[test]
+    fn test_session_name_into_string() {
+        let name = SessionName::new("session").expect("valid name");
+        let s: String = name.into();
+        assert_eq!(s, "session");
+    }
+
+    #[test]
+    fn test_session_name_max_length() {
+        let exactly_64: String = "a".repeat(64);
+        assert!(
+            SessionName::new(&exactly_64).is_ok(),
+            "64 chars should be valid"
+        );
+
+        let too_long: String = "a".repeat(65);
+        assert!(
+            SessionName::new(&too_long).is_err(),
+            "65 chars should be invalid"
+        );
+    }
+
+    #[test]
+    fn test_session_name_special_chars() {
+        assert!(SessionName::new("name-with-dash").is_ok());
+        assert!(SessionName::new("name_with_underscore").is_ok());
+        assert!(SessionName::new("NameWithCaps123").is_ok());
+        assert!(SessionName::new("name with space").is_err());
+        assert!(SessionName::new("name@special").is_err());
+        assert!(SessionName::new("name.dots").is_err());
+    }
+
+    #[test]
+    fn test_session_name_must_start_with_letter() {
+        assert!(SessionName::new("a").is_ok());
+        assert!(SessionName::new("A").is_ok());
+        assert!(SessionName::new("1start-with-number").is_err());
+        assert!(SessionName::new("_start-with-underscore").is_err());
+        assert!(SessionName::new("-start-with-dash").is_err());
+    }
+
+    #[test]
+    fn test_session_name_contract() {
+        let contract = SessionName::contract();
+        assert_eq!(contract.name, "SessionName");
+        assert!(contract.fields.contains_key("value"));
+    }
+
+    #[test]
+    fn test_session_name_json_schema() {
+        let schema = SessionName::json_schema();
+        assert_eq!(schema.get("type").and_then(|v| v.as_str()), Some("object"));
+        assert_eq!(
+            schema.get("title").and_then(|v| v.as_str()),
+            Some("SessionName")
+        );
     }
 }

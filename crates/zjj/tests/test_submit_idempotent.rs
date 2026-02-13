@@ -52,9 +52,7 @@ fn count_active_entries(json: &JsonValue, workspace: &str) -> usize {
             .iter()
             .filter(|e| {
                 e["workspace"].as_str() == Some(workspace)
-                    && e["status"]
-                        .as_str()
-                        .is_some_and(|s| !is_terminal_status(s))
+                    && e["status"].as_str().is_some_and(|s| !is_terminal_status(s))
             })
             .count(),
         None => 0,
@@ -88,7 +86,10 @@ fn test_submit_creates_single_entry_on_first_submit() {
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Add test file"]);
 
     // Create a bookmark with -r @ for reliability
-    harness.jj_in_dir(&workspace_path, &["bookmark", "create", "feature-test", "-r", "@"]);
+    harness.jj_in_dir(
+        &workspace_path,
+        &["bookmark", "create", "feature-test", "-r", "@"],
+    );
 
     // WHEN: User runs submit from the workspace
     harness.current_dir = workspace_path.clone();
@@ -111,7 +112,9 @@ fn test_submit_creates_single_entry_on_first_submit() {
 
     // Verify schema
     assert!(
-        json["schema"].as_str().is_some_and(|s| s.contains("submit")),
+        json["schema"]
+            .as_str()
+            .is_some_and(|s| s.contains("submit")),
         "JSON should have submit schema\nGot: {json}"
     );
     assert_eq!(json["ok"], true, "ok should be true");
@@ -147,7 +150,10 @@ fn test_submit_duplicate_does_not_create_multiple_entries() {
         .expect("Failed to write test file");
 
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Add test file"]);
-    harness.jj_in_dir(&workspace_path, &["bookmark", "create", "dup-test", "-r", "@"]);
+    harness.jj_in_dir(
+        &workspace_path,
+        &["bookmark", "create", "dup-test", "-r", "@"],
+    );
 
     harness.current_dir = workspace_path.clone();
 
@@ -165,8 +171,7 @@ fn test_submit_duplicate_does_not_create_multiple_entries() {
     assert!(
         second_result.success,
         "Second submit should succeed (idempotent)\nstdout: {}\nstderr: {}",
-        second_result.stdout,
-        second_result.stderr
+        second_result.stdout, second_result.stderr
     );
 
     // THEN: JSON output for second submit is valid
@@ -206,7 +211,10 @@ fn test_submit_dedupe_key_prevents_duplicates() {
         .expect("Failed to write test file");
 
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Add test"]);
-    harness.jj_in_dir(&workspace_path, &["bookmark", "create", "dedupe-test", "-r", "@"]);
+    harness.jj_in_dir(
+        &workspace_path,
+        &["bookmark", "create", "dedupe-test", "-r", "@"],
+    );
 
     harness.current_dir = workspace_path.clone();
 
@@ -254,7 +262,10 @@ fn test_submit_after_terminal_state_creates_new_pending_entry() {
         .expect("Failed to write test file");
 
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Version 1"]);
-    harness.jj_in_dir(&workspace_path, &["bookmark", "create", "terminal-test", "-r", "@"]);
+    harness.jj_in_dir(
+        &workspace_path,
+        &["bookmark", "create", "terminal-test", "-r", "@"],
+    );
 
     harness.current_dir = workspace_path.clone();
 
@@ -307,8 +318,10 @@ fn test_submit_dry_run_does_not_modify_queue() {
         return;
     }
 
-    let bookmark_result =
-        harness.jj_in_dir(&workspace_path, &["bookmark", "create", "dry-run-test", "-r", "@"]);
+    let bookmark_result = harness.jj_in_dir(
+        &workspace_path,
+        &["bookmark", "create", "dry-run-test", "-r", "@"],
+    );
     if !bookmark_result.success {
         eprintln!(
             "Skipping test: bookmark create failed: {}",
@@ -386,7 +399,10 @@ fn test_submit_json_output_schema_validation() {
         .expect("Failed to write test file");
 
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Schema test"]);
-    harness.jj_in_dir(&workspace_path, &["bookmark", "create", "schema-test", "-r", "@"]);
+    harness.jj_in_dir(
+        &workspace_path,
+        &["bookmark", "create", "schema-test", "-r", "@"],
+    );
 
     harness.current_dir = workspace_path.clone();
 
@@ -452,16 +468,10 @@ fn test_submit_without_bookmark_fails() {
     // THEN: JSON error response is valid
     let json: JsonValue = serde_json::from_str(&result.stdout).expect("Should be valid JSON");
     assert_eq!(json["ok"], false, "ok should be false on error");
-    assert!(
-        json["error"].is_object(),
-        "error object should be present"
-    );
+    assert!(json["error"].is_object(), "error object should be present");
 
     let error = &json["error"];
-    assert!(
-        error["code"].is_string(),
-        "error code should be string"
-    );
+    assert!(error["code"].is_string(), "error code should be string");
     assert!(
         error["message"].is_string(),
         "error message should be string"
@@ -483,7 +493,10 @@ fn test_submit_dirty_workspace_fails_without_auto_commit() {
         .expect("Failed to write test file");
 
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Initial"]);
-    harness.jj_in_dir(&workspace_path, &["bookmark", "create", "dirty-test", "-r", "@"]);
+    harness.jj_in_dir(
+        &workspace_path,
+        &["bookmark", "create", "dirty-test", "-r", "@"],
+    );
 
     // Add uncommitted changes (dirty workspace)
     std::fs::write(workspace_path.join("uncommitted.txt"), "dirty changes")
@@ -530,7 +543,10 @@ fn test_submit_concurrent_same_workspace_no_duplicates() {
         .expect("Failed to write test file");
 
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Concurrent test"]);
-    harness.jj_in_dir(&workspace_path, &["bookmark", "create", "concurrent-test", "-r", "@"]);
+    harness.jj_in_dir(
+        &workspace_path,
+        &["bookmark", "create", "concurrent-test", "-r", "@"],
+    );
 
     // WHEN: Two concurrent submits for same workspace
     // Note: This is a simplified test; true concurrency would need threads

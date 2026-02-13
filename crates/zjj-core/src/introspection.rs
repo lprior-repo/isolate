@@ -1045,28 +1045,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
     fn test_add_command_error_conditions_document_validation_errors() {
         // FAILING: add command should document validation errors in introspection
         let add_command = CommandIntrospection {

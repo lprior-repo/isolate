@@ -120,8 +120,8 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
         Some(("create", create_m)) => {
             let name = create_m
                 .get_one::<String>("name")
-                .cloned()
-                .unwrap_or_default();
+                .ok_or_else(|| anyhow::anyhow!("Bookmark name is required"))?
+                .clone();
             let session = create_m.get_one::<String>("session").cloned();
             let push = create_m.get_flag("push");
             let json = create_m.get_flag("json");
@@ -137,8 +137,8 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
         Some(("delete", delete_m)) => {
             let name = delete_m
                 .get_one::<String>("name")
-                .cloned()
-                .unwrap_or_default();
+                .ok_or_else(|| anyhow::anyhow!("Bookmark name is required"))?
+                .clone();
             let session = delete_m.get_one::<String>("session").cloned();
             let json = delete_m.get_flag("json");
             let format = OutputFormat::from_json_flag(json);
@@ -152,9 +152,12 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
         Some(("move", move_m)) => {
             let name = move_m
                 .get_one::<String>("name")
-                .cloned()
-                .unwrap_or_default();
-            let to_revision = move_m.get_one::<String>("to").cloned().unwrap_or_default();
+                .ok_or_else(|| anyhow::anyhow!("Bookmark name is required"))?
+                .clone();
+            let to_revision = move_m
+                .get_one::<String>("to")
+                .ok_or_else(|| anyhow::anyhow!("Target revision (--to) is required"))?
+                .clone();
             let session = move_m.get_one::<String>("session").cloned();
             let json = move_m.get_flag("json");
             let format = OutputFormat::from_json_flag(json);
@@ -342,7 +345,10 @@ pub async fn handle_template(sub_m: &ArgMatches) -> Result<()> {
             template::run_list(format).await
         }
         Some(("create", sub)) => {
-            let name = sub.get_one::<String>("name").cloned().unwrap_or_default();
+            let name = sub
+                .get_one::<String>("name")
+                .ok_or_else(|| anyhow::anyhow!("Template name is required"))?
+                .clone();
             let description = sub.get_one::<String>("description").cloned();
             let json = sub.get_flag("json");
             let format = OutputFormat::from_json_flag(json);
@@ -474,8 +480,8 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
             Some(("restore", restore_m)) => {
                 let backup_id = restore_m
                     .get_one::<String>("backup_id")
-                    .cloned()
-                    .unwrap_or_default();
+                    .ok_or_else(|| anyhow::anyhow!("Backup ID is required"))?
+                    .clone();
                 let force = restore_m.get_flag("force");
                 let json = restore_m.get_flag("json");
                 let format = OutputFormat::from_json_flag(json);
@@ -559,6 +565,9 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
         status: sub_m.get_one::<String>("status").cloned(),
         stats: sub_m.get_flag("stats"),
         status_id: sub_m.get_one::<i64>("status-id").copied(),
+        retry: sub_m.get_one::<i64>("retry").copied(),
+        cancel: sub_m.get_one::<i64>("cancel").copied(),
+        reclaim_stale: sub_m.get_one::<i64>("reclaim-stale").copied(),
     };
     queue::run_with_options(&options).await
 }
@@ -579,6 +588,9 @@ pub async fn handle_queue_list(sub_m: &ArgMatches) -> Result<()> {
         status: None,
         stats: false,
         status_id: None,
+        retry: None,
+        cancel: None,
+        reclaim_stale: None,
     };
     queue::run_with_options(&options).await
 }
@@ -646,8 +658,8 @@ pub async fn handle_checkpoint(sub_m: &ArgMatches) -> Result<()> {
         Some(("restore", restore_m)) => checkpoint::CheckpointAction::Restore {
             checkpoint_id: restore_m
                 .get_one::<String>("checkpoint_id")
-                .cloned()
-                .unwrap_or_default(),
+                .ok_or_else(|| anyhow::anyhow!("Checkpoint ID is required"))?
+                .clone(),
         },
         Some(("list", _)) => checkpoint::CheckpointAction::List,
         _ => anyhow::bail!("Unknown checkpoint subcommand"),
@@ -830,8 +842,8 @@ pub async fn handle_can_i(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let action = sub_m
         .get_one::<String>("action")
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("Action is required"))?
+        .clone();
     let resource = sub_m.get_one::<String>("resource").cloned();
     let options = can_i::CanIOptions {
         action,
@@ -890,8 +902,8 @@ pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let command = sub_m
         .get_one::<String>("command")
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("Command is required"))?
+        .clone();
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
@@ -909,8 +921,8 @@ pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let command = sub_m
         .get_one::<String>("command")
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("Command is required"))?
+        .clone();
     let args: Vec<String> = sub_m
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
@@ -1017,8 +1029,8 @@ pub async fn handle_claim(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let resource = sub_m
         .get_one::<String>("resource")
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("Resource is required"))?
+        .clone();
     let timeout: u64 = sub_m
         .get_one::<String>("timeout")
         .and_then(|s| s.parse().ok())
@@ -1036,8 +1048,8 @@ pub async fn handle_yield(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let resource = sub_m
         .get_one::<String>("resource")
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("Resource is required"))?
+        .clone();
     let options = claim::YieldOptions { resource, format };
     claim::run_yield(&options).await
 }
@@ -1255,8 +1267,8 @@ pub async fn handle_lock(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let session = sub_m
         .get_one::<String>("session")
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("Session is required"))?
+        .clone();
     let agent_id = sub_m.get_one::<String>("agent-id").cloned();
     let ttl = sub_m.get_one::<u64>("ttl").map_or(0, |value| *value);
 
@@ -1291,8 +1303,8 @@ pub async fn handle_unlock(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let session = sub_m
         .get_one::<String>("session")
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("Session is required"))?
+        .clone();
     let agent_id = sub_m.get_one::<String>("agent-id").cloned();
 
     let args = crate::commands::lock::types::UnlockArgs { session, agent_id };
@@ -1315,12 +1327,12 @@ pub async fn handle_clone(sub_m: &ArgMatches) -> Result<()> {
     let format = OutputFormat::from_json_flag(json);
     let source = sub_m
         .get_one::<String>("source")
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow::anyhow!("Source session is required"))?
+        .clone();
     let target = sub_m
         .get_one::<String>("dest")
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!("Target destination is required"))?;
+        .ok_or_else(|| anyhow::anyhow!("Target destination is required"))?
+        .clone();
     let options = session_mgmt::CloneOptions {
         source,
         target,

@@ -71,6 +71,7 @@ pub mod shutdown;
 pub mod taskregistry;
 pub mod templates;
 pub mod types;
+pub mod validation;
 pub mod watcher;
 pub mod worker_error;
 pub mod workspace_integrity;
@@ -91,8 +92,8 @@ pub use json::{
     ErrorCode, HateoasLink, RelatedResources, ResponseMeta, SchemaEnvelope, SchemaEnvelopeArray,
 };
 pub use moon_gates::{
-    classify_exit_code, combine_results, format_failure_message, GateError, GateResult,
-    GatesOutcome, GatesStatus, MoonGate, parse_summary,
+    classify_exit_code, combine_results, format_failure_message, parse_summary, GateError,
+    GateResult, GatesOutcome, GatesStatus, MoonGate,
 };
 pub use output_format::OutputFormat;
 pub use recovery::{
@@ -212,3 +213,6 @@ mod tests {
         assert!(Config::validate_name("valid_name").is_ok());
     }
 }
+
+#[cfg(test)]
+mod architecture_boundaries;

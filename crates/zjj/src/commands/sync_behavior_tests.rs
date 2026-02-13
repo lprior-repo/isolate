@@ -29,8 +29,7 @@ async fn setup_test_db_with_sessions(
     let db = SessionDb::create_or_open(&db_path).await?;
 
     for name in session_names {
-        db.create(name, &format!("/fake/workspace/{name}"))
-            .await?;
+        db.create(name, &format!("/fake/workspace/{name}")).await?;
     }
 
     Ok((db, dir))
@@ -60,8 +59,7 @@ fn current_timestamp() -> Result<u64, anyhow::Error> {
 #[tokio::test]
 async fn test_sync_no_args_syncs_current_workspace() -> anyhow::Result<()> {
     // Setup: Create test database with multiple sessions
-    let (db, _dir) =
-        setup_test_db_with_sessions(&["workspace-alpha", "workspace-beta"]).await?;
+    let (db, _dir) = setup_test_db_with_sessions(&["workspace-alpha", "workspace-beta"]).await?;
 
     // Verify sessions exist
     let sessions = db.list(None).await?;
@@ -136,8 +134,7 @@ async fn test_sync_no_args_syncs_current_workspace() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_sync_with_name_syncs_named_session() -> anyhow::Result<()> {
     // Setup: Create test database with multiple sessions
-    let (db, _dir) =
-        setup_test_db_with_sessions(&["feature-x", "bugfix-y", "refactor-z"]).await?;
+    let (db, _dir) = setup_test_db_with_sessions(&["feature-x", "bugfix-y", "refactor-z"]).await?;
 
     // Verify sessions exist
     let sessions = db.list(None).await?;
@@ -193,8 +190,7 @@ async fn test_sync_with_name_syncs_named_session() -> anyhow::Result<()> {
 async fn test_sync_all_flag_syncs_all_sessions() -> anyhow::Result<()> {
     // Setup: Create test database with multiple sessions
     let (db, _dir) =
-        setup_test_db_with_sessions(&["session-a", "session-b", "session-c", "session-d"])
-            .await?;
+        setup_test_db_with_sessions(&["session-a", "session-b", "session-c", "session-d"]).await?;
 
     // Verify sessions exist
     let sessions = db.list(None).await?;

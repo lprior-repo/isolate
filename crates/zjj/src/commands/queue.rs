@@ -106,6 +106,28 @@ pub struct QueueStatusIdOutput {
     pub message: String,
 }
 
+/// Response for queue retry operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueueRetryOutput {
+    pub entry: QueueEntryOutput,
+    pub message: String,
+}
+
+/// Response for queue cancel operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueueCancelOutput {
+    pub entry: QueueEntryOutput,
+    pub message: String,
+}
+
+/// Response for queue reclaim-stale operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueueReclaimStaleOutput {
+    pub reclaimed: usize,
+    pub threshold_secs: i64,
+    pub message: String,
+}
+
 /// Options for queue command
 #[derive(Debug, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -122,6 +144,9 @@ pub struct QueueOptions {
     pub status: Option<String>,
     pub stats: bool,
     pub status_id: Option<i64>,
+    pub retry: Option<i64>,
+    pub cancel: Option<i64>,
+    pub reclaim_stale: Option<i64>,
 }
 
 /// Get or create the merge queue database
@@ -138,8 +163,13 @@ pub async fn run_with_options(options: &QueueOptions) -> Result<()> {
 
     if let Some(workspace) = &options.add {
         handle_add(&queue, workspace, options).await?;
-    } else if options.status_id.is_some() {
-        let queue_id = options.status_id.unwrap();
+    } else if let Some(id) = options.retry {
+        handle_retry(&queue, id, options).await?;
+    } else if let Some(id) = options.cancel {
+        handle_cancel(&queue, id, options).await?;
+    } else if let Some(threshold) = options.reclaim_stale {
+        handle_reclaim_stale(&queue, threshold, options).await?;
+    } else if let Some(queue_id) = options.status_id {
         handle_status_id(&queue, queue_id, options).await?;
     } else if options.list {
         handle_list(&queue, options).await?;
@@ -506,6 +536,115 @@ async fn handle_stats(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> R
         println!("  Processing: {}", stats.processing);
         println!("  Completed:  {}", stats.completed);
         println!("  Failed:     {}", stats.failed);
+    }
+
+    Ok(())
+}
+
+/// Handle the retry command
+async fn handle_retry(queue: &zjj_core::MergeQueue, id: i64, options: &QueueOptions) -> Result<()> {
+    let entry = queue
+        .retry_entry(id)
+        .await
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    let message = format!(
+        "Retried queue entry {} (workspace '{}') - attempt {}/{}",
+        entry.id, entry.workspace, entry.attempt_count, entry.max_attempts
+    );
+
+    if options.format.is_json() {
+        let entry_output = QueueEntryOutput {
+            id: entry.id,
+            workspace: entry.workspace,
+            bead_id: entry.bead_id,
+            priority: entry.priority,
+            status: entry.status.as_str().to_string(),
+            added_at: entry.added_at,
+            started_at: entry.started_at,
+            completed_at: entry.completed_at,
+            error_message: entry.error_message,
+            agent_id: entry.agent_id,
+        };
+        let output = QueueRetryOutput {
+            entry: entry_output,
+            message,
+        };
+        print_queue_envelope("queue-retry-response", &output)?;
+    } else {
+        println!("{message}");
+    }
+
+    Ok(())
+}
+
+/// Handle the cancel command
+async fn handle_cancel(
+    queue: &zjj_core::MergeQueue,
+    id: i64,
+    options: &QueueOptions,
+) -> Result<()> {
+    let entry = queue
+        .cancel_entry(id)
+        .await
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    let message = format!(
+        "Cancelled queue entry {} (workspace '{}')",
+        entry.id, entry.workspace
+    );
+
+    if options.format.is_json() {
+        let entry_output = QueueEntryOutput {
+            id: entry.id,
+            workspace: entry.workspace,
+            bead_id: entry.bead_id,
+            priority: entry.priority,
+            status: entry.status.as_str().to_string(),
+            added_at: entry.added_at,
+            started_at: entry.started_at,
+            completed_at: entry.completed_at,
+            error_message: entry.error_message,
+            agent_id: entry.agent_id,
+        };
+        let output = QueueCancelOutput {
+            entry: entry_output,
+            message,
+        };
+        print_queue_envelope("queue-cancel-response", &output)?;
+    } else {
+        println!("{message}");
+    }
+
+    Ok(())
+}
+
+/// Handle the reclaim-stale command
+async fn handle_reclaim_stale(
+    queue: &zjj_core::MergeQueue,
+    threshold_secs: i64,
+    options: &QueueOptions,
+) -> Result<()> {
+    let reclaimed = queue.reclaim_stale(threshold_secs).await?;
+
+    let message = if reclaimed == 0 {
+        format!("No stale entries found (threshold: {threshold_secs}s)")
+    } else {
+        format!(
+            "Reclaimed {reclaimed} stale entr{}",
+            if reclaimed == 1 { "y" } else { "ies" }
+        )
+    };
+
+    if options.format.is_json() {
+        let output = QueueReclaimStaleOutput {
+            reclaimed,
+            threshold_secs,
+            message,
+        };
+        print_queue_envelope("queue-reclaim-stale-response", &output)?;
+    } else {
+        println!("{message}");
     }
 
     Ok(())
