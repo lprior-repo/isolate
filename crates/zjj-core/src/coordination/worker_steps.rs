@@ -231,7 +231,9 @@ async fn get_main_sha(
         .current_dir(workspace_path)
         .output()
         .await
-        .map_err(|e| RebaseError::MainShaError(format!("Failed to execute jj log for main: {e}")))?;
+        .map_err(|e| {
+            RebaseError::MainShaError(format!("Failed to execute jj log for main: {e}"))
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

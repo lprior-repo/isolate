@@ -90,8 +90,8 @@ pub use json::{
     ErrorCode, HateoasLink, RelatedResources, ResponseMeta, SchemaEnvelope, SchemaEnvelopeArray,
 };
 pub use moon_gates::{
-    classify_exit_code, combine_results, format_failure_message, GateError, GateResult,
-    GatesOutcome, GatesStatus, MoonGate, parse_summary,
+    classify_exit_code, combine_results, execute_all_gates, format_failure_message, parse_summary,
+    GateError, GateExecutor, GateResult, GatesOutcome, GatesStatus, MoonGate, ShellGateExecutor,
 };
 pub use output_format::OutputFormat;
 pub use recovery::{

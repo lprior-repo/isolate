@@ -174,10 +174,7 @@ impl fmt::Display for GatesStatus {
 pub enum GateError {
     /// Failed to execute the moon command
     #[error("failed to execute moon {gate}: {reason}")]
-    ExecutionFailed {
-        gate: MoonGate,
-        reason: String,
-    },
+    ExecutionFailed { gate: MoonGate, reason: String },
 
     /// Moon binary not found
     #[error("moon binary not found in PATH")]
@@ -265,14 +262,11 @@ pub fn parse_summary(stdout: &str, stderr: &str) -> String {
 /// Extract a failure summary from output lines.
 fn extract_failure_summary(stdout_lines: &[&str], stderr_lines: &[&str]) -> String {
     // Look for error patterns
-    let error_line = stdout_lines
-        .iter()
-        .chain(stderr_lines.iter())
-        .find(|line| {
-            line.to_lowercase().contains("error")
-                || line.to_lowercase().contains("failed")
-                || line.contains("FAIL")
-        });
+    let error_line = stdout_lines.iter().chain(stderr_lines.iter()).find(|line| {
+        line.to_lowercase().contains("error")
+            || line.to_lowercase().contains("failed")
+            || line.contains("FAIL")
+    });
 
     error_line.map_or_else(
         || "Gate failed".to_string(),
@@ -301,7 +295,10 @@ fn extract_failure_summary(stdout_lines: &[&str], stderr_lines: &[&str]) -> Stri
 /// # Returns
 /// The combined gates outcome
 #[must_use]
-pub const fn combine_results(quick_result: GateResult, test_result: Option<GateResult>) -> GatesOutcome {
+pub const fn combine_results(
+    quick_result: GateResult,
+    test_result: Option<GateResult>,
+) -> GatesOutcome {
     let status = match (&quick_result, &test_result) {
         (quick, None) if !quick.passed => GatesStatus::QuickFailed,
         (_quick, None) => {
@@ -330,8 +327,7 @@ pub fn format_failure_message(outcome: &GatesOutcome) -> String {
         GatesStatus::QuickFailed => {
             format!(
                 "Quick gate failed (exit code {}): {}",
-                outcome.quick.exit_code,
-                outcome.quick.summary
+                outcome.quick.exit_code, outcome.quick.summary
             )
         }
         GatesStatus::TestFailed => {
@@ -348,6 +344,148 @@ pub fn format_failure_message(outcome: &GatesOutcome) -> String {
         }
         GatesStatus::AllPassed => "All gates passed".to_string(),
     }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SHELL ADAPTER LAYER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+use std::path::Path;
+
+/// Trait for executing moon gates.
+///
+/// This abstraction allows for:
+/// - Testing with mock executors
+/// - Dependency injection
+/// - Different execution strategies
+pub trait GateExecutor: Send + Sync {
+    /// Execute a single moon gate.
+    ///
+    /// # Arguments
+    /// * `gate` - Which gate to execute
+    /// * `working_dir` - Directory where moon should be executed
+    ///
+    /// # Returns
+    /// Result containing the gate execution result or error
+    ///
+    /// # Errors
+    /// Returns `GateError` if:
+    /// - Moon binary not found
+    /// - Working directory doesn't exist
+    /// - Execution fails
+    fn execute_gate(
+        &self,
+        gate: MoonGate,
+        working_dir: &Path,
+    ) -> impl std::future::Future<Output = Result<GateResult, GateError>> + Send;
+}
+
+/// Default implementation using `tokio::process::Command`.
+#[derive(Debug, Clone, Copy)]
+pub struct ShellGateExecutor;
+
+impl ShellGateExecutor {
+    /// Create a new shell executor.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
+    }
+
+    /// Check if moon binary is available in PATH.
+    fn check_moon_available() -> Result<(), GateError> {
+        which::which("moon")
+            .map(|_| ())
+            .map_err(|_| GateError::MoonNotFound)
+    }
+
+    /// Validate working directory exists.
+    fn validate_working_dir(path: &Path) -> Result<(), GateError> {
+        if !path.exists() {
+            return Err(GateError::WorkingDirectoryNotFound(
+                path.display().to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Default for ShellGateExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GateExecutor for ShellGateExecutor {
+    async fn execute_gate(
+        &self,
+        gate: MoonGate,
+        working_dir: &Path,
+    ) -> Result<GateResult, GateError> {
+        // Validate preconditions
+        Self::check_moon_available()?;
+        Self::validate_working_dir(working_dir)?;
+
+        let task = gate.as_task();
+
+        // Execute moon command
+        let output = tokio::process::Command::new("moon")
+            .args(["run", task])
+            .current_dir(working_dir)
+            .output()
+            .await
+            .map_err(|e| GateError::ExecutionFailed {
+                gate,
+                reason: e.to_string(),
+            })?;
+
+        // Parse output - use map_or for safe Option handling
+        let exit_code = output.status.code().map_or(-1, |c| c);
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        let passed = classify_exit_code(exit_code);
+
+        Ok(if passed {
+            GateResult::passed(gate, stdout, stderr)
+        } else {
+            GateResult::failed(gate, exit_code, stdout, stderr)
+        })
+    }
+}
+
+/// Execute all required gates with fail-fast logic.
+///
+/// This implements the standard gate execution flow:
+/// 1. Run quick gate first
+/// 2. If quick fails, return immediately (fail fast)
+/// 3. If quick passes, run test gate
+/// 4. Combine results
+///
+/// # Arguments
+/// * `executor` - The gate executor to use
+/// * `working_dir` - Directory where gates should execute
+///
+/// # Returns
+/// Combined outcome of all gate executions
+///
+/// # Errors
+/// Returns `GateError` if execution fails
+pub async fn execute_all_gates<E: GateExecutor>(
+    executor: &E,
+    working_dir: &Path,
+) -> Result<GatesOutcome, GateError> {
+    // Run quick gate first
+    let quick_result = executor.execute_gate(MoonGate::Quick, working_dir).await?;
+
+    // Fail fast: if quick fails, don't run test
+    if !quick_result.passed {
+        return Ok(combine_results(quick_result, None));
+    }
+
+    // Quick passed, run test gate
+    let test_result = executor.execute_gate(MoonGate::Test, working_dir).await?;
+
+    Ok(combine_results(quick_result, Some(test_result)))
 }
 
 #[cfg(test)]
@@ -402,11 +540,7 @@ mod tests {
 
     #[test]
     fn test_gate_result_passed() {
-        let result = GateResult::passed(
-            MoonGate::Quick,
-            "passed".to_string(),
-            String::new(),
-        );
+        let result = GateResult::passed(MoonGate::Quick, "passed".to_string(), String::new());
         assert!(result.passed);
         assert_eq!(result.exit_code, 0);
         assert_eq!(result.gate, MoonGate::Quick);
@@ -414,12 +548,7 @@ mod tests {
 
     #[test]
     fn test_gate_result_failed() {
-        let result = GateResult::failed(
-            MoonGate::Quick,
-            1,
-            "error".to_string(),
-            String::new(),
-        );
+        let result = GateResult::failed(MoonGate::Quick, 1, "error".to_string(), String::new());
         assert!(!result.passed);
         assert_eq!(result.exit_code, 1);
     }
@@ -474,12 +603,7 @@ mod tests {
     #[test]
     fn test_format_failure_message_test() {
         let quick = GateResult::passed(MoonGate::Quick, String::new(), String::new());
-        let test = GateResult::failed(
-            MoonGate::Test,
-            1,
-            "test failed".to_string(),
-            String::new(),
-        );
+        let test = GateResult::failed(MoonGate::Test, 1, "test failed".to_string(), String::new());
         let outcome = combine_results(quick, Some(test));
 
         let msg = format_failure_message(&outcome);
@@ -518,10 +642,7 @@ mod tests {
     #[test]
     fn test_gates_status_display() {
         assert_eq!(format!("{}", GatesStatus::AllPassed), "all gates passed");
-        assert_eq!(
-            format!("{}", GatesStatus::QuickFailed),
-            "quick gate failed"
-        );
+        assert_eq!(format!("{}", GatesStatus::QuickFailed), "quick gate failed");
         assert_eq!(format!("{}", GatesStatus::TestFailed), "test gate failed");
     }
 
@@ -534,5 +655,174 @@ mod tests {
         let msg = format!("{err}");
         assert!(msg.contains(":quick"));
         assert!(msg.contains("timeout"));
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // SHELL EXECUTOR TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[test]
+    fn test_shell_executor_can_be_created() {
+        let _executor = ShellGateExecutor::new();
+        let _executor = ShellGateExecutor::default();
+    }
+
+    #[tokio::test]
+    async fn test_mock_executor_passes() {
+        struct MockExecutor;
+
+        impl GateExecutor for MockExecutor {
+            async fn execute_gate(
+                &self,
+                gate: MoonGate,
+                _working_dir: &Path,
+            ) -> Result<GateResult, GateError> {
+                Ok(GateResult::passed(gate, String::new(), String::new()))
+            }
+        }
+
+        let executor = MockExecutor;
+        let result = executor
+            .execute_gate(MoonGate::Quick, Path::new("/tmp"))
+            .await;
+
+        assert!(result.is_ok());
+        let gate_result = result.unwrap();
+        assert!(gate_result.passed);
+    }
+
+    #[tokio::test]
+    async fn test_mock_executor_fails() {
+        struct MockExecutor;
+
+        impl GateExecutor for MockExecutor {
+            async fn execute_gate(
+                &self,
+                gate: MoonGate,
+                _working_dir: &Path,
+            ) -> Result<GateResult, GateError> {
+                Ok(GateResult::failed(
+                    gate,
+                    1,
+                    "failed".to_string(),
+                    String::new(),
+                ))
+            }
+        }
+
+        let executor = MockExecutor;
+        let result = executor
+            .execute_gate(MoonGate::Quick, Path::new("/tmp"))
+            .await;
+
+        assert!(result.is_ok());
+        let gate_result = result.unwrap();
+        assert!(!gate_result.passed);
+        assert_eq!(gate_result.exit_code, 1);
+    }
+
+    #[tokio::test]
+    async fn test_execute_all_gates_fail_fast() {
+        struct FailQuickExecutor;
+
+        impl GateExecutor for FailQuickExecutor {
+            async fn execute_gate(
+                &self,
+                gate: MoonGate,
+                _working_dir: &Path,
+            ) -> Result<GateResult, GateError> {
+                match gate {
+                    MoonGate::Quick => Ok(GateResult::failed(
+                        gate,
+                        1,
+                        "failed".to_string(),
+                        String::new(),
+                    )),
+                    MoonGate::Test => panic!("Test should not run if quick fails"),
+                }
+            }
+        }
+
+        let executor = FailQuickExecutor;
+        let outcome = execute_all_gates(&executor, Path::new("/tmp"))
+            .await
+            .unwrap();
+
+        assert_eq!(outcome.status, GatesStatus::QuickFailed);
+        assert!(outcome.test.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_execute_all_gates_both_run_when_quick_passes() {
+        struct PassQuickFailTestExecutor;
+
+        impl GateExecutor for PassQuickFailTestExecutor {
+            async fn execute_gate(
+                &self,
+                gate: MoonGate,
+                _working_dir: &Path,
+            ) -> Result<GateResult, GateError> {
+                match gate {
+                    MoonGate::Quick => Ok(GateResult::passed(gate, String::new(), String::new())),
+                    MoonGate::Test => Ok(GateResult::failed(
+                        gate,
+                        1,
+                        "test failed".to_string(),
+                        String::new(),
+                    )),
+                }
+            }
+        }
+
+        let executor = PassQuickFailTestExecutor;
+        let outcome = execute_all_gates(&executor, Path::new("/tmp"))
+            .await
+            .unwrap();
+
+        assert_eq!(outcome.status, GatesStatus::TestFailed);
+        assert!(outcome.quick.passed);
+        assert!(outcome.test.is_some());
+        assert!(!outcome.test.as_ref().unwrap().passed);
+    }
+
+    #[tokio::test]
+    async fn test_execute_all_gates_all_pass() {
+        struct PassAllExecutor;
+
+        impl GateExecutor for PassAllExecutor {
+            async fn execute_gate(
+                &self,
+                gate: MoonGate,
+                _working_dir: &Path,
+            ) -> Result<GateResult, GateError> {
+                Ok(GateResult::passed(gate, String::new(), String::new()))
+            }
+        }
+
+        let executor = PassAllExecutor;
+        let outcome = execute_all_gates(&executor, Path::new("/tmp"))
+            .await
+            .unwrap();
+
+        assert_eq!(outcome.status, GatesStatus::AllPassed);
+        assert!(outcome.quick.passed);
+        assert!(outcome.test.is_some());
+        assert!(outcome.test.as_ref().unwrap().passed);
+    }
+
+    #[tokio::test]
+    async fn test_shell_executor_with_invalid_dir() {
+        let executor = ShellGateExecutor::new();
+        let result = executor
+            .execute_gate(MoonGate::Quick, Path::new("/nonexistent/path/xyz12345"))
+            .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            GateError::WorkingDirectoryNotFound(path) => {
+                assert!(path.contains("nonexistent"));
+            }
+            _ => panic!("Expected WorkingDirectoryNotFound error"),
+        }
     }
 }

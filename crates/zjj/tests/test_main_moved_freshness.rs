@@ -29,14 +29,14 @@
 //!
 //! ## Scenarios Tested
 //!
-//! 1. **Freshness Guard Detection**: When main advances during worker processing,
-//!    the freshness guard should detect the change before allowing a merge.
+//! 1. **Freshness Guard Detection**: When main advances during worker processing, the freshness
+//!    guard should detect the change before allowing a merge.
 //!
-//! 2. **Re-test Loop**: When main has moved, the system should trigger a rebase
-//!    onto the new main and re-run tests before proceeding with merge.
+//! 2. **Re-test Loop**: When main has moved, the system should trigger a rebase onto the new main
+//!    and re-run tests before proceeding with merge.
 //!
-//! 3. **Stale Merge Prevention**: If tests were run against an old main commit,
-//!    the merge should be blocked until the workspace is rebased and re-tested.
+//! 3. **Stale Merge Prevention**: If tests were run against an old main commit, the merge should be
+//!    blocked until the workspace is rebased and re-tested.
 //!
 //! ## Architecture
 //!
@@ -81,8 +81,7 @@ fn test_freshness_guard_detects_main_movement() {
 
     // Create some changes in the workspace
     let workspace_path = harness.workspace_path("feature-x");
-    std::fs::create_dir_all(workspace_path.join("src"))
-        .expect("failed to create src dir");
+    std::fs::create_dir_all(workspace_path.join("src")).expect("failed to create src dir");
     std::fs::write(workspace_path.join("src/lib.rs"), "// feature x\n")
         .expect("failed to write file");
 
@@ -90,7 +89,13 @@ fn test_freshness_guard_detects_main_movement() {
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Add feature x"]);
 
     // Create a bookmark for the feature (from main repo)
-    harness.jj(&["bookmark", "create", "feature-x", "-r", "workspace(feature-x)@"]);
+    harness.jj(&[
+        "bookmark",
+        "create",
+        "feature-x",
+        "-r",
+        "workspace(feature-x)@",
+    ]);
 
     // Get main's HEAD SHA before submission
     let result = harness.jj(&["log", "-r", "main", "--no-graph", "-T", "commit_id"]);
@@ -116,20 +121,21 @@ fn test_freshness_guard_detects_main_movement() {
     let main_sha_after = result.stdout.trim().to_string();
 
     // THEN: The SHA should be different (main has moved)
-    assert_ne!(
-        main_sha_before, main_sha_after,
-        "Main should have advanced"
-    );
+    assert_ne!(main_sha_before, main_sha_after, "Main should have advanced");
 
     // Verify we can query queue entry and its head_sha
     let result = harness.zjj(&["queue", "--list", "--json"]);
     assert!(result.success, "Queue list should succeed");
 
-    let parsed: serde_json::Value = serde_json::from_str(&result.stdout)
-        .expect("Queue list should return valid JSON");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("Queue list should return valid JSON");
 
     // The queue entry should have a head_sha field
-    if let Some(entries) = parsed.get("data").and_then(|d| d.get("entries")).and_then(|e| e.as_array()) {
+    if let Some(entries) = parsed
+        .get("data")
+        .and_then(|d| d.get("entries"))
+        .and_then(|e| e.as_array())
+    {
         if let Some(entry) = entries.first() {
             // Verify head_sha exists in the entry
             assert!(
@@ -159,15 +165,20 @@ fn test_retest_loop_triggers_on_main_movement() {
     let workspace_path = harness.workspace_path("retest-feature");
 
     // Create and commit changes
-    std::fs::create_dir_all(workspace_path.join("src"))
-        .expect("failed to create src dir");
+    std::fs::create_dir_all(workspace_path.join("src")).expect("failed to create src dir");
     std::fs::write(workspace_path.join("src/feature.rs"), "// retest feature\n")
         .expect("failed to write file");
 
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Add retest feature"]);
 
     // Create bookmark from main repo
-    harness.jj(&["bookmark", "create", "retest-feature", "-r", "workspace(retest-feature)@"]);
+    harness.jj(&[
+        "bookmark",
+        "create",
+        "retest-feature",
+        "-r",
+        "workspace(retest-feature)@",
+    ]);
 
     // Submit to queue
     let result = harness.zjj_in_dir(&workspace_path, &["submit", "--auto-commit"]);
@@ -179,8 +190,8 @@ fn test_retest_loop_triggers_on_main_movement() {
 
     // Capture original head_sha
     let queue_result = harness.zjj(&["queue", "--list", "--json"]);
-    let original_entry: serde_json::Value = serde_json::from_str(&queue_result.stdout)
-        .expect("Valid JSON");
+    let original_entry: serde_json::Value =
+        serde_json::from_str(&queue_result.stdout).expect("Valid JSON");
 
     let original_head_sha = original_entry
         .get("data")
@@ -229,15 +240,20 @@ fn test_stale_merge_prevented_after_main_change() {
     let workspace_path = harness.workspace_path("stale-test-ws");
 
     // Create and commit changes
-    std::fs::create_dir_all(workspace_path.join("src"))
-        .expect("failed to create src dir");
+    std::fs::create_dir_all(workspace_path.join("src")).expect("failed to create src dir");
     std::fs::write(workspace_path.join("src/stale.rs"), "// stale test\n")
         .expect("failed to write file");
 
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Add stale feature"]);
 
     // Create bookmark from main repo
-    harness.jj(&["bookmark", "create", "stale-feature", "-r", "workspace(stale-test-ws)@"]);
+    harness.jj(&[
+        "bookmark",
+        "create",
+        "stale-feature",
+        "-r",
+        "workspace(stale-test-ws)@",
+    ]);
 
     // Submit to queue
     let result = harness.zjj_in_dir(&workspace_path, &["submit", "--auto-commit"]);
@@ -249,8 +265,8 @@ fn test_stale_merge_prevented_after_main_change() {
 
     // Capture the original head_sha from queue
     let queue_result = harness.zjj(&["queue", "--list", "--json"]);
-    let parsed: serde_json::Value = serde_json::from_str(&queue_result.stdout)
-        .expect("Valid JSON from queue list");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&queue_result.stdout).expect("Valid JSON from queue list");
 
     let original_head_sha = parsed
         .get("data")
@@ -262,8 +278,11 @@ fn test_stale_merge_prevented_after_main_change() {
         .map(str::to_string);
 
     // WHEN: Main advances (simulating concurrent work)
-    std::fs::write(harness.repo_path.join("CONCURRENT_WORK.md"), "# Concurrent\n")
-        .expect("failed to write concurrent work");
+    std::fs::write(
+        harness.repo_path.join("CONCURRENT_WORK.md"),
+        "# Concurrent\n",
+    )
+    .expect("failed to write concurrent work");
     harness.jj(&["commit", "-m", "Concurrent work lands on main"]);
 
     // Get new main HEAD
@@ -284,8 +303,8 @@ fn test_stale_merge_prevented_after_main_change() {
     // Verify queue entry still shows the original head_sha
     // (not updated until explicit rebase)
     let recheck_result = harness.zjj(&["queue", "--list", "--json"]);
-    let recheck_parsed: serde_json::Value = serde_json::from_str(&recheck_result.stdout)
-        .expect("Valid JSON");
+    let recheck_parsed: serde_json::Value =
+        serde_json::from_str(&recheck_result.stdout).expect("Valid JSON");
 
     let current_stored_sha = recheck_parsed
         .get("data")
@@ -325,9 +344,15 @@ fn test_conflict_detection_after_main_movement() {
     let workspace_path = harness.workspace_path("conflict-ws");
 
     // Modify the file in workspace (workspace shares files with main via JJ)
-    std::fs::write(workspace_path.join("shared.rs"), "// Modified in workspace\n")
-        .expect("failed to modify shared file");
-    harness.jj_in_dir(&workspace_path, &["commit", "-m", "Modify shared in workspace"]);
+    std::fs::write(
+        workspace_path.join("shared.rs"),
+        "// Modified in workspace\n",
+    )
+    .expect("failed to modify shared file");
+    harness.jj_in_dir(
+        &workspace_path,
+        &["commit", "-m", "Modify shared in workspace"],
+    );
     harness.jj_in_dir(&workspace_path, &["bookmark", "create", "conflict-ws"]);
 
     // Submit workspace
@@ -344,7 +369,10 @@ fn test_conflict_detection_after_main_movement() {
     harness.jj(&["commit", "-m", "Modify shared on main"]);
 
     // THEN: Conflict detection should identify the overlapping file
-    let result = harness.zjj_in_dir(&workspace_path, &["done", "--detect-conflicts", "--dry-run"]);
+    let result = harness.zjj_in_dir(
+        &workspace_path,
+        &["done", "--detect-conflicts", "--dry-run"],
+    );
 
     // The command should complete (may succeed or fail depending on conflict detection)
     // We're testing that the mechanism works, not the specific outcome
@@ -370,10 +398,8 @@ fn test_resubmission_updates_head_sha() {
     let workspace_path = harness.workspace_path("resubmit-ws");
 
     // Create initial changes
-    std::fs::create_dir_all(workspace_path.join("src"))
-        .expect("failed to create src dir");
-    std::fs::write(workspace_path.join("src/initial.rs"), "// Initial\n")
-        .expect("failed to write");
+    std::fs::create_dir_all(workspace_path.join("src")).expect("failed to create src dir");
+    std::fs::write(workspace_path.join("src/initial.rs"), "// Initial\n").expect("failed to write");
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "Initial commit"]);
     harness.jj_in_dir(&workspace_path, &["bookmark", "create", "resubmit-ws"]);
 
@@ -387,8 +413,7 @@ fn test_resubmission_updates_head_sha() {
 
     // Get initial head_sha
     let queue_result = harness.zjj(&["queue", "--list", "--json"]);
-    let parsed: serde_json::Value = serde_json::from_str(&queue_result.stdout)
-        .expect("Valid JSON");
+    let parsed: serde_json::Value = serde_json::from_str(&queue_result.stdout).expect("Valid JSON");
 
     let first_head_sha = parsed
         .get("data")
@@ -414,8 +439,8 @@ fn test_resubmission_updates_head_sha() {
 
     // THEN: head_sha should be updated
     let recheck_result = harness.zjj(&["queue", "--list", "--json"]);
-    let recheck_parsed: serde_json::Value = serde_json::from_str(&recheck_result.stdout)
-        .expect("Valid JSON");
+    let recheck_parsed: serde_json::Value =
+        serde_json::from_str(&recheck_result.stdout).expect("Valid JSON");
 
     let second_head_sha = recheck_parsed
         .get("data")

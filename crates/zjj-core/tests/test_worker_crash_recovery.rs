@@ -345,10 +345,7 @@ async fn test_mixed_stale_and_recent_entries() -> Result<()> {
     let reclaimed = queue.reclaim_stale(0).await?;
 
     // At least one entry should be reclaimed
-    assert!(
-        reclaimed >= 1,
-        "At least one entry should be reclaimed"
-    );
+    assert!(reclaimed >= 1, "At least one entry should be reclaimed");
 
     // Verify at least one is back to pending
     let pending = queue.list(Some(QueueStatus::Pending)).await?;
@@ -382,17 +379,11 @@ async fn test_reclaim_is_idempotent() -> Result<()> {
 
     // First reclaim
     let reclaimed1 = queue.reclaim_stale(0).await?;
-    assert_eq!(
-        reclaimed1, 1,
-        "First reclaim should find 1 stale entry"
-    );
+    assert_eq!(reclaimed1, 1, "First reclaim should find 1 stale entry");
 
     // Second reclaim should find nothing
     let reclaimed2 = queue.reclaim_stale(0).await?;
-    assert_eq!(
-        reclaimed2, 0,
-        "Second reclaim should find no stale entries"
-    );
+    assert_eq!(reclaimed2, 0, "Second reclaim should find no stale entries");
 
     // Verify entry is pending
     let entry = queue
