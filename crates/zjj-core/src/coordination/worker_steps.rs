@@ -16,7 +16,10 @@ use std::path::Path;
 use thiserror::Error;
 use tokio::process::Command;
 
-use crate::coordination::queue::{MergeQueue, QueueStatus};
+use crate::{
+    coordination::queue::{MergeQueue, QueueEntry, QueueStatus},
+    worker_error::{classify_with_attempts, should_retry, ErrorClass},
+};
 
 /// Error type for rebase step operations.
 #[derive(Debug, Clone, Error)]
@@ -127,21 +130,57 @@ pub async fn rebase_step(
             })
         }
         Err(RebaseError::Conflict(msg)) => {
-            // Conflict: transition to failed_retryable
-            let _ = queue
-                .transition_to_failed(workspace, &msg, true)
+            let entry = queue
+                .get_by_workspace(workspace)
                 .await
-                .map_err(|e| {
-                    tracing::warn!("Failed to mark entry as failed_retryable: {e}");
-                    e
-                });
+                .map_err(|e| RebaseError::QueueError(e.to_string()))?
+                .ok_or_else(|| {
+                    RebaseError::QueueError(format!("Workspace '{workspace}' not found"))
+                })?;
+
+            let target_status = handle_step_failure(queue, workspace, &msg, &entry)
+                .await
+                .map_err(|e| RebaseError::QueueError(e.to_string()))?;
+
+            tracing::info!(
+                workspace = %workspace,
+                target_status = %target_status.as_str(),
+                "Rebase conflict handled with error classification"
+            );
+
             Err(RebaseError::Conflict(msg))
         }
         Err(e) => {
-            // Other error: transition to failed_retryable
-            let _ = queue
-                .transition_to_failed(workspace, &e.to_string(), true)
-                .await;
+            let entry_result = queue.get_by_workspace(workspace).await;
+
+            match entry_result {
+                Ok(Some(entry)) => {
+                    let target_status =
+                        handle_step_failure(queue, workspace, &e.to_string(), &entry)
+                            .await
+                            .map_err(|qe| RebaseError::QueueError(qe.to_string()))?;
+
+                    tracing::info!(
+                        workspace = %workspace,
+                        target_status = %target_status.as_str(),
+                        "Rebase error handled with error classification"
+                    );
+                }
+                Ok(None) => {
+                    tracing::warn!(
+                        workspace = %workspace,
+                        "Entry not found during error handling"
+                    );
+                }
+                Err(qe) => {
+                    tracing::warn!(
+                        workspace = %workspace,
+                        error = %qe,
+                        "Failed to fetch entry during error handling"
+                    );
+                }
+            }
+
             Err(e)
         }
     }
@@ -231,7 +270,9 @@ async fn get_main_sha(
         .current_dir(workspace_path)
         .output()
         .await
-        .map_err(|e| RebaseError::MainShaError(format!("Failed to execute jj log for main: {e}")))?;
+        .map_err(|e| {
+            RebaseError::MainShaError(format!("Failed to execute jj log for main: {e}"))
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -287,8 +328,76 @@ fn is_conflict_error(stderr: &str) -> bool {
         || stderr_lower.contains("3-way merge failed")
 }
 
+/// Classify an error message and determine if it should be retried.
+///
+/// This function combines error classification with attempt count checking
+/// to determine if an error should result in a retryable or terminal failure.
+///
+/// # Arguments
+/// * `error_msg` - The error message to classify
+/// * `entry` - The queue entry with attempt count information
+///
+/// # Returns
+/// `true` if the error is retryable and attempts remain, `false` otherwise.
+#[must_use]
+pub fn classify_step_error(error_msg: &str, entry: &QueueEntry) -> bool {
+    should_retry(error_msg, entry.attempt_count, entry.max_attempts)
+}
+
+/// Determine the target failure status based on error classification.
+///
+/// WHEN retryable failure occurs -> move to `failed_retryable` and increment attempts.
+/// WHEN max attempts exceeded -> move to `failed_terminal`.
+///
+/// # Arguments
+/// * `error_msg` - The error message to classify
+/// * `entry` - The queue entry with attempt count information
+///
+/// # Returns
+/// `QueueStatus::FailedRetryable` if the error can be retried, `QueueStatus::FailedTerminal`
+/// otherwise.
+#[must_use]
+pub fn determine_failure_status(error_msg: &str, entry: &QueueEntry) -> QueueStatus {
+    let error_class = classify_with_attempts(error_msg, entry.attempt_count, entry.max_attempts);
+    match error_class {
+        ErrorClass::Retryable => QueueStatus::FailedRetryable,
+        ErrorClass::Terminal => QueueStatus::FailedTerminal,
+    }
+}
+
+/// Handle a step failure with proper error classification.
+///
+/// This function classifies the error, determines the appropriate target status,
+/// and transitions the entry accordingly.
+///
+/// # Arguments
+/// * `queue` - The merge queue
+/// * `workspace` - The workspace that failed
+/// * `error_msg` - The error message
+/// * `entry` - The queue entry
+///
+/// # Returns
+/// The target status that the entry was transitioned to.
+pub async fn handle_step_failure(
+    queue: &MergeQueue,
+    workspace: &str,
+    error_msg: &str,
+    entry: &QueueEntry,
+) -> crate::Result<QueueStatus> {
+    let target_status = determine_failure_status(error_msg, entry);
+    let is_retryable = target_status == QueueStatus::FailedRetryable;
+
+    queue
+        .transition_to_failed(workspace, error_msg, is_retryable)
+        .await?;
+
+    Ok(target_status)
+}
+
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     #[test]
@@ -322,5 +431,154 @@ mod tests {
             err.to_string(),
             "invalid entry state for rebase: expected claimed, got pending"
         );
+    }
+
+    #[cfg(unix)]
+    struct EnvGuard {
+        key: &'static str,
+        previous: Option<String>,
+    }
+
+    #[cfg(unix)]
+    impl EnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, previous }
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match self.previous.as_ref() {
+                Some(value) => std::env::set_var(self.key, value),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    fn write_fake_jj_script(dir: &std::path::Path) -> std::io::Result<PathBuf> {
+        let script = r#"#!/bin/sh
+if [ "$1" = "git" ] && [ "$2" = "fetch" ]; then
+  exit 0
+fi
+
+if [ "$1" = "log" ] && [ "$2" = "-r" ]; then
+  if [ "$3" = "@" ]; then
+    echo "HEAD_SHA_TEST"
+    exit 0
+  fi
+  case "$3" in
+    remote-tracking/origin/*)
+      echo "MAIN_SHA_TEST"
+      exit 0
+      ;;
+  esac
+fi
+
+if [ "$1" = "rebase" ]; then
+  if [ "${ZJJ_TEST_REBASE_CONFLICT}" = "1" ]; then
+    echo "conflict: test" 1>&2
+    exit 1
+  fi
+  exit 0
+fi
+
+echo "unexpected jj invocation" 1>&2
+exit 1
+"#;
+
+        let path = dir.join("jj");
+        std::fs::write(&path, script)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&path)?.permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&path, perms)?;
+        }
+
+        Ok(path)
+    }
+
+    #[cfg(unix)]
+    fn prepend_path(dir: &std::path::Path) -> EnvGuard {
+        let previous = std::env::var("PATH").ok();
+        let new_path = match previous.as_ref() {
+            Some(existing) => format!("{}:{}", dir.display(), existing),
+            None => dir.display().to_string(),
+        };
+        EnvGuard::set("PATH", &new_path)
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_rebase_step_persists_metadata_on_success(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = tempfile::tempdir()?;
+        let workspace_dir = tempfile::tempdir()?;
+        let _jj_path = write_fake_jj_script(temp_dir.path())?;
+        let _path_guard = prepend_path(temp_dir.path());
+
+        let queue = MergeQueue::open_in_memory().await?;
+        queue.add("ws-rebase-step", None, 5, None).await?;
+        let claimed = queue.next_with_lock("agent-rebase-step").await?;
+        assert!(claimed.is_some(), "Entry should be claimed");
+
+        let result = rebase_step(&queue, "ws-rebase-step", workspace_dir.path(), "main")
+            .await
+            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
+
+        assert_eq!(result.head_sha, "HEAD_SHA_TEST");
+        assert_eq!(result.tested_against_sha, "MAIN_SHA_TEST");
+
+        let updated = queue
+            .get_by_workspace("ws-rebase-step")
+            .await?
+            .ok_or("entry missing")?;
+        assert_eq!(updated.status, QueueStatus::Testing);
+        assert_eq!(updated.head_sha, Some("HEAD_SHA_TEST".to_string()));
+        assert_eq!(
+            updated.tested_against_sha,
+            Some("MAIN_SHA_TEST".to_string())
+        );
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_rebase_step_conflict_marks_failed_retryable(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = tempfile::tempdir()?;
+        let workspace_dir = tempfile::tempdir()?;
+        let _jj_path = write_fake_jj_script(temp_dir.path())?;
+        let _path_guard = prepend_path(temp_dir.path());
+        let _conflict_guard = EnvGuard::set("ZJJ_TEST_REBASE_CONFLICT", "1");
+
+        let queue = MergeQueue::open_in_memory().await?;
+        queue.add("ws-rebase-conflict", None, 5, None).await?;
+        let claimed = queue.next_with_lock("agent-rebase-conflict").await?;
+        assert!(claimed.is_some(), "Entry should be claimed");
+
+        let result = rebase_step(&queue, "ws-rebase-conflict", workspace_dir.path(), "main").await;
+
+        assert!(matches!(result, Err(RebaseError::Conflict(_))));
+
+        let updated = queue
+            .get_by_workspace("ws-rebase-conflict")
+            .await?
+            .ok_or("entry missing")?;
+        assert_eq!(updated.status, QueueStatus::FailedRetryable);
+        assert!(updated.head_sha.is_none(), "head_sha should be unset");
+        assert!(
+            updated.tested_against_sha.is_none(),
+            "tested_against_sha should be unset"
+        );
+
+        Ok(())
     }
 }

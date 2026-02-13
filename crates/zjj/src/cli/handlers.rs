@@ -558,6 +558,7 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
         remove: sub_m.get_one::<String>("remove").cloned(),
         status: sub_m.get_one::<String>("status").cloned(),
         stats: sub_m.get_flag("stats"),
+        status_id: sub_m.get_one::<i64>("status-id").copied(),
     };
     queue::run_with_options(&options).await
 }
@@ -577,6 +578,7 @@ pub async fn handle_queue_list(sub_m: &ArgMatches) -> Result<()> {
         remove: None,
         status: None,
         stats: false,
+        status_id: None,
     };
     queue::run_with_options(&options).await
 }
