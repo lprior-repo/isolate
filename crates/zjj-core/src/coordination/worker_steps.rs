@@ -117,10 +117,8 @@ pub async fn rebase_step(
 
     match rebase_result {
         Ok(()) => {
-            // Step 5: Get new HEAD SHA
             let head_sha = get_head_sha(workspace_path).await?;
 
-            // Step 6: Update queue with rebase metadata and transition to testing
             queue
                 .update_rebase_metadata(workspace, &head_sha, &tested_against_sha)
                 .await
@@ -132,21 +130,57 @@ pub async fn rebase_step(
             })
         }
         Err(RebaseError::Conflict(msg)) => {
-            // Conflict: transition to failed_retryable
-            let _ = queue
-                .transition_to_failed(workspace, &msg, true)
+            let entry = queue
+                .get_by_workspace(workspace)
                 .await
-                .map_err(|e| {
-                    tracing::warn!("Failed to mark entry as failed_retryable: {e}");
-                    e
-                });
+                .map_err(|e| RebaseError::QueueError(e.to_string()))?
+                .ok_or_else(|| {
+                    RebaseError::QueueError(format!("Workspace '{workspace}' not found"))
+                })?;
+
+            let target_status = handle_step_failure(queue, workspace, &msg, &entry)
+                .await
+                .map_err(|e| RebaseError::QueueError(e.to_string()))?;
+
+            tracing::info!(
+                workspace = %workspace,
+                target_status = %target_status.as_str(),
+                "Rebase conflict handled with error classification"
+            );
+
             Err(RebaseError::Conflict(msg))
         }
         Err(e) => {
-            // Other error: transition to failed_retryable
-            let _ = queue
-                .transition_to_failed(workspace, &e.to_string(), true)
-                .await;
+            let entry_result = queue.get_by_workspace(workspace).await;
+
+            match entry_result {
+                Ok(Some(entry)) => {
+                    let target_status =
+                        handle_step_failure(queue, workspace, &e.to_string(), &entry)
+                            .await
+                            .map_err(|qe| RebaseError::QueueError(qe.to_string()))?;
+
+                    tracing::info!(
+                        workspace = %workspace,
+                        target_status = %target_status.as_str(),
+                        "Rebase error handled with error classification"
+                    );
+                }
+                Ok(None) => {
+                    tracing::warn!(
+                        workspace = %workspace,
+                        "Entry not found during error handling"
+                    );
+                }
+                Err(qe) => {
+                    tracing::warn!(
+                        workspace = %workspace,
+                        error = %qe,
+                        "Failed to fetch entry during error handling"
+                    );
+                }
+            }
+
             Err(e)
         }
     }
@@ -292,6 +326,72 @@ fn is_conflict_error(stderr: &str) -> bool {
         || stderr_lower.contains("could not resolve")
         || stderr_lower.contains("merge conflict")
         || stderr_lower.contains("3-way merge failed")
+}
+
+/// Classify an error message and determine if it should be retried.
+///
+/// This function combines error classification with attempt count checking
+/// to determine if an error should result in a retryable or terminal failure.
+///
+/// # Arguments
+/// * `error_msg` - The error message to classify
+/// * `entry` - The queue entry with attempt count information
+///
+/// # Returns
+/// `true` if the error is retryable and attempts remain, `false` otherwise.
+#[must_use]
+pub fn classify_step_error(error_msg: &str, entry: &QueueEntry) -> bool {
+    should_retry(error_msg, entry.attempt_count, entry.max_attempts)
+}
+
+/// Determine the target failure status based on error classification.
+///
+/// WHEN retryable failure occurs -> move to `failed_retryable` and increment attempts.
+/// WHEN max attempts exceeded -> move to `failed_terminal`.
+///
+/// # Arguments
+/// * `error_msg` - The error message to classify
+/// * `entry` - The queue entry with attempt count information
+///
+/// # Returns
+/// `QueueStatus::FailedRetryable` if the error can be retried, `QueueStatus::FailedTerminal`
+/// otherwise.
+#[must_use]
+pub fn determine_failure_status(error_msg: &str, entry: &QueueEntry) -> QueueStatus {
+    let error_class = classify_with_attempts(error_msg, entry.attempt_count, entry.max_attempts);
+    match error_class {
+        ErrorClass::Retryable => QueueStatus::FailedRetryable,
+        ErrorClass::Terminal => QueueStatus::FailedTerminal,
+    }
+}
+
+/// Handle a step failure with proper error classification.
+///
+/// This function classifies the error, determines the appropriate target status,
+/// and transitions the entry accordingly.
+///
+/// # Arguments
+/// * `queue` - The merge queue
+/// * `workspace` - The workspace that failed
+/// * `error_msg` - The error message
+/// * `entry` - The queue entry
+///
+/// # Returns
+/// The target status that the entry was transitioned to.
+pub async fn handle_step_failure(
+    queue: &MergeQueue,
+    workspace: &str,
+    error_msg: &str,
+    entry: &QueueEntry,
+) -> crate::Result<QueueStatus> {
+    let target_status = determine_failure_status(error_msg, entry);
+    let is_retryable = target_status == QueueStatus::FailedRetryable;
+
+    queue
+        .transition_to_failed(workspace, error_msg, is_retryable)
+        .await?;
+
+    Ok(target_status)
 }
 
 #[cfg(test)]
