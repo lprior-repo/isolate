@@ -89,6 +89,23 @@ pub struct QueueStatsOutput {
     pub failed: usize,
 }
 
+/// Queue event for audit trail
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueueEventOutput {
+    pub event_id: i64,
+    pub event_type: String,
+    pub details_json: Option<String>,
+    pub created_at: i64,
+}
+
+/// Response for queue status-id operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueueStatusIdOutput {
+    pub entry: QueueEntryOutput,
+    pub events: Vec<QueueEventOutput>,
+    pub message: String,
+}
+
 /// Options for queue command
 #[derive(Debug, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -104,6 +121,7 @@ pub struct QueueOptions {
     pub remove: Option<String>,
     pub status: Option<String>,
     pub stats: bool,
+    pub status_id: Option<i64>,
 }
 
 /// Get or create the merge queue database
@@ -120,6 +138,9 @@ pub async fn run_with_options(options: &QueueOptions) -> Result<()> {
 
     if let Some(workspace) = &options.add {
         handle_add(&queue, workspace, options).await?;
+    } else if options.status_id.is_some() {
+        let queue_id = options.status_id.unwrap();
+        handle_status_id(&queue, queue_id, options).await?;
     } else if options.list {
         handle_list(&queue, options).await?;
     } else if options.process {
@@ -485,6 +506,105 @@ async fn handle_stats(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> R
         println!("  Processing: {}", stats.processing);
         println!("  Completed:  {}", stats.completed);
         println!("  Failed:     {}", stats.failed);
+    }
+
+    Ok(())
+}
+
+async fn handle_status_id(
+    queue: &zjj_core::MergeQueue,
+    queue_id: i64,
+    options: &QueueOptions,
+) -> Result<()> {
+    let entry = queue.get_by_id(queue_id).await?;
+
+    let entry = match entry {
+        Some(e) => e,
+        None => {
+            let message = format!("Queue entry with ID {} not found", queue_id);
+            if options.format.is_json() {
+                let output = QueueStatusIdOutput {
+                    entry: QueueEntryOutput {
+                        id: queue_id,
+                        workspace: String::new(),
+                        bead_id: None,
+                        priority: 0,
+                        status: String::new(),
+                        added_at: 0,
+                        started_at: None,
+                        completed_at: None,
+                        error_message: Some(message.clone()),
+                        agent_id: None,
+                    },
+                    events: Vec::new(),
+                    message,
+                };
+                print_queue_envelope("queue-status-id-response", &output)?;
+            } else {
+                println!("{message}");
+            }
+            return Ok(());
+        }
+    };
+
+    let events = queue.fetch_events(queue_id).await?;
+
+    let entry_output = QueueEntryOutput {
+        id: entry.id,
+        workspace: entry.workspace,
+        bead_id: entry.bead_id,
+        priority: entry.priority,
+        status: entry.status.as_str().to_string(),
+        added_at: entry.added_at,
+        started_at: entry.started_at,
+        completed_at: entry.completed_at,
+        error_message: entry.error_message,
+        agent_id: entry.agent_id,
+    };
+
+    let events_output: Vec<QueueEventOutput> = events
+        .into_iter()
+        .map(|e| QueueEventOutput {
+            event_id: e.id,
+            event_type: e.event_type.as_str().to_string(),
+            details_json: e.details_json,
+            created_at: e.created_at,
+        })
+        .collect();
+
+    let message = format!("Status for queue entry {}", queue_id);
+
+    if options.format.is_json() {
+        let output = QueueStatusIdOutput {
+            entry: entry_output,
+            events: events_output,
+            message,
+        };
+        print_queue_envelope("queue-status-id-response", &output)?;
+    } else {
+        println!("Queue Entry:");
+        println!("  ID: {}", entry_output.id);
+        println!("  Workspace: {}", entry_output.workspace);
+        println!("  Status: {}", entry_output.status);
+        println!("  Priority: {}", entry_output.priority);
+        if let Some(bead_id) = entry_output.bead_id {
+            println!("  Bead ID: {bead_id}");
+        }
+        if let Some(agent_id) = entry_output.agent_id {
+            println!("  Agent ID: {agent_id}");
+        }
+        println!(
+            "\nEvents ({events_output_len} total):",
+            events_output_len = events_output.len()
+        );
+        for event in &events_output {
+            println!(
+                "  [{}] {}: {}",
+                event.event_type,
+                event.created_at,
+                event.details_json.as_deref().unwrap_or("")
+            );
+        }
     }
 
     Ok(())
