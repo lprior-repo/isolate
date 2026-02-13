@@ -48,6 +48,7 @@
 pub mod agents;
 pub mod beads;
 pub mod checkpoint;
+pub mod commands;
 pub mod config;
 pub mod contracts;
 pub mod coordination;
@@ -90,8 +91,8 @@ pub use json::{
     ErrorCode, HateoasLink, RelatedResources, ResponseMeta, SchemaEnvelope, SchemaEnvelopeArray,
 };
 pub use moon_gates::{
-    classify_exit_code, combine_results, format_failure_message, GateError, GateResult,
-    GatesOutcome, GatesStatus, MoonGate, parse_summary,
+    classify_exit_code, combine_results, format_failure_message, parse_summary, GateError,
+    GateResult, GatesOutcome, GatesStatus, MoonGate,
 };
 pub use output_format::OutputFormat;
 pub use recovery::{
