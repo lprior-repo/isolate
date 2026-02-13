@@ -1250,6 +1250,7 @@ pub fn cmd_queue() -> ClapCommand {
             ],
             None,
         ))
+        .subcommand(cmd_queue_list())
         .subcommand(cmd_queue_worker())
         .arg(
             Arg::new("add")
@@ -1394,6 +1395,30 @@ pub fn cmd_queue_worker() -> ClapCommand {
                 .value_name("ID")
                 .help("Unique worker identifier (default: hostname-pid)"),
         )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
+}
+
+pub fn cmd_queue_list() -> ClapCommand {
+    ClapCommand::new("list")
+        .about("List all queue entries in FIFO order")
+        .long_about(
+            "Display all entries in the merge queue ordered by time added (FIFO).
+
+            Shows entries with their workspace name, status, priority, and assigned agent.
+            Also displays summary counts for pending, processing, completed, and failed entries.",
+        )
+        .after_help(after_help_text(
+            &[
+                "zjj queue list                Show all queue entries",
+                "zjj queue list --json         Show queue as JSON with state counts",
+            ],
+            None,
+        ))
         .arg(
             Arg::new("json")
                 .long("json")
