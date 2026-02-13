@@ -97,7 +97,6 @@ pub fn cmd_add() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required_unless_present_any(["example-json", "contract", "ai-hints"])
-                .allow_hyphen_values(true) // Allow -name to be passed through for validation
                 .help("Name for the new session (must start with a letter)"),
         )
         .arg(
@@ -989,8 +988,8 @@ pub fn cmd_dashboard() -> ClapCommand {
         .after_help(after_help_text(
             &[
                 "zjj dashboard                  Launch the kanban-style dashboard",
-                "zjj dashboard --json           Export dashboard snapshot for agents",
                 "zjj dash                       Use the alias to open the TUI quickly",
+                "zjj status                     For non-interactive overview",
             ],
             None,
         ))
@@ -2528,12 +2527,23 @@ pub fn cmd_clone() -> ClapCommand {
 pub fn cmd_export() -> ClapCommand {
     ClapCommand::new("export")
         .about("Export session state to a file")
+        .long_about(
+            "Export session state to a file or stdout.
+
+The SESSION argument specifies which session to export. If omitted, all sessions
+are exported. To write to a file, you MUST use the -o/--output flag. This
+prevents ambiguity between session names and file paths.
+
+IMPORTANT: Output file paths require -o/--output flag:
+  - 'zjj export -o export.json'    - Correct: export all sessions to file
+  - 'zjj export export.json'       - WRONG: 'export.json' treated as session name!",
+        )
         .arg(Arg::new("session").help("Session name to export (all if omitted)"))
         .arg(
             Arg::new("output")
                 .short('o')
                 .long("output")
-                .help("Output file path"),
+                .help("Output file path (REQUIRED when writing to a file)"),
         )
         .arg(
             Arg::new("json")
@@ -2543,9 +2553,14 @@ pub fn cmd_export() -> ClapCommand {
         )
         .after_help(after_help_text(
             &[
-                "zjj export feature-x -o state.json  Export session to file",
-                "zjj export --json                  Export all sessions as JSON",
-                "zjj export                         Export to stdout",
+                "zjj export feature-x -o state.json  Export specific session to file",
+                "zjj export -o state.json            Export all sessions to file",
+                "zjj export --json                   Export all sessions as JSON to stdout",
+                "zjj export                          Export all sessions to stdout",
+                "",
+                "NOTE: Always use -o when writing to a file:",
+                "  CORRECT:   zjj export -o output.json",
+                "  INCORRECT: zjj export output.json   (interprets as session name!)",
             ],
             None,
         ))

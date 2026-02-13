@@ -27,9 +27,7 @@
     clippy::ignored_unit_patterns,
 )]
 
-use zjj_core::{
-    coordination::queue::{MergeQueue, QueueStatus},
-};
+use zjj_core::coordination::queue::{MergeQueue, QueueStatus};
 
 #[tokio::test]
 async fn test_state_transitions_through_pipeline() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,7 +35,9 @@ async fn test_state_transitions_through_pipeline() -> Result<(), Box<dyn std::er
     let queue = MergeQueue::open_in_memory().await?;
 
     // Add and claim an entry
-    queue.add("workspace-pipeline", Some("bead-pipeline"), 5, None).await?;
+    queue
+        .add("workspace-pipeline", Some("bead-pipeline"), 5, None)
+        .await?;
     let claimed = queue.next_with_lock("agent-pipeline").await?;
     assert!(claimed.is_some());
     let entry = claimed.unwrap();
@@ -142,7 +142,8 @@ async fn test_audit_events_emitted_on_each_transition() -> Result<(), Box<dyn st
 }
 
 #[tokio::test]
-async fn test_error_classification_retryable_vs_terminal() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_error_classification_retryable_vs_terminal() -> Result<(), Box<dyn std::error::Error>>
+{
     // Test that errors are classified correctly as retryable vs terminal
     let queue = MergeQueue::open_in_memory().await?;
 
@@ -185,7 +186,10 @@ async fn test_error_classification_retryable_vs_terminal() -> Result<(), Box<dyn
         .await?
         .expect("Entry should exist");
     assert_eq!(entry.status, QueueStatus::FailedTerminal);
-    assert_eq!(entry.error_message, Some("invalid configuration".to_string()));
+    assert_eq!(
+        entry.error_message,
+        Some("invalid configuration".to_string())
+    );
 
     Ok(())
 }
@@ -212,11 +216,18 @@ async fn test_failed_claim_prevents_processing() -> Result<(), Box<dyn std::erro
         .get_by_workspace("workspace-fail")
         .await?
         .expect("Entry should exist");
-    assert_eq!(entry.status, QueueStatus::Pending, "Entry should remain pending");
+    assert_eq!(
+        entry.status,
+        QueueStatus::Pending,
+        "Entry should remain pending"
+    );
 
     // Verify that a subsequent successful claim works
     let successful_claim = queue.next_with_lock("agent-1").await?;
-    assert!(successful_claim.is_some(), "Should be able to claim after failed attempt");
+    assert!(
+        successful_claim.is_some(),
+        "Should be able to claim after failed attempt"
+    );
 
     Ok(())
 }
@@ -235,7 +246,10 @@ async fn test_state_transition_validation() -> Result<(), Box<dyn std::error::Er
     let result = queue
         .transition_to("workspace-invalid", QueueStatus::Merged)
         .await;
-    assert!(result.is_err(), "Should reject invalid transition from Pending to Merged");
+    assert!(
+        result.is_err(),
+        "Should reject invalid transition from Pending to Merged"
+    );
 
     // Claim the entry first
     queue.next_with_lock("agent-test").await?;
@@ -244,13 +258,19 @@ async fn test_state_transition_validation() -> Result<(), Box<dyn std::error::Er
     let result = queue
         .transition_to("workspace-invalid", QueueStatus::Merged)
         .await;
-    assert!(result.is_err(), "Should reject invalid transition from Claimed to Merged");
+    assert!(
+        result.is_err(),
+        "Should reject invalid transition from Claimed to Merged"
+    );
 
     // Valid transition: Claimed -> Rebasing (should succeed)
     let result = queue
         .transition_to("workspace-invalid", QueueStatus::Rebasing)
         .await;
-    assert!(result.is_ok(), "Should accept valid transition from Claimed to Rebasing");
+    assert!(
+        result.is_ok(),
+        "Should accept valid transition from Claimed to Rebasing"
+    );
 
     Ok(())
 }
@@ -285,7 +305,10 @@ async fn test_terminal_state_no_outgoing_transitions() -> Result<(), Box<dyn std
     let result = queue
         .transition_to("workspace-terminal", QueueStatus::Testing)
         .await;
-    assert!(result.is_err(), "Should reject transition from Merged terminal state");
+    assert!(
+        result.is_err(),
+        "Should reject transition from Merged terminal state"
+    );
 
     // Release lock before next claim
     queue.release_processing_lock("agent-terminal").await?;
@@ -305,7 +328,10 @@ async fn test_terminal_state_no_outgoing_transitions() -> Result<(), Box<dyn std
     let result = queue
         .transition_to("workspace-terminal-2", QueueStatus::Rebasing)
         .await;
-    assert!(result.is_err(), "Should reject transition from FailedTerminal terminal state");
+    assert!(
+        result.is_err(),
+        "Should reject transition from FailedTerminal terminal state"
+    );
 
     Ok(())
 }

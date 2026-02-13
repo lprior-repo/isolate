@@ -113,8 +113,7 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
 
                         if is_lock_timeout && attempt < max_retries {
                             // Retry with exponential backoff: 50ms, 100ms, 200ms
-                            let backoff_ms =
-                                50_u64.pow(u32::try_from(attempt + 1).unwrap_or(0u32));
+                            let backoff_ms = 50_u64.pow(u32::try_from(attempt + 1).unwrap_or(0u32));
                             tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
                             continue;
                         }
@@ -237,8 +236,7 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
 
                         if is_lock_timeout && attempt < max_retries {
                             // Retry with exponential backoff: 50ms, 100ms, 200ms
-                            let backoff_ms =
-                                50_u64.pow(u32::try_from(attempt + 1).unwrap_or(0u32));
+                            let backoff_ms = 50_u64.pow(u32::try_from(attempt + 1).unwrap_or(0u32));
                             tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
                             continue;
                         }
