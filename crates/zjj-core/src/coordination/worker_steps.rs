@@ -16,7 +16,12 @@ use std::path::Path;
 use thiserror::Error;
 use tokio::process::Command;
 
-use crate::coordination::queue::{MergeQueue, QueueStatus};
+use crate::{
+    coordination::queue::{MergeQueue, QueueEntry, QueueStatus},
+    worker_error::{
+        classify_error_message, classify_with_attempts, should_retry, ErrorClass, WorkerError,
+    },
+};
 
 /// Error type for rebase step operations.
 #[derive(Debug, Clone, Error)]
@@ -231,7 +236,9 @@ async fn get_main_sha(
         .current_dir(workspace_path)
         .output()
         .await
-        .map_err(|e| RebaseError::MainShaError(format!("Failed to execute jj log for main: {e}")))?;
+        .map_err(|e| {
+            RebaseError::MainShaError(format!("Failed to execute jj log for main: {e}"))
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
