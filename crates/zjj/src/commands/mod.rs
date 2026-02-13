@@ -35,6 +35,7 @@ pub mod prune_invalid;
 pub mod query;
 pub mod queue;
 pub mod queue_worker;
+pub mod worker_error;
 pub mod recover;
 pub mod remove;
 pub mod rename;

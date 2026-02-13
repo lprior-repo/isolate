@@ -278,6 +278,9 @@ pub struct QueueEntry {
     /// The HEAD SHA when this entry was last updated (for idempotent submit)
     #[sqlx(default)]
     pub head_sha: Option<String>,
+    /// The baseline SHA (main HEAD) against which tests were run after rebase.
+    #[sqlx(default)]
+    pub tested_against_sha: Option<String>,
     /// Number of retry attempts made for this entry.
     #[sqlx(default)]
     pub attempt_count: i32,
@@ -487,6 +490,12 @@ impl MergeQueue {
         Ok(queue)
     }
 
+    /// Get a reference to the underlying database pool.
+    /// This is intended for testing purposes to allow direct SQL manipulation.
+    pub fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+
     async fn init_schema(&self) -> Result<()> {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS merge_queue (
@@ -505,6 +514,7 @@ impl MergeQueue {
                 previous_state TEXT,
                 state_changed_at INTEGER,
                 head_sha TEXT,
+                tested_against_sha TEXT,
                 attempt_count INTEGER DEFAULT 0,
                 max_attempts INTEGER DEFAULT 3
             )",
@@ -796,7 +806,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE dedupe_key = ?1 \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE dedupe_key = ?1 \
                  ORDER BY id DESC LIMIT 1",
         )
         .bind(dedupe_key)
@@ -870,7 +880,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE id = ?1",
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE id = ?1",
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -882,7 +892,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE workspace = ?1",
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE workspace = ?1",
         )
         .bind(workspace)
         .fetch_optional(&self.pool)
@@ -895,13 +905,13 @@ impl MergeQueue {
             Some(_) => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE status = ?1 \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE status = ?1 \
                  ORDER BY priority ASC, added_at ASC"
             }
             None => {
                 "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue \
                  ORDER BY priority ASC, added_at ASC"
             }
         };
@@ -923,7 +933,7 @@ impl MergeQueue {
         sqlx::query_as::<_, QueueEntry>(
             "SELECT id, workspace, bead_id, priority, status, added_at, started_at, \
                  completed_at, error_message, agent_id, dedupe_key, workspace_state, \
-                 previous_state, state_changed_at, head_sha, attempt_count, max_attempts FROM merge_queue WHERE status = 'pending' \
+                 previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts FROM merge_queue WHERE status = 'pending' \
                  ORDER BY priority ASC, added_at ASC LIMIT 1",
         )
         .fetch_optional(&self.pool)
@@ -974,11 +984,12 @@ impl MergeQueue {
                 match status_str.as_str() {
                     "pending" => acc.pending = cnt,
                     "claimed" | "rebasing" | "testing" | "ready_to_merge" | "merging" => {
-                        acc.processing += cnt
+                        acc.processing += cnt;
                     }
                     "completed" => acc.completed = cnt,
-                    "failed" | "failed_retryable" | "failed_terminal" => acc.failed += cnt,
-                    "cancelled" => acc.failed += cnt,
+                    "failed" | "failed_retryable" | "failed_terminal" | "cancelled" => {
+                        acc.failed += cnt;
+                    }
                     _ => {}
                 }
                 acc
@@ -1164,7 +1175,7 @@ impl MergeQueue {
              )
              RETURNING id, workspace, bead_id, priority, status, added_at, started_at,
                        completed_at, error_message, agent_id, dedupe_key, workspace_state,
-                       previous_state, state_changed_at, head_sha, attempt_count, max_attempts",
+                       previous_state, state_changed_at, head_sha, tested_against_sha, attempt_count, max_attempts",
         )
         .bind(now)
         .bind(agent_id)
@@ -1631,6 +1642,263 @@ impl MergeQueue {
             .await;
 
         Ok(())
+    }
+
+    /// Update rebase metadata after a successful rebase operation.
+    ///
+    /// This method updates both `head_sha` (the new workspace HEAD) and
+    /// `tested_against_sha` (the main HEAD that was rebased onto).
+    /// It also transitions the entry from `rebasing` to `testing`.
+    ///
+    /// # Arguments
+    /// * `workspace` - The workspace name of the entry to update
+    /// * `head_sha` - The new HEAD SHA after rebase
+    /// * `tested_against_sha` - The main branch SHA that was rebased onto
+    ///
+    /// # Returns
+    /// - `Ok(())` if the update and transition succeeded
+    /// - `Err(Error::NotFound)` if the workspace is not in the queue
+    /// - `Err(Error::InvalidConfig)` if the entry is not in `rebasing` status
+    /// - `Err(Error::DatabaseError)` if the database operation fails
+    pub async fn update_rebase_metadata(
+        &self,
+        workspace: &str,
+        head_sha: &str,
+        tested_against_sha: &str,
+    ) -> Result<()> {
+        let entry = self.get_by_workspace(workspace).await?.ok_or_else(|| {
+            Error::NotFound(format!("Workspace '{workspace}' not found in queue"))
+        })?;
+
+        if entry.status != QueueStatus::Rebasing {
+            return Err(Error::InvalidConfig(format!(
+                "Cannot update rebase metadata for workspace '{}' in status '{}', expected 'rebasing'",
+                workspace,
+                entry.status.as_str()
+            )));
+        }
+
+        let now = Self::now();
+
+        let result = sqlx::query(
+            "UPDATE merge_queue SET status = 'testing', head_sha = ?1, tested_against_sha = ?2, \
+             state_changed_at = ?3, previous_state = 'rebasing' WHERE workspace = ?4",
+        )
+        .bind(head_sha)
+        .bind(tested_against_sha)
+        .bind(now)
+        .bind(workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to update rebase metadata for '{workspace}': {e}"))
+        })?;
+
+        if result.rows_affected() == 0 {
+            return Err(Error::NotFound(format!(
+                "Workspace '{workspace}' not found or update failed"
+            )));
+        }
+
+        let event_details = format!(
+            r#"{{"from": "rebasing", "to": "testing", "head_sha": "{head_sha}", "tested_against_sha": "{tested_against_sha}"}}"#
+        );
+        self.append_typed_event(entry.id, QueueEventType::Transitioned, Some(&event_details))
+            .await?;
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FRESHNESS GUARD METHODS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// Check if the main branch HEAD matches the stored `tested_against_sha`.
+    ///
+    /// The freshness guard ensures that we don't merge a stale result that was
+    /// tested against an outdated version of main. If main has advanced since
+    /// the entry was tested, we need to rebase and re-test.
+    ///
+    /// # Arguments
+    /// * `workspace` - The workspace name to check
+    /// * `current_main_sha` - The current HEAD SHA of the main branch
+    ///
+    /// # Returns
+    /// - `Ok(true)` if the entry is fresh (SHA matches or no stored SHA)
+    /// - `Ok(false)` if the entry is stale (SHA mismatch)
+    /// - `Err` if the entry is not found or database error
+    pub async fn is_fresh(&self, workspace: &str, current_main_sha: &str) -> Result<bool> {
+        let entry = self.get_by_workspace(workspace).await?.ok_or_else(|| {
+            Error::NotFound(format!("Workspace '{workspace}' not found in queue"))
+        })?;
+
+        // Use head_sha for freshness check (the SHA when entry was last updated)
+        let Some(stored_sha) = &entry.head_sha else {
+            return Ok(true); // No stored SHA, consider fresh
+        };
+
+        Ok(stored_sha == current_main_sha)
+    }
+
+    /// Transition entry back to rebasing state when freshness check fails.
+    ///
+    /// This is called when main has advanced since the entry was tested.
+    /// The entry will need to be rebased onto the new main and re-tested.
+    ///
+    /// # Arguments
+    /// * `workspace` - The workspace name to transition
+    /// * `new_main_sha` - The current main HEAD SHA (will be stored as new baseline)
+    ///
+    /// # Returns
+    /// - `Ok(())` if the transition succeeded
+    /// - `Err` if the entry is not found, invalid transition, or database error
+    pub async fn return_to_rebasing(&self, workspace: &str, new_main_sha: &str) -> Result<()> {
+        // Fetch the current entry
+        let entry = self.get_by_workspace(workspace).await?.ok_or_else(|| {
+            Error::NotFound(format!("Workspace '{workspace}' not found in queue"))
+        })?;
+
+        // Validate transition - only ready_to_merge should go back to rebasing
+        if entry.status != QueueStatus::ReadyToMerge {
+            return Err(Error::InvalidConfig(format!(
+                "Cannot return to rebasing from status '{}', expected 'ready_to_merge'",
+                entry.status.as_str()
+            )));
+        }
+
+        let now = Self::now();
+
+        // Update status to rebasing and update head_sha with new main
+        let result = sqlx::query(
+            "UPDATE merge_queue SET status = 'rebasing', head_sha = ?1, state_changed_at = ?2, \
+             previous_state = ?3 WHERE workspace = ?4",
+        )
+        .bind(new_main_sha)
+        .bind(now)
+        .bind(entry.status.as_str())
+        .bind(workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to transition '{workspace}' to rebasing: {e}"))
+        })?;
+
+        if result.rows_affected() == 0 {
+            return Err(Error::NotFound(format!(
+                "Workspace '{workspace}' not found or update failed"
+            )));
+        }
+
+        // Emit audit event
+        let event_details = format!(
+            r#"{{"from": "ready_to_merge", "to": "rebasing", "reason": "freshness_guard", "new_main_sha": "{new_main_sha}"}}"#
+        );
+        self.append_typed_event(entry.id, QueueEventType::Transitioned, Some(&event_details))
+            .await?;
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // MERGE STEP METHODS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// Transition entry to merging state (after freshness check passes).
+    ///
+    /// This should be called right before performing the actual merge operation.
+    ///
+    /// # Arguments
+    /// * `workspace` - The workspace name to transition
+    ///
+    /// # Returns
+    /// - `Ok(())` if the transition succeeded
+    /// - `Err` if the entry is not found, invalid transition, or database error
+    pub async fn begin_merge(&self, workspace: &str) -> Result<()> {
+        self.transition_to(workspace, QueueStatus::Merging).await
+    }
+
+    /// Complete the merge and record the merge commit SHA.
+    ///
+    /// This transitions the entry to the terminal `merged` state and records
+    /// the SHA of the merge commit for audit purposes.
+    ///
+    /// # Arguments
+    /// * `workspace` - The workspace name to complete
+    /// * `merged_sha` - The SHA of the resulting merge commit
+    ///
+    /// # Returns
+    /// - `Ok(())` if the transition succeeded
+    /// - `Err` if the entry is not found, invalid transition, or database error
+    pub async fn complete_merge(&self, workspace: &str, merged_sha: &str) -> Result<()> {
+        // Fetch the current entry
+        let entry = self.get_by_workspace(workspace).await?.ok_or_else(|| {
+            Error::NotFound(format!("Workspace '{workspace}' not found in queue"))
+        })?;
+
+        // Validate transition (merging -> merged)
+        entry
+            .status
+            .validate_transition(QueueStatus::Merged)
+            .map_err(|e| {
+                Error::InvalidConfig(format!(
+                    "Invalid state transition for workspace '{workspace}': {e}"
+                ))
+            })?;
+
+        let now = Self::now();
+
+        // Update status to merged, record merged_sha in head_sha, and completed_at
+        let result = sqlx::query(
+            "UPDATE merge_queue SET status = 'merged', head_sha = ?1, completed_at = ?2, \
+             state_changed_at = ?2, previous_state = ?3 WHERE workspace = ?4",
+        )
+        .bind(merged_sha)
+        .bind(now)
+        .bind(entry.status.as_str())
+        .bind(workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to complete merge for '{workspace}': {e}"))
+        })?;
+
+        if result.rows_affected() == 0 {
+            return Err(Error::NotFound(format!(
+                "Workspace '{workspace}' not found or update failed"
+            )));
+        }
+
+        // Emit audit event for the merge
+        let event_details =
+            format!(r#"{{"from": "merging", "to": "merged", "merged_sha": "{merged_sha}"}}"#);
+        self.append_typed_event(entry.id, QueueEventType::Merged, Some(&event_details))
+            .await?;
+
+        Ok(())
+    }
+
+    /// Mark a merge as failed with a retryable or terminal error.
+    ///
+    /// This is called when the merge operation fails. The entry will be
+    /// transitioned to either `failed_retryable` or `failed_terminal` based
+    /// on the nature of the failure.
+    ///
+    /// # Arguments
+    /// * `workspace` - The workspace name that failed
+    /// * `error_message` - Description of the failure
+    /// * `is_retryable` - If true, transition to `failed_retryable`; otherwise `failed_terminal`
+    ///
+    /// # Returns
+    /// - `Ok(())` if the transition succeeded
+    /// - `Err` if the entry is not found, invalid transition, or database error
+    pub async fn fail_merge(
+        &self,
+        workspace: &str,
+        error_message: &str,
+        is_retryable: bool,
+    ) -> Result<()> {
+        self.transition_to_failed(workspace, error_message, is_retryable)
+            .await
     }
 }
 
@@ -3353,6 +3621,149 @@ mod tests {
         assert_eq!(events2.len(), 1);
         assert_eq!(events1[0].details_json, Some(r#"{"queue": 1}"#.to_string()));
         assert_eq!(events2[0].details_json, Some(r#"{"queue": 2}"#.to_string()));
+
+        Ok(())
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // REBASE METADATA TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[tokio::test]
+    async fn test_fresh_database_has_tested_against_column() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let _: Option<String> =
+            sqlx::query_scalar("SELECT tested_against_sha FROM merge_queue LIMIT 1")
+                .fetch_optional(&queue.pool)
+                .await
+                .map_err(|e| {
+                    Error::DatabaseError(format!("tested_against_sha column should exist: {e}"))
+                })?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_new_entry_has_null_tested_against() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let resp = queue.add("ws-tested-new", None, 5, None).await?;
+
+        assert!(
+            resp.entry.tested_against_sha.is_none(),
+            "New entries should have tested_against_sha = NULL"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_rebase_info() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add("ws-rebase-info", None, 5, None).await?;
+        let claimed = queue.next_with_lock("agent-info").await?;
+        assert!(claimed.is_some());
+        let _entry = claimed.ok_or_else(|| Error::DatabaseError("expected entry".into()))?;
+
+        queue
+            .transition_to("ws-rebase-info", QueueStatus::Rebasing)
+            .await?;
+
+        queue
+            .update_rebase_metadata("ws-rebase-info", "head123", "main456")
+            .await?;
+
+        let updated = queue
+            .get_by_workspace("ws-rebase-info")
+            .await?
+            .ok_or_else(|| Error::DatabaseError("entry should exist".into()))?;
+
+        assert_eq!(updated.head_sha, Some("head123".to_string()));
+        assert_eq!(updated.tested_against_sha, Some("main456".to_string()));
+        assert_eq!(updated.status, QueueStatus::Testing);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_rebase_wrong_state() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add("ws-rebase-wrong", None, 5, None).await?;
+
+        let result: Result<()> = queue
+            .update_rebase_metadata("ws-rebase-wrong", "head123", "main456")
+            .await;
+
+        assert!(result.is_err());
+        let error_msg = result.err().map(|e| e.to_string()).unwrap_or_default();
+        assert!(
+            error_msg.contains("expected 'rebasing'") || error_msg.contains("pending"),
+            "Error should mention expected status, got: {error_msg}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_rebase_nonexistent() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        let result: Result<()> = queue
+            .update_rebase_metadata("nonexistent-rebase", "head123", "main456")
+            .await;
+
+        assert!(result.is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_rebase_event() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add("ws-rebase-ev", None, 5, None).await?;
+        let claimed = queue.next_with_lock("agent-ev").await?;
+        let entry_id = claimed.ok_or_else(|| Error::DatabaseError("expected entry".into()))?.id;
+
+        queue
+            .transition_to("ws-rebase-ev", QueueStatus::Rebasing)
+            .await?;
+
+        // Get events before the metadata update
+        let events_before = queue.fetch_events(entry_id).await?;
+        let transitioned_count_before = events_before
+            .iter()
+            .filter(|e| e.event_type == QueueEventType::Transitioned)
+            .count();
+
+        queue
+            .update_rebase_metadata("ws-rebase-ev", "head789", "main012")
+            .await?;
+
+        let events = queue.fetch_events(entry_id).await?;
+
+        // Find the transitioned event from rebasing to testing (should contain the SHAs)
+        let rebase_transition_event = events
+            .iter()
+            .filter(|e| e.event_type == QueueEventType::Transitioned)
+            .skip(transitioned_count_before)
+            .find(|e| {
+                e.details_json
+                    .as_ref()
+                    .map_or(false, |d| d.contains("head789"))
+            });
+
+        assert!(
+            rebase_transition_event.is_some(),
+            "Should have a transitioned event with head789"
+        );
+
+        let event =
+            rebase_transition_event.ok_or_else(|| Error::DatabaseError("expected event".into()))?;
+        assert!(event.details_json.as_ref().map_or(false, |d| d.contains("main012")));
 
         Ok(())
     }

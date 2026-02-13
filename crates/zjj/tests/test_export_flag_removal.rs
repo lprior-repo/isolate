@@ -26,6 +26,10 @@
 //! Tests for --include-files flag removal (zjj-xcso)
 //!
 //! These tests verify that the misleading --include-files flag has been properly removed.
+//!
+//! Also tests for export ambiguous argument handling (bd-3g5):
+//! - When user provides a file-path-like argument without -o, the system SHALL reject it
+//! - This prevents data loss from misinterpreting output files as session names
 
 use std::process::Command;
 
@@ -185,5 +189,194 @@ async fn export_help_text_no_tarball_mention() {
     assert!(
         help.contains("Export") || help.contains("export"),
         "Help should mention export functionality"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tests for bd-3g5: Fix export ambiguous args handling
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Test that CLI rejects file-path-like argument without -o flag
+/// This prevents the data loss scenario where a user types:
+///   zjj export backup.json
+/// expecting to write to a file, but the system interprets "backup.json" as a session name.
+#[tokio::test]
+async fn cli_rejects_file_path_without_output_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    // Initialize zjj first
+    harness.assert_success(&["init"]);
+
+    // Try to export with a file-path-like argument without -o flag
+    let output = Command::new(&harness.zjj_bin)
+        .args(["export", "backup.json"])
+        .current_dir(&harness.current_dir)
+        .env("NO_COLOR", "1")
+        .env("ZJJ_TEST_MODE", "1")
+        .output()
+        .expect("Failed to execute zjj export backup.json");
+
+    // Should fail with ambiguous argument error
+    assert!(
+        !output.status.success(),
+        "CLI should reject file-path-like argument without -o flag"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let err_msg = format!("{stderr}{stdout}");
+
+    // Should mention ambiguity and suggest -o flag
+    assert!(
+        err_msg.contains("Ambiguous") || err_msg.contains("ambiguous"),
+        "Error should mention ambiguity, got: {err_msg}"
+    );
+
+    assert!(
+        err_msg.contains("-o") || err_msg.contains("--output"),
+        "Error should suggest using -o flag, got: {err_msg}"
+    );
+}
+
+/// Test that CLI accepts -o flag with file path
+#[tokio::test]
+async fn cli_accepts_output_flag_with_file_path() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    // Initialize zjj first
+    harness.assert_success(&["init"]);
+
+    let export_file = harness.current_dir.join("backup.json");
+
+    let output = Command::new(&harness.zjj_bin)
+        .args(["export", "-o", export_file.to_str().unwrap()])
+        .current_dir(&harness.current_dir)
+        .env("NO_COLOR", "1")
+        .env("ZJJ_TEST_MODE", "1")
+        .output()
+        .expect("Failed to execute zjj export -o backup.json");
+
+    assert!(
+        output.status.success(),
+        "Export with -o flag should succeed. stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Verify JSON file was created
+    assert!(
+        export_file.exists(),
+        "Export should create JSON file at {export_file:?}"
+    );
+}
+
+/// Test that valid session names without file extensions still work
+#[tokio::test]
+async fn cli_accepts_valid_session_names() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    // Initialize zjj first
+    harness.assert_success(&["init"]);
+
+    // Create a session first
+    harness.assert_success(&["add", "feature-branch", "--no-zellij"]);
+
+    // Export the session (to stdout) - should work with valid session name
+    let output = Command::new(&harness.zjj_bin)
+        .args(["export", "feature-branch"])
+        .current_dir(&harness.current_dir)
+        .env("NO_COLOR", "1")
+        .env("ZJJ_TEST_MODE", "1")
+        .output()
+        .expect("Failed to execute zjj export feature-branch");
+
+    assert!(
+        output.status.success(),
+        "Export with valid session name should succeed. stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Cleanup
+    harness.assert_success(&["remove", "feature-branch", "--force"]);
+}
+
+/// Test that path-like arguments (with slashes) are rejected without -o
+#[tokio::test]
+async fn cli_rejects_path_like_argument_without_output_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    // Initialize zjj first
+    harness.assert_success(&["init"]);
+
+    // Try to export with a path-like argument without -o flag
+    let output = Command::new(&harness.zjj_bin)
+        .args(["export", "/tmp/backup"])
+        .current_dir(&harness.current_dir)
+        .env("NO_COLOR", "1")
+        .env("ZJJ_TEST_MODE", "1")
+        .output()
+        .expect("Failed to execute zjj export /tmp/backup");
+
+    // Should fail with ambiguous argument error
+    assert!(
+        !output.status.success(),
+        "CLI should reject path-like argument without -o flag"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let err_msg = format!("{stderr}{stdout}");
+
+    // Should mention ambiguity
+    assert!(
+        err_msg.contains("Ambiguous") || err_msg.contains("ambiguous"),
+        "Error should mention ambiguity, got: {err_msg}"
+    );
+}
+
+/// Test that help text mentions the -o requirement
+#[tokio::test]
+async fn export_help_mentions_output_flag_requirement() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    let output = Command::new(&harness.zjj_bin)
+        .args(["export", "--help"])
+        .current_dir(&harness.current_dir)
+        .env("NO_COLOR", "1")
+        .env("ZJJ_TEST_MODE", "1")
+        .output()
+        .expect("Failed to execute zjj export --help");
+
+    let help = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Should mention that -o is required for file output
+    assert!(
+        help.contains("-o")
+            || help.contains("--output")
+            || help.contains("REQUIRED")
+            || help.contains("file path"),
+        "Help should mention -o flag requirement for file output. Help text:\n{help}"
+    );
+
+    // Should mention CORRECT/INCORRECT examples or similar guidance
+    assert!(
+        help.contains("CORRECT")
+            || help.contains("INCORRECT")
+            || help.contains("use -o")
+            || help.contains("MUST use"),
+        "Help should provide guidance on correct usage. Help text:\n{help}"
     );
 }

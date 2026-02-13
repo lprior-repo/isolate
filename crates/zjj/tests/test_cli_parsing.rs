@@ -601,6 +601,88 @@ fn test_mutually_exclusive_flags() {
 }
 
 // ============================================================================
+// Unknown Flag Rejection (bd-3bj)
+// ============================================================================
+
+#[test]
+fn test_unknown_global_flag_rejected() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Unknown global flags should be rejected with "unexpected argument"
+    let result = harness.zjj(&["--unknown-global-flag", "list"]);
+    assert!(!result.success, "Should reject unknown global flag");
+    result.assert_output_contains("unexpected argument");
+}
+
+#[test]
+fn test_unknown_flag_on_add_rejected() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Unknown flags on add command should be rejected with "unexpected argument"
+    let result = harness.zjj(&["add", "--unknown-flag", "test"]);
+    assert!(!result.success, "Should reject unknown flag on add");
+    result.assert_output_contains("unexpected argument");
+}
+
+#[test]
+fn test_unknown_flag_on_list_rejected() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Unknown flags on list command should be rejected with "unexpected argument"
+    let result = harness.zjj(&["list", "--unknown-flag"]);
+    assert!(!result.success, "Should reject unknown flag on list");
+    result.assert_output_contains("unexpected argument");
+}
+
+#[test]
+fn test_unknown_flag_on_remove_rejected() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Unknown flags on remove command should be rejected with "unexpected argument"
+    let result = harness.zjj(&["remove", "--unknown-flag", "test"]);
+    assert!(!result.success, "Should reject unknown flag on remove");
+    result.assert_output_contains("unexpected argument");
+}
+
+#[test]
+fn test_unknown_flag_on_focus_rejected() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Unknown flags on focus command should be rejected with "unexpected argument"
+    let result = harness.zjj(&["focus", "--unknown-flag"]);
+    assert!(!result.success, "Should reject unknown flag on focus");
+    result.assert_output_contains("unexpected argument");
+}
+
+#[test]
+fn test_unknown_flag_on_diff_rejected() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+
+    // Unknown flags on diff command should be rejected with "unexpected argument"
+    let result = harness.zjj(&["diff", "--unknown-flag"]);
+    assert!(!result.success, "Should reject unknown flag on diff");
+    result.assert_output_contains("unexpected argument");
+}
+
+// ============================================================================
 // Argument Order
 // ============================================================================
 
@@ -781,10 +863,10 @@ fn test_session_name_starting_with_single_dash() {
     };
     harness.assert_success(&["init"]);
 
-    // Names starting with a single dash should be rejected
+    // Names starting with a single dash are rejected as unexpected argument (bd-3bj)
     let result = harness.zjj(&["add", "-foo", "--no-open"]);
     assert!(!result.success, "Should reject name starting with dash");
-    result.assert_output_contains("must start with a letter");
+    result.assert_output_contains("unexpected argument");
 }
 
 #[test]
@@ -795,10 +877,10 @@ fn test_session_name_starting_with_double_dash() {
     };
     harness.assert_success(&["init"]);
 
-    // Names starting with double dash should be rejected
+    // Names starting with double dash are rejected as unexpected argument (bd-3bj)
     let result = harness.zjj(&["add", "--bar", "--no-open"]);
     assert!(!result.success, "Should reject name starting with --");
-    // Will likely be interpreted as unknown flag or show validation error
+    result.assert_output_contains("unexpected argument");
 }
 
 #[test]
@@ -809,10 +891,10 @@ fn test_session_name_starting_with_triple_dash() {
     };
     harness.assert_success(&["init"]);
 
-    // Names starting with triple dash should be rejected
+    // Names starting with triple dash are rejected as unexpected argument (bd-3bj)
     let result = harness.zjj(&["add", "---baz", "--no-open"]);
     assert!(!result.success, "Should reject name starting with ---");
-    result.assert_output_contains("must start with a letter");
+    result.assert_output_contains("unexpected argument");
 }
 
 #[test]
