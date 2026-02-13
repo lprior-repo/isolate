@@ -2,25 +2,23 @@
 
 use anyhow::Result;
 use clap::ArgMatches;
-use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::commands::{abort, diff, done, submit, sync};
 
 pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let all = sub_m.get_flag("all");
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = sync::SyncOptions { format, all };
     sync::run_with_options(name, options).await
 }
 
 pub async fn handle_submit(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
+    let format = get_format(sub_m);
     let dry_run = sub_m.get_flag("dry-run");
     let auto_commit = sub_m.get_flag("auto-commit");
     let message = sub_m.get_one::<String>("message").cloned();
-    let format = OutputFormat::from_json_flag(json);
 
     let options = submit::SubmitOptions {
         format,
@@ -39,8 +37,7 @@ pub async fn handle_submit(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_diff(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let stat = sub_m.get_flag("stat");
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     diff::run(name, stat, format).await
 }
 
@@ -55,7 +52,7 @@ pub async fn handle_done(sub_m: &ArgMatches) -> Result<()> {
         return Ok(());
     }
 
-    let json = sub_m.get_flag("json");
+    let format = get_format(sub_m);
     let args = done::types::DoneArgs {
         workspace: sub_m.get_one::<String>("workspace").cloned(),
         message: sub_m.get_one::<String>("message").cloned(),
@@ -65,7 +62,7 @@ pub async fn handle_done(sub_m: &ArgMatches) -> Result<()> {
         dry_run: sub_m.get_flag("dry-run"),
         detect_conflicts: sub_m.get_flag("detect-conflicts"),
         no_bead_update: sub_m.get_flag("no-bead-update"),
-        format: OutputFormat::from_json_flag(json),
+        format,
     };
     let options = args.to_options();
     done::run_with_options(&options).await?;
@@ -73,8 +70,7 @@ pub async fn handle_done(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_abort(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = abort::AbortOptions {
         workspace: sub_m.get_one::<String>("workspace").cloned(),
         no_bead_update: sub_m.get_flag("no-bead-update"),

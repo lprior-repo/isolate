@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use clap::ArgMatches;
-use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::commands::bookmark;
 
 pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
@@ -11,8 +11,7 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
         Some(("list", list_m)) => {
             let session = list_m.get_one::<String>("session").cloned();
             let show_all = list_m.get_flag("all");
-            let json = list_m.get_flag("json");
-            let format = OutputFormat::from_json_flag(json);
+            let format = get_format(list_m);
             bookmark::run_list(&bookmark::ListOptions {
                 session,
                 show_all,
@@ -27,8 +26,7 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
                 .clone();
             let session = create_m.get_one::<String>("session").cloned();
             let push = create_m.get_flag("push");
-            let json = create_m.get_flag("json");
-            let format = OutputFormat::from_json_flag(json);
+            let format = get_format(create_m);
             bookmark::run_create(&bookmark::CreateOptions {
                 name,
                 session,
@@ -43,8 +41,7 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("Bookmark name is required"))?
                 .clone();
             let session = delete_m.get_one::<String>("session").cloned();
-            let json = delete_m.get_flag("json");
-            let format = OutputFormat::from_json_flag(json);
+            let format = get_format(delete_m);
             bookmark::run_delete(&bookmark::DeleteOptions {
                 name,
                 session,
@@ -62,8 +59,7 @@ pub async fn handle_bookmark(sub_m: &ArgMatches) -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("Target revision (--to) is required"))?
                 .clone();
             let session = move_m.get_one::<String>("session").cloned();
-            let json = move_m.get_flag("json");
-            let format = OutputFormat::from_json_flag(json);
+            let format = get_format(move_m);
             bookmark::run_move(&bookmark::MoveOptions {
                 name,
                 to_revision,

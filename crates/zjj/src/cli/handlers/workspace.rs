@@ -49,7 +49,6 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
     let template = sub_m.get_one::<String>("template").cloned();
     let no_open = sub_m.get_flag("no-open");
     let no_zellij = sub_m.get_flag("no-zellij");
-    let json = sub_m.get_flag("json");
     let idempotent = sub_m.get_flag("idempotent");
     let dry_run = sub_m.get_flag("dry-run");
 
@@ -60,7 +59,7 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
         template,
         no_open,
         no_zellij,
-        format: OutputFormat::from_json_flag(json),
+        format: get_format(sub_m),
         idempotent,
         dry_run,
     };
@@ -71,8 +70,7 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_list(sub_m: &ArgMatches) -> Result<()> {
     let all = sub_m.get_flag("all");
     let verbose = sub_m.get_flag("verbose");
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let bead = sub_m.get_one::<String>("bead").cloned();
     let agent = sub_m.get_one::<String>("agent").map(String::as_str);
     let state = sub_m.get_one::<String>("state").map(String::as_str);
@@ -83,8 +81,7 @@ pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = remove::RemoveOptions {
         force: sub_m.get_flag("force"),
         merge: sub_m.get_flag("merge"),
@@ -97,9 +94,8 @@ pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
 
 pub async fn handle_focus(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
-    let json = sub_m.get_flag("json");
     let no_zellij = sub_m.get_flag("no-zellij");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = focus::FocusOptions { format, no_zellij };
     focus::run_with_options(name, &options).await
 }
@@ -116,17 +112,15 @@ pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
     }
 
     let name = sub_m.get_one::<String>("name").map(String::as_str);
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let watch = sub_m.get_flag("watch");
     status::run(name, format, watch).await
 }
 
 pub async fn handle_switch(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
-    let json = sub_m.get_flag("json");
     let show_context = sub_m.get_flag("show-context");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = switch::SwitchOptions {
         format,
         show_context,
@@ -161,8 +155,7 @@ pub async fn handle_work(sub_m: &ArgMatches) -> Result<()> {
         return Ok(());
     }
 
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let name = sub_m
         .get_one::<String>("name")
         .cloned()
@@ -186,8 +179,7 @@ pub async fn handle_attach(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let old_name = sub_m
         .get_one::<String>("old_name")
         .cloned()
@@ -208,8 +200,7 @@ pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_clone(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let source = sub_m
         .get_one::<String>("source")
         .ok_or_else(|| anyhow::anyhow!("Source session is required"))?
@@ -229,16 +220,14 @@ pub async fn handle_clone(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_pause(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
     let options = session_mgmt::PauseOptions { session, format };
     session_mgmt::run_pause(&options).await
 }
 
 pub async fn handle_resume(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
     let options = session_mgmt::ResumeOptions { session, format };
     session_mgmt::run_resume(&options).await

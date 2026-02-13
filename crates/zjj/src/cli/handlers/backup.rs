@@ -2,13 +2,12 @@
 
 use anyhow::Result;
 use clap::ArgMatches;
-use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::commands::{backup, export_import};
 
 pub async fn handle_backup(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
 
     let create = sub_m.get_flag("create");
     let list = sub_m.get_flag("list");
@@ -32,8 +31,7 @@ pub async fn handle_backup(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_export(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let session = sub_m.get_one::<String>("session").cloned();
     let output = sub_m.get_one::<String>("output").cloned();
 
@@ -75,8 +73,7 @@ fn looks_like_file_path(s: &str) -> bool {
 }
 
 pub async fn handle_import(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let input = sub_m
         .get_one::<String>("file")
         .cloned()

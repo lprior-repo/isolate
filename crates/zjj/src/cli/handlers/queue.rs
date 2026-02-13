@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use clap::ArgMatches;
-use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::commands::{queue, queue_worker};
 
 pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
@@ -18,8 +18,7 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
         };
     }
 
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let priority = sub_m.get_one::<i32>("priority").copied().unwrap_or(5);
     let options = queue::QueueOptions {
         format,
@@ -42,8 +41,7 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_queue_list(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = queue::QueueOptions {
         format,
         add: None,
@@ -65,8 +63,7 @@ pub async fn handle_queue_list(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_queue_worker(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = queue_worker::WorkerOptions {
         loop_mode: sub_m.get_flag("loop"),
         once: sub_m.get_flag("once"),

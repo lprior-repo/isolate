@@ -2,12 +2,12 @@
 
 use anyhow::Result;
 use clap::ArgMatches;
-use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::commands::{agents, broadcast, claim, get_session_db};
 
 pub async fn handle_agents(sub_m: &ArgMatches) -> Result<()> {
-    let format = OutputFormat::from_json_flag(sub_m.get_flag("json"));
+    let format = get_format(sub_m);
     match sub_m.subcommand() {
         Some(("register", register_m)) => {
             let args = agents::types::RegisterArgs {
@@ -52,16 +52,14 @@ pub async fn handle_broadcast(sub_m: &ArgMatches) -> Result<()> {
             anyhow::anyhow!("No agent ID provided. Set ZJJ_AGENT_ID or use --agent-id")
         })?;
 
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
 
     let args = broadcast::types::BroadcastArgs { message, agent_id };
     broadcast::run(&args, format).await
 }
 
 pub async fn handle_claim(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let resource = sub_m
         .get_one::<String>("resource")
         .ok_or_else(|| anyhow::anyhow!("Resource is required"))?
@@ -79,8 +77,7 @@ pub async fn handle_claim(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_yield(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let resource = sub_m
         .get_one::<String>("resource")
         .ok_or_else(|| anyhow::anyhow!("Resource is required"))?
@@ -90,8 +87,7 @@ pub async fn handle_yield(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_lock(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let session = sub_m
         .get_one::<String>("session")
         .ok_or_else(|| anyhow::anyhow!("Session is required"))?
@@ -126,8 +122,7 @@ pub async fn handle_lock(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_unlock(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let session = sub_m
         .get_one::<String>("session")
         .ok_or_else(|| anyhow::anyhow!("Session is required"))?

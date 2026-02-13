@@ -5,17 +5,17 @@ use clap::ArgMatches;
 use futures::{StreamExt, TryStreamExt};
 use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::commands::{batch, events, get_session_db};
 
 pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let file = sub_m.get_one::<String>("file").cloned();
     let atomic = sub_m.get_flag("atomic");
     let stop_on_error = sub_m.get_flag("stop-on-error");
 
     if atomic {
-        return handle_atomic_batch(sub_m, json, format, file, stop_on_error).await;
+        return handle_atomic_batch(sub_m, format, file, stop_on_error).await;
     }
 
     let commands = if let Some(file_path) = file {
@@ -83,7 +83,6 @@ pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
 
 async fn handle_atomic_batch(
     sub_m: &ArgMatches,
-    _json: bool,
     format: OutputFormat,
     file: Option<String>,
     _stop_on_error: bool,
@@ -147,8 +146,7 @@ fn parse_legacy_batch_commands(input: &str) -> anyhow::Result<Vec<String>> {
 }
 
 pub async fn handle_events(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let session = sub_m.get_one::<String>("session").cloned();
     let event_type = sub_m.get_one::<String>("type").cloned();
     let limit: Option<usize> = sub_m

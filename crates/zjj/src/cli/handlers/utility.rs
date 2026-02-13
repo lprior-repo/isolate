@@ -2,16 +2,15 @@
 
 use anyhow::Result;
 use clap::ArgMatches;
-use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::commands::{completions, config, pane, query, schema, wait};
 
 pub async fn handle_config(sub_m: &ArgMatches) -> Result<()> {
     let key = sub_m.get_one::<String>("key").cloned();
     let value = sub_m.get_one::<String>("value").cloned();
     let global = sub_m.get_flag("global");
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = config::ConfigOptions {
         key,
         value,
@@ -41,8 +40,7 @@ pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_schema(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = schema::SchemaOptions {
         schema_name: sub_m.get_one::<String>("name").cloned(),
         list: sub_m.get_flag("list"),
@@ -53,8 +51,7 @@ pub fn handle_schema(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_completions(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let shell_str = sub_m
         .get_one::<String>("shell")
         .ok_or_else(|| anyhow::anyhow!("Shell is required"))?;
@@ -64,8 +61,7 @@ pub fn handle_completions(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_wait(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let condition_str = sub_m
         .get_one::<String>("condition")
         .ok_or_else(|| anyhow::anyhow!("Condition is required"))?;
@@ -119,8 +115,7 @@ pub async fn handle_pane(sub_m: &ArgMatches) -> Result<()> {
                 return Ok(());
             }
 
-            let json = focus_m.get_flag("json");
-            let format = OutputFormat::from_json_flag(json);
+            let format = get_format(focus_m);
             let session = focus_m
                 .get_one::<String>("session")
                 .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
@@ -135,16 +130,14 @@ pub async fn handle_pane(sub_m: &ArgMatches) -> Result<()> {
             }
         }
         Some(("list", list_m)) => {
-            let json = list_m.get_flag("json");
-            let format = OutputFormat::from_json_flag(json);
+            let format = get_format(list_m);
             let session = list_m
                 .get_one::<String>("session")
                 .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
             pane::pane_list(session, &pane::PaneListOptions { format }).await
         }
         Some(("next", next_m)) => {
-            let json = next_m.get_flag("json");
-            let format = OutputFormat::from_json_flag(json);
+            let format = get_format(next_m);
             let session = next_m
                 .get_one::<String>("session")
                 .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;

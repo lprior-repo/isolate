@@ -2,13 +2,12 @@
 
 use anyhow::Result;
 use clap::ArgMatches;
-use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::commands::{checkpoint, recover, revert, undo};
 
 pub async fn handle_checkpoint(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let action = match sub_m.subcommand() {
         Some(("create", create_m)) => checkpoint::CheckpointAction::Create {
             description: create_m.get_one::<String>("description").cloned(),
@@ -27,8 +26,7 @@ pub async fn handle_checkpoint(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_undo(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let args = undo::UndoArgs {
         dry_run: sub_m.get_flag("dry-run"),
         list: sub_m.get_flag("list"),
@@ -45,8 +43,7 @@ pub async fn handle_revert(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let args = revert::RevertArgs {
         session_name: name.clone(),
         dry_run: sub_m.get_flag("dry-run"),
@@ -60,8 +57,7 @@ pub async fn handle_revert(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_recover(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
 
     let session = sub_m.get_one::<String>("session").cloned();
     let operation = sub_m.get_one::<String>("op").cloned();
@@ -88,14 +84,12 @@ pub async fn handle_recover(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_retry(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     recover::run_retry(&recover::RetryOptions { format }).await
 }
 
 pub async fn handle_rollback(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let session = sub_m
         .get_one::<String>("session")
         .cloned()

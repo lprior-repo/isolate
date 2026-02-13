@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use clap::ArgMatches;
-use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::commands::{clean, doctor, integrity, prune_invalid};
 
 pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
@@ -15,8 +15,7 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
                 .ok_or_else(|| {
                     anyhow::anyhow!("Workspace argument is required for validate command")
                 })?;
-            let json = validate_m.get_flag("json");
-            let format = OutputFormat::from_json_flag(json);
+            let format = get_format(validate_m);
             integrity::run(&integrity::IntegrityOptions {
                 subcommand: integrity::IntegritySubcommand::Validate { workspace },
                 format,
@@ -32,8 +31,7 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
                 })?;
             let force = repair_m.get_flag("force");
             let rebind = repair_m.get_flag("rebind");
-            let json = repair_m.get_flag("json");
-            let format = OutputFormat::from_json_flag(json);
+            let format = get_format(repair_m);
             integrity::run(&integrity::IntegrityOptions {
                 subcommand: integrity::IntegritySubcommand::Repair {
                     workspace,
@@ -46,8 +44,7 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
         }
         Some(("backup", backup_m)) => match backup_m.subcommand() {
             Some(("list", list_m)) => {
-                let json = list_m.get_flag("json");
-                let format = OutputFormat::from_json_flag(json);
+                let format = get_format(list_m);
                 integrity::run(&integrity::IntegrityOptions {
                     subcommand: integrity::IntegritySubcommand::BackupList,
                     format,
@@ -60,8 +57,7 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
                     .ok_or_else(|| anyhow::anyhow!("Backup ID is required"))?
                     .clone();
                 let force = restore_m.get_flag("force");
-                let json = restore_m.get_flag("json");
-                let format = OutputFormat::from_json_flag(json);
+                let format = get_format(restore_m);
                 integrity::run(&integrity::IntegrityOptions {
                     subcommand: integrity::IntegritySubcommand::BackupRestore { backup_id, force },
                     format,
@@ -75,8 +71,7 @@ pub async fn handle_integrity(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_doctor(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let fix = sub_m.get_flag("fix");
     let dry_run = sub_m.get_flag("dry-run");
     let verbose = sub_m.get_flag("verbose");
@@ -87,11 +82,10 @@ pub async fn handle_clean(sub_m: &ArgMatches) -> Result<()> {
     let force = sub_m.get_flag("force");
     let dry_run = sub_m.get_flag("dry-run");
     let periodic = sub_m.get_flag("periodic");
-    let json = sub_m.get_flag("json");
+    let format = get_format(sub_m);
     let age_threshold = sub_m
         .get_one::<String>("age-threshold")
         .and_then(|s| s.parse::<u64>().ok());
-    let format = OutputFormat::from_json_flag(json);
     let options = clean::CleanOptions {
         force,
         dry_run,
@@ -105,8 +99,7 @@ pub async fn handle_clean(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_prune_invalid(sub_m: &ArgMatches) -> Result<()> {
     let yes = sub_m.get_flag("yes");
     let dry_run = sub_m.get_flag("dry-run");
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = prune_invalid::PruneInvalidOptions {
         yes,
         dry_run,

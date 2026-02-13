@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::ArgMatches;
 use zjj_core::OutputFormat;
 
+use super::json_format::get_format;
 use crate::{
     cli::build_cli,
     commands::{
@@ -12,8 +13,7 @@ use crate::{
 };
 
 pub async fn handle_ai(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let subcommand = match sub_m.subcommand() {
         Some(("status", _)) => ai::AiSubcommand::Status,
         Some(("workflow", _)) => ai::AiSubcommand::Workflow,
@@ -58,22 +58,19 @@ pub async fn handle_context(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_whereami(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = whereami::WhereAmIOptions { format };
     whereami::run(&options).await
 }
 
 pub fn handle_whoami(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let options = whoami::WhoAmIOptions { format };
     whoami::run(&options)
 }
 
 pub async fn handle_can_i(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let action = sub_m
         .get_one::<String>("action")
         .ok_or_else(|| anyhow::anyhow!("Action is required"))?
@@ -88,16 +85,14 @@ pub async fn handle_can_i(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_contract(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let command = sub_m.get_one::<String>("command").cloned();
     let options = contract::ContractOptions { command, format };
     contract::run(&options)
 }
 
 pub fn handle_examples(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let command = sub_m.get_one::<String>("command").cloned();
     let use_case = sub_m.get_one::<String>("use-case").cloned();
     let options = examples::ExamplesOptions {
@@ -130,8 +125,7 @@ pub fn handle_help(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let command = sub_m
         .get_one::<String>("command")
         .ok_or_else(|| anyhow::anyhow!("Command is required"))?
@@ -149,8 +143,7 @@ pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
-    let format = OutputFormat::from_json_flag(json);
+    let format = get_format(sub_m);
     let command = sub_m
         .get_one::<String>("command")
         .ok_or_else(|| anyhow::anyhow!("Command is required"))?
