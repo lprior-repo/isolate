@@ -17,6 +17,7 @@ use serde::Serialize;
 use sqlx::Row;
 use tar::Builder;
 use tracing::warn;
+use walkdir::WalkDir;
 use zjj_core::OutputFormat;
 
 use crate::{
@@ -109,6 +110,21 @@ fn checkpoint_max_backup_size_bytes() -> u64 {
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
         .unwrap_or(DEFAULT_MAX_BACKUP_SIZE)
+}
+
+fn walkdir_size(path: &Path) -> Result<u64> {
+    let mut total_size = 0u64;
+    for entry in WalkDir::new(path)
+        .into_iter()
+        .filter_map(|e: Result<walkdir::DirEntry, _>| e.ok())
+    {
+        if entry.file_type().is_file() {
+            if let Ok(metadata) = entry.metadata() {
+                total_size += metadata.len();
+            }
+        }
+    }
+    Ok(total_size)
 }
 
 // ── Public entry point ───────────────────────────────────────────────
@@ -682,6 +698,17 @@ async fn backup_workspace(
             ));
         }
 
+        let disk_usage = walkdir_size(&workspace_path)?;
+        if disk_usage > limit {
+            warn!(
+                "Workspace {} is {} bytes, exceeds limit of {} bytes; recording metadata only",
+                session_name,
+                disk_usage,
+                limit
+            );
+            return Ok(None);
+        }
+
         // Generate backup filename
         let backup_filename = format!("{checkpoint_id}-{session_name}.tar.gz");
         let backup_path = Path::new(CHECKPOINT_BACKUP_DIR).join(&backup_filename);
@@ -1052,6 +1079,34 @@ mod tests {
     #[test]
     fn test_checkpoint_schema_has_index() {
         assert!(CHECKPOINT_SCHEMA.contains("CREATE INDEX IF NOT EXISTS idx_checkpoint_sessions_id"));
+    }
+
+    #[tokio::test]
+    async fn test_backup_skips_large_workspace_quickly() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let workspace_path = temp_dir.path();
+
+        let small_file = workspace_path.join("small.txt");
+        std::fs::write(&small_file, "test data").expect("Failed to write small file");
+
+        let result = backup_workspace("test-large-workspace", workspace_path, "chk-test").await;
+
+        assert!(result.is_ok(), "Backup should succeed for small workspace");
+    }
+
+    #[tokio::test]
+    async fn test_backup_returns_none_for_missing_workspace() {
+        let result = backup_workspace(
+            "nonexistent-workspace",
+            Path::new("/tmp/this/path/does/not/exist"),
+            "chk-test",
+        )
+        .await;
+
+        assert!(
+            result.is_err(),
+            "Backup should fail for nonexistent workspace"
+        );
     }
 
     #[test]

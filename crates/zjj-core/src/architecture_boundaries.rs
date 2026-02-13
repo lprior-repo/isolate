@@ -14,6 +14,8 @@ use crate::{
         IssueType, Priority, SortDirection,
     },
     coordination::{QueueStats, QueueStatus, TransitionError},
+    types::{Session, SessionName, SessionStatus},
+    workspace_state::WorkspaceState,
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -58,6 +60,12 @@ impl DomainLayer for QueueStats {}
 impl DomainLayer for crate::Error {}
 impl DomainLayer for crate::Config {}
 
+// Session types - domain layer
+impl DomainLayer for Session {}
+impl DomainLayer for SessionName {}
+impl DomainLayer for SessionStatus {}
+impl DomainLayer for WorkspaceState {}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // COMPILE-TIME TESTS - These verify trait implementations
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -79,6 +87,12 @@ fn domain_types_implement_domain_marker() {
     assert_domain::<QueueStats>();
     assert_domain::<crate::Error>();
     assert_domain::<crate::Config>();
+
+    // Session types
+    assert_domain::<Session>();
+    assert_domain::<SessionName>();
+    assert_domain::<SessionStatus>();
+    assert_domain::<WorkspaceState>();
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -129,6 +143,24 @@ fn domain_status_types_are_pure_enums() {
     assert_eq!(status, Some(QueueStatus::Merged));
 }
 
+/// Test that Session types work without tokio runtime.
+#[test]
+fn session_types_dont_require_tokio_runtime() {
+    // SessionName validation should work without runtime
+    let name = SessionName::new("test-session");
+    assert!(name.is_ok());
+
+    let invalid_name = SessionName::new("123-invalid");
+    assert!(invalid_name.is_err());
+
+    // WorkspaceState state machine should be pure
+    let state = WorkspaceState::Working;
+    let next_states = state.valid_next_states();
+    assert!(!next_states.is_empty());
+
+    assert!(state.can_transition_to(WorkspaceState::Ready));
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MODULE DEPENDENCY VERIFICATION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -152,6 +184,14 @@ fn queue_status_has_no_runtime_dependency() {
     let _checker: NoRuntimeDependency<QueueStatus> = NoRuntimeDependency(PhantomData);
 }
 
+#[test]
+fn session_types_have_no_runtime_dependency() {
+    let _checker: NoRuntimeDependency<Session> = NoRuntimeDependency(PhantomData);
+    let _checker: NoRuntimeDependency<SessionName> = NoRuntimeDependency(PhantomData);
+    let _checker: NoRuntimeDependency<SessionStatus> = NoRuntimeDependency(PhantomData);
+    let _checker: NoRuntimeDependency<WorkspaceState> = NoRuntimeDependency(PhantomData);
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // SERDE BOUNDARY TEST - Domain types should be serializable without runtime
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -167,9 +207,20 @@ fn domain_types_are_serializable_without_runtime() {
     assert_serializable::<IssueStatus>();
     assert_serializable::<Priority>();
 
+    // Session types must be serializable
+    assert_serializable::<SessionStatus>();
+    assert_serializable::<WorkspaceState>();
+
     let filter = BeadFilter::new().with_status(IssueStatus::Open);
     let json = serde_json::to_string(&filter.status).ok();
     assert!(json.is_some());
+
+    // Verify Session types serialize without runtime
+    let status_json = serde_json::to_string(&SessionStatus::Active).ok();
+    assert!(status_json.is_some());
+
+    let state_json = serde_json::to_string(&WorkspaceState::Working).ok();
+    assert!(state_json.is_some());
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -188,6 +239,10 @@ fn architecture_boundaries_documentation() {
         type_name::<IssueStatus>(),
         type_name::<QueueStatus>(),
         type_name::<crate::Error>(),
+        type_name::<Session>(),
+        type_name::<SessionName>(),
+        type_name::<SessionStatus>(),
+        type_name::<WorkspaceState>(),
     ];
 
     for ty in domain_types {

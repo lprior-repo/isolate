@@ -50,3 +50,4 @@ crates/*/test-workspaces-staggered-*/
 bead-rmjy-test/
 .scout-agent-1.pid
 crates/zjj-core/target/
+.beads/checkpoint_backups/*.tar.gz

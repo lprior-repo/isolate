@@ -9,6 +9,8 @@
 //   Given zjj is initialized
 //   And the beads database exists
 
+use std::time::Duration;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 
@@ -95,7 +97,6 @@ fn bdd_status_no_panic_with_any_flag_combination() {
         vec!["status", "--contract"],
         vec!["status", "--ai-hints"],
         vec!["status", "--json"],
-        vec!["status", "--watch"],
         vec!["status", "--contract", "--json"],
         vec!["status", "--ai-hints", "--json"],
         vec!["status", "--help"],
@@ -103,7 +104,7 @@ fn bdd_status_no_panic_with_any_flag_combination() {
 
     for args in test_cases {
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
-        for arg in args {
+        for arg in &args {
             cmd.arg(arg);
         }
 
@@ -113,6 +114,29 @@ fn bdd_status_no_panic_with_any_flag_combination() {
                 .and(predicate::ne(101)), // 101 = clap panic
         );
     }
+}
+
+#[test]
+fn bdd_status_watch_starts_without_panic() {
+    // Scenario: Watch mode starts without panicking
+    //   When I run "zjj status --watch"
+    //   Then it should start successfully (not panic)
+    //   Note: Watch runs indefinitely, so we use a timeout
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));
+    cmd.arg("status").arg("--watch");
+    cmd.timeout(Duration::from_millis(500));
+
+    // Timeout (exit code None/timed out) is expected and OK
+    // Panic (exit code 134 or 101) would indicate a bug
+    let output = cmd.output().expect("Failed to execute command");
+
+    // If it exited, check it didn't panic
+    if let Some(code) = output.status.code() {
+        assert_ne!(code, 134, "Command panicked (exit 134)");
+        assert_ne!(code, 101, "clap panicked (exit 101)");
+    }
+    // If it timed out (no exit code), that's expected for watch mode
 }
 
 #[test]
