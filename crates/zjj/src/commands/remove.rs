@@ -258,13 +258,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_merge_to_main_not_implemented() {
+    async fn test_merge_to_main_is_implemented() {
+        // The merge_to_main feature is now implemented.
+        // Without a jj repository, the command will fail with an execution error
+        // (not a "not implemented" error).
         let result = merge_to_main("test", "/path");
-        let is_not_impl = result
+        // The function is implemented, so it won't return "not yet implemented"
+        // It will fail because we're not in a jj repo, which is expected behavior
+        let is_impl = result
             .as_ref()
-            .map(|()| false)
-            .unwrap_or_else(|e| e.to_string().contains("not yet implemented"));
-        assert!(is_not_impl);
+            .map(|()| true)
+            .map_or_else(
+                |e| !e.to_string().contains("not yet implemented"),
+                |v| v,
+            );
+        assert!(is_impl, "merge_to_main should be implemented");
     }
 
     // Tests for P0-3b: Error exit code mapping

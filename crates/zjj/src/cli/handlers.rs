@@ -1390,7 +1390,6 @@ pub async fn handle_wait(sub_m: &ArgMatches) -> Result<()> {
         .get_one::<String>("interval")
         .and_then(|s| s.parse().ok())
         .map_or(30, |v| v);
-    // TODO: FIX THIS LINE - /* TODO: FIX THIS */;
 
     let condition = match condition_str.as_str() {
         "session-exists" => wait::WaitCondition::SessionExists(
