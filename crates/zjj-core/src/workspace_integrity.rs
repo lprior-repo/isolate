@@ -615,8 +615,8 @@ impl IntegrityValidator {
         }
 
         // Read and validate TOML
-        let content = match tokio::fs::read_to_string(&config_file).await {
-            Ok(content) => content,
+        let file_content = match tokio::fs::read_to_string(&config_file).await {
+            Ok(file_content) => file_content,
             Err(e) => {
                 return Ok(Some(
                     IntegrityIssue::new(
@@ -630,14 +630,13 @@ impl IntegrityValidator {
         };
 
         // Try to parse as TOML
-        match toml::from_str::<toml::Value>(&content) {
+        match toml::from_str::<toml::Value>(&file_content) {
             Ok(_) => Ok(None), // Valid TOML
             Err(e) => {
-                let recovery_hint = format!(
-                    "TOML parse error: {}. \
+                let hint = format!(
+                    "TOML parse error: {e}. \
                      Suggestion: Check for syntax errors like unclosed brackets, \
-                     missing quotes, or invalid values.",
-                    e
+                     missing quotes, or invalid values."
                 );
                 Ok(Some(
                     IntegrityIssue::new(
@@ -645,7 +644,7 @@ impl IntegrityValidator {
                         format!("Config file contains invalid TOML: {e}"),
                     )
                     .with_path(&config_file)
-                    .with_context(recovery_hint),
+                    .with_context(hint),
                 ))
             }
         }

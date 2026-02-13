@@ -9,6 +9,7 @@
 use anyhow::Result;
 use serde::Serialize;
 use zjj_core::{
+    config::Config,
     workspace_integrity::{
         BackupManager, BackupMetadata, CorruptionType, IntegrityValidator, RepairExecutor,
         ValidationResult,
@@ -137,6 +138,19 @@ async fn run_validate(
         ));
     }
 
+    // Attempt to load config for better error messages, but don't fail if config is invalid
+    let _config = match zjj_core::config::load_config().await {
+        Ok(config) => config,
+        Err(e) => {
+            // If config is invalid, we can still validate the workspace
+            // Just log the error and continue with defaults
+            eprintln!("Warning: Could not load config: {e}");
+            eprintln!("Continuing with default configuration for validation...");
+            // Continue with default config
+            Config::default()
+        }
+    };
+
     let validator = IntegrityValidator::new(jj_root);
     let result = validator.validate(workspace).await?;
 
@@ -178,17 +192,19 @@ async fn run_repair(
     let config = match zjj_core::config::load_config().await {
         Ok(config) => config,
         Err(e) => {
-            // Check if this is a TOML parse error
-            let error_msg = e.to_string();
-            if error_msg.contains("TOML") || error_msg.contains("parse") {
+            // Check if this is a config-related error (TOML parse or load failure)
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("config")
+                && (error_msg.contains("toml") || error_msg.contains("parse"))
+            {
                 let response = RepairResponse {
-                    workspace: workspace.to_string(),
-                    success: false,
-                    summary: format!(
-                        "Cannot load configuration due to TOML parse error: {e}. \
-                         Suggestion: Check .zjj/config.toml or ~/.config/zjj/config.toml for syntax errors."
-                    ),
-                };
+                     workspace: workspace.to_string(),
+                     success: false,
+                     summary: format!(
+                         "Cannot load configuration due to TOML parse error: {e}. \
+                          Suggestion: Check .zjj/config.toml or ~/.config/zjj/config.toml for syntax errors."
+                     ),
+                 };
 
                 if format.is_json() {
                     let envelope =
