@@ -182,6 +182,31 @@ tasks:
       cache: false
       runInCI: true
 
+  ci-docs:
+    command: "${MOON_WORKSPACE_ROOT}/tools/ci-docs-check.sh"
+    description: "Alias for docs-check task (deprecated, use docs-check)"
+    inputs:
+      - "tools/ci-docs-check.sh"
+      - "docs/**/*.md"
+      - "target/release/zjj"
+    options:
+      cache: false
+      runInCI: true
+
+  deploy:
+    command: "true"
+    description: "Deploy to production (placeholder task)"
+    options:
+      cache: false
+      runInCI: false
+
+  llm-judge-fix-suggestions:
+    command: "echo 'LLM judge fix suggestions - placeholder task'"
+    description: "Auto-fix suggestions from LLM code review"
+    options:
+      cache: false
+      runInCI: false
+
   # ============================================================================
   # COMPOSITE PIPELINES
   # ============================================================================
@@ -246,4 +271,4 @@ tasks:
       - "/Cargo.lock"
     options:
       cache: true
-      runInCI: false
+      runInCI: true

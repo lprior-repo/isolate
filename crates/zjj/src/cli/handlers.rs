@@ -887,7 +887,11 @@ pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
         .unwrap_or_default();
-    let options = whatif::WhatIfOptions { command, args };
+    let options = whatif::WhatIfOptions {
+        command,
+        args,
+        format,
+    };
     let result = whatif::run(&options)?;
 
     if format.is_json() {
