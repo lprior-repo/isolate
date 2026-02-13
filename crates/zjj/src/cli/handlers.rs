@@ -1249,7 +1249,12 @@ pub async fn handle_rename(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_pause(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
+
+    // Explicitly require session name - no silent default
+    let session = sub_m.get_one::<String>("name").cloned().ok_or_else(|| {
+        anyhow::anyhow!("Session name is required. Provide it as an argument: zjj pause <session>")
+    })?;
+
     let options = session_mgmt::PauseOptions { session, format };
     session_mgmt::run_pause(&options).await
 }
@@ -1257,7 +1262,12 @@ pub async fn handle_pause(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_resume(sub_m: &ArgMatches) -> Result<()> {
     let json = sub_m.get_flag("json");
     let format = OutputFormat::from_json_flag(json);
-    let session = sub_m.get_one::<String>("name").cloned().unwrap_or_default();
+
+    // Explicitly require session name - no silent default
+    let session = sub_m.get_one::<String>("name").cloned().ok_or_else(|| {
+        anyhow::anyhow!("Session name is required. Provide it as an argument: zjj resume <session>")
+    })?;
+
     let options = session_mgmt::ResumeOptions { session, format };
     session_mgmt::run_resume(&options).await
 }
