@@ -4,6 +4,10 @@
 //!
 //! Enhanced to handle command flags properly, especially --workspace for done/abort commands.
 
+#![allow(clippy::len_zero)]
+#![allow(clippy::redundant_locals)]
+#![allow(clippy::doc_markdown)]
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use zjj_core::OutputFormat;
@@ -1062,6 +1066,7 @@ mod tests {
         let opts = WhatIfOptions {
             command: "unknown".to_string(),
             args: vec!["arg1".to_string()],
+            format: OutputFormat::Human,
         };
         let result = run(&opts).unwrap();
         assert_eq!(result.command, "unknown");

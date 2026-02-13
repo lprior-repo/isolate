@@ -2,6 +2,12 @@
 //!
 //! Binary name: `zjj`
 
+// Pragmatic allowances for existing code patterns
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::redundant_locals)]
+#![allow(dead_code)]
+
 //! Pragmatic test allowances - brutal test scenarios may use unwrap/expect/panic
 #![cfg_attr(
     test,
@@ -23,6 +29,7 @@
         clippy::doc_markdown,
         clippy::unnecessary_semicolon,
         clippy::needless_borrows_for_generic_args,
+        clippy::items_after_statements,
         dead_code,
         unused_must_use
     )

@@ -591,7 +591,7 @@ async fn run_integrity_after_recovery() -> Option<DoctorCheck> {
         return None;
     }
 
-    let workspace_roots = workspace_utils::candidate_workspace_roots(&root, &config.workspace_dir);
+    let _workspace_roots = workspace_utils::candidate_workspace_roots(&root, &config.workspace_dir);
     let validator = IntegrityValidator::new(workspace_dir);
     let names: Vec<String> = sessions.iter().map(|s| s.name.clone()).collect();
 

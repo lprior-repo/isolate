@@ -973,9 +973,10 @@ impl MergeQueue {
                 acc.total += cnt;
                 match status_str.as_str() {
                     "pending" => acc.pending = cnt,
-                    "processing" => acc.processing = cnt,
+                    "claimed" | "rebasing" | "testing" | "ready_to_merge" | "merging" => acc.processing += cnt,
                     "completed" => acc.completed = cnt,
-                    "failed" => acc.failed = cnt,
+                    "failed" | "failed_retryable" | "failed_terminal" => acc.failed += cnt,
+                    "cancelled" => acc.failed += cnt,
                     _ => {}
                 }
                 acc
@@ -1148,9 +1149,11 @@ impl MergeQueue {
         // workspace
         let entry = sqlx::query_as::<_, QueueEntry>(
             "UPDATE merge_queue
-             SET status = 'processing',
+             SET status = 'claimed',
                  started_at = ?1,
-                 agent_id = ?2
+                 agent_id = ?2,
+                 state_changed_at = ?1,
+                 previous_state = 'pending'
              WHERE id = (
                  SELECT id FROM merge_queue
                  WHERE status = 'pending'
@@ -1172,9 +1175,20 @@ impl MergeQueue {
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to commit transaction: {e}")))?;
 
-        // If no entry was found, release the lock and return None
-        if entry.is_none() {
-            let _ = self.release_processing_lock(agent_id).await;
+        match entry {
+            Some(ref e) => {
+                // Emit audit event for the claim (pending -> claimed)
+                let event_details = format!(
+                    r#"{{"from": "pending", "to": "claimed", "agent": "{agent_id}"}}"#
+                );
+                let _ = self
+                    .append_typed_event(e.id, QueueEventType::Claimed, Some(&event_details))
+                    .await;
+            }
+            None => {
+                // No entry was found, release the lock
+                let _ = self.release_processing_lock(agent_id).await;
+            }
         }
 
         Ok(entry)
@@ -1223,7 +1237,7 @@ impl MergeQueue {
 
     /// Reclaim stale entries that have been claimed but whose lease has expired.
     ///
-    /// This resets entries with `status = 'processing'` (claimed) back to `pending`
+    /// This resets entries with `status = 'claimed'` back to `pending`
     /// if they were claimed before the stale threshold. This is typically called
     /// when a worker starts up to recover work from crashed/disconnected workers.
     ///
@@ -1243,11 +1257,12 @@ impl MergeQueue {
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to release expired locks: {e}")))?;
 
-        // Reset stale processing entries back to pending
+        // Reset stale claimed entries back to pending
         let result = sqlx::query(
-            "UPDATE merge_queue SET status = 'pending', started_at = NULL, agent_id = NULL \
-             WHERE status = 'processing' AND started_at IS NOT NULL AND started_at < ?1",
+            "UPDATE merge_queue SET status = 'pending', started_at = NULL, agent_id = NULL, state_changed_at = ?1 \
+             WHERE status = 'claimed' AND started_at IS NOT NULL AND started_at < ?2",
         )
+        .bind(Self::now())
         .bind(cutoff)
         .execute(&self.pool)
         .await
@@ -1468,6 +1483,165 @@ impl MergeQueue {
             events
         })
         .map_err(|e| Error::DatabaseError(format!("Failed to fetch recent events: {e}")))
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // STATE TRANSITION METHODS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /// Transition a queue entry to a new status with validation and audit logging.
+    ///
+    /// This method validates that the transition is legal according to the state
+    /// machine defined in `QueueStatus::validate_transition`. If the transition
+    /// is valid, it updates the entry's status and emits an audit event.
+    ///
+    /// # Arguments
+    /// * `workspace` - The workspace name of the entry to transition
+    /// * `new_status` - The target status to transition to
+    ///
+    /// # Returns
+    /// - `Ok(())` if the transition succeeded
+    /// - `Err(Error::NotFound)` if the workspace is not in the queue
+    /// - `Err(Error::InvalidConfig)` if the transition is invalid
+    /// - `Err(Error::DatabaseError)` if the database operation fails
+    pub async fn transition_to(
+        &self,
+        workspace: &str,
+        new_status: QueueStatus,
+    ) -> Result<()> {
+        // Fetch the current entry
+        let entry = self
+            .get_by_workspace(workspace)
+            .await?
+            .ok_or_else(|| Error::NotFound(format!("Workspace '{workspace}' not found in queue")))?;
+
+        // Validate the transition
+        entry
+            .status
+            .validate_transition(new_status)
+            .map_err(|e| {
+                Error::InvalidConfig(format!(
+                    "Invalid state transition for workspace '{workspace}': {e}"
+                ))
+            })?;
+
+        let now = Self::now();
+
+        // Build the update query with status, state_changed_at, and conditional field updates
+        let result = sqlx::query(
+            "UPDATE merge_queue SET status = ?1, state_changed_at = ?2, previous_state = ?3 \
+             WHERE workspace = ?4",
+        )
+        .bind(new_status.as_str())
+        .bind(now)
+        .bind(entry.status.as_str())
+        .bind(workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to transition workspace '{workspace}': {e}"))
+        })?;
+
+        if result.rows_affected() == 0 {
+            return Err(Error::NotFound(format!(
+                "Workspace '{workspace}' not found or update failed"
+            )));
+        }
+
+        // Emit audit event for the transition
+        let event_details = format!(
+            r#"{{"from": "{}", "to": "{}"}}"#,
+            entry.status.as_str(),
+            new_status.as_str()
+        );
+        let _ = self
+            .append_typed_event(entry.id, QueueEventType::Transitioned, Some(&event_details))
+            .await;
+
+        Ok(())
+    }
+
+    /// Transition a queue entry to a failed state with error classification.
+    ///
+    /// This method handles failure scenarios by distinguishing between retryable
+    /// and terminal failures, setting the appropriate status and error message.
+    ///
+    /// # Arguments
+    /// * `workspace` - The workspace name of the entry to transition
+    /// * `error_message` - A description of the failure
+    /// * `is_retryable` - If true, transition to `FailedRetryable`; otherwise `FailedTerminal`
+    ///
+    /// # Returns
+    /// - `Ok(())` if the transition succeeded
+    /// - `Err(Error::NotFound)` if the workspace is not in the queue
+    /// - `Err(Error::InvalidConfig)` if the transition is invalid
+    /// - `Err(Error::DatabaseError)` if the database operation fails
+    pub async fn transition_to_failed(
+        &self,
+        workspace: &str,
+        error_message: &str,
+        is_retryable: bool,
+    ) -> Result<()> {
+        // Fetch the current entry
+        let entry = self
+            .get_by_workspace(workspace)
+            .await?
+            .ok_or_else(|| Error::NotFound(format!("Workspace '{workspace}' not found in queue")))?;
+
+        // Determine target status based on retryability
+        let new_status = if is_retryable {
+            QueueStatus::FailedRetryable
+        } else {
+            QueueStatus::FailedTerminal
+        };
+
+        // Validate the transition
+        entry
+            .status
+            .validate_transition(new_status)
+            .map_err(|e| {
+                Error::InvalidConfig(format!(
+                    "Invalid state transition for workspace '{workspace}': {e}"
+                ))
+            })?;
+
+        let now = Self::now();
+
+        // Update status, error_message, and state_changed_at
+        let result = sqlx::query(
+            "UPDATE merge_queue SET status = ?1, error_message = ?2, state_changed_at = ?3, \
+             completed_at = ?3, previous_state = ?4 WHERE workspace = ?5",
+        )
+        .bind(new_status.as_str())
+        .bind(error_message)
+        .bind(now)
+        .bind(entry.status.as_str())
+        .bind(workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to transition workspace '{workspace}': {e}"))
+        })?;
+
+        if result.rows_affected() == 0 {
+            return Err(Error::NotFound(format!(
+                "Workspace '{workspace}' not found or update failed"
+            )));
+        }
+
+        // Emit audit event for the failure
+        let event_details = format!(
+            r#"{{"from": "{}", "to": "{}", "error": "{}", "retryable": {}}}"#,
+            entry.status.as_str(),
+            new_status.as_str(),
+            error_message.replace('"', r#"\""#),
+            is_retryable
+        );
+        let _ = self
+            .append_typed_event(entry.id, QueueEventType::Failed, Some(&event_details))
+            .await;
+
+        Ok(())
     }
 }
 
