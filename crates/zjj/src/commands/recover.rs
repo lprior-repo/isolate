@@ -397,7 +397,14 @@ pub async fn save_last_command(command: &str, failed: bool) -> Result<()> {
 /// Run the retry command
 #[allow(clippy::option_if_let_else)]
 pub async fn run_retry(options: &RetryOptions) -> Result<()> {
-    let path = get_last_command_path().await?;
+    let path = match get_last_command_path().await {
+        Ok(p) => p,
+        Err(e) => {
+            // If we can't get the data dir (e.g., ZJJ not initialized),
+            // return a clear error without retry-specific wording
+            return Err(e.context("ZJJ not initialized. Run 'zjj init' first."));
+        }
+    };
 
     let output = match tokio::fs::try_exists(&path).await {
         Ok(true) => {
@@ -448,7 +455,7 @@ pub async fn run_retry(options: &RetryOptions) -> Result<()> {
                     Ok(_) => RetryOutput {
                         has_command: false,
                         command: None,
-                        message: "Last command succeeded, nothing to retry".to_string(),
+                        message: "No failed operation to retry".to_string(),
                     },
                     Err(_) => RetryOutput {
                         has_command: false,
@@ -466,7 +473,7 @@ pub async fn run_retry(options: &RetryOptions) -> Result<()> {
         _ => RetryOutput {
             has_command: false,
             command: None,
-            message: "No command history found. Run a zjj command first.".to_string(),
+            message: "No failed operation to retry".to_string(),
         },
     };
 
@@ -1120,7 +1127,7 @@ mod tests {
             let output = RetryOutput {
                 has_command: false,
                 command: None,
-                message: "No failed command to retry".to_string(),
+                message: "No failed operation to retry".to_string(),
             };
 
             assert!(!output.has_command);

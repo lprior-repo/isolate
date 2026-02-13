@@ -122,7 +122,7 @@ pub async fn run() -> Result<()> {
     if !crate::cli::is_terminal() {
         anyhow::bail!(
             "Cannot launch interactive dashboard in non-interactive environment.\n\
-             Use 'zjj status' for a non-interactive overview, or 'zjj dashboard --json' (if implemented) for machine-readable state."
+             Use 'zjj status' for a non-interactive overview."
         );
     }
 

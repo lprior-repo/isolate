@@ -973,7 +973,9 @@ impl MergeQueue {
                 acc.total += cnt;
                 match status_str.as_str() {
                     "pending" => acc.pending = cnt,
-                    "claimed" | "rebasing" | "testing" | "ready_to_merge" | "merging" => acc.processing += cnt,
+                    "claimed" | "rebasing" | "testing" | "ready_to_merge" | "merging" => {
+                        acc.processing += cnt
+                    }
                     "completed" => acc.completed = cnt,
                     "failed" | "failed_retryable" | "failed_terminal" => acc.failed += cnt,
                     "cancelled" => acc.failed += cnt,
@@ -1178,9 +1180,8 @@ impl MergeQueue {
         match entry {
             Some(ref e) => {
                 // Emit audit event for the claim (pending -> claimed)
-                let event_details = format!(
-                    r#"{{"from": "pending", "to": "claimed", "agent": "{agent_id}"}}"#
-                );
+                let event_details =
+                    format!(r#"{{"from": "pending", "to": "claimed", "agent": "{agent_id}"}}"#);
                 let _ = self
                     .append_typed_event(e.id, QueueEventType::Claimed, Some(&event_details))
                     .await;
@@ -1504,26 +1505,18 @@ impl MergeQueue {
     /// - `Err(Error::NotFound)` if the workspace is not in the queue
     /// - `Err(Error::InvalidConfig)` if the transition is invalid
     /// - `Err(Error::DatabaseError)` if the database operation fails
-    pub async fn transition_to(
-        &self,
-        workspace: &str,
-        new_status: QueueStatus,
-    ) -> Result<()> {
+    pub async fn transition_to(&self, workspace: &str, new_status: QueueStatus) -> Result<()> {
         // Fetch the current entry
-        let entry = self
-            .get_by_workspace(workspace)
-            .await?
-            .ok_or_else(|| Error::NotFound(format!("Workspace '{workspace}' not found in queue")))?;
+        let entry = self.get_by_workspace(workspace).await?.ok_or_else(|| {
+            Error::NotFound(format!("Workspace '{workspace}' not found in queue"))
+        })?;
 
         // Validate the transition
-        entry
-            .status
-            .validate_transition(new_status)
-            .map_err(|e| {
-                Error::InvalidConfig(format!(
-                    "Invalid state transition for workspace '{workspace}': {e}"
-                ))
-            })?;
+        entry.status.validate_transition(new_status).map_err(|e| {
+            Error::InvalidConfig(format!(
+                "Invalid state transition for workspace '{workspace}': {e}"
+            ))
+        })?;
 
         let now = Self::now();
 
@@ -1583,10 +1576,9 @@ impl MergeQueue {
         is_retryable: bool,
     ) -> Result<()> {
         // Fetch the current entry
-        let entry = self
-            .get_by_workspace(workspace)
-            .await?
-            .ok_or_else(|| Error::NotFound(format!("Workspace '{workspace}' not found in queue")))?;
+        let entry = self.get_by_workspace(workspace).await?.ok_or_else(|| {
+            Error::NotFound(format!("Workspace '{workspace}' not found in queue"))
+        })?;
 
         // Determine target status based on retryability
         let new_status = if is_retryable {
@@ -1596,14 +1588,11 @@ impl MergeQueue {
         };
 
         // Validate the transition
-        entry
-            .status
-            .validate_transition(new_status)
-            .map_err(|e| {
-                Error::InvalidConfig(format!(
-                    "Invalid state transition for workspace '{workspace}': {e}"
-                ))
-            })?;
+        entry.status.validate_transition(new_status).map_err(|e| {
+            Error::InvalidConfig(format!(
+                "Invalid state transition for workspace '{workspace}': {e}"
+            ))
+        })?;
 
         let now = Self::now();
 
