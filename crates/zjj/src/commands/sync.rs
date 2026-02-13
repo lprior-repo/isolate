@@ -412,11 +412,11 @@ mod tests {
     }
 
     // Helper to get current unix timestamp
-    fn current_timestamp() -> u64 {
+    fn current_timestamp() -> anyhow::Result<u64> {
         SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .map(|d| d.as_secs())
-            .unwrap_or(0)
+            .map_err(|e| anyhow::anyhow!("System time error: {e}"))
     }
 
     #[test]
@@ -464,7 +464,7 @@ mod tests {
             db.create("test-session", "/fake/workspace").await?;
 
             // Update last_synced
-            let now = current_timestamp();
+            let now = current_timestamp()?;
             let update = SessionUpdate {
                 last_synced: Some(now),
                 ..Default::default()
@@ -511,7 +511,7 @@ mod tests {
             db.create("test-session", "/fake/workspace").await?;
 
             // Simulate successful sync by updating timestamp
-            let before = current_timestamp();
+            let before = current_timestamp()?;
             let update = SessionUpdate {
                 last_synced: Some(before),
                 ..Default::default()
@@ -542,7 +542,7 @@ mod tests {
             db.create("test-session", "/fake/workspace").await?;
 
             // First sync
-            let first_sync = current_timestamp();
+            let first_sync = current_timestamp()?;
             db.update(
                 "test-session",
                 SessionUpdate {
@@ -556,7 +556,7 @@ mod tests {
             tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
             // Second sync
-            let second_sync = current_timestamp();
+            let second_sync = current_timestamp()?;
             db.update(
                 "test-session",
                 SessionUpdate {

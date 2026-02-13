@@ -165,7 +165,7 @@ pub fn run(options: &WhatIfOptions) -> Result<WhatIfResult> {
             modifies: vec![],
             deletes: vec![],
             side_effects: vec![],
-            reversible: false,
+            reversible: true,
             undo_command: None,
             warnings: vec![format!(
                 "No specific preview available for \'{}\'",
@@ -481,6 +481,13 @@ fn preview_done_with_flags(
                 can_fail: false,
                 on_failure: None,
             },
+            WhatIfStep {
+                order: 7,
+                description: "Cleanup workspace".to_string(),
+                action: format!("Remove workspace {workspace}"),
+                can_fail: false,
+                on_failure: None,
+            },
         ],
         creates: vec![
             ResourceChange {
@@ -560,7 +567,6 @@ fn preview_done_with_flags(
     if has_keep_flag {
         result.steps[6].description = "Keep workspace files".to_string();
         result.steps[6].action = format!("Preserve .zjj/workspaces/{workspace}");
-        result.steps[6].can_fail = false;
         result.deletes[0].description = "Workspace directory (unless --keep-workspace)".to_string();
         result
             .warnings
@@ -1005,7 +1011,8 @@ mod tests {
         let result = preview_add_with_flags(&args, true).unwrap();
         assert_eq!(result.command, "add");
         assert_eq!(result.args, args);
-        assert!(result.warnings.is_empty()); // Warnings added in enhanced version
+        assert!(!result.warnings.is_empty()); // --force adds a warning
+        assert!(result.warnings.iter().any(|w| w.contains("--force")));
     }
 
     #[test]

@@ -14,7 +14,9 @@ mod tests;
 use anyhow::Result;
 use zjj_core::coordination::locks::LockManager;
 
-use self::types::{LockArgs, LockOutput, UnlockArgs, UnlockOutput};
+use self::types::{
+    LockArgs, LockOutput, ProductionSessionValidator, SessionExists, UnlockArgs, UnlockOutput,
+};
 use crate::commands::get_session_db;
 
 pub async fn run_lock_async(args: &LockArgs, mgr: &LockManager) -> Result<LockOutput> {
@@ -49,11 +51,16 @@ pub async fn run_lock_async(args: &LockArgs, mgr: &LockManager) -> Result<LockOu
     }
 }
 
-pub async fn run_unlock_async(args: &UnlockArgs, mgr: &LockManager) -> Result<UnlockOutput> {
-    // Check if session exists before attempting to unlock
-    let db = get_session_db().await?;
-    let session_exists = db.get(&args.session).await?.is_some();
-
+/// Run unlock with a custom session validator.
+///
+/// This is the core unlock logic that can be tested in isolation.
+pub async fn run_unlock_with_validator(
+    args: &UnlockArgs,
+    mgr: &LockManager,
+    validator: &dyn SessionExists,
+) -> Result<UnlockOutput> {
+    // Check if session exists before attempting to unlock (security feature)
+    let session_exists = validator.session_exists(&args.session).await?;
     if !session_exists {
         anyhow::bail!(
             "SESSION_NOT_FOUND: Session '{}' does not exist",
@@ -80,4 +87,14 @@ pub async fn run_unlock_async(args: &UnlockArgs, mgr: &LockManager) -> Result<Un
         }
         Err(e) => anyhow::bail!("Failed to release lock: {e}"),
     }
+}
+
+/// Run unlock using production session validation.
+///
+/// This is the production entry point that validates sessions against
+/// the real session database.
+pub async fn run_unlock_async(args: &UnlockArgs, mgr: &LockManager) -> Result<UnlockOutput> {
+    let db = get_session_db().await?;
+    let validator = ProductionSessionValidator::new(db);
+    run_unlock_with_validator(args, mgr, &validator).await
 }

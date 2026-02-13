@@ -235,18 +235,6 @@ impl Session {
             });
         }
 
-        if self.name.len() > 64 {
-            return Err(Error::ValidationError {
-                message: format!(
-                    "Session name '{}' exceeds maximum length of 64 characters",
-                    self.name
-                ),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
-            });
-        }
-
         // Path validation
         if !self.workspace_path.is_absolute() {
             return Err(Error::ValidationError {

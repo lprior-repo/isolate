@@ -6,13 +6,31 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
+use std::future::Future;
+use std::pin::Pin;
+
 use chrono::{Duration, Utc};
 use zjj_core::coordination::locks::LockManager;
 
 use super::{
-    run_lock_async, run_unlock_async,
-    types::{LockArgs, UnlockArgs},
+    run_lock_async, run_unlock_with_validator,
+    types::{LockArgs, SessionExists, UnlockArgs},
 };
+
+/// Mock validator that always returns true for session existence.
+///
+/// This allows unit tests to test lock/unlock logic in isolation
+/// without requiring a real session database.
+struct MockSessionValidator;
+
+impl SessionExists for MockSessionValidator {
+    fn session_exists(
+        &self,
+        _session_name: &str,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<bool>> + Send + 'static>> {
+        Box::pin(async move { Ok(true) })
+    }
+}
 
 /// Helper to create test database pool
 async fn test_pool() -> Result<sqlx::SqlitePool, zjj_core::Error> {
@@ -122,6 +140,7 @@ async fn test_lock_output_shows_holder_on_conflict() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_unlock_releases_lock() -> anyhow::Result<()> {
     let mgr = setup_lock_manager().await?;
+    let validator = MockSessionValidator;
 
     let lock_args = LockArgs {
         session: "test-session".to_string(),
@@ -134,7 +153,7 @@ async fn test_unlock_releases_lock() -> anyhow::Result<()> {
         session: "test-session".to_string(),
         agent_id: Some("agent1".to_string()),
     };
-    let output = run_unlock_async(&unlock_args, &mgr).await?;
+    let output = run_unlock_with_validator(&unlock_args, &mgr, &validator).await?;
 
     assert!(output.success);
     assert!(output.released);
@@ -155,6 +174,7 @@ async fn test_unlock_releases_lock() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_unlock_fails_for_non_holder() -> anyhow::Result<()> {
     let mgr = setup_lock_manager().await?;
+    let validator = MockSessionValidator;
 
     let lock_args = LockArgs {
         session: "test-session".to_string(),
@@ -167,7 +187,7 @@ async fn test_unlock_fails_for_non_holder() -> anyhow::Result<()> {
         session: "test-session".to_string(),
         agent_id: Some("agent2".to_string()),
     };
-    let result = run_unlock_async(&unlock_args, &mgr).await;
+    let result = run_unlock_with_validator(&unlock_args, &mgr, &validator).await;
 
     assert!(result.is_err());
     let err_msg = result
