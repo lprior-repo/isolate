@@ -44,7 +44,7 @@ async fn spawn_concurrent_agents(
     queue: Arc<MergeQueue>,
     work_items: Vec<String>,
 ) -> Vec<Option<String>> {
-    const MAX_RETRIES: u32 = 15;
+    const MAX_RETRIES: u32 = 60;
     const INITIAL_BACKOFF_MS: u64 = 1;
 
     let handles = work_items

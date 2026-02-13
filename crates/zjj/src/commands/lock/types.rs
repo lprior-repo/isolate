@@ -7,8 +7,7 @@
 #![warn(clippy::nursery)]
 #![allow(dead_code)]
 
-use std::future::Future;
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

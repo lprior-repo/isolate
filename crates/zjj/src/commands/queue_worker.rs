@@ -252,7 +252,8 @@ async fn handle_processing_failure(
     let error_msg = error.to_string();
 
     // Classify error with attempt count consideration
-    let classification = classify_with_attempts(&error_msg, entry.attempt_count, entry.max_attempts);
+    let classification =
+        classify_with_attempts(&error_msg, entry.attempt_count, entry.max_attempts);
 
     // Log the classification decision
     let class_str = match classification {
@@ -308,10 +309,7 @@ async fn handle_gates_outcome(
                 .transition_to(&entry.workspace, QueueStatus::ReadyToMerge)
                 .await
                 .with_context(|| {
-                    format!(
-                        "Failed to transition {} to ready_to_merge",
-                        entry.workspace
-                    )
+                    format!("Failed to transition {} to ready_to_merge", entry.workspace)
                 })?;
 
             // Release lock
@@ -708,7 +706,10 @@ async fn process_entry_with_gates(
             entry.workspace,
             outcome.status,
             if outcome.quick.passed { "PASS" } else { "FAIL" },
-            outcome.test.as_ref().map_or("SKIP", |t| if t.passed { "PASS" } else { "FAIL" })
+            outcome
+                .test
+                .as_ref()
+                .map_or("SKIP", |t| if t.passed { "PASS" } else { "FAIL" })
         );
     }
 

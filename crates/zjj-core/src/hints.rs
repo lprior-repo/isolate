@@ -788,12 +788,12 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
-    use crate::WorkspaceState;
+    use crate::{types::SessionName, WorkspaceState};
 
     fn create_test_session(name: &str, status: SessionStatus) -> Session {
         Session {
             id: format!("id-{name}"),
-            name: name.to_string(),
+            name: SessionName::new(name).expect("valid session name in test"),
             status,
             state: WorkspaceState::default(),
             workspace_path: PathBuf::from("/tmp/test"),

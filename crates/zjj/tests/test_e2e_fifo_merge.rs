@@ -162,7 +162,11 @@ fn test_e2e_queue_next_returns_fifo_order() {
             .and_then(|d| d.get("entry"))
             .and_then(|e| e.get("workspace"))
             .and_then(JsonValue::as_str)
-            .or_else(|| json.get("entry").and_then(|e| e.get("workspace")).and_then(JsonValue::as_str))
+            .or_else(|| {
+                json.get("entry")
+                    .and_then(|e| e.get("workspace"))
+                    .and_then(JsonValue::as_str)
+            })
             .map(String::from);
 
         if let Some(ws) = workspace {
@@ -232,7 +236,10 @@ fn test_e2e_priority_with_fifo_tiebreaker() {
     let mid_pos = workspace_order.iter().position(|&w| w == "mid");
 
     if let (Some(h), Some(m)) = (high_pos, mid_pos) {
-        assert!(h < m, "high (priority 0) should come before mid (priority 5)");
+        assert!(
+            h < m,
+            "high (priority 0) should come before mid (priority 5)"
+        );
     }
 
     // mid should come before low-1 and low-2
@@ -240,11 +247,17 @@ fn test_e2e_priority_with_fifo_tiebreaker() {
     let low2_pos = workspace_order.iter().position(|&w| w == "low-2");
 
     if let (Some(m), Some(l1)) = (mid_pos, low1_pos) {
-        assert!(m < l1, "mid (priority 5) should come before low-1 (priority 10)");
+        assert!(
+            m < l1,
+            "mid (priority 5) should come before low-1 (priority 10)"
+        );
     }
 
     if let (Some(l1), Some(l2)) = (low1_pos, low2_pos) {
-        assert!(l1 < l2, "low-1 should come before low-2 (FIFO within same priority)");
+        assert!(
+            l1 < l2,
+            "low-1 should come before low-2 (FIFO within same priority)"
+        );
     }
 }
 
@@ -330,10 +343,7 @@ fn test_e2e_queue_status_for_workspace() {
         .unwrap_or(false);
     assert!(exists, "Workspace should exist in queue");
 
-    let status = data
-        .get("status")
-        .and_then(JsonValue::as_str)
-        .unwrap_or("");
+    let status = data.get("status").and_then(JsonValue::as_str).unwrap_or("");
     assert!(!status.is_empty(), "Status should be present");
 }
 
@@ -403,7 +413,10 @@ fn test_e2e_queue_remove_entry() {
     if status_result.success {
         let json: JsonValue = serde_json::from_str(&status_result.stdout).unwrap_or_default();
         let data = json.get("data").unwrap_or(&json);
-        let exists = data.get("exists").and_then(JsonValue::as_bool).unwrap_or(false);
+        let exists = data
+            .get("exists")
+            .and_then(JsonValue::as_bool)
+            .unwrap_or(false);
         assert!(exists, "Entry should exist before removal");
     }
 
@@ -416,7 +429,10 @@ fn test_e2e_queue_remove_entry() {
         if status_after.success {
             let json: JsonValue = serde_json::from_str(&status_after.stdout).unwrap_or_default();
             let data = json.get("data").unwrap_or(&json);
-            let exists = data.get("exists").and_then(JsonValue::as_bool).unwrap_or(true);
+            let exists = data
+                .get("exists")
+                .and_then(JsonValue::as_bool)
+                .unwrap_or(true);
             assert!(!exists, "Entry should not exist after removal");
         }
     }

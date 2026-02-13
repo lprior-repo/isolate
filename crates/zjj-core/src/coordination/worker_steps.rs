@@ -130,57 +130,21 @@ pub async fn rebase_step(
             })
         }
         Err(RebaseError::Conflict(msg)) => {
-            let entry = queue
-                .get_by_workspace(workspace)
+            // Conflict: transition to failed_retryable
+            let _ = queue
+                .transition_to_failed(workspace, &msg, true)
                 .await
-                .map_err(|e| RebaseError::QueueError(e.to_string()))?
-                .ok_or_else(|| {
-                    RebaseError::QueueError(format!("Workspace '{workspace}' not found"))
-                })?;
-
-            let target_status = handle_step_failure(queue, workspace, &msg, &entry)
-                .await
-                .map_err(|e| RebaseError::QueueError(e.to_string()))?;
-
-            tracing::info!(
-                workspace = %workspace,
-                target_status = %target_status.as_str(),
-                "Rebase conflict handled with error classification"
-            );
-
+                .map_err(|e| {
+                    tracing::warn!("Failed to mark entry as failed_retryable: {e}");
+                    e
+                });
             Err(RebaseError::Conflict(msg))
         }
         Err(e) => {
-            let entry_result = queue.get_by_workspace(workspace).await;
-
-            match entry_result {
-                Ok(Some(entry)) => {
-                    let target_status =
-                        handle_step_failure(queue, workspace, &e.to_string(), &entry)
-                            .await
-                            .map_err(|qe| RebaseError::QueueError(qe.to_string()))?;
-
-                    tracing::info!(
-                        workspace = %workspace,
-                        target_status = %target_status.as_str(),
-                        "Rebase error handled with error classification"
-                    );
-                }
-                Ok(None) => {
-                    tracing::warn!(
-                        workspace = %workspace,
-                        "Entry not found during error handling"
-                    );
-                }
-                Err(qe) => {
-                    tracing::warn!(
-                        workspace = %workspace,
-                        error = %qe,
-                        "Failed to fetch entry during error handling"
-                    );
-                }
-            }
-
+            // Other error: transition to failed_retryable
+            let _ = queue
+                .transition_to_failed(workspace, &e.to_string(), true)
+                .await;
             Err(e)
         }
     }
@@ -365,6 +329,211 @@ pub fn determine_failure_status(error_msg: &str, entry: &QueueEntry) -> QueueSta
     }
 }
 
+/// Error type for moon gate step operations.
+#[derive(Debug, Clone, Error)]
+pub enum MoonGateError {
+    /// The moon command execution failed.
+    #[error("moon gate failed: {0}")]
+    GateFailed(String),
+
+    /// Failed to execute the moon command.
+    #[error("moon command execution error: {0}")]
+    ExecutionError(String),
+
+    /// Queue operation failed.
+    #[error("queue operation failed: {0}")]
+    QueueError(String),
+
+    /// Entry is not in the expected state for testing.
+    #[error("invalid entry state for moon gate: expected {expected}, got {actual}")]
+    InvalidState {
+        expected: &'static str,
+        actual: String,
+    },
+}
+
+/// Result of a successful moon gate operation.
+#[derive(Debug, Clone)]
+pub struct MoonGateSuccess {
+    /// The exit code (0 for success).
+    pub exit_code: i32,
+    /// Standard output from the command.
+    pub stdout: String,
+    /// Standard error from the command.
+    pub stderr: String,
+    /// The gate that was run (e.g., ":check", ":test").
+    pub gate: String,
+}
+
+/// Configuration for moon gate execution.
+#[derive(Debug, Clone)]
+pub struct MoonGateConfig {
+    /// The moon gate to run (e.g., ":check", ":test", ":quick").
+    pub gate: String,
+}
+
+impl Default for MoonGateConfig {
+    fn default() -> Self {
+        Self {
+            gate: ":check".to_string(),
+        }
+    }
+}
+
+impl MoonGateConfig {
+    /// Create a new configuration with the specified gate.
+    #[must_use]
+    pub fn new(gate: &str) -> Self {
+        Self {
+            gate: gate.to_string(),
+        }
+    }
+
+    /// Create a configuration for the :check gate.
+    #[must_use]
+    pub fn check() -> Self {
+        Self::new(":check")
+    }
+
+    /// Create a configuration for the :test gate.
+    #[must_use]
+    pub fn test() -> Self {
+        Self::new(":test")
+    }
+
+    /// Create a configuration for the :quick gate.
+    #[must_use]
+    pub fn quick() -> Self {
+        Self::new(":quick")
+    }
+}
+
+/// Perform the moon gate step on a workspace.
+///
+/// This function:
+/// 1. Validates the entry is in 'testing' status
+/// 2. Executes `moon run :<gate>` in the workspace
+/// 3. Captures exit code, stdout, and stderr
+/// 4. On success (exit code 0): transitions to 'ready'
+/// 5. On failure: transitions to `failed_retryable`
+///
+/// # Arguments
+/// * `queue` - The merge queue to update
+/// * `workspace` - The workspace name
+/// * `workspace_path` - The filesystem path to the workspace
+/// * `config` - Configuration for which gate to run
+///
+/// # Returns
+/// - `Ok(MoonGateSuccess)` on successful gate pass
+/// - `Err(MoonGateError::GateFailed)` if the gate fails
+/// - `Err(MoonGateError::ExecutionError)` if command execution fails
+/// - Other `Err(MoonGateError)` variants for other failures
+///
+/// # Errors
+///
+/// Returns `MoonGateError::GateFailed` if the moon gate command returned a non-zero exit code.
+/// Returns `MoonGateError::ExecutionError` if the moon command could not be executed.
+/// Returns `MoonGateError::QueueError` if a queue operation failed.
+/// Returns `MoonGateError::InvalidState` if the entry is not in the expected state for testing.
+pub async fn moon_gate_step(
+    queue: &MergeQueue,
+    workspace: &str,
+    workspace_path: &Path,
+    config: &MoonGateConfig,
+) -> std::result::Result<MoonGateSuccess, MoonGateError> {
+    // Step 1: Validate entry is in testing state
+    validate_testing_state(queue, workspace).await?;
+
+    // Step 2: Execute moon gate
+    let gate_result = execute_moon_gate(workspace_path, &config.gate).await;
+
+    match gate_result {
+        Ok(success) => {
+            // Step 3: Transition to ready on success
+            queue
+                .transition_to(workspace, QueueStatus::ReadyToMerge)
+                .await
+                .map_err(|e| MoonGateError::QueueError(e.to_string()))?;
+
+            Ok(success)
+        }
+        Err(MoonGateError::GateFailed(ref msg)) => {
+            // Failure: transition to failed_retryable
+            let _ = queue
+                .transition_to_failed(workspace, msg, true)
+                .await
+                .map_err(|e| {
+                    tracing::warn!("Failed to mark entry as failed_retryable: {e}");
+                    e
+                });
+            Err(gate_result.unwrap_err())
+        }
+        Err(e) => {
+            // Other error: transition to failed_retryable
+            let _ = queue
+                .transition_to_failed(workspace, &e.to_string(), true)
+                .await;
+            Err(e)
+        }
+    }
+}
+
+/// Validate entry is in testing state.
+async fn validate_testing_state(
+    queue: &MergeQueue,
+    workspace: &str,
+) -> std::result::Result<(), MoonGateError> {
+    let entry = queue
+        .get_by_workspace(workspace)
+        .await
+        .map_err(|e| MoonGateError::QueueError(e.to_string()))?
+        .ok_or_else(|| MoonGateError::QueueError(format!("Workspace '{workspace}' not found")))?;
+
+    if entry.status != QueueStatus::Testing {
+        return Err(MoonGateError::InvalidState {
+            expected: "testing",
+            actual: entry.status.as_str().to_string(),
+        });
+    }
+
+    Ok(())
+}
+
+/// Execute the moon gate command and capture output.
+async fn execute_moon_gate(
+    workspace_path: &Path,
+    gate: &str,
+) -> std::result::Result<MoonGateSuccess, MoonGateError> {
+    let output = Command::new("moon")
+        .args(["run", gate])
+        .current_dir(workspace_path)
+        .output()
+        .await
+        .map_err(|e| {
+            MoonGateError::ExecutionError(format!("Failed to execute moon run {gate}: {e}"))
+        })?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let exit_code = output.status.code().unwrap_or(-1);
+
+    if !output.status.success() {
+        let error_msg = if stderr.is_empty() {
+            format!("moon run {gate} exited with code {exit_code}")
+        } else {
+            stderr.clone()
+        };
+        return Err(MoonGateError::GateFailed(error_msg));
+    }
+
+    Ok(MoonGateSuccess {
+        exit_code,
+        stdout,
+        stderr,
+        gate: gate.to_string(),
+    })
+}
+
 /// Handle a step failure with proper error classification.
 ///
 /// This function classifies the error, determines the appropriate target status,
@@ -507,10 +676,10 @@ exit 1
     #[cfg(unix)]
     fn prepend_path(dir: &std::path::Path) -> EnvGuard {
         let previous = std::env::var("PATH").ok();
-        let new_path = match previous.as_ref() {
-            Some(existing) => format!("{}:{}", dir.display(), existing),
-            None => dir.display().to_string(),
-        };
+        let new_path = previous.as_ref().map_or_else(
+            || dir.display().to_string(),
+            |existing| format!("{}:{}", dir.display(), existing),
+        );
         EnvGuard::set("PATH", &new_path)
     }
 
@@ -578,6 +747,199 @@ exit 1
             updated.tested_against_sha.is_none(),
             "tested_against_sha should be unset"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_moon_gate_config_defaults_to_check() {
+        let config = MoonGateConfig::default();
+        assert_eq!(config.gate, ":check");
+    }
+
+    #[test]
+    fn test_moon_gate_config_convenience_constructors() {
+        assert_eq!(MoonGateConfig::check().gate, ":check");
+        assert_eq!(MoonGateConfig::test().gate, ":test");
+        assert_eq!(MoonGateConfig::quick().gate, ":quick");
+    }
+
+    #[test]
+    fn test_moon_gate_error_display() {
+        let err = MoonGateError::GateFailed("lint error".to_string());
+        assert_eq!(err.to_string(), "moon gate failed: lint error");
+
+        let err = MoonGateError::ExecutionError("command not found".to_string());
+        assert_eq!(
+            err.to_string(),
+            "moon command execution error: command not found"
+        );
+
+        let err = MoonGateError::InvalidState {
+            expected: "testing",
+            actual: "pending".to_string(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "invalid entry state for moon gate: expected testing, got pending"
+        );
+    }
+
+    #[cfg(unix)]
+    fn write_fake_moon_script(dir: &std::path::Path) -> std::io::Result<PathBuf> {
+        let script = r#"#!/bin/sh
+if [ "${ZJJ_TEST_MOON_FAIL}" = "1" ]; then
+  echo "error: lint failed" 1>&2
+  exit 1
+fi
+
+if [ "${ZJJ_TEST_MOON_STDERR}" = "1" ]; then
+  echo "warning: deprecated" 1>&2
+fi
+
+echo "moon run :check completed"
+exit 0
+"#;
+
+        let path = dir.join("moon");
+        std::fs::write(&path, script)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&path)?.permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&path, perms)?;
+        }
+
+        Ok(path)
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_moon_gate_step_success() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = tempfile::tempdir()?;
+        let workspace_dir = tempfile::tempdir()?;
+        let _moon_path = write_fake_moon_script(temp_dir.path())?;
+        let _path_guard = prepend_path(temp_dir.path());
+
+        let queue = MergeQueue::open_in_memory().await?;
+        queue.add("ws-moon-test", None, 5, None).await?;
+        let claimed = queue.next_with_lock("agent-moon-test").await?;
+        assert!(claimed.is_some(), "Entry should be claimed");
+
+        // Manually transition through state machine: claimed -> rebasing -> testing
+        queue
+            .transition_to("ws-moon-test", QueueStatus::Rebasing)
+            .await?;
+        queue
+            .transition_to("ws-moon-test", QueueStatus::Testing)
+            .await?;
+
+        let config = MoonGateConfig::check();
+        let result = moon_gate_step(&queue, "ws-moon-test", workspace_dir.path(), &config)
+            .await
+            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
+
+        assert_eq!(result.exit_code, 0);
+        assert!(result.stdout.contains("moon run :check completed"));
+        assert_eq!(result.gate, ":check");
+
+        let updated = queue
+            .get_by_workspace("ws-moon-test")
+            .await?
+            .ok_or("entry missing")?;
+        assert_eq!(updated.status, QueueStatus::ReadyToMerge);
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_moon_gate_step_failure_marks_retryable() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let temp_dir = tempfile::tempdir()?;
+        let workspace_dir = tempfile::tempdir()?;
+        let _moon_path = write_fake_moon_script(temp_dir.path())?;
+        let _path_guard = prepend_path(temp_dir.path());
+        let _fail_guard = EnvGuard::set("ZJJ_TEST_MOON_FAIL", "1");
+
+        let queue = MergeQueue::open_in_memory().await?;
+        queue.add("ws-moon-fail", None, 5, None).await?;
+        let claimed = queue.next_with_lock("agent-moon-fail").await?;
+        assert!(claimed.is_some(), "Entry should be claimed");
+
+        // Manually transition through state machine: claimed -> rebasing -> testing
+        queue
+            .transition_to("ws-moon-fail", QueueStatus::Rebasing)
+            .await?;
+        queue
+            .transition_to("ws-moon-fail", QueueStatus::Testing)
+            .await?;
+
+        let config = MoonGateConfig::check();
+        let result = moon_gate_step(&queue, "ws-moon-fail", workspace_dir.path(), &config).await;
+
+        assert!(matches!(result, Err(MoonGateError::GateFailed(_))));
+
+        let updated = queue
+            .get_by_workspace("ws-moon-fail")
+            .await?
+            .ok_or("entry missing")?;
+        assert_eq!(updated.status, QueueStatus::FailedRetryable);
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_moon_gate_step_invalid_state() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = tempfile::tempdir()?;
+        let workspace_dir = tempfile::tempdir()?;
+        let _moon_path = write_fake_moon_script(temp_dir.path())?;
+        let _path_guard = prepend_path(temp_dir.path());
+
+        let queue = MergeQueue::open_in_memory().await?;
+        queue.add("ws-moon-invalid", None, 5, None).await?;
+
+        // Entry is in 'pending' state, not 'testing'
+        let config = MoonGateConfig::check();
+        let result = moon_gate_step(&queue, "ws-moon-invalid", workspace_dir.path(), &config).await;
+
+        assert!(matches!(result, Err(MoonGateError::InvalidState { .. })));
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_moon_gate_step_captures_stderr() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = tempfile::tempdir()?;
+        let workspace_dir = tempfile::tempdir()?;
+        let _moon_path = write_fake_moon_script(temp_dir.path())?;
+        let _path_guard = prepend_path(temp_dir.path());
+        let _stderr_guard = EnvGuard::set("ZJJ_TEST_MOON_STDERR", "1");
+
+        let queue = MergeQueue::open_in_memory().await?;
+        queue.add("ws-moon-stderr", None, 5, None).await?;
+        let claimed = queue.next_with_lock("agent-moon-stderr").await?;
+        assert!(claimed.is_some(), "Entry should be claimed");
+
+        // Manually transition through state machine: claimed -> rebasing -> testing
+        queue
+            .transition_to("ws-moon-stderr", QueueStatus::Rebasing)
+            .await?;
+        queue
+            .transition_to("ws-moon-stderr", QueueStatus::Testing)
+            .await?;
+
+        let config = MoonGateConfig::check();
+        let result = moon_gate_step(&queue, "ws-moon-stderr", workspace_dir.path(), &config)
+            .await
+            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
+
+        assert_eq!(result.exit_code, 0);
+        assert!(result.stderr.contains("warning: deprecated"));
 
         Ok(())
     }

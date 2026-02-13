@@ -268,10 +268,7 @@ mod tests {
         let is_impl = result
             .as_ref()
             .map(|()| true)
-            .map_or_else(
-                |e| !e.to_string().contains("not yet implemented"),
-                |v| v,
-            );
+            .map_or_else(|e| !e.to_string().contains("not yet implemented"), |v| v);
         assert!(is_impl, "merge_to_main should be implemented");
     }
 

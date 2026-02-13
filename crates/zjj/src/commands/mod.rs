@@ -35,7 +35,6 @@ pub mod prune_invalid;
 pub mod query;
 pub mod queue;
 pub mod queue_worker;
-pub mod worker_error;
 pub mod recover;
 pub mod remove;
 pub mod rename;
@@ -59,6 +58,7 @@ pub mod whatif;
 pub mod whereami;
 pub mod whoami;
 pub mod work;
+pub mod worker_error;
 pub mod workspace_utils;
 
 use std::path::{Path, PathBuf};

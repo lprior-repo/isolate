@@ -3,6 +3,7 @@
 //! This module provides signal handling and claim management for worker processes.
 //! WHEN a worker receives a shutdown signal, it releases all active claims gracefully.
 
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
@@ -112,12 +113,19 @@ pub async fn graceful_shutdown(queue: &MergeQueue, claims: &ClaimTracker) -> Shu
 
     for claim in active_claims {
         match release_claim(queue, &claim).await {
-            Ok(()) => {
+            Ok(true) => {
                 released_count += 1;
                 tracing::info!(
                     workspace = %claim.workspace,
                     entry_id = claim.entry_id,
                     "Released claim during graceful shutdown"
+                );
+            }
+            Ok(false) => {
+                tracing::debug!(
+                    workspace = %claim.workspace,
+                    entry_id = claim.entry_id,
+                    "No claim release needed during graceful shutdown"
                 );
             }
             Err(e) => {
@@ -143,9 +151,9 @@ pub async fn graceful_shutdown(queue: &MergeQueue, claims: &ClaimTracker) -> Shu
 
 /// Release a single claim by transitioning it back to pending.
 ///
-/// This transitions the entry from its current status back to `pending`
-/// so it can be claimed by another worker.
-async fn release_claim(queue: &MergeQueue, claim: &ActiveClaim) -> crate::Result<()> {
+/// This transitions the entry from its current status to `pending`
+/// so another worker can reclaim it after shutdown.
+async fn release_claim(queue: &MergeQueue, claim: &ActiveClaim) -> crate::Result<bool> {
     let entry = queue
         .get_by_workspace(&claim.workspace)
         .await?
@@ -162,7 +170,7 @@ async fn release_claim(queue: &MergeQueue, claim: &ActiveClaim) -> crate::Result
             status = %entry.status.as_str(),
             "Skipping terminal entry during shutdown"
         );
-        return Ok(());
+        return Ok(false);
     }
 
     if entry.agent_id.as_deref() != Some(&claim.agent_id) {
@@ -172,7 +180,7 @@ async fn release_claim(queue: &MergeQueue, claim: &ActiveClaim) -> crate::Result
             actual_agent = ?entry.agent_id,
             "Claim no longer held by this agent"
         );
-        return Ok(());
+        return Ok(false);
     }
 
     queue
@@ -185,7 +193,7 @@ async fn release_claim(queue: &MergeQueue, claim: &ActiveClaim) -> crate::Result
             ))
         })?;
 
-    Ok(())
+    Ok(true)
 }
 
 /// Shutdown signal handler using tokio signal handling.
@@ -357,7 +365,7 @@ mod tests {
             .await
             .expect("Failed to transition");
         queue
-            .transition_to("ws-1", QueueStatus::Merged)
+            .transition_to("ws-1", QueueStatus::Cancelled)
             .await
             .expect("Failed to transition");
 
@@ -385,7 +393,9 @@ mod tests {
         for i in 0..3 {
             let ws = format!("ws-{i}");
             queue.add(&ws, None, 5, None).await.expect("Failed to add");
+        }
 
+        for i in 0..3 {
             let entry = queue
                 .next_with_lock(&format!("agent-{i}"))
                 .await
@@ -394,7 +404,7 @@ mod tests {
 
             tracker
                 .register(ActiveClaim {
-                    workspace: ws.clone(),
+                    workspace: entry.workspace.clone(),
                     entry_id: entry.id,
                     agent_id: format!("agent-{i}"),
                 })

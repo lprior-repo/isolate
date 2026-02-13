@@ -1,25 +1,27 @@
 //! Merge queue for sequential multi-agent coordination.
+//!
+//! This module contains infrastructure layer code (DB operations).
+//! Domain logic (state machine) is in `queue_status.rs`.
+//! SQLx entities are in `queue_entities.rs`.
 
-use std::{fmt, path::Path, str::FromStr, time::Duration};
+use std::{path::Path, time::Duration};
 
+use async_trait::async_trait;
 use chrono::Utc;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use thiserror::Error;
 use tokio::time::sleep;
 
+// Re-export sqlx entities from queue_entities.rs for backward compatibility
+pub use super::queue_entities::{ProcessingLock, QueueEntry, QueueEvent};
+use super::queue_repository::QueueRepository;
+// Re-export domain types from queue_status.rs for backward compatibility
+pub use super::queue_status::{QueueEventType, QueueStatus, TransitionError, WorkspaceQueueState};
 use crate::{Error, Result};
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// STATE MACHINE ERROR
+// QUEUE CONTROL ERROR
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-/// Error type for invalid queue state transitions.
-#[derive(Debug, Clone, Error, PartialEq, Eq)]
-#[error("invalid state transition: cannot transition from {from} to {to}")]
-pub struct TransitionError {
-    pub from: QueueStatus,
-    pub to: QueueStatus,
-}
 
 /// Error type for queue control operations (retry/cancel).
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
@@ -46,256 +48,8 @@ pub enum QueueControlError {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// QUEUE STATUS STATE MACHINE
+// QUEUE ENTRY STRUCTS (Infrastructure Layer - pure Rust, no sqlx)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-/// State machine for merge queue item lifecycle.
-///
-/// Valid transitions:
-/// - pending -> claimed
-/// - claimed -> rebasing
-/// - rebasing -> testing
-/// - testing -> `ready_to_merge`
-/// - `ready_to_merge` -> merging
-/// - merging -> merged
-/// - `claimed|rebasing|testing|ready_to_merge|merging` -> `failed_retryable`
-/// - `claimed|rebasing|testing|ready_to_merge|merging` -> `failed_terminal`
-/// - `pending|claimed|rebasing|testing|ready_to_merge|failed_retryable` -> cancelled
-/// - `failed_retryable` -> pending (manual retry path)
-///
-/// Terminal states (no outgoing transitions): merged, `failed_terminal`, cancelled
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QueueStatus {
-    /// Item is waiting to be claimed by an agent.
-    Pending,
-    /// Item has been claimed by an agent and is being prepared.
-    Claimed,
-    /// Item is currently being rebased onto the target branch.
-    Rebasing,
-    /// Item is undergoing testing/validation.
-    Testing,
-    /// Item has passed all checks and is ready for merge.
-    ReadyToMerge,
-    /// Item is actively being merged.
-    Merging,
-    /// Item has been successfully merged.
-    Merged,
-    /// Item failed but can be retried manually.
-    FailedRetryable,
-    /// Item failed with an unrecoverable error.
-    FailedTerminal,
-    /// Item was cancelled before completion.
-    Cancelled,
-}
-
-impl QueueStatus {
-    /// Returns the string representation of this status.
-    #[must_use]
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::Pending => "pending",
-            Self::Claimed => "claimed",
-            Self::Rebasing => "rebasing",
-            Self::Testing => "testing",
-            Self::ReadyToMerge => "ready_to_merge",
-            Self::Merging => "merging",
-            Self::Merged => "merged",
-            Self::FailedRetryable => "failed_retryable",
-            Self::FailedTerminal => "failed_terminal",
-            Self::Cancelled => "cancelled",
-        }
-    }
-
-    /// Returns true if this status is terminal (no valid outgoing transitions).
-    #[must_use]
-    pub const fn is_terminal(&self) -> bool {
-        matches!(self, Self::Merged | Self::FailedTerminal | Self::Cancelled)
-    }
-
-    /// Returns true if a transition from `self` to `target` is valid.
-    #[must_use]
-    pub fn can_transition_to(&self, target: Self) -> bool {
-        self.validate_transition(target).is_ok()
-    }
-
-    /// Validates that a transition from `self` to `target` is allowed.
-    ///
-    /// Returns `Ok(())` if the transition is valid, or a `TransitionError` if not.
-    pub fn validate_transition(&self, target: Self) -> std::result::Result<(), TransitionError> {
-        // Same state is always valid (idempotent)
-        if self == &target {
-            return Ok(());
-        }
-
-        // Terminal states cannot transition to any other state
-        if self.is_terminal() {
-            return Err(TransitionError {
-                from: *self,
-                to: target,
-            });
-        }
-
-        // Check specific valid transitions
-        let is_valid = match self {
-            Self::Pending => matches!(target, Self::Claimed | Self::Cancelled),
-            Self::Claimed => matches!(
-                target,
-                Self::Rebasing | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled
-            ),
-            Self::Rebasing => matches!(
-                target,
-                Self::Testing | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled
-            ),
-            Self::Testing => matches!(
-                target,
-                Self::ReadyToMerge | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled
-            ),
-            Self::ReadyToMerge => matches!(
-                target,
-                Self::Merging | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled
-            ),
-            Self::Merging => matches!(
-                target,
-                Self::Merged | Self::FailedRetryable | Self::FailedTerminal
-            ),
-            Self::FailedRetryable => matches!(target, Self::Pending | Self::Cancelled),
-            // Terminal states handled above, but satisfy exhaustive match
-            Self::Merged | Self::FailedTerminal | Self::Cancelled => false,
-        };
-
-        if is_valid {
-            Ok(())
-        } else {
-            Err(TransitionError {
-                from: *self,
-                to: target,
-            })
-        }
-    }
-}
-
-impl fmt::Display for QueueStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-impl FromStr for QueueStatus {
-    type Err = Error;
-
-    #[allow(clippy::match_same_arms)]
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "pending" => Ok(Self::Pending),
-            "claimed" => Ok(Self::Claimed),
-            "rebasing" => Ok(Self::Rebasing),
-            "testing" => Ok(Self::Testing),
-            "ready_to_merge" => Ok(Self::ReadyToMerge),
-            "merging" => Ok(Self::Merging),
-            "merged" => Ok(Self::Merged),
-            "failed_retryable" => Ok(Self::FailedRetryable),
-            "failed_terminal" => Ok(Self::FailedTerminal),
-            "cancelled" => Ok(Self::Cancelled),
-            // Backward compatibility: map old statuses to new equivalents
-            "processing" => Ok(Self::Claimed),
-            "completed" => Ok(Self::Merged),
-            "failed" => Ok(Self::FailedTerminal),
-            _ => Err(Error::InvalidConfig(format!("Invalid queue status: {s}"))),
-        }
-    }
-}
-
-/// Workspace state for the queue state machine
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum WorkspaceQueueState {
-    #[default]
-    Created,
-    Working,
-    Ready,
-    Merged,
-    Abandoned,
-    Conflict,
-}
-
-impl WorkspaceQueueState {
-    #[must_use]
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::Created => "created",
-            Self::Working => "working",
-            Self::Ready => "ready",
-            Self::Merged => "merged",
-            Self::Abandoned => "abandoned",
-            Self::Conflict => "conflict",
-        }
-    }
-}
-
-impl std::str::FromStr for WorkspaceQueueState {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "created" => Ok(Self::Created),
-            "working" => Ok(Self::Working),
-            "ready" => Ok(Self::Ready),
-            "merged" => Ok(Self::Merged),
-            "abandoned" => Ok(Self::Abandoned),
-            "conflict" => Ok(Self::Conflict),
-            _ => Err(Error::InvalidConfig(format!(
-                "Invalid workspace queue state: {s}"
-            ))),
-        }
-    }
-}
-
-impl TryFrom<String> for WorkspaceQueueState {
-    type Error = Error;
-
-    fn try_from(s: String) -> Result<Self> {
-        Self::from_str(&s)
-    }
-}
-
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct QueueEntry {
-    pub id: i64,
-    pub workspace: String,
-    pub bead_id: Option<String>,
-    pub priority: i32,
-    #[sqlx(try_from = "String")]
-    pub status: QueueStatus,
-    pub added_at: i64,
-    pub started_at: Option<i64>,
-    pub completed_at: Option<i64>,
-    pub error_message: Option<String>,
-    pub agent_id: Option<String>,
-    pub dedupe_key: Option<String>,
-    #[sqlx(default, try_from = "String")]
-    pub workspace_state: WorkspaceQueueState,
-    pub previous_state: Option<String>,
-    pub state_changed_at: Option<i64>,
-    /// The HEAD SHA when this entry was last updated (for idempotent submit)
-    #[sqlx(default)]
-    pub head_sha: Option<String>,
-    /// The baseline SHA (main HEAD) against which tests were run after rebase.
-    #[sqlx(default)]
-    pub tested_against_sha: Option<String>,
-    /// Number of retry attempts made for this entry.
-    #[sqlx(default)]
-    pub attempt_count: i32,
-    /// Maximum number of retry attempts allowed.
-    #[sqlx(default)]
-    pub max_attempts: i32,
-}
-
-impl TryFrom<String> for QueueStatus {
-    type Error = Error;
-
-    fn try_from(s: String) -> std::result::Result<Self, Self::Error> {
-        Self::from_str(&s)
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct QueueAddResponse {
@@ -311,111 +65,6 @@ pub struct QueueStats {
     pub processing: usize,
     pub completed: usize,
     pub failed: usize,
-}
-
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct ProcessingLock {
-    pub agent_id: String,
-    pub acquired_at: i64,
-    pub expires_at: i64,
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// QUEUE EVENT (AUDIT TRAIL)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-/// Event types for queue entry lifecycle.
-///
-/// These events are appended to the `queue_events` table for audit purposes.
-/// Events are append-only and should not affect the main operation.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum QueueEventType {
-    /// Entry created.
-    Created,
-    /// Entry claimed by worker.
-    Claimed,
-    /// State transition occurred.
-    Transitioned,
-    /// Entry failed.
-    Failed,
-    /// Entry retried.
-    Retried,
-    /// Entry cancelled.
-    Cancelled,
-    /// Entry merged.
-    Merged,
-    /// Worker heartbeat.
-    Heartbeat,
-}
-
-impl QueueEventType {
-    /// Returns the string representation of this event type.
-    #[must_use]
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::Created => "created",
-            Self::Claimed => "claimed",
-            Self::Transitioned => "transitioned",
-            Self::Failed => "failed",
-            Self::Retried => "retried",
-            Self::Cancelled => "cancelled",
-            Self::Merged => "merged",
-            Self::Heartbeat => "heartbeat",
-        }
-    }
-}
-
-impl fmt::Display for QueueEventType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-impl std::str::FromStr for QueueEventType {
-    type Err = Error;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "created" => Ok(Self::Created),
-            "claimed" => Ok(Self::Claimed),
-            "transitioned" => Ok(Self::Transitioned),
-            "failed" => Ok(Self::Failed),
-            "retried" => Ok(Self::Retried),
-            "cancelled" => Ok(Self::Cancelled),
-            "merged" => Ok(Self::Merged),
-            "heartbeat" => Ok(Self::Heartbeat),
-            _ => Err(Error::InvalidConfig(format!(
-                "Invalid queue event type: {s}"
-            ))),
-        }
-    }
-}
-
-/// An event in the queue audit trail.
-///
-/// Events are append-only with monotonically increasing IDs.
-/// They provide an audit trail for queue entry lifecycle.
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct QueueEvent {
-    /// Unique event ID (monotonically increasing).
-    pub id: i64,
-    /// The queue entry this event belongs to.
-    pub queue_id: i64,
-    /// The type of event.
-    #[sqlx(try_from = "String")]
-    pub event_type: QueueEventType,
-    /// Optional JSON details about the event.
-    pub details_json: Option<String>,
-    /// Unix timestamp when the event was created.
-    pub created_at: i64,
-}
-
-impl TryFrom<String> for QueueEventType {
-    type Error = Error;
-
-    fn try_from(s: String) -> std::result::Result<Self, Self::Error> {
-        Self::from_str(&s)
-    }
 }
 
 #[derive(Clone)]
@@ -1691,7 +1340,9 @@ impl MergeQueue {
         .execute(&self.pool)
         .await
         .map_err(|e| {
-            Error::DatabaseError(format!("Failed to update rebase metadata for '{workspace}': {e}"))
+            Error::DatabaseError(format!(
+                "Failed to update rebase metadata for '{workspace}': {e}"
+            ))
         })?;
 
         if result.rows_affected() == 0 {
@@ -1780,7 +1431,9 @@ impl MergeQueue {
         .execute(&self.pool)
         .await
         .map_err(|e| {
-            Error::DatabaseError(format!("Failed to transition '{workspace}' to rebasing: {e}"))
+            Error::DatabaseError(format!(
+                "Failed to transition '{workspace}' to rebasing: {e}"
+            ))
         })?;
 
         if result.rows_affected() == 0 {
@@ -1902,8 +1555,204 @@ impl MergeQueue {
     }
 }
 
+#[async_trait]
+impl QueueRepository for MergeQueue {
+    async fn add(
+        &self,
+        workspace: &str,
+        bead_id: Option<&str>,
+        priority: i32,
+        agent_id: Option<&str>,
+    ) -> Result<QueueAddResponse> {
+        self.add(workspace, bead_id, priority, agent_id).await
+    }
+
+    async fn add_with_dedupe(
+        &self,
+        workspace: &str,
+        bead_id: Option<&str>,
+        priority: i32,
+        agent_id: Option<&str>,
+        dedupe_key: Option<&str>,
+    ) -> Result<QueueAddResponse> {
+        self.add_with_dedupe(workspace, bead_id, priority, agent_id, dedupe_key)
+            .await
+    }
+
+    async fn upsert_for_submit(
+        &self,
+        workspace: &str,
+        bead_id: Option<&str>,
+        priority: i32,
+        agent_id: Option<&str>,
+        dedupe_key: &str,
+        head_sha: &str,
+    ) -> Result<QueueEntry> {
+        self.upsert_for_submit(workspace, bead_id, priority, agent_id, dedupe_key, head_sha)
+            .await
+    }
+
+    async fn get_by_id(&self, id: i64) -> Result<Option<QueueEntry>> {
+        self.get_by_id(id).await
+    }
+
+    async fn get_by_workspace(&self, workspace: &str) -> Result<Option<QueueEntry>> {
+        self.get_by_workspace(workspace).await
+    }
+
+    async fn list(&self, filter_status: Option<QueueStatus>) -> Result<Vec<QueueEntry>> {
+        self.list(filter_status).await
+    }
+
+    async fn next(&self) -> Result<Option<QueueEntry>> {
+        self.next().await
+    }
+
+    async fn remove(&self, workspace: &str) -> Result<bool> {
+        self.remove(workspace).await
+    }
+
+    async fn position(&self, workspace: &str) -> Result<Option<usize>> {
+        self.position(workspace).await
+    }
+
+    async fn count_pending(&self) -> Result<usize> {
+        self.count_pending().await
+    }
+
+    async fn stats(&self) -> Result<QueueStats> {
+        self.stats().await
+    }
+
+    async fn acquire_processing_lock(&self, agent_id: &str) -> Result<bool> {
+        self.acquire_processing_lock(agent_id).await
+    }
+
+    async fn release_processing_lock(&self, agent_id: &str) -> Result<bool> {
+        self.release_processing_lock(agent_id).await
+    }
+
+    async fn get_processing_lock(&self) -> Result<Option<ProcessingLock>> {
+        self.get_processing_lock().await
+    }
+
+    async fn extend_lock(&self, agent_id: &str, extra_secs: i64) -> Result<bool> {
+        self.extend_lock(agent_id, extra_secs).await
+    }
+
+    async fn mark_processing(&self, workspace: &str) -> Result<bool> {
+        self.mark_processing(workspace).await
+    }
+
+    async fn mark_completed(&self, workspace: &str) -> Result<bool> {
+        self.mark_completed(workspace).await
+    }
+
+    async fn mark_failed(&self, workspace: &str, error: &str) -> Result<bool> {
+        self.mark_failed(workspace, error).await
+    }
+
+    async fn next_with_lock(&self, agent_id: &str) -> Result<Option<QueueEntry>> {
+        self.next_with_lock(agent_id).await
+    }
+
+    async fn transition_to(&self, workspace: &str, new_status: QueueStatus) -> Result<()> {
+        self.transition_to(workspace, new_status).await
+    }
+
+    async fn transition_to_failed(
+        &self,
+        workspace: &str,
+        error_message: &str,
+        is_retryable: bool,
+    ) -> Result<()> {
+        self.transition_to_failed(workspace, error_message, is_retryable)
+            .await
+    }
+
+    async fn update_rebase_metadata(
+        &self,
+        workspace: &str,
+        head_sha: &str,
+        tested_against_sha: &str,
+    ) -> Result<()> {
+        self.update_rebase_metadata(workspace, head_sha, tested_against_sha)
+            .await
+    }
+
+    async fn is_fresh(&self, workspace: &str, current_main_sha: &str) -> Result<bool> {
+        self.is_fresh(workspace, current_main_sha).await
+    }
+
+    async fn return_to_rebasing(&self, workspace: &str, new_main_sha: &str) -> Result<()> {
+        self.return_to_rebasing(workspace, new_main_sha).await
+    }
+
+    async fn begin_merge(&self, workspace: &str) -> Result<()> {
+        self.begin_merge(workspace).await
+    }
+
+    async fn complete_merge(&self, workspace: &str, merged_sha: &str) -> Result<()> {
+        self.complete_merge(workspace, merged_sha).await
+    }
+
+    async fn fail_merge(
+        &self,
+        workspace: &str,
+        error_message: &str,
+        is_retryable: bool,
+    ) -> Result<()> {
+        self.fail_merge(workspace, error_message, is_retryable)
+            .await
+    }
+
+    async fn retry_entry(&self, id: i64) -> std::result::Result<QueueEntry, QueueControlError> {
+        self.retry_entry(id).await
+    }
+
+    async fn cancel_entry(&self, id: i64) -> std::result::Result<QueueEntry, QueueControlError> {
+        self.cancel_entry(id).await
+    }
+
+    async fn append_event(
+        &self,
+        queue_id: i64,
+        event_type: &str,
+        details: Option<&str>,
+    ) -> Result<()> {
+        self.append_event(queue_id, event_type, details).await
+    }
+
+    async fn append_typed_event(
+        &self,
+        queue_id: i64,
+        event_type: QueueEventType,
+        details: Option<&str>,
+    ) -> Result<()> {
+        self.append_typed_event(queue_id, event_type, details).await
+    }
+
+    async fn fetch_events(&self, queue_id: i64) -> Result<Vec<QueueEvent>> {
+        self.fetch_events(queue_id).await
+    }
+
+    async fn fetch_recent_events(&self, queue_id: i64, limit: usize) -> Result<Vec<QueueEvent>> {
+        self.fetch_recent_events(queue_id, limit).await
+    }
+
+    async fn cleanup(&self, max_age: Duration) -> Result<usize> {
+        self.cleanup(max_age).await
+    }
+
+    async fn reclaim_stale(&self, stale_threshold_secs: i64) -> Result<usize> {
+        self.reclaim_stale(stale_threshold_secs).await
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3726,7 +3575,9 @@ mod tests {
 
         queue.add("ws-rebase-ev", None, 5, None).await?;
         let claimed = queue.next_with_lock("agent-ev").await?;
-        let entry_id = claimed.ok_or_else(|| Error::DatabaseError("expected entry".into()))?.id;
+        let entry_id = claimed
+            .ok_or_else(|| Error::DatabaseError("expected entry".into()))?
+            .id;
 
         queue
             .transition_to("ws-rebase-ev", QueueStatus::Rebasing)
@@ -3763,7 +3614,10 @@ mod tests {
 
         let event =
             rebase_transition_event.ok_or_else(|| Error::DatabaseError("expected event".into()))?;
-        assert!(event.details_json.as_ref().map_or(false, |d| d.contains("main012")));
+        assert!(event
+            .details_json
+            .as_ref()
+            .map_or(false, |d| d.contains("main012")));
 
         Ok(())
     }

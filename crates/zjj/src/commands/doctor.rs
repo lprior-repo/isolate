@@ -659,7 +659,7 @@ async fn check_db_file_exists(db_path: &Path) -> Result<std::fs::Metadata, Docto
         });
     }
 
-    db_path.metadata().map_err(|e| DoctorCheck {
+    tokio::fs::metadata(db_path).await.map_err(|e| DoctorCheck {
         name: "State Database".to_string(),
         status: CheckStatus::Warn,
         message: format!("Cannot access database metadata: {e}"),
@@ -713,7 +713,7 @@ async fn check_db_file_size_and_integrity(file_size: u64, db_path: &Path) -> Doc
     }
 
     // Get metadata for read-only status
-    let metadata = match db_path.metadata() {
+    let metadata = match tokio::fs::metadata(db_path).await {
         Ok(m) => m,
         Err(e) => {
             return DoctorCheck {

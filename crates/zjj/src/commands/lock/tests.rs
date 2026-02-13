@@ -6,8 +6,7 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-use std::future::Future;
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
 use chrono::{Duration, Utc};
 use zjj_core::coordination::locks::LockManager;
