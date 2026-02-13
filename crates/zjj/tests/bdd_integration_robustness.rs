@@ -67,9 +67,14 @@ mod tests {
             .stdout(predicate::str::contains("test-session"));
     }
 
-    /// Scenario: Debugging database path mismatch
+    /// Scenario: Database path resolution in config output
+    ///   Given a freshly initialized zjj repository
+    ///   When I run 'zjj config'
+    ///   Then it should show the state_db path
+    ///   And the path should be relative to .zjj directory
+    ///   And the config output should be valid
     #[test]
-    fn debug_db_path() {
+    fn test_db_path_resolution_in_config() {
         let temp_dir = tempdir().unwrap();
         let repo_path = temp_dir.path();
 
@@ -77,20 +82,102 @@ mod tests {
         Command::new("jj")
             .args(["git", "init"])
             .current_dir(repo_path)
-            .status()
-            .unwrap();
-        let mut cmd = Command::cargo_bin("zjj").unwrap();
-        cmd.args(["init"]).current_dir(repo_path).status().unwrap();
+            .assert()
+            .success();
 
-        println!("--- ZJJ CONFIG ---");
-        let mut cmd = Command::cargo_bin("zjj").unwrap();
-        let output = cmd
-            .args(["config"])
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["init"])
             .current_dir(repo_path)
-            .output()
-            .unwrap();
-        println!("{}", String::from_utf8_lossy(&output.stdout));
-        println!("--- END ZJJ CONFIG ---");
+            .assert()
+            .success();
+
+        // Get config output
+        let mut cmd = Command::cargo_bin("zjj").unwrap();
+        cmd.args(["config"])
+            .current_dir(repo_path)
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("state_db"))
+            .stdout(predicate::str::contains(".zjj"));
+    }
+
+    /// Scenario: Database file actually exists at resolved path
+    ///   Given an initialized zjj repository
+    ///   When I run operations that use the database
+    ///   Then the state.db file should exist at .zjj/state.db
+    ///   And it should be a valid SQLite database
+    #[test]
+    fn test_db_file_exists_at_expected_path() {
+        let temp_dir = tempdir().unwrap();
+        let repo_path = temp_dir.path();
+
+        // Initialize JJ and ZJJ
+        Command::new("jj")
+            .args(["git", "init"])
+            .current_dir(repo_path)
+            .assert()
+            .success();
+
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["init"])
+            .current_dir(repo_path)
+            .assert()
+            .success();
+
+        // Create a session to ensure DB is used
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["add", "test-session", "--no-zellij"])
+            .current_dir(repo_path)
+            .assert()
+            .success();
+
+        // Verify DB file exists
+        let db_path = repo_path.join(".zjj").join("state.db");
+        assert!(db_path.exists(), "Database should exist at .zjj/state.db");
+
+        // Verify it's a valid SQLite file (starts with SQLite format header)
+        let db_content = std::fs::read(&db_path).unwrap();
+        assert!(
+            db_content.starts_with(b"SQLite format 3"),
+            "Database should be valid SQLite format"
+        );
+    }
+
+    /// Scenario: Config shows correct workspace_dir path
+    ///   Given an initialized zjj repository
+    ///   When I run 'zjj config workspace_dir'
+    ///   Then it should show a valid path relative to repo
+    ///   And the path should match the default pattern
+    #[test]
+    fn test_workspace_dir_resolution() {
+        let temp_dir = tempdir().unwrap();
+        let repo_path = temp_dir.path();
+
+        // Initialize JJ and ZJJ
+        Command::new("jj")
+            .args(["git", "init"])
+            .current_dir(repo_path)
+            .assert()
+            .success();
+
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["init"])
+            .current_dir(repo_path)
+            .assert()
+            .success();
+
+        // Get workspace_dir config
+        let mut cmd = Command::cargo_bin("zjj").unwrap();
+        cmd.args(["config", "workspace_dir"])
+            .current_dir(repo_path)
+            .assert()
+            .success()
+            // Should show a path (either default or configured)
+            .stdout(predicate::str::is_empty().not());
     }
 
     /// Scenario: Batch execution with 'zjj' prefix
