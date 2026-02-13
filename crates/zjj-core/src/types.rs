@@ -401,18 +401,22 @@ impl Session {
         Ok(())
     }
 
-    /// Validate session invariants including filesystem checks
+    /// Validate session invariants (pure domain validation only).
     ///
     /// # Errors
     ///
     /// Returns error if:
     /// - Name doesn't match validation rules
     /// - Workspace path is not absolute
-    /// - Workspace doesn't exist (if status != Creating)
     /// - Timestamps are in wrong order
+    ///
+    /// # Note
+    ///
+    /// This does NOT check if the workspace exists on the filesystem.
+    /// For filesystem validation, use `crate::validation::validate_session_workspace_exists()`
+    /// from the infrastructure layer.
     pub fn validate(&self) -> Result<()> {
-        self.validate_pure()?;
-        crate::validation::validate_session_workspace_exists(self)
+        self.validate_pure()
     }
 
     /// Get the session name as a string slice.
