@@ -61,7 +61,7 @@ fn make_output(
     WaitOutput {
         success,
         condition: format_condition(condition),
-        elapsed_ms: u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+        elapsed_ms: u64::try_from(start.elapsed().as_millis()).map_or(u64::MAX, |v| v),
         timed_out,
         final_state: state,
     }
