@@ -15,8 +15,7 @@ use std::path::PathBuf;
 
 use zjj_core::{
     types::{Session, SessionName, SessionStatus},
-    validation,
-    Error, Result, WorkspaceState,
+    validation, Error, Result, WorkspaceState,
 };
 
 // ============================================================================

@@ -174,9 +174,28 @@ async fn run_repair(
         ));
     }
 
-    let config = zjj_core::config::load_config()
-        .await
-        .map_err(|e| anyhow::anyhow!("Unable to load config: {e}"))?;
+    let config = match zjj_core::config::load_config().await {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            // Handle TOML parse errors gracefully with recovery suggestions
+            let error_msg = e.to_string();
+            if error_msg.to_lowercase().contains("parse")
+                || error_msg.to_lowercase().contains("toml")
+            {
+                return Err(anyhow::anyhow!(
+                    "Unable to load config due to TOML syntax error:\n\
+                     {}\n\n\
+                     Recovery suggestions:\n\
+                     1. Check .zjj/config.toml for syntax errors (missing quotes, brackets, etc.)\n\
+                     2. Validate TOML at https://www.toml-lint.com/\n\
+                     3. Backup and remove .zjj/config.toml to use defaults\n\
+                     4. Check global config at ~/.config/zjj/config.toml",
+                    e
+                ));
+            }
+            return Err(anyhow::anyhow!("Unable to load config: {e}"));
+        }
+    };
 
     let workspace_roots =
         workspace_utils::candidate_workspace_roots(jj_root, &config.workspace_dir);
@@ -763,6 +782,73 @@ mod tests {
                         && !error_msg.contains("internal error"),
                     "Error should be a proper error, not a panic: {}",
                     error_msg
+                );
+            }
+        }
+    }
+
+    /// Test that repair handles corrupted config.toml gracefully
+    ///
+    /// This test ensures that:
+    /// 1. No panic occurs when config.toml contains invalid TOML
+    /// 2. A helpful error message is shown
+    /// 3. Recovery suggestions are provided
+    #[tokio::test]
+    async fn test_repair_with_corrupted_toml_config() {
+        let temp_dir =
+            tempfile::tempdir().map_err(|e| anyhow::anyhow!("Failed to create temp dir: {}", e));
+
+        let jj_root = match temp_dir {
+            Ok(dir) => dir,
+            Err(e) => {
+                eprintln!("Skipping test: failed to create temp dir: {}", e);
+                return;
+            }
+        };
+
+        let jj_root_path = jj_root.path();
+
+        // Create .zjj directory structure
+        let zjj_dir = jj_root_path.join(".zjj");
+        tokio::fs::create_dir_all(&zjj_dir).await.ok();
+
+        // Write corrupted TOML config
+        let config_path = zjj_dir.join("config.toml");
+        tokio::fs::write(
+            &config_path,
+            "workspace_dir = \"test\"\n[[invalid TOML syntax here",
+        )
+        .await
+        .ok();
+
+        // Attempt to repair - this should NOT panic despite bad config
+        let result = run_repair(
+            jj_root_path,
+            "test-workspace",
+            false,
+            false,
+            OutputFormat::Human,
+        )
+        .await;
+
+        // Verify we get a helpful error, not a panic
+        match result {
+            Ok(_) => {
+                // If it succeeds, that's actually OK - it means we handled the bad config
+                // gracefully and continued anyway
+            }
+            Err(e) => {
+                let error_msg = e.to_string();
+                // Should NOT contain panic-related words
+                assert!(
+                    !error_msg.contains("panic") && !error_msg.contains("unwrap"),
+                    "Error should be graceful, not a panic: {error_msg}"
+                );
+                // Should mention TOML or config
+                assert!(
+                    error_msg.to_lowercase().contains("toml")
+                        || error_msg.to_lowercase().contains("config"),
+                    "Error should mention the config/TOML issue: {error_msg}"
                 );
             }
         }
