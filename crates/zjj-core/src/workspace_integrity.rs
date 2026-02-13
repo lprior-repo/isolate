@@ -460,7 +460,12 @@ impl IntegrityValidator {
             );
         }
 
-        // Check 5: Lock files
+        // Check 5: Config file integrity (TOML validation)
+        if let Ok(Some(issue)) = Self::check_config_file(&workspace_path).await {
+            issues.push(issue);
+        }
+
+        // Check 6: Lock files
         if let Ok(Some(issue)) = Self::check_stale_locks(&workspace_path).await {
             issues.push(issue);
         }
@@ -593,6 +598,57 @@ impl IntegrityValidator {
         }
 
         Ok(None)
+    }
+
+    /// Check config file for TOML parsing errors
+    ///
+    /// Validates that the workspace's .zjj/config.toml file (if present)
+    /// is valid TOML and can be parsed.
+    async fn check_config_file(workspace_path: &Path) -> Result<Option<IntegrityIssue>> {
+        let config_file = workspace_path.join(".zjj").join("config.toml");
+
+        // Check if config file exists
+        let config_exists = tokio::fs::try_exists(&config_file).await?;
+        if !config_exists {
+            // No config file is fine - not all workspaces have custom config
+            return Ok(None);
+        }
+
+        // Read and validate TOML
+        let content = match tokio::fs::read_to_string(&config_file).await {
+            Ok(content) => content,
+            Err(e) => {
+                return Ok(Some(
+                    IntegrityIssue::new(
+                        CorruptionType::CorruptedJjDir,
+                        format!("Cannot read config file: {e}"),
+                    )
+                    .with_path(&config_file)
+                    .with_context(format!("Permission denied or file corrupted: {e}")),
+                ));
+            }
+        };
+
+        // Try to parse as TOML
+        match toml::from_str::<toml::Value>(&content) {
+            Ok(_) => Ok(None), // Valid TOML
+            Err(e) => {
+                let recovery_hint = format!(
+                    "TOML parse error: {}. \
+                     Suggestion: Check for syntax errors like unclosed brackets, \
+                     missing quotes, or invalid values.",
+                    e
+                );
+                Ok(Some(
+                    IntegrityIssue::new(
+                        CorruptionType::CorruptedJjDir,
+                        format!("Config file contains invalid TOML: {e}"),
+                    )
+                    .with_path(&config_file)
+                    .with_context(recovery_hint),
+                ))
+            }
+        }
     }
 }
 

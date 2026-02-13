@@ -174,9 +174,38 @@ async fn run_repair(
         ));
     }
 
-    let config = zjj_core::config::load_config()
-        .await
-        .map_err(|e| anyhow::anyhow!("Unable to load config: {e}"))?;
+    // Load config with graceful error handling for TOML parse errors
+    let config = match zjj_core::config::load_config().await {
+        Ok(config) => config,
+        Err(e) => {
+            // Check if this is a TOML parse error
+            let error_msg = e.to_string();
+            if error_msg.contains("TOML") || error_msg.contains("parse") {
+                let response = RepairResponse {
+                    workspace: workspace.to_string(),
+                    success: false,
+                    summary: format!(
+                        "Cannot load configuration due to TOML parse error: {e}. \
+                         Suggestion: Check .zjj/config.toml or ~/.config/zjj/config.toml for syntax errors."
+                    ),
+                };
+
+                if format.is_json() {
+                    let envelope =
+                        SchemaEnvelope::new("integrity-repair-response", "single", response);
+                    println!("{}", serde_json::to_string_pretty(&envelope)?);
+                } else {
+                    eprintln!("Configuration error: {e}");
+                    eprintln!("\nSuggestion: Check your config files for syntax errors:");
+                    eprintln!("  - .zjj/config.toml (project config)");
+                    eprintln!("  - ~/.config/zjj/config.toml (global config)");
+                    eprintln!("\nCommon issues: unclosed brackets, missing quotes, invalid values");
+                }
+                return Ok(());
+            }
+            return Err(anyhow::anyhow!("Unable to load config: {e}"));
+        }
+    };
 
     let workspace_roots =
         workspace_utils::candidate_workspace_roots(jj_root, &config.workspace_dir);
