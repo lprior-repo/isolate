@@ -21,11 +21,13 @@ body {
 }
 
 /* SIDEBAR */
-#mdbook-sidebar, .sidebar {
+#mdbook-sidebar, .sidebar, .sidebar-iframe-outer {
   position: fixed !important; left: 0 !important; top: 0 !important;
   width: 280px !important; height: 100vh !important;
   background: #fff !important; border-right: 1px solid #e3e8ee !important;
   overflow-y: auto !important; z-index: 10 !important;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .sidebar-scrollbox, mdbook-sidebar-scrollbox { padding: 0 !important; }
