@@ -37,7 +37,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-9f6a60d7.js";
+            window.path_to_searchindex_js = "../searchindex-e337e4e4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-5719c151.js"></script>
@@ -183,6 +183,161 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="workspace-management"><a class="header" href="#workspace-management">Workspace Management</a></h1>
+<p>Complete guide to managing isolated workspaces with ZJJ.</p>
+<hr>
+<h2 id="what-is-a-workspace"><a class="header" href="#what-is-a-workspace">What is a Workspace?</a></h2>
+<p>A workspace is an isolated JJ working copy where you can make changes without affecting main. In ZJJ, workspaces are:</p>
+<ul>
+<li><strong>Isolated</strong> - Changes don’t affect other workspaces or main</li>
+<li><strong>Persistent</strong> - They exist until explicitly removed</li>
+<li><strong>Synchronized</strong> - Can be kept in sync with main</li>
+<li><strong>Integrated</strong> - Connected to Zellij tabs for easy switching</li>
+</ul>
+<hr>
+<h2 id="creating-workspaces"><a class="header" href="#creating-workspaces">Creating Workspaces</a></h2>
+<h3 id="basic-creation"><a class="header" href="#basic-creation">Basic Creation</a></h3>
+<pre><code class="language-bash">zjj add &lt;name&gt;
+</code></pre>
+<p>This creates a minimal workspace.</p>
+<h3 id="with-bead-association"><a class="header" href="#with-bead-association">With Bead Association</a></h3>
+<pre><code class="language-bash">zjj add &lt;name&gt; --bead &lt;BEAD_ID&gt;
+</code></pre>
+<p>Associates the workspace with an issue/bead for tracking.</p>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
+<pre><code class="language-bash"># Simple workspace
+zjj add feature-auth
+
+# With issue tracking
+zjj add fix-login --bead BD-123
+
+# With custom settings
+zjj add experiment --no-tab
+</code></pre>
+<hr>
+<h2 id="listing-workspaces"><a class="header" href="#listing-workspaces">Listing Workspaces</a></h2>
+<pre><code class="language-bash"># Simple list
+zjj list
+
+# Verbose (shows paths and bead titles)
+zjj list --verbose
+
+# JSON output
+zjj list --json
+</code></pre>
+<hr>
+<h2 id="switching-workspaces"><a class="header" href="#switching-workspaces">Switching Workspaces</a></h2>
+<pre><code class="language-bash"># Direct switch
+zjj focus &lt;name&gt;
+
+# Interactive picker
+zjj switch
+
+# Via whereami check
+zjj whereami  # See where you are
+zjj focus other-workspace  # Switch
+</code></pre>
+<hr>
+<h2 id="syncing-workspaces"><a class="header" href="#syncing-workspaces">Syncing Workspaces</a></h2>
+<p>Keep your workspace up to date with main:</p>
+<pre><code class="language-bash"># Sync specific workspace
+zjj sync &lt;name&gt;
+
+# Sync current workspace
+zjj sync
+
+# Sync all workspaces
+zjj sync --all
+</code></pre>
+<p>This rebases your workspace onto the latest main.</p>
+<hr>
+<h2 id="completing-work"><a class="header" href="#completing-work">Completing Work</a></h2>
+<p>When you’re done:</p>
+<pre><code class="language-bash">zjj done
+</code></pre>
+<p>This:</p>
+<ol>
+<li>Commits your changes</li>
+<li>Merges to main</li>
+<li>Pushes to remote (if configured)</li>
+<li>Updates bead status (if associated)</li>
+</ol>
+<hr>
+<h2 id="removing-workspaces"><a class="header" href="#removing-workspaces">Removing Workspaces</a></h2>
+<pre><code class="language-bash">zjj remove &lt;name&gt;
+</code></pre>
+<p>This deletes the workspace and cleans up the session.</p>
+<hr>
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<h3 id="naming-conventions"><a class="header" href="#naming-conventions">Naming Conventions</a></h3>
+<ul>
+<li>Use descriptive names: <code>feature-auth-refactor</code> not <code>temp</code></li>
+<li>Include issue ID: <code>fix-BD-123-login-bug</code></li>
+<li>Use lowercase with hyphens: <code>my-feature</code> not <code>My_Feature</code></li>
+</ul>
+<h3 id="sync-regularly"><a class="header" href="#sync-regularly">Sync Regularly</a></h3>
+<pre><code class="language-bash"># Good: sync before major work
+zjj sync my-feature
+
+# Better: sync at start of day
+zjj sync --all
+</code></pre>
+<h3 id="clean-up"><a class="header" href="#clean-up">Clean Up</a></h3>
+<p>Remove workspaces when done:</p>
+<pre><code class="language-bash">zjj remove old-feature
+</code></pre>
+<p>Or clean all stale sessions:</p>
+<pre><code class="language-bash">zjj clean
+</code></pre>
+<hr>
+<h2 id="advanced-usage"><a class="header" href="#advanced-usage">Advanced Usage</a></h2>
+<h3 id="multiple-workspaces"><a class="header" href="#multiple-workspaces">Multiple Workspaces</a></h3>
+<p>Work on multiple features simultaneously:</p>
+<pre><code class="language-bash">zjj add feature-a --bead BD-101
+zjj add feature-b --bead BD-102  
+zjj add hotfix-c --bead BD-103
+
+# Switch between them
+zjj focus feature-a
+# ... work ...
+zjj focus hotfix-c
+# ... work ...
+zjj focus feature-b
+</code></pre>
+<h3 id="workspace-status"><a class="header" href="#workspace-status">Workspace Status</a></h3>
+<p>Check detailed status:</p>
+<pre><code class="language-bash">zjj status &lt;name&gt;
+</code></pre>
+<p>Shows:</p>
+<ul>
+<li>Branch name</li>
+<li>Changes (M/A/D/R counts)</li>
+<li>Diff statistics (+/- lines)</li>
+<li>Associated bead info</li>
+</ul>
+<hr>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="workspace-not-found"><a class="header" href="#workspace-not-found">“Workspace not found”</a></h3>
+<pre><code class="language-bash">zjj list  # Check it exists
+zjj add my-workspace  # Create if missing
+</code></pre>
+<h3 id="conflicts-during-sync"><a class="header" href="#conflicts-during-sync">“Conflicts during sync”</a></h3>
+<pre><code class="language-bash">zjj sync my-workspace
+# If conflicts occur, resolve in JJ:
+jj resolve
+# Then try sync again
+</code></pre>
+<h3 id="cant-remove-workspace"><a class="header" href="#cant-remove-workspace">“Can’t remove workspace”</a></h3>
+<pre><code class="language-bash">zjj status my-workspace  # Check if in use
+zjj remove my-workspace --force  # Force removal
+</code></pre>
+<hr>
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><strong><a href="./creating-sessions.html">Creating Sessions</a></strong> - Detailed session creation</li>
+<li><strong><a href="./switching.html">Switching Workspaces</a></strong> - Advanced switching</li>
+<li><strong><a href="./syncing.html">Syncing</a></strong> - Sync strategies</li>
+<li><strong><a href="./completing.html">Completing Work</a></strong> - Finishing up</li>
+</ul>
 
                     </main>
 

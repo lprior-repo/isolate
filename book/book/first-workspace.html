@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9f6a60d7.js";
+            window.path_to_searchindex_js = "searchindex-e337e4e4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5719c151.js"></script>
@@ -183,6 +183,132 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="your-first-workspace"><a class="header" href="#your-first-workspace">Your First Workspace</a></h1>
+<p>Let’s create your first isolated workspace and do some work.</p>
+<hr>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<p>Make sure you have:</p>
+<ul>
+<li>ZJJ installed and verified (<code>zjj --version</code>)</li>
+<li>A JJ repository initialized (<code>jj status</code> works)</li>
+<li>ZJJ initialized in the repo (<code>zjj init</code>)</li>
+</ul>
+<hr>
+<h2 id="step-1-check-your-location"><a class="header" href="#step-1-check-your-location">Step 1: Check Your Location</a></h2>
+<p>Always start by checking where you are:</p>
+<pre><code class="language-bash">zjj whereami
+</code></pre>
+<p>Expected output:</p>
+<pre><code>Location: main branch
+</code></pre>
+<hr>
+<h2 id="step-2-create-a-session"><a class="header" href="#step-2-create-a-session">Step 2: Create a Session</a></h2>
+<pre><code class="language-bash">zjj add my-first-feature
+</code></pre>
+<p>This creates:</p>
+<ul>
+<li>A new JJ workspace named <code>my-first-feature</code></li>
+<li>A Zellij tab for this workspace</li>
+<li>An entry in the ZJJ database</li>
+</ul>
+<hr>
+<h2 id="step-3-switch-to-your-workspace"><a class="header" href="#step-3-switch-to-your-workspace">Step 3: Switch to Your Workspace</a></h2>
+<pre><code class="language-bash">zjj focus my-first-feature
+</code></pre>
+<p>This switches your Zellij tab to the workspace. Verify:</p>
+<pre><code class="language-bash">zjj whereami
+</code></pre>
+<p>Expected output:</p>
+<pre><code>Location: workspace 'my-first-feature'
+</code></pre>
+<hr>
+<h2 id="step-4-make-changes"><a class="header" href="#step-4-make-changes">Step 4: Make Changes</a></h2>
+<p>Now make some changes to your code:</p>
+<pre><code class="language-bash"># Edit a file
+echo "# My First Feature" &gt; feature.md
+
+# Check JJ status
+jj status
+</code></pre>
+<p>You’ll see your changes in the workspace.</p>
+<hr>
+<h2 id="step-5-check-session-status"><a class="header" href="#step-5-check-session-status">Step 5: Check Session Status</a></h2>
+<pre><code class="language-bash">zjj status my-first-feature
+</code></pre>
+<p>This shows:</p>
+<ul>
+<li>Branch name</li>
+<li>Changes (modified, added, deleted)</li>
+<li>Diff statistics</li>
+</ul>
+<hr>
+<h2 id="step-6-sync-with-main-optional"><a class="header" href="#step-6-sync-with-main-optional">Step 6: Sync with Main (Optional)</a></h2>
+<p>If main has moved forward:</p>
+<pre><code class="language-bash">zjj sync my-first-feature
+</code></pre>
+<p>This rebases your workspace onto the latest main.</p>
+<hr>
+<h2 id="step-7-complete-your-work"><a class="header" href="#step-7-complete-your-work">Step 7: Complete Your Work</a></h2>
+<p>When you’re done:</p>
+<pre><code class="language-bash">zjj done
+</code></pre>
+<p>This:</p>
+<ul>
+<li>Commits your changes</li>
+<li>Merges to main</li>
+<li>Pushes to remote (if configured)</li>
+</ul>
+<hr>
+<h2 id="step-8-clean-up"><a class="header" href="#step-8-clean-up">Step 8: Clean Up</a></h2>
+<pre><code class="language-bash">zjj remove my-first-feature
+</code></pre>
+<p>This removes the session and workspace.</p>
+<hr>
+<h2 id="common-workflow"><a class="header" href="#common-workflow">Common Workflow</a></h2>
+<p>Here’s the typical daily workflow:</p>
+<pre><code class="language-bash"># Morning: create session for today's work
+zjj add fix-bug-123 --bead BD-123
+
+# Focus on it
+zjj focus fix-bug-123
+
+# Work...
+# ... make changes ...
+
+# Sync with main periodically
+zjj sync fix-bug-123
+
+# End of day: finish up
+zjj done
+
+# Clean up
+zjj remove fix-bug-123
+</code></pre>
+<hr>
+<h2 id="multiple-workspaces"><a class="header" href="#multiple-workspaces">Multiple Workspaces</a></h2>
+<p>You can have multiple workspaces active:</p>
+<pre><code class="language-bash"># Create multiple sessions
+zjj add feature-a --bead BD-101
+zjj add feature-b --bead BD-102
+zjj add bugfix-c --bead BD-103
+
+# List them all
+zjj list
+
+# Switch between them
+zjj focus feature-a
+zjj focus feature-b
+zjj focus bugfix-c
+
+# Or use interactive switch
+zjj switch
+</code></pre>
+<hr>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><strong><a href="./guide/workspaces.html">User Guide - Workspaces</a></strong> - Detailed workspace management</li>
+<li><strong><a href="./guide/queue.html">User Guide - Queue</a></strong> - Multi-worker coordination</li>
+<li><strong><a href="./reference/commands.html">Command Reference</a></strong> - All available commands</li>
+</ul>
 
                     </main>
 

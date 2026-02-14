@@ -37,7 +37,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-9f6a60d7.js";
+            window.path_to_searchindex_js = "../searchindex-e337e4e4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-5719c151.js"></script>
@@ -182,7 +182,92 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="parallel-workflow"><a class="header" href="#parallel-workflow">Parallel Workflow</a></h1>
+                        <ol start="6">
+<li>MERGE: zjj skill (merge to main)</li>
+</ol>
+<p><strong>CRITICAL CONSTRAINTS</strong>:</p>
+<ul>
+<li><strong>ZERO unwrap/expect/panic variants</strong> (see rule 4)</li>
+<li>Zero unwraps/panics, Moon only, work NOT done until git push succeeds</li>
+<li><strong>ALWAYS use functional-rust-generator skill for Rust</strong> (rule 7)</li>
+</ul>
+<p>Report final status with bead ID.</p>
+<pre><code>
+### Parallel Execution Example
+
+```bash
+# Get parallel tracks
+bv --robot-triage --robot-triage-by-track
+
+# Spawn 8 agents via Task tool
+# Each gets unique bead from different track
+# All run simultaneously in isolated workspaces
+# Orchestrator monitors from clean context
+</code></pre>
+<h3 id="benefits"><a class="header" href="#benefits">Benefits</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Benefit</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Isolation</strong></td><td>Each agent works in separate JJ workspace</td></tr>
+<tr><td><strong>Parallel</strong></td><td>8x throughput with no conflicts</td></tr>
+<tr><td><strong>Deterministic</strong></td><td>bv precomputes dependencies and execution tracks</td></tr>
+<tr><td><strong>Quality</strong></td><td>Red-queen ensures adversarial testing on each change</td></tr>
+<tr><td><strong>Clean handoff</strong></td><td>landing-skill guarantees all work pushed before completion</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="session-completion-landing-the-plane"><a class="header" href="#session-completion-landing-the-plane">Session Completion (Landing the Plane)</a></h2>
+<h3 id="critical-work-is-not-done-until-git-push-succeeds"><a class="header" href="#critical-work-is-not-done-until-git-push-succeeds">CRITICAL: Work is NOT Done Until <code>git push</code> Succeeds</a></h3>
+<p><strong>MANDATORY WORKFLOW (All 7 Steps Required)</strong></p>
+<pre><code class="language-jsonl">{"step": "1", "action": "File issues", "details": "Create issues for anything that needs follow-up", "tool": "br"}
+{"step": "2", "action": "Run quality gates", "details": "If code changed: moon run :quick (6-7ms) OR moon run :ci (full)", "tool": "moon"}
+{"step": "3", "action": "Update issues", "details": "Close finished work, update in-progress items", "tool": "br"}
+{"step": "4", "action": "COMMIT AND PUSH (MANDATORY)", "details": "git add &lt;files&gt; | git commit -m 'desc' | br sync | git pull --rebase | git push | git status (must show 'up to date')", "tool": "git, br"}
+{"step": "5", "action": "Verify cache", "details": "systemctl --user is-active bazel-remote (expect 'active')", "tool": "systemctl"}
+{"step": "6", "action": "Clean up", "details": "Clear stashes, prune remote branches", "tool": "git"}
+{"step": "7", "action": "Hand off", "details": "Provide context for next session", "output": "Summary message"}
+</code></pre>
+<h3 id="example-session-end"><a class="header" href="#example-session-end">Example Session End</a></h3>
+<pre><code class="language-bash"># 1. File any follow-up work
+br create "Need to add error handling for edge case"
+
+# 2. Quality gates
+moon run :quick
+
+# 3. Update issues
+br close 123
+br update 456 --status done
+
+# 4. COMMIT AND PUSH (MANDATORY)
+git add crates/zjj-core/src/error.rs
+git commit -m "fix: add error handling for edge case"
+br sync --flush-only
+git add .beads/
+git commit -m "sync beads"
+git pull --rebase
+git push
+git status # MUST show: "Your branch is up to date with 'origin/main'"
+
+# 5. Verify cache
+systemctl --user is-active bazel-remote # Output: active
+
+# 6. Clean up
+git stash clear
+git remote prune origin
+
+# 7. Hand off
+# "Completed bead #123 (error handling). Bead #456 in progress. Cache healthy. No conflicts."
+</code></pre>
+<h3 id="what-ready-to-push-when-you-are-means"><a class="header" href="#what-ready-to-push-when-you-are-means">What “Ready to Push When You Are” Means</a></h3>
+<p><strong>DO NOT SAY THIS.</strong> It means:</p>
+<ul>
+<li>You’re offloading responsibility</li>
+<li>Work might never get pushed</li>
+</ul>
 
                     </main>
 

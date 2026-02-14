@@ -37,7 +37,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-9f6a60d7.js";
+            window.path_to_searchindex_js = "../searchindex-e337e4e4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-5719c151.js"></script>
@@ -182,7 +182,46 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="ai-agent-overview"><a class="header" href="#ai-agent-overview">AI Agent Overview</a></h1>
+                        <h2 id="quick-start-3-commands"><a class="header" href="#quick-start-3-commands">Quick Start (3 commands)</a></h2>
+<pre><code class="language-bash">zjj whereami        # Check: "main" or "workspace:&lt;name&gt;"
+zjj work my-task    # Start: Create workspace
+zjj done            # Finish: Merge and cleanup
+</code></pre>
+<p>Or use the AI helpers:</p>
+<pre><code class="language-bash">zjj ai status       # Full status with guided next action
+zjj ai workflow     # 7-step parallel agent workflow
+zjj ai quick-start  # Minimum commands reference
+</code></pre>
+<hr>
+<h2 id="7-absolute-mandatory-rules"><a class="header" href="#7-absolute-mandatory-rules">7 Absolute Mandatory Rules</a></h2>
+<h3 id="1-no_clippy_edits"><a class="header" href="#1-no_clippy_edits">1. NO_CLIPPY_EDITS</a></h3>
+<p><strong>NEVER modify clippy or linting configuration files. EVER.</strong></p>
+<p>Files: <code>.clippy.toml</code>, <code>clippy.toml</code>, <code>#![allow(...)]</code>, <code>#![deny(...)]</code>, <code>Cargo.toml</code> lint sections, <code>moon.yml</code> lint rules.</p>
+<p><strong>Fix the code, not the rules.</strong></p>
+<h3 id="2-moon_only"><a class="header" href="#2-moon_only">2. MOON_ONLY</a></h3>
+<p><strong>NEVER use raw cargo commands. ALWAYS use Moon.</strong></p>
+<ul>
+<li>❌ NEVER: <code>cargo fmt</code>, <code>cargo clippy</code>, <code>cargo test</code>, <code>cargo build</code></li>
+<li>✅ ALWAYS: <code>moon run :quick</code>, <code>moon run :test</code>, <code>moon run :build</code>, <code>moon run :ci</code>, <code>moon run :fmt-fix</code>, <code>moon run :check</code></li>
+</ul>
+<p><strong>Why:</strong> Moon provides 98.5% faster builds via persistent caching and parallel execution.</p>
+<h3 id="3-codanna_only"><a class="header" href="#3-codanna_only">3. CODANNA_ONLY</a></h3>
+<p><strong>NEVER use Grep/Glob/Read for exploration. ALWAYS use Codanna.</strong></p>
+<ul>
+<li>❌ NEVER: <code>Grep</code>, <code>Glob</code>, <code>Read</code> for code exploration</li>
+<li>✅ ALWAYS: <code>mcp__codanna__semantic_search_with_context</code>, <code>find_symbol</code>, <code>search_symbols</code>, <code>search_documents</code>, <code>get_calls</code>, <code>find_callers</code>, <code>analyze_impact</code></li>
+</ul>
+<p><strong>Why:</strong> Codanna is pre-indexed with semantic understanding. 90% fewer tokens, 10x faster.</p>
+<h3 id="4-zero_unwrap_zero_expect_zero_panic"><a class="header" href="#4-zero_unwrap_zero_expect_zero_panic">4. ZERO_UNWRAP_ZERO_EXPECT_ZERO_PANIC</a></h3>
+<p><strong>ZERO unwrap. ZERO expect. ZERO panic. EVER.</strong></p>
+<hr>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><strong><a href="./rules.html">7 Mandatory Rules</a></strong> - Critical constraints for all agents</li>
+<li><strong><a href="./quick-reference.html">Quick Reference</a></strong> - 90% of workflows</li>
+<li><strong><a href="./parallel-workflow.html">Parallel Workflow</a></strong> - Multi-agent coordination</li>
+<li><strong><a href="./session-completion.html">Session Completion</a></strong> - Landing the plane</li>
+</ul>
 
                     </main>
 

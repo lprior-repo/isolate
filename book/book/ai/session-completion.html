@@ -37,7 +37,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-9f6a60d7.js";
+            window.path_to_searchindex_js = "../searchindex-e337e4e4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-5719c151.js"></script>
@@ -182,7 +182,75 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="session-completion"><a class="header" href="#session-completion">Session Completion</a></h1>
+                        <ul>
+<li>Potential merge conflicts accumulate</li>
+</ul>
+<p><strong>Instead:</strong> Push yourself. Verify <code>git status</code> shows “up to date”. Only then is work complete.</p>
+<h3 id="failure-recovery"><a class="header" href="#failure-recovery">Failure Recovery</a></h3>
+<p>If <code>git push</code> fails:</p>
+<ol>
+<li>Check network: <code>ping github.com</code></li>
+<li>Check auth: <code>git remote -v</code> &amp;&amp; <code>ssh -T git@github.com</code></li>
+<li>Pull rebase: <code>git pull --rebase</code></li>
+<li>Resolve conflicts if any</li>
+<li>Push again: <code>git push</code></li>
+<li>Repeat until success</li>
+<li>Only then report completion</li>
+</ol>
+<hr>
+<h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>ZJJ_AGENT_ID</code></td><td>Your agent ID (set by register)</td></tr>
+<tr><td><code>ZJJ_SESSION</code></td><td>Current session name</td></tr>
+<tr><td><code>ZJJ_WORKSPACE</code></td><td>Current workspace path</td></tr>
+<tr><td><code>ZJJ_BEAD_ID</code></td><td>Associated bead ID</td></tr>
+<tr><td><code>ZJJ_ACTIVE</code></td><td>“1” when in workspace</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="json-output-pattern"><a class="header" href="#json-output-pattern">JSON Output Pattern</a></h2>
+<p>All commands support <code>--json</code> and return:</p>
+<pre><code class="language-json">{
+  "$schema": "zjj://&lt;command&gt;-response/v1",
+  "_schema_version": "1.0",
+  "schema_type": "single",
+  "success": true,
+  ...
+}
+</code></pre>
+<hr>
+<h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
+<p>Exit codes:</p>
+<ul>
+<li>0: Success</li>
+<li>1: Validation error (user input)</li>
+<li>2: Not found</li>
+<li>3: System error</li>
+<li>4: External command error</li>
+<li>5: Lock contention</li>
+</ul>
+<p>Errors include suggestions:</p>
+<pre><code class="language-json">{
+  "success": false,
+  "error": {
+    "code": "SESSION_NOT_FOUND",
+    "message": "...",
+    "suggestion": "Use 'zjj list' to see available sessions"
+  }
+}
+</code></pre>
+<hr>
+<h2 id="introspection"><a class="header" href="#introspection">Introspection</a></h2>
+<pre><code class="language-bash">zjj introspect              # All capabilities
+zjj introspect &lt;cmd&gt;        # Command details
+zjj introspect --env-vars   # Environment variables
+</code></pre>
 
                     </main>
 

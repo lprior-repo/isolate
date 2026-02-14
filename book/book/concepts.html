@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9f6a60d7.js";
+            window.path_to_searchindex_js = "searchindex-e337e4e4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5719c151.js"></script>
@@ -183,6 +183,123 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="core-concepts"><a class="header" href="#core-concepts">Core Concepts</a></h1>
+<p>Understanding the three core concepts of ZJJ.</p>
+<hr>
+<h2 id="the-mental-model"><a class="header" href="#the-mental-model">The Mental Model</a></h2>
+<p>ZJJ has three fundamental concepts that work together:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Concept</th><th>Description</th><th>Commands</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Session</strong></td><td>Named isolated workspace + optional Zellij tab + optional bead association</td><td><code>zjj add</code>, <code>zjj focus</code>, <code>zjj done</code></td></tr>
+<tr><td><strong>Queue Entry</strong></td><td>Unit of work that workers/agents can claim and process</td><td><code>zjj queue --add</code>, <code>zjj queue worker</code></td></tr>
+<tr><td><strong>Done</strong></td><td>Complete work and land it back to main</td><td><code>zjj done</code></td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="sessions"><a class="header" href="#sessions">Sessions</a></h2>
+<p>A <strong>session</strong> represents an isolated piece of work. When you create a session, ZJJ:</p>
+<ol>
+<li>Creates a new JJ workspace (isolated from main)</li>
+<li>Creates a Zellij tab for that workspace (optional)</li>
+<li>Associates it with a bead/issue (optional)</li>
+<li>Tracks its state in the database</li>
+</ol>
+<h3 id="session-lifecycle"><a class="header" href="#session-lifecycle">Session Lifecycle</a></h3>
+<pre class="mermaid">graph LR
+    A[Create] --&gt; B[Work]
+    B --&gt; C[Sync]
+    C --&gt; B
+    B --&gt; D[Done]
+    D --&gt; E[Remove]
+</pre>
+
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
+<pre><code class="language-bash"># Create a session
+zjj add auth-refactor --bead BD-123
+
+# Work on it
+zjj focus auth-refactor
+# ... make changes ...
+
+# Keep synced
+zjj sync auth-refactor
+
+# Finish
+zjj done
+
+# Clean up
+zjj remove auth-refactor
+</code></pre>
+<hr>
+<h2 id="queue-entries"><a class="header" href="#queue-entries">Queue Entries</a></h2>
+<p>A <strong>queue entry</strong> is a work item in the merge/processing queue. Multiple workers (human or AI) can process queue entries in parallel safely.</p>
+<h3 id="queue-properties"><a class="header" href="#queue-properties">Queue Properties</a></h3>
+<ul>
+<li><strong>Priority</strong> - Higher priority entries processed first</li>
+<li><strong>Status</strong> - <code>pending</code>, <code>processing</code>, <code>completed</code>, <code>failed</code></li>
+<li><strong>Lease</strong> - Worker claims entry with time-limited lease</li>
+<li><strong>Retry</strong> - Failed entries can be retried</li>
+<li><strong>Stale Reclaim</strong> - Abandoned entries can be reclaimed</li>
+</ul>
+<h3 id="example-1"><a class="header" href="#example-1">Example</a></h3>
+<pre><code class="language-bash"># Add work to queue
+zjj queue --add feature-a --bead BD-101 --priority 3
+zjj queue --add feature-b --bead BD-102 --priority 5
+
+# List queue
+zjj queue --list
+
+# Process queue (worker)
+zjj queue worker --loop
+</code></pre>
+<hr>
+<h2 id="workspaces-vs-sessions-vs-queue"><a class="header" href="#workspaces-vs-sessions-vs-queue">Workspaces vs Sessions vs Queue</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Aspect</th><th>Workspace</th><th>Session</th><th>Queue Entry</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>What</strong></td><td>JJ workspace (branch)</td><td>Workspace + Zellij tab + metadata</td><td>Work item in queue</td></tr>
+<tr><td><strong>When</strong></td><td>Created automatically with session</td><td>Created by <code>zjj add</code></td><td>Created by <code>zjj queue --add</code></td></tr>
+<tr><td><strong>Purpose</strong></td><td>Isolation</td><td>User interface to workspace</td><td>Coordination</td></tr>
+<tr><td><strong>Lifecycle</strong></td><td>Managed by JJ</td><td>Managed by ZJJ</td><td>Managed by queue</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="integration"><a class="header" href="#integration">Integration</a></h2>
+<p>How these concepts work together:</p>
+<pre class="mermaid">graph TD
+    A[Queue Entry] --&gt;|Claims| B[Session]
+    B --&gt;|Creates| C[JJ Workspace]
+    B --&gt;|Creates| D[Zellij Tab]
+    B --&gt;|Associates| E[Bead/Issue]
+    C --&gt;|Work| F[Changes]
+    F --&gt;|Done| G[Merge to Main]
+    A --&gt;|Complete| H[Mark Done]
+</pre>
+
+<p><strong>Flow:</strong></p>
+<ol>
+<li>Queue entry exists for work</li>
+<li>Worker claims entry, creates session</li>
+<li>Session creates workspace + tab</li>
+<li>Work happens in isolation</li>
+<li>Changes merged to main</li>
+<li>Entry marked complete</li>
+</ol>
+<hr>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><strong><a href="./guide/workspaces.html">User Guide - Workspaces</a></strong> - Detailed workspace management</li>
+<li><strong><a href="./guide/queue.html">User Guide - Queue</a></strong> - Queue coordination</li>
+<li><strong><a href="./guide/beads.html">User Guide - Beads</a></strong> - Issue tracking integration</li>
+</ul>
 
                     </main>
 
