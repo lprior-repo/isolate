@@ -1911,6 +1911,12 @@ pub fn cmd_whereami() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("AI: Show machine-readable contract"),
         )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj whereami                    Returns 'main' or 'workspace:<name>'",
@@ -1948,6 +1954,12 @@ pub fn cmd_whoami() -> ClapCommand {
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
                 .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[
