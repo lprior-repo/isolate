@@ -774,6 +774,12 @@ pub fn cmd_diff() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
 }
 
 pub fn cmd_config() -> ClapCommand {
@@ -1469,6 +1475,12 @@ pub fn cmd_context() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Skip health checks (faster)"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("Show machine-readable contract for AI agents"),
+        )
 }
 
 pub fn cmd_spawn() -> ClapCommand {
@@ -2051,6 +2063,12 @@ pub fn cmd_can_i() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj can-i done                  Check if done will succeed",
@@ -2066,13 +2084,13 @@ pub fn cmd_contract() -> ClapCommand {
         .about("Show command contracts for AI integration")
         .long_about(
             "Displays structured contracts for commands, including:
-  
+
             - Input/output schemas
-  
+
             - Argument types and constraints
-  
+
             - Flags and their effects
-  
+
             - Side effects and rollback information
 
 
@@ -2089,11 +2107,18 @@ pub fn cmd_contract() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj contract                    Show all command contracts",
                 "zjj contract add                Show contract for 'add' command",
                 "zjj contract --json             Output as JSON",
+                "zjj contract --contract         Show contract command's own contract",
             ],
             None,
         ))

@@ -706,6 +706,116 @@ pub mod ai_contracts {
 }"#
     }
 
+    /// Machine-readable contract for zjj contract command
+    pub const fn contract() -> &'static str {
+        r#"AI CONTRACT for zjj contract:
+{
+  "command": "zjj contract",
+  "intent": "Query machine-readable contracts for zjj commands to understand inputs, outputs, and side effects",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "command": {
+      "type": "string",
+      "required": false,
+      "position": 1,
+      "description": "Specific command to show contract for (shows all if omitted)",
+      "examples": ["add", "done", "spawn", "work"]
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON format"
+    }
+  },
+  "outputs": {
+    "success": {
+      "commands": [
+        {
+          "name": "string",
+          "description": "string",
+          "required_args": "array",
+          "optional_args": "array",
+          "flags": "array",
+          "output_schema": "string",
+          "side_effects": "array",
+          "examples": "array",
+          "reversible": "boolean",
+          "undo_command": "string|null",
+          "prerequisites": "array"
+        }
+      ],
+      "global_flags": "array",
+      "version": "string"
+    },
+    "errors": [
+      "UnknownCommand"
+    ]
+  },
+  "examples": [
+    "zjj contract                    Show all command contracts",
+    "zjj contract add                Show contract for 'add' command",
+    "zjj contract --json             Output all contracts as JSON",
+    "zjj contract done --json        Show 'done' contract as JSON"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj can-i command
+    pub const fn can_i() -> &'static str {
+        r#"AI CONTRACT for zjj can-i:
+{
+  "command": "zjj can-i",
+  "intent": "Check if an action is permitted in the current context",
+  "prerequisites": [
+    "zjj must be initialized"
+  ],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "action": {
+      "type": "string",
+      "required": true,
+      "position": 1,
+      "description": "Action to check permission for",
+      "examples": ["add", "done", "merge", "abort"]
+    },
+    "resource": {
+      "type": "string",
+      "required": false,
+      "position": 2,
+      "description": "Resource to check permission on",
+      "examples": ["session-name", "workspace-name"]
+    }
+  },
+  "outputs": {
+    "success": {
+      "action": "string",
+      "resource": "string|null",
+      "permitted": "boolean",
+      "reason": "string"
+    },
+    "errors": [
+      "InvalidAction",
+      "ResourceNotFound"
+    ]
+  },
+  "examples": [
+    "zjj can-i add",
+    "zjj can-i done feature-x",
+    "zjj can-i merge"
+  ]
+}"#
+    }
+
     /// AI hints for command sequencing
     pub const fn command_flow() -> &'static str {
         r#"AI COMMAND FLOW:
@@ -750,6 +860,166 @@ pub mod ai_contracts {
     "SessionNotFound": ["zjj list", "zjj add"],
     "AgentCrash": ["zjj attach", "zjj status"]
   }
+}"#
+    }
+
+    /// Machine-readable contract for zjj diff command
+    pub const fn diff() -> &'static str {
+        r#"AI CONTRACT for zjj diff:
+{
+  "command": "zjj diff",
+  "intent": "Show changes between session workspace and main branch",
+  "prerequisites": [
+    "Session must exist in database",
+    "Workspace directory must exist",
+    "JJ repository must be accessible"
+  ],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": false,
+      "default": "auto-detected from current workspace",
+      "description": "Session name to show diff for",
+      "examples": ["feature-auth", "bugfix-123"]
+    },
+    "stat": {
+      "type": "boolean",
+      "flag": "--stat",
+      "required": false,
+      "description": "Show diffstat summary instead of full diff"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "session": "string",
+      "diff_type": "full|stat",
+      "content": "string (diff output)",
+      "stats": {
+        "files_changed": "number",
+        "insertions": "number",
+        "deletions": "number"
+      }
+    },
+    "errors": [
+      "SessionNotFound",
+      "WorkspaceNotFound",
+      "JjCommandError"
+    ]
+  },
+  "examples": [
+    "zjj diff",
+    "zjj diff feature-auth",
+    "zjj diff --stat",
+    "zjj diff feature-auth --json"
+  ],
+  "next_commands": [
+    "zjj done",
+    "zjj status",
+    "zjj sync"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj context command
+    pub const fn context() -> &'static str {
+        r#"AI CONTRACT for zjj context:
+{
+  "command": "zjj context",
+  "intent": "Show complete environment context for AI agents and programmatic access",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "field": {
+      "type": "string",
+      "flag": "--field",
+      "required": false,
+      "description": "Extract single field using JSON pointer path",
+      "examples": ["repository.branch", "session.name", "location.path"]
+    },
+    "no_beads": {
+      "type": "boolean",
+      "flag": "--no-beads",
+      "required": false,
+      "description": "Skip beads database query (faster)"
+    },
+    "no_health": {
+      "type": "boolean",
+      "flag": "--no-health",
+      "required": false,
+      "description": "Skip health checks (faster)"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "default": "true when not TTY",
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "location": {
+        "type": "string (main) or object (workspace)",
+        "description": "Current location in repository"
+      },
+      "session": {
+        "type": "object|null",
+        "description": "Session context if in workspace",
+        "fields": ["name", "status", "bead_id", "agent", "created_at", "last_synced"]
+      },
+      "repository": {
+        "type": "object",
+        "description": "Repository state information",
+        "fields": ["root", "branch", "uncommitted_files", "commits_ahead", "has_conflicts"]
+      },
+      "beads": {
+        "type": "object|null",
+        "description": "Beads tracking information",
+        "fields": ["active", "blocked_by", "ready_count", "in_progress_count"]
+      },
+      "health": {
+        "type": "object",
+        "description": "Health status of the system",
+        "status_values": ["good", "warn", "error"]
+      },
+      "suggestions": {
+        "type": "array of strings",
+        "description": "Actionable suggestions based on context"
+      }
+    },
+    "errors": [
+      "NotInJjRepo",
+      "SessionNotFound",
+      "BeadsDatabaseError"
+    ]
+  },
+  "examples": [
+    "zjj context",
+    "zjj context --json",
+    "zjj context --field=repository.branch",
+    "zjj context --no-beads --no-health",
+    "zjj context --field=location.path"
+  ],
+  "next_commands": [
+    "zjj whereami",
+    "zjj status",
+    "zjj work"
+  ]
 }"#
     }
 }
