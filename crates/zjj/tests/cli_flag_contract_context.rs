@@ -45,9 +45,7 @@ fn bdd_context_without_flags_runs_normally() {
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("--contract"))
-        .stdout(predicate::str::contains(
-            "Show machine-readable contract",
-        ));
+        .stdout(predicate::str::contains("Show machine-readable contract"));
 }
 
 #[test]

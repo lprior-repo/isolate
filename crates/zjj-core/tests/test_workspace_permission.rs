@@ -7,6 +7,7 @@ use std::path::Path;
 use zjj_core::jj_operation_sync::create_workspace_synced;
 
 #[tokio::test]
+#[allow(clippy::expect_used)]
 async fn test_workspace_creation_with_permission_denied() {
     // This test verifies that permission errors from JJ are handled gracefully
 

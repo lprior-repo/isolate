@@ -42,16 +42,16 @@ tar = "0.4"
 flate2 = "1.0"
 hostname = "0.4"
 libc = "0.2"
+rand = "0.8"
+tempfile = "3"
 
 [dev-dependencies]
-tempfile = "3"
 assert_cmd = "2"
 predicates = "3"
 toml = "0.8"
 serial_test = "3.2"
 proptest = "1.0"
 filetime = "0.2"
-rand = "0.8"
 paste = "1.0"
 
 [lints]

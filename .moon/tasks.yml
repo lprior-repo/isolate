@@ -277,6 +277,50 @@ tasks:
       - "crates/**/*.rs"
       - "Cargo.toml"
       - "/Cargo.lock"
+
+  # ============================================================================
+  # SECURITY & QUALITY SCANNING
+  # ============================================================================
+
+  semgrep:
+    command: "/home/lewis/.local/share/mise/installs/semgrep/1.151.0/bin/semgrep"
+    args: "scan --config auto --sarif --output target/semgrep-report.sarif ."
+    description: "Run Semgrep OSS security and quality scan"
+    inputs:
+      - "crates/**/*.rs"
+      - "Cargo.toml"
     options:
       cache: true
+      runInCI: true
+
+  semgrep-json:
+    command: "/home/lewis/.local/share/mise/installs/semgrep/1.151.0/bin/semgrep"
+    args: "scan --config auto --json --output target/semgrep-report.json ."
+    description: "Run Semgrep and output JSON report"
+    inputs:
+      - "crates/**/*.rs"
+      - "Cargo.toml"
+    options:
+      cache: true
+      runInCI: true
+
+  sonar-scan:
+    command: "tools/sonar-scanner/bin/sonar-scanner"
+    args: "-Dsonar.projectKey=happy-cactus -Dsonar.sources=crates -Dsonar.host.url=http://localhost:9000"
+    description: "Run SonarQube Community Edition scan (requires local SonarQube server)"
+    inputs:
+      - "crates/**/*.rs"
+      - "Cargo.toml"
+    options:
+      cache: false
+      runInCI: false
+
+  security-scan:
+    command: "true"
+    description: "Run all security and quality scans"
+    deps:
+      - "~:semgrep"
+      - "~:semgrep-json"
+    options:
+      cache: false
       runInCI: true
