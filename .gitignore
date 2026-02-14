@@ -20,6 +20,10 @@ Thumbs.db
 *.dylib
 *.dll
 
+# SQLite sidecar files
+*.db-wal
+*.db-shm
+
 # Reports
 .llm-*.json
 .llm-*.md

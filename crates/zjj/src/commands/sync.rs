@@ -141,6 +141,8 @@ pub struct SyncOptions {
     pub format: OutputFormat,
     /// Sync all sessions (explicit --all flag)
     pub all: bool,
+    /// Preview sync operations without mutating workspaces
+    pub dry_run: bool,
 }
 
 /// Run the sync command with options
@@ -151,6 +153,10 @@ pub struct SyncOptions {
 /// - `sync` (no args, from workspace) → sync current workspace
 /// - `sync` (no args, from main) → sync all sessions (convenience)
 pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
+    if options.dry_run {
+        return preview_sync(name, options).await;
+    }
+
     match (name, options.all) {
         // Explicit name provided - sync that session
         (Some(n), _) => sync_session_with_options(n, options).await,
@@ -159,6 +165,53 @@ pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Resul
         // No name, no --all flag - detect context
         (None, false) => sync_current_or_all_with_options(options).await,
     }
+}
+
+async fn preview_sync(name: Option<&str>, options: SyncOptions) -> Result<()> {
+    match (name, options.all) {
+        (Some(n), _) => output_sync_preview(Some(n.to_string()), 1, options.format),
+        (None, true) => {
+            let db = get_session_db_with_workspace_detection().await?;
+            let sessions = db.list(None).await?;
+            output_sync_preview(None, sessions.len(), options.format)
+        }
+        (None, false) => {
+            if let Some(workspace_name) = detect_current_workspace_name().await? {
+                output_sync_preview(Some(workspace_name), 1, options.format)
+            } else {
+                let db = get_session_db_with_workspace_detection().await?;
+                let sessions = db.list(None).await?;
+                output_sync_preview(None, sessions.len(), options.format)
+            }
+        }
+    }
+}
+
+fn output_sync_preview(
+    name: Option<String>,
+    synced_count: usize,
+    format: OutputFormat,
+) -> Result<()> {
+    if format.is_json() {
+        let output = SyncOutput {
+            name,
+            synced_count,
+            failed_count: 0,
+            errors: Vec::new(),
+        };
+        let mut envelope =
+            serde_json::to_value(SchemaEnvelope::new("sync-response", "single", output))?;
+        if let Some(obj) = envelope.as_object_mut() {
+            obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
+        }
+        println!("{}", serde_json::to_string(&envelope)?);
+    } else if let Some(session_name) = name {
+        println!("[DRY RUN] Would sync session '{session_name}'");
+    } else {
+        println!("[DRY RUN] Would sync {synced_count} session(s)");
+    }
+
+    Ok(())
 }
 
 /// Sync current workspace if in one, otherwise sync all sessions

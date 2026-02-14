@@ -25,17 +25,20 @@ pub struct SpawnArgs {
     /// Disable auto-cleanup on failure
     pub no_auto_cleanup: bool,
 
+    /// Succeed if workspace already exists (safe retries)
+    pub idempotent: bool,
+
     /// Run agent in background
     pub background: bool,
-
-    /// Idempotent mode - safe retries if workspace already exists
-    pub idempotent: bool,
 
     /// Timeout in seconds (default: 14400 = 4 hours)
     pub timeout: u64,
 
     /// Output format
     pub format: String,
+
+    /// Preview mode without side effects
+    pub dry_run: bool,
 }
 
 impl SpawnArgs {
@@ -58,8 +61,8 @@ impl SpawnArgs {
 
         let no_auto_merge = matches.get_flag("no-auto-merge");
         let no_auto_cleanup = matches.get_flag("no-auto-cleanup");
-        let background = matches.get_flag("background");
         let idempotent = matches.get_flag("idempotent");
+        let background = matches.get_flag("background");
 
         let timeout = matches
             .get_one::<String>("timeout")
@@ -72,16 +75,19 @@ impl SpawnArgs {
             "human".to_string()
         };
 
+        let dry_run = matches.get_flag("dry-run");
+
         Ok(Self {
             bead_id,
             agent_command,
             agent_args,
             no_auto_merge,
             no_auto_cleanup,
-            background,
             idempotent,
+            background,
             timeout,
             format,
+            dry_run,
         })
     }
 
@@ -93,14 +99,15 @@ impl SpawnArgs {
             agent_args: self.agent_args.clone(),
             no_auto_merge: self.no_auto_merge,
             no_auto_cleanup: self.no_auto_cleanup,
-            background: self.background,
             idempotent: self.idempotent,
+            background: self.background,
             timeout_secs: self.timeout,
             format: if self.format == "json" {
                 OutputFormat::Json
             } else {
                 OutputFormat::Human
             },
+            dry_run: self.dry_run,
         }
     }
 }
@@ -113,10 +120,11 @@ pub struct SpawnOptions {
     pub agent_args: Vec<String>,
     pub no_auto_merge: bool,
     pub no_auto_cleanup: bool,
-    pub background: bool,
     pub idempotent: bool,
+    pub background: bool,
     pub timeout_secs: u64,
     pub format: OutputFormat,
+    pub dry_run: bool,
 }
 
 /// Output from spawn command
@@ -143,6 +151,10 @@ pub enum SpawnStatus {
     Failed,
     /// Validation error (wrong location, bead not ready, etc.)
     ValidationError,
+    /// Dry-run preview completed
+    DryRun,
+    /// Existing workspace reused in idempotent mode
+    Idempotent,
 }
 
 /// Phase of spawn operation for error reporting
@@ -290,10 +302,12 @@ mod tests {
             agent_args: vec!["--arg".to_string()],
             no_auto_merge: true,
             no_auto_cleanup: false,
+            idempotent: true,
             background: false,
             idempotent: true,
             timeout: 3600,
             format: "json".to_string(),
+            dry_run: true,
         };
 
         let opts = args.to_options();
@@ -306,6 +320,7 @@ mod tests {
         assert!(opts.idempotent);
         assert_eq!(opts.timeout_secs, 3600);
         assert!(matches!(opts.format, OutputFormat::Json));
+        assert!(opts.dry_run);
     }
 
     #[test]
@@ -338,11 +353,15 @@ mod tests {
         let completed = SpawnStatus::Completed;
         let failed = SpawnStatus::Failed;
         let validation = SpawnStatus::ValidationError;
+        let dry_run = SpawnStatus::DryRun;
+        let idempotent = SpawnStatus::Idempotent;
 
         // Verify variant discriminants work correctly
         assert!(matches!(running, SpawnStatus::Running));
         assert!(matches!(completed, SpawnStatus::Completed));
         assert!(matches!(failed, SpawnStatus::Failed));
         assert!(matches!(validation, SpawnStatus::ValidationError));
+        assert!(matches!(dry_run, SpawnStatus::DryRun));
+        assert!(matches!(idempotent, SpawnStatus::Idempotent));
     }
 }

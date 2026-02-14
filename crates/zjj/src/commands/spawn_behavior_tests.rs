@@ -39,8 +39,10 @@ mod brutal_edge_cases {
             idempotent: false,
             no_auto_merge: true,
             no_auto_cleanup: true,
+            idempotent: false,
             timeout_secs: 300,
             format: OutputFormat::Human,
+            dry_run: false,
         }
     }
 
@@ -550,8 +552,10 @@ mod brutal_edge_cases {
                 idempotent: false,
                 no_auto_merge: true,
                 no_auto_cleanup: true,
+                idempotent: false,
                 timeout_secs: 300,
                 format: OutputFormat::Human,
+                dry_run: false,
             };
             execute_spawn(&options).await
         });
@@ -570,8 +574,10 @@ mod brutal_edge_cases {
                 idempotent: false,
                 no_auto_merge: true,
                 no_auto_cleanup: true,
+                idempotent: false,
                 timeout_secs: 300,
                 format: OutputFormat::Human,
+                dry_run: false,
             };
             execute_spawn(&options).await
         });

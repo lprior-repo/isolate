@@ -111,9 +111,23 @@ async fn test_init_json_pure_stdout() -> Result<()> {
 
     child.wait().await?;
 
-    // Verify stdout contains ONLY valid JSON (no human messages)
+    // Stricter check: stdout should be PURE JSON only
+    // - Must parse as valid JSON
+    // - Must start with '{' and end with '}' (no leading/trailing text)
+    // - Must not contain any human-readable messages
+    let trimmed = stdout.trim();
+    assert!(
+        trimmed.starts_with('{') && trimmed.ends_with('}'),
+        "stdout should be pure JSON (start with '{{' and end with '}}'), got: {}",
+        if trimmed.len() > 100 {
+            &trimmed[..100]
+        } else {
+            trimmed
+        }
+    );
+
     let parsed: serde_json::Value =
-        serde_json::from_str(&stdout).context("stdout should contain valid JSON only")?;
+        serde_json::from_str(trimmed).context("stdout should contain valid JSON only")?;
 
     assert_eq!(
         parsed.get("$schema").and_then(|v| v.as_str()),
@@ -129,6 +143,10 @@ async fn test_init_json_pure_stdout() -> Result<()> {
     assert!(
         !stdout.contains("Initializing"),
         "stdout should not contain human messages"
+    );
+    assert!(
+        !stdout.contains("Initialized"),
+        "stdout should not contain 'Initialized' message"
     );
 
     Ok(())
@@ -193,9 +211,11 @@ async fn test_init_concurrent_no_corruption() -> Result<()> {
     Ok(())
 }
 
-/// Test that init lock file is cleaned up properly
+/// Test that init lock file persists but is unlocked after init
 #[tokio::test]
 async fn test_init_lock_file_cleanup() -> Result<()> {
+    use fs4::fs_std::FileExt;
+
     if !jj_is_available().await {
         return Ok(());
     }
@@ -208,12 +228,171 @@ async fn test_init_lock_file_cleanup() -> Result<()> {
     // Run init
     run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
-    // Verify lock file does not persist after init completes
+    // Verify lock file exists but is unlocked
     let lock_path = temp_dir.path().join(".zjj/.init.lock");
     assert!(
-        !tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
-        "Lock file should be cleaned up after successful init"
+        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
+        "Lock file should persist after init (file locks are inode-based)"
     );
+
+    // Verify we can acquire the lock (meaning it's not held)
+    let lock_file = std::fs::OpenOptions::new().write(true).open(&lock_path)?;
+    assert!(
+        lock_file.try_lock_exclusive().is_ok(),
+        "Lock file should be unlocked after successful init"
+    );
+    lock_file.unlock()?;
+
+    Ok(())
+}
+
+/// Adversarial test: init must reject symlinked lock path.
+#[tokio::test]
+#[cfg(unix)]
+async fn test_init_rejects_symlinked_lock_file() -> Result<()> {
+    use std::os::unix::fs::symlink;
+
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = setup_test_jj_repo().await?;
+    let Some(temp_dir) = temp_dir else {
+        return Ok(());
+    };
+
+    let zjj_dir = temp_dir.path().join(".zjj");
+    tokio::fs::create_dir_all(&zjj_dir).await?;
+
+    let target_path = temp_dir.path().join("lock-target.txt");
+    let target_content = "do-not-touch";
+    tokio::fs::write(&target_path, target_content).await?;
+
+    let lock_path = zjj_dir.join(".init.lock");
+    symlink(&target_path, &lock_path)?;
+
+    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
+    assert!(
+        result.is_err(),
+        "init should fail when lock path is a symlink"
+    );
+
+    let error_text = result
+        .err()
+        .map_or_else(String::new, |error| error.to_string());
+    assert!(
+        error_text.contains("symlink"),
+        "error should mention symlink security issue"
+    );
+
+    let current_target_content = tokio::fs::read_to_string(&target_path).await?;
+    assert_eq!(
+        current_target_content, target_content,
+        "symlink target content should not be modified"
+    );
+
+    Ok(())
+}
+
+/// Test that an existing unlocked lock file does not block init.
+#[tokio::test]
+async fn test_init_existing_lock_file_recovery() -> Result<()> {
+    use fs4::fs_std::FileExt;
+
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = setup_test_jj_repo().await?;
+    let Some(temp_dir) = temp_dir else {
+        return Ok(());
+    };
+
+    // Create .zjj directory first
+    let zjj_dir = temp_dir.path().join(".zjj");
+    tokio::fs::create_dir_all(&zjj_dir).await?;
+
+    // Create an existing lock file that is not currently locked.
+    let lock_path = zjj_dir.join(".init.lock");
+    tokio::fs::write(&lock_path, b"existing").await?;
+
+    // Verify lock file exists before init
+    assert!(
+        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
+        "Existing lock file should exist before init"
+    );
+
+    // Run init - should succeed despite pre-existing lock file
+    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
+    assert!(
+        result.is_ok(),
+        "Init should succeed with existing lock file"
+    );
+
+    // Verify init completed successfully
+    let config_path = zjj_dir.join("config.toml");
+    assert!(
+        tokio::fs::try_exists(&config_path).await.unwrap_or(false),
+        "config.toml should exist after init"
+    );
+
+    // Lock file should exist but be unlocked
+    assert!(
+        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
+        "Lock file should exist after init (file locks are inode-based)"
+    );
+
+    // Verify we can acquire the lock (meaning it's not held)
+    let verify_file = std::fs::OpenOptions::new().write(true).open(&lock_path)?;
+    assert!(
+        verify_file.try_lock_exclusive().is_ok(),
+        "Lock file should be unlocked after init"
+    );
+    let _ = verify_file.unlock();
+
+    Ok(())
+}
+
+/// Test that init releases lock even on error (RAII guard)
+#[tokio::test]
+async fn test_init_lock_cleanup_on_error() -> Result<()> {
+    use fs4::fs_std::FileExt;
+
+    // This test verifies that the RAII guard releases the lock
+    // even when an error occurs during initialization
+
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = setup_test_jj_repo().await?;
+    let Some(temp_dir) = temp_dir else {
+        return Ok(());
+    };
+
+    // Create .zjj directory and make config.toml a directory (will cause error)
+    let zjj_dir = temp_dir.path().join(".zjj");
+    tokio::fs::create_dir_all(&zjj_dir).await?;
+    let config_path = zjj_dir.join("config.toml");
+    tokio::fs::create_dir_all(&config_path).await?; // Directory instead of file
+
+    // Run init - should fail because config.toml is a directory
+    let _result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
+
+    // Lock file should exist but be unlocked (RAII guard releases lock on drop)
+    let lock_path = zjj_dir.join(".init.lock");
+    assert!(
+        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
+        "Lock file should exist even on error (file locks are inode-based)"
+    );
+
+    // Verify we can acquire the lock (meaning it was released)
+    let verify_file = std::fs::OpenOptions::new().write(true).open(&lock_path)?;
+    assert!(
+        verify_file.try_lock_exclusive().is_ok(),
+        "Lock should be released even on error (RAII guard)"
+    );
+    let _ = verify_file.unlock();
 
     Ok(())
 }
