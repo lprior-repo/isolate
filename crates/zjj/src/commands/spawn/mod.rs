@@ -52,19 +52,15 @@ br show $ZJJ_BEAD_ID
 Check the project's README or CLAUDE.md for the correct build commands.
 ";
 
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{path::Path, time::Duration};
 
 use anyhow::{Context, Result};
 use types::SpawnStatus;
-use zjj_core::{config, json::SchemaEnvelope};
+use zjj_core::json::SchemaEnvelope;
 
 use crate::{
     beads::{BeadRepository, BeadStatus},
     cli::jj_root,
-    commands::context::{detect_location, Location},
 };
 
 /// Run the spawn command with options
@@ -89,36 +85,27 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
             current_location: e.to_string(),
         })?;
 
-    let workspace_path = Path::new(&root)
-        .join(".zjj/workspaces")
-        .join(&options.bead_id);
-
-    if options.idempotent {
-        let workspace_exists = tokio::fs::try_exists(&workspace_path).await.map_err(|e| {
-            SpawnError::WorkspaceCreationFailed {
-                reason: format!("Failed checking existing workspace: {e}"),
-            }
-        })?;
-
-        if workspace_exists {
-            return Ok(SpawnOutput {
-                bead_id: options.bead_id.clone(),
-                workspace_path: workspace_path.to_string_lossy().to_string(),
-                agent_pid: None,
-                exit_code: None,
-                merged: false,
-                cleaned: false,
-                status: SpawnStatus::Idempotent,
-            });
-        }
-    }
-
     let bead_repo = BeadRepository::new(&root);
 
     // Phase 2: Validate bead status
-    validate_bead_status(&bead_repo, &root, &options.bead_id, options.idempotent).await?;
+    let bead_status_result = validate_bead_status(&bead_repo, &options.bead_id).await;
+
+    // Check if workspace already exists for idempotency
+    let workspaces_dir = Path::new(&root).join(".zjj/workspaces");
+    let workspace_path = workspaces_dir.join(&options.bead_id);
+    let workspace_exists = tokio::fs::try_exists(&workspace_path)
+        .await
+        .unwrap_or(false);
 
     if options.dry_run {
+        if !options.format.is_json() {
+            println!("Would spawn session for bead '{}'", options.bead_id);
+            println!("  Workspace: {}", workspace_path.display());
+            println!(
+                "  Agent: {} {:?}",
+                options.agent_command, options.agent_args
+            );
+        }
         return Ok(SpawnOutput {
             bead_id: options.bead_id.clone(),
             workspace_path: workspace_path.to_string_lossy().to_string(),
@@ -130,19 +117,45 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
         });
     }
 
-    // Initialize transaction tracker
-    let workspace = create_workspace(&root, &options.bead_id, options.idempotent).await?;
+    if options.idempotent && workspace_exists {
+        // If idempotent and workspace exists, we check if the bead status error (if any)
+        // is acceptable (e.g., "in_progress").
+        match &bead_status_result {
+            Ok(_) => {
+                // Workspace exists but bead is open. This is unusual but we can treat as
+                // success/running.
+            }
+            Err(SpawnError::InvalidBeadStatus { status, .. }) if status == "in_progress" => {
+                // Expected case: workspace exists and bead is in progress.
+            }
+            Err(e) => return Err(e.clone()),
+        }
 
-    let tracker = TransactionTracker::new(&options.bead_id, &workspace.path).await?;
+        return Ok(SpawnOutput {
+            bead_id: options.bead_id.clone(),
+            workspace_path: workspace_path.to_string_lossy().to_string(),
+            agent_pid: None,
+            exit_code: None,
+            merged: false,
+            cleaned: false,
+            status: SpawnStatus::Running,
+        });
+    }
+
+    // If not idempotent return, allow normal validation error to propagate
+    bead_status_result?;
+
+    // Initialize transaction tracker
+    let workspace_path = create_workspace(&root, &options.bead_id).await?;
+
+    let tracker = TransactionTracker::new(&options.bead_id, &workspace_path).await?;
 
     // Register signal handlers for graceful shutdown
     let signal_handler = SignalHandler::new(Some(tracker.clone()));
     signal_handler.register()?;
 
     // Phase 3: Create workspace
-    if !workspace.reused_existing {
-        tracker.mark_workspace_created()?;
-    }
+    tracker.mark_workspace_created()?;
 
     // Phase 4: Update bead status to in_progress
     if let Err(e) = bead_repo
@@ -161,13 +174,13 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     let spawn_result = if options.background {
         tokio::time::timeout(
             Duration::from_secs(options.timeout_secs),
-            spawn_agent_background(&workspace.path, options),
+            spawn_agent_background(&workspace_path, options),
         )
         .await
     } else {
         tokio::time::timeout(
             Duration::from_secs(options.timeout_secs),
-            spawn_agent_foreground(&workspace.path, options),
+            spawn_agent_foreground(&workspace_path, options),
         )
         .await
     };
@@ -187,14 +200,14 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
 
     // Phase 6-8: Handle completion
     let (merged, cleaned, status) = match exit_code {
-        Some(0) => handle_success(&root, &options.bead_id, &workspace.path, options).await?,
-        Some(code) => handle_failure(&root, &workspace.path, options, code).await?,
+        Some(0) => handle_success(&root, &options.bead_id, &workspace_path, options).await?,
+        Some(code) => handle_failure(&root, &workspace_path, options, code).await?,
         None => (false, false, SpawnStatus::Running),
     };
 
     Ok(SpawnOutput {
         bead_id: options.bead_id.clone(),
-        workspace_path: workspace.path.to_string_lossy().to_string(),
+        workspace_path: workspace_path.to_string_lossy().to_string(),
         agent_pid: pid,
         exit_code,
         merged,
@@ -207,8 +220,11 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
 async fn validate_location() -> Result<String> {
     let root = jj_root().await.context("Failed to get JJ root")?;
 
-    let location = detect_location(&PathBuf::from(&root)).context("Failed to detect location")?;
-    if matches!(location, Location::Workspace { .. }) {
+    // Check if we're in a workspace by looking at current directory
+    let current_dir = std::env::current_dir().context("Failed to get current directory")?;
+
+    // Simple check: if we're in .zjj/workspaces, we're in a workspace
+    if current_dir.to_string_lossy().contains(".zjj/workspaces") {
         anyhow::bail!("In workspace directory");
     }
 
@@ -216,12 +232,7 @@ async fn validate_location() -> Result<String> {
 }
 
 /// Validate that the bead exists and has appropriate status
-async fn validate_bead_status(
-    bead_repo: &BeadRepository,
-    root: &str,
-    bead_id: &str,
-    idempotent: bool,
-) -> Result<(), SpawnError> {
+async fn validate_bead_status(bead_repo: &BeadRepository, bead_id: &str) -> Result<(), SpawnError> {
     let bead = bead_repo
         .get_bead(bead_id)
         .await
@@ -235,20 +246,7 @@ async fn validate_bead_status(
         });
     };
 
-    // Check if status is appropriate.
-    // In idempotent mode, allow in_progress so retries can safely continue.
-    if idempotent && matches!(bead.status, BeadStatus::InProgress) {
-        if is_retryable_in_progress_bead(root, bead_id).await? {
-            return Ok(());
-        }
-
-        return Err(SpawnError::InvalidBeadStatus {
-            bead_id: bead_id.to_string(),
-            status: "in_progress (active agent)".to_string(),
-        });
-    }
-
-    // Default path requires open bead.
+    // Check if status is appropriate (open)
     match bead.status {
         BeadStatus::Open => Ok(()),
         _ => Err(SpawnError::InvalidBeadStatus {
@@ -258,69 +256,20 @@ async fn validate_bead_status(
     }
 }
 
-async fn is_retryable_in_progress_bead(root: &str, bead_id: &str) -> Result<bool, SpawnError> {
-    if !workspace_registered_in_jj(root, bead_id).await? {
-        return Ok(false);
-    }
-
-    let workspace_path = workspace_path_for_bead(root, bead_id).await?;
-    let workspace_exists = tokio::fs::try_exists(&workspace_path).await.map_err(|e| {
-        SpawnError::WorkspaceCreationFailed {
-            reason: format!("Failed to check existing workspace path: {e}"),
-        }
-    })?;
-
-    if !workspace_exists {
-        return Ok(false);
-    }
-
-    let heartbeat = HeartbeatMonitor::with_defaults(&workspace_path);
-    let alive = heartbeat.is_alive().await?;
-    Ok(!alive)
-}
-
 /// Create a JJ workspace for the bead with operation graph synchronization
 ///
 /// This uses the synchronized workspace creation to prevent operation graph
 /// corruption when multiple workspaces are created concurrently or in quick
 /// succession.
-async fn create_workspace(
-    root: &str,
-    bead_id: &str,
-    idempotent: bool,
-) -> Result<WorkspaceResolution, SpawnError> {
-    let workspaces_dir = workspaces_dir(root).await;
+async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, SpawnError> {
+    let workspaces_dir = Path::new(root).join(".zjj/workspaces");
     tokio::fs::create_dir_all(&workspaces_dir)
         .await
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
             reason: format!("Failed to create workspaces directory: {e}"),
         })?;
 
-    let workspace_path = workspace_path_for_bead(root, bead_id).await?;
-
-    if tokio::fs::try_exists(&workspace_path).await.map_err(|e| {
-        SpawnError::WorkspaceCreationFailed {
-            reason: format!("Failed to check existing workspace path: {e}"),
-        }
-    })? {
-        if idempotent {
-            let workspace_registered = workspace_registered_in_jj(root, bead_id).await?;
-            if workspace_registered {
-                create_workspace_discoverability(&workspace_path).await?;
-                return Ok(WorkspaceResolution {
-                    path: workspace_path,
-                    reused_existing: true,
-                });
-            }
-        }
-
-        return Err(SpawnError::WorkspaceCreationFailed {
-            reason: format!(
-                "Workspace already exists at {}. Retry with --idempotent",
-                workspace_path.display(),
-            ),
-        });
-    }
+    let workspace_path = workspaces_dir.join(bead_id);
 
     // Use synchronized workspace creation to prevent operation graph corruption
     // This ensures:
@@ -328,102 +277,16 @@ async fn create_workspace(
     // 2. All workspaces are based on the same repository operation
     // 3. Operation graph consistency is verified after creation
     // CRITICAL-004 fix: Pass root explicitly to support sibling workspace directories
-    let create_result = zjj_core::jj_operation_sync::create_workspace_synced(
-        bead_id,
-        &workspace_path,
-        Path::new(root),
-    )
-    .await;
-
-    if let Err(e) = create_result {
-        let reason = e.to_string();
-        let workspace_exists_error = reason.to_ascii_lowercase().contains("already exists");
-
-        if workspace_exists_error {
-            let workspace_registered = workspace_registered_in_jj(root, bead_id).await?;
-
-            if workspace_registered && idempotent {
-                create_workspace_discoverability(&workspace_path).await?;
-                return Ok(WorkspaceResolution {
-                    path: workspace_path,
-                    reused_existing: true,
-                });
-            }
-
-            if workspace_registered {
-                return Err(SpawnError::WorkspaceCreationFailed {
-                    reason: format!(
-                        "Workspace '{bead_id}' already exists. Retry with --idempotent"
-                    ),
-                });
-            }
-        }
-
-        return Err(SpawnError::WorkspaceCreationFailed {
-            reason: format!("Failed to create workspace with operation sync: {reason}"),
-        });
-    }
+    zjj_core::jj_operation_sync::create_workspace_synced(bead_id, &workspace_path, Path::new(root))
+        .await
+        .map_err(|e| SpawnError::WorkspaceCreationFailed {
+            reason: format!("Failed to create workspace with operation sync: {e}"),
+        })?;
 
     // Create AI discoverability files in the workspace
     create_workspace_discoverability(&workspace_path).await?;
 
-    Ok(WorkspaceResolution {
-        path: workspace_path,
-        reused_existing: false,
-    })
-}
-
-async fn workspace_path_for_bead(
-    root: &str,
-    bead_id: &str,
-) -> Result<std::path::PathBuf, SpawnError> {
-    Ok(workspaces_dir(root).await.join(bead_id))
-}
-
-async fn workspaces_dir(root: &str) -> std::path::PathBuf {
-    let workspace_dir_name = config::load_config()
-        .await
-        .map(|cfg| cfg.workspace_dir)
-        .unwrap_or_else(|_| ".zjj/workspaces".to_string());
-    Path::new(root).join(workspace_dir_name)
-}
-
-async fn workspace_registered_in_jj(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
-    let output = tokio::process::Command::new("jj")
-        .args(["workspace", "list"])
-        .current_dir(root)
-        .output()
-        .await
-        .map_err(|e| SpawnError::JjCommandFailed {
-            reason: format!("Failed to execute jj workspace list: {e}"),
-        })?;
-
-    if !output.status.success() {
-        return Err(SpawnError::JjCommandFailed {
-            reason: format!(
-                "jj workspace list failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ),
-        });
-    }
-
-    let workspace_list = String::from_utf8_lossy(&output.stdout);
-    let exists = workspace_list
-        .lines()
-        .any(|line| workspace_line_matches_name(line, workspace_name));
-
-    Ok(exists)
-}
-
-fn workspace_line_matches_name(line: &str, workspace_name: &str) -> bool {
-    line.split_once(':').is_some_and(|(raw_name, _)| {
-        raw_name.trim().trim_start_matches('*').trim() == workspace_name
-    })
-}
-
-struct WorkspaceResolution {
-    path: std::path::PathBuf,
-    reused_existing: bool,
+    Ok(workspace_path)
 }
 
 /// Create discoverability files in the spawned workspace
@@ -458,8 +321,7 @@ async fn spawn_agent_foreground(
         .current_dir(workspace_path)
         .env("ZJJ_BEAD_ID", &options.bead_id)
         .env("ZJJ_WORKSPACE", workspace_path.to_string_lossy().as_ref())
-        .env("ZJJ_ACTIVE", "1") // Required by git pre-commit hook
-        .kill_on_drop(true);
+        .env("ZJJ_ACTIVE", "1"); // Required by git pre-commit hook
 
     let mut child = cmd.spawn().map_err(|e| SpawnError::AgentSpawnFailed {
         reason: format!("Failed to spawn agent: {e}"),
@@ -693,10 +555,6 @@ fn output_result(result: &SpawnOutput, format: zjj_core::OutputFormat) -> Result
             println!("NEXT: Do your work in the workspace, then run:");
             println!("  zjj sync          # Preview changes / sync with main");
             println!("  zjj done          # Merge to main + cleanup");
-        } else if matches!(result.status, SpawnStatus::DryRun) {
-            println!("  [DRY RUN] No changes were made.");
-        } else if matches!(result.status, SpawnStatus::Idempotent) {
-            println!("  Workspace already exists; skipped due to --idempotent.");
         }
     }
     Ok(())
@@ -708,8 +566,7 @@ const fn status_display(status: &SpawnStatus) -> &'static str {
         SpawnStatus::Completed => "completed",
         SpawnStatus::Failed => "failed",
         SpawnStatus::ValidationError => "validation error",
-        SpawnStatus::DryRun => "dry-run preview",
-        SpawnStatus::Idempotent => "already exists (idempotent)",
+        SpawnStatus::DryRun => "dry run",
     }
 }
 
@@ -736,25 +593,5 @@ mod tests {
         assert!(output.merged);
         assert!(output.cleaned);
         assert!(matches!(output.status, SpawnStatus::Completed));
-    }
-
-    #[test]
-    fn workspace_line_match_requires_exact_name() {
-        assert!(workspace_line_matches_name(
-            "zjj-123: /tmp/repo/.zjj/workspaces/zjj-123",
-            "zjj-123"
-        ));
-        assert!(workspace_line_matches_name(
-            "* zjj-123: /tmp/repo/.zjj/workspaces/zjj-123",
-            "zjj-123"
-        ));
-        assert!(!workspace_line_matches_name(
-            "zjj-1234: /tmp/repo/.zjj/workspaces/zjj-1234",
-            "zjj-123"
-        ));
-        assert!(!workspace_line_matches_name(
-            "not-a-workspace-line",
-            "zjj-123"
-        ));
     }
 }

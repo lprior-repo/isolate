@@ -97,7 +97,7 @@ async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionD
                  Run 'zjj init' in the main repository first."
             );
 
-            let db_path = resolve_main_repo_db_path(&main_repo_path).await?;
+            let db_path = super::get_db_path().await?;
 
             // Security: Verify database is not a symlink
             if db_path.is_symlink() {
@@ -118,22 +118,6 @@ async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionD
     }
 }
 
-async fn resolve_main_repo_db_path(main_repo_path: &str) -> Result<std::path::PathBuf> {
-    if let Ok(env_db) = std::env::var("ZJJ_STATE_DB") {
-        return Ok(std::path::PathBuf::from(env_db));
-    }
-
-    if let Ok(cfg) = zjj_core::config::load_config().await {
-        let cfg_path = std::path::PathBuf::from(cfg.state_db);
-        if cfg_path.is_absolute() {
-            return Ok(cfg_path);
-        }
-        return Ok(Path::new(main_repo_path).join(cfg_path));
-    }
-
-    Ok(Path::new(main_repo_path).join(".zjj").join("state.db"))
-}
-
 /// Options for the sync command
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SyncOptions {
@@ -141,7 +125,7 @@ pub struct SyncOptions {
     pub format: OutputFormat,
     /// Sync all sessions (explicit --all flag)
     pub all: bool,
-    /// Preview sync operations without mutating workspaces
+    /// Preview sync without executing
     pub dry_run: bool,
 }
 
@@ -153,10 +137,6 @@ pub struct SyncOptions {
 /// - `sync` (no args, from workspace) → sync current workspace
 /// - `sync` (no args, from main) → sync all sessions (convenience)
 pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
-    if options.dry_run {
-        return preview_sync(name, options).await;
-    }
-
     match (name, options.all) {
         // Explicit name provided - sync that session
         (Some(n), _) => sync_session_with_options(n, options).await,
@@ -165,53 +145,6 @@ pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Resul
         // No name, no --all flag - detect context
         (None, false) => sync_current_or_all_with_options(options).await,
     }
-}
-
-async fn preview_sync(name: Option<&str>, options: SyncOptions) -> Result<()> {
-    match (name, options.all) {
-        (Some(n), _) => output_sync_preview(Some(n.to_string()), 1, options.format),
-        (None, true) => {
-            let db = get_session_db_with_workspace_detection().await?;
-            let sessions = db.list(None).await?;
-            output_sync_preview(None, sessions.len(), options.format)
-        }
-        (None, false) => {
-            if let Some(workspace_name) = detect_current_workspace_name().await? {
-                output_sync_preview(Some(workspace_name), 1, options.format)
-            } else {
-                let db = get_session_db_with_workspace_detection().await?;
-                let sessions = db.list(None).await?;
-                output_sync_preview(None, sessions.len(), options.format)
-            }
-        }
-    }
-}
-
-fn output_sync_preview(
-    name: Option<String>,
-    synced_count: usize,
-    format: OutputFormat,
-) -> Result<()> {
-    if format.is_json() {
-        let output = SyncOutput {
-            name,
-            synced_count,
-            failed_count: 0,
-            errors: Vec::new(),
-        };
-        let mut envelope =
-            serde_json::to_value(SchemaEnvelope::new("sync-response", "single", output))?;
-        if let Some(obj) = envelope.as_object_mut() {
-            obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
-        }
-        println!("{}", serde_json::to_string(&envelope)?);
-    } else if let Some(session_name) = name {
-        println!("[DRY RUN] Would sync session '{session_name}'");
-    } else {
-        println!("[DRY RUN] Would sync {synced_count} session(s)");
-    }
-
-    Ok(())
 }
 
 /// Sync current workspace if in one, otherwise sync all sessions
@@ -284,7 +217,7 @@ async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<(
     })?;
 
     // Use internal sync function
-    sync_session_internal(&db, &session.name, &session.workspace_path).await?;
+    sync_session_internal(&db, &session.name, &session.workspace_path, options.dry_run).await?;
 
     if options.format.is_json() {
         let output = SyncOutput {
@@ -296,7 +229,7 @@ async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<(
         let envelope = SchemaEnvelope::new("sync-response", "single", output);
         let json_str = serde_json::to_string(&envelope)?;
         println!("{json_str}");
-    } else {
+    } else if !options.dry_run {
         println!("Synced session '{name}' with main");
         println!();
         println!("NEXT: Continue working, or if done:");
@@ -338,7 +271,13 @@ async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
             .map(|session| {
                 let db = &db;
                 async move {
-                    let res = sync_session_internal(db, &session.name, &session.workspace_path).await;
+                    let res = sync_session_internal(
+                        db,
+                        &session.name,
+                        &session.workspace_path,
+                        options.dry_run,
+                    )
+                    .await;
                     (session, res)
                 }
             })
@@ -398,8 +337,13 @@ async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                         print!("Syncing '{}' ... ", &session.name);
                         let _ = std::io::stdout().flush();
 
-                        match sync_session_internal(db, &session.name, &session.workspace_path)
-                            .await
+                        match sync_session_internal(
+                            db,
+                            &session.name,
+                            &session.workspace_path,
+                            options.dry_run,
+                        )
+                        .await
                         {
                             Ok(()) => {
                                 println!("OK");
@@ -436,8 +380,14 @@ async fn sync_session_internal(
     db: &crate::db::SessionDb,
     name: &str,
     workspace_path: &str,
+    dry_run: bool,
 ) -> Result<()> {
     let main_branch = determine_main_branch(Path::new(workspace_path)).await;
+
+    if dry_run {
+        println!("Would sync workspace '{workspace_path}' with main branch '{main_branch}'");
+        return Ok(());
+    }
 
     // Run rebase in the session's workspace
     run_command(

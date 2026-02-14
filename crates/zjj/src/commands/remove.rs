@@ -29,7 +29,7 @@ pub struct RemoveOptions {
     pub keep_branch: bool,
     /// Succeed when target session is already absent (safe retries)
     pub idempotent: bool,
-    /// Preview without executing
+    /// Preview operation without executing
     pub dry_run: bool,
     /// Output format
     pub format: OutputFormat,
@@ -70,20 +70,21 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
         }
     };
 
-    // DRY-RUN MODE: Show preview without executing
     if options.dry_run {
-        let preview_message = build_dry_run_preview(name, &session.workspace_path, options);
-
+        let message = format!(
+            "Would remove session '{name}' and workspace at '{}'",
+            session.workspace_path
+        );
         if options.format.is_json() {
             let output = RemoveOutput {
                 name: name.to_string(),
-                message: preview_message,
+                message,
             };
             let envelope = SchemaEnvelope::new("remove-response", "single", output);
             let json_str = serde_json::to_string(&envelope)?;
             writeln!(std::io::stdout(), "{json_str}")?;
         } else {
-            writeln!(std::io::stdout(), "{}", preview_message)?;
+            writeln!(std::io::stdout(), "{message}")?;
         }
         return Ok(());
     }
@@ -164,29 +165,6 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
             ))))
         }
     }
-}
-
-/// Build dry-run preview message
-fn build_dry_run_preview(name: &str, workspace_path: &str, options: &RemoveOptions) -> String {
-    let mut preview = String::new();
-    preview.push_str(&format!("DRY-RUN: Would remove session '{name}'\n"));
-    preview.push_str(&format!("  Workspace path: {workspace_path}\n"));
-    preview.push_str(&format!("  Database record: {name}\n"));
-
-    if options.merge {
-        preview.push_str("  Action: Squash-merge to main before removal\n");
-    }
-
-    if !options.force {
-        preview.push_str("  Confirmation: Would prompt for confirmation\n");
-        preview.push_str("  Hooks: Would run pre_remove hooks\n");
-    } else {
-        preview.push_str("  Confirmation: Skipped (--force)\n");
-        preview.push_str("  Hooks: Skipped (--force)\n");
-    }
-
-    preview.push_str("\nNo changes made (dry-run mode)");
-    preview
 }
 
 /// Prompt user for confirmation
@@ -277,28 +255,6 @@ mod tests {
         assert!(!opts.merge);
         assert!(!opts.keep_branch);
         assert!(!opts.idempotent);
-    }
-
-    #[test]
-    fn test_build_dry_run_preview_includes_flags() {
-        let options = RemoveOptions {
-            force: true,
-            merge: true,
-            keep_branch: false,
-            idempotent: false,
-            dry_run: true,
-            format: zjj_core::OutputFormat::Human,
-        };
-
-        let preview = build_dry_run_preview("session-a", "/tmp/workspace", &options);
-
-        assert!(preview.contains("DRY-RUN: Would remove session 'session-a'"));
-        assert!(preview.contains("Workspace path: /tmp/workspace"));
-        assert!(preview.contains("Database record: session-a"));
-        assert!(preview.contains("Action: Squash-merge to main before removal"));
-        assert!(preview.contains("Confirmation: Skipped (--force)"));
-        assert!(preview.contains("Hooks: Skipped (--force)"));
-        assert!(preview.contains("No changes made (dry-run mode)"));
     }
 
     #[tokio::test]

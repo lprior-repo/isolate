@@ -15,12 +15,8 @@ pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
     let stop_on_error = sub_m.get_flag("stop-on-error");
     let dry_run = sub_m.get_flag("dry-run");
 
-    if dry_run {
-        return preview_batch(sub_m, format, file, atomic).await;
-    }
-
     if atomic {
-        return handle_atomic_batch(sub_m, format, file, stop_on_error).await;
+        return handle_atomic_batch(sub_m, format, file, stop_on_error, dry_run).await;
     }
 
     let commands = if let Some(file_path) = file {
@@ -58,6 +54,15 @@ pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
                 (parts[0], &parts[1..])
             };
 
+            if dry_run {
+                println!(
+                    "Would execute command {index}: zjj {} {}",
+                    cmd,
+                    args.join(" ")
+                );
+                return Ok(());
+            }
+
             let output = tokio::process::Command::new("zjj")
                 .arg(cmd)
                 .args(args)
@@ -86,81 +91,12 @@ pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
         .await
 }
 
-async fn preview_batch(
-    sub_m: &ArgMatches,
-    format: OutputFormat,
-    file: Option<String>,
-    atomic: bool,
-) -> anyhow::Result<()> {
-    let commands = if atomic {
-        if let Some(file_path) = file {
-            let content = tokio::fs::read_to_string(&file_path)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to read file: {e}"))?;
-            let request = serde_json::from_str::<batch::BatchRequest>(&content)
-                .map_err(|e| anyhow::anyhow!("Failed to parse batch request: {e}"))?;
-            request
-                .operations
-                .into_iter()
-                .map(|op| {
-                    if op.args.is_empty() {
-                        op.command
-                    } else {
-                        format!("{} {}", op.command, op.args.join(" "))
-                    }
-                })
-                .collect::<Vec<_>>()
-        } else {
-            sub_m
-                .get_many::<String>("commands")
-                .map(|v| v.cloned().collect())
-                .unwrap_or_default()
-        }
-    } else if let Some(file_path) = file {
-        let content = tokio::fs::read_to_string(&file_path)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to read file: {e}"))?;
-        parse_legacy_batch_commands(&content)?
-    } else {
-        let raw_commands: Vec<String> = sub_m
-            .get_many::<String>("commands")
-            .map(|v| v.cloned().collect())
-            .unwrap_or_default();
-        if raw_commands.is_empty() {
-            anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
-        }
-        parse_legacy_batch_commands(&raw_commands.join("\n"))?
-    };
-
-    if format.is_json() {
-        let preview = serde_json::json!({
-            "schema": "batch-preview",
-            "type": "single",
-            "dry_run": true,
-            "atomic": atomic,
-            "count": commands.len(),
-            "commands": commands,
-        });
-        println!("{}", serde_json::to_string_pretty(&preview)?);
-    } else {
-        println!(
-            "[DRY RUN] Would execute {} batch command(s)",
-            commands.len()
-        );
-        commands
-            .iter()
-            .enumerate()
-            .for_each(|(index, command)| println!("  {}. {}", index + 1, command));
-    }
-
-    Ok(())
-}
-
 async fn handle_atomic_batch(
     sub_m: &ArgMatches,
     format: OutputFormat,
     file: Option<String>,
     _stop_on_error: bool,
+    dry_run: bool,
 ) -> anyhow::Result<()> {
     use crate::commands::batch::execute_batch;
     let db = get_session_db().await?;
@@ -168,8 +104,13 @@ async fn handle_atomic_batch(
         let content = tokio::fs::read_to_string(&file_path)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to read file: {e}"))?;
-        serde_json::from_str::<batch::BatchRequest>(&content)
-            .map_err(|e| anyhow::anyhow!("Failed to parse batch request: {e}"))?
+        let mut req = serde_json::from_str::<batch::BatchRequest>(&content)
+            .map_err(|e| anyhow::anyhow!("Failed to parse batch request: {e}"))?;
+        // CLI flag overrides file content
+        if dry_run {
+            req.dry_run = true;
+        }
+        req
     } else {
         let raw_commands: Vec<String> = sub_m
             .get_many::<String>("commands")
@@ -201,6 +142,7 @@ async fn handle_atomic_batch(
             .collect();
         batch::BatchRequest {
             atomic: true,
+            dry_run,
             operations,
         }
     };

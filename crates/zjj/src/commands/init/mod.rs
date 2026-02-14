@@ -1,11 +1,8 @@
 //! Initialize ZJJ - sets up everything needed
 
-#[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
-use fs4::fs_std::FileExt;
+use anyhow::{Context, Result};
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::db::SessionDb;
@@ -13,101 +10,6 @@ use crate::db::SessionDb;
 mod deps;
 mod setup;
 mod types;
-
-// ============================================================================
-// InitLock - RAII guard for init lock file
-// ============================================================================
-
-/// RAII guard that ensures lock file cleanup on drop (including error paths)
-struct InitLock {
-    file: std::fs::File,
-    path: PathBuf,
-    released: bool,
-}
-
-impl InitLock {
-    /// Acquire exclusive lock, handling symlink attacks
-    fn acquire(lock_path: PathBuf) -> Result<Self> {
-        // Protect against symlink attacks.
-        // On Unix, O_NOFOLLOW closes the TOCTOU gap between checking and opening.
-        #[cfg(not(unix))]
-        if let Ok(metadata) = std::fs::symlink_metadata(&lock_path) {
-            if metadata.is_symlink() {
-                bail!(
-                    "Security: {} is a symlink. Remove it and re-run zjj init.",
-                    lock_path.display()
-                );
-            }
-        }
-
-        let mut open_options = std::fs::OpenOptions::new();
-        open_options
-            .create(true)
-            .read(true)
-            .write(true)
-            .truncate(false);
-
-        #[cfg(unix)]
-        {
-            open_options.custom_flags(libc::O_NOFOLLOW);
-        }
-
-        // Open lock file without truncate to avoid clobbering lock targets.
-        let file = match open_options.open(&lock_path) {
-            Ok(file) => file,
-            Err(open_error) => {
-                if let Ok(metadata) = std::fs::symlink_metadata(&lock_path) {
-                    if metadata.is_symlink() {
-                        bail!(
-                            "Security: {} is a symlink. Remove it and re-run zjj init.",
-                            lock_path.display()
-                        );
-                    }
-                }
-
-                return Err(open_error).with_context(|| {
-                    format!("Failed to open lock file at {}", lock_path.display())
-                });
-            }
-        };
-
-        // Try to acquire exclusive lock (blocking)
-        file.lock_exclusive().with_context(|| {
-            format!(
-                "Another zjj init is in progress. If this is incorrect, remove {} and retry.",
-                lock_path.display()
-            )
-        })?;
-
-        Ok(Self {
-            file,
-            path: lock_path,
-            released: false,
-        })
-    }
-
-    /// Explicitly release the lock (keeps file on disk to prevent inode races)
-    fn release(mut self) -> Result<()> {
-        if !self.released {
-            self.released = true;
-            // Release lock but keep file on disk (file locks are inode-based)
-            self.file
-                .unlock()
-                .with_context(|| format!("Failed to release lock at {}", self.path.display()))?;
-        }
-        Ok(())
-    }
-}
-
-impl Drop for InitLock {
-    fn drop(&mut self) {
-        if !self.released {
-            // Best-effort lock release on drop (e.g., due to error)
-            // Keep file on disk to prevent inode-based race conditions
-            let _ = self.file.unlock();
-        }
-    }
-}
 
 use deps::{check_dependencies, ensure_jj_repo_with_cwd, jj_root_with_cwd};
 use setup::{
@@ -139,11 +41,11 @@ pub async fn run() -> Result<()> {
 
 /// Run init command with options
 pub async fn run_with_options(options: InitOptions) -> Result<()> {
-    run_with_cwd_and_format(None, options.format).await
+    run_with_cwd_and_options(None, options).await
 }
 
-/// Run init command with cwd and format
-pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Result<()> {
+/// Run init command with cwd and options
+pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) -> Result<()> {
     let cwd = match cwd {
         Some(p) => PathBuf::from(p),
         None => std::env::current_dir().context("Failed to get current directory")?,
@@ -152,8 +54,20 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // Check required dependencies
     check_dependencies().await?;
 
+    if options.dry_run {
+        println!("Would initialize ZJJ in {}", cwd.display());
+        println!("Would create .zjj directory structure:");
+        println!("  - .zjj/");
+        println!("  - .zjj/config.toml");
+        println!("  - .zjj/state.db");
+        println!("  - .zjj/layouts/");
+        println!("Would check/initialize JJ repository");
+        println!("Would create hook integration");
+        return Ok(());
+    }
+
     // Initialize JJ repo if needed
-    ensure_jj_repo_with_cwd(&cwd, format.is_json()).await?;
+    ensure_jj_repo_with_cwd(&cwd).await?;
 
     // Get the repo root using the provided cwd
     let root = jj_root_with_cwd(&cwd).await?;
@@ -184,7 +98,7 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
             already_initialized: true,
         };
 
-        if format.is_json() {
+        if options.format.is_json() {
             let envelope = SchemaEnvelope::new("init-response", "single", response);
             println!("{}", serde_json::to_string(&envelope)?);
         } else {
@@ -199,48 +113,6 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
         tokio::fs::create_dir_all(&zjj_dir)
             .await
             .context("Failed to create .zjj directory")?;
-    }
-
-    // Acquire exclusive lock to prevent concurrent initialization
-    // Uses spawn_blocking to avoid blocking Tokio executor
-    let lock_path = zjj_dir.join(".init.lock");
-    let lock_path_clone = lock_path.clone();
-
-    let init_lock = tokio::task::spawn_blocking(move || InitLock::acquire(lock_path_clone))
-        .await
-        .context("Lock acquisition task panicked")??;
-
-    // Double-check initialization status after acquiring lock
-    let is_now_initialized = tokio::fs::try_exists(&config_path).await.unwrap_or(false)
-        && tokio::fs::try_exists(&layouts_dir).await.unwrap_or(false)
-        && tokio::fs::try_exists(&db_path).await.unwrap_or(false);
-
-    if is_now_initialized {
-        // Another process completed initialization while we waited
-        // RAII guard handles cleanup on drop
-        drop(init_lock);
-
-        let response = InitResponse {
-            message: "zjj already initialized in this repository.".to_string(),
-            root: root.display().to_string(),
-            paths: InitPaths {
-                data_directory: ".zjj/".to_string(),
-                config: ".zjj/config.toml".to_string(),
-                state_db: ".zjj/state.db".to_string(),
-                layouts: ".zjj/layouts/".to_string(),
-            },
-            jj_initialized: true,
-            already_initialized: true,
-        };
-
-        if format.is_json() {
-            let envelope = SchemaEnvelope::new("init-response", "single", response);
-            println!("{}", serde_json::to_string(&envelope)?);
-        } else {
-            println!("zjj already initialized in this repository.");
-        }
-
-        return Ok(());
     }
 
     // Create config.toml if missing
@@ -286,10 +158,7 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
 
-    // Release lock explicitly (RAII guard also handles cleanup on drop)
-    init_lock.release().context("Failed to release init lock")?;
-
-    if format.is_json() {
+    if options.format.is_json() {
         let response = build_init_response(&root, false);
         let envelope = SchemaEnvelope::new("init-response", "single", response);
         println!("{}", serde_json::to_string(&envelope)?);

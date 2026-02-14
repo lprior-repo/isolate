@@ -34,29 +34,16 @@ pub fn cmd_init() -> ClapCommand {
             Arg::new("dry-run")
                 .long("dry-run")
                 .action(clap::ArgAction::SetTrue)
-                .help("Preview initialization without creating files"),
+                .help("Preview initialization without executing"),
         )
         .after_help(after_help_text(
             &[
                 "zjj init                        Initialize ZJJ in the current JJ repository",
                 "zjj init --json                 Output JSON metadata for automation",
-                "zjj init --dry-run              Preview what would be initialized",
-                "zjj init                        Reinitialize after deleting .zjj to refresh helpers",
+                "zjj init --dry-run              Preview initialization",
             ],
             Some(json_docs::init()),
         ))
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
-        )
 }
 
 pub fn cmd_attach() -> ClapCommand {
@@ -116,8 +103,7 @@ pub fn cmd_add() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required_unless_present_any(["example-json", "contract", "ai-hints"])
-                .help("Name for the new session (must start with a letter)")
-                .allow_hyphen_values(true),
+                .help("Name for the new session (must start with a letter)"),
         )
         .arg(
             Arg::new("bead")
@@ -390,18 +376,6 @@ pub fn cmd_list() -> ClapCommand {
                 .action(clap::ArgAction::Set)
                 .help("Filter sessions by workspace state (created, working, ready, merged, abandoned, conflict, active, complete, terminal, non-terminal)"),
         )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
-        )
 }
 
 #[allow(clippy::too_many_lines)]
@@ -581,19 +555,7 @@ pub fn cmd_remove() -> ClapCommand {
             Arg::new("dry-run")
                 .long("dry-run")
                 .action(clap::ArgAction::SetTrue)
-                .help("Preview without executing"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
+                .help("Preview removal without executing"),
         )
 }
 
@@ -690,7 +652,6 @@ pub fn cmd_switch() -> ClapCommand {
                 "zjj switch feature-auth           Switch to named session",
                 "zjj switch                        Interactive session selection",
                 "zjj switch test --show-context    Switch and show session details",
-                "zjj switch test --no-zellij       Switch without Zellij (non-TTY)",
             ],
             None,
         ))
@@ -704,12 +665,6 @@ pub fn cmd_switch() -> ClapCommand {
                 .long("show-context")
                 .action(clap::ArgAction::SetTrue)
                 .help("Show session details after switching"),
-        )
-        .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Skip Zellij integration (for non-TTY environments)"),
         )
         .arg(
             Arg::new("json")
@@ -733,6 +688,7 @@ pub fn cmd_sync() -> ClapCommand {
                 "zjj sync feature-auth             Sync named session with main",
                 "zjj sync                          Sync current workspace",
                 "zjj sync --all                    Sync all active sessions",
+                "zjj sync --dry-run                Preview sync operation",
                 "zjj sync --json                   Get JSON output of sync operation",
             ],
             Some(json_docs::sync()),
@@ -750,28 +706,16 @@ pub fn cmd_sync() -> ClapCommand {
                 .help("Sync all active sessions"),
         )
         .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview sync without executing"),
+        )
+        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("dry-run")
-                .long("dry-run")
-                .action(clap::ArgAction::SetTrue)
-                .help("Preview without executing"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
         )
 }
 
@@ -854,18 +798,6 @@ pub fn cmd_diff() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
         )
 }
 
@@ -1075,20 +1007,21 @@ pub fn cmd_dashboard() -> ClapCommand {
     ClapCommand::new("dashboard")
         .about("Launch interactive TUI dashboard with kanban view")
         .alias("dash")
+        .after_help(after_help_text(
+            &[
+                "zjj dashboard                  Launch the kanban-style dashboard",
+                "zjj dash                       Use the alias to open the TUI quickly",
+                "zjj status                     For non-interactive overview",
+                "zjj dashboard --json           Output session data as JSON",
+            ],
+            None,
+        ))
         .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
-        .after_help(after_help_text(
-            &[
-                "zjj dashboard                  Launch the kanban-style dashboard",
-                "zjj dash                       Use the alias to open the TUI quickly",
-                "zjj status                     For non-interactive overview",
-            ],
-            None,
-        ))
 }
 
 pub fn cmd_introspect() -> ClapCommand {
@@ -1568,18 +1501,6 @@ pub fn cmd_context() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Skip health checks (faster)"),
         )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
-        )
 }
 
 pub fn cmd_spawn() -> ClapCommand {
@@ -1596,7 +1517,6 @@ pub fn cmd_spawn() -> ClapCommand {
         .after_help(after_help_text(
             &[
                 "zjj spawn zjj-abc12               Spawn workspace for bead with Claude",
-                "zjj spawn zjj-abc12 --idempotent  Reuse existing workspace on retry",
                 "zjj spawn zjj-xyz34 -b            Run agent in background",
                 "zjj spawn zjj-def56 --agent-command=llm-run  Use custom agent",
                 "zjj spawn zjj-ghi78 --no-auto-merge  Don't auto-merge on success",
@@ -1643,12 +1563,6 @@ pub fn cmd_spawn() -> ClapCommand {
                 .help("Run agent in background"),
         )
         .arg(
-            Arg::new("idempotent")
-                .long("idempotent")
-                .action(clap::ArgAction::SetTrue)
-                .help("Succeed when workspace already exists (safe for retries)"),
-        )
-        .arg(
             Arg::new("timeout")
                 .long("timeout")
                 .value_name("SECONDS")
@@ -1662,18 +1576,6 @@ pub fn cmd_spawn() -> ClapCommand {
                 .help("Output as JSON"),
         )
         .arg(
-            Arg::new("idempotent")
-                .long("idempotent")
-                .action(clap::ArgAction::SetTrue)
-                .help("Succeed if session already exists (safe for retries)"),
-        )
-        .arg(
-            Arg::new("dry-run")
-                .long("dry-run")
-                .action(clap::ArgAction::SetTrue)
-                .help("Preview without executing"),
-        )
-        .arg(
             Arg::new("contract")
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
@@ -1684,6 +1586,18 @@ pub fn cmd_spawn() -> ClapCommand {
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
                 .help("AI: Show execution hints and common patterns"),
+        )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if workspace already exists (safe for retries)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview spawn without executing"),
         )
 }
 
@@ -1915,18 +1829,6 @@ pub fn cmd_whereami() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
-        )
         .after_help(after_help_text(
             &[
                 "zjj whereami                    Returns 'main' or 'workspace:<name>'",
@@ -1957,18 +1859,6 @@ pub fn cmd_whoami() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[
@@ -2088,18 +1978,6 @@ pub fn cmd_ai() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .global(true)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
         )
         .subcommand(
             ClapCommand::new("status")
@@ -2241,18 +2119,6 @@ pub fn cmd_contract() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
-        )
         .after_help(after_help_text(
             &[
                 "zjj contract                    Show all command contracts",
@@ -2288,18 +2154,6 @@ pub fn cmd_examples() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
         )
 }
 
@@ -2386,7 +2240,7 @@ pub fn cmd_whatif() -> ClapCommand {
         )
         .arg(
             Arg::new("command")
-                .required_unless_present_any(["contract", "ai-hints"])
+                .required(true)
                 .help("Command to preview"),
         )
         .arg(
@@ -2400,18 +2254,6 @@ pub fn cmd_whatif() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[
@@ -2541,22 +2383,22 @@ pub fn cmd_batch() -> ClapCommand {
                 .help("Output as JSON"),
         )
         .arg(
-            Arg::new("dry-run")
-                .long("dry-run")
-                .action(clap::ArgAction::SetTrue)
-                .help("Preview without executing"),
-        )
-        .arg(
             Arg::new("commands")
                 .action(clap::ArgAction::Append)
                 .num_args(0..)
                 .help("Commands to execute"),
         )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview batch execution"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj batch add feat1 add feat2     Execute multiple commands",
                 "zjj batch -f commands.txt        Execute commands from file",
-                "zjj batch --atomic add feat1 add feat2  All or nothing execution",
+                "zjj batch --atomic --dry-run     Preview execution",
             ],
             None,
         ))
@@ -3177,18 +3019,6 @@ pub fn cmd_abort() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[

@@ -18,8 +18,6 @@
 use std::process;
 
 use anyhow::Result;
-use serde::Serialize;
-use zjj_core::json::{ErrorCode, ErrorDetail, SchemaEnvelope};
 
 use crate::{cli::build_cli, command_context, hooks, json};
 
@@ -60,9 +58,9 @@ pub use self::{
         handle_completions, handle_config, handle_pane, handle_query, handle_schema, handle_wait,
     },
     workspace::{
-        handle_add, handle_attach, handle_clone, handle_dashboard, handle_focus, handle_init,
-        handle_list, handle_pause, handle_remove, handle_rename, handle_resume, handle_spawn,
-        handle_status, handle_switch, handle_work,
+        handle_add, handle_attach, handle_clone, handle_focus, handle_init, handle_list,
+        handle_pause, handle_remove, handle_rename, handle_resume, handle_spawn, handle_status,
+        handle_switch, handle_work,
     },
 };
 
@@ -76,11 +74,6 @@ pub fn format_error(err: &anyhow::Error) -> String {
         }
     }
     msg
-}
-
-#[derive(Serialize)]
-struct CliParseErrorPayload {
-    error: ErrorDetail,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -101,20 +94,8 @@ pub async fn run_cli() -> Result<()> {
                 matches!(e.kind(), ErrorKind::DisplayHelp | ErrorKind::DisplayVersion);
 
             if json_mode {
-                let exit_code = if should_exit_zero { 0 } else { 2 };
-                let payload = CliParseErrorPayload {
-                    error: ErrorDetail {
-                        code: ErrorCode::InvalidArgument.into(),
-                        message: e.to_string(),
-                        details: None,
-                        suggestion: Some(
-                            "Use --help for command usage and valid arguments".to_string(),
-                        ),
-                        exit_code,
-                    },
-                };
-                let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
-                println!("{}", serde_json::to_string_pretty(&envelope)?);
+                let json_err = serde_json::json!({ "success": false, "error": { "code": "INVALID_ARGUMENT", "message": e.to_string(), "exit_code": if should_exit_zero { 0 } else { 2 } } });
+                println!("{}", serde_json::to_string_pretty(&json_err)?);
             }
             let _ = e.print();
             process::exit(if should_exit_zero { 0 } else { 2 });
@@ -148,7 +129,10 @@ pub async fn run_cli() -> Result<()> {
             Some(("clean", sub_m)) => handle_clean(sub_m).await,
             Some(("prune-invalid", sub_m)) => handle_prune_invalid(sub_m).await,
             Some(("template", sub_m)) => handle_template(sub_m).await,
-            Some(("dashboard" | "dash", sub_m)) => handle_dashboard(sub_m).await,
+            Some(("dashboard" | "dash", sub_m)) => {
+                let format = json_format::get_format(sub_m);
+                crate::commands::dashboard::run(format).await
+            }
             Some(("introspect", sub_m)) => handle_introspect(sub_m).await,
             Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m).await,
             Some(("integrity", sub_m)) => handle_integrity(sub_m).await,
