@@ -262,7 +262,7 @@ async fn check_workspace_integrity() -> DoctorCheck {
                 status: CheckStatus::Warn,
                 message: format!("Workspace path verification failed: {error}"),
                 suggestion: Some("Run 'zjj doctor --fix' to retry validation".to_string()),
-                auto_fixable: true,
+                auto_fixable: false,
                 details: None,
             };
         }
@@ -1570,6 +1570,9 @@ async fn fix_workspace_integrity(check: &DoctorCheck, dry_run: bool) -> Result<S
 
     let validator = IntegrityValidator::new(workspace_dir.clone());
     let executor = zjj_core::workspace_integrity::RepairExecutor::new();
+    let db = get_session_db()
+        .await
+        .map_err(|error| format!("Failed to open session database: {error}"))?;
 
     let mut fixed_count = 0;
     let mut failed_workspaces = Vec::new();
@@ -1585,6 +1588,36 @@ async fn fix_workspace_integrity(check: &DoctorCheck, dry_run: bool) -> Result<S
             .validate(ws_name)
             .await
             .map_err(|e| format!("Failed to validate workspace '{ws_name}': {e}"))?;
+
+        let report_path = ws_value
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
+        let validated_path = validation.path.display().to_string();
+        let needs_db_rebind = report_path
+            .as_ref()
+            .is_some_and(|reported_path| reported_path != &validated_path);
+
+        if needs_db_rebind
+            && tokio::fs::try_exists(&validation.path)
+                .await
+                .map_err(|error| {
+                    format!(
+                        "Failed to verify validated workspace path '{}' for '{ws_name}': {error}",
+                        validation.path.display()
+                    )
+                })?
+        {
+            db.update_workspace_path(ws_name, &validated_path)
+                .await
+                .map_err(|error| {
+                    format!(
+                        "Failed to rebind session '{ws_name}' to workspace path '{validated_path}': {error}"
+                    )
+                })?;
+            fixed_count += 1;
+            continue;
+        }
 
         match executor.repair(&validation).await {
             Ok(result) if result.success => {
@@ -1736,13 +1769,41 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<S
                         let db = &db;
                         async move {
                             if let Some(name) = session_name.as_str() {
-                                match db.delete(name).await {
-                                    Ok(true) => acc += 1,
-                                    Ok(false) => {}
-                                    Err(e) => {
+                                let should_delete = match db.get(name).await {
+                                    Ok(Some(session)) => {
+                                        match tokio::fs::try_exists(std::path::Path::new(
+                                            &session.workspace_path,
+                                        ))
+                                        .await
+                                        {
+                                            Ok(exists) => !exists,
+                                            Err(error) => {
+                                                tracing::warn!(
+                                                    "Failed to verify workspace path '{}' for orphan check on '{name}': {error}",
+                                                    session.workspace_path
+                                                );
+                                                false
+                                            }
+                                        }
+                                    }
+                                    Ok(None) => false,
+                                    Err(error) => {
                                         tracing::warn!(
-                                            "Failed to delete orphaned session '{name}': {e}"
+                                            "Failed to load session '{name}' before orphan cleanup: {error}"
                                         );
+                                        false
+                                    }
+                                };
+
+                                if should_delete {
+                                    match db.delete(name).await {
+                                        Ok(true) => acc += 1,
+                                        Ok(false) => {}
+                                        Err(e) => {
+                                            tracing::warn!(
+                                                "Failed to delete orphaned session '{name}': {e}"
+                                            );
+                                        }
                                     }
                                 }
                             }
