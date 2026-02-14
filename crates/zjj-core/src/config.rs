@@ -424,7 +424,7 @@ impl Default for RecoveryConfig {
 // PARTIAL CONFIG STRUCTURES (explicit-key merge semantics)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Partial configuration with Option<T> fields for explicit-key merge semantics.
+/// Partial configuration with `Option<T>` fields for explicit-key merge semantics.
 ///
 /// When loading a config file, only fields explicitly present in the TOML
 /// will be `Some(value)`. Missing fields remain `None` and won't override
