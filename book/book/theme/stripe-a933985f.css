@@ -79,7 +79,7 @@ h1, h2, h3, h4, h5, h6 {
   color: #0a2540 !important; margin: 0 !important; letter-spacing: -0.02em !important;
 }
 
-h1 { font-size: 42px !important; font-weight: 700 !important; margin-bottom: 20px !important; letter-spacing: -0.03em !important; }
+h1 { font-size: 48px !important; font-weight: 700 !important; margin-bottom: 24px !important; letter-spacing: -0.04em !important; line-height: 1.1 !important; }
 h2 { font-size: 24px !important; margin-top: 48px !important; margin-bottom: 16px !important; padding-bottom: 12px !important; border-bottom: 1px solid #e3e8ee !important; }
 h3 { font-size: 20px !important; margin-top: 32px !important; margin-bottom: 12px !important; }
 h4 { font-size: 16px !important; margin-top: 24px !important; margin-bottom: 8px !important; }
@@ -135,8 +135,13 @@ hr { border: none !important; border-top: 1px solid #e3e8ee !important; margin: 
 .nav-chapters a { color: #6b7c93 !important; font-size: 14px !important; font-weight: 400 !important; padding: 12px 0 !important; }
 .nav-chapters a:hover { color: #635bff !important; text-decoration: none !important; }
 
-/* MENU BAR */
-.menu-bar { display: none !important; }
+/* MENU BAR - Hide completely */
+#mdbook-menu-bar, #mdbook-menu-bar-hover-placeholder,
+.mdbook-help-container, #mdbook-help-popup,
+.sidebar-resize-handle, .sidebar-iframe-outer,
+#mdbook-sidebar-toggle-anchor, .hidden,
+.theme-popup, #mdbook-theme-list, #mdbook-theme-toggle,
+.mdbook-sidebar-toggle, .right-buttons, .left-buttons { display: none !important; }
 
 /* IFRAME SIDEBAR */
 body.sidebar-iframe-inner { padding: 0 !important; margin: 0 !important; background: #fff !important; }
