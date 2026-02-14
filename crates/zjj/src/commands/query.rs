@@ -9,7 +9,9 @@
 
 use anyhow::Result;
 use zjj_core::{
-    introspection::{Blocker, CanRunQuery, QueryError, SessionExistsQuery, SessionInfo},
+    introspection::{
+        Blocker, CanRunQuery, QueryError, SessionCountQuery, SessionExistsQuery, SessionInfo,
+    },
     json::SchemaEnvelope,
 };
 
@@ -173,7 +175,7 @@ impl QueryTypeInfo {
 /// 1. Printing the output
 /// 2. Running any hooks
 /// 3. Calling std::process::exit with the exit_code
-pub async fn run(query_type: &str, args: Option<&str>) -> Result<QueryResult> {
+pub async fn run(query_type: &str, args: Option<&str>, json_mode: bool) -> Result<QueryResult> {
     // Handle special help queries
     if query_type == "--help" || query_type == "help" || query_type == "--list" {
         let output = QueryTypeInfo::list_all_queries();
@@ -188,22 +190,28 @@ pub async fn run(query_type: &str, args: Option<&str>) -> Result<QueryResult> {
             let name = args.ok_or_else(|| QueryTypeInfo::missing_arg_error("session-exists"))?;
             query_session_exists(name).await
         }
-        "session-count" => query_session_count(args).await,
+        "session-count" => query_session_count(args, json_mode).await,
         "can-run" => {
             let command = args.ok_or_else(|| QueryTypeInfo::missing_arg_error("can-run"))?;
             query_can_run(command).await
         }
         "suggest-name" => {
             let pattern = args.ok_or_else(|| QueryTypeInfo::missing_arg_error("suggest-name"))?;
-            query_suggest_name(pattern).await
+            query_suggest_name(pattern, json_mode).await
         }
         "lock-status" => {
             let session = args.ok_or_else(|| QueryTypeInfo::missing_arg_error("lock-status"))?;
             query_lock_status(session).await
         }
         "can-spawn" => query_can_spawn(args).await,
-        "pending-merges" => query_pending_merges().await,
-        "location" => query_location().await,
+        "pending-merges" => {
+            ensure_no_args("pending-merges", args)?;
+            query_pending_merges().await
+        }
+        "location" => {
+            ensure_no_args("location", args)?;
+            query_location().await
+        }
         _ => {
             let error_msg = format!(
                 "Error: Unknown query type '{}'\n\n{}",
@@ -213,6 +221,15 @@ pub async fn run(query_type: &str, args: Option<&str>) -> Result<QueryResult> {
             Err(anyhow::anyhow!(error_msg))
         }
     }
+}
+
+fn ensure_no_args(query_name: &str, args: Option<&str>) -> Result<()> {
+    if let Some(unexpected_arg) = args {
+        anyhow::bail!(
+            "Error: '{query_name}' query does not accept arguments (got '{unexpected_arg}')"
+        );
+    }
+    Ok(())
 }
 
 /// Categorize database errors for better error reporting
@@ -308,90 +325,165 @@ async fn query_session_exists(name: &str) -> Result<QueryResult> {
 /// Query session count
 /// Note: According to Red Queen findings, this should output plain number, not JSON
 /// when used in shell scripts. However, JSON envelope is still output for --json flag.
-async fn query_session_count(filter: Option<&str>) -> Result<QueryResult> {
-    let (count_val, exit_code) = match get_session_db().await {
+async fn query_session_count(filter: Option<&str>, json_mode: bool) -> Result<QueryResult> {
+    let status_filter = match filter {
+        Some(raw_filter) => {
+            if let Some(status) = raw_filter.strip_prefix("--status=") {
+                if status.is_empty() {
+                    anyhow::bail!("Invalid session-count filter: '--status=' cannot be empty");
+                }
+                let valid_statuses = ["active", "merged", "paused", "blocked"];
+                if !valid_statuses.contains(&status) {
+                    anyhow::bail!(
+                        "Invalid session status '{status}'. Valid statuses: active, merged, paused, blocked"
+                    );
+                }
+                Some(status)
+            } else {
+                anyhow::bail!(
+                    "Invalid session-count filter: '{raw_filter}'. Use '--status=<active|merged|paused|blocked>'"
+                );
+            }
+        }
+        None => None,
+    };
+
+    let (count_val, error, exit_code) = match get_session_db().await {
         Ok(db) => match db.list(None).await {
             Ok(sessions) => {
-                let count = filter
-                    .and_then(|f| f.strip_prefix("--status="))
+                let count = status_filter
                     .map(|status| {
                         sessions
                             .iter()
-                            .filter(|s| s.status.to_string() == status)
+                            .filter(|session| session.status.to_string() == status)
                             .count()
                     })
                     .unwrap_or_else(|| sessions.len());
-                (Some(count), 0)
+                (Some(count), None, 0)
             }
-            Err(e) => {
-                eprintln!("Error: Failed to list sessions: {e}");
-                (None, 2)
-            }
+            Err(e) => (
+                None,
+                Some(QueryError {
+                    code: "DATABASE_ERROR".to_string(),
+                    message: format!("Failed to list sessions: {e}"),
+                }),
+                2,
+            ),
         },
         Err(e) => {
-            let (_, message) = categorize_db_error(&e);
-            eprintln!("Error: {message}");
-            (None, 2)
+            let (code, message) = categorize_db_error(&e);
+            (None, Some(QueryError { code, message }), 2)
         }
     };
 
-    // Output plain number for shell script consumption
-    let output = count_val.map_or_else(String::new, |count| format!("{count}"));
+    let output = if json_mode {
+        let filter_json = status_filter.map(|status| {
+            serde_json::json!({
+                "raw": format!("--status={status}"),
+                "status": status,
+            })
+        });
+        let result = SessionCountQuery {
+            count: count_val,
+            filter: filter_json,
+            error,
+        };
+        let envelope = SchemaEnvelope::new("query-session-count", "single", result);
+        serde_json::to_string_pretty(&envelope)?
+    } else {
+        if let Some(err) = &error {
+            eprintln!("Error: {}", err.message);
+        }
+        count_val.map_or_else(String::new, |count| format!("{count}"))
+    };
 
     Ok(QueryResult { output, exit_code })
 }
 
 /// Query if a command can run
 async fn query_can_run(command: &str) -> Result<QueryResult> {
+    if !is_known_command(command) {
+        let result = CanRunQuery {
+            can_run: false,
+            command: command.to_string(),
+            blockers: vec![Blocker {
+                check: "unknown_command".to_string(),
+                status: false,
+                message: format!("Unknown command '{command}'"),
+            }],
+            prerequisites_met: 0,
+            prerequisites_total: 0,
+        };
+
+        let envelope = SchemaEnvelope::new("query-can-run", "single", result);
+        let output = serde_json::to_string_pretty(&envelope)?;
+        return Ok(QueryResult {
+            output,
+            exit_code: 0,
+        });
+    }
+
     let mut blockers = vec![];
     let mut prereqs_met = 0;
-    let prereqs_total = 4; // Adjust based on command
+    let requires_init_check = requires_init(command);
+    let requires_jj_check = requires_jj(command);
+    let requires_jj_repo_check = requires_jj_repo(command);
+    let requires_zellij_check = requires_zellij(command);
+    let prereqs_total = [
+        requires_init_check,
+        requires_jj_check,
+        requires_jj_repo_check,
+        requires_zellij_check,
+    ]
+    .into_iter()
+    .filter(|required| *required)
+    .count();
 
     // Check if initialized
     let initialized = zjj_data_dir().await.is_ok();
-    if !initialized && requires_init(command) {
+    if !initialized && requires_init_check {
         blockers.push(Blocker {
             check: "initialized".to_string(),
             status: false,
             message: "zjj not initialized".to_string(),
         });
-    } else if requires_init(command) {
+    } else if requires_init_check {
         prereqs_met += 1;
     }
 
     // Check JJ installed
     let jj_installed = is_command_available("jj").await;
-    if !jj_installed && requires_jj(command) {
+    if !jj_installed && requires_jj_check {
         blockers.push(Blocker {
             check: "jj_installed".to_string(),
             status: false,
             message: "JJ not installed".to_string(),
         });
-    } else if requires_jj(command) {
+    } else if requires_jj_check {
         prereqs_met += 1;
     }
 
     // Check JJ repo
     let jj_repo = is_jj_repo().await.unwrap_or(false);
-    if !jj_repo && requires_jj_repo(command) {
+    if !jj_repo && requires_jj_repo_check {
         blockers.push(Blocker {
             check: "jj_repo".to_string(),
             status: false,
             message: "Not in a JJ repository".to_string(),
         });
-    } else if requires_jj_repo(command) {
+    } else if requires_jj_repo_check {
         prereqs_met += 1;
     }
 
     // Check Zellij running
     let zellij_running = is_inside_zellij();
-    if !zellij_running && requires_zellij(command) {
+    if !zellij_running && requires_zellij_check {
         blockers.push(Blocker {
             check: "zellij_running".to_string(),
             status: false,
             message: "Zellij is not running".to_string(),
         });
-    } else if requires_zellij(command) {
+    } else if requires_zellij_check {
         prereqs_met += 1;
     }
 
@@ -414,8 +506,55 @@ async fn query_can_run(command: &str) -> Result<QueryResult> {
     })
 }
 
+fn is_known_command(command: &str) -> bool {
+    matches!(
+        command,
+        "init"
+            | "add"
+            | "list"
+            | "remove"
+            | "focus"
+            | "status"
+            | "sync"
+            | "done"
+            | "undo"
+            | "revert"
+            | "spawn"
+            | "work"
+            | "abort"
+            | "agents"
+            | "ai"
+            | "checkpoint"
+            | "clean"
+            | "config"
+            | "context"
+            | "dashboard"
+            | "diff"
+            | "doctor"
+            | "introspect"
+            | "query"
+            | "whereami"
+            | "whoami"
+            | "contract"
+            | "examples"
+            | "validate"
+            | "whatif"
+            | "claim"
+            | "yield"
+            | "events"
+            | "batch"
+            | "completions"
+            | "export"
+            | "import"
+            | "rename"
+            | "pause"
+            | "resume"
+            | "clone"
+    )
+}
+
 /// Query for suggested name based on pattern
-async fn query_suggest_name(pattern: &str) -> Result<QueryResult> {
+async fn query_suggest_name(pattern: &str, json_mode: bool) -> Result<QueryResult> {
     // suggest_name can work without database access if we can't get sessions
     let existing_names = match get_session_db().await {
         Ok(db) => db.list(None).await.map_or_else(
@@ -435,12 +574,22 @@ async fn query_suggest_name(pattern: &str) -> Result<QueryResult> {
             })
         }
         Err(e) => {
-            // Validation errors (like missing {n}) are user errors (exit 1)
-            eprintln!("Error: {e}");
-            Ok(QueryResult {
-                output: String::new(),
-                exit_code: 1,
-            })
+            if json_mode {
+                let message = e.to_string();
+                let error_message = if message.starts_with("Validation error:") {
+                    message
+                } else {
+                    format!("Validation error: {message}")
+                };
+                Err(anyhow::anyhow!(error_message))
+            } else {
+                // Validation errors (like missing {n}) are user errors (exit 1)
+                eprintln!("Error: {e}");
+                Ok(QueryResult {
+                    output: String::new(),
+                    exit_code: 1,
+                })
+            }
         }
     }
 }
@@ -594,15 +743,19 @@ async fn query_can_spawn(bead_id: Option<&str>) -> Result<QueryResult> {
 
     let mut blockers = vec![];
 
-    // Check if we're on main
-    let root = crate::commands::check_in_jj_repo().await;
-    let on_main = root.as_ref().ok().is_some_and(|r| {
-        let location = super::context::detect_location(r);
-        matches!(location.as_ref().ok(), Some(super::context::Location::Main))
-    });
-
-    if !on_main {
-        blockers.push("Not on main branch".to_string());
+    // Check repository context and branch location
+    match crate::commands::check_in_jj_repo().await {
+        Ok(root) => {
+            let on_main = super::context::detect_location(&root)
+                .map(|location| matches!(location, super::context::Location::Main))
+                .unwrap_or(false);
+            if !on_main {
+                blockers.push("Not on main branch".to_string());
+            }
+        }
+        Err(_) => {
+            blockers.push("Not in a JJ repository".to_string());
+        }
     }
 
     // Check if zjj is initialized
@@ -621,15 +774,50 @@ async fn query_can_spawn(bead_id: Option<&str>) -> Result<QueryResult> {
         match bd_check {
             Ok(output) if output.status.success() => {
                 let output_str = String::from_utf8_lossy(&output.stdout);
-                if output_str.contains("\"status\":\"in_progress\"") {
-                    blockers.push(format!("Bead '{bead}' is already in progress"));
+                let parsed = serde_json::from_str::<serde_json::Value>(&output_str);
+                match parsed {
+                    Ok(value) => {
+                        let bead_status = value
+                            .get("status")
+                            .and_then(serde_json::Value::as_str)
+                            .or_else(|| {
+                                value
+                                    .get("data")
+                                    .and_then(|data| data.get("status"))
+                                    .and_then(serde_json::Value::as_str)
+                            });
+
+                        match bead_status {
+                            Some("in_progress") => {
+                                blockers.push(format!("Bead '{bead}' is already in progress"));
+                            }
+                            Some(_) => {}
+                            None => {
+                                blockers.push(format!(
+                                    "Unable to parse bead status for '{bead}': missing status field"
+                                ));
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        blockers.push(format!(
+                            "Unable to parse bead status for '{bead}': malformed output"
+                        ));
+                    }
                 }
             }
             Ok(_) => {
                 blockers.push(format!("Bead '{bead}' not found"));
             }
-            Err(_) => {
-                // br not available - not a blocker if bead_id wasn't required
+            Err(err) => {
+                let detail = if err.kind() == std::io::ErrorKind::NotFound {
+                    "'br' command not available".to_string()
+                } else {
+                    err.to_string()
+                };
+                blockers.push(format!(
+                    "Unable to verify bead status for '{bead}': {detail}"
+                ));
             }
         }
     }

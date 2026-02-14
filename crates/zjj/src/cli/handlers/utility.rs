@@ -39,8 +39,9 @@ pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {
         .get_one::<String>("query_type")
         .ok_or_else(|| anyhow::anyhow!("Query type is required"))?;
     let args = sub_m.get_one::<String>("args").map(String::as_str);
+    let json_mode = sub_m.get_flag("json");
 
-    let result = query::run(query_type, args).await?;
+    let result = query::run(query_type, args, json_mode).await?;
 
     if !result.output.is_empty() {
         println!("{}", result.output);

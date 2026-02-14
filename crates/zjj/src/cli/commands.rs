@@ -1297,6 +1297,7 @@ pub fn cmd_query() -> ClapCommand {
         .arg(
             Arg::new("args")
                 .required(false)
+                .allow_hyphen_values(true)
                 .help("Query-specific arguments"),
         )
         .arg(
@@ -2299,8 +2300,10 @@ pub fn cmd_help() -> ClapCommand {
         .arg(
             Arg::new("command")
                 .required(false)
+                .num_args(0..)
+                .action(clap::ArgAction::Append)
                 .allow_hyphen_values(true)
-                .help("Command to show help for (omit for top-level help)"),
+                .help("Command path to show help for (omit for top-level help)"),
         )
 }
 
@@ -2672,7 +2675,6 @@ pub fn cmd_completions() -> ClapCommand {
         .arg(
             Arg::new("shell")
                 .required(true)
-                .value_parser(["bash", "zsh", "fish", "powershell", "ps", "pwsh", "elvish"])
                 .help("Shell to generate completions for"),
         )
         .arg(
@@ -2838,6 +2840,7 @@ pub fn cmd_import() -> ClapCommand {
                 .long("force")
                 .short('f')
                 .action(clap::ArgAction::SetTrue)
+                .conflicts_with("skip-existing")
                 .help("Overwrite existing sessions"),
         )
         .arg(
@@ -3065,7 +3068,11 @@ pub fn cmd_pane() -> ClapCommand {
             ClapCommand::new("focus")
                 .about("Focus a specific pane")
                 .arg(Arg::new("session").required(true).help("Session name"))
-                .arg(Arg::new("pane").help("Pane identifier"))
+                .arg(
+                    Arg::new("pane")
+                        .conflicts_with("direction")
+                        .help("Pane identifier"),
+                )
                 .arg(
                     Arg::new("direction")
                         .long("direction")
