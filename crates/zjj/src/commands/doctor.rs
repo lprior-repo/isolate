@@ -296,6 +296,21 @@ async fn check_workspace_integrity() -> DoctorCheck {
         let mut invalid_details = missing_session_paths;
 
         for validation in &invalid {
+            let already_recorded_missing = invalid_details.iter().any(|entry| {
+                entry
+                    .get("workspace")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|workspace| workspace == validation.workspace)
+            });
+            let only_missing_directory = validation
+                .issues
+                .iter()
+                .all(|issue| issue.corruption_type == CorruptionType::MissingDirectory);
+
+            if already_recorded_missing && only_missing_directory {
+                continue;
+            }
+
             let needs_relocation = validation
                 .issues
                 .iter()
