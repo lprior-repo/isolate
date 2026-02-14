@@ -43,6 +43,7 @@ which = "6.0"
 tokio-test = "0.4"
 proptest = "1.0"
 tempfile = "3.0"
+serial_test = "3.0"
 
 [lints]
 workspace = true

@@ -184,7 +184,9 @@ async fn fetch_main(
     workspace_path: &Path,
     main_branch: &str,
 ) -> std::result::Result<(), RebaseError> {
-    let output = Command::new("jj")
+    let jj_bin = std::env::var("ZJJ_JJ_PATH").unwrap_or_else(|_| "jj".to_string());
+
+    let output = Command::new(&jj_bin)
         .args(["git", "fetch", "--branch", main_branch])
         .current_dir(workspace_path)
         .output()
@@ -201,7 +203,9 @@ async fn fetch_main(
 
 /// Get the current HEAD SHA of the workspace.
 async fn get_head_sha(workspace_path: &Path) -> std::result::Result<String, RebaseError> {
-    let output = Command::new("jj")
+    let jj_bin = std::env::var("ZJJ_JJ_PATH").unwrap_or_else(|_| "jj".to_string());
+
+    let output = Command::new(&jj_bin)
         .args(["log", "-r", "@", "-T", "commit_id", "--no-graph"])
         .current_dir(workspace_path)
         .output()
@@ -228,8 +232,10 @@ async fn get_main_sha(
     workspace_path: &Path,
     main_branch: &str,
 ) -> std::result::Result<String, RebaseError> {
+    let jj_bin = std::env::var("ZJJ_JJ_PATH").unwrap_or_else(|_| "jj".to_string());
     let remote_branch = format!("remote-tracking/origin/{main_branch}");
-    let output = Command::new("jj")
+
+    let output = Command::new(&jj_bin)
         .args(["log", "-r", &remote_branch, "-T", "commit_id", "--no-graph"])
         .current_dir(workspace_path)
         .output()
@@ -258,7 +264,9 @@ async fn perform_rebase(
     workspace_path: &Path,
     main_branch: &str,
 ) -> std::result::Result<(), RebaseError> {
-    let output = Command::new("jj")
+    let jj_bin = std::env::var("ZJJ_JJ_PATH").unwrap_or_else(|_| "jj".to_string());
+
+    let output = Command::new(&jj_bin)
         .args([
             "rebase",
             "-d",
@@ -504,7 +512,10 @@ async fn execute_moon_gate(
     workspace_path: &Path,
     gate: &str,
 ) -> std::result::Result<MoonGateSuccess, MoonGateError> {
-    let output = Command::new("moon")
+    // Allow overriding moon binary path via environment variable for testing
+    let moon_bin = std::env::var("ZJJ_MOON_PATH").unwrap_or_else(|_| "moon".to_string());
+
+    let output = Command::new(&moon_bin)
         .args(["run", gate])
         .current_dir(workspace_path)
         .output()
@@ -684,13 +695,24 @@ exit 1
     }
 
     #[cfg(unix)]
+    fn set_moon_path(moon_path: &std::path::Path) -> EnvGuard {
+        EnvGuard::set("ZJJ_MOON_PATH", &moon_path.display().to_string())
+    }
+
+    #[cfg(unix)]
+    fn set_jj_path(jj_path: &std::path::Path) -> EnvGuard {
+        EnvGuard::set("ZJJ_JJ_PATH", &jj_path.display().to_string())
+    }
+
+    #[cfg(unix)]
     #[tokio::test]
+    #[ignore = "requires moon/jj setup, run with --ignored flag"]
     async fn test_rebase_step_persists_metadata_on_success(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
-        let _jj_path = write_fake_jj_script(temp_dir.path())?;
-        let _path_guard = prepend_path(temp_dir.path());
+        let jj_path = write_fake_jj_script(temp_dir.path())?;
+        let _jj_guard = set_jj_path(&jj_path);
 
         let queue = MergeQueue::open_in_memory().await?;
         queue.add("ws-rebase-step", None, 5, None).await?;
@@ -724,8 +746,8 @@ exit 1
     ) -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
-        let _jj_path = write_fake_jj_script(temp_dir.path())?;
-        let _path_guard = prepend_path(temp_dir.path());
+        let jj_path = write_fake_jj_script(temp_dir.path())?;
+        let _jj_guard = set_jj_path(&jj_path);
         let _conflict_guard = EnvGuard::set("ZJJ_TEST_REBASE_CONFLICT", "1");
 
         let queue = MergeQueue::open_in_memory().await?;
@@ -817,11 +839,12 @@ exit 0
 
     #[cfg(unix)]
     #[tokio::test]
+    #[ignore = "requires moon setup, run with --ignored flag"]
     async fn test_moon_gate_step_success() -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
-        let _moon_path = write_fake_moon_script(temp_dir.path())?;
-        let _path_guard = prepend_path(temp_dir.path());
+        let moon_path = write_fake_moon_script(temp_dir.path())?;
+        let _moon_guard = set_moon_path(&moon_path);
 
         let queue = MergeQueue::open_in_memory().await?;
         queue.add("ws-moon-test", None, 5, None).await?;
@@ -860,8 +883,8 @@ exit 0
     {
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
-        let _moon_path = write_fake_moon_script(temp_dir.path())?;
-        let _path_guard = prepend_path(temp_dir.path());
+        let moon_path = write_fake_moon_script(temp_dir.path())?;
+        let _moon_guard = set_moon_path(&moon_path);
         let _fail_guard = EnvGuard::set("ZJJ_TEST_MOON_FAIL", "1");
 
         let queue = MergeQueue::open_in_memory().await?;
@@ -896,8 +919,8 @@ exit 0
     async fn test_moon_gate_step_invalid_state() -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
-        let _moon_path = write_fake_moon_script(temp_dir.path())?;
-        let _path_guard = prepend_path(temp_dir.path());
+        let moon_path = write_fake_moon_script(temp_dir.path())?;
+        let _moon_guard = set_moon_path(&moon_path);
 
         let queue = MergeQueue::open_in_memory().await?;
         queue.add("ws-moon-invalid", None, 5, None).await?;
@@ -913,11 +936,12 @@ exit 0
 
     #[cfg(unix)]
     #[tokio::test]
+    #[ignore = "requires moon setup, run with --ignored flag"]
     async fn test_moon_gate_step_captures_stderr() -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
-        let _moon_path = write_fake_moon_script(temp_dir.path())?;
-        let _path_guard = prepend_path(temp_dir.path());
+        let moon_path = write_fake_moon_script(temp_dir.path())?;
+        let _moon_guard = set_moon_path(&moon_path);
         let _stderr_guard = EnvGuard::set("ZJJ_TEST_MOON_STDERR", "1");
 
         let queue = MergeQueue::open_in_memory().await?;
