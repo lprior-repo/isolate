@@ -92,7 +92,7 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     let bead_repo = BeadRepository::new(&root);
 
     // Phase 2: Validate bead status
-    validate_bead_status(&bead_repo, &options.bead_id, options.idempotent).await?;
+    validate_bead_status(&bead_repo, &root, &options.bead_id, options.idempotent).await?;
 
     // Initialize transaction tracker
     let workspace = create_workspace(&root, &options.bead_id, options.idempotent).await?;
@@ -182,6 +182,7 @@ async fn validate_location() -> Result<String> {
 /// Validate that the bead exists and has appropriate status
 async fn validate_bead_status(
     bead_repo: &BeadRepository,
+    root: &str,
     bead_id: &str,
     idempotent: bool,
 ) -> Result<(), SpawnError> {
@@ -201,7 +202,14 @@ async fn validate_bead_status(
     // Check if status is appropriate.
     // In idempotent mode, allow in_progress so retries can safely continue.
     if idempotent && matches!(bead.status, BeadStatus::InProgress) {
-        return Ok(());
+        if is_retryable_in_progress_bead(root, bead_id).await? {
+            return Ok(());
+        }
+
+        return Err(SpawnError::InvalidBeadStatus {
+            bead_id: bead_id.to_string(),
+            status: "in_progress (active agent)".to_string(),
+        });
     }
 
     // Default path requires open bead.
@@ -214,6 +222,27 @@ async fn validate_bead_status(
     }
 }
 
+async fn is_retryable_in_progress_bead(root: &str, bead_id: &str) -> Result<bool, SpawnError> {
+    if !workspace_registered_in_jj(root, bead_id).await? {
+        return Ok(false);
+    }
+
+    let workspace_path = workspace_path_for_bead(root, bead_id).await?;
+    let workspace_exists = tokio::fs::try_exists(&workspace_path).await.map_err(|e| {
+        SpawnError::WorkspaceCreationFailed {
+            reason: format!("Failed to check existing workspace path: {e}"),
+        }
+    })?;
+
+    if !workspace_exists {
+        return Ok(false);
+    }
+
+    let heartbeat = HeartbeatMonitor::with_defaults(&workspace_path);
+    let alive = heartbeat.is_alive().await?;
+    Ok(!alive)
+}
+
 /// Create a JJ workspace for the bead with operation graph synchronization
 ///
 /// This uses the synchronized workspace creation to prevent operation graph
@@ -224,18 +253,14 @@ async fn create_workspace(
     bead_id: &str,
     idempotent: bool,
 ) -> Result<WorkspaceResolution, SpawnError> {
-    let workspace_dir_name = config::load_config()
-        .await
-        .map(|cfg| cfg.workspace_dir)
-        .unwrap_or_else(|_| ".zjj/workspaces".to_string());
-    let workspaces_dir = Path::new(root).join(workspace_dir_name);
+    let workspaces_dir = workspaces_dir(root).await;
     tokio::fs::create_dir_all(&workspaces_dir)
         .await
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
             reason: format!("Failed to create workspaces directory: {e}"),
         })?;
 
-    let workspace_path = workspaces_dir.join(bead_id);
+    let workspace_path = workspace_path_for_bead(root, bead_id).await?;
 
     if tokio::fs::try_exists(&workspace_path).await.map_err(|e| {
         SpawnError::WorkspaceCreationFailed {
@@ -310,6 +335,21 @@ async fn create_workspace(
         path: workspace_path,
         reused_existing: false,
     })
+}
+
+async fn workspace_path_for_bead(
+    root: &str,
+    bead_id: &str,
+) -> Result<std::path::PathBuf, SpawnError> {
+    Ok(workspaces_dir(root).await.join(bead_id))
+}
+
+async fn workspaces_dir(root: &str) -> std::path::PathBuf {
+    let workspace_dir_name = config::load_config()
+        .await
+        .map(|cfg| cfg.workspace_dir)
+        .unwrap_or_else(|_| ".zjj/workspaces".to_string());
+    Path::new(root).join(workspace_dir_name)
 }
 
 async fn workspace_registered_in_jj(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {

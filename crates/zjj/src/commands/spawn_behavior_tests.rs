@@ -405,6 +405,40 @@ mod brutal_edge_cases {
     }
 
     #[tokio::test]
+    async fn given_active_background_spawn_when_idempotent_retry_then_rejected() {
+        let _lock = get_cwd_lock().await;
+        let Ok(repo) = TestRepo::new().await else {
+            return;
+        };
+        let Some(_cwd_guard) = CwdGuard::enter(repo.path()) else {
+            return;
+        };
+
+        let mut first_options = test_spawn_options("test-bead-1", "sleep", vec!["30".to_string()]);
+        first_options.background = true;
+        let first_result = execute_spawn(&first_options)
+            .await
+            .expect("background spawn should start");
+
+        let mut retry_options = test_spawn_options("test-bead-1", "echo", vec!["ok".to_string()]);
+        retry_options.idempotent = true;
+        let retry_result = execute_spawn(&retry_options).await;
+
+        if let Some(pid) = first_result.agent_pid {
+            let _ = tokio::process::Command::new("kill")
+                .args(["-TERM", &pid.to_string()])
+                .output()
+                .await;
+        }
+
+        let err = retry_result.expect_err("active background agent should block idempotent retry");
+        assert!(
+            err.to_string().contains("in_progress"),
+            "Expected active in_progress rejection, got: {err}"
+        );
+    }
+
+    #[tokio::test]
     async fn given_jj_workspace_exists_but_no_db_when_spawn_then_reconciles() {
         let _lock = get_cwd_lock().await;
         // Given: JJ workspace exists but session DB doesn't know about it
