@@ -30,11 +30,17 @@ pub fn cmd_init() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview initialization without executing"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj init                        Initialize ZJJ in the current JJ repository",
                 "zjj init --json                 Output JSON metadata for automation",
-                "zjj init                        Reinitialize after deleting .zjj to refresh helpers",
+                "zjj init --dry-run              Preview initialization",
             ],
             Some(json_docs::init()),
         ))
@@ -545,6 +551,12 @@ pub fn cmd_remove() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Succeed if session doesn't exist (safe for retries)"),
         )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview removal without executing"),
+        )
 }
 
 pub fn cmd_focus() -> ClapCommand {
@@ -676,6 +688,7 @@ pub fn cmd_sync() -> ClapCommand {
                 "zjj sync feature-auth             Sync named session with main",
                 "zjj sync                          Sync current workspace",
                 "zjj sync --all                    Sync all active sessions",
+                "zjj sync --dry-run                Preview sync operation",
                 "zjj sync --json                   Get JSON output of sync operation",
             ],
             Some(json_docs::sync()),
@@ -691,6 +704,12 @@ pub fn cmd_sync() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .conflicts_with("name")
                 .help("Sync all active sessions"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview sync without executing"),
         )
         .arg(
             Arg::new("json")
@@ -1574,6 +1593,12 @@ pub fn cmd_spawn() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Succeed if workspace already exists (safe for retries)"),
         )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview spawn without executing"),
+        )
 }
 
 pub fn cmd_checkpoint() -> ClapCommand {
@@ -2363,11 +2388,17 @@ pub fn cmd_batch() -> ClapCommand {
                 .num_args(0..)
                 .help("Commands to execute"),
         )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview batch execution"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj batch add feat1 add feat2     Execute multiple commands",
                 "zjj batch -f commands.txt        Execute commands from file",
-                "zjj batch --atomic add feat1 add feat2  All or nothing execution",
+                "zjj batch --atomic --dry-run     Preview execution",
             ],
             None,
         ))

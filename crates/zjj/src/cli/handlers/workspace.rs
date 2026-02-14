@@ -14,7 +14,8 @@ use crate::{
 
 pub async fn handle_init(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
-    init::run_with_options(init::InitOptions { format }).await
+    let dry_run = sub_m.get_flag("dry-run");
+    init::run_with_options(init::InitOptions { format, dry_run }).await
 }
 
 pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
@@ -87,6 +88,7 @@ pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
         merge: sub_m.get_flag("merge"),
         keep_branch: sub_m.get_flag("keep-branch"),
         idempotent: sub_m.get_flag("idempotent"),
+        dry_run: sub_m.get_flag("dry-run"),
         format,
     };
     remove::run_with_options(name, &options).await

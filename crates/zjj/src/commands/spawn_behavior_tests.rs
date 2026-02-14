@@ -41,6 +41,7 @@ mod brutal_edge_cases {
             timeout_secs: 300,
             idempotent: false,
             format: OutputFormat::Human,
+            dry_run: false,
         }
     }
 
@@ -493,6 +494,7 @@ mod brutal_edge_cases {
                 timeout_secs: 300,
                 idempotent: false,
                 format: OutputFormat::Human,
+                dry_run: false,
             };
             execute_spawn(&options).await
         });
@@ -513,6 +515,7 @@ mod brutal_edge_cases {
                 timeout_secs: 300,
                 idempotent: false,
                 format: OutputFormat::Human,
+                dry_run: false,
             };
             execute_spawn(&options).await
         });

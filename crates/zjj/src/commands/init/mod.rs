@@ -22,6 +22,7 @@ use types::{build_init_response, InitPaths, InitResponse};
 #[derive(Debug, Clone, Copy, Default)]
 pub struct InitOptions {
     pub format: OutputFormat,
+    pub dry_run: bool,
 }
 
 /// Run the init command
@@ -40,11 +41,11 @@ pub async fn run() -> Result<()> {
 
 /// Run init command with options
 pub async fn run_with_options(options: InitOptions) -> Result<()> {
-    run_with_cwd_and_format(None, options.format).await
+    run_with_cwd_and_options(None, options).await
 }
 
-/// Run init command with cwd and format
-pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Result<()> {
+/// Run init command with cwd and options
+pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) -> Result<()> {
     let cwd = match cwd {
         Some(p) => PathBuf::from(p),
         None => std::env::current_dir().context("Failed to get current directory")?,
@@ -52,6 +53,18 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
 
     // Check required dependencies
     check_dependencies().await?;
+
+    if options.dry_run {
+        println!("Would initialize ZJJ in {}", cwd.display());
+        println!("Would create .zjj directory structure:");
+        println!("  - .zjj/");
+        println!("  - .zjj/config.toml");
+        println!("  - .zjj/state.db");
+        println!("  - .zjj/layouts/");
+        println!("Would check/initialize JJ repository");
+        println!("Would create hook integration");
+        return Ok(());
+    }
 
     // Initialize JJ repo if needed
     ensure_jj_repo_with_cwd(&cwd).await?;
@@ -85,7 +98,7 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
             already_initialized: true,
         };
 
-        if format.is_json() {
+        if options.format.is_json() {
             let envelope = SchemaEnvelope::new("init-response", "single", response);
             println!("{}", serde_json::to_string(&envelope)?);
         } else {
@@ -145,7 +158,7 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
 
-    if format.is_json() {
+    if options.format.is_json() {
         let response = build_init_response(&root, false);
         let envelope = SchemaEnvelope::new("init-response", "single", response);
         println!("{}", serde_json::to_string(&envelope)?);

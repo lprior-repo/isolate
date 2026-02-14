@@ -9,6 +9,7 @@ async fn test_batch_all_succeed() {
     // This is a structural test for the logic flow.
     let request = BatchRequest {
         atomic: true,
+        dry_run: false,
         operations: vec![BatchOperation {
             command: "status".to_string(),
             args: vec![],
@@ -30,6 +31,7 @@ async fn test_batch_all_succeed() {
 async fn test_batch_partial_fails_rollback() {
     let request = BatchRequest {
         atomic: true,
+        dry_run: false,
         operations: vec![
             BatchOperation {
                 command: "add".to_string(),
@@ -61,6 +63,7 @@ async fn test_batch_partial_fails_rollback() {
 async fn test_batch_respects_order() {
     let request = BatchRequest {
         atomic: false, // non-atomic for order test
+        dry_run: false,
         operations: vec![
             BatchOperation {
                 command: "status".to_string(),
@@ -121,6 +124,7 @@ fn test_batch_item_status_serialization() {
 fn test_batch_request_roundtrip() {
     let original = BatchRequest {
         atomic: true,
+        dry_run: false,
         operations: vec![BatchOperation {
             command: "add".to_string(),
             args: vec!["session-1".to_string()],
