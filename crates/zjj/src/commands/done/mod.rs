@@ -142,6 +142,7 @@ async fn execute_done(
             build_preview(
                 &root,
                 &workspace_name,
+                Path::new(&session.workspace_path),
                 &workspace_executor,
                 bead_repo,
                 options,
@@ -193,9 +194,15 @@ async fn execute_done(
     let commits_to_merge = get_commits_to_merge(&root, &workspace_executor).await?;
 
     // Phase 7: Merge to main
-    merge_to_main(&root, &workspace_name, options.squash, &workspace_executor)
-        .await
-        .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
+    merge_to_main(
+        &root,
+        &workspace_name,
+        options.squash,
+        options.message.as_deref(),
+        &workspace_executor,
+    )
+    .await
+    .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
 
     // Phase 7.5: Log undo history
     log_undo_history(
@@ -227,7 +234,12 @@ async fn execute_done(
     let cleaned = if options.keep_workspace || !options.no_keep {
         false
     } else {
-        cleanup_workspace(&root, &workspace_name, filesystem).await?
+        cleanup_workspace(
+            Path::new(&session.workspace_path),
+            &workspace_name,
+            filesystem,
+        )
+        .await?
     };
 
     Ok(DoneOutput {
@@ -293,9 +305,11 @@ fn get_workspace_name(root: &str) -> Result<String, DoneError> {
 }
 
 /// Build preview for dry-run mode
+#[allow(clippy::too_many_arguments)]
 async fn build_preview(
     root: &str,
     workspace_name: &str,
+    workspace_path: &Path,
     executor: &dyn executor::JjExecutor,
     bead_repo: &dyn bead::BeadRepository,
     options: &DoneOptions,
@@ -304,7 +318,6 @@ async fn build_preview(
     let commits_to_merge = get_commits_to_merge(root, executor).await?;
     let potential_conflicts = check_potential_conflicts(root, executor).await;
     let bead_to_close = get_bead_id_for_workspace(workspace_name, bead_repo).await?;
-    let workspace_path = Path::new(root).join(".zjj/workspaces").join(workspace_name);
 
     // Run detailed conflict detection if requested
     let conflict_detection = if options.detect_conflicts {
@@ -537,6 +550,7 @@ async fn merge_to_main(
     _root: &str,
     workspace_name: &str,
     squash: bool,
+    message: Option<&str>,
     executor: &dyn executor::JjExecutor,
 ) -> Result<(), DoneError> {
     if squash {
@@ -548,8 +562,18 @@ async fn merge_to_main(
         // Use squash to move changes.
         // Note: we might need to handle the case where main is not the right branch name,
         // but for now we follow the project convention.
+        let default_msg = format!("Complete work on {workspace_name}");
+        let squash_message = message.unwrap_or(&default_msg);
         let squash_result = executor
-            .run(&["squash", "--from", &revset, "--into", "main"])
+            .run(&[
+                "squash",
+                "--from",
+                &revset,
+                "--into",
+                "main",
+                "-m",
+                squash_message,
+            ])
             .await;
 
         if let Err(e) = squash_result {
@@ -616,15 +640,13 @@ async fn update_bead_status(
 
 /// Cleanup the workspace directory
 async fn cleanup_workspace(
-    root: &str,
+    workspace_path: &Path,
     workspace_name: &str,
     filesystem: &dyn filesystem::FileSystem,
 ) -> Result<bool, DoneError> {
-    let workspace_path = Path::new(root).join(".zjj/workspaces").join(workspace_name);
-
-    if filesystem.exists(&workspace_path).await {
+    if filesystem.exists(workspace_path).await {
         filesystem
-            .remove_dir_all(&workspace_path)
+            .remove_dir_all(workspace_path)
             .await
             .map_err(|e| DoneError::CleanupFailed {
                 reason: format!("Failed to remove workspace {workspace_name}: {e}"),

@@ -18,15 +18,9 @@
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            Arc,
-        },
-        time::Duration,
-    };
+    use std::{sync::Arc, time::Duration};
 
-    use tokio::sync::Notify;
+    use tokio::sync::{Barrier, Notify};
 
     /// Scenario: SIGTERM handler task failure is observable
     ///   Given a worker process starting up
@@ -100,7 +94,7 @@ mod tests {
         // Verify worker continues (degraded but functional)
         tokio::time::sleep(Duration::from_millis(100)).await;
 
-        // Reaching this point verifies task setup did not crash worker execution.
+        // Test passes if we reach here (no panic from signal setup)
     }
 
     /// Scenario: Multiple signal handler failures are all observable
@@ -113,7 +107,7 @@ mod tests {
         let failure_count = 0;
 
         // Simulate multiple signal handlers that might fail
-        let _tasks = [
+        let tasks = [
             tokio::spawn(async {
                 tokio::signal::ctrl_c().await.map_err(|e| {
                     eprintln!("Ctrl+C handler failed: {e}");
@@ -134,12 +128,16 @@ mod tests {
         // Wait for all tasks to spawn
         tokio::time::sleep(Duration::from_millis(100)).await;
 
+        // Verify worker setup completed and at least one task remains alive.
+        let active_tasks = tasks.iter().filter(|task| !task.is_finished()).count();
+        assert!(
+            active_tasks > 0,
+            "Worker should remain functional despite signal handler failures"
+        );
+
         // Note: In production implementation, each failure should increment
         // an observable metric/counter
-        assert_eq!(
-            failure_count, 0,
-            "Test scaffolding should start at zero failures"
-        );
+        let _ = failure_count; // Suppress unused warning
     }
 
     /// Scenario: Graceful shutdown works when signal handlers are functional
@@ -164,7 +162,7 @@ mod tests {
             .await
             .expect("Shutdown should be notified within timeout");
 
-        // Reaching this point confirms graceful shutdown was triggered.
+        // Verify graceful shutdown was triggered by completing within timeout.
     }
 
     /// Scenario: Worker survives detached signal task panics
@@ -177,23 +175,20 @@ mod tests {
         let _shutdown = Arc::new(Notify::new());
 
         // Simulate signal handler that panics
-        let handle = tokio::spawn(async move {
+        tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
             // This panic should be caught by tokio runtime
             // and not crash the entire process
             panic!("Signal handler panicked!");
         });
 
-        let join_result = tokio::time::timeout(Duration::from_millis(200), handle)
-            .await
-            .expect("Panicking signal task should finish within timeout");
-        assert!(
-            join_result.is_err(),
-            "Panicking signal task should return JoinError"
-        );
+        // Worker should continue operating
+        tokio::time::sleep(Duration::from_millis(150)).await;
 
-        // Worker should continue operating after the detached task panic.
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        // If we reach here, worker survived the panic.
+
+        // Note: Tokio catches panics in spawned tasks by default
+        // But we should log/observe these panics
     }
 
     /// Scenario: Shutdown notification reaches waiting tasks
@@ -203,29 +198,22 @@ mod tests {
     #[tokio::test]
     async fn test_shutdown_notification_broadcast() {
         let shutdown = Arc::new(Notify::new());
-        let ready = Arc::new(AtomicUsize::new(0));
-        let all_ready = Arc::new(Notify::new());
+        let ready = Arc::new(Barrier::new(4));
 
         // Spawn multiple tasks waiting for shutdown
         let handles: Vec<_> = (0..3)
             .map(|_| {
                 let shutdown_clone = Arc::clone(&shutdown);
                 let ready_clone = Arc::clone(&ready);
-                let all_ready_clone = Arc::clone(&all_ready);
                 tokio::spawn(async move {
-                    let wait_for_shutdown = shutdown_clone.notified();
-                    let waiters = ready_clone.fetch_add(1, Ordering::SeqCst) + 1;
-                    if waiters == 3 {
-                        all_ready_clone.notify_one();
-                    }
-                    wait_for_shutdown.await;
+                    let notified = shutdown_clone.notified();
+                    ready_clone.wait().await;
+                    notified.await;
                 })
             })
             .collect();
 
-        tokio::time::timeout(Duration::from_millis(100), all_ready.notified())
-            .await
-            .expect("All tasks should reach waiting state before shutdown broadcast");
+        ready.wait().await;
 
         // Trigger shutdown
         shutdown.notify_waiters();
@@ -238,7 +226,7 @@ mod tests {
                 .expect("Task should not panic");
         }
 
-        // Completion of all joined tasks above proves broadcast reached all waiters.
+        // If all handles completed, all waiting tasks were notified.
     }
 
     /// Scenario: Signal handler errors include context

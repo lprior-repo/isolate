@@ -52,15 +52,19 @@ br show $ZJJ_BEAD_ID
 Check the project's README or CLAUDE.md for the correct build commands.
 ";
 
-use std::{path::Path, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::{Context, Result};
 use types::SpawnStatus;
-use zjj_core::json::SchemaEnvelope;
+use zjj_core::{config, json::SchemaEnvelope};
 
 use crate::{
     beads::{BeadRepository, BeadStatus},
     cli::jj_root,
+    commands::context::{detect_location, Location},
 };
 
 /// Run the spawn command with options
@@ -165,11 +169,8 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
 async fn validate_location() -> Result<String> {
     let root = jj_root().await.context("Failed to get JJ root")?;
 
-    // Check if we're in a workspace by looking at current directory
-    let current_dir = std::env::current_dir().context("Failed to get current directory")?;
-
-    // Simple check: if we're in .zjj/workspaces, we're in a workspace
-    if current_dir.to_string_lossy().contains(".zjj/workspaces") {
+    let location = detect_location(&PathBuf::from(&root)).context("Failed to detect location")?;
+    if matches!(location, Location::Workspace { .. }) {
         anyhow::bail!("In workspace directory");
     }
 
@@ -207,7 +208,11 @@ async fn validate_bead_status(bead_repo: &BeadRepository, bead_id: &str) -> Resu
 /// corruption when multiple workspaces are created concurrently or in quick
 /// succession.
 async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, SpawnError> {
-    let workspaces_dir = Path::new(root).join(".zjj/workspaces");
+    let workspace_dir_name = config::load_config()
+        .await
+        .map(|cfg| cfg.workspace_dir)
+        .unwrap_or_else(|_| ".zjj/workspaces".to_string());
+    let workspaces_dir = Path::new(root).join(workspace_dir_name);
     tokio::fs::create_dir_all(&workspaces_dir)
         .await
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
@@ -215,6 +220,18 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
         })?;
 
     let workspace_path = workspaces_dir.join(bead_id);
+
+    if tokio::fs::try_exists(&workspace_path).await.map_err(|e| {
+        SpawnError::WorkspaceCreationFailed {
+            reason: format!("Failed to check existing workspace path: {e}"),
+        }
+    })? {
+        tokio::fs::remove_dir_all(&workspace_path)
+            .await
+            .map_err(|e| SpawnError::WorkspaceCreationFailed {
+                reason: format!("Failed to remove existing workspace directory: {e}"),
+            })?;
+    }
 
     // Use synchronized workspace creation to prevent operation graph corruption
     // This ensures:
@@ -266,7 +283,8 @@ async fn spawn_agent_foreground(
         .current_dir(workspace_path)
         .env("ZJJ_BEAD_ID", &options.bead_id)
         .env("ZJJ_WORKSPACE", workspace_path.to_string_lossy().as_ref())
-        .env("ZJJ_ACTIVE", "1"); // Required by git pre-commit hook
+        .env("ZJJ_ACTIVE", "1") // Required by git pre-commit hook
+        .kill_on_drop(true);
 
     let mut child = cmd.spawn().map_err(|e| SpawnError::AgentSpawnFailed {
         reason: format!("Failed to spawn agent: {e}"),
