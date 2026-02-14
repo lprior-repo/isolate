@@ -974,7 +974,42 @@ async fn load_toml_file(path: &std::path::Path) -> Result<Config> {
 /// Returns error if:
 /// - File cannot be read
 /// - TOML is malformed
+/// - Unknown configuration keys are present (typos will be rejected)
+const MAX_CONFIG_FILE_SIZE: usize = 1_048_576; // 1 MB
+
 pub async fn load_partial_toml_file(path: &std::path::Path) -> Result<PartialConfig> {
+    let metadata = tokio::fs::metadata(path).await.map_err(|e| {
+        Error::IoError(format!(
+            "Failed to read config file metadata {}: {e}",
+            path.display()
+        ))
+    })?;
+
+    if metadata.is_symlink() {
+        return Err(Error::ValidationError {
+            message: format!(
+                "Config file {} is a symbolic link - refusing to follow for security",
+                path.display()
+            ),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
+    }
+
+    if metadata.len() as usize > MAX_CONFIG_FILE_SIZE {
+        return Err(Error::ValidationError {
+            message: format!(
+                "Config file {} exceeds maximum size of {} bytes",
+                path.display(),
+                MAX_CONFIG_FILE_SIZE
+            ),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        });
+    }
+
     let content = tokio::fs::read_to_string(path).await.map_err(|e| {
         Error::IoError(format!(
             "Failed to read config file {}: {e}",
@@ -982,8 +1017,60 @@ pub async fn load_partial_toml_file(path: &std::path::Path) -> Result<PartialCon
         ))
     })?;
 
+    let value: toml::Value = toml::from_str(&content).map_err(|e| {
+        Error::ParseError(format!(
+            "Failed to parse config file {}: {e}",
+            path.display()
+        ))
+    })?;
+
+    validate_toml_keys(&value, "")?;
+
     toml::from_str(&content)
         .map_err(|e| Error::ParseError(format!("Failed to parse config: {}: {e}", path.display())))
+}
+
+/// Extract all keys from a TOML value in dot-notation format
+///
+/// For example, `{ watch = { enabled = true } }` produces `["watch", "watch.enabled"]`
+fn extract_keys(value: &toml::Value, prefix: &str) -> Vec<String> {
+    let mut keys = Vec::new();
+
+    match value {
+        toml::Value::Table(table) => {
+            for (key, val) in table {
+                let full_key = if prefix.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{prefix}.{key}")
+                };
+
+                keys.push(full_key.clone());
+
+                if let toml::Value::Table(_) = val {
+                    keys.extend(extract_keys(val, &full_key));
+                }
+            }
+        }
+        _ => {}
+    }
+
+    keys
+}
+
+/// Validate all keys in a TOML document against known configuration keys
+///
+/// # Errors
+///
+/// Returns `Error::ValidationError` if any unknown key is found
+fn validate_toml_keys(value: &toml::Value, _prefix: &str) -> Result<()> {
+    let keys = extract_keys(value, "");
+
+    for key in keys {
+        validate_key(&key)?;
+    }
+
+    Ok(())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1622,6 +1709,51 @@ mod tests {
         if let Err(e) = result {
             assert!(matches!(e, Error::ParseError(_)));
         }
+        Ok(())
+    }
+
+    // Test: Unknown keys should be rejected
+    #[tokio::test]
+    async fn test_unknown_keys_rejected() -> Result<()> {
+        let temp_dir = tempfile::tempdir()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let config_path = temp_dir.path().join("unknown_key_config.toml");
+
+        let content = r#"workspace_dir = "../test"
+typo_key = "invalid""#;
+        tokio::fs::write(&config_path, content.as_bytes())
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
+
+        let result = load_partial_toml_file(&config_path).await;
+        assert!(result.is_err(), "Unknown keys should be rejected");
+
+        if let Err(e) = &result {
+            let err_str = format!("{e}");
+            assert!(
+                err_str.contains("Unknown configuration key") || err_str.contains("typo_key"),
+                "Error should mention unknown key: {err_str}"
+            );
+        }
+        Ok(())
+    }
+
+    // Test: Unknown nested keys should be rejected
+    #[tokio::test]
+    async fn test_unknown_nested_keys_rejected() -> Result<()> {
+        let temp_dir = tempfile::tempdir()
+            .map_err(|e| Error::IoError(format!("Failed to create temp dir: {e}")))?;
+        let config_path = temp_dir.path().join("unknown_nested_config.toml");
+
+        let content = r#"[watch]
+enabled = true
+typo_nested = "invalid""#;
+        tokio::fs::write(&config_path, content.as_bytes())
+            .await
+            .map_err(|e| Error::IoError(format!("Failed to write test file: {e}")))?;
+
+        let result = load_partial_toml_file(&config_path).await;
+        assert!(result.is_err(), "Unknown nested keys should be rejected");
         Ok(())
     }
 
