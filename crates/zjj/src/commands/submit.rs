@@ -28,13 +28,14 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::process::Command;
 use zjj_core::{
+    config,
     coordination::queue::{MergeQueue, QueueEntry},
     jj,
     json::schemas,
     OutputFormat,
 };
 
-use crate::commands::check_in_jj_repo;
+use crate::commands::{check_in_jj_repo, workspace_utils};
 
 /// Submit-specific errors
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -197,7 +198,7 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
     let root = check_in_jj_repo().await?;
 
     // Determine workspace context
-    let workspace_info = resolve_workspace_context(&root)?;
+    let workspace_info = resolve_workspace_context(&root).await?;
 
     // Extract initial identity information
     let identity = match extract_workspace_identity(&workspace_info.path).await {
@@ -323,8 +324,20 @@ struct WorkspaceInfo {
 }
 
 /// Resolve the current workspace context
-fn resolve_workspace_context(root: &Path) -> Result<WorkspaceInfo> {
+async fn resolve_workspace_context(root: &Path) -> Result<WorkspaceInfo> {
     let current_dir = std::env::current_dir().context("failed to get current directory")?;
+
+    if current_dir.join(".jj/repo").is_file() {
+        let name = current_dir
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Workspace directory name is not valid UTF-8"))?
+            .to_string();
+        return Ok(WorkspaceInfo {
+            path: current_dir,
+            name,
+        });
+    }
 
     // Check if we're in a non-default workspace
     // In JJ, non-default workspaces have `.jj/repo` as a FILE (pointer to main repo)
@@ -340,25 +353,31 @@ fn resolve_workspace_context(root: &Path) -> Result<WorkspaceInfo> {
         });
     }
 
-    // Check if we're in a zjj workspace subdirectory
-    let workspaces_dir = root.join(".zjj/workspaces");
-    if current_dir.starts_with(&workspaces_dir) {
-        let workspace_name = current_dir
-            .strip_prefix(&workspaces_dir)
-            .context("failed to strip workspace prefix")?
-            .components()
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("Unable to determine workspace name"))?
-            .as_os_str()
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Workspace name contains invalid UTF-8"))?
-            .to_string();
+    let workspace_dir = config::load_config()
+        .await
+        .map(|cfg| cfg.workspace_dir)
+        .unwrap_or_else(|_| ".zjj/workspaces".to_string());
+    let workspace_roots = workspace_utils::candidate_workspace_roots(root, &workspace_dir);
 
-        let workspace_path = workspaces_dir.join(&workspace_name);
-        return Ok(WorkspaceInfo {
-            path: workspace_path,
-            name: workspace_name,
-        });
+    for workspace_root in workspace_roots {
+        if current_dir.starts_with(&workspace_root) {
+            let workspace_name = current_dir
+                .strip_prefix(&workspace_root)
+                .context("failed to strip workspace prefix")?
+                .components()
+                .next()
+                .ok_or_else(|| anyhow::anyhow!("Unable to determine workspace name"))?
+                .as_os_str()
+                .to_str()
+                .ok_or_else(|| anyhow::anyhow!("Workspace name contains invalid UTF-8"))?
+                .to_string();
+
+            let workspace_path = workspace_root.join(&workspace_name);
+            return Ok(WorkspaceInfo {
+                path: workspace_path,
+                name: workspace_name,
+            });
+        }
     }
 
     // We're in the main workspace

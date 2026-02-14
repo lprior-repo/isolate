@@ -181,7 +181,7 @@ pub fn run(options: &WhatIfOptions) -> Result<WhatIfResult> {
 // Enhanced preview functions with flag awareness
 
 fn preview_add_with_flags(args: &[String], has_force_flag: bool) -> Result<WhatIfResult> {
-    let name = args.first().map(String::as_str).unwrap_or("<name>");
+    let name = args.first().map(String::as_str).map_or("<name>", |s| s);
 
     if name != "<name>" {
         validate_session_name(name).map_err(anyhow::Error::new)?;
@@ -279,7 +279,7 @@ fn preview_add_with_flags(args: &[String], has_force_flag: bool) -> Result<WhatI
 }
 
 fn preview_work_with_flags(args: &[String]) -> Result<WhatIfResult> {
-    let name = args.first().map(String::as_str).unwrap_or("<name>");
+    let name = args.first().map(String::as_str).map_or("<name>", |s| s);
 
     if name != "<name>" {
         validate_session_name(name).map_err(anyhow::Error::new)?;
@@ -330,7 +330,7 @@ fn preview_work_with_flags(args: &[String]) -> Result<WhatIfResult> {
 }
 
 fn preview_remove_with_flags(args: &[String], has_keep_flag: bool) -> Result<WhatIfResult> {
-    let name = args.first().map(String::as_str).unwrap_or("<name>");
+    let name = args.first().map(String::as_str).map_or("<name>", |s| s);
 
     if name != "<name>" {
         validate_session_name(name).map_err(anyhow::Error::new)?;
@@ -430,7 +430,7 @@ fn preview_done_with_flags(
     has_force_flag: bool,
     has_keep_flag: bool,
 ) -> Result<WhatIfResult> {
-    let workspace = args.first().map(String::as_str).unwrap_or("<current>");
+    let workspace = args.first().map(String::as_str).map_or("<current>", |s| s);
 
     if workspace != "<current>" {
         validate_session_name(workspace).map_err(anyhow::Error::new)?;
@@ -578,7 +578,7 @@ fn preview_done_with_flags(
 }
 
 fn preview_abort_with_flags(args: &[String], has_workspace_flag: bool) -> Result<WhatIfResult> {
-    let workspace = args.first().map(String::as_str).unwrap_or("<current>");
+    let workspace = args.first().map(String::as_str).map_or("<current>", |s| s);
 
     if workspace != "<current>" {
         validate_session_name(workspace).map_err(anyhow::Error::new)?;
@@ -738,7 +738,7 @@ fn preview_sync_with_flags(args: &[String]) -> WhatIfResult {
 }
 
 fn preview_spawn_with_flags(args: &[String]) -> Result<WhatIfResult> {
-    let name = args.first().map(String::as_str).unwrap_or("<name>");
+    let name = args.first().map(String::as_str).map_or("<name>", |s| s);
 
     if name != "<name>" {
         validate_session_name(name).map_err(anyhow::Error::new)?;

@@ -90,7 +90,7 @@ pub(super) async fn jj_root_with_cwd(cwd: &Path) -> Result<PathBuf> {
 }
 
 /// Check if we're in a JJ repo using a specific cwd
-async fn is_jj_repo_with_cwd(cwd: &Path) -> Result<bool> {
+pub(super) async fn is_jj_repo_with_cwd(cwd: &Path) -> Result<bool> {
     let output = Command::new("jj")
         .args(["status"])
         .current_dir(cwd)

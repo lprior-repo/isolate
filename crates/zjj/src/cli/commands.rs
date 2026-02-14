@@ -30,11 +30,17 @@ pub fn cmd_init() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview initialization without executing"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj init                        Initialize ZJJ in the current JJ repository",
                 "zjj init --json                 Output JSON metadata for automation",
-                "zjj init                        Reinitialize after deleting .zjj to refresh helpers",
+                "zjj init --dry-run              Preview initialization",
             ],
             Some(json_docs::init()),
         ))
@@ -209,7 +215,7 @@ pub fn cmd_agents() -> ClapCommand {
                     "Register this process as an agent for zjj tracking.
 
 
-                    Sets ZJJ_AGENT_ID environment variable.
+                    Stores agent identity in zjj and prints the ZJJ_AGENT_ID value to export in your shell.
 
                     Agent ID is auto-generated if not provided.",
                 )
@@ -545,6 +551,12 @@ pub fn cmd_remove() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Succeed if session doesn't exist (safe for retries)"),
         )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview removal without executing"),
+        )
 }
 
 pub fn cmd_focus() -> ClapCommand {
@@ -660,6 +672,12 @@ pub fn cmd_switch() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("no-zellij")
+                .long("no-zellij")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip Zellij integration (for non-TTY environments)"),
+        )
 }
 
 pub fn cmd_sync() -> ClapCommand {
@@ -670,6 +688,7 @@ pub fn cmd_sync() -> ClapCommand {
                 "zjj sync feature-auth             Sync named session with main",
                 "zjj sync                          Sync current workspace",
                 "zjj sync --all                    Sync all active sessions",
+                "zjj sync --dry-run                Preview sync operation",
                 "zjj sync --json                   Get JSON output of sync operation",
             ],
             Some(json_docs::sync()),
@@ -685,6 +704,12 @@ pub fn cmd_sync() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .conflicts_with("name")
                 .help("Sync all active sessions"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview sync without executing"),
         )
         .arg(
             Arg::new("json")
@@ -987,9 +1012,16 @@ pub fn cmd_dashboard() -> ClapCommand {
                 "zjj dashboard                  Launch the kanban-style dashboard",
                 "zjj dash                       Use the alias to open the TUI quickly",
                 "zjj status                     For non-interactive overview",
+                "zjj dashboard --json           Output session data as JSON",
             ],
             None,
         ))
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
 }
 
 pub fn cmd_introspect() -> ClapCommand {
@@ -1554,6 +1586,18 @@ pub fn cmd_spawn() -> ClapCommand {
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
                 .help("AI: Show execution hints and common patterns"),
+        )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if workspace already exists (safe for retries)"),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview spawn without executing"),
         )
 }
 
@@ -2344,11 +2388,17 @@ pub fn cmd_batch() -> ClapCommand {
                 .num_args(0..)
                 .help("Commands to execute"),
         )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview batch execution"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj batch add feat1 add feat2     Execute multiple commands",
                 "zjj batch -f commands.txt        Execute commands from file",
-                "zjj batch --atomic add feat1 add feat2  All or nothing execution",
+                "zjj batch --atomic --dry-run     Preview execution",
             ],
             None,
         ))
@@ -2486,12 +2536,6 @@ pub fn cmd_completions() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("dry_run")
-                .long("dry-run")
-                .action(clap::ArgAction::SetTrue)
-                .help("Preview validation without side effects (validation has no side effects, but flag accepted for compatibility)"),
         )
         .after_help(after_help_text(
             &[
@@ -2732,11 +2776,16 @@ pub fn cmd_wait() -> ClapCommand {
 pub fn cmd_schema() -> ClapCommand {
     ClapCommand::new("schema")
         .about("Show JSON schemas for zjj protocol")
-        .arg(Arg::new("name").help("Schema name (e.g., add-response)"))
+        .arg(
+            Arg::new("name")
+                .help("Schema name (e.g., add-response)")
+                .conflicts_with_all(["list", "all"]),
+        )
         .arg(
             Arg::new("list")
                 .long("list")
                 .short('l')
+                .conflicts_with_all(["all", "name"])
                 .action(clap::ArgAction::SetTrue)
                 .help("List all available schemas"),
         )
@@ -2744,6 +2793,7 @@ pub fn cmd_schema() -> ClapCommand {
             Arg::new("all")
                 .long("all")
                 .short('a')
+                .conflicts_with_all(["list", "name"])
                 .action(clap::ArgAction::SetTrue)
                 .help("Show all schemas"),
         )
@@ -2755,7 +2805,7 @@ pub fn cmd_schema() -> ClapCommand {
         )
         .after_help(after_help_text(
             &[
-                "zjj schema                      Show all schemas",
+                "zjj schema                      List available schemas",
                 "zjj schema add-response          Show specific schema",
                 "zjj schema --list               List available schemas",
             ],
@@ -3001,13 +3051,13 @@ pub fn cmd_backup() -> ClapCommand {
         )
         .after_help(after_help_text(
             &[
-                "zjj backup create                       Create backups of all databases",
-                "zjj backup list                         List all available backups",
-                "zjj backup restore state.db             Restore latest backup of state.db",
-                "zjj backup restore beads.db 20250101    Restore specific backup by timestamp",
-                "zjj backup status                       Show backup status and retention info",
-                "zjj backup retention                    Apply retention policy (remove old backups)",
-                "zjj backup create --json                Create backups with JSON output",
+                "zjj backup --create                     Create backups of all databases",
+                "zjj backup --list                       List all available backups",
+                "zjj backup --restore state.db           Restore latest backup of state.db",
+                "zjj backup --restore beads.db --timestamp 20250101-010101  Restore specific backup by timestamp",
+                "zjj backup --status                     Show backup status and retention info",
+                "zjj backup --retention                  Apply retention policy (remove old backups)",
+                "zjj backup --create --json              Create backups with JSON output",
             ],
             None,
         ))
@@ -3034,6 +3084,7 @@ pub fn cmd_backup() -> ClapCommand {
                 .short('t')
                 .long("timestamp")
                 .value_name("TIMESTAMP")
+                .requires("restore")
                 .help("Specific backup timestamp to restore (format: YYYYMMDD-HHMMSS)"),
         )
         .arg(

@@ -208,6 +208,7 @@ fn build_all_contracts() -> ContractsResponse {
     let commands = vec![
         build_init_contract(),
         build_add_contract(),
+        build_attach_contract(),
         build_list_contract(),
         build_remove_contract(),
         build_focus_contract(),
@@ -265,27 +266,46 @@ fn build_add_contract() -> CommandContract {
     CommandContract {
         name: "add".to_string(),
         description: "Create session for manual work (JJ workspace + Zellij tab)".to_string(),
-        required_args: vec![ArgContract {
-            name: "name".to_string(),
-            arg_type: "string".to_string(),
-            description: "Name for the new session".to_string(),
-            pattern: Some("^[a-zA-Z][a-zA-Z0-9_-]*$".to_string()),
-            default: None,
-            examples: vec!["feature-auth".to_string(), "bugfix-123".to_string()],
-        }],
-        optional_args: vec![ArgContract {
-            name: "template".to_string(),
-            arg_type: "string".to_string(),
-            description: "Zellij layout template".to_string(),
-            pattern: None,
-            default: Some("standard".to_string()),
-            examples: vec![
-                "minimal".to_string(),
-                "standard".to_string(),
-                "full".to_string(),
-            ],
-        }],
+        required_args: vec![],
+        optional_args: vec![
+            ArgContract {
+                name: "name".to_string(),
+                arg_type: "string".to_string(),
+                description:
+                    "Session name (required for execution; optional only with --example-json, --contract, or --ai-hints)"
+                        .to_string(),
+                pattern: Some("^[a-zA-Z][a-zA-Z0-9_-]*$".to_string()),
+                default: None,
+                examples: vec!["feature-auth".to_string(), "bugfix-123".to_string()],
+            },
+            ArgContract {
+                name: "template".to_string(),
+                arg_type: "string".to_string(),
+                description: "Zellij layout template".to_string(),
+                pattern: Some("^(minimal|standard|full)$".to_string()),
+                default: None,
+                examples: vec![
+                    "minimal".to_string(),
+                    "standard".to_string(),
+                    "full".to_string(),
+                ],
+            },
+            ArgContract {
+                name: "bead".to_string(),
+                arg_type: "string".to_string(),
+                description: "Associate session with bead/issue ID".to_string(),
+                pattern: None,
+                default: None,
+                examples: vec!["zjj-abc123".to_string()],
+            },
+        ],
         flags: vec![
+            FlagContract {
+                name: "json".to_string(),
+                short: None,
+                description: "Output as JSON".to_string(),
+                global: false,
+            },
             FlagContract {
                 name: "no-hooks".to_string(),
                 short: None,
@@ -308,6 +328,30 @@ fn build_add_contract() -> CommandContract {
                 name: "dry-run".to_string(),
                 short: None,
                 description: "Preview without creating".to_string(),
+                global: false,
+            },
+            FlagContract {
+                name: "no-zellij".to_string(),
+                short: None,
+                description: "Skip Zellij integration".to_string(),
+                global: false,
+            },
+            FlagContract {
+                name: "example-json".to_string(),
+                short: None,
+                description: "Show example JSON output without executing".to_string(),
+                global: false,
+            },
+            FlagContract {
+                name: "contract".to_string(),
+                short: None,
+                description: "Show machine-readable command contract".to_string(),
+                global: false,
+            },
+            FlagContract {
+                name: "ai-hints".to_string(),
+                short: None,
+                description: "Show AI execution hints".to_string(),
                 global: false,
             },
         ],
@@ -333,6 +377,38 @@ fn build_add_contract() -> CommandContract {
             "zjj must be initialized".to_string(),
             "Session name must not exist".to_string(),
         ],
+    }
+}
+
+fn build_attach_contract() -> CommandContract {
+    CommandContract {
+        name: "attach".to_string(),
+        description: "Enter Zellij session from outside (shell -> Zellij)".to_string(),
+        required_args: vec![ArgContract {
+            name: "name".to_string(),
+            arg_type: "string".to_string(),
+            description: "Name of the session to attach to".to_string(),
+            pattern: None,
+            default: None,
+            examples: vec!["feature-auth".to_string(), "work".to_string()],
+        }],
+        optional_args: vec![],
+        flags: vec![FlagContract {
+            name: "json".to_string(),
+            short: None,
+            description: "Output as JSON (errors only)".to_string(),
+            global: false,
+        }],
+        output_schema: "zjj://attach-response/v1".to_string(),
+        side_effects: vec!["Attaches current shell to Zellij session".to_string()],
+        related_commands: vec!["focus".to_string(), "switch".to_string()],
+        examples: vec![
+            "zjj attach feature-auth".to_string(),
+            "zjj attach work --json".to_string(),
+        ],
+        reversible: true,
+        undo_command: Some("exit".to_string()),
+        prerequisites: vec!["zellij must be installed".to_string()],
     }
 }
 
@@ -839,6 +915,12 @@ fn build_spawn_contract() -> CommandContract {
                 description: "Run agent in background".to_string(),
                 global: false,
             },
+            FlagContract {
+                name: "idempotent".to_string(),
+                short: None,
+                description: "Succeed if workspace already exists".to_string(),
+                global: false,
+            },
         ],
         output_schema: "zjj://spawn-response/v1".to_string(),
         side_effects: vec![
@@ -849,6 +931,7 @@ fn build_spawn_contract() -> CommandContract {
         related_commands: vec!["done".to_string(), "add".to_string()],
         examples: vec![
             "zjj spawn zjj-abc12".to_string(),
+            "zjj spawn zjj-abc12 --idempotent".to_string(),
             "zjj spawn zjj-xyz34 -b".to_string(),
             "zjj spawn zjj-def56 --no-auto-merge".to_string(),
         ],

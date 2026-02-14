@@ -74,4 +74,12 @@ async fn test_workspace_creation_with_permission_denied() {
     );
 
     println!("✓ Test passed: Error handled gracefully: {err_msg}");
+
+    // Cleanup: restore directory permissions before temp dir drop.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ =
+            std::fs::set_permissions(&restricted_parent, std::fs::Permissions::from_mode(0o755));
+    }
 }

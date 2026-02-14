@@ -96,8 +96,9 @@ pub async fn run_cli() -> Result<()> {
             if json_mode {
                 let json_err = serde_json::json!({ "success": false, "error": { "code": "INVALID_ARGUMENT", "message": e.to_string(), "exit_code": if should_exit_zero { 0 } else { 2 } } });
                 println!("{}", serde_json::to_string_pretty(&json_err)?);
+            } else {
+                let _ = e.print();
             }
-            let _ = e.print();
             process::exit(if should_exit_zero { 0 } else { 2 });
         }
     };
@@ -129,7 +130,10 @@ pub async fn run_cli() -> Result<()> {
             Some(("clean", sub_m)) => handle_clean(sub_m).await,
             Some(("prune-invalid", sub_m)) => handle_prune_invalid(sub_m).await,
             Some(("template", sub_m)) => handle_template(sub_m).await,
-            Some(("dashboard" | "dash", _)) => crate::commands::dashboard::run().await,
+            Some(("dashboard" | "dash", sub_m)) => {
+                let format = json_format::get_format(sub_m);
+                crate::commands::dashboard::run(format).await
+            }
             Some(("introspect", sub_m)) => handle_introspect(sub_m).await,
             Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m).await,
             Some(("integrity", sub_m)) => handle_integrity(sub_m).await,

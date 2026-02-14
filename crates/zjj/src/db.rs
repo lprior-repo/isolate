@@ -912,6 +912,16 @@ async fn check_wal_integrity(
         return Ok(());
     }
 
+    // Check WAL file size - empty WAL is a normal transient state during concurrent access
+    // SQLite creates the file before writing to it, so 0 bytes is expected during races
+    let wal_metadata = match tokio::fs::metadata(&wal_path).await {
+        Ok(m) => m,
+        Err(_) => return Ok(()), // File disappeared - not an error
+    };
+    if wal_metadata.len() == 0 {
+        return Ok(()); // Empty WAL file is valid, no integrity check needed
+    }
+
     // Read first 32 bytes of WAL header (functional - no exposed mutation)
     let header = match io::read_exact_bytes::<32>(&wal_path).await {
         Ok(h) => h,
