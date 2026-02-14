@@ -216,7 +216,7 @@ impl MergeQueue {
     async fn migrate_merge_queue_columns(&self) -> Result<()> {
         // SQLite doesn't support "IF NOT EXISTS" for ALTER TABLE, so we check schema first.
         // If this introspection fails, fail init to avoid running with a partially migrated DB.
-        let table_sql = sqlx::query_scalar::<_, String>(
+        let _table_sql = sqlx::query_scalar::<_, String>(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='merge_queue'",
         )
         .fetch_optional(&self.pool)
@@ -264,17 +264,43 @@ impl MergeQueue {
         ];
 
         for (column_name, alter_sql) in migrations {
-            if !table_sql.contains(column_name) {
-                sqlx::query(alter_sql)
-                    .execute(&self.pool)
-                    .await
-                    .map_err(|e| {
-                        Error::DatabaseError(format!("Failed to add {column_name} column: {e}"))
-                    })?;
+            if self.merge_queue_column_exists(column_name).await? {
+                continue;
+            }
+
+            match sqlx::query(alter_sql).execute(&self.pool).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let error_text = e.to_string();
+                    if error_text.contains("duplicate column name") {
+                        continue;
+                    }
+
+                    return Err(Error::DatabaseError(format!(
+                        "Failed to add {column_name} column: {e}"
+                    )));
+                }
             }
         }
 
         Ok(())
+    }
+
+    async fn merge_queue_column_exists(&self, column_name: &str) -> Result<bool> {
+        let exists = sqlx::query_scalar::<_, i64>(
+            "SELECT 1 FROM pragma_table_info('merge_queue') WHERE name = ?1 LIMIT 1",
+        )
+        .bind(column_name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!(
+                "Failed to inspect merge_queue columns during migration: {e}"
+            ))
+        })?
+        .is_some();
+
+        Ok(exists)
     }
 
     async fn create_merge_queue_indexes(&self) -> Result<()> {
