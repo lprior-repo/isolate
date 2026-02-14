@@ -7,6 +7,7 @@
 | Need | File |
 |------|------|
 | 5-minute crash course | This page (below) |
+| **AI Agent Guide** | **[AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md)** - Everything agents need |
 | Error handling | [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) |
 | Build & test commands | [02_MOON_BUILD.md](02_MOON_BUILD.md) |
 | Daily workflow | [03_WORKFLOW.md](03_WORKFLOW.md) |
@@ -14,6 +15,7 @@
 | All lint rules | [05_RUST_STANDARDS.md](05_RUST_STANDARDS.md) |
 | Iterator combinators | [06_COMBINATORS.md](06_COMBINATORS.md) |
 | Testing patterns | [07_TESTING.md](07_TESTING.md) |
+| **Complete index** | **[INDEX.md](INDEX.md)** - All docs organized |
 
 ## 5-Minute Crash Course
 
