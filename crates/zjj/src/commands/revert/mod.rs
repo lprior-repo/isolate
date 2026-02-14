@@ -43,7 +43,7 @@ pub async fn run_with_options(options: &RevertOptions) -> Result<RevertExitCode,
         }
         Err(e) => {
             output_error(e, options.format)?;
-            Err(e.clone())
+            Ok(revert_error_exit_code_enum(e))
         }
     }
 }
@@ -114,11 +114,18 @@ async fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, RevertError> {
                         reason: e.to_string(),
                     })?;
 
-            let entries: Vec<UndoEntry> = content
+            let entries = content
                 .lines()
-                .filter(|l| !l.trim().is_empty())
-                .filter_map(|line| serde_json::from_str::<UndoEntry>(line).ok())
-                .collect();
+                .enumerate()
+                .filter(|(_, line)| !line.trim().is_empty())
+                .map(|(idx, line)| {
+                    serde_json::from_str::<UndoEntry>(line).map_err(|e| {
+                        RevertError::ReadUndoLogFailed {
+                            reason: format!("line {}: {e}", idx + 1),
+                        }
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
 
             Ok(entries)
         }
@@ -268,6 +275,15 @@ const fn revert_error_exit_code(error: &RevertError) -> i32 {
         RevertError::AlreadyPushedToRemote { .. } => RevertExitCode::AlreadyPushed as i32,
         RevertError::InvalidState { .. } => RevertExitCode::InvalidState as i32,
         _ => RevertExitCode::OtherError as i32,
+    }
+}
+
+const fn revert_error_exit_code_enum(error: &RevertError) -> RevertExitCode {
+    match error {
+        RevertError::SessionNotFound { .. } => RevertExitCode::SessionNotFound,
+        RevertError::AlreadyPushedToRemote { .. } => RevertExitCode::AlreadyPushed,
+        RevertError::InvalidState { .. } => RevertExitCode::InvalidState,
+        _ => RevertExitCode::OtherError,
     }
 }
 

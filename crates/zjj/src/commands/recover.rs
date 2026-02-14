@@ -498,39 +498,68 @@ pub struct RollbackOutput {
     pub checkpoint: String,
     /// Whether it was a dry run
     pub dry_run: bool,
-    /// Success
-    pub success: bool,
+    /// Whether rollback operation succeeded
+    pub operation_succeeded: bool,
     /// Message
     pub message: String,
 }
 
 /// Run the rollback command
 #[allow(clippy::too_many_lines)]
-pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
+pub async fn run_rollback(options: &RollbackOptions) -> Result<i32> {
     // Check if session exists
     let db = get_session_db().await?;
-    let session = db
-        .get(&options.session)
-        .await?
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' not found", options.session))?;
+    let maybe_session = db.get(&options.session).await?;
+    let Some(session) = maybe_session else {
+        let output = RollbackOutput {
+            session: options.session.clone(),
+            checkpoint: options.checkpoint.clone(),
+            dry_run: options.dry_run,
+            operation_succeeded: false,
+            message: format!("Session '{}' not found", options.session),
+        };
+        emit_rollback_output(options.format, &output, 2)?;
+        return Ok(2);
+    };
 
-    // Get the workspace path from session metadata
-    let workspace_path = session
-        .metadata
-        .as_ref()
-        .and_then(|m| m.get("workspace_path"))
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("Session '{}' has no workspace path", options.session))?;
+    // Use canonical workspace_path first, then metadata fallback for compatibility.
+    let workspace_path = if session.workspace_path.is_empty() {
+        session
+            .metadata
+            .as_ref()
+            .and_then(|m| m.get("workspace_path"))
+            .and_then(|v| v.as_str())
+            .map(ToOwned::to_owned)
+            .ok_or_else(|| anyhow::anyhow!("Session '{}' has no workspace path", options.session))?
+    } else {
+        session.workspace_path.clone()
+    };
 
-    let workspace_dir = std::path::Path::new(workspace_path);
+    let workspace_dir = std::path::Path::new(&workspace_path);
     if !tokio::fs::try_exists(workspace_dir).await.unwrap_or(false) {
-        anyhow::bail!("Workspace directory '{workspace_path}' does not exist");
+        let output = RollbackOutput {
+            session: options.session.clone(),
+            checkpoint: options.checkpoint.clone(),
+            dry_run: options.dry_run,
+            operation_succeeded: false,
+            message: format!("Workspace directory '{workspace_path}' does not exist"),
+        };
+        emit_rollback_output(options.format, &output, 3)?;
+        return Ok(3);
     }
 
     // Verify it's a JJ repository
     let jj_dir = workspace_dir.join(".jj");
     if !tokio::fs::try_exists(&jj_dir).await.unwrap_or(false) {
-        anyhow::bail!("'{workspace_path}' is not a JJ repository");
+        let output = RollbackOutput {
+            session: options.session.clone(),
+            checkpoint: options.checkpoint.clone(),
+            dry_run: options.dry_run,
+            operation_succeeded: false,
+            message: format!("'{workspace_path}' is not a JJ repository"),
+        };
+        emit_rollback_output(options.format, &output, 1)?;
+        return Ok(1);
     }
 
     let output = if options.dry_run {
@@ -554,7 +583,7 @@ pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
                 session: options.session.clone(),
                 checkpoint: options.checkpoint.clone(),
                 dry_run: true,
-                success: true,
+                operation_succeeded: true,
                 message: format!(
                     "Would rollback session '{}' to checkpoint '{}' using 'jj edit {}'",
                     options.session, options.checkpoint, options.checkpoint
@@ -566,7 +595,7 @@ pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
                     session: options.session.clone(),
                     checkpoint: options.checkpoint.clone(),
                     dry_run: true,
-                    success: false,
+                    operation_succeeded: false,
                     message: format!(
                         "Checkpoint '{}' not found: {}",
                         options.checkpoint,
@@ -578,7 +607,7 @@ pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
                 session: options.session.clone(),
                 checkpoint: options.checkpoint.clone(),
                 dry_run: true,
-                success: false,
+                operation_succeeded: false,
                 message: format!("Failed to check checkpoint: {e}"),
             },
         }
@@ -587,53 +616,65 @@ pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
         let result = Command::new("jj")
             .current_dir(workspace_dir)
             .args(["edit", &options.checkpoint])
-            .status()
+            .output()
             .await;
 
         match result {
-            Ok(status) if status.success() => RollbackOutput {
+            Ok(output) if output.status.success() => RollbackOutput {
                 session: options.session.clone(),
                 checkpoint: options.checkpoint.clone(),
                 dry_run: false,
-                success: true,
+                operation_succeeded: true,
                 message: format!(
                     "Rolled back session '{}' to checkpoint '{}'",
                     options.session, options.checkpoint
                 ),
             },
-            Ok(_) => RollbackOutput {
-                session: options.session.clone(),
-                checkpoint: options.checkpoint.clone(),
-                dry_run: false,
-                success: false,
-                message: format!(
-                    "Failed to rollback to checkpoint '{}'. Use 'jj log' to see available commits.",
-                    options.checkpoint
-                ),
-            },
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                RollbackOutput {
+                    session: options.session.clone(),
+                    checkpoint: options.checkpoint.clone(),
+                    dry_run: false,
+                    operation_succeeded: false,
+                    message: format!(
+                        "Failed to rollback to checkpoint '{}': {}",
+                        options.checkpoint,
+                        stderr.trim()
+                    ),
+                }
+            }
             Err(e) => RollbackOutput {
                 session: options.session.clone(),
                 checkpoint: options.checkpoint.clone(),
                 dry_run: false,
-                success: false,
+                operation_succeeded: false,
                 message: format!("Failed to execute jj edit: {e}"),
             },
         }
     };
 
-    if options.format.is_json() {
-        let envelope = SchemaEnvelope::new("rollback-response", "single", &output);
+    let exit_code = if output.operation_succeeded { 0 } else { 4 };
+    emit_rollback_output(options.format, &output, exit_code)?;
+    Ok(exit_code)
+}
+
+fn emit_rollback_output(
+    format: OutputFormat,
+    output: &RollbackOutput,
+    exit_code: i32,
+) -> Result<()> {
+    if format.is_json() {
+        let mut envelope = SchemaEnvelope::new("rollback-response", "single", output);
+        if exit_code != 0 {
+            envelope.success = false;
+        }
         let json_str = serde_json::to_string_pretty(&envelope)
             .context("Failed to serialize rollback output")?;
         println!("{json_str}");
     } else {
         println!("{}", output.message);
     }
-
-    if !output.success && !options.dry_run {
-        anyhow::bail!("Rollback failed");
-    }
-
     Ok(())
 }
 
@@ -1167,13 +1208,13 @@ mod tests {
                 session: "my-session".to_string(),
                 checkpoint: "checkpoint-abc".to_string(),
                 dry_run: true,
-                success: true,
+                operation_succeeded: true,
                 message: "Would rollback session 'my-session' to checkpoint 'checkpoint-abc'"
                     .to_string(),
             };
 
             assert!(output.dry_run, "Should be dry run");
-            assert!(output.success, "Preview should succeed");
+            assert!(output.operation_succeeded, "Preview should succeed");
             assert!(output.message.contains("Would"), "Should indicate preview");
         }
 
@@ -1186,12 +1227,12 @@ mod tests {
                 session: "my-session".to_string(),
                 checkpoint: "checkpoint-xyz".to_string(),
                 dry_run: false,
-                success: true,
+                operation_succeeded: true,
                 message: "Rolled back successfully".to_string(),
             };
 
             assert!(!output.dry_run, "Should not be dry run");
-            assert!(output.success, "Should succeed");
+            assert!(output.operation_succeeded, "Should succeed");
         }
 
         /// GIVEN: Rollback fails
@@ -1203,11 +1244,11 @@ mod tests {
                 session: "my-session".to_string(),
                 checkpoint: "invalid-checkpoint".to_string(),
                 dry_run: false,
-                success: false,
+                operation_succeeded: false,
                 message: "Checkpoint not found".to_string(),
             };
 
-            assert!(!output.success);
+            assert!(!output.operation_succeeded);
             assert!(output.message.contains("not found") || output.message.contains("failed"));
         }
     }
