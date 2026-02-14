@@ -241,7 +241,7 @@ fn test_adapter_validate_passes_domain_then_fails_filesystem() {
             "Error should mention filesystem: {message}"
         );
     } else {
-        panic!("Expected ValidationError, got: {:?}", result);
+        panic!("Expected ValidationError, got: {result:?}");
     }
 }
 

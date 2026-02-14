@@ -658,12 +658,12 @@ mod tests {
                 "JSON output should have success field"
             );
             assert_eq!(
-                parsed.get("success").and_then(|v| v.as_bool()),
+                parsed.get("success").and_then(serde_json::Value::as_bool),
                 Some(true),
                 "success should be true on success"
             );
             assert_eq!(
-                parsed.get("synced_count").and_then(|v| v.as_u64()),
+                parsed.get("synced_count").and_then(serde_json::Value::as_u64),
                 Some(1),
                 "synced_count should be 1"
             );
@@ -713,12 +713,12 @@ mod tests {
                 "JSON output should have success field"
             );
             assert_eq!(
-                parsed.get("success").and_then(|v| v.as_bool()),
+                parsed.get("success").and_then(serde_json::Value::as_bool),
                 Some(false),
                 "success should be false on failure"
             );
             assert_eq!(
-                parsed.get("failed_count").and_then(|v| v.as_u64()),
+                parsed.get("failed_count").and_then(serde_json::Value::as_u64),
                 Some(1),
                 "failed_count should be 1"
             );
@@ -753,7 +753,7 @@ mod tests {
                 "JSON should have $schema field"
             );
             assert_eq!(
-                parsed.get("synced_count").and_then(|v| v.as_u64()),
+                parsed.get("synced_count").and_then(serde_json::Value::as_u64),
                 Some(5),
                 "Should access .synced_count (flattened from data)"
             );
@@ -803,8 +803,7 @@ mod tests {
         let result = super::detect_workspace_context().await;
 
         match result {
-            Ok(_) => Ok(()),
-            Err(_) => Ok(()),
+            Ok(_) | Err(_) => Ok(()),
         }
     }
 }

@@ -210,7 +210,7 @@ async fn test_sync_all_flag_syncs_all_sessions() -> anyhow::Result<()> {
     let sync_time = current_timestamp()?;
     for name in &["session-a", "session-b", "session-c", "session-d"] {
         db.update(
-            *name,
+            name,
             SessionUpdate {
                 last_synced: Some(sync_time),
                 ..Default::default()
@@ -275,7 +275,7 @@ async fn test_sync_no_args_from_main_syncs_all() -> anyhow::Result<()> {
     let sync_time = current_timestamp()?;
     for name in &["main-session-1", "main-session-2"] {
         db.update(
-            *name,
+            name,
             SessionUpdate {
                 last_synced: Some(sync_time),
                 ..Default::default()

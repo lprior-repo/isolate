@@ -3,10 +3,9 @@
 //! This module provides signal handling and claim management for worker processes.
 //! WHEN a worker receives a shutdown signal, it releases all active claims gracefully.
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
@@ -206,28 +205,24 @@ pub async fn wait_for_shutdown_signal() {
     let mut sigterm = signal(SignalKind::terminate()).ok();
     let mut sigint = signal(SignalKind::interrupt()).ok();
 
-    loop {
-        tokio::select! {
-            () = async {
-                if let Some(ref mut sig) = sigterm {
-                    sig.recv().await;
-                } else {
-                    std::future::pending::<()>().await;
-                }
-            } => {
-                tracing::info!("Received SIGTERM, initiating graceful shutdown");
-                break;
+    tokio::select! {
+        () = async {
+            if let Some(ref mut sig) = sigterm {
+                sig.recv().await;
+            } else {
+                std::future::pending::<()>().await;
             }
-            () = async {
-                if let Some(ref mut sig) = sigint {
-                    sig.recv().await;
-                } else {
-                    std::future::pending::<()>().await;
-                }
-            } => {
-                tracing::info!("Received SIGINT, initiating graceful shutdown");
-                break;
+        } => {
+            tracing::info!("Received SIGTERM, initiating graceful shutdown");
+        }
+        () = async {
+            if let Some(ref mut sig) = sigint {
+                sig.recv().await;
+            } else {
+                std::future::pending::<()>().await;
             }
+        } => {
+            tracing::info!("Received SIGINT, initiating graceful shutdown");
         }
     }
 }

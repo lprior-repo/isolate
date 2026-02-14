@@ -26,9 +26,9 @@
 //! - Leaves the queue in a consistent state
 //! - Transitions in-progress items to appropriate failure states
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
@@ -726,7 +726,7 @@ async fn process_entry_with_gates(
 ///
 /// Returns an error if processing fails.
 #[allow(dead_code)]
-async fn process_entry(_entry: &zjj_core::QueueEntry) -> Result<()> {
+fn process_entry(_entry: &zjj_core::QueueEntry) -> Result<()> {
     // This is kept for backward compatibility but is not used
     // The main processing now goes through process_entry_with_gates
     anyhow::bail!("Use process_entry_with_gates instead");

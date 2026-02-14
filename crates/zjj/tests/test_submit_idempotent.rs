@@ -92,7 +92,7 @@ fn test_submit_creates_single_entry_on_first_submit() {
     );
 
     // WHEN: User runs submit from the workspace
-    harness.current_dir = workspace_path.clone();
+    harness.current_dir = workspace_path;
     let result = harness.zjj(&["submit", "--json"]);
 
     // THEN: Command succeeds
@@ -155,7 +155,7 @@ fn test_submit_duplicate_does_not_create_multiple_entries() {
         &["bookmark", "create", "dup-test", "-r", "@"],
     );
 
-    harness.current_dir = workspace_path.clone();
+    harness.current_dir = workspace_path;
 
     // WHEN: User runs submit twice with the same change
     let first_result = harness.zjj(&["submit", "--json"]);
@@ -216,7 +216,7 @@ fn test_submit_dedupe_key_prevents_duplicates() {
         &["bookmark", "create", "dedupe-test", "-r", "@"],
     );
 
-    harness.current_dir = workspace_path.clone();
+    harness.current_dir = workspace_path;
 
     // WHEN: User submits
     let result = harness.zjj(&["submit", "--json"]);
@@ -267,7 +267,7 @@ fn test_submit_after_terminal_state_creates_new_pending_entry() {
         &["bookmark", "create", "terminal-test", "-r", "@"],
     );
 
-    harness.current_dir = workspace_path.clone();
+    harness.current_dir = workspace_path;
 
     // First submit
     let first_result = harness.zjj(&["submit", "--json"]);
@@ -330,7 +330,7 @@ fn test_submit_dry_run_does_not_modify_queue() {
         return;
     }
 
-    harness.current_dir = workspace_path.clone();
+    harness.current_dir = workspace_path;
 
     // Get initial queue state
     let initial_queue = harness.zjj(&["queue", "list", "--json"]);
@@ -404,7 +404,7 @@ fn test_submit_json_output_schema_validation() {
         &["bookmark", "create", "schema-test", "-r", "@"],
     );
 
-    harness.current_dir = workspace_path.clone();
+    harness.current_dir = workspace_path;
 
     // WHEN: User runs submit with --json
     let result = harness.zjj(&["submit", "--json"]);
@@ -453,7 +453,7 @@ fn test_submit_without_bookmark_fails() {
     // Commit WITHOUT creating a bookmark
     harness.jj_in_dir(&workspace_path, &["commit", "-m", "No bookmark"]);
 
-    harness.current_dir = workspace_path.clone();
+    harness.current_dir = workspace_path;
 
     // WHEN: User runs submit
     let result = harness.zjj(&["submit", "--json"]);
@@ -502,7 +502,7 @@ fn test_submit_dirty_workspace_fails_without_auto_commit() {
     std::fs::write(workspace_path.join("uncommitted.txt"), "dirty changes")
         .expect("Failed to write uncommitted file");
 
-    harness.current_dir = workspace_path.clone();
+    harness.current_dir = workspace_path;
 
     // WHEN: User runs submit without --auto-commit
     let result = harness.zjj(&["submit", "--json"]);

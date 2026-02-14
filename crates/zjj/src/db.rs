@@ -343,16 +343,16 @@ impl SessionDb {
                 // Load the existing session to verify workspace path matches
                 match query_session_by_name(&self.pool, name).await? {
                     Some(existing) => {
-                        if existing.workspace_path != workspace_path {
+                        if existing.workspace_path == workspace_path {
+                            Err(Error::DatabaseError(format!(
+                                "Session '{name}' already exists"
+                            )))
+                        } else {
                             Err(Error::DatabaseError(format!(
                                 "Session '{name}' already exists with different workspace path.\n\
                                  Existing: {}\n\
                                  Requested: {workspace_path}",
                                 existing.workspace_path
-                            )))
-                        } else {
-                            Err(Error::DatabaseError(format!(
-                                "Session '{name}' already exists"
                             )))
                         }
                     }

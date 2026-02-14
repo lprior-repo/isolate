@@ -249,10 +249,10 @@ fn preview_add_with_flags(args: &[String], has_force_flag: bool) -> Result<WhatI
         prerequisites: vec![
             PrerequisiteCheck {
                 check: "valid_name".to_string(),
-                status: if name != "<name>" {
-                    PrerequisiteStatus::Met
-                } else {
+                status: if name == "<name>" {
                     PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
                 },
                 description: "Session name is valid".to_string(),
             },
@@ -800,10 +800,10 @@ fn preview_spawn_with_flags(args: &[String]) -> Result<WhatIfResult> {
         prerequisites: vec![
             PrerequisiteCheck {
                 check: "valid_name".to_string(),
-                status: if name != "<name>" {
-                    PrerequisiteStatus::Met
-                } else {
+                status: if name == "<name>" {
                     PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
                 },
                 description: "Bead ID is valid".to_string(),
             },
