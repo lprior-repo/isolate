@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use fs4::fs_std::FileExt;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
@@ -109,10 +109,17 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // Use spawn_blocking to avoid blocking Tokio executor on lock acquisition
     let lock_path_clone = lock_path.clone();
     let lock_file = tokio::task::spawn_blocking(move || -> Result<std::fs::File> {
+        // Protect against symlink attacks: verify lock file is not a symlink
+        if let Ok(metadata) = std::fs::symlink_metadata(&lock_path_clone) {
+            if metadata.is_symlink() {
+                bail!("Security: .zjj/.init.lock is a symlink. Remove it and re-run zjj init.");
+            }
+        }
+
+        // Open lock file without truncate to avoid clobbering symlink targets
         let file = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
-            .truncate(true)
             .open(&lock_path_clone)
             .context("Failed to create lock file")?;
 
