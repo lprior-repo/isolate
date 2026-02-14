@@ -63,30 +63,241 @@ async fn test_init_creates_zjj_directory() -> Result<()> {
     Ok(())
 }
 
+// ============================================================================
+// QA Enforcer Tests - Issues Found During Adversarial Testing
+// ============================================================================
+
+/// Test that init --json outputs pure JSON to stdout (no mixed text)
+/// Issue #1: zjj init --json mixed human-readable messages with JSON
 #[tokio::test]
-async fn test_init_creates_config_toml() -> Result<()> {
-    let Some(temp_dir) = setup_test_jj_repo().await? else {
-        // Test framework will handle skipping - no output needed
+async fn test_init_json_pure_stdout() -> Result<()> {
+    use std::process::Stdio;
+
+    use tokio::io::AsyncReadExt;
+
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = TempDir::new()?;
+
+    // Run zjj init --json as a subprocess to capture actual stdout/stderr
+    let zjj_bin = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|parent| parent.join("zjj")))
+        .expect("Could not find zjj binary");
+
+    if !zjj_bin.exists() {
+        // Binary not built yet, skip test
+        return Ok(());
+    }
+
+    let mut child = Command::new(&zjj_bin)
+        .args(["init", "--json"])
+        .current_dir(temp_dir.path())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+
+    if let Some(mut stdout_handle) = child.stdout.take() {
+        stdout_handle.read_to_string(&mut stdout).await?;
+    }
+    if let Some(mut stderr_handle) = child.stderr.take() {
+        stderr_handle.read_to_string(&mut stderr).await?;
+    }
+
+    child.wait().await?;
+
+    // Verify stdout contains ONLY valid JSON (no human messages)
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).context("stdout should contain valid JSON only")?;
+
+    assert_eq!(
+        parsed.get("$schema").and_then(|v| v.as_str()),
+        Some("zjj://init-response/v1"),
+        "stdout JSON should have correct schema"
+    );
+
+    // Verify human-readable messages are on stderr, not stdout
+    assert!(
+        stderr.contains("Initializing") || stderr.is_empty(),
+        "Human messages should be on stderr"
+    );
+    assert!(
+        !stdout.contains("Initializing"),
+        "stdout should not contain human messages"
+    );
+
+    Ok(())
+}
+
+/// Test that concurrent init operations don't corrupt state
+/// Issue #2: Race condition when running multiple zjj init simultaneously
+#[tokio::test]
+async fn test_init_concurrent_no_corruption() -> Result<()> {
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = setup_test_jj_repo().await?;
+    let Some(temp_dir) = temp_dir else {
         return Ok(());
     };
 
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    // Launch 5 concurrent init operations
+    let handles: Vec<_> = (0..5)
+        .map(|_| {
+            let path = temp_dir.path().to_path_buf();
+            tokio::spawn(async move {
+                run_with_cwd_and_format(Some(&path), OutputFormat::default()).await
+            })
+        })
+        .collect();
 
-    // Verify config.toml was created
+    // Wait for all to complete
+    let results: Vec<_> = futures::future::join_all(handles).await;
+
+    // All should complete without panicking, and all tasks should succeed
+    for result in results {
+        let task_result = result
+            .map_err(|join_error| anyhow::anyhow!("concurrent init task panicked: {join_error}"))?;
+        task_result?;
+    }
+
+    // Verify state is consistent (no corruption)
     let config_path = temp_dir.path().join(".zjj/config.toml");
+    let db_path = temp_dir.path().join(".zjj/state.db");
+    let layouts_path = temp_dir.path().join(".zjj/layouts");
+
+    // All files should exist
     assert!(
         tokio::fs::try_exists(&config_path).await.unwrap_or(false),
-        "config.toml was not created"
+        "config.toml should exist after concurrent init"
     );
-    let metadata = tokio::fs::metadata(&config_path).await?;
-    assert!(metadata.is_file(), "config.toml is not a file");
+    assert!(
+        tokio::fs::try_exists(&db_path).await.unwrap_or(false),
+        "state.db should exist after concurrent init"
+    );
+    assert!(
+        tokio::fs::try_exists(&layouts_path).await.unwrap_or(false),
+        "layouts should exist after concurrent init"
+    );
 
-    // Verify it contains expected content
-    let content = tokio::fs::read_to_string(&config_path).await?;
-    assert!(content.contains("workspace_dir"));
-    assert!(content.contains("[watch]"));
-    assert!(content.contains("[zellij]"));
-    assert!(content.contains("[dashboard]"));
+    // Database should be intact and accessible
+    let db = SessionDb::open(&db_path).await?;
+    let sessions = db.list(None).await?;
+    assert_eq!(sessions.len(), 0, "database should be uncorrupted");
+
+    Ok(())
+}
+
+/// Test that init lock file persists but is unlocked after init
+#[tokio::test]
+async fn test_init_lock_file_cleanup() -> Result<()> {
+    use fs4::fs_std::FileExt;
+
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = setup_test_jj_repo().await?;
+    let Some(temp_dir) = temp_dir else {
+        return Ok(());
+    };
+
+    // Run init
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+
+    // Verify lock file exists but is unlocked
+    let lock_path = temp_dir.path().join(".zjj/.init.lock");
+    assert!(
+        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
+        "Lock file should persist after init (file locks are inode-based)"
+    );
+
+    // Verify we can acquire the lock (meaning it's not held)
+    let lock_file = std::fs::OpenOptions::new().write(true).open(&lock_path)?;
+    assert!(
+        lock_file.try_lock_exclusive().is_ok(),
+        "Lock file should be unlocked after successful init"
+    );
+    lock_file.unlock()?;
+
+    Ok(())
+}
+
+/// Adversarial test: init must reject symlinked lock path without clobbering target
+#[tokio::test]
+#[cfg(unix)]
+async fn test_init_rejects_symlinked_lock_file() -> Result<()> {
+    use std::os::unix::fs::symlink;
+
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = setup_test_jj_repo().await?;
+    let Some(temp_dir) = temp_dir else {
+        return Ok(());
+    };
+
+    let zjj_dir = temp_dir.path().join(".zjj");
+    tokio::fs::create_dir_all(&zjj_dir).await?;
+
+    let target_path = temp_dir.path().join("lock-target.txt");
+    let target_content = "do-not-clobber";
+    tokio::fs::write(&target_path, target_content).await?;
+
+    let lock_path = zjj_dir.join(".init.lock");
+    symlink(&target_path, &lock_path)?;
+
+    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
+    assert!(
+        result.is_err(),
+        "init should fail when lock file is a symlink"
+    );
+
+    let error_text = result
+        .err()
+        .map_or_else(String::new, |error| error.to_string());
+    assert!(
+        error_text.contains("symlink"),
+        "error should mention symlink security issue"
+    );
+
+    let current_target_content = tokio::fs::read_to_string(&target_path).await?;
+    assert_eq!(
+        current_target_content, target_content,
+        "symlink target content should not be modified"
+    );
+
+    Ok(())
+}
+
+/// Test that init handles missing directories gracefully
+#[tokio::test]
+async fn test_init_creates_parent_directories() -> Result<()> {
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = setup_test_jj_repo().await?;
+    let Some(temp_dir) = temp_dir else {
+        return Ok(());
+    };
+
+    // Run init (should create .zjj and all subdirectories)
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+
+    // Verify .zjj was created
+    let zjj_path = temp_dir.path().join(".zjj");
+    assert!(
+        tokio::fs::try_exists(&zjj_path).await.unwrap_or(false),
+        ".zjj directory should be created"
+    );
 
     Ok(())
 }

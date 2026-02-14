@@ -20,7 +20,7 @@
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use tokio::sync::Notify;
+    use tokio::sync::{Barrier, Notify};
 
     /// Scenario: SIGTERM handler task failure is observable
     ///   Given a worker process starting up
@@ -95,7 +95,6 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
 
         // Test passes if we reach here (no panic from signal setup)
-        assert!(true, "Worker should continue even if Ctrl+C handler fails");
     }
 
     /// Scenario: Multiple signal handler failures are all observable
@@ -108,7 +107,7 @@ mod tests {
         let failure_count = 0;
 
         // Simulate multiple signal handlers that might fail
-        let _tasks = [
+        let tasks = [
             tokio::spawn(async {
                 tokio::signal::ctrl_c().await.map_err(|e| {
                     eprintln!("Ctrl+C handler failed: {e}");
@@ -129,9 +128,10 @@ mod tests {
         // Wait for all tasks to spawn
         tokio::time::sleep(Duration::from_millis(100)).await;
 
-        // Verify worker is still functional
+        // Verify worker setup completed and at least one task remains alive.
+        let active_tasks = tasks.iter().filter(|task| !task.is_finished()).count();
         assert!(
-            true,
+            active_tasks > 0,
             "Worker should remain functional despite signal handler failures"
         );
 
@@ -162,8 +162,7 @@ mod tests {
             .await
             .expect("Shutdown should be notified within timeout");
 
-        // Verify graceful shutdown was triggered
-        assert!(true, "Graceful shutdown completed successfully");
+        // Verify graceful shutdown was triggered by completing within timeout.
     }
 
     /// Scenario: Worker survives detached signal task panics
@@ -186,27 +185,35 @@ mod tests {
         // Worker should continue operating
         tokio::time::sleep(Duration::from_millis(150)).await;
 
-        // If we reach here, worker survived the panic
+        // If we reach here, worker survived the panic.
+
+        // Note: Tokio catches panics in spawned tasks by default
+        // But we should log/observe these panics
     }
 
     /// Scenario: Shutdown notification reaches waiting tasks
     ///   Given multiple tasks waiting on shutdown signal
     ///   When shutdown is triggered
     ///   Then all waiting tasks should be notified
-    #[allow(clippy::assertions_on_constants)]
     #[tokio::test]
     async fn test_shutdown_notification_broadcast() {
         let shutdown = Arc::new(Notify::new());
+        let ready = Arc::new(Barrier::new(4));
 
         // Spawn multiple tasks waiting for shutdown
         let handles: Vec<_> = (0..3)
             .map(|_| {
                 let shutdown_clone = Arc::clone(&shutdown);
+                let ready_clone = Arc::clone(&ready);
                 tokio::spawn(async move {
-                    shutdown_clone.notified().await;
+                    let notified = shutdown_clone.notified();
+                    ready_clone.wait().await;
+                    notified.await;
                 })
             })
             .collect();
+
+        ready.wait().await;
 
         // Trigger shutdown
         shutdown.notify_waiters();
@@ -219,7 +226,7 @@ mod tests {
                 .expect("Task should not panic");
         }
 
-        assert!(true, "All waiting tasks should be notified");
+        // If all handles completed, all waiting tasks were notified.
     }
 
     /// Scenario: Signal handler errors include context

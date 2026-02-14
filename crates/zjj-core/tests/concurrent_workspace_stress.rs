@@ -46,8 +46,47 @@ use std::{
     time::Duration,
 };
 
+use tempfile::TempDir;
 use tokio::sync::Barrier;
 use zjj_core::{jj_operation_sync::create_workspace_synced, Error, Result};
+
+async fn create_test_repo() -> Result<(TempDir, std::path::PathBuf)> {
+    let temp = tempfile::tempdir().map_err(|e| Error::IoError(format!("tempdir failed: {e}")))?;
+    let repo_root = temp.path().join("repo");
+    std::fs::create_dir_all(&repo_root)
+        .map_err(|e| Error::IoError(format!("create repo dir failed: {e}")))?;
+
+    let init = tokio::process::Command::new("jj")
+        .args(["git", "init"])
+        .current_dir(&repo_root)
+        .output()
+        .await
+        .map_err(|e| Error::IoError(format!("jj git init failed to run: {e}")))?;
+    if !init.status.success() {
+        return Err(Error::IoError(format!(
+            "jj git init failed: {}",
+            String::from_utf8_lossy(&init.stderr)
+        )));
+    }
+
+    std::fs::write(repo_root.join("README.md"), "# stress test\n")
+        .map_err(|e| Error::IoError(format!("write README failed: {e}")))?;
+
+    let commit = tokio::process::Command::new("jj")
+        .args(["commit", "-m", "initial commit"])
+        .current_dir(&repo_root)
+        .output()
+        .await
+        .map_err(|e| Error::IoError(format!("jj commit failed to run: {e}")))?;
+    if !commit.status.success() {
+        return Err(Error::IoError(format!(
+            "jj commit failed: {}",
+            String::from_utf8_lossy(&commit.stderr)
+        )));
+    }
+
+    Ok((temp, repo_root))
+}
 
 /// Test concurrent workspace creation with 12 parallel tasks
 ///
@@ -61,14 +100,15 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
     let success_count = Arc::new(AtomicUsize::new(0));
     let failure_count = Arc::new(AtomicUsize::new(0));
 
+    let (_repo_temp, repo_root) = create_test_repo().await?;
+
     // Create a unique temp directory for this test run
     let test_id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| Error::IoError(format!("Failed to get time: {e}")))?
         .as_nanos();
-    let base_path = std::env::current_dir()?.join(format!("test-workspaces-{}", test_id));
+    let base_path = repo_root.join(format!("test-workspaces-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
-    let repo_root = std::env::current_dir()?;
 
     let mut handles = vec![];
 
@@ -159,12 +199,16 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
         let workspace_name = format!("stress-concurrent-{}-{}", test_id, i);
         let _ = tokio::process::Command::new("jj")
             .args(["workspace", "forget", &workspace_name])
+            .current_dir(&repo_root)
             .output()
             .await;
     }
 
     // Remove base directory
     let _ = tokio::fs::remove_dir_all(base_path).await;
+
+    // Remove temporary JJ repository
+    let _ = tokio::fs::remove_dir_all(repo_root).await;
 
     println!("All concurrent workspace creations verified successfully");
 
@@ -181,14 +225,15 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
     let success_count = Arc::new(AtomicUsize::new(0));
     let failure_count = Arc::new(AtomicUsize::new(0));
 
+    let (_repo_temp, repo_root) = create_test_repo().await?;
+
     // Create a unique temp directory for this test run
     let test_id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| Error::IoError(format!("Failed to get time: {e}")))?
         .as_nanos();
-    let base_path = std::env::current_dir()?.join(format!("test-workspaces-staggered-{}", test_id));
+    let base_path = repo_root.join(format!("test-workspaces-staggered-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
-    let repo_root = std::env::current_dir()?;
 
     let mut handles = vec![];
 
@@ -281,11 +326,15 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
         let workspace_name = format!("stress-staggered-{}-{}", test_id, i);
         let _ = tokio::process::Command::new("jj")
             .args(["workspace", "forget", &workspace_name])
+            .current_dir(&repo_root)
             .output()
             .await;
     }
 
     let _ = tokio::fs::remove_dir_all(base_path).await;
+
+    // Remove temporary JJ repository
+    let _ = tokio::fs::remove_dir_all(repo_root).await;
 
     Ok(())
 }
@@ -299,14 +348,15 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
     let task_count: usize = 12;
     let success_count = Arc::new(AtomicUsize::new(0));
 
+    let (_repo_temp, repo_root) = create_test_repo().await?;
+
     // Create a unique temp directory for this test run
     let test_id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| Error::IoError(format!("Failed to get time: {e}")))?
         .as_nanos();
-    let base_path = std::env::current_dir()?.join(format!("test-workspaces-retry-{}", test_id));
+    let base_path = repo_root.join(format!("test-workspaces-retry-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
-    let repo_root = std::env::current_dir()?;
 
     let mut handles = vec![];
 
@@ -399,11 +449,15 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
         let workspace_name = format!("stress-retry-{}-{}", test_id, i);
         let _ = tokio::process::Command::new("jj")
             .args(["workspace", "forget", &workspace_name])
+            .current_dir(&repo_root)
             .output()
             .await;
     }
 
     let _ = tokio::fs::remove_dir_all(base_path).await;
+
+    // Remove temporary JJ repository
+    let _ = tokio::fs::remove_dir_all(repo_root).await;
 
     Ok(())
 }
@@ -419,14 +473,15 @@ async fn stress_workspace_serialization() -> Result<()> {
     let completion_order = Arc::new(std::sync::Mutex::new(Vec::new()));
     let failure_count = Arc::new(AtomicUsize::new(0));
 
+    let (_repo_temp, repo_root) = create_test_repo().await?;
+
     // Create a unique temp directory for this test run
     let test_id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| Error::IoError(format!("Failed to get time: {e}")))?
         .as_nanos();
-    let base_path = std::env::current_dir()?.join(format!("test-workspaces-serialize-{}", test_id));
+    let base_path = repo_root.join(format!("test-workspaces-serialize-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
-    let repo_root = std::env::current_dir()?;
 
     let mut handles = vec![];
 
@@ -519,11 +574,15 @@ async fn stress_workspace_serialization() -> Result<()> {
         let workspace_name = format!("stress-serialize-{}-{}", test_id, i);
         let _ = tokio::process::Command::new("jj")
             .args(["workspace", "forget", &workspace_name])
+            .current_dir(&repo_root)
             .output()
             .await;
     }
 
     let _ = tokio::fs::remove_dir_all(base_path).await;
+
+    // Remove temporary JJ repository
+    let _ = tokio::fs::remove_dir_all(repo_root).await;
 
     Ok(())
 }

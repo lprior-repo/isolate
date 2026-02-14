@@ -124,6 +124,7 @@ pub async fn handle_switch(sub_m: &ArgMatches) -> Result<()> {
     let show_context = sub_m.get_flag("show-context");
     let no_zellij = sub_m.get_flag("no-zellij");
     let format = get_format(sub_m);
+    let no_zellij = sub_m.get_flag("no-zellij");
     let options = switch::SwitchOptions {
         format,
         show_context,

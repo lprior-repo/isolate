@@ -18,6 +18,8 @@
 use std::process;
 
 use anyhow::Result;
+use serde::Serialize;
+use zjj_core::json::{ErrorCode, ErrorDetail, SchemaEnvelope};
 
 use crate::{cli::build_cli, command_context, hooks, json};
 
@@ -76,6 +78,11 @@ pub fn format_error(err: &anyhow::Error) -> String {
     msg
 }
 
+#[derive(Serialize)]
+struct CliParseErrorPayload {
+    error: ErrorDetail,
+}
+
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::large_stack_frames)]
 pub async fn run_cli() -> Result<()> {
@@ -94,8 +101,20 @@ pub async fn run_cli() -> Result<()> {
                 matches!(e.kind(), ErrorKind::DisplayHelp | ErrorKind::DisplayVersion);
 
             if json_mode {
-                let json_err = serde_json::json!({ "success": false, "error": { "code": "INVALID_ARGUMENT", "message": e.to_string(), "exit_code": if should_exit_zero { 0 } else { 2 } } });
-                println!("{}", serde_json::to_string_pretty(&json_err)?);
+                let exit_code = if should_exit_zero { 0 } else { 2 };
+                let payload = CliParseErrorPayload {
+                    error: ErrorDetail {
+                        code: ErrorCode::InvalidArgument.into(),
+                        message: e.to_string(),
+                        details: None,
+                        suggestion: Some(
+                            "Use --help for command usage and valid arguments".to_string(),
+                        ),
+                        exit_code,
+                    },
+                };
+                let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
+                println!("{}", serde_json::to_string_pretty(&envelope)?);
             }
             let _ = e.print();
             process::exit(if should_exit_zero { 0 } else { 2 });

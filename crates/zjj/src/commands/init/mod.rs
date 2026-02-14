@@ -1,8 +1,11 @@
 //! Initialize ZJJ - sets up everything needed
 
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
+use fs4::fs_std::FileExt;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::db::SessionDb;
@@ -70,7 +73,7 @@ async fn run_with_cwd_format_and_options(cwd: Option<&Path>, options: InitOption
     }
 
     // Initialize JJ repo if needed
-    ensure_jj_repo_with_cwd(&cwd).await?;
+    ensure_jj_repo_with_cwd(&cwd, options.format.is_json()).await?;
 
     // Get the repo root using the provided cwd
     let root = jj_root_with_cwd(&cwd).await?;
@@ -118,6 +121,91 @@ async fn run_with_cwd_format_and_options(cwd: Option<&Path>, options: InitOption
             .context("Failed to create .zjj directory")?;
     }
 
+    // Acquire exclusive lock to prevent concurrent initialization
+    let lock_path = zjj_dir.join(".init.lock");
+
+    // Use spawn_blocking to avoid blocking Tokio executor on lock acquisition
+    let lock_path_clone = lock_path.clone();
+    let lock_file = tokio::task::spawn_blocking(move || -> Result<std::fs::File> {
+        let is_symlink = match std::fs::symlink_metadata(&lock_path_clone) {
+            Ok(metadata) => metadata.is_symlink(),
+            Err(_) => false,
+        };
+        if is_symlink {
+            bail!("Security: .zjj/.init.lock is a symlink. Remove it and re-run zjj init.");
+        }
+
+        let mut open_options = std::fs::OpenOptions::new();
+        open_options
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false);
+
+        #[cfg(unix)]
+        {
+            open_options.custom_flags(libc::O_NOFOLLOW);
+        }
+
+        // Protect against symlink attacks and avoid truncating lock targets.
+        let file = open_options
+            .open(&lock_path_clone)
+            .with_context(|| format!("Failed to open lock file at {}", lock_path_clone.display()))
+            .or_else(|error| {
+                let symlink_detected = match std::fs::symlink_metadata(&lock_path_clone) {
+                    Ok(metadata) => metadata.is_symlink(),
+                    Err(_) => false,
+                };
+
+                if symlink_detected {
+                    bail!("Security: .zjj/.init.lock is a symlink. Remove it and re-run zjj init.");
+                }
+
+                Err(error)
+            })?;
+
+        // Acquire exclusive lock (blocking - waits for other init to complete)
+        file.lock_exclusive()
+            .context("Failed to acquire init lock")?;
+
+        Ok(file)
+    })
+    .await
+    .context("Lock task panicked")??;
+
+    // Double-check initialization status after acquiring lock
+    let is_now_initialized = tokio::fs::try_exists(&config_path).await.unwrap_or(false)
+        && tokio::fs::try_exists(&layouts_dir).await.unwrap_or(false)
+        && tokio::fs::try_exists(&db_path).await.unwrap_or(false);
+
+    if is_now_initialized {
+        // Another process completed initialization while we waited
+        // Release lock but keep file on disk (file locks are inode-based)
+        let _ = lock_file.unlock();
+
+        let response = InitResponse {
+            message: "zjj already initialized in this repository.".to_string(),
+            root: root.display().to_string(),
+            paths: InitPaths {
+                data_directory: ".zjj/".to_string(),
+                config: ".zjj/config.toml".to_string(),
+                state_db: ".zjj/state.db".to_string(),
+                layouts: ".zjj/layouts/".to_string(),
+            },
+            jj_initialized: true,
+            already_initialized: true,
+        };
+
+        if options.format.is_json() {
+            let envelope = SchemaEnvelope::new("init-response", "single", response);
+            println!("{}", serde_json::to_string(&envelope)?);
+        } else {
+            println!("zjj already initialized in this repository.");
+        }
+
+        return Ok(());
+    }
+
     // Create config.toml if missing
     if !tokio::fs::try_exists(&config_path).await.unwrap_or(false) {
         tokio::fs::write(&config_path, DEFAULT_CONFIG)
@@ -160,6 +248,9 @@ async fn run_with_cwd_format_and_options(cwd: Option<&Path>, options: InitOption
     // Initialize the database (create if it doesn't exist)
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
+
+    // Release lock but keep file on disk (file locks are inode-based)
+    let _ = lock_file.unlock();
 
     if options.format.is_json() {
         let response = build_init_response(&root, false);

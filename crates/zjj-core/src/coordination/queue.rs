@@ -172,109 +172,8 @@ impl MergeQueue {
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to create merge_queue table: {e}")))?;
 
-        // Migration: Add columns to existing databases created before these columns were added.
-        // SQLite doesn't support "IF NOT EXISTS" for ALTER TABLE, so we check the schema first.
-        // This is safe to run every time - we check column existence before adding.
-        let migration_result: Result<Option<_>> = sqlx::query_scalar::<_, String>(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='merge_queue'",
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to check schema for migration: {e}")));
-
-        if let Ok(Some(table_sql)) = migration_result {
-            // List of columns that may need migration, with their definitions
-            let migrations = [
-                (
-                    "dedupe_key",
-                    "ALTER TABLE merge_queue ADD COLUMN dedupe_key TEXT",
-                ),
-                (
-                    "workspace_state",
-                    "ALTER TABLE merge_queue ADD COLUMN workspace_state TEXT DEFAULT 'created'",
-                ),
-                (
-                    "previous_state",
-                    "ALTER TABLE merge_queue ADD COLUMN previous_state TEXT",
-                ),
-                (
-                    "state_changed_at",
-                    "ALTER TABLE merge_queue ADD COLUMN state_changed_at INTEGER",
-                ),
-                (
-                    "head_sha",
-                    "ALTER TABLE merge_queue ADD COLUMN head_sha TEXT",
-                ),
-                (
-                    "tested_against_sha",
-                    "ALTER TABLE merge_queue ADD COLUMN tested_against_sha TEXT",
-                ),
-                (
-                    "attempt_count",
-                    "ALTER TABLE merge_queue ADD COLUMN attempt_count INTEGER DEFAULT 0",
-                ),
-                (
-                    "max_attempts",
-                    "ALTER TABLE merge_queue ADD COLUMN max_attempts INTEGER DEFAULT 3",
-                ),
-            ];
-
-            for (column_name, alter_sql) in migrations {
-                if !table_sql.contains(column_name) {
-                    // Column doesn't exist, add it
-                    sqlx::query(alter_sql)
-                        .execute(&self.pool)
-                        .await
-                        .map_err(|e| {
-                            Error::DatabaseError(format!("Failed to add {column_name} column: {e}"))
-                        })?;
-                }
-            }
-        }
-
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_merge_queue_status ON merge_queue(status)")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| Error::DatabaseError(format!("Failed to create status index: {e}")))?;
-
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_merge_queue_priority_added ON merge_queue(priority, added_at)")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| Error::DatabaseError(format!("Failed to create priority index: {e}")))?;
-
-        // Create unique index on workspace + started_at to prevent concurrent processing
-        sqlx::query(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_queue_processing
-             ON merge_queue(workspace, started_at)
-             WHERE status = 'processing' AND started_at IS NOT NULL",
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to create processing index: {e}")))?;
-
-        // Create unique index on dedupe_key for NON-TERMINAL entries only
-        // Terminal states (merged, failed_terminal, cancelled) can have duplicate dedupe_keys
-        // to allow re-submission after completion/failure
-        sqlx::query(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_queue_dedupe_key_active
-             ON merge_queue(dedupe_key)
-             WHERE dedupe_key IS NOT NULL
-               AND status NOT IN ('merged', 'failed_terminal', 'cancelled')",
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to create dedupe_key index: {e}")))?;
-
-        // Create index on workspace_state for efficient queries
-        sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_merge_queue_workspace_state
-             ON merge_queue(workspace_state)",
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(|e| {
-            Error::DatabaseError(format!("Failed to create workspace_state index: {e}"))
-        })?;
+        self.migrate_merge_queue_columns().await?;
+        self.create_merge_queue_indexes().await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS queue_processing_lock (
@@ -310,6 +209,141 @@ impl MergeQueue {
         .execute(&self.pool)
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to create queue_events index: {e}")))?;
+
+        Ok(())
+    }
+
+    async fn migrate_merge_queue_columns(&self) -> Result<()> {
+        // SQLite doesn't support "IF NOT EXISTS" for ALTER TABLE, so we check schema first.
+        // If this introspection fails, fail init to avoid running with a partially migrated DB.
+        let _table_sql = sqlx::query_scalar::<_, String>(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='merge_queue'",
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to check schema for migration: {e}")))?
+        .ok_or_else(|| {
+            Error::DatabaseError(
+                "merge_queue table not found in sqlite_master during migration".to_string(),
+            )
+        })?;
+
+        let migrations = [
+            (
+                "dedupe_key",
+                "ALTER TABLE merge_queue ADD COLUMN dedupe_key TEXT",
+            ),
+            (
+                "workspace_state",
+                "ALTER TABLE merge_queue ADD COLUMN workspace_state TEXT DEFAULT 'created'",
+            ),
+            (
+                "previous_state",
+                "ALTER TABLE merge_queue ADD COLUMN previous_state TEXT",
+            ),
+            (
+                "state_changed_at",
+                "ALTER TABLE merge_queue ADD COLUMN state_changed_at INTEGER",
+            ),
+            (
+                "head_sha",
+                "ALTER TABLE merge_queue ADD COLUMN head_sha TEXT",
+            ),
+            (
+                "tested_against_sha",
+                "ALTER TABLE merge_queue ADD COLUMN tested_against_sha TEXT",
+            ),
+            (
+                "attempt_count",
+                "ALTER TABLE merge_queue ADD COLUMN attempt_count INTEGER DEFAULT 0",
+            ),
+            (
+                "max_attempts",
+                "ALTER TABLE merge_queue ADD COLUMN max_attempts INTEGER DEFAULT 3",
+            ),
+        ];
+
+        for (column_name, alter_sql) in migrations {
+            if self.merge_queue_column_exists(column_name).await? {
+                continue;
+            }
+
+            match sqlx::query(alter_sql).execute(&self.pool).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let error_text = e.to_string();
+                    if error_text.contains("duplicate column name") {
+                        continue;
+                    }
+
+                    return Err(Error::DatabaseError(format!(
+                        "Failed to add {column_name} column: {e}"
+                    )));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn merge_queue_column_exists(&self, column_name: &str) -> Result<bool> {
+        let exists = sqlx::query_scalar::<_, i64>(
+            "SELECT 1 FROM pragma_table_info('merge_queue') WHERE name = ?1 LIMIT 1",
+        )
+        .bind(column_name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!(
+                "Failed to inspect merge_queue columns during migration: {e}"
+            ))
+        })?
+        .is_some();
+
+        Ok(exists)
+    }
+
+    async fn create_merge_queue_indexes(&self) -> Result<()> {
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_merge_queue_status ON merge_queue(status)")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to create status index: {e}")))?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_merge_queue_priority_added ON merge_queue(priority, added_at)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create priority index: {e}")))?;
+
+        sqlx::query(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_queue_processing
+             ON merge_queue(workspace, started_at)
+             WHERE status = 'processing' AND started_at IS NOT NULL",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create processing index: {e}")))?;
+
+        sqlx::query(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_queue_dedupe_key_active
+             ON merge_queue(dedupe_key)
+             WHERE dedupe_key IS NOT NULL
+               AND status NOT IN ('merged', 'failed_terminal', 'cancelled')",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create dedupe_key index: {e}")))?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_merge_queue_workspace_state
+             ON merge_queue(workspace_state)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to create workspace_state index: {e}"))
+        })?;
 
         Ok(())
     }
@@ -1068,17 +1102,46 @@ impl MergeQueue {
 
         let now = Self::now();
 
-        // Transition to pending and increment attempt_count
-        sqlx::query(
+        // Transition to pending and increment attempt_count.
+        // Guard on both status and attempt_count so concurrent retries cannot
+        // both succeed for the same entry.
+        let update_result = sqlx::query(
             "UPDATE merge_queue SET status = 'pending', attempt_count = ?1, state_changed_at = ?2, \
-                 started_at = NULL, completed_at = NULL, error_message = NULL WHERE id = ?3",
+                 started_at = NULL, completed_at = NULL, error_message = NULL \
+                 WHERE id = ?3 AND status = 'failed_retryable' AND attempt_count = ?4",
         )
         .bind(new_attempt_count)
         .bind(now)
         .bind(id)
+        .bind(entry.attempt_count)
         .execute(&self.pool)
         .await
         .map_err(|_| QueueControlError::NotFound(id))?;
+
+        if update_result.rows_affected() == 0 {
+            let current = self
+                .get_by_id(id)
+                .await
+                .map_err(|_| QueueControlError::NotFound(id))?
+                .ok_or(QueueControlError::NotFound(id))?;
+
+            if current.status != QueueStatus::FailedRetryable {
+                return Err(QueueControlError::NotRetryable {
+                    id,
+                    status: current.status,
+                });
+            }
+
+            if current.attempt_count >= current.max_attempts {
+                return Err(QueueControlError::MaxAttemptsExceeded {
+                    id,
+                    attempt_count: current.attempt_count,
+                    max_attempts: current.max_attempts,
+                });
+            }
+
+            return Err(QueueControlError::NotFound(id));
+        }
 
         // Fetch and return the updated entry
         self.get_by_id(id)
@@ -1117,16 +1180,34 @@ impl MergeQueue {
 
         let now = Self::now();
 
-        // Transition to cancelled
-        sqlx::query(
+        // Transition to cancelled.
+        // Guard on current status to prevent concurrent double-cancel from both succeeding.
+        let update_result = sqlx::query(
             "UPDATE merge_queue SET status = 'cancelled', state_changed_at = ?1, completed_at = ?1 \
-                 WHERE id = ?2",
+                 WHERE id = ?2 AND status NOT IN ('merged', 'failed_terminal', 'cancelled')",
         )
         .bind(now)
         .bind(id)
         .execute(&self.pool)
         .await
         .map_err(|_| QueueControlError::NotFound(id))?;
+
+        if update_result.rows_affected() == 0 {
+            let current = self
+                .get_by_id(id)
+                .await
+                .map_err(|_| QueueControlError::NotFound(id))?
+                .ok_or(QueueControlError::NotFound(id))?;
+
+            if current.status.is_terminal() {
+                return Err(QueueControlError::NotCancellable {
+                    id,
+                    status: current.status,
+                });
+            }
+
+            return Err(QueueControlError::NotFound(id));
+        }
 
         // Fetch and return the updated entry
         self.get_by_id(id)
@@ -1451,7 +1532,7 @@ impl MergeQueue {
         Ok(())
     }
 
-    /// Update the tested_against_sha for an entry (for testing purposes).
+    /// Update the `tested_against_sha` for an entry (for testing purposes).
     pub async fn update_tested_against(
         &self,
         workspace: &str,

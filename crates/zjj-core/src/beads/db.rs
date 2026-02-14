@@ -14,7 +14,7 @@ use super::types::{BeadIssue, BeadsError, IssueStatus, Priority};
 /// # Errors
 ///
 /// Returns `BeadsError::QueryFailed` if the string is missing or invalid.
-fn parse_datetime(datetime_str: Option<String>) -> Result<DateTime<Utc>, BeadsError> {
+pub(crate) fn parse_datetime(datetime_str: Option<String>) -> Result<DateTime<Utc>, BeadsError> {
     datetime_str
         .ok_or_else(|| BeadsError::QueryFailed("Missing required datetime field".to_string()))
         .and_then(|s| {
@@ -29,7 +29,7 @@ fn parse_datetime(datetime_str: Option<String>) -> Result<DateTime<Utc>, BeadsEr
 /// # Errors
 ///
 /// Returns `BeadsError::QueryFailed` if the status string is invalid.
-fn parse_status(status_str: &str) -> Result<IssueStatus, BeadsError> {
+pub(crate) fn parse_status(status_str: &str) -> Result<IssueStatus, BeadsError> {
     status_str.parse().map_err(|_| {
         BeadsError::QueryFailed(format!("Invalid status value '{status_str}'. Expected one of: open, in_progress, done, cancelled"))
     })
@@ -40,7 +40,7 @@ fn parse_status(status_str: &str) -> Result<IssueStatus, BeadsError> {
 /// # Errors
 ///
 /// Returns `BeadsError` if the `PRAGMA` statement fails.
-async fn enable_wal_mode(pool: &SqlitePool) -> std::result::Result<(), BeadsError> {
+pub(crate) async fn enable_wal_mode(pool: &SqlitePool) -> std::result::Result<(), BeadsError> {
     sqlx::query("PRAGMA journal_mode=WAL;")
         .execute(pool)
         .await
@@ -55,7 +55,9 @@ async fn enable_wal_mode(pool: &SqlitePool) -> std::result::Result<(), BeadsErro
 /// # Errors
 ///
 /// Returns `BeadsError` if any required field is missing or malformed
-fn parse_bead_row(row: &sqlx::sqlite::SqliteRow) -> std::result::Result<BeadIssue, BeadsError> {
+pub(crate) fn parse_bead_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> std::result::Result<BeadIssue, BeadsError> {
     let status_str: String = row
         .try_get(2)
         .map_err(|e: sqlx::Error| BeadsError::QueryFailed(e.to_string()))?;
