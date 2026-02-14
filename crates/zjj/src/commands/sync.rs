@@ -95,7 +95,7 @@ async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionD
                  Run 'zjj init' in the main repository first."
             );
 
-            let db_path = super::get_db_path().await?;
+            let db_path = resolve_main_repo_db_path(&main_repo_path).await?;
 
             // Security: Verify database is not a symlink
             if db_path.is_symlink() {
@@ -114,6 +114,22 @@ async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionD
             get_session_db().await
         }
     }
+}
+
+async fn resolve_main_repo_db_path(main_repo_path: &str) -> Result<std::path::PathBuf> {
+    if let Ok(env_db) = std::env::var("ZJJ_STATE_DB") {
+        return Ok(std::path::PathBuf::from(env_db));
+    }
+
+    if let Ok(cfg) = zjj_core::config::load_config().await {
+        let cfg_path = std::path::PathBuf::from(cfg.state_db);
+        if cfg_path.is_absolute() {
+            return Ok(cfg_path);
+        }
+        return Ok(Path::new(main_repo_path).join(cfg_path));
+    }
+
+    Ok(Path::new(main_repo_path).join(".zjj").join("state.db"))
 }
 
 /// Options for the sync command
