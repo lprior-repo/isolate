@@ -110,20 +110,10 @@ pub async fn run(
         .map(|session| {
             let beads_str = beads_str.clone();
             async move {
-                let workspace_ok = workspace_exists(&session.workspace_path).await;
-                let changes = if workspace_ok {
-                    get_session_changes(&session.workspace_path).await
-                } else {
-                    None
-                };
-                let status = if workspace_ok {
-                    session.status.to_string()
-                } else {
-                    "stale".to_string()
-                };
+                let changes = get_session_changes(&session.workspace_path).await;
                 SessionListItem {
                     name: session.name.clone(),
-                    status,
+                    status: session.status.to_string(),
                     branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
                     changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
                     beads: beads_str,
@@ -144,14 +134,7 @@ pub async fn run(
     Ok(())
 }
 
-/// Check if workspace directory exists
-async fn workspace_exists(workspace_path: &str) -> bool {
-    let path = Path::new(workspace_path);
-    tokio::fs::try_exists(path).await.is_ok_and(|v| v)
-}
-
 /// Get the number of changes in a workspace
-/// Returns None if workspace doesn't exist or status can't be determined
 async fn get_session_changes(workspace_path: &str) -> Option<usize> {
     let path = Path::new(workspace_path);
 

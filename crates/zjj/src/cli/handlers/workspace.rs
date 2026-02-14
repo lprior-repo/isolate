@@ -87,6 +87,7 @@ pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
         merge: sub_m.get_flag("merge"),
         keep_branch: sub_m.get_flag("keep-branch"),
         idempotent: sub_m.get_flag("idempotent"),
+        dry_run: sub_m.get_flag("dry-run"),
         format,
     };
     remove::run_with_options(name, &options).await
