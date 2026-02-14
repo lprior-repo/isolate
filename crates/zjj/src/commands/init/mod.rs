@@ -2,7 +2,8 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
+use fs4::tokio::AsyncFileExt;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::db::SessionDb;
@@ -54,7 +55,7 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     check_dependencies().await?;
 
     // Initialize JJ repo if needed
-    ensure_jj_repo_with_cwd(&cwd).await?;
+    ensure_jj_repo_with_cwd(&cwd, format.is_json()).await?;
 
     // Get the repo root using the provided cwd
     let root = jj_root_with_cwd(&cwd).await?;
@@ -102,6 +103,54 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
             .context("Failed to create .zjj directory")?;
     }
 
+    // Acquire exclusive lock to prevent concurrent initialization
+    let lock_path = zjj_dir.join(".init.lock");
+    let lock_file = tokio::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&lock_path)
+        .await
+        .context("Failed to create lock file")?;
+
+    // Try to acquire exclusive lock (non-blocking)
+    if lock_file.try_lock_exclusive().is_err() {
+        bail!("Another zjj init is already in progress. Please wait for it to complete.");
+    }
+
+    // Double-check initialization status after acquiring lock
+    let is_now_initialized = tokio::fs::try_exists(&config_path).await.unwrap_or(false)
+        && tokio::fs::try_exists(&layouts_dir).await.unwrap_or(false)
+        && tokio::fs::try_exists(&db_path).await.unwrap_or(false);
+
+    if is_now_initialized {
+        // Another process completed initialization while we waited
+        let _ = lock_file.unlock();
+        let _ = tokio::fs::remove_file(&lock_path).await;
+
+        let response = InitResponse {
+            message: "zjj already initialized in this repository.".to_string(),
+            root: root.display().to_string(),
+            paths: InitPaths {
+                data_directory: ".zjj/".to_string(),
+                config: ".zjj/config.toml".to_string(),
+                state_db: ".zjj/state.db".to_string(),
+                layouts: ".zjj/layouts/".to_string(),
+            },
+            jj_initialized: true,
+            already_initialized: true,
+        };
+
+        if format.is_json() {
+            let envelope = SchemaEnvelope::new("init-response", "single", response);
+            println!("{}", serde_json::to_string(&envelope)?);
+        } else {
+            println!("zjj already initialized in this repository.");
+        }
+
+        return Ok(());
+    }
+
     // Create config.toml if missing
     if !tokio::fs::try_exists(&config_path).await.unwrap_or(false) {
         tokio::fs::write(&config_path, DEFAULT_CONFIG)
@@ -144,6 +193,10 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // Initialize the database (create if it doesn't exist)
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
+
+    // Release lock and clean up lock file
+    let _ = lock_file.unlock();
+    let _ = tokio::fs::remove_file(&lock_path).await;
 
     if format.is_json() {
         let response = build_init_response(&root, false);
