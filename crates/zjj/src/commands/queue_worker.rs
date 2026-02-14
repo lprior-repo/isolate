@@ -60,7 +60,9 @@ const EXIT_SUCCESS: i32 = 0;
 const EXIT_ERROR: i32 = 1;
 
 /// Exit code for nothing to process (--once with no pending items).
-const EXIT_NOTHING_TO_DO: i32 = 2;
+///
+/// This is treated as a successful no-op so automation can poll safely.
+const EXIT_NOTHING_TO_DO: i32 = 0;
 
 /// Options for the queue worker command.
 #[derive(Debug, Clone)]
@@ -379,7 +381,7 @@ async fn release_active_claims(
 /// # Exit Codes
 /// - 0: Success (item processed in --once, or clean shutdown in --loop)
 /// - 1: General error
-/// - 2: Nothing to process (--once with no pending items)
+/// - 0: Nothing to process (--once with no pending items)
 pub async fn run_with_options(options: &WorkerOptions) -> Result<i32> {
     let worker_id = resolve_worker_id(options.worker_id.as_deref());
     let queue = get_queue().await?;
@@ -768,7 +770,7 @@ mod tests {
     fn test_exit_codes() {
         assert_eq!(EXIT_SUCCESS, 0);
         assert_eq!(EXIT_ERROR, 1);
-        assert_eq!(EXIT_NOTHING_TO_DO, 2);
+        assert_eq!(EXIT_NOTHING_TO_DO, 0);
     }
 
     #[test]

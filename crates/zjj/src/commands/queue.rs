@@ -740,29 +740,7 @@ async fn handle_status_id(
     let entry = queue.get_by_id(queue_id).await?;
 
     let Some(entry) = entry else {
-        let message = format!("Queue entry with ID {} not found", queue_id);
-        if options.format.is_json() {
-            let output = QueueStatusIdOutput {
-                entry: QueueEntryOutput {
-                    id: queue_id,
-                    workspace: String::new(),
-                    bead_id: None,
-                    priority: 0,
-                    status: String::new(),
-                    added_at: 0,
-                    started_at: None,
-                    completed_at: None,
-                    error_message: Some(message.clone()),
-                    agent_id: None,
-                },
-                events: Vec::new(),
-                message,
-            };
-            print_queue_envelope("queue-status-id-response", &output)?;
-        } else {
-            println!("{message}");
-        }
-        return Ok(());
+        anyhow::bail!("queue entry not found: {queue_id}");
     };
 
     let events = queue.fetch_events(queue_id).await?;

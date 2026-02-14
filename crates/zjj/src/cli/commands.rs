@@ -1,6 +1,6 @@
 //! CLI command definitions using `clap`
 
-use clap::{Arg, Command as ClapCommand};
+use clap::{Arg, ArgGroup, Command as ClapCommand};
 
 use crate::cli::json_docs;
 
@@ -1225,6 +1225,7 @@ pub fn cmd_query() -> ClapCommand {
 pub fn cmd_queue() -> ClapCommand {
     ClapCommand::new("queue")
         .about("Manage merge queue for multi-agent coordination")
+        .args_conflicts_with_subcommands(true)
         .long_about(
             "Manage the merge queue that coordinates sequential processing of workspaces.
 
@@ -1251,6 +1252,23 @@ pub fn cmd_queue() -> ClapCommand {
             ],
             None,
         ))
+        .group(
+            ArgGroup::new("queue-action")
+                .args([
+                    "add",
+                    "list",
+                    "next",
+                    "process",
+                    "remove",
+                    "status",
+                    "status-id",
+                    "cancel",
+                    "retry",
+                    "stats",
+                    "reclaim-stale",
+                ])
+                .multiple(false),
+        )
         .subcommand(cmd_queue_list())
         .subcommand(cmd_queue_worker())
         .arg(
@@ -1313,21 +1331,21 @@ pub fn cmd_queue() -> ClapCommand {
             Arg::new("status-id")
                 .long("status-id")
                 .value_name("ID")
-                .value_parser(clap::value_parser!(i64))
+                .value_parser(clap::value_parser!(i64).range(1..))
                 .help("Show detailed status for queue entry with events"),
         )
         .arg(
             Arg::new("cancel")
                 .long("cancel")
                 .value_name("ID")
-                .value_parser(clap::value_parser!(i64))
+                .value_parser(clap::value_parser!(i64).range(1..))
                 .help("Cancel a non-terminal queue entry (releases worker lease)"),
         )
         .arg(
             Arg::new("retry")
                 .long("retry")
                 .value_name("ID")
-                .value_parser(clap::value_parser!(i64))
+                .value_parser(clap::value_parser!(i64).range(1..))
                 .help("Retry a failed_retryable entry (must be retryable and under max_attempts)"),
         )
         .arg(
@@ -1340,7 +1358,7 @@ pub fn cmd_queue() -> ClapCommand {
             Arg::new("reclaim-stale")
                 .long("reclaim-stale")
                 .value_name("SECS")
-                .value_parser(clap::value_parser!(i64))
+                .value_parser(clap::value_parser!(i64).range(0..))
                 .num_args(0..=1)
                 .default_missing_value("300")
                 .help("Reclaim entries with expired leases (default: 300s threshold)"),
@@ -1404,12 +1422,14 @@ pub fn cmd_queue_worker() -> ClapCommand {
             Arg::new("loop")
                 .long("loop")
                 .action(clap::ArgAction::SetTrue)
+                .conflicts_with("once")
                 .help("Run continuously, processing items until interrupted"),
         )
         .arg(
             Arg::new("once")
                 .long("once")
                 .action(clap::ArgAction::SetTrue)
+                .conflicts_with("loop")
                 .help("Process exactly one item, then exit"),
         )
         .arg(
@@ -1424,6 +1444,7 @@ pub fn cmd_queue_worker() -> ClapCommand {
             Arg::new("worker-id")
                 .long("worker-id")
                 .value_name("ID")
+                .value_parser(clap::builder::ValueParser::new(parse_worker_id))
                 .help("Unique worker identifier (default: hostname-pid)"),
         )
         .arg(
@@ -1432,6 +1453,14 @@ pub fn cmd_queue_worker() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+}
+
+fn parse_worker_id(value: &str) -> Result<String, String> {
+    if value.trim().is_empty() {
+        Err("worker id must not be empty or whitespace".to_string())
+    } else {
+        Ok(value.to_string())
+    }
 }
 
 pub fn cmd_context() -> ClapCommand {

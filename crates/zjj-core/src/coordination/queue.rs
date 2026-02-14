@@ -3110,6 +3110,240 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_concurrent_retry_on_same_entry_allows_single_winner() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+        let resp = queue.add("ws-retry-race", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'failed_retryable', attempt_count = 0 WHERE id = ?1",
+        )
+        .bind(entry_id)
+        .execute(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to prepare retry race entry: {e}")))?;
+
+        let queue1 = queue.clone();
+        let queue2 = queue.clone();
+        let queue3 = queue.clone();
+        let queue4 = queue.clone();
+        let queue5 = queue.clone();
+
+        let h1 = tokio::spawn(async move { queue1.retry_entry(entry_id).await });
+        let h2 = tokio::spawn(async move { queue2.retry_entry(entry_id).await });
+        let h3 = tokio::spawn(async move { queue3.retry_entry(entry_id).await });
+        let h4 = tokio::spawn(async move { queue4.retry_entry(entry_id).await });
+        let h5 = tokio::spawn(async move { queue5.retry_entry(entry_id).await });
+
+        let (r1, r2, r3, r4, r5) = tokio::join!(h1, h2, h3, h4, h5);
+        let results = [
+            r1.map_err(|e| Error::DatabaseError(format!("Task 1 join failed: {e}")))?,
+            r2.map_err(|e| Error::DatabaseError(format!("Task 2 join failed: {e}")))?,
+            r3.map_err(|e| Error::DatabaseError(format!("Task 3 join failed: {e}")))?,
+            r4.map_err(|e| Error::DatabaseError(format!("Task 4 join failed: {e}")))?,
+            r5.map_err(|e| Error::DatabaseError(format!("Task 5 join failed: {e}")))?,
+        ];
+
+        let success_count = results.iter().filter(|r| r.is_ok()).count();
+        assert_eq!(success_count, 1, "Exactly one retry should win");
+
+        for outcome in results.iter().filter_map(|r| r.as_ref().err()) {
+            assert!(
+                matches!(
+                    outcome,
+                    QueueControlError::NotRetryable { .. }
+                        | QueueControlError::MaxAttemptsExceeded { .. }
+                ),
+                "Losers should fail with retry-state errors, got: {outcome:?}"
+            );
+        }
+
+        let final_entry = queue.get_by_id(entry_id).await?.ok_or_else(|| {
+            Error::DatabaseError("Expected entry to exist after retry race".to_string())
+        })?;
+        assert_eq!(final_entry.status, QueueStatus::Pending);
+        assert_eq!(final_entry.attempt_count, 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_retry_and_cancel_race_never_leaves_failed_retryable() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+        let resp = queue.add("ws-retry-cancel-race", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'failed_retryable', attempt_count = 0 WHERE id = ?1",
+        )
+        .bind(entry_id)
+        .execute(&queue.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!("Failed to prepare retry/cancel race entry: {e}"))
+        })?;
+
+        let queue_retry = queue.clone();
+        let queue_cancel = queue.clone();
+        let retry_handle = tokio::spawn(async move { queue_retry.retry_entry(entry_id).await });
+        let cancel_handle = tokio::spawn(async move { queue_cancel.cancel_entry(entry_id).await });
+
+        let retry_result = retry_handle
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Retry task join failed: {e}")))?;
+        let cancel_result = cancel_handle
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Cancel task join failed: {e}")))?;
+
+        assert!(
+            retry_result.is_ok() || cancel_result.is_ok(),
+            "At least one operation should succeed"
+        );
+
+        let final_entry = queue.get_by_id(entry_id).await?.ok_or_else(|| {
+            Error::DatabaseError("Expected entry to exist after retry/cancel race".to_string())
+        })?;
+
+        assert!(
+            matches!(
+                final_entry.status,
+                QueueStatus::Pending | QueueStatus::Cancelled
+            ),
+            "Final state must be pending or cancelled, got: {:?}",
+            final_entry.status
+        );
+        assert_ne!(final_entry.status, QueueStatus::FailedRetryable);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_reclaim_stale_parallel_reclaims_single_claimed_entry_once() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+        let resp = queue.add("ws-reclaim-race", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        let old_timestamp = MergeQueue::now() - 10_000;
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'claimed', started_at = ?1, agent_id = 'agent-x' WHERE id = ?2",
+        )
+        .bind(old_timestamp)
+        .bind(entry_id)
+        .execute(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to prepare reclaim race entry: {e}")))?;
+
+        let queue1 = queue.clone();
+        let queue2 = queue.clone();
+        let queue3 = queue.clone();
+        let queue4 = queue.clone();
+        let queue5 = queue.clone();
+
+        let h1 = tokio::spawn(async move { queue1.reclaim_stale(300).await });
+        let h2 = tokio::spawn(async move { queue2.reclaim_stale(300).await });
+        let h3 = tokio::spawn(async move { queue3.reclaim_stale(300).await });
+        let h4 = tokio::spawn(async move { queue4.reclaim_stale(300).await });
+        let h5 = tokio::spawn(async move { queue5.reclaim_stale(300).await });
+
+        let (r1, r2, r3, r4, r5) = tokio::join!(h1, h2, h3, h4, h5);
+        let reclaimed_counts = [
+            r1.map_err(|e| Error::DatabaseError(format!("Reclaim task 1 join failed: {e}")))??,
+            r2.map_err(|e| Error::DatabaseError(format!("Reclaim task 2 join failed: {e}")))??,
+            r3.map_err(|e| Error::DatabaseError(format!("Reclaim task 3 join failed: {e}")))??,
+            r4.map_err(|e| Error::DatabaseError(format!("Reclaim task 4 join failed: {e}")))??,
+            r5.map_err(|e| Error::DatabaseError(format!("Reclaim task 5 join failed: {e}")))??,
+        ];
+
+        let total_reclaimed: usize = reclaimed_counts.into_iter().sum();
+        assert_eq!(
+            total_reclaimed, 1,
+            "Only one reclaim should affect one entry"
+        );
+
+        let final_entry = queue.get_by_id(entry_id).await?.ok_or_else(|| {
+            Error::DatabaseError("Expected entry to exist after reclaim race".to_string())
+        })?;
+
+        assert_eq!(final_entry.status, QueueStatus::Pending);
+        assert!(final_entry.started_at.is_none());
+        assert!(final_entry.agent_id.is_none());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_reclaim_stale_does_not_touch_fresh_claimed_entries() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+        let resp = queue.add("ws-fresh-claim", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        let now = MergeQueue::now();
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'claimed', started_at = ?1, agent_id = 'agent-fresh' WHERE id = ?2",
+        )
+        .bind(now)
+        .bind(entry_id)
+        .execute(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to prepare fresh claim entry: {e}")))?;
+
+        let reclaimed = queue.reclaim_stale(300).await?;
+        assert_eq!(reclaimed, 0, "Fresh claims must not be reclaimed");
+
+        let final_entry = queue.get_by_id(entry_id).await?.ok_or_else(|| {
+            Error::DatabaseError("Expected entry to exist after fresh reclaim check".to_string())
+        })?;
+
+        assert_eq!(final_entry.status, QueueStatus::Claimed);
+        assert_eq!(final_entry.agent_id.as_deref(), Some("agent-fresh"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancel_and_reclaim_stale_race_converges_to_cancelled() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+        let resp = queue.add("ws-cancel-reclaim-race", None, 5, None).await?;
+        let entry_id = resp.entry.id;
+
+        let old_timestamp = MergeQueue::now() - 10_000;
+        sqlx::query(
+            "UPDATE merge_queue SET status = 'claimed', started_at = ?1, agent_id = 'agent-stale' WHERE id = ?2",
+        )
+        .bind(old_timestamp)
+        .bind(entry_id)
+        .execute(&queue.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to prepare cancel/reclaim race entry: {e}")))?;
+
+        let queue_cancel = queue.clone();
+        let queue_reclaim = queue.clone();
+
+        let cancel_handle = tokio::spawn(async move { queue_cancel.cancel_entry(entry_id).await });
+        let reclaim_handle = tokio::spawn(async move { queue_reclaim.reclaim_stale(300).await });
+
+        let cancel_result = cancel_handle
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Cancel task join failed: {e}")))?;
+        let _ = reclaim_handle
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Reclaim task join failed: {e}")))??;
+
+        assert!(
+            cancel_result.is_ok(),
+            "Cancelling stale claimed entries should succeed"
+        );
+
+        let final_entry = queue.get_by_id(entry_id).await?.ok_or_else(|| {
+            Error::DatabaseError("Expected entry to exist after cancel/reclaim race".to_string())
+        })?;
+
+        assert_eq!(final_entry.status, QueueStatus::Cancelled);
+
+        Ok(())
+    }
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // CANCEL ENTRY TESTS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
