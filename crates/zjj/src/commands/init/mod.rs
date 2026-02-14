@@ -1,7 +1,8 @@
 //! Initialize ZJJ - sets up everything needed
 
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use fs4::fs_std::FileExt;
@@ -12,89 +13,6 @@ use crate::db::SessionDb;
 mod deps;
 mod setup;
 mod types;
-
-// ============================================================================
-// InitLock - RAII guard for init lock file
-// ============================================================================
-
-/// Lock file timeout - after this duration, a stale lock is considered abandoned
-const STALE_LOCK_TIMEOUT_SECS: u64 = 60;
-
-/// RAII guard that ensures lock file cleanup on drop (including error paths)
-struct InitLock {
-    file: std::fs::File,
-    path: PathBuf,
-    released: bool,
-}
-
-impl InitLock {
-    /// Acquire exclusive lock, handling stale locks and symlink attacks
-    fn acquire(lock_path: PathBuf) -> Result<Self> {
-        // Protect against symlink attacks: verify lock file is not a symlink
-        if let Ok(metadata) = std::fs::symlink_metadata(&lock_path) {
-            if metadata.is_symlink() {
-                bail!(
-                    "Security: {} is a symlink. Remove it and re-run zjj init.",
-                    lock_path.display()
-                );
-            }
-        }
-
-        // Check for stale lock file before attempting acquisition
-        if let Ok(metadata) = std::fs::metadata(&lock_path) {
-            if let Ok(modified) = metadata.modified() {
-                if let Ok(elapsed) = modified.elapsed() {
-                    if elapsed > Duration::from_secs(STALE_LOCK_TIMEOUT_SECS) {
-                        // Stale lock - safe to remove
-                        let _ = std::fs::remove_file(&lock_path);
-                    }
-                }
-            }
-        }
-
-        // Open lock file without truncate to avoid clobbering symlink targets
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(&lock_path)
-            .with_context(|| format!("Failed to create lock file at {}", lock_path.display()))?;
-
-        // Try to acquire exclusive lock (blocking)
-        file.lock_exclusive()
-            .with_context(|| {
-                format!(
-                    "Another zjj init is in progress. If this is incorrect, remove {} and retry.",
-                    lock_path.display()
-                )
-            })?;
-
-        Ok(Self {
-            file,
-            path: lock_path,
-            released: false,
-        })
-    }
-
-    /// Explicitly release the lock (keeps file on disk to prevent inode races)
-    fn release(mut self) -> Result<()> {
-        if !self.released {
-            self.released = true;
-            // Release lock but keep file on disk (file locks are inode-based)
-            self.file.unlock().context("Failed to release lock")?;
-        }
-        Ok(())
-    }
-}
-
-impl Drop for InitLock {
-    fn drop(&mut self) {
-        if !self.released {
-            // Best-effort lock release on drop (e.g., due to error)
-            // Keep file on disk to prevent inode-based race conditions
-            let _ = self.file.unlock();
-        }
-    }
-}
 
 use deps::{check_dependencies, ensure_jj_repo_with_cwd, jj_root_with_cwd};
 use setup::{
@@ -188,13 +106,56 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     }
 
     // Acquire exclusive lock to prevent concurrent initialization
-    // Uses spawn_blocking to avoid blocking Tokio executor
     let lock_path = zjj_dir.join(".init.lock");
-    let lock_path_clone = lock_path.clone();
 
-    let init_lock = tokio::task::spawn_blocking(move || InitLock::acquire(lock_path_clone))
-        .await
-        .context("Lock acquisition task panicked")??;
+    // Use spawn_blocking to avoid blocking Tokio executor on lock acquisition
+    let lock_path_clone = lock_path.clone();
+    let lock_file = tokio::task::spawn_blocking(move || -> Result<std::fs::File> {
+        let is_symlink = match std::fs::symlink_metadata(&lock_path_clone) {
+            Ok(metadata) => metadata.is_symlink(),
+            Err(_) => false,
+        };
+        if is_symlink {
+            bail!("Security: .zjj/.init.lock is a symlink. Remove it and re-run zjj init.");
+        }
+
+        let mut open_options = std::fs::OpenOptions::new();
+        open_options
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false);
+
+        #[cfg(unix)]
+        {
+            open_options.custom_flags(libc::O_NOFOLLOW);
+        }
+
+        // Protect against symlink attacks and avoid truncating lock targets.
+        let file = open_options
+            .open(&lock_path_clone)
+            .with_context(|| format!("Failed to open lock file at {}", lock_path_clone.display()))
+            .or_else(|error| {
+                let symlink_detected = match std::fs::symlink_metadata(&lock_path_clone) {
+                    Ok(metadata) => metadata.is_symlink(),
+                    Err(_) => false,
+                };
+
+                if symlink_detected {
+                    bail!("Security: .zjj/.init.lock is a symlink. Remove it and re-run zjj init.");
+                }
+
+                Err(error)
+            })?;
+
+        // Acquire exclusive lock (blocking - waits for other init to complete)
+        file.lock_exclusive()
+            .context("Failed to acquire init lock")?;
+
+        Ok(file)
+    })
+    .await
+    .context("Lock task panicked")??;
 
     // Double-check initialization status after acquiring lock
     let is_now_initialized = tokio::fs::try_exists(&config_path).await.unwrap_or(false)
@@ -203,8 +164,8 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
 
     if is_now_initialized {
         // Another process completed initialization while we waited
-        // RAII guard handles cleanup on drop
-        drop(init_lock);
+        // Release lock but keep file on disk (file locks are inode-based)
+        let _ = lock_file.unlock();
 
         let response = InitResponse {
             message: "zjj already initialized in this repository.".to_string(),
@@ -272,8 +233,8 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
 
-    // Release lock explicitly (RAII guard also handles cleanup on drop)
-    init_lock.release().context("Failed to release init lock")?;
+    // Release lock but keep file on disk (file locks are inode-based)
+    let _ = lock_file.unlock();
 
     if format.is_json() {
         let response = build_init_response(&root, false);
