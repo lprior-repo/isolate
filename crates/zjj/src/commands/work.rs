@@ -582,6 +582,91 @@ mod tests {
         assert!(!var_names.contains(&"ZJJ_BEAD_ID"));
     }
 
+    mod martin_fowler_work_env_matrix_behavior {
+        use super::*;
+
+        struct EnvCase {
+            name: &'static str,
+            agent: Option<&'static str>,
+            bead: Option<&'static str>,
+            expect_agent_var: bool,
+            expect_bead_var: bool,
+        }
+
+        /// GIVEN: a matrix of agent/bead combinations
+        /// WHEN: work environment variables are built
+        /// THEN: optional environment variables should appear only when their inputs are provided
+        #[test]
+        fn given_agent_bead_matrix_when_building_env_vars_then_optional_vars_follow_inputs() {
+            let cases = [
+                EnvCase {
+                    name: "no agent no bead",
+                    agent: None,
+                    bead: None,
+                    expect_agent_var: false,
+                    expect_bead_var: false,
+                },
+                EnvCase {
+                    name: "agent only",
+                    agent: Some("agent-1"),
+                    bead: None,
+                    expect_agent_var: true,
+                    expect_bead_var: false,
+                },
+                EnvCase {
+                    name: "bead only",
+                    agent: None,
+                    bead: Some("zjj-123"),
+                    expect_agent_var: false,
+                    expect_bead_var: true,
+                },
+                EnvCase {
+                    name: "agent and bead",
+                    agent: Some("agent-2"),
+                    bead: Some("zjj-456"),
+                    expect_agent_var: true,
+                    expect_bead_var: true,
+                },
+            ];
+
+            for case in cases {
+                let vars = build_env_vars(
+                    "session-x",
+                    Path::new("/tmp/session-x"),
+                    case.agent,
+                    case.bead,
+                );
+
+                let has_agent = vars.iter().any(|v| v.name == "ZJJ_AGENT_ID");
+                let has_bead = vars.iter().any(|v| v.name == "ZJJ_BEAD_ID");
+
+                assert_eq!(
+                    has_agent, case.expect_agent_var,
+                    "case '{}' agent var mismatch",
+                    case.name
+                );
+                assert_eq!(
+                    has_bead, case.expect_bead_var,
+                    "case '{}' bead var mismatch",
+                    case.name
+                );
+            }
+        }
+
+        /// GIVEN: generated work environment variables
+        /// WHEN: checking baseline variables
+        /// THEN: core session variables should always be present
+        #[test]
+        fn given_work_env_vars_when_built_then_core_variables_are_always_present() {
+            let vars = build_env_vars("session-core", Path::new("/tmp/session-core"), None, None);
+            let names: Vec<&str> = vars.iter().map(|v| v.name.as_str()).collect();
+
+            assert!(names.contains(&"ZJJ_SESSION"));
+            assert!(names.contains(&"ZJJ_WORKSPACE"));
+            assert!(names.contains(&"ZJJ_ACTIVE"));
+        }
+    }
+
     /// Test `enter_command` format
     #[test]
     fn test_work_enter_command_format() {

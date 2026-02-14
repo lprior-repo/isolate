@@ -2718,6 +2718,7 @@ pub fn cmd_wait() -> ClapCommand {
             Arg::new("timeout")
                 .short('t')
                 .long("timeout")
+                .value_parser(clap::value_parser!(u64).range(1..))
                 .default_value("30")
                 .help("Timeout in seconds"),
         )
@@ -2725,6 +2726,7 @@ pub fn cmd_wait() -> ClapCommand {
             Arg::new("interval")
                 .short('i')
                 .long("interval")
+                .value_parser(clap::value_parser!(u64).range(1..))
                 .default_value("1")
                 .help("Polling interval in seconds"),
         )
