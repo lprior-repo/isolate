@@ -27,3 +27,21 @@
 - [Parallel Workflow](./ai/parallel-workflow.md)
 - [Session Completion](./ai/session-completion.md)
 - [Environment Variables](./ai/environment.md)
+
+---
+
+# Reference
+
+(Coming soon - command reference, configuration, error codes)
+
+---
+
+# Development
+
+(Coming soon - building from source, contributing, standards)
+
+---
+
+# Operations
+
+(Coming soon - troubleshooting, queue operations, performance tuning)
