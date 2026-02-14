@@ -39,6 +39,7 @@
 mod common;
 
 use std::{
+    path::PathBuf,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -48,6 +49,17 @@ use std::{
 
 use tokio::sync::Barrier;
 use zjj_core::{jj_operation_sync::create_workspace_synced, Error, Result};
+
+fn resolve_repo_root() -> Result<PathBuf> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = manifest_dir
+        .parent()
+        .and_then(std::path::Path::parent)
+        .map(std::path::Path::to_path_buf)
+        .ok_or_else(|| Error::IoError("Failed to derive repository root".to_string()))?;
+
+    Ok(repo_root)
+}
 
 /// Test concurrent workspace creation with 12 parallel tasks
 ///
@@ -68,7 +80,7 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
         .as_nanos();
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
-    let repo_root = std::env::current_dir()?;
+    let repo_root = resolve_repo_root()?;
 
     let mut handles = vec![];
 
@@ -188,7 +200,7 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
         .as_nanos();
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-staggered-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
-    let repo_root = std::env::current_dir()?;
+    let repo_root = resolve_repo_root()?;
 
     let mut handles = vec![];
 
@@ -306,7 +318,7 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
         .as_nanos();
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-retry-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
-    let repo_root = std::env::current_dir()?;
+    let repo_root = resolve_repo_root()?;
 
     let mut handles = vec![];
 
@@ -426,7 +438,7 @@ async fn stress_workspace_serialization() -> Result<()> {
         .as_nanos();
     let base_path = std::env::current_dir()?.join(format!("test-workspaces-serialize-{}", test_id));
     tokio::fs::create_dir_all(&base_path).await?;
-    let repo_root = std::env::current_dir()?;
+    let repo_root = resolve_repo_root()?;
 
     let mut handles = vec![];
 
