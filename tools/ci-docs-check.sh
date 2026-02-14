@@ -147,14 +147,14 @@ validate_docs_exist() {
 	local docs_errors=0
 
 	# List of expected documentation files
-	local expected_docs=(
-		"13_AGENT_CRITICAL_RULES.md"
-		"14_AGENT_QUICK_REFERENCE.md"
-		"15_AGENT_PROJECT_CONTEXT.md"
-		"16_AGENT_PARALLEL_WORKFLOW.md"
-		"17_AGENT_SESSION_COMPLETION.md"
-		"18_AGENT_BV_REFERENCE.md"
-	)
+	# Note: Agent-related documentation (13-18) has been archived and is no longer required
+	local expected_docs=()
+
+	# If no expected docs are configured, this check passes
+	if [[ ${#expected_docs[@]} -eq 0 ]]; then
+		log_warn "No required documentation files configured in ci-docs-check.sh"
+		return 0
+	fi
 
 	for doc in "${expected_docs[@]}"; do
 		local doc_path="$docs_dir/$doc"

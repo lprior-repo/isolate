@@ -52,6 +52,8 @@ pub mod config;
 pub mod contracts;
 pub mod coordination;
 mod error;
+#[cfg(test)]
+mod error_tests;
 pub mod fix;
 pub mod functional;
 pub mod hints;
@@ -60,6 +62,8 @@ pub mod introspection;
 pub mod jj;
 pub mod jj_operation_sync;
 pub mod json;
+#[cfg(test)]
+mod json_tests;
 pub mod kdl_validation;
 pub mod lifecycle;
 pub mod moon_gates;
@@ -67,10 +71,16 @@ mod output_format;
 pub mod recovery;
 pub mod result;
 pub mod session_state;
+#[cfg(test)]
+mod session_state_tests;
 pub mod shutdown;
 pub mod taskregistry;
 pub mod templates;
+#[cfg(test)]
+mod templates_tests;
 pub mod types;
+#[cfg(test)]
+mod types_tests;
 pub mod validation;
 pub mod watcher;
 pub mod worker_error;

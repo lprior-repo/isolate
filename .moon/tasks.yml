@@ -163,6 +163,8 @@ tasks:
   docs-check:
     command: "${MOON_WORKSPACE_ROOT}/tools/ci-docs-check.sh"
     description: "Validate zjj command documentation against implementation"
+    deps:
+      - "build"
     inputs:
       - "tools/ci-docs-check.sh"
       - "docs/**/*.md"

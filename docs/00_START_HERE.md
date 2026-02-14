@@ -64,12 +64,12 @@ cargo test         # ❌ Wrong
 ### Starting Work
 
 ```bash
-br claim <issue>   # Claim issue
+br update <issue> --status in_progress  # Claim issue
 # Make changes
 moon run :test     # Test locally
 jj describe -m "feat: description"  # Commit
 jj git push        # Push
-br complete <id>   # Close issue
+br close <id>      # Close issue
 ```
 
 ## Error Handling at a Glance
@@ -81,7 +81,7 @@ br complete <id>   # Close issue
 | Transform error | `.map_err(\|e\| new_e)` |
 | Transform value | `.map(\|v\| new_v)` |
 | Chain operations | `.and_then(\|v\| op(v))` |
-| Provide default | `.unwrap_or(default)` |
+| Provide default | `.unwrap_or_default()` (or better: handle error explicitly) |
 | Log & continue | `.inspect_err(\|e\| log(e))?` |
 
 ## Project Structure
@@ -121,7 +121,7 @@ cargo build --dev
 br list
 
 # Claim an issue
-br claim BD-123
+br update BD-123 --status in_progress
 
 # Make changes (tracked automatically)
 # Your changes are tracked automatically
@@ -140,7 +140,7 @@ jj new
 jj git push
 
 # Close issue
-br complete BD-123
+br close BD-123
 ```
 
 ## The Compiler is Your Friend

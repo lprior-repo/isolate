@@ -12,6 +12,11 @@ mod db;
 mod query;
 mod types;
 
+#[cfg(test)]
+mod db_tests;
+#[cfg(test)]
+mod query_tests;
+
 // Re-export public API
 pub use analysis::{
     all_match, any_match, calculate_critical_path, count_by_status, extract_labels, find_blocked,

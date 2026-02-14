@@ -134,10 +134,12 @@ pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
         .unwrap_or_default();
+    let dry_run = sub_m.get_flag("dry_run");
     let options = validate::ValidateOptions {
         command,
         args,
         format,
+        dry_run,
     };
     validate::run(&options)
 }
