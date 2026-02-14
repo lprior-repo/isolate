@@ -149,9 +149,7 @@ pub async fn handle_events(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
     let session = sub_m.get_one::<String>("session").cloned();
     let event_type = sub_m.get_one::<String>("type").cloned();
-    let limit: Option<usize> = sub_m
-        .get_one::<String>("limit")
-        .and_then(|s| s.parse::<usize>().ok());
+    let limit = sub_m.get_one::<usize>("limit").copied();
     let follow = sub_m.get_flag("follow");
     let options = events::EventsOptions {
         session,

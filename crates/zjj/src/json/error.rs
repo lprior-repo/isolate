@@ -162,7 +162,10 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
         ErrorCode::ZellijCommandFailed
     } else if error_str.contains("workspace") && error_str.contains("not found") {
         ErrorCode::WorkspaceNotFound
-    } else if error_str.contains("Not in workspace") || error_str.contains("not in a workspace") {
+    } else if error_str.contains("Not in workspace")
+        || error_str.contains("Not in a workspace")
+        || error_str.contains("not in a workspace")
+    {
         ErrorCode::InvalidArgument
     } else if error_str.contains("conflict") || error_str.contains("Conflicting") {
         ErrorCode::JjCommandFailed
