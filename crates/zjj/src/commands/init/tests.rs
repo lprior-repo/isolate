@@ -111,7 +111,6 @@ async fn test_init_json_pure_stdout() -> Result<()> {
 
     child.wait().await?;
 
-<<<<<<< HEAD
     // Stricter check: stdout should be PURE JSON only
     // - Must parse as valid JSON
     // - Must start with '{' and end with '}' (no leading/trailing text)
@@ -129,11 +128,6 @@ async fn test_init_json_pure_stdout() -> Result<()> {
 
     let parsed: serde_json::Value =
         serde_json::from_str(trimmed).context("stdout should contain valid JSON only")?;
-=======
-    // Verify stdout contains ONLY valid JSON (no human messages)
-    let parsed: serde_json::Value =
-        serde_json::from_str(&stdout).context("stdout should contain valid JSON only")?;
->>>>>>> origin/main
 
     assert_eq!(
         parsed.get("$schema").and_then(|v| v.as_str()),
@@ -150,13 +144,10 @@ async fn test_init_json_pure_stdout() -> Result<()> {
         !stdout.contains("Initializing"),
         "stdout should not contain human messages"
     );
-<<<<<<< HEAD
     assert!(
         !stdout.contains("Initialized"),
         "stdout should not contain 'Initialized' message"
     );
-=======
->>>>>>> origin/main
 
     Ok(())
 }
@@ -187,16 +178,10 @@ async fn test_init_concurrent_no_corruption() -> Result<()> {
     // Wait for all to complete
     let results: Vec<_> = futures::future::join_all(handles).await;
 
-<<<<<<< HEAD
     // All should complete without panicking, and all tasks should succeed
     for result in results {
         let task_result = result.expect("task should not panic");
         assert!(task_result.is_ok(), "concurrent init should succeed");
-=======
-    // All should complete without panicking
-    for result in results {
-        assert!(result.is_ok(), "concurrent init should not panic");
->>>>>>> origin/main
     }
 
     // Verify state is consistent (no corruption)
@@ -226,17 +211,11 @@ async fn test_init_concurrent_no_corruption() -> Result<()> {
     Ok(())
 }
 
-<<<<<<< HEAD
 /// Test that init lock file persists but is unlocked after init
 #[tokio::test]
 async fn test_init_lock_file_cleanup() -> Result<()> {
     use fs4::fs_std::FileExt;
 
-=======
-/// Test that init lock file is cleaned up properly
-#[tokio::test]
-async fn test_init_lock_file_cleanup() -> Result<()> {
->>>>>>> origin/main
     if !jj_is_available().await {
         return Ok(());
     }
@@ -249,7 +228,6 @@ async fn test_init_lock_file_cleanup() -> Result<()> {
     // Run init
     run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
-<<<<<<< HEAD
     // Verify lock file exists but is unlocked
     let lock_path = temp_dir.path().join(".zjj/.init.lock");
     assert!(
@@ -369,15 +347,6 @@ async fn test_init_lock_cleanup_on_error() -> Result<()> {
     );
     let _ = verify_file.unlock();
 
-=======
-    // Verify lock file does not persist after init completes
-    let lock_path = temp_dir.path().join(".zjj/.init.lock");
-    assert!(
-        !tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
-        "Lock file should be cleaned up after successful init"
-    );
-
->>>>>>> origin/main
     Ok(())
 }
 
