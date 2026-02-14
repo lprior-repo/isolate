@@ -70,6 +70,16 @@ pub async fn handle_done(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_abort(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::abort());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let options = abort::AbortOptions {
         workspace: sub_m.get_one::<String>("workspace").cloned(),
