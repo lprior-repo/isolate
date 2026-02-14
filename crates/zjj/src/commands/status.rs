@@ -276,7 +276,10 @@ async fn get_beads_stats() -> Result<BeadStats> {
 
     let beads_db_path = root.join(".beads").join("beads.db");
 
-    if !tokio::fs::try_exists(&beads_db_path).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(&beads_db_path)
+        .await
+        .map_or(false, |e| e)
+    {
         return Ok(BeadStats::default());
     }
 
@@ -315,8 +318,8 @@ async fn count_issues_by_status(pool: &sqlx::SqlitePool, status: &str) -> Result
             )))
         })?;
 
-    let count_i64 = result.unwrap_or_default();
-    let count = usize::try_from(count_i64).unwrap_or_default();
+    let count_i64 = result.map_or(0, |v| v);
+    let count = usize::try_from(count_i64).map_or(0, |v| v);
 
     Ok(count)
 }

@@ -93,7 +93,10 @@ pub async fn list_database_backups(
         };
 
         // Get file size
-        let size_bytes = fs::metadata(&path).await.map(|m| m.len()).unwrap_or(0);
+        let size_bytes = match fs::metadata(&path).await {
+            Ok(m) => m.len(),
+            Err(_) => 0,
+        };
 
         // Try to load metadata
         let metadata_path = path.with_extension("json");

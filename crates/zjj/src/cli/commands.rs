@@ -97,7 +97,8 @@ pub fn cmd_add() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required_unless_present_any(["example-json", "contract", "ai-hints"])
-                .help("Name for the new session (must start with a letter)"),
+                .help("Name for the new session (must start with a letter)")
+                .allow_hyphen_values(true),
         )
         .arg(
             Arg::new("bead")
@@ -1485,6 +1486,7 @@ pub fn cmd_spawn() -> ClapCommand {
         .after_help(after_help_text(
             &[
                 "zjj spawn zjj-abc12               Spawn workspace for bead with Claude",
+                "zjj spawn zjj-abc12 --idempotent  Reuse existing workspace on retry",
                 "zjj spawn zjj-xyz34 -b            Run agent in background",
                 "zjj spawn zjj-def56 --agent-command=llm-run  Use custom agent",
                 "zjj spawn zjj-ghi78 --no-auto-merge  Don't auto-merge on success",
@@ -1529,6 +1531,12 @@ pub fn cmd_spawn() -> ClapCommand {
                 .short('b')
                 .action(clap::ArgAction::SetTrue)
                 .help("Run agent in background"),
+        )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed when workspace already exists (safe for retries)"),
         )
         .arg(
             Arg::new("timeout")

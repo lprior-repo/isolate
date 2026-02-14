@@ -105,7 +105,6 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
 
     // Acquire exclusive lock to prevent concurrent initialization
     let lock_path = zjj_dir.join(".init.lock");
-
     // Use spawn_blocking to avoid blocking Tokio executor on lock acquisition
     let lock_path_clone = lock_path.clone();
     let lock_file = tokio::task::spawn_blocking(move || -> Result<std::fs::File> {

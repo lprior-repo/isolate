@@ -294,7 +294,7 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
                     // Extract file path from resolve --list output
                     line.split_whitespace()
                         .next()
-                        .unwrap_or_else(|| line.trim())
+                        .map_or_else(|| line.trim(), |v| v)
                         .to_string()
                 })
                 .collect();
@@ -371,7 +371,7 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
                 // Split on first whitespace to separate status from path
                 let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
                 if parts.len() >= 2 {
-                    let file_part = parts.get(1).copied().unwrap_or("");
+                    let file_part = parts.get(1).map_or("", |s| *s);
                     // Handle rename format: "old_path -> new_path"
                     if file_part.contains(" -> ") {
                         // For renames, consider the destination file

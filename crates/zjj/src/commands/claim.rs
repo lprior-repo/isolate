@@ -237,7 +237,7 @@ fn current_timestamp() -> Result<u64> {
 }
 
 fn get_agent_id() -> String {
-    std::env::var("ZJJ_AGENT_ID").unwrap_or_else(|_| format!("pid-{}", std::process::id()))
+    std::env::var("ZJJ_AGENT_ID").map_or_else(|_| format!("pid-{}", std::process::id()), |id| id)
 }
 
 /// Read existing lock info from file
@@ -671,7 +671,7 @@ pub async fn run_claim(options: &ClaimOptions) -> Result<()> {
         let envelope = SchemaEnvelope::new("claim-response", "single", &result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else if result.claimed {
-        if result.is_double_claim.unwrap_or(false) {
+        if result.is_double_claim.map_or(false, |v| v) {
             println!("⚠ Double claim detected for resource '{}'", result.resource);
             if let Some(count) = result.claim_count {
                 println!("  Total claims by you: {count}");
@@ -733,20 +733,20 @@ async fn attempt_yield(lock_path: &std::path::Path, resource: &str, agent_id: &s
             }
 
             // We hold it and PIDs match - release
-            tokio::fs::remove_file(lock_path)
-                .await
-                .map(|()| YieldResult {
+            match tokio::fs::remove_file(lock_path).await {
+                Ok(()) => YieldResult {
                     yielded: true,
                     resource: resource.to_string(),
                     agent_id: Some(agent_id.to_string()),
                     error: None,
-                })
-                .unwrap_or_else(|e| YieldResult {
+                },
+                Err(e) => YieldResult {
                     yielded: false,
                     resource: resource.to_string(),
                     agent_id: Some(agent_id.to_string()),
                     error: Some(format!("Failed to remove lock: {e}")),
-                })
+                },
+            }
         } else {
             // Someone else holds it
             YieldResult {

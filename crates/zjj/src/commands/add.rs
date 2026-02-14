@@ -1047,7 +1047,7 @@ mod tests {
                 let category = flag
                     .category
                     .as_deref()
-                    .unwrap_or("Uncategorized")
+                    .map_or("Uncategorized", |c| c)
                     .to_string();
 
                 acc.entry(category).or_default().push(flag);

@@ -6,7 +6,7 @@
 use std::{
     collections::BTreeSet,
     fs::{self, File},
-    path::Path,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
@@ -17,7 +17,6 @@ use serde::Serialize;
 use sqlx::Row;
 use tar::Builder;
 use tracing::warn;
-use walkdir::WalkDir;
 use zjj_core::OutputFormat;
 
 use crate::{
@@ -112,19 +111,11 @@ fn checkpoint_max_backup_size_bytes() -> u64 {
         .unwrap_or(DEFAULT_MAX_BACKUP_SIZE)
 }
 
-fn walkdir_size(path: &Path) -> u64 {
-    let mut total_size = 0u64;
-    for entry in WalkDir::new(path)
-        .into_iter()
-        .filter_map(|e: Result<walkdir::DirEntry, _>| e.ok())
-    {
-        if entry.file_type().is_file() {
-            if let Ok(metadata) = entry.metadata() {
-                total_size += metadata.len();
-            }
-        }
-    }
-    total_size
+fn checkpoint_backup_dir() -> PathBuf {
+    std::env::var("ZJJ_CHECKPOINT_BACKUP_DIR")
+        .ok()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(CHECKPOINT_BACKUP_DIR))
 }
 
 // ── Public entry point ───────────────────────────────────────────────
@@ -350,13 +341,21 @@ async fn create_checkpoint(
     db: &SessionDb,
     description: Option<&str>,
 ) -> Result<CheckpointResponse> {
+    let backup_dir = checkpoint_backup_dir();
+    create_checkpoint_with_backup_dir(db, description, &backup_dir).await
+}
+
+async fn create_checkpoint_with_backup_dir(
+    db: &SessionDb,
+    description: Option<&str>,
+    backup_dir: &Path,
+) -> Result<CheckpointResponse> {
     let pool = db.pool();
     let sessions = db.list(None).await.map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let checkpoint_id = generate_checkpoint_id()?;
 
     // Ensure backup directory exists
-    let backup_dir = Path::new(CHECKPOINT_BACKUP_DIR);
     fs::create_dir_all(backup_dir).context("Failed to create checkpoint backup directory")?;
 
     sqlx::query("INSERT INTO checkpoints (checkpoint_id, description) VALUES (?, ?)")
@@ -371,6 +370,7 @@ async fn create_checkpoint(
         .try_for_each(|session| {
             let pool = pool.clone();
             let checkpoint_id = checkpoint_id.clone();
+            let backup_dir = backup_dir.to_path_buf();
             async move {
                 let metadata_json = session
                     .metadata
@@ -384,6 +384,7 @@ async fn create_checkpoint(
                     &session.name,
                     Path::new(&session.workspace_path),
                     &checkpoint_id,
+                    &backup_dir,
                 )
                 .await
                 .context("Failed to backup workspace")?;
@@ -673,6 +674,7 @@ async fn backup_workspace(
     session_name: &str,
     workspace_path: &Path,
     checkpoint_id: &str,
+    backup_dir: &Path,
 ) -> Result<Option<(String, u64)>> {
     let limit = checkpoint_max_backup_size_bytes();
     if limit == 0 {
@@ -685,6 +687,7 @@ async fn backup_workspace(
     let session_name = session_name.to_string();
     let workspace_path = workspace_path.to_path_buf();
     let checkpoint_id = checkpoint_id.to_string();
+    let backup_dir = backup_dir.to_path_buf();
 
     tokio::task::spawn_blocking(move || {
         let workspace_path = workspace_path
@@ -698,20 +701,9 @@ async fn backup_workspace(
             ));
         }
 
-        let disk_usage = walkdir_size(&workspace_path);
-        if disk_usage > limit {
-            warn!(
-                "Workspace {} is {} bytes, exceeds limit of {} bytes; recording metadata only",
-                session_name,
-                disk_usage,
-                limit
-            );
-            return Ok(None);
-        }
-
         // Generate backup filename
         let backup_filename = format!("{checkpoint_id}-{session_name}.tar.gz");
-        let backup_path = Path::new(CHECKPOINT_BACKUP_DIR).join(&backup_filename);
+        let backup_path = backup_dir.join(&backup_filename);
 
         // Create tarball
         let backup_file = File::create(&backup_path)
@@ -861,6 +853,10 @@ fn output_response(response: &CheckpointResponse, format: OutputFormat) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_backup_dir(root: &Path) -> PathBuf {
+        root.join("checkpoint_backups")
+    }
 
     // ── Type Structure Tests ─────────────────────────────────────────────
 
@@ -1085,21 +1081,39 @@ mod tests {
     async fn test_backup_skips_large_workspace_quickly() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let workspace_path = temp_dir.path();
+        let backup_dir = test_backup_dir(temp_dir.path());
+        std::fs::create_dir_all(&backup_dir).expect("Failed to create backup dir");
 
         let small_file = workspace_path.join("small.txt");
         std::fs::write(&small_file, "test data").expect("Failed to write small file");
 
-        let result = backup_workspace("test-large-workspace", workspace_path, "chk-test").await;
+        let backup_path = backup_dir.join("chk-test-test-large-workspace.tar.gz");
+        let _ = std::fs::remove_file(&backup_path);
+
+        let result = backup_workspace(
+            "test-large-workspace",
+            workspace_path,
+            "chk-test",
+            &backup_dir,
+        )
+        .await;
 
         assert!(result.is_ok(), "Backup should succeed for small workspace");
+
+        let _ = std::fs::remove_file(&backup_path);
     }
 
     #[tokio::test]
     async fn test_backup_returns_none_for_missing_workspace() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let backup_dir = test_backup_dir(temp_dir.path());
+        std::fs::create_dir_all(&backup_dir).expect("Failed to create backup dir");
+
         let result = backup_workspace(
             "nonexistent-workspace",
             Path::new("/tmp/this/path/does/not/exist"),
             "chk-test",
+            &backup_dir,
         )
         .await;
 
@@ -1798,7 +1812,8 @@ mod tests {
             .expect("Failed to create session");
 
         // Create checkpoint
-        let response = create_checkpoint(&db, Some("Test checkpoint"))
+        let backup_dir = test_backup_dir(dir.path());
+        let response = create_checkpoint_with_backup_dir(&db, Some("Test checkpoint"), &backup_dir)
             .await
             .expect("Failed to create checkpoint");
 
@@ -1808,8 +1823,7 @@ mod tests {
         };
 
         // Verify backup file exists
-        let backup_path =
-            Path::new(CHECKPOINT_BACKUP_DIR).join(format!("{checkpoint_id}-test-session.tar.gz"));
+        let backup_path = backup_dir.join(format!("{checkpoint_id}-test-session.tar.gz"));
 
         assert!(
             backup_path.exists(),
@@ -1848,6 +1862,8 @@ mod tests {
 
         let restored_repo = workspace.join(".jj/repo.toml");
         assert!(restored_repo.exists(), "JJ repo file should be restored");
+
+        let _ = std::fs::remove_file(&backup_path);
     }
 
     #[tokio::test]

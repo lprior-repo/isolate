@@ -993,10 +993,10 @@ fn test_session_name_starting_with_single_dash() {
     };
     harness.assert_success(&["init"]);
 
-    // Names starting with a single dash are rejected as unexpected argument (bd-3bj)
+    // Names starting with a single dash are parsed and rejected by name validation.
     let result = harness.zjj(&["add", "-foo", "--no-open"]);
     assert!(!result.success, "Should reject name starting with dash");
-    result.assert_output_contains("unexpected argument");
+    result.assert_output_contains("Session name must start with a letter");
 }
 
 #[test]
@@ -1007,10 +1007,10 @@ fn test_session_name_starting_with_double_dash() {
     };
     harness.assert_success(&["init"]);
 
-    // Names starting with double dash are rejected as unexpected argument (bd-3bj)
+    // Names starting with double dash are parsed and rejected by name validation.
     let result = harness.zjj(&["add", "--bar", "--no-open"]);
     assert!(!result.success, "Should reject name starting with --");
-    result.assert_output_contains("unexpected argument");
+    result.assert_output_contains("Session name must start with a letter");
 }
 
 #[test]
@@ -1021,10 +1021,10 @@ fn test_session_name_starting_with_triple_dash() {
     };
     harness.assert_success(&["init"]);
 
-    // Names starting with triple dash are rejected as unexpected argument (bd-3bj)
+    // Names starting with triple dash are parsed and rejected by name validation.
     let result = harness.zjj(&["add", "---baz", "--no-open"]);
     assert!(!result.success, "Should reject name starting with ---");
-    result.assert_output_contains("unexpected argument");
+    result.assert_output_contains("Session name must start with a letter");
 }
 
 #[test]

@@ -582,7 +582,10 @@ async fn run_loop(
                 attempt_count: entry.attempt_count,
                 max_attempts: entry.max_attempts,
             };
-            let active_ref = active_entry.as_ref().unwrap_or(&default_entry);
+            let active_ref = match active_entry.as_ref() {
+                Some(entry) => entry,
+                None => &default_entry,
+            };
             let process_result =
                 process_entry_with_gates(queue, active_ref, worker_id, format).await;
 
