@@ -56,7 +56,8 @@ pub async fn run_with_options(name: Option<&str>, options: &SwitchOptions) -> Re
     let zellij_tab = session.zellij_tab;
 
     // Check if we should skip Zellij integration
-    let no_zellij = options.no_zellij || !is_terminal() || !crate::cli::is_zellij_installed().await;
+    let zellij_installed = crate::cli::is_zellij_installed().await;
+    let no_zellij = options.no_zellij || !is_terminal() || !zellij_installed;
 
     if no_zellij {
         // Skip Zellij integration - just print info
@@ -79,7 +80,6 @@ pub async fn run_with_options(name: Option<&str>, options: &SwitchOptions) -> Re
 
     // Only switch if inside Zellij
     if !is_inside_zellij() {
-        let zellij_installed = crate::cli::is_zellij_installed().await;
         if !is_terminal() && !options.no_zellij && !options.format.is_json() {
             eprintln!("Not in a terminal. Use --json for scripted access.");
         } else if !zellij_installed && !options.no_zellij && !options.format.is_json() {

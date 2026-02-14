@@ -30,12 +30,14 @@ pub fn cmd_init() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
-        .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Skip Zellij integration (for non-TTY environments)"),
-        )
+        .after_help(after_help_text(
+            &[
+                "zjj init                        Initialize ZJJ in the current JJ repository",
+                "zjj init --json                 Output JSON metadata for automation",
+                "zjj init                        Reinitialize after deleting .zjj to refresh helpers",
+            ],
+            Some(json_docs::init()),
+        ))
 }
 
 pub fn cmd_attach() -> ClapCommand {
@@ -639,7 +641,7 @@ pub fn cmd_switch() -> ClapCommand {
                 "zjj switch feature-auth           Switch to named session",
                 "zjj switch                        Interactive session selection",
                 "zjj switch test --show-context    Switch and show session details",
-                "zjj switch test --no-zellij        Switch without Zellij (non-TTY)",
+                "zjj switch test --no-zellij       Switch without Zellij (non-TTY)",
             ],
             None,
         ))
