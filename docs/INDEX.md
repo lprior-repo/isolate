@@ -10,6 +10,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 | **01** | [ERROR HANDLING](01_ERROR_HANDLING.md) | Fallible operations, Result patterns | 20 min |
 | **01a** | [ERROR TROUBLESHOOTING](ERROR_TROUBLESHOOTING.md) | Debug and resolve specific errors | 15 min |
 | **01b** | [QUEUE OPERATIONS RUNBOOK](QUEUE_OPERATIONS_RUNBOOK.md) | Operational guide for queue management | 20 min |
+| **01c** | [ROLLOUT + ROLLBACK](ROLLOUT_ROLLBACK.md) | Phased deployment and rollback playbook | 15 min |
 | **02** | [MOON BUILD](02_MOON_BUILD.md) | Building, testing, caching | 15 min |
 | **03** | [WORKFLOW](03_WORKFLOW.md) | Daily dev workflow (Beads + jj + Moon) | 20 min |
 | **04** | [FUNCTIONAL PATTERNS](04_FUNCTIONAL_PATTERNS.md) | Iterator combinators, FP techniques | 25 min |
@@ -48,6 +49,9 @@ All ZJJ documentation in one place, token-efficient and searchable.
 → [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) - 10 patterns with examples
 → [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md) - Debug and resolve specific errors
 
+### How Do I Roll Out Changes Safely?
+→ [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md) - phased rollout and rollback instructions
+
 ### What Combinators Can I Use?
 → [06_COMBINATORS.md](06_COMBINATORS.md) - Complete reference
 
@@ -84,6 +88,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 - [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) - 10 patterns + examples
 - [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md) - Debug and resolve specific errors
 - [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md) - Queue operational procedures and troubleshooting
+- [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md) - Deployment phases and rollback triggers
 - [05_RUST_STANDARDS.md](05_RUST_STANDARDS.md) - Requirements + enforcement
 - [07_TESTING.md](07_TESTING.md) - Testing error paths
 
@@ -159,11 +164,11 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 
 ## 📊 Documentation Stats
 
-- **Total Pages**: 13
-- **Total Content**: ~62k tokens
-- **Average Page**: ~4.8k tokens
+- **Total Pages**: 14
+- **Total Content**: ~64k tokens
+- **Average Page**: ~4.6k tokens
 - **Token Efficiency**: Highly optimized for AI + human reading
-- **Latest Addition**: QUEUE_OPERATIONS_RUNBOOK.md (queue SOP and troubleshooting matrix)
+- **Latest Addition**: ROLLOUT_ROLLBACK.md (phased rollout and rollback playbook)
 
 ## 🔍 Search Guide
 
@@ -186,6 +191,7 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 - Moon CICD Reference: [10_MOON_CICD_INDEXED.md](10_MOON_CICD_INDEXED.md)
 - Jujutsu: [09_JUJUTSU.md](09_JUJUTSU.md)
 - Queue Operations: [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md)
+- Rollout/Rollback: [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md)
 
 ## 💡 Core Concepts Summary
 

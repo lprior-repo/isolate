@@ -89,9 +89,9 @@ impl WorkerError {
             | Self::WorkspaceNotFound(_)
             | Self::ValidationError(_)
             | Self::ConfigurationError(_)
-            | Self::PermissionDenied(_) => ErrorClass::Terminal,
-
-            Self::GitOperationFailed(_) | Self::ProcessingError(_) => ErrorClass::Terminal,
+            | Self::PermissionDenied(_)
+            | Self::GitOperationFailed(_)
+            | Self::ProcessingError(_) => ErrorClass::Terminal,
         }
     }
 
@@ -254,7 +254,7 @@ pub fn from_anyhow(error: &anyhow::Error) -> WorkerError {
     WorkerError::ProcessingError(error_str)
 }
 
-/// Classify an anyhow::Error considering attempt count.
+/// Classify an `anyhow::Error` considering attempt count.
 #[must_use]
 pub fn classify_anyhow_with_attempts(
     error: &anyhow::Error,

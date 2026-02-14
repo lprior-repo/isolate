@@ -1291,6 +1291,12 @@ pub fn cmd_queue() -> ClapCommand {
                 .help("Get next pending entry"),
         )
         .arg(
+            Arg::new("process")
+                .long("process")
+                .action(clap::ArgAction::SetTrue)
+                .help("Process next ready-to-merge entry with freshness checks"),
+        )
+        .arg(
             Arg::new("remove")
                 .long("remove")
                 .value_name("WORKSPACE")

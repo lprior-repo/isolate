@@ -27,7 +27,7 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
         priority,
         agent_id: sub_m.get_one::<String>("agent").cloned(),
         list: sub_m.get_flag("list"),
-        process: false,
+        process: sub_m.get_flag("process"),
         next: sub_m.get_flag("next"),
         remove: sub_m.get_one::<String>("remove").cloned(),
         status: sub_m.get_one::<String>("status").cloned(),

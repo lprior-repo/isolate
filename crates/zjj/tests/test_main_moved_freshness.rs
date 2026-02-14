@@ -322,6 +322,99 @@ fn test_stale_merge_prevented_after_main_change() {
     );
 }
 
+/// Test: `queue --process` returns stale ready entry back to rebasing.
+///
+/// Scenario:
+/// 1. Seed a queue entry in `ready_to_merge` with an outdated tested-against SHA.
+/// 2. Run `zjj queue --process`.
+/// 3. Verify entry transitions back to `rebasing` and stale baseline is cleared.
+#[test]
+fn test_queue_process_stale_ready_entry_returns_to_rebasing() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["queue", "--add", "stale-ready-ws", "--json"]);
+
+    let queue_db = harness.repo_path.join(".zjj").join("queue.db");
+    let rt = tokio::runtime::Runtime::new().expect("runtime should be created");
+
+    rt.block_on(async {
+        let queue = zjj_core::MergeQueue::open(&queue_db)
+            .await
+            .expect("queue should open");
+
+        queue
+            .transition_to("stale-ready-ws", zjj_core::QueueStatus::Claimed)
+            .await
+            .expect("pending -> claimed should succeed");
+        queue
+            .transition_to("stale-ready-ws", zjj_core::QueueStatus::Rebasing)
+            .await
+            .expect("claimed -> rebasing should succeed");
+        queue
+            .update_rebase_metadata("stale-ready-ws", "head-stale", "main-old")
+            .await
+            .expect("rebasing metadata update should succeed");
+        queue
+            .transition_to("stale-ready-ws", zjj_core::QueueStatus::ReadyToMerge)
+            .await
+            .expect("testing -> ready_to_merge should succeed");
+    });
+
+    let result = harness.zjj(&["queue", "--process", "--json"]);
+    assert!(
+        result.success,
+        "queue --process should succeed for stale fallback path: {}",
+        result.stderr
+    );
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("queue --process should emit valid JSON");
+    let message = parsed
+        .get("data")
+        .and_then(|d| d.get("message"))
+        .or_else(|| parsed.get("message"))
+        .and_then(|m| m.as_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    assert!(
+        message.contains("stale") || message.contains("rebasing"),
+        "queue --process should report stale/rebasing outcome, got: {}",
+        result.stdout
+    );
+
+    let status_result = harness.zjj(&["queue", "--status", "stale-ready-ws", "--json"]);
+    assert!(status_result.success, "queue --status should succeed");
+    let status_json: serde_json::Value =
+        serde_json::from_str(&status_result.stdout).expect("status JSON should parse");
+    let persisted_status = status_json
+        .get("data")
+        .and_then(|d| d.get("status"))
+        .or_else(|| status_json.get("status"))
+        .and_then(|s| s.as_str());
+    assert_eq!(persisted_status, Some("rebasing"));
+
+    rt.block_on(async {
+        let queue = zjj_core::MergeQueue::open(&queue_db)
+            .await
+            .expect("queue should reopen");
+        let entry = queue
+            .get_by_workspace("stale-ready-ws")
+            .await
+            .expect("entry lookup should succeed")
+            .expect("entry should exist");
+
+        assert_eq!(entry.status, zjj_core::QueueStatus::Rebasing);
+        assert_eq!(entry.head_sha.as_deref(), Some("head-stale"));
+        assert!(
+            entry.tested_against_sha.is_none(),
+            "stale baseline should be cleared when returning to rebasing"
+        );
+    });
+}
+
 /// Test: Conflict detection identifies overlapping files after main moves
 ///
 /// This tests the conflict detection integration with main movement detection.

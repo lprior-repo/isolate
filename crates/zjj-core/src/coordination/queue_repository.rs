@@ -2,7 +2,7 @@
 //!
 //! This module defines the `QueueRepository` trait which abstracts the
 //! persistence layer for the merge queue, allowing different implementations
-//! (SQLite, in-memory, etc.) while preserving the same domain operations.
+//! (`SQLite`, in-memory, etc.) while preserving the same domain operations.
 //!
 //! The existing `MergeQueue` implements this trait.
 
@@ -17,8 +17,8 @@ use crate::Result;
 
 /// Trait defining the persistence boundary for the merge queue.
 ///
-/// This abstraction allows swapping out the storage backend (SQLite, in-memory,
-/// Postgres, etc.) while preserving the same queue operations semantics.
+/// This abstraction allows swapping out the storage backend (`SQLite`, in-memory,
+/// `Postgres`, etc.) while preserving the same queue operations semantics.
 ///
 /// # Error Handling
 ///
@@ -29,6 +29,7 @@ use crate::Result;
 ///
 /// This trait uses `async_trait` for async method support.
 #[async_trait::async_trait]
+#[allow(clippy::too_many_arguments)]
 pub trait QueueRepository: Send + Sync {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // ENTRY OPERATIONS
@@ -175,7 +176,7 @@ pub trait QueueRepository: Send + Sync {
     // CONTROL OPERATIONS (Retry & Cancel)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    /// Retry a failed_retryable entry.
+    /// Retry a `failed_retryable` entry.
     async fn retry_entry(&self, id: i64) -> std::result::Result<QueueEntry, QueueControlError>;
 
     /// Cancel an active (non-terminal) entry.

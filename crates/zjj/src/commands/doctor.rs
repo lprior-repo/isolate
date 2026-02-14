@@ -1157,10 +1157,8 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
         if !healthy {
             std::process::exit(1);
         }
-        // If recovery occurred, exit with 2
-        if has_recovery {
-            std::process::exit(2);
-        }
+        // Note: Recovery state is a warning, not an error. Warnings do not cause
+        // non-zero exit codes per the docstring at the top of this file.
         return Ok(());
     }
 
@@ -1195,10 +1193,9 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
         anyhow::bail!("Health check failed: {errors} error(s) detected");
     }
 
-    // Exit with code 2 if recovery occurred
-    if has_recovery {
-        std::process::exit(2);
-    }
+    // Note: Recovery state is a warning, not an error. Warnings do not cause
+    // non-zero exit codes per the docstring at the top of this file.
+    // Exit 0 is returned for healthy systems (even with warnings).
 
     Ok(())
 }

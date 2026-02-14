@@ -12,7 +12,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use zjj_core::{json::SchemaEnvelope, OutputFormat};
+use tokio::process::Command;
+use zjj_core::{json::SchemaEnvelope, OutputFormat, QueueStatus};
 
 use crate::commands::get_session_db;
 
@@ -349,9 +350,7 @@ async fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Re
 /// Handle the process command
 async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
     let agent_id = resolve_agent_id(options.agent_id.as_deref());
-    let entry = queue.next_with_lock(&agent_id).await?;
-
-    let Some(entry) = entry else {
+    if !queue.acquire_processing_lock(&agent_id).await? {
         let lock = queue.get_processing_lock().await?;
         let message = if let Some(lock) = lock {
             format!(
@@ -359,7 +358,7 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
                 lock.agent_id, lock.expires_at
             )
         } else {
-            "Queue is empty - no pending entries".to_string()
+            "Queue is locked by another agent".to_string()
         };
 
         if options.format.is_json() {
@@ -373,6 +372,24 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
         }
 
         return Ok(());
+    }
+
+    let ready_entries = queue.list(Some(QueueStatus::ReadyToMerge)).await?;
+    let Some(entry) = ready_entries.into_iter().next() else {
+        let _ = queue.release_processing_lock(&agent_id).await;
+
+        let message = "Queue has no ready-to-merge entries".to_string();
+        if options.format.is_json() {
+            let output = QueueNextOutput {
+                entry: None,
+                message,
+            };
+            print_queue_envelope("queue-process-response", &output)?;
+        } else {
+            println!("Queue has no ready-to-merge entries");
+        }
+
+        return Ok(());
     };
 
     if !options.format.is_json() {
@@ -382,8 +399,50 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
         );
     }
 
+    let repo_dir = std::env::current_dir().context("Failed to read current directory")?;
+    let current_main_sha = get_main_sha(&repo_dir).await?;
+    let is_fresh = queue.is_fresh(&entry.workspace, &current_main_sha).await?;
+
+    if !is_fresh {
+        queue
+            .return_to_rebasing(&entry.workspace, &current_main_sha)
+            .await?;
+        let _ = queue.release_processing_lock(&agent_id).await;
+
+        let message = format!(
+            "Entry '{}' is stale against main {}, returned to rebasing",
+            entry.workspace, current_main_sha
+        );
+        if options.format.is_json() {
+            let output = QueueNextOutput {
+                entry: Some(QueueEntryOutput {
+                    id: entry.id,
+                    workspace: entry.workspace,
+                    bead_id: entry.bead_id,
+                    priority: entry.priority,
+                    status: QueueStatus::Rebasing.as_str().to_string(),
+                    added_at: entry.added_at,
+                    started_at: entry.started_at,
+                    completed_at: entry.completed_at,
+                    error_message: entry.error_message,
+                    agent_id: entry.agent_id,
+                }),
+                message,
+            };
+            print_queue_envelope("queue-process-response", &output)?;
+        } else {
+            println!(
+                "Entry '{}' is stale and was returned to rebasing",
+                entry.workspace
+            );
+        }
+
+        return Ok(());
+    }
+
+    queue.begin_merge(&entry.workspace).await?;
+
     let workspace_path = resolve_workspace_path(&entry.workspace).await?;
-    let original_dir = std::env::current_dir().context("Failed to read current directory")?;
     std::env::set_current_dir(&workspace_path)
         .with_context(|| format!("Failed to enter workspace at {}", workspace_path.display()))?;
 
@@ -401,28 +460,22 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
 
     let done_result = crate::commands::done::run_with_options(&done_options).await;
 
-    let _ = std::env::set_current_dir(&original_dir);
-
     match done_result {
         Ok(()) => {
-            let marked = queue.mark_completed(&entry.workspace).await?;
-            anyhow::ensure!(
-                marked,
-                "Failed to mark queue entry '{}' as completed",
-                entry.workspace
-            );
+            std::env::set_current_dir(&repo_dir)
+                .context("Failed to restore original working directory")?;
+
+            let merged_sha = get_main_sha(&repo_dir).await?;
+            queue.complete_merge(&entry.workspace, &merged_sha).await?;
         }
         Err(err) => {
             let error_msg = err.to_string();
-            let status_msg = if error_msg.contains("conflict") {
-                "merge conflict"
-            } else if error_msg.contains("not in a workspace") {
-                "not in workspace"
-            } else {
-                "done failed"
-            };
 
-            let _ = queue.mark_failed(&entry.workspace, status_msg).await;
+            let _ = std::env::set_current_dir(&repo_dir);
+            let is_retryable = is_retryable_merge_failure(&error_msg);
+            let _ = queue
+                .fail_merge(&entry.workspace, &error_msg, is_retryable)
+                .await;
             let _ = queue.release_processing_lock(&agent_id).await;
             return Err(err);
         }
@@ -430,6 +483,34 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
 
     let _ = queue.release_processing_lock(&agent_id).await;
     Ok(())
+}
+
+async fn get_main_sha(repo_dir: &Path) -> Result<String> {
+    let output = Command::new("jj")
+        .args(["log", "-r", "main", "--no-graph", "-T", "commit_id"])
+        .current_dir(repo_dir)
+        .output()
+        .await
+        .context("Failed to query main HEAD via jj")?;
+
+    anyhow::ensure!(
+        output.status.success(),
+        "Failed to query main HEAD: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    anyhow::ensure!(!sha.is_empty(), "jj log returned empty main SHA");
+    Ok(sha)
+}
+
+fn is_retryable_merge_failure(error_msg: &str) -> bool {
+    let lower = error_msg.to_ascii_lowercase();
+    lower.contains("conflict")
+        || lower.contains("database is locked")
+        || lower.contains("timed out")
+        || lower.contains("timeout")
+        || lower.contains("tempor")
 }
 
 /// Handle the remove command

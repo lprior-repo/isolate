@@ -1,6 +1,6 @@
 //! `SQLx` database entities for the merge queue.
 //!
-//! This module contains infrastructure layer types (sqlx::FromRow structs)
+//! This module contains infrastructure layer types (`sqlx::FromRow` structs)
 //! separated from domain logic. These types are database row representations.
 //!
 //! Domain logic types are in `queue_status.rs` and operations in `queue.rs`.
@@ -11,7 +11,7 @@ use super::queue_status::{QueueEventType, QueueStatus, WorkspaceQueueState};
 // QUEUE ENTRY (Infrastructure Layer - sqlx dependent)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/// A row in the merge_queue table.
+/// A row in the `merge_queue` table.
 ///
 /// This is the infrastructure representation of a queue entry,
 /// directly mapping to the database schema.
@@ -46,7 +46,7 @@ pub struct QueueEntry {
 // PROCESSING LOCK (Infrastructure Layer - sqlx dependent)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/// A row in the queue_processing_lock table.
+/// A row in the `queue_processing_lock` table.
 ///
 /// Represents an acquired processing lock for serialized queue processing.
 #[derive(Debug, Clone, sqlx::FromRow)]

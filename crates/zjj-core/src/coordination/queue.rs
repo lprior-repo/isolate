@@ -1406,17 +1406,18 @@ impl MergeQueue {
     /// * `current_main_sha` - The current HEAD SHA of the main branch
     ///
     /// # Returns
-    /// - `Ok(true)` if the entry is fresh (SHA matches or no stored SHA)
-    /// - `Ok(false)` if the entry is stale (SHA mismatch)
+    /// - `Ok(true)` if the entry is fresh (SHA matches)
+    /// - `Ok(false)` if the entry is stale (SHA mismatch or missing baseline SHA)
     /// - `Err` if the entry is not found or database error
     pub async fn is_fresh(&self, workspace: &str, current_main_sha: &str) -> Result<bool> {
         let entry = self.get_by_workspace(workspace).await?.ok_or_else(|| {
             Error::NotFound(format!("Workspace '{workspace}' not found in queue"))
         })?;
 
-        // Use head_sha for freshness check (the SHA when entry was last updated)
-        let Some(stored_sha) = &entry.head_sha else {
-            return Ok(true); // No stored SHA, consider fresh
+        // Freshness is based on the main SHA used during the last successful rebase.
+        // Missing baseline is treated as stale to fail closed.
+        let Some(stored_sha) = &entry.tested_against_sha else {
+            return Ok(false);
         };
 
         Ok(stored_sha == current_main_sha)
@@ -1429,7 +1430,7 @@ impl MergeQueue {
     ///
     /// # Arguments
     /// * `workspace` - The workspace name to transition
-    /// * `new_main_sha` - The current main HEAD SHA (will be stored as new baseline)
+    /// * `new_main_sha` - The current main HEAD SHA for audit metadata
     ///
     /// # Returns
     /// - `Ok(())` if the transition succeeded
@@ -1450,12 +1451,11 @@ impl MergeQueue {
 
         let now = Self::now();
 
-        // Update status to rebasing and update head_sha with new main
+        // Update status to rebasing and clear stale tested-against baseline.
         let result = sqlx::query(
-            "UPDATE merge_queue SET status = 'rebasing', head_sha = ?1, state_changed_at = ?2, \
-             previous_state = ?3 WHERE workspace = ?4",
+            "UPDATE merge_queue SET status = 'rebasing', tested_against_sha = NULL, state_changed_at = ?1, \
+             previous_state = ?2 WHERE workspace = ?3",
         )
-        .bind(new_main_sha)
         .bind(now)
         .bind(entry.status.as_str())
         .bind(workspace)
@@ -3635,7 +3635,7 @@ mod tests {
             .find(|e| {
                 e.details_json
                     .as_ref()
-                    .map_or(false, |d| d.contains("head789"))
+                    .is_some_and(|d| d.contains("head789"))
             });
 
         assert!(
@@ -3648,7 +3648,73 @@ mod tests {
         assert!(event
             .details_json
             .as_ref()
-            .map_or(false, |d| d.contains("main012")));
+            .is_some_and(|d| d.contains("main012")));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_is_fresh_uses_tested_against_sha() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add("ws-fresh", None, 5, None).await?;
+        queue
+            .transition_to("ws-fresh", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to("ws-fresh", QueueStatus::Rebasing)
+            .await?;
+        queue
+            .update_rebase_metadata("ws-fresh", "head-a", "main-a")
+            .await?;
+        queue
+            .transition_to("ws-fresh", QueueStatus::ReadyToMerge)
+            .await?;
+
+        assert!(queue.is_fresh("ws-fresh", "main-a").await?);
+        assert!(!queue.is_fresh("ws-fresh", "main-b").await?);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_is_fresh_missing_baseline_fails_closed() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add("ws-no-baseline", None, 5, None).await?;
+
+        assert!(!queue.is_fresh("ws-no-baseline", "main-a").await?);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_return_to_rebasing_clears_stale_tested_against_sha() -> Result<()> {
+        let queue = MergeQueue::open_in_memory().await?;
+
+        queue.add("ws-stale", None, 5, None).await?;
+        queue
+            .transition_to("ws-stale", QueueStatus::Claimed)
+            .await?;
+        queue
+            .transition_to("ws-stale", QueueStatus::Rebasing)
+            .await?;
+        queue
+            .update_rebase_metadata("ws-stale", "head-before", "main-old")
+            .await?;
+        queue
+            .transition_to("ws-stale", QueueStatus::ReadyToMerge)
+            .await?;
+
+        queue.return_to_rebasing("ws-stale", "main-new").await?;
+
+        let updated = queue
+            .get_by_workspace("ws-stale")
+            .await?
+            .ok_or_else(|| Error::DatabaseError("entry should exist".into()))?;
+        assert_eq!(updated.status, QueueStatus::Rebasing);
+        assert_eq!(updated.head_sha, Some("head-before".to_string()));
+        assert!(updated.tested_against_sha.is_none());
 
         Ok(())
     }

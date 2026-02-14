@@ -208,7 +208,7 @@ pub async fn wait_for_shutdown_signal() {
 
     loop {
         tokio::select! {
-            _ = async {
+            () = async {
                 if let Some(ref mut sig) = sigterm {
                     sig.recv().await;
                 } else {
@@ -218,7 +218,7 @@ pub async fn wait_for_shutdown_signal() {
                 tracing::info!("Received SIGTERM, initiating graceful shutdown");
                 break;
             }
-            _ = async {
+            () = async {
                 if let Some(ref mut sig) = sigint {
                     sig.recv().await;
                 } else {

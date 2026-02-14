@@ -43,7 +43,7 @@ impl SessionName {
     /// Maximum allowed length for a session name.
     pub const MAX_LENGTH: usize = 64;
 
-    /// Create a new SessionName from a string slice.
+    /// Create a new `SessionName` from a string slice.
     ///
     /// # Errors
     ///
