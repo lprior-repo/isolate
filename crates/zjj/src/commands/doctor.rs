@@ -1746,6 +1746,25 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<S
         .await
         .map_err(|e| format!("Failed to get JJ root: {e}"))?;
 
+    let jj_workspaces = Command::new("jj")
+        .args(["workspace", "list"])
+        .current_dir(&root)
+        .output()
+        .await
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .filter_map(|line| {
+                    line.split_whitespace()
+                        .next()
+                        .map(|name| name.trim_end_matches(':').to_string())
+                })
+                .collect::<std::collections::HashSet<_>>()
+        })
+        .unwrap_or_default();
+
     // Fix filesystem → DB orphans (workspaces without sessions)
     let filesystem_removed = if let Some(filesystem_orphans) = orphaned_data
         .get("filesystem_to_db")
@@ -1785,16 +1804,18 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<S
                 futures::stream::iter(db_orphans)
                     .fold(0, |mut acc, session_name| {
                         let db = &db;
+                        let jj_workspaces = &jj_workspaces;
                         async move {
                             if let Some(name) = session_name.as_str() {
                                 let should_delete = match db.get(name).await {
                                     Ok(Some(session)) => {
+                                        let in_jj = jj_workspaces.contains(name);
                                         match tokio::fs::try_exists(std::path::Path::new(
                                             &session.workspace_path,
                                         ))
                                         .await
                                         {
-                                            Ok(exists) => !exists,
+                                            Ok(exists) => !exists || !in_jj,
                                             Err(error) => {
                                                 tracing::warn!(
                                                     "Failed to verify workspace path '{}' for orphan check on '{name}': {error}",
