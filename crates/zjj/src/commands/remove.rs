@@ -279,6 +279,28 @@ mod tests {
         assert!(!opts.idempotent);
     }
 
+    #[test]
+    fn test_build_dry_run_preview_includes_flags() {
+        let options = RemoveOptions {
+            force: true,
+            merge: true,
+            keep_branch: false,
+            idempotent: false,
+            dry_run: true,
+            format: zjj_core::OutputFormat::Human,
+        };
+
+        let preview = build_dry_run_preview("session-a", "/tmp/workspace", &options);
+
+        assert!(preview.contains("DRY-RUN: Would remove session 'session-a'"));
+        assert!(preview.contains("Workspace path: /tmp/workspace"));
+        assert!(preview.contains("Database record: session-a"));
+        assert!(preview.contains("Action: Squash-merge to main before removal"));
+        assert!(preview.contains("Confirmation: Skipped (--force)"));
+        assert!(preview.contains("Hooks: Skipped (--force)"));
+        assert!(preview.contains("No changes made (dry-run mode)"));
+    }
+
     #[tokio::test]
     async fn test_session_not_found() -> Result<()> {
         let dir = TempDir::new()

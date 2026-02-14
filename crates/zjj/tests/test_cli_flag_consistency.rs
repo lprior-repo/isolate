@@ -169,6 +169,31 @@ fn test_remove_dry_run_does_not_delete_session() {
 }
 
 #[test]
+fn test_remove_dry_run_json_preview() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["add", "test", "--no-zellij", "--no-hooks"]);
+
+    let result = harness.zjj(&["remove", "test", "--dry-run", "--json"]);
+    assert!(
+        !result.stdout.is_empty(),
+        "Expected JSON output, stdout was empty"
+    );
+    assert!(
+        result.stdout.contains("DRY-RUN"),
+        "Expected DRY-RUN preview in JSON output: {}",
+        result.stdout
+    );
+    assert!(
+        result.stdout.contains("remove-response"),
+        "Expected remove-response schema in JSON output: {}",
+        result.stdout
+    );
+}
+
+#[test]
 fn test_remove_help_shows_dry_run_flag() {
     let Some(harness) = TestHarness::try_new() else {
         return;
