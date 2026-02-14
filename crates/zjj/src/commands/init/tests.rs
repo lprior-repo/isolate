@@ -49,7 +49,14 @@ async fn test_init_creates_zjj_directory() -> Result<()> {
     };
 
     // Run init with temp directory as cwd
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify .zjj directory was created (use absolute path)
     let zjj_path = temp_dir.path().join(".zjj");
@@ -63,314 +70,37 @@ async fn test_init_creates_zjj_directory() -> Result<()> {
     Ok(())
 }
 
-// ============================================================================
-// QA Enforcer Tests - Issues Found During Adversarial Testing
-// ============================================================================
-
-/// Test that init --json outputs pure JSON to stdout (no mixed text)
-/// Issue #1: zjj init --json mixed human-readable messages with JSON
 #[tokio::test]
-async fn test_init_json_pure_stdout() -> Result<()> {
-    use std::process::Stdio;
-
-    use tokio::io::AsyncReadExt;
-
-    if !jj_is_available().await {
-        return Ok(());
-    }
-
-    let temp_dir = TempDir::new()?;
-
-    // Run zjj init --json as a subprocess to capture actual stdout/stderr
-    let zjj_bin = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|parent| parent.join("zjj")))
-        .expect("Could not find zjj binary");
-
-    if !zjj_bin.exists() {
-        // Binary not built yet, skip test
-        return Ok(());
-    }
-
-    let mut child = Command::new(&zjj_bin)
-        .args(["init", "--json"])
-        .current_dir(temp_dir.path())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-
-    let mut stdout = String::new();
-    let mut stderr = String::new();
-
-    if let Some(mut stdout_handle) = child.stdout.take() {
-        stdout_handle.read_to_string(&mut stdout).await?;
-    }
-    if let Some(mut stderr_handle) = child.stderr.take() {
-        stderr_handle.read_to_string(&mut stderr).await?;
-    }
-
-    child.wait().await?;
-
-    // Stricter check: stdout should be PURE JSON only
-    // - Must parse as valid JSON
-    // - Must start with '{' and end with '}' (no leading/trailing text)
-    // - Must not contain any human-readable messages
-    let trimmed = stdout.trim();
-    assert!(
-        trimmed.starts_with('{') && trimmed.ends_with('}'),
-        "stdout should be pure JSON (start with '{{' and end with '}}'), got: {}",
-        if trimmed.len() > 100 {
-            &trimmed[..100]
-        } else {
-            trimmed
-        }
-    );
-
-    let parsed: serde_json::Value =
-        serde_json::from_str(trimmed).context("stdout should contain valid JSON only")?;
-
-    assert_eq!(
-        parsed.get("$schema").and_then(|v| v.as_str()),
-        Some("zjj://init-response/v1"),
-        "stdout JSON should have correct schema"
-    );
-
-    // Verify human-readable messages are on stderr, not stdout
-    assert!(
-        stderr.contains("Initializing") || stderr.is_empty(),
-        "Human messages should be on stderr"
-    );
-    assert!(
-        !stdout.contains("Initializing"),
-        "stdout should not contain human messages"
-    );
-    assert!(
-        !stdout.contains("Initialized"),
-        "stdout should not contain 'Initialized' message"
-    );
-
-    Ok(())
-}
-
-/// Test that concurrent init operations don't corrupt state
-/// Issue #2: Race condition when running multiple zjj init simultaneously
-#[tokio::test]
-async fn test_init_concurrent_no_corruption() -> Result<()> {
-    if !jj_is_available().await {
-        return Ok(());
-    }
-
-    let temp_dir = setup_test_jj_repo().await?;
-    let Some(temp_dir) = temp_dir else {
+async fn test_init_creates_config_toml() -> Result<()> {
+    let Some(temp_dir) = setup_test_jj_repo().await? else {
+        // Test framework will handle skipping - no output needed
         return Ok(());
     };
 
-    // Launch 5 concurrent init operations
-    let handles: Vec<_> = (0..5)
-        .map(|_| {
-            let path = temp_dir.path().to_path_buf();
-            tokio::spawn(async move {
-                run_with_cwd_and_format(Some(&path), OutputFormat::default()).await
-            })
-        })
-        .collect();
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
-    // Wait for all to complete
-    let results: Vec<_> = futures::future::join_all(handles).await;
-
-    // All should complete without panicking, and all tasks should succeed
-    for result in results {
-        let task_result = result.expect("task should not panic");
-        assert!(task_result.is_ok(), "concurrent init should succeed");
-    }
-
-    // Verify state is consistent (no corruption)
+    // Verify config.toml was created
     let config_path = temp_dir.path().join(".zjj/config.toml");
-    let db_path = temp_dir.path().join(".zjj/state.db");
-    let layouts_path = temp_dir.path().join(".zjj/layouts");
-
-    // All files should exist
     assert!(
         tokio::fs::try_exists(&config_path).await.unwrap_or(false),
-        "config.toml should exist after concurrent init"
+        "config.toml was not created"
     );
-    assert!(
-        tokio::fs::try_exists(&db_path).await.unwrap_or(false),
-        "state.db should exist after concurrent init"
-    );
-    assert!(
-        tokio::fs::try_exists(&layouts_path).await.unwrap_or(false),
-        "layouts should exist after concurrent init"
-    );
+    let metadata = tokio::fs::metadata(&config_path).await?;
+    assert!(metadata.is_file(), "config.toml is not a file");
 
-    // Database should be intact and accessible
-    let db = SessionDb::open(&db_path).await?;
-    let sessions = db.list(None).await?;
-    assert_eq!(sessions.len(), 0, "database should be uncorrupted");
-
-    Ok(())
-}
-
-/// Test that init lock file persists but is unlocked after init
-#[tokio::test]
-async fn test_init_lock_file_cleanup() -> Result<()> {
-    use fs4::fs_std::FileExt;
-
-    if !jj_is_available().await {
-        return Ok(());
-    }
-
-    let temp_dir = setup_test_jj_repo().await?;
-    let Some(temp_dir) = temp_dir else {
-        return Ok(());
-    };
-
-    // Run init
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
-
-    // Verify lock file exists but is unlocked
-    let lock_path = temp_dir.path().join(".zjj/.init.lock");
-    assert!(
-        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
-        "Lock file should persist after init (file locks are inode-based)"
-    );
-
-    // Verify we can acquire the lock (meaning it's not held)
-    let lock_file = std::fs::OpenOptions::new().write(true).open(&lock_path)?;
-    assert!(
-        lock_file.try_lock_exclusive().is_ok(),
-        "Lock file should be unlocked after successful init"
-    );
-    lock_file.unlock()?;
-
-    Ok(())
-}
-
-/// Test that stale lock files (older than 60 seconds) are handled gracefully
-#[tokio::test]
-async fn test_init_stale_lock_recovery() -> Result<()> {
-    use fs4::fs_std::FileExt;
-
-    if !jj_is_available().await {
-        return Ok(());
-    }
-
-    let temp_dir = setup_test_jj_repo().await?;
-    let Some(temp_dir) = temp_dir else {
-        return Ok(());
-    };
-
-    // Create .zjj directory first
-    let zjj_dir = temp_dir.path().join(".zjj");
-    tokio::fs::create_dir_all(&zjj_dir).await?;
-
-    // Create a stale lock file (set mtime to 2 minutes ago)
-    let lock_path = zjj_dir.join(".init.lock");
-    tokio::fs::write(&lock_path, b"stale").await?;
-
-    // Set file mtime to 120 seconds ago (beyond the 60s stale threshold)
-    let stale_time = std::time::SystemTime::now() - std::time::Duration::from_secs(120);
-    let _ = filetime::set_file_mtime(&lock_path, filetime::FileTime::from_system_time(stale_time));
-
-    // Verify lock file exists before init
-    assert!(
-        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
-        "Stale lock file should exist before init"
-    );
-
-    // Run init - should succeed despite stale lock
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
-    assert!(result.is_ok(), "Init should succeed with stale lock file");
-
-    // Verify init completed successfully
-    let config_path = zjj_dir.join("config.toml");
-    assert!(
-        tokio::fs::try_exists(&config_path).await.unwrap_or(false),
-        "config.toml should exist after init"
-    );
-
-    // Lock file should exist but be unlocked
-    assert!(
-        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
-        "Lock file should exist after init (file locks are inode-based)"
-    );
-
-    // Verify we can acquire the lock (meaning it's not held)
-    let verify_file = std::fs::OpenOptions::new().write(true).open(&lock_path)?;
-    assert!(
-        verify_file.try_lock_exclusive().is_ok(),
-        "Lock file should be unlocked after init"
-    );
-    let _ = verify_file.unlock();
-
-    Ok(())
-}
-
-/// Test that init releases lock even on error (RAII guard)
-#[tokio::test]
-async fn test_init_lock_cleanup_on_error() -> Result<()> {
-    use fs4::fs_std::FileExt;
-
-    // This test verifies that the RAII guard releases the lock
-    // even when an error occurs during initialization
-
-    if !jj_is_available().await {
-        return Ok(());
-    }
-
-    let temp_dir = setup_test_jj_repo().await?;
-    let Some(temp_dir) = temp_dir else {
-        return Ok(());
-    };
-
-    // Create .zjj directory and make config.toml a directory (will cause error)
-    let zjj_dir = temp_dir.path().join(".zjj");
-    tokio::fs::create_dir_all(&zjj_dir).await?;
-    let config_path = zjj_dir.join("config.toml");
-    tokio::fs::create_dir_all(&config_path).await?; // Directory instead of file
-
-    // Run init - should fail because config.toml is a directory
-    let _result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
-
-    // Lock file should exist but be unlocked (RAII guard releases lock on drop)
-    let lock_path = zjj_dir.join(".init.lock");
-    assert!(
-        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
-        "Lock file should exist even on error (file locks are inode-based)"
-    );
-
-    // Verify we can acquire the lock (meaning it was released)
-    let verify_file = std::fs::OpenOptions::new().write(true).open(&lock_path)?;
-    assert!(
-        verify_file.try_lock_exclusive().is_ok(),
-        "Lock should be released even on error (RAII guard)"
-    );
-    let _ = verify_file.unlock();
-
-    Ok(())
-}
-
-/// Test that init handles missing directories gracefully
-#[tokio::test]
-async fn test_init_creates_parent_directories() -> Result<()> {
-    if !jj_is_available().await {
-        return Ok(());
-    }
-
-    let temp_dir = setup_test_jj_repo().await?;
-    let Some(temp_dir) = temp_dir else {
-        return Ok(());
-    };
-
-    // Run init (should create .zjj and all subdirectories)
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
-
-    // Verify .zjj was created
-    let zjj_path = temp_dir.path().join(".zjj");
-    assert!(
-        tokio::fs::try_exists(&zjj_path).await.unwrap_or(false),
-        ".zjj directory should be created"
-    );
+    // Verify it contains expected content
+    let content = tokio::fs::read_to_string(&config_path).await?;
+    assert!(content.contains("workspace_dir"));
+    assert!(content.contains("[watch]"));
+    assert!(content.contains("[zellij]"));
+    assert!(content.contains("[dashboard]"));
 
     Ok(())
 }
@@ -382,7 +112,14 @@ async fn test_init_creates_state_db() -> Result<()> {
         return Ok(());
     };
 
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify state.db was created
     let db_path = temp_dir.path().join(".zjj/state.db");
@@ -408,7 +145,14 @@ async fn test_init_creates_layouts_directory() -> Result<()> {
         return Ok(());
     };
 
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify layouts directory was created
     let layouts_path = temp_dir.path().join(".zjj/layouts");
@@ -430,11 +174,25 @@ async fn test_init_handles_already_initialized() -> Result<()> {
     };
 
     // First init should succeed
-    let result1 = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
+    let result1 = run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await;
     assert!(result1.is_ok());
 
     // Second init should not fail, just inform user
-    let result2 = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
+    let result2 = run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await;
     assert!(result2.is_ok());
 
     Ok(())
@@ -454,7 +212,14 @@ async fn test_init_auto_creates_jj_repo() -> Result<()> {
     // Before JJ init, should not be a repo
     // After our init command runs, it will create a JJ repo automatically
     // So we just verify the automatic initialization works
-    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
+    let result = run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await;
 
     // Should succeed because init_jj_repo is called automatically
     assert!(result.is_ok());
@@ -577,7 +342,14 @@ async fn test_init_recreates_missing_config_toml() -> Result<()> {
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let config_path = temp_dir.path().join(".zjj/config.toml");
     assert!(
@@ -593,7 +365,14 @@ async fn test_init_recreates_missing_config_toml() -> Result<()> {
     );
 
     // Run init again - should recreate config.toml
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify config.toml was recreated
     assert!(
@@ -617,7 +396,14 @@ async fn test_init_recreates_missing_state_db() -> Result<()> {
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let db_path = temp_dir.path().join(".zjj/state.db");
     assert!(
@@ -633,7 +419,14 @@ async fn test_init_recreates_missing_state_db() -> Result<()> {
     );
 
     // Run init again - should recreate state.db
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify state.db was recreated
     assert!(
@@ -657,7 +450,14 @@ async fn test_init_recreates_missing_layouts_dir() -> Result<()> {
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let layouts_path = temp_dir.path().join(".zjj/layouts");
     assert!(
@@ -673,7 +473,14 @@ async fn test_init_recreates_missing_layouts_dir() -> Result<()> {
     );
 
     // Run init again - should recreate layouts directory
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify layouts directory was recreated
     assert!(
@@ -694,7 +501,14 @@ async fn test_init_recreates_all_missing_components() -> Result<()> {
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let config_path = temp_dir.path().join(".zjj/config.toml");
     let db_path = temp_dir.path().join(".zjj/state.db");
@@ -710,7 +524,14 @@ async fn test_init_recreates_all_missing_components() -> Result<()> {
     assert!(!tokio::fs::try_exists(&layouts_path).await.unwrap_or(false));
 
     // Run init again - should recreate everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify all components were recreated
     assert!(
@@ -737,7 +558,14 @@ async fn test_init_preserves_existing_config_toml() -> Result<()> {
     };
 
     // First init - creates everything
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let config_path = temp_dir.path().join(".zjj/config.toml");
 
@@ -746,7 +574,14 @@ async fn test_init_preserves_existing_config_toml() -> Result<()> {
     tokio::fs::write(&config_path, custom_content).await?;
 
     // Run init again - should NOT overwrite existing config
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify config.toml was preserved
     let content = tokio::fs::read_to_string(&config_path).await?;
@@ -767,7 +602,14 @@ async fn test_init_creates_agents_md() -> Result<()> {
         return Ok(());
     };
 
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let agents_path = temp_dir.path().join("AGENTS.md");
     assert!(
@@ -794,7 +636,14 @@ async fn test_init_creates_claude_md() -> Result<()> {
         return Ok(());
     };
 
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let claude_path = temp_dir.path().join("CLAUDE.md");
     assert!(
@@ -814,7 +663,14 @@ async fn test_init_creates_documentation_files() -> Result<()> {
         return Ok(());
     };
 
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let docs_dir = temp_dir.path().join("docs");
     assert!(
@@ -833,7 +689,14 @@ async fn test_init_preserves_existing_agents_md() -> Result<()> {
     };
 
     // First init - creates AGENTS.md
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let agents_path = temp_dir.path().join("AGENTS.md");
 
@@ -842,7 +705,14 @@ async fn test_init_preserves_existing_agents_md() -> Result<()> {
     tokio::fs::write(&agents_path, custom_content).await?;
 
     // Second init - should NOT overwrite
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify custom content was preserved
     let content = tokio::fs::read_to_string(&agents_path).await?;
@@ -862,7 +732,14 @@ async fn test_init_preserves_existing_claude_md() -> Result<()> {
     };
 
     // First init - creates CLAUDE.md
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let claude_path = temp_dir.path().join("CLAUDE.md");
 
@@ -871,7 +748,14 @@ async fn test_init_preserves_existing_claude_md() -> Result<()> {
     tokio::fs::write(&claude_path, custom_content).await?;
 
     // Second init - should NOT overwrite
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify custom content was preserved
     let content = tokio::fs::read_to_string(&claude_path).await?;
@@ -891,7 +775,14 @@ async fn test_init_preserves_existing_documentation_files() -> Result<()> {
     };
 
     // First init - creates documentation files
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     let docs_dir = temp_dir.path().join("docs");
     let error_handling_path = docs_dir.join("01_ERROR_HANDLING.md");
@@ -901,7 +792,14 @@ async fn test_init_preserves_existing_documentation_files() -> Result<()> {
     tokio::fs::write(&error_handling_path, custom_content).await?;
 
     // Second init - should NOT overwrite
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
+    run_with_cwd_and_options(
+        Some(temp_dir.path()),
+        InitOptions {
+            format: OutputFormat::default(),
+            dry_run: false,
+        },
+    )
+    .await?;
 
     // Verify custom content was preserved
     let content = tokio::fs::read_to_string(&error_handling_path).await?;

@@ -16,6 +16,8 @@ pub struct SwitchOptions {
     pub format: OutputFormat,
     /// Show context after switching
     pub show_context: bool,
+    /// Allow switching without requiring Zellij integration
+    pub no_zellij: bool,
 }
 
 /// Run the switch command with options
@@ -53,22 +55,24 @@ pub async fn run_with_options(name: Option<&str>, options: &SwitchOptions) -> Re
 
     let zellij_tab = session.zellij_tab;
 
-    // Only switch if inside Zellij
-    if !is_inside_zellij() {
-        if options.format.is_json() {
-            return Err(anyhow::anyhow!(
-                "Cannot switch tabs outside Zellij. Use 'zjj attach' instead."
-            ));
+    // Only switch if inside Zellij (unless no_zellij flag is set)
+    if !options.no_zellij {
+        if !is_inside_zellij() {
+            if options.format.is_json() {
+                return Err(anyhow::anyhow!(
+                    "Cannot switch tabs outside Zellij. Use 'zjj attach' instead."
+                ));
+            }
+            println!("Not inside Zellij session.");
+            println!(
+                "Use 'zjj attach' to enter Zellij, then use 'zjj switch' to navigate between tabs."
+            );
+            return Ok(());
         }
-        println!("Not inside Zellij session.");
-        println!(
-            "Use 'zjj attach' to enter Zellij, then use 'zjj switch' to navigate between tabs."
-        );
-        return Ok(());
-    }
 
-    // Switch to the tab
-    run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
+        // Switch to the tab
+        run_command("zellij", &["action", "go-to-tab-name", &zellij_tab]).await?;
+    }
 
     if options.format.is_json() {
         let output = FocusOutput {
@@ -112,5 +116,6 @@ mod tests {
         let options = SwitchOptions::default();
         assert_eq!(options.format, OutputFormat::Human);
         assert!(!options.show_context);
+        assert!(!options.no_zellij);
     }
 }

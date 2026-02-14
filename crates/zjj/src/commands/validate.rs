@@ -579,4 +579,79 @@ mod tests {
         let result = validate_spawn_args(&["invalid".to_string()]);
         assert!(!result.valid);
     }
+
+    // ============================================================================
+    // --contract flag tests
+    // These tests verify the --contract flag outputs AI-readable contract schema
+    // ============================================================================
+
+    /// Test that --contract flag exists and outputs AI contract schema
+    /// The contract should describe inputs, outputs, and side effects for AI agents
+    #[test]
+    fn test_validate_contract_flag_outputs_schema() {
+        // The --contract flag should output the validate command's AI contract
+        // as a JSON-compatible string describing inputs, outputs, and side effects
+        let contract = crate::cli::json_docs::ai_contracts::validate();
+
+        // Contract should be non-empty
+        assert!(!contract.is_empty(), "Contract should not be empty");
+
+        // Contract should describe the validate command
+        assert!(
+            contract.contains("\"command\": \"zjj validate\""),
+            "Contract should identify the validate command"
+        );
+
+        // Contract should describe inputs
+        assert!(
+            contract.contains("\"inputs\""),
+            "Contract should describe inputs"
+        );
+        assert!(
+            contract.contains("\"command\"") && contract.contains("required"),
+            "Contract should describe required command input"
+        );
+
+        // Contract should describe outputs
+        assert!(
+            contract.contains("\"outputs\""),
+            "Contract should describe outputs"
+        );
+
+        // Contract should describe side effects (none for validate)
+        assert!(
+            contract.contains("\"side_effects\""),
+            "Contract should describe side effects"
+        );
+
+        // Contract should provide examples
+        assert!(
+            contract.contains("\"examples\""),
+            "Contract should provide examples"
+        );
+    }
+
+    /// Test that validate contract describes the valid field in outputs
+    #[test]
+    fn test_validate_contract_describes_valid_field() {
+        let contract = crate::cli::json_docs::ai_contracts::validate();
+
+        // Contract should mention the valid field
+        assert!(
+            contract.contains("valid"),
+            "Contract should describe the valid field in output"
+        );
+    }
+
+    /// Test that validate contract describes argument validation
+    #[test]
+    fn test_validate_contract_describes_argument_validation() {
+        let contract = crate::cli::json_docs::ai_contracts::validate();
+
+        // Contract should mention args or arguments
+        assert!(
+            contract.contains("args") || contract.contains("arguments"),
+            "Contract should describe argument validation"
+        );
+    }
 }

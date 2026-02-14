@@ -39,7 +39,7 @@ pub enum WaitCondition {
 #[derive(Debug, Clone, Serialize)]
 pub struct WaitOutput {
     /// Whether the condition was met
-    pub success: bool,
+    pub condition_met: bool,
     /// The condition that was waited for
     pub condition: String,
     /// How long we waited (in milliseconds)
@@ -59,7 +59,7 @@ fn make_output(
     state: Option<String>,
 ) -> WaitOutput {
     WaitOutput {
-        success,
+        condition_met: success,
         condition: format_condition(condition),
         elapsed_ms: u64::try_from(start.elapsed().as_millis()).map_or(u64::MAX, |v| v),
         timed_out,
@@ -68,7 +68,7 @@ fn make_output(
 }
 
 /// Run the wait command
-pub async fn run(options: &WaitOptions) -> Result<()> {
+pub async fn run(options: &WaitOptions) -> Result<i32> {
     let start = Instant::now();
 
     loop {
@@ -180,14 +180,14 @@ fn format_condition(condition: &WaitCondition) -> String {
 }
 
 /// Output the result
-fn output_result(output: &WaitOutput, format: OutputFormat) -> Result<()> {
+fn output_result(output: &WaitOutput, format: OutputFormat) -> Result<i32> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("wait-response", "single", output);
         let json_str =
             serde_json::to_string_pretty(&envelope).context("Failed to serialize wait output")?;
         println!("{json_str}");
     } else {
-        if output.success {
+        if output.condition_met {
             println!("Condition met: {}", output.condition);
         } else if output.timed_out {
             println!(
@@ -202,11 +202,10 @@ fn output_result(output: &WaitOutput, format: OutputFormat) -> Result<()> {
         }
     }
 
-    // Exit with appropriate code
-    if output.success {
-        Ok(())
+    if output.condition_met {
+        Ok(0)
     } else {
-        anyhow::bail!("Wait condition not met")
+        Ok(1)
     }
 }
 
@@ -229,7 +228,7 @@ mod tests {
     #[test]
     fn test_wait_output_serializes() {
         let output = WaitOutput {
-            success: true,
+            condition_met: true,
             condition: "healthy".to_string(),
             elapsed_ms: 100,
             timed_out: false,
@@ -243,15 +242,30 @@ mod tests {
     #[test]
     fn test_wait_output_timeout() {
         let output = WaitOutput {
-            success: false,
+            condition_met: false,
             condition: "session-exists:test".to_string(),
             elapsed_ms: 30000,
             timed_out: true,
             final_state: Some("not_found".to_string()),
         };
 
-        assert!(!output.success);
+        assert!(!output.condition_met);
         assert!(output.timed_out);
+    }
+
+    #[test]
+    fn wait_output_result_failure_returns_exit_code_in_json_mode() {
+        let output = WaitOutput {
+            condition_met: false,
+            condition: "healthy".to_string(),
+            elapsed_ms: 1000,
+            timed_out: true,
+            final_state: Some("db:error".to_string()),
+        };
+
+        let exit_code = output_result(&output, zjj_core::OutputFormat::Json)
+            .expect("json output should serialize");
+        assert_eq!(exit_code, 1);
     }
 
     // ============================================================================
@@ -335,14 +349,14 @@ mod tests {
         #[test]
         fn successful_wait_shows_success() {
             let output = WaitOutput {
-                success: true,
+                condition_met: true,
                 condition: "session-exists:my-session".to_string(),
                 elapsed_ms: 50,
                 timed_out: false,
                 final_state: Some("status:active".to_string()),
             };
 
-            assert!(output.success, "Should indicate success");
+            assert!(output.condition_met, "Should indicate success");
             assert!(!output.timed_out, "Should not be timed out");
             assert!(output.elapsed_ms < 1000, "Quick success should be fast");
         }
@@ -353,14 +367,14 @@ mod tests {
         #[test]
         fn timeout_shows_failure_and_timed_out() {
             let output = WaitOutput {
-                success: false,
+                condition_met: false,
                 condition: "session-exists:missing-session".to_string(),
                 elapsed_ms: 30000,
                 timed_out: true,
                 final_state: Some("not_found".to_string()),
             };
 
-            assert!(!output.success, "Should indicate failure");
+            assert!(!output.condition_met, "Should indicate failure");
             assert!(output.timed_out, "Should indicate timeout");
             assert!(
                 output.elapsed_ms >= 30000,
@@ -374,14 +388,14 @@ mod tests {
         #[test]
         fn failure_without_timeout_is_distinct() {
             let output = WaitOutput {
-                success: false,
+                condition_met: false,
                 condition: "healthy".to_string(),
                 elapsed_ms: 100,
                 timed_out: false,
                 final_state: Some("jj:missing".to_string()),
             };
 
-            assert!(!output.success, "Should indicate failure");
+            assert!(!output.condition_met, "Should indicate failure");
             assert!(!output.timed_out, "Should not be timeout");
         }
 
@@ -392,7 +406,7 @@ mod tests {
         fn final_state_explains_outcome() {
             // Success case
             let success_output = WaitOutput {
-                success: true,
+                condition_met: true,
                 condition: "session-exists:test".to_string(),
                 elapsed_ms: 500,
                 timed_out: false,
@@ -408,7 +422,7 @@ mod tests {
 
             // Failure case
             let failure_output = WaitOutput {
-                success: false,
+                condition_met: false,
                 condition: "healthy".to_string(),
                 elapsed_ms: 100,
                 timed_out: false,
@@ -421,6 +435,94 @@ mod tests {
                     .is_some_and(|s| s.contains("missing")),
                 "Failure final_state should contain 'missing'"
             );
+        }
+
+        /// GIVEN: a successful wait result
+        /// WHEN: output_result is evaluated for JSON mode
+        /// THEN: command should return exit code 0
+        #[test]
+        fn given_successful_output_when_returning_exit_code_then_is_zero() {
+            let output = WaitOutput {
+                condition_met: true,
+                condition: "healthy".to_string(),
+                elapsed_ms: 1,
+                timed_out: false,
+                final_state: Some("jj:ok,zellij:ok,db:ok".to_string()),
+            };
+
+            let code = output_result(&output, zjj_core::OutputFormat::Json)
+                .expect("successful output should serialize");
+            assert_eq!(code, 0);
+        }
+
+        /// GIVEN: a failed wait result
+        /// WHEN: output_result is evaluated for JSON mode
+        /// THEN: command should return exit code 1
+        #[test]
+        fn given_failed_output_when_returning_exit_code_then_is_one() {
+            let output = WaitOutput {
+                condition_met: false,
+                condition: "session-exists:missing".to_string(),
+                elapsed_ms: 1000,
+                timed_out: true,
+                final_state: Some("not_found".to_string()),
+            };
+
+            let code = output_result(&output, zjj_core::OutputFormat::Json)
+                .expect("failed output should still serialize");
+            assert_eq!(code, 1);
+        }
+
+        struct ExitCodeCase {
+            name: &'static str,
+            condition_met: bool,
+            timed_out: bool,
+            expected_code: i32,
+        }
+
+        /// GIVEN: a matrix of wait outcomes
+        /// WHEN: output exit-code resolution runs for each row
+        /// THEN: exit codes should stay stable across success/failure variants
+        #[test]
+        fn given_wait_outcome_matrix_when_resolving_exit_code_then_matches_contract() {
+            let cases = [
+                ExitCodeCase {
+                    name: "success without timeout",
+                    condition_met: true,
+                    timed_out: false,
+                    expected_code: 0,
+                },
+                ExitCodeCase {
+                    name: "failure by timeout",
+                    condition_met: false,
+                    timed_out: true,
+                    expected_code: 1,
+                },
+                ExitCodeCase {
+                    name: "failure without timeout",
+                    condition_met: false,
+                    timed_out: false,
+                    expected_code: 1,
+                },
+            ];
+
+            for case in cases {
+                let output = WaitOutput {
+                    condition_met: case.condition_met,
+                    condition: "healthy".to_string(),
+                    elapsed_ms: 12,
+                    timed_out: case.timed_out,
+                    final_state: Some("jj:ok,zellij:ok,db:error".to_string()),
+                };
+
+                let code = output_result(&output, zjj_core::OutputFormat::Json)
+                    .expect("matrix case should serialize");
+                assert_eq!(
+                    code, case.expected_code,
+                    "case '{}' returned wrong exit code",
+                    case.name
+                );
+            }
         }
     }
 
@@ -468,6 +570,53 @@ mod tests {
                 matches!(condition, WaitCondition::SessionExists(ref name) if name == session_name),
                 "Session name should be preserved exactly in SessionExists variant"
             );
+        }
+
+        struct ConditionFormatCase {
+            name: &'static str,
+            condition: WaitCondition,
+            expected_format: &'static str,
+        }
+
+        /// GIVEN: a matrix of condition variants
+        /// WHEN: each variant is formatted
+        /// THEN: formatted text should match the CLI output contract exactly
+        #[test]
+        fn given_condition_format_matrix_when_formatting_then_outputs_match_exact_contract() {
+            let cases = [
+                ConditionFormatCase {
+                    name: "session exists",
+                    condition: WaitCondition::SessionExists("alpha".to_string()),
+                    expected_format: "session-exists:alpha",
+                },
+                ConditionFormatCase {
+                    name: "session unlocked",
+                    condition: WaitCondition::SessionUnlocked("beta".to_string()),
+                    expected_format: "session-unlocked:beta",
+                },
+                ConditionFormatCase {
+                    name: "healthy",
+                    condition: WaitCondition::Healthy,
+                    expected_format: "healthy",
+                },
+                ConditionFormatCase {
+                    name: "session status",
+                    condition: WaitCondition::SessionStatus {
+                        name: "gamma".to_string(),
+                        status: "active".to_string(),
+                    },
+                    expected_format: "session-status:gamma=active",
+                },
+            ];
+
+            for case in cases {
+                let actual = format_condition(&case.condition);
+                assert_eq!(
+                    actual, case.expected_format,
+                    "case '{}' has wrong formatted condition",
+                    case.name
+                );
+            }
         }
     }
 
@@ -521,13 +670,58 @@ mod tests {
     mod json_output_behavior {
         use super::*;
 
+        #[test]
+        fn wait_envelope_has_single_success_field() -> Result<(), Box<dyn std::error::Error>> {
+            let output = WaitOutput {
+                condition_met: false,
+                condition: "healthy".to_string(),
+                elapsed_ms: 1,
+                timed_out: true,
+                final_state: Some("db:error".to_string()),
+            };
+
+            let envelope = SchemaEnvelope::new("wait-response", "single", &output);
+            let json = serde_json::to_string(&envelope)?;
+            let success_key_count = json.match_indices("\"success\"").count();
+            assert_eq!(
+                success_key_count, 1,
+                "Envelope should contain one success key"
+            );
+            Ok(())
+        }
+
+        /// GIVEN: wait output is wrapped in schema envelope
+        /// WHEN: serialized to JSON
+        /// THEN: domain payload should expose `condition_met` (not `success`)
+        #[test]
+        fn given_wait_envelope_when_serialized_then_payload_uses_condition_met_field(
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            let output = WaitOutput {
+                condition_met: true,
+                condition: "healthy".to_string(),
+                elapsed_ms: 4,
+                timed_out: false,
+                final_state: Some("jj:ok,zellij:ok,db:ok".to_string()),
+            };
+
+            let envelope = SchemaEnvelope::new("wait-response", "single", &output);
+            let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&envelope)?)?;
+
+            assert_eq!(
+                json.get("condition_met").and_then(|v| v.as_bool()),
+                Some(true)
+            );
+            assert!(json.get("success").and_then(|v| v.as_bool()).is_some());
+            Ok(())
+        }
+
         /// GIVEN: `WaitOutput` is serialized to JSON
         /// WHEN: AI agent parses it
         /// THEN: All necessary fields should be present
         #[test]
         fn json_has_all_required_fields() -> Result<(), Box<dyn std::error::Error>> {
             let output = WaitOutput {
-                success: true,
+                condition_met: true,
                 condition: "healthy".to_string(),
                 elapsed_ms: 500,
                 timed_out: false,
@@ -537,14 +731,17 @@ mod tests {
             let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&output)?)?;
 
             // All fields should be present
-            assert!(json.get("success").is_some(), "Must have success");
+            assert!(
+                json.get("condition_met").is_some(),
+                "Must have condition_met"
+            );
             assert!(json.get("condition").is_some(), "Must have condition");
             assert!(json.get("elapsed_ms").is_some(), "Must have elapsed_ms");
             assert!(json.get("timed_out").is_some(), "Must have timed_out");
             assert!(json.get("final_state").is_some(), "Must have final_state");
 
             // Types should be correct
-            assert!(json["success"].is_boolean());
+            assert!(json["condition_met"].is_boolean());
             assert!(json["condition"].is_string());
             assert!(json["elapsed_ms"].is_number());
             assert!(json["timed_out"].is_boolean());
@@ -557,7 +754,7 @@ mod tests {
         #[test]
         fn timeout_output_is_diagnosable() -> Result<(), Box<dyn std::error::Error>> {
             let output = WaitOutput {
-                success: false,
+                condition_met: false,
                 condition: "session-exists:missing".to_string(),
                 elapsed_ms: 30000,
                 timed_out: true,
@@ -567,7 +764,7 @@ mod tests {
             let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&output)?)?;
 
             // AI can determine the cause
-            assert_eq!(json["success"].as_bool(), Some(false));
+            assert_eq!(json["condition_met"].as_bool(), Some(false));
             assert_eq!(json["timed_out"].as_bool(), Some(true));
             if let Some(condition) = json["condition"].as_str() {
                 assert!(condition.contains("missing"));

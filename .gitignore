@@ -20,6 +20,10 @@ Thumbs.db
 *.dylib
 *.dll
 
+# SQLite sidecar files
+*.db-wal
+*.db-shm
+
 # Reports
 .llm-*.json
 .llm-*.md
@@ -51,3 +55,6 @@ bead-rmjy-test/
 .scout-agent-1.pid
 crates/zjj-core/target/
 .beads/checkpoint_backups/*.tar.gz
+.beads/*.db-shm
+.beads/*.db-wal
+crates/*/.beads/checkpoint_backups/*.tar.gz

@@ -31,8 +31,14 @@ pub struct SpawnArgs {
     /// Timeout in seconds (default: 14400 = 4 hours)
     pub timeout: u64,
 
+    /// Succeed if workspace already exists
+    pub idempotent: bool,
+
     /// Output format
     pub format: String,
+
+    /// Preview spawn without executing
+    pub dry_run: bool,
 }
 
 impl SpawnArgs {
@@ -56,6 +62,8 @@ impl SpawnArgs {
         let no_auto_merge = matches.get_flag("no-auto-merge");
         let no_auto_cleanup = matches.get_flag("no-auto-cleanup");
         let background = matches.get_flag("background");
+        let idempotent = matches.get_flag("idempotent");
+        let dry_run = matches.get_flag("dry-run");
 
         let timeout = matches
             .get_one::<String>("timeout")
@@ -76,7 +84,9 @@ impl SpawnArgs {
             no_auto_cleanup,
             background,
             timeout,
+            idempotent,
             format,
+            dry_run,
         })
     }
 
@@ -90,11 +100,13 @@ impl SpawnArgs {
             no_auto_cleanup: self.no_auto_cleanup,
             background: self.background,
             timeout_secs: self.timeout,
+            idempotent: self.idempotent,
             format: if self.format == "json" {
                 OutputFormat::Json
             } else {
                 OutputFormat::Human
             },
+            dry_run: self.dry_run,
         }
     }
 }
@@ -109,7 +121,9 @@ pub struct SpawnOptions {
     pub no_auto_cleanup: bool,
     pub background: bool,
     pub timeout_secs: u64,
+    pub idempotent: bool,
     pub format: OutputFormat,
+    pub dry_run: bool,
 }
 
 /// Output from spawn command
@@ -136,6 +150,8 @@ pub enum SpawnStatus {
     Failed,
     /// Validation error (wrong location, bead not ready, etc.)
     ValidationError,
+    /// Dry run (preview only)
+    DryRun,
 }
 
 /// Phase of spawn operation for error reporting
@@ -285,7 +301,9 @@ mod tests {
             no_auto_cleanup: false,
             background: false,
             timeout: 3600,
+            idempotent: false,
             format: "json".to_string(),
+            dry_run: false,
         };
 
         let opts = args.to_options();
@@ -297,6 +315,7 @@ mod tests {
         assert!(!opts.no_auto_cleanup);
         assert_eq!(opts.timeout_secs, 3600);
         assert!(matches!(opts.format, OutputFormat::Json));
+        assert!(!opts.dry_run);
     }
 
     #[test]

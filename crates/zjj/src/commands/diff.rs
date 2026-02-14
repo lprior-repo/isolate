@@ -544,4 +544,44 @@ mod tests {
             let _ = format.to_string();
         }
     }
+
+    // ============================================================================
+    // PHASE 2 (RED) - --contract flag tests for diff command
+    // These tests document the expected behavior of --contract flag
+    // ============================================================================
+
+    /// Test that --contract flag exists and outputs JSON schema
+    #[test]
+    fn test_diff_contract_flag_outputs_schema() {
+        // The --contract flag should output the diff command's AI contract
+        // as a JSON string describing inputs, outputs, and side effects
+        let contract = crate::cli::json_docs::ai_contracts::diff();
+
+        // Contract should contain essential information
+        assert!(contract.contains("zjj diff"));
+        assert!(contract.contains("intent"));
+        assert!(contract.contains("inputs"));
+        assert!(contract.contains("outputs"));
+    }
+
+    /// Test that contract includes diff-specific fields
+    #[test]
+    fn test_diff_contract_includes_stat_flag() {
+        let contract = crate::cli::json_docs::ai_contracts::diff();
+
+        // Should document the --stat flag
+        assert!(contract.contains("stat"));
+
+        // Should document the name argument
+        assert!(contract.contains("name") || contract.contains("session"));
+    }
+
+    /// Test that contract documents output format
+    #[test]
+    fn test_diff_contract_documents_output_schema() {
+        let contract = crate::cli::json_docs::ai_contracts::diff();
+
+        // Should document that output includes diff content
+        assert!(contract.contains("diff") || contract.contains("content"));
+    }
 }

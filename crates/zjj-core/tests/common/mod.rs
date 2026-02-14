@@ -34,3 +34,31 @@
     clippy::needless_continue,
     clippy::manual_clamp,
 )]
+
+use std::path::Path;
+
+use tempfile::TempDir;
+use zjj_core::Result;
+
+/// Set up a temporary directory with an initialized jj repository
+pub fn setup_test_repo() -> Result<TempDir> {
+    let temp_dir = tempfile::tempdir().map_err(|e| zjj_core::Error::IoError(e.to_string()))?;
+
+    // Initialize jj repo (using git backend for compatibility)
+    let output = std::process::Command::new("jj")
+        .args(["git", "init", "."])
+        .current_dir(temp_dir.path())
+        .output()
+        .map_err(|e| zjj_core::Error::IoError(format!("Failed to run jj git init: {e}")))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(zjj_core::Error::JjCommandError {
+            operation: "init test repo".to_string(),
+            source: stderr.to_string(),
+            is_not_found: false,
+        });
+    }
+
+    Ok(temp_dir)
+}

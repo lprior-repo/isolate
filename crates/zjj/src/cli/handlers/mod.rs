@@ -94,9 +94,21 @@ pub async fn run_cli() -> Result<()> {
                 matches!(e.kind(), ErrorKind::DisplayHelp | ErrorKind::DisplayVersion);
 
             if json_mode {
-                let json_err = serde_json::json!({ "success": false, "error": { "code": "INVALID_ARGUMENT", "message": e.to_string(), "exit_code": if should_exit_zero { 0 } else { 2 } } });
-                println!("{}", serde_json::to_string_pretty(&json_err)?);
+                if should_exit_zero {
+                    let _ = e.print();
+                    process::exit(0);
+                }
+
+                let parse_error = anyhow::Error::from(zjj_core::Error::ValidationError {
+                    message: e.to_string(),
+                    field: Some("cli_arguments".to_string()),
+                    value: None,
+                    constraints: vec!["Use --help to view valid flags and arguments".to_string()],
+                });
+                let exit_code = json::output_json_error(&parse_error);
+                process::exit(exit_code);
             }
+
             let _ = e.print();
             process::exit(if should_exit_zero { 0 } else { 2 });
         }
@@ -129,7 +141,10 @@ pub async fn run_cli() -> Result<()> {
             Some(("clean", sub_m)) => handle_clean(sub_m).await,
             Some(("prune-invalid", sub_m)) => handle_prune_invalid(sub_m).await,
             Some(("template", sub_m)) => handle_template(sub_m).await,
-            Some(("dashboard" | "dash", _)) => crate::commands::dashboard::run().await,
+            Some(("dashboard" | "dash", sub_m)) => {
+                let format = json_format::get_format(sub_m);
+                crate::commands::dashboard::run(format).await
+            }
             Some(("introspect", sub_m)) => handle_introspect(sub_m).await,
             Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m).await,
             Some(("integrity", sub_m)) => handle_integrity(sub_m).await,
