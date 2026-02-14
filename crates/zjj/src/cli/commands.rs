@@ -528,8 +528,14 @@ pub fn cmd_remove() -> ClapCommand {
                 .help("AI: Show machine-readable contract"),
         )
         .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints"),
+        )
+        .arg(
             Arg::new("name")
-                .required_unless_present("contract")
+                .required_unless_present_any(["contract", "ai-hints"])
                 .help("Name of the session to remove"),
         )
         .arg(
@@ -1919,9 +1925,9 @@ pub fn cmd_whereami() -> ClapCommand {
 
 
             Returns a simple, parseable string:
-  
+
             - 'main' if on main branch
-  
+
             - 'workspace:<name>' if in a workspace
 
 
@@ -1933,10 +1939,23 @@ pub fn cmd_whereami() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj whereami                    Returns 'main' or 'workspace:<name>'",
                 "zjj whereami --json             Output location as JSON",
+                "zjj whereami --contract         Show AI contract",
             ],
             None,
         ))
@@ -1950,9 +1969,9 @@ pub fn cmd_whoami() -> ClapCommand {
 
 
             Returns:
-  
+
             - Agent ID if registered (from ZJJ_AGENT_ID env var)
-  
+
             - 'unregistered' if no agent registered
 
 
@@ -1963,6 +1982,18 @@ pub fn cmd_whoami() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[
@@ -2329,7 +2360,7 @@ pub fn cmd_validate() -> ClapCommand {
         )
         .arg(
             Arg::new("command")
-                .required(true)
+                .required_unless_present("contract")
                 .help("Command to validate inputs for"),
         )
         .arg(
@@ -2375,18 +2406,18 @@ pub fn cmd_whatif() -> ClapCommand {
 
 
             More detailed than --dry-run, includes:
-  
+
             - Steps that would be executed
-  
+
             - Resource changes (files, sessions)
-  
+
             - Prerequisite checks
-  
+
             - Reversibility information",
         )
         .arg(
             Arg::new("command")
-                .required(true)
+                .required_unless_present("contract")
                 .help("Command to preview"),
         )
         .arg(
@@ -2401,11 +2432,18 @@ pub fn cmd_whatif() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj whatif done add feature-x    Preview 'add' command execution",
                 "zjj whatif spawn zjj-abc1        Preview bead spawn",
                 "zjj whatif --json                Output preview as JSON",
+                "zjj whatif --contract            Show AI contract",
             ],
             None,
         ))
