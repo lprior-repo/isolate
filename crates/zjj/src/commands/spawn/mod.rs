@@ -95,16 +95,18 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     validate_bead_status(&bead_repo, &options.bead_id, options.idempotent).await?;
 
     // Initialize transaction tracker
-    let workspace_path = create_workspace(&root, &options.bead_id, options.idempotent).await?;
+    let workspace = create_workspace(&root, &options.bead_id, options.idempotent).await?;
 
-    let tracker = TransactionTracker::new(&options.bead_id, &workspace_path).await?;
+    let tracker = TransactionTracker::new(&options.bead_id, &workspace.path).await?;
 
     // Register signal handlers for graceful shutdown
     let signal_handler = SignalHandler::new(Some(tracker.clone()));
     signal_handler.register()?;
 
     // Phase 3: Create workspace
-    tracker.mark_workspace_created()?;
+    if !workspace.reused_existing {
+        tracker.mark_workspace_created()?;
+    }
 
     // Phase 4: Update bead status to in_progress
     if let Err(e) = bead_repo
@@ -123,13 +125,13 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     let spawn_result = if options.background {
         tokio::time::timeout(
             Duration::from_secs(options.timeout_secs),
-            spawn_agent_background(&workspace_path, options),
+            spawn_agent_background(&workspace.path, options),
         )
         .await
     } else {
         tokio::time::timeout(
             Duration::from_secs(options.timeout_secs),
-            spawn_agent_foreground(&workspace_path, options),
+            spawn_agent_foreground(&workspace.path, options),
         )
         .await
     };
@@ -149,14 +151,14 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
 
     // Phase 6-8: Handle completion
     let (merged, cleaned, status) = match exit_code {
-        Some(0) => handle_success(&root, &options.bead_id, &workspace_path, options).await?,
-        Some(code) => handle_failure(&root, &workspace_path, options, code).await?,
+        Some(0) => handle_success(&root, &options.bead_id, &workspace.path, options).await?,
+        Some(code) => handle_failure(&root, &workspace.path, options, code).await?,
         None => (false, false, SpawnStatus::Running),
     };
 
     Ok(SpawnOutput {
         bead_id: options.bead_id.clone(),
-        workspace_path: workspace_path.to_string_lossy().to_string(),
+        workspace_path: workspace.path.to_string_lossy().to_string(),
         agent_pid: pid,
         exit_code,
         merged,
@@ -221,7 +223,7 @@ async fn create_workspace(
     root: &str,
     bead_id: &str,
     idempotent: bool,
-) -> Result<std::path::PathBuf, SpawnError> {
+) -> Result<WorkspaceResolution, SpawnError> {
     let workspace_dir_name = config::load_config()
         .await
         .map(|cfg| cfg.workspace_dir)
@@ -244,7 +246,10 @@ async fn create_workspace(
             let workspace_registered = workspace_registered_in_jj(root, bead_id).await?;
             if workspace_registered {
                 create_workspace_discoverability(&workspace_path).await?;
-                return Ok(workspace_path);
+                return Ok(WorkspaceResolution {
+                    path: workspace_path,
+                    reused_existing: true,
+                });
             }
         }
 
@@ -278,7 +283,10 @@ async fn create_workspace(
 
             if workspace_registered && idempotent {
                 create_workspace_discoverability(&workspace_path).await?;
-                return Ok(workspace_path);
+                return Ok(WorkspaceResolution {
+                    path: workspace_path,
+                    reused_existing: true,
+                });
             }
 
             if workspace_registered {
@@ -298,7 +306,10 @@ async fn create_workspace(
     // Create AI discoverability files in the workspace
     create_workspace_discoverability(&workspace_path).await?;
 
-    Ok(workspace_path)
+    Ok(WorkspaceResolution {
+        path: workspace_path,
+        reused_existing: false,
+    })
 }
 
 async fn workspace_registered_in_jj(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
@@ -323,9 +334,20 @@ async fn workspace_registered_in_jj(root: &str, workspace_name: &str) -> Result<
     let workspace_list = String::from_utf8_lossy(&output.stdout);
     let exists = workspace_list
         .lines()
-        .any(|line| line.contains(workspace_name));
+        .any(|line| workspace_line_matches_name(line, workspace_name));
 
     Ok(exists)
+}
+
+fn workspace_line_matches_name(line: &str, workspace_name: &str) -> bool {
+    line.split_once(':').is_some_and(|(raw_name, _)| {
+        raw_name.trim().trim_start_matches('*').trim() == workspace_name
+    })
+}
+
+struct WorkspaceResolution {
+    path: std::path::PathBuf,
+    reused_existing: bool,
 }
 
 /// Create discoverability files in the spawned workspace
@@ -632,5 +654,25 @@ mod tests {
         assert!(output.merged);
         assert!(output.cleaned);
         assert!(matches!(output.status, SpawnStatus::Completed));
+    }
+
+    #[test]
+    fn workspace_line_match_requires_exact_name() {
+        assert!(workspace_line_matches_name(
+            "zjj-123: /tmp/repo/.zjj/workspaces/zjj-123",
+            "zjj-123"
+        ));
+        assert!(workspace_line_matches_name(
+            "* zjj-123: /tmp/repo/.zjj/workspaces/zjj-123",
+            "zjj-123"
+        ));
+        assert!(!workspace_line_matches_name(
+            "zjj-1234: /tmp/repo/.zjj/workspaces/zjj-1234",
+            "zjj-123"
+        ));
+        assert!(!workspace_line_matches_name(
+            "not-a-workspace-line",
+            "zjj-123"
+        ));
     }
 }
