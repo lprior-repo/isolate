@@ -1178,6 +1178,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj introspect command
+    #[allow(clippy::too_many_lines)]
     pub const fn introspect() -> &'static str {
         r#"AI CONTRACT for zjj introspect:
 {

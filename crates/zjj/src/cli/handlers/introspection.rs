@@ -38,6 +38,12 @@ pub async fn handle_ai(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_introspect(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::introspect());
+        return Ok(());
+    }
+
     let json = sub_m.get_flag("json");
     let ai_mode = sub_m.get_flag("ai");
     let format = OutputFormat::from_json_flag(json || ai_mode);
