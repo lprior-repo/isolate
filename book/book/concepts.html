@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-759e68ed.js";
+            window.path_to_searchindex_js = "searchindex-15ae921f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-8228c269.js"></script>
+        <script src="toc-27e094cd.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -209,14 +209,13 @@
 <li>Tracks its state in the database</li>
 </ol>
 <h3 id="session-lifecycle"><a class="header" href="#session-lifecycle">Session Lifecycle</a></h3>
-<pre class="mermaid">graph LR
+<pre><code class="language-mermaid">graph LR
     A[Create] --&gt; B[Work]
     B --&gt; C[Sync]
     C --&gt; B
     B --&gt; D[Done]
     D --&gt; E[Remove]
-</pre>
-
+</code></pre>
 <h3 id="example"><a class="header" href="#example">Example</a></h3>
 <pre><code class="language-bash"># Create a session
 zjj add auth-refactor --bead BD-123
@@ -274,7 +273,7 @@ zjj queue worker --loop
 <hr>
 <h2 id="integration"><a class="header" href="#integration">Integration</a></h2>
 <p>How these concepts work together:</p>
-<pre class="mermaid">graph TD
+<pre><code class="language-mermaid">graph TD
     A[Queue Entry] --&gt;|Claims| B[Session]
     B --&gt;|Creates| C[JJ Workspace]
     B --&gt;|Creates| D[Zellij Tab]
@@ -282,8 +281,7 @@ zjj queue worker --loop
     C --&gt;|Work| F[Changes]
     F --&gt;|Done| G[Merge to Main]
     A --&gt;|Complete| H[Mark Done]
-</pre>
-
+</code></pre>
 <p><strong>Flow:</strong></p>
 <ol>
 <li>Queue entry exists for work</li>

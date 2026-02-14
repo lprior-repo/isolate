@@ -7,10 +7,12 @@ src = "src"
 
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
+optional = true
 
 [preprocessor.toc]
 command = "mdbook-toc"
 renderer = ["html"]
+optional = true
 
 [output.html]
 default-theme = "light"
