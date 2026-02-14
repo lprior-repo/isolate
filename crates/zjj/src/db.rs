@@ -171,7 +171,6 @@ impl SessionDb {
         Self::open_internal(path, true).await
     }
 
-    #[allow(clippy::cognitive_complexity)]
     async fn open_internal(path: &Path, allow_create: bool) -> Result<Self> {
         // Ensure parent directory exists for create operations
         if let Some(parent) = path.parent() {

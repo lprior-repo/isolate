@@ -96,7 +96,6 @@ pub struct ShutdownResult {
 ///
 /// # Returns
 /// A `ShutdownResult` indicating how many claims were released.
-#[allow(clippy::cognitive_complexity)]
 pub async fn graceful_shutdown(queue: &MergeQueue, claims: &ClaimTracker) -> ShutdownResult {
     let active_claims = claims.all().await;
 

@@ -82,7 +82,6 @@ pub struct RemoveResult {
 /// - Workspace inaccessible
 /// - Workspace removal fails (marks failed in DB first)
 /// - Database deletion fails (after workspace deleted)
-#[allow(clippy::cognitive_complexity)]
 pub async fn cleanup_session_atomically(
     db: &SessionDb,
     session: &Session,
