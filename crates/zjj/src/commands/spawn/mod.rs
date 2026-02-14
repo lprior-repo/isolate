@@ -90,6 +90,21 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     // Phase 2: Validate bead status
     validate_bead_status(&bead_repo, &options.bead_id).await?;
 
+    if options.dry_run {
+        let workspace_path = Path::new(&root)
+            .join(".zjj/workspaces")
+            .join(&options.bead_id);
+        return Ok(SpawnOutput {
+            bead_id: options.bead_id.clone(),
+            workspace_path: workspace_path.to_string_lossy().to_string(),
+            agent_pid: None,
+            exit_code: None,
+            merged: false,
+            cleaned: false,
+            status: SpawnStatus::DryRun,
+        });
+    }
+
     // Initialize transaction tracker
     let workspace_path = create_workspace(&root, &options.bead_id).await?;
 
@@ -500,6 +515,8 @@ fn output_result(result: &SpawnOutput, format: zjj_core::OutputFormat) -> Result
             println!("NEXT: Do your work in the workspace, then run:");
             println!("  zjj sync          # Preview changes / sync with main");
             println!("  zjj done          # Merge to main + cleanup");
+        } else if matches!(result.status, SpawnStatus::DryRun) {
+            println!("  [DRY RUN] No changes were made.");
         }
     }
     Ok(())
@@ -511,6 +528,7 @@ const fn status_display(status: &SpawnStatus) -> &'static str {
         SpawnStatus::Completed => "completed",
         SpawnStatus::Failed => "failed",
         SpawnStatus::ValidationError => "validation error",
+        SpawnStatus::DryRun => "dry-run preview",
     }
 }
 

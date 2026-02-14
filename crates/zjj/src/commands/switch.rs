@@ -16,6 +16,8 @@ pub struct SwitchOptions {
     pub format: OutputFormat,
     /// Show context after switching
     pub show_context: bool,
+    /// Skip zellij integration (for non-TTY contexts)
+    pub no_zellij: bool,
 }
 
 /// Run the switch command with options
@@ -52,6 +54,24 @@ pub async fn run_with_options(name: Option<&str>, options: &SwitchOptions) -> Re
     })?;
 
     let zellij_tab = session.zellij_tab;
+
+    if options.no_zellij {
+        if options.format.is_json() {
+            let output = FocusOutput {
+                name: resolved_name.clone(),
+                zellij_tab,
+                message: format!(
+                    "Resolved session '{resolved_name}' (skipped zellij with --no-zellij)"
+                ),
+            };
+            let envelope = SchemaEnvelope::new("switch-response", "single", output);
+            println!("{}", serde_json::to_string(&envelope)?);
+        } else {
+            println!("✓ Resolved session: {resolved_name}");
+            println!("  Skipped zellij switch due to --no-zellij");
+        }
+        return Ok(());
+    }
 
     // Only switch if inside Zellij
     if !is_inside_zellij() {
@@ -112,5 +132,6 @@ mod tests {
         let options = SwitchOptions::default();
         assert_eq!(options.format, OutputFormat::Human);
         assert!(!options.show_context);
+        assert!(!options.no_zellij);
     }
 }

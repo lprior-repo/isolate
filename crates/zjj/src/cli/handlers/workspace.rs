@@ -14,7 +14,8 @@ use crate::{
 
 pub async fn handle_init(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
-    init::run_with_options(init::InitOptions { format }).await
+    let dry_run = sub_m.get_flag("dry-run");
+    init::run_with_options(init::InitOptions { format, dry_run }).await
 }
 
 pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
@@ -121,12 +122,23 @@ pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_switch(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let show_context = sub_m.get_flag("show-context");
+    let no_zellij = sub_m.get_flag("no-zellij");
     let format = get_format(sub_m);
     let options = switch::SwitchOptions {
         format,
         show_context,
+        no_zellij,
     };
     switch::run_with_options(name, &options).await
+}
+
+pub async fn handle_dashboard(sub_m: &ArgMatches) -> Result<()> {
+    let format = get_format(sub_m);
+    if format.is_json() {
+        status::run(None, format, false).await
+    } else {
+        crate::commands::dashboard::run().await
+    }
 }
 
 pub async fn handle_spawn(sub_m: &ArgMatches) -> Result<()> {

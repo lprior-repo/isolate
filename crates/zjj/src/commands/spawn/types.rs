@@ -33,6 +33,9 @@ pub struct SpawnArgs {
 
     /// Output format
     pub format: String,
+
+    /// Preview mode without side effects
+    pub dry_run: bool,
 }
 
 impl SpawnArgs {
@@ -68,6 +71,8 @@ impl SpawnArgs {
             "human".to_string()
         };
 
+        let dry_run = matches.get_flag("dry-run");
+
         Ok(Self {
             bead_id,
             agent_command,
@@ -77,6 +82,7 @@ impl SpawnArgs {
             background,
             timeout,
             format,
+            dry_run,
         })
     }
 
@@ -95,6 +101,7 @@ impl SpawnArgs {
             } else {
                 OutputFormat::Human
             },
+            dry_run: self.dry_run,
         }
     }
 }
@@ -110,6 +117,7 @@ pub struct SpawnOptions {
     pub background: bool,
     pub timeout_secs: u64,
     pub format: OutputFormat,
+    pub dry_run: bool,
 }
 
 /// Output from spawn command
@@ -136,6 +144,8 @@ pub enum SpawnStatus {
     Failed,
     /// Validation error (wrong location, bead not ready, etc.)
     ValidationError,
+    /// Dry-run preview completed
+    DryRun,
 }
 
 /// Phase of spawn operation for error reporting
@@ -286,6 +296,7 @@ mod tests {
             background: false,
             timeout: 3600,
             format: "json".to_string(),
+            dry_run: true,
         };
 
         let opts = args.to_options();
@@ -297,6 +308,7 @@ mod tests {
         assert!(!opts.no_auto_cleanup);
         assert_eq!(opts.timeout_secs, 3600);
         assert!(matches!(opts.format, OutputFormat::Json));
+        assert!(opts.dry_run);
     }
 
     #[test]
@@ -329,11 +341,13 @@ mod tests {
         let completed = SpawnStatus::Completed;
         let failed = SpawnStatus::Failed;
         let validation = SpawnStatus::ValidationError;
+        let dry_run = SpawnStatus::DryRun;
 
         // Verify variant discriminants work correctly
         assert!(matches!(running, SpawnStatus::Running));
         assert!(matches!(completed, SpawnStatus::Completed));
         assert!(matches!(failed, SpawnStatus::Failed));
         assert!(matches!(validation, SpawnStatus::ValidationError));
+        assert!(matches!(dry_run, SpawnStatus::DryRun));
     }
 }

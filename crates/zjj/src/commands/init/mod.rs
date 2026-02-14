@@ -22,6 +22,7 @@ use types::{build_init_response, InitPaths, InitResponse};
 #[derive(Debug, Clone, Copy, Default)]
 pub struct InitOptions {
     pub format: OutputFormat,
+    pub dry_run: bool,
 }
 
 /// Run the init command
@@ -40,11 +41,22 @@ pub async fn run() -> Result<()> {
 
 /// Run init command with options
 pub async fn run_with_options(options: InitOptions) -> Result<()> {
-    run_with_cwd_and_format(None, options.format).await
+    run_with_cwd_format_and_options(None, options).await
 }
 
 /// Run init command with cwd and format
 pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Result<()> {
+    run_with_cwd_format_and_options(
+        cwd,
+        InitOptions {
+            format,
+            dry_run: false,
+        },
+    )
+    .await
+}
+
+async fn run_with_cwd_format_and_options(cwd: Option<&Path>, options: InitOptions) -> Result<()> {
     let cwd = match cwd {
         Some(p) => PathBuf::from(p),
         None => std::env::current_dir().context("Failed to get current directory")?,
@@ -52,6 +64,10 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
 
     // Check required dependencies
     check_dependencies().await?;
+
+    if options.dry_run {
+        return preview_init(&cwd, options.format).await;
+    }
 
     // Initialize JJ repo if needed
     ensure_jj_repo_with_cwd(&cwd).await?;
@@ -85,7 +101,7 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
             already_initialized: true,
         };
 
-        if format.is_json() {
+        if options.format.is_json() {
             let envelope = SchemaEnvelope::new("init-response", "single", response);
             println!("{}", serde_json::to_string(&envelope)?);
         } else {
@@ -145,7 +161,7 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
 
-    if format.is_json() {
+    if options.format.is_json() {
         let response = build_init_response(&root, false);
         let envelope = SchemaEnvelope::new("init-response", "single", response);
         println!("{}", serde_json::to_string(&envelope)?);
@@ -155,6 +171,78 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
         println!("  Configuration: .zjj/config.toml");
         println!("  State database: .zjj/state.db");
         println!("  Layouts: .zjj/layouts/");
+    }
+
+    Ok(())
+}
+
+async fn preview_init(cwd: &Path, format: OutputFormat) -> Result<()> {
+    let repo_exists = tokio::fs::try_exists(cwd.join(".jj"))
+        .await
+        .unwrap_or(false);
+    let root = if repo_exists {
+        jj_root_with_cwd(cwd).await?
+    } else {
+        cwd.to_path_buf()
+    };
+
+    let zjj_dir = root.join(".zjj");
+    let config_path = zjj_dir.join("config.toml");
+    let layouts_dir = zjj_dir.join("layouts");
+    let db_path = zjj_dir.join("state.db");
+
+    let has_zjj_dir = tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false);
+    let has_config = tokio::fs::try_exists(&config_path).await.unwrap_or(false);
+    let has_layouts = tokio::fs::try_exists(&layouts_dir).await.unwrap_or(false);
+    let has_db = tokio::fs::try_exists(&db_path).await.unwrap_or(false);
+
+    let is_fully_initialized = has_zjj_dir && has_config && has_layouts && has_db;
+    let mut response = build_init_response(&root, is_fully_initialized);
+    response.jj_initialized = repo_exists;
+    response.message = if is_fully_initialized {
+        "Dry run: zjj is already initialized; no changes required.".to_string()
+    } else {
+        format!("Dry run: would initialize zjj in {}", root.display())
+    };
+
+    let mut actions = Vec::new();
+    if !repo_exists {
+        actions.push("Would initialize JJ repository".to_string());
+    }
+    if !has_zjj_dir {
+        actions.push("Would create .zjj directory".to_string());
+    }
+    if !has_config {
+        actions.push("Would create .zjj/config.toml".to_string());
+    }
+    if !has_layouts {
+        actions.push("Would create .zjj/layouts".to_string());
+    }
+    if !has_db {
+        actions.push("Would create .zjj/state.db".to_string());
+    }
+    if !is_fully_initialized {
+        actions.push("Would create hooks, docs, and helper files".to_string());
+    }
+
+    if format.is_json() {
+        let mut envelope =
+            serde_json::to_value(SchemaEnvelope::new("init-response", "single", response))?;
+        if let Some(obj) = envelope.as_object_mut() {
+            obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
+            obj.insert(
+                "planned_actions".to_string(),
+                serde_json::to_value(actions)?,
+            );
+        }
+        println!("{}", serde_json::to_string(&envelope)?);
+    } else {
+        println!("{}", response.message);
+        if actions.is_empty() {
+            println!("  No changes would be made.");
+        } else {
+            actions.iter().for_each(|action| println!("  - {action}"));
+        }
     }
 
     Ok(())
