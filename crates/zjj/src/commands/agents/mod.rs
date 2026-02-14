@@ -140,7 +140,10 @@ async fn get_agents(pool: &SqlitePool, args: &AgentsArgs) -> Result<Vec<AgentInf
                     last_seen,
                     current_session,
                     current_command,
-                    actions_count: u64::try_from(actions_count).unwrap_or(0),
+                    actions_count: match u64::try_from(actions_count) {
+                        Ok(v) => v,
+                        Err(_) => 0,
+                    },
                     stale,
                 })
             },
@@ -443,7 +446,10 @@ pub async fn run_status(format: OutputFormat) -> Result<()> {
                 last_seen: last_seen_dt,
                 current_session,
                 current_command,
-                actions_count: u64::try_from(actions_count).unwrap_or(0),
+                actions_count: match u64::try_from(actions_count) {
+                    Ok(v) => v,
+                    Err(_) => 0,
+                },
                 stale,
             };
 
@@ -476,7 +482,7 @@ pub async fn run_status(format: OutputFormat) -> Result<()> {
             println!("  Agent ID: {}", agent.agent_id);
             println!(
                 "  Session: {}",
-                agent.current_session.as_deref().unwrap_or("none")
+                agent.current_session.as_deref().map_or("none", |s| s)
             );
             println!("  Actions: {}", agent.actions_count);
             println!("  Last seen: {}", agent.last_seen.to_rfc3339());

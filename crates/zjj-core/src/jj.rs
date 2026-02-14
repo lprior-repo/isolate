@@ -32,13 +32,20 @@ fn resolve_jj_path() -> String {
 
 /// Search PATH for jj binary
 fn search_path_for_jj() -> String {
-    let paths = std::env::var_os("PATH").unwrap_or_default();
+    let paths = match std::env::var_os("PATH") {
+        Some(p) => p,
+        None => std::ffi::OsString::new(),
+    };
+
     let found = std::env::split_paths(&paths)
         .map(|p| p.join("jj"))
         .find(|p| p.exists())
         .map(|p| p.to_string_lossy().to_string());
 
-    found.unwrap_or_else(|| "jj".to_string())
+    match found {
+        Some(p) => p,
+        None => "jj".to_string(),
+    }
 }
 
 /// Get a tokio Command for jj with absolute path

@@ -523,13 +523,16 @@ pub async fn run_rollback(options: &RollbackOptions) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Session '{}' has no workspace path", options.session))?;
 
     let workspace_dir = std::path::Path::new(workspace_path);
-    if !tokio::fs::try_exists(workspace_dir).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(workspace_dir)
+        .await
+        .map_or(false, |e| e)
+    {
         anyhow::bail!("Workspace directory '{workspace_path}' does not exist");
     }
 
     // Verify it's a JJ repository
     let jj_dir = workspace_dir.join(".jj");
-    if !tokio::fs::try_exists(&jj_dir).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(&jj_dir).await.map_or(false, |e| e) {
         anyhow::bail!("'{workspace_path}' is not a JJ repository");
     }
 
@@ -730,29 +733,24 @@ async fn get_operation_log(workspace_path: &str) -> Result<Vec<OperationEntry>> 
                 Some(OperationEntry {
                     id: parts
                         .first()
-                        .map(|s| s.trim().to_string())
-                        .unwrap_or_default(),
+                        .map_or_else(String::new, |s| s.trim().to_string()),
                     operation: parts
                         .get(1)
-                        .map(|s| s.trim().to_string())
-                        .unwrap_or_default(),
+                        .map_or_else(String::new, |s| s.trim().to_string()),
                     description: parts
                         .get(4)
                         .map(|s| s.trim().to_string())
                         .unwrap_or_else(|| {
                             parts
                                 .get(1)
-                                .map(|s| s.trim().to_string())
-                                .unwrap_or_default()
+                                .map_or_else(String::new, |s| s.trim().to_string())
                         }),
                     timestamp: parts
                         .get(2)
-                        .map(|s| s.trim().to_string())
-                        .unwrap_or_default(),
+                        .map_or_else(String::new, |s| s.trim().to_string()),
                     user: parts
                         .get(3)
-                        .map(|s| s.trim().to_string())
-                        .unwrap_or_default(),
+                        .map_or_else(String::new, |s| s.trim().to_string()),
                     current: current_op_id
                         .as_ref()
                         .is_some_and(|id| parts.first().is_some_and(|p| p.trim() == id)),
@@ -795,7 +793,7 @@ async fn show_operation_log(
 
     let session = session_name
         .map(std::string::String::as_str)
-        .unwrap_or("<current>")
+        .map_or("<current>", |s| s)
         .to_string();
 
     if format.is_json() {
