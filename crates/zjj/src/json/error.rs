@@ -126,7 +126,7 @@ fn convert_spawn_error(error: &SpawnError) -> JsonError {
 
 /// Classify exit code based on error message pattern
 fn classify_exit_code_by_message(error_str: &str) -> i32 {
-    let lower = error_str.to_lowercase();
+    let lower = error_str.to_ascii_lowercase();
 
     // Missing resources: exit code 2
     if lower.contains("not found") || lower.contains("no backup found") {
@@ -142,6 +142,9 @@ fn classify_exit_code_by_message(error_str: &str) -> i32 {
         || lower.contains("timestamp")
         || lower.contains("not in a jj repository")
         || lower.contains("not in a jj repo")
+        || lower.contains("session name")
+        || lower.contains("invalid session name")
+        || lower.contains("zjj not initialized")
     {
         return 1;
     }
@@ -159,25 +162,28 @@ fn classify_exit_code_by_message(error_str: &str) -> i32 {
 fn classify_error_by_message(error_str: &str) -> ErrorCode {
     let lower = error_str.to_lowercase();
 
-    if lower.contains("unknown database")
-        || lower.contains("unknown backup action")
-        || lower.contains("invalid --timestamp")
-        || lower.contains("invalid")
-        || lower.contains("validation")
-    {
-        ErrorCode::InvalidArgument
-    } else if lower.contains("no backup found") || lower.contains("not found") {
+    if lower.contains("no backup found") || lower.contains("not found") {
         ErrorCode::SessionNotFound
     } else if lower.contains("invalid session name")
         || lower.contains("session name")
         || lower.contains("must start with a letter")
     {
         ErrorCode::SessionNameInvalid
+    } else if lower.contains("unknown database")
+        || lower.contains("unknown backup action")
+        || lower.contains("invalid --timestamp")
+        || lower.contains("invalid")
+        || lower.contains("validation")
+    {
+        ErrorCode::InvalidArgument
     } else if lower.contains("already exists") {
         ErrorCode::SessionAlreadyExists
     } else if lower.contains("jj is not installed") || lower.contains("jj not found") {
         ErrorCode::JjNotInstalled
-    } else if lower.contains("not a jj repository") || lower.contains("not in a jj repo") {
+    } else if lower.contains("not a jj repository")
+        || lower.contains("not in a jj repository")
+        || lower.contains("not in a jj repo")
+    {
         ErrorCode::NotJjRepository
     } else if lower.contains("zellij") {
         ErrorCode::ZellijCommandFailed
@@ -185,7 +191,7 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
         ErrorCode::WorkspaceNotFound
     } else if lower.contains("not in workspace") || lower.contains("not in a workspace") {
         ErrorCode::InvalidArgument
-    } else if lower.contains("conflict") || lower.contains("conflicting") {
+    } else if lower.contains("conflict") {
         ErrorCode::JjCommandFailed
     } else if lower.contains("database") {
         ErrorCode::StateDbCorrupted
@@ -196,7 +202,9 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use zjj_core::ErrorCode;
+
+    use super::{classify_error_by_message, classify_exit_code_by_message};
 
     #[test]
     fn given_unknown_database_when_classified_then_invalid_argument() {
@@ -219,6 +227,12 @@ mod tests {
     }
 
     #[test]
+    fn given_not_initialized_when_classifying_then_exit_code_is_validation() {
+        let code = classify_exit_code_by_message("ZJJ not initialized. Run 'zjj init' first.");
+        assert_eq!(code, 1);
+    }
+
+    #[test]
     fn given_no_backup_found_when_classified_then_not_found_exit_two() {
         let code = classify_error_by_message("No backup found with timestamp: 20250101-010101");
         assert!(matches!(code, ErrorCode::SessionNotFound));
@@ -226,6 +240,12 @@ mod tests {
             classify_exit_code_by_message("No backup found with timestamp: 20250101-010101"),
             2
         );
+    }
+
+    #[test]
+    fn given_not_in_jj_repository_when_mapping_error_code_then_not_jj_repository() {
+        let code = classify_error_by_message("Not in a JJ repository. Run 'zjj init' first.");
+        assert_eq!(code, ErrorCode::NotJjRepository);
     }
 }
 
