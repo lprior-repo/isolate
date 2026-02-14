@@ -26,6 +26,17 @@ async fn test_workspace_creation_with_permission_denied() {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&restricted_parent, std::fs::Permissions::from_mode(0o000))
             .expect("Failed to set restricted permissions");
+
+        // If we can still read the directory, we are likely running as root,
+        // and the chmod 000 will not prevent access. Skip the test in this case.
+        if std::fs::read_dir(&restricted_parent).is_ok() {
+            println!("Skipping permission test: running as root or chmod 000 not effective");
+            let _ = std::fs::set_permissions(
+                &restricted_parent,
+                std::fs::Permissions::from_mode(0o755),
+            );
+            return;
+        }
     }
 
     // If not on Unix, we still use a path that is likely to fail, though less reliably

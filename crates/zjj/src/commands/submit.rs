@@ -219,13 +219,20 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
             .unwrap_or(false);
         let dedupe_key = compute_dedupe_key(&identity.change_id, &identity.workspace_name);
 
+        // If it's dirty and we won't auto-commit, the real command would fail.
+        // Dry-run should reflect this precondition failure (bd-34k fix).
+        if is_dirty && !options.auto_commit {
+            return output_error(
+                options.format.is_json(),
+                "DIRTY_WORKSPACE",
+                "Working copy has uncommitted changes.\nUse --auto-commit to commit automatically, or run 'jj commit' first. (Dry run validation failure)".to_string(),
+                3,
+            );
+        }
+
         if !options.format.is_json() && is_dirty {
             println!("Note: Workspace has uncommitted changes.");
-            if options.auto_commit {
-                println!("      These changes WOULD be committed automatically.");
-            } else {
-                println!("      Submission WOULD fail without --auto-commit or 'jj commit'.");
-            }
+            println!("      These changes WOULD be committed automatically.");
             println!();
         }
 

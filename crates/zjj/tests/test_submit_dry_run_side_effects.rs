@@ -107,3 +107,51 @@ fn test_submit_auto_commit_works_when_not_dry_run() {
         "Should have the auto-commit message"
     );
 }
+
+#[test]
+fn test_submit_dry_run_fails_if_dirty_without_auto_commit() {
+    // GIVEN: An initialized ZJJ repository with uncommitted changes
+    let Some(mut harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    harness.assert_success(&["init"]);
+    harness.assert_success(&["add", "dry-run-fail-test", "--no-open"]);
+
+    let workspace_path = harness.workspace_path("dry-run-fail-test");
+    std::fs::write(workspace_path.join("test.txt"), "initial content")
+        .expect("Failed to write test file");
+
+    harness.jj_in_dir(&workspace_path, &["commit", "-m", "Initial"]);
+    harness.jj_in_dir(
+        &workspace_path,
+        &["bookmark", "create", "dry-run-fail-test", "-r", "@"],
+    );
+
+    // Add uncommitted changes (dirty workspace)
+    std::fs::write(workspace_path.join("uncommitted.txt"), "dirty changes")
+        .expect("Failed to write uncommitted file");
+
+    harness.current_dir = workspace_path.clone();
+
+    // WHEN: User runs submit with --dry-run but WITHOUT --auto-commit
+    let result = harness.zjj(&["submit", "--dry-run", "--json"]);
+
+    // THEN: Command should FAIL with DIRTY_WORKSPACE error (bd-34k fix validation)
+    assert!(
+        !result.success,
+        "Submit dry-run should fail if workspace is dirty and auto-commit is not requested\nstdout: {}\nstderr: {}",
+        result.stdout,
+        result.stderr
+    );
+    assert!(
+        result.stdout.contains("DIRTY_WORKSPACE"),
+        "Output should contain DIRTY_WORKSPACE error code: {}",
+        result.stdout
+    );
+    assert!(
+        result.exit_code == Some(3),
+        "Exit code should be 3 for precondition failure, got {:?}",
+        result.exit_code
+    );
+}
