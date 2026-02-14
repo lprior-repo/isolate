@@ -58,3 +58,4 @@ crates/zjj-core/target/
 .beads/*.db-shm
 .beads/*.db-wal
 crates/*/.beads/checkpoint_backups/*.tar.gz
+tools/sonar-scanner/
