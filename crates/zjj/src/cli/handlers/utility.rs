@@ -25,8 +25,9 @@ pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {
         .get_one::<String>("query_type")
         .ok_or_else(|| anyhow::anyhow!("Query type is required"))?;
     let args = sub_m.get_one::<String>("args").map(String::as_str);
+    let json_mode = sub_m.get_flag("json");
 
-    let result = query::run(query_type, args).await?;
+    let result = query::run(query_type, args, json_mode).await?;
 
     if !result.output.is_empty() {
         println!("{}", result.output);
@@ -67,14 +68,8 @@ pub async fn handle_wait(sub_m: &ArgMatches) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Condition is required"))?;
     let name = sub_m.get_one::<String>("name").cloned();
     let status = sub_m.get_one::<String>("status").cloned();
-    let timeout: u64 = sub_m
-        .get_one::<String>("timeout")
-        .and_then(|s| s.parse().ok())
-        .map_or(30, |v| v);
-    let interval: u64 = sub_m
-        .get_one::<String>("interval")
-        .and_then(|s| s.parse().ok())
-        .map_or(30, |v| v);
+    let timeout: u64 = *sub_m.get_one::<u64>("timeout").unwrap_or(&30);
+    let interval: u64 = *sub_m.get_one::<u64>("interval").unwrap_or(&1);
 
     let condition = match condition_str.as_str() {
         "session-exists" => wait::WaitCondition::SessionExists(

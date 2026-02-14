@@ -116,24 +116,34 @@ pub fn handle_examples(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_help(sub_m: &ArgMatches) -> Result<()> {
-    let command = sub_m.get_one::<String>("command").map(String::as_str);
+    let command_path: Vec<&str> = sub_m
+        .get_many::<String>("command")
+        .map(|values| values.map(String::as_str).collect())
+        .unwrap_or_default();
     let mut cli = build_cli();
-    match command {
-        None | Some("-h" | "--help") => {
-            cli.print_help().map_err(anyhow::Error::new)?;
-            println!();
-            Ok(())
-        }
-        Some(name) => {
-            let mut subcommand = cli
-                .find_subcommand(name)
-                .ok_or_else(|| anyhow::anyhow!("Unknown command '{name}'"))?
-                .clone();
-            subcommand.print_help().map_err(anyhow::Error::new)?;
-            println!();
-            Ok(())
-        }
+
+    if command_path.is_empty()
+        || command_path
+            .first()
+            .is_some_and(|cmd| *cmd == "-h" || *cmd == "--help")
+    {
+        cli.print_help().map_err(anyhow::Error::new)?;
+        println!();
+        return Ok(());
     }
+
+    let mut traversed: Vec<&str> = Vec::with_capacity(command_path.len());
+    for name in command_path {
+        traversed.push(name);
+        let next = cli
+            .find_subcommand(name)
+            .ok_or_else(|| anyhow::anyhow!("Unknown command '{}'", traversed.join(" ")))?;
+        cli = next.clone();
+    }
+
+    cli.print_help().map_err(anyhow::Error::new)?;
+    println!();
+    Ok(())
 }
 
 pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {

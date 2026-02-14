@@ -44,10 +44,7 @@ pub struct ConfigOptions {
 /// - Config value cannot be set
 /// - Invalid arguments provided
 pub async fn run(options: ConfigOptions) -> Result<()> {
-    // Preserve error type for proper exit code mapping
-    let config = zjj_core::config::load_config()
-        .await
-        .map_err(anyhow::Error::new)?;
+    let config = load_config_for_scope(options.global).await?;
 
     match (options.key, options.value) {
         // No key, no value: Show all config
@@ -102,6 +99,25 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
     }
 
     Ok(())
+}
+
+async fn load_config_for_scope(global_only: bool) -> Result<Config> {
+    if !global_only {
+        return zjj_core::config::load_config()
+            .await
+            .map_err(anyhow::Error::new);
+    }
+
+    let mut config = Config::default();
+    if let Ok(global_path) = global_config_path() {
+        match zjj_core::config::load_partial_toml_file(&global_path).await {
+            Ok(global_partial) => config.merge_partial(global_partial),
+            Err(zjj_core::Error::IoError(_)) => {}
+            Err(err) => return Err(anyhow::Error::new(err)),
+        }
+    }
+
+    Ok(config)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -384,13 +400,18 @@ fn parse_value(value: &str) -> Result<toml_edit::Item> {
     } else if let Ok(n) = value.parse::<i64>() {
         Ok(toml_edit::value(n))
     } else if value.starts_with('[') && value.ends_with(']') {
-        // Parse array: ["a", "b"] or [1, 2]
-        let items: Vec<&str> = value[1..value.len() - 1]
-            .split(',')
-            .map(|s| s.trim().trim_matches('"'))
-            .collect();
-        let array = items.iter().map(|s| toml_edit::Value::from(*s)).collect();
-        Ok(toml_edit::Item::Value(toml_edit::Value::Array(array)))
+        let parsed = value
+            .parse::<toml_edit::Value>()
+            .context("Failed to parse array value")?;
+        match parsed {
+            toml_edit::Value::Array(array) => {
+                if !array.iter().all(|item| item.as_str().is_some()) {
+                    anyhow::bail!("Array values must contain only strings");
+                }
+                Ok(toml_edit::Item::Value(toml_edit::Value::Array(array)))
+            }
+            _ => anyhow::bail!("Expected array value"),
+        }
     } else {
         // Default to string
         Ok(toml_edit::value(value))

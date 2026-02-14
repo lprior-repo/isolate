@@ -294,7 +294,9 @@ async fn import_session(
         validate_and_parse_timestamp(session.created_at.as_ref())?.unwrap_or_else(chrono::Utc::now);
 
     // Convert DateTime to unix timestamp
-    let created_ts = u64::try_from(created_timestamp.timestamp()).unwrap_or(u64::MAX);
+    let created_ts = u64::try_from(created_timestamp.timestamp()).map_err(|_| {
+        anyhow::anyhow!("Invalid created_at timestamp for session '{name}': must be >= Unix epoch")
+    })?;
 
     let _created: Session = db
         .create_with_timestamp(name, workspace_path, created_ts)
