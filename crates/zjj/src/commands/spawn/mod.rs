@@ -92,10 +92,10 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     let bead_repo = BeadRepository::new(&root);
 
     // Phase 2: Validate bead status
-    validate_bead_status(&bead_repo, &options.bead_id).await?;
+    validate_bead_status(&bead_repo, &options.bead_id, options.idempotent).await?;
 
     // Initialize transaction tracker
-    let workspace_path = create_workspace(&root, &options.bead_id).await?;
+    let workspace_path = create_workspace(&root, &options.bead_id, options.idempotent).await?;
 
     let tracker = TransactionTracker::new(&options.bead_id, &workspace_path).await?;
 
@@ -178,7 +178,11 @@ async fn validate_location() -> Result<String> {
 }
 
 /// Validate that the bead exists and has appropriate status
-async fn validate_bead_status(bead_repo: &BeadRepository, bead_id: &str) -> Result<(), SpawnError> {
+async fn validate_bead_status(
+    bead_repo: &BeadRepository,
+    bead_id: &str,
+    idempotent: bool,
+) -> Result<(), SpawnError> {
     let bead = bead_repo
         .get_bead(bead_id)
         .await
@@ -192,7 +196,13 @@ async fn validate_bead_status(bead_repo: &BeadRepository, bead_id: &str) -> Resu
         });
     };
 
-    // Check if status is appropriate (open)
+    // Check if status is appropriate.
+    // In idempotent mode, allow in_progress so retries can safely continue.
+    if idempotent && matches!(bead.status, BeadStatus::InProgress) {
+        return Ok(());
+    }
+
+    // Default path requires open bead.
     match bead.status {
         BeadStatus::Open => Ok(()),
         _ => Err(SpawnError::InvalidBeadStatus {
@@ -207,7 +217,11 @@ async fn validate_bead_status(bead_repo: &BeadRepository, bead_id: &str) -> Resu
 /// This uses the synchronized workspace creation to prevent operation graph
 /// corruption when multiple workspaces are created concurrently or in quick
 /// succession.
-async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, SpawnError> {
+async fn create_workspace(
+    root: &str,
+    bead_id: &str,
+    idempotent: bool,
+) -> Result<std::path::PathBuf, SpawnError> {
     let workspace_dir_name = config::load_config()
         .await
         .map(|cfg| cfg.workspace_dir)
@@ -226,10 +240,18 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
             reason: format!("Failed to check existing workspace path: {e}"),
         }
     })? {
+        if idempotent {
+            let workspace_registered = workspace_registered_in_jj(root, bead_id).await?;
+            if workspace_registered {
+                create_workspace_discoverability(&workspace_path).await?;
+                return Ok(workspace_path);
+            }
+        }
+
         return Err(SpawnError::WorkspaceCreationFailed {
             reason: format!(
-                "Workspace already exists at {}. Refusing to overwrite existing files.",
-                workspace_path.display()
+                "Workspace already exists at {}. Retry with --idempotent",
+                workspace_path.display(),
             ),
         });
     }
@@ -240,16 +262,70 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
     // 2. All workspaces are based on the same repository operation
     // 3. Operation graph consistency is verified after creation
     // CRITICAL-004 fix: Pass root explicitly to support sibling workspace directories
-    zjj_core::jj_operation_sync::create_workspace_synced(bead_id, &workspace_path, Path::new(root))
-        .await
-        .map_err(|e| SpawnError::WorkspaceCreationFailed {
-            reason: format!("Failed to create workspace with operation sync: {e}"),
-        })?;
+    let create_result = zjj_core::jj_operation_sync::create_workspace_synced(
+        bead_id,
+        &workspace_path,
+        Path::new(root),
+    )
+    .await;
+
+    if let Err(e) = create_result {
+        let reason = e.to_string();
+        let workspace_exists_error = reason.to_ascii_lowercase().contains("already exists");
+
+        if workspace_exists_error {
+            let workspace_registered = workspace_registered_in_jj(root, bead_id).await?;
+
+            if workspace_registered && idempotent {
+                create_workspace_discoverability(&workspace_path).await?;
+                return Ok(workspace_path);
+            }
+
+            if workspace_registered {
+                return Err(SpawnError::WorkspaceCreationFailed {
+                    reason: format!(
+                        "Workspace '{bead_id}' already exists. Retry with --idempotent"
+                    ),
+                });
+            }
+        }
+
+        return Err(SpawnError::WorkspaceCreationFailed {
+            reason: format!("Failed to create workspace with operation sync: {reason}"),
+        });
+    }
 
     // Create AI discoverability files in the workspace
     create_workspace_discoverability(&workspace_path).await?;
 
     Ok(workspace_path)
+}
+
+async fn workspace_registered_in_jj(root: &str, workspace_name: &str) -> Result<bool, SpawnError> {
+    let output = tokio::process::Command::new("jj")
+        .args(["workspace", "list"])
+        .current_dir(root)
+        .output()
+        .await
+        .map_err(|e| SpawnError::JjCommandFailed {
+            reason: format!("Failed to execute jj workspace list: {e}"),
+        })?;
+
+    if !output.status.success() {
+        return Err(SpawnError::JjCommandFailed {
+            reason: format!(
+                "jj workspace list failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        });
+    }
+
+    let workspace_list = String::from_utf8_lossy(&output.stdout);
+    let exists = workspace_list
+        .lines()
+        .any(|line| line.contains(workspace_name));
+
+    Ok(exists)
 }
 
 /// Create discoverability files in the spawned workspace
