@@ -113,10 +113,10 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
         .await
         .context("Failed to create lock file")?;
 
-    // Try to acquire exclusive lock (non-blocking)
-    if lock_file.try_lock_exclusive().is_err() {
-        bail!("Another zjj init is already in progress. Please wait for it to complete.");
-    }
+    // Acquire exclusive lock (blocking - waits for other init to complete)
+    lock_file
+        .lock_exclusive()
+        .context("Failed to acquire init lock")?;
 
     // Double-check initialization status after acquiring lock
     let is_now_initialized = tokio::fs::try_exists(&config_path).await.unwrap_or(false)

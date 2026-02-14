@@ -160,9 +160,10 @@ async fn test_init_concurrent_no_corruption() -> Result<()> {
     // Wait for all to complete
     let results: Vec<_> = futures::future::join_all(handles).await;
 
-    // All should complete without panicking
+    // All should complete without panicking, and all tasks should succeed
     for result in results {
-        assert!(result.is_ok(), "concurrent init should not panic");
+        let task_result = result.expect("task should not panic");
+        assert!(task_result.is_ok(), "concurrent init should succeed");
     }
 
     // Verify state is consistent (no corruption)
