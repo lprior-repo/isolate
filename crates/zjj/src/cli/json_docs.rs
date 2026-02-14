@@ -1610,6 +1610,171 @@ pub mod ai_contracts {
 }"#
     }
 
+    /// Machine-readable contract for zjj whatif command
+    pub const fn whatif() -> &'static str {
+        r#"AI CONTRACT for zjj whatif:
+{
+  "command": "zjj whatif",
+  "intent": "Preview what a command would do without executing it, showing steps, resources, and reversibility",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none (preview only)"
+  },
+  "inputs": {
+    "command": {
+      "type": "string",
+      "required": true,
+      "position": 1,
+      "description": "Command to preview",
+      "examples": ["add", "done", "remove", "spawn", "sync"]
+    },
+    "args": {
+      "type": "array of strings",
+      "required": false,
+      "position": "2..",
+      "description": "Arguments for the command being previewed",
+      "examples": ["feature-auth", "--workspace", "my-session"]
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output preview as JSON with SchemaEnvelope"
+    },
+    "on_success": {
+      "type": "string",
+      "flag": "--on-success",
+      "required": false,
+      "description": "Command to run after successful execution"
+    },
+    "on_failure": {
+      "type": "string",
+      "flag": "--on-failure",
+      "required": false,
+      "description": "Command to run after failed execution"
+    }
+  },
+  "outputs": {
+    "success": {
+      "command": "string",
+      "args": "array of strings",
+      "steps": [
+        {
+          "order": "number",
+          "description": "string",
+          "action": "string",
+          "can_fail": "boolean",
+          "on_failure": "string or null"
+        }
+      ],
+      "creates": [
+        {
+          "resource_type": "string",
+          "resource": "string",
+          "description": "string"
+        }
+      ],
+      "modifies": "array of resource changes",
+      "deletes": "array of resource changes",
+      "side_effects": "array of strings",
+      "reversible": "boolean",
+      "undo_command": "string or null",
+      "warnings": "array of strings",
+      "prerequisites": [
+        {
+          "check": "string",
+          "status": "Met|NotMet|Unknown",
+          "description": "string"
+        }
+      ]
+    },
+    "errors": [
+      "InvalidSessionName",
+      "InvalidCommand"
+    ]
+  },
+  "examples": [
+    "zjj whatif add feature-x",
+    "zjj whatif done --workspace feature-x",
+    "zjj whatif remove old-session",
+    "zjj whatif spawn zjj-abc123",
+    "zjj whatif sync --all --json"
+  ],
+  "next_commands": [
+    "zjj add",
+    "zjj done",
+    "zjj remove",
+    "zjj spawn"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj whereami command
+    pub const fn whereami() -> &'static str {
+        r#"AI CONTRACT for zjj whereami:
+{
+  "command": "zjj whereami",
+  "intent": "Quick location query returning simple location identifier for AI agent orientation",
+  "prerequisites": [
+    "Must be in a JJ repository"
+  ],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    },
+    "contract": {
+      "type": "boolean",
+      "flag": "--contract",
+      "required": false,
+      "description": "Show machine-readable contract for AI integration"
+    }
+  },
+  "outputs": {
+    "success": {
+      "location_type": "string (main or workspace)",
+      "workspace_name": "string or null",
+      "workspace_path": "string or null",
+      "simple": "string (main or workspace:<name>)"
+    },
+    "main_location": {
+      "location_type": "main",
+      "workspace_name": null,
+      "workspace_path": null,
+      "simple": "main"
+    },
+    "workspace_location": {
+      "location_type": "workspace",
+      "workspace_name": "<workspace_name>",
+      "workspace_path": "<absolute_path>",
+      "simple": "workspace:<workspace_name>"
+    },
+    "errors": [
+      "NotInJjRepo"
+    ]
+  },
+  "examples": [
+    "zjj whereami                    Returns 'main' or 'workspace:<name>'",
+    "zjj whereami --json             Full JSON output with SchemaEnvelope",
+    "zjj whereami --contract         Show this contract"
+  ],
+  "next_commands": [
+    "zjj context",
+    "zjj status",
+    "zjj work"
+  ]
+}"#
+    }
+
     /// Machine-readable contract for zjj query command
     pub const fn query() -> &'static str {
         r#"AI CONTRACT for zjj query:
@@ -1728,6 +1893,53 @@ pub mod ai_contracts {
     "zjj context",
     "zjj status",
     "zjj introspect"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj whoami command
+    pub const fn whoami() -> &'static str {
+        r#"AI CONTRACT for zjj whoami:
+{
+  "command": "zjj whoami",
+  "intent": "Query the current agent identity - returns agent ID or 'unregistered'",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "registered": "boolean",
+      "agent_id": "string|null",
+      "current_session": "string|null",
+      "current_bead": "string|null",
+      "simple": "string (agent_id or 'unregistered')"
+    },
+    "environment_sources": {
+      "ZJJ_AGENT_ID": "Agent identifier",
+      "ZJJ_BEAD_ID": "Current bead being worked on",
+      "ZJJ_WORKSPACE": "Current workspace path",
+      "ZJJ_SESSION": "Current session name"
+    }
+  },
+  "examples": [
+    "zjj whoami",
+    "zjj whoami --json"
+  ],
+  "next_commands": [
+    "zjj context",
+    "zjj status",
+    "zjj whereami"
   ]
 }"#
     }
