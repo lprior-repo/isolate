@@ -138,7 +138,7 @@ pub async fn rebase_step(
                     tracing::warn!("Failed to mark entry as failed_retryable: {e}");
                     e
                 });
-            Err(RebaseError::Conflict(msg.clone()))
+            Err(RebaseError::Conflict(msg))
         }
         Err(e) => {
             // Other error: transition to failed_retryable
