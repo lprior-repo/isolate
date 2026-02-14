@@ -128,6 +128,12 @@ pub fn handle_contract(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_examples(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::examples());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let command = sub_m.get_one::<String>("command").cloned();
     let use_case = sub_m.get_one::<String>("use-case").cloned();
