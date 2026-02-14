@@ -54,6 +54,9 @@ All ZJJ documentation in one place, token-efficient and searchable.
 ### How Do I Build/Test?
 → [02_MOON_BUILD.md](02_MOON_BUILD.md) - Commands and workflow
 
+### How Do I Operate the Queue?
+→ [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md) - Queue SOP + remediation matrix
+
 ### What Are the Rules?
 → [05_RUST_STANDARDS.md](05_RUST_STANDARDS.md) - The law of zero panics
 
@@ -160,7 +163,7 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 - **Total Content**: ~62k tokens
 - **Average Page**: ~4.8k tokens
 - **Token Efficiency**: Highly optimized for AI + human reading
-- **Latest Addition**: 19_CODANNA_QUERY_PERFORMANCE.md (code search metrics and optimization)
+- **Latest Addition**: QUEUE_OPERATIONS_RUNBOOK.md (queue SOP and troubleshooting matrix)
 
 ## 🔍 Search Guide
 
@@ -182,6 +185,7 @@ See [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTS
 - Moon User Guide: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 - Moon CICD Reference: [10_MOON_CICD_INDEXED.md](10_MOON_CICD_INDEXED.md)
 - Jujutsu: [09_JUJUTSU.md](09_JUJUTSU.md)
+- Queue Operations: [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md)
 
 ## 💡 Core Concepts Summary
 
