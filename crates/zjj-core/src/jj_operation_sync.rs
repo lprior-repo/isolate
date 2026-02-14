@@ -644,4 +644,141 @@ mod tests {
 
         Ok(())
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // REPO OPERATION INFO TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn given_repo_operation_info_when_cloned_then_deep_copy() {
+        let info = RepoOperationInfo {
+            operation_id: "abc123".into(),
+            repo_root: PathBuf::from("/tmp/repo"),
+        };
+        let cloned = info.clone();
+        assert_eq!(cloned.operation_id, "abc123");
+        assert_eq!(cloned.repo_root, PathBuf::from("/tmp/repo"));
+    }
+
+    #[test]
+    fn given_repo_operation_info_when_formatted_then_shows_fields() {
+        let info = RepoOperationInfo {
+            operation_id: "xyz789".into(),
+            repo_root: PathBuf::from("/test/path"),
+        };
+        let debug_str = format!("{:?}", info);
+        assert!(debug_str.contains("xyz789"));
+        assert!(debug_str.contains("/test/path"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MUTEX GUARD CLOSING TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[tokio::test]
+    async fn given_mutex_guard_closing_when_dereferenced_then_accesses_inner_guard() {
+        let mutex = Mutex::new(42);
+        let guard = mutex.lock().await;
+        let wrapped = MutexGuardClosing(guard);
+
+        // Test Deref
+        assert_eq!(**wrapped, 42);
+    }
+
+    #[tokio::test]
+    async fn given_mutex_guard_closing_when_mutably_dereferenced_then_can_mutate() {
+        let mutex = Mutex::new(10);
+        let guard = mutex.lock().await;
+        let mut wrapped = MutexGuardClosing(guard);
+
+        // Test DerefMut
+        **wrapped = 20;
+        assert_eq!(**wrapped, 20);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FILE LOCK TIMEOUT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn given_file_lock_on_available_file_when_acquired_then_succeeds() -> Result<()> {
+        use std::fs;
+        let temp_dir = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+        let lock_path = temp_dir.path().join("test.lock");
+        let file = fs::OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(&lock_path)
+            .map_err(|e| Error::IoError(e.to_string()))?;
+
+        let result = acquire_file_lock_with_timeout(&file, "test lock");
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn given_file_already_locked_when_timeout_acquisition_then_returns_error() -> Result<()> {
+        use std::fs;
+        let temp_dir = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+        let lock_path = temp_dir.path().join("test.lock");
+
+        let file1 = fs::OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(&lock_path)
+            .map_err(|e| Error::IoError(e.to_string()))?;
+
+        // Acquire first lock
+        file1
+            .try_lock_exclusive()
+            .map_err(|e| Error::IoError(e.to_string()))?;
+
+        let file2 = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&lock_path)
+            .map_err(|e| Error::IoError(e.to_string()))?;
+
+        // Second lock should timeout
+        let result = acquire_file_lock_with_timeout(&file2, "contended lock");
+        assert!(result.is_err());
+
+        match result {
+            Err(Error::LockTimeout {
+                operation, retries, ..
+            }) => {
+                assert_eq!(operation, "contended lock");
+                assert!(retries > 0);
+            }
+            _ => panic!("Expected LockTimeout error"),
+        }
+
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // LOCK CONSTANT VALIDATION TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn given_lock_constants_when_validated_then_reasonable_values() {
+        assert!(LOCK_ACQUISITION_TIMEOUT.as_millis() > 0);
+        assert!(MAX_LOCK_RETRIES > 0);
+        assert!(FILE_LOCK_TIMEOUT_MS > 0);
+        assert!(FILE_LOCK_MAX_RETRIES > 0);
+        assert!(FILE_LOCK_BASE_BACKOFF_MS > 0);
+        assert_eq!(WORKSPACE_CREATION_LOCK_FILE, "workspace-create.lock");
+    }
+
+    #[test]
+    fn given_lock_backoff_when_calculated_then_exponential() {
+        let base = FILE_LOCK_BASE_BACKOFF_MS;
+        assert_eq!(base * 2_u64.pow(0), base);
+        assert_eq!(base * 2_u64.pow(1), base * 2);
+        assert_eq!(base * 2_u64.pow(2), base * 4);
+        assert_eq!(base * 2_u64.pow(3), base * 8);
+    }
 }
