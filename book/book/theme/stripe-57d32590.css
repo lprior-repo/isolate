@@ -66,9 +66,29 @@ body {
 
 .chapter .spacer { height: 8px !important; display: block !important; }
 
+/* HEADER - Fixed top bar */
+.page-wrapper::before {
+  content: "ZJJ" !important;
+  display: flex !important;
+  align-items: center !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 280px !important;
+  right: 0 !important;
+  height: 56px !important;
+  padding: 0 48px !important;
+  background: #fff !important;
+  border-bottom: 1px solid #e3e8ee !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #0a2540 !important;
+  letter-spacing: -0.02em !important;
+  z-index: 100 !important;
+}
+
 /* CONTENT */
 .content {
-  margin-left: 280px !important; padding: 56px 48px 80px !important;
+  margin-left: 280px !important; padding: 80px 48px 80px !important;
   max-width: none !important; width: auto !important;
   min-height: 100vh !important; background: #fff !important;
 }
