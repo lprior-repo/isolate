@@ -199,12 +199,16 @@ async fn stress_concurrent_workspace_creation() -> Result<()> {
         let workspace_name = format!("stress-concurrent-{}-{}", test_id, i);
         let _ = tokio::process::Command::new("jj")
             .args(["workspace", "forget", &workspace_name])
+            .current_dir(&repo_root)
             .output()
             .await;
     }
 
     // Remove base directory
     let _ = tokio::fs::remove_dir_all(base_path).await;
+
+    // Remove temporary JJ repository
+    let _ = tokio::fs::remove_dir_all(repo_root).await;
 
     println!("All concurrent workspace creations verified successfully");
 
@@ -322,11 +326,15 @@ async fn stress_concurrent_workspace_staggered() -> Result<()> {
         let workspace_name = format!("stress-staggered-{}-{}", test_id, i);
         let _ = tokio::process::Command::new("jj")
             .args(["workspace", "forget", &workspace_name])
+            .current_dir(&repo_root)
             .output()
             .await;
     }
 
     let _ = tokio::fs::remove_dir_all(base_path).await;
+
+    // Remove temporary JJ repository
+    let _ = tokio::fs::remove_dir_all(repo_root).await;
 
     Ok(())
 }
@@ -441,11 +449,15 @@ async fn stress_workspace_creation_with_retries() -> Result<()> {
         let workspace_name = format!("stress-retry-{}-{}", test_id, i);
         let _ = tokio::process::Command::new("jj")
             .args(["workspace", "forget", &workspace_name])
+            .current_dir(&repo_root)
             .output()
             .await;
     }
 
     let _ = tokio::fs::remove_dir_all(base_path).await;
+
+    // Remove temporary JJ repository
+    let _ = tokio::fs::remove_dir_all(repo_root).await;
 
     Ok(())
 }
@@ -562,11 +574,15 @@ async fn stress_workspace_serialization() -> Result<()> {
         let workspace_name = format!("stress-serialize-{}-{}", test_id, i);
         let _ = tokio::process::Command::new("jj")
             .args(["workspace", "forget", &workspace_name])
+            .current_dir(&repo_root)
             .output()
             .await;
     }
 
     let _ = tokio::fs::remove_dir_all(base_path).await;
+
+    // Remove temporary JJ repository
+    let _ = tokio::fs::remove_dir_all(repo_root).await;
 
     Ok(())
 }
