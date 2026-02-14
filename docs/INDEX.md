@@ -9,6 +9,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 | **00** | [START HERE](00_START_HERE.md) | 5-minute crash course + navigation | 5 min |
 | **01** | [ERROR HANDLING](01_ERROR_HANDLING.md) | Fallible operations, Result patterns | 20 min |
 | **01a** | [ERROR TROUBLESHOOTING](ERROR_TROUBLESHOOTING.md) | Debug and resolve specific errors | 15 min |
+| **01b** | [QUEUE OPERATIONS RUNBOOK](QUEUE_OPERATIONS_RUNBOOK.md) | Operational guide for queue management | 20 min |
 | **02** | [MOON BUILD](02_MOON_BUILD.md) | Building, testing, caching | 15 min |
 | **03** | [WORKFLOW](03_WORKFLOW.md) | Daily dev workflow (Beads + jj + Moon) | 20 min |
 | **04** | [FUNCTIONAL PATTERNS](04_FUNCTIONAL_PATTERNS.md) | Iterator combinators, FP techniques | 25 min |
@@ -79,6 +80,7 @@ All ZJJ documentation in one place, token-efficient and searchable.
 ### Error Handling (The Most Important)
 - [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) - 10 patterns + examples
 - [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md) - Debug and resolve specific errors
+- [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md) - Queue operational procedures and troubleshooting
 - [05_RUST_STANDARDS.md](05_RUST_STANDARDS.md) - Requirements + enforcement
 - [07_TESTING.md](07_TESTING.md) - Testing error paths
 
