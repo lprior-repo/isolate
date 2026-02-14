@@ -101,6 +101,7 @@ pub async fn run_with_options(options: &DoneOptions) -> Result<()> {
 }
 
 /// Core done logic using Railway-Oriented Programming
+#[allow(clippy::too_many_lines)]
 async fn execute_done(
     options: &DoneOptions,
     executor: &dyn executor::JjExecutor,

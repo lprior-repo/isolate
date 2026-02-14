@@ -348,6 +348,7 @@ async fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Re
 }
 
 /// Handle the process command
+#[allow(clippy::too_many_lines)]
 async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
     let agent_id = resolve_agent_id(options.agent_id.as_deref());
     if !queue.acquire_processing_lock(&agent_id).await? {
@@ -738,33 +739,30 @@ async fn handle_status_id(
 ) -> Result<()> {
     let entry = queue.get_by_id(queue_id).await?;
 
-    let entry = match entry {
-        Some(e) => e,
-        None => {
-            let message = format!("Queue entry with ID {} not found", queue_id);
-            if options.format.is_json() {
-                let output = QueueStatusIdOutput {
-                    entry: QueueEntryOutput {
-                        id: queue_id,
-                        workspace: String::new(),
-                        bead_id: None,
-                        priority: 0,
-                        status: String::new(),
-                        added_at: 0,
-                        started_at: None,
-                        completed_at: None,
-                        error_message: Some(message.clone()),
-                        agent_id: None,
-                    },
-                    events: Vec::new(),
-                    message,
-                };
-                print_queue_envelope("queue-status-id-response", &output)?;
-            } else {
-                println!("{message}");
-            }
-            return Ok(());
+    let Some(entry) = entry else {
+        let message = format!("Queue entry with ID {} not found", queue_id);
+        if options.format.is_json() {
+            let output = QueueStatusIdOutput {
+                entry: QueueEntryOutput {
+                    id: queue_id,
+                    workspace: String::new(),
+                    bead_id: None,
+                    priority: 0,
+                    status: String::new(),
+                    added_at: 0,
+                    started_at: None,
+                    completed_at: None,
+                    error_message: Some(message.clone()),
+                    agent_id: None,
+                },
+                events: Vec::new(),
+                message,
+            };
+            print_queue_envelope("queue-status-id-response", &output)?;
+        } else {
+            println!("{message}");
         }
+        return Ok(());
     };
 
     let events = queue.fetch_events(queue_id).await?;

@@ -149,7 +149,7 @@ pub fn run(options: &WhatIfOptions) -> Result<WhatIfResult> {
         "remove" => preview_remove_with_flags(&args, has_keep_flag),
         "done" => preview_done_with_flags(&args, has_workspace_flag, has_force_flag, has_keep_flag),
         "abort" => preview_abort_with_flags(&args, has_workspace_flag),
-        "sync" => preview_sync_with_flags(&args),
+        "sync" => Ok(preview_sync_with_flags(&args)),
         "spawn" => preview_spawn_with_flags(&args),
         _ => Ok(WhatIfResult {
             command: options.command.clone(),
@@ -317,10 +317,10 @@ fn preview_work_with_flags(args: &[String]) -> Result<WhatIfResult> {
         warnings: vec![],
         prerequisites: vec![PrerequisiteCheck {
             check: "valid_name".to_string(),
-            status: if name != "<name>" {
-                PrerequisiteStatus::Met
-            } else {
+            status: if name == "<name>" {
                 PrerequisiteStatus::Unknown
+            } else {
+                PrerequisiteStatus::Met
             },
             description: "Session name is valid".to_string(),
         }],
@@ -401,10 +401,10 @@ fn preview_remove_with_flags(args: &[String], has_keep_flag: bool) -> Result<Wha
         warnings: vec![],
         prerequisites: vec![PrerequisiteCheck {
             check: "valid_name".to_string(),
-            status: if name != "<name>" {
-                PrerequisiteStatus::Met
-            } else {
+            status: if name == "<name>" {
                 PrerequisiteStatus::Unknown
+            } else {
+                PrerequisiteStatus::Met
             },
             description: "Session name is valid".to_string(),
         }],
@@ -423,6 +423,7 @@ fn preview_remove_with_flags(args: &[String], has_keep_flag: bool) -> Result<Wha
     Ok(result)
 }
 
+#[allow(clippy::too_many_lines)]
 fn preview_done_with_flags(
     args: &[String],
     has_workspace_flag: bool,
@@ -525,10 +526,10 @@ fn preview_done_with_flags(
         prerequisites: vec![
             PrerequisiteCheck {
                 check: "in_workspace".to_string(),
-                status: if workspace != "<current>" {
-                    PrerequisiteStatus::Met
-                } else {
+                status: if workspace == "<current>" {
                     PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
                 },
                 description: "Must be in a workspace".to_string(),
             },
@@ -539,10 +540,10 @@ fn preview_done_with_flags(
             },
             PrerequisiteCheck {
                 check: "valid_name".to_string(),
-                status: if workspace != "<current>" {
-                    PrerequisiteStatus::Met
-                } else {
+                status: if workspace == "<current>" {
                     PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
                 },
                 description: "Workspace name is valid".to_string(),
             },
@@ -649,19 +650,19 @@ fn preview_abort_with_flags(args: &[String], has_workspace_flag: bool) -> Result
         prerequisites: vec![
             PrerequisiteCheck {
                 check: "in_workspace".to_string(),
-                status: if workspace != "<current>" {
-                    PrerequisiteStatus::Met
-                } else {
+                status: if workspace == "<current>" {
                     PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
                 },
                 description: "Must be in a workspace".to_string(),
             },
             PrerequisiteCheck {
                 check: "valid_name".to_string(),
-                status: if workspace != "<current>" {
-                    PrerequisiteStatus::Met
-                } else {
+                status: if workspace == "<current>" {
                     PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
                 },
                 description: "Workspace name is valid".to_string(),
             },
@@ -680,8 +681,8 @@ fn preview_abort_with_flags(args: &[String], has_workspace_flag: bool) -> Result
     Ok(result)
 }
 
-fn preview_sync_with_flags(args: &[String]) -> Result<WhatIfResult> {
-    Ok(WhatIfResult {
+fn preview_sync_with_flags(args: &[String]) -> WhatIfResult {
+    WhatIfResult {
         command: "sync".to_string(),
         args: args.to_vec(),
         steps: vec![
@@ -733,7 +734,7 @@ fn preview_sync_with_flags(args: &[String]) -> Result<WhatIfResult> {
                 description: "Zellij is installed".to_string(),
             },
         ],
-    })
+    }
 }
 
 fn preview_spawn_with_flags(args: &[String]) -> Result<WhatIfResult> {

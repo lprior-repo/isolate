@@ -129,14 +129,14 @@ fn bdd_status_watch_starts_without_panic() {
 
     // Timeout (exit code None/timed out) is expected and OK
     // Panic (exit code 134 or 101) would indicate a bug
-    let output = cmd.output().expect("Failed to execute command");
+    let output = cmd
+        .output()
+        .map_or(None, |o| o.status.code())
+        .is_none_or(|code| code != 134 && code != 101);
 
-    // If it exited, check it didn't panic
-    if let Some(code) = output.status.code() {
-        assert_ne!(code, 134, "Command panicked (exit 134)");
-        assert_ne!(code, 101, "clap panicked (exit 101)");
-    }
+    // If it exited, check it didn't panic (134 = panic, 101 = clap panic)
     // If it timed out (no exit code), that's expected for watch mode
+    assert!(output, "Command panicked during watch mode");
 }
 
 #[test]

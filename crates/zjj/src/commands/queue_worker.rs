@@ -116,8 +116,7 @@ fn generate_worker_id() -> String {
             |h| {
                 h.split('.')
                     .next()
-                    .map(String::from)
-                    .map_or_else(|| "unknown".to_string(), |s| s)
+                    .map_or_else(|| "unknown".to_string(), String::from)
             },
         );
     let pid = std::process::id();
@@ -126,9 +125,7 @@ fn generate_worker_id() -> String {
 
 /// Resolve the worker ID, generating one if not provided.
 fn resolve_worker_id(provided: Option<&str>) -> String {
-    provided
-        .map(String::from)
-        .map_or_else(generate_worker_id, |id| id)
+    provided.map_or_else(generate_worker_id, String::from)
 }
 
 /// Get or create the merge queue database.
@@ -233,7 +230,7 @@ async fn execute_all_gates(working_dir: &Path) -> Result<GatesOutcome> {
 /// Handle a processing failure with proper error classification.
 ///
 /// Classifies the error and transitions the queue entry to the appropriate
-/// failure state (failed_retryable or failed_terminal).
+/// failure state (`failed_retryable` or `failed_terminal`).
 ///
 /// # Arguments
 /// * `queue` - The merge queue
@@ -344,7 +341,7 @@ async fn handle_gates_outcome(
             }
 
             eprintln!("Entry {} failed gates: {}", entry.workspace, failure_msg);
-            Err(anyhow::anyhow!("{}", failure_msg))
+            Err(anyhow::anyhow!("{failure_msg}"))
         }
     }
 }
@@ -502,6 +499,7 @@ async fn run_once(
 /// Run the worker in loop mode (--loop).
 ///
 /// Continuously processes items until interrupted by SIGINT/SIGTERM.
+#[allow(clippy::too_many_lines)]
 async fn run_loop(
     queue: &MergeQueue,
     worker_id: &str,
@@ -578,21 +576,15 @@ async fn run_loop(
             }
 
             // Process with moon gates
-            let process_result = process_entry_with_gates(
-                queue,
-                active_entry.as_ref().map_or(
-                    &ActiveEntry {
-                        workspace: entry.workspace.clone(),
-                        id: entry.id,
-                        attempt_count: entry.attempt_count,
-                        max_attempts: entry.max_attempts,
-                    },
-                    |a| a,
-                ),
-                worker_id,
-                format,
-            )
-            .await;
+            let default_entry = ActiveEntry {
+                workspace: entry.workspace.clone(),
+                id: entry.id,
+                attempt_count: entry.attempt_count,
+                max_attempts: entry.max_attempts,
+            };
+            let active_ref = active_entry.as_ref().unwrap_or(&default_entry);
+            let process_result =
+                process_entry_with_gates(queue, active_ref, worker_id, format).await;
 
             match process_result {
                 Ok(()) => {
@@ -621,8 +613,8 @@ async fn run_loop(
         } else {
             // No pending items, wait before polling again
             tokio::select! {
-                _ = sleep(interval) => {},
-                _ = shutdown.notified() => {
+                () = sleep(interval) => {},
+                () = shutdown.notified() => {
                     if !format.is_json() {
                         eprintln!("Shutdown signal received during idle, exiting...");
                     }
@@ -653,8 +645,7 @@ async fn run_loop(
         failed_retryable: failed_retryable_count,
         failed_terminal: failed_terminal_count,
         message: format!(
-            "Worker shutdown after processing {} items ({} retryable failures, {} terminal failures)",
-            processed_count, failed_retryable_count, failed_terminal_count
+            "Worker shutdown after processing {processed_count} items ({failed_retryable_count} retryable failures, {failed_terminal_count} terminal failures)"
         ),
     };
     print_output(&output, format)?;

@@ -1221,6 +1221,7 @@ pub fn cmd_query() -> ClapCommand {
         )
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn cmd_queue() -> ClapCommand {
     ClapCommand::new("queue")
         .about("Manage merge queue for multi-agent coordination")

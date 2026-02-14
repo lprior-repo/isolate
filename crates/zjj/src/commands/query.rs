@@ -259,7 +259,8 @@ async fn query_session_exists(name: &str) -> Result<QueryResult> {
         Ok(db) => match db.get(name).await {
             Ok(session) => {
                 let exists = session.is_some();
-                let exit = i32::from(!exists);
+                // Exit code 0 = query succeeded (boolean result is in JSON, not exit code)
+                // Exit code 2 = query error (database failure, etc)
                 (
                     SessionExistsQuery {
                         exists: Some(exists),
@@ -269,7 +270,7 @@ async fn query_session_exists(name: &str) -> Result<QueryResult> {
                         }),
                         error: None,
                     },
-                    exit,
+                    0,
                 )
             }
             Err(e) => (
@@ -406,9 +407,11 @@ async fn query_can_run(command: &str) -> Result<QueryResult> {
     let envelope = SchemaEnvelope::new("query-can-run", "single", result);
     let output = serde_json::to_string_pretty(&envelope)?;
 
-    // Exit code: 0 if can run, 1 if cannot run
-    let exit_code = i32::from(!can_run);
-    Ok(QueryResult { output, exit_code })
+    // Exit code 0 = query succeeded (can_run boolean is in JSON, not exit code)
+    Ok(QueryResult {
+        output,
+        exit_code: 0,
+    })
 }
 
 /// Query for suggested name based on pattern

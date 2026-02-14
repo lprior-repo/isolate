@@ -70,7 +70,7 @@ mod tests {
     /// Scenario: Database path resolution in config output
     ///   Given a freshly initialized zjj repository
     ///   When I run 'zjj config'
-    ///   Then it should show the state_db path
+    ///   Then it should show the `state_db` path
     ///   And the path should be relative to .zjj directory
     ///   And the config output should be valid
     #[test]
@@ -106,7 +106,7 @@ mod tests {
     ///   Given an initialized zjj repository
     ///   When I run operations that use the database
     ///   Then the state.db file should exist at .zjj/state.db
-    ///   And it should be a valid SQLite database
+    ///   And it should be a valid `SQLite` database
     #[test]
     fn test_db_file_exists_at_expected_path() {
         let temp_dir = tempdir().unwrap();
@@ -146,9 +146,9 @@ mod tests {
         );
     }
 
-    /// Scenario: Config shows correct workspace_dir path
+    /// Scenario: Config shows correct `workspace_dir` path
     ///   Given an initialized zjj repository
-    ///   When I run 'zjj config workspace_dir'
+    ///   When I run 'zjj config `workspace_dir`'
     ///   Then it should show a valid path relative to repo
     ///   And the path should match the default pattern
     #[test]

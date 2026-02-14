@@ -663,7 +663,9 @@ mod tests {
                 "success should be true on success"
             );
             assert_eq!(
-                parsed.get("synced_count").and_then(serde_json::Value::as_u64),
+                parsed
+                    .get("synced_count")
+                    .and_then(serde_json::Value::as_u64),
                 Some(1),
                 "synced_count should be 1"
             );
@@ -718,7 +720,9 @@ mod tests {
                 "success should be false on failure"
             );
             assert_eq!(
-                parsed.get("failed_count").and_then(serde_json::Value::as_u64),
+                parsed
+                    .get("failed_count")
+                    .and_then(serde_json::Value::as_u64),
                 Some(1),
                 "failed_count should be 1"
             );
@@ -753,7 +757,9 @@ mod tests {
                 "JSON should have $schema field"
             );
             assert_eq!(
-                parsed.get("synced_count").and_then(serde_json::Value::as_u64),
+                parsed
+                    .get("synced_count")
+                    .and_then(serde_json::Value::as_u64),
                 Some(5),
                 "Should access .synced_count (flattened from data)"
             );

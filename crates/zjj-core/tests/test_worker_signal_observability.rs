@@ -52,10 +52,7 @@ mod tests {
                 Err(e) => {
                     // CRITICAL: This error should be logged/surfaced
                     // Current implementation silently discards this with `let _ =`
-                    eprintln!(
-                        "SIGNAL HANDLER FAILURE: Failed to setup SIGTERM handler: {}",
-                        e
-                    );
+                    eprintln!("SIGNAL HANDLER FAILURE: Failed to setup SIGTERM handler: {e}");
                     // In production: should be logged to observability system
                 }
             }
@@ -65,7 +62,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
 
         // Test passes if we reach here (no panic from signal setup)
-        assert!(true, "Worker should continue even if signal handler fails");
+        // Worker should continue even if signal handler fails
     }
 
     /// Scenario: SIGINT (Ctrl+C) handler task failure is observable
@@ -88,10 +85,7 @@ mod tests {
                 }
                 Err(e) => {
                     // CRITICAL: This error should be logged/surfaced
-                    eprintln!(
-                        "SIGNAL HANDLER FAILURE: Failed to setup Ctrl+C handler: {}",
-                        e
-                    );
+                    eprintln!("SIGNAL HANDLER FAILURE: Failed to setup Ctrl+C handler: {e}");
                     // In production: should be logged to observability system
                 }
             }
@@ -111,13 +105,13 @@ mod tests {
     ///   And failures should not cascade/mask each other
     #[tokio::test]
     async fn test_multiple_signal_failures_observable() {
-        let mut failure_count = 0;
+        let failure_count = 0;
 
         // Simulate multiple signal handlers that might fail
-        let tasks = vec![
+        let _tasks = [
             tokio::spawn(async {
                 tokio::signal::ctrl_c().await.map_err(|e| {
-                    eprintln!("Ctrl+C handler failed: {}", e);
+                    eprintln!("Ctrl+C handler failed: {e}");
                     1
                 })
             }),
@@ -126,7 +120,7 @@ mod tests {
                 tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
                     .map(|_| Ok(()))
                     .unwrap_or_else(|e| {
-                        eprintln!("SIGTERM handler failed: {}", e);
+                        eprintln!("SIGTERM handler failed: {e}");
                         Err(1)
                     })
             }),
@@ -179,7 +173,7 @@ mod tests {
     ///   And the panic should be observable in logs
     #[tokio::test]
     async fn test_worker_survives_signal_task_panic() {
-        let shutdown = Arc::new(Notify::new());
+        let _shutdown = Arc::new(Notify::new());
 
         // Simulate signal handler that panics
         tokio::spawn(async move {

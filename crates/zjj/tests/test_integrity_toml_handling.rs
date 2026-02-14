@@ -42,10 +42,10 @@ async fn test_integrity_repair_handles_bad_toml_gracefully() -> Result<()> {
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to create .zjj dir: {e}")))?;
 
     // Write corrupted TOML content
-    let bad_toml = r#"
+    let bad_toml = r"
 workspace_dir = 
  invalid toml [[[
-"#;
+";
     tokio::fs::write(zjj_dir.join("config.toml"), bad_toml)
         .await
         .map_err(|e| zjj_core::Error::IoError(format!("Failed to write bad TOML: {e}")))?;

@@ -170,6 +170,7 @@ async fn check_pending_add_operations() -> DoctorCheck {
 }
 
 /// Check workspace integrity using the integrity validator
+#[allow(clippy::too_many_lines)]
 async fn check_workspace_integrity() -> DoctorCheck {
     let config = match load_config_or_error().await {
         Ok(cfg) => cfg,
@@ -289,7 +290,7 @@ async fn check_workspace_integrity() -> DoctorCheck {
             }));
         }
 
-        create_fail_check_with_details(invalid_details)
+        create_fail_check_with_details(&invalid_details)
     }
 }
 
@@ -308,7 +309,7 @@ fn create_pass_check() -> DoctorCheck {
     }
 }
 
-fn create_fail_check_with_details(details: Vec<serde_json::Value>) -> DoctorCheck {
+fn create_fail_check_with_details(details: &[serde_json::Value]) -> DoctorCheck {
     let invalid_count = details.len();
     DoctorCheck {
         name: "Workspace Integrity".to_string(),
@@ -562,9 +563,8 @@ async fn check_state_db() -> DoctorCheck {
 
 /// Run workspace integrity validation after recovery to detect corruption
 async fn run_integrity_after_recovery() -> Option<DoctorCheck> {
-    let config = match load_config().await {
-        Ok(cfg) => cfg,
-        Err(_) => return None,
+    let Ok(config) = load_config().await else {
+        return None;
     };
 
     let root = jj_root()
@@ -572,9 +572,7 @@ async fn run_integrity_after_recovery() -> Option<DoctorCheck> {
         .ok()
         .map(PathBuf::from)
         .or_else(|| std::env::current_dir().ok());
-    let Some(root) = root else {
-        return None;
-    };
+    let root = root?;
 
     let workspace_dir = if Path::new(&config.workspace_dir).is_absolute() {
         Path::new(&config.workspace_dir).to_path_buf()
@@ -595,9 +593,8 @@ async fn run_integrity_after_recovery() -> Option<DoctorCheck> {
     let validator = IntegrityValidator::new(workspace_dir);
     let names: Vec<String> = sessions.iter().map(|s| s.name.clone()).collect();
 
-    let results = match validator.validate_all(&names).await {
-        Ok(values) => values,
-        Err(_) => return None,
+    let Ok(results) = validator.validate_all(&names).await else {
+        return None;
     };
 
     let invalid: Vec<&ValidationResult> = results.iter().filter(|r| !r.is_valid).collect();
@@ -1132,7 +1129,8 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
     let healthy = errors == 0;
 
     // Check if recovery occurred (any check with "recovered" in details)
-    let has_recovery = checks.iter().any(|check| {
+    // Note: Currently unused but kept for future diagnostic enhancement
+    let _has_recovery = checks.iter().any(|check| {
         check
             .details
             .as_ref()

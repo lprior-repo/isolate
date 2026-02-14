@@ -112,7 +112,7 @@ fn checkpoint_max_backup_size_bytes() -> u64 {
         .unwrap_or(DEFAULT_MAX_BACKUP_SIZE)
 }
 
-fn walkdir_size(path: &Path) -> Result<u64> {
+fn walkdir_size(path: &Path) -> u64 {
     let mut total_size = 0u64;
     for entry in WalkDir::new(path)
         .into_iter()
@@ -124,7 +124,7 @@ fn walkdir_size(path: &Path) -> Result<u64> {
             }
         }
     }
-    Ok(total_size)
+    total_size
 }
 
 // ── Public entry point ───────────────────────────────────────────────
@@ -698,7 +698,7 @@ async fn backup_workspace(
             ));
         }
 
-        let disk_usage = walkdir_size(&workspace_path)?;
+        let disk_usage = walkdir_size(&workspace_path);
         if disk_usage > limit {
             warn!(
                 "Workspace {} is {} bytes, exceeds limit of {} bytes; recording metadata only",

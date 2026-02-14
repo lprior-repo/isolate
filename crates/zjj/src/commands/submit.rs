@@ -9,8 +9,8 @@
 //! 2. Fails with exit code 3 if dirty and --auto-commit not set
 //! 3. Commits automatically if --auto-commit is set
 //! 4. Pushes bookmarks to remote before queueing
-//! 5. Extracts stable commit identities (head_sha, change_id)
-//! 6. Computes logical_change_id for deduplication
+//! 5. Extracts stable commit identities (`head_sha`, `change_id`)
+//! 6. Computes `logical_change_id` for deduplication
 //! 7. Fails submission if bookmark push fails (without adding to queue)
 //! 8. Returns structured JSON with schema envelope (bd-3am)
 
@@ -21,7 +21,7 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -90,7 +90,7 @@ pub struct SubmitOptions {
 /// On error: `error` contains error details.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitResponse {
-    /// Schema URI: "zjj://submit-response/v1"
+    /// Schema URI: "<zjj://submit-response/v1>"
     pub schema: String,
     /// Success flag
     pub ok: bool,
@@ -119,11 +119,11 @@ pub struct SubmitSuccessData {
     /// Queue status (absent for dry-run)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
-    /// Deduplication key (workspace:change_id)
+    /// Deduplication key (`workspace:change_id`)
     pub dedupe_key: String,
     /// Whether this was a dry run
     pub dry_run: bool,
-    /// For dry-run: would_queue flag
+    /// For dry-run: `would_queue` flag
     #[serde(skip_serializing_if = "Option::is_none")]
     pub would_queue: Option<bool>,
 }
@@ -289,7 +289,7 @@ struct WorkspaceInfo {
 }
 
 /// Resolve the current workspace context
-fn resolve_workspace_context(root: &PathBuf) -> Result<WorkspaceInfo> {
+fn resolve_workspace_context(root: &Path) -> Result<WorkspaceInfo> {
     let current_dir = std::env::current_dir().context("failed to get current directory")?;
 
     // Check if we're in a non-default workspace
@@ -301,7 +301,7 @@ fn resolve_workspace_context(root: &PathBuf) -> Result<WorkspaceInfo> {
             .ok_or_else(|| anyhow::anyhow!("Workspace directory name is not valid UTF-8"))?
             .to_string();
         return Ok(WorkspaceInfo {
-            path: root.clone(),
+            path: root.to_path_buf(),
             name,
         });
     }
@@ -329,7 +329,7 @@ fn resolve_workspace_context(root: &PathBuf) -> Result<WorkspaceInfo> {
 
     // We're in the main workspace
     Ok(WorkspaceInfo {
-        path: root.clone(),
+        path: root.to_path_buf(),
         name: "main".to_string(),
     })
 }
@@ -339,10 +339,10 @@ fn resolve_workspace_context(root: &PathBuf) -> Result<WorkspaceInfo> {
 /// # Returns
 ///
 /// Returns the workspace identity containing:
-/// - change_id: The jj change ID (stable across rebases)
-/// - head_sha: The current commit hash
-/// - bookmark_name: The current bookmark name
-/// - workspace_name: The workspace name
+/// - `change_id`: The jj change ID (stable across rebases)
+/// - `head_sha`: The current commit hash
+/// - `bookmark_name`: The current bookmark name
+/// - `workspace_name`: The workspace name
 async fn extract_workspace_identity(
     workspace_path: &PathBuf,
 ) -> Result<WorkspaceIdentity, SubmitError> {
@@ -370,7 +370,7 @@ async fn extract_workspace_identity(
     })
 }
 
-/// Get the change_id from jj log (stable across rebases)
+/// Get the `change_id` from jj log (stable across rebases)
 async fn get_change_id(workspace_path: &PathBuf) -> Result<String, SubmitError> {
     let output = Command::new("jj")
         .args(["log", "-r", "@", "--no-graph", "-T", "change_id"])
@@ -397,7 +397,7 @@ async fn get_change_id(workspace_path: &PathBuf) -> Result<String, SubmitError> 
     Ok(change_id)
 }
 
-/// Get the current commit hash (head_sha)
+/// Get the current commit hash (`head_sha`)
 async fn get_head_sha(workspace_path: &PathBuf) -> Result<String, SubmitError> {
     let output = Command::new("jj")
         .args(["log", "-r", "@", "--no-graph", "-T", "commit_id"])
@@ -452,14 +452,14 @@ async fn get_current_bookmark(workspace_path: &PathBuf) -> Result<String, Submit
         .lines()
         .filter(|line| !line.trim().is_empty())
         .filter(|line| !line.starts_with("  @")) // Skip remote bookmarks
-        .filter_map(|line| {
+        .find_map(|line| {
             // Format: "bookmark_name: change_id commit_id description"
             let parts: Vec<&str> = line.splitn(2, ':').collect();
             match parts.as_slice() {
                 [name, rest] => {
                     let tokens: Vec<&str> = rest.split_whitespace().collect();
                     // Check if this bookmark points to our current change_id
-                    if tokens.first().map_or(false, |&t| t == current_change_id) {
+                    if tokens.first().is_some_and(|&t| t == current_change_id) {
                         Some(name.trim().to_string())
                     } else {
                         None
@@ -467,15 +467,14 @@ async fn get_current_bookmark(workspace_path: &PathBuf) -> Result<String, Submit
                 }
                 _ => None,
             }
-        })
-        .next();
+        });
 
     bookmark_name.ok_or(SubmitError::NoBookmark)
 }
 
-/// Compute dedupe_key for deduplication
+/// Compute `dedupe_key` for deduplication
 ///
-/// The dedupe_key is derived from the jj change_id (which is stable across rebases)
+/// The `dedupe_key` is derived from the jj `change_id` (which is stable across rebases)
 /// combined with the workspace name to ensure uniqueness per workspace.
 fn compute_dedupe_key(change_id: &str, workspace_name: &str) -> String {
     // Use change_id as the primary identifier since it's stable across rebases
@@ -529,7 +528,7 @@ async fn push_bookmark(bookmark_name: &str, workspace_path: &PathBuf) -> Result<
 /// Returns an error if:
 /// - JJ status command fails
 /// - Unable to parse status output
-async fn is_workspace_dirty(workspace_path: &PathBuf) -> Result<bool, SubmitError> {
+async fn is_workspace_dirty(workspace_path: &Path) -> Result<bool, SubmitError> {
     let status = jj::workspace_status(workspace_path)
         .await
         .map_err(|e| SubmitError::StatusCheckFailed(e.to_string()))?;
@@ -542,7 +541,7 @@ async fn is_workspace_dirty(workspace_path: &PathBuf) -> Result<bool, SubmitErro
 /// # Behavior
 ///
 /// - Clean workspace: Returns Ok(())
-/// - Dirty without --auto-commit: Returns Err(SubmitError::DirtyWorkspace)
+/// - Dirty without --auto-commit: Returns `Err(SubmitError::DirtyWorkspace)`
 /// - Dirty with --auto-commit: Commits changes and returns Ok(())
 ///
 /// # Errors
@@ -585,7 +584,7 @@ async fn auto_commit_changes(
 ) -> Result<(), SubmitError> {
     let commit_message = message.map_or_else(
         || "wip: auto-commit before submit".to_string(),
-        |m| m.to_string(),
+        std::string::ToString::to_string,
     );
 
     let output = Command::new("jj")
@@ -610,7 +609,7 @@ async fn add_to_queue(
     workspace_name: &str,
     dedupe_key: &str,
     head_sha: &str,
-    root: &PathBuf,
+    root: &Path,
 ) -> Result<QueueEntry, SubmitError> {
     // Get queue database path
     let db_path = root.join(".zjj/state.db");
@@ -660,7 +659,7 @@ fn output_dry_run(is_json: bool, identity: &WorkspaceIdentity, dedupe_key: &str)
         println!("  Bookmark: {}", identity.bookmark_name);
         println!("  Change ID: {}", identity.change_id);
         println!("  HEAD SHA: {}", identity.head_sha);
-        println!("  Dedupe Key: {}", dedupe_key);
+        println!("  Dedupe Key: {dedupe_key}");
         println!();
         println!("Actions that would be performed:");
         println!("  1. Push bookmark '{}' to remote", identity.bookmark_name);
@@ -700,7 +699,7 @@ fn output_success(
         println!("  Bookmark: {}", identity.bookmark_name);
         println!("  Change ID: {}", identity.change_id);
         println!("  HEAD SHA: {}", identity.head_sha);
-        println!("  Dedupe Key: {}", dedupe_key);
+        println!("  Dedupe Key: {dedupe_key}");
         println!();
         println!("Queue entry ID: {}", entry.id);
         println!("Status: {}", entry.status);

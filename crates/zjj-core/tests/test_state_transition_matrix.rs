@@ -1,9 +1,9 @@
 //! Exhaustive state transition matrix tests for all lifecycle state machines
 //!
 //! This test module provides comprehensive coverage for:
-//! - SessionStatus (5 states)
-//! - SessionState (7 states)
-//! - WorkspaceState (6 states)
+//! - `SessionStatus` (5 states)
+//! - `SessionState` (7 states)
+//! - `WorkspaceState` (6 states)
 //!
 //! All tests verify:
 //! - Every legal transition is allowed
@@ -137,8 +137,7 @@ mod session_status_matrix {
         for &target in SessionStatus::all_states() {
             assert!(
                 !SessionStatus::Completed.can_transition_to(target),
-                "Completed should not transition to {:?}",
-                target
+                "Completed should not transition to {target:?}"
             );
         }
     }
@@ -152,8 +151,7 @@ mod session_status_matrix {
         for &target in SessionStatus::all_states() {
             assert!(
                 !SessionStatus::Failed.can_transition_to(target),
-                "Failed should not transition to {:?}",
-                target
+                "Failed should not transition to {target:?}"
             );
         }
     }
@@ -181,8 +179,7 @@ mod session_status_matrix {
             let expected_count = expected_counts[&state];
             assert_eq!(
                 actual_count, expected_count,
-                "SessionStatus::{:?} should have {} valid next states, got {}",
-                state, expected_count, actual_count
+                "SessionStatus::{state:?} should have {expected_count} valid next states, got {actual_count}"
             );
         }
     }
@@ -203,8 +200,7 @@ mod session_status_matrix {
 
                 assert_eq!(
                     can_transition, in_valid_list,
-                    "SessionStatus: can_transition_to({:?}) = {}, but in valid_next_states = {}",
-                    to, can_transition, in_valid_list
+                    "SessionStatus: can_transition_to({to:?}) = {can_transition}, but in valid_next_states = {in_valid_list}"
                 );
             }
         }
@@ -219,8 +215,7 @@ mod session_status_matrix {
         for &state in SessionStatus::all_states() {
             assert!(
                 !state.can_transition_to(state),
-                "SessionStatus::{:?} should not allow self-transition",
-                state
+                "SessionStatus::{state:?} should not allow self-transition"
             );
         }
     }
@@ -385,13 +380,11 @@ mod session_state_matrix {
         for &state in SessionState::all_states() {
             assert!(
                 !state.is_terminal(),
-                "SessionState::{:?} should not be terminal",
-                state
+                "SessionState::{state:?} should not be terminal"
             );
             assert!(
                 !state.valid_next_states().is_empty(),
-                "SessionState::{:?} should have at least one valid transition",
-                state
+                "SessionState::{state:?} should have at least one valid transition"
             );
         }
     }
@@ -421,8 +414,7 @@ mod session_state_matrix {
             let expected_count = expected_counts[&state];
             assert_eq!(
                 actual_count, expected_count,
-                "SessionState::{:?} should have {} valid next states, got {}",
-                state, expected_count, actual_count
+                "SessionState::{state:?} should have {expected_count} valid next states, got {actual_count}"
             );
         }
     }
@@ -436,8 +428,7 @@ mod session_state_matrix {
         for &state in SessionState::all_states() {
             assert!(
                 !state.can_transition_to(state),
-                "SessionState::{:?} should not allow self-transition",
-                state
+                "SessionState::{state:?} should not allow self-transition"
             );
         }
     }
@@ -549,8 +540,7 @@ mod workspace_state_matrix {
         for &target in WorkspaceState::all_states() {
             assert!(
                 !WorkspaceState::Merged.can_transition_to(target),
-                "Merged should not transition to {:?}",
-                target
+                "Merged should not transition to {target:?}"
             );
         }
     }
@@ -564,8 +554,7 @@ mod workspace_state_matrix {
         for &target in WorkspaceState::all_states() {
             assert!(
                 !WorkspaceState::Abandoned.can_transition_to(target),
-                "Abandoned should not transition to {:?}",
-                target
+                "Abandoned should not transition to {target:?}"
             );
         }
     }
@@ -594,8 +583,7 @@ mod workspace_state_matrix {
             let expected_count = expected_counts[&state];
             assert_eq!(
                 actual_count, expected_count,
-                "WorkspaceState::{:?} should have {} valid next states, got {}",
-                state, expected_count, actual_count
+                "WorkspaceState::{state:?} should have {expected_count} valid next states, got {actual_count}"
             );
         }
     }
@@ -609,8 +597,7 @@ mod workspace_state_matrix {
         for &state in WorkspaceState::all_states() {
             assert!(
                 !state.can_transition_to(state),
-                "WorkspaceState::{:?} should not allow self-transition",
-                state
+                "WorkspaceState::{state:?} should not allow self-transition"
             );
         }
     }
@@ -626,9 +613,7 @@ mod workspace_state_matrix {
             assert_eq!(
                 state.is_terminal(),
                 is_terminal,
-                "WorkspaceState::{:?}.is_terminal() should be {}",
-                state,
-                is_terminal
+                "WorkspaceState::{state:?}.is_terminal() should be {is_terminal}"
             );
         }
     }
@@ -641,7 +626,7 @@ mod workspace_state_matrix {
 mod cross_machine_invariants {
     use super::*;
 
-    /// Verify that terminal states have empty valid_next_states for ALL state machines
+    /// Verify that terminal states have empty `valid_next_states` for ALL state machines
     #[test]
     fn test_terminal_states_have_no_valid_transitions() {
         // SessionStatus terminal states
@@ -649,8 +634,7 @@ mod cross_machine_invariants {
             if state.is_terminal() {
                 assert!(
                     state.valid_next_states().is_empty(),
-                    "Terminal SessionStatus::{:?} should have empty valid_next_states",
-                    state
+                    "Terminal SessionStatus::{state:?} should have empty valid_next_states"
                 );
             }
         }
@@ -660,8 +644,7 @@ mod cross_machine_invariants {
             if state.is_terminal() {
                 assert!(
                     state.valid_next_states().is_empty(),
-                    "Terminal WorkspaceState::{:?} should have empty valid_next_states",
-                    state
+                    "Terminal WorkspaceState::{state:?} should have empty valid_next_states"
                 );
             }
         }
@@ -675,8 +658,7 @@ mod cross_machine_invariants {
             if !state.is_terminal() {
                 assert!(
                     !state.valid_next_states().is_empty(),
-                    "Non-terminal SessionStatus::{:?} should have valid transitions",
-                    state
+                    "Non-terminal SessionStatus::{state:?} should have valid transitions"
                 );
             }
         }
@@ -685,8 +667,7 @@ mod cross_machine_invariants {
         for &state in SessionState::all_states() {
             assert!(
                 !state.valid_next_states().is_empty(),
-                "SessionState::{:?} should have valid transitions",
-                state
+                "SessionState::{state:?} should have valid transitions"
             );
         }
 
@@ -695,14 +676,13 @@ mod cross_machine_invariants {
             if !state.is_terminal() {
                 assert!(
                     !state.valid_next_states().is_empty(),
-                    "Non-terminal WorkspaceState::{:?} should have valid transitions",
-                    state
+                    "Non-terminal WorkspaceState::{state:?} should have valid transitions"
                 );
             }
         }
     }
 
-    /// Verify can_transition_to is consistent with valid_next_states for all machines
+    /// Verify `can_transition_to` is consistent with `valid_next_states` for all machines
     #[test]
     fn test_can_transition_consistency() {
         // SessionStatus
@@ -712,9 +692,7 @@ mod cross_machine_invariants {
                 assert_eq!(
                     from.can_transition_to(to),
                     valid_nexts.contains(&to),
-                    "SessionStatus: can_transition_to inconsistency for {:?} -> {:?}",
-                    from,
-                    to
+                    "SessionStatus: can_transition_to inconsistency for {from:?} -> {to:?}"
                 );
             }
         }
@@ -726,9 +704,7 @@ mod cross_machine_invariants {
                 assert_eq!(
                     from.can_transition_to(to),
                     valid_nexts.contains(&to),
-                    "SessionState: can_transition_to inconsistency for {:?} -> {:?}",
-                    from,
-                    to
+                    "SessionState: can_transition_to inconsistency for {from:?} -> {to:?}"
                 );
             }
         }
@@ -740,9 +716,7 @@ mod cross_machine_invariants {
                 assert_eq!(
                     from.can_transition_to(to),
                     valid_nexts.contains(&to),
-                    "WorkspaceState: can_transition_to inconsistency for {:?} -> {:?}",
-                    from,
-                    to
+                    "WorkspaceState: can_transition_to inconsistency for {from:?} -> {to:?}"
                 );
             }
         }

@@ -599,10 +599,10 @@ fn test_submit_different_workspace_with_same_change_id_allowed() {
     harness.jj_in_dir(&ws2_path, &["bookmark", "create", "ws2", "-r", "@"]);
 
     // WHEN: Both workspaces submit
-    harness.current_dir = ws1_path.clone();
+    harness.current_dir = ws1_path;
     let result1 = harness.zjj(&["submit", "--json"]);
 
-    harness.current_dir = ws2_path.clone();
+    harness.current_dir = ws2_path;
     let result2 = harness.zjj(&["submit", "--json"]);
 
     // THEN: Both should succeed (different dedupe_keys)

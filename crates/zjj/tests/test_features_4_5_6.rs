@@ -11,6 +11,7 @@ mod common;
 use std::fs;
 
 use common::TestHarness;
+use rand::RngCore;
 
 #[test]
 fn test_checkpoint_size_limit_compressible_data() {
@@ -79,7 +80,6 @@ fn test_checkpoint_size_limit_uncompressible_data() {
     let large_file = workspace_path.join("large-random.bin");
 
     // Generate random data
-    use rand::RngCore;
     let mut rng = rand::thread_rng();
     let mut random_data = vec![0u8; 150 * 1024 * 1024];
     rng.fill_bytes(&mut random_data);

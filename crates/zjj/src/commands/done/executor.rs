@@ -118,7 +118,7 @@ impl<'a> WorkspaceExecutor<'a> {
     }
 }
 
-impl<'a> JjExecutor for WorkspaceExecutor<'a> {
+impl JjExecutor for WorkspaceExecutor<'_> {
     fn run<'b>(&'b self, args: &'b [&'b str]) -> BoxFuture<'b, Result<JjOutput, ExecutorError>> {
         Box::pin(async move {
             // Forward to inner but with -R flag to specify the repository root

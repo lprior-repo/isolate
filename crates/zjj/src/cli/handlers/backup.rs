@@ -59,7 +59,7 @@ pub async fn handle_export(sub_m: &ArgMatches) -> Result<()> {
 
 fn looks_like_file_path(s: &str) -> bool {
     let has_extension = s.contains('.')
-        && s.split('.').last().map_or(false, |ext| {
+        && s.split('.').next_back().is_some_and(|ext| {
             let ext_lower = ext.to_lowercase();
             matches!(
                 ext_lower.as_str(),
