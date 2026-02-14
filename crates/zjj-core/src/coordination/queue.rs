@@ -2,7 +2,7 @@
 //!
 //! This module contains infrastructure layer code (DB operations).
 //! Domain logic (state machine) is in `queue_status.rs`.
-//! SQLx entities are in `queue_entities.rs`.
+//! `SQLx` entities are in `queue_entities.rs`.
 
 use std::{path::Path, time::Duration};
 
@@ -141,7 +141,7 @@ impl MergeQueue {
 
     /// Get a reference to the underlying database pool.
     /// This is intended for testing purposes to allow direct SQL manipulation.
-    pub fn pool(&self) -> &SqlitePool {
+    pub const fn pool(&self) -> &SqlitePool {
         &self.pool
     }
 

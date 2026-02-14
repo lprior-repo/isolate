@@ -256,6 +256,12 @@ tasks:
     options:
       cache: false
 
+  ralph-combative-loop:
+    command: "bash scripts/run_ralph_combative_loop.sh"
+    description: "Run long adversarial Ralph hardening loop"
+    options:
+      cache: false
+
   clean:
     command: "cargo clean"
     description: "Clean build artifacts"

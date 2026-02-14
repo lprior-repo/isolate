@@ -193,7 +193,7 @@ pub fn should_retry(error_msg: &str, attempt_count: i32, max_attempts: i32) -> b
     )
 }
 
-/// Convert an anyhow::Error to a WorkerError.
+/// Convert an `anyhow::Error` to a `WorkerError`.
 #[must_use]
 pub fn from_anyhow(error: &anyhow::Error) -> WorkerError {
     let error_str = error.to_string();

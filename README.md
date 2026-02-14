@@ -286,6 +286,28 @@ moon run :ci         # Full CI pipeline
 moon run :quick      # fmt + check (fastest)
 ```
 
+### Combative Ralph Loop
+
+Run a long Red-Queen hardening loop that keeps stress-testing `zjj`, patching failures, and re-running quality gates.
+
+```bash
+# Default (claude-code + Claude Opus, min=30, max=200)
+bash scripts/run_ralph_combative_loop.sh
+
+# Or via Moon
+moon run :ralph-combative-loop
+```
+
+Useful overrides:
+
+- `RALPH_AGENT` (default: `claude-code`)
+- `RALPH_MODEL` (default: `anthropic/claude-opus-4-5`)
+- `RALPH_MIN_ITERATIONS` (default: `30`)
+- `RALPH_MAX_ITERATIONS` (default: `200`)
+- `RALPH_NO_COMMIT` (default: `1`)
+
+Completion promise default: `COMBATIVE_LOOP_COMPLETE`.
+
 ## Documentation
 
 Comprehensive documentation is available in the `/docs` directory:

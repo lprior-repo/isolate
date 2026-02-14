@@ -670,7 +670,7 @@ mod tests {
         assert!(err.is_err());
         let transition_err = err.err();
         assert!(transition_err.is_some());
-        let err = transition_err.expect("expected error");
+        let err = transition_err.unwrap();
         assert_eq!(err.from, QueueStatus::Merged);
         assert_eq!(err.to, QueueStatus::Pending);
     }

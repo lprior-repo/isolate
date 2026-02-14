@@ -1,4 +1,4 @@
-//! SQLx database entities for the merge queue.
+//! `SQLx` database entities for the merge queue.
 //!
 //! This module contains infrastructure layer types (sqlx::FromRow structs)
 //! separated from domain logic. These types are database row representations.
