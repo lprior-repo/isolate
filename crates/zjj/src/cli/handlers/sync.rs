@@ -7,11 +7,13 @@ use super::json_format::get_format;
 use crate::commands::{abort, diff, done, submit, sync};
 
 pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
     if sub_m.get_flag("contract") {
         println!("{}", crate::cli::json_docs::ai_contracts::sync());
         return Ok(());
     }
 
+    // Handle --ai-hints flag
     if sub_m.get_flag("ai-hints") {
         println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
         return Ok(());
@@ -50,13 +52,9 @@ pub async fn handle_submit(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_diff(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
     if sub_m.get_flag("contract") {
         println!("{}", crate::cli::json_docs::ai_contracts::diff());
-        return Ok(());
-    }
-
-    if sub_m.get_flag("ai-hints") {
-        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
         return Ok(());
     }
 

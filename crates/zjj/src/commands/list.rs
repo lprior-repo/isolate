@@ -769,4 +769,61 @@ mod tests {
 
         Ok(())
     }
+
+    // ============================================================================
+    // --contract flag tests
+    // These tests verify the --contract flag outputs AI-readable contract schema
+    // ============================================================================
+
+    /// Test that --contract flag exists and outputs AI contract schema
+    /// The contract should describe inputs, outputs, and side effects for AI agents
+    #[test]
+    fn test_list_contract_flag_outputs_schema() {
+        // The --contract flag should output the list command's AI contract
+        // as a JSON-compatible string describing inputs, outputs, and side effects
+        let contract = crate::cli::json_docs::ai_contracts::list();
+
+        // Contract should be non-empty
+        assert!(!contract.is_empty(), "Contract should not be empty");
+
+        // Contract should contain key AI-relevant information
+        assert!(
+            contract.contains("zjj list"),
+            "Contract should reference the command"
+        );
+        assert!(
+            contract.contains("intent") || contract.contains("description"),
+            "Contract should describe intent"
+        );
+        assert!(
+            contract.contains("inputs") || contract.contains("outputs"),
+            "Contract should describe inputs/outputs"
+        );
+    }
+
+    /// Test that contract describes list command has no side effects
+    #[test]
+    fn test_list_contract_no_side_effects() {
+        let contract = crate::cli::json_docs::ai_contracts::list();
+
+        // List is a read-only query - should document no side effects
+        assert!(
+            contract.contains("side_effects")
+                || contract.contains("no side effects")
+                || contract.contains("read-only"),
+            "Contract should indicate no side effects for read-only command"
+        );
+    }
+
+    /// Test that contract describes filter inputs
+    #[test]
+    fn test_list_contract_filter_inputs() {
+        let contract = crate::cli::json_docs::ai_contracts::list();
+
+        // List command supports filtering - contract should document this
+        assert!(
+            contract.contains("bead") || contract.contains("filter"),
+            "Contract should document filtering capabilities"
+        );
+    }
 }

@@ -67,7 +67,7 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
     }
 
     // Initialize JJ repo if needed
-    ensure_jj_repo_with_cwd(&cwd).await?;
+    ensure_jj_repo_with_cwd(&cwd, options.format.is_json()).await?;
 
     // Get the repo root using the provided cwd
     let root = jj_root_with_cwd(&cwd).await?;
