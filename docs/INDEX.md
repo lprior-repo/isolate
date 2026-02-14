@@ -94,6 +94,9 @@ All ZJJ documentation in one place, token-efficient and searchable.
 ### How Do I Roll Out Changes Safely?
 → [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md) - phased rollout and rollback instructions
 
+### How Do I Respond to Incidents?
+→ [ERROR_TROUBLESHOOTING.md](ERROR_TROUBLESHOOTING.md), [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md), and [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md)
+
 ### What Combinators Can I Use?
 → [06_COMBINATORS.md](06_COMBINATORS.md) - Complete reference
 
