@@ -68,18 +68,6 @@ All ZJJ documentation in one place, token-efficient and searchable.
 
 ---
 
-## 🗂️ Archived Documentation
-
-Historical and obsolete documents are in `docs/archive/`:
-- CI governance reports (bd-4vp deliverables)
-- Old agent docs (13-18, replaced by AI_AGENT_GUIDE.md)
-- Testing debt matrices (historical)
-- Performance docs (superseded by CI-CD-PERFORMANCE.md)
-- Navigation docs (merged into main docs)
-- JSON standardization (implementation detail)
-
----
-
 ## 🎯 Quick Navigation by Task
 
 ### I'm New Here
@@ -179,7 +167,6 @@ Historical and obsolete documents are in `docs/archive/`:
 ### Beads (Issues)
 ```bash
 bv --robot-triage        # Get recommendations
-br claim BD-123          # Start working (deprecated, use br update)
 br update BD-123 --status in_progress  # Claim work
 br close BD-123          # Mark done
 br sync --flush-only     # Sync bead state (remember to commit!)
@@ -216,10 +203,10 @@ zjj list                 # List all sessions
 
 ### Codanna (Code Search)
 ```bash
-codanna mcp find_symbol --name Workspace          # Exact symbol
-codanna mcp search_symbols --pattern work --kind Struct  # Fuzzy
-codanna mcp semantic_search_docs --query "error handling"  # Semantic
-codanna index            # Reindex code
+codanna mcp find_symbol <name>                              # Exact symbol
+codanna mcp search_symbols query:<pattern> kind:Struct     # Fuzzy search
+codanna mcp semantic_search_docs query:"<query>"            # Semantic search
+codanna index src lib                                       # Reindex code
 ```
 
 ### More Commands
@@ -257,12 +244,11 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 
 ## 📊 Documentation Stats
 
-- **Total Active Pages**: 22 (down from 43!)
+- **Total Active Pages**: 20
 - **Core Docs**: 12 (00-11)
-- **AI Agent Guide**: 1 comprehensive doc (replaces 7 scattered docs)
+- **AI Agent Guide**: 1 comprehensive doc
 - **Operational Guides**: 5
 - **Advanced Topics**: 1
-- **Archived Pages**: 21 (historical/obsolete)
 - **Token Efficiency**: Highly optimized for AI + human reading
 
 ---
