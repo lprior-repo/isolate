@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::{Duration, Utc};
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 use sqlx::Row;
 use tokio::process::Command;
 use zjj_core::{
@@ -227,6 +227,50 @@ async fn check_workspace_integrity() -> DoctorCheck {
         };
     }
 
+    let missing_session_paths = match futures::stream::iter(sessions.iter())
+        .map(Ok::<_, anyhow::Error>)
+        .try_filter_map(|session| async move {
+            let session_name = session.name.clone();
+            let workspace_path = session.workspace_path.clone();
+            let exists = tokio::fs::try_exists(Path::new(&session.workspace_path))
+                .await
+                .map_err(|error| {
+                    anyhow::anyhow!(
+                        "Failed to verify workspace path '{}' for session '{}': {error}",
+                        session.workspace_path,
+                        session.name
+                    )
+                })?;
+
+            Ok((!exists).then_some(serde_json::json!({
+                "workspace": session_name,
+                "path": workspace_path,
+                "issue_count": 1,
+                "issues": [
+                    {
+                        "type": "missing_directory",
+                        "description": "Workspace path from session database does not exist",
+                        "path": session.workspace_path,
+                    }
+                ]
+            })))
+        })
+        .try_collect::<Vec<_>>()
+        .await
+    {
+        Ok(values) => values,
+        Err(error) => {
+            return DoctorCheck {
+                name: "Workspace Integrity".to_string(),
+                status: CheckStatus::Warn,
+                message: format!("Workspace path verification failed: {error}"),
+                suggestion: Some("Run 'zjj doctor --fix' to retry validation".to_string()),
+                auto_fixable: true,
+                details: None,
+            };
+        }
+    };
+
     let workspace_roots = workspace_utils::candidate_workspace_roots(&root, &config.workspace_dir);
     let validator = IntegrityValidator::new(workspace_dir);
     let names: Vec<String> = sessions.iter().map(|s| s.name.clone()).collect();
@@ -249,10 +293,10 @@ async fn check_workspace_integrity() -> DoctorCheck {
 
     let invalid: Vec<&ValidationResult> = results.iter().filter(|r| !r.is_valid).collect();
 
-    if invalid.is_empty() {
+    if invalid.is_empty() && missing_session_paths.is_empty() {
         create_pass_check()
     } else {
-        let mut invalid_details = Vec::new();
+        let mut invalid_details = missing_session_paths;
 
         for validation in &invalid {
             let needs_relocation = validation
