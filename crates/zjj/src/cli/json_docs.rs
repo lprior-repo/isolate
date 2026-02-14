@@ -931,6 +931,160 @@ pub mod ai_contracts {
 }"#
     }
 
+    /// Machine-readable contract for zjj list command
+    pub const fn list() -> &'static str {
+        r#"AI CONTRACT for zjj list:
+{
+  "command": "zjj list",
+  "intent": "Query all sessions in the repository to see status and metadata",
+  "prerequisites": [
+    "zjj init must have been run"
+  ],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "all": {
+      "type": "boolean",
+      "flag": "--all",
+      "required": false,
+      "description": "Include completed and failed sessions (default: active only)"
+    },
+    "verbose": {
+      "type": "boolean",
+      "flag": "-v, --verbose",
+      "required": false,
+      "description": "Show workspace paths and bead titles"
+    },
+    "bead": {
+      "type": "string",
+      "flag": "--bead",
+      "required": false,
+      "description": "Filter sessions by bead ID",
+      "examples": ["zjj-abc123", "feat-456"]
+    },
+    "agent": {
+      "type": "string",
+      "flag": "--agent",
+      "required": false,
+      "description": "Filter sessions by agent owner"
+    },
+    "state": {
+      "type": "string",
+      "flag": "--state",
+      "required": false,
+      "description": "Filter by workspace state (created, working, ready, merged, abandoned, conflict, active, complete, terminal, non-terminal)"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelopeArray"
+    }
+  },
+  "outputs": {
+    "success": {
+      "schema_type": "array",
+      "data": [
+        {
+          "name": "string",
+          "status": "active|paused|completed|failed",
+          "branch": "string",
+          "changes": "string (count)",
+          "beads": "string (open/in_progress/blocked)",
+          "workspace_path": "string",
+          "zellij_tab": "string",
+          "metadata": "object|null"
+        }
+      ]
+    },
+    "errors": [
+      "DatabaseError"
+    ]
+  },
+  "examples": [
+    "zjj list",
+    "zjj list --all",
+    "zjj list --verbose",
+    "zjj list --bead zjj-abc123",
+    "zjj list --agent agent-001",
+    "zjj list --state active",
+    "zjj list --json"
+  ],
+  "next_commands": [
+    "zjj status <name>",
+    "zjj focus <name>",
+    "zjj add <name>",
+    "zjj work <bead_id>"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj focus command
+    pub const fn focus() -> &'static str {
+        r#"AI CONTRACT for zjj focus:
+{
+  "command": "zjj focus",
+  "intent": "Switch to a session's Zellij tab to work on that session",
+  "prerequisites": [
+    "Session must exist in database",
+    "Zellij must be running (unless --no-zellij)"
+  ],
+  "side_effects": {
+    "creates": [],
+    "modifies": ["Active Zellij tab"],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": false,
+      "position": 1,
+      "default": "interactive selection",
+      "description": "Name of the session to focus",
+      "examples": ["feature-auth", "bugfix-123"]
+    },
+    "no_zellij": {
+      "type": "boolean",
+      "flag": "--no-zellij",
+      "required": false,
+      "description": "Skip Zellij integration (for non-TTY environments)"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "name": "string",
+      "zellij_tab": "string",
+      "message": "string"
+    },
+    "errors": [
+      "SessionNotFound",
+      "ZellijNotRunning",
+      "NoSessionsAvailable"
+    ]
+  },
+  "examples": [
+    "zjj focus feature-auth",
+    "zjj focus",
+    "zjj focus bugfix-123 --json",
+    "zjj focus --no-zellij"
+  ],
+  "next_commands": [
+    "zjj status",
+    "zjj done",
+    "zjj diff"
+  ]
+}"#
+    }
+
     /// Machine-readable contract for zjj context command
     pub const fn context() -> &'static str {
         r#"AI CONTRACT for zjj context:
@@ -1019,6 +1173,204 @@ pub mod ai_contracts {
     "zjj whereami",
     "zjj status",
     "zjj work"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj introspect command
+    pub const fn introspect() -> &'static str {
+        r#"AI CONTRACT for zjj introspect:
+{
+  "command": "zjj introspect",
+  "intent": "Discover zjj capabilities, command details, and system state for AI agent understanding",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "command": {
+      "type": "string",
+      "required": false,
+      "position": 1,
+      "description": "Specific command to introspect (shows all if omitted)",
+      "examples": ["add", "done", "focus", "sync"]
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    },
+    "ai": {
+      "type": "boolean",
+      "flag": "--ai",
+      "required": false,
+      "description": "AI-optimized output: combines capabilities, state, and recommendations"
+    },
+    "env-vars": {
+      "type": "boolean",
+      "flag": "--env-vars",
+      "required": false,
+      "description": "Show environment variables zjj reads and sets"
+    },
+    "workflows": {
+      "type": "boolean",
+      "flag": "--workflows",
+      "required": false,
+      "description": "Show common workflow patterns for AI agents"
+    },
+    "session-states": {
+      "type": "boolean",
+      "flag": "--session-states",
+      "required": false,
+      "description": "Show valid session state transitions"
+    }
+  },
+  "outputs": {
+    "success": {
+      "version": "string",
+      "commands": [
+        {
+          "name": "string",
+          "description": "string",
+          "arguments": "array",
+          "flags": "array",
+          "examples": "array",
+          "prerequisites": "object",
+          "side_effects": "array",
+          "error_conditions": "array"
+        }
+      ],
+      "dependencies": {
+        "jj": "object|null",
+        "zellij": "object|null"
+      },
+      "system_state": {
+        "initialized": "boolean",
+        "jj_repo": "boolean",
+        "active_sessions": "number"
+      }
+    },
+    "env_vars_mode": {
+      "env_vars": [
+        {
+          "name": "string",
+          "description": "string",
+          "direction": "read|write|both",
+          "default": "string|null",
+          "example": "string"
+        }
+      ]
+    },
+    "workflows_mode": {
+      "workflows": [
+        {
+          "name": "string",
+          "description": "string",
+          "steps": [
+            {
+              "step": "number",
+              "command": "string",
+              "description": "string"
+            }
+          ]
+        }
+      ]
+    },
+    "session_states_mode": {
+      "states": ["creating", "active", "syncing", "merging", "completed", "failed"],
+      "transitions": [
+        {
+          "from": "string",
+          "to": "string",
+          "trigger": "string"
+        }
+      ]
+    },
+    "errors": [
+      "UnknownCommand"
+    ]
+  },
+  "examples": [
+    "zjj introspect",
+    "zjj introspect add",
+    "zjj introspect --json",
+    "zjj introspect --env-vars",
+    "zjj introspect --workflows",
+    "zjj introspect --session-states",
+    "zjj introspect --ai"
+  ],
+  "next_commands": [
+    "zjj contract",
+    "zjj context",
+    "zjj ai"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj examples command
+    pub const fn examples() -> &'static str {
+        r#"AI CONTRACT for zjj examples:
+{
+  "command": "zjj examples",
+  "intent": "Show copy-pastable usage examples for commands, useful for AI agents and users",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "command": {
+      "type": "string",
+      "position": 1,
+      "required": false,
+      "description": "Filter examples for a specific command",
+      "examples": ["add", "done", "work", "spawn"]
+    },
+    "use_case": {
+      "type": "string",
+      "flag": "--use-case",
+      "required": false,
+      "description": "Filter by use case category",
+      "options": ["workflow", "single-command", "error-handling", "maintenance", "automation", "ai-agent", "multi-agent", "safety"]
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "examples": [
+        {
+          "name": "string",
+          "description": "string",
+          "commands": ["array of command strings"],
+          "expected_output": "string or null",
+          "use_case": "string",
+          "prerequisites": ["array of strings"],
+          "notes": "string or null"
+        }
+      ],
+      "use_cases": ["array of available use case categories"]
+    }
+  },
+  "examples": [
+    "zjj examples",
+    "zjj examples add",
+    "zjj examples --use-case workflow",
+    "zjj examples --json",
+    "zjj examples done --json"
+  ],
+  "next_commands": [
+    "zjj contract",
+    "zjj ai quick-start",
+    "zjj context"
   ]
 }"#
     }
