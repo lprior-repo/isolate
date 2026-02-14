@@ -2695,12 +2695,6 @@ pub fn cmd_completions() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
-        .arg(
-            Arg::new("dry_run")
-                .long("dry-run")
-                .action(clap::ArgAction::SetTrue)
-                .help("Preview validation without side effects (validation has no side effects, but flag accepted for compatibility)"),
-        )
         .after_help(after_help_text(
             &[
                 "zjj completions bash             Generate bash completions",
