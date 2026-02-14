@@ -68,6 +68,12 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_list(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::list());
+        return Ok(());
+    }
+
     let all = sub_m.get_flag("all");
     let verbose = sub_m.get_flag("verbose");
     let format = get_format(sub_m);
