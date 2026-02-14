@@ -15,9 +15,12 @@ use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::commands::{check_in_jj_repo, get_session_db};
 
-pub async fn run(json: bool, field: Option<&str>, no_beads: bool, no_health: bool) -> Result<()> {
-    let format = OutputFormat::from_json_flag(json);
-
+pub async fn run(
+    format: OutputFormat,
+    field: Option<&str>,
+    no_beads: bool,
+    no_health: bool,
+) -> Result<()> {
     let context = gather_context(no_beads, no_health).await?;
 
     if let Some(field_path) = field {

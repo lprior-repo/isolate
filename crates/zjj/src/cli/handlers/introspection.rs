@@ -50,11 +50,11 @@ pub async fn handle_introspect(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_context(sub_m: &ArgMatches) -> Result<()> {
-    let json = sub_m.get_flag("json");
+    let format = get_format(sub_m);
     let field = sub_m.get_one::<String>("field").map(String::as_str);
     let no_beads = sub_m.get_flag("no-beads");
     let no_health = sub_m.get_flag("no-health");
-    context::run(json, field, no_beads, no_health).await
+    context::run(format, field, no_beads, no_health).await
 }
 
 pub async fn handle_whereami(sub_m: &ArgMatches) -> Result<()> {

@@ -474,7 +474,7 @@ pub async fn moon_gate_step(
                     tracing::warn!("Failed to mark entry as failed_retryable: {e}");
                     e
                 });
-            Err(gate_result.unwrap_err())
+            Err(MoonGateError::GateFailed(msg.clone()))
         }
         Err(e) => {
             // Other error: transition to failed_retryable
@@ -532,7 +532,7 @@ async fn execute_moon_gate(
         let error_msg = if stderr.is_empty() {
             format!("moon run {gate} exited with code {exit_code}")
         } else {
-            stderr.clone()
+            stderr
         };
         return Err(MoonGateError::GateFailed(error_msg));
     }
@@ -558,6 +558,9 @@ async fn execute_moon_gate(
 ///
 /// # Returns
 /// The target status that the entry was transitioned to.
+///
+/// # Errors
+/// Returns an error if the queue transition fails.
 pub async fn handle_step_failure(
     queue: &MergeQueue,
     workspace: &str,
