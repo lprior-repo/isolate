@@ -2161,6 +2161,12 @@ pub fn cmd_validate() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("dry_run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview validation without side effects (validation has no side effects, but flag accepted for compatibility)"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj validate add feature-x       Validate inputs for 'add' command",
@@ -2479,7 +2485,13 @@ pub fn cmd_completions() -> ClapCommand {
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON (only for errors)"),
+                .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("dry_run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview validation without side effects (validation has no side effects, but flag accepted for compatibility)"),
         )
         .after_help(after_help_text(
             &[
