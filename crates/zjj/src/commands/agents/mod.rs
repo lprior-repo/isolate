@@ -511,11 +511,15 @@ pub async fn run_unregister(args: &UnregisterArgs, format: OutputFormat) -> Resu
     let pool = get_db_pool().await?;
 
     // Delete agent record
-    sqlx::query("DELETE FROM agents WHERE agent_id = ?")
+    let result = sqlx::query("DELETE FROM agents WHERE agent_id = ?")
         .bind(&agent_id)
         .execute(&pool)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to unregister agent: {e}"))?;
+
+    if result.rows_affected() == 0 {
+        anyhow::bail!("Agent '{agent_id}' not found");
+    }
 
     // Clear the environment variable
     std::env::remove_var("ZJJ_AGENT_ID");

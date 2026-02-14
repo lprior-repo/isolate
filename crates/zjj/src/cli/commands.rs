@@ -215,7 +215,7 @@ pub fn cmd_agents() -> ClapCommand {
                     "Register this process as an agent for zjj tracking.
 
 
-                    Sets ZJJ_AGENT_ID environment variable.
+                    Stores agent identity in zjj and prints the ZJJ_AGENT_ID value to export in your shell.
 
                     Agent ID is auto-generated if not provided.",
                 )
@@ -3051,13 +3051,13 @@ pub fn cmd_backup() -> ClapCommand {
         )
         .after_help(after_help_text(
             &[
-                "zjj backup create                       Create backups of all databases",
-                "zjj backup list                         List all available backups",
-                "zjj backup restore state.db             Restore latest backup of state.db",
-                "zjj backup restore beads.db 20250101    Restore specific backup by timestamp",
-                "zjj backup status                       Show backup status and retention info",
-                "zjj backup retention                    Apply retention policy (remove old backups)",
-                "zjj backup create --json                Create backups with JSON output",
+                "zjj backup --create                     Create backups of all databases",
+                "zjj backup --list                       List all available backups",
+                "zjj backup --restore state.db           Restore latest backup of state.db",
+                "zjj backup --restore beads.db --timestamp 20250101-010101  Restore specific backup by timestamp",
+                "zjj backup --status                     Show backup status and retention info",
+                "zjj backup --retention                  Apply retention policy (remove old backups)",
+                "zjj backup --create --json              Create backups with JSON output",
             ],
             None,
         ))
@@ -3084,6 +3084,7 @@ pub fn cmd_backup() -> ClapCommand {
                 .short('t')
                 .long("timestamp")
                 .value_name("TIMESTAMP")
+                .requires("restore")
                 .help("Specific backup timestamp to restore (format: YYYYMMDD-HHMMSS)"),
         )
         .arg(
