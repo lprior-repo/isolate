@@ -14,7 +14,8 @@ use crate::{
 
 pub async fn handle_init(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
-    init::run_with_options(init::InitOptions { format }).await
+    let dry_run = sub_m.get_flag("dry-run");
+    init::run_with_options(init::InitOptions { format, dry_run }).await
 }
 
 pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
@@ -68,6 +69,12 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_list(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::list());
+        return Ok(());
+    }
+
     let all = sub_m.get_flag("all");
     let verbose = sub_m.get_flag("verbose");
     let format = get_format(sub_m);
@@ -78,6 +85,16 @@ pub async fn handle_list(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::remove());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
@@ -87,12 +104,23 @@ pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
         merge: sub_m.get_flag("merge"),
         keep_branch: sub_m.get_flag("keep-branch"),
         idempotent: sub_m.get_flag("idempotent"),
+        dry_run: sub_m.get_flag("dry-run"),
         format,
     };
     remove::run_with_options(name, &options).await
 }
 
 pub async fn handle_focus(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::focus());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let no_zellij = sub_m.get_flag("no-zellij");
     let format = get_format(sub_m);
@@ -120,12 +148,23 @@ pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
 pub async fn handle_switch(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let show_context = sub_m.get_flag("show-context");
+    let no_zellij = sub_m.get_flag("no-zellij");
     let format = get_format(sub_m);
     let options = switch::SwitchOptions {
         format,
         show_context,
+        no_zellij,
     };
     switch::run_with_options(name, &options).await
+}
+
+pub async fn handle_dashboard(sub_m: &ArgMatches) -> Result<()> {
+    let format = get_format(sub_m);
+    if format.is_json() {
+        status::run(None, format, false).await
+    } else {
+        crate::commands::dashboard::run(format).await
+    }
 }
 
 pub async fn handle_spawn(sub_m: &ArgMatches) -> Result<()> {

@@ -89,7 +89,7 @@ impl JjExecutor for RealJjExecutor {
             })?;
 
             if !output.status.success() {
-                let code = output.status.code().unwrap_or(-1);
+                let code = output.status.code().map_or(-1, |c| c);
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                 return Err(ExecutorError::CommandFailed { code, stderr });
             }

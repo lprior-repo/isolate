@@ -29,6 +29,8 @@ pub struct RemoveOptions {
     pub keep_branch: bool,
     /// Succeed when target session is already absent (safe retries)
     pub idempotent: bool,
+    /// Preview operation without executing
+    pub dry_run: bool,
     /// Output format
     pub format: OutputFormat,
 }
@@ -67,6 +69,25 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
             ))));
         }
     };
+
+    if options.dry_run {
+        let message = format!(
+            "Would remove session '{name}' and workspace at '{}'",
+            session.workspace_path
+        );
+        if options.format.is_json() {
+            let output = RemoveOutput {
+                name: name.to_string(),
+                message,
+            };
+            let envelope = SchemaEnvelope::new("remove-response", "single", output);
+            let json_str = serde_json::to_string(&envelope)?;
+            writeln!(std::io::stdout(), "{json_str}")?;
+        } else {
+            writeln!(std::io::stdout(), "{message}")?;
+        }
+        return Ok(());
+    }
 
     // Confirm removal unless --force
     if !options.force && !confirm_removal(name)? {

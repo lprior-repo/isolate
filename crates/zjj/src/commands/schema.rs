@@ -130,9 +130,10 @@ fn run_single(name: &str, format: OutputFormat) -> Result<()> {
         "ai-next-response" => get_ai_next_response_schema(),
         "error-response" => get_error_response_schema(),
         _ => {
-            anyhow::bail!(
-                "Unknown schema: {name}. Use 'zjj schema --list' to see available schemas."
-            );
+            return Err(zjj_core::Error::NotFound(format!(
+                "Schema '{name}' not found. Use 'zjj schema --list' to see available schemas."
+            ))
+            .into());
         }
     };
 

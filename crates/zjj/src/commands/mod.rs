@@ -116,6 +116,23 @@ pub async fn check_prerequisites() -> Result<PathBuf> {
     check_in_jj_repo().await
 }
 
+async fn zjj_project_root() -> Result<PathBuf> {
+    let root = check_prerequisites().await?;
+    let workspace_repo_pointer = root.join(".jj").join("repo");
+
+    if workspace_repo_pointer.is_file() {
+        let pointer = tokio::fs::read_to_string(&workspace_repo_pointer)
+            .await
+            .context("Failed to read JJ workspace repo pointer")?;
+        let repo_path = PathBuf::from(pointer.trim());
+        if let Some(main_root) = repo_path.parent().and_then(|p| p.parent()) {
+            return Ok(main_root.to_path_buf());
+        }
+    }
+
+    Ok(root)
+}
+
 /// Get the ZJJ data directory for the current repository
 ///
 /// # Errors
@@ -123,7 +140,7 @@ pub async fn check_prerequisites() -> Result<PathBuf> {
 /// Returns an error if prerequisites are not met (JJ not installed or not in a JJ repo)
 pub async fn zjj_data_dir() -> Result<PathBuf> {
     // Check prerequisites first
-    let root = check_prerequisites().await?;
+    let root = zjj_project_root().await?;
     Ok(root.join(".zjj"))
 }
 
@@ -148,7 +165,7 @@ pub async fn get_db_path() -> Result<PathBuf> {
             if p.is_absolute() {
                 return Ok(p);
             }
-            let root = check_prerequisites().await?;
+            let root = zjj_project_root().await?;
             return Ok(root.join(p));
         }
     }

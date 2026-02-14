@@ -54,6 +54,10 @@ pub struct BatchRequest {
     #[serde(default)]
     pub atomic: bool,
 
+    /// Preview execution without changes
+    #[serde(default)]
+    pub dry_run: bool,
+
     /// Operations to execute in order
     pub operations: Vec<BatchOperation>,
 }
@@ -153,6 +157,8 @@ pub enum BatchItemStatus {
     Skipped,
     /// Operation was rolled back
     RolledBack,
+    /// Operation was previewed (dry run)
+    DryRun,
 }
 
 /// Execute atomic batch with checkpoint-based rollback.
@@ -178,8 +184,8 @@ pub async fn execute_batch(
     db: &SqlitePool,
     format: OutputFormat,
 ) -> Result<BatchResponse> {
-    // Phase 1: Create checkpoint if atomic mode
-    let checkpoint_guard = if request.atomic {
+    // Phase 1: Create checkpoint if atomic mode (and not dry-run)
+    let checkpoint_guard = if request.atomic && !request.dry_run {
         let auto_cp = AutoCheckpoint::new(db.clone());
         auto_cp
             .guard_if_risky(OperationRisk::Risky)
@@ -191,20 +197,25 @@ pub async fn execute_batch(
 
     // Phase 2: Execute operations in order
     let atomic = request.atomic;
+    let dry_run = request.dry_run;
     let (results, _) = futures::stream::iter(&request.operations)
         .fold(
             (Vec::with_capacity(request.operations.len()), false),
             |(mut results, mut should_stop), operation| async move {
                 let result = if should_stop {
                     make_skipped_result(operation, "Previous operation failed")
+                } else if dry_run {
+                    make_dry_run_result(operation)
                 } else {
                     execute_batch_operation(operation).await
                 };
 
                 // Track if we should stop (required operation failed in atomic mode)
+                // In dry-run, we never fail, so we don't stop unless we want to simulate failure?
+                // For now assume dry-run always succeeds.
                 let is_required = !operation.optional;
                 let is_failure = !result.success;
-                let stop_now = atomic && is_required && is_failure;
+                let stop_now = !dry_run && atomic && is_required && is_failure;
 
                 if stop_now {
                     should_stop = true;
@@ -244,7 +255,7 @@ pub async fn execute_batch(
     let checkpoint_id = checkpoint_guard.as_ref().map(|g| g.id().to_string());
 
     // Phase 4: Commit or rollback based on result
-    let rolled_back = if request.atomic && !success {
+    let rolled_back = if !dry_run && request.atomic && !success {
         if let Some(guard) = checkpoint_guard {
             guard
                 .rollback()
@@ -335,6 +346,19 @@ async fn execute_batch_operation(operation: &BatchOperation) -> BatchItemResult 
                 duration_ms: to_duration_ms(start.elapsed()),
             },
         )
+}
+
+/// Create a dry run operation result.
+fn make_dry_run_result(operation: &BatchOperation) -> BatchItemResult {
+    BatchItemResult {
+        id: operation.id.clone(),
+        command: format!("{} {}", operation.command, operation.args.join(" ")),
+        success: true,
+        status: BatchItemStatus::DryRun,
+        output: Some("(dry run)".to_string()),
+        error: None,
+        duration_ms: Some(0),
+    }
 }
 
 /// Create a skipped operation result.
@@ -432,6 +456,7 @@ fn print_batch_human(response: &BatchResponse) {
             BatchItemStatus::Failed => "✗",
             BatchItemStatus::Skipped => "○",
             BatchItemStatus::RolledBack => "↩",
+            BatchItemStatus::DryRun => "▷",
         };
 
         let id_str = item_result

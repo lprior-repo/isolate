@@ -90,7 +90,9 @@ async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionD
             let main_repo_zjj = Path::new(&main_repo_path).join(".zjj");
 
             anyhow::ensure!(
-                tokio::fs::try_exists(&main_repo_zjj).await.unwrap_or(false),
+                tokio::fs::try_exists(&main_repo_zjj)
+                    .await
+                    .map_or(false, |e| e),
                 "ZJJ not initialized in main repository at {main_repo_path}\n\n\
                  Run 'zjj init' in the main repository first."
             );
@@ -123,6 +125,8 @@ pub struct SyncOptions {
     pub format: OutputFormat,
     /// Sync all sessions (explicit --all flag)
     pub all: bool,
+    /// Preview sync without executing
+    pub dry_run: bool,
 }
 
 /// Run the sync command with options
@@ -213,7 +217,7 @@ async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<(
     })?;
 
     // Use internal sync function
-    sync_session_internal(&db, &session.name, &session.workspace_path).await?;
+    sync_session_internal(&db, &session.name, &session.workspace_path, options.dry_run).await?;
 
     if options.format.is_json() {
         let output = SyncOutput {
@@ -225,7 +229,7 @@ async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<(
         let envelope = SchemaEnvelope::new("sync-response", "single", output);
         let json_str = serde_json::to_string(&envelope)?;
         println!("{json_str}");
-    } else {
+    } else if !options.dry_run {
         println!("Synced session '{name}' with main");
         println!();
         println!("NEXT: Continue working, or if done:");
@@ -267,7 +271,13 @@ async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
             .map(|session| {
                 let db = &db;
                 async move {
-                    let res = sync_session_internal(db, &session.name, &session.workspace_path).await;
+                    let res = sync_session_internal(
+                        db,
+                        &session.name,
+                        &session.workspace_path,
+                        options.dry_run,
+                    )
+                    .await;
                     (session, res)
                 }
             })
@@ -327,8 +337,13 @@ async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
                         print!("Syncing '{}' ... ", &session.name);
                         let _ = std::io::stdout().flush();
 
-                        match sync_session_internal(db, &session.name, &session.workspace_path)
-                            .await
+                        match sync_session_internal(
+                            db,
+                            &session.name,
+                            &session.workspace_path,
+                            options.dry_run,
+                        )
+                        .await
                         {
                             Ok(()) => {
                                 println!("OK");
@@ -365,8 +380,14 @@ async fn sync_session_internal(
     db: &crate::db::SessionDb,
     name: &str,
     workspace_path: &str,
+    dry_run: bool,
 ) -> Result<()> {
     let main_branch = determine_main_branch(Path::new(workspace_path)).await;
+
+    if dry_run {
+        println!("Would sync workspace '{workspace_path}' with main branch '{main_branch}'");
+        return Ok(());
+    }
 
     // Run rebase in the session's workspace
     run_command(

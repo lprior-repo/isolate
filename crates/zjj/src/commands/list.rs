@@ -102,7 +102,10 @@ pub async fn run(
         return Ok(());
     }
 
-    let beads_count = get_beads_count().await.unwrap_or_default();
+    let beads_count = match get_beads_count().await {
+        Ok(c) => c,
+        Err(_) => BeadCounts::default(),
+    };
     let beads_str = beads_count.to_string();
 
     // Build list items using concurrent futures stream for performance
@@ -111,11 +114,19 @@ pub async fn run(
             let beads_str = beads_str.clone();
             async move {
                 let changes = get_session_changes(&session.workspace_path).await;
+                let branch = match session.branch.clone() {
+                    Some(b) => b,
+                    None => "-".to_string(),
+                };
+                let changes_str = match changes {
+                    Some(c) => c.to_string(),
+                    None => "-".to_string(),
+                };
                 SessionListItem {
                     name: session.name.clone(),
                     status: session.status.to_string(),
-                    branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
-                    changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
+                    branch,
+                    changes: changes_str,
                     beads: beads_str,
                     session,
                 }
@@ -159,7 +170,10 @@ async fn get_beads_count() -> Result<BeadCounts> {
     };
 
     let bead_repo = BeadRepository::new(root);
-    let beads = bead_repo.list_beads().await.unwrap_or_default();
+    let beads = match bead_repo.list_beads().await {
+        Ok(b) => b,
+        Err(_) => Vec::new(),
+    };
 
     // Functional counting using fold
     let counts = beads.into_iter().fold(BeadCounts::default(), |mut acc, b| {
@@ -186,23 +200,23 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
         println!("{}", "-".repeat(120));
 
         for item in items {
-            let bead_info = item
-                .session
-                .metadata
-                .as_ref()
-                .and_then(|m| {
-                    let id = m.get("bead_id").and_then(|v| v.as_str()).map_or("", |v| v);
-                    let title = m
-                        .get("bead_title")
-                        .and_then(|v| v.as_str())
-                        .map_or("", |v| v);
-                    if id.is_empty() {
-                        None
-                    } else {
-                        Some(format!("{id}: {title}"))
-                    }
-                })
-                .unwrap_or_else(|| "-".to_string());
+            let bead_info = item.session.metadata.as_ref().and_then(|m| {
+                let id = m.get("bead_id").and_then(|v| v.as_str()).map_or("", |v| v);
+                let title = m
+                    .get("bead_title")
+                    .and_then(|v| v.as_str())
+                    .map_or("", |v| v);
+                if id.is_empty() {
+                    None
+                } else {
+                    Some(format!("{id}: {title}"))
+                }
+            });
+
+            let bead_info = match bead_info {
+                Some(info) => info,
+                None => "-".to_string(),
+            };
 
             println!(
                 "{:<20} {:<12} {:<15} {:<30} {:<40}",
@@ -754,5 +768,62 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    // ============================================================================
+    // --contract flag tests
+    // These tests verify the --contract flag outputs AI-readable contract schema
+    // ============================================================================
+
+    /// Test that --contract flag exists and outputs AI contract schema
+    /// The contract should describe inputs, outputs, and side effects for AI agents
+    #[test]
+    fn test_list_contract_flag_outputs_schema() {
+        // The --contract flag should output the list command's AI contract
+        // as a JSON-compatible string describing inputs, outputs, and side effects
+        let contract = crate::cli::json_docs::ai_contracts::list();
+
+        // Contract should be non-empty
+        assert!(!contract.is_empty(), "Contract should not be empty");
+
+        // Contract should contain key AI-relevant information
+        assert!(
+            contract.contains("zjj list"),
+            "Contract should reference the command"
+        );
+        assert!(
+            contract.contains("intent") || contract.contains("description"),
+            "Contract should describe intent"
+        );
+        assert!(
+            contract.contains("inputs") || contract.contains("outputs"),
+            "Contract should describe inputs/outputs"
+        );
+    }
+
+    /// Test that contract describes list command has no side effects
+    #[test]
+    fn test_list_contract_no_side_effects() {
+        let contract = crate::cli::json_docs::ai_contracts::list();
+
+        // List is a read-only query - should document no side effects
+        assert!(
+            contract.contains("side_effects")
+                || contract.contains("no side effects")
+                || contract.contains("read-only"),
+            "Contract should indicate no side effects for read-only command"
+        );
+    }
+
+    /// Test that contract describes filter inputs
+    #[test]
+    fn test_list_contract_filter_inputs() {
+        let contract = crate::cli::json_docs::ai_contracts::list();
+
+        // List command supports filtering - contract should document this
+        assert!(
+            contract.contains("bead") || contract.contains("filter"),
+            "Contract should document filtering capabilities"
+        );
     }
 }

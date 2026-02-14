@@ -394,7 +394,7 @@ impl IntegrityValidator {
     /// Validate a single workspace
     pub async fn validate(&self, workspace_name: &str) -> Result<ValidationResult> {
         let start = SystemTime::now();
-        let workspace_path = self.workspaces_root.join(workspace_name);
+        let workspace_path = self.resolve_workspace_path(workspace_name);
 
         let mut issues = Vec::new();
 
@@ -489,6 +489,24 @@ impl IntegrityValidator {
         }
     }
 
+    fn resolve_workspace_path(&self, workspace_name: &str) -> PathBuf {
+        let input_path = Path::new(workspace_name);
+
+        if input_path.is_absolute() {
+            return input_path.to_path_buf();
+        }
+
+        let looks_like_path = workspace_name.contains(std::path::MAIN_SEPARATOR)
+            || workspace_name.contains('/')
+            || workspace_name.starts_with('.');
+
+        if looks_like_path {
+            return input_path.to_path_buf();
+        }
+
+        self.workspaces_root.join(workspace_name)
+    }
+
     /// Validate multiple workspaces in parallel
     ///
     /// RESULTS ARE ORDERED: Returns results in the same order as input workspaces.
@@ -543,10 +561,9 @@ impl IntegrityValidator {
             .with_path(&repo_path)
         })?;
 
-        // If repo is a file, this is a workspace pointing to a shared repo - that's valid
+        // If repo is a file, this is a workspace pointing to a shared repo.
         if repo_metadata.is_file() {
-            // For workspace repos (files pointing to shared repo), we just verify the file exists
-            // The shared repo itself will be validated separately
+            Self::validate_shared_repo_pointer(jj_dir, &repo_path).await?;
             return Ok(());
         }
 
@@ -583,6 +600,100 @@ impl IntegrityValidator {
                     .with_path(&op_store));
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    async fn validate_shared_repo_pointer(
+        jj_dir: &Path,
+        repo_pointer_path: &Path,
+    ) -> std::result::Result<(), IntegrityIssue> {
+        let shared_repo_path = match tokio::fs::read_to_string(repo_pointer_path).await {
+            Ok(content) => {
+                let path_str = content.trim();
+                if path_str.is_empty() {
+                    return Err(IntegrityIssue::new(
+                        CorruptionType::CorruptedJjDir,
+                        "JJ repo file is empty - workspace has no backing repo",
+                    )
+                    .with_path(repo_pointer_path));
+                }
+
+                if std::path::Path::new(path_str).is_absolute() {
+                    std::path::PathBuf::from(path_str)
+                } else {
+                    jj_dir.join(path_str)
+                }
+            }
+            Err(e) => {
+                return Err(IntegrityIssue::new(
+                    CorruptionType::PermissionDenied,
+                    format!("Cannot read JJ repo file: {e}"),
+                )
+                .with_path(repo_pointer_path));
+            }
+        };
+
+        let shared_exists = tokio::fs::try_exists(&shared_repo_path)
+            .await
+            .map_err(|e| {
+                IntegrityIssue::new(
+                    CorruptionType::PermissionDenied,
+                    format!("Cannot check referenced shared repo: {e}"),
+                )
+                .with_path(&shared_repo_path)
+            })?;
+
+        if !shared_exists {
+            return Err(IntegrityIssue::new(
+                CorruptionType::CorruptedJjDir,
+                format!(
+                    "JJ repo file points to non-existent path: {}",
+                    shared_repo_path.display()
+                ),
+            )
+            .with_path(repo_pointer_path));
+        }
+
+        let shared_metadata = tokio::fs::metadata(&shared_repo_path).await.map_err(|e| {
+            IntegrityIssue::new(
+                CorruptionType::PermissionDenied,
+                format!("Cannot inspect referenced shared repo metadata: {e}"),
+            )
+            .with_path(&shared_repo_path)
+        })?;
+
+        if !shared_metadata.is_dir() {
+            return Err(IntegrityIssue::new(
+                CorruptionType::CorruptedJjDir,
+                format!(
+                    "JJ repo file points to non-directory path: {}",
+                    shared_repo_path.display()
+                ),
+            )
+            .with_path(repo_pointer_path));
+        }
+
+        let shared_op_store = shared_repo_path.join("op_store");
+        let shared_op_store_exists =
+            tokio::fs::try_exists(&shared_op_store).await.map_err(|e| {
+                IntegrityIssue::new(
+                    CorruptionType::PermissionDenied,
+                    format!("Cannot check shared repo op_store: {e}"),
+                )
+                .with_path(&shared_op_store)
+            })?;
+
+        if !shared_op_store_exists {
+            return Err(IntegrityIssue::new(
+                CorruptionType::CorruptedJjDir,
+                format!(
+                    "Referenced shared repo missing op_store: {}",
+                    shared_op_store.display()
+                ),
+            )
+            .with_path(repo_pointer_path));
         }
 
         Ok(())
@@ -1033,6 +1144,20 @@ mod tests {
     async fn test_integrity_validator_with_timeout() {
         let validator = IntegrityValidator::new("/tmp/workspaces").with_timeout(1000);
         assert_eq!(validator.timeout_ms, 1000);
+    }
+
+    #[test]
+    fn test_resolve_workspace_path_keeps_absolute_path() {
+        let validator = IntegrityValidator::new("/tmp/workspaces");
+        let resolved = validator.resolve_workspace_path("/var/tmp/ws-a");
+        assert_eq!(resolved, PathBuf::from("/var/tmp/ws-a"));
+    }
+
+    #[test]
+    fn test_resolve_workspace_path_keeps_relative_path_input() {
+        let validator = IntegrityValidator::new("/tmp/workspaces");
+        let resolved = validator.resolve_workspace_path(".zjj/workspaces/ws-a");
+        assert_eq!(resolved, PathBuf::from(".zjj/workspaces/ws-a"));
     }
 
     #[tokio::test]

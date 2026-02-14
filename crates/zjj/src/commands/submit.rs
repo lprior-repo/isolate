@@ -28,13 +28,14 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::process::Command;
 use zjj_core::{
+    config,
     coordination::queue::{MergeQueue, QueueEntry},
     jj,
     json::schemas,
     OutputFormat,
 };
 
-use crate::commands::check_in_jj_repo;
+use crate::commands::{check_in_jj_repo, workspace_utils};
 
 /// Submit-specific errors
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -197,9 +198,49 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
     let root = check_in_jj_repo().await?;
 
     // Determine workspace context
-    let workspace_info = resolve_workspace_context(&root)?;
+    let workspace_info = resolve_workspace_context(&root).await?;
 
-    // Check dirty workspace state (bd-1sh)
+    // Extract initial identity information
+    let identity = match extract_workspace_identity(&workspace_info.path).await {
+        Ok(id) => id,
+        Err(e) => {
+            return output_error(
+                options.format.is_json(),
+                "PRECONDITION_FAILED",
+                e.to_string(),
+                3,
+            );
+        }
+    };
+
+    // For dry run, output what would happen and exit
+    if options.dry_run {
+        let is_dirty = is_workspace_dirty(&workspace_info.path)
+            .await
+            .unwrap_or(false);
+        let dedupe_key = compute_dedupe_key(&identity.change_id, &identity.workspace_name);
+
+        // If it's dirty and we won't auto-commit, the real command would fail.
+        // Dry-run should reflect this precondition failure (bd-34k fix).
+        if is_dirty && !options.auto_commit {
+            return output_error(
+                options.format.is_json(),
+                "DIRTY_WORKSPACE",
+                "Working copy has uncommitted changes.\nUse --auto-commit to commit automatically, or run 'jj commit' first. (Dry run validation failure)".to_string(),
+                3,
+            );
+        }
+
+        if !options.format.is_json() && is_dirty {
+            println!("Note: Workspace has uncommitted changes.");
+            println!("      These changes WOULD be committed automatically.");
+            println!();
+        }
+
+        return output_dry_run(options.format.is_json(), &identity, &dedupe_key);
+    }
+
+    // Check dirty workspace state (bd-1sh) - only for real submission
     match check_and_handle_dirty_state(&workspace_info.path, options).await {
         Ok(()) => {}
         Err(SubmitError::DirtyWorkspace) => {
@@ -220,7 +261,7 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
         }
     }
 
-    // Extract identity information
+    // Re-extract identity after potential auto-commit to get the new HEAD SHA
     let identity = match extract_workspace_identity(&workspace_info.path).await {
         Ok(id) => id,
         Err(e) => {
@@ -233,14 +274,8 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
         }
     };
 
-    // Compute dedupe_key for deduplication
-    // Using change_id (stable across rebases) combined with workspace
+    // Compute final dedupe_key
     let dedupe_key = compute_dedupe_key(&identity.change_id, &identity.workspace_name);
-
-    // For dry run, output what would happen and exit
-    if options.dry_run {
-        return output_dry_run(options.format.is_json(), &identity, &dedupe_key);
-    }
 
     // Push bookmark to remote BEFORE queueing
     if let Err(e) = push_bookmark(&identity.bookmark_name, &workspace_info.path).await {
@@ -289,8 +324,20 @@ struct WorkspaceInfo {
 }
 
 /// Resolve the current workspace context
-fn resolve_workspace_context(root: &Path) -> Result<WorkspaceInfo> {
+async fn resolve_workspace_context(root: &Path) -> Result<WorkspaceInfo> {
     let current_dir = std::env::current_dir().context("failed to get current directory")?;
+
+    if current_dir.join(".jj/repo").is_file() {
+        let name = current_dir
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Workspace directory name is not valid UTF-8"))?
+            .to_string();
+        return Ok(WorkspaceInfo {
+            path: current_dir,
+            name,
+        });
+    }
 
     // Check if we're in a non-default workspace
     // In JJ, non-default workspaces have `.jj/repo` as a FILE (pointer to main repo)
@@ -306,25 +353,31 @@ fn resolve_workspace_context(root: &Path) -> Result<WorkspaceInfo> {
         });
     }
 
-    // Check if we're in a zjj workspace subdirectory
-    let workspaces_dir = root.join(".zjj/workspaces");
-    if current_dir.starts_with(&workspaces_dir) {
-        let workspace_name = current_dir
-            .strip_prefix(&workspaces_dir)
-            .context("failed to strip workspace prefix")?
-            .components()
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("Unable to determine workspace name"))?
-            .as_os_str()
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Workspace name contains invalid UTF-8"))?
-            .to_string();
+    let workspace_dir = config::load_config()
+        .await
+        .map(|cfg| cfg.workspace_dir)
+        .unwrap_or_else(|_| ".zjj/workspaces".to_string());
+    let workspace_roots = workspace_utils::candidate_workspace_roots(root, &workspace_dir);
 
-        let workspace_path = workspaces_dir.join(&workspace_name);
-        return Ok(WorkspaceInfo {
-            path: workspace_path,
-            name: workspace_name,
-        });
+    for workspace_root in workspace_roots {
+        if current_dir.starts_with(&workspace_root) {
+            let workspace_name = current_dir
+                .strip_prefix(&workspace_root)
+                .context("failed to strip workspace prefix")?
+                .components()
+                .next()
+                .ok_or_else(|| anyhow::anyhow!("Unable to determine workspace name"))?
+                .as_os_str()
+                .to_str()
+                .ok_or_else(|| anyhow::anyhow!("Workspace name contains invalid UTF-8"))?
+                .to_string();
+
+            let workspace_path = workspace_root.join(&workspace_name);
+            return Ok(WorkspaceInfo {
+                path: workspace_path,
+                name: workspace_name,
+            });
+        }
     }
 
     // We're in the main workspace
@@ -426,50 +479,40 @@ async fn get_head_sha(workspace_path: &PathBuf) -> Result<String, SubmitError> {
 
 /// Get the current bookmark name
 async fn get_current_bookmark(workspace_path: &PathBuf) -> Result<String, SubmitError> {
-    // List bookmarks and find the one pointing to @
+    // Use jj log to get bookmarks pointing to the current revision
     let output = Command::new("jj")
-        .args(["bookmark", "list", "--all"])
+        .args(["log", "-r", "@", "--no-graph", "-T", "bookmarks"])
         .current_dir(workspace_path)
         .output()
         .await
         .map_err(|e| {
-            SubmitError::IdentityExtractionFailed(format!("failed to list bookmarks: {e}"))
+            SubmitError::IdentityExtractionFailed(format!("failed to get current bookmarks: {e}"))
         })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(SubmitError::IdentityExtractionFailed(format!(
-            "jj bookmark list failed: {stderr}"
+            "jj log failed: {stderr}"
         )));
     }
 
-    // Get current revision's change_id to match
-    let current_change_id = get_change_id(workspace_path).await?;
-
-    // Parse output to find bookmark pointing to current revision
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let bookmark_name = stdout
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .filter(|line| !line.starts_with("  @")) // Skip remote bookmarks
-        .find_map(|line| {
-            // Format: "bookmark_name: change_id commit_id description"
-            let parts: Vec<&str> = line.splitn(2, ':').collect();
-            match parts.as_slice() {
-                [name, rest] => {
-                    let tokens: Vec<&str> = rest.split_whitespace().collect();
-                    // Check if this bookmark points to our current change_id
-                    if tokens.first().is_some_and(|&t| t == current_change_id) {
-                        Some(name.trim().to_string())
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            }
-        });
+    let bookmarks: Vec<&str> = stdout.split_whitespace().collect();
 
-    bookmark_name.ok_or(SubmitError::NoBookmark)
+    // Prefer a bookmark that matches the workspace name if possible,
+    // otherwise just take the first one.
+    let workspace_name = workspace_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+
+    let bookmark_name = bookmarks
+        .iter()
+        .find(|&&b| b == workspace_name)
+        .or_else(|| bookmarks.first())
+        .ok_or(SubmitError::NoBookmark)?;
+
+    Ok((*bookmark_name).to_string())
 }
 
 /// Compute `dedupe_key` for deduplication
