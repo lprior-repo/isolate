@@ -37,7 +37,13 @@
 //! - Race condition detection
 //! - Dedup key adversarial cases
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use futures::future::join_all;
 use zjj_core::{
@@ -147,7 +153,7 @@ async fn adversarial_dedupe_reuse_after_terminal() -> Result<()> {
 
     // Now same dedupe_key should be allowed again (entry is terminal)
     // Using upsert_for_submit which handles terminal state
-    let result = queue
+    let resubmitted = queue
         .upsert_for_submit(
             "ws-1",
             None,
@@ -158,10 +164,15 @@ async fn adversarial_dedupe_reuse_after_terminal() -> Result<()> {
         )
         .await;
 
-    assert!(
-        result.is_ok(),
-        "Should be able to reuse dedupe_key after terminal state: {:?}",
-        result.err()
+    let resubmitted = resubmitted?;
+    assert_eq!(
+        resubmitted.id, entry1.id,
+        "Resubmitting same workspace should reset existing terminal entry"
+    );
+    assert_eq!(
+        resubmitted.dedupe_key.as_deref(),
+        Some(dedupe_key),
+        "Resubmitted entry should preserve dedupe_key"
     );
 
     Ok(())
@@ -184,10 +195,14 @@ async fn adversarial_dedupe_concurrent_submissions_race() -> Result<()> {
         handles.push(handle);
     }
 
-    let results = join_all(handles)
-        .await
+    let joined = join_all(handles).await;
+    assert!(
+        joined.iter().all(std::result::Result::is_ok),
+        "All dedupe race tasks should complete without panic"
+    );
+    let results = joined
         .into_iter()
-        .map(|r| r.unwrap())
+        .map(|r| r.expect("join handle should not panic"))
         .collect::<Vec<_>>();
 
     // Count successes
@@ -378,26 +393,24 @@ async fn adversarial_massive_contention_1000_agents() -> Result<()> {
         queue.add(&format!("ws-{i}"), None, 5, None).await?;
     }
 
-    // Spawn 100 concurrent agents (more manageable than 1000 for this test)
-    // Each will retry multiple times since the singleton lock serializes access
+    // Spawn 100 concurrent agents with enough retry budget to cover serialized
+    // lock handoffs for all 10 entries.
     let mut handles = vec![];
     for i in 0..100 {
         let q = queue.clone();
         let handle = tokio::spawn(async move {
-            // Retry until we get an entry or timeout
-            let start = std::time::Instant::now();
-            while start.elapsed() < std::time::Duration::from_millis(500) {
+            // Retry enough times so all entries can be claimed under contention.
+            for _ in 0..400 {
                 let result = q.next_with_lock(&format!("agent-{i}")).await;
                 match result {
                     Ok(Some(entry)) => {
                         // Hold briefly then release
-                        tokio::time::sleep(Duration::from_millis(10)).await;
+                        tokio::time::sleep(Duration::from_millis(1)).await;
                         let _ = q.release_processing_lock(&format!("agent-{i}")).await;
                         return Some(entry.workspace);
                     }
                     _ => {
-                        // Brief backoff
-                        tokio::time::sleep(Duration::from_millis(5)).await;
+                        tokio::time::sleep(Duration::from_millis(1)).await;
                     }
                 }
             }
@@ -413,20 +426,18 @@ async fn adversarial_massive_contention_1000_agents() -> Result<()> {
         .flatten()
         .collect::<Vec<_>>();
 
-    // With retries and sufficient time, multiple agents should succeed
-    // The exact number depends on timing, but at least some should get entries
-    assert!(
-        !results.is_empty(),
-        "At least some agents should get entries with retries, got {}",
-        results.len()
-    );
-
-    // No duplicates - each workspace should appear at most once
+    // Exactly 10 unique entries should be claimed (one per queue item).
     let unique: std::collections::HashSet<_> = results.iter().collect();
     assert_eq!(
         unique.len(),
+        10,
+        "Expected all 10 entries to be claimed, got {}",
+        unique.len()
+    );
+    assert_eq!(
+        unique.len(),
         results.len(),
-        "No agent should get the same entry twice"
+        "No entry should be claimed twice"
     );
 
     Ok(())
@@ -436,17 +447,31 @@ async fn adversarial_massive_contention_1000_agents() -> Result<()> {
 #[tokio::test]
 async fn adversarial_rapid_add_remove_cycles() -> Result<()> {
     let queue = Arc::new(MergeQueue::open_in_memory().await?);
+    let successful_adds = Arc::new(AtomicUsize::new(0));
+    let failed_adds = Arc::new(AtomicUsize::new(0));
+    let successful_removes = Arc::new(AtomicUsize::new(0));
 
     // 50 tasks each doing 20 rapid cycles
     let mut handles = vec![];
     for i in 0..50 {
         let q = queue.clone();
+        let adds = successful_adds.clone();
+        let add_failures = failed_adds.clone();
+        let removes = successful_removes.clone();
         let handle = tokio::spawn(async move {
             for j in 0..20 {
                 let workspace = format!("ws-{i}-{j}");
-                if q.add(&workspace, None, 5, None).await.is_ok() {
-                    tokio::time::sleep(Duration::from_micros(100)).await;
-                    let _ = q.remove(&workspace).await;
+                match q.add(&workspace, None, 5, None).await {
+                    Ok(_) => {
+                        adds.fetch_add(1, Ordering::Relaxed);
+                        tokio::time::sleep(Duration::from_micros(100)).await;
+                        if matches!(q.remove(&workspace).await, Ok(true)) {
+                            removes.fetch_add(1, Ordering::Relaxed);
+                        }
+                    }
+                    Err(_) => {
+                        add_failures.fetch_add(1, Ordering::Relaxed);
+                    }
                 }
             }
         });
@@ -455,11 +480,26 @@ async fn adversarial_rapid_add_remove_cycles() -> Result<()> {
 
     join_all(handles).await;
 
-    // Should be clean at the end
+    let adds = successful_adds.load(Ordering::Relaxed);
+    let add_failures = failed_adds.load(Ordering::Relaxed);
+    let removes = successful_removes.load(Ordering::Relaxed);
+
+    assert_eq!(
+        adds + add_failures,
+        1000,
+        "All add attempts should be accounted for"
+    );
+
+    // Residual entries must exactly equal successful adds minus successful removes.
     let stats = queue.stats().await?;
+    let expected_residual = adds.saturating_sub(removes);
+    assert_eq!(
+        stats.total, expected_residual,
+        "Queue total should match successful add/remove accounting"
+    );
     assert!(
-        stats.total < 1000,
-        "Should not have massive accumulation: got {}",
+        stats.total <= 50,
+        "Residual entries should remain small under contention, got {}",
         stats.total
     );
 
@@ -484,7 +524,7 @@ async fn adversarial_concurrent_state_transitions() -> Result<()> {
         let handle = tokio::spawn(async move {
             // Random sequence of operations
             for _ in 0..3 {
-                if q.mark_processing(&workspace).await.is_ok() {
+                if matches!(q.mark_processing(&workspace).await, Ok(true)) {
                     tokio::time::sleep(Duration::from_micros(50)).await;
                     let _ = q.mark_completed(&workspace).await;
                 }
@@ -499,8 +539,16 @@ async fn adversarial_concurrent_state_transitions() -> Result<()> {
     let stats = queue.stats().await?;
     println!("Final stats: {:?}", stats);
 
-    // Either all completed or some failed
-    assert!(stats.completed + stats.failed + stats.processing + stats.pending <= 50);
+    // Total should remain stable and status buckets should account for all entries.
+    assert_eq!(
+        stats.total, 50,
+        "No entries should be lost during transitions"
+    );
+    assert_eq!(
+        stats.completed + stats.failed + stats.processing + stats.pending,
+        50,
+        "All entries should be represented in status counts"
+    );
 
     Ok(())
 }
@@ -635,11 +683,9 @@ async fn adversarial_lock_release_by_non_owner() -> Result<()> {
     // Agent 1 should still hold it - check the lock
     let lock = queue.get_processing_lock().await?;
     assert!(lock.is_some(), "Lock should still be held by agent-1");
-    assert_eq!(
-        lock.unwrap().agent_id,
-        "agent-1",
-        "Lock should be held by agent-1"
-    );
+    if let Some(lock) = lock {
+        assert_eq!(lock.agent_id, "agent-1", "Lock should be held by agent-1");
+    }
 
     // Agent 1 releases
     queue.release_processing_lock("agent-1").await?;
@@ -667,25 +713,34 @@ async fn adversarial_cleanup_many_old_entries() -> Result<()> {
         queue.mark_completed(&format!("ws-old-{}", i)).await?;
     }
 
-    // Add 10 fresh entries
+    // Ensure completed entries become older than the cutoff used below.
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    // Add 10 fresh pending entries
     for i in 0..10 {
         queue.add(&format!("ws-new-{}", i), None, 5, None).await?;
     }
 
-    // Wait for entries to be "old"
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // Add 5 fresh completed entries that should NOT be cleaned.
+    for i in 0..5 {
+        let ws = format!("ws-fresh-completed-{i}");
+        queue.add(&ws, None, 5, None).await?;
+        queue.mark_processing(&ws).await?;
+        queue.mark_completed(&ws).await?;
+    }
 
-    // Cleanup entries older than 50ms
-    let cleaned = queue.cleanup(Duration::from_millis(50)).await?;
+    // Cleanup entries older than 1 second.
+    let cleaned = queue.cleanup(Duration::from_secs(1)).await?;
 
     assert_eq!(cleaned, 100, "Should clean all 100 old completed entries");
 
-    // Verify new entries remain
+    // Verify fresh entries remain.
     let stats = queue.stats().await?;
     assert_eq!(
         stats.pending, 10,
         "Should have 10 pending entries remaining"
     );
+    assert_eq!(stats.completed, 5, "Should keep 5 fresh completed entries");
 
     Ok(())
 }
@@ -703,9 +758,8 @@ async fn adversarial_cleanup_preserves_processing() -> Result<()> {
     queue.mark_processing("ws-completed").await?;
     queue.mark_completed("ws-completed").await?;
 
-    // Wait and cleanup
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    let cleaned = queue.cleanup(Duration::from_millis(50)).await?;
+    // Use max_age=0 for deterministic cleanup of terminal states only.
+    let cleaned = queue.cleanup(Duration::ZERO).await?;
 
     // Only completed should be cleaned
     assert_eq!(cleaned, 1, "Should only clean completed entry");
@@ -734,16 +788,19 @@ async fn adversarial_next_no_duplicate_returns() -> Result<()> {
         queue.add(&format!("ws-{}", i), None, 5, None).await?;
     }
 
-    // 100 concurrent callers using next_with_lock (atomic claim)
+    // 100 concurrent callers using next_with_lock (atomic claim).
+    // Each caller retries to ensure all 10 entries get a chance to be claimed.
     let mut handles = vec![];
     for i in 0..100 {
         let q = queue.clone();
         let handle = tokio::spawn(async move {
-            // Try to atomically claim an entry
-            if let Ok(Some(entry)) = q.next_with_lock(&format!("agent-{i}")).await {
-                // Release the lock so others can proceed
-                let _ = q.release_processing_lock(&format!("agent-{i}")).await;
-                return Some(entry.id);
+            for _ in 0..200 {
+                if let Ok(Some(entry)) = q.next_with_lock(&format!("agent-{i}")).await {
+                    // Release the lock so others can proceed
+                    let _ = q.release_processing_lock(&format!("agent-{i}")).await;
+                    return Some(entry.id);
+                }
+                tokio::time::sleep(Duration::from_millis(1)).await;
             }
             None
         });
@@ -757,17 +814,14 @@ async fn adversarial_next_no_duplicate_returns() -> Result<()> {
         .flatten()
         .collect::<Vec<_>>();
 
-    // Should have gotten some entries
-    assert!(
-        !results.is_empty(),
-        "Should have gotten at least some entries"
-    );
+    // All 10 queue entries should be claimed exactly once.
+    assert_eq!(results.len(), 10, "Should claim exactly 10 entries");
 
-    // All returned IDs must be unique (atomic claim prevents duplicates)
+    // All returned IDs must be unique (atomic claim prevents duplicates).
     let unique_ids: std::collections::HashSet<_> = results.iter().collect();
     assert_eq!(
         unique_ids.len(),
-        results.len(),
+        10,
         "next_with_lock() should atomically claim entries - no duplicates, got {} duplicates",
         results.len() - unique_ids.len()
     );
