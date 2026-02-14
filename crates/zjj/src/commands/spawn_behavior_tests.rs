@@ -36,6 +36,7 @@ mod brutal_edge_cases {
             agent_command: command.to_string(),
             agent_args: args,
             background: false,
+            idempotent: false,
             no_auto_merge: true,
             no_auto_cleanup: true,
             timeout_secs: 300,
@@ -378,6 +379,32 @@ mod brutal_edge_cases {
     }
 
     #[tokio::test]
+    async fn given_retry_after_failed_spawn_when_idempotent_then_succeeds() {
+        let _lock = get_cwd_lock().await;
+        let Ok(repo) = TestRepo::new().await else {
+            return;
+        };
+        let original_dir = get_current_dir();
+        std::env::set_current_dir(repo.path()).ok();
+
+        let first_attempt = test_spawn_options("test-bead-1", "false", vec![]);
+        let first_result = execute_spawn(&first_attempt).await;
+        assert!(first_result.is_ok(), "First spawn attempt should execute");
+
+        let mut options = test_spawn_options("test-bead-1", "echo", vec!["ok".to_string()]);
+        options.idempotent = true;
+
+        let result = execute_spawn(&options).await;
+
+        let _ = std::env::set_current_dir(original_dir).ok();
+
+        assert!(
+            result.is_ok(),
+            "Idempotent spawn should succeed when workspace already exists"
+        );
+    }
+
+    #[tokio::test]
     async fn given_jj_workspace_exists_but_no_db_when_spawn_then_reconciles() {
         let _lock = get_cwd_lock().await;
         // Given: JJ workspace exists but session DB doesn't know about it
@@ -486,6 +513,7 @@ mod brutal_edge_cases {
                 agent_command: "echo".to_string(),
                 agent_args: vec!["test1".to_string()],
                 background: false,
+                idempotent: false,
                 no_auto_merge: true,
                 no_auto_cleanup: true,
                 timeout_secs: 300,
@@ -505,6 +533,7 @@ mod brutal_edge_cases {
                 agent_command: "echo".to_string(),
                 agent_args: vec!["test2".to_string()],
                 background: false,
+                idempotent: false,
                 no_auto_merge: true,
                 no_auto_cleanup: true,
                 timeout_secs: 300,
