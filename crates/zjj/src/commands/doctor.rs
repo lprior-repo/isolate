@@ -209,7 +209,10 @@ async fn check_workspace_integrity() -> DoctorCheck {
     };
 
     let sessions = match get_session_db().await {
-        Ok(db) => db.list(None).await.unwrap_or_default(),
+        Ok(db) => match db.list(None).await {
+            Ok(s) => s,
+            Err(_) => Vec::new(),
+        },
         Err(_) => Vec::new(),
     };
 
@@ -405,7 +408,7 @@ fn check_zellij_running() -> DoctorCheck {
 
 /// Check if current directory is a JJ repository
 async fn check_jj_repo() -> DoctorCheck {
-    let is_repo = is_jj_repo().await.unwrap_or(false);
+    let is_repo = is_jj_repo().await.map_or(false, |v| v);
 
     DoctorCheck {
         name: "JJ Repository".to_string(),
@@ -438,7 +441,7 @@ fn check_workspace_context() -> DoctorCheck {
     let in_workspace = current_dir
         .as_ref()
         .map(|p| p.to_string_lossy().contains(".zjj/workspaces"))
-        .unwrap_or(false);
+        .map_or(false, |v| v);
 
     // Extract bead ID if we're in a workspace
     let bead_id = current_dir.as_ref().and_then(|p| {
@@ -473,8 +476,8 @@ fn check_workspace_context() -> DoctorCheck {
                     .as_ref()
                     .map(|p| p.display().to_string())
                     .map_or(String::new(), |value| value),
-                "zjj_bead_id": std::env::var("ZJJ_BEAD_ID").unwrap_or_else(|_| "<not set>".to_string()),
-                "zjj_workspace": std::env::var("ZJJ_WORKSPACE").unwrap_or_else(|_| "<not set>".to_string()),
+                "zjj_bead_id": std::env::var("ZJJ_BEAD_ID").map_or_else(|_| "<not set>".to_string(), |v| v),
+                "zjj_workspace": std::env::var("ZJJ_WORKSPACE").map_or_else(|_| "<not set>".to_string(), |v| v),
             })
         }),
     }
@@ -485,8 +488,10 @@ async fn check_initialized() -> DoctorCheck {
     // Check for .zjj directory existence directly, without depending on JJ installation
     let zjj_dir = std::path::Path::new(".zjj");
     let config_file = zjj_dir.join("config.toml");
-    let initialized = tokio::fs::try_exists(zjj_dir).await.unwrap_or(false)
-        && tokio::fs::try_exists(&config_file).await.unwrap_or(false);
+    let initialized = tokio::fs::try_exists(zjj_dir).await.map_or(false, |v| v)
+        && tokio::fs::try_exists(&config_file)
+            .await
+            .map_or(false, |v| v);
 
     DoctorCheck {
         name: "zjj Initialized".to_string(),
@@ -527,8 +532,8 @@ async fn check_state_db() -> DoctorCheck {
                 ),
                 suggestion: Some(format!(
                     "{}\n{}",
-                    recovery_check.suggestion.unwrap_or_default(),
-                    integrity_check.suggestion.unwrap_or_default()
+                    recovery_check.suggestion.map_or(String::new(), |s| s),
+                    integrity_check.suggestion.map_or(String::new(), |s| s)
                 )),
                 auto_fixable: false,
                 details: Some(serde_json::json!({
@@ -581,7 +586,10 @@ async fn run_integrity_after_recovery() -> Option<DoctorCheck> {
     };
 
     let sessions = match get_session_db().await {
-        Ok(db) => db.list(None).await.unwrap_or_default(),
+        Ok(db) => match db.list(None).await {
+            Ok(s) => s,
+            Err(_) => Vec::new(),
+        },
         Err(_) => Vec::new(),
     };
 
@@ -645,7 +653,7 @@ fn create_recovery_check(recovery_info: &str) -> DoctorCheck {
 /// Check if database file exists
 /// Returns Ok with metadata if exists, Err with `DoctorCheck` if missing
 async fn check_db_file_exists(db_path: &Path) -> Result<std::fs::Metadata, DoctorCheck> {
-    if !tokio::fs::try_exists(db_path).await.unwrap_or(false) {
+    if !tokio::fs::try_exists(db_path).await.map_or(false, |v| v) {
         return Err(DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
@@ -813,7 +821,10 @@ async fn run_integrity_check(db_path: &Path) -> Result<String, String> {
 async fn check_orphaned_workspaces() -> DoctorCheck {
     // Get list of sessions from DB with their workspace paths
     let db_sessions = match get_session_db().await {
-        Ok(db) => db.list(None).await.unwrap_or_default(),
+        Ok(db) => match db.list(None).await {
+            Ok(s) => s,
+            Err(_) => Vec::new(),
+        },
         Err(_) => Vec::new(),
     };
 
@@ -868,7 +879,7 @@ async fn check_orphaned_workspaces() -> DoctorCheck {
                 let has_workspace = jj_workspaces.iter().any(|ws| ws == session.name.as_str());
                 let directory_exists = tokio::fs::try_exists(&session.workspace_path)
                     .await
-                    .unwrap_or(false);
+                    .map_or(false, |v| v);
 
                 if !has_workspace || !directory_exists {
                     Some(session.name)
@@ -979,7 +990,10 @@ async fn check_beads() -> DoctorCheck {
 /// Check for stale/incomplete sessions
 async fn check_stale_sessions() -> DoctorCheck {
     let sessions = match get_session_db().await {
-        Ok(db) => db.list(None).await.unwrap_or_default(),
+        Ok(db) => match db.list(None).await {
+            Ok(s) => s,
+            Err(_) => Vec::new(),
+        },
         Err(_) => Vec::new(),
     };
 
@@ -994,8 +1008,8 @@ async fn check_stale_sessions() -> DoctorCheck {
             }
 
             // Check if session is stale (not updated in 5 minutes)
-            let updated_at_i64 = i64::try_from(s.updated_at).unwrap_or(i64::MAX);
-            let updated_at = chrono::DateTime::from_timestamp(updated_at_i64, 0).unwrap_or(now);
+            let updated_at_i64 = i64::try_from(s.updated_at).map_or(i64::MAX, |v| v);
+            let updated_at = chrono::DateTime::from_timestamp(updated_at_i64, 0).map_or(now, |v| v);
             let duration = now.signed_duration_since(updated_at);
 
             duration > stale_threshold
@@ -1046,7 +1060,10 @@ async fn check_workflow_violations() -> DoctorCheck {
         };
     };
 
-    let sessions = db.list(None).await.unwrap_or_default();
+    let sessions = match db.list(None).await {
+        Ok(s) => s,
+        Err(_) => Vec::new(),
+    };
     let active_sessions: Vec<_> = sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Active)
@@ -1057,7 +1074,7 @@ async fn check_workflow_violations() -> DoctorCheck {
     let on_main = current_dir
         .as_ref()
         .map(|p| !p.to_string_lossy().contains(".zjj/workspaces"))
-        .unwrap_or(true);
+        .map_or(true, |v| v);
 
     if on_main && !active_sessions.is_empty() {
         let session_names: Vec<_> = active_sessions.iter().map(|s| s.name.clone()).collect();
@@ -1073,7 +1090,7 @@ async fn check_workflow_violations() -> DoctorCheck {
                 session_names
                     .first()
                     .map(String::as_str)
-                    .unwrap_or("<name>")
+                    .map_or("<name>", |v| v)
             )),
             auto_fixable: false,
             details: Some(serde_json::json!({
@@ -1136,7 +1153,7 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
             .as_ref()
             .and_then(|d| d.get("recovered"))
             .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false)
+            .map_or(false, |v| v)
     });
 
     if format.is_json() {
@@ -1229,7 +1246,8 @@ fn show_dry_run_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<(
             println!(
                 "  • {}: {}",
                 check.name,
-                describe_fix(check).unwrap_or_else(|| "No fix description available".to_string())
+                describe_fix(check)
+                    .map_or_else(|| "No fix description available".to_string(), |v| v)
             );
         }
         println!();
@@ -1322,7 +1340,7 @@ async fn run_fixes(
                         unable_to_fix.push(UnfixableIssue {
                             issue: check.name.clone(),
                             reason: "Requires manual intervention".to_string(),
-                            suggestion: check.suggestion.clone().unwrap_or_default(),
+                            suggestion: check.suggestion.clone().map_or(String::new(), |s| s),
                         });
                     }
                     return (fixed, unable_to_fix);
@@ -1368,7 +1386,7 @@ async fn run_fixes(
                         unable_to_fix.push(UnfixableIssue {
                             issue: check.name.clone(),
                             reason: format!("Fix failed: {reason}"),
-                            suggestion: check.suggestion.clone().unwrap_or_default(),
+                            suggestion: check.suggestion.clone().map_or(String::new(), |s| s),
                         });
                     }
                 }

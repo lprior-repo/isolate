@@ -102,7 +102,10 @@ pub async fn run(
         return Ok(());
     }
 
-    let beads_count = get_beads_count().await.unwrap_or_default();
+    let beads_count = match get_beads_count().await {
+        Ok(c) => c,
+        Err(_) => BeadCounts::default(),
+    };
     let beads_str = beads_count.to_string();
 
     // Build list items using concurrent futures stream for performance
@@ -111,11 +114,19 @@ pub async fn run(
             let beads_str = beads_str.clone();
             async move {
                 let changes = get_session_changes(&session.workspace_path).await;
+                let branch = match session.branch.clone() {
+                    Some(b) => b,
+                    None => "-".to_string(),
+                };
+                let changes_str = match changes {
+                    Some(c) => c.to_string(),
+                    None => "-".to_string(),
+                };
                 SessionListItem {
                     name: session.name.clone(),
                     status: session.status.to_string(),
-                    branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
-                    changes: changes.map_or_else(|| "-".to_string(), |c| c.to_string()),
+                    branch,
+                    changes: changes_str,
                     beads: beads_str,
                     session,
                 }
@@ -159,7 +170,10 @@ async fn get_beads_count() -> Result<BeadCounts> {
     };
 
     let bead_repo = BeadRepository::new(root);
-    let beads = bead_repo.list_beads().await.unwrap_or_default();
+    let beads = match bead_repo.list_beads().await {
+        Ok(b) => b,
+        Err(_) => Vec::new(),
+    };
 
     // Functional counting using fold
     let counts = beads.into_iter().fold(BeadCounts::default(), |mut acc, b| {
@@ -186,23 +200,23 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
         println!("{}", "-".repeat(120));
 
         for item in items {
-            let bead_info = item
-                .session
-                .metadata
-                .as_ref()
-                .and_then(|m| {
-                    let id = m.get("bead_id").and_then(|v| v.as_str()).map_or("", |v| v);
-                    let title = m
-                        .get("bead_title")
-                        .and_then(|v| v.as_str())
-                        .map_or("", |v| v);
-                    if id.is_empty() {
-                        None
-                    } else {
-                        Some(format!("{id}: {title}"))
-                    }
-                })
-                .unwrap_or_else(|| "-".to_string());
+            let bead_info = item.session.metadata.as_ref().and_then(|m| {
+                let id = m.get("bead_id").and_then(|v| v.as_str()).map_or("", |v| v);
+                let title = m
+                    .get("bead_title")
+                    .and_then(|v| v.as_str())
+                    .map_or("", |v| v);
+                if id.is_empty() {
+                    None
+                } else {
+                    Some(format!("{id}: {title}"))
+                }
+            });
+
+            let bead_info = match bead_info {
+                Some(info) => info,
+                None => "-".to_string(),
+            };
 
             println!(
                 "{:<20} {:<12} {:<15} {:<30} {:<40}",

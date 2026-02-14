@@ -267,9 +267,10 @@ async fn validate_location(options: &DoneOptions) -> Result<String, DoneError> {
     match location {
         Location::Workspace { .. } => Ok(root_str),
         Location::Main => {
-            let current = std::env::current_dir()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| "unknown".to_string());
+            let current = std::env::current_dir().map_or_else(
+                |_| "unknown".to_string(),
+                |p| p.to_string_lossy().to_string(),
+            );
             Err(DoneError::NotInWorkspace {
                 current_location: current,
             })
@@ -367,7 +368,7 @@ async fn commit_changes(
     executor: &dyn executor::JjExecutor,
 ) -> Result<usize, DoneError> {
     let default_msg = format!("Complete work on {workspace_name}");
-    let msg = message.unwrap_or(&default_msg);
+    let msg = message.map_or(default_msg.as_str(), |m| m);
 
     let output =
         executor
@@ -513,10 +514,10 @@ async fn get_commits_to_merge(
     let mut lines = stdout.lines().peekable();
 
     while lines.peek().is_some() {
-        let change_id = lines.next().unwrap_or("").trim().to_string();
-        let commit_id = lines.next().unwrap_or("").trim().to_string();
-        let description = lines.next().unwrap_or("").trim().to_string();
-        let timestamp = lines.next().unwrap_or("").trim().to_string();
+        let change_id = lines.next().map_or("", |s| s).trim().to_string();
+        let commit_id = lines.next().map_or("", |s| s).trim().to_string();
+        let description = lines.next().map_or("", |s| s).trim().to_string();
+        let timestamp = lines.next().map_or("", |s| s).trim().to_string();
 
         if !change_id.is_empty() {
             commits.push(types::CommitInfo {

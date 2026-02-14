@@ -142,7 +142,7 @@ fn output_history(history: &[UndoEntry], format: OutputFormat) -> Result<(), Und
 
             // Convert timestamp to human-readable format
             let datetime =
-                chrono::DateTime::from_timestamp(entry.timestamp.to_i64().unwrap_or_default(), 0)
+                chrono::DateTime::from_timestamp(entry.timestamp.to_i64().map_or(0, |t| t), 0)
                     .map_or_else(
                         || entry.timestamp.to_string(),
                         |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),

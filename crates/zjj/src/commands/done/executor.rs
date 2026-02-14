@@ -89,7 +89,7 @@ impl JjExecutor for RealJjExecutor {
             })?;
 
             if !output.status.success() {
-                let code = output.status.code().unwrap_or(-1);
+                let code = output.status.code().map_or(-1, |c| c);
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                 return Err(ExecutorError::CommandFailed { code, stderr });
             }
@@ -144,7 +144,7 @@ impl JjExecutor for WorkspaceExecutor<'_> {
             // to use -R <path> or just wrap RealJjExecutor differently.
 
             // Let's implement it by passing -R to jj.
-            let mut new_args = vec!["-R", self.workspace_path.to_str().unwrap_or(".")];
+            let mut new_args = vec!["-R", self.workspace_path.to_str().map_or(".", |s| s)];
             new_args.extend_from_slice(args);
 
             self.inner.run_with_env(&new_args, env).await
