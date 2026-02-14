@@ -47,7 +47,7 @@ use std::{
 
 use futures::future::join_all;
 use zjj_core::{
-    coordination::queue::{MergeQueue, QueueStatus},
+    coordination::queue::{MergeQueue, QueueControlError, QueueStatus},
     Result,
 };
 
@@ -777,6 +777,90 @@ async fn adversarial_cleanup_preserves_processing() -> Result<()> {
 // ============================================================================
 // RACE CONDITION DETECTION TESTS
 // ============================================================================
+
+/// Test that only one concurrent retry can win for the same entry.
+#[tokio::test]
+async fn adversarial_retry_entry_concurrent_single_winner() -> Result<()> {
+    let queue = Arc::new(MergeQueue::open_in_memory().await?);
+
+    queue.add("ws-retry-race", None, 5, None).await?;
+    queue
+        .transition_to("ws-retry-race", QueueStatus::Claimed)
+        .await?;
+    queue
+        .transition_to("ws-retry-race", QueueStatus::FailedRetryable)
+        .await?;
+
+    let entry = queue
+        .get_by_workspace("ws-retry-race")
+        .await?
+        .ok_or_else(|| zjj_core::Error::DatabaseError("Entry should exist".to_string()))?;
+
+    let mut handles = vec![];
+    for _ in 0..2 {
+        let q = queue.clone();
+        let id = entry.id;
+        handles.push(tokio::spawn(async move { q.retry_entry(id).await }));
+    }
+
+    let results = join_all(handles)
+        .await
+        .into_iter()
+        .map(|h| h.expect("Retry task should not panic"))
+        .collect::<Vec<_>>();
+
+    let success_count = results.iter().filter(|r| r.is_ok()).count();
+    let not_retryable_count = results
+        .iter()
+        .filter(|r| {
+            matches!(
+                r,
+                Err(QueueControlError::NotRetryable {
+                    status: QueueStatus::Pending,
+                    ..
+                })
+            )
+        })
+        .count();
+
+    assert_eq!(
+        success_count, 1,
+        "Exactly one concurrent retry should succeed"
+    );
+    assert_eq!(
+        not_retryable_count, 1,
+        "The loser should observe entry already moved out of failed_retryable"
+    );
+
+    let final_entry = queue
+        .get_by_id(entry.id)
+        .await?
+        .ok_or_else(|| zjj_core::Error::DatabaseError("Updated entry should exist".to_string()))?;
+    assert_eq!(final_entry.status, QueueStatus::Pending);
+    assert_eq!(
+        final_entry.attempt_count, 1,
+        "Concurrent retries must not double-increment attempts"
+    );
+
+    Ok(())
+}
+
+/// Test that next_with_lock does not leak lock state when queue is empty.
+#[tokio::test]
+async fn adversarial_next_with_lock_empty_releases_lock() -> Result<()> {
+    let queue = MergeQueue::open_in_memory().await?;
+
+    let next = queue.next_with_lock("agent-empty").await?;
+    assert!(next.is_none(), "Empty queue should return None");
+
+    let lock = queue.get_processing_lock().await?;
+    assert!(
+        lock.is_none(),
+        "Lock should be released when no entry is claimed"
+    );
+
+    Ok(())
+}
 
 /// Test that next_with_lock() atomically claims entries - no duplicates.
 #[tokio::test]
