@@ -138,12 +138,17 @@ hr { border: none !important; border-top: 1px solid #e3e8ee !important; margin: 
 .nav-chapters a:hover { color: #635bff !important; text-decoration: none !important; }
 
 /* MENU BAR - Hide completely */
-#mdbook-menu-bar, #mdbook-menu-bar-hover-placeholder,
 .mdbook-help-container, #mdbook-help-popup,
 .sidebar-resize-handle, .sidebar-iframe-outer,
-#mdbook-sidebar-toggle-anchor, .hidden,
+.hidden,
 .theme-popup, #mdbook-theme-list, #mdbook-theme-toggle,
-.mdbook-sidebar-toggle, .right-buttons, .left-buttons { display: none !important; }
+.right-buttons, .left-buttons { display: none !important; }
+
+/* Show menu bar only on mobile/tablet */
+@media (min-width: 1080px) {
+  #mdbook-menu-bar, #mdbook-menu-bar-hover-placeholder,
+  #mdbook-sidebar-toggle-anchor, .mdbook-sidebar-toggle { display: none !important; }
+}
 
 /* IFRAME SIDEBAR */
 body.sidebar-iframe-inner { padding: 0 !important; margin: 0 !important; background: #fff !important; }
