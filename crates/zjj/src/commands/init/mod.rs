@@ -132,8 +132,8 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
 
     if is_now_initialized {
         // Another process completed initialization while we waited
+        // Release lock but keep file on disk (file locks are inode-based)
         let _ = lock_file.unlock();
-        let _ = tokio::fs::remove_file(&lock_path).await;
 
         let response = InitResponse {
             message: "zjj already initialized in this repository.".to_string(),
@@ -201,9 +201,8 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
 
-    // Release lock and clean up lock file
+    // Release lock but keep file on disk (file locks are inode-based)
     let _ = lock_file.unlock();
-    let _ = tokio::fs::remove_file(&lock_path).await;
 
     if format.is_json() {
         let response = build_init_response(&root, false);

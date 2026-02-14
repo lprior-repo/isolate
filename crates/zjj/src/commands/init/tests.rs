@@ -193,9 +193,11 @@ async fn test_init_concurrent_no_corruption() -> Result<()> {
     Ok(())
 }
 
-/// Test that init lock file is cleaned up properly
+/// Test that init lock file persists but is unlocked after init
 #[tokio::test]
 async fn test_init_lock_file_cleanup() -> Result<()> {
+    use fs4::fs_std::FileExt;
+
     if !jj_is_available().await {
         return Ok(());
     }
@@ -208,12 +210,20 @@ async fn test_init_lock_file_cleanup() -> Result<()> {
     // Run init
     run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
-    // Verify lock file does not persist after init completes
+    // Verify lock file exists but is unlocked
     let lock_path = temp_dir.path().join(".zjj/.init.lock");
     assert!(
-        !tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
-        "Lock file should be cleaned up after successful init"
+        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
+        "Lock file should persist after init (file locks are inode-based)"
     );
+
+    // Verify we can acquire the lock (meaning it's not held)
+    let lock_file = std::fs::OpenOptions::new().write(true).open(&lock_path)?;
+    assert!(
+        lock_file.try_lock_exclusive().is_ok(),
+        "Lock file should be unlocked after successful init"
+    );
+    lock_file.unlock()?;
 
     Ok(())
 }
