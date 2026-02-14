@@ -175,60 +175,65 @@ impl MergeQueue {
         // Migration: Add columns to existing databases created before these columns were added.
         // SQLite doesn't support "IF NOT EXISTS" for ALTER TABLE, so we check the schema first.
         // This is safe to run every time - we check column existence before adding.
-        let migration_result: Result<Option<_>> = sqlx::query_scalar::<_, String>(
+        // IMPORTANT: if schema introspection fails, we fail init instead of silently skipping
+        // migration.
+        let table_sql = sqlx::query_scalar::<_, String>(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='merge_queue'",
         )
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to check schema for migration: {e}")));
+        .map_err(|e| Error::DatabaseError(format!("Failed to check schema for migration: {e}")))?
+        .ok_or_else(|| {
+            Error::DatabaseError(
+                "merge_queue table not found in sqlite_master during migration".to_string(),
+            )
+        })?;
 
-        if let Ok(Some(table_sql)) = migration_result {
-            // List of columns that may need migration, with their definitions
-            let migrations = [
-                (
-                    "dedupe_key",
-                    "ALTER TABLE merge_queue ADD COLUMN dedupe_key TEXT",
-                ),
-                (
-                    "workspace_state",
-                    "ALTER TABLE merge_queue ADD COLUMN workspace_state TEXT DEFAULT 'created'",
-                ),
-                (
-                    "previous_state",
-                    "ALTER TABLE merge_queue ADD COLUMN previous_state TEXT",
-                ),
-                (
-                    "state_changed_at",
-                    "ALTER TABLE merge_queue ADD COLUMN state_changed_at INTEGER",
-                ),
-                (
-                    "head_sha",
-                    "ALTER TABLE merge_queue ADD COLUMN head_sha TEXT",
-                ),
-                (
-                    "tested_against_sha",
-                    "ALTER TABLE merge_queue ADD COLUMN tested_against_sha TEXT",
-                ),
-                (
-                    "attempt_count",
-                    "ALTER TABLE merge_queue ADD COLUMN attempt_count INTEGER DEFAULT 0",
-                ),
-                (
-                    "max_attempts",
-                    "ALTER TABLE merge_queue ADD COLUMN max_attempts INTEGER DEFAULT 3",
-                ),
-            ];
+        // List of columns that may need migration, with their definitions
+        let migrations = [
+            (
+                "dedupe_key",
+                "ALTER TABLE merge_queue ADD COLUMN dedupe_key TEXT",
+            ),
+            (
+                "workspace_state",
+                "ALTER TABLE merge_queue ADD COLUMN workspace_state TEXT DEFAULT 'created'",
+            ),
+            (
+                "previous_state",
+                "ALTER TABLE merge_queue ADD COLUMN previous_state TEXT",
+            ),
+            (
+                "state_changed_at",
+                "ALTER TABLE merge_queue ADD COLUMN state_changed_at INTEGER",
+            ),
+            (
+                "head_sha",
+                "ALTER TABLE merge_queue ADD COLUMN head_sha TEXT",
+            ),
+            (
+                "tested_against_sha",
+                "ALTER TABLE merge_queue ADD COLUMN tested_against_sha TEXT",
+            ),
+            (
+                "attempt_count",
+                "ALTER TABLE merge_queue ADD COLUMN attempt_count INTEGER DEFAULT 0",
+            ),
+            (
+                "max_attempts",
+                "ALTER TABLE merge_queue ADD COLUMN max_attempts INTEGER DEFAULT 3",
+            ),
+        ];
 
-            for (column_name, alter_sql) in migrations {
-                if !table_sql.contains(column_name) {
-                    // Column doesn't exist, add it
-                    sqlx::query(alter_sql)
-                        .execute(&self.pool)
-                        .await
-                        .map_err(|e| {
-                            Error::DatabaseError(format!("Failed to add {column_name} column: {e}"))
-                        })?;
-                }
+        for (column_name, alter_sql) in migrations {
+            if !table_sql.contains(column_name) {
+                // Column doesn't exist, add it
+                sqlx::query(alter_sql)
+                    .execute(&self.pool)
+                    .await
+                    .map_err(|e| {
+                        Error::DatabaseError(format!("Failed to add {column_name} column: {e}"))
+                    })?;
             }
         }
 
