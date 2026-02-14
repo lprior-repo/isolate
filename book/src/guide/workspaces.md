@@ -1,228 +1,187 @@
 # Workspace Management
 
-Complete guide to managing isolated workspaces with ZJJ.
+Isolated workspaces for parallel development.
 
----
+## Quick Start
 
-## What is a Workspace?
+```bash
+# Create
+zjj add feature-auth --bead BD-123
 
-A workspace is an isolated JJ working copy where you can make changes without affecting main. In ZJJ, workspaces are:
+# Switch
+zjj focus feature-auth
 
-- **Isolated** - Changes don't affect other workspaces or main
-- **Persistent** - They exist until explicitly removed
-- **Synchronized** - Can be kept in sync with main
-- **Integrated** - Connected to Zellij tabs for easy switching
+# Sync
+zjj sync
 
----
+# Finish
+zjj done --message "Add auth" --push --remove
+```
+
+## Core Workflow
+
+| Action | Command | Purpose |
+|--------|---------|---------|
+| Create | `zjj add <name>` | New isolated workspace |
+| List | `zjj list` | See all workspaces |
+| Switch | `zjj focus <name>` | Jump to workspace |
+| Check | `zjj whereami` | Confirm location |
+| Sync | `zjj sync` | Update from main |
+| Complete | `zjj done` | Land to main |
+| Remove | `zjj remove <name>` | Clean up |
 
 ## Creating Workspaces
 
-### Basic Creation
-
+Basic:
 ```bash
-zjj add <name>
+zjj add feature-name
 ```
 
-This creates a minimal workspace.
-
-### With Bead Association
-
+With tracking:
 ```bash
-zjj add <name> --bead <BEAD_ID>
-```
-
-Associates the workspace with an issue/bead for tracking.
-
-### Example
-
-```bash
-# Simple workspace
-zjj add feature-auth
-
-# With issue tracking
 zjj add fix-login --bead BD-123
-
-# With custom settings
-zjj add experiment --no-tab
 ```
 
----
-
-## Listing Workspaces
-
+For automation (no tab):
 ```bash
-# Simple list
-zjj list
-
-# Verbose (shows paths and bead titles)
-zjj list --verbose
-
-# JSON output
-zjj list --json
+zjj add backend-api --no-tab
 ```
 
----
+## Switching Between Workspaces
 
-## Switching Workspaces
-
+Direct switch:
 ```bash
-# Direct switch
-zjj focus <name>
-
-# Interactive picker
-zjj switch
-
-# Via whereami check
-zjj whereami  # See where you are
-zjj focus other-workspace  # Switch
+zjj focus feature-auth
 ```
 
----
-
-## Syncing Workspaces
-
-Keep your workspace up to date with main:
-
+Check current:
 ```bash
-# Sync specific workspace
-zjj sync <name>
+zjj whereami
+# workspace:feature-auth
+```
 
-# Sync current workspace
+## Keeping Synced
+
+Before major work:
+```bash
 zjj sync
-
-# Sync all workspaces
-zjj sync --all
 ```
 
-This rebases your workspace onto the latest main.
-
----
+Sync specific workspace:
+```bash
+zjj sync feature-auth
+```
 
 ## Completing Work
 
-When you're done:
-
+Simple:
 ```bash
 zjj done
 ```
 
-This:
-1. Commits your changes
-2. Merges to main  
-3. Pushes to remote (if configured)
-4. Updates bead status (if associated)
-
----
-
-## Removing Workspaces
-
+Full workflow:
 ```bash
-zjj remove <name>
+zjj done --message "Fix auth" --push --remove
 ```
 
-This deletes the workspace and cleans up the session.
+## Listing & Monitoring
 
----
+Quick overview:
+```bash
+zjj list
+# NAME         BEAD    STATUS    SYNCED
+# feature-auth BD-123  active    2m ago
+```
+
+Filter by status:
+```bash
+zjj list --status conflicted
+zjj list --status stale
+```
 
 ## Best Practices
 
-### Naming Conventions
-
-- Use descriptive names: `feature-auth-refactor` not `temp`
-- Include issue ID: `fix-BD-123-login-bug`
-- Use lowercase with hyphens: `my-feature` not `My_Feature`
-
-### Sync Regularly
-
+**Naming:**
 ```bash
-# Good: sync before major work
-zjj sync my-feature
-
-# Better: sync at start of day
-zjj sync --all
+zjj add oauth-implementation      # Good
+zjj add temp                      # Bad - too vague
 ```
 
-### Clean Up
-
-Remove workspaces when done:
-
+**Sync early and often:**
 ```bash
-zjj remove old-feature
+zjj sync  # Start of day
+# ... work ...
+zjj sync  # Before major changes
 ```
 
-Or clean all stale sessions:
-
+**Clean up completed work:**
 ```bash
-zjj clean
+zjj list --status completed
+zjj remove old-feature --force
 ```
 
----
+## Multiple Workspaces
 
-## Advanced Usage
-
-### Multiple Workspaces
-
-Work on multiple features simultaneously:
-
+Work on 5 features simultaneously:
 ```bash
 zjj add feature-a --bead BD-101
-zjj add feature-b --bead BD-102  
-zjj add hotfix-c --bead BD-103
+zjj add feature-b --bead BD-102
+zjj add hotfix --bead BD-103
 
-# Switch between them
+# Context switch in 1 second:
 zjj focus feature-a
-# ... work ...
-zjj focus hotfix-c
-# ... work ...
+zjj focus hotfix
 zjj focus feature-b
 ```
 
-### Workspace Status
-
-Check detailed status:
-
-```bash
-zjj status <name>
-```
-
-Shows:
-- Branch name
-- Changes (M/A/D/R counts)
-- Diff statistics (+/- lines)
-- Associated bead info
-
----
-
 ## Troubleshooting
 
-### "Workspace not found"
-
+**Workspace not found:**
 ```bash
-zjj list  # Check it exists
-zjj add my-workspace  # Create if missing
+zjj list
+zjj add missing-workspace
 ```
 
-### "Conflicts during sync"
-
+**Conflicts on sync:**
 ```bash
-zjj sync my-workspace
-# If conflicts occur, resolve in JJ:
+zjj sync my-feature
+# Error: conflicts
+
+zjj focus my-feature
 jj resolve
-# Then try sync again
+zjj sync
 ```
 
-### "Can't remove workspace"
-
+**Can't remove (in use):**
 ```bash
-zjj status my-workspace  # Check if in use
-zjj remove my-workspace --force  # Force removal
+zjj status my-workspace
+zjj remove my-workspace --force
 ```
 
----
+## Common Patterns
 
-## See Also
+**Daily workflow:**
+```bash
+zjj sync --all                    # Morning sync
+zjj focus current-feature         # Start work
+# ... edit files ...
+zjj sync                          # Mid-day sync
+# ... more work ...
+zjj done --message "WIP"          # End of day
+```
 
-- **[Creating Sessions](./creating-sessions.md)** - Detailed session creation
-- **[Switching Workspaces](./switching.md)** - Advanced switching
-- **[Syncing](./syncing.md)** - Sync strategies
-- **[Completing Work](./completing.md)** - Finishing up
+**Code review cycle:**
+```bash
+zjj sync feature                  # Get latest
+# ... address feedback ...
+zjj done --message "Address review" --push
+```
+
+**Hotfix while mid-feature:**
+```bash
+zjj add hotfix --bead BD-999
+zjj focus hotfix
+# ... fix ...
+zjj done --push --remove
+zjj focus my-feature              # Back to work
+```
