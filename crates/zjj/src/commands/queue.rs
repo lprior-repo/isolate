@@ -159,6 +159,7 @@ async fn get_queue() -> Result<zjj_core::MergeQueue> {
 }
 
 /// Run the queue command with options
+#[allow(clippy::cognitive_complexity)]
 pub async fn run_with_options(options: &QueueOptions) -> Result<()> {
     let queue = get_queue().await?;
 
@@ -349,6 +350,7 @@ async fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Re
 
 /// Handle the process command
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::cognitive_complexity)]
 async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Result<()> {
     let agent_id = resolve_agent_id(options.agent_id.as_deref());
     if !queue.acquire_processing_lock(&agent_id).await? {

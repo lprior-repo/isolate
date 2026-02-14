@@ -69,6 +69,7 @@ impl ShutdownCoordinator {
     /// Initiate graceful shutdown
     ///
     /// This is called when SIGINT or SIGTERM is received
+    #[allow(clippy::cognitive_complexity)]
     pub async fn shutdown(&self) -> Result<()> {
         tracing::info!("Initiating graceful shutdown...");
 

@@ -147,6 +147,7 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
 
 /// Run the add command with options
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::cognitive_complexity)]
 pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     // Validate session name (REQ-CLI-015)
     // Map zjj_core::Error to anyhow::Error while preserving the original error

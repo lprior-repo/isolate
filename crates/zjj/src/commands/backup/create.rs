@@ -87,6 +87,7 @@ pub async fn create_backup(database_path: &Path, config: &BackupConfig) -> Resul
 ///
 /// Returns error if any backup operation fails
 #[allow(dead_code)]
+#[allow(clippy::cognitive_complexity)]
 // High-level backup orchestration function
 pub async fn backup_all_databases(root: &Path, config: &BackupConfig) -> Result<Vec<PathBuf>> {
     let databases = vec!["state.db", "queue.db"];

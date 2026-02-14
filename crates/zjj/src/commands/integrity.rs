@@ -174,6 +174,7 @@ async fn run_validate(
 
 /// Repair a workspace
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::cognitive_complexity)]
 async fn run_repair(
     jj_root: &std::path::Path,
     workspace: &str,

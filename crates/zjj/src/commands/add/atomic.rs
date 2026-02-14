@@ -91,6 +91,7 @@ fn log_add_state(name: &str, state: AddAtomicState, recoverable: bool, detail: &
 /// Returns error on any failure and triggers cleanup of partial state.
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::cognitive_complexity)]
 pub(super) async fn atomic_create_session(
     name: &str,
     workspace_path: &std::path::Path,
@@ -486,6 +487,41 @@ async fn rollback_database_state(
 ///
 /// Uses `remove_dir_all` directly without checking if path exists first.
 /// If the directory doesn't exist, the error is safely ignored.
+async fn remove_workspace_dir(workspace_dir: &std::path::Path) -> Result<()> {
+    match tokio::fs::remove_dir_all(workspace_dir).await {
+        Ok(()) => {
+            tracing::info!("Workspace directory removed");
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            tracing::info!("No workspace directory to remove (already gone)");
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotADirectory => {
+            remove_workspace_file(workspace_dir).await
+        }
+        Err(e) => Err(anyhow::anyhow!(
+            "Failed to remove workspace directory: {}",
+            e
+        )),
+    }
+}
+
+async fn remove_workspace_file(workspace_dir: &std::path::Path) -> Result<()> {
+    match tokio::fs::remove_file(workspace_dir).await {
+        Ok(()) => {
+            tracing::info!("Workspace file removed");
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            tracing::info!("No workspace file to remove (already gone)");
+            Ok(())
+        }
+        Err(e) => Err(anyhow::anyhow!("Failed to remove workspace file: {}", e)),
+    }
+}
+
+#[allow(clippy::cognitive_complexity)]
 pub(super) async fn rollback_partial_state(
     name: &str,
     workspace_path: &std::path::Path,
@@ -506,75 +542,21 @@ pub(super) async fn rollback_partial_state(
         );
     }
 
-    let workspace_dir = workspace_path;
+    let cleanup_result = remove_workspace_dir(workspace_path).await;
 
-    // Remove workspace directory directly without checking existence first
-    // This prevents TOCTOU - if it doesn't exist, we get an error we ignore
-    match tokio::fs::remove_dir_all(workspace_dir).await {
+    match cleanup_result {
         Ok(()) => {
             tracing::info!("Rolled back partial workspace for session '{name}'");
             log_add_state(
                 name,
                 AddAtomicState::WorkspaceRollbackSucceeded,
                 false,
-                "workspace directory removed",
+                "workspace removed",
             );
             Ok(())
         }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            // Workspace doesn't exist - nothing to clean
-            tracing::info!(
-                "No workspace to rollback for session '{}' (already gone)",
-                name
-            );
-            log_add_state(
-                name,
-                AddAtomicState::WorkspaceRollbackSucceeded,
-                false,
-                "workspace already missing",
-            );
-            Ok(())
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotADirectory => {
-            match tokio::fs::remove_file(workspace_dir).await {
-                Ok(()) => {
-                    tracing::info!("Rolled back partial workspace file for session '{}'", name);
-                    log_add_state(
-                        name,
-                        AddAtomicState::WorkspaceRollbackSucceeded,
-                        false,
-                        "workspace file removed",
-                    );
-                    Ok(())
-                }
-                Err(file_err) if file_err.kind() == std::io::ErrorKind::NotFound => {
-                    tracing::info!(
-                        "No workspace file to rollback for session '{}' (already gone)",
-                        name
-                    );
-                    log_add_state(
-                        name,
-                        AddAtomicState::WorkspaceRollbackSucceeded,
-                        false,
-                        "workspace file already missing",
-                    );
-                    Ok(())
-                }
-                Err(cleanup_err) => Err(anyhow::anyhow!(
-                    "Failed to remove partial workspace file '{}': {}",
-                    workspace_path.display(),
-                    cleanup_err
-                )),
-            }
-        }
-        Err(cleanup_err) => {
-            // Cleanup failed but we still leave DB in 'creating' state
-            // Doctor will detect the stale session
-            tracing::warn!(
-                "Failed to rollback workspace for session '{}': {}",
-                name,
-                cleanup_err
-            );
+        Err(e) => {
+            tracing::warn!("Failed to rollback workspace for session '{}': {}", name, e);
             log_add_state(
                 name,
                 AddAtomicState::WorkspaceRollbackFailed,
@@ -584,7 +566,7 @@ pub(super) async fn rollback_partial_state(
             Err(anyhow::anyhow!(
                 "Failed to rollback partial workspace '{}': {}. Recovery: run 'zjj remove {} --force'",
                 workspace_path.display(),
-                cleanup_err,
+                e,
                 name
             ))
         }

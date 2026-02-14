@@ -40,6 +40,7 @@ pub async fn run(name: &str) -> Result<()> {
 }
 
 /// Run the remove command with options
+#[allow(clippy::cognitive_complexity)]
 pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     let db = get_session_db().await?;
 

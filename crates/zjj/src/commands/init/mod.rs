@@ -44,6 +44,7 @@ pub async fn run_with_options(options: InitOptions) -> Result<()> {
 }
 
 /// Run init command with cwd and format
+#[allow(clippy::cognitive_complexity)]
 pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Result<()> {
     let cwd = match cwd {
         Some(p) => PathBuf::from(p),
