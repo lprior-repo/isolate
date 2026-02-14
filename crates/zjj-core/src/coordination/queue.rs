@@ -172,6 +172,66 @@ impl MergeQueue {
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to create merge_queue table: {e}")))?;
 
+        // Migration: Add columns to existing databases created before these columns were added.
+        // SQLite doesn't support "IF NOT EXISTS" for ALTER TABLE, so we check the schema first.
+        // This is safe to run every time - we check column existence before adding.
+        let migration_result: Result<Option<_>> = sqlx::query_scalar::<_, String>(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='merge_queue'",
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to check schema for migration: {e}")));
+
+        if let Ok(Some(table_sql)) = migration_result {
+            // List of columns that may need migration, with their definitions
+            let migrations = [
+                (
+                    "dedupe_key",
+                    "ALTER TABLE merge_queue ADD COLUMN dedupe_key TEXT",
+                ),
+                (
+                    "workspace_state",
+                    "ALTER TABLE merge_queue ADD COLUMN workspace_state TEXT DEFAULT 'created'",
+                ),
+                (
+                    "previous_state",
+                    "ALTER TABLE merge_queue ADD COLUMN previous_state TEXT",
+                ),
+                (
+                    "state_changed_at",
+                    "ALTER TABLE merge_queue ADD COLUMN state_changed_at INTEGER",
+                ),
+                (
+                    "head_sha",
+                    "ALTER TABLE merge_queue ADD COLUMN head_sha TEXT",
+                ),
+                (
+                    "tested_against_sha",
+                    "ALTER TABLE merge_queue ADD COLUMN tested_against_sha TEXT",
+                ),
+                (
+                    "attempt_count",
+                    "ALTER TABLE merge_queue ADD COLUMN attempt_count INTEGER DEFAULT 0",
+                ),
+                (
+                    "max_attempts",
+                    "ALTER TABLE merge_queue ADD COLUMN max_attempts INTEGER DEFAULT 3",
+                ),
+            ];
+
+            for (column_name, alter_sql) in migrations {
+                if !table_sql.contains(column_name) {
+                    // Column doesn't exist, add it
+                    sqlx::query(alter_sql)
+                        .execute(&self.pool)
+                        .await
+                        .map_err(|e| {
+                            Error::DatabaseError(format!("Failed to add {column_name} column: {e}"))
+                        })?;
+                }
+            }
+        }
+
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_merge_queue_status ON merge_queue(status)")
             .execute(&self.pool)
             .await
@@ -1387,6 +1447,41 @@ impl MergeQueue {
         );
         self.append_typed_event(entry.id, QueueEventType::Transitioned, Some(&event_details))
             .await?;
+
+        Ok(())
+    }
+
+    /// Update the tested_against_sha for an entry (for testing purposes).
+    pub async fn update_tested_against(
+        &self,
+        workspace: &str,
+        tested_against_sha: &str,
+    ) -> Result<()> {
+        let _entry = self.get_by_workspace(workspace).await?.ok_or_else(|| {
+            Error::NotFound(format!("Workspace '{workspace}' not found in queue"))
+        })?;
+
+        let now = Self::now();
+
+        let result = sqlx::query(
+            "UPDATE merge_queue SET tested_against_sha = ?1, state_changed_at = ?2 WHERE workspace = ?3",
+        )
+        .bind(tested_against_sha)
+        .bind(now)
+        .bind(workspace)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            Error::DatabaseError(format!(
+                "Failed to update tested_against_sha for '{workspace}': {e}"
+            ))
+        })?;
+
+        if result.rows_affected() == 0 {
+            return Err(Error::NotFound(format!(
+                "Workspace '{workspace}' not found or update failed"
+            )));
+        }
 
         Ok(())
     }
