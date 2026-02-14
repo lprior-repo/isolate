@@ -1746,24 +1746,26 @@ async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<S
         .await
         .map_err(|e| format!("Failed to get JJ root: {e}"))?;
 
-    let jj_workspaces = Command::new("jj")
+    let jj_workspace_output = Command::new("jj")
         .args(["workspace", "list"])
         .current_dir(&root)
         .output()
         .await
-        .ok()
-        .filter(|output| output.status.success())
-        .map(|output| {
-            String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .filter_map(|line| {
-                    line.split_whitespace()
-                        .next()
-                        .map(|name| name.trim_end_matches(':').to_string())
-                })
-                .collect::<std::collections::HashSet<_>>()
+        .map_err(|error| format!("Failed to execute 'jj workspace list': {error}"))?;
+    if !jj_workspace_output.status.success() {
+        return Err(format!(
+            "Failed to list JJ workspaces: {}",
+            String::from_utf8_lossy(&jj_workspace_output.stderr)
+        ));
+    }
+    let jj_workspaces = String::from_utf8_lossy(&jj_workspace_output.stdout)
+        .lines()
+        .filter_map(|line| {
+            line.split_whitespace()
+                .next()
+                .map(|name| name.trim_end_matches(':').to_string())
         })
-        .unwrap_or_default();
+        .collect::<std::collections::HashSet<_>>();
 
     // Fix filesystem → DB orphans (workspaces without sessions)
     let filesystem_removed = if let Some(filesystem_orphans) = orphaned_data
