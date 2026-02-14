@@ -528,8 +528,14 @@ pub fn cmd_remove() -> ClapCommand {
                 .help("AI: Show machine-readable contract"),
         )
         .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints"),
+        )
+        .arg(
             Arg::new("name")
-                .required_unless_present("contract")
+                .required_unless_present_any(["contract", "ai-hints"])
                 .help("Name of the session to remove"),
         )
         .arg(
@@ -2292,7 +2298,7 @@ pub fn cmd_validate() -> ClapCommand {
         )
         .arg(
             Arg::new("command")
-                .required(true)
+                .required_unless_present("contract")
                 .help("Command to validate inputs for"),
         )
         .arg(
