@@ -160,10 +160,11 @@ async fn test_init_concurrent_no_corruption() -> Result<()> {
     // Wait for all to complete
     let results: Vec<_> = futures::future::join_all(handles).await;
 
-    // All should complete without panicking, and all tasks should succeed.
+    // All should complete without panicking, and all tasks should succeed
     for result in results {
-        let task_result = result.expect("task should not panic");
-        assert!(task_result.is_ok(), "concurrent init should succeed");
+        let task_result = result
+            .map_err(|join_error| anyhow::anyhow!("concurrent init task panicked: {join_error}"))?;
+        task_result?;
     }
 
     // Verify state is consistent (no corruption)
@@ -193,9 +194,11 @@ async fn test_init_concurrent_no_corruption() -> Result<()> {
     Ok(())
 }
 
-/// Test that init lock file is cleaned up properly
+/// Test that init lock file persists but is unlocked after init
 #[tokio::test]
 async fn test_init_lock_file_cleanup() -> Result<()> {
+    use fs4::fs_std::FileExt;
+
     if !jj_is_available().await {
         return Ok(());
     }
@@ -208,11 +211,67 @@ async fn test_init_lock_file_cleanup() -> Result<()> {
     // Run init
     run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await?;
 
-    // Verify lock file does not persist after init completes
+    // Verify lock file exists but is unlocked
     let lock_path = temp_dir.path().join(".zjj/.init.lock");
     assert!(
-        !tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
-        "Lock file should be cleaned up after successful init"
+        tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
+        "Lock file should persist after init (file locks are inode-based)"
+    );
+
+    // Verify we can acquire the lock (meaning it's not held)
+    let lock_file = std::fs::OpenOptions::new().write(true).open(&lock_path)?;
+    assert!(
+        lock_file.try_lock_exclusive().is_ok(),
+        "Lock file should be unlocked after successful init"
+    );
+    lock_file.unlock()?;
+
+    Ok(())
+}
+
+/// Adversarial test: init must reject symlinked lock path without clobbering target
+#[tokio::test]
+#[cfg(unix)]
+async fn test_init_rejects_symlinked_lock_file() -> Result<()> {
+    use std::os::unix::fs::symlink;
+
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = setup_test_jj_repo().await?;
+    let Some(temp_dir) = temp_dir else {
+        return Ok(());
+    };
+
+    let zjj_dir = temp_dir.path().join(".zjj");
+    tokio::fs::create_dir_all(&zjj_dir).await?;
+
+    let target_path = temp_dir.path().join("lock-target.txt");
+    let target_content = "do-not-clobber";
+    tokio::fs::write(&target_path, target_content).await?;
+
+    let lock_path = zjj_dir.join(".init.lock");
+    symlink(&target_path, &lock_path)?;
+
+    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
+    assert!(
+        result.is_err(),
+        "init should fail when lock file is a symlink"
+    );
+
+    let error_text = result
+        .err()
+        .map_or_else(String::new, |error| error.to_string());
+    assert!(
+        error_text.contains("symlink"),
+        "error should mention symlink security issue"
+    );
+
+    let current_target_content = tokio::fs::read_to_string(&target_path).await?;
+    assert_eq!(
+        current_target_content, target_content,
+        "symlink target content should not be modified"
     );
 
     Ok(())

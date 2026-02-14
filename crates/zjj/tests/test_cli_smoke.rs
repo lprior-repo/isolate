@@ -261,3 +261,78 @@ async fn test_completions_smoke() {
         "completions bash should produce output"
     );
 }
+
+#[tokio::test]
+async fn test_validate_accepts_dry_run_flag() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    harness.assert_success(&["init"]);
+
+    let result = run_zjj_async(
+        &harness.zjj_bin,
+        &harness.current_dir,
+        &["validate", "work", "add", "test-session", "--dry-run"],
+    )
+    .await;
+
+    assert!(
+        result.success,
+        "validate --dry-run should succeed\nStdout: {}\nStderr: {}",
+        result.stdout, result.stderr
+    );
+    assert!(
+        result.stdout.contains("[DRY RUN] Validation preview:"),
+        "validate --dry-run should show dry-run preview\nStdout: {}",
+        result.stdout
+    );
+
+    harness.assert_workspace_not_exists("add");
+    harness.assert_workspace_not_exists("test-session");
+}
+
+#[tokio::test]
+async fn test_validate_accepts_dry_run_flag_with_json_output() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    harness.assert_success(&["init"]);
+
+    let result = run_zjj_async(
+        &harness.zjj_bin,
+        &harness.current_dir,
+        &[
+            "validate",
+            "work",
+            "add",
+            "test-session",
+            "--dry-run",
+            "--json",
+        ],
+    )
+    .await;
+
+    assert_json_output(
+        &result,
+        &[
+            "validate",
+            "work",
+            "add",
+            "test-session",
+            "--dry-run",
+            "--json",
+        ],
+    );
+
+    let parsed = result
+        .parse_json()
+        .expect("validate --json output should parse");
+    assert_eq!(parsed["success"].as_bool(), Some(true));
+    assert_eq!(parsed["valid"].as_bool(), Some(true));
+    assert_eq!(parsed["command"].as_str(), Some("work"));
+
+    harness.assert_workspace_not_exists("add");
+    harness.assert_workspace_not_exists("test-session");
+}

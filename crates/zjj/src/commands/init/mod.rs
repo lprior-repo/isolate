@@ -1,8 +1,10 @@
 //! Initialize ZJJ - sets up everything needed
 
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use fs4::fs_std::FileExt;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
@@ -105,15 +107,46 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
 
     // Acquire exclusive lock to prevent concurrent initialization
     let lock_path = zjj_dir.join(".init.lock");
+
     // Use spawn_blocking to avoid blocking Tokio executor on lock acquisition
     let lock_path_clone = lock_path.clone();
     let lock_file = tokio::task::spawn_blocking(move || -> Result<std::fs::File> {
-        let file = std::fs::OpenOptions::new()
+        let is_symlink = match std::fs::symlink_metadata(&lock_path_clone) {
+            Ok(metadata) => metadata.is_symlink(),
+            Err(_) => false,
+        };
+        if is_symlink {
+            bail!("Security: .zjj/.init.lock is a symlink. Remove it and re-run zjj init.");
+        }
+
+        let mut open_options = std::fs::OpenOptions::new();
+        open_options
             .create(true)
+            .read(true)
             .write(true)
-            .truncate(true)
+            .truncate(false);
+
+        #[cfg(unix)]
+        {
+            open_options.custom_flags(libc::O_NOFOLLOW);
+        }
+
+        // Protect against symlink attacks and avoid truncating lock targets.
+        let file = open_options
             .open(&lock_path_clone)
-            .context("Failed to create lock file")?;
+            .with_context(|| format!("Failed to open lock file at {}", lock_path_clone.display()))
+            .or_else(|error| {
+                let symlink_detected = match std::fs::symlink_metadata(&lock_path_clone) {
+                    Ok(metadata) => metadata.is_symlink(),
+                    Err(_) => false,
+                };
+
+                if symlink_detected {
+                    bail!("Security: .zjj/.init.lock is a symlink. Remove it and re-run zjj init.");
+                }
+
+                Err(error)
+            })?;
 
         // Acquire exclusive lock (blocking - waits for other init to complete)
         file.lock_exclusive()
@@ -131,8 +164,8 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
 
     if is_now_initialized {
         // Another process completed initialization while we waited
+        // Release lock but keep file on disk (file locks are inode-based)
         let _ = lock_file.unlock();
-        let _ = tokio::fs::remove_file(&lock_path).await;
 
         let response = InitResponse {
             message: "zjj already initialized in this repository.".to_string(),
@@ -200,9 +233,8 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
 
-    // Release lock and clean up lock file
+    // Release lock but keep file on disk (file locks are inode-based)
     let _ = lock_file.unlock();
-    let _ = tokio::fs::remove_file(&lock_path).await;
 
     if format.is_json() {
         let response = build_init_response(&root, false);

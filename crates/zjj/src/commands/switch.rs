@@ -4,7 +4,7 @@ use anyhow::Result;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
-    cli::{is_inside_zellij, run_command},
+    cli::{is_inside_zellij, is_terminal, run_command},
     commands::get_session_db,
     json::FocusOutput,
 };
@@ -16,6 +16,8 @@ pub struct SwitchOptions {
     pub format: OutputFormat,
     /// Show context after switching
     pub show_context: bool,
+    /// Skip Zellij integration entirely (for non-TTY environments)
+    pub no_zellij: bool,
 }
 
 /// Run the switch command with options
@@ -53,8 +55,36 @@ pub async fn run_with_options(name: Option<&str>, options: &SwitchOptions) -> Re
 
     let zellij_tab = session.zellij_tab;
 
+    // Check if we should skip Zellij integration
+    let zellij_installed = crate::cli::is_zellij_installed().await;
+    let no_zellij = options.no_zellij || !is_terminal() || !zellij_installed;
+
+    if no_zellij {
+        // Skip Zellij integration - just print info
+        if options.format.is_json() {
+            let output = FocusOutput {
+                name: resolved_name.clone(),
+                zellij_tab: zellij_tab.clone(),
+                message: format!(
+                    "Session '{resolved_name}' is in tab '{zellij_tab}' (Zellij disabled)"
+                ),
+            };
+            let envelope = SchemaEnvelope::new("switch-response", "single", output);
+            println!("{}", serde_json::to_string(&envelope)?);
+        } else {
+            println!("Session '{resolved_name}' is in tab '{zellij_tab}'");
+            println!("Workspace path: {}", session.workspace_path);
+        }
+        return Ok(());
+    }
+
     // Only switch if inside Zellij
     if !is_inside_zellij() {
+        if !is_terminal() && !options.no_zellij && !options.format.is_json() {
+            eprintln!("Not in a terminal. Use --json for scripted access.");
+        } else if !zellij_installed && !options.no_zellij && !options.format.is_json() {
+            eprintln!("Zellij not found. Install it or use --no-zellij flag.");
+        }
         if options.format.is_json() {
             return Err(anyhow::anyhow!(
                 "Cannot switch tabs outside Zellij. Use 'zjj attach' instead."
@@ -112,5 +142,18 @@ mod tests {
         let options = SwitchOptions::default();
         assert_eq!(options.format, OutputFormat::Human);
         assert!(!options.show_context);
+        assert!(!options.no_zellij);
+    }
+
+    #[test]
+    fn test_switch_options_no_zellij() {
+        let options = SwitchOptions {
+            format: OutputFormat::Json,
+            show_context: true,
+            no_zellij: true,
+        };
+        assert_eq!(options.format, OutputFormat::Json);
+        assert!(options.show_context);
+        assert!(options.no_zellij);
     }
 }
