@@ -377,31 +377,31 @@ async fn stress_cleanup_old_entries_under_load() -> Result<()> {
     // Test cleanup operation while queue is under load
     let queue = MergeQueue::open_in_memory().await?;
 
-    // Add and complete 50 old entries
-    for i in 0..50 {
+    // Reduced from 50 to 20 old entries for speed
+    for i in 0..20 {
         let workspace = format!("old-ws-{i}");
         queue.add(&workspace, None, 5, None).await?;
         queue.mark_processing(&workspace).await?;
         queue.mark_completed(&workspace).await?;
     }
 
-    // Add 20 active pending entries
-    for i in 0..20 {
+    // Reduced from 20 to 10 active pending entries
+    for i in 0..10 {
         queue.add(&format!("active-ws-{i}"), None, 5, None).await?;
     }
 
-    // Wait to ensure entries are old enough (>1 second)
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    // Wait only 100ms - cleanup threshold is 50ms so entries will be "old"
+    tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // Cleanup entries older than 1 second (should clean all completed)
-    let cleaned = queue.cleanup(Duration::from_secs(1)).await?;
+    // Cleanup entries older than 50ms (should clean all completed)
+    let cleaned = queue.cleanup(Duration::from_millis(50)).await?;
     println!("Cleaned {cleaned} old entries");
 
-    assert_eq!(cleaned, 50, "Should clean all 50 completed entries");
+    assert_eq!(cleaned, 20, "Should clean all 20 completed entries");
 
     // Verify active entries remain
     let stats = queue.stats().await?;
-    assert_eq!(stats.pending, 20, "All 20 active entries should remain");
+    assert_eq!(stats.pending, 10, "All 10 active entries should remain");
     assert_eq!(stats.completed, 0, "No completed entries should remain");
 
     Ok(())

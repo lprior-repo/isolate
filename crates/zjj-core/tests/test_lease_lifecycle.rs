@@ -426,9 +426,9 @@ mod reclaim_after_expiration {
     /// Test: Expired lock allows new owner to claim.
     #[tokio::test]
     async fn expired_lock_allows_new_claim() -> Result<(), Error> {
-        // Create lock manager with very short TTL (1 second)
+        // Create lock manager with very short TTL (100ms)
         let pool = test_pool().await?;
-        let ttl = chrono::Duration::seconds(1);
+        let ttl = chrono::Duration::milliseconds(100);
         let mgr = LockManager::with_ttl(pool, ttl);
         mgr.init().await?;
 
@@ -439,8 +439,8 @@ mod reclaim_after_expiration {
         // Original agent claims
         let _ = mgr.lock(session, original_agent).await?;
 
-        // Wait for expiration
-        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+        // Wait for expiration (150ms > 100ms TTL)
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
 
         // WHEN: New agent tries to claim
         let result = mgr.lock(session, new_agent).await?;
@@ -625,9 +625,9 @@ mod expired_lease_denied {
     /// Test: Original owner cannot heartbeat after expiration.
     #[tokio::test]
     async fn original_owner_cannot_heartbeat_after_expiration() -> Result<(), Error> {
-        // Create lock manager with very short TTL
+        // Create lock manager with very short TTL (100ms)
         let pool = test_pool().await?;
-        let ttl = chrono::Duration::seconds(1);
+        let ttl = chrono::Duration::milliseconds(100);
         let mgr = LockManager::with_ttl(pool, ttl);
         mgr.init().await?;
 
@@ -637,8 +637,8 @@ mod expired_lease_denied {
         // Create lock
         let _ = mgr.lock(session, agent).await?;
 
-        // Wait for expiration
-        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+        // Wait for expiration (150ms > 100ms TTL)
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
 
         // WHEN: Original owner tries to heartbeat
         let result = mgr.heartbeat(session, agent).await;
@@ -655,9 +655,9 @@ mod expired_lease_denied {
     /// Test: Original owner cannot unlock after expiration (if new owner exists).
     #[tokio::test]
     async fn original_owner_cannot_unlock_after_new_owner() -> Result<(), Error> {
-        // Create lock manager with short TTL
+        // Create lock manager with short TTL (100ms)
         let pool = test_pool().await?;
-        let ttl = chrono::Duration::seconds(1);
+        let ttl = chrono::Duration::milliseconds(100);
         let mgr = LockManager::with_ttl(pool, ttl);
         mgr.init().await?;
 
@@ -668,8 +668,8 @@ mod expired_lease_denied {
         // Original claims
         let _ = mgr.lock(session, original).await?;
 
-        // Wait for expiration
-        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+        // Wait for expiration (150ms > 100ms TTL)
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
 
         // New owner claims
         let _ = mgr.lock(session, new_owner).await?;
