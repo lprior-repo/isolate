@@ -77,6 +77,7 @@ fn bdd_spawn_without_flags_runs_normally() {
 
     cmd.assert()
         .success()
+        .stdout(predicate::str::contains("--idempotent"))
         .stdout(predicate::str::contains("--contract"))
         .stdout(predicate::str::contains("--ai-hints"))
         .stdout(predicate::str::contains(

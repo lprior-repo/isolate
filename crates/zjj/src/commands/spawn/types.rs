@@ -28,6 +28,9 @@ pub struct SpawnArgs {
     /// Run agent in background
     pub background: bool,
 
+    /// Idempotent mode - safe retries if workspace already exists
+    pub idempotent: bool,
+
     /// Timeout in seconds (default: 14400 = 4 hours)
     pub timeout: u64,
 
@@ -56,6 +59,7 @@ impl SpawnArgs {
         let no_auto_merge = matches.get_flag("no-auto-merge");
         let no_auto_cleanup = matches.get_flag("no-auto-cleanup");
         let background = matches.get_flag("background");
+        let idempotent = matches.get_flag("idempotent");
 
         let timeout = matches
             .get_one::<String>("timeout")
@@ -75,6 +79,7 @@ impl SpawnArgs {
             no_auto_merge,
             no_auto_cleanup,
             background,
+            idempotent,
             timeout,
             format,
         })
@@ -89,6 +94,7 @@ impl SpawnArgs {
             no_auto_merge: self.no_auto_merge,
             no_auto_cleanup: self.no_auto_cleanup,
             background: self.background,
+            idempotent: self.idempotent,
             timeout_secs: self.timeout,
             format: if self.format == "json" {
                 OutputFormat::Json
@@ -108,6 +114,7 @@ pub struct SpawnOptions {
     pub no_auto_merge: bool,
     pub no_auto_cleanup: bool,
     pub background: bool,
+    pub idempotent: bool,
     pub timeout_secs: u64,
     pub format: OutputFormat,
 }
@@ -284,6 +291,7 @@ mod tests {
             no_auto_merge: true,
             no_auto_cleanup: false,
             background: false,
+            idempotent: true,
             timeout: 3600,
             format: "json".to_string(),
         };
@@ -295,6 +303,7 @@ mod tests {
         assert_eq!(opts.agent_args, vec!["--arg".to_string()]);
         assert!(opts.no_auto_merge);
         assert!(!opts.no_auto_cleanup);
+        assert!(opts.idempotent);
         assert_eq!(opts.timeout_secs, 3600);
         assert!(matches!(opts.format, OutputFormat::Json));
     }
