@@ -25,6 +25,9 @@ pub struct SpawnArgs {
     /// Disable auto-cleanup on failure
     pub no_auto_cleanup: bool,
 
+    /// Succeed if workspace already exists (safe retries)
+    pub idempotent: bool,
+
     /// Run agent in background
     pub background: bool,
 
@@ -61,6 +64,7 @@ impl SpawnArgs {
 
         let no_auto_merge = matches.get_flag("no-auto-merge");
         let no_auto_cleanup = matches.get_flag("no-auto-cleanup");
+        let idempotent = matches.get_flag("idempotent");
         let background = matches.get_flag("background");
         let idempotent = matches.get_flag("idempotent");
 
@@ -83,6 +87,7 @@ impl SpawnArgs {
             agent_args,
             no_auto_merge,
             no_auto_cleanup,
+            idempotent,
             background,
             idempotent,
             timeout,
@@ -99,6 +104,7 @@ impl SpawnArgs {
             agent_args: self.agent_args.clone(),
             no_auto_merge: self.no_auto_merge,
             no_auto_cleanup: self.no_auto_cleanup,
+            idempotent: self.idempotent,
             background: self.background,
             idempotent: self.idempotent,
             timeout_secs: self.timeout,
@@ -120,6 +126,7 @@ pub struct SpawnOptions {
     pub agent_args: Vec<String>,
     pub no_auto_merge: bool,
     pub no_auto_cleanup: bool,
+    pub idempotent: bool,
     pub background: bool,
     pub idempotent: bool,
     pub timeout_secs: u64,
@@ -153,6 +160,8 @@ pub enum SpawnStatus {
     ValidationError,
     /// Dry-run preview completed
     DryRun,
+    /// Existing workspace reused in idempotent mode
+    Idempotent,
 }
 
 /// Phase of spawn operation for error reporting
@@ -300,6 +309,7 @@ mod tests {
             agent_args: vec!["--arg".to_string()],
             no_auto_merge: true,
             no_auto_cleanup: false,
+            idempotent: true,
             background: false,
             idempotent: true,
             timeout: 3600,
@@ -351,6 +361,7 @@ mod tests {
         let failed = SpawnStatus::Failed;
         let validation = SpawnStatus::ValidationError;
         let dry_run = SpawnStatus::DryRun;
+        let idempotent = SpawnStatus::Idempotent;
 
         // Verify variant discriminants work correctly
         assert!(matches!(running, SpawnStatus::Running));
@@ -358,5 +369,6 @@ mod tests {
         assert!(matches!(failed, SpawnStatus::Failed));
         assert!(matches!(validation, SpawnStatus::ValidationError));
         assert!(matches!(dry_run, SpawnStatus::DryRun));
+        assert!(matches!(idempotent, SpawnStatus::Idempotent));
     }
 }

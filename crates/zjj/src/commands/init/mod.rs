@@ -14,7 +14,7 @@ mod deps;
 mod setup;
 mod types;
 
-use deps::{check_dependencies, ensure_jj_repo_with_cwd, jj_root_with_cwd};
+use deps::{check_dependencies, ensure_jj_repo_with_cwd, is_jj_repo_with_cwd, jj_root_with_cwd};
 use setup::{
     create_agents_md, create_claude_md, create_docs, create_jj_hooks, create_jjignore,
     create_moon_pipeline, create_repo_ai_instructions, DEFAULT_CONFIG,
@@ -268,9 +268,7 @@ async fn run_with_cwd_format_and_options(cwd: Option<&Path>, options: InitOption
 }
 
 async fn preview_init(cwd: &Path, format: OutputFormat) -> Result<()> {
-    let repo_exists = tokio::fs::try_exists(cwd.join(".jj"))
-        .await
-        .unwrap_or(false);
+    let repo_exists = is_jj_repo_with_cwd(cwd).await?;
     let root = if repo_exists {
         jj_root_with_cwd(cwd).await?
     } else {

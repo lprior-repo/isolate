@@ -77,6 +77,7 @@ async fn test_sync_no_args_syncs_current_workspace() -> anyhow::Result<()> {
     let options = SyncOptions {
         format: OutputFormat::Human,
         all: false,
+        dry_run: false,
     };
 
     // Verify options indicate no explicit --all
@@ -203,6 +204,7 @@ async fn test_sync_all_flag_syncs_all_sessions() -> anyhow::Result<()> {
     let options = SyncOptions {
         format: OutputFormat::Human,
         all: true,
+        dry_run: false,
     };
     assert!(options.all, "Options should have --all flag set");
 
@@ -268,6 +270,7 @@ async fn test_sync_no_args_from_main_syncs_all() -> anyhow::Result<()> {
     let options = SyncOptions {
         format: OutputFormat::Human,
         all: false,
+        dry_run: false,
     };
     assert!(!options.all, "Options should not have --all flag set");
 
@@ -330,12 +333,14 @@ fn test_handler_checks_all_flag() {
     let options_with_all = SyncOptions {
         format: OutputFormat::Human,
         all: true,
+        dry_run: false,
     };
     assert!(options_with_all.all, "--all flag should be true");
 
     let options_without_all = SyncOptions {
         format: OutputFormat::Human,
         all: false,
+        dry_run: false,
     };
     assert!(!options_without_all.all, "--all flag should be false");
 
@@ -463,6 +468,7 @@ async fn test_sync_all_with_empty_sessions() -> anyhow::Result<()> {
     let options = SyncOptions {
         format: OutputFormat::Human,
         all: true,
+        dry_run: false,
     };
     assert!(options.all);
 
@@ -535,12 +541,14 @@ fn test_sync_options_json_format() {
     let json_options = SyncOptions {
         format: OutputFormat::Json,
         all: false,
+        dry_run: false,
     };
     assert!(json_options.format.is_json());
 
     let human_options = SyncOptions {
         format: OutputFormat::Human,
         all: false,
+        dry_run: false,
     };
     assert!(human_options.format.is_human());
 }

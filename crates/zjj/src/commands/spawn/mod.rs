@@ -89,15 +89,36 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
             current_location: e.to_string(),
         })?;
 
+    let workspace_path = Path::new(&root)
+        .join(".zjj/workspaces")
+        .join(&options.bead_id);
+
+    if options.idempotent {
+        let workspace_exists = tokio::fs::try_exists(&workspace_path).await.map_err(|e| {
+            SpawnError::WorkspaceCreationFailed {
+                reason: format!("Failed checking existing workspace: {e}"),
+            }
+        })?;
+
+        if workspace_exists {
+            return Ok(SpawnOutput {
+                bead_id: options.bead_id.clone(),
+                workspace_path: workspace_path.to_string_lossy().to_string(),
+                agent_pid: None,
+                exit_code: None,
+                merged: false,
+                cleaned: false,
+                status: SpawnStatus::Idempotent,
+            });
+        }
+    }
+
     let bead_repo = BeadRepository::new(&root);
 
     // Phase 2: Validate bead status
     validate_bead_status(&bead_repo, &root, &options.bead_id, options.idempotent).await?;
 
     if options.dry_run {
-        let workspace_path = Path::new(&root)
-            .join(".zjj/workspaces")
-            .join(&options.bead_id);
         return Ok(SpawnOutput {
             bead_id: options.bead_id.clone(),
             workspace_path: workspace_path.to_string_lossy().to_string(),
@@ -674,6 +695,8 @@ fn output_result(result: &SpawnOutput, format: zjj_core::OutputFormat) -> Result
             println!("  zjj done          # Merge to main + cleanup");
         } else if matches!(result.status, SpawnStatus::DryRun) {
             println!("  [DRY RUN] No changes were made.");
+        } else if matches!(result.status, SpawnStatus::Idempotent) {
+            println!("  Workspace already exists; skipped due to --idempotent.");
         }
     }
     Ok(())
@@ -686,6 +709,7 @@ const fn status_display(status: &SpawnStatus) -> &'static str {
         SpawnStatus::Failed => "failed",
         SpawnStatus::ValidationError => "validation error",
         SpawnStatus::DryRun => "dry-run preview",
+        SpawnStatus::Idempotent => "already exists (idempotent)",
     }
 }
 
