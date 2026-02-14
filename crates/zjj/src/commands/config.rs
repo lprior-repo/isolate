@@ -45,7 +45,7 @@ pub struct ConfigOptions {
 /// - Invalid arguments provided
 pub async fn run(options: ConfigOptions) -> Result<()> {
     // Preserve error type for proper exit code mapping
-    let config = zjj_core::config::load_config()
+    let config = load_config_for_scope(options.global)
         .await
         .map_err(anyhow::Error::new)?;
 
@@ -82,8 +82,10 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
                     },
                 };
                 let envelope = SchemaEnvelope::new("config-set", "single", output);
-                let output_json = serde_json::to_string_pretty(&envelope)
-                    .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
+                let output_json = serde_json::to_string_pretty(&envelope).map_or_else(
+                    |_| r#"{"error": "serialization failed"}"#.to_string(),
+                    |s| s,
+                );
                 println!("{output_json}");
             } else {
                 println!("✓ Set {key} = {value}");
@@ -305,6 +307,9 @@ async fn set_config_value(config_path: &Path, key: &str, value: &str) -> Result<
 
     // Write back to file (still holding the lock)
     let serialized = doc.to_string();
+    toml::from_str::<zjj_core::config::PartialConfig>(&serialized)
+        .context("Setting this value would produce invalid configuration")?;
+
     file.set_len(0).await.context(format!(
         "Failed to truncate config file {}",
         config_path.display()
@@ -417,6 +422,25 @@ fn project_config_path() -> Result<PathBuf> {
     std::env::current_dir()
         .context("Failed to get current directory")
         .map(|dir| dir.join(".zjj/config.toml"))
+}
+
+async fn load_config_for_scope(global_only: bool) -> zjj_core::Result<Config> {
+    if !global_only {
+        return zjj_core::config::load_config().await;
+    }
+
+    let mut config = Config::default();
+    let global_path = global_config_path().map_err(|err| {
+        zjj_core::Error::IoError(format!("Failed to determine global config path: {err}"))
+    })?;
+
+    match zjj_core::config::load_partial_toml_file(&global_path).await {
+        Ok(global_partial) => config.merge_partial(global_partial),
+        Err(zjj_core::Error::IoError(_)) => {}
+        Err(err) => return Err(err),
+    }
+
+    Ok(config)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

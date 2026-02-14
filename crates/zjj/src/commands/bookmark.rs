@@ -421,7 +421,11 @@ async fn resolve_workspace_path(session: Option<&str>) -> Result<String> {
             .to_string()
     };
 
-    if tokio::fs::try_exists(&path).await.unwrap_or(false) {
+    let exists = tokio::fs::try_exists(&path)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to check path existence: {e}"))?;
+
+    if exists {
         Ok(path)
     } else {
         Err(BookmarkError::WorkspaceNotFound(path).into())

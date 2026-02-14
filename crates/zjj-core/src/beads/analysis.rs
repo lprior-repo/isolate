@@ -201,7 +201,7 @@ pub fn calculate_critical_path(issues: &[BeadIssue]) -> Vec<BeadIssue> {
 
     let graph = get_dependency_graph(issues);
 
-    issues
+    let critical_path = issues
         .iter()
         .filter_map(|issue| {
             let mut path = Vec::new();
@@ -213,8 +213,12 @@ pub fn calculate_critical_path(issues: &[BeadIssue]) -> Vec<BeadIssue> {
                 Some(path)
             }
         })
-        .max_by_key(std::vec::Vec::len)
-        .unwrap_or_else(Vec::new)
+        .max_by_key(std::vec::Vec::len);
+
+    match critical_path {
+        Some(path) => path,
+        None => Vec::new(),
+    }
 }
 
 /// Extract issue IDs.

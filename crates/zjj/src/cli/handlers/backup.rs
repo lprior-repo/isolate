@@ -20,6 +20,13 @@ pub async fn handle_backup(sub_m: &ArgMatches) -> Result<()> {
         (true, false, None, false, false) => backup::run_create(format).await,
         (false, true, None, false, false) => backup::run_list(format).await,
         (false, false, Some(database), false, false) => {
+            if let Some(ts) = timestamp {
+                if !is_valid_backup_timestamp(ts) {
+                    anyhow::bail!(
+                        "Invalid --timestamp '{ts}'. Expected format: YYYYMMDD-HHMMSS"
+                    );
+                }
+            }
             backup::run_restore(database, timestamp, format).await
         }
         (false, false, None, true, false) => backup::run_status(format).await,
@@ -28,6 +35,22 @@ pub async fn handle_backup(sub_m: &ArgMatches) -> Result<()> {
             "Unknown backup action. Use --create, --list, --restore <DATABASE>, --status, or --retention"
         ),
     }
+}
+
+fn is_valid_backup_timestamp(value: &str) -> bool {
+    if value.len() != 15 {
+        return false;
+    }
+
+    let bytes = value.as_bytes();
+    if bytes.get(8).copied() != Some(b'-') {
+        return false;
+    }
+
+    bytes
+        .iter()
+        .enumerate()
+        .all(|(idx, b)| idx == 8 || b.is_ascii_digit())
 }
 
 pub async fn handle_export(sub_m: &ArgMatches) -> Result<()> {
@@ -132,5 +155,19 @@ mod tests {
         assert!(!super::looks_like_file_path("v1.2.3"));
         assert!(!super::looks_like_file_path("feature.test"));
         assert!(!super::looks_like_file_path("file.unknownext"));
+    }
+
+    #[test]
+    fn test_valid_backup_timestamp_format() {
+        assert!(super::is_valid_backup_timestamp("20250101-010101"));
+        assert!(super::is_valid_backup_timestamp("19991231-235959"));
+    }
+
+    #[test]
+    fn test_invalid_backup_timestamp_format() {
+        assert!(!super::is_valid_backup_timestamp("20250101"));
+        assert!(!super::is_valid_backup_timestamp("2025-0101-010101"));
+        assert!(!super::is_valid_backup_timestamp("20250101_010101"));
+        assert!(!super::is_valid_backup_timestamp("20250101-01010a"));
     }
 }

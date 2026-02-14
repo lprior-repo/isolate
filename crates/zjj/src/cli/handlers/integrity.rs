@@ -83,9 +83,7 @@ pub async fn handle_clean(sub_m: &ArgMatches) -> Result<()> {
     let dry_run = sub_m.get_flag("dry-run");
     let periodic = sub_m.get_flag("periodic");
     let format = get_format(sub_m);
-    let age_threshold = sub_m
-        .get_one::<String>("age-threshold")
-        .and_then(|s| s.parse::<u64>().ok());
+    let age_threshold = sub_m.get_one::<u64>("age-threshold").copied();
     let options = clean::CleanOptions {
         force,
         dry_run,

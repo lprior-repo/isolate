@@ -88,7 +88,62 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     let bead_repo = BeadRepository::new(&root);
 
     // Phase 2: Validate bead status
-    validate_bead_status(&bead_repo, &options.bead_id).await?;
+    let bead_status_result = validate_bead_status(&bead_repo, &options.bead_id).await;
+
+    // Check if workspace already exists for idempotency
+    let workspaces_dir = Path::new(&root).join(".zjj/workspaces");
+    let workspace_path = workspaces_dir.join(&options.bead_id);
+    let workspace_exists = tokio::fs::try_exists(&workspace_path)
+        .await
+        .unwrap_or(false);
+
+    if options.dry_run {
+        if !options.format.is_json() {
+            println!("Would spawn session for bead '{}'", options.bead_id);
+            println!("  Workspace: {}", workspace_path.display());
+            println!(
+                "  Agent: {} {:?}",
+                options.agent_command, options.agent_args
+            );
+        }
+        return Ok(SpawnOutput {
+            bead_id: options.bead_id.clone(),
+            workspace_path: workspace_path.to_string_lossy().to_string(),
+            agent_pid: None,
+            exit_code: None,
+            merged: false,
+            cleaned: false,
+            status: SpawnStatus::DryRun,
+        });
+    }
+
+    if options.idempotent && workspace_exists {
+        // If idempotent and workspace exists, we check if the bead status error (if any)
+        // is acceptable (e.g., "in_progress").
+        match &bead_status_result {
+            Ok(_) => {
+                // Workspace exists but bead is open. This is unusual but we can treat as
+                // success/running.
+            }
+            Err(SpawnError::InvalidBeadStatus { status, .. }) if status == "in_progress" => {
+                // Expected case: workspace exists and bead is in progress.
+            }
+            Err(e) => return Err(e.clone()),
+        }
+
+        return Ok(SpawnOutput {
+            bead_id: options.bead_id.clone(),
+            workspace_path: workspace_path.to_string_lossy().to_string(),
+            agent_pid: None,
+            exit_code: None,
+            merged: false,
+            cleaned: false,
+            status: SpawnStatus::Running,
+        });
+    }
+
+    // If not idempotent return, allow normal validation error to propagate
+    bead_status_result?;
 
     // Initialize transaction tracker
     let workspace_path = create_workspace(&root, &options.bead_id).await?;
@@ -511,6 +566,7 @@ const fn status_display(status: &SpawnStatus) -> &'static str {
         SpawnStatus::Completed => "completed",
         SpawnStatus::Failed => "failed",
         SpawnStatus::ValidationError => "validation error",
+        SpawnStatus::DryRun => "dry run",
     }
 }
 
