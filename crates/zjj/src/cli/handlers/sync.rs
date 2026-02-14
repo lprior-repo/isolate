@@ -35,6 +35,12 @@ pub async fn handle_submit(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_diff(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::diff());
+        return Ok(());
+    }
+
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let stat = sub_m.get_flag("stat");
     let format = get_format(sub_m);
