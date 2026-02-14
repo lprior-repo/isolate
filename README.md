@@ -2,6 +2,7 @@
 
 [![Coverage](https://codecov.io/gh/lprior-repo/zjj/branch/main/graph/badge.svg)](https://codecov.io/gh/lprior-repo/zjj)
 [![CI](https://github.com/lprior-repo/zjj/actions/workflows/ci.yml/badge.svg)](https://github.com/lprior-repo/zjj/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-mdBook-blue)](https://lprior-repo.github.io/zjj/)
 
 ZJJ helps you run **multiple parallel workstreams (humans or AI agents)** against a single repo **without stepping on each other**.
 
@@ -126,23 +127,22 @@ See [Recovery Policy](#recovery-policy) section below for details.
 
 ---
 
-## Documentation
+## 📚 Documentation
 
-Comprehensive documentation is available in the `/docs` directory:
+**→ [Full Documentation Site](https://lprior-repo.github.io/zjj/)** (Stripe-quality mdBook)
 
-- **[docs/00_START_HERE.md](docs/00_START_HERE.md)** - Start here
+Quick links:
+- **[Quick Start](https://lprior-repo.github.io/zjj/quickstart.html)** - Get running in 5 minutes
+- **[User Guide](https://lprior-repo.github.io/zjj/guide/workspaces.html)** - Comprehensive guide to all features
+- **[AI Agent Guide](https://lprior-repo.github.io/zjj/ai/overview.html)** - Set up AI agents for parallel work
+- **[Command Reference](https://lprior-repo.github.io/zjj/reference/commands.html)** - Complete command documentation
+- **[Developer Guide](https://lprior-repo.github.io/zjj/dev/building.html)** - Build from source, contribute
+
+### Local Markdown Docs
+
+Source markdown documentation is also available in `/docs`:
 - **[docs/INDEX.md](docs/INDEX.md)** - Complete documentation index
-
-### Key Topics
-
-| Topic | Document |
-|-------|----------|
-| Getting Started | [00_START_HERE.md](docs/00_START_HERE.md) |
-| Error Handling | [01_ERROR_HANDLING.md](docs/01_ERROR_HANDLING.md) |
-| Build & Test | [02_MOON_BUILD.md](docs/02_MOON_BUILD.md) |
-| Zellij Layouts | [11_ZELLIJ.md](docs/11_ZELLIJ.md) |
-| JJ Workspaces | [09_JUJUTSU.md](docs/09_JUJUTSU.md) |
-| Issue Triage | [08_BEADS.md](docs/08_BEADS.md) |
+- **[docs/AI_AGENT_GUIDE.md](docs/AI_AGENT_GUIDE.md)** - AI agent guide (markdown)
 
 ---
 
