@@ -13,6 +13,14 @@ use crate::{
 };
 
 pub async fn handle_ai(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::ai());
+        return Ok(());
+    }
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
     let format = get_format(sub_m);
     let subcommand = match sub_m.subcommand() {
         Some(("status", _)) => ai::AiSubcommand::Status,
@@ -50,6 +58,14 @@ pub async fn handle_introspect(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_context(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::context());
+        return Ok(());
+    }
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
     let format = get_format(sub_m);
     let field = sub_m.get_one::<String>("field").map(String::as_str);
     let no_beads = sub_m.get_flag("no-beads");
@@ -85,6 +101,14 @@ pub async fn handle_can_i(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_contract(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::contract());
+        return Ok(());
+    }
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
     let format = get_format(sub_m);
     let command = sub_m.get_one::<String>("command").cloned();
     let options = contract::ContractOptions { command, format };
@@ -92,6 +116,14 @@ pub fn handle_contract(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_examples(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::examples());
+        return Ok(());
+    }
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
     let format = get_format(sub_m);
     let command = sub_m.get_one::<String>("command").cloned();
     let use_case = sub_m.get_one::<String>("use-case").cloned();
@@ -134,15 +166,25 @@ pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
         .get_many::<String>("args")
         .map(|v| v.cloned().collect())
         .unwrap_or_default();
+    let dry_run = sub_m.get_flag("dry_run");
     let options = validate::ValidateOptions {
         command,
         args,
         format,
+        dry_run,
     };
     validate::run(&options)
 }
 
 pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::whatif());
+        return Ok(());
+    }
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
     let format = get_format(sub_m);
     let command = sub_m
         .get_one::<String>("command")

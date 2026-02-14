@@ -54,15 +54,21 @@ pub async fn run_with_options(options: &CleanOptions) -> Result<()> {
     let sessions = db.list(None).await.map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let stale_sessions: Vec<_> = futures::stream::iter(sessions)
-        .then(|session| async move {
+        .map(Ok::<_, anyhow::Error>)
+        .try_filter_map(|session| async move {
             let exists = tokio::fs::try_exists(&session.workspace_path)
                 .await
-                .map_err(anyhow::Error::new)?;
-            Ok(if exists { None } else { Some(session) })
+                .map_err(|error| {
+                    anyhow::anyhow!(
+                        "Failed to verify workspace path '{}' for session '{}': {error}",
+                        session.workspace_path,
+                        session.name
+                    )
+                })?;
+            Ok((!exists).then_some(session))
         })
-        .filter_map(|res: Result<Option<_>, anyhow::Error>| async move { res.ok().flatten() })
-        .collect()
-        .await;
+        .try_collect()
+        .await?;
 
     // 2. Handle no stale sessions case
     if stale_sessions.is_empty() {

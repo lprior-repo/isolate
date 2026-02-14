@@ -52,14 +52,22 @@ pub(super) async fn check_dependencies() -> Result<()> {
 }
 
 /// Ensure we're in a JJ repository, initializing one if needed with a specific cwd
-pub(super) async fn ensure_jj_repo_with_cwd(cwd: &Path) -> Result<()> {
+pub(super) async fn ensure_jj_repo_with_cwd(cwd: &Path, json_mode: bool) -> Result<()> {
     if is_jj_repo_with_cwd(cwd).await? {
         return Ok(());
     }
 
-    println!("No JJ repository found. Initializing one...");
+    if json_mode {
+        eprintln!("No JJ repository found. Initializing one...");
+    } else {
+        println!("No JJ repository found. Initializing one...");
+    }
     init_jj_repo_with_cwd(cwd).await?;
-    println!("Initialized JJ repository.");
+    if json_mode {
+        eprintln!("Initialized JJ repository.");
+    } else {
+        println!("Initialized JJ repository.");
+    }
 
     Ok(())
 }
@@ -82,7 +90,7 @@ pub(super) async fn jj_root_with_cwd(cwd: &Path) -> Result<PathBuf> {
 }
 
 /// Check if we're in a JJ repo using a specific cwd
-async fn is_jj_repo_with_cwd(cwd: &Path) -> Result<bool> {
+pub(super) async fn is_jj_repo_with_cwd(cwd: &Path) -> Result<bool> {
     let output = Command::new("jj")
         .args(["status"])
         .current_dir(cwd)

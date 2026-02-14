@@ -15,6 +15,8 @@ pub struct ValidateOptions {
     pub args: Vec<String>,
     /// Output format
     pub format: OutputFormat,
+    /// Dry run mode - preview without side effects
+    pub dry_run: bool,
 }
 
 /// Validation result
@@ -67,6 +69,10 @@ pub fn run(options: &ValidateOptions) -> Result<()> {
         let envelope = SchemaEnvelope::new("validate-response", "single", result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
+        if options.dry_run {
+            println!("[DRY RUN] Validation preview:");
+            println!();
+        }
         if result.valid {
             println!("✓ All inputs valid for '{}'", result.command);
         } else {
