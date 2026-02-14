@@ -338,4 +338,4 @@ Contributions are welcome! Please follow the existing code style and submit pull
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Licensed under either of [Apache License, Version 2.0](LICENSE) or [MIT License](LICENSE-MIT), at your option.

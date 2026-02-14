@@ -51,3 +51,16 @@ bead-rmjy-test/
 .scout-agent-1.pid
 crates/zjj-core/target/
 .beads/checkpoint_backups/*.tar.gz
+
+# Third-party binaries (install separately)
+/cue
+/cuepls
+
+# Build artifacts for internal tools
+tools/audit/target/
+
+# Build/QA logs
+*.log
+
+# Internal development state
+.beads/
