@@ -1564,4 +1564,411 @@ mod tests {
             );
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ERROR CODE AND CLASSIFICATION TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn given_all_error_codes_when_converted_to_string_then_screaming_snake_case() {
+        let codes = [
+            ErrorCode::SessionNotFound,
+            ErrorCode::SessionAlreadyExists,
+            ErrorCode::SessionNameInvalid,
+            ErrorCode::WorkspaceCreationFailed,
+            ErrorCode::WorkspaceNotFound,
+            ErrorCode::JjNotInstalled,
+            ErrorCode::JjCommandFailed,
+            ErrorCode::NotJjRepository,
+            ErrorCode::ZellijNotRunning,
+            ErrorCode::ZellijCommandFailed,
+            ErrorCode::ConfigNotFound,
+            ErrorCode::ConfigParseError,
+            ErrorCode::ConfigKeyNotFound,
+            ErrorCode::HookFailed,
+            ErrorCode::HookExecutionError,
+            ErrorCode::StateDbCorrupted,
+            ErrorCode::StateDbLocked,
+            ErrorCode::SpawnNotOnMain,
+            ErrorCode::SpawnInvalidBeadStatus,
+            ErrorCode::SpawnBeadNotFound,
+            ErrorCode::SpawnWorkspaceCreationFailed,
+            ErrorCode::SpawnAgentSpawnFailed,
+            ErrorCode::SpawnTimeout,
+            ErrorCode::SpawnMergeFailed,
+            ErrorCode::SpawnCleanupFailed,
+            ErrorCode::SpawnDatabaseError,
+            ErrorCode::SpawnJjCommandFailed,
+            ErrorCode::InvalidArgument,
+            ErrorCode::Unknown,
+        ];
+
+        for code in codes {
+            let s = code.as_str();
+            assert!(
+                s.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
+                "Error code '{s}' is not SCREAMING_SNAKE_CASE"
+            );
+            assert!(!s.is_empty(), "Error code string should not be empty");
+        }
+    }
+
+    #[test]
+    fn given_validation_error_when_classified_then_exit_code_1() {
+        let err = crate::Error::ValidationError {
+            message: "test".into(),
+            field: None,
+            value: None,
+            constraints: Vec::new(),
+        };
+        assert_eq!(classify_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn given_not_found_error_when_classified_then_exit_code_2() {
+        let err = crate::Error::NotFound("test".into());
+        assert_eq!(classify_exit_code(&err), 2);
+
+        let err2 = crate::Error::SessionNotFound {
+            session: "test".into(),
+        };
+        assert_eq!(classify_exit_code(&err2), 2);
+    }
+
+    #[test]
+    fn given_io_error_when_classified_then_exit_code_3() {
+        let err = crate::Error::IoError("test".into());
+        assert_eq!(classify_exit_code(&err), 3);
+
+        let err2 = crate::Error::DatabaseError("test".into());
+        assert_eq!(classify_exit_code(&err2), 3);
+    }
+
+    #[test]
+    fn given_command_error_when_classified_then_exit_code_4() {
+        let err = crate::Error::Command("test".into());
+        assert_eq!(classify_exit_code(&err), 4);
+
+        let err2 = crate::Error::JjCommandError {
+            operation: "test".into(),
+            source: "err".into(),
+            is_not_found: false,
+        };
+        assert_eq!(classify_exit_code(&err2), 4);
+    }
+
+    #[test]
+    fn given_lock_error_when_classified_then_exit_code_5() {
+        let err = crate::Error::SessionLocked {
+            session: "test".into(),
+            holder: "agent1".into(),
+        };
+        assert_eq!(classify_exit_code(&err), 5);
+
+        let err2 = crate::Error::LockTimeout {
+            operation: "test".into(),
+            timeout_ms: 100,
+            retries: 3,
+        };
+        assert_eq!(classify_exit_code(&err2), 5);
+    }
+
+    #[test]
+    fn given_operation_cancelled_when_classified_then_exit_code_130() {
+        let err = crate::Error::OperationCancelled("user interrupt".into());
+        assert_eq!(classify_exit_code(&err), 130);
+    }
+
+    #[test]
+    fn given_all_error_variants_when_mapped_then_have_suggestions() {
+        let test_cases = vec![
+            (
+                crate::Error::InvalidConfig("test".into()),
+                Some("configuration"),
+            ),
+            (crate::Error::NotFound("test".into()), Some("zjj list")),
+            (
+                crate::Error::SessionNotFound {
+                    session: "test".into(),
+                },
+                Some("zjj list"),
+            ),
+            (
+                crate::Error::DatabaseError("test".into()),
+                Some("zjj doctor"),
+            ),
+        ];
+
+        for (err, expected_substring) in test_cases {
+            let json_err = JsonError::from(&err);
+            if let Some(expected) = expected_substring {
+                assert!(
+                    json_err.error.suggestion.is_some(),
+                    "Expected suggestion for error: {:?}",
+                    err
+                );
+                let suggestion = json_err.error.suggestion.unwrap_or_default();
+                assert!(
+                    suggestion.contains(expected),
+                    "Expected suggestion to contain '{}', got: {}",
+                    expected,
+                    suggestion
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn given_hook_failed_error_when_converted_then_includes_all_details() {
+        let err = crate::Error::HookFailed {
+            hook_type: "pre-commit".into(),
+            command: "lint".into(),
+            exit_code: Some(1),
+            stdout: "output".into(),
+            stderr: "error details".into(),
+        };
+        let (code, message, _) = map_error_to_parts(&err);
+        assert_eq!(code.as_str(), "HOOK_FAILED");
+        assert!(message.contains("pre-commit"));
+        assert!(message.contains("lint"));
+        assert!(message.contains("error details"));
+    }
+
+    #[test]
+    fn given_jj_not_found_error_when_converted_then_suggests_installation() {
+        let err = crate::Error::JjCommandError {
+            operation: "test".into(),
+            source: "not found".into(),
+            is_not_found: true,
+        };
+        let (code, message, suggestion) = map_error_to_parts(&err);
+        assert_eq!(code.as_str(), "JJ_NOT_INSTALLED");
+        assert!(message.contains("JJ is not installed"));
+        assert!(suggestion.is_some());
+        if let Some(sugg) = suggestion {
+            assert!(sugg.contains("Install JJ"));
+        }
+    }
+
+    #[test]
+    fn given_jj_workspace_conflict_when_converted_then_includes_recovery_hint() {
+        let err = crate::Error::JjWorkspaceConflict {
+            conflict_type: crate::error::JjConflictType::Stale,
+            workspace_name: "test-ws".into(),
+            source: "operation mismatch".into(),
+            recovery_hint: "Run jj workspace forget".into(),
+        };
+        let (code, message, _) = map_error_to_parts(&err);
+        assert_eq!(code.as_str(), "JJ_COMMAND_FAILED");
+        assert!(message.contains("test-ws"));
+        assert!(message.contains("Run jj workspace forget"));
+    }
+
+    #[test]
+    fn given_lock_timeout_error_when_converted_then_includes_retry_details() {
+        let err = crate::Error::LockTimeout {
+            operation: "workspace creation".into(),
+            timeout_ms: 100,
+            retries: 5,
+        };
+        let (code, message, suggestion) = map_error_to_parts(&err);
+        assert_eq!(code.as_str(), "UNKNOWN");
+        assert!(message.contains("workspace creation"));
+        assert!(message.contains("5 retries"));
+        assert!(suggestion.is_some());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // JSON SUCCESS AND ERROR WRAPPER TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn given_json_success_when_created_then_success_is_true() {
+        #[derive(Serialize)]
+        struct TestData {
+            value: i32,
+        }
+        let data = TestData { value: 42 };
+        let success = JsonSuccess::new(data);
+        assert!(success.success);
+        assert_eq!(success.data.value, 42);
+    }
+
+    #[test]
+    fn given_json_error_default_when_created_then_has_unknown_code() {
+        let err = JsonError::default();
+        assert!(!err.success);
+        assert_eq!(err.error.code, "UNKNOWN");
+        assert_eq!(err.error.exit_code, 4);
+    }
+
+    #[test]
+    fn given_json_error_when_chained_with_builders_then_all_fields_set() {
+        let err = JsonError::new("TEST", "message")
+            .with_details(serde_json::json!({"key": "value"}))
+            .with_suggestion("try this")
+            .with_exit_code(2);
+
+        assert_eq!(err.error.code, "TEST");
+        assert_eq!(err.error.message, "message");
+        assert_eq!(err.error.exit_code, 2);
+        assert!(err.error.details.is_some());
+        assert_eq!(err.error.suggestion, Some("try this".to_string()));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCHEMA ENVELOPE BUILDER PATTERN TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn given_schema_envelope_when_built_with_all_fields_then_serializes_correctly(
+    ) -> crate::Result<()> {
+        #[derive(Serialize, Deserialize)]
+        struct TestData {
+            id: String,
+        }
+
+        let data = TestData { id: "test".into() };
+        let envelope = SchemaEnvelope::new(schemas::STATUS_RESPONSE, "single", data)
+            .add_link(HateoasLink::self_link("zjj status"))
+            .add_link(HateoasLink::action("remove", "zjj remove", "Delete"))
+            .with_related(RelatedResources {
+                sessions: vec!["s1".into()],
+                ..Default::default()
+            })
+            .with_meta(ResponseMeta::new("status").with_duration(50))
+            .with_fixes(vec![]);
+
+        let json = serde_json::to_string(&envelope)
+            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+        assert!(json.contains("$schema"));
+        assert!(json.contains("_links"));
+        assert!(json.contains("_related"));
+        assert!(json.contains("_meta"));
+        Ok(())
+    }
+
+    #[test]
+    fn given_schema_envelope_when_marked_as_error_then_success_is_false() {
+        #[derive(Serialize)]
+        struct ErrorData {
+            error: String,
+        }
+        let data = ErrorData {
+            error: "failed".into(),
+        };
+        let envelope = SchemaEnvelope::new(schemas::ERROR_RESPONSE, "single", data).as_error();
+        assert!(!envelope.success);
+    }
+
+    #[test]
+    fn given_schema_envelope_with_next_when_created_then_includes_next_actions() {
+        use crate::hints::{ActionRisk, NextAction};
+
+        #[derive(Serialize)]
+        struct TestData {
+            status: String,
+        }
+        let data = TestData {
+            status: "waiting".into(),
+        };
+        let next = vec![NextAction {
+            action: "Continue".into(),
+            commands: vec!["zjj work".into()],
+            risk: ActionRisk::Safe,
+            description: None,
+        }];
+        let envelope = SchemaEnvelope::with_next(schemas::STATUS_RESPONSE, "single", data, next);
+        assert_eq!(envelope.next.len(), 1);
+        assert_eq!(envelope.next[0].action, "Continue");
+    }
+
+    #[test]
+    fn given_related_resources_empty_when_added_to_envelope_then_not_included() {
+        #[derive(Serialize)]
+        struct TestData {
+            id: String,
+        }
+        let data = TestData { id: "test".into() };
+        let empty = RelatedResources::default();
+        let envelope =
+            SchemaEnvelope::new(schemas::STATUS_RESPONSE, "single", data).with_related(empty);
+        // Empty related resources should not be set
+        assert!(envelope.related.is_none());
+    }
+
+    #[test]
+    fn given_related_resources_with_data_when_added_then_included() {
+        #[derive(Serialize)]
+        struct TestData {
+            id: String,
+        }
+        let data = TestData { id: "test".into() };
+        let related = RelatedResources {
+            beads: vec!["bead-1".into()],
+            ..Default::default()
+        };
+        let envelope =
+            SchemaEnvelope::new(schemas::STATUS_RESPONSE, "single", data).with_related(related);
+        assert!(envelope.related.is_some());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCHEMA ENVELOPE ARRAY TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn given_schema_envelope_array_when_created_then_has_array_type() {
+        let data: Vec<String> = vec!["item1".into(), "item2".into()];
+        let envelope = SchemaEnvelopeArray::new(schemas::LIST_RESPONSE, data);
+        assert_eq!(envelope.schema_type, "array");
+        assert_eq!(envelope.data.len(), 2);
+        assert!(envelope.success);
+    }
+
+    #[test]
+    fn given_schema_envelope_array_when_serialized_then_data_is_array_field() -> crate::Result<()> {
+        let data = vec![1, 2, 3];
+        let envelope = SchemaEnvelopeArray::new(schemas::LIST_RESPONSE, data);
+        let json = serde_json::to_string(&envelope)
+            .map_err(|e| crate::Error::ParseError(e.to_string()))?;
+        assert!(json.contains("\"data\":[1,2,3]"));
+        Ok(())
+    }
+
+    #[test]
+    fn given_empty_array_envelope_when_with_next_then_suggests_actions() {
+        use crate::hints::{ActionRisk, NextAction};
+
+        let data: Vec<String> = vec![];
+        let next = vec![NextAction {
+            action: "Add first item".into(),
+            commands: vec!["zjj add".into()],
+            risk: ActionRisk::Safe,
+            description: Some("Create your first session".into()),
+        }];
+        let envelope = SchemaEnvelopeArray::new(schemas::LIST_RESPONSE, data).with_next(next);
+        assert_eq!(envelope.next.len(), 1);
+        assert!(envelope.data.is_empty());
+    }
+
+    #[test]
+    fn given_error_with_available_sessions_when_created_then_includes_details() {
+        let available = vec!["session1".into(), "session2".into()];
+        let err = error_with_available_sessions(
+            ErrorCode::SessionNotFound,
+            "Session not found",
+            "missing",
+            &available,
+        );
+
+        assert_eq!(err.error.code, "SESSION_NOT_FOUND");
+        assert!(err.error.details.is_some());
+        assert!(err.error.suggestion.is_some());
+
+        if let Some(details) = err.error.details {
+            assert!(details.get("session_name").is_some());
+            assert!(details.get("available_sessions").is_some());
+        }
+    }
 }
