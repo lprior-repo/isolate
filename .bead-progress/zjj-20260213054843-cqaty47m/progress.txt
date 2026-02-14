@@ -1,0 +1,37 @@
+# Bead bd-1a6 Progress
+
+## Status: Phase 2 - Implementation
+
+## Research Complete
+- [x] Read `test_worker_claim_pipeline_failing.rs` - 338 lines, uses unwrap/expect
+- [x] Read `test_lease_lifecycle.rs` - 1041 lines, zero panics
+- [x] Identified patterns to migrate to
+
+## Findings
+### test_worker_claim_pipeline_failing.rs issues:
+- Line 43: `.unwrap()` after `next_with_lock`
+- Lines 53, 63, 73, 83, 93: `.expect("Entry should exist")`
+- Line 109: `.unwrap()` for entry_id
+- Line 166: `.expect("Entry should exist")`
+- Line 218: `.expect("Entry should exist")`
+- And more...
+
+### test_lease_lifecycle.rs patterns to copy:
+- `#![deny(clippy::unwrap_used)]`
+- Return `Result<(), Error>` from all tests
+- Use `ok_or_else(|| Error::DatabaseError("...".to_string()))` for Option->Result
+- Explicit error matching in assertions
+
+## Implementation Plan
+1. Remove `#![allow(...unwrap...)]` attributes
+2. Add `#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]`
+3. Replace all `.unwrap()` with `?` or explicit error handling
+4. Replace all `.expect()` with `ok_or_else()` pattern
+5. Update test signatures to return `Result<(), Error>`
+6. Fix any type mismatches
+7. Run `moon run :test` to verify
+
+## Commands
+- Start: `zjj add bd-1a6 && zjj focus bd-1a6`
+- Test: `moon run :quick` then `moon run :test`
+- Done: `git add . && git commit && git push`
