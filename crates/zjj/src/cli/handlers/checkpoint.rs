@@ -50,10 +50,11 @@ pub async fn handle_revert(sub_m: &ArgMatches) -> Result<()> {
         format,
     };
     let options = args.to_options();
-    revert::run_with_options(&options)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+    let exit_code = revert::run_with_options(&options).await? as i32;
+    if exit_code != 0 {
+        std::process::exit(exit_code);
+    }
+    Ok(())
 }
 
 pub async fn handle_recover(sub_m: &ArgMatches) -> Result<()> {
@@ -105,5 +106,9 @@ pub async fn handle_rollback(sub_m: &ArgMatches) -> Result<()> {
         dry_run,
         format,
     };
-    recover::run_rollback(&options).await
+    let exit_code = recover::run_rollback(&options).await?;
+    if exit_code != 0 {
+        std::process::exit(exit_code);
+    }
+    Ok(())
 }

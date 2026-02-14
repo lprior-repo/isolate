@@ -2776,11 +2776,16 @@ pub fn cmd_wait() -> ClapCommand {
 pub fn cmd_schema() -> ClapCommand {
     ClapCommand::new("schema")
         .about("Show JSON schemas for zjj protocol")
-        .arg(Arg::new("name").help("Schema name (e.g., add-response)"))
+        .arg(
+            Arg::new("name")
+                .help("Schema name (e.g., add-response)")
+                .conflicts_with_all(["list", "all"]),
+        )
         .arg(
             Arg::new("list")
                 .long("list")
                 .short('l')
+                .conflicts_with_all(["all", "name"])
                 .action(clap::ArgAction::SetTrue)
                 .help("List all available schemas"),
         )
@@ -2788,6 +2793,7 @@ pub fn cmd_schema() -> ClapCommand {
             Arg::new("all")
                 .long("all")
                 .short('a')
+                .conflicts_with_all(["list", "name"])
                 .action(clap::ArgAction::SetTrue)
                 .help("Show all schemas"),
         )
@@ -2799,7 +2805,7 @@ pub fn cmd_schema() -> ClapCommand {
         )
         .after_help(after_help_text(
             &[
-                "zjj schema                      Show all schemas",
+                "zjj schema                      List available schemas",
                 "zjj schema add-response          Show specific schema",
                 "zjj schema --list               List available schemas",
             ],
