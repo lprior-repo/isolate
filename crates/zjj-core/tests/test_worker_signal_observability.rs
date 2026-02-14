@@ -187,16 +187,13 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(150)).await;
 
         // If we reach here, worker survived the panic
-        assert!(true, "Worker should survive detached task panics");
-
-        // Note: Tokio catches panics in spawned tasks by default
-        // But we should log/observe these panics
     }
 
     /// Scenario: Shutdown notification reaches waiting tasks
     ///   Given multiple tasks waiting on shutdown signal
     ///   When shutdown is triggered
     ///   Then all waiting tasks should be notified
+    #[allow(clippy::assertions_on_constants)]
     #[tokio::test]
     async fn test_shutdown_notification_broadcast() {
         let shutdown = Arc::new(Notify::new());
