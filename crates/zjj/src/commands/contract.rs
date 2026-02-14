@@ -839,6 +839,12 @@ fn build_spawn_contract() -> CommandContract {
                 description: "Run agent in background".to_string(),
                 global: false,
             },
+            FlagContract {
+                name: "idempotent".to_string(),
+                short: None,
+                description: "Succeed if workspace already exists".to_string(),
+                global: false,
+            },
         ],
         output_schema: "zjj://spawn-response/v1".to_string(),
         side_effects: vec![
@@ -849,6 +855,7 @@ fn build_spawn_contract() -> CommandContract {
         related_commands: vec!["done".to_string(), "add".to_string()],
         examples: vec![
             "zjj spawn zjj-abc12".to_string(),
+            "zjj spawn zjj-abc12 --idempotent".to_string(),
             "zjj spawn zjj-xyz34 -b".to_string(),
             "zjj spawn zjj-def56 --no-auto-merge".to_string(),
         ],

@@ -458,6 +458,12 @@ pub mod ai_contracts {
       "required": false,
       "flag": "-a|--agent",
       "default": "claude"
+    },
+    "idempotent": {
+      "type": "boolean",
+      "required": false,
+      "flag": "--idempotent",
+      "description": "Safe retry mode when workspace already exists"
     }
   },
   "outputs": {
@@ -471,6 +477,7 @@ pub mod ai_contracts {
   },
   "examples": [
     "zjj spawn zjj-abc123",
+    "zjj spawn zjj-abc123 --idempotent",
     "zjj spawn zjj-abc123 --agent claude-opus"
   ]
 }"#
