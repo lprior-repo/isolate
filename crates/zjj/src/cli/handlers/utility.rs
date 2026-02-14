@@ -21,6 +21,16 @@ pub async fn handle_config(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_query(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::query());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let query_type = sub_m
         .get_one::<String>("query_type")
         .ok_or_else(|| anyhow::anyhow!("Query type is required"))?;
@@ -110,7 +120,6 @@ pub async fn handle_pane(sub_m: &ArgMatches) -> Result<()> {
             }
 
             if focus_m.get_flag("ai-hints") {
-                println!("AI COMMAND FLOW:");
                 println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
                 return Ok(());
             }

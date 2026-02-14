@@ -69,6 +69,16 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_list(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::list());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let all = sub_m.get_flag("all");
     let verbose = sub_m.get_flag("verbose");
     let format = get_format(sub_m);
@@ -95,6 +105,16 @@ pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_focus(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::focus());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let no_zellij = sub_m.get_flag("no-zellij");
     let format = get_format(sub_m);

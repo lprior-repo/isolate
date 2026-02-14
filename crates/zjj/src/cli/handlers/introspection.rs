@@ -26,6 +26,14 @@ pub async fn handle_ai(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_introspect(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::introspect());
+        return Ok(());
+    }
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
     let json = sub_m.get_flag("json");
     let ai_mode = sub_m.get_flag("ai");
     let format = OutputFormat::from_json_flag(json || ai_mode);
@@ -58,18 +66,46 @@ pub async fn handle_context(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_whereami(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::whereami());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let options = whereami::WhereAmIOptions { format };
     whereami::run(&options).await
 }
 
 pub fn handle_whoami(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::whoami());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let options = whoami::WhoAmIOptions { format };
     whoami::run(&options)
 }
 
 pub async fn handle_can_i(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::can_i());
+        return Ok(());
+    }
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
     let format = get_format(sub_m);
     let action = sub_m
         .get_one::<String>("action")
@@ -125,6 +161,14 @@ pub fn handle_help(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::validate());
+        return Ok(());
+    }
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
     let format = get_format(sub_m);
     let command = sub_m
         .get_one::<String>("command")

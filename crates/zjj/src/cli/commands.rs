@@ -31,10 +31,22 @@ pub fn cmd_init() -> ClapCommand {
                 .help("Output as JSON"),
         )
         .arg(
-            Arg::new("dry-run")
+            Arg::new("dry_run")
                 .long("dry-run")
                 .action(clap::ArgAction::SetTrue)
-                .help("Preview initialization without executing"),
+                .help("Preview validation without side effects (validation has no side effects, but flag accepted for compatibility)"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[
@@ -74,7 +86,19 @@ pub fn cmd_attach() -> ClapCommand {
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON (only for errors)"),
+                .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
 }
 
@@ -376,6 +400,18 @@ pub fn cmd_list() -> ClapCommand {
                 .action(clap::ArgAction::Set)
                 .help("Filter sessions by workspace state (created, working, ready, merged, abandoned, conflict, active, complete, terminal, non-terminal)"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
 }
 
 #[allow(clippy::too_many_lines)]
@@ -592,6 +628,18 @@ pub fn cmd_focus() -> ClapCommand {
                 .long("no-zellij")
                 .action(clap::ArgAction::SetTrue)
                 .help("Skip Zellij integration (for non-TTY environments)"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
 }
 
@@ -1084,6 +1132,18 @@ pub fn cmd_introspect() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Show valid session state transitions"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
 }
 
 pub fn cmd_doctor() -> ClapCommand {
@@ -1237,7 +1297,7 @@ pub fn cmd_query() -> ClapCommand {
         ))
         .arg(
             Arg::new("query_type")
-                .required(true)
+                .required_unless_present_any(["contract", "ai-hints"])
                 .help("Type of query (session-exists, session-count, can-run, suggest-name)"),
         )
         .arg(
@@ -1250,6 +1310,18 @@ pub fn cmd_query() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON (default for query)"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
 }
 
@@ -1829,6 +1901,18 @@ pub fn cmd_whereami() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj whereami                    Returns 'main' or 'workspace:<name>'",
@@ -1859,6 +1943,18 @@ pub fn cmd_whoami() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[
@@ -2067,7 +2163,7 @@ pub fn cmd_can_i() -> ClapCommand {
         )
         .arg(
             Arg::new("action")
-                .required(true)
+                .required_unless_present_any(["contract", "ai-hints"])
                 .help("Action to check (add, remove, done, undo, sync, spawn, claim, merge)"),
         )
         .arg(
@@ -2080,6 +2176,18 @@ pub fn cmd_can_i() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[
@@ -2190,7 +2298,7 @@ pub fn cmd_validate() -> ClapCommand {
         )
         .arg(
             Arg::new("command")
-                .required(true)
+                .required_unless_present_any(["contract", "ai-hints"])
                 .help("Command to validate inputs for"),
         )
         .arg(
@@ -2204,6 +2312,18 @@ pub fn cmd_validate() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
         .arg(
             Arg::new("dry_run")

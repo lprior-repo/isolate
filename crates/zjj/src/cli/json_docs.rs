@@ -622,4 +622,300 @@ pub mod ai_contracts {
   }
 }"#
     }
+
+    /// Machine-readable contract for zjj query command
+    pub const fn query() -> &'static str {
+        r#"AI CONTRACT for zjj query:
+{
+  "command": "zjj query",
+  "intent": "Programmatically query system state without side effects",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "query_type": {
+      "type": "string",
+      "required": true,
+      "options": ["session-exists", "session-count", "can-run", "suggest-name"],
+      "position": 1
+    },
+    "args": {
+      "type": "string",
+      "required": false,
+      "position": 2,
+      "description": "Arguments specific to the query type"
+    }
+  },
+  "outputs": {
+    "success": {
+      "query_type": "string",
+      "result": "any"
+    }
+  },
+  "examples": [
+    "zjj query session-exists feature-x",
+    "zjj query session-count",
+    "zjj query suggest-name feature"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj can-i command
+    pub const fn can_i() -> &'static str {
+        r#"AI CONTRACT for zjj can-i:
+{
+  "command": "zjj can-i",
+  "intent": "Check permission or capability to perform an action",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "action": {
+      "type": "string",
+      "required": true,
+      "position": 1,
+      "description": "The action to check (e.g., 'create-session', 'push')"
+    },
+    "resource": {
+      "type": "string",
+      "required": false,
+      "position": 2,
+      "description": "The resource to check against"
+    }
+  },
+  "outputs": {
+    "success": {
+      "allowed": "boolean",
+      "reason": "string"
+    }
+  },
+  "examples": [
+    "zjj can-i create-session",
+    "zjj can-i push feature-branch"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj integrity validate command
+    pub const fn validate() -> &'static str {
+        r#"AI CONTRACT for zjj integrity validate:
+{
+  "command": "zjj integrity validate",
+  "intent": "Validate the integrity of a workspace or session",
+  "prerequisites": [
+    "Workspace must exist"
+  ],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "command": {
+      "type": "string",
+      "required": true,
+      "position": 1,
+      "description": "Command to validate inputs for"
+    },
+    "args": {
+      "type": "array",
+      "required": false,
+      "description": "Arguments to validate"
+    }
+  },
+  "outputs": {
+    "success": {
+      "valid": "boolean",
+      "issues": ["string"]
+    }
+  },
+  "examples": [
+    "zjj validate add feature-x"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj introspect command
+    pub const fn introspect() -> &'static str {
+        r#"AI CONTRACT for zjj introspect:
+{
+  "command": "zjj introspect",
+  "intent": "Discover capabilities, commands, and environment state",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "command": {
+      "type": "string",
+      "required": false,
+      "position": 1,
+      "description": "Specific command to introspect"
+    },
+    "ai": {
+      "type": "boolean",
+      "flag": "--ai",
+      "description": "AI-optimized output"
+    }
+  },
+  "outputs": {
+    "success": {
+      "commands": ["object"],
+      "dependencies": "object",
+      "system_state": "object"
+    }
+  },
+  "examples": [
+    "zjj introspect",
+    "zjj introspect focus",
+    "zjj introspect --ai"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj whereami command
+    pub const fn whereami() -> &'static str {
+        r#"AI CONTRACT for zjj whereami:
+{
+  "command": "zjj whereami",
+  "intent": "Determine current location (main branch vs workspace)",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {},
+  "outputs": {
+    "success": {
+      "location_type": "main|workspace",
+      "workspace_name": "string|null",
+      "workspace_path": "string|null",
+      "simple": "string"
+    }
+  },
+  "examples": [
+    "zjj whereami",
+    "zjj whereami --json"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj whoami command
+    pub const fn whoami() -> &'static str {
+        r#"AI CONTRACT for zjj whoami:
+{
+  "command": "zjj whoami",
+  "intent": "Identify current agent and session context",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {},
+  "outputs": {
+    "success": {
+      "agent_id": "string|null",
+      "session_name": "string|null",
+      "bead_id": "string|null",
+      "registered": "boolean"
+    }
+  },
+  "examples": [
+    "zjj whoami",
+    "zjj whoami --json"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj list command
+    pub const fn list() -> &'static str {
+        r#"AI CONTRACT for zjj list:
+{
+  "command": "zjj list",
+  "intent": "List and filter active sessions",
+  "prerequisites": ["zjj init must have been run"],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "all": {
+      "type": "boolean",
+      "flag": "--all",
+      "description": "Include completed/failed sessions"
+    },
+    "bead": {
+      "type": "string",
+      "flag": "--bead",
+      "description": "Filter by bead ID"
+    },
+    "state": {
+      "type": "string",
+      "flag": "--state",
+      "description": "Filter by state (active, working, ready, etc)"
+    }
+  },
+  "outputs": {
+    "success": {
+      "data": ["session_object"]
+    }
+  },
+  "examples": [
+    "zjj list",
+    "zjj list --all",
+    "zjj list --bead zjj-123"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj focus command
+    pub const fn focus() -> &'static str {
+        r#"AI CONTRACT for zjj focus:
+{
+  "command": "zjj focus",
+  "intent": "Switch focus to a specific session (Zellij tab)",
+  "prerequisites": ["Zellij must be running"],
+  "side_effects": {
+    "creates": [],
+    "modifies": ["Zellij active tab"],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": false,
+      "position": 1,
+      "description": "Session name (interactive if omitted)"
+    },
+    "no_zellij": {
+      "type": "boolean",
+      "flag": "--no-zellij",
+      "description": "Skip Zellij integration (dry run equivalent)"
+    }
+  },
+  "outputs": {
+    "success": {
+      "name": "string",
+      "zellij_tab": "string",
+      "message": "string"
+    },
+    "errors": ["SessionNotFound", "ZellijNotRunning"]
+  },
+  "examples": [
+    "zjj focus feature-auth",
+    "zjj focus"
+  ]
+}"#
+    }
 }
