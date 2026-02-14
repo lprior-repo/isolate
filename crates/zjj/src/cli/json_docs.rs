@@ -370,57 +370,85 @@ pub mod ai_contracts {
         r#"AI CONTRACT for zjj work:
 {
   "command": "zjj work",
-  "intent": "Create workspace and register agent for automated task execution",
+  "intent": "Create or reuse a named workspace and optionally register an agent",
   "prerequisites": [
     "zjj init must have been run",
-    "Beads database must contain specified bead_id",
-    "Agent must be registered (or --no-agent)"
+    "Must run inside a JJ repository"
   ],
   "side_effects": {
-    "creates": ["JJ workspace", "Agent session", "Database session record", "Agent lock"],
-    "modifies": ["Bead status (open → in_progress)"],
+    "creates": ["JJ workspace", "Database session record"],
+    "modifies": ["Session metadata"],
     "state_transition": "none → active"
   },
   "inputs": {
-    "bead_id": {
+    "name": {
       "type": "string",
       "required": true,
       "position": 1,
-      "validation": "Must exist in beads database",
-      "examples": ["zjj-abc123", "zjj-def456"]
+      "validation": "Must pass session name validation",
+      "examples": ["feature-auth", "bug-fix-123"]
     },
-    "agent": {
+    "bead": {
       "type": "string",
       "required": false,
-      "flag": "--agent",
-      "description": "Agent command to run"
+      "flag": "-b|--bead",
+      "description": "Optional bead ID to associate"
+    },
+    "agent_id": {
+      "type": "string",
+      "required": false,
+      "flag": "--agent-id",
+      "description": "Optional agent identifier"
     },
     "no_agent": {
       "type": "boolean",
       "required": false,
       "flag": "--no-agent",
-      "description": "Don't spawn agent, just create workspace"
+      "description": "Skip agent registration"
+    },
+    "no_zellij": {
+      "type": "boolean",
+      "required": false,
+      "flag": "--no-zellij",
+      "description": "Skip opening a Zellij tab"
+    },
+    "idempotent": {
+      "type": "boolean",
+      "required": false,
+      "flag": "--idempotent",
+      "description": "Reuse existing session if present"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "required": false,
+      "flag": "--dry-run",
+      "description": "Preview without creating"
     }
   },
   "outputs": {
     "success": {
-      "session_name": "string",
+      "name": "string",
       "workspace_path": "string",
-      "bead_id": "string",
-      "agent_id": "string",
-      "status": "active"
+      "zellij_tab": "string",
+      "created": "boolean",
+      "agent_id": "string|null",
+      "bead_id": "string|null",
+      "env_vars": "array",
+      "enter_command": "string"
     },
     "errors": [
-      "BeadNotFound",
-      "BeadAlreadyInProgress",
-      "AgentNotRegistered",
+      "InvalidSessionName",
+      "SessionAlreadyExists",
+      "NotInJjRepository",
       "WorkspaceCreationFailed"
     ]
   },
   "examples": [
-    "zjj work zjj-abc123",
-    "zjj work zjj-abc123 --agent claude",
-    "zjj work zjj-abc123 --no-agent"
+    "zjj work feature-auth",
+    "zjj work bug-fix --bead zjj-123",
+    "zjj work feature-auth --agent-id agent-1 --idempotent",
+    "zjj work quick --no-agent --no-zellij",
+    "zjj work feature-auth --dry-run"
   ],
   "next_commands": [
     "zjj done",
@@ -992,7 +1020,7 @@ pub mod ai_contracts {
     ],
     "automated_agent_task": [
       "zjj init",
-      "zjj work bead-id --agent claude",
+      "zjj work feature-name --agent-id agent-1",
       "zjj focus session-name",
       "... agent works ...",
       "zjj done"
@@ -1702,5 +1730,60 @@ pub mod ai_contracts {
     "zjj introspect"
   ]
 }"#
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ai_contracts;
+
+    mod martin_fowler_work_contract_behavior {
+        use super::*;
+
+        /// GIVEN: The AI contract for `zjj work`
+        /// WHEN: We inspect supported agent-related flags
+        /// THEN: It should document `--agent-id` and reject stale `--agent`
+        #[test]
+        fn given_work_contract_when_inspecting_flags_then_documents_real_agent_flag() {
+            let contract = ai_contracts::work();
+
+            assert!(contract.contains("--agent-id"));
+            assert!(!contract.contains("\"flag\": \"--agent\""));
+        }
+
+        /// GIVEN: The AI command flow examples
+        /// WHEN: We inspect the automated agent workflow
+        /// THEN: It should use current `zjj work` syntax
+        #[test]
+        fn given_command_flow_when_automated_workflow_then_examples_use_current_syntax() {
+            let flow = ai_contracts::command_flow();
+
+            assert!(flow.contains("zjj work feature-name --agent-id agent-1"));
+            assert!(!flow.contains("zjj work bead-id --agent claude"));
+        }
+
+        /// GIVEN: The AI contract describes `zjj work` inputs
+        /// WHEN: We inspect the input schema block
+        /// THEN: It should use `name` as positional input and avoid stale `bead_id` positional
+        /// input
+        #[test]
+        fn given_work_contract_inputs_when_reading_then_uses_name_not_stale_bead_id_position() {
+            let contract = ai_contracts::work();
+
+            assert!(contract.contains("\"name\""));
+            assert!(!contract.contains("\"bead_id\": {"));
+        }
+
+        /// GIVEN: The AI contract describes `zjj work` output payload
+        /// WHEN: We inspect success fields
+        /// THEN: It should include actual runtime fields (`name`, `created`, `enter_command`)
+        #[test]
+        fn given_work_contract_outputs_when_reading_then_matches_runtime_shape() {
+            let contract = ai_contracts::work();
+
+            assert!(contract.contains("\"name\": \"string\""));
+            assert!(contract.contains("\"created\": \"boolean\""));
+            assert!(contract.contains("\"enter_command\": \"string\""));
+        }
     }
 }

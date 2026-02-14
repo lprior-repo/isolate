@@ -304,4 +304,107 @@ mod tests {
         let format = OutputFormat::from_json_flag(json_bool);
         assert!(format.is_json());
     }
+
+    mod martin_fowler_work_parser_table_behavior {
+        struct ParseCase {
+            name: &'static str,
+            args: Vec<&'static str>,
+            expect_ok: bool,
+        }
+
+        /// GIVEN: a matrix of `work` CLI argument combinations
+        /// WHEN: clap parses each row
+        /// THEN: acceptance/rejection should match command contract
+        #[test]
+        fn given_work_argument_matrix_when_parsing_then_rows_match_contract() {
+            let cases = [
+                ParseCase {
+                    name: "requires name by default",
+                    args: vec!["work"],
+                    expect_ok: false,
+                },
+                ParseCase {
+                    name: "contract bypasses name requirement",
+                    args: vec!["work", "--contract"],
+                    expect_ok: true,
+                },
+                ParseCase {
+                    name: "ai-hints bypasses name requirement",
+                    args: vec!["work", "--ai-hints"],
+                    expect_ok: true,
+                },
+                ParseCase {
+                    name: "accepts full flag set with name",
+                    args: vec![
+                        "work",
+                        "feature-auth",
+                        "--bead",
+                        "zjj-123",
+                        "--agent-id",
+                        "agent-1",
+                        "--idempotent",
+                        "--no-zellij",
+                        "--dry-run",
+                        "--json",
+                    ],
+                    expect_ok: true,
+                },
+                ParseCase {
+                    name: "rejects unknown flag",
+                    args: vec!["work", "feature-auth", "--unknown-flag"],
+                    expect_ok: false,
+                },
+            ];
+
+            for case in cases {
+                let parsed = crate::cli::commands::cmd_work().try_get_matches_from(case.args);
+                assert_eq!(
+                    parsed.is_ok(),
+                    case.expect_ok,
+                    "case '{}' parse expectation failed",
+                    case.name
+                );
+            }
+        }
+
+        /// GIVEN: parsed work args containing all optional knobs
+        /// WHEN: extracting values from clap matches
+        /// THEN: each option should map to the expected typed value
+        #[test]
+        fn given_full_work_args_when_reading_matches_then_all_values_are_preserved() {
+            let parsed = crate::cli::commands::cmd_work()
+                .try_get_matches_from([
+                    "work",
+                    "session-a",
+                    "--bead",
+                    "zjj-789",
+                    "--agent-id",
+                    "agent-77",
+                    "--no-zellij",
+                    "--no-agent",
+                    "--idempotent",
+                    "--dry-run",
+                    "--json",
+                ])
+                .expect("full work args should parse");
+
+            assert_eq!(
+                parsed.get_one::<String>("name").map(String::as_str),
+                Some("session-a")
+            );
+            assert_eq!(
+                parsed.get_one::<String>("bead").map(String::as_str),
+                Some("zjj-789")
+            );
+            assert_eq!(
+                parsed.get_one::<String>("agent-id").map(String::as_str),
+                Some("agent-77")
+            );
+            assert!(parsed.get_flag("no-zellij"));
+            assert!(parsed.get_flag("no-agent"));
+            assert!(parsed.get_flag("idempotent"));
+            assert!(parsed.get_flag("dry-run"));
+            assert!(parsed.get_flag("json"));
+        }
+    }
 }
