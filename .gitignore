@@ -1,0 +1,53 @@
+# Rust
+/target/
+Cargo.lock
+
+# Moon
+.moon/cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
+
+# Reports
+.llm-*.json
+.llm-*.md
+.cd-gates-*
+.mutations-report/
+
+# Codanna (local index)
+.codanna/
+.fastembed_cache
+
+# OC Workflow engine
+.oc-workflow/
+
+# ZJJ runtime data
+.zjj/
+workspaces/
+.tdd15-worktree/
+
+# Test workspaces (contain nested .jj directories)
+crates/*/test-workspaces-*/
+crates/*/test-workspaces-retry-*/
+crates/*/test-workspaces-serialize-*/
+crates/*/test-workspaces-staggered-*/
+
+# bv (beads viewer) local config and caches
+.bv/
+.beads/.br_history/
+bead-rmjy-test/
+.scout-agent-1.pid
+crates/zjj-core/target/
+.beads/checkpoint_backups/*.tar.gz
