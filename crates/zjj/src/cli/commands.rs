@@ -3167,6 +3167,18 @@ pub fn cmd_abort() -> ClapCommand {
                 .help("Preview without executing"),
         )
         .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
+        .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)

@@ -533,6 +533,71 @@ pub mod ai_contracts {
 }"#
     }
 
+    /// Machine-readable contract for zjj abort command
+    pub const fn abort() -> &'static str {
+        r#"AI CONTRACT for zjj abort:
+{
+  "command": "zjj abort",
+  "intent": "Abandon workspace without merging, discarding all changes",
+  "prerequisites": [
+    "Must be in a workspace or specify --workspace",
+    "Workspace should exist in session database"
+  ],
+  "side_effects": {
+    "creates": [],
+    "deletes": ["JJ workspace", "Session record", "Workspace files (unless --keep-workspace)"],
+    "modifies": ["Bead status (set back to ready unless --no-bead-update)"],
+    "state_transition": "active → abandoned"
+  },
+  "inputs": {
+    "workspace": {
+      "type": "string",
+      "flag": "-w|--workspace",
+      "required": false,
+      "default": "current workspace",
+      "description": "Workspace/session to abort"
+    },
+    "keep_workspace": {
+      "type": "boolean",
+      "flag": "--keep-workspace",
+      "required": false,
+      "description": "Keep workspace files, just remove from zjj tracking"
+    },
+    "no_bead_update": {
+      "type": "boolean",
+      "flag": "--no-bead-update",
+      "required": false,
+      "description": "Don't update bead status back to ready"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "flag": "--dry-run",
+      "required": false,
+      "description": "Preview abort without executing"
+    }
+  },
+  "outputs": {
+    "success": {
+      "session_name": "string",
+      "workspace_removed": "boolean",
+      "bead_updated": "boolean",
+      "message": "string"
+    },
+    "errors": [
+      "NotInWorkspace",
+      "SessionNotFound",
+      "WorkspaceRemovalFailed"
+    ]
+  },
+  "examples": [
+    "zjj abort",
+    "zjj abort --workspace feature-x",
+    "zjj abort --keep-workspace",
+    "zjj abort --dry-run"
+  ]
+}"#
+    }
+
     /// Machine-readable contract for zjj status command
     pub const fn status() -> &'static str {
         r#"AI CONTRACT for zjj status:
