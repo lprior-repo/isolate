@@ -394,7 +394,7 @@ impl IntegrityValidator {
     /// Validate a single workspace
     pub async fn validate(&self, workspace_name: &str) -> Result<ValidationResult> {
         let start = SystemTime::now();
-        let workspace_path = self.workspaces_root.join(workspace_name);
+        let workspace_path = self.resolve_workspace_path(workspace_name);
 
         let mut issues = Vec::new();
 
@@ -487,6 +487,24 @@ impl IntegrityValidator {
                     .with_duration(duration),
             )
         }
+    }
+
+    fn resolve_workspace_path(&self, workspace_name: &str) -> PathBuf {
+        let input_path = Path::new(workspace_name);
+
+        if input_path.is_absolute() {
+            return input_path.to_path_buf();
+        }
+
+        let looks_like_path = workspace_name.contains(std::path::MAIN_SEPARATOR)
+            || workspace_name.contains('/')
+            || workspace_name.starts_with('.');
+
+        if looks_like_path {
+            return input_path.to_path_buf();
+        }
+
+        self.workspaces_root.join(workspace_name)
     }
 
     /// Validate multiple workspaces in parallel
@@ -1126,6 +1144,20 @@ mod tests {
     async fn test_integrity_validator_with_timeout() {
         let validator = IntegrityValidator::new("/tmp/workspaces").with_timeout(1000);
         assert_eq!(validator.timeout_ms, 1000);
+    }
+
+    #[test]
+    fn test_resolve_workspace_path_keeps_absolute_path() {
+        let validator = IntegrityValidator::new("/tmp/workspaces");
+        let resolved = validator.resolve_workspace_path("/var/tmp/ws-a");
+        assert_eq!(resolved, PathBuf::from("/var/tmp/ws-a"));
+    }
+
+    #[test]
+    fn test_resolve_workspace_path_keeps_relative_path_input() {
+        let validator = IntegrityValidator::new("/tmp/workspaces");
+        let resolved = validator.resolve_workspace_path(".zjj/workspaces/ws-a");
+        assert_eq!(resolved, PathBuf::from(".zjj/workspaces/ws-a"));
     }
 
     #[tokio::test]
