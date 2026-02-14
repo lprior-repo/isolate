@@ -96,17 +96,17 @@ validate_doc_structure() {
 	fi
 
 	# Check for required sections in critical rules docs
-	if [[ "$doc_file" == *"13_AGENT_CRITICAL_RULES.md"* ]]; then
-		if ! grep -q "## 7 ABSOLUTE MANDATORY RULES" "$doc_file"; then
-			log_warn "Missing '7 ABSOLUTE MANDATORY RULES' section in $doc_file"
-			errors=$((errors + 1))
-		fi
-
-		if ! grep -q "## AI-Native CLI Usage" "$doc_file"; then
-			log_warn "Missing 'AI-Native CLI Usage' section in $doc_file"
-			errors=$((errors + 1))
-		fi
-	fi
+	# if [[ "$doc_file" == *"13_AGENT_CRITICAL_RULES.md"* ]]; then
+	# 	if ! grep -q "## 7 ABSOLUTE MANDATORY RULES" "$doc_file"; then
+	# 		log_warn "Missing '7 ABSOLUTE MANDATORY RULES' section in $doc_file"
+	# 		errors=$((errors + 1))
+	# 	fi
+	#
+	# 	if ! grep -q "## AI-Native CLI Usage" "$doc_file"; then
+	# 		log_warn "Missing 'AI-Native CLI Usage' section in $doc_file"
+	# 		errors=$((errors + 1))
+	# 	fi
+	# fi
 
 	# Check for proper command usage examples (zjj <command>)
 	if grep -qE 'zjj\s+[a-z][a-z-]*' "$doc_file"; then
@@ -147,14 +147,11 @@ validate_docs_exist() {
 	local docs_errors=0
 
 	# List of expected documentation files
-	# Note: Agent-related documentation (13-18) has been archived and is no longer required
-	local expected_docs=()
-
-	# If no expected docs are configured, this check passes
-	if [[ ${#expected_docs[@]} -eq 0 ]]; then
-		log_warn "No required documentation files configured in ci-docs-check.sh"
-		return 0
-	fi
+	local expected_docs=(
+		"00_START_HERE.md"
+		"AI_AGENT_GUIDE.md"
+		"03_WORKFLOW.md"
+	)
 
 	for doc in "${expected_docs[@]}"; do
 		local doc_path="$docs_dir/$doc"

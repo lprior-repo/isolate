@@ -11,7 +11,7 @@ Integration of issue tracking, version control, and build system.
 br list
 
 # Claim issue
-br claim BD-123
+br update BD-123 --status in_progress
 
 # Pull latest
 jj git fetch --all-remotes
@@ -63,10 +63,10 @@ jj log -r @
 
 ```bash
 # Mark complete
-br complete BD-123 --commit-hash <hash>
+br close BD-123
 
-# Or resolve (pending review)
-br resolve BD-123
+# Or mark ready for review
+br update BD-123 --status ready
 ```
 
 ## Beads (Issue Tracking)
@@ -75,14 +75,14 @@ br resolve BD-123
 
 ```bash
 # Feature
-br add --title "Feature: X" --priority high --label feature
+br create "Feature: X" --priority high --labels feature
 
 # Bug
-br add --title "Bug: X fails on Y" --priority high --label bug \
+br create "Bug: X fails on Y" --priority high --labels bug \
   --description "Steps: 1. Do X 2. See Y"
 
 # Chore
-br add --title "Chore: refactor X" --label chore
+br create "Chore: refactor X" --labels chore
 ```
 
 ### Managing Issues
@@ -90,10 +90,10 @@ br add --title "Chore: refactor X" --label chore
 ```bash
 br list                           # Show all open
 br list --filter "assigned:me"    # My issues
-br claim BD-123                   # Start working
-br resolve BD-123                 # Mark ready for review
-br complete BD-123                # Mark done
-br unresolved BD-123              # Reopen
+br update BD-123 --status in_progress  # Start working
+br update BD-123 --status ready    # Mark ready for review
+br close BD-123                   # Mark done
+br update BD-123 --status open    # Reopen
 ```
 
 ### Labels
@@ -225,7 +225,7 @@ jj git fetch --all-remotes
 br list
 
 # Pick an issue
-br claim BD-123
+br update BD-123 --status in_progress
 ```
 
 ### During Work
@@ -262,25 +262,25 @@ jj new
 jj git push
 
 # Close completed issues
-br complete BD-123
-br complete BD-124
+br close BD-123
+br close BD-124
 
 # Review what you're working on
-br claim --show BD-125
+br show BD-125
 ```
 
 ## Multi-Issue Workflow
 
 ```bash
 # Claim first issue
-br claim BD-123
+br update BD-123 --status in_progress
 
 # Make changes, commit
 jj describe -m "fix: issue 123"
 jj new
 
 # Claim second issue
-br claim BD-124
+br update BD-124 --status in_progress
 
 # Make changes, commit
 jj describe -m "feat: issue 124"
@@ -290,8 +290,8 @@ jj new
 jj git push
 
 # Close both
-br complete BD-123
-br complete BD-124
+br close BD-123
+br close BD-124
 ```
 
 ## Syncing Workspaces
@@ -381,15 +381,15 @@ jj git push
 moon run :ci
 
 # 2. File remaining work
-br add --title "Follow-up: X" --label chore
+br create "Follow-up: X" --labels chore
 
 # 3. Commit final changes
 jj describe -m "chore: final cleanup"
 jj new
 
 # 4. Update Beads
-br complete BD-123
-br complete BD-124
+br close BD-123
+br close BD-124
 
 # 5. Push everything
 jj git fetch --all-remotes

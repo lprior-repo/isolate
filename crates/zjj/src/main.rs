@@ -179,9 +179,7 @@ async fn main() {
             eprintln!("Error: {}", format_error(&err));
         }
 
-        let code = err
-            .downcast_ref::<zjj_core::Error>()
-            .map_or(1, zjj_core::Error::exit_code);
+        let code = json::semantic_exit_code(&err);
 
         #[allow(clippy::exit)]
         process::exit(code);

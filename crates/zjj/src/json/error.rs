@@ -44,6 +44,14 @@ pub fn output_json_error(error: &Error) -> i32 {
     exit_code
 }
 
+/// Return the semantic exit code for an error.
+///
+/// This is shared by JSON and non-JSON output modes so both paths
+/// return the same process status for the same failure.
+pub fn semantic_exit_code(error: &Error) -> i32 {
+    error_to_json_error(error).error.exit_code
+}
+
 #[derive(Debug, Serialize)]
 struct ErrorEnvelopePayload {
     error: ErrorDetail,
@@ -118,22 +126,28 @@ fn convert_spawn_error(error: &SpawnError) -> JsonError {
 
 /// Classify exit code based on error message pattern
 fn classify_exit_code_by_message(error_str: &str) -> i32 {
+    let lower = error_str.to_lowercase();
+
+    // Missing resources: exit code 2
+    if lower.contains("not found") || lower.contains("no backup found") {
+        return 2;
+    }
+
     // Validation errors: exit code 1
-    if error_str.contains("Session name")
-        || error_str.contains("Invalid session name")
-        || error_str.contains("Validation error")
-        || error_str.contains("already exists")
+    if lower.contains("invalid")
+        || lower.contains("validation")
+        || lower.contains("already exists")
+        || lower.contains("unknown database")
+        || lower.contains("unknown backup action")
+        || lower.contains("timestamp")
+        || lower.contains("not in a jj repository")
+        || lower.contains("not in a jj repo")
     {
         return 1;
     }
 
-    // Not found errors: exit code 2
-    if error_str.contains("not found") || error_str.contains("Not found") {
-        return 2;
-    }
-
     // System errors: exit code 3
-    if error_str.contains("database") || error_str.contains("IO error") {
+    if lower.contains("database") || lower.contains("io error") {
         return 3;
     }
 
@@ -143,31 +157,75 @@ fn classify_exit_code_by_message(error_str: &str) -> i32 {
 
 /// Classify an error by its message text (fallback heuristic)
 fn classify_error_by_message(error_str: &str) -> ErrorCode {
-    if error_str.contains("database") || error_str.contains("Database") {
-        ErrorCode::StateDbCorrupted
-    } else if error_str.contains("not found") || error_str.contains("Not found") {
+    let lower = error_str.to_lowercase();
+
+    if lower.contains("unknown database")
+        || lower.contains("unknown backup action")
+        || lower.contains("invalid --timestamp")
+        || lower.contains("invalid")
+        || lower.contains("validation")
+    {
+        ErrorCode::InvalidArgument
+    } else if lower.contains("no backup found") || lower.contains("not found") {
         ErrorCode::SessionNotFound
-    } else if error_str.contains("Invalid session name")
-        || error_str.contains("Session name")
-        || error_str.contains("must start with a letter")
+    } else if lower.contains("invalid session name")
+        || lower.contains("session name")
+        || lower.contains("must start with a letter")
     {
         ErrorCode::SessionNameInvalid
-    } else if error_str.contains("already exists") {
+    } else if lower.contains("already exists") {
         ErrorCode::SessionAlreadyExists
-    } else if error_str.contains("JJ is not installed") || error_str.contains("jj not found") {
+    } else if lower.contains("jj is not installed") || lower.contains("jj not found") {
         ErrorCode::JjNotInstalled
-    } else if error_str.contains("Not a JJ repository") || error_str.contains("not in a jj repo") {
+    } else if lower.contains("not a jj repository") || lower.contains("not in a jj repo") {
         ErrorCode::NotJjRepository
-    } else if error_str.contains("Zellij") || error_str.contains("zellij") {
+    } else if lower.contains("zellij") {
         ErrorCode::ZellijCommandFailed
-    } else if error_str.contains("workspace") && error_str.contains("not found") {
+    } else if lower.contains("workspace") && lower.contains("not found") {
         ErrorCode::WorkspaceNotFound
-    } else if error_str.contains("Not in workspace") || error_str.contains("not in a workspace") {
+    } else if lower.contains("not in workspace") || lower.contains("not in a workspace") {
         ErrorCode::InvalidArgument
-    } else if error_str.contains("conflict") || error_str.contains("Conflicting") {
+    } else if lower.contains("conflict") || lower.contains("conflicting") {
         ErrorCode::JjCommandFailed
+    } else if lower.contains("database") {
+        ErrorCode::StateDbCorrupted
     } else {
         ErrorCode::Unknown
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn given_unknown_database_when_classified_then_invalid_argument() {
+        let code = classify_error_by_message("Unknown database: notadb.db");
+        assert!(matches!(code, ErrorCode::InvalidArgument));
+        assert_eq!(
+            classify_exit_code_by_message("Unknown database: notadb.db"),
+            1
+        );
+    }
+
+    #[test]
+    fn given_not_jj_repo_when_classified_then_not_jj_repository_exit_one() {
+        let code = classify_error_by_message("Not in a JJ repository. Run 'zjj init' first.");
+        assert!(matches!(code, ErrorCode::NotJjRepository));
+        assert_eq!(
+            classify_exit_code_by_message("Not in a JJ repository. Run 'zjj init' first."),
+            1
+        );
+    }
+
+    #[test]
+    fn given_no_backup_found_when_classified_then_not_found_exit_two() {
+        let code = classify_error_by_message("No backup found with timestamp: 20250101-010101");
+        assert!(matches!(code, ErrorCode::SessionNotFound));
+        assert_eq!(
+            classify_exit_code_by_message("No backup found with timestamp: 20250101-010101"),
+            2
+        );
     }
 }
 

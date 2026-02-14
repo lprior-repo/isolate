@@ -167,6 +167,12 @@ pub fn handle_help(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::validate());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let command = sub_m
         .get_one::<String>("command")

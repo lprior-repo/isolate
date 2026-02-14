@@ -526,6 +526,79 @@ pub mod ai_contracts {
 }"#
     }
 
+    /// Machine-readable contract for zjj sync command
+    pub const fn sync() -> &'static str {
+        r#"AI CONTRACT for zjj sync:
+{
+  "command": "zjj sync",
+  "intent": "Sync session workspace with main branch by rebasing onto latest main",
+  "prerequisites": [
+    "Session must exist in database",
+    "Workspace directory must exist",
+    "JJ repository must be accessible",
+    "No uncommitted changes with conflicts"
+  ],
+  "side_effects": {
+    "creates": [],
+    "modifies": ["Session workspace (rebases onto main)", "last_synced timestamp"],
+    "state_transition": "workspace -> workspace (updated)"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": false,
+      "default": "current workspace (detected from context)",
+      "description": "Session name to sync",
+      "examples": ["feature-auth", "bugfix-123"]
+    },
+    "all": {
+      "type": "boolean",
+      "flag": "--all",
+      "required": false,
+      "description": "Sync all active sessions"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "flag": "--dry-run",
+      "required": false,
+      "description": "Preview sync without executing"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "name": "string|null",
+      "synced_count": "number",
+      "failed_count": "number",
+      "errors": "array of error objects"
+    },
+    "errors": [
+      "SessionNotFound",
+      "WorkspaceNotFound",
+      "RebaseConflict",
+      "JjCommandError"
+    ]
+  },
+  "examples": [
+    "zjj sync",
+    "zjj sync feature-auth",
+    "zjj sync --all",
+    "zjj sync --dry-run",
+    "zjj sync --json"
+  ],
+  "next_commands": [
+    "zjj done",
+    "zjj diff",
+    "zjj status"
+  ]
+}"#
+    }
+
     /// Machine-readable contract for zjj abort command
     pub const fn abort() -> &'static str {
         r#"AI CONTRACT for zjj abort:
@@ -587,6 +660,94 @@ pub mod ai_contracts {
     "zjj abort --workspace feature-x",
     "zjj abort --keep-workspace",
     "zjj abort --dry-run"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj remove command
+    pub const fn remove() -> &'static str {
+        r#"AI CONTRACT for zjj remove:
+{
+  "command": "zjj remove",
+  "intent": "Remove a session and its workspace, optionally merging changes first",
+  "prerequisites": [
+    "zjj init must have been run",
+    "Session must exist in database (unless --idempotent)"
+  ],
+  "side_effects": {
+    "creates": [],
+    "deletes": ["JJ workspace", "Session record", "Workspace directory", "Zellij tab (if exists)"],
+    "modifies": ["Session database", "Main branch (if --merge)"],
+    "state_transition": "active → removed"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "position": 1,
+      "description": "Name of the session to remove",
+      "examples": ["old-feature", "test-session", "experiment"]
+    },
+    "force": {
+      "type": "boolean",
+      "flag": "-f, --force",
+      "required": false,
+      "description": "Skip confirmation prompt and pre_remove hooks"
+    },
+    "merge": {
+      "type": "boolean",
+      "flag": "-m, --merge",
+      "required": false,
+      "description": "Squash-merge changes to main before removal"
+    },
+    "keep_branch": {
+      "type": "boolean",
+      "flag": "-k, --keep-branch",
+      "required": false,
+      "description": "Preserve branch after removal"
+    },
+    "idempotent": {
+      "type": "boolean",
+      "flag": "--idempotent",
+      "required": false,
+      "description": "Succeed if session doesn't exist (safe for retries)"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "name": "string",
+      "message": "string (e.g., 'Removed session <name>' or 'Session <name> already removed')"
+    },
+    "errors": [
+      "SessionNotFound",
+      "WorkspaceRemovalFailed",
+      "MergeFailed",
+      "DatabaseError"
+    ]
+  },
+  "exit_codes": {
+    "0": "Success",
+    "1": "Validation error",
+    "2": "Not found error",
+    "3": "IO error"
+  },
+  "examples": [
+    "zjj remove old-feature",
+    "zjj remove test-session -f",
+    "zjj remove feature-x --merge",
+    "zjj remove stale-session --idempotent",
+    "zjj remove experiment --json"
+  ],
+  "next_commands": [
+    "zjj list",
+    "zjj add <name>",
+    "zjj clean"
   ]
 }"#
     }
@@ -1372,6 +1533,173 @@ pub mod ai_contracts {
     "zjj contract",
     "zjj ai quick-start",
     "zjj context"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj validate command
+    pub const fn validate() -> &'static str {
+        r#"AI CONTRACT for zjj validate:
+{
+  "command": "zjj validate",
+  "intent": "Validate command arguments before execution",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "command": {
+      "type": "string",
+      "required": true,
+      "position": 1,
+      "description": "Command to validate arguments for"
+    },
+    "args": {
+      "type": "array of strings",
+      "required": false,
+      "description": "Arguments to validate"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "flag": "--dry-run",
+      "required": false,
+      "description": "Preview validation without executing"
+    }
+  },
+  "outputs": {
+    "success": {
+      "valid": "boolean",
+      "command": "string",
+      "errors": "array of strings"
+    }
+  },
+  "examples": [
+    "zjj validate add feature-auth",
+    "zjj validate remove old-session"
+  ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj query command
+    pub const fn query() -> &'static str {
+        r#"AI CONTRACT for zjj query:
+{
+  "command": "zjj query",
+  "intent": "Query system state programmatically for AI agents and automation",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "query_type": {
+      "type": "string",
+      "required": true,
+      "position": 1,
+      "description": "Type of query to execute",
+      "options": [
+        "session-exists",
+        "session-count",
+        "can-run",
+        "suggest-name",
+        "lock-status",
+        "can-spawn",
+        "pending-merges",
+        "location"
+      ],
+      "examples": ["session-exists", "can-run", "location"]
+    },
+    "args": {
+      "type": "string",
+      "required": false,
+      "position": 2,
+      "description": "Query-specific arguments",
+      "examples": ["my-session", "add", "feat{n}"]
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "default": true,
+      "description": "Output as JSON (default for query command)"
+    }
+  },
+  "outputs": {
+    "session-exists": {
+      "exists": "boolean",
+      "session": {
+        "name": "string",
+        "status": "string"
+      },
+      "error": "object or null"
+    },
+    "session-count": {
+      "count": "number",
+      "filter": "object or null"
+    },
+    "can-run": {
+      "can_run": "boolean",
+      "command": "string",
+      "blockers": ["array of blocker objects"],
+      "prerequisites_met": "number",
+      "prerequisites_total": "number"
+    },
+    "suggest-name": {
+      "pattern": "string",
+      "suggested": "string",
+      "next_available_n": "number",
+      "existing_matches": ["array of strings"]
+    },
+    "lock-status": {
+      "session": "string",
+      "locked": "boolean",
+      "holder": "string or null",
+      "expires_at": "string or null",
+      "error": "object or null"
+    },
+    "can-spawn": {
+      "can_spawn": "boolean",
+      "bead_id": "string or null",
+      "reason": "string or null",
+      "blockers": ["array of strings"]
+    },
+    "pending-merges": {
+      "sessions": ["array of session objects"],
+      "count": "number",
+      "error": "object or null"
+    },
+    "location": {
+      "type": "string (main or workspace)",
+      "name": "string or null",
+      "path": "string or null",
+      "simple": "string",
+      "error": "object or null"
+    },
+    "errors": [
+      "UnknownQueryType",
+      "MissingRequiredArgument",
+      "DatabaseError",
+      "InvalidPattern"
+    ]
+  },
+  "examples": [
+    "zjj query session-exists my-feature",
+    "zjj query session-count",
+    "zjj query session-count --status=active",
+    "zjj query can-run add",
+    "zjj query suggest-name 'feature-{n}'",
+    "zjj query lock-status my-session",
+    "zjj query can-spawn",
+    "zjj query pending-merges",
+    "zjj query location"
+  ],
+  "next_commands": [
+    "zjj context",
+    "zjj status",
+    "zjj introspect"
   ]
 }"#
     }

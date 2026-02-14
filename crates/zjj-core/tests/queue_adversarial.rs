@@ -845,6 +845,62 @@ async fn adversarial_retry_entry_concurrent_single_winner() -> Result<()> {
     Ok(())
 }
 
+/// Test that only one concurrent cancel can win for the same entry.
+#[tokio::test]
+async fn adversarial_cancel_entry_concurrent_single_winner() -> Result<()> {
+    let queue = Arc::new(MergeQueue::open_in_memory().await?);
+
+    queue.add("ws-cancel-race", None, 5, None).await?;
+    let entry = queue
+        .get_by_workspace("ws-cancel-race")
+        .await?
+        .ok_or_else(|| zjj_core::Error::DatabaseError("Entry should exist".to_string()))?;
+
+    let mut handles = vec![];
+    for _ in 0..2 {
+        let q = queue.clone();
+        let id = entry.id;
+        handles.push(tokio::spawn(async move { q.cancel_entry(id).await }));
+    }
+
+    let results = join_all(handles)
+        .await
+        .into_iter()
+        .map(|h| h.expect("Cancel task should not panic"))
+        .collect::<Vec<_>>();
+
+    let success_count = results.iter().filter(|r| r.is_ok()).count();
+    let terminal_reject_count = results
+        .iter()
+        .filter(|r| {
+            matches!(
+                r,
+                Err(QueueControlError::NotCancellable {
+                    status: QueueStatus::Cancelled,
+                    ..
+                })
+            )
+        })
+        .count();
+
+    assert_eq!(
+        success_count, 1,
+        "Exactly one concurrent cancel should succeed"
+    );
+    assert_eq!(
+        terminal_reject_count, 1,
+        "The loser should observe the entry is already cancelled"
+    );
+
+    let final_entry = queue
+        .get_by_id(entry.id)
+        .await?
+        .ok_or_else(|| zjj_core::Error::DatabaseError("Updated entry should exist".to_string()))?;
+    assert_eq!(final_entry.status, QueueStatus::Cancelled);
+
+    Ok(())
+}
+
 /// Test that next_with_lock does not leak lock state when queue is empty.
 #[tokio::test]
 async fn adversarial_next_with_lock_empty_releases_lock() -> Result<()> {

@@ -7,10 +7,27 @@ use super::json_format::get_format;
 use crate::commands::{abort, diff, done, submit, sync};
 
 pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::sync());
+        return Ok(());
+    }
+
+    // Handle --ai-hints flag
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let all = sub_m.get_flag("all");
+    let dry_run = sub_m.get_flag("dry-run");
     let format = get_format(sub_m);
-    let options = sync::SyncOptions { format, all };
+    let options = sync::SyncOptions {
+        format,
+        all,
+        dry_run,
+    };
     sync::run_with_options(name, options).await
 }
 

@@ -11,38 +11,37 @@ Beads stores issues in `.beads/beads.jsonl`. Each bead (issue) is a node in a de
 ### Basic Issue
 
 ```bash
-br add --title "Feature: implement X"
+br create "Feature: implement X"
 
 # With description
-br add --title "Bug: Y fails on Z" \
+br create "Bug: Y fails on Z" \
   --description "Steps to reproduce:
 1. Do X
 2. Observe Y
 3. Should see Z instead"
 
 # With priority and labels
-br add --title "Feature: add validation" \
+br create "Feature: add validation" \
   --priority high \
-  --label feature \
-  --label "p0"
+  --labels feature,p0
 ```
 
 ### Issue Templates
 
 **Feature**:
 ```bash
-br add --title "Feature: description" --label feature --priority high
+br create "Feature: description" --labels feature --priority high
 ```
 
 **Bug**:
 ```bash
-br add --title "Bug: what fails" --label bug --priority high \
+br create "Bug: what fails" --labels bug --priority high \
   --description "Steps: 1. ... 2. ... Expected: ... Actual: ..."
 ```
 
 **Chore**:
 ```bash
-br add --title "Chore: refactor X" --label chore --priority medium
+br create "Chore: refactor X" --labels chore --priority medium
 ```
 
 ## Managing Issues
@@ -60,23 +59,24 @@ br list --filter "priority:high"     # By priority
 ### Claiming Issues
 
 ```bash
-br claim BD-123          # Start working
-br claim BD-123 --show   # See details
+br update BD-123 --status in_progress  # Start working
+br update BD-123 --claim               # Or use --claim flag (atomic claim)
+br show BD-123                         # See details
 ```
 
 ### Updating Status
 
 ```bash
-br resolve BD-123        # Mark ready for review
-br complete BD-123       # Mark done
-br unresolved BD-123     # Reopen
+br update BD-123 --status ready   # Mark ready for review
+br close BD-123                  # Mark done
+br update BD-123 --status open   # Reopen
 ```
 
 ### Adding Dependencies
 
 ```bash
-br link BD-123 BD-124    # BD-123 blocks BD-124
-br unlink BD-123 BD-124  # Remove dependency
+br dep add BD-123 BD-124    # BD-123 blocks BD-124
+br dep remove BD-123 BD-124 # Remove dependency
 ```
 
 ## Using `bv` for Triage
@@ -214,7 +214,7 @@ bv --robot-triage
 bv --robot-next
 
 # Claim it
-br claim BD-123
+br update BD-123 --status in_progress
 ```
 
 ### During Work: Track Progress
@@ -224,7 +224,7 @@ br claim BD-123
 bv --robot-plan --label core
 
 # Update as you finish
-br complete BD-123
+br close BD-123
 ```
 
 ### End of Day: Health Check
@@ -265,7 +265,7 @@ Good reasons to link issues:
 - "BD-124 requires output from BD-123"
 
 ```bash
-br link BD-123 BD-124  # BD-123 blocks BD-124
+br dep add BD-123 BD-124  # BD-123 blocks BD-124
 ```
 
 ### Checking for Cycles
@@ -309,57 +309,50 @@ bv --robot-insights | jq '.CriticalPath'  # Longest dependency chain
 
 ```bash
 # Create epic
-br add --title "Epic: feature X" --label epic --priority high
+br create "Epic: feature X" --labels epic --priority high
 
 # Break into tasks
-br add --title "Feature: part 1" --label feature --priority high
-br add --title "Feature: part 2" --label feature --priority high
-br add --title "Tests: feature X" --label testing
+br create "Feature: part 1" --labels feature --priority high
+br create "Feature: part 2" --labels feature --priority high
+br create "Tests: feature X" --labels testing
 
 # Link to epic
-br link BD-epic BD-part1
-br link BD-epic BD-part2
-br link BD-epic BD-tests
+br dep add BD-epic BD-part1
+br dep add BD-epic BD-part2
+br dep add BD-epic BD-tests
 
 # Triage
 bv --robot-plan
 
 # Work
-br claim BD-part1
+br update BD-part1 --status in_progress
 # ... implement ...
-br complete BD-part1
+br close BD-part1
 ```
 
 ### Bug Triage
 
 ```bash
 # Report bug
-br add --title "Bug: X fails" --label bug --priority high
+br create "Bug: X fails" --labels bug --priority high
 
 # Find impact
 bv --robot-insights | jq '.PageRank[] | select(.id == "BD-123")'
 
 # Estimate effort
-br claim BD-123
+br update BD-123 --status in_progress
 # ... investigate ...
-br resolve BD-123  # Ready for review
+br update BD-123 --status ready  # Ready for review
 ```
-
-## Performance Notes
-
-- **Phase 1** (instant): degree, topo, density
-- **Phase 2** (async): PageRank, betweenness, HITS, eigenvector, cycles (500ms timeout)
-- **Prefer `--robot-plan`** over `--robot-insights` when speed matters
-- **Results cached** by data hash (no redundant computation)
 
 ## Integration with Development
 
-1. **Create issue** → `br add ...`
-2. **Claim issue** → `br claim BD-123`
+1. **Create issue** → `br create ...`
+2. **Claim issue** → `br update BD-123 --status in_progress`
 3. **Make branch** → `jj bookmark set feature/...` (implicit in ZJJ)
 4. **Work** → Edit files, commit with `jj describe`
 5. **Push** → `jj git push`
-6. **Close** → `br complete BD-123`
+6. **Close** → `br close BD-123`
 
 All connected through Beads dependency graph and tracked by `bv`.
 
