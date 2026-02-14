@@ -97,7 +97,8 @@ pub fn cmd_add() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required_unless_present_any(["example-json", "contract", "ai-hints"])
-                .help("Name for the new session (must start with a letter)"),
+                .help("Name for the new session (must start with a letter)")
+                .allow_hyphen_values(true),
         )
         .arg(
             Arg::new("bead")

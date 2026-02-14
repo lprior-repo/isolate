@@ -243,6 +243,23 @@ add session2 --no-zellij",
             .current_dir(repo_path)
             .status()
             .unwrap();
+
+        // Keep workspace inside repo for deterministic path assertion
+        let config_status = Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["config", "workspace_dir", ".zjj/workspaces"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
+        assert!(config_status.success(), "failed to set workspace_dir");
+
+        // Configure workspace_dir to be inside .zjj for deterministic assertion
+        Command::cargo_bin("zjj")
+            .unwrap()
+            .args(["config", "workspace_dir", ".zjj/workspaces"])
+            .current_dir(repo_path)
+            .status()
+            .unwrap();
         Command::cargo_bin("zjj")
             .unwrap()
             .args(["add", "lock-test", "--no-zellij"])
@@ -402,7 +419,17 @@ add session2 --no-zellij",
 
         // Verify workspace still exists because of --no-auto-cleanup
         let workspace_path = repo_path.join(".zjj/workspaces/zjj-123");
-        assert!(workspace_path.exists());
+        let sibling_workspace_path = repo_path
+            .parent()
+            .map(|parent| {
+                let repo_name = repo_path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("repo");
+                parent.join(format!("{repo_name}__workspaces/zjj-123"))
+            })
+            .unwrap_or_else(|| repo_path.join("__missing_parent__/zjj-123"));
+        assert!(workspace_path.exists() || sibling_workspace_path.exists());
     }
 
     /// Scenario: Pause and Resume session

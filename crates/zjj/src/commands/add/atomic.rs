@@ -12,9 +12,10 @@ const JOURNAL_DONE: &str = "done";
 const JOURNAL_FAILED_COMPENSATION: &str = "failed_compensation";
 
 fn add_operation_id(name: &str, command_id: Option<&str>) -> String {
-    command_id
-        .map(|id| format!("add:{name}:{id}"))
-        .unwrap_or_else(|| format!("add:{name}"))
+    match command_id {
+        Some(id) => format!("add:{name}:{id}"),
+        None => format!("add:{name}"),
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -204,7 +205,28 @@ pub(super) async fn atomic_create_session(
         false,
         "creating jj workspace",
     );
-    let workspace_result = create_jj_workspace(name, workspace_path, repo_root).await;
+    let workspace_result = match create_jj_workspace(name, workspace_path, repo_root).await {
+        Ok(()) => {
+            let exists = tokio::fs::try_exists(workspace_path)
+                .await
+                .map_err(|error| {
+                    anyhow::anyhow!(
+                        "workspace creation reported success but path check failed for '{}': {error}",
+                        workspace_path.display()
+                    )
+                });
+
+            match exists {
+                Ok(true) => Ok(()),
+                Ok(false) => Err(anyhow::anyhow!(
+                    "workspace creation reported success but directory '{}' is missing",
+                    workspace_path.display()
+                )),
+                Err(error) => Err(error),
+            }
+        }
+        Err(error) => Err(error),
+    };
 
     match workspace_result {
         Ok(()) => {
