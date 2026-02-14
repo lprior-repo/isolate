@@ -96,17 +96,17 @@ validate_doc_structure() {
 	fi
 
 	# Check for required sections in critical rules docs
-	if [[ "$doc_file" == *"13_AGENT_CRITICAL_RULES.md"* ]]; then
-		if ! grep -q "## 7 ABSOLUTE MANDATORY RULES" "$doc_file"; then
-			log_warn "Missing '7 ABSOLUTE MANDATORY RULES' section in $doc_file"
-			errors=$((errors + 1))
-		fi
-
-		if ! grep -q "## AI-Native CLI Usage" "$doc_file"; then
-			log_warn "Missing 'AI-Native CLI Usage' section in $doc_file"
-			errors=$((errors + 1))
-		fi
-	fi
+	# if [[ "$doc_file" == *"13_AGENT_CRITICAL_RULES.md"* ]]; then
+	# 	if ! grep -q "## 7 ABSOLUTE MANDATORY RULES" "$doc_file"; then
+	# 		log_warn "Missing '7 ABSOLUTE MANDATORY RULES' section in $doc_file"
+	# 		errors=$((errors + 1))
+	# 	fi
+	#
+	# 	if ! grep -q "## AI-Native CLI Usage" "$doc_file"; then
+	# 		log_warn "Missing 'AI-Native CLI Usage' section in $doc_file"
+	# 		errors=$((errors + 1))
+	# 	fi
+	# fi
 
 	# Check for proper command usage examples (zjj <command>)
 	if grep -qE 'zjj\s+[a-z][a-z-]*' "$doc_file"; then
@@ -148,12 +148,9 @@ validate_docs_exist() {
 
 	# List of expected documentation files
 	local expected_docs=(
-		"13_AGENT_CRITICAL_RULES.md"
-		"14_AGENT_QUICK_REFERENCE.md"
-		"15_AGENT_PROJECT_CONTEXT.md"
-		"16_AGENT_PARALLEL_WORKFLOW.md"
-		"17_AGENT_SESSION_COMPLETION.md"
-		"18_AGENT_BV_REFERENCE.md"
+		"00_START_HERE.md"
+		"AI_AGENT_GUIDE.md"
+		"03_WORKFLOW.md"
 	)
 
 	for doc in "${expected_docs[@]}"; do
