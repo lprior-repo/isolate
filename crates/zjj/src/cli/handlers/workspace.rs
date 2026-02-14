@@ -28,6 +28,10 @@ fn print_contract(contract: &str, json_mode: bool) {
     }
 }
 
+fn extract_json_payload(doc: &'static str) -> &'static str {
+    doc.find('{').map_or(doc, |index| &doc[index..])
+}
+
 pub async fn handle_init(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
     let dry_run = sub_m.get_flag("dry-run");
@@ -154,12 +158,22 @@ pub async fn handle_focus(sub_m: &ArgMatches) -> Result<()> {
 
 pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
     if sub_m.get_flag("contract") {
-        println!("{}", crate::cli::json_docs::ai_contracts::status());
+        println!(
+            "{}",
+            extract_json_payload(crate::cli::json_docs::ai_contracts::status())
+        );
         return Ok(());
     }
 
     if sub_m.get_flag("ai-hints") {
-        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        if get_format(sub_m).is_json() {
+            println!(
+                "{}",
+                extract_json_payload(crate::cli::json_docs::ai_contracts::command_flow())
+            );
+        } else {
+            println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        }
         return Ok(());
     }
 

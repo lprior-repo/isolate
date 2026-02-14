@@ -33,10 +33,25 @@ pub async fn handle_undo(sub_m: &ArgMatches) -> Result<()> {
         format,
     };
     let options = args.to_options();
-    undo::run_with_options(&options)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+    match undo::run_with_options(&options).await {
+        Ok(code) => {
+            if (code as i32) != 0 {
+                std::process::exit(code as i32);
+            }
+            Ok(())
+        }
+        Err(error) => {
+            let exit_code = match error {
+                undo::UndoError::AlreadyPushedToRemote { .. } => {
+                    undo::UndoExitCode::AlreadyPushed as i32
+                }
+                undo::UndoError::NoUndoHistory => undo::UndoExitCode::NoHistory as i32,
+                undo::UndoError::InvalidState { .. } => undo::UndoExitCode::InvalidState as i32,
+                _ => undo::UndoExitCode::OtherError as i32,
+            };
+            std::process::exit(exit_code);
+        }
+    }
 }
 
 pub async fn handle_revert(sub_m: &ArgMatches) -> Result<()> {

@@ -499,7 +499,7 @@ async fn get_current_bookmark(workspace_path: &PathBuf) -> Result<String, Submit
     let workspace_name = workspace_path
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or("");
+        .map_or("", |s| s);
 
     let bookmark_name = bookmarks
         .iter()
@@ -600,6 +600,11 @@ async fn check_and_handle_dirty_state(
 
     // Workspace is dirty
     if options.auto_commit {
+        // In dry-run mode, never mutate workspace state.
+        if options.dry_run {
+            return Ok(());
+        }
+
         // Auto-commit enabled - commit changes and proceed
         auto_commit_changes(workspace_path, options.message.as_deref()).await
     } else {
