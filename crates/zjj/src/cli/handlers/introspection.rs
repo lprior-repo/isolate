@@ -13,6 +13,18 @@ use crate::{
 };
 
 pub async fn handle_ai(sub_m: &ArgMatches) -> Result<()> {
+    // Handle --contract flag first
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::ai());
+        return Ok(());
+    }
+
+    // Handle --ai-hints flag
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let subcommand = match sub_m.subcommand() {
         Some(("status", _)) => ai::AiSubcommand::Status,

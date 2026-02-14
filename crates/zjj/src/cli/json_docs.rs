@@ -641,6 +641,71 @@ pub mod ai_contracts {
 }"#
     }
 
+    /// Machine-readable contract for zjj ai command
+    pub const fn ai() -> &'static str {
+        r#"AI CONTRACT for zjj ai:
+{
+  "command": "zjj ai",
+  "intent": "AI-first entry point providing status, workflows, and guidance for AI agents",
+  "prerequisites": [],
+  "side_effects": {
+    "creates": [],
+    "modifies": [],
+    "state_transition": "none"
+  },
+  "inputs": {
+    "subcommand": {
+      "type": "string",
+      "required": false,
+      "default": "default overview",
+      "options": ["status", "workflow", "quick-start", "next"],
+      "description": "AI subcommand to execute"
+    }
+  },
+  "outputs": {
+    "status": {
+      "location": "string",
+      "workspace": "string|null",
+      "agent_id": "string|null",
+      "initialized": "boolean",
+      "active_sessions": "number",
+      "ready": "boolean",
+      "suggestion": "string",
+      "next_command": "string"
+    },
+    "workflow": {
+      "name": "string",
+      "steps": [
+        {
+          "step": "number",
+          "command": "string",
+          "description": "string"
+        }
+      ]
+    },
+    "quick-start": {
+      "essential_commands": "array",
+      "orientation": "array",
+      "workflow": "array"
+    },
+    "next": {
+      "action": "string",
+      "command": "string",
+      "reason": "string",
+      "priority": "high|medium|low"
+    }
+  },
+  "examples": [
+    "zjj ai",
+    "zjj ai status",
+    "zjj ai workflow",
+    "zjj ai quick-start",
+    "zjj ai next",
+    "zjj ai --json"
+  ]
+}"#
+    }
+
     /// AI hints for command sequencing
     pub const fn command_flow() -> &'static str {
         r#"AI COMMAND FLOW:

@@ -1935,6 +1935,20 @@ pub fn cmd_ai() -> ClapCommand {
                 .global(true)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .global(true)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .global(true)
+                .help("AI: Show execution hints and common patterns"),
+        )
         .subcommand(
             ClapCommand::new("status")
                 .about("AI-optimized status with guided next action")
