@@ -364,26 +364,17 @@ mod brutal_edge_cases {
         // When: User spawns with existing workspace
         let result = execute_spawn(&options).await;
 
-        // Then: Either cleans up and proceeds OR returns clear error
-        match result {
-            Ok(_) => {
-                // If it succeeds, old marker should be gone (cleaned up)
-                assert!(
-                    !workspace_path.join("marker.txt").exists(),
-                    "Old workspace should be cleaned before spawn"
-                );
-            }
-            Err(e) => {
-                // If it fails, error should mention conflict
-                let err_str = e.to_string();
-                assert!(
-                    err_str.contains("exists")
-                        || err_str.contains("conflict")
-                        || err_str.contains("workspace"),
-                    "Error should indicate workspace conflict: {err_str}"
-                );
-            }
-        }
+        // Then: Spawn should fail fast without deleting existing files
+        let err = result.expect_err("spawn should fail when workspace path already exists");
+        let err_str = err.to_string();
+        assert!(
+            err_str.contains("already exists") || err_str.contains("Refusing to overwrite"),
+            "Error should indicate existing workspace conflict: {err_str}"
+        );
+        assert!(
+            workspace_path.join("marker.txt").exists(),
+            "Existing workspace files must be preserved"
+        );
     }
 
     #[tokio::test]

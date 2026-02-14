@@ -226,11 +226,12 @@ async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBu
             reason: format!("Failed to check existing workspace path: {e}"),
         }
     })? {
-        tokio::fs::remove_dir_all(&workspace_path)
-            .await
-            .map_err(|e| SpawnError::WorkspaceCreationFailed {
-                reason: format!("Failed to remove existing workspace directory: {e}"),
-            })?;
+        return Err(SpawnError::WorkspaceCreationFailed {
+            reason: format!(
+                "Workspace already exists at {}. Refusing to overwrite existing files.",
+                workspace_path.display()
+            ),
+        });
     }
 
     // Use synchronized workspace creation to prevent operation graph corruption
