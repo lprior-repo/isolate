@@ -1146,16 +1146,34 @@ impl MergeQueue {
 
         let now = Self::now();
 
-        // Transition to cancelled
-        sqlx::query(
+        // Transition to cancelled.
+        // Guard on current status to prevent concurrent double-cancel from both succeeding.
+        let update_result = sqlx::query(
             "UPDATE merge_queue SET status = 'cancelled', state_changed_at = ?1, completed_at = ?1 \
-                 WHERE id = ?2",
+                 WHERE id = ?2 AND status NOT IN ('merged', 'failed_terminal', 'cancelled')",
         )
         .bind(now)
         .bind(id)
         .execute(&self.pool)
         .await
         .map_err(|_| QueueControlError::NotFound(id))?;
+
+        if update_result.rows_affected() == 0 {
+            let current = self
+                .get_by_id(id)
+                .await
+                .map_err(|_| QueueControlError::NotFound(id))?
+                .ok_or(QueueControlError::NotFound(id))?;
+
+            if current.status.is_terminal() {
+                return Err(QueueControlError::NotCancellable {
+                    id,
+                    status: current.status,
+                });
+            }
+
+            return Err(QueueControlError::NotFound(id));
+        }
 
         // Fetch and return the updated entry
         self.get_by_id(id)
