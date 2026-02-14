@@ -31,6 +31,9 @@ pub struct SpawnArgs {
     /// Timeout in seconds (default: 14400 = 4 hours)
     pub timeout: u64,
 
+    /// Succeed if workspace already exists
+    pub idempotent: bool,
+
     /// Output format
     pub format: String,
 }
@@ -56,6 +59,7 @@ impl SpawnArgs {
         let no_auto_merge = matches.get_flag("no-auto-merge");
         let no_auto_cleanup = matches.get_flag("no-auto-cleanup");
         let background = matches.get_flag("background");
+        let idempotent = matches.get_flag("idempotent");
 
         let timeout = matches
             .get_one::<String>("timeout")
@@ -76,6 +80,7 @@ impl SpawnArgs {
             no_auto_cleanup,
             background,
             timeout,
+            idempotent,
             format,
         })
     }
@@ -90,6 +95,7 @@ impl SpawnArgs {
             no_auto_cleanup: self.no_auto_cleanup,
             background: self.background,
             timeout_secs: self.timeout,
+            idempotent: self.idempotent,
             format: if self.format == "json" {
                 OutputFormat::Json
             } else {
@@ -109,6 +115,7 @@ pub struct SpawnOptions {
     pub no_auto_cleanup: bool,
     pub background: bool,
     pub timeout_secs: u64,
+    pub idempotent: bool,
     pub format: OutputFormat,
 }
 
@@ -285,6 +292,7 @@ mod tests {
             no_auto_cleanup: false,
             background: false,
             timeout: 3600,
+            idempotent: false,
             format: "json".to_string(),
         };
 

@@ -26,9 +26,12 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame, Terminal,
 };
+use serde::Serialize;
 use zjj_core::{
     config::ConfigManager,
+    json::SchemaEnvelopeArray,
     watcher::{BeadsStatus, FileWatcher, WatchEvent},
+    OutputFormat,
 };
 
 use crate::{
@@ -41,7 +44,7 @@ use crate::{
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Session data enriched with JJ changes and beads counts
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 struct SessionData {
     session: Session,
     changes: Option<usize>,
@@ -117,7 +120,11 @@ enum InputAction {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Run the interactive dashboard
-pub async fn run() -> Result<()> {
+pub async fn run(format: OutputFormat) -> Result<()> {
+    if format.is_json() {
+        return run_json().await;
+    }
+
     // Check if running in a TTY
     if !crate::cli::is_terminal() {
         anyhow::bail!(
@@ -183,6 +190,50 @@ pub async fn run() -> Result<()> {
     terminal.show_cursor().context("Failed to show cursor")?;
 
     result
+}
+
+/// Run dashboard in JSON mode (non-interactive)
+async fn run_json() -> Result<()> {
+    use futures::StreamExt;
+
+    // Check if we're in a JJ repo
+    let _root = crate::cli::jj_root()
+        .await
+        .context("Not in a JJ repository. Run 'zjj init' first.")?;
+
+    let db = get_session_db().await?;
+    let sessions = db.list(None).await?;
+
+    // Enrich sessions
+    let enriched_sessions: Vec<SessionData> = futures::stream::iter(sessions)
+        .map(|session| async move {
+            let workspace_path = Path::new(&session.workspace_path);
+
+            let changes = match tokio::fs::try_exists(workspace_path).await {
+                Ok(true) => zjj_core::jj::workspace_status(workspace_path)
+                    .await
+                    .ok()
+                    .map(|status| status.change_count()),
+                _ => None,
+            };
+
+            let beads = BeadsStatus::NoBeads;
+
+            SessionData {
+                session,
+                changes,
+                beads,
+            }
+        })
+        .buffered(10)
+        .collect()
+        .await;
+
+    // Output as JSON
+    let envelope = SchemaEnvelopeArray::new("dashboard-sessions", enriched_sessions);
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
+
+    Ok(())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

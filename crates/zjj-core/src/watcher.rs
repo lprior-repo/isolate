@@ -45,6 +45,7 @@ use notify::RecursiveMode;
 #[cfg(test)]
 use notify_debouncer_mini::DebouncedEventKind;
 use notify_debouncer_mini::{new_debouncer, DebouncedEvent};
+use serde::Serialize;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc;
 
@@ -62,7 +63,7 @@ pub enum WatchEvent {
 }
 
 /// Beads status for a workspace
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum BeadsStatus {
     /// No beads database found
     NoBeads,

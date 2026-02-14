@@ -660,6 +660,12 @@ pub fn cmd_switch() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("no-zellij")
+                .long("no-zellij")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip Zellij integration (for non-TTY environments)"),
+        )
 }
 
 pub fn cmd_sync() -> ClapCommand {
@@ -987,9 +993,16 @@ pub fn cmd_dashboard() -> ClapCommand {
                 "zjj dashboard                  Launch the kanban-style dashboard",
                 "zjj dash                       Use the alias to open the TUI quickly",
                 "zjj status                     For non-interactive overview",
+                "zjj dashboard --json           Output session data as JSON",
             ],
             None,
         ))
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Output as JSON"),
+        )
 }
 
 pub fn cmd_introspect() -> ClapCommand {
@@ -1554,6 +1567,12 @@ pub fn cmd_spawn() -> ClapCommand {
                 .long("ai-hints")
                 .action(clap::ArgAction::SetTrue)
                 .help("AI: Show execution hints and common patterns"),
+        )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if workspace already exists (safe for retries)"),
         )
 }
 
