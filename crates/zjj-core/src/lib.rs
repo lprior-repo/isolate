@@ -60,6 +60,8 @@ pub mod introspection;
 pub mod jj;
 pub mod jj_operation_sync;
 pub mod json;
+#[cfg(test)]
+mod json_tests;
 pub mod kdl_validation;
 pub mod lifecycle;
 pub mod moon_gates;
