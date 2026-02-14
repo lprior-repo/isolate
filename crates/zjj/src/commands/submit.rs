@@ -458,8 +458,12 @@ async fn get_current_bookmark(workspace_path: &PathBuf) -> Result<String, Submit
             match parts.as_slice() {
                 [name, rest] => {
                     let tokens: Vec<&str> = rest.split_whitespace().collect();
-                    // Check if this bookmark points to our current change_id
-                    if tokens.first().is_some_and(|&t| t == current_change_id) {
+                    // Check if this bookmark points to current change_id.
+                    // `jj bookmark list` uses abbreviated change ids, while
+                    // `jj log -T change_id` returns the full id.
+                    if tokens.first().is_some_and(|&t| {
+                        current_change_id.starts_with(t) || t.starts_with(&current_change_id)
+                    }) {
                         Some(name.trim().to_string())
                     } else {
                         None
@@ -562,6 +566,11 @@ async fn check_and_handle_dirty_state(
 
     // Workspace is dirty
     if options.auto_commit {
+        // In dry-run mode, never mutate workspace state.
+        if options.dry_run {
+            return Ok(());
+        }
+
         // Auto-commit enabled - commit changes and proceed
         auto_commit_changes(workspace_path, options.message.as_deref()).await
     } else {

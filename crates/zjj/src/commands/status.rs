@@ -191,6 +191,9 @@ pub async fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<
 
         // Run status once
         if let Err(e) = run_once(name, format).await {
+            if name.is_some() {
+                return Err(e);
+            }
             if format.is_human() {
                 eprintln!("Error: {e}");
             }

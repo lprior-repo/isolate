@@ -12,6 +12,10 @@ use crate::{
     json,
 };
 
+fn extract_json_payload(doc: &'static str) -> &'static str {
+    doc.find('{').map_or(doc, |index| &doc[index..])
+}
+
 pub async fn handle_init(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
     init::run_with_options(init::InitOptions { format }).await
@@ -102,12 +106,22 @@ pub async fn handle_focus(sub_m: &ArgMatches) -> Result<()> {
 
 pub async fn handle_status(sub_m: &ArgMatches) -> Result<()> {
     if sub_m.get_flag("contract") {
-        println!("{}", crate::cli::json_docs::ai_contracts::status());
+        println!(
+            "{}",
+            extract_json_payload(crate::cli::json_docs::ai_contracts::status())
+        );
         return Ok(());
     }
 
     if sub_m.get_flag("ai-hints") {
-        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        if get_format(sub_m).is_json() {
+            println!(
+                "{}",
+                extract_json_payload(crate::cli::json_docs::ai_contracts::command_flow())
+            );
+        } else {
+            println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        }
         return Ok(());
     }
 

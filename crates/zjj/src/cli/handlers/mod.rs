@@ -96,8 +96,9 @@ pub async fn run_cli() -> Result<()> {
             if json_mode {
                 let json_err = serde_json::json!({ "success": false, "error": { "code": "INVALID_ARGUMENT", "message": e.to_string(), "exit_code": if should_exit_zero { 0 } else { 2 } } });
                 println!("{}", serde_json::to_string_pretty(&json_err)?);
+            } else {
+                let _ = e.print();
             }
-            let _ = e.print();
             process::exit(if should_exit_zero { 0 } else { 2 });
         }
     };
