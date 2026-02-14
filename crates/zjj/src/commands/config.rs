@@ -106,24 +106,6 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
     Ok(())
 }
 
-async fn load_config_for_scope(global_only: bool) -> Result<Config> {
-    if !global_only {
-        return zjj_core::config::load_config()
-            .await
-            .map_err(anyhow::Error::new);
-    }
-
-    let mut config = Config::default();
-    if let Ok(global_path) = global_config_path() {
-        match zjj_core::config::load_partial_toml_file(&global_path).await {
-            Ok(global_partial) => config.merge_partial(global_partial),
-            Err(zjj_core::Error::IoError(_)) => {}
-            Err(err) => return Err(anyhow::Error::new(err)),
-        }
-    }
-
-    Ok(config)
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VIEW OPERATIONS
