@@ -90,7 +90,9 @@ async fn get_session_db_with_workspace_detection() -> Result<crate::db::SessionD
             let main_repo_zjj = Path::new(&main_repo_path).join(".zjj");
 
             anyhow::ensure!(
-                tokio::fs::try_exists(&main_repo_zjj).await.unwrap_or(false),
+                tokio::fs::try_exists(&main_repo_zjj)
+                    .await
+                    .map_or(false, |e| e),
                 "ZJJ not initialized in main repository at {main_repo_path}\n\n\
                  Run 'zjj init' in the main repository first."
             );

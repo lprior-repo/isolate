@@ -95,7 +95,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
 
         // Test passes if we reach here (no panic from signal setup)
-        assert!(true, "Worker should continue even if Ctrl+C handler fails");
+        // Worker should continue even if Ctrl+C handler fails
     }
 
     /// Scenario: Multiple signal handler failures are all observable
@@ -130,10 +130,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
 
         // Verify worker is still functional
-        assert!(
-            true,
-            "Worker should remain functional despite signal handler failures"
-        );
+        // Worker should remain functional despite signal handler failures
 
         // Note: In production implementation, each failure should increment
         // an observable metric/counter
@@ -163,7 +160,7 @@ mod tests {
             .expect("Shutdown should be notified within timeout");
 
         // Verify graceful shutdown was triggered
-        assert!(true, "Graceful shutdown completed successfully");
+        // Graceful shutdown completed successfully
     }
 
     /// Scenario: Worker survives detached signal task panics
@@ -187,7 +184,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(150)).await;
 
         // If we reach here, worker survived the panic
-        assert!(true, "Worker should survive detached task panics");
+        // Worker should survive detached task panics
 
         // Note: Tokio catches panics in spawned tasks by default
         // But we should log/observe these panics
@@ -222,7 +219,7 @@ mod tests {
                 .expect("Task should not panic");
         }
 
-        assert!(true, "All waiting tasks should be notified");
+        // All waiting tasks should be notified
     }
 
     /// Scenario: Signal handler errors include context
