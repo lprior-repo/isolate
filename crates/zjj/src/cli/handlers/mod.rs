@@ -60,9 +60,9 @@ pub use self::{
         handle_completions, handle_config, handle_pane, handle_query, handle_schema, handle_wait,
     },
     workspace::{
-        handle_add, handle_attach, handle_clone, handle_focus, handle_init, handle_list,
-        handle_pause, handle_remove, handle_rename, handle_resume, handle_spawn, handle_status,
-        handle_switch, handle_work,
+        handle_add, handle_attach, handle_clone, handle_dashboard, handle_focus, handle_init,
+        handle_list, handle_pause, handle_remove, handle_rename, handle_resume, handle_spawn,
+        handle_status, handle_switch, handle_work,
     },
 };
 
@@ -148,7 +148,7 @@ pub async fn run_cli() -> Result<()> {
             Some(("clean", sub_m)) => handle_clean(sub_m).await,
             Some(("prune-invalid", sub_m)) => handle_prune_invalid(sub_m).await,
             Some(("template", sub_m)) => handle_template(sub_m).await,
-            Some(("dashboard" | "dash", _)) => crate::commands::dashboard::run().await,
+            Some(("dashboard" | "dash", sub_m)) => handle_dashboard(sub_m).await,
             Some(("introspect", sub_m)) => handle_introspect(sub_m).await,
             Some(("doctor" | "check", sub_m)) => handle_doctor(sub_m).await,
             Some(("integrity", sub_m)) => handle_integrity(sub_m).await,
