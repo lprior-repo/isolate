@@ -52,6 +52,8 @@ pub mod config;
 pub mod contracts;
 pub mod coordination;
 mod error;
+#[cfg(test)]
+mod error_tests;
 pub mod fix;
 pub mod functional;
 pub mod hints;
@@ -69,10 +71,16 @@ mod output_format;
 pub mod recovery;
 pub mod result;
 pub mod session_state;
+#[cfg(test)]
+mod session_state_tests;
 pub mod shutdown;
 pub mod taskregistry;
 pub mod templates;
+#[cfg(test)]
+mod templates_tests;
 pub mod types;
+#[cfg(test)]
+mod types_tests;
 pub mod validation;
 pub mod watcher;
 pub mod worker_error;
