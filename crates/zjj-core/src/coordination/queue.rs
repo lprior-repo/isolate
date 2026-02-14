@@ -172,11 +172,50 @@ impl MergeQueue {
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to create merge_queue table: {e}")))?;
 
-        // Migration: Add columns to existing databases created before these columns were added.
-        // SQLite doesn't support "IF NOT EXISTS" for ALTER TABLE, so we check the schema first.
-        // This is safe to run every time - we check column existence before adding.
-        // IMPORTANT: if schema introspection fails, we fail init instead of silently skipping
-        // migration.
+        self.migrate_merge_queue_columns().await?;
+        self.create_merge_queue_indexes().await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS queue_processing_lock (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                agent_id TEXT NOT NULL,
+                acquired_at INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create lock table: {e}")))?;
+
+        // Create queue_events table for audit trail
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS queue_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                queue_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                details_json TEXT,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY (queue_id) REFERENCES merge_queue(id)
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create queue_events table: {e}")))?;
+
+        // Create index on queue_id for efficient event lookups
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_queue_events_queue_id ON queue_events(queue_id)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create queue_events index: {e}")))?;
+
+        Ok(())
+    }
+
+    async fn migrate_merge_queue_columns(&self) -> Result<()> {
+        // SQLite doesn't support "IF NOT EXISTS" for ALTER TABLE, so we check schema first.
+        // If this introspection fails, fail init to avoid running with a partially migrated DB.
         let table_sql = sqlx::query_scalar::<_, String>(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='merge_queue'",
         )
@@ -189,7 +228,6 @@ impl MergeQueue {
             )
         })?;
 
-        // List of columns that may need migration, with their definitions
         let migrations = [
             (
                 "dedupe_key",
@@ -227,7 +265,6 @@ impl MergeQueue {
 
         for (column_name, alter_sql) in migrations {
             if !table_sql.contains(column_name) {
-                // Column doesn't exist, add it
                 sqlx::query(alter_sql)
                     .execute(&self.pool)
                     .await
@@ -237,17 +274,22 @@ impl MergeQueue {
             }
         }
 
+        Ok(())
+    }
+
+    async fn create_merge_queue_indexes(&self) -> Result<()> {
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_merge_queue_status ON merge_queue(status)")
             .execute(&self.pool)
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to create status index: {e}")))?;
 
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_merge_queue_priority_added ON merge_queue(priority, added_at)")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| Error::DatabaseError(format!("Failed to create priority index: {e}")))?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_merge_queue_priority_added ON merge_queue(priority, added_at)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to create priority index: {e}")))?;
 
-        // Create unique index on workspace + started_at to prevent concurrent processing
         sqlx::query(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_queue_processing
              ON merge_queue(workspace, started_at)
@@ -257,9 +299,6 @@ impl MergeQueue {
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to create processing index: {e}")))?;
 
-        // Create unique index on dedupe_key for NON-TERMINAL entries only
-        // Terminal states (merged, failed_terminal, cancelled) can have duplicate dedupe_keys
-        // to allow re-submission after completion/failure
         sqlx::query(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_queue_dedupe_key_active
              ON merge_queue(dedupe_key)
@@ -270,7 +309,6 @@ impl MergeQueue {
         .await
         .map_err(|e| Error::DatabaseError(format!("Failed to create dedupe_key index: {e}")))?;
 
-        // Create index on workspace_state for efficient queries
         sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_merge_queue_workspace_state
              ON merge_queue(workspace_state)",
@@ -280,41 +318,6 @@ impl MergeQueue {
         .map_err(|e| {
             Error::DatabaseError(format!("Failed to create workspace_state index: {e}"))
         })?;
-
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS queue_processing_lock (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                agent_id TEXT NOT NULL,
-                acquired_at INTEGER NOT NULL,
-                expires_at INTEGER NOT NULL
-            )",
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to create lock table: {e}")))?;
-
-        // Create queue_events table for audit trail
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS queue_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                queue_id INTEGER NOT NULL,
-                event_type TEXT NOT NULL,
-                details_json TEXT,
-                created_at INTEGER NOT NULL,
-                FOREIGN KEY (queue_id) REFERENCES merge_queue(id)
-            )",
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to create queue_events table: {e}")))?;
-
-        // Create index on queue_id for efficient event lookups
-        sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_queue_events_queue_id ON queue_events(queue_id)",
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(|e| Error::DatabaseError(format!("Failed to create queue_events index: {e}")))?;
 
         Ok(())
     }
@@ -1503,7 +1506,7 @@ impl MergeQueue {
         Ok(())
     }
 
-    /// Update the tested_against_sha for an entry (for testing purposes).
+    /// Update the `tested_against_sha` for an entry (for testing purposes).
     pub async fn update_tested_against(
         &self,
         workspace: &str,
