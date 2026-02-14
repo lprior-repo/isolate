@@ -206,8 +206,7 @@ async fn get_recent_events(
                         // Apply filters
                         let session_matches =
                             session.is_none_or(|s| event.session.as_deref() == Some(s));
-                        let type_matches =
-                            event_type.is_none_or(|t| event.event_type.to_string() == t);
+                        let type_matches = event_type_matches(event_type, &event.event_type);
                         let since_matches = since.is_none_or(|st| event.timestamp.as_str() >= st);
 
                         session_matches && type_matches && since_matches
@@ -255,8 +254,7 @@ async fn get_new_events(
                         // Apply filters
                         let session_matches =
                             session.is_none_or(|s| event.session.as_deref() == Some(s));
-                        let type_matches =
-                            event_type.is_none_or(|t| event.event_type.to_string() == t);
+                        let type_matches = event_type_matches(event_type, &event.event_type);
 
                         if session_matches && type_matches {
                             Some(event)
@@ -271,6 +269,24 @@ async fn get_new_events(
     };
 
     Ok(events)
+}
+
+fn event_type_matches(filter: Option<&str>, event_type: &EventType) -> bool {
+    let Some(raw_filter) = filter else {
+        return true;
+    };
+
+    let normalized_filter = raw_filter.trim().to_lowercase().replace('-', "_");
+    let canonical = event_type.to_string();
+
+    if canonical == normalized_filter {
+        return true;
+    }
+
+    matches!(
+        normalized_filter.as_str(),
+        "session" | "agent" | "lock" | "checkpoint" | "bead"
+    ) && canonical.starts_with(&format!("{normalized_filter}_"))
 }
 
 /// Generate a simple event ID based on timestamp

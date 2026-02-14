@@ -1166,6 +1166,7 @@ pub fn cmd_doctor() -> ClapCommand {
         .arg(
             Arg::new("dry-run")
                 .long("dry-run")
+                .requires("fix")
                 .action(clap::ArgAction::SetTrue)
                 .help("Preview what would be fixed without making changes"),
         )
@@ -1173,6 +1174,7 @@ pub fn cmd_doctor() -> ClapCommand {
             Arg::new("verbose")
                 .long("verbose")
                 .short('v')
+                .requires("fix")
                 .action(clap::ArgAction::SetTrue)
                 .help("Show detailed progress during fixes"),
         )
@@ -1746,6 +1748,7 @@ pub fn cmd_done() -> ClapCommand {
         .arg(
             Arg::new("keep-workspace")
                 .long("keep-workspace")
+                .conflicts_with("no-keep")
                 .action(clap::ArgAction::SetTrue)
                 .help("Keep workspace after merge"),
         )
@@ -1776,6 +1779,7 @@ pub fn cmd_done() -> ClapCommand {
         .arg(
             Arg::new("no-keep")
                 .long("no-keep")
+                .conflicts_with("keep-workspace")
                 .action(clap::ArgAction::SetTrue)
                 .help("Skip workspace retention (cleanup immediately)"),
         )
@@ -2540,6 +2544,7 @@ pub fn cmd_events() -> ClapCommand {
                 .long("limit")
                 .short('l')
                 .value_name("COUNT")
+                .value_parser(clap::value_parser!(usize))
                 .help("Limit number of events returned"),
         )
         .arg(

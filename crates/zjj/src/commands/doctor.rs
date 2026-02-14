@@ -499,16 +499,29 @@ fn check_workspace_context() -> DoctorCheck {
     let current_dir = std::env::current_dir().ok();
     let in_workspace = current_dir
         .as_ref()
-        .map(|p| p.to_string_lossy().contains(".zjj/workspaces"))
-        .map_or(false, |v| v);
+        .map(|p| {
+            let as_text = p.to_string_lossy();
+            as_text.contains(".zjj/workspaces") || as_text.contains("/workspaces/")
+        })
+        .unwrap_or(false);
 
-    // Extract bead ID if we're in a workspace
-    let bead_id = current_dir.as_ref().and_then(|p| {
-        p.components()
-            .rev()
-            .nth(1) // Parent of current dir
-            .and_then(|comp| comp.as_os_str().to_str())
-            .map(ToString::to_string)
+    // Extract workspace name from .../.zjj/workspaces/<workspace>/...
+    let bead_id = current_dir.as_ref().and_then(|path| {
+        let parts: Vec<String> = path
+            .components()
+            .filter_map(|component| component.as_os_str().to_str().map(ToString::to_string))
+            .collect();
+
+        parts
+            .windows(3)
+            .find(|window| window[0] == ".zjj" && window[1] == "workspaces")
+            .map(|window| window[2].clone())
+            .or_else(|| {
+                parts
+                    .windows(2)
+                    .find(|window| window[0] == "workspaces")
+                    .map(|window| window[1].clone())
+            })
     });
 
     DoctorCheck {
