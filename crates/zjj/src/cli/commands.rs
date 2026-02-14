@@ -45,6 +45,18 @@ pub fn cmd_init() -> ClapCommand {
             ],
             Some(json_docs::init()),
         ))
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
 }
 
 pub fn cmd_attach() -> ClapCommand {
@@ -571,6 +583,18 @@ pub fn cmd_remove() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Preview without executing"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
 }
 
 pub fn cmd_focus() -> ClapCommand {
@@ -737,6 +761,18 @@ pub fn cmd_sync() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Preview without executing"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
 }
 
 pub fn cmd_submit() -> ClapCommand {
@@ -818,6 +854,18 @@ pub fn cmd_diff() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
 }
 
@@ -1520,6 +1568,18 @@ pub fn cmd_context() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Skip health checks (faster)"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
 }
 
 pub fn cmd_spawn() -> ClapCommand {
@@ -2029,6 +2089,18 @@ pub fn cmd_ai() -> ClapCommand {
                 .global(true)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
         .subcommand(
             ClapCommand::new("status")
                 .about("AI-optimized status with guided next action")
@@ -2169,6 +2241,18 @@ pub fn cmd_contract() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj contract                    Show all command contracts",
@@ -2204,6 +2288,18 @@ pub fn cmd_examples() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
 }
 
@@ -2290,7 +2386,7 @@ pub fn cmd_whatif() -> ClapCommand {
         )
         .arg(
             Arg::new("command")
-                .required(true)
+                .required_unless_present_any(["contract", "ai-hints"])
                 .help("Command to preview"),
         )
         .arg(
@@ -2304,6 +2400,18 @@ pub fn cmd_whatif() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[
@@ -3063,6 +3171,18 @@ pub fn cmd_abort() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
         .after_help(after_help_text(
             &[

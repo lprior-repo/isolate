@@ -79,6 +79,16 @@ pub async fn handle_list(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_remove(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::remove());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;

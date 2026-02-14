@@ -7,6 +7,16 @@ use super::json_format::get_format;
 use crate::commands::{abort, diff, done, submit, sync};
 
 pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::sync());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let all = sub_m.get_flag("all");
     let dry_run = sub_m.get_flag("dry-run");
@@ -40,6 +50,16 @@ pub async fn handle_submit(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_diff(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::diff());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let name = sub_m.get_one::<String>("name").map(String::as_str);
     let stat = sub_m.get_flag("stat");
     let format = get_format(sub_m);
@@ -75,6 +95,16 @@ pub async fn handle_done(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_abort(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        println!("{}", crate::cli::json_docs::ai_contracts::abort());
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let options = abort::AbortOptions {
         workspace: sub_m.get_one::<String>("workspace").cloned(),
