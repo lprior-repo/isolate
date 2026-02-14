@@ -543,10 +543,98 @@ impl IntegrityValidator {
             .with_path(&repo_path)
         })?;
 
-        // If repo is a file, this is a workspace pointing to a shared repo - that's valid
+        // If repo is a file, this is a workspace pointing to a shared repo
         if repo_metadata.is_file() {
-            // For workspace repos (files pointing to shared repo), we just verify the file exists
-            // The shared repo itself will be validated separately
+            // Read the file to get the path to the shared repo
+            let shared_repo_path = match tokio::fs::read_to_string(&repo_path).await {
+                Ok(content) => {
+                    let path_str = content.trim();
+                    if path_str.is_empty() {
+                        return Err(IntegrityIssue::new(
+                            CorruptionType::CorruptedJjDir,
+                            "JJ repo file is empty - workspace has no backing repo",
+                        )
+                        .with_path(&repo_path));
+                    }
+                    // The content should be a path - resolve it relative to jj_dir
+                    if std::path::Path::new(path_str).is_absolute() {
+                        std::path::PathBuf::from(path_str)
+                    } else {
+                        jj_dir.join(path_str)
+                    }
+                }
+                Err(e) => {
+                    return Err(IntegrityIssue::new(
+                        CorruptionType::PermissionDenied,
+                        format!("Cannot read JJ repo file: {e}"),
+                    )
+                    .with_path(&repo_path));
+                }
+            };
+
+            // Verify the referenced shared repo actually exists
+            let shared_exists = tokio::fs::try_exists(&shared_repo_path)
+                .await
+                .map_err(|e| {
+                    IntegrityIssue::new(
+                        CorruptionType::PermissionDenied,
+                        format!("Cannot check referenced shared repo: {e}"),
+                    )
+                    .with_path(&shared_repo_path)
+                })?;
+
+            if !shared_exists {
+                return Err(IntegrityIssue::new(
+                    CorruptionType::CorruptedJjDir,
+                    format!(
+                        "JJ repo file points to non-existent path: {}",
+                        shared_repo_path.display()
+                    ),
+                )
+                .with_path(&repo_path));
+            }
+
+            let shared_metadata = tokio::fs::metadata(&shared_repo_path).await.map_err(|e| {
+                IntegrityIssue::new(
+                    CorruptionType::PermissionDenied,
+                    format!("Cannot inspect referenced shared repo metadata: {e}"),
+                )
+                .with_path(&shared_repo_path)
+            })?;
+
+            if !shared_metadata.is_dir() {
+                return Err(IntegrityIssue::new(
+                    CorruptionType::CorruptedJjDir,
+                    format!(
+                        "JJ repo file points to non-directory path: {}",
+                        shared_repo_path.display()
+                    ),
+                )
+                .with_path(&repo_path));
+            }
+
+            let shared_op_store = shared_repo_path.join("op_store");
+            let shared_op_store_exists =
+                tokio::fs::try_exists(&shared_op_store).await.map_err(|e| {
+                    IntegrityIssue::new(
+                        CorruptionType::PermissionDenied,
+                        format!("Cannot check shared repo op_store: {e}"),
+                    )
+                    .with_path(&shared_op_store)
+                })?;
+
+            if !shared_op_store_exists {
+                return Err(IntegrityIssue::new(
+                    CorruptionType::CorruptedJjDir,
+                    format!(
+                        "Referenced shared repo missing op_store: {}",
+                        shared_op_store.display()
+                    ),
+                )
+                .with_path(&repo_path));
+            }
+
+            // The shared repo exists - workspace is valid
             return Ok(());
         }
 
