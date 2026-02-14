@@ -1,7 +1,8 @@
 //! Initialize ZJJ - sets up everything needed
 
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use fs4::fs_std::FileExt;
@@ -17,9 +18,6 @@ mod types;
 // InitLock - RAII guard for init lock file
 // ============================================================================
 
-/// Lock file timeout - after this duration, a stale lock is considered abandoned
-const STALE_LOCK_TIMEOUT_SECS: u64 = 60;
-
 /// RAII guard that ensures lock file cleanup on drop (including error paths)
 struct InitLock {
     file: std::fs::File,
@@ -28,9 +26,11 @@ struct InitLock {
 }
 
 impl InitLock {
-    /// Acquire exclusive lock, handling stale locks and symlink attacks
+    /// Acquire exclusive lock, handling symlink attacks
     fn acquire(lock_path: PathBuf) -> Result<Self> {
-        // Protect against symlink attacks: verify lock file is not a symlink
+        // Protect against symlink attacks.
+        // On Unix, O_NOFOLLOW closes the TOCTOU gap between checking and opening.
+        #[cfg(not(unix))]
         if let Ok(metadata) = std::fs::symlink_metadata(&lock_path) {
             if metadata.is_symlink() {
                 bail!(
@@ -40,33 +40,44 @@ impl InitLock {
             }
         }
 
-        // Check for stale lock file before attempting acquisition
-        if let Ok(metadata) = std::fs::metadata(&lock_path) {
-            if let Ok(modified) = metadata.modified() {
-                if let Ok(elapsed) = modified.elapsed() {
-                    if elapsed > Duration::from_secs(STALE_LOCK_TIMEOUT_SECS) {
-                        // Stale lock - safe to remove
-                        let _ = std::fs::remove_file(&lock_path);
-                    }
-                }
-            }
+        let mut open_options = std::fs::OpenOptions::new();
+        open_options
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false);
+
+        #[cfg(unix)]
+        {
+            open_options.custom_flags(libc::O_NOFOLLOW);
         }
 
-        // Open lock file without truncate to avoid clobbering symlink targets
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(&lock_path)
-            .with_context(|| format!("Failed to create lock file at {}", lock_path.display()))?;
+        // Open lock file without truncate to avoid clobbering lock targets.
+        let file = match open_options.open(&lock_path) {
+            Ok(file) => file,
+            Err(open_error) => {
+                if let Ok(metadata) = std::fs::symlink_metadata(&lock_path) {
+                    if metadata.is_symlink() {
+                        bail!(
+                            "Security: {} is a symlink. Remove it and re-run zjj init.",
+                            lock_path.display()
+                        );
+                    }
+                }
+
+                return Err(open_error).with_context(|| {
+                    format!("Failed to open lock file at {}", lock_path.display())
+                });
+            }
+        };
 
         // Try to acquire exclusive lock (blocking)
-        file.lock_exclusive()
-            .with_context(|| {
-                format!(
-                    "Another zjj init is in progress. If this is incorrect, remove {} and retry.",
-                    lock_path.display()
-                )
-            })?;
+        file.lock_exclusive().with_context(|| {
+            format!(
+                "Another zjj init is in progress. If this is incorrect, remove {} and retry.",
+                lock_path.display()
+            )
+        })?;
 
         Ok(Self {
             file,
@@ -80,7 +91,9 @@ impl InitLock {
         if !self.released {
             self.released = true;
             // Release lock but keep file on disk (file locks are inode-based)
-            self.file.unlock().context("Failed to release lock")?;
+            self.file
+                .unlock()
+                .with_context(|| format!("Failed to release lock at {}", self.path.display()))?;
         }
         Ok(())
     }

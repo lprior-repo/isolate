@@ -246,9 +246,57 @@ async fn test_init_lock_file_cleanup() -> Result<()> {
     Ok(())
 }
 
-/// Test that stale lock files (older than 60 seconds) are handled gracefully
+/// Adversarial test: init must reject symlinked lock path.
 #[tokio::test]
-async fn test_init_stale_lock_recovery() -> Result<()> {
+#[cfg(unix)]
+async fn test_init_rejects_symlinked_lock_file() -> Result<()> {
+    use std::os::unix::fs::symlink;
+
+    if !jj_is_available().await {
+        return Ok(());
+    }
+
+    let temp_dir = setup_test_jj_repo().await?;
+    let Some(temp_dir) = temp_dir else {
+        return Ok(());
+    };
+
+    let zjj_dir = temp_dir.path().join(".zjj");
+    tokio::fs::create_dir_all(&zjj_dir).await?;
+
+    let target_path = temp_dir.path().join("lock-target.txt");
+    let target_content = "do-not-touch";
+    tokio::fs::write(&target_path, target_content).await?;
+
+    let lock_path = zjj_dir.join(".init.lock");
+    symlink(&target_path, &lock_path)?;
+
+    let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
+    assert!(
+        result.is_err(),
+        "init should fail when lock path is a symlink"
+    );
+
+    let error_text = result
+        .err()
+        .map_or_else(String::new, |error| error.to_string());
+    assert!(
+        error_text.contains("symlink"),
+        "error should mention symlink security issue"
+    );
+
+    let current_target_content = tokio::fs::read_to_string(&target_path).await?;
+    assert_eq!(
+        current_target_content, target_content,
+        "symlink target content should not be modified"
+    );
+
+    Ok(())
+}
+
+/// Test that an existing unlocked lock file does not block init.
+#[tokio::test]
+async fn test_init_existing_lock_file_recovery() -> Result<()> {
     use fs4::fs_std::FileExt;
 
     if !jj_is_available().await {
@@ -264,23 +312,22 @@ async fn test_init_stale_lock_recovery() -> Result<()> {
     let zjj_dir = temp_dir.path().join(".zjj");
     tokio::fs::create_dir_all(&zjj_dir).await?;
 
-    // Create a stale lock file (set mtime to 2 minutes ago)
+    // Create an existing lock file that is not currently locked.
     let lock_path = zjj_dir.join(".init.lock");
-    tokio::fs::write(&lock_path, b"stale").await?;
-
-    // Set file mtime to 120 seconds ago (beyond the 60s stale threshold)
-    let stale_time = std::time::SystemTime::now() - std::time::Duration::from_secs(120);
-    let _ = filetime::set_file_mtime(&lock_path, filetime::FileTime::from_system_time(stale_time));
+    tokio::fs::write(&lock_path, b"existing").await?;
 
     // Verify lock file exists before init
     assert!(
         tokio::fs::try_exists(&lock_path).await.unwrap_or(false),
-        "Stale lock file should exist before init"
+        "Existing lock file should exist before init"
     );
 
-    // Run init - should succeed despite stale lock
+    // Run init - should succeed despite pre-existing lock file
     let result = run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::default()).await;
-    assert!(result.is_ok(), "Init should succeed with stale lock file");
+    assert!(
+        result.is_ok(),
+        "Init should succeed with existing lock file"
+    );
 
     // Verify init completed successfully
     let config_path = zjj_dir.join("config.toml");
