@@ -188,7 +188,6 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     }
 
     // Acquire exclusive lock to prevent concurrent initialization
-<<<<<<< HEAD
     // Uses spawn_blocking to avoid blocking Tokio executor
     let lock_path = zjj_dir.join(".init.lock");
     let lock_path_clone = lock_path.clone();
@@ -196,21 +195,6 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     let init_lock = tokio::task::spawn_blocking(move || InitLock::acquire(lock_path_clone))
         .await
         .context("Lock acquisition task panicked")??;
-=======
-    let lock_path = zjj_dir.join(".init.lock");
-    let lock_file = tokio::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&lock_path)
-        .await
-        .context("Failed to create lock file")?;
-
-    // Try to acquire exclusive lock (non-blocking)
-    if lock_file.try_lock_exclusive().is_err() {
-        bail!("Another zjj init is already in progress. Please wait for it to complete.");
-    }
->>>>>>> origin/main
 
     // Double-check initialization status after acquiring lock
     let is_now_initialized = tokio::fs::try_exists(&config_path).await.unwrap_or(false)
@@ -219,13 +203,8 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
 
     if is_now_initialized {
         // Another process completed initialization while we waited
-<<<<<<< HEAD
         // RAII guard handles cleanup on drop
         drop(init_lock);
-=======
-        let _ = lock_file.unlock();
-        let _ = tokio::fs::remove_file(&lock_path).await;
->>>>>>> origin/main
 
         let response = InitResponse {
             message: "zjj already initialized in this repository.".to_string(),
@@ -293,14 +272,8 @@ pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
 
-<<<<<<< HEAD
     // Release lock explicitly (RAII guard also handles cleanup on drop)
     init_lock.release().context("Failed to release init lock")?;
-=======
-    // Release lock and clean up lock file
-    let _ = lock_file.unlock();
-    let _ = tokio::fs::remove_file(&lock_path).await;
->>>>>>> origin/main
 
     if format.is_json() {
         let response = build_init_response(&root, false);
