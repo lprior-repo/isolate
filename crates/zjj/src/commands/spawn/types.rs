@@ -31,9 +31,6 @@ pub struct SpawnArgs {
     /// Run agent in background
     pub background: bool,
 
-    /// Idempotent mode - safe retries if workspace already exists
-    pub idempotent: bool,
-
     /// Timeout in seconds (default: 14400 = 4 hours)
     pub timeout: u64,
 
@@ -66,7 +63,6 @@ impl SpawnArgs {
         let no_auto_cleanup = matches.get_flag("no-auto-cleanup");
         let idempotent = matches.get_flag("idempotent");
         let background = matches.get_flag("background");
-        let idempotent = matches.get_flag("idempotent");
 
         let timeout = matches
             .get_one::<String>("timeout")
@@ -89,7 +85,6 @@ impl SpawnArgs {
             no_auto_cleanup,
             idempotent,
             background,
-            idempotent,
             timeout,
             format,
             dry_run,
@@ -106,7 +101,6 @@ impl SpawnArgs {
             no_auto_cleanup: self.no_auto_cleanup,
             idempotent: self.idempotent,
             background: self.background,
-            idempotent: self.idempotent,
             timeout_secs: self.timeout,
             format: if self.format == "json" {
                 OutputFormat::Json
@@ -128,7 +122,6 @@ pub struct SpawnOptions {
     pub no_auto_cleanup: bool,
     pub idempotent: bool,
     pub background: bool,
-    pub idempotent: bool,
     pub timeout_secs: u64,
     pub format: OutputFormat,
     pub dry_run: bool,

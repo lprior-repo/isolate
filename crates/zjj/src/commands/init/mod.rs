@@ -120,6 +120,7 @@ use types::{build_init_response, InitPaths, InitResponse};
 #[derive(Debug, Clone, Copy, Default)]
 pub struct InitOptions {
     pub format: OutputFormat,
+    pub dry_run: bool,
 }
 
 /// Run the init command
