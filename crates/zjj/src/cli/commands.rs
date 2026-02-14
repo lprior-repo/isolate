@@ -908,6 +908,7 @@ pub fn cmd_clean() -> ClapCommand {
             Arg::new("age-threshold")
                 .long("age-threshold")
                 .value_name("SECONDS")
+                .value_parser(clap::value_parser!(u64))
                 .help("Age threshold for periodic cleanup (default: 7200 = 2hr)"),
         )
         .arg(
@@ -2637,7 +2638,7 @@ pub fn cmd_completions() -> ClapCommand {
         .arg(
             Arg::new("shell")
                 .required(true)
-                .value_parser(["bash", "zsh", "fish", "powershell", "elvish"])
+                .value_parser(["bash", "zsh", "fish", "powershell", "ps", "pwsh", "elvish"])
                 .help("Shell to generate completions for"),
         )
         .arg(
