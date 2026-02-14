@@ -138,8 +138,8 @@ async fn run_validate(
         ));
     }
 
-    // Attempt to load config for better error messages, but don't fail if config is invalid
-    let _config = match zjj_core::config::load_config().await {
+    // Load config to get workspace directory
+    let config = match zjj_core::config::load_config().await {
         Ok(config) => config,
         Err(e) => {
             // If config is invalid, we can still validate the workspace
@@ -151,7 +151,14 @@ async fn run_validate(
         }
     };
 
-    let validator = IntegrityValidator::new(jj_root);
+    // Calculate the correct workspace directory from config
+    let workspace_dir = if std::path::Path::new(&config.workspace_dir).is_absolute() {
+        std::path::Path::new(&config.workspace_dir).to_path_buf()
+    } else {
+        jj_root.join(std::path::Path::new(&config.workspace_dir))
+    };
+
+    let validator = IntegrityValidator::new(workspace_dir);
     let result = validator.validate(workspace).await?;
 
     let response = ValidationResponse {
@@ -222,7 +229,14 @@ async fn run_repair(
     let workspace_roots =
         workspace_utils::candidate_workspace_roots(jj_root, &config.workspace_dir);
 
-    let validator = IntegrityValidator::new(jj_root);
+    // Calculate the correct workspace directory from config
+    let workspace_dir = if std::path::Path::new(&config.workspace_dir).is_absolute() {
+        std::path::Path::new(&config.workspace_dir).to_path_buf()
+    } else {
+        jj_root.join(std::path::Path::new(&config.workspace_dir))
+    };
+
+    let validator = IntegrityValidator::new(workspace_dir);
     let mut validation = validator.validate(workspace).await?;
 
     if validation.is_valid {

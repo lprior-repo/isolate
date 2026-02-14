@@ -518,24 +518,41 @@ impl IntegrityValidator {
 
     /// Validate the .jj directory structure
     async fn validate_jj_directory(jj_dir: &Path) -> std::result::Result<(), IntegrityIssue> {
-        let repo_dir = jj_dir.join("repo");
-        let repo_exists = tokio::fs::try_exists(&repo_dir).await.map_err(|e| {
+        let repo_path = jj_dir.join("repo");
+        let repo_exists = tokio::fs::try_exists(&repo_path).await.map_err(|e| {
             IntegrityIssue::new(
                 CorruptionType::PermissionDenied,
-                format!("Cannot check repo directory: {e}"),
+                format!("Cannot check repo: {e}"),
             )
-            .with_path(&repo_dir)
+            .with_path(&repo_path)
         })?;
         if !repo_exists {
             return Err(IntegrityIssue::new(
                 CorruptionType::CorruptedJjDir,
-                "JJ repository metadata missing ('repo' directory)",
+                "JJ repository metadata missing ('repo' path)",
             )
             .with_path(jj_dir));
         }
 
+        // Check if repo is a file (workspace pointing to shared repo) or directory
+        let repo_metadata = tokio::fs::metadata(&repo_path).await.map_err(|e| {
+            IntegrityIssue::new(
+                CorruptionType::PermissionDenied,
+                format!("Cannot check repo metadata: {e}"),
+            )
+            .with_path(&repo_path)
+        })?;
+
+        // If repo is a file, this is a workspace pointing to a shared repo - that's valid
+        if repo_metadata.is_file() {
+            // For workspace repos (files pointing to shared repo), we just verify the file exists
+            // The shared repo itself will be validated separately
+            return Ok(());
+        }
+
+        // If repo is a directory, validate the op_store
         // Check for empty critical directories
-        let op_store = repo_dir.join("op_store");
+        let op_store = repo_path.join("op_store");
         let op_store_exists = tokio::fs::try_exists(&op_store).await.map_err(|e| {
             IntegrityIssue::new(
                 CorruptionType::PermissionDenied,
