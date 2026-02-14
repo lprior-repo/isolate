@@ -1,0 +1,6 @@
+# Generated mdBook documentation
+book/
+
+# Test code - temp_dir usage is acceptable in tests
+**/*test*.rs
+**/tests/

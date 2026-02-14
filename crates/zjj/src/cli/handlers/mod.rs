@@ -80,6 +80,8 @@ pub fn format_error(err: &anyhow::Error) -> String {
 #[allow(clippy::large_stack_frames)]
 pub async fn run_cli() -> Result<()> {
     let cli = build_cli();
+    // SECURITY: std::env::args() is acceptable here - only used for CLI flag parsing
+    // (--json, --strict), not for security-critical operations or path validation.
     let args: Vec<String> = std::env::args().collect();
     let json_mode = args.iter().any(|a| a == "--json" || a == "-j");
     if args.iter().any(|a| a == "--strict") {

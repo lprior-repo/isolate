@@ -5,6 +5,7 @@
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
+use tempfile;
 use zjj_core::zellij::{self, LayoutConfig, LayoutTemplate};
 
 /// Validate template name and convert to `LayoutTemplate`
@@ -39,9 +40,9 @@ pub(super) async fn create_zellij_tab(
 
     let config = LayoutConfig::new(stripped_name, Path::new(workspace_path).to_path_buf());
 
-    // Use a temporary directory for the layout file
-    let temp_dir = std::env::temp_dir();
-    let layout = zellij::layout_generate(&config, template_type, &temp_dir)
+    // SECURITY: Use tempfile::TempDir for secure temporary directory with proper permissions
+    let temp_dir = tempfile::TempDir::new()?;
+    let layout = zellij::layout_generate(&config, template_type, temp_dir.path())
         .await
         .map_err(|e| anyhow::anyhow!("Failed to generate layout: {e}"))?;
 

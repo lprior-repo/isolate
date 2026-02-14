@@ -390,6 +390,9 @@ async fn execute_command(command: &str, args: &[String]) -> Result<String> {
 
     // Determine the executable. If it's a known zjj subcommand, we use the current executable.
     // This is more robust than assuming "zjj" is in PATH.
+    // SECURITY: current_exe is acceptable here - we are invoking our own zjj binary
+    // for batch command execution, not for security-critical path validation.
+    // The command/args are controlled by our code, not external input.
     let current_exe = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("zjj"));
 
     let output = tokio::process::Command::new(current_exe)
