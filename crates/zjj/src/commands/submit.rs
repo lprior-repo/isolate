@@ -35,7 +35,7 @@ use zjj_core::{
     OutputFormat,
 };
 
-use crate::commands::{check_in_jj_repo, workspace_utils};
+use crate::commands::{check_in_jj_repo, get_queue_db_path, workspace_utils};
 
 /// Submit-specific errors
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -297,13 +297,8 @@ pub async fn run_with_options(options: &SubmitOptions) -> Result<i32> {
     }
 
     // Add to merge queue with identity information
-    let queue_result = add_to_queue(
-        &identity.workspace_name,
-        &dedupe_key,
-        &identity.head_sha,
-        &root,
-    )
-    .await;
+    let queue_result =
+        add_to_queue(&identity.workspace_name, &dedupe_key, &identity.head_sha).await;
 
     match queue_result {
         Ok(entry) => output_success(options.format.is_json(), &identity, &dedupe_key, &entry),
@@ -652,10 +647,11 @@ async fn add_to_queue(
     workspace_name: &str,
     dedupe_key: &str,
     head_sha: &str,
-    root: &Path,
 ) -> Result<QueueEntry, SubmitError> {
     // Get queue database path
-    let db_path = root.join(".zjj/state.db");
+    let db_path = get_queue_db_path()
+        .await
+        .map_err(|e| SubmitError::QueueError(format!("failed to resolve queue path: {e}")))?;
 
     // Open the merge queue
     let queue = MergeQueue::open(&db_path)

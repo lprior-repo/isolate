@@ -44,6 +44,24 @@ pub fn output_json_error(error: &Error) -> i32 {
     exit_code
 }
 
+/// Output a CLI parse error as JSON and return clap-compatible exit code 2.
+pub fn output_json_parse_error(message: impl Into<String>) -> i32 {
+    let error = JsonError::new(ErrorCode::InvalidArgument, message.into())
+        .with_suggestion("Use --help to view valid flags and arguments")
+        .with_exit_code(2);
+
+    let payload = ErrorEnvelopePayload { error: error.error };
+    let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
+
+    if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
+        println!("{json_str}");
+    } else {
+        println!(r#"{{"error":{{"message":"Failed to serialize parse error","exit_code":2}}}}"#);
+    }
+
+    2
+}
+
 /// Return the semantic exit code for an error.
 ///
 /// This is shared by JSON and non-JSON output modes so both paths

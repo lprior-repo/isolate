@@ -123,6 +123,9 @@ pub async fn list(options: &ListOptions) -> Result<Vec<BookmarkInfo>> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
+        if options.session.is_none() && stderr.contains("There is no jj repo") {
+            return Ok(Vec::new());
+        }
         return Err(BookmarkError::JjCommandFailed(stderr.to_string()).into());
     }
 

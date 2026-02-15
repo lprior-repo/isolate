@@ -103,6 +103,7 @@ pub fn cmd_add() -> ClapCommand {
         .arg(
             Arg::new("name")
                 .required_unless_present_any(["example-json", "contract", "ai-hints"])
+                .allow_hyphen_values(true)
                 .help("Name for the new session (must start with a letter)"),
         )
         .arg(
@@ -335,6 +336,7 @@ pub fn cmd_list() -> ClapCommand {
                 "zjj list --verbose              Include workspace paths and bead titles",
                 "zjj list --all --json           Dump every session in JSON",
                 "zjj list --contract             Show AI contract (inputs/outputs schema)",
+                "zjj list --ai-hints             Show AI execution hints",
             ],
             Some(json_docs::list()),
         ))
@@ -382,6 +384,12 @@ pub fn cmd_list() -> ClapCommand {
                 .long("contract")
                 .action(clap::ArgAction::SetTrue)
                 .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
         )
 }
 
@@ -1647,6 +1655,12 @@ pub fn cmd_context() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Show machine-readable contract for AI agents"),
         )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
 }
 
 pub fn cmd_spawn() -> ClapCommand {
@@ -2455,7 +2469,7 @@ pub fn cmd_whatif() -> ClapCommand {
         )
         .arg(
             Arg::new("command")
-                .required_unless_present("contract")
+                .required_unless_present_any(["contract", "ai-hints"])
                 .help("Command to preview"),
         )
         .arg(
@@ -2476,12 +2490,19 @@ pub fn cmd_whatif() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("AI: Show machine-readable contract (JSON schema of inputs/outputs)"),
         )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show execution hints and common patterns"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj whatif done add feature-x    Preview 'add' command execution",
                 "zjj whatif spawn zjj-abc1        Preview bead spawn",
                 "zjj whatif --json                Output preview as JSON",
                 "zjj whatif --contract            Show AI contract",
+                "zjj whatif --ai-hints            Show AI execution hints",
             ],
             None,
         ))
@@ -2903,7 +2924,7 @@ IMPORTANT: Output file paths require -o/--output flag:
                 "  CORRECT:   zjj export -o output.json",
                 "  INCORRECT: zjj export output.json   (interprets as session name!)",
             ],
-            None,
+            Some(json_docs::export()),
         ))
 }
 
