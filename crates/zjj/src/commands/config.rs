@@ -7,17 +7,17 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{path::Path, time::Duration};
 
 use anyhow::{Context, Result};
 use serde_json::Value as JsonValue;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use zjj_core::{config::Config, json::SchemaEnvelope, OutputFormat};
 
-use crate::json::{ConfigSetOutput, ConfigValueOutput};
+use crate::{
+    commands::config_ports::{ConfigReadPort, LocalConfigPort},
+    json::{ConfigSetOutput, ConfigValueOutput},
+};
 
 /// File lock timeout - maximum time to wait for acquiring a file lock
 const LOCK_TIMEOUT: Duration = Duration::from_secs(5);
@@ -44,12 +44,19 @@ pub struct ConfigOptions {
 /// - Config value cannot be set
 /// - Invalid arguments provided
 pub async fn run(options: ConfigOptions) -> Result<()> {
-    let config = load_config_for_scope(options.global).await?;
+    let port = LocalConfigPort;
+    run_with_port(options, &port).await
+}
+
+async fn run_with_port(options: ConfigOptions, port: &impl ConfigReadPort) -> Result<()> {
+    let config = load_config_for_scope(port, options.global)
+        .await
+        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
 
     match (options.key, options.value) {
         // No key, no value: Show all config
         (None, None) => {
-            show_all_config(&config, options.global, options.format)?;
+            show_all_config(port, &config, options.global, options.format)?;
         }
 
         // Key, no value: Show specific value
@@ -62,9 +69,11 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
         (Some(key), Some(value)) => {
             zjj_core::config::validate_key(&key)?;
             let config_path = if options.global {
-                global_config_path()?
+                port.global_config_path()
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?
             } else {
-                project_config_path()?
+                port.project_config_path()
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?
             };
             set_config_value(&config_path, &key, &value).await?;
 
@@ -103,13 +112,27 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
     Ok(())
 }
 
+async fn load_config_for_scope(
+    port: &impl ConfigReadPort,
+    global_only: bool,
+) -> zjj_core::Result<Config> {
+    if !global_only {
+        return port.load_merged().await;
+    }
+    port.load_global_only().await
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VIEW OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Show all configuration
-fn show_all_config(config: &Config, global_only: bool, format: OutputFormat) -> Result<()> {
+fn show_all_config(
+    port: &impl ConfigReadPort,
+    config: &Config,
+    global_only: bool,
+    format: OutputFormat,
+) -> Result<()> {
     if format.is_json() {
         let envelope = SchemaEnvelope::new("config-response", "single", config.clone());
         let output_json = serde_json::to_string_pretty(&envelope)
@@ -136,10 +159,10 @@ fn show_all_config(config: &Config, global_only: bool, format: OutputFormat) -> 
         println!();
         println!("Config sources:");
         println!("  1. Built-in defaults");
-        if let Ok(global_path) = global_config_path() {
+        if let Ok(global_path) = port.global_config_path() {
             println!("  2. Global: {}", global_path.display());
         }
-        if let Ok(project_path) = project_config_path() {
+        if let Ok(project_path) = port.project_config_path() {
             println!("  3. Project: {}", project_path.display());
         }
         println!("  4. Environment: ZJJ_* variables");
@@ -409,31 +432,13 @@ fn parse_value(value: &str) -> Result<toml_edit::Item> {
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Get path to global config file
-fn global_config_path() -> Result<PathBuf> {
-    directories::ProjectDirs::from("", "", "zjj")
-        .map(|proj_dirs| proj_dirs.config_dir().join("config.toml"))
-        .ok_or_else(|| {
-            anyhow::Error::new(zjj_core::Error::IoError(
-                "Failed to determine global config directory".to_string(),
-            ))
-        })
-}
-
-/// Get path to project config file
-fn project_config_path() -> Result<PathBuf> {
-    std::env::current_dir()
-        .context("Failed to get current directory")
-        .map(|dir| dir.join(".zjj/config.toml"))
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
+    use std::{io::Write, path::PathBuf};
 
     use tempfile::TempDir;
 
@@ -619,15 +624,18 @@ mod tests {
     #[test]
     fn test_show_all_config() -> Result<()> {
         let config = setup_test_config();
+        let port = LocalConfigPort;
         // Just test that it doesn't panic
-        show_all_config(&config, false, zjj_core::OutputFormat::Human)?;
-        show_all_config(&config, true, zjj_core::OutputFormat::Human)?;
+        show_all_config(&port, &config, false, zjj_core::OutputFormat::Human)?;
+        show_all_config(&port, &config, true, zjj_core::OutputFormat::Human)?;
         Ok(())
     }
 
     #[test]
     fn test_project_config_path() -> Result<()> {
-        let path = project_config_path()?;
+        let path = LocalConfigPort
+            .project_config_path()
+            .map_err(|err| anyhow::anyhow!(err.to_string()))?;
         assert!(path.ends_with("config.toml"));
         assert!(path.to_string_lossy().contains(".zjj"));
         Ok(())

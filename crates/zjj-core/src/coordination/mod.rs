@@ -5,6 +5,7 @@ pub mod queue;
 pub mod queue_entities;
 pub mod queue_repository;
 pub mod queue_status;
+pub mod worker_application;
 pub mod worker_lifecycle;
 pub mod worker_steps;
 
@@ -15,6 +16,7 @@ pub use queue::{
 };
 pub use queue_repository::QueueRepository;
 pub use queue_status::{QueueEventType, QueueStatus, TransitionError, WorkspaceQueueState};
+pub use worker_application::{QualityGateRuntime, WorkerPipelineOutcome, WorkerPipelineService};
 pub use worker_lifecycle::{
     graceful_shutdown, wait_for_shutdown_signal, ActiveClaim, ClaimTracker, ShutdownResult,
 };
