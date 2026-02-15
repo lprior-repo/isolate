@@ -8,14 +8,18 @@
 //! - Removing entries from the queue
 //! - Checking overall queue status and statistics
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 use zjj_core::{json::SchemaEnvelope, OutputFormat, QueueStatus};
 
-use crate::commands::get_session_db;
+use crate::commands::{get_queue_db_path, get_session_db};
+
+fn cli_flag_used(flag: &str) -> bool {
+    std::env::args().any(|arg| arg == flag || arg.starts_with(&format!("{flag}=")))
+}
 
 /// Response for queue add operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,14 +156,23 @@ pub struct QueueOptions {
 
 /// Get or create the merge queue database
 async fn get_queue() -> Result<zjj_core::MergeQueue> {
-    let queue_db = Path::new(".zjj/queue.db");
-    zjj_core::MergeQueue::open(queue_db)
+    let queue_db = get_queue_db_path().await?;
+    zjj_core::MergeQueue::open(&queue_db)
         .await
         .context("Failed to open merge queue database")
 }
 
 /// Run the queue command with options
 pub async fn run_with_options(options: &QueueOptions) -> Result<()> {
+    let add_only_flags_used_without_add = options.add.is_none()
+        && ["--bead", "--priority", "--agent"]
+            .into_iter()
+            .any(cli_flag_used);
+
+    if add_only_flags_used_without_add {
+        anyhow::bail!("--bead, --priority, and --agent require --add");
+    }
+
     let queue = get_queue().await?;
 
     if let Some(workspace) = &options.add {

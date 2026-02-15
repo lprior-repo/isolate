@@ -1,0 +1,40 @@
+# cargo-deny configuration file
+# See https://embarkstudios.github.io/cargo-deny/
+
+[licenses]
+# List of explicitly allowed licenses
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "0BSD",
+    "Unlicense",
+    "MPL-2.0",
+    "Unicode-3.0",  # Unicode license - used by ICU crates
+    "Zlib",         # Zlib license - permissive OSI approved
+    "CC0-1.0",      # Creative Commons Zero - public domain
+]
+
+# Confidence threshold for license detection (0.0 - 1.0)
+confidence-threshold = 0.8
+
+[bans]
+# Lint level for when multiple versions of the same crate are detected
+multiple-versions = "warn"
+# Crates to deny
+deny = []
+
+[sources]
+# Lint level for crates from unknown git repositories
+unknown-git = "warn"
+# Lint level for crates from unknown registries  
+unknown-registry = "warn"
+# List of allowed git sources
+allow-git = []
+
+[advisories]
+# Lint level for security vulnerabilities
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+version = 2
+ignore = []

@@ -39,7 +39,9 @@ fn bdd_can_i_contract_with_different_actions() {
     //   Then it should return contract without checking action validity
     //   And exit code should be 0
 
-    let actions = vec!["add", "remove", "done", "undo", "sync", "spawn", "claim", "merge"];
+    let actions = vec![
+        "add", "remove", "done", "undo", "sync", "spawn", "claim", "merge",
+    ];
 
     for action in actions {
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_zjj"));

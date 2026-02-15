@@ -15,6 +15,7 @@ pub mod claim;
 pub mod clean;
 pub mod completions;
 pub mod config;
+pub mod config_ports;
 pub mod context;
 pub mod contract;
 pub mod dashboard;
@@ -66,7 +67,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use tokio::process::Command;
 
-use crate::db::SessionDb;
+use crate::{
+    commands::config_ports::{resolve_state_db_path, LocalConfigPort},
+    db::SessionDb,
+};
 
 /// Check if JJ is installed and available
 ///
@@ -150,30 +154,19 @@ pub async fn zjj_data_dir() -> Result<PathBuf> {
 ///
 /// Returns an error if prerequisites are not met and no override is provided
 pub async fn get_db_path() -> Result<PathBuf> {
-    // 1. Environment variable has highest priority
-    if let Ok(env_db) = std::env::var("ZJJ_STATE_DB") {
-        let p = PathBuf::from(env_db);
-        return Ok(p);
-    }
+    let repo_root = zjj_project_root().await?;
+    let port = LocalConfigPort;
+    resolve_state_db_path(&port, repo_root).await
+}
 
-    // 2. Load config to check for state_db override
-    // We try to load config but don't fail if it doesn't exist yet (e.g. during init)
-    if let Ok(cfg) = zjj_core::config::load_config().await {
-        if cfg.state_db != ".zjj/state.db" {
-            let p = PathBuf::from(cfg.state_db);
-            // If absolute, use as is. If relative, it's relative to repo root.
-            if p.is_absolute() {
-                return Ok(p);
-            }
-            let root = zjj_project_root().await?;
-            return Ok(root.join(p));
-        }
-    }
-
-    // 3. Default path: .zjj/state.db
+/// Get the merge queue database path for the current repository.
+///
+/// # Errors
+///
+/// Returns an error if JJ prerequisites are not met.
+pub async fn get_queue_db_path() -> Result<PathBuf> {
     let data_dir = zjj_data_dir().await?;
-    let p = data_dir.join("state.db");
-    Ok(p)
+    Ok(data_dir.join("queue.db"))
 }
 
 /// Get the session database for the current repository

@@ -69,6 +69,65 @@ fn given_conflicting_queue_actions_when_parsing_then_clap_rejects_combination() 
 }
 
 #[test]
+fn given_bead_without_add_when_parsing_then_clap_rejects_ignored_flag_path() {
+    let harness = TestHarness::new().expect("harness should initialize");
+
+    let result = harness.zjj(&["queue", "--bead", "bead-123"]);
+
+    assert_eq!(result.exit_code, Some(2));
+    assert!(result.stderr.contains("--add"));
+}
+
+#[test]
+fn given_priority_without_add_when_parsing_then_clap_rejects_ignored_flag_path() {
+    let harness = TestHarness::new().expect("harness should initialize");
+
+    let result = harness.zjj(&["queue", "--priority", "3"]);
+
+    assert_eq!(result.exit_code, Some(2));
+    assert!(result.stderr.contains("--add"));
+}
+
+#[test]
+fn given_agent_without_add_when_parsing_then_clap_rejects_ignored_flag_path() {
+    let harness = TestHarness::new().expect("harness should initialize");
+
+    let result = harness.zjj(&["queue", "--agent", "agent-1"]);
+
+    assert_eq!(result.exit_code, Some(2));
+    assert!(result.stderr.contains("--add"));
+}
+
+#[test]
+fn given_bead_without_add_in_json_mode_when_parsing_then_returns_json_error_and_non_zero_exit() {
+    let harness = TestHarness::new().expect("harness should initialize");
+
+    let result = harness.zjj(&["queue", "--bead", "bead-123", "--json"]);
+
+    assert_eq!(result.exit_code, Some(2));
+    assert!(result.stdout.contains("\"success\": false"));
+    assert!(result.stdout.contains("\"code\": \"INVALID_ARGUMENT\""));
+    assert!(result.stderr.trim().is_empty());
+}
+
+#[test]
+fn given_queue_status_missing_workspace_json_when_rendering_then_envelope_has_consistent_fields() {
+    let harness = TestHarness::new().expect("harness should initialize");
+    harness.assert_success(&["init"]);
+
+    let result = harness.zjj(&["queue", "--status", "missing", "--json"]);
+
+    assert_eq!(result.exit_code, Some(0));
+    let parsed: serde_json::Value =
+        serde_json::from_str(&result.stdout).expect("queue status should return valid JSON");
+    assert_eq!(parsed["$schema"], "zjj://queue-status-response/v1");
+    assert_eq!(parsed["success"], true);
+    assert_eq!(parsed["exists"], false);
+    assert!(parsed["status"].is_null());
+    assert!(parsed["id"].is_null());
+}
+
+#[test]
 fn given_empty_worker_id_when_parsing_then_clap_rejects_value() {
     let harness = TestHarness::new().expect("harness should initialize");
 
@@ -88,7 +147,7 @@ fn given_json_mode_parse_error_when_invalid_flag_then_output_stays_json_only() {
 
     assert_eq!(result.exit_code, Some(2));
     assert!(result.stdout.contains("\"success\": false"));
-    assert!(result.stdout.contains("unexpected argument '--unknown'"));
+    assert!(result.stdout.contains("\"code\": \"INVALID_ARGUMENT\""));
     assert!(result.stderr.trim().is_empty());
 }
 

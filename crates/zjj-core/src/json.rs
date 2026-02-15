@@ -53,6 +53,9 @@ pub mod schemas {
     pub const CONTRACT_RESPONSE: &str = "contract-response";
     pub const CONTRACTS_RESPONSE: &str = "contracts-response";
     pub const SUBMIT_RESPONSE: &str = "submit-response";
+    pub const EXPORT_RESPONSE: &str = "export-response";
+    pub const IMPORT_RESPONSE: &str = "import-response";
+    pub const CLI_DISPLAY_RESPONSE: &str = "cli-display-response";
 
     // Diff schemas
     pub const DIFF_RESPONSE: &str = "diff-response";
@@ -102,6 +105,9 @@ pub mod schemas {
             CONTRACT_RESPONSE,
             CONTRACTS_RESPONSE,
             SUBMIT_RESPONSE,
+            EXPORT_RESPONSE,
+            IMPORT_RESPONSE,
+            CLI_DISPLAY_RESPONSE,
             DIFF_RESPONSE,
             DIFF_STAT_RESPONSE,
             QUERY_SESSION_EXISTS,
