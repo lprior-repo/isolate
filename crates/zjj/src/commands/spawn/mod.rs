@@ -93,26 +93,6 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
         .join(".zjj/workspaces")
         .join(&options.bead_id);
 
-    if options.idempotent {
-        let workspace_exists = tokio::fs::try_exists(&workspace_path).await.map_err(|e| {
-            SpawnError::WorkspaceCreationFailed {
-                reason: format!("Failed checking existing workspace: {e}"),
-            }
-        })?;
-
-        if workspace_exists {
-            return Ok(SpawnOutput {
-                bead_id: options.bead_id.clone(),
-                workspace_path: workspace_path.to_string_lossy().to_string(),
-                agent_pid: None,
-                exit_code: None,
-                merged: false,
-                cleaned: false,
-                status: SpawnStatus::Idempotent,
-            });
-        }
-    }
-
     let bead_repo = BeadRepository::new(&root);
 
     // Phase 2: Validate bead status
@@ -132,6 +112,18 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
 
     // Initialize transaction tracker
     let workspace = create_workspace(&root, &options.bead_id, options.idempotent).await?;
+
+    if options.idempotent && workspace.reused_existing {
+        return Ok(SpawnOutput {
+            bead_id: options.bead_id.clone(),
+            workspace_path: workspace.path.to_string_lossy().to_string(),
+            agent_pid: None,
+            exit_code: None,
+            merged: false,
+            cleaned: false,
+            status: SpawnStatus::Idempotent,
+        });
+    }
 
     let tracker = TransactionTracker::new(&options.bead_id, &workspace.path).await?;
 

@@ -304,7 +304,6 @@ mod tests {
             no_auto_cleanup: false,
             idempotent: true,
             background: false,
-            idempotent: true,
             timeout: 3600,
             format: "json".to_string(),
             dry_run: true,

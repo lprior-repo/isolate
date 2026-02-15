@@ -58,12 +58,38 @@ pub async fn handle_context(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_whereami(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        let options = contract::ContractOptions {
+            command: Some("whereami".to_string()),
+            format: get_format(sub_m),
+        };
+        return contract::run(&options);
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let options = whereami::WhereAmIOptions { format };
     whereami::run(&options).await
 }
 
 pub fn handle_whoami(sub_m: &ArgMatches) -> Result<()> {
+    if sub_m.get_flag("contract") {
+        let options = contract::ContractOptions {
+            command: Some("whoami".to_string()),
+            format: get_format(sub_m),
+        };
+        return contract::run(&options);
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let options = whoami::WhoAmIOptions { format };
     whoami::run(&options)

@@ -326,6 +326,12 @@ pub fn cmd_broadcast() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("no-zellij")
+                .long("no-zellij")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip Zellij integration (for non-TTY environments)"),
+        )
 }
 
 pub fn cmd_list() -> ClapCommand {
@@ -601,12 +607,6 @@ pub fn cmd_focus() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
-        .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Skip Zellij integration (for non-TTY environments)"),
-        )
 }
 
 pub fn cmd_status() -> ClapCommand {
@@ -692,12 +692,6 @@ pub fn cmd_switch() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("no-zellij")
-                .long("no-zellij")
-                .action(clap::ArgAction::SetTrue)
-                .help("Skip Zellij integration (for non-TTY environments)"),
         )
 }
 
@@ -1600,12 +1594,6 @@ pub fn cmd_spawn() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
-        )
-        .arg(
-            Arg::new("idempotent")
-                .long("idempotent")
-                .action(clap::ArgAction::SetTrue)
-                .help("Succeed if session already exists (safe for retries)"),
         )
         .arg(
             Arg::new("dry-run")

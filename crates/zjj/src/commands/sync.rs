@@ -169,7 +169,16 @@ pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Resul
 
 async fn preview_sync(name: Option<&str>, options: SyncOptions) -> Result<()> {
     match (name, options.all) {
-        (Some(n), _) => output_sync_preview(Some(n.to_string()), 1, options.format),
+        (Some(n), _) => {
+            let db = get_session_db_with_workspace_detection().await?;
+            let session_exists = db.get(n).await?.is_some();
+            if !session_exists {
+                return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
+                    "Session '{n}' not found"
+                ))));
+            }
+            output_sync_preview(Some(n.to_string()), 1, options.format)
+        }
         (None, true) => {
             let db = get_session_db_with_workspace_detection().await?;
             let sessions = db.list(None).await?;
