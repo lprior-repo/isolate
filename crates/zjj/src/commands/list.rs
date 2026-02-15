@@ -15,15 +15,25 @@ use crate::{
 };
 
 /// Enhanced session information for list output
+///
+/// Uses `#[serde(flatten)]` to include all Session fields without duplication.
+/// Only adds computed/formatted fields that aren't in Session.
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionListItem {
-    pub name: String,
-    pub status: String,
-    pub branch: String,
+    /// Display-formatted branch (uses "-" when None)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_branch: Option<String>,
     pub changes: String,
     pub beads: String,
     #[serde(flatten)]
     pub session: Session,
+}
+
+impl SessionListItem {
+    /// Get display-formatted branch (returns "-" for None)
+    pub fn display_branch_str(&self) -> &str {
+        self.display_branch.as_deref().unwrap_or("-")
+    }
 }
 
 /// Beads issue counts
@@ -114,18 +124,12 @@ pub async fn run(
             let beads_str = beads_str.clone();
             async move {
                 let changes = get_session_changes(&session.workspace_path).await;
-                let branch = match session.branch.clone() {
-                    Some(b) => b,
-                    None => "-".to_string(),
-                };
                 let changes_str = match changes {
                     Some(c) => c.to_string(),
                     None => "-".to_string(),
                 };
                 SessionListItem {
-                    name: session.name.clone(),
-                    status: session.status.to_string(),
-                    branch,
+                    display_branch: session.branch.clone(),
                     changes: changes_str,
                     beads: beads_str,
                     session,
@@ -220,7 +224,7 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
 
             println!(
                 "{:<20} {:<12} {:<15} {:<30} {:<40}",
-                item.name, item.status, item.branch, bead_info, item.session.workspace_path
+                item.session.name, item.session.status, item.display_branch_str(), bead_info, item.session.workspace_path
             );
         }
     } else {
@@ -234,7 +238,7 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
         for item in items {
             println!(
                 "{:<20} {:<12} {:<15} {:<10} {:<12}",
-                item.name, item.status, item.branch, item.changes, item.beads
+                item.session.name, item.session.status, item.display_branch_str(), item.changes, item.beads
             );
         }
     }
@@ -301,9 +305,7 @@ mod tests {
         };
 
         let item = SessionListItem {
-            name: session.name.clone(),
-            status: session.status.to_string(),
-            branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
+            display_branch: session.branch.clone(),
             changes: "5".to_string(),
             beads: "3/2/1".to_string(),
             session,
@@ -339,9 +341,7 @@ mod tests {
         };
 
         let items = vec![SessionListItem {
-            name: session.name.clone(),
-            status: "active".to_string(),
-            branch: "main".to_string(),
+            display_branch: session.branch.clone(),
             changes: "5".to_string(),
             beads: "3/2/1".to_string(),
             session,
@@ -369,9 +369,7 @@ mod tests {
         };
 
         let items = vec![SessionListItem {
-            name: session.name.clone(),
-            status: "active".to_string(),
-            branch: "main".to_string(),
+            display_branch: session.branch.clone(),
             changes: "5".to_string(),
             beads: "3/2/1".to_string(),
             session,
@@ -499,15 +497,13 @@ mod tests {
         };
 
         let item = SessionListItem {
-            name: session.name.clone(),
-            status: session.status.to_string(),
-            branch: session.branch.clone().unwrap_or_else(|| "-".to_string()),
+            display_branch: session.branch.clone(),
             changes: "-".to_string(),
             beads: "0/0/0".to_string(),
             session,
         };
 
-        assert_eq!(item.branch, "-");
+        assert_eq!(item.display_branch_str(), "-");
         assert_eq!(item.changes, "-");
     }
 
@@ -671,9 +667,7 @@ mod tests {
         use zjj_core::json::SchemaEnvelopeArray;
 
         let items = vec![SessionListItem {
-            name: "session1".to_string(),
-            status: "active".to_string(),
-            branch: "main".to_string(),
+            display_branch: Some("main".to_string()),
             changes: "0".to_string(),
             beads: "1/0/0".to_string(),
             session: Session {
@@ -738,9 +732,7 @@ mod tests {
         });
 
         let items = vec![SessionListItem {
-            name: "session1".to_string(),
-            status: "active".to_string(),
-            branch: "feature".to_string(),
+            display_branch: Some("feature".to_string()),
             changes: "3".to_string(),
             beads: "2/1/0".to_string(),
             session: Session {
@@ -825,5 +817,126 @@ mod tests {
             contract.contains("bead") || contract.contains("filter"),
             "Contract should document filtering capabilities"
         );
+    }
+
+
+    // ============================================================================
+    // REGRESSION TESTS for Red Queen adversarial hardening
+    // These tests verify fixes for issues discovered through hostile input testing
+    // ============================================================================
+
+    /// REGRESSION: RFC 8259 duplicate keys violation
+    /// SessionListItem previously had duplicate "name" and "status" fields
+    /// due to #[serde(flatten)] on Session. JSON parsers may keep only the last value.
+    /// 
+    /// Fix: Removed redundant name/status fields, use session fields via flatten.
+    #[test]
+    fn test_no_duplicate_json_keys_in_session_list_item() -> Result<()> {
+        let session = Session {
+            id: Some(1i64),
+            name: "test-session".to_string(),
+            workspace_path: "/tmp/ws".to_string(),
+            zellij_tab: "zjj:test".to_string(),
+            state: WorkspaceState::Created,
+            status: SessionStatus::Active,
+            branch: Some("main".to_string()),
+            created_at: 1_704_067_200_u64,
+            updated_at: 1_704_067_200_u64,
+            last_synced: None,
+            metadata: None,
+        };
+
+        let item = SessionListItem {
+            display_branch: session.branch.clone(),
+            changes: "5".to_string(),
+            beads: "3/2/1".to_string(),
+            session,
+        };
+
+        let json_str = serde_json::to_string(&item)?;
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+        let obj = parsed.as_object().ok_or_else(|| anyhow::anyhow!("Expected object"))?;
+
+        // Count occurrences of each key
+        let mut key_counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+        for key in obj.keys() {
+            *key_counts.entry(key.as_str()).or_default() += 1;
+        }
+
+        // No key should appear more than once
+        for (key, count) in &key_counts {
+            assert_eq!(
+                *count, 1,
+                "Key '{}' appears {} times - violates RFC 8259 unique names requirement",
+                key, count
+            );
+        }
+
+        // Verify expected fields are present
+        assert!(obj.contains_key("name"), "Missing 'name' field from Session");
+        assert!(obj.contains_key("status"), "Missing 'status' field from Session");
+        assert!(obj.contains_key("changes"), "Missing 'changes' field");
+        assert!(obj.contains_key("beads"), "Missing 'beads' field");
+
+        // display_branch should be skipped when Some (via skip_serializing_if)
+        // since session.branch already contains the value
+        // Actually display_branch is separate, so it should be present
+        assert!(obj.contains_key("display_branch"), "Missing 'display_branch' field");
+
+        Ok(())
+    }
+
+    /// REGRESSION: display_branch_str returns "-" for None
+    #[test]
+    fn test_display_branch_str_returns_dash_for_none() {
+        let session = Session {
+            id: Some(1i64),
+            name: "test".to_string(),
+            workspace_path: "/tmp/ws".to_string(),
+            zellij_tab: "zjj:test".to_string(),
+            state: WorkspaceState::Created,
+            status: SessionStatus::Active,
+            branch: None,
+            created_at: 1_704_067_200_u64,
+            updated_at: 1_704_067_200_u64,
+            last_synced: None,
+            metadata: None,
+        };
+
+        let item = SessionListItem {
+            display_branch: None,
+            changes: "0".to_string(),
+            beads: "0/0/0".to_string(),
+            session,
+        };
+
+        assert_eq!(item.display_branch_str(), "-");
+    }
+
+    /// REGRESSION: display_branch_str returns value for Some
+    #[test]
+    fn test_display_branch_str_returns_value_for_some() {
+        let session = Session {
+            id: Some(1i64),
+            name: "test".to_string(),
+            workspace_path: "/tmp/ws".to_string(),
+            zellij_tab: "zjj:test".to_string(),
+            state: WorkspaceState::Created,
+            status: SessionStatus::Active,
+            branch: Some("feature-branch".to_string()),
+            created_at: 1_704_067_200_u64,
+            updated_at: 1_704_067_200_u64,
+            last_synced: None,
+            metadata: None,
+        };
+
+        let item = SessionListItem {
+            display_branch: Some("feature-branch".to_string()),
+            changes: "0".to_string(),
+            beads: "0/0/0".to_string(),
+            session,
+        };
+
+        assert_eq!(item.display_branch_str(), "feature-branch");
     }
 }

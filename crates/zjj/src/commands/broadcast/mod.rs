@@ -26,6 +26,14 @@ use self::types::{BroadcastArgs, BroadcastResponse};
 /// - Agent ID is invalid
 /// - Message storage fails
 pub async fn run(args: &BroadcastArgs, format: OutputFormat) -> Result<()> {
+    // Validate inputs
+    if args.message.trim().is_empty() {
+        anyhow::bail!("Message cannot be empty");
+    }
+    if args.agent_id.trim().is_empty() {
+        anyhow::bail!("Agent ID cannot be empty");
+    }
+
     // Get database connection
     let pool = get_db_pool().await?;
 
@@ -45,9 +53,8 @@ pub async fn run(args: &BroadcastArgs, format: OutputFormat) -> Result<()> {
     // Store the broadcast message in the database
     store_broadcast(&pool, &args.message, &args.agent_id, &sent_to).await?;
 
-    // Build response
+    // Build response (success is provided by SchemaEnvelope wrapper)
     let response = BroadcastResponse {
-        success: true,
         message: args.message.clone(),
         sent_to: sent_to.clone(),
         timestamp: Utc::now().to_rfc3339(),

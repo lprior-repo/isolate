@@ -32,7 +32,7 @@ pub struct ProductionSessionValidator {
 
 impl ProductionSessionValidator {
     #[must_use]
-    pub const fn new(db: SessionDb) -> Self {
+    pub fn new(db: SessionDb) -> Self {
         Self { db }
     }
 }

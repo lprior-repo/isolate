@@ -89,7 +89,7 @@ impl WorkspaceGuard {
     ///
     /// The guard will clean up the workspace when dropped unless disarmed.
     #[must_use]
-    pub const fn new(name: String, path: PathBuf) -> Self {
+    pub fn new(name: String, path: PathBuf) -> Self {
         Self {
             name,
             path,
@@ -100,7 +100,7 @@ impl WorkspaceGuard {
     /// Disarm the guard to prevent cleanup
     ///
     /// Call this when workspace creation succeeds and you want to keep it.
-    pub const fn disarm(&mut self) {
+    pub fn disarm(&mut self) {
         self.active = false;
     }
 

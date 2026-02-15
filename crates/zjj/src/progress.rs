@@ -37,7 +37,7 @@ impl ProgressConfig {
     #[must_use]
     #[allow(dead_code)]
     // Constructor for quiet mode configuration
-    pub const fn quiet() -> Self {
+    pub fn quiet() -> Self {
         Self {
             min_duration: Duration::ZERO,
             quiet: true,
@@ -49,7 +49,7 @@ impl ProgressConfig {
     #[must_use]
     #[allow(dead_code)]
     // Constructor for normal mode configuration
-    pub const fn normal() -> Self {
+    pub fn normal() -> Self {
         Self {
             min_duration: Duration::from_secs(2),
             quiet: false,
@@ -61,7 +61,7 @@ impl ProgressConfig {
     #[must_use]
     #[allow(dead_code)]
     // Builder method for Zellij mode configuration
-    pub const fn with_zellij(mut self, in_zellij: bool) -> Self {
+    pub fn with_zellij(mut self, in_zellij: bool) -> Self {
         self.in_zellij = in_zellij;
         self
     }
@@ -70,7 +70,7 @@ impl ProgressConfig {
     #[must_use]
     #[allow(dead_code)]
     // Builder method for quiet mode configuration
-    pub const fn with_quiet(mut self, quiet: bool) -> Self {
+    pub fn with_quiet(mut self, quiet: bool) -> Self {
         self.quiet = quiet;
         self
     }
@@ -119,7 +119,7 @@ pub enum OperationPhase {
 impl OperationPhase {
     /// Get display name for the phase
     #[must_use]
-    pub const fn display_name(&self) -> &'static str {
+    pub fn display_name(&self) -> &'static str {
         match self {
             Self::Initializing => "Initializing",
             Self::Validating => "Validating",
@@ -132,13 +132,13 @@ impl OperationPhase {
 
     /// Check if this is a terminal phase (no transitions out)
     #[must_use]
-    pub const fn is_terminal(&self) -> bool {
+    pub fn is_terminal(&self) -> bool {
         matches!(self, Self::Complete | Self::Failed)
     }
 
     /// Check if this is a starting phase
     #[must_use]
-    pub const fn is_starting(&self) -> bool {
+    pub fn is_starting(&self) -> bool {
         matches!(self, Self::Initializing)
     }
 }
@@ -245,7 +245,7 @@ impl ProgressIndicator {
 
     /// Get current phase
     #[must_use]
-    pub const fn phase(&self) -> OperationPhase {
+    pub fn phase(&self) -> OperationPhase {
         self.state.phase
     }
 
@@ -278,7 +278,7 @@ impl ProgressIndicator {
 
     /// Get configuration
     #[must_use]
-    pub const fn config(&self) -> &ProgressConfig {
+    pub fn config(&self) -> &ProgressConfig {
         &self.config
     }
 }
@@ -361,7 +361,7 @@ pub struct QuietReporter;
 impl QuietReporter {
     /// Create a new quiet reporter
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self
     }
 }

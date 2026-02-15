@@ -91,7 +91,7 @@ pub struct ValidatedBool(bool);
 
 impl ValidatedBool {
     #[inline]
-    pub const fn as_bool(self) -> bool {
+    pub fn as_bool(self) -> bool {
         self.0
     }
 }

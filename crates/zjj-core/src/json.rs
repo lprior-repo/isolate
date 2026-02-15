@@ -138,7 +138,7 @@ pub struct JsonSuccess<T> {
 
 impl<T> JsonSuccess<T> {
     /// Create a new success response
-    pub const fn new(data: T) -> Self {
+    pub fn new(data: T) -> Self {
         Self {
             success: true,
             data,
@@ -216,7 +216,7 @@ impl JsonError {
 
     /// Set exit code for this error
     #[must_use]
-    pub const fn with_exit_code(mut self, exit_code: i32) -> Self {
+    pub fn with_exit_code(mut self, exit_code: i32) -> Self {
         self.error.exit_code = exit_code;
         self
     }
@@ -282,7 +282,7 @@ pub enum ErrorCode {
 impl ErrorCode {
     /// Get the string representation of the error code
     #[must_use]
-    pub const fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::SessionNotFound => "SESSION_NOT_FOUND",
             Self::SessionAlreadyExists => "SESSION_ALREADY_EXISTS",
@@ -386,11 +386,20 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
             format!("Parse error: {msg}"),
             None,
         ),
-        Error::ValidationError { .. } => (
-            ErrorCode::InvalidArgument,
-            "Validation error".to_string(),
-            None,
-        ),
+        Error::ValidationError { message, field, value, constraints } => {
+            let full_message = match (field, value) {
+                (Some(f), Some(v)) => format!("Validation error: {message} (field: {f}, value: {v})"),
+                (Some(f), None) => format!("Validation error: {message} (field: {f})"),
+                (None, Some(v)) => format!("Validation error: {message} (value: {v})"),
+                (None, None) => format!("Validation error: {message}"),
+            };
+            let suggestion = if constraints.is_empty() {
+                None
+            } else {
+                Some(format!("Valid values: {}", constraints.join(", ")))
+            };
+            (ErrorCode::InvalidArgument, full_message, suggestion)
+        },
         Error::NotFound(_) => (
             ErrorCode::SessionNotFound,
             "Not found".to_string(),
@@ -488,6 +497,8 @@ impl From<&crate::Error> for JsonError {
         }
         // Override exit code to match the error classification
         json_error.error.exit_code = classify_exit_code(err);
+        // Include error context details for programmatic access
+        json_error.error.details = err.context_map();
         json_error
     }
 }
@@ -655,14 +666,14 @@ impl ResponseMeta {
 
     /// Set duration
     #[must_use]
-    pub const fn with_duration(mut self, ms: u64) -> Self {
+    pub fn with_duration(mut self, ms: u64) -> Self {
         self.duration_ms = Some(ms);
         self
     }
 
     /// Mark as dry run
     #[must_use]
-    pub const fn as_dry_run(mut self) -> Self {
+    pub fn as_dry_run(mut self) -> Self {
         self.dry_run = Some(true);
         self
     }
@@ -813,7 +824,7 @@ impl<T> SchemaEnvelope<T> {
 
     /// Mark as failed response
     #[must_use]
-    pub const fn as_error(mut self) -> Self {
+    pub fn as_error(mut self) -> Self {
         self.success = false;
         self
     }

@@ -22,7 +22,7 @@ pub struct UndoArgs {
 
 impl UndoArgs {
     /// Convert to `UndoOptions`
-    pub const fn to_options(&self) -> UndoOptions {
+    pub fn to_options(&self) -> UndoOptions {
         UndoOptions {
             dry_run: self.dry_run,
             list: self.list,
@@ -111,7 +111,7 @@ impl fmt::Display for UndoError {
 impl std::error::Error for UndoError {}
 
 impl UndoError {
-    pub const fn error_code(&self) -> &'static str {
+    pub fn error_code(&self) -> &'static str {
         match self {
             Self::NotInMain { .. } => "NOT_IN_MAIN",
             Self::NoUndoHistory => "NO_UNDO_HISTORY",

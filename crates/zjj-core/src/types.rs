@@ -214,7 +214,7 @@ impl SessionStatus {
     ///
     /// # Returns
     /// `true` if transition from current state to `next` is valid
-    pub const fn can_transition_to(self, next: Self) -> bool {
+    pub fn can_transition_to(self, next: Self) -> bool {
         matches!(
             (self, next),
             (Self::Creating | Self::Paused, Self::Active)
@@ -242,13 +242,13 @@ impl SessionStatus {
     ///
     /// SessionStatus.Completed and SessionStatus.Failed are terminal.
     #[must_use]
-    pub const fn is_terminal(self) -> bool {
+    pub fn is_terminal(self) -> bool {
         matches!(self, Self::Completed | Self::Failed)
     }
 
     /// Returns all possible session status states.
     #[must_use]
-    pub const fn all_states() -> &'static [Self] {
+    pub fn all_states() -> &'static [Self] {
         &[
             Self::Creating,
             Self::Active,
@@ -259,7 +259,7 @@ impl SessionStatus {
     }
 
     /// Allowed operations in this state
-    pub const fn allowed_operations(self) -> &'static [Operation] {
+    pub fn allowed_operations(self) -> &'static [Operation] {
         match self {
             Self::Creating => &[],
             Self::Active => &[
@@ -631,19 +631,19 @@ pub struct ChangesSummary {
 impl ChangesSummary {
     /// Total number of changed files
     #[must_use]
-    pub const fn total(&self) -> usize {
+    pub fn total(&self) -> usize {
         self.modified + self.added + self.deleted + self.renamed
     }
 
     /// Has any changes?
     #[must_use]
-    pub const fn has_changes(&self) -> bool {
+    pub fn has_changes(&self) -> bool {
         self.total() > 0
     }
 
     /// Has any tracked changes (excluding untracked)?
     #[must_use]
-    pub const fn has_tracked_changes(&self) -> bool {
+    pub fn has_tracked_changes(&self) -> bool {
         self.modified + self.added + self.deleted + self.renamed > 0
     }
 }
@@ -857,19 +857,19 @@ pub struct BeadsSummary {
 impl BeadsSummary {
     /// Total number of issues
     #[must_use]
-    pub const fn total(&self) -> usize {
+    pub fn total(&self) -> usize {
         self.open + self.in_progress + self.blocked + self.closed
     }
 
     /// Number of active issues (open + `in_progress`)
     #[must_use]
-    pub const fn active(&self) -> usize {
+    pub fn active(&self) -> usize {
         self.open + self.in_progress
     }
 
     /// Has blocking issues?
     #[must_use]
-    pub const fn has_blockers(&self) -> bool {
+    pub fn has_blockers(&self) -> bool {
         self.blocked > 0
     }
 }

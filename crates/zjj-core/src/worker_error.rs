@@ -77,7 +77,7 @@ pub enum WorkerError {
 impl WorkerError {
     /// Classify the error as retryable or terminal.
     #[must_use]
-    pub const fn classify(&self) -> ErrorClass {
+    pub fn classify(&self) -> ErrorClass {
         match self {
             Self::IoError(_)
             | Self::DatabaseError(_)
@@ -97,13 +97,13 @@ impl WorkerError {
 
     /// Check if this error is retryable.
     #[must_use]
-    pub const fn is_retryable(&self) -> bool {
+    pub fn is_retryable(&self) -> bool {
         matches!(self.classify(), ErrorClass::Retryable)
     }
 
     /// Check if this error is terminal.
     #[must_use]
-    pub const fn is_terminal(&self) -> bool {
+    pub fn is_terminal(&self) -> bool {
         matches!(self.classify(), ErrorClass::Terminal)
     }
 }

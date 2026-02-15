@@ -31,7 +31,7 @@ pub enum HookType {
 impl HookType {
     /// Get the event name for this hook type
     #[must_use]
-    pub const fn event_name(self) -> &'static str {
+    pub fn event_name(self) -> &'static str {
         match self {
             Self::PostCreate => "post_create",
             Self::PreRemove => "pre_remove",
@@ -75,7 +75,7 @@ pub struct HookRunner {
 impl HookRunner {
     /// Create a new hook runner with the given configuration
     #[must_use]
-    pub const fn new(config: HooksConfig) -> Self {
+    pub fn new(config: HooksConfig) -> Self {
         Self { config }
     }
 

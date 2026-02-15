@@ -472,7 +472,7 @@ impl Error {
     ///
     /// Error codes are always in `SCREAMING_SNAKE_CASE` format.
     #[must_use]
-    pub const fn code(&self) -> &'static str {
+    pub fn code(&self) -> &'static str {
         match self {
             Self::InvalidConfig(_) => "INVALID_CONFIG",
             Self::IoError(_) => "IO_ERROR",
@@ -678,7 +678,7 @@ impl Error {
     /// - 3: System errors (IO, database issues)
     /// - 4: External command errors (JJ, hooks, etc.)
     #[must_use]
-    pub const fn exit_code(&self) -> i32 {
+    pub fn exit_code(&self) -> i32 {
         match self {
             // Validation errors: exit code 1
             Self::InvalidConfig(_) | Self::ValidationError { .. } | Self::ParseError(_) => 1,

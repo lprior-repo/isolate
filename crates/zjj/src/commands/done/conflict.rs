@@ -94,7 +94,7 @@ impl ConflictExitCode {
     /// Convert to i32 for process exit
     #[must_use]
     #[allow(dead_code)] // For future CLI exit code handling
-    pub const fn as_i32(self) -> i32 {
+    pub fn as_i32(self) -> i32 {
         self as i32
     }
 }
@@ -258,7 +258,7 @@ pub struct JjConflictDetector<'a, E: JjExecutor + ?Sized> {
 impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
     /// Create a new JJ conflict detector
     #[must_use]
-    pub const fn new(executor: &'a E) -> Self {
+    pub fn new(executor: &'a E) -> Self {
         Self { executor }
     }
 
