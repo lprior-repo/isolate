@@ -62,7 +62,7 @@ async fn given_invalid_status_when_parse_status_then_returns_error() {
 async fn given_sqlite_pool_when_enable_wal_mode_then_succeeds() {
     let temp_dir = TempDir::new().ok().and_then(|d| Some(d));
     assert!(temp_dir.is_some());
-    let temp_dir = temp_dir.as_ref().map(|d| d);
+    let temp_dir = temp_dir.as_ref();
 
     if let Some(dir) = temp_dir {
         let db_path = dir.path().join("test.db");
