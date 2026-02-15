@@ -75,6 +75,8 @@ pub struct MergeQueue {
 
 impl MergeQueue {
     pub const DEFAULT_LOCK_TIMEOUT_SECS: i64 = 300;
+    const SQLITE_BUSY_TIMEOUT_MS: i64 = 5000;
+    const SQLITE_WAL_AUTOCHECKPOINT_PAGES: i64 = 1000;
 
     pub async fn open(db_path: &Path) -> Result<Self> {
         Self::open_with_timeout(db_path, Self::DEFAULT_LOCK_TIMEOUT_SECS).await
@@ -102,10 +104,38 @@ impl MergeQueue {
         }
 
         let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+
+        // Configure pool with proper SQLite settings for concurrency
         let pool = SqlitePoolOptions::new()
+            .max_connections(10)
+            .acquire_timeout(Duration::from_secs(10))
+            .idle_timeout(Some(Duration::from_secs(600)))
+            .after_connect(|conn, _meta| {
+                Box::pin(async move {
+                    // Set busy_timeout to wait up to 5s when database is locked
+                    sqlx::query(&format!(
+                        "PRAGMA busy_timeout = {};",
+                        Self::SQLITE_BUSY_TIMEOUT_MS
+                    ))
+                    .execute(&mut *conn)
+                    .await?;
+                    // Enable foreign keys
+                    sqlx::query("PRAGMA foreign_keys = ON;")
+                        .execute(&mut *conn)
+                        .await?;
+                    // Use NORMAL sync for better performance without sacrificing safety
+                    sqlx::query("PRAGMA synchronous = NORMAL;")
+                        .execute(&mut *conn)
+                        .await?;
+                    Ok(())
+                })
+            })
             .connect(&db_url)
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to open queue database: {e}")))?;
+
+        // Enable WAL mode after pool creation
+        Self::enable_wal_mode(&pool).await?;
 
         let queue = Self {
             pool,
@@ -115,13 +145,67 @@ impl MergeQueue {
         Ok(queue)
     }
 
+    /// Enable WAL mode on the SQLite connection for better concurrency
+    async fn enable_wal_mode(pool: &SqlitePool) -> Result<()> {
+        // Check current mode
+        let current_mode: String = sqlx::query_scalar("PRAGMA journal_mode;")
+            .fetch_one(pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to check journal_mode: {e}")))?;
+
+        if current_mode.eq_ignore_ascii_case("wal") {
+            return Ok(());
+        }
+
+        // Enable WAL mode
+        let mode: String = sqlx::query_scalar("PRAGMA journal_mode=WAL;")
+            .fetch_one(pool)
+            .await
+            .map_err(|e| Error::DatabaseError(format!("Failed to enable WAL mode: {e}")))?;
+
+        if !mode.eq_ignore_ascii_case("wal") {
+            return Err(Error::DatabaseError(format!(
+                "Failed to set journal_mode to WAL (actual: {mode})"
+            )));
+        }
+
+        // Configure WAL autocheckpoint
+        sqlx::query(&format!(
+            "PRAGMA wal_autocheckpoint = {};",
+            Self::SQLITE_WAL_AUTOCHECKPOINT_PAGES
+        ))
+        .execute(pool)
+        .await
+        .map_err(|e| Error::DatabaseError(format!("Failed to set wal_autocheckpoint: {e}")))?;
+
+        Ok(())
+    }
+
     /// Open an in-memory merge queue for testing
     ///
     /// This creates a transient in-memory `SQLite` database that is
     /// discarded when the queue is dropped. Useful for testing and
     /// development without persisting state to disk.
     pub async fn open_in_memory() -> Result<Self> {
+        // Use single connection for in-memory DB to avoid per-connection isolation
+        // Each :memory: connection gets its own isolated database instance
         let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(Duration::from_secs(5))
+            .after_connect(|conn, _meta| {
+                Box::pin(async move {
+                    sqlx::query("PRAGMA busy_timeout = 5000;")
+                        .execute(&mut *conn)
+                        .await?;
+                    sqlx::query("PRAGMA foreign_keys = ON;")
+                        .execute(&mut *conn)
+                        .await?;
+                    sqlx::query("PRAGMA synchronous = NORMAL;")
+                        .execute(&mut *conn)
+                        .await?;
+                    Ok(())
+                })
+            })
             .connect("sqlite::memory:")
             .await
             .map_err(|e| Error::DatabaseError(format!("Failed to open in-memory database: {e}")))?;
