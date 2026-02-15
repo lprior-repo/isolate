@@ -834,9 +834,7 @@ pub fn validate_key(key: &str) -> Result<()> {
         );
         error_msg.push_str("  agent.command, agent.env\n");
         error_msg.push_str("  session.auto_commit, session.commit_prefix\n");
-        error_msg.push_str(
-            "  recovery.policy, recovery.log_recovered, recovery.auto_recover_corrupted_wal, recovery.delete_corrupted_database\n",
-        );
+        error_msg.push_str("  recovery.policy, recovery.log_recovered, recovery.auto_recover_corrupted_wal, recovery.delete_corrupted_database\n");
         error_msg.push_str("\nUse 'zjj config' to see current configuration.");
 
         Err(Error::ValidationError {

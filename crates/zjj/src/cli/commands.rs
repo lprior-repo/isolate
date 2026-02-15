@@ -2545,6 +2545,18 @@ pub fn cmd_claim() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj claim session:feature-x      Claim exclusive lock on session",
@@ -2574,6 +2586,18 @@ pub fn cmd_yield() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &[
@@ -2689,6 +2713,18 @@ pub fn cmd_events() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj events                       Show recent events",
@@ -2727,6 +2763,18 @@ pub fn cmd_lock() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj lock feature-x               Lock session with 5min TTL",
@@ -2757,6 +2805,18 @@ pub fn cmd_unlock() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj unlock feature-x             Unlock session",
@@ -2779,6 +2839,18 @@ pub fn cmd_completions() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &[
@@ -2811,6 +2883,18 @@ pub fn cmd_rename() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj rename old-name new-name        Rename a session",
@@ -2830,6 +2914,18 @@ pub fn cmd_pause() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
+        )
         .after_help(after_help_text(
             &["zjj pause feature-x              Pause session"],
             None,
@@ -2845,6 +2941,18 @@ pub fn cmd_resume() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &["zjj resume feature-x             Resume paused session"],
@@ -2876,6 +2984,18 @@ pub fn cmd_clone() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &[
@@ -2912,6 +3032,18 @@ IMPORTANT: Output file paths require -o/--output flag:
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &[
@@ -2958,6 +3090,18 @@ pub fn cmd_import() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj import state.json           Import session from file",
@@ -2992,7 +3136,7 @@ pub fn cmd_wait() -> ClapCommand {
             Arg::new("timeout")
                 .short('t')
                 .long("timeout")
-                .value_parser(clap::value_parser!(u64).range(1..))
+                .value_parser(clap::value_parser!(f64))
                 .default_value("30")
                 .help("Timeout in seconds"),
         )
@@ -3000,15 +3144,27 @@ pub fn cmd_wait() -> ClapCommand {
             Arg::new("interval")
                 .short('i')
                 .long("interval")
-                .value_parser(clap::value_parser!(u64).range(1..))
-                .default_value("1000")
-                .help("Polling interval in milliseconds"),
+                .value_parser(clap::value_parser!(f64))
+                .default_value("1")
+                .help("Polling interval in seconds"),
         )
         .arg(
             Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &[
@@ -3048,6 +3204,18 @@ pub fn cmd_schema() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &[
@@ -3102,6 +3270,18 @@ pub fn cmd_recover() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
+        )
         .after_help(after_help_text(
             &[
                 "zjj recover                      Auto-diagnose and fix issues",
@@ -3120,6 +3300,18 @@ pub fn cmd_retry() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &["zjj retry                       Retry last failed operation"],
@@ -3148,6 +3340,18 @@ pub fn cmd_rollback() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &[
@@ -3275,6 +3479,18 @@ pub fn cmd_abort() -> ClapCommand {
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
+        )
+        .arg(
+            Arg::new("contract")
+                .long("contract")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show machine-readable contract"),
+        )
+        .arg(
+            Arg::new("ai-hints")
+                .long("ai-hints")
+                .action(clap::ArgAction::SetTrue)
+                .help("AI: Show command flow hints"),
         )
         .after_help(after_help_text(
             &[
