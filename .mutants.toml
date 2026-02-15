@@ -1,0 +1,22 @@
+[mutants]
+ignore_dirs = ["target", ".git", "node_modules", ".moon"]
+ignore_files = ["#", "SNAPSHOT"]
+
+[mutants.actors]
+test_timeout = 120
+
+[mutants.filters]
+src_only = true
+
+[mutants.launch]
+test_framework = "nextest"
+
+[mutants.generate]
+# More aggressive error handling mutations
+error = "::anyhow::anyhow!(\"mutated\")"
+
+[mutants.build]
+# Skip baseline to speed up runs after first pass
+baseline = "skip"
+# Cap lints so denied warnings don't block mutations
+cap_lints = true

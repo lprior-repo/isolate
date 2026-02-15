@@ -2,6 +2,10 @@ $schema: "https://moonrepo.dev/schemas/project.json"
 
 tasks:
   test:
-    command: "cargo nextest run -p zjj-core --all-features --no-fail-fast"
+    command: "cargo nextest run -p zjj-core --all-features --no-fail-fast --test-threads=1"
   test-doc:
     command: "cargo test --doc -p zjj-core"
+  mutate:
+    command: "cargo mutants -p zjj-core -- --no-fail-fast --cap-lints true --jobs 4"
+    env:
+      RUST_BACKTRACE: "1"

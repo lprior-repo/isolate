@@ -708,9 +708,13 @@ exit 1
     }
 
     #[cfg(unix)]
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_rebase_step_persists_metadata_on_success(
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Ensure clean env state
+        std::env::remove_var("ZJJ_TEST_MOON_FAIL");
+        std::env::remove_var("ZJJ_TEST_MOON_STDERR");
+        
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let jj_path = write_fake_jj_script(temp_dir.path())?;
@@ -743,9 +747,13 @@ exit 1
     }
 
     #[cfg(unix)]
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_rebase_step_conflict_marks_failed_retryable(
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Ensure clean env state
+        std::env::remove_var("ZJJ_TEST_MOON_FAIL");
+        std::env::remove_var("ZJJ_TEST_MOON_STDERR");
+        
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let jj_path = write_fake_jj_script(temp_dir.path())?;
@@ -840,8 +848,13 @@ exit 0
     }
 
     #[cfg(unix)]
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
+    
     async fn test_moon_gate_step_success() -> Result<(), Box<dyn std::error::Error>> {
+        // Ensure clean env state
+        std::env::remove_var("ZJJ_TEST_MOON_FAIL");
+        std::env::remove_var("ZJJ_TEST_MOON_STDERR");
+        // Also clean PATH modifications from other tests
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let moon_path = write_fake_moon_script(temp_dir.path())?;
@@ -879,9 +892,13 @@ exit 0
     }
 
     #[cfg(unix)]
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_moon_gate_step_failure_marks_retryable() -> Result<(), Box<dyn std::error::Error>>
     {
+        // Ensure clean env state first
+        std::env::remove_var("ZJJ_TEST_MOON_FAIL");
+        std::env::remove_var("ZJJ_TEST_MOON_STDERR");
+        
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let moon_path = write_fake_moon_script(temp_dir.path())?;
@@ -916,8 +933,12 @@ exit 0
     }
 
     #[cfg(unix)]
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_moon_gate_step_invalid_state() -> Result<(), Box<dyn std::error::Error>> {
+        // Ensure clean env state
+        std::env::remove_var("ZJJ_TEST_MOON_FAIL");
+        std::env::remove_var("ZJJ_TEST_MOON_STDERR");
+        
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let moon_path = write_fake_moon_script(temp_dir.path())?;
@@ -936,8 +957,12 @@ exit 0
     }
 
     #[cfg(unix)]
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_moon_gate_step_captures_stderr() -> Result<(), Box<dyn std::error::Error>> {
+        // Ensure clean env state
+        std::env::remove_var("ZJJ_TEST_MOON_FAIL");
+        std::env::remove_var("ZJJ_TEST_MOON_STDERR");
+        
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
         let moon_path = write_fake_moon_script(temp_dir.path())?;
