@@ -828,10 +828,12 @@ mod tests {
         assert!(!guard.active);
     }
 
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_workspace_guard_cleanup_when_active() {
         // Create a temporary directory for testing
-        let temp_dir = std::env::temp_dir().join("zjj-test-workspace-guard");
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path().to_path_buf();
         let _ = tokio::fs::create_dir_all(&temp_dir).await;
 
         let guard_path = temp_dir.clone();
@@ -867,10 +869,12 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_workspace_guard_drop_cleans_up() {
         // Create a temporary directory
-        let temp_dir = std::env::temp_dir().join("zjj-test-drop-cleanup");
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path().to_path_buf();
         let _ = tokio::fs::create_dir_all(&temp_dir).await;
 
         {
@@ -887,9 +891,11 @@ mod tests {
         let _ = tokio::fs::remove_dir_all(temp_dir).await;
     }
 
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_workspace_guard_disarmed_does_not_cleanup() {
-        let temp_dir = std::env::temp_dir().join("zjj-test-disarmed");
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path().to_path_buf();
         let _ = tokio::fs::create_dir_all(&temp_dir).await;
 
         {
@@ -906,11 +912,13 @@ mod tests {
         let _ = tokio::fs::remove_dir_all(temp_dir).await;
     }
 
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_workspace_guard_panic_still_cleans_up() {
         use std::panic::{catch_unwind, AssertUnwindSafe};
 
-        let temp_dir = std::env::temp_dir().join("zjj-test-panic-cleanup");
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path().to_path_buf();
         let _ = tokio::fs::create_dir_all(&temp_dir).await;
 
         let guard_path = temp_dir.clone();
@@ -932,11 +940,13 @@ mod tests {
 
     // create_workspace tests (RED phase - these will fail until implementation)
 
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_create_workspace_returns_guard() {
         // This test verifies create_workspace returns a WorkspaceGuard
         // RED: Function doesn't exist yet
-        let temp_dir = std::env::temp_dir().join("zjj-test-create-workspace");
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path().to_path_buf();
         let _ = tokio::fs::create_dir_all(&temp_dir).await;
 
         // Function doesn't exist yet - this will fail to compile
@@ -960,10 +970,12 @@ mod tests {
         let _ = tokio::fs::remove_dir_all(temp_dir).await;
     }
 
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_create_workspace_propagates_errors() {
         // Test that create_workspace properly propagates errors from workspace_create
-        let temp_dir = std::env::temp_dir().join("zjj-test-error-workspace");
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path().to_path_buf();
 
         // Function doesn't exist yet - this will fail to compile
         let result = create_workspace("", &temp_dir).await;
@@ -972,10 +984,12 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_create_workspace_guard_has_correct_name() {
         // Test that the returned guard has the correct workspace name
-        let temp_dir = std::env::temp_dir().join("zjj-test-guard-name");
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path().to_path_buf();
 
         // Function doesn't exist yet - this will fail to compile
         let result = create_workspace("my-workspace", &temp_dir).await;
@@ -990,7 +1004,8 @@ mod tests {
     #[tokio::test]
     async fn test_create_workspace_guard_has_correct_path() {
         // Test that the returned guard has the correct workspace path
-        let temp_dir = std::env::temp_dir().join("zjj-test-guard-path");
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path().to_path_buf();
 
         // Function doesn't exist yet - this will fail to compile
         let result = create_workspace("path-workspace", &temp_dir).await;

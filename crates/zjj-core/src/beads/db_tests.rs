@@ -1,4 +1,3 @@
-#![cfg(test)]
 
 use chrono::Utc;
 use sqlx::SqlitePool;
@@ -15,7 +14,7 @@ async fn given_valid_rfc3339_when_parse_datetime_then_returns_utc_datetime() {
     let valid_datetime = Some("2026-02-14T10:00:00Z".to_string());
     let result = parse_datetime(valid_datetime);
     assert!(result.is_ok());
-    let dt = result.ok().and_then(|d| Some(d));
+    let dt = result.ok().map(|d| d);
     assert!(dt.is_some());
 }
 
@@ -60,7 +59,7 @@ async fn given_invalid_status_when_parse_status_then_returns_error() {
 // Behavior: Enable WAL mode on SQLite connection
 #[tokio::test]
 async fn given_sqlite_pool_when_enable_wal_mode_then_succeeds() {
-    let temp_dir = TempDir::new().ok().and_then(|d| Some(d));
+    let temp_dir = TempDir::new().ok();
     assert!(temp_dir.is_some());
     let temp_dir = temp_dir.as_ref().map(|d| d);
 
@@ -81,21 +80,21 @@ async fn given_sqlite_pool_when_enable_wal_mode_then_succeeds() {
 // Behavior: Query beads returns empty vec when database doesn't exist
 #[tokio::test]
 async fn given_no_database_when_query_beads_then_returns_empty_vec() {
-    let temp_dir = TempDir::new().ok().and_then(|d| Some(d));
+    let temp_dir = TempDir::new().ok();
     assert!(temp_dir.is_some());
 
     if let Some(dir) = temp_dir {
         let workspace_path = dir.path();
         let result = query_beads(workspace_path).await;
         assert!(result.is_ok());
-        assert_eq!(result.ok().and_then(|v| Some(v.len())), Some(0));
+        assert_eq!(result.ok().map(|v| v.len()), Some(0));
     }
 }
 
 // Behavior: Query beads creates connection and queries when database exists
 #[tokio::test]
 async fn given_valid_database_with_issues_when_query_beads_then_returns_issues() {
-    let temp_dir = TempDir::new().ok().and_then(|d| Some(d));
+    let temp_dir = TempDir::new().ok();
     assert!(temp_dir.is_some());
 
     if let Some(dir) = temp_dir {
@@ -170,7 +169,7 @@ async fn given_invalid_utf8_path_when_query_beads_then_returns_error() {
     // This test verifies the path validation logic
     // On most systems, creating invalid UTF-8 paths is difficult
     // So we test the happy path and rely on the error handling code
-    let temp_dir = TempDir::new().ok().and_then(|d| Some(d));
+    let temp_dir = TempDir::new().ok();
     assert!(temp_dir.is_some());
 
     if let Some(dir) = temp_dir {
@@ -184,7 +183,7 @@ async fn given_invalid_utf8_path_when_query_beads_then_returns_error() {
 // Behavior: Query beads orders results by priority and created_at
 #[tokio::test]
 async fn given_multiple_issues_when_query_beads_then_ordered_by_priority_and_created() {
-    let temp_dir = TempDir::new().ok().and_then(|d| Some(d));
+    let temp_dir = TempDir::new().ok();
     assert!(temp_dir.is_some());
 
     if let Some(dir) = temp_dir {
@@ -249,7 +248,7 @@ async fn given_multiple_issues_when_query_beads_then_ordered_by_priority_and_cre
 // Behavior: Parse bead row handles all required fields
 #[tokio::test]
 async fn given_complete_row_when_parse_bead_row_then_returns_bead_issue() {
-    let temp_dir = TempDir::new().ok().and_then(|d| Some(d));
+    let temp_dir = TempDir::new().ok();
     assert!(temp_dir.is_some());
 
     if let Some(dir) = temp_dir {
@@ -304,7 +303,7 @@ async fn given_complete_row_when_parse_bead_row_then_returns_bead_issue() {
 // Behavior: Parse bead row handles optional fields as None
 #[tokio::test]
 async fn given_row_with_null_optionals_when_parse_bead_row_then_returns_none_for_optionals() {
-    let temp_dir = TempDir::new().ok().and_then(|d| Some(d));
+    let temp_dir = TempDir::new().ok();
     assert!(temp_dir.is_some());
 
     if let Some(dir) = temp_dir {

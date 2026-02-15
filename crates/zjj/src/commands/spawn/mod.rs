@@ -121,7 +121,7 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
         // If idempotent and workspace exists, we check if the bead status error (if any)
         // is acceptable (e.g., "in_progress").
         match &bead_status_result {
-            Ok(_) => {
+            Ok(()) => {
                 // Workspace exists but bead is open. This is unusual but we can treat as
                 // success/running.
             }

@@ -507,11 +507,13 @@ mod tests {
         // This is a compile-time check that the mutex is accessible
         let _ = &WORKSPACE_CREATION_LOCK;
     }
-
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_empty_workspace_name_returns_error() {
-        let temp_dir = std::env::temp_dir().join("test-empty-name");
-        let repo_root = std::env::temp_dir().join("test-repo-root");
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path().to_path_buf();
+        let repo_root_guard = tempfile::TempDir::new().unwrap();
+        let repo_root = repo_root_guard.path().to_path_buf();
         let result = create_workspace_synced("", &temp_dir, &repo_root).await;
         assert!(result.is_err());
 
@@ -523,13 +525,14 @@ mod tests {
             Err(other) => panic!("Expected InvalidConfig error, got: {other:?}"),
         }
     }
-
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_workspace_without_parent_returns_error() {
         // Test that workspace path without parent directory returns error
         // Use "/" which has no parent
         let workspace_path = PathBuf::from("/");
-        let repo_root = std::env::temp_dir().join("test-repo-root");
+        let repo_root_guard = tempfile::TempDir::new().unwrap();
+        let repo_root = repo_root_guard.path().to_path_buf();
         let result = create_workspace_synced("test", &workspace_path, &repo_root).await;
 
         match result {
@@ -655,7 +658,7 @@ mod tests {
             operation_id: "abc123".into(),
             repo_root: PathBuf::from("/tmp/repo"),
         };
-        let cloned = info.clone();
+        let cloned = info;
         assert_eq!(cloned.operation_id, "abc123");
         assert_eq!(cloned.repo_root, PathBuf::from("/tmp/repo"));
     }
@@ -666,7 +669,7 @@ mod tests {
             operation_id: "xyz789".into(),
             repo_root: PathBuf::from("/test/path"),
         };
-        let debug_str = format!("{:?}", info);
+        let debug_str = format!("{info:?}");
         assert!(debug_str.contains("xyz789"));
         assert!(debug_str.contains("/test/path"));
     }

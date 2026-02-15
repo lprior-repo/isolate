@@ -660,11 +660,13 @@ mod tests {
     }
 
     // Test Case 5: Open tab - Executes 'zellij action new-tab ...'
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_tab_open_requires_zellij() {
         // This test will fail if not in Zellij
         // We just test the error handling
-        let temp_dir = env::temp_dir();
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir.path();
         let layout_path = temp_dir.join("test.kdl");
 
         // Create a test layout file
@@ -816,10 +818,12 @@ mod tests {
     }
 
     // Additional test: Layout generation end-to-end
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_layout_generate_creates_file() {
         let config = test_config();
-        let output_dir = env::temp_dir().join("zjj-test-layouts");
+        let output_dir_guard = tempfile::TempDir::new().unwrap();
+        let output_dir = output_dir_guard.path().to_path_buf();
 
         let result = layout_generate(&config, LayoutTemplate::Minimal, &output_dir).await;
         assert!(result.is_ok());

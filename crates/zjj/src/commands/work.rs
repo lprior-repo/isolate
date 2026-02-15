@@ -895,9 +895,11 @@ mod tests {
     }
 
     /// Test that path verification catches escapes
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_verify_workspace_contained_blocks_escape() {
-        let temp_dir = std::env::temp_dir();
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path();
         let data_dir = temp_dir.join("zjj-test-data");
         let escaped_path = temp_dir.join("etc/passwd");
 
@@ -909,9 +911,11 @@ mod tests {
     }
 
     /// Test that path verification allows valid workspaces
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_verify_workspace_contained_allows_valid() {
-        let temp_dir = std::env::temp_dir();
+        let temp_dir_guard = tempfile::TempDir::new().unwrap();
+        let temp_dir = temp_dir_guard.path();
         let data_dir = temp_dir.join("zjj-test-data");
         let valid_workspace = data_dir.join("workspaces/test-session");
 

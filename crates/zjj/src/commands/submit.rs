@@ -355,8 +355,7 @@ async fn resolve_workspace_context(root: &Path) -> Result<WorkspaceInfo> {
 
     let workspace_dir = config::load_config()
         .await
-        .map(|cfg| cfg.workspace_dir)
-        .unwrap_or_else(|_| ".zjj/workspaces".to_string());
+        .map_or_else(|_| ".zjj/workspaces".to_string(), |cfg| cfg.workspace_dir);
     let workspace_roots = workspace_utils::candidate_workspace_roots(root, &workspace_dir);
 
     for workspace_root in workspace_roots {

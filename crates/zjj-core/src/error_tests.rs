@@ -1,4 +1,3 @@
-#![cfg(test)]
 
 use super::error::{FailureContext, ValidationHint};
 

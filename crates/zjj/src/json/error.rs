@@ -200,55 +200,6 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use zjj_core::ErrorCode;
-
-    use super::{classify_error_by_message, classify_exit_code_by_message};
-
-    #[test]
-    fn given_unknown_database_when_classified_then_invalid_argument() {
-        let code = classify_error_by_message("Unknown database: notadb.db");
-        assert!(matches!(code, ErrorCode::InvalidArgument));
-        assert_eq!(
-            classify_exit_code_by_message("Unknown database: notadb.db"),
-            1
-        );
-    }
-
-    #[test]
-    fn given_not_jj_repo_when_classified_then_not_jj_repository_exit_one() {
-        let code = classify_error_by_message("Not in a JJ repository. Run 'zjj init' first.");
-        assert!(matches!(code, ErrorCode::NotJjRepository));
-        assert_eq!(
-            classify_exit_code_by_message("Not in a JJ repository. Run 'zjj init' first."),
-            1
-        );
-    }
-
-    #[test]
-    fn given_not_initialized_when_classifying_then_exit_code_is_validation() {
-        let code = classify_exit_code_by_message("ZJJ not initialized. Run 'zjj init' first.");
-        assert_eq!(code, 1);
-    }
-
-    #[test]
-    fn given_no_backup_found_when_classified_then_not_found_exit_two() {
-        let code = classify_error_by_message("No backup found with timestamp: 20250101-010101");
-        assert!(matches!(code, ErrorCode::SessionNotFound));
-        assert_eq!(
-            classify_exit_code_by_message("No backup found with timestamp: 20250101-010101"),
-            2
-        );
-    }
-
-    #[test]
-    fn given_not_in_jj_repository_when_mapping_error_code_then_not_jj_repository() {
-        let code = classify_error_by_message("Not in a JJ repository. Run 'zjj init' first.");
-        assert_eq!(code, ErrorCode::NotJjRepository);
-    }
-}
-
 /// Suggest resolution for an error code
 const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
     match code {
@@ -307,5 +258,54 @@ const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
         | ErrorCode::ConfigKeyNotFound
         | ErrorCode::ZellijNotRunning
         | ErrorCode::HookExecutionError => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use zjj_core::ErrorCode;
+
+    use super::{classify_error_by_message, classify_exit_code_by_message};
+
+    #[test]
+    fn given_unknown_database_when_classified_then_invalid_argument() {
+        let code = classify_error_by_message("Unknown database: notadb.db");
+        assert!(matches!(code, ErrorCode::InvalidArgument));
+        assert_eq!(
+            classify_exit_code_by_message("Unknown database: notadb.db"),
+            1
+        );
+    }
+
+    #[test]
+    fn given_not_jj_repo_when_classified_then_not_jj_repository_exit_one() {
+        let code = classify_error_by_message("Not in a JJ repository. Run 'zjj init' first.");
+        assert!(matches!(code, ErrorCode::NotJjRepository));
+        assert_eq!(
+            classify_exit_code_by_message("Not in a JJ repository. Run 'zjj init' first."),
+            1
+        );
+    }
+
+    #[test]
+    fn given_not_initialized_when_classifying_then_exit_code_is_validation() {
+        let code = classify_exit_code_by_message("ZJJ not initialized. Run 'zjj init' first.");
+        assert_eq!(code, 1);
+    }
+
+    #[test]
+    fn given_no_backup_found_when_classified_then_not_found_exit_two() {
+        let code = classify_error_by_message("No backup found with timestamp: 20250101-010101");
+        assert!(matches!(code, ErrorCode::SessionNotFound));
+        assert_eq!(
+            classify_exit_code_by_message("No backup found with timestamp: 20250101-010101"),
+            2
+        );
+    }
+
+    #[test]
+    fn given_not_in_jj_repository_when_mapping_error_code_then_not_jj_repository() {
+        let code = classify_error_by_message("Not in a JJ repository. Run 'zjj init' first.");
+        assert_eq!(code, ErrorCode::NotJjRepository);
     }
 }

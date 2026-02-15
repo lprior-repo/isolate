@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
 // Integration tests for adversarial QA hardening of:
 // - zjj revert
 // - zjj rollback

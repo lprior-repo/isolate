@@ -2,8 +2,6 @@
 
 mod common;
 
-use std::path::Path;
-
 use zjj_core::jj_operation_sync::create_workspace_synced;
 
 #[tokio::test]

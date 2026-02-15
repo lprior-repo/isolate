@@ -1,9 +1,7 @@
-#![cfg(test)]
 
 use super::templates::{
     get_docs_templates, get_moon_templates, DOC_01_ERROR_HANDLING, DOC_02_MOON_BUILD,
-    DOC_03_WORKFLOW, DOC_05_RUST_STANDARDS, DOC_08_BEADS, DOC_09_JUJUTSU, MOON_TASKS,
-    MOON_TOOLCHAIN, MOON_WORKSPACE,
+    DOC_03_WORKFLOW, DOC_05_RUST_STANDARDS, MOON_TASKS, MOON_TOOLCHAIN, MOON_WORKSPACE,
 };
 
 // Behavior: get_docs_templates returns all documentation templates

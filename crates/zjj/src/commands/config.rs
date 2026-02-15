@@ -82,10 +82,8 @@ pub async fn run(options: ConfigOptions) -> Result<()> {
                     },
                 };
                 let envelope = SchemaEnvelope::new("config-set", "single", output);
-                let output_json = serde_json::to_string_pretty(&envelope).map_or_else(
-                    |_| r#"{"error": "serialization failed"}"#.to_string(),
-                    |s| s,
-                );
+                let output_json = serde_json::to_string_pretty(&envelope)
+                    .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
                 println!("{output_json}");
             } else {
                 println!("✓ Set {key} = {value}");

@@ -708,10 +708,14 @@ mod tests {
             let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&envelope)?)?;
 
             assert_eq!(
-                json.get("condition_met").and_then(|v| v.as_bool()),
+                json.get("condition_met")
+                    .and_then(serde_json::Value::as_bool),
                 Some(true)
             );
-            assert!(json.get("success").and_then(|v| v.as_bool()).is_some());
+            assert!(json
+                .get("success")
+                .and_then(serde_json::Value::as_bool)
+                .is_some());
             Ok(())
         }
 
