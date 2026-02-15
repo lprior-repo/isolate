@@ -41,7 +41,6 @@ mod commands;
 mod db;
 mod hooks;
 mod json;
-mod selector;
 mod session;
 
 use cli::handlers::{format_error, run_cli};

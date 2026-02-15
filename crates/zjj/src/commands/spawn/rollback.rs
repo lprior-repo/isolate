@@ -32,40 +32,40 @@ pub struct CompletedPhases {
 
 impl CompletedPhases {
     /// Mark workspace creation as completed
-    pub fn workspace_created(mut self) -> Self {
+    pub const fn workspace_created(mut self) -> Self {
         self.workspace_created = true;
         self
     }
 
     /// Mark bead status update as completed
-    pub fn bead_status_updated(mut self) -> Self {
+    pub const fn bead_status_updated(mut self) -> Self {
         self.bead_status_updated = true;
         self
     }
 
     /// Mark agent spawn as completed
-    pub fn agent_spawned(mut self) -> Self {
+    pub const fn agent_spawned(mut self) -> Self {
         self.agent_spawned = true;
         self
     }
 
     /// Check if any work needs rollback
-    pub fn needs_rollback(self) -> bool {
+    pub const fn needs_rollback(self) -> bool {
         self.workspace_created || self.bead_status_updated || self.agent_spawned
     }
 
     /// Check if workspace was created (needs abandon)
-    pub fn has_workspace(self) -> bool {
+    pub const fn has_workspace(self) -> bool {
         self.workspace_created
     }
 
     /// Check if bead status was updated (needs reset)
-    pub fn has_bead_update(self) -> bool {
+    pub const fn has_bead_update(self) -> bool {
         self.bead_status_updated
     }
 
     /// Check if agent was spawned (needs termination)
-    pub fn has_agent(self) -> bool {
+    pub const fn has_agent(self) -> bool {
         self.agent_spawned
     }
 }
@@ -368,7 +368,7 @@ impl SignalHandler {
     ///
     /// # Arguments
     /// * `tracker` - Optional transaction tracker for rollback
-    pub fn new(tracker: Option<TransactionTracker>) -> Self {
+    pub const fn new(tracker: Option<TransactionTracker>) -> Self {
         Self { tracker }
     }
 

@@ -22,27 +22,10 @@ pub struct FocusOptions {
 pub async fn run_with_options(name: Option<&str>, options: &FocusOptions) -> Result<()> {
     let db = get_session_db().await?;
 
-    // Resolve the name (either provided or selected interactively)
-    let resolved_name = if let Some(n) = name {
-        n.to_string()
-    } else {
-        // Interactive selection
-        let sessions = db.list(None).await?;
-
-        if sessions.is_empty() {
-            if options.format.is_json() {
-                return Err(anyhow::anyhow!("No sessions found"));
-            }
-            println!("No sessions found. Create one with 'zjj add <name>'.");
-            return Ok(());
-        }
-
-        if let Some(session) = crate::selector::select_session(&sessions).await? {
-            session.name
-        } else {
-            return Ok(()); // User cancelled
-        }
-    };
+    // Resolve the name
+    let resolved_name = name
+        .ok_or_else(|| anyhow::anyhow!("Session name is required. Usage: zjj focus <name>"))?
+        .to_string();
 
     // Get the session (we might need to fetch it again if it was provided by name)
     // Return zjj_core::Error::NotFound to get exit code 2 (not found)

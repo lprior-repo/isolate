@@ -20,7 +20,7 @@ pub struct BroadcastArgs {
 
 /// Output for broadcast command
 ///
-/// Note: `success` field is provided by SchemaEnvelope wrapper.
+/// Note: `success` field is provided by `SchemaEnvelope` wrapper.
 /// Do not add a `success` field here to avoid duplicate JSON keys (RFC 8259).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BroadcastResponse {

@@ -1,3 +1,6 @@
+#![allow(clippy::expect_used)]
+#![allow(clippy::unwrap_used)]
+
 // Martin Fowler-style adversarial regressions for export parser/contract behavior.
 
 mod common;

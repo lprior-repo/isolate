@@ -281,12 +281,12 @@ async fn get_session_info() -> Result<SessionContext> {
 
 async fn get_beads_context() -> Result<Option<BeadsContext>> {
     let beads_dir = std::path::Path::new(".beads");
-    if !tokio::fs::try_exists(beads_dir).await.map_or(false, |e| e) {
+    if !tokio::fs::try_exists(beads_dir).await.is_ok_and(|e| e) {
         return Ok(None);
     }
 
     let beads_db = beads_dir.join("issues.jsonl");
-    if !tokio::fs::try_exists(&beads_db).await.map_or(false, |e| e) {
+    if !tokio::fs::try_exists(&beads_db).await.is_ok_and(|e| e) {
         return Ok(None);
     }
 
@@ -336,7 +336,7 @@ async fn check_health(
     let mut errors: Vec<String> = Vec::new();
 
     let db_path = root.join(".zjj/state.db");
-    if !tokio::fs::try_exists(&db_path).await.map_or(false, |e| e) {
+    if !tokio::fs::try_exists(&db_path).await.is_ok_and(|e| e) {
         errors.push("Session database not found".to_string());
     }
 
@@ -344,7 +344,7 @@ async fn check_health(
         let workspace_path = root.join(".zjj/workspaces").join(&session.name);
         if !tokio::fs::try_exists(&workspace_path)
             .await
-            .map_or(false, |e| e)
+            .is_ok_and(|e| e)
         {
             warnings.push(format!(
                 "Workspace path missing for session: {}",

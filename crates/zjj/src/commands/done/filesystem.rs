@@ -84,11 +84,7 @@ impl FileSystem for RealFileSystem {
     }
 
     fn exists<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, bool> {
-        Box::pin(async move {
-            tokio::fs::try_exists(path)
-                .await
-                .map_or(false, |exists| exists)
-        })
+        Box::pin(async move { tokio::fs::try_exists(path).await.is_ok_and(|exists| exists) })
     }
 
     fn remove_dir_all<'a>(&'a self, path: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {

@@ -105,14 +105,14 @@ impl SessionState {
     /// can transition back to Created for undo/retry operations. This is intentional
     /// and differs from `WorkspaceState` which has permanent terminal states.
     #[must_use]
-    pub fn is_terminal(self) -> bool {
+    pub const fn is_terminal(self) -> bool {
         // SessionState intentionally has no terminal states - all allow transitions
         false
     }
 
     /// Returns all possible session states as a slice.
     #[must_use]
-    pub fn all_states() -> &'static [Self] {
+    pub const fn all_states() -> &'static [Self] {
         &[
             Self::Created,
             Self::Active,
@@ -228,7 +228,7 @@ impl<S> SessionStateManager<S> {
 
     /// Get current state
     #[must_use]
-    pub fn current_state(&self) -> SessionState {
+    pub const fn current_state(&self) -> SessionState {
         self.current_state
     }
 
@@ -240,7 +240,7 @@ impl<S> SessionStateManager<S> {
 
     /// Get metadata
     #[must_use]
-    pub fn metadata(&self) -> &HashMap<String, String> {
+    pub const fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
     }
 
@@ -554,7 +554,7 @@ impl SessionBeadsContext {
 
     /// Get current state
     #[must_use]
-    pub fn state(&self) -> SessionState {
+    pub const fn state(&self) -> SessionState {
         self.state
     }
 

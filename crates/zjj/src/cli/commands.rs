@@ -1062,27 +1062,6 @@ pub fn cmd_template() -> ClapCommand {
         ))
 }
 
-pub fn cmd_dashboard() -> ClapCommand {
-    ClapCommand::new("dashboard")
-        .about("Launch interactive TUI dashboard with kanban view")
-        .alias("dash")
-        .after_help(after_help_text(
-            &[
-                "zjj dashboard                  Launch the kanban-style dashboard",
-                "zjj dash                       Use the alias to open the TUI quickly",
-                "zjj status                     For non-interactive overview",
-                "zjj dashboard --json           Output session data as JSON",
-            ],
-            None,
-        ))
-        .arg(
-            Arg::new("json")
-                .long("json")
-                .action(clap::ArgAction::SetTrue)
-                .help("Output as JSON"),
-        )
-}
-
 pub fn cmd_introspect() -> ClapCommand {
     ClapCommand::new("introspect")
         .about("Discover zjj capabilities and command details")
@@ -3480,18 +3459,6 @@ pub fn cmd_abort() -> ClapCommand {
                 .action(clap::ArgAction::SetTrue)
                 .help("Output as JSON"),
         )
-        .arg(
-            Arg::new("contract")
-                .long("contract")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show machine-readable contract"),
-        )
-        .arg(
-            Arg::new("ai-hints")
-                .long("ai-hints")
-                .action(clap::ArgAction::SetTrue)
-                .help("AI: Show command flow hints"),
-        )
         .after_help(after_help_text(
             &[
                 "zjj abort                       Abandon current workspace",
@@ -3629,7 +3596,6 @@ pub fn build_cli() -> ClapCommand {
         .subcommand(cmd_clean())
         .subcommand(cmd_prune_invalid())
         .subcommand(cmd_template())
-        .subcommand(cmd_dashboard())
         .subcommand(cmd_introspect())
         .subcommand(cmd_doctor())
         .subcommand(cmd_integrity())

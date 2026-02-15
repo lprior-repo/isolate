@@ -182,15 +182,6 @@ pub async fn handle_switch(sub_m: &ArgMatches) -> Result<()> {
     switch::run_with_options(name, &options).await
 }
 
-pub async fn handle_dashboard(sub_m: &ArgMatches) -> Result<()> {
-    let format = get_format(sub_m);
-    if format.is_json() {
-        status::run(None, format, false).await
-    } else {
-        crate::commands::dashboard::run(format).await
-    }
-}
-
 pub async fn handle_spawn(sub_m: &ArgMatches) -> Result<()> {
     if sub_m.get_flag("contract") {
         println!("{}", crate::cli::json_docs::ai_contracts::spawn());

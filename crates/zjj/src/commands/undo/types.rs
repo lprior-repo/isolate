@@ -59,6 +59,7 @@ pub enum UndoError {
     RebaseFailed { reason: String },
     JjCommandFailed { command: String, reason: String },
     ReadUndoLogFailed { reason: String },
+    MalformedUndoLog { reason: String },
     WriteUndoLogFailed { reason: String },
     SerializationError { reason: String },
     InvalidState { reason: String },
@@ -94,6 +95,9 @@ impl fmt::Display for UndoError {
             Self::ReadUndoLogFailed { reason } => {
                 write!(f, "Failed to read undo log: {reason}")
             }
+            Self::MalformedUndoLog { reason } => {
+                write!(f, "Malformed undo log: {reason}")
+            }
             Self::WriteUndoLogFailed { reason } => {
                 write!(f, "Failed to write undo log: {reason}")
             }
@@ -120,6 +124,7 @@ impl UndoError {
             Self::RebaseFailed { .. } => "REBASE_FAILED",
             Self::JjCommandFailed { .. } => "JJ_COMMAND_FAILED",
             Self::ReadUndoLogFailed { .. } => "READ_UNDO_LOG_FAILED",
+            Self::MalformedUndoLog { .. } => "MALFORMED_UNDO_LOG",
             Self::WriteUndoLogFailed { .. } => "WRITE_UNDO_LOG_FAILED",
             Self::SerializationError { .. } => "SERIALIZATION_ERROR",
             Self::InvalidState { .. } => "INVALID_STATE",

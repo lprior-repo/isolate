@@ -7,7 +7,7 @@ use zjj_core::{
     Error as ZjjError,
 };
 
-use crate::commands::spawn::types::SpawnError;
+use crate::commands::{spawn::types::SpawnError, undo::types::UndoError};
 
 /// Sync command error details
 #[derive(Debug, Serialize)]
@@ -95,6 +95,11 @@ fn error_to_json_error(error: &Error) -> JsonError {
         return convert_spawn_error(spawn_error);
     }
 
+    // Try to downcast to UndoError
+    if let Some(undo_error) = error.downcast_ref::<UndoError>() {
+        return convert_undo_error(undo_error);
+    }
+
     // Try to downcast to zjj_core::Error (Railway left track 2 - core errors)
     error
         .downcast_ref::<ZjjError>()
@@ -152,6 +157,22 @@ fn convert_spawn_error(error: &SpawnError) -> JsonError {
         .with_exit_code(exit_code)
 }
 
+/// Convert an `UndoError` to a `JsonError`
+fn convert_undo_error(error: &UndoError) -> JsonError {
+    let exit_code = match error {
+        UndoError::AlreadyPushedToRemote { .. } => 1,
+        UndoError::NotInMain { .. } => 1,
+        UndoError::NoUndoHistory => 2,
+        UndoError::WorkspaceExpired { .. } => 4,
+        UndoError::ReadUndoLogFailed { .. } => 4,
+        UndoError::MalformedUndoLog { .. } => 4,
+        UndoError::WriteUndoLogFailed { .. } => 4,
+        _ => 4,
+    };
+
+    JsonError::new(error.error_code(), error.to_string()).with_exit_code(exit_code)
+}
+
 /// Classify exit code based on error message pattern
 fn classify_exit_code_by_message(error_str: &str) -> i32 {
     let lower = error_str.to_ascii_lowercase();
@@ -173,6 +194,8 @@ fn classify_exit_code_by_message(error_str: &str) -> i32 {
         || lower.contains("session name")
         || lower.contains("invalid session name")
         || lower.contains("zjj not initialized")
+        || lower.contains("already pushed to remote")
+        || lower.contains("expired")
     {
         return 1;
     }
@@ -334,6 +357,8 @@ const fn suggest_resolution(code: ErrorCode) -> Option<&'static str> {
         | ErrorCode::ConfigParseError
         | ErrorCode::ConfigKeyNotFound
         | ErrorCode::ZellijNotRunning
+        | ErrorCode::ReadUndoLogFailed
+        | ErrorCode::WriteUndoLogFailed
         | ErrorCode::HookExecutionError => None,
     }
 }

@@ -1,5 +1,8 @@
 // Martin Fowler-style adversarial regressions for query/config/completions.
 
+#![allow(clippy::expect_used)]
+#![allow(clippy::unwrap_used)]
+
 mod common;
 
 use common::{parse_json_output, payload, TestHarness};

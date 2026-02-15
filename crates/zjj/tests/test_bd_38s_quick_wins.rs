@@ -1,33 +1,9 @@
+#![allow(clippy::expect_used)]
+#![allow(clippy::unwrap_used)]
+
 mod common;
 
 use common::TestHarness;
-
-#[tokio::test]
-async fn test_dashboard_json_flag() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-
-    harness.assert_success(&["init"]);
-
-    // Test dashboard --json (should output JSON, not fail with TUI error)
-    // Note: It might fail with "No sessions found" or return empty list, but it shouldn't try to
-    // launch TUI
-    let result = harness.zjj(&["dashboard", "--json"]);
-    if !result.success {
-        println!("Dashboard stdout: {}", result.stdout);
-        println!("Dashboard stderr: {}", result.stderr);
-    }
-    assert!(result.success, "dashboard --json should succeed");
-
-    // It should be valid JSON
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("output should be valid JSON");
-    assert!(
-        parsed.is_array() || parsed.is_object(),
-        "output should be JSON array or object"
-    );
-}
 
 #[tokio::test]
 async fn test_switch_no_zellij_flag() {

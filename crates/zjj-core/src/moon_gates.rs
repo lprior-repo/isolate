@@ -42,7 +42,7 @@ pub enum MoonGate {
 impl MoonGate {
     /// Returns the moon task name for this gate.
     #[must_use]
-    pub fn as_task(&self) -> &'static str {
+    pub const fn as_task(&self) -> &'static str {
         match self {
             Self::Quick => ":quick",
             Self::Test => ":test",
@@ -51,7 +51,7 @@ impl MoonGate {
 
     /// Returns a human-readable description of this gate.
     #[must_use]
-    pub fn description(&self) -> &'static str {
+    pub const fn description(&self) -> &'static str {
         match self {
             Self::Quick => "Quick check (format + clippy)",
             Self::Test => "Test suite",
@@ -86,7 +86,7 @@ impl GateResult {
     /// Create a new gate result.
     #[allow(clippy::too_many_arguments)]
     #[must_use]
-    pub fn new(
+    pub const fn new(
         gate: MoonGate,
         passed: bool,
         exit_code: i32,
@@ -144,7 +144,7 @@ pub enum GatesStatus {
 impl GatesStatus {
     /// Returns true if all gates passed.
     #[must_use]
-    pub fn is_success(&self) -> bool {
+    pub const fn is_success(&self) -> bool {
         matches!(self, Self::AllPassed)
     }
 
@@ -207,7 +207,7 @@ pub enum GateError {
 /// # Returns
 /// `true` if the gate passed, `false` otherwise
 #[must_use]
-pub fn classify_exit_code(exit_code: i32) -> bool {
+pub const fn classify_exit_code(exit_code: i32) -> bool {
     exit_code == 0
 }
 
@@ -295,7 +295,7 @@ fn extract_failure_summary(stdout_lines: &[&str], stderr_lines: &[&str]) -> Stri
 /// # Returns
 /// The combined gates outcome
 #[must_use]
-pub fn combine_results(
+pub const fn combine_results(
     quick_result: GateResult,
     test_result: Option<GateResult>,
 ) -> GatesOutcome {

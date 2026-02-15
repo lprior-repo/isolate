@@ -293,10 +293,7 @@ async fn get_beads_stats() -> Result<BeadStats> {
 
     let beads_db_path = root.join(".beads").join("beads.db");
 
-    if !tokio::fs::try_exists(&beads_db_path)
-        .await
-        .map_or(false, |e| e)
-    {
+    if !tokio::fs::try_exists(&beads_db_path).await.is_ok_and(|e| e) {
         return Ok(BeadStats::default());
     }
 

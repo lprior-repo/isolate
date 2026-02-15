@@ -19,10 +19,10 @@ pub type ConfigLoadFuture<'a> = Pin<Box<dyn Future<Output = zjj_core::Result<Con
 /// Port for configuration reads and scope path resolution.
 pub trait ConfigReadPort: Send + Sync {
     /// Load merged configuration (defaults + global + project + env).
-    fn load_merged<'a>(&'a self) -> ConfigLoadFuture<'a>;
+    fn load_merged(&self) -> ConfigLoadFuture<'_>;
 
     /// Load global-only configuration (defaults + global).
-    fn load_global_only<'a>(&'a self) -> ConfigLoadFuture<'a>;
+    fn load_global_only(&self) -> ConfigLoadFuture<'_>;
 
     /// Return global config path.
     fn global_config_path(&self) -> zjj_core::Result<PathBuf>;
@@ -36,11 +36,11 @@ pub trait ConfigReadPort: Send + Sync {
 pub struct LocalConfigPort;
 
 impl ConfigReadPort for LocalConfigPort {
-    fn load_merged<'a>(&'a self) -> ConfigLoadFuture<'a> {
+    fn load_merged(&self) -> ConfigLoadFuture<'_> {
         Box::pin(async { zjj_core::config::load_config().await })
     }
 
-    fn load_global_only<'a>(&'a self) -> ConfigLoadFuture<'a> {
+    fn load_global_only(&self) -> ConfigLoadFuture<'_> {
         Box::pin(async {
             let mut config = Config::default();
             let global_path = self.global_config_path()?;

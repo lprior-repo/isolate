@@ -237,7 +237,7 @@ fn current_timestamp() -> Result<u64> {
 }
 
 fn get_agent_id() -> String {
-    std::env::var("ZJJ_AGENT_ID").map_or_else(|_| format!("pid-{}", std::process::id()), |id| id)
+    std::env::var("ZJJ_AGENT_ID").unwrap_or_else(|_| format!("pid-{}", std::process::id()))
 }
 
 /// Read existing lock info from file
@@ -671,7 +671,7 @@ pub async fn run_claim(options: &ClaimOptions) -> Result<()> {
         let envelope = SchemaEnvelope::new("claim-response", "single", &result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else if result.claimed {
-        if result.is_double_claim.map_or(false, |v| v) {
+        if result.is_double_claim.is_some_and(|v| v) {
             println!("⚠ Double claim detected for resource '{}'", result.resource);
             if let Some(count) = result.claim_count {
                 println!("  Total claims by you: {count}");

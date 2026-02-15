@@ -294,7 +294,7 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
                     // Extract file path from resolve --list output
                     line.split_whitespace()
                         .next()
-                        .map_or_else(|| line.trim(), |v| v)
+                        .unwrap_or_else(|| line.trim())
                         .to_string()
                 })
                 .collect();

@@ -77,7 +77,7 @@ pub enum WorkerError {
 impl WorkerError {
     /// Classify the error as retryable or terminal.
     #[must_use]
-    pub fn classify(&self) -> ErrorClass {
+    pub const fn classify(&self) -> ErrorClass {
         match self {
             Self::IoError(_)
             | Self::DatabaseError(_)
