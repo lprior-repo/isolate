@@ -34,11 +34,11 @@ pub struct FileChanges {
 }
 
 impl FileChanges {
-    pub const fn total(&self) -> usize {
+    pub fn total(&self) -> usize {
         self.modified + self.added + self.deleted + self.renamed
     }
 
-    pub const fn is_clean(&self) -> bool {
+    pub fn is_clean(&self) -> bool {
         self.total() == 0
     }
 }
@@ -293,10 +293,7 @@ async fn get_beads_stats() -> Result<BeadStats> {
 
     let beads_db_path = root.join(".beads").join("beads.db");
 
-    if !tokio::fs::try_exists(&beads_db_path)
-        .await
-        .is_ok_and(|e| e)
-    {
+    if !tokio::fs::try_exists(&beads_db_path).await.is_ok_and(|e| e) {
         return Ok(BeadStats::default());
     }
 

@@ -224,7 +224,11 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
 
             println!(
                 "{:<20} {:<12} {:<15} {:<30} {:<40}",
-                item.session.name, item.session.status, item.display_branch_str(), bead_info, item.session.workspace_path
+                item.session.name,
+                item.session.status,
+                item.display_branch_str(),
+                bead_info,
+                item.session.workspace_path
             );
         }
     } else {
@@ -238,7 +242,11 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
         for item in items {
             println!(
                 "{:<20} {:<12} {:<15} {:<10} {:<12}",
-                item.session.name, item.session.status, item.display_branch_str(), item.changes, item.beads
+                item.session.name,
+                item.session.status,
+                item.display_branch_str(),
+                item.changes,
+                item.beads
             );
         }
     }
@@ -819,7 +827,6 @@ mod tests {
         );
     }
 
-
     // ============================================================================
     // REGRESSION TESTS for Red Queen adversarial hardening
     // These tests verify fixes for issues discovered through hostile input testing
@@ -828,7 +835,7 @@ mod tests {
     /// REGRESSION: RFC 8259 duplicate keys violation
     /// SessionListItem previously had duplicate "name" and "status" fields
     /// due to #[serde(flatten)] on Session. JSON parsers may keep only the last value.
-    /// 
+    ///
     /// Fix: Removed redundant name/status fields, use session fields via flatten.
     #[test]
     fn test_no_duplicate_json_keys_in_session_list_item() -> Result<()> {
@@ -855,10 +862,13 @@ mod tests {
 
         let json_str = serde_json::to_string(&item)?;
         let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
-        let obj = parsed.as_object().ok_or_else(|| anyhow::anyhow!("Expected object"))?;
+        let obj = parsed
+            .as_object()
+            .ok_or_else(|| anyhow::anyhow!("Expected object"))?;
 
         // Count occurrences of each key
-        let mut key_counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+        let mut key_counts: std::collections::HashMap<&str, usize> =
+            std::collections::HashMap::new();
         for key in obj.keys() {
             *key_counts.entry(key.as_str()).or_default() += 1;
         }
@@ -873,15 +883,24 @@ mod tests {
         }
 
         // Verify expected fields are present
-        assert!(obj.contains_key("name"), "Missing 'name' field from Session");
-        assert!(obj.contains_key("status"), "Missing 'status' field from Session");
+        assert!(
+            obj.contains_key("name"),
+            "Missing 'name' field from Session"
+        );
+        assert!(
+            obj.contains_key("status"),
+            "Missing 'status' field from Session"
+        );
         assert!(obj.contains_key("changes"), "Missing 'changes' field");
         assert!(obj.contains_key("beads"), "Missing 'beads' field");
 
         // display_branch should be skipped when Some (via skip_serializing_if)
         // since session.branch already contains the value
         // Actually display_branch is separate, so it should be present
-        assert!(obj.contains_key("display_branch"), "Missing 'display_branch' field");
+        assert!(
+            obj.contains_key("display_branch"),
+            "Missing 'display_branch' field"
+        );
 
         Ok(())
     }

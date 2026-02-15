@@ -94,7 +94,7 @@ _zjj() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     commands="init add list remove focus status sync done undo revert spawn work abort \
-              agents ai checkpoint clean config context dashboard diff doctor introspect \
+              agents ai checkpoint clean config context diff doctor introspect \
               query whereami whoami contract examples validate whatif claim yield events \
               batch completions export import rename pause resume clone"
 
@@ -176,7 +176,7 @@ _zjj() {
                 'clean[Remove stale sessions]' \
                 'config[View or modify configuration]' \
                 'context[Show complete environment context]' \
-                'dashboard[Launch interactive TUI]' \
+
                 'diff[Show diff between session and main]' \
                 'doctor[Run system health checks]' \
                 'introspect[Discover zjj capabilities]' \
@@ -243,7 +243,6 @@ complete -c zjj -n "__fish_use_subcommand" -a checkpoint -d "Manage checkpoints"
 complete -c zjj -n "__fish_use_subcommand" -a clean -d "Remove stale sessions"
 complete -c zjj -n "__fish_use_subcommand" -a config -d "Manage config"
 complete -c zjj -n "__fish_use_subcommand" -a context -d "Show context"
-complete -c zjj -n "__fish_use_subcommand" -a dashboard -d "Launch TUI"
 complete -c zjj -n "__fish_use_subcommand" -a diff -d "Show diff"
 complete -c zjj -n "__fish_use_subcommand" -a doctor -d "Health checks"
 complete -c zjj -n "__fish_use_subcommand" -a introspect -d "Discover capabilities"
@@ -279,7 +278,7 @@ fn generate_powershell_completions() -> String {
 $script:zjjCommands = @(
     'init', 'add', 'list', 'remove', 'focus', 'status', 'sync', 'done',
     'undo', 'revert', 'spawn', 'work', 'abort', 'agents', 'ai', 'checkpoint',
-    'clean', 'config', 'context', 'dashboard', 'diff', 'doctor', 'introspect',
+    'clean', 'config', 'context', 'diff', 'doctor', 'introspect',
     'query', 'whereami', 'whoami', 'contract', 'examples', 'validate', 'whatif',
     'claim', 'yield', 'events', 'batch', 'completions'
 )
@@ -321,7 +320,7 @@ fn generate_elvish_completions() -> String {
 set edit:completion:arg-completer[zjj] = {|@words|
     var commands = [
         init add list remove focus status sync done undo revert spawn work abort
-        agents ai checkpoint clean config context dashboard diff doctor introspect
+        agents ai checkpoint clean config context diff doctor introspect
         query whereami whoami contract examples validate whatif claim yield events
         batch completions
     ]

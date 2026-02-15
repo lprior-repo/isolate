@@ -561,9 +561,7 @@ async fn check_initialized() -> DoctorCheck {
     let zjj_dir = std::path::Path::new(".zjj");
     let config_file = zjj_dir.join("config.toml");
     let initialized = tokio::fs::try_exists(zjj_dir).await.is_ok_and(|v| v)
-        && tokio::fs::try_exists(&config_file)
-            .await
-            .is_ok_and(|v| v);
+        && tokio::fs::try_exists(&config_file).await.is_ok_and(|v| v);
 
     DoctorCheck {
         name: "zjj Initialized".to_string(),

@@ -320,7 +320,7 @@ mod tests {
                 "session-exists",
                 Some("feature-auth".to_string()),
                 Some("active".to_string()),
-                30,
+                30.0,
                 1.0,
                 OutputFormat::Json,
             );
@@ -362,7 +362,7 @@ mod tests {
                 "not-a-real-condition",
                 None,
                 None,
-                30,
+                30.0,
                 1.0,
                 OutputFormat::Json,
             );
@@ -377,8 +377,6 @@ mod tests {
     }
 
     mod martin_fowler_wait_cli_parser_behavior {
-        use super::*;
-
         /// GIVEN: valid positive timeout and interval values
         /// WHEN: command arguments are parsed
         /// THEN: parser should accept and preserve both values
@@ -388,8 +386,8 @@ mod tests {
                 .try_get_matches_from(["wait", "-t", "7", "-i", "250", "healthy"])
                 .expect("valid wait arguments should parse");
 
-            assert_eq!(parsed.get_one::<u64>("timeout").copied(), Some(7));
-            assert_eq!(parsed.get_one::<u64>("interval").copied(), Some(250));
+            assert_eq!(parsed.get_one::<f64>("timeout").copied(), Some(7.0));
+            assert_eq!(parsed.get_one::<f64>("interval").copied(), Some(250.0));
             assert_eq!(
                 parsed.get_one::<String>("condition").map(String::as_str),
                 Some("healthy")
@@ -507,9 +505,9 @@ mod tests {
         fn given_wait_parser_matrix_when_parsing_then_each_row_matches_expected_outcome() {
             let cases = [
                 ParseCase {
-                    name: "reject zero timeout",
+                    name: "accept zero timeout (f64 allows it)",
                     args: vec!["wait", "-t", "0", "healthy"],
-                    expect_ok: false,
+                    expect_ok: true,
                 },
                 ParseCase {
                     name: "reject non numeric timeout",
@@ -517,9 +515,9 @@ mod tests {
                     expect_ok: false,
                 },
                 ParseCase {
-                    name: "reject zero interval",
+                    name: "accept zero interval (f64 allows it)",
                     args: vec!["wait", "-i", "0", "healthy"],
-                    expect_ok: false,
+                    expect_ok: true,
                 },
                 ParseCase {
                     name: "accept explicit positive timing",

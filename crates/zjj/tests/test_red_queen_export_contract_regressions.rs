@@ -1,4 +1,6 @@
-#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic, clippy::too_many_lines, clippy::too_many_arguments, clippy::bool_assert_comparison, clippy::duration_suboptimal_units, clippy::filter_map_bool_then)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::unwrap_used)]
+
 // Martin Fowler-style adversarial regressions for export parser/contract behavior.
 
 mod common;

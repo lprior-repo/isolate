@@ -266,15 +266,20 @@ async fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
                     reason: e.to_string(),
                 })?;
 
-            let entries: Vec<UndoEntry> = content
-                .lines()
-                .filter(|l| !l.trim().is_empty())
-                .filter_map(|line| serde_json::from_str::<UndoEntry>(line).ok())
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect();
-
+            let mut entries = Vec::new();
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                let entry = serde_json::from_str::<UndoEntry>(trimmed).map_err(|_| {
+                    UndoError::MalformedUndoLog {
+                        reason: "Malformed JSON line in undo log".to_string(),
+                    }
+                })?;
+                entries.push(entry);
+            }
+            entries.reverse();
             Ok(entries)
         }
         _ => Err(UndoError::NoUndoHistory),
@@ -395,22 +400,8 @@ fn output_result(result: &UndoOutput, format: OutputFormat) -> Result<(), UndoEr
 /// Output error in the appropriate format
 fn output_error(error: &UndoError, format: OutputFormat) -> Result<(), UndoError> {
     if format.is_json() {
-        let error_detail = ErrorDetail {
-            code: error.error_code().to_string(),
-            message: error.to_string(),
-            exit_code: undo_error_exit_code(error),
-            details: None,
-            suggestion: None,
-        };
-        let payload = UndoErrorPayload {
-            error: error_detail,
-        };
-        let envelope = SchemaEnvelope::new("error-response", "single", payload).as_error();
-        let json_output =
-            serde_json::to_string_pretty(&envelope).map_err(|e| UndoError::SerializationError {
-                reason: e.to_string(),
-            })?;
-        println!("{json_output}");
+        // Do nothing here - the error will be handled and printed by the CLI layer
+        // to avoid double-enveloping and ensure consistent exit codes.
     } else {
         eprintln!("Error: {error}");
         if matches!(error, UndoError::AlreadyPushedToRemote { .. }) {
@@ -426,6 +417,8 @@ const fn undo_error_exit_code(error: &UndoError) -> i32 {
         UndoError::AlreadyPushedToRemote { .. } => UndoExitCode::AlreadyPushed as i32,
         UndoError::NoUndoHistory => UndoExitCode::NoHistory as i32,
         UndoError::InvalidState { .. } => UndoExitCode::InvalidState as i32,
+        UndoError::MalformedUndoLog { .. } => UndoExitCode::OtherError as i32,
+        UndoError::WorkspaceExpired { .. } => UndoExitCode::OtherError as i32,
         _ => UndoExitCode::OtherError as i32,
     }
 }

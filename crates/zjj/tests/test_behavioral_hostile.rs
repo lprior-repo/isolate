@@ -4,9 +4,10 @@
 
 mod common;
 
+use std::path::PathBuf;
+
 use common::TestHarness;
 use serde_json::Value;
-use std::path::PathBuf;
 
 #[test]
 fn test_spawn_dry_run() {
@@ -41,6 +42,7 @@ fn test_wait_timeout_and_interval() {
     harness.assert_success(&["init"]);
 
     // Wait for session that doesn't exist with short timeout
+    // Note: -i is in SECONDS, so 0.1 = 100ms
     let start = std::time::Instant::now();
     let result = harness.zjj(&[
         "wait",
@@ -49,7 +51,7 @@ fn test_wait_timeout_and_interval() {
         "-t",
         "1",
         "-i",
-        "100",
+        "0.1",
     ]);
     let elapsed = start.elapsed();
 

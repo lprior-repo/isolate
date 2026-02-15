@@ -39,37 +39,6 @@ mod common;
 use common::TestHarness;
 
 // ============================================================================
-// Phase 1: Quick Wins - Dashboard --json flag
-// ============================================================================
-
-#[test]
-fn test_dashboard_accepts_json_flag() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-    harness.assert_success(&["init"]);
-
-    // Test: dashboard should accept --json flag
-    let result = harness.zjj(&["dashboard", "--json"]);
-    // May fail for TUI reasons, but should recognize the flag
-    assert!(
-        result.stderr.is_empty() || !result.stderr.contains("unexpected argument"),
-        "Should recognize --json flag (stderr: {})",
-        result.stderr
-    );
-}
-
-#[test]
-fn test_dashboard_help_shows_json_flag() {
-    let Some(harness) = TestHarness::try_new() else {
-        return;
-    };
-
-    let result = harness.zjj(&["dashboard", "--help"]);
-    result.assert_output_contains("--json");
-}
-
-// ============================================================================
 // Phase 1: Spawn --idempotent flag
 // ============================================================================
 

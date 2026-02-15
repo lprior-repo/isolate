@@ -262,6 +262,10 @@ pub enum ErrorCode {
     StateDbCorrupted,
     StateDbLocked,
 
+    // Undo errors
+    ReadUndoLogFailed,
+    WriteUndoLogFailed,
+
     // Spawn errors
     SpawnNotOnMain,
     SpawnInvalidBeadStatus,
@@ -301,6 +305,8 @@ impl ErrorCode {
             Self::HookExecutionError => "HOOK_EXECUTION_ERROR",
             Self::StateDbCorrupted => "STATE_DB_CORRUPTED",
             Self::StateDbLocked => "STATE_DB_LOCKED",
+            Self::ReadUndoLogFailed => "READ_UNDO_LOG_FAILED",
+            Self::WriteUndoLogFailed => "WRITE_UNDO_LOG_FAILED",
             Self::SpawnNotOnMain => "SPAWN_NOT_ON_MAIN",
             Self::SpawnInvalidBeadStatus => "SPAWN_INVALID_BEAD_STATUS",
             Self::SpawnBeadNotFound => "SPAWN_BEAD_NOT_FOUND",

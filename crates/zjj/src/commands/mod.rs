@@ -18,7 +18,6 @@ pub mod config;
 pub mod config_ports;
 pub mod context;
 pub mod contract;
-pub mod dashboard;
 pub mod diff;
 pub mod doctor;
 pub mod done;

@@ -1,3 +1,7 @@
+#![allow(clippy::expect_used)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::panic)]
+
 // Martin Fowler-style adversarial regression tests for help/import/pane.
 //
 // These tests lock in error behavior found through QA/Red-Queen style attacks.

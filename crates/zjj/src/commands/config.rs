@@ -88,7 +88,8 @@ async fn run_with_port(options: ConfigOptions, port: &impl ConfigReadPort) -> Re
                     },
                 };
                 let envelope = SchemaEnvelope::new("config-set", "single", output);
-                let output_json = serde_json::to_string_pretty(&envelope).unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
+                let output_json = serde_json::to_string_pretty(&envelope)
+                    .unwrap_or_else(|_| r#"{"error": "serialization failed"}"#.to_string());
                 println!("{output_json}");
             } else {
                 println!("✓ Set {key} = {value}");

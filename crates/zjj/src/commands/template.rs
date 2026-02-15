@@ -387,7 +387,8 @@ fn format_timestamp(timestamp: i64) -> String {
 
     let now_secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
 
     let timestamp_secs = u64::try_from(timestamp.max(0)).map_or(0, |v| v);
     let ago_secs = now_secs.saturating_sub(timestamp_secs);
@@ -470,9 +471,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_binary_file_error_message() {
+<<<<<<< Conflict 1 of 1
++++++++ Contents of side #1
+        // Skip if JJ is not installed - this test requires jj prerequisites
+        if which::which("jj").is_err() {
+            eprintln!("SKIP: jj not installed, skipping test_binary_file_error_message");
+            return;
+        }
+
         let temp = tempfile::tempdir().unwrap();
         let binary_file_path = temp.path().join("binary.kdl");
         let binary_content = b"\xFF\xFF\xFF";
+%%%%%%% Changes from base to side #2
+-        // Skip if JJ is not installed - this test requires prerequisites check to pass
+-        if which::which("jj").is_err() {
+-            eprintln!("SKIP: jj not installed, skipping test_binary_file_error_message");
+-            return;
+-        }
+-
+         // Create a temporary binary file
+         let Ok(temp_dir) = tempfile::tempdir() else {
+             // Skip test if tempfile fails
+             return;
+         };
+ 
+         let binary_file_path = temp_dir.path().join("binary.kdl");
+         let binary_content = vec![0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE, 0xFD];
+>>>>>>> Conflict 1 of 1 ends
 
         // Write binary content
         std::fs::write(&binary_file_path, binary_content).unwrap();

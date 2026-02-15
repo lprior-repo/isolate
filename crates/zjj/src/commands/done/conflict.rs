@@ -94,7 +94,7 @@ impl ConflictExitCode {
     /// Convert to i32 for process exit
     #[must_use]
     #[allow(dead_code)] // For future CLI exit code handling
-    pub const fn as_i32(self) -> i32 {
+    pub fn as_i32(self) -> i32 {
         self as i32
     }
 }
@@ -147,7 +147,7 @@ impl ConflictDetectionResult {
 
     /// Check if any conflicts (existing or potential) were found
     #[must_use]
-    pub const fn has_conflicts(&self) -> bool {
+    pub fn has_conflicts(&self) -> bool {
         self.has_existing_conflicts || !self.overlapping_files.is_empty()
     }
 
@@ -258,7 +258,7 @@ pub struct JjConflictDetector<'a, E: JjExecutor + ?Sized> {
 impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
     /// Create a new JJ conflict detector
     #[must_use]
-    pub const fn new(executor: &'a E) -> Self {
+    pub fn new(executor: &'a E) -> Self {
         Self { executor }
     }
 
@@ -293,7 +293,8 @@ impl<'a, E: JjExecutor + ?Sized> JjConflictDetector<'a, E> {
                 .map(|line: &str| {
                     // Extract file path from resolve --list output
                     line.split_whitespace()
-                        .next().unwrap_or_else(|| line.trim())
+                        .next()
+                        .unwrap_or_else(|| line.trim())
                         .to_string()
                 })
                 .collect();

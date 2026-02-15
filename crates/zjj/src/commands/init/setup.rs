@@ -323,7 +323,8 @@ pub(super) fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
     let project_name = repo_root
         .file_name()
         .and_then(|s| s.to_str())
-        .map(String::from).unwrap_or_else(|| "new-project".to_string());
+        .map(String::from)
+        .unwrap_or_else(|| "new-project".to_string());
 
     ProjectContext::new(
         project_name,
@@ -413,10 +414,7 @@ pub(super) async fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
 
     let tasks_path = moon_dir.join("tasks.yml");
 
-    if !tokio::fs::try_exists(&tasks_path)
-        .await
-        .is_ok_and(|e| e)
-    {
+    if !tokio::fs::try_exists(&tasks_path).await.is_ok_and(|e| e) {
         let tasks_yml = render_template(TemplateType::MoonTasks, &context)
             .context("Failed to render tasks.yml template")?;
 

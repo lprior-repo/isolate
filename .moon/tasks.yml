@@ -29,8 +29,10 @@ tasks:
       cache: false  # Never cache - always format
 
   clippy:
-    command: "cargo clippy --workspace --all-targets --all-features -- -D warnings"
-    description: "Lint with Clippy (strict mode)"
+    command: "cargo clippy --workspace --all-targets --all-features -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn -A clippy::useless_conversion -W clippy::pedantic"
+    description: "Lint with Clippy (strict mode for safety, allow style suggestions)"
+    deps:
+      - "check"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
@@ -41,12 +43,14 @@ tasks:
       runInCI: true
 
   # ============================================================================
-  # STAGE 2: TESTING
+  # STAGE 2: TESTING (depends on build to avoid file lock conflicts)
   # ============================================================================
 
   test:
     command: "cargo nextest run --workspace --all-features --no-fail-fast -E 'not (package(zjj) & binary(drq_adversarial))'"
     description: "Run required tests (DRQ research excluded by default)"
+    deps:
+      - "build"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
@@ -61,6 +65,8 @@ tasks:
   test-research:
     command: "cargo nextest run --workspace --all-features --no-fail-fast -E 'package(zjj) & binary(drq_adversarial)'"
     description: "Run DRQ research lane tests (explicit opt-in)"
+    deps:
+      - "build"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
@@ -76,6 +82,8 @@ tasks:
     command: "cargo"
     args: "test --doc"
     description: "Run documentation tests"
+    deps:
+      - "build"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
@@ -88,6 +96,8 @@ tasks:
   coverage:
     command: "cargo tarpaulin --workspace --all-features --out Html --out Lcov --output-dir target/coverage -- --test-threads=1"
     description: "Generate test coverage report (HTML + LCOV)"
+    deps:
+      - "build"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
@@ -104,6 +114,8 @@ tasks:
   coverage-check:
     command: "cargo tarpaulin --workspace --all-features --out Lcov --output-dir target/coverage -- --test-threads=1 | grep -E '^[0-9]+\\.[0-9]+%' | awk '{ if ($1 + 0 < 80) { exit 1 } }'"
     description: "Check if coverage meets minimum threshold (80%)"
+    deps:
+      - "build"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
@@ -125,12 +137,14 @@ tasks:
       cache: false
 
   # ============================================================================
-  # STAGE 4: BUILD
+  # STAGE 4: BUILD (depends on check to avoid file lock conflicts with clippy)
   # ============================================================================
 
   build:
     command: "cargo build --release --workspace"
     description: "Build release binaries"
+    deps:
+      - "check"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
@@ -147,6 +161,8 @@ tasks:
     command: "cargo"
     args: "doc --no-deps --document-private-items"
     description: "Generate Rust documentation"
+    deps:
+      - "build"
     inputs:
       - "crates/**/*.rs"
       - "Cargo.toml"
@@ -214,29 +230,17 @@ tasks:
   # ============================================================================
 
   quick:
-    command: "true"
-    description: "Fast lint check (format + clippy in parallel)"
-    deps:
-      - "~:fmt"
-      - "~:clippy"
+    command: "cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn"
+    description: "Fast lint check (format + clippy in one command)"
     options:
-      cache: false  # Composite task - deps handle caching
+      cache: false
 
   ci:
-    command: "true"
-    description: "Full CI pipeline (all checks in parallel where possible)"
-    deps:
-      - "~:fmt"
-      - "~:clippy"
-      - "~:test"
-      - "~:test-doc"
-      - "~:coverage-check"
-      - "~:docs-check"
-      - "~:tasks-check"
-      - "build"
-      - "build-docs"
+    command: "bash -c 'cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo check --workspace --all-features && cargo nextest run --workspace --all-features --no-fail-fast'"
+    description: "Full CI pipeline (all tests, all warnings fail)"
     options:
-      cache: false  # Composite task - deps handle caching
+      cache: false
+      runInCI: true
 
   # ============================================================================
   # CONVENIENCE

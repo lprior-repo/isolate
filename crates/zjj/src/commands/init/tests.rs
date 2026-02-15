@@ -821,21 +821,23 @@ async fn test_init_preserves_existing_documentation_files() -> Result<()> {
 /// Fix: InitResponse never had success field, this test verifies the invariant.
 #[test]
 fn test_init_response_no_duplicate_success_key() {
-    use crate::commands::init::types::build_init_response;
-    use serde_json;
     use std::path::Path;
-    
+
+    use serde_json;
+
+    use crate::commands::init::types::build_init_response;
+
     let response = build_init_response(Path::new("/tmp/test"), false);
-    
+
     // Serialize just the response (without envelope)
     let json_str = serde_json::to_string(&response).expect("Serialization failed");
-    
+
     // Response should NOT have success field (it is in envelope)
     assert!(
-        !json_str.contains(r#""success""#), 
+        !json_str.contains(r#""success""#),
         "InitResponse should not have success field - it is in SchemaEnvelope"
     );
-    
+
     // Response should have required fields
     assert!(json_str.contains(r#""message""#));
     assert!(json_str.contains(r#""root""#));
@@ -846,9 +848,9 @@ fn test_init_response_no_duplicate_success_key() {
 #[tokio::test]
 async fn test_init_idempotency_regression() -> anyhow::Result<()> {
     use tempfile::TempDir;
-    
+
     let temp_dir = TempDir::new()?;
-    
+
     // First init
     run_with_cwd_and_options(
         Some(temp_dir.path()),
@@ -858,7 +860,7 @@ async fn test_init_idempotency_regression() -> anyhow::Result<()> {
         },
     )
     .await?;
-    
+
     // Second init - should not fail
     let result = run_with_cwd_and_options(
         Some(temp_dir.path()),
@@ -868,9 +870,9 @@ async fn test_init_idempotency_regression() -> anyhow::Result<()> {
         },
     )
     .await;
-    
+
     assert!(result.is_ok(), "Second init should succeed (idempotent)");
-    
+
     Ok(())
 }
 
