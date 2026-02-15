@@ -91,8 +91,8 @@ fn build_wait_options(sub_m: &ArgMatches, format: OutputFormat) -> Result<wait::
         .ok_or_else(|| anyhow::anyhow!("Condition is required"))?;
     let name = sub_m.get_one::<String>("name").cloned();
     let status = sub_m.get_one::<String>("status").cloned();
-    let timeout = sub_m.get_one::<u64>("timeout").copied().unwrap_or(30);
-    let interval = sub_m.get_one::<u64>("interval").copied().unwrap_or(1000);
+    let timeout = sub_m.get_one::<f64>("timeout").copied().unwrap_or(30.0);
+    let interval = sub_m.get_one::<f64>("interval").copied().unwrap_or(1.0);
 
     build_wait_options_from_values(condition_str, name, status, timeout, interval, format)
 }
@@ -101,8 +101,8 @@ fn build_wait_options_from_values(
     condition_str: &str,
     name: Option<String>,
     status: Option<String>,
-    timeout: u64,
-    interval: u64,
+    timeout: f64,
+    interval: f64,
     format: OutputFormat,
 ) -> Result<wait::WaitOptions> {
     if status.is_some() && condition_str != "session-status" {
@@ -126,8 +126,8 @@ fn build_wait_options_from_values(
 
     Ok(wait::WaitOptions {
         condition,
-        timeout: std::time::Duration::from_secs(timeout),
-        poll_interval: std::time::Duration::from_millis(interval),
+        timeout: std::time::Duration::from_secs_f64(timeout),
+        poll_interval: std::time::Duration::from_secs_f64(interval),
         format,
     })
 }
@@ -203,8 +203,8 @@ mod tests {
             "healthy",
             None,
             Some("active".to_string()),
-            30,
-            1000,
+            30.0,
+            1.0,
             OutputFormat::Json,
         );
 
@@ -219,12 +219,12 @@ mod tests {
     #[test]
     fn wait_defaults_preserve_timeout_and_interval() {
         let options =
-            build_wait_options_from_values("healthy", None, None, 30, 1000, OutputFormat::Json)
+            build_wait_options_from_values("healthy", None, None, 30.0, 1.0, OutputFormat::Json)
                 .expect("options should build");
 
         assert!(matches!(options.condition, WaitCondition::Healthy));
         assert_eq!(options.timeout.as_secs(), 30);
-        assert_eq!(options.poll_interval.as_millis(), 1000);
+        assert_eq!(options.poll_interval.as_secs(), 1);
     }
 
     #[test]
@@ -232,6 +232,148 @@ mod tests {
         let parsed =
             crate::cli::commands::cmd_wait().try_get_matches_from(["wait", "-t", "abc", "healthy"]);
         assert!(parsed.is_err(), "timeout should require a number");
+    }
+
+    #[test]
+    fn wait_parser_rejects_negative_interval() {
+        let parsed =
+            crate::cli::commands::cmd_wait().try_get_matches_from(["wait", "-i", "-1", "healthy"]);
+        assert!(parsed.is_err(), "interval should reject negative values");
+    }
+
+    mod martin_fowler_wait_option_behavior {
+        use super::*;
+
+        /// GIVEN: `session-exists` requires a session name
+        /// WHEN: We build options without a name
+        /// THEN: The parser should fail with an actionable error
+        #[test]
+        fn given_session_exists_without_name_when_building_then_error_is_actionable() {
+            let result = build_wait_options_from_values(
+                "session-exists",
+                None,
+                None,
+                30.0,
+                1.0,
+                OutputFormat::Json,
+            );
+
+            assert!(result.is_err());
+            let err = result.err().map_or(String::new(), |e| e.to_string());
+            assert!(
+                err.contains("Session name required"),
+                "unexpected error: {err}"
+            );
+        }
+
+        /// GIVEN: `session-status` requires `--status`
+        /// WHEN: We provide a session name but no status target
+        /// THEN: Option construction should fail with a focused validation error
+        #[test]
+        fn given_session_status_without_status_when_building_then_requires_status() {
+            let result = build_wait_options_from_values(
+                "session-status",
+                Some("feature-auth".to_string()),
+                None,
+                30.0,
+                1.0,
+                OutputFormat::Json,
+            );
+
+            assert!(result.is_err());
+            let err = result.err().map_or(String::new(), |e| e.to_string());
+            assert!(err.contains("--status required"), "unexpected error: {err}");
+        }
+
+        /// GIVEN: Valid `session-status` inputs
+        /// WHEN: We build wait options with name + status
+        /// THEN: The resulting condition should preserve both values exactly
+        #[test]
+        fn given_valid_session_status_when_building_then_preserves_name_and_status() {
+            let result = build_wait_options_from_values(
+                "session-status",
+                Some("feature-auth".to_string()),
+                Some("active".to_string()),
+                45.0,
+                2.0,
+                OutputFormat::Json,
+            )
+            .expect("valid session-status options should build");
+
+            match result.condition {
+                WaitCondition::SessionStatus { name, status } => {
+                    assert_eq!(name, "feature-auth");
+                    assert_eq!(status, "active");
+                }
+                _ => panic!("expected session-status condition"),
+            }
+            assert_eq!(result.timeout.as_secs(), 45);
+            assert_eq!(result.poll_interval.as_secs(), 2);
+        }
+
+        /// GIVEN: A non-session-status wait condition
+        /// WHEN: `--status` is provided anyway
+        /// THEN: Validation should fail and explain correct usage
+        #[test]
+        fn given_session_exists_with_status_when_building_then_rejects_misused_status_flag() {
+            let result = build_wait_options_from_values(
+                "session-exists",
+                Some("feature-auth".to_string()),
+                Some("active".to_string()),
+                30,
+                1.0,
+                OutputFormat::Json,
+            );
+
+            assert!(result.is_err());
+            let err = result.err().map_or(String::new(), |e| e.to_string());
+            assert!(
+                err.contains("--status is only valid with session-status"),
+                "unexpected error: {err}"
+            );
+        }
+
+        /// GIVEN: A healthy wait condition
+        /// WHEN: Options are built with explicit timeout and interval
+        /// THEN: Healthy condition remains selected and durations are preserved
+        #[test]
+        fn given_healthy_with_explicit_timing_when_building_then_preserves_timing() {
+            let result = build_wait_options_from_values(
+                "healthy",
+                None,
+                None,
+                90.0,
+                5.0,
+                OutputFormat::Json,
+            )
+            .expect("healthy options should build");
+
+            assert!(matches!(result.condition, WaitCondition::Healthy));
+            assert_eq!(result.timeout.as_secs(), 90);
+            assert_eq!(result.poll_interval.as_secs(), 5);
+        }
+
+        /// GIVEN: An unknown wait condition string
+        /// WHEN: Option construction is attempted
+        /// THEN: Validation should fail fast with the unknown condition value
+        #[test]
+        fn given_unknown_condition_when_building_then_returns_explicit_unknown_error() {
+            let result = build_wait_options_from_values(
+                "not-a-real-condition",
+                None,
+                None,
+                30,
+                1.0,
+                OutputFormat::Json,
+            );
+
+            assert!(result.is_err());
+            let err = result.err().map_or(String::new(), |e| e.to_string());
+            assert!(
+                err.contains("Unknown condition: not-a-real-condition"),
+                "unexpected error: {err}"
+            );
+        }
     }
 
     mod martin_fowler_wait_cli_parser_behavior {
@@ -332,8 +474,8 @@ mod tests {
                     case.condition,
                     case.session_name.map(str::to_string),
                     case.status.map(str::to_string),
-                    case.timeout,
-                    case.interval,
+                    case.timeout as f64,
+                    case.interval as f64,
                     OutputFormat::Json,
                 );
 

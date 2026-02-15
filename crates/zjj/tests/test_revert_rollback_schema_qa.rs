@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 // Integration tests for adversarial QA hardening of:
 // - zjj revert
 // - zjj rollback
@@ -43,7 +44,7 @@ fn schema_unknown_name_has_consistent_not_found_exit_code() {
     assert!(!json.success, "Unknown schema should fail in JSON mode");
     assert_eq!(json.exit_code, Some(2));
     let parsed: serde_json::Value =
-        serde_json::from_str(&json.stdout).expect("JSON error output should be parseable");
+        serde_json::from_str(&json.stdout).unwrap_or_default();
     assert_eq!(parsed["success"], false);
     assert_eq!(parsed["error"]["exit_code"], 2);
 }
@@ -71,7 +72,7 @@ fn rollback_dry_run_invalid_checkpoint_returns_nonzero_json_once() {
     assert!(!result.success, "Invalid checkpoint dry-run should fail");
     assert_eq!(result.exit_code, Some(4));
     let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Expected exactly one JSON document");
+        serde_json::from_str(&result.stdout).unwrap_or_default();
     assert_eq!(parsed["success"], false);
     assert_eq!(parsed["operation_succeeded"], false);
 }
@@ -87,7 +88,7 @@ fn rollback_missing_session_returns_not_found_without_duplicate_output() {
     assert!(!result.success);
     assert_eq!(result.exit_code, Some(2));
     let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Expected one JSON envelope");
+        serde_json::from_str(&result.stdout).unwrap_or_default();
     assert_eq!(parsed["success"], false);
     assert_eq!(parsed["operation_succeeded"], false);
 }
@@ -109,7 +110,7 @@ fn revert_malformed_undo_log_is_reported_as_read_error() {
     assert!(!result.success, "Malformed undo log should fail revert");
     assert_eq!(result.exit_code, Some(4));
     let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Expected exactly one JSON document");
+        serde_json::from_str(&result.stdout).unwrap_or_default();
     assert_eq!(parsed["success"], false);
     assert_eq!(parsed["error"]["code"], "READ_UNDO_LOG_FAILED");
 }
@@ -125,7 +126,7 @@ fn revert_missing_session_returns_semantic_exit_code_without_duplicate_json() {
     assert!(!result.success);
     assert_eq!(result.exit_code, Some(2));
     let parsed: serde_json::Value =
-        serde_json::from_str(&result.stdout).expect("Expected exactly one JSON document");
+        serde_json::from_str(&result.stdout).unwrap_or_default();
     assert_eq!(parsed["success"], false);
     assert_eq!(parsed["error"]["code"], "SESSION_NOT_FOUND");
 }
