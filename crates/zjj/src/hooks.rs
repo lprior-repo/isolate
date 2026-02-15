@@ -70,7 +70,7 @@ impl HooksConfig {
     }
 
     /// Check if any hooks are configured
-    pub const fn has_hooks(&self) -> bool {
+    pub fn has_hooks(&self) -> bool {
         self.on_success.is_some() || self.on_failure.is_some()
     }
 

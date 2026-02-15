@@ -19,11 +19,11 @@ pub struct BroadcastArgs {
 }
 
 /// Output for broadcast command
+///
+/// Note: `success` field is provided by SchemaEnvelope wrapper.
+/// Do not add a `success` field here to avoid duplicate JSON keys (RFC 8259).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BroadcastResponse {
-    /// Whether the broadcast was successful
-    pub success: bool,
-
     /// The message that was broadcast
     pub message: String,
 
@@ -54,7 +54,6 @@ mod tests {
     #[test]
     fn test_broadcast_response_serialization() -> Result<(), anyhow::Error> {
         let response = BroadcastResponse {
-            success: true,
             message: "Hello, agents!".to_string(),
             sent_to: vec!["agent-2".to_string(), "agent-3".to_string()],
             timestamp: Utc::now().to_rfc3339(),
@@ -63,7 +62,6 @@ mod tests {
         let json = serde_json::to_string(&response)?;
         let parsed: BroadcastResponse = serde_json::from_str(&json)?;
 
-        assert_eq!(parsed.success, response.success);
         assert_eq!(parsed.message, response.message);
         assert_eq!(parsed.sent_to, response.sent_to);
         Ok(())
@@ -72,13 +70,11 @@ mod tests {
     #[test]
     fn test_broadcast_response_empty_sent_to() {
         let response = BroadcastResponse {
-            success: true,
             message: "No other agents".to_string(),
             sent_to: vec![],
             timestamp: Utc::now().to_rfc3339(),
         };
 
-        assert!(response.success);
         assert!(response.sent_to.is_empty());
     }
 }

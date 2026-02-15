@@ -97,7 +97,7 @@ pub enum Priority {
 
 impl Priority {
     #[must_use]
-    pub const fn from_u32(n: u32) -> Option<Self> {
+    pub fn from_u32(n: u32) -> Option<Self> {
         match n {
             0 => Some(Self::P0),
             1 => Some(Self::P1),
@@ -109,7 +109,7 @@ impl Priority {
     }
 
     #[must_use]
-    pub const fn to_u32(&self) -> u32 {
+    pub fn to_u32(&self) -> u32 {
         match self {
             Self::P0 => 0,
             Self::P1 => 1,
@@ -192,12 +192,12 @@ impl BeadsSummary {
 
     #[must_use]
     #[allow(clippy::arithmetic_side_effects)]
-    pub const fn active(&self) -> usize {
+    pub fn active(&self) -> usize {
         self.open + self.in_progress
     }
 
     #[must_use]
-    pub const fn has_blockers(&self) -> bool {
+    pub fn has_blockers(&self) -> bool {
         self.blocked > 0
     }
 }
@@ -244,7 +244,7 @@ impl BeadFilter {
     }
 
     #[must_use]
-    pub const fn with_priority_range(mut self, min: Priority, max: Priority) -> Self {
+    pub fn with_priority_range(mut self, min: Priority, max: Priority) -> Self {
         self.priority_min = Some(min);
         self.priority_max = Some(max);
         self
@@ -269,7 +269,7 @@ impl BeadFilter {
     }
 
     #[must_use]
-    pub const fn blocked_only(mut self) -> Self {
+    pub fn blocked_only(mut self) -> Self {
         self.blocked_only = true;
         self
     }
@@ -281,13 +281,13 @@ impl BeadFilter {
     }
 
     #[must_use]
-    pub const fn limit(mut self, n: usize) -> Self {
+    pub fn limit(mut self, n: usize) -> Self {
         self.limit = Some(n);
         self
     }
 
     #[must_use]
-    pub const fn offset(mut self, n: usize) -> Self {
+    pub fn offset(mut self, n: usize) -> Self {
         self.offset = Some(n);
         self
     }
@@ -363,19 +363,19 @@ impl BeadQuery {
     }
 
     #[must_use]
-    pub const fn sort_by(mut self, sort: BeadSort) -> Self {
+    pub fn sort_by(mut self, sort: BeadSort) -> Self {
         self.sort = sort;
         self
     }
 
     #[must_use]
-    pub const fn direction(mut self, direction: SortDirection) -> Self {
+    pub fn direction(mut self, direction: SortDirection) -> Self {
         self.direction = direction;
         self
     }
 
     #[must_use]
-    pub const fn include_closed(mut self, include: bool) -> Self {
+    pub fn include_closed(mut self, include: bool) -> Self {
         self.include_closed = include;
         self
     }

@@ -532,7 +532,7 @@ pub struct FieldContractBuilder {
 }
 
 impl FieldContractBuilder {
-    pub const fn required(mut self) -> Self {
+    pub fn required(mut self) -> Self {
         self.required = true;
         self
     }

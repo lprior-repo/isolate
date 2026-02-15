@@ -84,25 +84,25 @@ impl WorkspaceState {
 
     /// Returns true if this is a terminal state (no further transitions possible).
     #[must_use]
-    pub const fn is_terminal(self) -> bool {
+    pub fn is_terminal(self) -> bool {
         matches!(self, Self::Merged | Self::Abandoned)
     }
 
     /// Returns true if this state indicates active work is happening.
     #[must_use]
-    pub const fn is_active(self) -> bool {
+    pub fn is_active(self) -> bool {
         matches!(self, Self::Working | Self::Conflict)
     }
 
     /// Returns true if this state indicates work is complete (ready or merged).
     #[must_use]
-    pub const fn is_complete(self) -> bool {
+    pub fn is_complete(self) -> bool {
         matches!(self, Self::Ready | Self::Merged)
     }
 
     /// Returns all possible workspace states as a slice.
     #[must_use]
-    pub const fn all() -> &'static [Self] {
+    pub fn all() -> &'static [Self] {
         &[
             Self::Created,
             Self::Working,
@@ -166,11 +166,23 @@ impl FromStr for WorkspaceState {
             "conflict" => Ok(Self::Conflict),
             _ => Err(Error::ValidationError {
                 message: format!(
-                    "Invalid workspace state: '{s}'. Valid states: created, working, ready, merged, abandoned, conflict"
+                    "Invalid workspace state: '{s}'. Valid states: created, working, ready, merged, abandoned, conflict, active, complete, terminal, non-terminal, all"
                 ),
-                field: None,
-                value: None,
-                constraints: Vec::new(),
+                field: Some("state".to_string()),
+                value: Some(s.to_string()),
+                constraints: vec![
+                    "created".to_string(),
+                    "working".to_string(),
+                    "ready".to_string(),
+                    "merged".to_string(),
+                    "abandoned".to_string(),
+                    "conflict".to_string(),
+                    "active".to_string(),
+                    "complete".to_string(),
+                    "terminal".to_string(),
+                    "non-terminal".to_string(),
+                    "all".to_string(),
+                ],
             }),
         }
     }
@@ -811,4 +823,78 @@ mod tests {
         // This will FAIL until WorkspaceState implements LifecycleState correctly
         conformance_tests::run_all_tests::<WorkspaceState>();
     }
+
+
+// ============================================================================
+// REGRESSION TESTS for Red Queen adversarial hardening
+// ============================================================================
+
+/// REGRESSION: Error message must include ALL valid state values including filter aliases
+/// Previously only listed 6 states, but help showed 10 valid values.
+/// Fix: Error now lists all 11 valid values: created, working, ready, merged, 
+/// abandoned, conflict, active, complete, terminal, non-terminal, all
+#[test]
+fn test_invalid_state_error_lists_all_valid_values() {
+    let result = WorkspaceState::from_str("invalid_state_xyz");
+    assert!(result.is_err());
+    
+    let err = result.unwrap_err();
+    let message = err.to_string();
+    
+    // Must include all individual states
+    assert!(message.contains("created"), "Error should list 'created'");
+    assert!(message.contains("working"), "Error should list 'working'");
+    assert!(message.contains("ready"), "Error should list 'ready'");
+    assert!(message.contains("merged"), "Error should list 'merged'");
+    assert!(message.contains("abandoned"), "Error should list 'abandoned'");
+    assert!(message.contains("conflict"), "Error should list 'conflict'");
+    
+    // Must include filter aliases
+    assert!(message.contains("active"), "Error should list 'active' filter");
+    assert!(message.contains("complete"), "Error should list 'complete' filter");
+    assert!(message.contains("terminal"), "Error should list 'terminal' filter");
+    assert!(message.contains("non-terminal"), "Error should list 'non-terminal' filter");
+    assert!(message.contains("all"), "Error should list 'all' filter");
+}
+
+/// REGRESSION: ValidationError should have field, value, and constraints populated
+#[test]
+fn test_invalid_state_validation_error_has_structured_fields() {
+    let result = WorkspaceState::from_str("bad-state");
+    assert!(result.is_err());
+    
+    let err = result.unwrap_err();
+    match err {
+        Error::ValidationError { message, field, value, constraints } => {
+            // Message should mention the invalid value
+            assert!(message.contains("bad-state"));
+            
+            // Field should be "state"
+            assert_eq!(field, Some("state".to_string()));
+            
+            // Value should be the input
+            assert_eq!(value, Some("bad-state".to_string()));
+            
+            // Constraints should list all valid values
+            assert!(constraints.contains(&"created".to_string()));
+            assert!(constraints.contains(&"active".to_string()));
+            assert!(constraints.len() >= 10, "Should have at least 10 valid values");
+        }
+        _ => panic!("Expected ValidationError"),
+    }
+}
+
+/// Test that filter aliases work correctly
+#[test]
+fn test_state_filter_aliases_parse_correctly() {
+    use std::str::FromStr;
+    
+    // Test filter aliases via WorkspaceStateFilter
+    assert!(WorkspaceStateFilter::from_str("active").is_ok());
+    assert!(WorkspaceStateFilter::from_str("complete").is_ok());
+    assert!(WorkspaceStateFilter::from_str("terminal").is_ok());
+    assert!(WorkspaceStateFilter::from_str("non-terminal").is_ok());
+    assert!(WorkspaceStateFilter::from_str("all").is_ok());
+}
+
 }

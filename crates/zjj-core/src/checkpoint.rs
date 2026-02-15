@@ -37,7 +37,7 @@ pub enum OperationRisk {
 impl OperationRisk {
     /// Returns true if this operation requires a checkpoint.
     #[must_use]
-    pub const fn needs_checkpoint(&self) -> bool {
+    pub fn needs_checkpoint(&self) -> bool {
         matches!(self, Self::Risky)
     }
 }
@@ -60,7 +60,7 @@ pub struct AutoCheckpoint {
 impl AutoCheckpoint {
     /// Create a new auto-checkpoint manager.
     #[must_use]
-    pub const fn new(db: SqlitePool) -> Self {
+    pub fn new(db: SqlitePool) -> Self {
         Self { db }
     }
 

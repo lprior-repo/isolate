@@ -447,12 +447,12 @@ impl Default for Capabilities {
 
 impl Prerequisites {
     /// Check if all prerequisites are met
-    pub const fn all_met(&self) -> bool {
+    pub fn all_met(&self) -> bool {
         self.initialized && self.jj_installed && (!self.zellij_running || self.custom.is_empty())
     }
 
     /// Count how many prerequisites are met
-    pub const fn count_met(&self) -> usize {
+    pub fn count_met(&self) -> usize {
         let mut count = 0;
         if self.initialized {
             count += 1;
@@ -467,7 +467,7 @@ impl Prerequisites {
     }
 
     /// Total number of prerequisites
-    pub const fn total(&self) -> usize {
+    pub fn total(&self) -> usize {
         3 + self.custom.len()
     }
 }

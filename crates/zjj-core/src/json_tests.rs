@@ -288,3 +288,125 @@ fn given_error_detail_with_none_fields_when_serialize_then_omits_none() {
         assert!(v.get("message").is_some());
     }
 }
+
+// ============================================================================
+// REGRESSION TESTS for Red Queen adversarial hardening
+// These tests verify fixes for issues discovered through hostile input testing
+// ============================================================================
+
+/// REGRESSION: ValidationError details were lost in JSON output
+/// Previously, map_error_to_parts() discarded all ValidationError fields
+/// and just returned "Validation error" as the message.
+///
+/// Fix: Now includes full message with field, value, and constraints.
+#[test]
+fn given_validation_error_with_field_when_converted_to_json_then_includes_details() {
+    use crate::Error;
+    
+    let err = Error::ValidationError {
+        message: "Invalid workspace state".to_string(),
+        field: Some("state".to_string()),
+        value: Some("invalid-state".to_string()),
+        constraints: vec!["created".to_string(), "working".to_string()],
+    };
+    
+    let json_err = JsonError::from(&err);
+    
+    // Message should include the actual error message
+    assert!(
+        json_err.error.message.contains("Invalid workspace state"),
+        "Message should include original error message, got: {}",
+        json_err.error.message
+    );
+    
+    // Field should be included
+    assert!(
+        json_err.error.message.contains("field: state"),
+        "Message should include field name, got: {}",
+        json_err.error.message
+    );
+    
+    // Value should be included
+    assert!(
+        json_err.error.message.contains("value: invalid-state"),
+        "Message should include invalid value, got: {}",
+        json_err.error.message
+    );
+    
+    // Exit code should be 1 for validation errors
+    assert_eq!(json_err.error.exit_code, 1);
+}
+
+/// REGRESSION: ValidationError without field/value still works
+#[test]
+fn given_validation_error_without_field_when_converted_to_json_then_includes_message() {
+    use crate::Error;
+    
+    let err = Error::ValidationError {
+        message: "Something went wrong".to_string(),
+        field: None,
+        value: None,
+        constraints: vec![],
+    };
+    
+    let json_err = JsonError::from(&err);
+    
+    assert!(
+        json_err.error.message.contains("Something went wrong"),
+        "Message should include original error message, got: {}",
+        json_err.error.message
+    );
+}
+
+/// REGRESSION: ValidationError with constraints includes them as suggestion
+#[test]
+fn given_validation_error_with_constraints_when_converted_to_json_then_suggests_valid_values() {
+    use crate::Error;
+    
+    let err = Error::ValidationError {
+        message: "Invalid state".to_string(),
+        field: Some("state".to_string()),
+        value: Some("bad".to_string()),
+        constraints: vec!["created".to_string(), "working".to_string(), "merged".to_string()],
+    };
+    
+    let json_err = JsonError::from(&err);
+    
+    assert!(
+        json_err.error.suggestion.is_some(),
+        "Should have suggestion when constraints exist"
+    );
+    
+    let suggestion = json_err.error.suggestion.unwrap();
+    assert!(
+        suggestion.contains("created") && suggestion.contains("working"),
+        "Suggestion should list valid values, got: {}",
+        suggestion
+    );
+}
+
+/// REGRESSION: JSON error should include context_map in details field
+#[test]
+fn given_any_error_when_converted_to_json_then_includes_context_details() {
+    use crate::Error;
+    
+    let err = Error::ValidationError {
+        message: "Test error".to_string(),
+        field: Some("test_field".to_string()),
+        value: Some("test_value".to_string()),
+        constraints: vec![],
+    };
+    
+    let json_err = JsonError::from(&err);
+    
+    // The details field should be populated from context_map()
+    // This allows AI agents to programmatically access error details
+    assert!(
+        json_err.error.details.is_some(),
+        "JSON error should include details from context_map()"
+    );
+    
+    let details = json_err.error.details.unwrap();
+    // Should have structured error information
+    assert!(details.is_object(), "Details should be a JSON object");
+}

@@ -70,7 +70,7 @@ impl RepoRoot {
 
     /// Get the inner `PathBuf`
     #[expect(dead_code)] // For future strict path validation
-    pub const fn inner(&self) -> &PathBuf {
+    pub fn inner(&self) -> &PathBuf {
         &self.0
     }
 

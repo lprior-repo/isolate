@@ -129,7 +129,7 @@ impl TestContext {
                         last_seen,
                         current_session,
                         current_command,
-                        actions_count: actions_count.cast_unsigned(),
+                        actions_count: u64::try_from(actions_count).unwrap_or(0),
                         stale,
                     })
                 },

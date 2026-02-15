@@ -127,7 +127,7 @@ pub struct ConfigBuilder {
 impl ConfigBuilder {
     /// Create a new config builder.
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self { name: None }
     }
 
@@ -162,7 +162,7 @@ pub struct Config {
 impl Config {
     /// Create a new config builder.
     #[must_use]
-    pub const fn builder() -> ConfigBuilder {
+    pub fn builder() -> ConfigBuilder {
         ConfigBuilder::new()
     }
 

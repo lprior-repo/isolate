@@ -32,7 +32,7 @@ impl BackupInfo {
     /// Create backup info from path and metadata
     #[allow(dead_code)]
     // Constructor for backup information structure
-    pub const fn new(
+    pub fn new(
         path: PathBuf,
         timestamp: DateTime<Utc>,
         metadata: Option<BackupMetadata>,

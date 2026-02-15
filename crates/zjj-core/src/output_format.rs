@@ -43,7 +43,7 @@ impl OutputFormat {
     /// assert!(!OutputFormat::Human.is_json());
     /// ```
     #[must_use]
-    pub const fn is_json(&self) -> bool {
+    pub fn is_json(&self) -> bool {
         matches!(self, Self::Json)
     }
 
@@ -57,7 +57,7 @@ impl OutputFormat {
     /// assert!(!OutputFormat::Json.is_human());
     /// ```
     #[must_use]
-    pub const fn is_human(&self) -> bool {
+    pub fn is_human(&self) -> bool {
         matches!(self, Self::Human)
     }
 
@@ -73,7 +73,7 @@ impl OutputFormat {
     /// assert_eq!(OutputFormat::from_json_flag(false), OutputFormat::Human);
     /// ```
     #[must_use]
-    pub const fn from_json_flag(json: bool) -> Self {
+    pub fn from_json_flag(json: bool) -> Self {
         if json {
             Self::Json
         } else {
@@ -93,7 +93,7 @@ impl OutputFormat {
     /// assert_eq!(OutputFormat::Human.to_json_flag(), false);
     /// ```
     #[must_use]
-    pub const fn to_json_flag(&self) -> bool {
+    pub fn to_json_flag(&self) -> bool {
         matches!(self, Self::Json)
     }
 }

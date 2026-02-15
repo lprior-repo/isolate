@@ -89,7 +89,7 @@ impl AgentRegistry {
 
     /// Get all active agents (`last_seen` within timeout).
     pub async fn get_active(&self) -> Result<Vec<ActiveAgent>, Error> {
-        let cutoff = Utc::now() - chrono::Duration::seconds(self.timeout_secs.cast_signed());
+        let cutoff = Utc::now() - chrono::Duration::seconds(i64::try_from(self.timeout_secs).unwrap_or(i64::MAX));
         let cutoff_str = cutoff.to_rfc3339();
 
         let rows: Vec<(String, String, String, Option<String>, Option<String>, i64)> = sqlx::query_as(
@@ -127,7 +127,7 @@ impl AgentRegistry {
                         registered_at,
                         current_session,
                         current_command,
-                        actions_count: actions_count.cast_unsigned(),
+                        actions_count: u64::try_from(actions_count).unwrap_or(0),
                     })
                 },
             )

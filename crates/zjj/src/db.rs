@@ -150,7 +150,7 @@ pub struct AddOperationRecord {
 
 impl SessionDb {
     /// Get a reference to the underlying connection pool
-    pub const fn pool(&self) -> &SqlitePool {
+    pub fn pool(&self) -> &SqlitePool {
         &self.pool
     }
 
@@ -1722,9 +1722,9 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
         workspace_path,
         zellij_tab: format!("zjj:{name}"),
         branch,
-        created_at: created_at.cast_unsigned(),
-        updated_at: updated_at.cast_unsigned(),
-        last_synced: last_synced.map(i64::cast_unsigned),
+        created_at: u64::try_from(created_at).unwrap_or(0),
+        updated_at: u64::try_from(updated_at).unwrap_or(0),
+        last_synced: last_synced.map(|v| u64::try_from(v).unwrap_or(0)),
         metadata,
     })
 }
