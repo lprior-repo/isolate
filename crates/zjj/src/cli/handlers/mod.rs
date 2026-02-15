@@ -18,6 +18,8 @@
 use std::process;
 
 use anyhow::Result;
+use serde_json::json;
+use zjj_core::{json::schemas, SchemaEnvelope};
 
 use crate::{cli::build_cli, command_context, hooks, json};
 
@@ -76,6 +78,30 @@ pub fn format_error(err: &anyhow::Error) -> String {
     msg
 }
 
+fn output_json_display(display_type: &str, content: &str) {
+    let payload = json!({
+        "display_type": display_type,
+        "content": content,
+    });
+    let envelope = SchemaEnvelope::new(schemas::CLI_DISPLAY_RESPONSE, "single", payload);
+
+    if let Ok(json_output) = serde_json::to_string_pretty(&envelope) {
+        println!("{json_output}");
+    } else {
+        let fallback = json!({
+            "$schema": "zjj://cli-display-response/v1",
+            "_schema_version": "1.0",
+            "schema_type": "single",
+            "success": true,
+            "display_type": display_type,
+            "content": content,
+        });
+        if let Ok(serialized) = serde_json::to_string_pretty(&fallback) {
+            println!("{serialized}");
+        }
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::large_stack_frames)]
 pub async fn run_cli() -> Result<()> {
@@ -97,17 +123,16 @@ pub async fn run_cli() -> Result<()> {
 
             if json_mode {
                 if should_exit_zero {
-                    let _ = e.print();
+                    let display_type = match e.kind() {
+                        ErrorKind::DisplayHelp => "help",
+                        ErrorKind::DisplayVersion => "version",
+                        _ => "display",
+                    };
+                    output_json_display(display_type, &e.to_string());
                     process::exit(0);
                 }
 
-                let parse_error = anyhow::Error::from(zjj_core::Error::ValidationError {
-                    message: e.to_string(),
-                    field: Some("cli_arguments".to_string()),
-                    value: None,
-                    constraints: vec!["Use --help to view valid flags and arguments".to_string()],
-                });
-                let exit_code = json::output_json_error(&parse_error);
+                let exit_code = json::output_json_parse_error(e.to_string());
                 process::exit(exit_code);
             }
 

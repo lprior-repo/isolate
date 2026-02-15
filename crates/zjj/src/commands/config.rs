@@ -44,10 +44,7 @@ pub struct ConfigOptions {
 /// - Config value cannot be set
 /// - Invalid arguments provided
 pub async fn run(options: ConfigOptions) -> Result<()> {
-    // Preserve error type for proper exit code mapping
-    let config = load_config_for_scope(options.global)
-        .await
-        .map_err(anyhow::Error::new)?;
+    let config = load_config_for_scope(options.global).await?;
 
     match (options.key, options.value) {
         // No key, no value: Show all config
@@ -428,25 +425,6 @@ fn project_config_path() -> Result<PathBuf> {
     std::env::current_dir()
         .context("Failed to get current directory")
         .map(|dir| dir.join(".zjj/config.toml"))
-}
-
-async fn load_config_for_scope(global_only: bool) -> zjj_core::Result<Config> {
-    if !global_only {
-        return zjj_core::config::load_config().await;
-    }
-
-    let mut config = Config::default();
-    let global_path = global_config_path().map_err(|err| {
-        zjj_core::Error::IoError(format!("Failed to determine global config path: {err}"))
-    })?;
-
-    match zjj_core::config::load_partial_toml_file(&global_path).await {
-        Ok(global_partial) => config.merge_partial(global_partial),
-        Err(zjj_core::Error::IoError(_)) => {}
-        Err(err) => return Err(err),
-    }
-
-    Ok(config)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

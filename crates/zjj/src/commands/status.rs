@@ -104,7 +104,14 @@ use futures::StreamExt;
 
 /// Run status once
 async fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
-    let db = get_session_db().await?;
+    let db = match get_session_db().await {
+        Ok(db) => db,
+        Err(err) if name.is_none() && is_repo_bootstrap_error(&err) => {
+            output_no_active_sessions(format)?;
+            return Ok(());
+        }
+        Err(err) => return Err(err),
+    };
 
     let sessions = if let Some(session_name) = name {
         // Get single session
@@ -121,23 +128,7 @@ async fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
     };
 
     if sessions.is_empty() {
-        if format.is_json() {
-            let data = StatusResponseData { sessions: vec![] };
-            let envelope = SchemaEnvelope::new("status-response", "single", data);
-            let json = serde_json::to_string_pretty(&envelope)?;
-            println!("{json}");
-        } else {
-            println!("📍 WORKFLOW STATE: No active session");
-            println!();
-            println!("Next step: zjj spawn <bead-id> \"task description\"");
-            println!("           └─ Creates isolated workspace + starts work");
-            println!();
-            println!("Full workflow:");
-            println!("  1. zjj spawn <bead-id> \"desc\"  ← YOU ARE HERE");
-            println!("  2. [do work in isolated workspace]");
-            println!("  3. zjj sync");
-            println!("  4. zjj done");
-        }
+        output_no_active_sessions(format)?;
         return Ok(());
     }
 
@@ -175,6 +166,32 @@ async fn run_once(name: Option<&str>, format: OutputFormat) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn is_repo_bootstrap_error(err: &anyhow::Error) -> bool {
+    let message = err.to_string();
+    message.contains("Not in a JJ repository") || message.contains("ZJJ not initialized")
+}
+
+fn output_no_active_sessions(format: OutputFormat) -> Result<()> {
+    if format.is_json() {
+        let data = StatusResponseData { sessions: vec![] };
+        let envelope = SchemaEnvelope::new("status-response", "single", data);
+        let json = serde_json::to_string_pretty(&envelope)?;
+        println!("{json}");
+    } else {
+        println!("📍 WORKFLOW STATE: No active session");
+        println!();
+        println!("Next step: zjj spawn <bead-id> \"task description\"");
+        println!("           └─ Creates isolated workspace + starts work");
+        println!();
+        println!("Full workflow:");
+        println!("  1. zjj spawn <bead-id> \"desc\"  ← YOU ARE HERE");
+        println!("  2. [do work in isolated workspace]");
+        println!("  3. zjj sync");
+        println!("  4. zjj done");
+    }
     Ok(())
 }
 

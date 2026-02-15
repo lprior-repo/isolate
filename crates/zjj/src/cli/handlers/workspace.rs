@@ -12,6 +12,22 @@ use crate::{
     json,
 };
 
+fn print_contract(contract: &str, json_mode: bool) {
+    if json_mode {
+        let maybe_json = contract
+            .find('{')
+            .and_then(|start| contract.get(start..))
+            .map(str::trim);
+        if let Some(json_contract) = maybe_json {
+            println!("{json_contract}");
+        } else {
+            println!("{contract}");
+        }
+    } else {
+        println!("{contract}");
+    }
+}
+
 pub async fn handle_init(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
     let dry_run = sub_m.get_flag("dry-run");
@@ -69,15 +85,23 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
 }
 
 pub async fn handle_list(sub_m: &ArgMatches) -> Result<()> {
-    // Handle --contract flag first
+    let format = get_format(sub_m);
+
     if sub_m.get_flag("contract") {
-        println!("{}", crate::cli::json_docs::ai_contracts::list());
+        print_contract(
+            crate::cli::json_docs::ai_contracts::list(),
+            format.is_json(),
+        );
+        return Ok(());
+    }
+
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
         return Ok(());
     }
 
     let all = sub_m.get_flag("all");
     let verbose = sub_m.get_flag("verbose");
-    let format = get_format(sub_m);
     let bead = sub_m.get_one::<String>("bead").cloned();
     let agent = sub_m.get_one::<String>("agent").map(String::as_str);
     let state = sub_m.get_one::<String>("state").map(String::as_str);

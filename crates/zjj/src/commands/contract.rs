@@ -5,7 +5,7 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use zjj_core::{OutputFormat, SchemaEnvelope};
+use zjj_core::{json::schemas, OutputFormat, SchemaEnvelope};
 
 /// Options for the contract command
 #[derive(Debug, Clone)]
@@ -227,6 +227,8 @@ fn build_all_contracts() -> ContractsResponse {
         build_context_contract(),
         build_introspect_contract(),
         build_checkpoint_contract(),
+        build_export_contract(),
+        build_import_contract(),
     ];
 
     ContractsResponse {
@@ -266,18 +268,17 @@ fn build_add_contract() -> CommandContract {
     CommandContract {
         name: "add".to_string(),
         description: "Create session for manual work (JJ workspace + Zellij tab)".to_string(),
-        required_args: vec![],
+        required_args: vec![ArgContract {
+            name: "name".to_string(),
+            arg_type: "string".to_string(),
+            description:
+                "Session name (required for normal execution; may be omitted only with --example-json, --contract, or --ai-hints)"
+                    .to_string(),
+            pattern: Some("^[a-zA-Z][a-zA-Z0-9_-]*$".to_string()),
+            default: None,
+            examples: vec!["feature-auth".to_string(), "bugfix-123".to_string()],
+        }],
         optional_args: vec![
-            ArgContract {
-                name: "name".to_string(),
-                arg_type: "string".to_string(),
-                description:
-                    "Session name (required for execution; optional only with --example-json, --contract, or --ai-hints)"
-                        .to_string(),
-                pattern: Some("^[a-zA-Z][a-zA-Z0-9_-]*$".to_string()),
-                default: None,
-                examples: vec!["feature-auth".to_string(), "bugfix-123".to_string()],
-            },
             ArgContract {
                 name: "template".to_string(),
                 arg_type: "string".to_string(),
@@ -1150,6 +1151,106 @@ fn build_checkpoint_contract() -> CommandContract {
         ],
         reversible: true,
         undo_command: Some("zjj checkpoint restore <prev_id>".to_string()),
+        prerequisites: vec!["zjj must be initialized".to_string()],
+    }
+}
+
+fn build_export_contract() -> CommandContract {
+    CommandContract {
+        name: "export".to_string(),
+        description: "Export session state to stdout or file".to_string(),
+        required_args: vec![],
+        optional_args: vec![
+            ArgContract {
+                name: "session".to_string(),
+                arg_type: "string".to_string(),
+                description: "Optional session name to export (all sessions if omitted)"
+                    .to_string(),
+                pattern: Some("^[a-zA-Z][a-zA-Z0-9_-]*$".to_string()),
+                default: None,
+                examples: vec!["feature-auth".to_string(), "bugfix-123".to_string()],
+            },
+            ArgContract {
+                name: "output".to_string(),
+                arg_type: "path".to_string(),
+                description: "Output file path (must be used with -o|--output)".to_string(),
+                pattern: None,
+                default: None,
+                examples: vec!["state.json".to_string(), "./exports/all.json".to_string()],
+            },
+        ],
+        flags: vec![FlagContract {
+            name: "json".to_string(),
+            short: None,
+            description: "Output as JSON".to_string(),
+            global: false,
+        }],
+        output_schema: schemas::uri(schemas::EXPORT_RESPONSE),
+        side_effects: vec!["Writes export payload when --output is provided".to_string()],
+        related_commands: vec!["import".to_string(), "backup".to_string()],
+        examples: vec![
+            "zjj export --json".to_string(),
+            "zjj export feature-auth -o state.json".to_string(),
+            "zjj export -o all-sessions.json".to_string(),
+        ],
+        reversible: false,
+        undo_command: None,
+        prerequisites: vec!["zjj must be initialized".to_string()],
+    }
+}
+
+fn build_import_contract() -> CommandContract {
+    CommandContract {
+        name: "import".to_string(),
+        description: "Import session state from file".to_string(),
+        required_args: vec![ArgContract {
+            name: "file".to_string(),
+            arg_type: "path".to_string(),
+            description: "Input file containing exported session data".to_string(),
+            pattern: None,
+            default: None,
+            examples: vec![
+                "state.json".to_string(),
+                "./exports/sessions.json".to_string(),
+            ],
+        }],
+        optional_args: vec![],
+        flags: vec![
+            FlagContract {
+                name: "force".to_string(),
+                short: Some("f".to_string()),
+                description: "Overwrite existing sessions".to_string(),
+                global: false,
+            },
+            FlagContract {
+                name: "skip-existing".to_string(),
+                short: None,
+                description: "Skip sessions that already exist".to_string(),
+                global: false,
+            },
+            FlagContract {
+                name: "dry-run".to_string(),
+                short: None,
+                description: "Preview import without changes".to_string(),
+                global: false,
+            },
+            FlagContract {
+                name: "json".to_string(),
+                short: None,
+                description: "Output as JSON".to_string(),
+                global: false,
+            },
+        ],
+        output_schema: schemas::uri(schemas::IMPORT_RESPONSE),
+        side_effects: vec!["Creates or updates session records from file".to_string()],
+        related_commands: vec!["export".to_string(), "status".to_string()],
+        examples: vec![
+            "zjj import state.json".to_string(),
+            "zjj import state.json --skip-existing".to_string(),
+            "zjj import state.json --force --json".to_string(),
+        ],
+        reversible: false,
+        undo_command: None,
         prerequisites: vec!["zjj must be initialized".to_string()],
     }
 }

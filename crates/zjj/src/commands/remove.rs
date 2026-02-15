@@ -72,7 +72,7 @@ pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()>
 
     if options.dry_run {
         let message = format!(
-            "Would remove session '{name}' and workspace at '{}'",
+            "DRY-RUN: Would remove session '{name}' and workspace at '{}'",
             session.workspace_path
         );
         if options.format.is_json() {
