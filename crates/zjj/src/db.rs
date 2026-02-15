@@ -1714,18 +1714,6 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
         })
         .transpose()?;
 
-    let created_at = u64::try_from(created_at)
-        .map_err(|_| Error::DatabaseError("Invalid negative created_at timestamp".to_string()))?;
-    let updated_at = u64::try_from(updated_at)
-        .map_err(|_| Error::DatabaseError("Invalid negative updated_at timestamp".to_string()))?;
-    let last_synced = last_synced
-        .map(|value| {
-            u64::try_from(value).map_err(|_| {
-                Error::DatabaseError("Invalid negative last_synced timestamp".to_string())
-            })
-        })
-        .transpose()?;
-
     Ok(Session {
         id: Some(id),
         name: name.clone(),
@@ -1734,9 +1722,9 @@ fn parse_session_row(row: sqlx::sqlite::SqliteRow) -> Result<Session> {
         workspace_path,
         zellij_tab: format!("zjj:{name}"),
         branch,
-        created_at,
-        updated_at,
-        last_synced,
+        created_at: created_at as u64,
+        updated_at: updated_at as u64,
+        last_synced: last_synced.map(|v| v as u64),
         metadata,
     })
 }

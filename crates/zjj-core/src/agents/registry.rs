@@ -121,17 +121,13 @@ impl AgentRegistry {
                         .map_err(|e| {
                             Error::ParseError(format!("Invalid registered_at timestamp: {e}"))
                         })?;
-                    let actions_count = u64::try_from(actions_count).map_err(|_| {
-                        Error::ParseError("Invalid negative actions_count value".to_string())
-                    })?;
-
                     Ok(ActiveAgent {
                         agent_id,
                         last_seen,
                         registered_at,
                         current_session,
                         current_command,
-                        actions_count,
+                        actions_count: actions_count as u64,
                     })
                 },
             )

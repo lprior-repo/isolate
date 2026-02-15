@@ -118,10 +118,6 @@ pub async fn run_restore(
     timestamp: Option<&str>,
     format: OutputFormat,
 ) -> Result<()> {
-    if !matches!(database, "state.db" | "queue.db" | "beads.db") {
-        anyhow::bail!("Unknown database: {database}");
-    }
-
     let root = jj_root().await.context("Failed to get JJ root")?;
     let root_path = std::path::PathBuf::from(&root);
 

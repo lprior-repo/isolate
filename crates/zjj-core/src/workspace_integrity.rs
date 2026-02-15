@@ -1090,7 +1090,7 @@ impl BackupManager {
     }
 
     /// List available backups
-    pub const fn list_backups(&self, _workspace_name: &str) -> Result<Vec<BackupMetadata>> {
+    pub fn list_backups(&self, _workspace_name: &str) -> Result<Vec<BackupMetadata>> {
         // Mock implementation
         Ok(Vec::new())
     }

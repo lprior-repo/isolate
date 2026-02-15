@@ -123,16 +123,13 @@ impl TestContext {
                     // Determine if stale (more than 60 seconds ago)
                     let stale = Utc::now().signed_duration_since(last_seen).num_seconds() > 60;
 
-                    let actions_count =
-                        u64::try_from(actions_count).context("Invalid negative actions_count")?;
-
                     Ok(AgentInfo {
                         agent_id,
                         registered_at,
                         last_seen,
                         current_session,
                         current_command,
-                        actions_count,
+                        actions_count: actions_count as u64,
                         stale,
                     })
                 },

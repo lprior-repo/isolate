@@ -2162,8 +2162,6 @@ commit_prefix = "wip:"
             "session.commit_prefix",
             "recovery.policy",
             "recovery.log_recovered",
-            "recovery.auto_recover_corrupted_wal",
-            "recovery.delete_corrupted_database",
         ];
 
         for key in valid_keys {

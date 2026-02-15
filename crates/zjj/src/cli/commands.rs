@@ -1614,18 +1614,6 @@ fn parse_worker_id(value: &str) -> Result<String, String> {
     }
 }
 
-fn parse_positive_f64(value: &str) -> Result<f64, String> {
-    let parsed = value
-        .parse::<f64>()
-        .map_err(|_| format!("Invalid number: {value}"))?;
-
-    if parsed.is_finite() && parsed > 0.0 {
-        Ok(parsed)
-    } else {
-        Err("Value must be a positive number".to_string())
-    }
-}
-
 pub fn cmd_context() -> ClapCommand {
     ClapCommand::new("context")
         .about("Show complete environment context (AI agent query)")
@@ -3012,9 +3000,9 @@ pub fn cmd_wait() -> ClapCommand {
             Arg::new("interval")
                 .short('i')
                 .long("interval")
-                .value_parser(clap::builder::ValueParser::from(parse_positive_f64))
-                .default_value("1")
-                .help("Polling interval in seconds"),
+                .value_parser(clap::value_parser!(u64).range(1..))
+                .default_value("1000")
+                .help("Polling interval in milliseconds"),
         )
         .arg(
             Arg::new("json")

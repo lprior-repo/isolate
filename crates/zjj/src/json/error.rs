@@ -26,6 +26,16 @@ pub struct SyncError {
 /// - 3: System errors (IO, database issues)
 /// - 4: External command errors
 pub fn output_json_error(error: &Error) -> i32 {
+    let error_str = error.to_string();
+
+    // If the error message is already a JSON object (e.g. from doctor command),
+    // output it as-is instead of wrapping it in another error envelope.
+    // This prevents double-enveloping of JSON responses.
+    if error_str.trim().starts_with('{') {
+        println!("{error_str}");
+        return semantic_exit_code(error);
+    }
+
     let json_error = error_to_json_error(error);
     let exit_code = json_error.error.exit_code;
 
@@ -38,7 +48,7 @@ pub fn output_json_error(error: &Error) -> i32 {
         println!("{json_str}");
     } else {
         // If JSON serialization fails, output a minimal JSON error to stdout
-        println!(r#"{{"error":{{"message":"{error}","exit_code":{exit_code}}}}}"#);
+        println!(r#"{{"error":{{"message":"{error_str}","exit_code":{exit_code}}}}}"#);
     }
 
     exit_code

@@ -709,7 +709,6 @@ exit 1
 
     #[cfg(unix)]
     #[tokio::test]
-    #[serial_test::serial]
     async fn test_rebase_step_persists_metadata_on_success(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
@@ -745,7 +744,6 @@ exit 1
 
     #[cfg(unix)]
     #[tokio::test]
-    #[serial_test::serial]
     async fn test_rebase_step_conflict_marks_failed_retryable(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
@@ -843,7 +841,6 @@ exit 0
 
     #[cfg(unix)]
     #[tokio::test]
-    #[serial_test::serial]
     async fn test_moon_gate_step_success() -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
@@ -883,7 +880,6 @@ exit 0
 
     #[cfg(unix)]
     #[tokio::test]
-    #[serial_test::serial]
     async fn test_moon_gate_step_failure_marks_retryable() -> Result<(), Box<dyn std::error::Error>>
     {
         let temp_dir = tempfile::tempdir()?;
@@ -921,7 +917,6 @@ exit 0
 
     #[cfg(unix)]
     #[tokio::test]
-    #[serial_test::serial]
     async fn test_moon_gate_step_invalid_state() -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;
@@ -942,7 +937,6 @@ exit 0
 
     #[cfg(unix)]
     #[tokio::test]
-    #[serial_test::serial]
     async fn test_moon_gate_step_captures_stderr() -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = tempfile::tempdir()?;
         let workspace_dir = tempfile::tempdir()?;

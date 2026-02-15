@@ -268,18 +268,17 @@ fn build_add_contract() -> CommandContract {
     CommandContract {
         name: "add".to_string(),
         description: "Create session for manual work (JJ workspace + Zellij tab)".to_string(),
-        required_args: vec![],
+        required_args: vec![ArgContract {
+            name: "name".to_string(),
+            arg_type: "string".to_string(),
+            description:
+                "Session name (required for normal execution; may be omitted only with --example-json, --contract, or --ai-hints)"
+                    .to_string(),
+            pattern: Some("^[a-zA-Z][a-zA-Z0-9_-]*$".to_string()),
+            default: None,
+            examples: vec!["feature-auth".to_string(), "bugfix-123".to_string()],
+        }],
         optional_args: vec![
-            ArgContract {
-                name: "name".to_string(),
-                arg_type: "string".to_string(),
-                description:
-                    "Session name (required for normal execution; omitted only with --example-json, --contract, or --ai-hints)"
-                        .to_string(),
-                pattern: Some("^[a-zA-Z][a-zA-Z0-9_-]*$".to_string()),
-                default: None,
-                examples: vec!["feature-auth".to_string(), "bugfix-123".to_string()],
-            },
             ArgContract {
                 name: "template".to_string(),
                 arg_type: "string".to_string(),
@@ -1280,11 +1279,8 @@ mod tests {
     #[test]
     fn test_add_contract_has_name_validation() {
         let add = build_add_contract();
-        let name_arg = add
-            .optional_args
-            .iter()
-            .find(|arg| arg.name == "name")
-            .expect("add contract should include name argument");
+        assert!(!add.required_args.is_empty());
+        let name_arg = &add.required_args[0];
         assert_eq!(name_arg.name, "name");
         assert!(name_arg.pattern.is_some());
     }

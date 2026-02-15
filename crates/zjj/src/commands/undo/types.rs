@@ -59,7 +59,6 @@ pub enum UndoError {
     RebaseFailed { reason: String },
     JjCommandFailed { command: String, reason: String },
     ReadUndoLogFailed { reason: String },
-    MalformedUndoLog { line: usize, reason: String },
     WriteUndoLogFailed { reason: String },
     SerializationError { reason: String },
     InvalidState { reason: String },
@@ -95,9 +94,6 @@ impl fmt::Display for UndoError {
             Self::ReadUndoLogFailed { reason } => {
                 write!(f, "Failed to read undo log: {reason}")
             }
-            Self::MalformedUndoLog { line, reason } => {
-                write!(f, "Malformed undo log at line {line}: {reason}")
-            }
             Self::WriteUndoLogFailed { reason } => {
                 write!(f, "Failed to write undo log: {reason}")
             }
@@ -124,7 +120,6 @@ impl UndoError {
             Self::RebaseFailed { .. } => "REBASE_FAILED",
             Self::JjCommandFailed { .. } => "JJ_COMMAND_FAILED",
             Self::ReadUndoLogFailed { .. } => "READ_UNDO_LOG_FAILED",
-            Self::MalformedUndoLog { .. } => "MALFORMED_UNDO_LOG",
             Self::WriteUndoLogFailed { .. } => "WRITE_UNDO_LOG_FAILED",
             Self::SerializationError { .. } => "SERIALIZATION_ERROR",
             Self::InvalidState { .. } => "INVALID_STATE",
@@ -302,14 +297,6 @@ mod tests {
             }
             .error_code(),
             "READ_UNDO_LOG_FAILED"
-        );
-        assert_eq!(
-            UndoError::MalformedUndoLog {
-                line: 1,
-                reason: String::new()
-            }
-            .error_code(),
-            "MALFORMED_UNDO_LOG"
         );
         assert_eq!(
             UndoError::WriteUndoLogFailed {

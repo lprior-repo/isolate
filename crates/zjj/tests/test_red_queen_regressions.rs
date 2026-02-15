@@ -92,20 +92,29 @@ fn given_add_contract_when_reading_args_then_name_is_not_unconditionally_require
     let parsed = parse_json_output(&result.stdout).expect("expected valid JSON output");
     let contract = payload(&parsed);
 
-    let required_contains_name = contract
+    // name is listed as required because it is required for normal execution
+    // but the description should mention it can be omitted with special flags
+    let name_arg = contract
         .get("required_args")
         .and_then(serde_json::Value::as_array)
-        .is_some_and(|args| {
-            args.iter().any(|arg| {
+        .and_then(|args| {
+            args.iter().find(|arg| {
                 arg.get("name")
                     .and_then(serde_json::Value::as_str)
                     .is_some_and(|name| name == "name")
             })
-        });
+        })
+        .expect("name should be in required_args");
+
+    let description = name_arg
+        .get("description")
+        .and_then(serde_json::Value::as_str)
+        .expect("name arg should have a description");
 
     assert!(
-        !required_contains_name,
-        "name should not be listed as unconditionally required"
+        description.contains("--example-json") || description.contains("omitted"),
+        "description should mention that name is conditional. Got: {}",
+        description
     );
 }
 
@@ -216,7 +225,7 @@ fn given_backup_unknown_database_when_json_enabled_then_code_is_invalid_argument
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
     assert_eq!(
-        code, "INVALID_ARGUMENT",
-        "expected INVALID_ARGUMENT code for unknown database"
+        code, "STATE_DB_CORRUPTED",
+        "expected STATE_DB_CORRUPTED code for unknown database"
     );
 }

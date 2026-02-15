@@ -74,8 +74,7 @@ async fn run_list(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
                     total: 0,
                     can_undo: false,
                 };
-                let envelope = SchemaEnvelope::new("undo-response", "single", output);
-                let json = serde_json::to_string_pretty(&envelope).map_err(|e| {
+                let json = serde_json::to_string_pretty(&output).map_err(|e| {
                     UndoError::SerializationError {
                         reason: e.to_string(),
                     }
@@ -86,10 +85,7 @@ async fn run_list(options: &UndoOptions) -> Result<UndoExitCode, UndoError> {
             }
             return Ok(UndoExitCode::Success);
         }
-        Err(e) => {
-            output_error(&e, options.format)?;
-            return Err(e);
-        }
+        Err(e) => return Err(e),
     };
 
     output_history(&history, options.format)?;
@@ -270,21 +266,14 @@ async fn read_undo_history(root: &str) -> Result<Vec<UndoEntry>, UndoError> {
                     reason: e.to_string(),
                 })?;
 
-            let parsed_entries: Vec<UndoEntry> = content
+            let entries: Vec<UndoEntry> = content
                 .lines()
-                .enumerate()
-                .filter(|(_, line)| !line.trim().is_empty())
-                .map(|(index, line)| {
-                    serde_json::from_str::<UndoEntry>(line).map_err(|error| {
-                        UndoError::MalformedUndoLog {
-                            line: index + 1,
-                            reason: error.to_string(),
-                        }
-                    })
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-
-            let entries: Vec<UndoEntry> = parsed_entries.into_iter().rev().collect();
+                .filter(|l| !l.trim().is_empty())
+                .filter_map(|line| serde_json::from_str::<UndoEntry>(line).ok())
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
 
             Ok(entries)
         }

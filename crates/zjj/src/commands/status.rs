@@ -174,11 +174,6 @@ fn is_repo_bootstrap_error(err: &anyhow::Error) -> bool {
     message.contains("Not in a JJ repository") || message.contains("ZJJ not initialized")
 }
 
-fn is_not_found_error(err: &anyhow::Error) -> bool {
-    err.downcast_ref::<zjj_core::Error>()
-        .is_some_and(|e| matches!(e, zjj_core::Error::NotFound(_)))
-}
-
 fn output_no_active_sessions(format: OutputFormat) -> Result<()> {
     if format.is_json() {
         let data = StatusResponseData { sessions: vec![] };
@@ -213,11 +208,6 @@ pub async fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<
 
         // Run status once
         if let Err(e) = run_once(name, format).await {
-            // Only fail fast on NotFound errors (session doesn't exist)
-            // Transient errors (DB/query issues) should continue polling
-            if name.is_some() && is_not_found_error(&e) {
-                return Err(e);
-            }
             if format.is_human() {
                 eprintln!("Error: {e}");
             }

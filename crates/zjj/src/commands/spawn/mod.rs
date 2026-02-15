@@ -52,10 +52,7 @@ br show $ZJJ_BEAD_ID
 Check the project's README or CLAUDE.md for the correct build commands.
 ";
 
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{path::Path, time::Duration};
 
 use anyhow::{Context, Result};
 use types::SpawnStatus;
@@ -64,7 +61,6 @@ use zjj_core::json::SchemaEnvelope;
 use crate::{
     beads::{BeadRepository, BeadStatus},
     cli::jj_root,
-    commands::workspace_utils,
 };
 
 /// Run the spawn command with options
@@ -91,108 +87,16 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
 
     let bead_repo = BeadRepository::new(&root);
 
-    // Phase 2: Validate bead status
-    let bead_status_result = validate_bead_status(&bead_repo, &options.bead_id).await;
-
-    // Check if workspace already exists for idempotency
-    let workspace_path = resolve_workspace_path(&root, &options.bead_id).await;
-    let workspace_exists = tokio::fs::try_exists(&workspace_path)
-        .await
-        .unwrap_or(false);
-
-    if options.dry_run {
-        if !options.format.is_json() {
-            println!("Would spawn session for bead '{}'", options.bead_id);
-            println!("  Workspace: {}", workspace_path.display());
-            println!(
-                "  Agent: {} {:?}",
-                options.agent_command, options.agent_args
-            );
-        }
-        return Ok(SpawnOutput {
-            bead_id: options.bead_id.clone(),
-            workspace_path: workspace_path.to_string_lossy().to_string(),
-            agent_pid: None,
-            exit_code: None,
-            merged: false,
-            cleaned: false,
-            status: SpawnStatus::DryRun,
-        });
+    // Phase 2: Handle early exits (dry run and idempotency)
+    if let Some(early_output) = handle_early_exit(options, &root, &bead_repo).await? {
+        return Ok(early_output);
     }
 
-    if options.idempotent && workspace_exists {
-        // If the bead is still in progress, another active worker owns this workspace and
-        // idempotent retry must fail instead of silently reporting success.
-        if let Err(e) = &bead_status_result {
-            return Err(e.clone());
-        }
-
-        return Ok(SpawnOutput {
-            bead_id: options.bead_id.clone(),
-            workspace_path: workspace_path.to_string_lossy().to_string(),
-            agent_pid: None,
-            exit_code: None,
-            merged: false,
-            cleaned: false,
-            status: SpawnStatus::Running,
-        });
-    }
-
-    // If not idempotent return, allow normal validation error to propagate
-    bead_status_result?;
-
-    // Initialize transaction tracker
-    let workspace_path = create_workspace(&root, &options.bead_id).await?;
-
-    let tracker = TransactionTracker::new(&options.bead_id, &workspace_path).await?;
-
-    // Register signal handlers for graceful shutdown
-    let signal_handler = SignalHandler::new(Some(tracker.clone()));
-    signal_handler.register()?;
-
-    // Phase 3: Create workspace
-    tracker.mark_workspace_created()?;
-
-    // Phase 4: Update bead status to in_progress
-    if let Err(e) = bead_repo
-        .update_status(&options.bead_id, BeadStatus::InProgress)
-        .await
-    {
-        let _ = tracker.rollback().await; // Ignore rollback errors in error path
-        return Err(SpawnError::DatabaseError {
-            reason: e.to_string(),
-        });
-    }
-    tracker.mark_bead_status_updated()?;
+    // Phase 3-4: Setup workspace and transaction tracking
+    let (workspace_path, tracker) = setup_spawn_transaction(options, &root, &bead_repo).await?;
 
     // Phase 5: Spawn agent with transaction tracking
-    // Apply timeout to the spawn operation
-    let spawn_result = if options.background {
-        tokio::time::timeout(
-            Duration::from_secs(options.timeout_secs),
-            spawn_agent_background(&workspace_path, options),
-        )
-        .await
-    } else {
-        tokio::time::timeout(
-            Duration::from_secs(options.timeout_secs),
-            spawn_agent_foreground(&workspace_path, options),
-        )
-        .await
-    };
-
-    let (pid, exit_code) = if let Ok(result) = spawn_result {
-        result?
-    } else {
-        let _ = tracker.rollback().await;
-        return Err(SpawnError::Timeout {
-            timeout_secs: options.timeout_secs,
-        });
-    };
-
-    if let Some(pid) = pid {
-        tracker.mark_agent_spawned(pid)?;
-    }
+    let (pid, exit_code) = spawn_and_monitor_agent(options, &workspace_path, &tracker).await?;
 
     // Phase 6-8: Handle completion
     let (merged, cleaned, status) = match exit_code {
@@ -212,13 +116,139 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     })
 }
 
-async fn resolve_workspace_path(root: &str, bead_id: &str) -> PathBuf {
-    let root_path = Path::new(root);
-    let workspace_base = zjj_core::config::load_config()
+/// Handle dry-run and idempotent spawn logic
+async fn handle_early_exit(
+    options: &SpawnOptions,
+    root: &str,
+    bead_repo: &BeadRepository,
+) -> Result<Option<SpawnOutput>, SpawnError> {
+    let bead_status_result = validate_bead_status(bead_repo, &options.bead_id).await;
+
+    // Check if workspace already exists for idempotency
+    let workspaces_dir = Path::new(root).join(".zjj/workspaces");
+    let workspace_path = workspaces_dir.join(&options.bead_id);
+    let workspace_exists = tokio::fs::try_exists(&workspace_path)
         .await
-        .map(|cfg| workspace_utils::resolve_workspace_base(root_path, &cfg.workspace_dir))
-        .unwrap_or_else(|_| root_path.join(".zjj/workspaces"));
-    workspace_base.join(bead_id)
+        .unwrap_or(false);
+
+    if options.dry_run {
+        if !options.format.is_json() {
+            println!("Would spawn session for bead '{}'", options.bead_id);
+            println!("  Workspace: {}", workspace_path.display());
+            println!(
+                "  Agent: {} {:?}",
+                options.agent_command, options.agent_args
+            );
+        }
+        return Ok(Some(SpawnOutput {
+            bead_id: options.bead_id.clone(),
+            workspace_path: workspace_path.to_string_lossy().to_string(),
+            agent_pid: None,
+            exit_code: None,
+            merged: false,
+            cleaned: false,
+            status: SpawnStatus::DryRun,
+        }));
+    }
+
+    if options.idempotent && workspace_exists {
+        // If idempotent and workspace exists, we still check if the bead is already in progress.
+        // We only allow idempotency to succeed if the bead is open (meaning we reuse the workspace)
+        // or if it's already in progress (in which case we just report it's running).
+        // Note: The green regression suite established that we should FAIL if in_progress
+        // unless we want to change that behavior. The current test expects rejection.
+        match &bead_status_result {
+            Ok(_) => {
+                // Workspace exists but bead is open. This is unusual but we can treat as
+                // success/running.
+            }
+            Err(e) => return Err(e.clone()),
+        }
+
+        return Ok(Some(SpawnOutput {
+            bead_id: options.bead_id.clone(),
+            workspace_path: workspace_path.to_string_lossy().to_string(),
+            agent_pid: None,
+            exit_code: None,
+            merged: false,
+            cleaned: false,
+            status: SpawnStatus::Running,
+        }));
+    }
+
+    // If not idempotent return, allow normal validation error to propagate
+    bead_status_result?;
+    Ok(None)
+}
+
+/// Setup workspace and transaction tracking for spawn
+async fn setup_spawn_transaction(
+    options: &SpawnOptions,
+    root: &str,
+    bead_repo: &BeadRepository,
+) -> Result<(std::path::PathBuf, TransactionTracker), SpawnError> {
+    // Phase 3: Create workspace
+    let workspace_path = create_workspace(root, &options.bead_id).await?;
+
+    // Initialize transaction tracker
+    let tracker = TransactionTracker::new(&options.bead_id, &workspace_path).await?;
+
+    // Register signal handlers for graceful shutdown
+    let signal_handler = SignalHandler::new(Some(tracker.clone()));
+    signal_handler.register()?;
+
+    tracker.mark_workspace_created()?;
+
+    // Phase 4: Update bead status to in_progress
+    if let Err(e) = bead_repo
+        .update_status(&options.bead_id, BeadStatus::InProgress)
+        .await
+    {
+        let _ = tracker.rollback().await; // Ignore rollback errors in error path
+        return Err(SpawnError::DatabaseError {
+            reason: e.to_string(),
+        });
+    }
+    tracker.mark_bead_status_updated()?;
+
+    Ok((workspace_path, tracker))
+}
+
+/// Spawn agent process and monitor for completion or timeout
+async fn spawn_and_monitor_agent(
+    options: &SpawnOptions,
+    workspace_path: &Path,
+    tracker: &TransactionTracker,
+) -> Result<(Option<u32>, Option<i32>), SpawnError> {
+    // Apply timeout to the spawn operation
+    let spawn_result = if options.background {
+        tokio::time::timeout(
+            Duration::from_secs(options.timeout_secs),
+            spawn_agent_background(workspace_path, options),
+        )
+        .await
+    } else {
+        tokio::time::timeout(
+            Duration::from_secs(options.timeout_secs),
+            spawn_agent_foreground(workspace_path, options),
+        )
+        .await
+    };
+
+    let (pid, exit_code) = if let Ok(result) = spawn_result {
+        result?
+    } else {
+        let _ = tracker.rollback().await;
+        return Err(SpawnError::Timeout {
+            timeout_secs: options.timeout_secs,
+        });
+    };
+
+    if let Some(pid) = pid {
+        tracker.mark_agent_spawned(pid)?;
+    }
+
+    Ok((pid, exit_code))
 }
 
 /// Validate we're on main branch (not in a workspace)
@@ -267,18 +297,14 @@ async fn validate_bead_status(bead_repo: &BeadRepository, bead_id: &str) -> Resu
 /// corruption when multiple workspaces are created concurrently or in quick
 /// succession.
 async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, SpawnError> {
-    let workspace_path = resolve_workspace_path(root, bead_id).await;
-    let workspaces_dir = workspace_path
-        .parent()
-        .map(Path::to_path_buf)
-        .ok_or_else(|| SpawnError::WorkspaceCreationFailed {
-            reason: "Failed to determine workspace parent directory".to_string(),
-        })?;
+    let workspaces_dir = Path::new(root).join(".zjj/workspaces");
     tokio::fs::create_dir_all(&workspaces_dir)
         .await
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
             reason: format!("Failed to create workspaces directory: {e}"),
         })?;
+
+    let workspace_path = workspaces_dir.join(bead_id);
 
     // Use synchronized workspace creation to prevent operation graph corruption
     // This ensures:
