@@ -333,7 +333,7 @@ struct StatusResponseData {
 /// Output sessions as formatted table
 fn output_table(items: &[SessionStatusInfo], current_location: Option<&str>) {
     // Detect TTY for formatting choice
-    let is_tty = atty::is(atty::Stream::Stdout);
+    let is_tty = std::io::IsTerminal::is_terminal(&std::io::stdout());
 
     // Display table header
     if is_tty {
