@@ -293,6 +293,21 @@ pub const fn checkpoint() -> &'static str {
   }"#
 }
 
+pub const fn export() -> &'static str {
+    r#"JSON OUTPUT:
+  When --json is used, output wraps the response in a SchemaEnvelope:
+  {
+    "$schema": "zjj://export-response/v1",
+    "_schema_version": "1.0",
+    "schema_type": "single",
+    "success": true,
+    "version": "<format_version>",
+    "exported_at": "<RFC3339_timestamp>",
+    "count": <session_count>,
+    "sessions": [...]
+  }"#
+}
+
 /// AI-Native contract documentation for commands
 pub mod ai_contracts {
     /// Machine-readable contract for zjj add command
@@ -1685,14 +1700,13 @@ pub mod ai_contracts {
       "prerequisites": [
         {
           "check": "string",
-          "status": "Met|NotMet|Unknown",
+          "status": "met|notmet|unknown",
           "description": "string"
         }
       ]
     },
     "errors": [
-      "InvalidSessionName",
-      "InvalidCommand"
+      "InvalidSessionName"
     ]
   },
   "examples": [

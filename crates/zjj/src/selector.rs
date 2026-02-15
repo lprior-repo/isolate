@@ -103,7 +103,7 @@ fn draw_ui(f: &mut Frame, sessions: &[Session], state: &mut SelectorState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(3)])
-        .split(f.size());
+        .split(f.area());
 
     // Calculate centering for list
     let list_area = centered_rect(60, 60, chunks[0]);

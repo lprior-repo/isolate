@@ -10,7 +10,32 @@ use std::process::Command as StdCommand;
 
 use anyhow::{Context, Result};
 pub use commands::build_cli;
+use rand::Rng;
 use tokio::process::Command;
+
+/// Get a secure directory for temporary files
+/// Prefers XDG_RUNTIME_DIR (Linux) which has proper permissions (0700)
+/// Falls back to std::env::temp_dir()
+fn secure_temp_dir() -> std::path::PathBuf {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+            let path = std::path::PathBuf::from(runtime_dir);
+            if path.exists() {
+                return path;
+            }
+        }
+    }
+    // SECURITY: temp_dir fallback is acceptable - only used when XDG_RUNTIME_DIR unavailable
+    std::env::temp_dir()
+}
+
+/// Create a secure temporary file path with random name
+fn secure_temp_file(prefix: &str, suffix: &str) -> std::path::PathBuf {
+    let dir = secure_temp_dir();
+    let random_id: u64 = rand::thread_rng().gen();
+    dir.join(format!("{prefix}-{random_id:016x}{suffix}"))
+}
 
 /// Execute a shell command and return its output
 pub async fn run_command(program: &str, args: &[&str]) -> Result<String> {
@@ -138,8 +163,8 @@ pub async fn attach_to_zellij_session(layout_content: Option<&str>) -> Result<()
 
     // If layout content provided, write it to a temp file and use it
     if let Some(layout) = layout_content {
-        let temp_dir = std::env::temp_dir();
-        let layout_path = temp_dir.join(format!("zjj-{}.kdl", std::process::id()));
+        // SECURITY: Use secure temp file with random name instead of predictable PID
+        let layout_path = secure_temp_file("zjj-layout", ".kdl");
         tokio::fs::write(&layout_path, layout).await?;
 
         cmd.args([

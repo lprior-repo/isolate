@@ -74,6 +74,12 @@ pub async fn handle_context(sub_m: &ArgMatches) -> Result<()> {
         return Ok(());
     }
 
+    // Handle --ai-hints flag
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
+        return Ok(());
+    }
+
     let format = get_format(sub_m);
     let field = sub_m.get_one::<String>("field").map(String::as_str);
     let no_beads = sub_m.get_flag("no-beads");
@@ -230,6 +236,12 @@ pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
     // Handle --contract flag first
     if sub_m.get_flag("contract") {
         println!("{}", crate::cli::json_docs::ai_contracts::whatif());
+        return Ok(());
+    }
+
+    // Handle --ai-hints flag
+    if sub_m.get_flag("ai-hints") {
+        println!("{}", crate::cli::json_docs::ai_contracts::command_flow());
         return Ok(());
     }
 
