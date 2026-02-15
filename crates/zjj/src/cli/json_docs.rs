@@ -1685,14 +1685,13 @@ pub mod ai_contracts {
       "prerequisites": [
         {
           "check": "string",
-          "status": "Met|NotMet|Unknown",
+          "status": "met|notmet|unknown",
           "description": "string"
         }
       ]
     },
     "errors": [
-      "InvalidSessionName",
-      "InvalidCommand"
+      "InvalidSessionName"
     ]
   },
   "examples": [
