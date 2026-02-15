@@ -823,10 +823,10 @@ mod tests {
     // REGRESSION TESTS for Red Queen adversarial hardening
     // ============================================================================
 
-    /// REGRESSION: Error message must include ALL valid state values including filter aliases
-    /// Previously only listed 6 states, but help showed 10 valid values.
-    /// Fix: Error now lists all 11 valid values: created, working, ready, merged,
-    /// abandoned, conflict, active, complete, terminal, non-terminal, all
+    /// REGRESSION: Error message must include ONLY parseable state values
+    /// The from_str parser only accepts: created, working, ready, merged,
+    /// abandoned, conflict. Filter aliases (active, complete, terminal, non-terminal, all)
+    /// are NOT parseable and should NOT be listed in error messages.
     #[test]
     fn test_invalid_state_error_lists_all_valid_values() {
         let result = WorkspaceState::from_str("invalid_state_xyz");
@@ -835,7 +835,7 @@ mod tests {
         let err = result.unwrap_err();
         let message = err.to_string();
 
-        // Must include all individual states
+        // Must include all individual states that are actually parseable
         assert!(message.contains("created"), "Error should list 'created'");
         assert!(message.contains("working"), "Error should list 'working'");
         assert!(message.contains("ready"), "Error should list 'ready'");
@@ -846,27 +846,31 @@ mod tests {
         );
         assert!(message.contains("conflict"), "Error should list 'conflict'");
 
-        // Must include filter aliases
+        // Must NOT include filter aliases - they are not parseable values
         assert!(
-            message.contains("active"),
-            "Error should list 'active' filter"
+            !message.contains("active"),
+            "Error should NOT list 'active' filter - not parseable"
         );
         assert!(
-            message.contains("complete"),
-            "Error should list 'complete' filter"
+            !message.contains("complete"),
+            "Error should NOT list 'complete' filter - not parseable"
         );
         assert!(
-            message.contains("terminal"),
-            "Error should list 'terminal' filter"
+            !message.contains("terminal"),
+            "Error should NOT list 'terminal' filter - not parseable"
         );
         assert!(
-            message.contains("non-terminal"),
-            "Error should list 'non-terminal' filter"
+            !message.contains("non-terminal"),
+            "Error should NOT list 'non-terminal' filter - not parseable"
         );
-        assert!(message.contains("all"), "Error should list 'all' filter");
+        assert!(
+            !message.contains("all"),
+            "Error should NOT list 'all' filter - not parseable"
+        );
     }
 
     /// REGRESSION: ValidationError should have field, value, and constraints populated
+    /// Only with parseable values (not filter aliases)
     #[test]
     fn test_invalid_state_validation_error_has_structured_fields() {
         let result = WorkspaceState::from_str("bad-state");
@@ -889,12 +893,23 @@ mod tests {
                 // Value should be the input
                 assert_eq!(value, Some("bad-state".to_string()));
 
-                // Constraints should list all valid values
+                // Constraints should list only parseable values
                 assert!(constraints.contains(&"created".to_string()));
-                assert!(constraints.contains(&"active".to_string()));
+                assert!(constraints.contains(&"working".to_string()));
+                assert!(constraints.contains(&"ready".to_string()));
+                assert!(constraints.contains(&"merged".to_string()));
+                assert!(constraints.contains(&"abandoned".to_string()));
+                assert!(constraints.contains(&"conflict".to_string()));
+
+                // Should NOT contain filter aliases
+                assert!(!constraints.contains(&"active".to_string()));
+                assert!(!constraints.contains(&"complete".to_string()));
+                assert!(!constraints.contains(&"terminal".to_string()));
+                assert!(!constraints.contains(&"all".to_string()));
+
                 assert!(
-                    constraints.len() >= 10,
-                    "Should have at least 10 valid values"
+                    constraints.len() == 6,
+                    "Should have exactly 6 parseable values"
                 );
             }
             _ => panic!("Expected ValidationError"),
