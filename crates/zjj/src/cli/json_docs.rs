@@ -293,6 +293,35 @@ pub const fn checkpoint() -> &'static str {
   }"#
 }
 
+pub const fn queue() -> &'static str {
+    r#"JSON OUTPUT:
+  When --json is used, output wraps queue responses in a SchemaEnvelope:
+  {
+    "$schema": "zjj://queue-<action>-response/v1",
+    "_schema_version": "1.0",
+    "schema_type": "single",
+    "success": true,
+    ...action-specific fields...
+  }
+
+  Queue action envelopes include:
+  - queue-add-response
+  - queue-list-response
+  - queue-next-response
+  - queue-process-response
+  - queue-remove-response
+  - queue-status-response
+  - queue-status-id-response
+  - queue-stats-response
+  - queue-cancel-response
+  - queue-retry-response
+  - queue-reclaim-stale-response
+
+  Flag constraints:
+  - --bead, --priority, and --agent require --add.
+  - Invalid flag combinations return non-zero exit and an error envelope in --json mode."#
+}
+
 /// AI-Native contract documentation for commands
 pub mod ai_contracts {
     /// Machine-readable contract for zjj add command
@@ -455,6 +484,58 @@ pub mod ai_contracts {
     "zjj checkpoint create",
     "zjj status"
   ]
+}"#
+    }
+
+    /// Machine-readable contract for zjj queue command
+    pub const fn queue() -> &'static str {
+        r#"AI CONTRACT for zjj queue:
+{
+  "command": "zjj queue",
+  "intent": "Manage merge queue entries and worker processing",
+  "inputs": {
+    "add": {
+      "flag": "--add <WORKSPACE>",
+      "description": "Add a workspace to queue"
+    },
+    "bead": {
+      "flag": "--bead <BEAD_ID>",
+      "requires": "--add"
+    },
+    "priority": {
+      "flag": "--priority <PRIORITY>",
+      "requires": "--add",
+      "type": "integer",
+      "default_when_adding": 5
+    },
+    "agent": {
+      "flag": "--agent <AGENT_ID>",
+      "requires": "--add"
+    },
+    "actions": [
+      "--list",
+      "--next",
+      "--process",
+      "--remove <WORKSPACE>",
+      "--status <WORKSPACE>",
+      "--status-id <ID>",
+      "--cancel <ID>",
+      "--retry <ID>",
+      "--stats",
+      "--reclaim-stale [SECS]",
+      "worker --once|--loop"
+    ]
+  },
+  "outputs": {
+    "json_envelope": {
+      "$schema": "zjj://queue-<action>-response/v1",
+      "schema_type": "single",
+      "success": "boolean"
+    },
+    "errors": {
+      "invalid_input": "Non-zero exit with error envelope in --json mode"
+    }
+  }
 }"#
     }
 

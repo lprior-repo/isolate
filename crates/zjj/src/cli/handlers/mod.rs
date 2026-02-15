@@ -107,8 +107,8 @@ pub async fn run_cli() -> Result<()> {
                     value: None,
                     constraints: vec!["Use --help to view valid flags and arguments".to_string()],
                 });
-                let exit_code = json::output_json_error(&parse_error);
-                process::exit(exit_code);
+                let _ = json::output_json_error(&parse_error);
+                process::exit(2);
             }
 
             let _ = e.print();

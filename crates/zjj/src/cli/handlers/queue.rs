@@ -6,6 +6,10 @@ use clap::ArgMatches;
 use super::json_format::get_format;
 use crate::commands::{queue, queue_worker};
 
+fn has_flag_with_optional_value(flag: &str) -> bool {
+    std::env::args().any(|arg| arg == flag || arg.starts_with(&format!("{flag}=")))
+}
+
 pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
     if let Some((subcommand_name, subcommand_matches)) = sub_m.subcommand() {
         return match subcommand_name {
@@ -19,13 +23,26 @@ pub async fn handle_queue(sub_m: &ArgMatches) -> Result<()> {
     }
 
     let format = get_format(sub_m);
+    let add = sub_m.get_one::<String>("add").cloned();
+    let bead_id = sub_m.get_one::<String>("bead").cloned();
+    let agent_id = sub_m.get_one::<String>("agent").cloned();
     let priority = sub_m.get_one::<i32>("priority").copied().unwrap_or(5);
+
+    let used_add_only_flags_without_add = add.is_none()
+        && ["--bead", "--priority", "--agent"]
+            .into_iter()
+            .any(has_flag_with_optional_value);
+
+    if used_add_only_flags_without_add {
+        anyhow::bail!("--bead, --priority, and --agent require --add");
+    }
+
     let options = queue::QueueOptions {
         format,
-        add: sub_m.get_one::<String>("add").cloned(),
-        bead_id: sub_m.get_one::<String>("bead").cloned(),
+        add,
+        bead_id,
         priority,
-        agent_id: sub_m.get_one::<String>("agent").cloned(),
+        agent_id,
         list: sub_m.get_flag("list"),
         process: sub_m.get_flag("process"),
         next: sub_m.get_flag("next"),
