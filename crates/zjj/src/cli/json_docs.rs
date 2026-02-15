@@ -341,7 +341,7 @@ pub const fn export() -> &'static str {
 pub mod ai_contracts {
     /// Machine-readable contract for zjj add command
     pub const fn add() -> &'static str {
-        r#"AI CONTRACT for zjj add:
+        r#"
 {
   "command": "zjj add",
   "intent": "Create isolated workspace for manual interactive development",
@@ -411,7 +411,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj work command
     pub const fn work() -> &'static str {
-        r#"AI CONTRACT for zjj work:
+        r#"
 {
   "command": "zjj work",
   "intent": "Create or reuse a named workspace and optionally register an agent",
@@ -504,7 +504,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj queue command
     pub const fn queue() -> &'static str {
-        r#"AI CONTRACT for zjj queue:
+        r#"
 {
   "command": "zjj queue",
   "intent": "Manage merge queue entries and worker processing",
@@ -556,7 +556,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj spawn command
     pub const fn spawn() -> &'static str {
-        r#"AI CONTRACT for zjj spawn:
+        r#"
 {
   "command": "zjj spawn",
   "intent": "Create workspace and spawn automated agent with isolation",
@@ -602,7 +602,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj done command
     pub const fn done() -> &'static str {
-        r#"AI CONTRACT for zjj done:
+        r#"
 {
   "command": "zjj done",
   "intent": "Complete work, merge changes to main, and cleanup workspace",
@@ -652,7 +652,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj sync command
     pub const fn sync() -> &'static str {
-        r#"AI CONTRACT for zjj sync:
+        r#"
 {
   "command": "zjj sync",
   "intent": "Sync session workspace with main branch by rebasing onto latest main",
@@ -725,7 +725,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj abort command
     pub const fn abort() -> &'static str {
-        r#"AI CONTRACT for zjj abort:
+        r#"
 {
   "command": "zjj abort",
   "intent": "Abandon workspace without merging, discarding all changes",
@@ -790,7 +790,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj remove command
     pub const fn remove() -> &'static str {
-        r#"AI CONTRACT for zjj remove:
+        r#"
 {
   "command": "zjj remove",
   "intent": "Remove a session and its workspace, optionally merging changes first",
@@ -878,7 +878,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj status command
     pub const fn status() -> &'static str {
-        r#"AI CONTRACT for zjj status:
+        r#"
 {
   "command": "zjj status",
   "intent": "Query current state of sessions and workspaces",
@@ -928,7 +928,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj ai command
     pub const fn ai() -> &'static str {
-        r#"AI CONTRACT for zjj ai:
+        r#"
 {
   "command": "zjj ai",
   "intent": "AI-first entry point providing status, workflows, and guidance for AI agents",
@@ -993,7 +993,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj contract command
     pub const fn contract() -> &'static str {
-        r#"AI CONTRACT for zjj contract:
+        r#"
 {
   "command": "zjj contract",
   "intent": "Query machine-readable contracts for zjj commands to understand inputs, outputs, and side effects",
@@ -1053,7 +1053,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj can-i command
     pub const fn can_i() -> &'static str {
-        r#"AI CONTRACT for zjj can-i:
+        r#"
 {
   "command": "zjj can-i",
   "intent": "Check if an action is permitted in the current context",
@@ -1103,7 +1103,7 @@ pub mod ai_contracts {
 
     /// AI hints for command sequencing
     pub const fn command_flow() -> &'static str {
-        r#"AI COMMAND FLOW:
+        r#"
 {
   "typical_workflows": {
     "manual_feature_development": [
@@ -1150,7 +1150,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj diff command
     pub const fn diff() -> &'static str {
-        r#"AI CONTRACT for zjj diff:
+        r#"
 {
   "command": "zjj diff",
   "intent": "Show changes between session workspace and main branch",
@@ -1218,7 +1218,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj list command
     pub const fn list() -> &'static str {
-        r#"AI CONTRACT for zjj list:
+        r#"
 {
   "command": "zjj list",
   "intent": "Query all sessions in the repository to see status and metadata",
@@ -1309,7 +1309,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj focus command
     pub const fn focus() -> &'static str {
-        r#"AI CONTRACT for zjj focus:
+        r#"
 {
   "command": "zjj focus",
   "intent": "Switch to a session's Zellij tab to work on that session",
@@ -1372,7 +1372,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj context command
     pub const fn context() -> &'static str {
-        r#"AI CONTRACT for zjj context:
+        r#"
 {
   "command": "zjj context",
   "intent": "Show complete environment context for AI agents and programmatic access",
@@ -1465,7 +1465,7 @@ pub mod ai_contracts {
     /// Machine-readable contract for zjj introspect command
     #[allow(clippy::too_many_lines)]
     pub const fn introspect() -> &'static str {
-        r#"AI CONTRACT for zjj introspect:
+        r#"
 {
   "command": "zjj introspect",
   "intent": "Discover zjj capabilities, command details, and system state for AI agent understanding",
@@ -1598,7 +1598,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj examples command
     pub const fn examples() -> &'static str {
-        r#"AI CONTRACT for zjj examples:
+        r#"
 {
   "command": "zjj examples",
   "intent": "Show copy-pastable usage examples for commands, useful for AI agents and users",
@@ -1663,7 +1663,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj validate command
     pub const fn validate() -> &'static str {
-        r#"AI CONTRACT for zjj validate:
+        r#"
 {
   "command": "zjj validate",
   "intent": "Validate command arguments before execution",
@@ -1708,7 +1708,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj whatif command
     pub const fn whatif() -> &'static str {
-        r#"AI CONTRACT for zjj whatif:
+        r#"
 {
   "command": "zjj whatif",
   "intent": "Preview what a command would do without executing it, showing steps, resources, and reversibility",
@@ -1808,7 +1808,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj whereami command
     pub const fn whereami() -> &'static str {
-        r#"AI CONTRACT for zjj whereami:
+        r#"
 {
   "command": "zjj whereami",
   "intent": "Quick location query returning simple location identifier for AI agent orientation",
@@ -1872,7 +1872,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj query command
     pub const fn query() -> &'static str {
-        r#"AI CONTRACT for zjj query:
+        r#"
 {
   "command": "zjj query",
   "intent": "Query system state programmatically for AI agents and automation",
@@ -1994,7 +1994,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj whoami command
     pub const fn whoami() -> &'static str {
-        r#"AI CONTRACT for zjj whoami:
+        r#"
 {
   "command": "zjj whoami",
   "intent": "Query the current agent identity - returns agent ID or 'unregistered'",
@@ -2041,7 +2041,7 @@ pub mod ai_contracts {
 
     /// AI CONTRACT for zjj pause
     pub const fn pause() -> &'static str {
-        r#"AI CONTRACT for zjj pause:
+        r#"
 {
   "command": "zjj pause",
   "intent": "Pause an active session (suspend agent work)",
@@ -2086,7 +2086,7 @@ pub mod ai_contracts {
 
     /// AI CONTRACT for zjj resume
     pub const fn resume() -> &'static str {
-        r#"AI CONTRACT for zjj resume:
+        r#"
 {
   "command": "zjj resume",
   "intent": "Resume a paused session",
@@ -2131,7 +2131,7 @@ pub mod ai_contracts {
 
     /// AI CONTRACT for zjj unlock
     pub const fn unlock() -> &'static str {
-        r#"AI CONTRACT for zjj unlock:
+        r#"
 {
   "command": "zjj unlock",
   "intent": "Release exclusive lock on a session",
@@ -2182,7 +2182,7 @@ pub mod ai_contracts {
 
     /// AI CONTRACT for zjj rename
     pub const fn rename() -> &'static str {
-        r#"AI CONTRACT for zjj rename:
+        r#"
 {
   "command": "zjj rename",
   "intent": "Rename an existing session",

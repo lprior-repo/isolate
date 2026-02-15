@@ -8,6 +8,7 @@
 //! - Removing entries from the queue
 //! - Checking overall queue status and statistics
 
+use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};

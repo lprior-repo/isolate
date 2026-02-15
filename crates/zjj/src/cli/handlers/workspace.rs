@@ -61,9 +61,46 @@ pub async fn handle_add(sub_m: &ArgMatches) -> Result<()> {
     let name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
-    let bead_id = sub_m.get_one::<String>("bead").cloned();
+
+    // Validate bead_id: reject empty strings and null bytes
+    let bead_id = sub_m.get_one::<String>("bead").and_then(|b| {
+        if b.is_empty() {
+            None
+        } else if b.contains('\0') {
+            // Return None to trigger validation error below
+            None
+        } else {
+            Some(b.clone())
+        }
+    });
+
+    // If bead was provided but is invalid, return error
+    if sub_m.contains_id("bead") {
+        if let Some(raw_bead) = sub_m.get_one::<String>("bead") {
+            if raw_bead.is_empty() {
+                return Err(anyhow::anyhow!("Bead ID cannot be empty"));
+            }
+            if raw_bead.contains('\0') {
+                return Err(anyhow::anyhow!("Bead ID cannot contain null bytes"));
+            }
+        }
+    }
+
     let no_hooks = sub_m.get_flag("no-hooks");
+
+    // Validate template: must be one of the valid templates
     let template = sub_m.get_one::<String>("template").cloned();
+    if let Some(ref t) = template {
+        let valid_templates = ["minimal", "standard", "full"];
+        if !valid_templates.contains(&t.as_str()) {
+            return Err(anyhow::anyhow!(
+                "Invalid template '{}'. Valid templates: {}",
+                t,
+                valid_templates.join(", ")
+            ));
+        }
+    }
+
     let no_open = sub_m.get_flag("no-open");
     let no_zellij = sub_m.get_flag("no-zellij");
     let idempotent = sub_m.get_flag("idempotent");
