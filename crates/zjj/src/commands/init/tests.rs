@@ -1,3 +1,5 @@
+#![allow(clippy::duration_suboptimal_units)]
+
 use anyhow::bail;
 use tempfile::TempDir;
 use tokio::process::Command;

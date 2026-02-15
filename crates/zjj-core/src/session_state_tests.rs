@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![allow(clippy::clone_on_copy)]
 
 use super::session_state::SessionState;
 

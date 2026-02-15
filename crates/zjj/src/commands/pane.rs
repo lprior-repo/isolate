@@ -361,6 +361,7 @@ pub async fn pane_navigate(
 }
 
 #[cfg(test)]
+#[allow(clippy::manual_is_variant_and)]
 mod tests {
     use super::*;
 

@@ -1,6 +1,6 @@
 #![cfg(test)]
-
-use serde_json;
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::bool_assert_comparison)]
 
 use super::json::{
     schemas::{self, all_valid_schemas, is_valid_schema, uri},

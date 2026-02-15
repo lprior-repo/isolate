@@ -22,6 +22,8 @@
     clippy::option_if_let_else,
     clippy::match_same_arms,
     clippy::ignored_unit_patterns,
+    // Duration ergonomics for tests
+    clippy::duration_suboptimal_units,
 )]
 //! Brutal BDD tests for Integrity system
 //!

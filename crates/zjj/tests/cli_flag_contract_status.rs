@@ -9,6 +9,9 @@
 //   Given zjj is initialized
 //   And the beads database exists
 
+#![allow(clippy::expect_used)]
+#![allow(clippy::unwrap_used)]
+
 use std::time::Duration;
 
 use assert_cmd::Command;

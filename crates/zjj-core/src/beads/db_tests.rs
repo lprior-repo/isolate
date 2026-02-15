@@ -1,4 +1,7 @@
 #![cfg(test)]
+#![allow(clippy::bind_instead_of_map)]
+#![allow(clippy::map_identity)]
+#![allow(clippy::redundant_closure)]
 
 use chrono::Utc;
 use sqlx::SqlitePool;

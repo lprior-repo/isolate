@@ -1,7 +1,12 @@
 //! Initialize ZJJ - sets up everything needed
 
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::suspicious_open_options)]
+
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::{bail, Context, Result};
 use fs4::fs_std::FileExt;
@@ -60,13 +65,12 @@ impl InitLock {
             .with_context(|| format!("Failed to create lock file at {}", lock_path.display()))?;
 
         // Try to acquire exclusive lock (blocking)
-        file.lock_exclusive()
-            .with_context(|| {
-                format!(
-                    "Another zjj init is in progress. If this is incorrect, remove {} and retry.",
-                    lock_path.display()
-                )
-            })?;
+        file.lock_exclusive().with_context(|| {
+            format!(
+                "Another zjj init is in progress. If this is incorrect, remove {} and retry.",
+                lock_path.display()
+            )
+        })?;
 
         Ok(Self {
             file,
@@ -129,6 +133,7 @@ pub async fn run_with_options(options: InitOptions) -> Result<()> {
 }
 
 /// Run init command with cwd and format
+#[allow(clippy::too_many_lines)]
 pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Result<()> {
     let cwd = match cwd {
         Some(p) => PathBuf::from(p),

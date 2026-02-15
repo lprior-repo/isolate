@@ -1,5 +1,7 @@
 //! Clean stale sessions (sessions where workspace no longer exists)
 
+#![allow(clippy::duration_suboptimal_units)]
+
 use std::{io::Write, time::Duration};
 
 use anyhow::Result;

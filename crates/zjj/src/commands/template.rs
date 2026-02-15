@@ -387,8 +387,7 @@ fn format_timestamp(timestamp: i64) -> String {
 
     let now_secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_secs());
 
     let timestamp_secs = u64::try_from(timestamp.max(0)).unwrap_or_default();
     let ago_secs = now_secs.saturating_sub(timestamp_secs);
@@ -422,6 +421,7 @@ pub fn run_use(_name: &str, _format: OutputFormat) -> Result<()> {
 }
 
 #[cfg(test)]
+#[allow(clippy::map_unwrap_or)]
 mod tests {
     use super::*;
 
@@ -471,6 +471,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_binary_file_error_message() {
+        // Skip if JJ is not installed - this test requires prerequisites check to pass
+        if which::which("jj").is_err() {
+            eprintln!("SKIP: jj not installed, skipping test_binary_file_error_message");
+            return;
+        }
+
         // Create a temporary binary file
         let Ok(temp_dir) = tempfile::tempdir() else {
             // Skip test if tempfile fails

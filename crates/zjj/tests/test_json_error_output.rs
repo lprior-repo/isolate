@@ -1,3 +1,7 @@
+// Integration tests have relaxed clippy settings for brutal test scenarios.
+// Production code (src/) must use strict zero-unwrap/panic patterns.
+#![allow(clippy::expect_used)]
+
 use assert_cmd::Command;
 use serde_json::Value;
 

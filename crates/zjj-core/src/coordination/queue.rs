@@ -145,6 +145,7 @@ impl MergeQueue {
         &self.pool
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn init_schema(&self) -> Result<()> {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS merge_queue (
@@ -1480,7 +1481,7 @@ impl MergeQueue {
         Ok(())
     }
 
-    /// Update the tested_against_sha for an entry (for testing purposes).
+    /// Update the `tested_against_sha` for an entry (for testing purposes).
     pub async fn update_tested_against(
         &self,
         workspace: &str,

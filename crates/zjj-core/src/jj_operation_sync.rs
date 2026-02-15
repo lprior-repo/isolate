@@ -494,6 +494,13 @@ async fn verify_workspace_consistency(name: &str, path: &Path) -> Result<()> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::redundant_clone,
+    clippy::uninlined_format_args,
+    clippy::significant_drop_tightening,
+    clippy::suspicious_open_options,
+    clippy::assertions_on_constants
+)]
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 

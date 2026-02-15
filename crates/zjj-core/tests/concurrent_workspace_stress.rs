@@ -27,6 +27,7 @@
     clippy::significant_drop_tightening,
     clippy::needless_continue,
     clippy::manual_clamp,
+    clippy::duration_suboptimal_units,
 )]
 //! Concurrent workspace creation stress test - Run with: moon run :test concurrent_workspace_stress
 //!
