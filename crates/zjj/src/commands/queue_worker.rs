@@ -40,6 +40,7 @@ use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use tokio::{process::Command, signal, sync::Notify, time::sleep};
 use zjj_core::{
+    coordination::{QualityGateRuntime, WorkerPipelineOutcome, WorkerPipelineService},
     json::SchemaEnvelope,
     moon_gates::{
         classify_exit_code, combine_results, format_failure_message, GateResult, GatesOutcome,
@@ -48,7 +49,10 @@ use zjj_core::{
     MergeQueue, OutputFormat, QueueStatus,
 };
 
-use crate::commands::worker_error::{classify_with_attempts, ErrorClass};
+use crate::commands::{
+    get_queue_db_path,
+    worker_error::{classify_with_attempts, ErrorClass},
+};
 
 /// Default stale threshold in seconds (5 minutes).
 const DEFAULT_STALE_THRESHOLD_SECS: i64 = 300;
@@ -132,8 +136,8 @@ fn resolve_worker_id(provided: Option<&str>) -> String {
 
 /// Get or create the merge queue database.
 async fn get_queue() -> Result<MergeQueue> {
-    let queue_db = Path::new(".zjj/queue.db");
-    MergeQueue::open(queue_db)
+    let queue_db = get_queue_db_path().await?;
+    MergeQueue::open(&queue_db)
         .await
         .context("Failed to open merge queue database")
 }
@@ -223,6 +227,22 @@ async fn execute_all_gates(working_dir: &Path) -> Result<GatesOutcome> {
     let test_result = execute_moon_gate(MoonGate::Test, working_dir).await?;
 
     Ok(combine_results(quick_result, Some(test_result)))
+}
+
+/// Local shell adapter for gate execution.
+struct LocalMoonRuntime;
+
+impl QualityGateRuntime for LocalMoonRuntime {
+    fn execute_quality_gates(
+        &self,
+        working_dir: &Path,
+    ) -> impl std::future::Future<Output = zjj_core::Result<GatesOutcome>> + Send {
+        async move {
+            execute_all_gates(working_dir)
+                .await
+                .map_err(|err| zjj_core::Error::Command(err.to_string()))
+        }
+    }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -678,12 +698,6 @@ async fn process_entry_with_gates(
     worker_id: &str,
     format: OutputFormat,
 ) -> Result<()> {
-    // Transition to testing status
-    queue
-        .transition_to(&entry.workspace, QueueStatus::Testing)
-        .await
-        .with_context(|| format!("Failed to transition {} to testing", entry.workspace))?;
-
     if !format.is_json() {
         eprintln!("Entry {}: running quality gates...", entry.workspace);
     }
@@ -692,25 +706,31 @@ async fn process_entry_with_gates(
     // In a full implementation, this would resolve the workspace path from the entry
     let working_dir = Path::new(".");
 
-    // Execute moon gates
-    let outcome = execute_all_gates(working_dir).await?;
+    let runtime = LocalMoonRuntime;
+    let service = WorkerPipelineService::new(queue, &runtime);
 
-    // Log results if not JSON format
-    if !format.is_json() {
-        eprintln!(
-            "Entry {}: {} - quick: {}, test: {}",
-            entry.workspace,
-            outcome.status,
-            if outcome.quick.passed { "PASS" } else { "FAIL" },
-            outcome
-                .test
-                .as_ref()
-                .map_or("SKIP", |t| if t.passed { "PASS" } else { "FAIL" })
-        );
+    let outcome = service
+        .process_claimed_entry(&entry.workspace, worker_id, working_dir)
+        .await
+        .with_context(|| format!("Failed to process worker pipeline for {}", entry.workspace))?;
+
+    match outcome {
+        WorkerPipelineOutcome::ReadyToMerge => {
+            if !format.is_json() {
+                eprintln!(
+                    "Entry {} passed all gates - ready to merge",
+                    entry.workspace
+                );
+            }
+            Ok(())
+        }
+        WorkerPipelineOutcome::FailedRetryable { message } => {
+            if !format.is_json() {
+                eprintln!("Entry {} failed gates: {}", entry.workspace, message);
+            }
+            Err(anyhow::anyhow!(message))
+        }
     }
-
-    // Handle the outcome
-    handle_gates_outcome(queue, entry, &outcome, worker_id).await
 }
 
 /// Process a queue entry (legacy stub - kept for compatibility).
