@@ -507,7 +507,7 @@ fn test_serialization_performance() {
     // Assert: Should be fast (< 5ms)
     assert!(json.is_ok());
     assert!(duration.as_millis() < 5);
-
+}
 
 // ============================================================================
 // REGRESSION TESTS for Red Queen adversarial hardening
@@ -521,20 +521,23 @@ fn test_serialization_performance() {
 #[test]
 fn test_no_duplicate_success_key_in_json() {
     use serde_json;
-    
+
     let response = create_response(
         "test message",
         vec!["agent-2".to_string()],
         "2024-01-01T00:00:00Z",
     );
-    
+
     // Serialize just the response (without envelope)
     let json_str = serde_json::to_string(&response).expect("Serialization failed");
     let parsed: serde_json::Value = serde_json::from_str(&json_str).expect("Parse failed");
-    
+
     // Response should NOT have "success" field (it's in envelope)
-    assert!(!json_str.contains(r#""success""#), "Response should not have success field");
-    
+    assert!(
+        !json_str.contains(r#""success""#),
+        "Response should not have success field"
+    );
+
     // Response should have required fields
     assert!(parsed.get("message").is_some());
     assert!(parsed.get("sent_to").is_some());
@@ -548,7 +551,7 @@ fn test_empty_message_rejected() {
         message: "".to_string(),
         agent_id: "agent-1".to_string(),
     };
-    
+
     // Empty message should fail validation
     assert!(args.message.trim().is_empty());
 }
@@ -560,9 +563,7 @@ fn test_empty_agent_id_rejected() {
         message: "test".to_string(),
         agent_id: "".to_string(),
     };
-    
+
     // Empty agent_id should fail validation
     assert!(args.agent_id.trim().is_empty());
-}
-
 }
