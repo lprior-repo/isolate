@@ -197,16 +197,21 @@ mod tests {
     #[tokio::test]
     async fn test_shutdown_notification_broadcast() {
         let shutdown = Arc::new(Notify::new());
+        let ready_barrier = Arc::new(tokio::sync::Barrier::new(4));
 
         // Spawn multiple tasks waiting for shutdown
         let handles: Vec<_> = (0..3)
             .map(|_| {
                 let shutdown_clone = Arc::clone(&shutdown);
+                let ready_barrier_clone = Arc::clone(&ready_barrier);
                 tokio::spawn(async move {
+                    ready_barrier_clone.wait().await;
                     shutdown_clone.notified().await;
                 })
             })
             .collect();
+
+        ready_barrier.wait().await;
 
         // Trigger shutdown
         shutdown.notify_waiters();

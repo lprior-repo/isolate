@@ -39,6 +39,20 @@ use crate::{
     session::SessionStatus,
 };
 
+async fn resolve_project_root() -> Option<PathBuf> {
+    if let Ok(data_dir) = crate::commands::zjj_data_dir().await {
+        if let Some(root) = data_dir.parent() {
+            return Some(root.to_path_buf());
+        }
+    }
+
+    jj_root()
+        .await
+        .ok()
+        .map(PathBuf::from)
+        .or_else(|| std::env::current_dir().ok())
+}
+
 /// Doctor command JSON output (matches documented schema)
 #[derive(Debug, Clone, serde::Serialize)]
 struct DoctorJsonResponse {
@@ -186,11 +200,7 @@ async fn check_workspace_integrity() -> DoctorCheck {
         }
     };
 
-    let root = jj_root()
-        .await
-        .ok()
-        .map(PathBuf::from)
-        .or_else(|| std::env::current_dir().ok());
+    let root = resolve_project_root().await;
     let Some(root) = root else {
         return DoctorCheck {
             name: "Workspace Integrity".to_string(),
@@ -644,11 +654,7 @@ async fn run_integrity_after_recovery() -> Option<DoctorCheck> {
         return None;
     };
 
-    let root = jj_root()
-        .await
-        .ok()
-        .map(PathBuf::from)
-        .or_else(|| std::env::current_dir().ok());
+    let root = resolve_project_root().await;
     let root = root?;
 
     let workspace_dir = if Path::new(&config.workspace_dir).is_absolute() {
@@ -1588,10 +1594,9 @@ async fn fix_workspace_integrity(check: &DoctorCheck, dry_run: bool) -> Result<S
         .await
         .map_err(|e| format!("Unable to load config: {e}"))?;
 
-    let root = jj_root()
+    let root = resolve_project_root()
         .await
-        .map(PathBuf::from)
-        .map_err(|e| format!("Unable to determine repository root: {e}"))?;
+        .ok_or_else(|| "Unable to determine repository root".to_string())?;
 
     let workspace_dir = if Path::new(&config.workspace_dir).is_absolute() {
         Path::new(&config.workspace_dir).to_path_buf()

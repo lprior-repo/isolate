@@ -147,21 +147,21 @@ impl ConflictDetectionResult {
 
     /// Check if any conflicts (existing or potential) were found
     #[must_use]
-    pub const fn has_conflicts(&self) -> bool {
+    pub fn has_conflicts(&self) -> bool {
         self.has_existing_conflicts || !self.overlapping_files.is_empty()
     }
 
     /// Get total count of conflicts (existing + potential)
     #[cfg(test)]
     #[must_use]
-    pub const fn conflict_count(&self) -> usize {
+    pub fn conflict_count(&self) -> usize {
         self.existing_conflicts.len() + self.overlapping_files.len()
     }
 
     /// Get the appropriate exit code for this result
     #[cfg(test)]
     #[must_use]
-    pub const fn exit_code(&self) -> ConflictExitCode {
+    pub fn exit_code(&self) -> ConflictExitCode {
         if self.has_existing_conflicts || !self.overlapping_files.is_empty() {
             ConflictExitCode::Conflicts
         } else {

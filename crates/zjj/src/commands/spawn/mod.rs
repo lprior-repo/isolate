@@ -52,7 +52,10 @@ br show $ZJJ_BEAD_ID
 Check the project's README or CLAUDE.md for the correct build commands.
 ";
 
-use std::{path::Path, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::{Context, Result};
 use types::SpawnStatus;
@@ -61,6 +64,7 @@ use zjj_core::json::SchemaEnvelope;
 use crate::{
     beads::{BeadRepository, BeadStatus},
     cli::jj_root,
+    commands::workspace_utils,
 };
 
 /// Run the spawn command with options
@@ -91,8 +95,7 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     let bead_status_result = validate_bead_status(&bead_repo, &options.bead_id).await;
 
     // Check if workspace already exists for idempotency
-    let workspaces_dir = Path::new(&root).join(".zjj/workspaces");
-    let workspace_path = workspaces_dir.join(&options.bead_id);
+    let workspace_path = resolve_workspace_path(&root, &options.bead_id).await;
     let workspace_exists = tokio::fs::try_exists(&workspace_path)
         .await
         .unwrap_or(false);
@@ -118,17 +121,10 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     }
 
     if options.idempotent && workspace_exists {
-        // If idempotent and workspace exists, we check if the bead status error (if any)
-        // is acceptable (e.g., "in_progress").
-        match &bead_status_result {
-            Ok(_) => {
-                // Workspace exists but bead is open. This is unusual but we can treat as
-                // success/running.
-            }
-            Err(SpawnError::InvalidBeadStatus { status, .. }) if status == "in_progress" => {
-                // Expected case: workspace exists and bead is in progress.
-            }
-            Err(e) => return Err(e.clone()),
+        // If the bead is still in progress, another active worker owns this workspace and
+        // idempotent retry must fail instead of silently reporting success.
+        if let Err(e) = &bead_status_result {
+            return Err(e.clone());
         }
 
         return Ok(SpawnOutput {
@@ -216,6 +212,15 @@ pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnE
     })
 }
 
+async fn resolve_workspace_path(root: &str, bead_id: &str) -> PathBuf {
+    let root_path = Path::new(root);
+    let workspace_base = zjj_core::config::load_config()
+        .await
+        .map(|cfg| workspace_utils::resolve_workspace_base(root_path, &cfg.workspace_dir))
+        .unwrap_or_else(|_| root_path.join(".zjj/workspaces"));
+    workspace_base.join(bead_id)
+}
+
 /// Validate we're on main branch (not in a workspace)
 async fn validate_location() -> Result<String> {
     let root = jj_root().await.context("Failed to get JJ root")?;
@@ -262,14 +267,18 @@ async fn validate_bead_status(bead_repo: &BeadRepository, bead_id: &str) -> Resu
 /// corruption when multiple workspaces are created concurrently or in quick
 /// succession.
 async fn create_workspace(root: &str, bead_id: &str) -> Result<std::path::PathBuf, SpawnError> {
-    let workspaces_dir = Path::new(root).join(".zjj/workspaces");
+    let workspace_path = resolve_workspace_path(root, bead_id).await;
+    let workspaces_dir = workspace_path
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| SpawnError::WorkspaceCreationFailed {
+            reason: "Failed to determine workspace parent directory".to_string(),
+        })?;
     tokio::fs::create_dir_all(&workspaces_dir)
         .await
         .map_err(|e| SpawnError::WorkspaceCreationFailed {
             reason: format!("Failed to create workspaces directory: {e}"),
         })?;
-
-    let workspace_path = workspaces_dir.join(bead_id);
 
     // Use synchronized workspace creation to prevent operation graph corruption
     // This ensures:

@@ -611,7 +611,7 @@ fn ui(f: &mut Frame, app: &mut DashboardApp) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(3)])
-        .split(f.area());
+        .split(f.size());
 
     // Main content area
     render_kanban(f, app, chunks[0]);
@@ -801,7 +801,7 @@ fn render_status_bar(f: &mut Frame, app: &DashboardApp, area: Rect) {
 
 /// Render input dialog
 fn render_input_dialog(f: &mut Frame, dialog: &InputDialog) {
-    let area = centered_rect(60, 20, f.area());
+    let area = centered_rect(60, 20, f.size());
 
     let text = vec![
         Line::from(dialog.prompt.as_str()),
@@ -824,7 +824,7 @@ fn render_input_dialog(f: &mut Frame, dialog: &InputDialog) {
 
 /// Render confirmation dialog
 fn render_confirm_dialog(f: &mut Frame, dialog: &ConfirmDialog) {
-    let area = centered_rect(60, 20, f.area());
+    let area = centered_rect(60, 20, f.size());
 
     let text = vec![
         Line::from(dialog.message.as_str()),

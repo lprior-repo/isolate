@@ -89,7 +89,7 @@ impl AgentRegistry {
 
     /// Get all active agents (`last_seen` within timeout).
     pub async fn get_active(&self) -> Result<Vec<ActiveAgent>, Error> {
-        let cutoff = Utc::now() - chrono::Duration::seconds(self.timeout_secs.cast_signed());
+        let cutoff = Utc::now() - chrono::Duration::seconds(self.timeout_secs as i64);
         let cutoff_str = cutoff.to_rfc3339();
 
         let rows: Vec<(String, String, String, Option<String>, Option<String>, i64)> = sqlx::query_as(
@@ -121,13 +121,17 @@ impl AgentRegistry {
                         .map_err(|e| {
                             Error::ParseError(format!("Invalid registered_at timestamp: {e}"))
                         })?;
+                    let actions_count = u64::try_from(actions_count).map_err(|_| {
+                        Error::ParseError("Invalid negative actions_count value".to_string())
+                    })?;
+
                     Ok(ActiveAgent {
                         agent_id,
                         last_seen,
                         registered_at,
                         current_session,
                         current_command,
-                        actions_count: actions_count.cast_unsigned(),
+                        actions_count,
                     })
                 },
             )

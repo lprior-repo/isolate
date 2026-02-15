@@ -230,6 +230,23 @@ async fn execute_done(
     // Phase 8.5: Update session status to Completed
     let session_updated = update_session_status(&workspace_name).await?;
 
+    if options.squash {
+        let _ = executor
+            .run(&["-R", &root, "workspace", "update-stale"])
+            .await;
+        let _ = executor
+            .run(&[
+                "-R",
+                &root,
+                "bookmark",
+                "set",
+                "main",
+                "-r",
+                "latest(bookmarks(exact:main) & ancestors(@))",
+            ])
+            .await;
+    }
+
     // Phase 9: Cleanup workspace
     let cleaned = if options.keep_workspace || !options.no_keep {
         false
@@ -555,24 +572,24 @@ async fn merge_to_main(
     workspace_name: &str,
     squash: bool,
     message: Option<&str>,
-    executor: &dyn executor::JjExecutor,
+    workspace_executor: &dyn executor::JjExecutor,
 ) -> Result<(), DoneError> {
     if squash {
         // If squash is requested, we squash all workspace-specific commits into main
         // We use the revision set 'ancestors(workspace_name@) & ~ancestors(main)'
         // to find all commits that are in the workspace but not yet in main.
-        let revset = format!("ancestors({}@) & ~ancestors(main)", workspace_name);
+        let revset = "ancestors(@) & ~ancestors(main)";
 
         // Use squash to move changes.
         // Note: we might need to handle the case where main is not the right branch name,
         // but for now we follow the project convention.
         let default_msg = format!("Complete work on {workspace_name}");
         let squash_message = message.unwrap_or(&default_msg);
-        let squash_result = executor
+        let squash_result = workspace_executor
             .run(&[
                 "squash",
                 "--from",
-                &revset,
+                revset,
                 "--into",
                 "main",
                 "-m",
@@ -586,10 +603,21 @@ async fn merge_to_main(
                 reason: format!("Squash failed: {}", e),
             });
         }
+
+        if let Err(e) = workspace_executor
+            .run(&["describe", "-r", "main", "-m", squash_message])
+            .await
+        {
+            return Err(DoneError::MergeFailed {
+                reason: format!("Failed to set squashed commit message: {e}"),
+            });
+        }
     }
 
     // First, forget the workspace
-    let result = executor.run(&["workspace", "forget", workspace_name]).await;
+    let result = workspace_executor
+        .run(&["workspace", "forget", workspace_name])
+        .await;
 
     match result {
         Ok(_) => Ok(()),

@@ -92,7 +92,7 @@ fn build_wait_options(sub_m: &ArgMatches, format: OutputFormat) -> Result<wait::
     let name = sub_m.get_one::<String>("name").cloned();
     let status = sub_m.get_one::<String>("status").cloned();
     let timeout = sub_m.get_one::<u64>("timeout").copied().unwrap_or(30);
-    let interval = sub_m.get_one::<u64>("interval").copied().unwrap_or(1);
+    let interval = sub_m.get_one::<f64>("interval").copied().unwrap_or(1.0);
 
     build_wait_options_from_values(condition_str, name, status, timeout, interval, format)
 }
@@ -102,11 +102,15 @@ fn build_wait_options_from_values(
     name: Option<String>,
     status: Option<String>,
     timeout: u64,
-    interval: u64,
+    interval: f64,
     format: OutputFormat,
 ) -> Result<wait::WaitOptions> {
     if status.is_some() && condition_str != "session-status" {
         anyhow::bail!("--status is only valid with session-status condition");
+    }
+
+    if !(interval.is_finite() && interval > 0.0) {
+        anyhow::bail!("--interval must be a positive number of seconds");
     }
 
     let condition = match condition_str {
@@ -127,7 +131,7 @@ fn build_wait_options_from_values(
     Ok(wait::WaitOptions {
         condition,
         timeout: std::time::Duration::from_secs(timeout),
-        poll_interval: std::time::Duration::from_secs(interval),
+        poll_interval: std::time::Duration::from_secs_f64(interval),
         format,
     })
 }
@@ -204,7 +208,7 @@ mod tests {
             None,
             Some("active".to_string()),
             30,
-            1,
+            1.0,
             OutputFormat::Json,
         );
 
@@ -219,7 +223,7 @@ mod tests {
     #[test]
     fn wait_defaults_preserve_timeout_and_interval() {
         let options =
-            build_wait_options_from_values("healthy", None, None, 30, 1, OutputFormat::Json)
+            build_wait_options_from_values("healthy", None, None, 30, 1.0, OutputFormat::Json)
                 .expect("options should build");
 
         assert!(matches!(options.condition, WaitCondition::Healthy));
@@ -254,7 +258,7 @@ mod tests {
                 None,
                 None,
                 30,
-                1,
+                1.0,
                 OutputFormat::Json,
             );
 
@@ -276,7 +280,7 @@ mod tests {
                 Some("feature-auth".to_string()),
                 None,
                 30,
-                1,
+                1.0,
                 OutputFormat::Json,
             );
 
@@ -295,7 +299,7 @@ mod tests {
                 Some("feature-auth".to_string()),
                 Some("active".to_string()),
                 45,
-                2,
+                2.0,
                 OutputFormat::Json,
             )
             .expect("valid session-status options should build");
@@ -321,7 +325,7 @@ mod tests {
                 Some("feature-auth".to_string()),
                 Some("active".to_string()),
                 30,
-                1,
+                1.0,
                 OutputFormat::Json,
             );
 
@@ -339,7 +343,7 @@ mod tests {
         #[test]
         fn given_healthy_with_explicit_timing_when_building_then_preserves_timing() {
             let result =
-                build_wait_options_from_values("healthy", None, None, 90, 5, OutputFormat::Json)
+                build_wait_options_from_values("healthy", None, None, 90, 5.0, OutputFormat::Json)
                     .expect("healthy options should build");
 
             assert!(matches!(result.condition, WaitCondition::Healthy));
@@ -357,7 +361,7 @@ mod tests {
                 None,
                 None,
                 30,
-                1,
+                1.0,
                 OutputFormat::Json,
             );
 
@@ -401,7 +405,7 @@ mod tests {
                 .expect("valid wait arguments should parse");
 
             assert_eq!(parsed.get_one::<u64>("timeout").copied(), Some(7));
-            assert_eq!(parsed.get_one::<u64>("interval").copied(), Some(2));
+            assert_eq!(parsed.get_one::<f64>("interval").copied(), Some(2.0));
             assert_eq!(
                 parsed.get_one::<String>("condition").map(String::as_str),
                 Some("healthy")
@@ -418,7 +422,7 @@ mod tests {
             session_name: Option<&'static str>,
             status: Option<&'static str>,
             timeout: u64,
-            interval: u64,
+            interval: f64,
             expect_ok: bool,
             expected_error_fragment: Option<&'static str>,
         }
@@ -435,7 +439,7 @@ mod tests {
                     session_name: None,
                     status: None,
                     timeout: 30,
-                    interval: 1,
+                    interval: 1.0,
                     expect_ok: true,
                     expected_error_fragment: None,
                 },
@@ -445,7 +449,7 @@ mod tests {
                     session_name: None,
                     status: None,
                     timeout: 30,
-                    interval: 1,
+                    interval: 1.0,
                     expect_ok: false,
                     expected_error_fragment: Some("Session name required"),
                 },
@@ -455,7 +459,7 @@ mod tests {
                     session_name: Some("feat-x"),
                     status: None,
                     timeout: 30,
-                    interval: 1,
+                    interval: 1.0,
                     expect_ok: false,
                     expected_error_fragment: Some("--status required"),
                 },
@@ -465,7 +469,7 @@ mod tests {
                     session_name: Some("feat-x"),
                     status: Some("active"),
                     timeout: 30,
-                    interval: 1,
+                    interval: 1.0,
                     expect_ok: true,
                     expected_error_fragment: None,
                 },
@@ -475,7 +479,7 @@ mod tests {
                     session_name: None,
                     status: Some("active"),
                     timeout: 30,
-                    interval: 1,
+                    interval: 1.0,
                     expect_ok: false,
                     expected_error_fragment: Some("--status is only valid with session-status"),
                 },
