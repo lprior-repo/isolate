@@ -32,20 +32,14 @@ fn resolve_jj_path() -> String {
 
 /// Search PATH for jj binary
 fn search_path_for_jj() -> String {
-    let paths = match std::env::var_os("PATH") {
-        Some(p) => p,
-        None => std::ffi::OsString::new(),
-    };
+    let paths = std::env::var_os("PATH").unwrap_or_default();
 
     let found = std::env::split_paths(&paths)
         .map(|p| p.join("jj"))
         .find(|p| p.exists())
         .map(|p| p.to_string_lossy().to_string());
 
-    match found {
-        Some(p) => p,
-        None => "jj".to_string(),
-    }
+    found.unwrap_or_else(|| "jj".to_string())
 }
 
 /// Get a tokio Command for jj with absolute path
@@ -89,7 +83,7 @@ impl WorkspaceGuard {
     ///
     /// The guard will clean up the workspace when dropped unless disarmed.
     #[must_use]
-    pub fn new(name: String, path: PathBuf) -> Self {
+    pub const fn new(name: String, path: PathBuf) -> Self {
         Self {
             name,
             path,
@@ -100,7 +94,7 @@ impl WorkspaceGuard {
     /// Disarm the guard to prevent cleanup
     ///
     /// Call this when workspace creation succeeds and you want to keep it.
-    pub fn disarm(&mut self) {
+    pub const fn disarm(&mut self) {
         self.active = false;
     }
 
@@ -239,7 +233,7 @@ pub struct Status {
 impl Status {
     /// Check if there are any changes
     #[must_use]
-    pub fn is_clean(&self) -> bool {
+    pub const fn is_clean(&self) -> bool {
         self.modified.is_empty()
             && self.added.is_empty()
             && self.deleted.is_empty()
@@ -248,7 +242,7 @@ impl Status {
 
     /// Count total number of changed files
     #[must_use]
-    pub fn change_count(&self) -> usize {
+    pub const fn change_count(&self) -> usize {
         self.modified.len() + self.added.len() + self.deleted.len() + self.renamed.len()
     }
 }

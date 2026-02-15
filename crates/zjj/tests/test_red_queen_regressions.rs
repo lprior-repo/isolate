@@ -113,8 +113,7 @@ fn given_add_contract_when_reading_args_then_name_is_not_unconditionally_require
 
     assert!(
         description.contains("--example-json") || description.contains("omitted"),
-        "description should mention that name is conditional. Got: {}",
-        description
+        "description should mention that name is conditional. Got: {description}"
     );
 }
 

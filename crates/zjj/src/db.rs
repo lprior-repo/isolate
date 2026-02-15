@@ -150,7 +150,7 @@ pub struct AddOperationRecord {
 
 impl SessionDb {
     /// Get a reference to the underlying connection pool
-    pub fn pool(&self) -> &SqlitePool {
+    pub const fn pool(&self) -> &SqlitePool {
         &self.pool
     }
 
@@ -1282,7 +1282,7 @@ async fn create_connection_pool(db_url: &str) -> Result<SqlitePool> {
     sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(2)
         .acquire_timeout(std::time::Duration::from_secs(5))
-        .idle_timeout(Some(std::time::Duration::from_secs(600)))
+        .idle_timeout(Some(std::time::Duration::from_mins(10)))
         .after_connect(|conn, _meta| {
             Box::pin(async move {
                 sqlx::query(&format!("PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS};"))

@@ -83,7 +83,7 @@ pub enum QueueStatus {
 impl QueueStatus {
     /// Returns the string representation of this status.
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Pending => "pending",
             Self::Claimed => "claimed",
@@ -100,7 +100,7 @@ impl QueueStatus {
 
     /// Returns true if this status is terminal (no valid outgoing transitions).
     #[must_use]
-    pub fn is_terminal(&self) -> bool {
+    pub const fn is_terminal(&self) -> bool {
         matches!(self, Self::Merged | Self::FailedTerminal | Self::Cancelled)
     }
 
@@ -167,7 +167,7 @@ impl QueueStatus {
 
     /// Returns all possible queue statuses as a slice.
     #[must_use]
-    pub fn all() -> &'static [Self] {
+    pub const fn all() -> &'static [Self] {
         &[
             Self::Pending,
             Self::Claimed,
@@ -239,7 +239,7 @@ pub enum WorkspaceQueueState {
 
 impl WorkspaceQueueState {
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Created => "created",
             Self::Working => "working",
@@ -305,7 +305,7 @@ pub enum QueueEventType {
 impl QueueEventType {
     /// Returns the string representation of this event type.
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Created => "created",
             Self::Claimed => "claimed",

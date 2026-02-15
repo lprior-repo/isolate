@@ -230,7 +230,7 @@ fn confirm_removal(stale_names: &[String]) -> Result<bool> {
 /// Runs indefinitely in the background
 async fn run_periodic_mode(options: &CleanOptions) -> Result<()> {
     let config = periodic_cleanup::PeriodicCleanupConfig {
-        interval: Duration::from_secs(3600), // 1 hour
+        interval: Duration::from_hours(1), // 1 hour
         age_threshold: Duration::from_secs(options.age_threshold.unwrap_or(7200)), /* 2 hours default */
         dry_run: options.dry_run,
         format: options.format,

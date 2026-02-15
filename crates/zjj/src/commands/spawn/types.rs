@@ -171,7 +171,7 @@ pub enum SpawnPhase {
 
 impl SpawnPhase {
     #[allow(dead_code)] // Used in tests (test_spawn_phase_names)
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
             Self::ValidatingLocation => "validating_location",
             Self::ValidatingBead => "validating_bead",
@@ -255,7 +255,7 @@ impl std::error::Error for SpawnError {}
 
 impl SpawnError {
     #[allow(dead_code)] // Used in tests (test_spawn_error_codes)
-    pub fn phase(&self) -> SpawnPhase {
+    pub const fn phase(&self) -> SpawnPhase {
         match self {
             Self::NotOnMain { .. } => SpawnPhase::ValidatingLocation,
             Self::InvalidBeadStatus { .. } | Self::BeadNotFound { .. } => {
@@ -271,7 +271,7 @@ impl SpawnError {
     }
 
     #[allow(dead_code)] // Used in tests (test_spawn_error_codes)
-    pub fn error_code(&self) -> &'static str {
+    pub const fn error_code(&self) -> &'static str {
         match self {
             Self::NotOnMain { .. } => "NOT_ON_MAIN",
             Self::InvalidBeadStatus { .. } => "INVALID_BEAD_STATUS",

@@ -46,8 +46,8 @@ pub struct PeriodicCleanupConfig {
 impl Default for PeriodicCleanupConfig {
     fn default() -> Self {
         Self {
-            interval: Duration::from_secs(3600),      // 1 hour
-            age_threshold: Duration::from_secs(7200), // 2 hours
+            interval: Duration::from_hours(1),      // 1 hour
+            age_threshold: Duration::from_hours(2), // 2 hours
             dry_run: false,
             format: OutputFormat::Human,
         }

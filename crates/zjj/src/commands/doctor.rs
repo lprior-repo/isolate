@@ -467,7 +467,7 @@ fn check_zellij_running() -> DoctorCheck {
 
 /// Check if current directory is a JJ repository
 async fn check_jj_repo() -> DoctorCheck {
-    let is_repo = is_jj_repo().await.map_or(false, |v| v);
+    let is_repo = is_jj_repo().await.is_ok_and(|v| v);
 
     DoctorCheck {
         name: "JJ Repository".to_string(),
@@ -548,8 +548,8 @@ fn check_workspace_context() -> DoctorCheck {
                     .as_ref()
                     .map(|p| p.display().to_string())
                     .map_or(String::new(), |value| value),
-                "zjj_bead_id": std::env::var("ZJJ_BEAD_ID").map_or_else(|_| "<not set>".to_string(), |v| v),
-                "zjj_workspace": std::env::var("ZJJ_WORKSPACE").map_or_else(|_| "<not set>".to_string(), |v| v),
+                "zjj_bead_id": std::env::var("ZJJ_BEAD_ID").unwrap_or_else(|_| "<not set>".to_string()),
+                "zjj_workspace": std::env::var("ZJJ_WORKSPACE").unwrap_or_else(|_| "<not set>".to_string()),
             })
         }),
     }
@@ -560,10 +560,10 @@ async fn check_initialized() -> DoctorCheck {
     // Check for .zjj directory existence directly, without depending on JJ installation
     let zjj_dir = std::path::Path::new(".zjj");
     let config_file = zjj_dir.join("config.toml");
-    let initialized = tokio::fs::try_exists(zjj_dir).await.map_or(false, |v| v)
+    let initialized = tokio::fs::try_exists(zjj_dir).await.is_ok_and(|v| v)
         && tokio::fs::try_exists(&config_file)
             .await
-            .map_or(false, |v| v);
+            .is_ok_and(|v| v);
 
     DoctorCheck {
         name: "zjj Initialized".to_string(),
@@ -725,7 +725,7 @@ fn create_recovery_check(recovery_info: &str) -> DoctorCheck {
 /// Check if database file exists
 /// Returns Ok with metadata if exists, Err with `DoctorCheck` if missing
 async fn check_db_file_exists(db_path: &Path) -> Result<std::fs::Metadata, DoctorCheck> {
-    if !tokio::fs::try_exists(db_path).await.map_or(false, |v| v) {
+    if !tokio::fs::try_exists(db_path).await.is_ok_and(|v| v) {
         return Err(DoctorCheck {
             name: "State Database".to_string(),
             status: CheckStatus::Warn,
@@ -951,7 +951,7 @@ async fn check_orphaned_workspaces() -> DoctorCheck {
                 let has_workspace = jj_workspaces.iter().any(|ws| ws == session.name.as_str());
                 let directory_exists = tokio::fs::try_exists(&session.workspace_path)
                     .await
-                    .map_or(false, |v| v);
+                    .is_ok_and(|v| v);
 
                 if !has_workspace || !directory_exists {
                     Some(session.name)
@@ -1146,7 +1146,7 @@ async fn check_workflow_violations() -> DoctorCheck {
     let on_main = current_dir
         .as_ref()
         .map(|p| !p.to_string_lossy().contains(".zjj/workspaces"))
-        .map_or(true, |v| v);
+        .is_none_or(|v| v);
 
     if on_main && !active_sessions.is_empty() {
         let session_names: Vec<_> = active_sessions.iter().map(|s| s.name.clone()).collect();
@@ -1225,7 +1225,7 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
             .as_ref()
             .and_then(|d| d.get("recovered"))
             .and_then(serde_json::Value::as_bool)
-            .map_or(false, |v| v)
+            .is_some_and(|v| v)
     });
 
     if format.is_json() {
@@ -1319,8 +1319,7 @@ fn show_dry_run_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<(
             println!(
                 "  • {}: {}",
                 check.name,
-                describe_fix(check)
-                    .map_or_else(|| "No fix description available".to_string(), |v| v)
+                describe_fix(check).unwrap_or_else(|| "No fix description available".to_string())
             );
         }
         println!();

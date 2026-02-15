@@ -91,7 +91,7 @@ pub struct ValidatedBool(bool);
 
 impl ValidatedBool {
     #[inline]
-    pub fn as_bool(self) -> bool {
+    pub const fn as_bool(self) -> bool {
         self.0
     }
 }
@@ -1038,23 +1038,20 @@ pub async fn load_partial_toml_file(path: &std::path::Path) -> Result<PartialCon
 fn extract_keys(value: &toml::Value, prefix: &str) -> Vec<String> {
     let mut keys = Vec::new();
 
-    match value {
-        toml::Value::Table(table) => {
-            for (key, val) in table {
-                let full_key = if prefix.is_empty() {
-                    key.clone()
-                } else {
-                    format!("{prefix}.{key}")
-                };
+    if let toml::Value::Table(table) = value {
+        for (key, val) in table {
+            let full_key = if prefix.is_empty() {
+                key.clone()
+            } else {
+                format!("{prefix}.{key}")
+            };
 
-                keys.push(full_key.clone());
+            keys.push(full_key.clone());
 
-                if let toml::Value::Table(_) = val {
-                    keys.extend(extract_keys(val, &full_key));
-                }
+            if let toml::Value::Table(_) = val {
+                keys.extend(extract_keys(val, &full_key));
             }
         }
-        _ => {}
     }
 
     keys

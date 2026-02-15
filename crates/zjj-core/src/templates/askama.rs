@@ -61,7 +61,7 @@ pub enum TemplateType {
 
 impl TemplateType {
     #[must_use]
-    pub fn docs() -> &'static [Self] {
+    pub const fn docs() -> &'static [Self] {
         &[
             Self::Doc01ErrorHandling,
             Self::Doc02MoonBuild,
@@ -73,7 +73,7 @@ impl TemplateType {
     }
 
     #[must_use]
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::AgentsMd => "AGENTS.md",
             Self::ClaudeMd => "CLAUDE.md",

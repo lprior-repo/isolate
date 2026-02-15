@@ -218,7 +218,7 @@ impl From<crate::commands::done::filesystem::FsError> for DoneError {
 
 impl DoneError {
     #[allow(dead_code)]
-    pub fn error_code(&self) -> &'static str {
+    pub const fn error_code(&self) -> &'static str {
         match self {
             Self::NotInWorkspace { .. } => "NOT_IN_WORKSPACE",
             Self::NotAJjRepo => "NOT_A_JJ_REPO",
@@ -234,12 +234,12 @@ impl DoneError {
     }
 
     #[allow(dead_code)]
-    pub fn is_recoverable(&self) -> bool {
+    pub const fn is_recoverable(&self) -> bool {
         matches!(self, Self::MergeConflict { .. })
     }
 
     #[allow(dead_code)] // Public API method, tested but not used internally
-    pub fn phase(&self) -> DonePhase {
+    pub const fn phase(&self) -> DonePhase {
         match self {
             Self::NotInWorkspace { .. } | Self::NotAJjRepo | Self::WorkspaceNotFound { .. } => {
                 DonePhase::ValidatingLocation
@@ -270,7 +270,7 @@ impl DonePhase {
     /// Returns the `snake_case` name of this phase
     #[must_use]
     #[allow(dead_code)]
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
             Self::ValidatingLocation => "validating_location",
             Self::CommittingChanges => "committing_changes",

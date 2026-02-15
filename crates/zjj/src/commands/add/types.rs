@@ -26,7 +26,7 @@ pub struct AddOptions {
 impl AddOptions {
     /// Create new `AddOptions` with defaults
     #[allow(dead_code)]
-    pub fn new(name: String) -> Self {
+    pub const fn new(name: String) -> Self {
         Self {
             name,
             bead_id: None,

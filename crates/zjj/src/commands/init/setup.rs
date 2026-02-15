@@ -245,7 +245,7 @@ pub(super) async fn create_jj_hooks(repo_root: &Path) -> Result<()> {
     // We just use it to avoid unnecessary writes
     let should_create = tokio::fs::try_exists(&pre_commit_path)
         .await
-        .map_or(false, |e| e);
+        .is_ok_and(|e| e);
 
     if !should_create {
         let hook_content = r#"#!/bin/sh
@@ -302,7 +302,7 @@ pub(super) async fn create_repo_ai_instructions(repo_root: &Path) -> Result<()> 
     let ai_path = repo_root.join(".ai-instructions.md");
 
     // Only create if it doesn't exist
-    if !tokio::fs::try_exists(&ai_path).await.map_or(false, |e| e) {
+    if !tokio::fs::try_exists(&ai_path).await.is_ok_and(|e| e) {
         tokio::fs::write(&ai_path, REPO_AI_INSTRUCTIONS)
             .await
             .context("Failed to create .ai-instructions.md")?;
@@ -323,8 +323,7 @@ pub(super) fn get_project_context(repo_root: &Path) -> Result<ProjectContext> {
     let project_name = repo_root
         .file_name()
         .and_then(|s| s.to_str())
-        .map(String::from)
-        .map_or_else(|| "new-project".to_string(), |s| s);
+        .map(String::from).unwrap_or_else(|| "new-project".to_string());
 
     ProjectContext::new(
         project_name,
@@ -343,7 +342,7 @@ pub(super) async fn create_agents_md(repo_root: &Path) -> Result<()> {
     let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::AgentsMd, &context)?;
     let path = repo_root.join("AGENTS.md");
-    if !tokio::fs::try_exists(&path).await.map_or(false, |e| e) {
+    if !tokio::fs::try_exists(&path).await.is_ok_and(|e| e) {
         tokio::fs::write(&path, rendered_content)
             .await
             .context("Failed to create AGENTS.md")?;
@@ -358,7 +357,7 @@ pub(super) async fn create_claude_md(repo_root: &Path) -> Result<()> {
     let context = get_project_context(repo_root)?;
     let rendered_content = render_template(TemplateType::ClaudeMd, &context)?;
     let path = repo_root.join("CLAUDE.md");
-    if !tokio::fs::try_exists(&path).await.map_or(false, |e| e) {
+    if !tokio::fs::try_exists(&path).await.is_ok_and(|e| e) {
         tokio::fs::write(&path, rendered_content)
             .await
             .context("Failed to create CLAUDE.md")?;
@@ -384,7 +383,7 @@ pub(super) async fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
 
     if !tokio::fs::try_exists(&workspace_path)
         .await
-        .map_or(false, |e| e)
+        .is_ok_and(|e| e)
     {
         let workspace_yml = render_template(TemplateType::MoonWorkspace, &context)
             .context("Failed to render workspace.yml template")?;
@@ -400,7 +399,7 @@ pub(super) async fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
 
     if !tokio::fs::try_exists(&toolchain_path)
         .await
-        .map_or(false, |e| e)
+        .is_ok_and(|e| e)
     {
         let toolchain_yml = render_template(TemplateType::MoonToolchain, &context)
             .context("Failed to render toolchain.yml template")?;
@@ -416,7 +415,7 @@ pub(super) async fn create_moon_pipeline(repo_root: &Path) -> Result<()> {
 
     if !tokio::fs::try_exists(&tasks_path)
         .await
-        .map_or(false, |e| e)
+        .is_ok_and(|e| e)
     {
         let tasks_yml = render_template(TemplateType::MoonTasks, &context)
             .context("Failed to render tasks.yml template")?;
@@ -450,7 +449,7 @@ pub(super) async fn create_docs(repo_root: &Path) -> Result<()> {
             async move {
                 let rendered = render_template(*template_type, context)?;
                 let path = docs_dir.join(template_type.as_str());
-                if !tokio::fs::try_exists(&path).await.map_or(false, |e| e) {
+                if !tokio::fs::try_exists(&path).await.is_ok_and(|e| e) {
                     tokio::fs::write(&path, rendered)
                         .await
                         .with_context(|| format!("Failed to create {}", path.display()))?;

@@ -121,7 +121,7 @@ impl fmt::Display for RevertError {
 impl std::error::Error for RevertError {}
 
 impl RevertError {
-    pub fn error_code(&self) -> &'static str {
+    pub const fn error_code(&self) -> &'static str {
         match self {
             Self::NotInMain { .. } => "NOT_IN_MAIN",
             Self::SessionNotFound { .. } => "SESSION_NOT_FOUND",

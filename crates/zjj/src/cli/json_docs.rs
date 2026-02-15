@@ -1,7 +1,7 @@
 //! JSON OUTPUT documentation for command help
 //! These strings document the `SchemaEnvelope` structure used in JSON output
 
-pub fn add() -> &'static str {
+pub const fn add() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -16,7 +16,7 @@ pub fn add() -> &'static str {
   }"#
 }
 
-pub fn list() -> &'static str {
+pub const fn list() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps sessions in a SchemaEnvelopeArray:
   {
@@ -48,7 +48,7 @@ pub fn list() -> &'static str {
   Session fields are included via serde(flatten) - no duplicate keys (RFC 8259 compliant)."#
 }
 
-pub fn remove() -> &'static str {
+pub const fn remove() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -61,7 +61,7 @@ pub fn remove() -> &'static str {
   }"#
 }
 
-pub fn focus() -> &'static str {
+pub const fn focus() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -75,7 +75,7 @@ pub fn focus() -> &'static str {
   }"#
 }
 
-pub fn status() -> &'static str {
+pub const fn status() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps sessions in a SchemaEnvelope:
   {
@@ -111,7 +111,7 @@ pub fn status() -> &'static str {
   }"#
 }
 
-pub fn sync() -> &'static str {
+pub const fn sync() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -126,7 +126,7 @@ pub fn sync() -> &'static str {
   }"#
 }
 
-pub fn init() -> &'static str {
+pub const fn init() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -142,7 +142,7 @@ pub fn init() -> &'static str {
   }"#
 }
 
-pub fn spawn() -> &'static str {
+pub const fn spawn() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -159,7 +159,7 @@ pub fn spawn() -> &'static str {
   }"#
 }
 
-pub fn done() -> &'static str {
+pub const fn done() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -174,7 +174,7 @@ pub fn done() -> &'static str {
   }"#
 }
 
-pub fn diff() -> &'static str {
+pub const fn diff() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -195,7 +195,7 @@ pub fn diff() -> &'static str {
   }"#
 }
 
-pub fn config() -> &'static str {
+pub const fn config() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -209,7 +209,7 @@ pub fn config() -> &'static str {
   }"#
 }
 
-pub fn clean() -> &'static str {
+pub const fn clean() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -222,7 +222,7 @@ pub fn clean() -> &'static str {
   }"#
 }
 
-pub fn introspect() -> &'static str {
+pub const fn introspect() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -236,7 +236,7 @@ pub fn introspect() -> &'static str {
   }"#
 }
 
-pub fn doctor() -> &'static str {
+pub const fn doctor() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -261,7 +261,7 @@ pub fn doctor() -> &'static str {
   }"#
 }
 
-pub fn query() -> &'static str {
+pub const fn query() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used (default), output wraps the response in a SchemaEnvelope:
   {
@@ -274,7 +274,7 @@ pub fn query() -> &'static str {
   }"#
 }
 
-pub fn context() -> &'static str {
+pub const fn context() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used (default when not TTY), output wraps the response in a SchemaEnvelope:
   {
@@ -290,7 +290,7 @@ pub fn context() -> &'static str {
   }"#
 }
 
-pub fn checkpoint() -> &'static str {
+pub const fn checkpoint() -> &'static str {
     r#"JSON OUTPUT:
   When --json is used, output wraps the response in a SchemaEnvelope:
   {
@@ -351,7 +351,7 @@ pub const fn export() -> &'static str {
 /// AI-Native contract documentation for commands
 pub mod ai_contracts {
     /// Machine-readable contract for zjj add command
-    pub fn add() -> &'static str {
+    pub const fn add() -> &'static str {
         r#"AI CONTRACT for zjj add:
 {
   "command": "zjj add",
@@ -421,7 +421,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj work command
-    pub fn work() -> &'static str {
+    pub const fn work() -> &'static str {
         r#"AI CONTRACT for zjj work:
 {
   "command": "zjj work",
@@ -566,7 +566,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj spawn command
-    pub fn spawn() -> &'static str {
+    pub const fn spawn() -> &'static str {
         r#"AI CONTRACT for zjj spawn:
 {
   "command": "zjj spawn",
@@ -612,7 +612,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj done command
-    pub fn done() -> &'static str {
+    pub const fn done() -> &'static str {
         r#"AI CONTRACT for zjj done:
 {
   "command": "zjj done",
@@ -662,7 +662,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj sync command
-    pub fn sync() -> &'static str {
+    pub const fn sync() -> &'static str {
         r#"AI CONTRACT for zjj sync:
 {
   "command": "zjj sync",
@@ -735,7 +735,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj abort command
-    pub fn abort() -> &'static str {
+    pub const fn abort() -> &'static str {
         r#"AI CONTRACT for zjj abort:
 {
   "command": "zjj abort",
@@ -800,7 +800,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj remove command
-    pub fn remove() -> &'static str {
+    pub const fn remove() -> &'static str {
         r#"AI CONTRACT for zjj remove:
 {
   "command": "zjj remove",
@@ -888,7 +888,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj status command
-    pub fn status() -> &'static str {
+    pub const fn status() -> &'static str {
         r#"AI CONTRACT for zjj status:
 {
   "command": "zjj status",
@@ -938,7 +938,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj ai command
-    pub fn ai() -> &'static str {
+    pub const fn ai() -> &'static str {
         r#"AI CONTRACT for zjj ai:
 {
   "command": "zjj ai",
@@ -1003,7 +1003,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj contract command
-    pub fn contract() -> &'static str {
+    pub const fn contract() -> &'static str {
         r#"AI CONTRACT for zjj contract:
 {
   "command": "zjj contract",
@@ -1063,7 +1063,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj can-i command
-    pub fn can_i() -> &'static str {
+    pub const fn can_i() -> &'static str {
         r#"AI CONTRACT for zjj can-i:
 {
   "command": "zjj can-i",
@@ -1113,7 +1113,7 @@ pub mod ai_contracts {
     }
 
     /// AI hints for command sequencing
-    pub fn command_flow() -> &'static str {
+    pub const fn command_flow() -> &'static str {
         r#"AI COMMAND FLOW:
 {
   "typical_workflows": {
@@ -1160,7 +1160,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj diff command
-    pub fn diff() -> &'static str {
+    pub const fn diff() -> &'static str {
         r#"AI CONTRACT for zjj diff:
 {
   "command": "zjj diff",
@@ -1228,7 +1228,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj list command
-    pub fn list() -> &'static str {
+    pub const fn list() -> &'static str {
         r#"AI CONTRACT for zjj list:
 {
   "command": "zjj list",
@@ -1319,7 +1319,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj focus command
-    pub fn focus() -> &'static str {
+    pub const fn focus() -> &'static str {
         r#"AI CONTRACT for zjj focus:
 {
   "command": "zjj focus",
@@ -1382,7 +1382,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj context command
-    pub fn context() -> &'static str {
+    pub const fn context() -> &'static str {
         r#"AI CONTRACT for zjj context:
 {
   "command": "zjj context",
@@ -1475,7 +1475,7 @@ pub mod ai_contracts {
 
     /// Machine-readable contract for zjj introspect command
     #[allow(clippy::too_many_lines)]
-    pub fn introspect() -> &'static str {
+    pub const fn introspect() -> &'static str {
         r#"AI CONTRACT for zjj introspect:
 {
   "command": "zjj introspect",
@@ -1608,7 +1608,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj examples command
-    pub fn examples() -> &'static str {
+    pub const fn examples() -> &'static str {
         r#"AI CONTRACT for zjj examples:
 {
   "command": "zjj examples",
@@ -1673,7 +1673,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj validate command
-    pub fn validate() -> &'static str {
+    pub const fn validate() -> &'static str {
         r#"AI CONTRACT for zjj validate:
 {
   "command": "zjj validate",
@@ -1718,7 +1718,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj whatif command
-    pub fn whatif() -> &'static str {
+    pub const fn whatif() -> &'static str {
         r#"AI CONTRACT for zjj whatif:
 {
   "command": "zjj whatif",
@@ -1818,7 +1818,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj whereami command
-    pub fn whereami() -> &'static str {
+    pub const fn whereami() -> &'static str {
         r#"AI CONTRACT for zjj whereami:
 {
   "command": "zjj whereami",
@@ -1882,7 +1882,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj query command
-    pub fn query() -> &'static str {
+    pub const fn query() -> &'static str {
         r#"AI CONTRACT for zjj query:
 {
   "command": "zjj query",
@@ -2004,7 +2004,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj whoami command
-    pub fn whoami() -> &'static str {
+    pub const fn whoami() -> &'static str {
         r#"AI CONTRACT for zjj whoami:
 {
   "command": "zjj whoami",

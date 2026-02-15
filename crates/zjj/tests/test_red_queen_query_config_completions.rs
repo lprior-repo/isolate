@@ -1,4 +1,5 @@
 // Martin Fowler-style adversarial regressions for query/config/completions.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 mod common;
 
@@ -470,8 +471,7 @@ fn bdd_config_empty_array_round_trips_without_phantom_empty_item() {
         .expect("watch.paths should deserialize as array in JSON mode");
     assert!(
         value_array.is_empty(),
-        "Expected [] after round-trip, got: {}",
-        value
+        "Expected [] after round-trip, got: {value}"
     );
 }
 

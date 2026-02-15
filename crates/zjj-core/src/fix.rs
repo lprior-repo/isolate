@@ -179,7 +179,7 @@ impl ErrorWithFixes {
     ///
     /// Fixes should be ordered from safest to most risky.
     #[must_use]
-    pub fn with_fixes(error: Error, fixes: Vec<Fix>) -> Self {
+    pub const fn with_fixes(error: Error, fixes: Vec<Fix>) -> Self {
         Self { error, fixes }
     }
 

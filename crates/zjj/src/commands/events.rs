@@ -177,7 +177,7 @@ async fn run_follow(options: &EventsOptions) -> Result<()> {
         }
 
         // Poll interval
-        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
 }
 

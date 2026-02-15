@@ -35,7 +35,6 @@
     clippy::manual_clamp,
 )]
 
-use std::path::Path;
 
 use tempfile::TempDir;
 use zjj_core::Result;

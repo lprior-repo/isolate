@@ -158,7 +158,7 @@ async fn handle_early_exit(
         // Note: The green regression suite established that we should FAIL if in_progress
         // unless we want to change that behavior. The current test expects rejection.
         match &bead_status_result {
-            Ok(_) => {
+            Ok(()) => {
                 // Workspace exists but bead is open. This is unusual but we can treat as
                 // success/running.
             }

@@ -141,7 +141,7 @@ impl MergeQueue {
 
     /// Get a reference to the underlying database pool.
     /// This is intended for testing purposes to allow direct SQL manipulation.
-    pub fn pool(&self) -> &SqlitePool {
+    pub const fn pool(&self) -> &SqlitePool {
         &self.pool
     }
 

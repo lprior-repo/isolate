@@ -84,25 +84,25 @@ impl WorkspaceState {
 
     /// Returns true if this is a terminal state (no further transitions possible).
     #[must_use]
-    pub fn is_terminal(self) -> bool {
+    pub const fn is_terminal(self) -> bool {
         matches!(self, Self::Merged | Self::Abandoned)
     }
 
     /// Returns true if this state indicates active work is happening.
     #[must_use]
-    pub fn is_active(self) -> bool {
+    pub const fn is_active(self) -> bool {
         matches!(self, Self::Working | Self::Conflict)
     }
 
     /// Returns true if this state indicates work is complete (ready or merged).
     #[must_use]
-    pub fn is_complete(self) -> bool {
+    pub const fn is_complete(self) -> bool {
         matches!(self, Self::Ready | Self::Merged)
     }
 
     /// Returns all possible workspace states as a slice.
     #[must_use]
-    pub fn all() -> &'static [Self] {
+    pub const fn all() -> &'static [Self] {
         &[
             Self::Created,
             Self::Working,

@@ -495,6 +495,13 @@ async fn verify_workspace_consistency(name: &str, path: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::significant_drop_tightening,
+        clippy::unnecessary_cast,
+        clippy::assertions_on_constants,
+        clippy::suspicious_open_options
+    )]
+
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use tokio::sync::Barrier;
@@ -655,7 +662,7 @@ mod tests {
             operation_id: "abc123".into(),
             repo_root: PathBuf::from("/tmp/repo"),
         };
-        let cloned = info.clone();
+        let cloned = info;
         assert_eq!(cloned.operation_id, "abc123");
         assert_eq!(cloned.repo_root, PathBuf::from("/tmp/repo"));
     }
@@ -666,7 +673,7 @@ mod tests {
             operation_id: "xyz789".into(),
             repo_root: PathBuf::from("/test/path"),
         };
-        let debug_str = format!("{:?}", info);
+        let debug_str = format!("{info:?}");
         assert!(debug_str.contains("xyz789"));
         assert!(debug_str.contains("/test/path"));
     }

@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic, clippy::too_many_lines, clippy::too_many_arguments, clippy::bool_assert_comparison, clippy::duration_suboptimal_units, clippy::filter_map_bool_then)]
 // Integration tests have relaxed clippy settings for brutal test scenarios.
 // Production code (src/) must use strict zero-unwrap/panic patterns.
 #![allow(

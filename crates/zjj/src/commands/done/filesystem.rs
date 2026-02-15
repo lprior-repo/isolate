@@ -47,7 +47,7 @@ pub struct RealFileSystem;
 
 impl RealFileSystem {
     /// Create a new `RealFileSystem`
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 }
@@ -87,7 +87,7 @@ impl FileSystem for RealFileSystem {
         Box::pin(async move {
             tokio::fs::try_exists(path)
                 .await
-                .map_or(false, |exists| exists)
+                .is_ok_and(|exists| exists)
         })
     }
 

@@ -85,7 +85,7 @@ pub enum RepairStrategy {
 impl RepairStrategy {
     /// Get a human-readable description of the strategy
     #[must_use]
-    pub fn description(&self) -> &'static str {
+    pub const fn description(&self) -> &'static str {
         match self {
             Self::NoRepair | Self::NoRepairPossible => "No automated repair possible",
             Self::ClearLocks => "Clear stale lock files",
@@ -189,7 +189,7 @@ impl IntegrityIssue {
 
     /// Set a custom repair strategy
     #[must_use]
-    pub fn with_strategy(mut self, strategy: RepairStrategy) -> Self {
+    pub const fn with_strategy(mut self, strategy: RepairStrategy) -> Self {
         self.recommended_strategy = strategy;
         self
     }
@@ -207,7 +207,7 @@ impl IntegrityIssue {
     }
 
     /// Determine the recommended repair strategy for a corruption type
-    pub fn recommended_strategy_for_type(corruption_type: CorruptionType) -> RepairStrategy {
+    pub const fn recommended_strategy_for_type(corruption_type: CorruptionType) -> RepairStrategy {
         match corruption_type {
             CorruptionType::MissingDirectory | CorruptionType::CorruptedJjDir => {
                 RepairStrategy::ForgetAndRecreate
@@ -277,7 +277,7 @@ impl ValidationResult {
 
     /// Set the check duration
     #[must_use]
-    pub fn with_duration(mut self, duration_ms: u64) -> Self {
+    pub const fn with_duration(mut self, duration_ms: u64) -> Self {
         self.duration_ms = duration_ms;
         self
     }
@@ -386,7 +386,7 @@ impl IntegrityValidator {
 
     /// Set custom timeout
     #[must_use]
-    pub fn with_timeout(mut self, timeout_ms: u64) -> Self {
+    pub const fn with_timeout(mut self, timeout_ms: u64) -> Self {
         self.timeout_ms = timeout_ms;
         self
     }
@@ -811,7 +811,7 @@ impl RepairExecutor {
     /// NOTE: Defaults to NO BACKUP for safety. Use `with_backup_manager()`
     /// to enable backups before destructive operations.
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             backup_config: BackupConfig::NoBackup,
         }
@@ -839,7 +839,7 @@ impl RepairExecutor {
 
     /// Check if this executor creates backups before repair
     #[must_use]
-    pub fn creates_backups(&self) -> bool {
+    pub const fn creates_backups(&self) -> bool {
         matches!(self.backup_config, BackupConfig::WithBackup(_))
     }
 
@@ -1090,7 +1090,7 @@ impl BackupManager {
     }
 
     /// List available backups
-    pub fn list_backups(&self, _workspace_name: &str) -> Result<Vec<BackupMetadata>> {
+    pub const fn list_backups(&self, _workspace_name: &str) -> Result<Vec<BackupMetadata>> {
         // Mock implementation
         Ok(Vec::new())
     }

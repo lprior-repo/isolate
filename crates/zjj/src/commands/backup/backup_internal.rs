@@ -68,7 +68,7 @@ impl BackupConfig {
     /// Create backup config with custom retention
     #[allow(dead_code)]
     // Builder pattern method for backup configuration
-    pub fn with_retention(mut self, count: usize) -> Self {
+    pub const fn with_retention(mut self, count: usize) -> Self {
         self.retention_count = count;
         self
     }

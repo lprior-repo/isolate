@@ -1,7 +1,5 @@
 #![cfg(test)]
 
-use serde_json;
-
 use super::json::{
     schemas::{self, all_valid_schemas, is_valid_schema, uri},
     ErrorDetail, JsonError, JsonSuccess, SchemaEnvelope,
@@ -200,7 +198,7 @@ fn given_different_data_types_when_create_envelope_then_works_for_all() {
 
     assert_eq!(string_env.data, "string data");
     assert_eq!(int_env.data, 123);
-    assert_eq!(bool_env.data, true);
+    assert!(bool_env.data);
 }
 
 // Behavior: Query schema names are included in all_valid_schemas
