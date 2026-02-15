@@ -1363,7 +1363,7 @@ pub fn cmd_queue() -> ClapCommand {
                 "zjj queue worker --loop                   Run worker continuously",
                 "zjj queue --list --json                   Show queue as JSON",
             ],
-            None,
+            Some(json_docs::queue()),
         ))
         .group(
             ArgGroup::new("queue-action")
@@ -1394,6 +1394,19 @@ pub fn cmd_queue() -> ClapCommand {
             Arg::new("bead")
                 .long("bead")
                 .value_name("BEAD_ID")
+                .requires("add")
+                .conflicts_with_all([
+                    "list",
+                    "next",
+                    "process",
+                    "remove",
+                    "status",
+                    "status-id",
+                    "cancel",
+                    "retry",
+                    "stats",
+                    "reclaim-stale",
+                ])
                 .help("Associate with bead/issue ID (used with --add)"),
         )
         .arg(
@@ -1401,13 +1414,38 @@ pub fn cmd_queue() -> ClapCommand {
                 .long("priority")
                 .value_name("PRIORITY")
                 .value_parser(clap::value_parser!(i32))
-                .default_value("5")
+                .requires("add")
+                .conflicts_with_all([
+                    "list",
+                    "next",
+                    "process",
+                    "remove",
+                    "status",
+                    "status-id",
+                    "cancel",
+                    "retry",
+                    "stats",
+                    "reclaim-stale",
+                ])
                 .help("Queue priority (lower = higher priority, 1-10, default: 5)"),
         )
         .arg(
             Arg::new("agent")
                 .long("agent")
                 .value_name("AGENT_ID")
+                .requires("add")
+                .conflicts_with_all([
+                    "list",
+                    "next",
+                    "process",
+                    "remove",
+                    "status",
+                    "status-id",
+                    "cancel",
+                    "retry",
+                    "stats",
+                    "reclaim-stale",
+                ])
                 .help("Agent ID that will process this entry"),
         )
         .arg(
