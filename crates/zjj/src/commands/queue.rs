@@ -8,7 +8,7 @@
 //! - Removing entries from the queue
 //! - Checking overall queue status and statistics
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
