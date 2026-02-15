@@ -148,14 +148,168 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
 /// Run the add command with options
 #[allow(clippy::too_many_lines)]
 pub async fn run_with_options(options: &AddOptions) -> Result<()> {
-    // Validate session name (REQ-CLI-015)
-    // Map zjj_core::Error to anyhow::Error while preserving the original error
+    // Phase 1: Validate input and environment
     validate_session_name(&options.name).map_err(anyhow::Error::new)?;
-
     let db = get_session_db().await?;
-    let create_command_id = command_context::next_write_command_id("create", &options.name);
     let root = check_prerequisites().await?;
 
+    // Load config to determine paths
+    let cfg = config::load_config()
+        .await
+        .map_err(|e| anyhow::Error::msg(e.to_string()))?;
+    let workspace_path = root.join(&cfg.workspace_dir).join(&options.name);
+    let workspace_path_str = workspace_path.display().to_string();
+
+    // Phase 2: Check for existing session and handle early exit
+    if let Some(existing) = db.get(&options.name).await? {
+        return handle_existing_session(options, &db, existing).await;
+    }
+
+    // Phase 3: Handle dry run for new session
+    if options.dry_run {
+        return handle_new_session_dry_run(options, &workspace_path_str).await;
+    }
+
+    // Phase 4: Perform the actual creation sequence
+    let session = perform_creation_sequence(options, &root, &workspace_path, &db).await?;
+
+    // Phase 5: Handle Zellij integration (may never return if it execs)
+    handle_zellij_interaction(options, &workspace_path_str, &session).await
+}
+
+/// Handle logic for when a session already exists
+async fn handle_existing_session(
+    options: &AddOptions,
+    db: &SessionDb,
+    existing: crate::session::Session,
+) -> Result<()> {
+    let create_command_id = command_context::next_write_command_id("create", &options.name);
+
+    if let Some(ref command_id) = create_command_id {
+        if db.is_command_processed(command_id).await? {
+            output_result(
+                &options.name,
+                &existing.workspace_path,
+                &existing.zellij_tab,
+                "already exists (command replay)",
+                false,
+                options.format,
+            );
+            return Ok(());
+        }
+    }
+
+    if options.idempotent {
+        if options.dry_run {
+            handle_existing_session_dry_run(options, &existing)?;
+            return Ok(());
+        }
+
+        // Idempotent mode: return success with existing session info
+        output_result(
+            &options.name,
+            &existing.workspace_path,
+            &existing.zellij_tab,
+            "already exists (idempotent)",
+            false,
+            options.format,
+        );
+        return Ok(());
+    }
+
+    // Session already exists and idempotent mode is not enabled
+    let error = zjj_core::Error::ValidationError {
+        message: format!("Session '{}' already exists", options.name),
+        field: Some("session_name".to_string()),
+        value: Some(options.name.clone()),
+        constraints: vec!["unique session name required".to_string()],
+    };
+    Err(anyhow::Error::new(error).context(format!(
+        "Session path: {}\n\nAlternatives:\n  - Use a different name\n  - Use --idempotent to reuse\n  - Use --force to overwrite (if implemented)",
+        existing.workspace_path
+    )))
+}
+
+/// Handle dry run output for an existing session
+fn handle_existing_session_dry_run(
+    options: &AddOptions,
+    existing: &crate::session::Session,
+) -> Result<()> {
+    if options.format.is_json() {
+        let output = AddOutput {
+            name: options.name.clone(),
+            workspace_path: existing.workspace_path.clone(),
+            zellij_tab: existing.zellij_tab.clone(),
+            status: "[DRY RUN] Session already exists (idempotent)".to_string(),
+            created: false,
+        };
+        let mut envelope =
+            serde_json::to_value(SchemaEnvelope::new("add-response", "single", &output))?;
+        if let Some(obj) = envelope.as_object_mut() {
+            obj.insert(
+                "schema".to_string(),
+                serde_json::Value::String("add-response".to_string()),
+            );
+            obj.insert(
+                "type".to_string(),
+                serde_json::Value::String("single".to_string()),
+            );
+            obj.insert("data".to_string(), serde_json::to_value(output)?);
+            obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
+        }
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!(
+            "[DRY RUN] Session '{}' already exists (idempotent)",
+            options.name
+        );
+        println!("  Workspace: {}", existing.workspace_path);
+        println!("  Zellij tab: {}", existing.zellij_tab);
+    }
+    Ok(())
+}
+
+/// Handle dry run output for a new session
+async fn handle_new_session_dry_run(options: &AddOptions, workspace_path_str: &str) -> Result<()> {
+    let zellij_tab = format!("zjj:{name}", name = options.name);
+    if options.format.is_json() {
+        let output = AddOutput {
+            name: options.name.clone(),
+            workspace_path: workspace_path_str.to_string(),
+            zellij_tab,
+            status: "[DRY RUN] Would create session".to_string(),
+            created: true,
+        };
+        let mut envelope =
+            serde_json::to_value(SchemaEnvelope::new("add-response", "single", &output))?;
+        if let Some(obj) = envelope.as_object_mut() {
+            obj.insert(
+                "schema".to_string(),
+                serde_json::Value::String("add-response".to_string()),
+            );
+            obj.insert(
+                "type".to_string(),
+                serde_json::Value::String("single".to_string()),
+            );
+            obj.insert("data".to_string(), serde_json::to_value(output)?);
+            obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
+        }
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+    } else {
+        println!("[DRY RUN] Would create session '{}'", options.name);
+        println!("  Workspace: {workspace_path_str}");
+        println!("  Zellij tab: {zellij_tab}");
+    }
+    Ok(())
+}
+
+/// Perform the actual session creation sequence (atomic create + hooks + activate)
+async fn perform_creation_sequence(
+    options: &AddOptions,
+    root: &std::path::Path,
+    workspace_path: &std::path::Path,
+    db: &SessionDb,
+) -> Result<crate::session::Session> {
     // Query bead metadata if bead_id provided
     let bead_metadata = if let Some(bead_id) = &options.bead_id {
         Some(query_bead_metadata(bead_id).await?)
@@ -163,171 +317,14 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
         None
     };
 
-    // Load config to get workspace_dir setting early for dry-run
-    let cfg = config::load_config()
-        .await
-        .map_err(|e| anyhow::Error::msg(e.to_string()))?;
-    let workspace_base = root.join(&cfg.workspace_dir);
-    let workspace_path = workspace_base.join(&options.name);
-    let workspace_path_str = workspace_path.display().to_string();
+    let create_command_id = command_context::next_write_command_id("create", &options.name);
 
-    // Check if session already exists
-    // Use explicit pattern matching with error handling for better diagnostics
-    let existing_session_result = db.get(&options.name).await;
-    let existing_session = existing_session_result.map_err(|e| {
-        // Log the database query error for debugging
-        tracing::error!(
-            name = %options.name,
-            error = %e,
-            "Failed to query session database for idempotent check"
-        );
-        e
-    })?;
-
-    match existing_session {
-        Some(existing) => {
-            if let Some(ref command_id) = create_command_id {
-                if db.is_command_processed(command_id).await? {
-                    output_result(
-                        &options.name,
-                        &existing.workspace_path,
-                        &existing.zellij_tab,
-                        "already exists (command replay)",
-                        false,
-                        options.format,
-                    );
-                    return Ok(());
-                }
-            }
-
-            // Session already exists and idempotent mode is not enabled
-            // Return rich error with workspace path and alternatives
-            let _hint = zjj_core::ValidationHint::new("session_name", "unique name")
-                .with_received(&options.name)
-                .with_example("my-unique-session")
-                .with_pattern("^[a-zA-Z][a-zA-Z0-9_-]*$");
-
-            if options.idempotent {
-                if options.dry_run {
-                    let zellij_tab = existing.zellij_tab.clone();
-                    if options.format.is_json() {
-                        let output = AddOutput {
-                            name: options.name.clone(),
-                            workspace_path: existing.workspace_path.clone(),
-                            zellij_tab,
-                            status: "[DRY RUN] Session already exists (idempotent)".to_string(),
-                            created: false,
-                        };
-                        let mut envelope = serde_json::to_value(SchemaEnvelope::new(
-                            "add-response",
-                            "single",
-                            &output,
-                        ))?;
-                        if let Some(obj) = envelope.as_object_mut() {
-                            obj.insert(
-                                "schema".to_string(),
-                                serde_json::Value::String("add-response".to_string()),
-                            );
-                            obj.insert(
-                                "type".to_string(),
-                                serde_json::Value::String("single".to_string()),
-                            );
-                            obj.insert("data".to_string(), serde_json::to_value(output)?);
-                            obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
-                        }
-                        println!("{}", serde_json::to_string_pretty(&envelope)?);
-                    } else {
-                        println!(
-                            "[DRY RUN] Session '{}' already exists (idempotent)",
-                            options.name
-                        );
-                        println!("  Workspace: {}", existing.workspace_path);
-                        println!("  Zellij tab: {zellij_tab}");
-                    }
-                    return Ok(());
-                }
-
-                // Idempotent mode: return success with existing session info
-                tracing::info!(
-                    name = %options.name,
-                    workspace_path = %existing.workspace_path,
-                    status = %existing.status,
-                    "Idempotent mode: reusing existing session"
-                );
-                output_result(
-                    &options.name,
-                    &existing.workspace_path,
-                    &existing.zellij_tab,
-                    "already exists (idempotent)",
-                    false,
-                    options.format,
-                );
-                return Ok(());
-            }
-            // Return rich error with workspace path and alternatives
-            let session_path = existing.workspace_path.clone();
-            let error = zjj_core::Error::ValidationError {
-                message: format!("Session '{}' already exists", options.name),
-                field: Some("session_name".to_string()),
-                value: Some(options.name.clone()),
-                constraints: vec!["unique session name required".to_string()],
-            };
-            return Err(anyhow::Error::new(error).context(format!(
-                 "Session path: {session_path}\n\nAlternatives:\n  - Use a different name\n  - Use --idempotent to reuse\n  - Use --force to overwrite (if implemented)"
-             )));
-        }
-        None => {
-            // Session doesn't exist, proceed with creation
-            if options.idempotent {
-                tracing::debug!(
-                    name = %options.name,
-                    "Idempotent mode: session not found, will create new session"
-                );
-            }
-        }
-    }
-
-    // Dry run - just show what would happen
-    if options.dry_run {
-        let zellij_tab = format!("zjj:{name}", name = options.name);
-        if options.format.is_json() {
-            let output = AddOutput {
-                name: options.name.clone(),
-                workspace_path: workspace_path_str,
-                zellij_tab,
-                status: "[DRY RUN] Would create session".to_string(),
-                created: true,
-            };
-            let mut envelope =
-                serde_json::to_value(SchemaEnvelope::new("add-response", "single", &output))?;
-            if let Some(obj) = envelope.as_object_mut() {
-                obj.insert(
-                    "schema".to_string(),
-                    serde_json::Value::String("add-response".to_string()),
-                );
-                obj.insert(
-                    "type".to_string(),
-                    serde_json::Value::String("single".to_string()),
-                );
-                obj.insert("data".to_string(), serde_json::to_value(output)?);
-                obj.insert("dry_run".to_string(), serde_json::Value::Bool(true));
-            }
-            println!("{}", serde_json::to_string_pretty(&envelope)?);
-        } else {
-            println!("[DRY RUN] Would create session '{}'", options.name);
-            println!("  Workspace: {workspace_path_str}");
-            println!("  Zellij tab: {zellij_tab}");
-        }
-        return Ok(());
-    }
-
-    // ATOMIC SESSION CREATION (zjj-bw0x)
-    // Order: DB first (detectable), then workspace (cleanable)
+    // ATOMIC SESSION CREATION
     atomic_create_session(
         &options.name,
-        &workspace_path,
-        &root,
-        &db,
+        workspace_path,
+        root,
+        db,
         bead_metadata,
         create_command_id.as_deref(),
     )
@@ -338,41 +335,34 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
         .await?
         .ok_or_else(|| anyhow::anyhow!("Session record lost during atomic creation"))?;
 
-    // Execute post_create hooks unless --no-hooks (REQ-CLI-004, REQ-CLI-005)
-    // COMPENSATING ACTION: If this fails, session has 'creating' status in DB
-    // Recovery: User can retry with 'zjj done' to complete or 'zjj remove' to clean up
+    // Execute post_create hooks unless --no-hooks
     if !options.no_hooks {
-        if let Err(e) = execute_post_create_hooks(&workspace_path_str).await {
-            return handle_post_create_hook_failure(&options.name, &workspace_path, &db, e).await;
+        if let Err(e) = execute_post_create_hooks(&workspace_path.to_string_lossy()).await {
+            handle_post_create_hook_failure(&options.name, workspace_path, db, e).await?;
         }
     }
 
-    // Transition to 'active' status after successful creation (REQ-STATE-004)
-    // COMPENSATING ACTION: If this fails, session has 'creating' status in DB
-    // Recovery: User can retry with 'zjj done' to complete or 'zjj remove' to clean up
-    match db
-        .update(
-            &options.name,
-            SessionUpdate {
-                status: Some(SessionStatus::Active),
-                ..Default::default()
-            },
-        )
-        .await
-    {
-        Ok(()) => {
-            session.status = SessionStatus::Active;
-        }
-        Err(db_error) => {
-            // Status update failed - session left in 'creating' state
-            // Workspace and DB record both exist but inconsistent
-            return Err(db_error).context("Failed to activate session");
-        }
-    }
+    // Transition to 'active' status
+    db.update(
+        &options.name,
+        SessionUpdate {
+            status: Some(SessionStatus::Active),
+            ..Default::default()
+        },
+    )
+    .await
+    .context("Failed to activate session")?;
 
-    // Open Zellij tab unless --no-open or --no-zellij (REQ-CLI-003)
-    // COMPENSATING ACTION: If this fails, session has 'active' status but Zellij tab doesn't exist
-    // Recovery: User can manually create tab or run 'zjj focus <name>'
+    session.status = SessionStatus::Active;
+    Ok(session)
+}
+
+/// Handle Zellij integration after session creation
+async fn handle_zellij_interaction(
+    options: &AddOptions,
+    workspace_path_str: &str,
+    session: &crate::session::Session,
+) -> Result<()> {
     let zellij_installed = crate::cli::is_zellij_installed().await;
     let no_zellij = options.no_zellij || !crate::cli::is_terminal() || !zellij_installed;
 
@@ -385,20 +375,17 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     if options.no_open || no_zellij {
         output_result(
             &options.name,
-            &workspace_path_str,
+            workspace_path_str,
             &session.zellij_tab,
             "workspace only",
             true,
             options.format,
         );
     } else if is_inside_zellij() {
-        // Inside Zellij: Check if we have an interactive terminal
         if !is_terminal() {
-            // Non-interactive environment (e.g., agent, script)
-            // Session created successfully, but Zellij tab creation is skipped
             output_result(
                 &options.name,
-                &workspace_path_str,
+                workspace_path_str,
                 &session.zellij_tab,
                 "workspace only (non-interactive)",
                 true,
@@ -411,16 +398,15 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
             return Ok(());
         }
 
-        // Interactive terminal: Create tab and switch to it
         create_zellij_tab(
             &session.zellij_tab,
-            &workspace_path_str,
+            workspace_path_str,
             options.template.as_deref(),
         )
         .await?;
         output_result(
             &options.name,
-            &workspace_path_str,
+            workspace_path_str,
             &session.zellij_tab,
             "with Zellij tab",
             true,
@@ -428,11 +414,10 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
         );
     } else {
         // Outside Zellij: Create layout and exec into Zellij
-        // For JSON mode, output before exec (since exec never returns)
         if options.format.is_json() {
             output_result(
                 &options.name,
-                &workspace_path_str,
+                workspace_path_str,
                 &session.zellij_tab,
                 "launching Zellij",
                 true,
@@ -445,12 +430,11 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
 
         let layout = create_session_layout(
             &session.zellij_tab,
-            &workspace_path_str,
+            workspace_path_str,
             options.template.as_deref(),
         )
         .map_err(|e| anyhow::anyhow!("Failed to create session layout: {e}"))?;
         attach_to_zellij_session(Some(&layout)).await?;
-        // Note: This never returns - we exec into Zellij
     }
 
     Ok(())

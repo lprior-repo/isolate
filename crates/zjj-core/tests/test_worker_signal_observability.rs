@@ -208,6 +208,9 @@ mod tests {
             })
             .collect();
 
+        // Wait a bit to ensure tasks are actually waiting
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
         // Trigger shutdown
         shutdown.notify_waiters();
 

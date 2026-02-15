@@ -240,8 +240,7 @@ async fn sync_session_with_options(name: &str, options: SyncOptions) -> Result<(
 }
 
 /// Sync all sessions
-#[allow(clippy::too_many_lines)]
-async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
+pub async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
     let db = get_session_db_with_workspace_detection().await?;
 
     // Get all sessions
@@ -249,129 +248,144 @@ async fn sync_all_with_options(options: SyncOptions) -> Result<()> {
     let sessions = db.list(None).await.map_err(anyhow::Error::new)?;
 
     if sessions.is_empty() {
-        if options.format.is_json() {
-            let output = SyncOutput {
-                name: None,
-                synced_count: 0,
-                failed_count: 0,
-                errors: Vec::new(),
-            };
-            let envelope = SchemaEnvelope::new("sync-response", "single", output);
-            let json_str = serde_json::to_string(&envelope)?;
-            println!("{json_str}");
-        } else {
-            println!("No sessions to sync");
-        }
-        return Ok(());
+        return handle_empty_sync(options);
     }
 
-    // For JSON output, collect results concurrently and output once at the end
+    // Route to appropriate handler based on format
     if options.format.is_json() {
-        let results: Vec<_> = futures::stream::iter(sessions)
-            .map(|session| {
-                let db = &db;
-                async move {
-                    let res = sync_session_internal(
-                        db,
-                        &session.name,
-                        &session.workspace_path,
-                        options.dry_run,
-                    )
-                    .await;
-                    (session, res)
-                }
-            })
-            .buffered(5) // Limit concurrency to 5
-            .collect()
-            .await;
+        sync_all_json(&db, sessions, options).await
+    } else {
+        sync_all_text(&db, sessions, options).await
+    }
+}
 
-        let (successes, errors): (Vec<_>, Vec<_>) =
-            results.into_iter().partition(|(_, res)| res.is_ok());
-
+/// Handle case where no sessions are available to sync
+fn handle_empty_sync(options: SyncOptions) -> Result<()> {
+    if options.format.is_json() {
         let output = SyncOutput {
             name: None,
-            synced_count: successes.len(),
-            failed_count: errors.len(),
-            errors: errors
-                .into_iter()
-                .filter_map(|(session, res)| {
-                    res.err().map(|e| SyncError {
-                        name: session.name.clone(),
-                        error: ErrorDetail {
-                            code: "SYNC_FAILED".to_string(),
-                            message: e.to_string(),
-                            exit_code: 3,
-                            details: None,
-                            suggestion: Some(
-                                "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
-                            ),
-                        },
-                    })
-                })
-                .collect(),
+            synced_count: 0,
+            failed_count: 0,
+            errors: Vec::new(),
         };
-
-        let has_failures = output.failed_count > 0;
-        let envelope = if has_failures {
-            SchemaEnvelope::new("sync-response", "single", output).as_error()
-        } else {
-            SchemaEnvelope::new("sync-response", "single", output)
-        };
-        let json_str = serde_json::to_string(&envelope)?;
-        println!("{json_str}");
-
-        if has_failures {
-            anyhow::bail!("Failed to sync {} session(s)", envelope.data.failed_count);
-        }
+        let envelope = SchemaEnvelope::new("sync-response", "single", output);
+        println!("{}", serde_json::to_string(&envelope)?);
     } else {
-        // Original text output
-        println!("Syncing {} session(s)...", sessions.len());
-
-        // Process sessions sequentially for text mode to avoid interleaved output
-        let (success_count, failure_count, errors) = futures::stream::iter(sessions)
-            .fold(
-                (0, 0, Vec::new()),
-                |(mut s_acc, mut f_acc, mut err_acc), session| {
-                    let db = &db;
-                    async move {
-                        print!("Syncing '{}' ... ", &session.name);
-                        let _ = std::io::stdout().flush();
-
-                        match sync_session_internal(
-                            db,
-                            &session.name,
-                            &session.workspace_path,
-                            options.dry_run,
-                        )
-                        .await
-                        {
-                            Ok(()) => {
-                                println!("OK");
-                                s_acc += 1;
-                            }
-                            Err(e) => {
-                                println!("FAILED: {e}");
-                                f_acc += 1;
-                                err_acc.push((session.name.clone(), e));
-                            }
-                        }
-                        (s_acc, f_acc, err_acc)
-                    }
-                },
-            )
-            .await;
-
-        println!();
-        println!("Summary: {success_count} succeeded, {failure_count} failed");
-
-        if !errors.is_empty() {
-            println!("\nErrors:");
-            for (name, error) in errors {
-                println!("  {name}: {error}");
-            }
-            anyhow::bail!("Failed to sync {failure_count} session(s)");
-        }
+        println!("No sessions to sync");
     }
+    Ok(())
+}
+
+/// Sync all sessions with JSON output
+async fn sync_all_json(
+    db: &crate::db::SessionDb,
+    sessions: Vec<crate::session::Session>,
+    options: SyncOptions,
+) -> Result<()> {
+    // Collect results concurrently
+    let results: Vec<_> = futures::stream::iter(sessions)
+        .map(|session| async move {
+            let res =
+                sync_session_internal(db, &session.name, &session.workspace_path, options.dry_run)
+                    .await;
+            (session, res)
+        })
+        .buffered(5) // Limit concurrency to 5
+        .collect()
+        .await;
+
+    let (successes, errors): (Vec<_>, Vec<_>) =
+        results.into_iter().partition(|(_, res)| res.is_ok());
+
+    let output = SyncOutput {
+        name: None,
+        synced_count: successes.len(),
+        failed_count: errors.len(),
+        errors: errors
+            .into_iter()
+            .filter_map(|(session, res)| {
+                res.err().map(|e| SyncError {
+                    name: session.name.clone(),
+                    error: ErrorDetail {
+                        code: "SYNC_FAILED".to_string(),
+                        message: e.to_string(),
+                        exit_code: 3,
+                        details: None,
+                        suggestion: Some(
+                            "Try 'jj resolve' to fix conflicts, then retry sync".to_string(),
+                        ),
+                    },
+                })
+            })
+            .collect(),
+    };
+
+    let has_failures = output.failed_count > 0;
+    let envelope = if has_failures {
+        SchemaEnvelope::new("sync-response", "single", output).as_error()
+    } else {
+        SchemaEnvelope::new("sync-response", "single", output)
+    };
+
+    println!("{}", serde_json::to_string(&envelope)?);
+
+    if has_failures {
+        anyhow::bail!("Failed to sync {} session(s)", envelope.data.failed_count);
+    }
+
+    Ok(())
+}
+
+/// Sync all sessions with text output
+async fn sync_all_text(
+    db: &crate::db::SessionDb,
+    sessions: Vec<crate::session::Session>,
+    options: SyncOptions,
+) -> Result<()> {
+    println!("Syncing {} session(s)...", sessions.len());
+
+    // Process sessions sequentially for text mode to avoid interleaved output
+    let (success_count, failure_count, errors) = futures::stream::iter(sessions)
+        .fold(
+            (0, 0, Vec::new()),
+            |(mut s_acc, mut f_acc, mut err_acc), session| async move {
+                print!("Syncing '{}' ... ", &session.name);
+                let _ = std::io::stdout().flush();
+
+                match sync_session_internal(
+                    db,
+                    &session.name,
+                    &session.workspace_path,
+                    options.dry_run,
+                )
+                .await
+                {
+                    Ok(()) => {
+                        println!("OK");
+                        s_acc += 1;
+                    }
+                    Err(e) => {
+                        println!("FAILED: {e}");
+                        f_acc += 1;
+                        err_acc.push((session.name.clone(), e));
+                    }
+                }
+                (s_acc, f_acc, err_acc)
+            },
+        )
+        .await;
+
+    println!();
+    println!("Summary: {success_count} succeeded, {failure_count} failed");
+
+    if !errors.is_empty() {
+        println!("\nErrors:");
+        for (name, error) in errors {
+            println!("  {name}: {error}");
+        }
+        anyhow::bail!("Failed to sync {failure_count} session(s)");
+    }
+
     Ok(())
 }
 

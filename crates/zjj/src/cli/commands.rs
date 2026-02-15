@@ -3001,8 +3001,8 @@ pub fn cmd_wait() -> ClapCommand {
                 .short('i')
                 .long("interval")
                 .value_parser(clap::value_parser!(u64).range(1..))
-                .default_value("1")
-                .help("Polling interval in seconds"),
+                .default_value("1000")
+                .help("Polling interval in milliseconds"),
         )
         .arg(
             Arg::new("json")

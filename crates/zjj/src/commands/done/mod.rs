@@ -101,8 +101,7 @@ pub async fn run_with_options(options: &DoneOptions) -> Result<()> {
 }
 
 /// Core done logic using Railway-Oriented Programming
-#[allow(clippy::too_many_lines)]
-async fn execute_done(
+pub async fn execute_done(
     options: &DoneOptions,
     executor: &dyn executor::JjExecutor,
     bead_repo: &mut dyn bead::BeadRepository,
@@ -116,106 +115,158 @@ async fn execute_done(
     };
 
     // If a specific workspace was requested, we need to find its path
-    let db = get_session_db()
-        .await
-        .map_err(|e| DoneError::InvalidState {
-            reason: format!("Failed to open session database: {e}"),
-        })?;
-
-    let session = db
-        .get(&workspace_name)
-        .await
-        .map_err(|e| DoneError::InvalidState {
-            reason: format!("Failed to query session: {e}"),
-        })?
-        .ok_or_else(|| DoneError::WorkspaceNotFound {
-            workspace_name: workspace_name.clone(),
-        })?;
+    let session = get_session_info(&workspace_name).await?;
 
     // Create an executor that runs in the workspace directory if needed
     let workspace_executor =
         executor::WorkspaceExecutor::new(executor, PathBuf::from(&session.workspace_path));
 
-    // Phase 2: Build preview for dry-run
-    let preview = if options.dry_run {
-        Some(
-            build_preview(
-                &root,
-                &workspace_name,
-                Path::new(&session.workspace_path),
-                &workspace_executor,
-                bead_repo,
-                options,
-            )
-            .await?,
-        )
-    } else {
-        None
-    };
-
+    // Phase 2: Handle dry-run early
     if options.dry_run {
+        let preview = build_preview(
+            &root,
+            &workspace_name,
+            Path::new(&session.workspace_path),
+            &workspace_executor,
+            bead_repo,
+            options,
+        )
+        .await?;
+
         return Ok(DoneOutput {
             workspace_name,
             dry_run: true,
-            preview,
+            preview: Some(preview),
             session_updated: false,
             ..Default::default()
         });
     }
 
-    // Phase 3: Check uncommitted files
-    let uncommitted_files = get_uncommitted_files(&root, &workspace_executor).await?;
-
-    // Phase 4: Commit uncommitted changes
-    let files_committed = if uncommitted_files.is_empty() {
-        0
-    } else {
-        commit_changes(
-            &root,
-            &workspace_name,
-            options.message.as_deref(),
-            &workspace_executor,
-        )
-        .await?
-    };
+    // Phase 3-4: Prep workspace (commit uncommitted changes)
+    let files_committed =
+        prepare_workspace_for_merge(&root, &workspace_name, options, &workspace_executor).await?;
 
     // Phase 5: Check for conflicts
     check_conflicts(&root, &workspace_executor)
         .await
         .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
 
-    // Phase 5.5: Get pre-merge commit ID (for undo)
+    // Phase 5.5-6: Gather merge metadata
     let pre_merge_commit_id = get_current_commit_id(&root, &workspace_executor).await?;
-
-    // Phase 5.6: Check if pushed to remote (for undo)
     let pushed_to_remote = is_pushed_to_remote(&root, &workspace_executor).await?;
-
-    // Phase 6: Get commits to merge
     let commits_to_merge = get_commits_to_merge(&root, &workspace_executor).await?;
 
-    // Phase 7: Merge to main
-    merge_to_main(
-        &root,
-        &workspace_name,
-        options.squash,
-        options.message.as_deref(),
-        &workspace_executor,
-    )
-    .await
-    .map_err(|err| queue_merge_conflict(err, &workspace_name, bead_repo))?;
-
-    // Phase 7.5: Log undo history
-    log_undo_history(
+    // Phase 7: Perform merge and log undo history
+    perform_merge_and_undo_log(
         &root,
         &workspace_name,
         &pre_merge_commit_id,
+        pushed_to_remote,
+        options,
+        &workspace_executor,
+        filesystem,
+        bead_repo,
+    )
+    .await?;
+
+    // Phase 8-9: Update statuses and cleanup
+    finalize_done_status(
+        &workspace_name,
+        &session.workspace_path,
+        options,
+        bead_repo,
+        filesystem,
+        files_committed,
+        commits_to_merge.len(),
+        pushed_to_remote,
+    )
+    .await
+}
+
+/// Get session info from database
+async fn get_session_info(workspace_name: &str) -> Result<crate::session::Session, DoneError> {
+    let db = get_session_db()
+        .await
+        .map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to open session database: {e}"),
+        })?;
+
+    db.get(workspace_name)
+        .await
+        .map_err(|e| DoneError::InvalidState {
+            reason: format!("Failed to query session: {e}"),
+        })?
+        .ok_or_else(|| DoneError::WorkspaceNotFound {
+            workspace_name: workspace_name.to_string(),
+        })
+}
+
+/// Commit uncommitted changes in preparation for merge
+async fn prepare_workspace_for_merge(
+    root: &str,
+    workspace_name: &str,
+    options: &DoneOptions,
+    executor: &dyn executor::JjExecutor,
+) -> Result<usize, DoneError> {
+    let uncommitted_files = get_uncommitted_files(root, executor).await?;
+
+    if uncommitted_files.is_empty() {
+        Ok(0)
+    } else {
+        commit_changes(root, workspace_name, options.message.as_deref(), executor).await
+    }
+}
+
+/// Perform merge to main and record in undo history
+#[allow(clippy::too_many_arguments)]
+async fn perform_merge_and_undo_log(
+    root: &str,
+    workspace_name: &str,
+    pre_merge_commit_id: &str,
+    pushed_to_remote: bool,
+    options: &DoneOptions,
+    executor: &dyn executor::JjExecutor,
+    filesystem: &dyn filesystem::FileSystem,
+    bead_repo: &dyn bead::BeadRepository,
+) -> Result<(), DoneError> {
+    // Phase 7: Merge to main
+    merge_to_main(
+        root,
+        workspace_name,
+        options.squash,
+        options.message.as_deref(),
+        executor,
+    )
+    .await
+    .map_err(|err| queue_merge_conflict(err, workspace_name, bead_repo))?;
+
+    // Phase 7.5: Log undo history
+    log_undo_history(
+        root,
+        workspace_name,
+        pre_merge_commit_id,
         pushed_to_remote,
         filesystem,
     )
     .await?;
 
+    Ok(())
+}
+
+/// Finalize bead/session status and cleanup workspace
+#[allow(clippy::too_many_arguments)]
+async fn finalize_done_status(
+    workspace_name: &str,
+    workspace_path: &str,
+    options: &DoneOptions,
+    bead_repo: &mut dyn bead::BeadRepository,
+    filesystem: &dyn filesystem::FileSystem,
+    files_committed: usize,
+    commits_merged: usize,
+    pushed_to_remote: bool,
+) -> Result<DoneOutput, DoneError> {
     // Phase 8: Update bead status
-    let bead_id = get_bead_id_for_workspace(&workspace_name, bead_repo).await?;
+    let bead_id = get_bead_id_for_workspace(workspace_name, bead_repo).await?;
     let bead_closed = if let Some(ref bead) = bead_id {
         if options.no_bead_update {
             false
@@ -228,25 +279,20 @@ async fn execute_done(
     };
 
     // Phase 8.5: Update session status to Completed
-    let session_updated = update_session_status(&workspace_name).await?;
+    let session_updated = update_session_status(workspace_name).await?;
 
     // Phase 9: Cleanup workspace
     let cleaned = if options.keep_workspace || !options.no_keep {
         false
     } else {
-        cleanup_workspace(
-            Path::new(&session.workspace_path),
-            &workspace_name,
-            filesystem,
-        )
-        .await?
+        cleanup_workspace(Path::new(workspace_path), workspace_name, filesystem).await?
     };
 
     Ok(DoneOutput {
-        workspace_name,
+        workspace_name: workspace_name.to_string(),
         bead_id,
         files_committed,
-        commits_merged: commits_to_merge.len(),
+        commits_merged,
         merged: true,
         cleaned,
         bead_closed,

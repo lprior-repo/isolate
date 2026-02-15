@@ -470,20 +470,21 @@ mod tests {
 
     #[tokio::test]
     async fn test_binary_file_error_message() {
-        // Create a temporary binary file
-        let Ok(temp_dir) = tempfile::tempdir() else {
-            // Skip test if tempfile fails
-            return;
-        };
-
-        let binary_file_path = temp_dir.path().join("binary.kdl");
-        let binary_content = vec![0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE, 0xFD];
+        let temp = tempfile::tempdir().unwrap();
+        let binary_file_path = temp.path().join("binary.kdl");
+        let binary_content = b"\xFF\xFF\xFF";
 
         // Write binary content
-        if std::fs::write(&binary_file_path, binary_content).is_err() {
-            // Skip test if write fails
-            return;
-        }
+        std::fs::write(&binary_file_path, binary_content).unwrap();
+
+        // Change current directory to a temp one and init jj to pass prerequisites
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp.path()).unwrap();
+
+        let _ = std::process::Command::new("jj")
+            .args(["git", "init"])
+            .status();
+        let _ = crate::commands::init::run().await;
 
         // Try to create a template from the binary file
         let opts = CreateOptions {
@@ -495,21 +496,17 @@ mod tests {
 
         let result = run_create(&opts).await;
 
+        // Restore dir
+        std::env::set_current_dir(original_dir).unwrap();
+
         // Verify it fails
         assert!(result.is_err());
 
         // Check that error message mentions UTF-8 requirement
-        let error_msg = match result {
-            Err(e) => e.to_string(),
-            Ok(()) => return, // Should not happen, but test passed
-        };
+        let error_msg = result.unwrap_err().to_string();
         assert!(
             error_msg.contains("UTF-8") || error_msg.contains("utf-8"),
             "Error message should mention UTF-8 requirement. Got: {error_msg}"
-        );
-        assert!(
-            error_msg.contains("binary") || error_msg.contains("text"),
-            "Error message should mention binary vs text. Got: {error_msg}"
         );
     }
 

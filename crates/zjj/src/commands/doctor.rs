@@ -1238,14 +1238,15 @@ fn show_health_report(checks: &[DoctorCheck], format: OutputFormat) -> Result<()
             },
         };
         let envelope = SchemaEnvelope::new("doctor-response", "single", response);
-        println!("{}", serde_json::to_string_pretty(&envelope)?);
-        // If unhealthy in JSON mode, exit with 1 immediately to avoid
-        // main.rs printing a second JSON error object
+        let json_str = serde_json::to_string_pretty(&envelope)?;
+
         if !healthy {
-            std::process::exit(1);
+            // Return the JSON as an error to allow the CLI wrapper to handle the exit
+            // but main.rs will see it starts with '{' and output it as-is.
+            anyhow::bail!("{json_str}");
         }
-        // Note: Recovery state is a warning, not an error. Warnings do not cause
-        // non-zero exit codes per the docstring at the top of this file.
+
+        println!("{json_str}");
         return Ok(());
     }
 

@@ -73,7 +73,12 @@ pub async fn run(options: &WaitOptions) -> Result<i32> {
 
     loop {
         // Check if condition is met
-        let (met, state) = check_condition(&options.condition).await?;
+        // We catch errors here and treat them as "not met yet" to allow for transient
+        // issues or initialization delays (e.g. database being created)
+        let (met, state) = match check_condition(&options.condition).await {
+            Ok(res) => res,
+            Err(e) => (false, Some(format!("error: {e}"))),
+        };
 
         if met {
             return output_result(

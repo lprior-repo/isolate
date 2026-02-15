@@ -279,15 +279,16 @@ fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
 
     harness.assert_success(&["init"]);
 
-    // session-count currently returns a plain numeric response
-    let initial_count =
-        || -> Result<usize, Box<dyn std::error::Error>> {
-            let result = harness.zjj(&["query", "session-count", "--json"]);
-            assert!(result.success);
-            result.stdout.trim().parse::<usize>().map_err(|e| {
-                format!("Invalid session-count output '{}': {e}", result.stdout).into()
-            })
-        };
+    // session-count returns a JSON envelope
+    let initial_count = || -> Result<usize, Box<dyn std::error::Error>> {
+        let result = harness.zjj(&["query", "session-count", "--json"]);
+        assert!(result.success);
+        let json: JsonValue = parse_json_output(&result.stdout)?;
+        let count = json["count"]
+            .as_u64()
+            .ok_or_else(|| format!("Missing count in session-count output: {}", result.stdout))?;
+        Ok(count as usize)
+    };
 
     assert_eq!(initial_count()?, 0, "Should have 0 sessions initially");
 
