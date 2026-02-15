@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "command": "add, status, done, spawn, work",
+      "test": "--contract flag outputs valid JSON",
+      "expected": "Pure JSON output",
+      "actual": "Text prefix 'AI CONTRACT for zjj <cmd>:' + JSON",
+      "severity": "P0",
+      "issue": "Output prefixed with non-JSON text, breaking JSON parsing"
+    },
+    {
+      "command": "add, status, done, spawn, work",
+      "test": "--ai-hints flag outputs valid JSON",
+      "expected": "Pure JSON output",
+      "actual": "Text prefix 'AI COMMAND FLOW:' + JSON",
+      "severity": "P0",
+      "issue": "Output prefixed with non-JSON text, breaking JSON parsing"
+    },
+    {
+      "command": "spawn, attach, clone, rename, remove, unlock",
+      "test": "--json with missing required args",
+      "expected": "Single JSON error response",
+      "actual": "JSON error + duplicate human-readable error text",
+      "severity": "P1",
+      "issue": "Duplicate output - both JSON and human-readable text printed"
+    },
+    {
+      "command": "validate",
+      "test": "--json with invalid input",
+      "expected": "Single JSON validation response",
+      "actual": "Two JSON objects: validation response + error response",
+      "severity": "P1",
+      "issue": "Multiple JSON objects in output breaks parsing"
+    },
+    {
+      "command": "lock, unlock, rename, pause, resume, clone, sync, focus",
+      "test": "--contract flag availability",
+      "expected": "All --json commands should support --contract",
+      "actual": "Only add, status, done, spawn, work have --contract",
+      "severity": "P2",
+      "issue": "Inconsistent flag availability for AI integration"
+    },
+    {
+      "command": "lock, unlock, rename, pause, resume, clone, sync, focus",
+      "test": "--ai-hints flag availability",
+      "expected": "All --json commands should support --ai-hints",
+      "actual": "Only add, status, done, spawn, work have --ai-hints",
+      "severity": "P2",
+      "issue": "Inconsistent flag availability for AI integration"
+    },
+    {
+      "command": "spawn",
+      "test": "--example-json flag availability",
+      "expected": "Commands should have --example-json",
+      "actual": "Only 'add' command has --example-json",
+      "severity": "P2",
+      "issue": "Inconsistent - most commands lack example output flag"
+    },
+    {
+      "command": "sync",
+      "test": "--json with no arguments",
+      "expected": "Error or usage message",
+      "actual": "success: true with null name and zero counts",
+      "severity": "P3",
+      "issue": "No-op returns success - potentially confusing behavior"
+    },
+    {
+      "command": "can-i",
+      "test": "JSON schema consistency",
+      "expected": "Standard envelope with $schema, _schema_version, schema_type",
+      "actual": "Lacks $schema field - no protocol envelope",
+      "severity": "P2",
+      "issue": "Inconsistent schema format compared to other commands"
+    }
+  ]
+}

@@ -2823,7 +2823,11 @@ pub fn cmd_rename() -> ClapCommand {
 pub fn cmd_pause() -> ClapCommand {
     ClapCommand::new("pause")
         .about("Pause an active session (suspend agent work)")
-        .arg(Arg::new("name").help("Session name to pause"))
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Session name to pause"),
+        )
         .arg(
             Arg::new("json")
                 .long("json")
@@ -2839,7 +2843,11 @@ pub fn cmd_pause() -> ClapCommand {
 pub fn cmd_resume() -> ClapCommand {
     ClapCommand::new("resume")
         .about("Resume a paused session")
-        .arg(Arg::new("name").help("Session name to resume"))
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Session name to resume"),
+        )
         .arg(
             Arg::new("json")
                 .long("json")

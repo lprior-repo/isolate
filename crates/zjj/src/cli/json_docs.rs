@@ -2038,6 +2038,205 @@ pub mod ai_contracts {
   ]
 }"#
     }
+
+    /// AI CONTRACT for zjj pause
+    pub const fn pause() -> &'static str {
+        r#"AI CONTRACT for zjj pause:
+{
+  "command": "zjj pause",
+  "intent": "Pause an active session (suspend agent work)",
+  "prerequisites": ["Session must exist"],
+  "side_effects": {
+    "creates": [],
+    "modifies": ["session status → paused"],
+    "state_transition": "active|merged|blocked → paused"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "description": "Session name to pause"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "success": "true",
+      "session": "string",
+      "status": "'paused'",
+      "message": "Idempotent - success if already paused"
+    }
+  },
+  "exit_codes": {
+    "0": "Success",
+    "1": "Validation error (empty session name)",
+    "2": "Session not found"
+  },
+  "examples": [
+    "zjj pause feature-x",
+    "zjj pause my-session --json"
+  ]
+}"#
+    }
+
+    /// AI CONTRACT for zjj resume
+    pub const fn resume() -> &'static str {
+        r#"AI CONTRACT for zjj resume:
+{
+  "command": "zjj resume",
+  "intent": "Resume a paused session",
+  "prerequisites": ["Session must exist", "Session must be paused"],
+  "side_effects": {
+    "creates": [],
+    "modifies": ["session status → active"],
+    "state_transition": "paused → active"
+  },
+  "inputs": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "description": "Session name to resume"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "success": "true",
+      "session": "string",
+      "status": "'active'",
+      "message": "Resumed session"
+    }
+  },
+  "exit_codes": {
+    "0": "Success",
+    "1": "Session not paused (validation error)",
+    "2": "Session not found"
+  },
+  "examples": [
+    "zjj resume feature-x",
+    "zjj resume my-session --json"
+  ]
+}"#
+    }
+
+    /// AI CONTRACT for zjj unlock
+    pub const fn unlock() -> &'static str {
+        r#"AI CONTRACT for zjj unlock:
+{
+  "command": "zjj unlock",
+  "intent": "Release exclusive lock on a session",
+  "prerequisites": ["Session must exist", "Must be lock owner or lock expired"],
+  "side_effects": {
+    "creates": [],
+    "modifies": ["lock state → unlocked"],
+    "state_transition": "locked → unlocked"
+  },
+  "inputs": {
+    "session": {
+      "type": "string",
+      "required": true,
+      "description": "Session name to unlock"
+    },
+    "agent-id": {
+      "type": "string",
+      "flag": "--agent-id",
+      "required": false,
+      "description": "Agent ID (uses ZJJ_AGENT_ID env if not provided)"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "success": "true",
+      "session": "string",
+      "message": "Unlocked session"
+    }
+  },
+  "exit_codes": {
+    "0": "Success",
+    "1": "Validation error (empty session name)",
+    "4": "Session not found or lock error"
+  },
+  "examples": [
+    "zjj unlock feature-x",
+    "zjj unlock --agent-id agent1 work",
+    "zjj unlock my-session --json"
+  ]
+}"#
+    }
+
+    /// AI CONTRACT for zjj rename
+    pub const fn rename() -> &'static str {
+        r#"AI CONTRACT for zjj rename:
+{
+  "command": "zjj rename",
+  "intent": "Rename an existing session",
+  "prerequisites": ["Old session must exist", "New name must be valid", "New name must not exist"],
+  "side_effects": {
+    "creates": [],
+    "modifies": ["session name", "zellij tab name"],
+    "state_transition": "none (preserves session state)"
+  },
+  "inputs": {
+    "old_name": {
+      "type": "string",
+      "required": true,
+      "description": "Current session name"
+    },
+    "new_name": {
+      "type": "string",
+      "required": true,
+      "description": "New session name"
+    },
+    "no-zellij": {
+      "type": "boolean",
+      "flag": "--no-zellij",
+      "required": false,
+      "description": "Skip Zellij integration (for non-TTY environments)"
+    },
+    "json": {
+      "type": "boolean",
+      "flag": "--json",
+      "required": false,
+      "description": "Output as JSON with SchemaEnvelope"
+    }
+  },
+  "outputs": {
+    "success": {
+      "success": "true",
+      "old_name": "string",
+      "new_name": "string",
+      "old_tab_name": "string|null",
+      "new_tab_name": "string|null"
+    }
+  },
+  "exit_codes": {
+    "0": "Success",
+    "1": "Validation error (invalid names, name collision)",
+    "2": "Session not found"
+  },
+  "examples": [
+    "zjj rename old-name new-name",
+    "zjj rename --no-zellij old new",
+    "zjj rename feature-123 feature-v2 --json"
+  ]
+}"#
+    }
 }
 
 #[cfg(test)]
