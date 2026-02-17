@@ -111,27 +111,27 @@ zjj done --message "Add auth"
 
 <div class="quickstart-cards">
   <div class="card">
-    <h4>🚀 Quick Start</h4>
+    <h4>Quick Start</h4>
     <p>Set up ZJJ and create your first workspace</p>
-    <a href="./quickstart.html">Start here →</a>
+    <a href="./quickstart.html">Start here</a>
   </div>
   
   <div class="card">
-    <h4>📖 User Guide</h4>
+    <h4>User Guide</h4>
     <p>Learn the complete workflow</p>
-    <a href="./guide/workspaces.html">Read guide →</a>
+    <a href="./user-guide.html">Read guide</a>
   </div>
   
   <div class="card">
-    <h4>🤖 AI Agents</h4>
+    <h4>AI Agents</h4>
     <p>Run parallel AI coding agents</p>
-    <a href="./ai/overview.html">AI guide →</a>
+    <a href="./ai-guide.html">AI guide</a>
   </div>
   
   <div class="card">
-    <h4>📚 Reference</h4>
+    <h4>Reference</h4>
     <p>All commands and configuration</p>
-    <a href="./reference/commands.html">Browse →</a>
+    <a href="./commands.html">Browse</a>
   </div>
 </div>
 
