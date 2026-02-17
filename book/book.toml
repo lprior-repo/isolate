@@ -13,6 +13,11 @@ optional = true
 command = "mdbook-toc"
 renderer = ["html"]
 optional = true
+marker = "[[_TOC_]]"
+
+[preprocessor.admonish]
+command = "mdbook-admonish"
+optional = true
 
 [output.html]
 default-theme = "light"
@@ -24,14 +29,15 @@ git-repository-url = "https://github.com/lprior-repo/zjj"
 edit-url-template = "https://github.com/lprior-repo/zjj/edit/main/book/{path}"
 site-url = "/zjj/"
 additional-css = ["theme/custom.css", "theme/stripe.css"]
-additional-js = []
+additional-js = ["theme/sidebar.js"]
 
 [output.html.print]
 enable = true
+page-break = true
 
 [output.html.fold]
 enable = true
-level = 1
+level = 0
 
 [output.html.playground]
 editable = false

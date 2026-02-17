@@ -28,8 +28,8 @@
         <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
 
         <!-- Custom theme stylesheets -->
-        <link rel="stylesheet" href="theme/custom-ec3f9b61.css">
-        <link rel="stylesheet" href="theme/stripe-e54e8515.css">
+        <link rel="stylesheet" href="theme/custom-e75bdbbb.css">
+        <link rel="stylesheet" href="theme/stripe-7c3b2487.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-15ae921f.js";
+            window.path_to_searchindex_js = "searchindex-0b9721fd.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-27e094cd.js"></script>
+        <script src="toc-6b77885c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,34 +182,18 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="zjj--parallel-workspace-isolation--queue-coordination"><a class="header" href="#zjj--parallel-workspace-isolation--queue-coordination">ZJJ — Parallel Workspace Isolation + Queue Coordination</a></h1>
+                        <h1 id="zjj"><a class="header" href="#zjj">ZJJ</a></h1>
 <div class="hero">
   
-<h1>ZJJ</h1>
+<h1>Run parallel workstreams without conflicts</h1>
 
   
-<p>Run multiple parallel workstreams (humans or AI agents) against a single repo without stepping on each other.</p>
+<p>Create isolated workspaces for each task. Switch instantly. Land cleanly.</p>
 
 </div>
 
-<h2 id="what-is-zjj"><a class="header" href="#what-is-zjj">What is ZJJ?</a></h2>
-<p>ZJJ combines three powerful tools to enable <strong>safe parallel development</strong>:</p>
-<ul>
-<li><strong>JJ (Jujutsu) workspaces</strong> for hard isolation</li>
-<li><strong>Zellij</strong> tabs/sessions for fast context switching</li>
-<li>A <strong>SQLite-backed state + merge/processing queue</strong> for coordination, retries, and recovery</li>
-</ul>
-<p>If you want “run 6–12 coding agents safely” <em>or</em> “work on 5 features at once without trashing main,” ZJJ is for that.</p>
 <hr>
-<h2 id="why-zjj-exists"><a class="header" href="#why-zjj-exists">Why ZJJ Exists</a></h2>
-<p>Parallel work is easy to start and hard to finish cleanly:</p>
-<ul>
-<li>👥 two workers edit the same area → conflicts</li>
-<li>📝 multiple tasks get half-done → you lose track</li>
-<li>🤷 “who is working on what?” becomes tribal knowledge</li>
-<li>🤖 agents can duplicate work or race each other</li>
-</ul>
-<p>ZJJ fixes this by making parallelism <strong>explicit, isolated, and coordinated</strong>.</p>
+<h2 id="what-you-can-do-with-zjj"><a class="header" href="#what-you-can-do-with-zjj">What you can do with ZJJ</a></h2>
 <div class="features">
   
 <div class="feature">
@@ -217,23 +201,10 @@
 <div class="feature-icon">🔒</div>
 
     
-<h3>Workspace Isolation</h3>
+<h3>Work on multiple features</h3>
 
     
-<p>Each task gets its own JJ workspace and Zellij tab. No more context switching pain or accidental conflicts.</p>
-
-  </div>
-
-  
-<div class="feature">
-    
-<div class="feature-icon">📋</div>
-
-    
-<h3>Queue Coordination</h3>
-
-    
-<p>SQLite-backed merge queue ensures only one worker claims a given entry at a time. Built-in retries and recovery.</p>
+<p>Each task gets its own isolated workspace. No more stashing, branching, or context switching pain.</p>
 
   </div>
 
@@ -243,10 +214,10 @@
 <div class="feature-icon">⚡</div>
 
     
-<h3>Fast Switching</h3>
+<h3>Switch in seconds</h3>
 
     
-<p>Jump between workspaces instantly with Zellij integration. Keep your flow state.</p>
+<p>Jump between workspaces instantly. Your environment, editor state, and terminal history stay intact.</p>
 
   </div>
 
@@ -256,71 +227,106 @@
 <div class="feature-icon">🤖</div>
 
     
-<h3>AI-First Design</h3>
+<h3>Run AI agents in parallel</h3>
 
     
-<p>Run 6-12 AI agents in parallel, each in isolated workspaces with queue-based coordination.</p>
+<p>Coordinate 6-12 coding agents safely. Each agent works in isolation with queue-based coordination.</p>
+
+  </div>
+
+  
+<div class="feature">
+    
+<div class="feature-icon">✅</div>
+
+    
+<h3>Land work cleanly</h3>
+
+    
+<p>One command merges your changes to main. Built-in sync keeps you up to date with teammates.</p>
 
   </div>
 
 </div>
 
 <hr>
-<h2 id="before--after"><a class="header" href="#before--after">Before &amp; After</a></h2>
-<p><strong>Before</strong>: 6 agents race on the same working copy → duplicated effort + conflicts</p>
-<p><strong>After</strong>: each agent gets an isolated workspace + the queue enforces safe claiming/landing</p>
-<hr>
-<h2 id="mental-model"><a class="header" href="#mental-model">Mental Model</a></h2>
-<p>ZJJ has three core concepts:</p>
+<h2 id="how-it-works"><a class="header" href="#how-it-works">How it works</a></h2>
+<p>ZJJ combines three tools into a unified workflow:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Concept</th><th>What It Is</th><th>Example</th></tr>
+<tr><th>Component</th><th>What it does</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>Session</strong></td><td>Named isolated workspace (+ optional bead/issue) + optional Zellij tab</td><td><code>zjj add auth-refactor --bead BD-123</code></td></tr>
-<tr><td><strong>Queue entry</strong></td><td>Unit of work tied to a workspace that a worker/agent can claim and process</td><td><code>zjj queue --add feature-a --bead BD-101 --priority 3</code></td></tr>
-<tr><td><strong>Done</strong></td><td>Finish the work and land it back to main</td><td><code>zjj done</code></td></tr>
+<tr><td><strong>JJ Workspaces</strong></td><td>Hard isolation for each task</td></tr>
+<tr><td><strong>Zellij Tabs</strong></td><td>Fast context switching between workspaces</td></tr>
+<tr><td><strong>SQLite Queue</strong></td><td>Coordination, retries, and recovery</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="the-workflow"><a class="header" href="#the-workflow">The workflow</a></h3>
+<pre><code class="language-bash"># 1. Create an isolated workspace
+zjj add feature-auth --bead BD-123
+
+# 2. Jump into it
+zjj focus feature-auth
+
+# 3. Do your work (main stays untouched)
+vim src/auth.rs
+
+# 4. Sync with main anytime
+zjj sync
+
+# 5. Land your changes
+zjj done --message "Add auth"
+</code></pre>
+<hr>
+<h2 id="before-and-after"><a class="header" href="#before-and-after">Before and after</a></h2>
+<p><strong>Without ZJJ:</strong></p>
+<ul>
+<li>6 agents race on the same working copy → duplicated effort, conflicts</li>
+<li>You switch branches → lose editor state, stash changes, forget context</li>
+<li>Multiple features in progress → hard to track what’s where</li>
+</ul>
+<p><strong>With ZJJ:</strong></p>
+<ul>
+<li>Each agent gets an isolated workspace → no conflicts, clear ownership</li>
+<li>Switch workspaces in 1 second → state preserved, instant context</li>
+<li>See all work at a glance → <code>zjj list</code> shows everything</li>
+</ul>
+<hr>
+<h2 id="when-to-use-zjj"><a class="header" href="#when-to-use-zjj">When to use ZJJ</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>If you are</th><th>ZJJ helps you</th></tr>
+</thead>
+<tbody>
+<tr><td>A developer</td><td>Work on multiple features without branch chaos</td></tr>
+<tr><td>An AI operator</td><td>Run multiple agents safely in parallel</td></tr>
+<tr><td>A team</td><td>Coordinate workstreams without stepping on each other</td></tr>
+<tr><td>A maintainer</td><td>Review and merge PRs in isolated workspaces</td></tr>
 </tbody>
 </table>
 </div>
 <hr>
-<h2 id="quick-example"><a class="header" href="#quick-example">Quick Example</a></h2>
-<pre><code class="language-bash"># 1) inside a JJ repo
-zjj init
-
-# 2) create an isolated session
-zjj add auth-refactor --bead BD-123
-
-# 3) jump into it (Zellij tab)
-zjj focus auth-refactor
-
-# 4) keep it synced with main
-zjj sync auth-refactor
-
-# 5) finish and land the work
-zjj done
-
-# 6) optionally clean it up
-zjj remove auth-refactor
-</code></pre>
+<h2 id="quick-comparison"><a class="header" href="#quick-comparison">Quick comparison</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Git branches</th><th>Git worktrees</th><th>ZJJ</th></tr>
+</thead>
+<tbody>
+<tr><td>Isolation</td><td>Shared .git</td><td>Separate dirs</td><td>Separate dirs</td></tr>
+<tr><td>Switching</td><td><code>git checkout</code></td><td><code>cd ../dir</code></td><td><code>zjj focus name</code></td></tr>
+<tr><td>State preserved</td><td>No</td><td>Partial</td><td>Yes (Zellij)</td></tr>
+<tr><td>Queue coordination</td><td>No</td><td>No</td><td>Yes</td></tr>
+<tr><td>AI-ready</td><td>No</td><td>No</td><td>Yes</td></tr>
+</tbody>
+</table>
+</div>
 <hr>
-<h2 id="multi-agent-example"><a class="header" href="#multi-agent-example">Multi-Agent Example</a></h2>
-<pre><code class="language-bash"># Add multiple work items
-zjj queue --add feature-a --bead BD-101 --priority 3
-zjj queue --add feature-b --bead BD-102 --priority 5 --agent agent-002
-
-# Start workers (these can be human-driven or agent-driven wrappers)
-zjj queue worker --loop
-</code></pre>
-<p>ZJJ ensures only one worker claims a given entry at a time, and provides:</p>
-<ul>
-<li>✅ retries for failures</li>
-<li>✅ cancel/remove operations</li>
-<li>✅ reclaiming stale leases when workers crash</li>
-</ul>
-<hr>
-<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<h2 id="get-started-in-5-minutes"><a class="header" href="#get-started-in-5-minutes">Get started in 5 minutes</a></h2>
 <div class="quickstart-cards">
   
 <div class="card">
@@ -328,9 +334,9 @@ zjj queue worker --loop
 <h4>🚀 Quick Start</h4>
 
     
-<p>Get up and running in 5 minutes</p>
+<p>Set up ZJJ and create your first workspace</p>
 
-    <a href="./quickstart.html">Start Here →</a>
+    <a href="./quickstart.html">Start here →</a>
   </div>
 
   
@@ -339,9 +345,9 @@ zjj queue worker --loop
 <h4>📖 User Guide</h4>
 
     
-<p>Learn workspace management and queue coordination</p>
+<p>Learn the complete workflow</p>
 
-    <a href="./guide/workspaces.html">Read the Guide →</a>
+    <a href="./guide/workspaces.html">Read guide →</a>
   </div>
 
   
@@ -350,9 +356,9 @@ zjj queue worker --loop
 <h4>🤖 AI Agents</h4>
 
     
-<p>Set up AI agents for parallel development</p>
+<p>Run parallel AI coding agents</p>
 
-    <a href="./ai/overview.html">AI Guide →</a>
+    <a href="./ai/overview.html">AI guide →</a>
   </div>
 
   
@@ -361,39 +367,38 @@ zjj queue worker --loop
 <h4>📚 Reference</h4>
 
     
-<p>Complete command and API reference</p>
+<p>All commands and configuration</p>
 
-    <a href="./reference/commands.html">Browse Docs →</a>
+    <a href="./reference/commands.html">Browse →</a>
   </div>
 
 </div>
 
 <hr>
-<h2 id="key-features"><a class="header" href="#key-features">Key Features</a></h2>
-<ul>
-<li>✨ <strong>Isolated Workspaces</strong>: Each task in its own JJ workspace</li>
-<li>🔄 <strong>Smart Syncing</strong>: Keep workspaces in sync with main</li>
-<li>📊 <strong>Queue Management</strong>: Claim, process, complete work items</li>
-<li>🎯 <strong>Bead Integration</strong>: Track issues through the workflow</li>
-<li>🔍 <strong>Status Visibility</strong>: Know exactly what’s happening where</li>
-<li>🎨 <strong>Zellij Integration</strong>: Fast tab switching between workspaces</li>
-<li>🛡️ <strong>Recovery</strong>: Built-in corruption detection and recovery</li>
-<li>🤖 <strong>AI-Ready</strong>: Designed for multi-agent parallel workflows</li>
-<li>📦 <strong>SQLite Backend</strong>: Reliable, simple, local state management</li>
-<li>🔐 <strong>Safe Parallelism</strong>: No conflicts, no trampling</li>
-</ul>
+<h2 id="key-concepts"><a class="header" href="#key-concepts">Key concepts</a></h2>
+<h3 id="session"><a class="header" href="#session">Session</a></h3>
+<p>A named, isolated workspace that optionally links to a bead (issue/task).</p>
+<pre><code class="language-bash">zjj add auth-refactor --bead BD-123
+</code></pre>
+<h3 id="queue-entry"><a class="header" href="#queue-entry">Queue entry</a></h3>
+<p>A unit of work that agents can claim and process.</p>
+<pre><code class="language-bash">zjj queue --add feature-a --bead BD-101 --priority 3
+</code></pre>
+<h3 id="done"><a class="header" href="#done">Done</a></h3>
+<p>Complete your work and merge it back to main.</p>
+<pre><code class="language-bash">zjj done --message "Implement auth refactor" --push
+</code></pre>
 <hr>
-<h2 id="who-should-use-zjj"><a class="header" href="#who-should-use-zjj">Who Should Use ZJJ?</a></h2>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<p>Before you start, ensure you have:</p>
 <ul>
-<li><strong>Solo developers</strong> managing multiple features simultaneously</li>
-<li><strong>Teams</strong> coordinating parallel work streams</li>
-<li><strong>AI agents</strong> running automated coding workflows</li>
-<li><strong>Open source maintainers</strong> juggling multiple PRs</li>
-<li><strong>Anyone</strong> tired of git branch confusion and merge conflicts</li>
+<li><strong>JJ (Jujutsu)</strong> 0.20+ — <a href="https://github.com/martinvonz/jj#installation">Install guide</a></li>
+<li><strong>Zellij</strong> 0.39+ — <a href="https://zellij.dev/download">Install guide</a></li>
+<li><strong>Rust</strong> 1.80+ — <a href="https://rustup.rs/">Install via rustup</a></li>
 </ul>
 <hr>
 <h2 id="license"><a class="header" href="#license">License</a></h2>
-<p>MIT License - see <a href="https://github.com/lprior-repo/zjj/blob/main/LICENSE">LICENSE</a> for details.</p>
+<p>MIT License — see <a href="https://github.com/lprior-repo/zjj/blob/main/LICENSE">LICENSE</a> for details.</p>
 
                     </main>
 
@@ -440,6 +445,7 @@ zjj queue worker --loop
         <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
+        <script src="theme/sidebar-d5e0e3c4.js"></script>
 
 
 

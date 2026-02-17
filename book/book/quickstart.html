@@ -28,8 +28,8 @@
         <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
 
         <!-- Custom theme stylesheets -->
-        <link rel="stylesheet" href="theme/custom-ec3f9b61.css">
-        <link rel="stylesheet" href="theme/stripe-e54e8515.css">
+        <link rel="stylesheet" href="theme/custom-e75bdbbb.css">
+        <link rel="stylesheet" href="theme/stripe-7c3b2487.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-15ae921f.js";
+            window.path_to_searchindex_js = "searchindex-0b9721fd.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-27e094cd.js"></script>
+        <script src="toc-6b77885c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -186,25 +186,25 @@
 <p>Get up and running with ZJJ in 5 minutes.</p>
 <hr>
 <h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
-<p>Before you start, make sure you have:</p>
-<ul>
-<li>✅ <strong>JJ (Jujutsu)</strong> - <a href="https://github.com/martinvonz/jj#installation">Install from here</a></li>
-<li>✅ <strong>Zellij</strong> - <a href="https://zellij.dev/download">Install from here</a></li>
-<li>✅ <strong>Rust</strong> 1.80 or later - <a href="https://rustup.rs/">Install from here</a></li>
-</ul>
-<div class="info">
-💡 <strong>Tip</strong>: ZJJ requires a JJ repository to work. If you don't have one yet, run <code>jj init</code> in your project directory.
+<p>Before you start, ensure you have these installed:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Tool</th><th>Version</th><th>Install</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>JJ (Jujutsu)</strong></td><td>0.20+</td><td><a href="https://github.com/martinvonz/jj#installation">Install guide</a></td></tr>
+<tr><td><strong>Zellij</strong></td><td>0.39+</td><td><a href="https://zellij.dev/download">Install guide</a></td></tr>
+<tr><td><strong>Rust</strong></td><td>1.80+</td><td><a href="https://rustup.rs/">Install via rustup</a></td></tr>
+</tbody>
+</table>
 </div>
-
 <hr>
 <h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
-<h3 id="option-1-from-source-recommended"><a class="header" href="#option-1-from-source-recommended">Option 1: From Source (Recommended)</a></h3>
+<h3 id="from-source-recommended"><a class="header" href="#from-source-recommended">From source (recommended)</a></h3>
 <pre><code class="language-bash"># Clone the repository
 git clone https://github.com/lprior-repo/zjj.git
 cd zjj
-
-# Install Moon (if not already installed)
-curl -fsSL https://moonrepo.dev/install/moon.sh | bash
 
 # Build with Moon
 moon run :build
@@ -212,118 +212,88 @@ moon run :build
 # Install the binary
 moon run :install
 
-# Verify installation
+# Verify
 zjj --version
 </code></pre>
-<h3 id="option-2-from-cratesio"><a class="header" href="#option-2-from-cratesio">Option 2: From crates.io</a></h3>
+<h3 id="from-cratesio"><a class="header" href="#from-cratesio">From crates.io</a></h3>
 <pre><code class="language-bash">cargo install zjj
 </code></pre>
-<div class="warning">
-⚠️ <strong>Note</strong>: The crates.io version may lag behind the latest features. Building from source is recommended for the best experience.
-</div>
-
 <hr>
-<h2 id="60-second-workflow"><a class="header" href="#60-second-workflow">60-Second Workflow</a></h2>
-<p>Here’s a complete workflow from start to finish:</p>
+<h2 id="your-first-workspace"><a class="header" href="#your-first-workspace">Your first workspace</a></h2>
 <h3 id="1-initialize-zjj"><a class="header" href="#1-initialize-zjj">1. Initialize ZJJ</a></h3>
 <pre><code class="language-bash"># Inside a JJ repository
 zjj init
 </code></pre>
 <p>This creates the <code>.zjj/</code> directory with the state database.</p>
-<h3 id="2-create-an-isolated-session"><a class="header" href="#2-create-an-isolated-session">2. Create an Isolated Session</a></h3>
-<pre><code class="language-bash"># Create a session for your work
-zjj add auth-refactor --bead BD-123
+<h3 id="2-create-a-workspace"><a class="header" href="#2-create-a-workspace">2. Create a workspace</a></h3>
+<pre><code class="language-bash">zjj add feature-auth --bead BD-123
 </code></pre>
 <p>This creates:</p>
 <ul>
-<li>A new JJ workspace named <code>auth-refactor</code></li>
-<li>A Zellij tab for this workspace</li>
-<li>Optional association with bead/issue <code>BD-123</code></li>
+<li>An isolated JJ workspace</li>
+<li>A Zellij tab for quick switching</li>
+<li>Association with bead <code>BD-123</code> for tracking</li>
 </ul>
-<h3 id="3-jump-into-your-workspace"><a class="header" href="#3-jump-into-your-workspace">3. Jump Into Your Workspace</a></h3>
-<pre><code class="language-bash"># Switch to the session's Zellij tab
-zjj focus auth-refactor
+<h3 id="3-jump-into-it"><a class="header" href="#3-jump-into-it">3. Jump into it</a></h3>
+<pre><code class="language-bash">zjj focus feature-auth
 </code></pre>
 <p>Or check where you are:</p>
 <pre><code class="language-bash">zjj whereami
-# Output: workspace:auth-refactor
+# workspace:feature-auth
 </code></pre>
-<h3 id="4-do-your-work"><a class="header" href="#4-do-your-work">4. Do Your Work</a></h3>
-<p>Make changes in your isolated workspace. Your main branch stays clean!</p>
-<pre><code class="language-bash"># Edit files
-vim src/auth.rs
-
-# Check status
-zjj status auth-refactor
+<h3 id="4-do-your-work"><a class="header" href="#4-do-your-work">4. Do your work</a></h3>
+<p>Edit files in your isolated workspace. Main stays untouched.</p>
+<pre><code class="language-bash">vim src/auth.rs
 </code></pre>
-<h3 id="5-keep-synced-with-main"><a class="header" href="#5-keep-synced-with-main">5. Keep Synced with Main</a></h3>
-<pre><code class="language-bash"># Rebase your workspace onto main
-zjj sync auth-refactor
+<h3 id="5-keep-synced"><a class="header" href="#5-keep-synced">5. Keep synced</a></h3>
+<pre><code class="language-bash">zjj sync
 </code></pre>
-<p>This keeps your workspace up to date with the latest changes from main.</p>
-<h3 id="6-complete-and-land-your-work"><a class="header" href="#6-complete-and-land-your-work">6. Complete and Land Your Work</a></h3>
-<pre><code class="language-bash"># Finish and merge to main
-zjj done
-</code></pre>
-<p>This:</p>
-<ul>
-<li>Merges your changes to main</li>
-<li>Pushes to remote (if configured)</li>
-<li>Cleans up the workspace</li>
-</ul>
-<h3 id="7-clean-up-optional"><a class="header" href="#7-clean-up-optional">7. Clean Up (Optional)</a></h3>
-<pre><code class="language-bash"># Remove the session
-zjj remove auth-refactor
+<p>This rebases your workspace onto the latest main.</p>
+<h3 id="6-complete-and-land"><a class="header" href="#6-complete-and-land">6. Complete and land</a></h3>
+<pre><code class="language-bash">zjj done --message "Add authentication" --push
 </code></pre>
 <hr>
-<h2 id="multi-agent-quick-start"><a class="header" href="#multi-agent-quick-start">Multi-Agent Quick Start</a></h2>
-<p>Want to run multiple agents in parallel? Here’s how:</p>
-<h3 id="1-add-work-items-to-the-queue"><a class="header" href="#1-add-work-items-to-the-queue">1. Add Work Items to the Queue</a></h3>
-<pre><code class="language-bash">zjj queue --add feature-a --bead BD-101 --priority 3
-zjj queue --add feature-b --bead BD-102 --priority 5
-zjj queue --add feature-c --bead BD-103 --priority 1
-</code></pre>
-<h3 id="2-list-queue-items"><a class="header" href="#2-list-queue-items">2. List Queue Items</a></h3>
-<pre><code class="language-bash">zjj queue --list
-</code></pre>
-<h3 id="3-start-a-queue-worker"><a class="header" href="#3-start-a-queue-worker">3. Start a Queue Worker</a></h3>
-<pre><code class="language-bash"># Run once
-zjj queue worker --once
-
-# Or run continuously
-zjj queue worker --loop
-</code></pre>
-<h3 id="4-monitor-progress"><a class="header" href="#4-monitor-progress">4. Monitor Progress</a></h3>
-<pre><code class="language-bash"># Check queue status
-zjj queue --status
-</code></pre>
-<hr>
-<h2 id="common-commands"><a class="header" href="#common-commands">Common Commands</a></h2>
-<p>Here are the commands you’ll use most:</p>
+<h2 id="common-commands"><a class="header" href="#common-commands">Common commands</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Command</th><th>What It Does</th></tr>
+<tr><th>What you want to do</th><th>Command</th></tr>
 </thead>
 <tbody>
-<tr><td><code>zjj whereami</code></td><td>Check current location (main or workspace)</td></tr>
-<tr><td><code>zjj add &lt;name&gt;</code></td><td>Create new session + workspace + tab</td></tr>
-<tr><td><code>zjj list</code></td><td>List all sessions</td></tr>
-<tr><td><code>zjj status [name]</code></td><td>Show detailed session status</td></tr>
-<tr><td><code>zjj focus &lt;name&gt;</code></td><td>Switch to session’s Zellij tab</td></tr>
-<tr><td><code>zjj sync [name]</code></td><td>Rebase workspace onto main</td></tr>
-<tr><td><code>zjj done</code></td><td>Complete work and merge to main</td></tr>
-<tr><td><code>zjj remove &lt;name&gt;</code></td><td>Remove session and workspace</td></tr>
+<tr><td>Check where you are</td><td><code>zjj whereami</code></td></tr>
+<tr><td>Create a workspace</td><td><code>zjj add &lt;name&gt;</code></td></tr>
+<tr><td>List all workspaces</td><td><code>zjj list</code></td></tr>
+<tr><td>Switch workspaces</td><td><code>zjj focus &lt;name&gt;</code></td></tr>
+<tr><td>Sync with main</td><td><code>zjj sync</code></td></tr>
+<tr><td>Complete work</td><td><code>zjj done</code></td></tr>
+<tr><td>Clean up workspace</td><td><code>zjj remove &lt;name&gt;</code></td></tr>
 </tbody>
 </table>
 </div>
-<div class="note">
-✨ <strong>Pro Tip</strong>: All commands support <code>--json</code> for machine-readable output!
-</div>
-
 <hr>
-<h2 id="keyboard-shortcuts"><a class="header" href="#keyboard-shortcuts">Keyboard Shortcuts</a></h2>
-<p>When working with Zellij:</p>
+<h2 id="multi-agent-quick-start"><a class="header" href="#multi-agent-quick-start">Multi-agent quick start</a></h2>
+<p>Run multiple AI agents in parallel.</p>
+<h3 id="1-add-tasks-to-the-queue"><a class="header" href="#1-add-tasks-to-the-queue">1. Add tasks to the queue</a></h3>
+<pre><code class="language-bash">zjj queue --add feature-a --bead BD-101 --priority 5
+zjj queue --add feature-b --bead BD-102 --priority 3
+zjj queue --add feature-c --bead BD-103 --priority 1
+</code></pre>
+<h3 id="2-view-the-queue"><a class="header" href="#2-view-the-queue">2. View the queue</a></h3>
+<pre><code class="language-bash">zjj queue --list
+</code></pre>
+<h3 id="3-claim-work"><a class="header" href="#3-claim-work">3. Claim work</a></h3>
+<pre><code class="language-bash"># Agent 1
+zjj work --agent agent-001
+
+# Agent 2
+zjj work --agent agent-002
+</code></pre>
+<h3 id="4-monitor-progress"><a class="header" href="#4-monitor-progress">4. Monitor progress</a></h3>
+<pre><code class="language-bash">zjj queue --status
+</code></pre>
+<hr>
+<h2 id="keyboard-shortcuts"><a class="header" href="#keyboard-shortcuts">Keyboard shortcuts</a></h2>
+<p>When using Zellij:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -337,22 +307,16 @@ zjj queue --status
 </tbody>
 </table>
 </div>
-<div class="info">
-💡 <strong>Tip</strong>: Use <code>zjj focus &lt;name&gt;</code> to jump directly to a session's tab instead of navigating manually.
-</div>
-
+<p>Use <code>zjj focus &lt;name&gt;</code> to jump directly to a workspace tab.</p>
 <hr>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>ZJJ stores configuration in <code>.zjj/config.toml</code>. You can modify it directly or use:</p>
-<pre><code class="language-bash"># View configuration
-zjj config
-
-# Set a value
-zjj config key value
+<p>ZJJ stores configuration in <code>.zjj/config.toml</code>.</p>
+<h3 id="view-configuration"><a class="header" href="#view-configuration">View configuration</a></h3>
+<pre><code class="language-bash">zjj config
 </code></pre>
-<h3 id="common-settings"><a class="header" href="#common-settings">Common Settings</a></h3>
+<h3 id="common-settings"><a class="header" href="#common-settings">Common settings</a></h3>
 <pre><code class="language-toml">[recovery]
-policy = "warn"  # Options: silent, warn, fail-fast
+policy = "warn"
 log_recovered = true
 
 [queue]
@@ -361,15 +325,13 @@ stale_timeout_seconds = 3600
 </code></pre>
 <hr>
 <h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
-<h3 id="database-corruption-detected"><a class="header" href="#database-corruption-detected">“Database corruption detected”</a></h3>
-<p>ZJJ has built-in recovery. Check <code>.zjj/recovery.log</code> for details.</p>
-<pre><code class="language-bash">zjj doctor
-</code></pre>
 <h3 id="not-in-a-jj-repository"><a class="header" href="#not-in-a-jj-repository">“Not in a JJ repository”</a></h3>
-<p>Make sure you’re in a JJ repository:</p>
-<pre><code class="language-bash">jj init  # If starting fresh
-# or
-jj git clone &lt;url&gt;  # If cloning an existing repo
+<p>Initialize JJ first:</p>
+<pre><code class="language-bash">jj init &amp;&amp; zjj init
+</code></pre>
+<h3 id="database-corruption-detected"><a class="header" href="#database-corruption-detected">“Database corruption detected”</a></h3>
+<p>Run diagnostics:</p>
+<pre><code class="language-bash">zjj doctor
 </code></pre>
 <h3 id="zellij-not-found"><a class="header" href="#zellij-not-found">“Zellij not found”</a></h3>
 <p>Install Zellij:</p>
@@ -378,33 +340,63 @@ brew install zellij
 
 # Linux
 cargo install zellij
-
-# Or download from https://zellij.dev/download
 </code></pre>
 <hr>
-<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
-<p>Now that you’re set up, explore:</p>
-<ul>
-<li><strong><a href="./guide/workspaces.html">Workspace Management</a></strong> - Deep dive into sessions</li>
-<li><strong><a href="./guide/queue.html">Queue Coordination</a></strong> - Learn queue operations</li>
-<li><strong><a href="./ai/overview.html">AI Agent Guide</a></strong> - Set up AI agents</li>
-<li><strong><a href="./reference/commands.html">Command Reference</a></strong> - Complete command list</li>
-</ul>
-<hr>
-<h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
-<ul>
-<li>📖 Read the <a href="./guide/workspaces.html">User Guide</a></li>
-<li>🐛 <a href="https://github.com/lprior-repo/zjj/issues">Report issues</a></li>
-<li>💬 <a href="https://github.com/lprior-repo/zjj/discussions">Discussions</a></li>
-<li>📧 <a href="mailto:lewis@example.com">Email support</a></li>
-</ul>
-<hr>
-<div class="page-footer">
+<h2 id="next-steps"><a class="header" href="#next-steps">Next steps</a></h2>
+<div class="quickstart-cards">
   
-<p>Ready to dive deeper? Check out the <a href="./guide/workspaces.html">User Guide</a>.</p>
+<div class="card">
+    
+<h4>Workspace Management</h4>
+
+    
+<p>Learn the full workspace lifecycle</p>
+
+    <a href="./guide/workspaces.html">Read guide →</a>
+  </div>
+
+  
+<div class="card">
+    
+<h4>Queue Coordination</h4>
+
+    
+<p>Coordinate multiple agents and tasks</p>
+
+    <a href="./guide/queue.html">Learn queues →</a>
+  </div>
+
+  
+<div class="card">
+    
+<h4>AI Agent Guide</h4>
+
+    
+<p>Set up parallel AI workflows</p>
+
+    <a href="./ai/overview.html">AI guide →</a>
+  </div>
+
+  
+<div class="card">
+    
+<h4>Command Reference</h4>
+
+    
+<p>All commands and options</p>
+
+    <a href="./reference/commands.html">Browse →</a>
+  </div>
 
 </div>
 
+<hr>
+<h2 id="getting-help"><a class="header" href="#getting-help">Getting help</a></h2>
+<ul>
+<li>📖 <a href="./guide/workspaces.html">User Guide</a></li>
+<li>🐛 <a href="https://github.com/lprior-repo/zjj/issues">Report issues</a></li>
+<li>💬 <a href="https://github.com/lprior-repo/zjj/discussions">Discussions</a></li>
+</ul>
 
                     </main>
 
@@ -414,7 +406,7 @@ cargo install zellij
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="installation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="user-guide.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -428,7 +420,7 @@ cargo install zellij
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="installation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="user-guide.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -457,6 +449,7 @@ cargo install zellij
         <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
+        <script src="theme/sidebar-d5e0e3c4.js"></script>
 
 
 

@@ -6,29 +6,24 @@ Get up and running with ZJJ in 5 minutes.
 
 ## Prerequisites
 
-Before you start, make sure you have:
+Before you start, ensure you have these installed:
 
-- ✅ **JJ (Jujutsu)** - [Install from here](https://github.com/martinvonz/jj#installation)
-- ✅ **Zellij** - [Install from here](https://zellij.dev/download)
-- ✅ **Rust** 1.80 or later - [Install from here](https://rustup.rs/)
-
-<div class="info">
-💡 <strong>Tip</strong>: ZJJ requires a JJ repository to work. If you don't have one yet, run <code>jj init</code> in your project directory.
-</div>
+| Tool | Version | Install |
+|------|---------|---------|
+| **JJ (Jujutsu)** | 0.20+ | [Install guide](https://github.com/martinvonz/jj#installation) |
+| **Zellij** | 0.39+ | [Install guide](https://zellij.dev/download) |
+| **Rust** | 1.80+ | [Install via rustup](https://rustup.rs/) |
 
 ---
 
 ## Installation
 
-### Option 1: From Source (Recommended)
+### From source (recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/lprior-repo/zjj.git
 cd zjj
-
-# Install Moon (if not already installed)
-curl -fsSL https://moonrepo.dev/install/moon.sh | bash
 
 # Build with Moon
 moon run :build
@@ -36,25 +31,19 @@ moon run :build
 # Install the binary
 moon run :install
 
-# Verify installation
+# Verify
 zjj --version
 ```
 
-### Option 2: From crates.io
+### From crates.io
 
 ```bash
 cargo install zjj
 ```
 
-<div class="warning">
-⚠️ <strong>Note</strong>: The crates.io version may lag behind the latest features. Building from source is recommended for the best experience.
-</div>
-
 ---
 
-## 60-Second Workflow
-
-Here's a complete workflow from start to finish:
+## Your first workspace
 
 ### 1. Initialize ZJJ
 
@@ -65,135 +54,107 @@ zjj init
 
 This creates the `.zjj/` directory with the state database.
 
-### 2. Create an Isolated Session
+### 2. Create a workspace
 
 ```bash
-# Create a session for your work
-zjj add auth-refactor --bead BD-123
+zjj add feature-auth --bead BD-123
 ```
 
 This creates:
-- A new JJ workspace named `auth-refactor`
-- A Zellij tab for this workspace
-- Optional association with bead/issue `BD-123`
+- An isolated JJ workspace
+- A Zellij tab for quick switching
+- Association with bead `BD-123` for tracking
 
-### 3. Jump Into Your Workspace
+### 3. Jump into it
 
 ```bash
-# Switch to the session's Zellij tab
-zjj focus auth-refactor
+zjj focus feature-auth
 ```
 
 Or check where you are:
 
 ```bash
 zjj whereami
-# Output: workspace:auth-refactor
+# workspace:feature-auth
 ```
 
-### 4. Do Your Work
+### 4. Do your work
 
-Make changes in your isolated workspace. Your main branch stays clean!
+Edit files in your isolated workspace. Main stays untouched.
 
 ```bash
-# Edit files
 vim src/auth.rs
-
-# Check status
-zjj status auth-refactor
 ```
 
-### 5. Keep Synced with Main
+### 5. Keep synced
 
 ```bash
-# Rebase your workspace onto main
-zjj sync auth-refactor
+zjj sync
 ```
 
-This keeps your workspace up to date with the latest changes from main.
+This rebases your workspace onto the latest main.
 
-### 6. Complete and Land Your Work
-
-```bash
-# Finish and merge to main
-zjj done
-```
-
-This:
-- Merges your changes to main
-- Pushes to remote (if configured)
-- Cleans up the workspace
-
-### 7. Clean Up (Optional)
+### 6. Complete and land
 
 ```bash
-# Remove the session
-zjj remove auth-refactor
+zjj done --message "Add authentication" --push
 ```
 
 ---
 
-## Multi-Agent Quick Start
+## Common commands
 
-Want to run multiple agents in parallel? Here's how:
+| What you want to do | Command |
+|---------------------|---------|
+| Check where you are | `zjj whereami` |
+| Create a workspace | `zjj add <name>` |
+| List all workspaces | `zjj list` |
+| Switch workspaces | `zjj focus <name>` |
+| Sync with main | `zjj sync` |
+| Complete work | `zjj done` |
+| Clean up workspace | `zjj remove <name>` |
 
-### 1. Add Work Items to the Queue
+---
+
+## Multi-agent quick start
+
+Run multiple AI agents in parallel.
+
+### 1. Add tasks to the queue
 
 ```bash
-zjj queue --add feature-a --bead BD-101 --priority 3
-zjj queue --add feature-b --bead BD-102 --priority 5
+zjj queue --add feature-a --bead BD-101 --priority 5
+zjj queue --add feature-b --bead BD-102 --priority 3
 zjj queue --add feature-c --bead BD-103 --priority 1
 ```
 
-### 2. List Queue Items
+### 2. View the queue
 
 ```bash
 zjj queue --list
 ```
 
-### 3. Start a Queue Worker
+### 3. Claim work
 
 ```bash
-# Run once
-zjj queue worker --once
+# Agent 1
+zjj work --agent agent-001
 
-# Or run continuously
-zjj queue worker --loop
+# Agent 2
+zjj work --agent agent-002
 ```
 
-### 4. Monitor Progress
+### 4. Monitor progress
 
 ```bash
-# Check queue status
 zjj queue --status
 ```
 
 ---
 
-## Common Commands
+## Keyboard shortcuts
 
-Here are the commands you'll use most:
-
-| Command | What It Does |
-|---------|-------------|
-| `zjj whereami` | Check current location (main or workspace) |
-| `zjj add <name>` | Create new session + workspace + tab |
-| `zjj list` | List all sessions |
-| `zjj status [name]` | Show detailed session status |
-| `zjj focus <name>` | Switch to session's Zellij tab |
-| `zjj sync [name]` | Rebase workspace onto main |
-| `zjj done` | Complete work and merge to main |
-| `zjj remove <name>` | Remove session and workspace |
-
-<div class="note">
-✨ <strong>Pro Tip</strong>: All commands support <code>--json</code> for machine-readable output!
-</div>
-
----
-
-## Keyboard Shortcuts
-
-When working with Zellij:
+When using Zellij:
 
 | Shortcut | Action |
 |----------|--------|
@@ -202,29 +163,25 @@ When working with Zellij:
 | `Ctrl+p` then `h/l` | Navigate tabs |
 | `Ctrl+p` then `w` | Close tab |
 
-<div class="info">
-💡 <strong>Tip</strong>: Use <code>zjj focus &lt;name&gt;</code> to jump directly to a session's tab instead of navigating manually.
-</div>
+Use `zjj focus <name>` to jump directly to a workspace tab.
 
 ---
 
 ## Configuration
 
-ZJJ stores configuration in `.zjj/config.toml`. You can modify it directly or use:
+ZJJ stores configuration in `.zjj/config.toml`.
+
+### View configuration
 
 ```bash
-# View configuration
 zjj config
-
-# Set a value
-zjj config key value
 ```
 
-### Common Settings
+### Common settings
 
 ```toml
 [recovery]
-policy = "warn"  # Options: silent, warn, fail-fast
+policy = "warn"
 log_recovered = true
 
 [queue]
@@ -236,22 +193,20 @@ stale_timeout_seconds = 3600
 
 ## Troubleshooting
 
+### "Not in a JJ repository"
+
+Initialize JJ first:
+
+```bash
+jj init && zjj init
+```
+
 ### "Database corruption detected"
 
-ZJJ has built-in recovery. Check `.zjj/recovery.log` for details.
+Run diagnostics:
 
 ```bash
 zjj doctor
-```
-
-### "Not in a JJ repository"
-
-Make sure you're in a JJ repository:
-
-```bash
-jj init  # If starting fresh
-# or
-jj git clone <url>  # If cloning an existing repo
 ```
 
 ### "Zellij not found"
@@ -264,32 +219,42 @@ brew install zellij
 
 # Linux
 cargo install zellij
-
-# Or download from https://zellij.dev/download
 ```
 
 ---
 
-## Next Steps
+## Next steps
 
-Now that you're set up, explore:
-
-- **[Workspace Management](./guide/workspaces.md)** - Deep dive into sessions
-- **[Queue Coordination](./guide/queue.md)** - Learn queue operations
-- **[AI Agent Guide](./ai/overview.md)** - Set up AI agents
-- **[Command Reference](./reference/commands.md)** - Complete command list
+<div class="quickstart-cards">
+  <div class="card">
+    <h4>Workspace Management</h4>
+    <p>Learn the full workspace lifecycle</p>
+    <a href="./guide/workspaces.html">Read guide →</a>
+  </div>
+  
+  <div class="card">
+    <h4>Queue Coordination</h4>
+    <p>Coordinate multiple agents and tasks</p>
+    <a href="./guide/queue.html">Learn queues →</a>
+  </div>
+  
+  <div class="card">
+    <h4>AI Agent Guide</h4>
+    <p>Set up parallel AI workflows</p>
+    <a href="./ai/overview.html">AI guide →</a>
+  </div>
+  
+  <div class="card">
+    <h4>Command Reference</h4>
+    <p>All commands and options</p>
+    <a href="./reference/commands.html">Browse →</a>
+  </div>
+</div>
 
 ---
 
-## Getting Help
+## Getting help
 
-- 📖 Read the [User Guide](./guide/workspaces.md)
+- 📖 [User Guide](./guide/workspaces.md)
 - 🐛 [Report issues](https://github.com/lprior-repo/zjj/issues)
 - 💬 [Discussions](https://github.com/lprior-repo/zjj/discussions)
-- 📧 [Email support](mailto:lewis@example.com)
-
----
-
-<div class="page-footer">
-  <p>Ready to dive deeper? Check out the <a href="./guide/workspaces.html">User Guide</a>.</p>
-</div>
