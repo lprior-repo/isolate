@@ -167,7 +167,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
 
     // Phase 3: Handle dry run for new session
     if options.dry_run {
-        return handle_new_session_dry_run(options, &workspace_path_str).await;
+        return handle_new_session_dry_run(options, &workspace_path_str);
     }
 
     // Phase 4: Perform the actual creation sequence
@@ -270,7 +270,7 @@ fn handle_existing_session_dry_run(
 }
 
 /// Handle dry run output for a new session
-async fn handle_new_session_dry_run(options: &AddOptions, workspace_path_str: &str) -> Result<()> {
+fn handle_new_session_dry_run(options: &AddOptions, workspace_path_str: &str) -> Result<()> {
     let zellij_tab = format!("zjj:{name}", name = options.name);
     if options.format.is_json() {
         let output = AddOutput {

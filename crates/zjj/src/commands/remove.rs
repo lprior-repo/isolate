@@ -41,6 +41,7 @@ pub async fn run(name: &str) -> Result<()> {
     run_with_options(name, &RemoveOptions::default()).await
 }
 
+#[allow(clippy::too_many_lines)]
 /// Run the remove command with options
 pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
     let db = get_session_db().await?;

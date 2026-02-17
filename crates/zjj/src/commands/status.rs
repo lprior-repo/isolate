@@ -34,11 +34,11 @@ pub struct FileChanges {
 }
 
 impl FileChanges {
-    pub fn total(&self) -> usize {
+    pub const fn total(&self) -> usize {
         self.modified + self.added + self.deleted + self.renamed
     }
 
-    pub fn is_clean(&self) -> bool {
+    pub const fn is_clean(&self) -> bool {
         self.total() == 0
     }
 }

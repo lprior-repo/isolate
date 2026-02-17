@@ -135,7 +135,7 @@ fn test_submit_dry_run_fails_if_dirty_without_auto_commit() {
     std::fs::write(workspace_path.join("uncommitted.txt"), "dirty changes")
         .expect("Failed to write uncommitted file");
 
-    harness.current_dir = workspace_path.clone();
+    harness.current_dir = workspace_path;
 
     // WHEN: User runs submit with --dry-run but WITHOUT --auto-commit
     let result = harness.zjj(&["submit", "--dry-run", "--json"]);

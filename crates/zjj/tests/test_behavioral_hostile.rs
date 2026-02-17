@@ -4,7 +4,6 @@
 
 mod common;
 
-use std::path::PathBuf;
 
 use common::TestHarness;
 use serde_json::Value;

@@ -305,7 +305,7 @@ fn test_success_flag_invariant() {
         create_response("", vec!["agent-1".to_string()], "2024-01-01T00:00:00Z"),
     ];
 
-    for response in responses {
+    for _response in responses {
         // success is provided by envelope wrapper
     }
 }
@@ -548,7 +548,7 @@ fn test_no_duplicate_success_key_in_json() {
 #[test]
 fn test_empty_message_rejected() {
     let args = BroadcastArgs {
-        message: "".to_string(),
+        message: String::new(),
         agent_id: "agent-1".to_string(),
     };
 
@@ -561,7 +561,7 @@ fn test_empty_message_rejected() {
 fn test_empty_agent_id_rejected() {
     let args = BroadcastArgs {
         message: "test".to_string(),
-        agent_id: "".to_string(),
+        agent_id: String::new(),
     };
 
     // Empty agent_id should fail validation

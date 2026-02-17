@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use super::json::{
     schemas::{self, all_valid_schemas, is_valid_schema, uri},
     ErrorDetail, JsonError, JsonSuccess, SchemaEnvelope,

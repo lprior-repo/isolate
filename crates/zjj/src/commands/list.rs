@@ -112,10 +112,7 @@ pub async fn run(
         return Ok(());
     }
 
-    let beads_count = match get_beads_count().await {
-        Ok(c) => c,
-        Err(_) => BeadCounts::default(),
-    };
+        let beads_count = get_beads_count().await.unwrap_or_default();
     let beads_str = beads_count.to_string();
 
     // Build list items using concurrent futures stream for performance
@@ -124,10 +121,7 @@ pub async fn run(
             let beads_str = beads_str.clone();
             async move {
                 let changes = get_session_changes(&session.workspace_path).await;
-                let changes_str = match changes {
-                    Some(c) => c.to_string(),
-                    None => "-".to_string(),
-                };
+                let changes_str = changes.map_or_else(|| "-".to_string(), |c| c.to_string());
                 SessionListItem {
                     display_branch: session.branch.clone(),
                     changes: changes_str,
@@ -174,10 +168,7 @@ async fn get_beads_count() -> Result<BeadCounts> {
     };
 
     let bead_repo = BeadRepository::new(root);
-    let beads = match bead_repo.list_beads().await {
-        Ok(b) => b,
-        Err(_) => Vec::new(),
-    };
+    let beads = bead_repo.list_beads().await.unwrap_or_default();
 
     // Functional counting using fold
     let counts = beads.into_iter().fold(BeadCounts::default(), |mut acc, b| {
@@ -217,10 +208,7 @@ fn output_table(items: &[SessionListItem], verbose: bool) {
                 }
             });
 
-            let bead_info = match bead_info {
-                Some(info) => info,
-                None => "-".to_string(),
-            };
+            let bead_info = bead_info.unwrap_or_else(|| "-".to_string());
 
             println!(
                 "{:<20} {:<12} {:<15} {:<30} {:<40}",

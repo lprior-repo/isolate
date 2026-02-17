@@ -47,7 +47,7 @@ pub struct RealFileSystem;
 
 impl RealFileSystem {
     /// Create a new `RealFileSystem`
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 }

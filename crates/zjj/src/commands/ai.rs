@@ -436,13 +436,12 @@ async fn run_next(format: OutputFormat) -> Result<()> {
     } else {
         // On main, ready to work
         let active_sessions = match get_session_db().await {
-            Ok(db) => match db.list(None).await {
-                Ok(sessions) => sessions
+            Ok(db) => db.list(None).await.map_or(0, |sessions| {
+                sessions
                     .iter()
                     .filter(|s| s.status.to_string() == "active")
-                    .count(),
-                Err(_) => 0,
-            },
+                    .count()
+            }),
             Err(_) => 0,
         };
 

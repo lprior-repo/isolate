@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use super::error::{FailureContext, ValidationHint};
 
 // Behavior: ValidationHint::new creates hint with field and expected

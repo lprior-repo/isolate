@@ -123,7 +123,7 @@ pub struct InitOptions {
 ///    - .zjj/config.toml (default configuration)
 ///    - .zjj/state.db (sessions database)
 ///    - .zjj/layouts/ (Zellij layouts directory)
-#[expect(dead_code)] // Convenience wrapper, currently unused but part of public API
+#[allow(dead_code)] // Convenience wrapper, currently unused but part of public API
 pub async fn run() -> Result<()> {
     run_with_options(InitOptions::default()).await
 }
@@ -134,6 +134,7 @@ pub async fn run_with_options(options: InitOptions) -> Result<()> {
 }
 
 /// Run init command with cwd and options
+#[allow(clippy::used_underscore_binding)]
 pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) -> Result<()> {
     let cwd = match cwd {
         Some(p) => PathBuf::from(p),

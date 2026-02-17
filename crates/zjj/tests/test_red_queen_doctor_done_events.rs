@@ -4,13 +4,8 @@
     clippy::panic,
     clippy::too_many_lines,
     clippy::too_many_arguments,
-    clippy::bool_assert_comparison,
-    clippy::duration_suboptimal_units,
     clippy::filter_map_bool_then
 )]
-#![allow(clippy::expect_used)]
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::panic)]
 
 mod common;
 
@@ -66,12 +61,11 @@ fn assert_json_error_shape(result: &common::CommandResult, case: &InvalidCase) {
         "{} should use error-response schema, got: {schema}",
         case.name
     );
-    assert_eq!(
-        parsed
+    assert!(
+        !parsed
             .get("success")
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(true),
-        false,
         "{} should report success=false",
         case.name
     );
@@ -151,19 +145,15 @@ fn spawn_follow_process(harness: &TestHarness, args: &[&str]) -> FollowProcess {
 
     thread::spawn(move || {
         let reader = BufReader::new(stdout);
-        for line in reader.lines() {
-            if let Ok(value) = line {
-                let _ = stdout_tx.send(value);
-            }
+        for value in reader.lines().map_while(Result::ok) {
+            let _ = stdout_tx.send(value);
         }
     });
 
     thread::spawn(move || {
         let reader = BufReader::new(stderr);
-        for line in reader.lines() {
-            if let Ok(value) = line {
-                let _ = stderr_tx.send(value);
-            }
+        for value in reader.lines().map_while(Result::ok) {
+            let _ = stderr_tx.send(value);
         }
     });
 
@@ -1076,10 +1066,12 @@ fn given_doctor_json_in_workspace_root_when_reporting_context_then_uses_workspac
     // We don't assert success here because doctor might exit with 1 if checks fail,
     // but it should always output valid JSON if --json is passed.
 
-    let parsed: serde_json::Value = serde_json::from_str(&result.stdout).expect(&format!(
-        "doctor output should be valid JSON. Stdout: '{}', Stderr: '{}'",
-        result.stdout, result.stderr
-    ));
+    let parsed: serde_json::Value = serde_json::from_str(&result.stdout).unwrap_or_else(|_| {
+        panic!(
+            "doctor output should be valid JSON. Stdout: '{}', Stderr: '{}'",
+            result.stdout, result.stderr
+        )
+    });
     let checks = payload(&parsed)["checks"]
         .as_array()
         .expect("checks array should exist");

@@ -1,4 +1,3 @@
-#![cfg(test)]
 #![allow(clippy::similar_names)]
 
 use chrono::Utc;

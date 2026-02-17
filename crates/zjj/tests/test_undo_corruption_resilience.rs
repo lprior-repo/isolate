@@ -17,6 +17,10 @@
     clippy::doc_markdown,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
+    // Thread spawn requires clones for 'static lifetime
+    clippy::redundant_clone,
+    // Manual is_multiple_of check is clearer in test context
+    clippy::manual_is_multiple_of,
 )]
 
 mod common;
@@ -152,7 +156,7 @@ fn undo_list_json_survives_concurrent_log_mutation() -> Result<(), serde_json::E
             assert!(
                 matches!(
                     code,
-                    Some("MALFORMED_UNDO_LOG") | Some("READ_UNDO_LOG_FAILED")
+                    Some("MALFORMED_UNDO_LOG" | "READ_UNDO_LOG_FAILED")
                 ),
                 "unexpected error code during concurrent mutation: {code:?}"
             );

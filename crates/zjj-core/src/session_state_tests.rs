@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use super::session_state::SessionState;
 
 // Behavior: Created can transition to Active or Failed

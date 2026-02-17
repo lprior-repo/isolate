@@ -232,6 +232,7 @@ pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
     validate::run(&options)
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
     // Handle --contract flag first
     if sub_m.get_flag("contract") {

@@ -1882,6 +1882,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for zjj query command
+    #[allow(clippy::too_many_lines)]
     pub const fn query() -> &'static str {
         r#"AI CONTRACT for zjj query:
 {

@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use chrono::Utc;
 use sqlx::SqlitePool;
 use tempfile::TempDir;

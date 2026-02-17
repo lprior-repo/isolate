@@ -160,13 +160,8 @@ fn convert_spawn_error(error: &SpawnError) -> JsonError {
 /// Convert an `UndoError` to a `JsonError`
 fn convert_undo_error(error: &UndoError) -> JsonError {
     let exit_code = match error {
-        UndoError::AlreadyPushedToRemote { .. } => 1,
-        UndoError::NotInMain { .. } => 1,
+        UndoError::AlreadyPushedToRemote { .. } | UndoError::NotInMain { .. } => 1,
         UndoError::NoUndoHistory => 2,
-        UndoError::WorkspaceExpired { .. } => 4,
-        UndoError::ReadUndoLogFailed { .. } => 4,
-        UndoError::MalformedUndoLog { .. } => 4,
-        UndoError::WriteUndoLogFailed { .. } => 4,
         _ => 4,
     };
 
@@ -252,6 +247,7 @@ fn classify_error_by_message(error_str: &str) -> ErrorCode {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use zjj_core::ErrorCode;
 

@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use std::str::FromStr;
 
 use super::types::SessionName;

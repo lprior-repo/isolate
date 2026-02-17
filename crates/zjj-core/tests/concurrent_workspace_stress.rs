@@ -7,7 +7,7 @@
     clippy::unimplemented,
     clippy::todo,
     clippy::unreachable,
-    clippy::duration_suboptimal_units,
+    clippy::duration_subsec,
     // Test code ergonomics
     clippy::too_many_lines,
     clippy::cognitive_complexity,

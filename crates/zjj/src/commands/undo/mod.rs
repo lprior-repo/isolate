@@ -52,7 +52,7 @@ pub async fn run_with_options(options: &UndoOptions) -> Result<UndoExitCode, Und
             Ok(UndoExitCode::Success)
         }
         Err(e) => {
-            output_error(e, options.format)?;
+            output_error(e, options.format);
             Err(e.clone())
         }
     }
@@ -398,7 +398,7 @@ fn output_result(result: &UndoOutput, format: OutputFormat) -> Result<(), UndoEr
 }
 
 /// Output error in the appropriate format
-fn output_error(error: &UndoError, format: OutputFormat) -> Result<(), UndoError> {
+fn output_error(error: &UndoError, format: OutputFormat) {
     if format.is_json() {
         // Do nothing here - the error will be handled and printed by the CLI layer
         // to avoid double-enveloping and ensure consistent exit codes.
@@ -409,7 +409,6 @@ fn output_error(error: &UndoError, format: OutputFormat) -> Result<(), UndoError
             eprintln!("   Use 'jj revert' to manually revert the commit.");
         }
     }
-    Ok(())
 }
 
 const fn undo_error_exit_code(error: &UndoError) -> i32 {
@@ -417,8 +416,6 @@ const fn undo_error_exit_code(error: &UndoError) -> i32 {
         UndoError::AlreadyPushedToRemote { .. } => UndoExitCode::AlreadyPushed as i32,
         UndoError::NoUndoHistory => UndoExitCode::NoHistory as i32,
         UndoError::InvalidState { .. } => UndoExitCode::InvalidState as i32,
-        UndoError::MalformedUndoLog { .. } => UndoExitCode::OtherError as i32,
-        UndoError::WorkspaceExpired { .. } => UndoExitCode::OtherError as i32,
         _ => UndoExitCode::OtherError as i32,
     }
 }

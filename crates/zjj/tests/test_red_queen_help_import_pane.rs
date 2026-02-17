@@ -4,8 +4,6 @@
 // Martin Fowler-style adversarial regression tests for help/import/pane.
 //
 // These tests lock in error behavior found through QA/Red-Queen style attacks.
-#![allow(clippy::expect_used, clippy::unwrap_used)]
-
 mod common;
 
 use common::TestHarness;

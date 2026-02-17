@@ -12,10 +12,10 @@ const JOURNAL_DONE: &str = "done";
 const JOURNAL_FAILED_COMPENSATION: &str = "failed_compensation";
 
 fn add_operation_id(name: &str, command_id: Option<&str>) -> String {
-    match command_id {
-        Some(id) => format!("add:{name}:{id}"),
-        None => format!("add:{name}"),
-    }
+    command_id.map_or_else(
+        || format!("add:{name}"),
+        |id| format!("add:{name}:{id}"),
+    )
 }
 
 #[derive(Clone, Copy)]

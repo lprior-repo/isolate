@@ -264,6 +264,7 @@ fn build_init_contract() -> CommandContract {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn build_add_contract() -> CommandContract {
     CommandContract {
         name: "add".to_string(),

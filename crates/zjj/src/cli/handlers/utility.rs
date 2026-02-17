@@ -97,6 +97,7 @@ fn build_wait_options(sub_m: &ArgMatches, format: OutputFormat) -> Result<wait::
     build_wait_options_from_values(condition_str, name, status, timeout, interval, format)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_wait_options_from_values(
     condition_str: &str,
     name: Option<String>,
@@ -413,6 +414,7 @@ mod tests {
         /// WHEN: option-building runs across all rows
         /// THEN: each row should produce expected success/failure behavior
         #[test]
+        #[allow(clippy::cast_precision_loss)]
         fn given_wait_option_matrix_when_building_then_each_row_matches_expected_behavior() {
             let cases = [
                 BuildCase {

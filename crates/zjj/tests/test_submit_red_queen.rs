@@ -17,6 +17,8 @@
     clippy::doc_markdown,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
+    // Thread spawn requires clones for 'static lifetime
+    clippy::redundant_clone,
 )]
 
 mod common;
@@ -303,7 +305,7 @@ fn submit_dry_run_without_auto_commit_reports_dirty_without_mutation() {
         .and_then(|v| v.get("code"))
         .and_then(serde_json::Value::as_str);
     assert!(
-        matches!(code, Some("DIRTY_WORKSPACE") | Some("PRECONDITION_FAILED")),
+        matches!(code, Some("DIRTY_WORKSPACE" | "PRECONDITION_FAILED")),
         "unexpected error code: {code:?}"
     );
 
@@ -665,7 +667,7 @@ fn submit_repeated_auto_commit_with_head_churn_keeps_json_contract() {
             .and_then(serde_json::Value::as_str);
 
         assert!(
-            result.success || matches!(code, Some("QUEUE_ERROR") | Some("PRECONDITION_FAILED")),
+            result.success || matches!(code, Some("QUEUE_ERROR" | "PRECONDITION_FAILED")),
             "unexpected submit error during burst iteration {i}: {parsed}"
         );
     }
@@ -755,7 +757,7 @@ fn submit_concurrent_auto_commit_race_preserves_machine_readability() {
             assert!(
                 matches!(
                     code,
-                    Some("QUEUE_ERROR") | Some("PRECONDITION_FAILED") | Some("DIRTY_WORKSPACE")
+                    Some("QUEUE_ERROR" | "PRECONDITION_FAILED" | "DIRTY_WORKSPACE")
                 ),
                 "unexpected error code during race iteration {i}: {code:?}\n{parsed}"
             );
@@ -871,7 +873,7 @@ fn submit_multiprocess_parallel_storm_keeps_structured_json() {
             assert!(
                 matches!(
                     code,
-                    Some("QUEUE_ERROR") | Some("PRECONDITION_FAILED") | Some("DIRTY_WORKSPACE")
+                    Some("QUEUE_ERROR" | "PRECONDITION_FAILED" | "DIRTY_WORKSPACE")
                 ),
                 "unexpected submit code during multiprocess storm iteration {i}: {code:?}\n{parsed}"
             );

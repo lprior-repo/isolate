@@ -287,7 +287,7 @@ fn test_query_command_discovery() -> Result<(), Box<dyn std::error::Error>> {
         let count = json["count"]
             .as_u64()
             .ok_or_else(|| format!("Missing count in session-count output: {}", result.stdout))?;
-        Ok(count as usize)
+        Ok(usize::try_from(count).unwrap_or(usize::MAX))
     };
 
     assert_eq!(initial_count()?, 0, "Should have 0 sessions initially");

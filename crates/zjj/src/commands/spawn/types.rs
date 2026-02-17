@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use zjj_core::OutputFormat;
 
 /// Options for the spawn command (from CLI args)
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone)]
 pub struct SpawnArgs {
     /// Bead ID to work on
@@ -112,6 +113,7 @@ impl SpawnArgs {
 }
 
 /// Options for spawn command (internal)
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone)]
 pub struct SpawnOptions {
     pub bead_id: String,

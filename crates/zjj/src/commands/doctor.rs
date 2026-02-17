@@ -209,10 +209,7 @@ async fn check_workspace_integrity() -> DoctorCheck {
     };
 
     let sessions = match get_session_db().await {
-        Ok(db) => match db.list(None).await {
-            Ok(s) => s,
-            Err(_) => Vec::new(),
-        },
+        Ok(db) => db.list(None).await.unwrap_or_default(),
         Err(_) => Vec::new(),
     };
 
@@ -656,10 +653,7 @@ async fn run_integrity_after_recovery() -> Option<DoctorCheck> {
     };
 
     let sessions = match get_session_db().await {
-        Ok(db) => match db.list(None).await {
-            Ok(s) => s,
-            Err(_) => Vec::new(),
-        },
+        Ok(db) => db.list(None).await.unwrap_or_default(),
         Err(_) => Vec::new(),
     };
 
@@ -891,10 +885,7 @@ async fn run_integrity_check(db_path: &Path) -> Result<String, String> {
 async fn check_orphaned_workspaces() -> DoctorCheck {
     // Get list of sessions from DB with their workspace paths
     let db_sessions = match get_session_db().await {
-        Ok(db) => match db.list(None).await {
-            Ok(s) => s,
-            Err(_) => Vec::new(),
-        },
+        Ok(db) => db.list(None).await.unwrap_or_else(|_| Vec::new()),
         Err(_) => Vec::new(),
     };
 
@@ -1060,10 +1051,7 @@ async fn check_beads() -> DoctorCheck {
 /// Check for stale/incomplete sessions
 async fn check_stale_sessions() -> DoctorCheck {
     let sessions = match get_session_db().await {
-        Ok(db) => match db.list(None).await {
-            Ok(s) => s,
-            Err(_) => Vec::new(),
-        },
+        Ok(db) => db.list(None).await.unwrap_or_default(),
         Err(_) => Vec::new(),
     };
 
@@ -1130,10 +1118,7 @@ async fn check_workflow_violations() -> DoctorCheck {
         };
     };
 
-    let sessions = match db.list(None).await {
-        Ok(s) => s,
-        Err(_) => Vec::new(),
-    };
+    let sessions = db.list(None).await.unwrap_or_default();
     let active_sessions: Vec<_> = sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Active)
@@ -1731,6 +1716,7 @@ fn show_fix_results(output: &DoctorFixOutput) {
 }
 
 /// Fix orphaned workspaces
+#[allow(clippy::too_many_lines)]
 async fn fix_orphaned_workspaces(check: &DoctorCheck, dry_run: bool) -> Result<String, String> {
     let orphaned_data = check
         .details

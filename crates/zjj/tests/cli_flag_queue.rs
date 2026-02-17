@@ -5,12 +5,10 @@
     clippy::too_many_lines,
     clippy::too_many_arguments,
     clippy::bool_assert_comparison,
-    clippy::duration_suboptimal_units,
     clippy::filter_map_bool_then
 )]
 mod common;
 use common::TestHarness;
-use predicates::prelude::*;
 
 #[test]
 fn bdd_queue_list_does_not_panic() {
