@@ -211,6 +211,16 @@ tasks:
       cache: false
       runInCI: true
 
+  deploy-docs:
+    command: "${MOON_WORKSPACE_ROOT}/tools/deploy-docs.sh"
+    description: "Deploy documentation to GitHub Pages (only runs when docs change)"
+    inputs:
+      - "docs/**/*.md"
+      - "tools/deploy-docs.sh"
+    options:
+      cache: false
+      runInCI: true
+
   deploy:
     command: "true"
     description: "Deploy to production (placeholder task)"

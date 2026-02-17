@@ -35,7 +35,6 @@
     clippy::manual_clamp,
 )]
 
-
 use tempfile::TempDir;
 use zjj_core::Result;
 

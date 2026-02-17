@@ -2,7 +2,6 @@
 
 mod common;
 
-
 use zjj_core::jj_operation_sync::create_workspace_synced;
 
 #[tokio::test]

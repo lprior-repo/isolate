@@ -1,24 +1,15 @@
 //! Initialize ZJJ - sets up everything needed
 
-<<<<<<< Conflict 1 of 3
-+++++++ Contents of side #1
-use std::path::{Path, PathBuf};
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::suspicious_open_options)]
 
-use anyhow::{Context, Result};
-%%%%%%% Changes from base to side #2
--#![allow(clippy::too_many_lines)]
--#![allow(clippy::suspicious_open_options)]
--
--use std::{
--    path::{Path, PathBuf},
--    time::Duration,
--};
-+use std::path::{Path, PathBuf};
-+use std::time::Duration;
- 
- use anyhow::{bail, Context, Result};
- use fs4::fs_std::FileExt;
->>>>>>> Conflict 1 of 3 ends
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
+
+use anyhow::{bail, Context, Result};
+use fs4::fs_std::FileExt;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::db::SessionDb;
@@ -27,99 +18,88 @@ mod deps;
 mod setup;
 mod types;
 
-<<<<<<< Conflict 2 of 3
-+++++++ Contents of side #1
-%%%%%%% Changes from base to side #2
- // ============================================================================
- // InitLock - RAII guard for init lock file
- // ============================================================================
- 
- /// Lock file timeout - after this duration, a stale lock is considered abandoned
- const STALE_LOCK_TIMEOUT_SECS: u64 = 60;
- 
- /// RAII guard that ensures lock file cleanup on drop (including error paths)
- struct InitLock {
-     file: std::fs::File,
-     path: PathBuf,
-     released: bool,
- }
- 
- impl InitLock {
-     /// Acquire exclusive lock, handling stale locks and symlink attacks
-     fn acquire(lock_path: PathBuf) -> Result<Self> {
-         // Protect against symlink attacks: verify lock file is not a symlink
-         if let Ok(metadata) = std::fs::symlink_metadata(&lock_path) {
-             if metadata.is_symlink() {
-                 bail!(
-                     "Security: {} is a symlink. Remove it and re-run zjj init.",
-                     lock_path.display()
-                 );
-             }
-         }
- 
-         // Check for stale lock file before attempting acquisition
-         if let Ok(metadata) = std::fs::metadata(&lock_path) {
-             if let Ok(modified) = metadata.modified() {
-                 if let Ok(elapsed) = modified.elapsed() {
-                     if elapsed > Duration::from_secs(STALE_LOCK_TIMEOUT_SECS) {
-                         // Stale lock - safe to remove
-                         let _ = std::fs::remove_file(&lock_path);
-                     }
-                 }
-             }
-         }
- 
-         // Open lock file without truncate to avoid clobbering symlink targets
-         let file = std::fs::OpenOptions::new()
-             .create(true)
-             .write(true)
-             .open(&lock_path)
-             .with_context(|| format!("Failed to create lock file at {}", lock_path.display()))?;
- 
-         // Try to acquire exclusive lock (blocking)
--        file.lock_exclusive().with_context(|| {
--            format!(
--                "Another zjj init is in progress. If this is incorrect, remove {} and retry.",
--                lock_path.display()
--            )
--        })?;
-+        file.lock_exclusive()
-+            .with_context(|| {
-+                format!(
-+                    "Another zjj init is in progress. If this is incorrect, remove {} and retry.",
-+                    lock_path.display()
-+                )
-+            })?;
- 
-         Ok(Self {
-             file,
-             path: lock_path,
-             released: false,
-         })
-     }
- 
-     /// Explicitly release the lock (keeps file on disk to prevent inode races)
-     fn release(mut self) -> Result<()> {
-         if !self.released {
-             self.released = true;
-             // Release lock but keep file on disk (file locks are inode-based)
-             self.file.unlock().context("Failed to release lock")?;
-         }
-         Ok(())
-     }
- }
- 
- impl Drop for InitLock {
-     fn drop(&mut self) {
-         if !self.released {
-             // Best-effort lock release on drop (e.g., due to error)
-             // Keep file on disk to prevent inode-based race conditions
-             let _ = self.file.unlock();
-         }
-     }
- }
- 
->>>>>>> Conflict 2 of 3 ends
+// ============================================================================
+// InitLock - RAII guard for init lock file
+// ============================================================================
+
+/// Lock file timeout - after this duration, a stale lock is considered abandoned
+const STALE_LOCK_TIMEOUT_SECS: u64 = 60;
+
+/// RAII guard that ensures lock file cleanup on drop (including error paths)
+struct InitLock {
+    file: std::fs::File,
+    path: PathBuf,
+    released: bool,
+}
+
+impl InitLock {
+    /// Acquire exclusive lock, handling stale locks and symlink attacks
+    fn acquire(lock_path: PathBuf) -> Result<Self> {
+        // Protect against symlink attacks: verify lock file is not a symlink
+        if let Ok(metadata) = std::fs::symlink_metadata(&lock_path) {
+            if metadata.is_symlink() {
+                bail!(
+                    "Security: {} is a symlink. Remove it and re-run zjj init.",
+                    lock_path.display()
+                );
+            }
+        }
+
+        // Check for stale lock file before attempting acquisition
+        if let Ok(metadata) = std::fs::metadata(&lock_path) {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(elapsed) = modified.elapsed() {
+                    if elapsed > Duration::from_secs(STALE_LOCK_TIMEOUT_SECS) {
+                        // Stale lock - safe to remove
+                        let _ = std::fs::remove_file(&lock_path);
+                    }
+                }
+            }
+        }
+
+        // Open lock file without truncate to avoid clobbering symlink targets
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(&lock_path)
+            .with_context(|| format!("Failed to create lock file at {}", lock_path.display()))?;
+
+        // Try to acquire exclusive lock (blocking)
+        file.lock_exclusive().with_context(|| {
+            format!(
+                "Another zjj init is in progress. If this is incorrect, remove {} and retry.",
+                lock_path.display()
+            )
+        })?;
+
+        Ok(Self {
+            file,
+            path: lock_path,
+            released: false,
+        })
+    }
+
+    /// Explicitly release the lock (keeps file on disk to prevent inode races)
+    fn release(mut self) -> Result<()> {
+        if !self.released {
+            self.released = true;
+            // Release lock but keep file on disk (file locks are inode-based)
+            self.file.unlock().context("Failed to release lock")?;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for InitLock {
+    fn drop(&mut self) {
+        if !self.released {
+            // Best-effort lock release on drop (e.g., due to error)
+            // Keep file on disk to prevent inode-based race conditions
+            let _ = self.file.unlock();
+        }
+    }
+}
+
 use deps::{check_dependencies, ensure_jj_repo_with_cwd, jj_root_with_cwd};
 use setup::{
     create_agents_md, create_claude_md, create_docs, create_jj_hooks, create_jjignore,
@@ -153,15 +133,8 @@ pub async fn run_with_options(options: InitOptions) -> Result<()> {
     run_with_cwd_and_options(None, options).await
 }
 
-<<<<<<< Conflict 3 of 3
-+++++++ Contents of side #1
 /// Run init command with cwd and options
 pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) -> Result<()> {
-%%%%%%% Changes from base to side #2
- /// Run init command with cwd and format
--#[allow(clippy::too_many_lines)]
- pub async fn run_with_cwd_and_format(cwd: Option<&Path>, format: OutputFormat) -> Result<()> {
->>>>>>> Conflict 3 of 3 ends
     let cwd = match cwd {
         Some(p) => PathBuf::from(p),
         None => std::env::current_dir().context("Failed to get current directory")?,
@@ -188,6 +161,10 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
     // Get the repo root using the provided cwd
     let root = jj_root_with_cwd(&cwd).await?;
     let zjj_dir = root.join(".zjj");
+
+    // Acquire init lock to prevent concurrent initialization
+    let lock_path = zjj_dir.join(".init.lock");
+    let _lock = InitLock::acquire(lock_path)?;
 
     // Define paths for all essential files
     let config_path = zjj_dir.join("config.toml");
@@ -273,6 +250,9 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
     // Initialize the database (create if it doesn't exist)
     // db_path already defined above
     let _db = SessionDb::create_or_open(&db_path).await?;
+
+    // Release the lock before final output
+    _lock.release()?;
 
     if options.format.is_json() {
         let response = build_init_response(&root, false);
