@@ -1,7 +1,8 @@
 $schema: "https://moonrepo.dev/schemas/tasks.json"
 
 # Moon Task Configuration - MVP Pipeline
-# All commands use cargo with system Rust toolchain
+# Uses nightly Rust via RUSTUP_TOOLCHAIN env var
+# Uses mise exec only for non-Rust tools (jj, zellij, semgrep)
 
 tasks:
   # ============================================================================
@@ -9,7 +10,7 @@ tasks:
   # ============================================================================
 
   fmt:
-    command: "cargo fmt --all --check"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all --check"
     description: "Check code formatting (rustfmt)"
     inputs:
       - "crates/**/*.rs"
@@ -20,7 +21,7 @@ tasks:
       runInCI: true
 
   fmt-fix:
-    command: "cargo fmt --all"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all"
     description: "Auto-fix code formatting"
     inputs:
       - "crates/**/*.rs"
@@ -29,7 +30,7 @@ tasks:
       cache: false  # Never cache - always format
 
   clippy:
-    command: "cargo clippy --workspace --all-targets --all-features -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn -A clippy::useless_conversion -W clippy::pedantic"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo clippy --workspace --all-targets --all-features -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn -A clippy::useless_conversion -W clippy::pedantic"
     description: "Lint with Clippy (strict mode for safety, allow style suggestions)"
     deps:
       - "check"
@@ -44,10 +45,11 @@ tasks:
 
   # ============================================================================
   # STAGE 2: TESTING (depends on build to avoid file lock conflicts)
+  # Uses mise exec to ensure jj/zellij are available for integration tests
   # ============================================================================
 
   test:
-    command: "cargo nextest run --workspace --all-features --no-fail-fast -E 'not (package(zjj) & binary(drq_adversarial))'"
+    command: "mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast -E 'not (package(zjj) & binary(drq_adversarial))'"
     description: "Run required tests (DRQ research excluded by default)"
     deps:
       - "build"
@@ -63,7 +65,7 @@ tasks:
       CARGO_BUILD_JOBS: "16"
 
   test-research:
-    command: "cargo nextest run --workspace --all-features --no-fail-fast -E 'package(zjj) & binary(drq_adversarial)'"
+    command: "mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast -E 'package(zjj) & binary(drq_adversarial)'"
     description: "Run DRQ research lane tests (explicit opt-in)"
     deps:
       - "build"
@@ -79,8 +81,7 @@ tasks:
       CARGO_BUILD_JOBS: "16"
 
   test-doc:
-    command: "cargo"
-    args: "test --doc"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo test --doc"
     description: "Run documentation tests"
     deps:
       - "build"
@@ -91,10 +92,9 @@ tasks:
     options:
       cache: true
       runInCI: true
-      mergeArgs: "replace"  # Prevent duplicate --doc flags from inheritance
 
   coverage:
-    command: "cargo tarpaulin --workspace --all-features --out Html --out Lcov --output-dir target/coverage -- --test-threads=1"
+    command: "env RUSTUP_TOOLCHAIN=nightly CARGO_BUILD_JOBS=8 cargo tarpaulin --workspace --all-features --out Html --out Lcov --output-dir target/coverage -- --test-threads=1"
     description: "Generate test coverage report (HTML + LCOV)"
     deps:
       - "build"
@@ -108,11 +108,9 @@ tasks:
     options:
       cache: false
       runInCI: true
-    env:
-      CARGO_BUILD_JOBS: "8"
 
   coverage-check:
-    command: "cargo tarpaulin --workspace --all-features --out Lcov --output-dir target/coverage -- --test-threads=1 | grep -E '^[0-9]+\\.[0-9]+%' | awk '{ if ($1 + 0 < 80) { exit 1 } }'"
+    command: "env RUSTUP_TOOLCHAIN=nightly CARGO_BUILD_JOBS=8 cargo tarpaulin --workspace --all-features --out Lcov --output-dir target/coverage -- --test-threads=1 | grep -E '^[0-9]+\\.[0-9]+%' | awk '{ if ($1 + 0 < 80) { exit 1 } }'"
     description: "Check if coverage meets minimum threshold (80%)"
     deps:
       - "build"
@@ -123,16 +121,14 @@ tasks:
     options:
       cache: false
       runInCI: true
-    env:
-      CARGO_BUILD_JOBS: "8"
 
   # ============================================================================
   # STAGE 3: SECURITY
   # ============================================================================
 
   audit:
-    command: "echo 'Skipping audit - cargo-audit not installed'"
-    description: "Security audit of dependencies (advisory only for MVP)"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo audit"
+    description: "Security audit of dependencies"
     options:
       cache: false
 
@@ -141,7 +137,7 @@ tasks:
   # ============================================================================
 
   build:
-    command: "cargo build --release --workspace"
+    command: "env RUSTUP_TOOLCHAIN=nightly CARGO_BUILD_JOBS=24 cargo build --release --workspace"
     description: "Build release binaries"
     deps:
       - "check"
@@ -154,12 +150,9 @@ tasks:
     options:
       cache: true
       runInCI: true
-    env:
-      CARGO_BUILD_JOBS: "24"
 
   build-docs:
-    command: "cargo"
-    args: "doc --no-deps --document-private-items"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo doc --no-deps --document-private-items"
     description: "Generate Rust documentation"
     deps:
       - "build"
@@ -170,14 +163,13 @@ tasks:
     options:
       cache: true
       runInCI: true
-      mergeArgs: "replace"  # Prevent duplicate doc flags from inheritance
 
   # ============================================================================
   # DOCUMENTATION VALIDATION
   # ============================================================================
 
   docs-check:
-    command: "${MOON_WORKSPACE_ROOT}/tools/ci-docs-check.sh"
+    command: "mise exec -- ${MOON_WORKSPACE_ROOT}/tools/ci-docs-check.sh"
     description: "Validate zjj command documentation against implementation"
     deps:
       - "build"
@@ -190,7 +182,7 @@ tasks:
       runInCI: true
 
   tasks-check:
-    command: "${MOON_WORKSPACE_ROOT}/tools/ci-tasks-check.sh"
+    command: "mise exec -- ${MOON_WORKSPACE_ROOT}/tools/ci-tasks-check.sh"
     description: "Validate moon tasks documentation against .moon/tasks.yml"
     inputs:
       - "tools/ci-tasks-check.sh"
@@ -201,7 +193,7 @@ tasks:
       runInCI: true
 
   ci-docs:
-    command: "${MOON_WORKSPACE_ROOT}/tools/ci-docs-check.sh"
+    command: "mise exec -- ${MOON_WORKSPACE_ROOT}/tools/ci-docs-check.sh"
     description: "Alias for docs-check task (deprecated, use docs-check)"
     inputs:
       - "tools/ci-docs-check.sh"
@@ -212,7 +204,7 @@ tasks:
       runInCI: true
 
   deploy-docs:
-    command: "${MOON_WORKSPACE_ROOT}/tools/deploy-docs.sh"
+    command: "mise exec -- ${MOON_WORKSPACE_ROOT}/tools/deploy-docs.sh"
     description: "Deploy documentation to GitHub Pages (only runs when docs change)"
     inputs:
       - "docs/**/*.md"
@@ -240,13 +232,13 @@ tasks:
   # ============================================================================
 
   quick:
-    command: "cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all --check && env RUSTUP_TOOLCHAIN=nightly cargo clippy --workspace --all-targets -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn"
     description: "Fast lint check (format + clippy in one command)"
     options:
       cache: false
 
   ci:
-    command: "bash -c 'cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo check --workspace --all-features && cargo nextest run --workspace --all-features --no-fail-fast'"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all --check && env RUSTUP_TOOLCHAIN=nightly cargo clippy --workspace --all-targets -- -D warnings && env RUSTUP_TOOLCHAIN=nightly cargo check --workspace --all-features && mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast"
     description: "Full CI pipeline (all tests, all warnings fail)"
     options:
       cache: false
@@ -257,7 +249,7 @@ tasks:
   # ============================================================================
 
   install:
-    command: "mkdir -p ~/.local/bin && cargo build --release --bin zjj --package zjj && cp ${MOON_WORKSPACE_ROOT}/target/release/zjj ~/.local/bin/zjj && chmod +x ~/.local/bin/zjj && echo '✅ Installed zjj to ~/.local/bin/zjj'"
+    command: "mkdir -p ~/.local/bin && env RUSTUP_TOOLCHAIN=nightly cargo build --release --bin zjj --package zjj && cp ${MOON_WORKSPACE_ROOT}/target/release/zjj ~/.local/bin/zjj && chmod +x ~/.local/bin/zjj && echo '✅ Installed zjj to ~/.local/bin/zjj'"
     description: "Install zjj binary to ~/.local/bin (system-wide)"
     options:
       cache: false
@@ -273,19 +265,19 @@ tasks:
       cache: false
 
   ralph-combative-loop:
-    command: "bash scripts/run_ralph_combative_loop.sh"
+    command: "mise exec -- bash scripts/run_ralph_combative_loop.sh"
     description: "Run long adversarial Ralph hardening loop"
     options:
       cache: false
 
   clean:
-    command: "cargo clean"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo clean"
     description: "Clean build artifacts"
     options:
       cache: false
 
   check:
-    command: "cargo check --workspace --all-features"
+    command: "env RUSTUP_TOOLCHAIN=nightly cargo check --workspace --all-features"
     description: "Fast type check without building"
     inputs:
       - "crates/**/*.rs"
@@ -297,8 +289,7 @@ tasks:
   # ============================================================================
 
   semgrep:
-    command: "/home/lewis/.local/share/mise/installs/semgrep/1.151.0/bin/semgrep"
-    args: "scan --config auto --sarif --output target/semgrep-report.sarif ."
+    command: "mise exec -- semgrep scan --config auto --sarif --output target/semgrep-report.sarif ."
     description: "Run Semgrep OSS security and quality scan"
     inputs:
       - "crates/**/*.rs"
@@ -308,8 +299,7 @@ tasks:
       runInCI: true
 
   semgrep-json:
-    command: "/home/lewis/.local/share/mise/installs/semgrep/1.151.0/bin/semgrep"
-    args: "scan --config auto --json --output target/semgrep-report.json ."
+    command: "mise exec -- semgrep scan --config auto --json --output target/semgrep-report.json ."
     description: "Run Semgrep and output JSON report"
     inputs:
       - "crates/**/*.rs"
@@ -319,8 +309,7 @@ tasks:
       runInCI: true
 
   sonar-scan:
-    command: "tools/sonar-scanner/bin/sonar-scanner"
-    args: "-Dsonar.projectKey=happy-cactus -Dsonar.sources=crates -Dsonar.host.url=http://localhost:9000"
+    command: "mise exec -- tools/sonar-scanner/bin/sonar-scanner -Dsonar.projectKey=happy-cactus -Dsonar.sources=crates -Dsonar.host.url=http://localhost:9000"
     description: "Run SonarQube Community Edition scan (requires local SonarQube server)"
     inputs:
       - "crates/**/*.rs"
