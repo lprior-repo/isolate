@@ -24,21 +24,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install mdBook
-        run: |
-          mkdir -p bin
-          curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.40/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C bin
-          echo "$PWD/bin" >> $GITHUB_PATH
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: mdbook
 
       - name: Install mdbook-mermaid
-        run: |
-          curl -sSL https://github.com/badboy/mdbook-mermaid/releases/download/v0.14.0/mdbook-mermaid-v0.14.0-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C bin
-          chmod +x bin/mdbook-mermaid
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: mdbook-mermaid
 
       - name: Install mdbook-toc
-        run: |
-          curl -sSL https://github.com/badboy/mdbook-toc/releases/download/v0.14.2/mdbook-toc-v0.14.2-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C bin
-          chmod +x bin/mdbook-toc
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: mdbook-toc
 
       - name: Build book
         run: cd book && mdbook build
