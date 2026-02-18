@@ -22,7 +22,7 @@ use serde::Serialize;
 use sqlx::Row;
 use tar::Builder;
 use tracing::warn;
-use zjj_core::OutputFormat;
+use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use crate::{
     commands::get_session_db,
@@ -978,7 +978,8 @@ async fn restore_workspace(
 
 fn output_response(response: &CheckpointResponse, format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let json = serde_json::to_string_pretty(response)
+        let envelope = SchemaEnvelope::new("checkpoint-response", "single", response);
+        let json = serde_json::to_string_pretty(&envelope)
             .context("Failed to serialize checkpoint response")?;
         println!("{json}");
     } else {

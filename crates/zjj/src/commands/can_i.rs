@@ -103,12 +103,12 @@ async fn check_permission(action: &str, resource: Option<&str>) -> Result<CanIRe
         "claim" => Ok(check_can_claim(resource).await),
         "merge" => Ok(check_can_merge(resource).await),
         _ => Ok(CanIResult {
-            allowed: true,
+            allowed: false,
             action: action.to_string(),
             resource: resource.map(String::from),
-            reason: "Action is generally allowed".to_string(),
+            reason: format!("Unknown action '{action}'. Valid actions: add, work, remove, done, undo, sync, spawn, claim, merge"),
             prerequisites: vec![],
-            fix_commands: vec![],
+            fix_commands: vec!["zjj can-i --help".to_string()],
         }),
     }
 }

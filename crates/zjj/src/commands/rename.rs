@@ -15,6 +15,7 @@ use zjj_core::{OutputFormat, SchemaEnvelope};
 use crate::{
     cli::{is_inside_zellij, run_command},
     commands::get_session_db,
+    session::validate_session_name,
 };
 
 /// Maximum tab name length for Zellij (conservative limit)
@@ -94,6 +95,9 @@ async fn rename_zellij_tab(new_tab_name: &str) -> Result<()> {
 /// - Exit 4: Other errors (Zellij command failed, database errors)
 #[allow(clippy::too_many_lines)]
 pub async fn run(options: &RenameOptions) -> Result<()> {
+    // Validate new session name first
+    validate_session_name(&options.new_name).map_err(anyhow::Error::new)?;
+
     // REQUIREMENT [IF2]: If not inside Zellij and --no-zellij not set, exit 2 with message
     // Use ValidationError which maps to exit code 1 (validation failure)
     let zellij_installed = crate::cli::is_zellij_installed().await;

@@ -15,7 +15,7 @@ use serde::Serialize;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
 use super::{add, context};
-use crate::{db::SessionDb, session::validate_session_name};
+use crate::{beads::BeadRepository, db::SessionDb, session::validate_session_name};
 
 /// Output for work command
 #[derive(Debug, Clone, Serialize)]
@@ -95,6 +95,34 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
     // Dry run - just show what would happen
     if options.dry_run {
         return output_dry_run(options);
+    }
+
+    // Validate bead exists if bead_id provided.
+    // This check intentionally happens AFTER the idempotent workspace fast-path,
+    // so `zjj work --idempotent` can reuse an existing matching workspace even
+    // if bead metadata is unavailable from the current context.
+    if let Some(bead_id) = &options.bead_id {
+        if bead_id.trim().is_empty() {
+            return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
+                message: "Bead ID cannot be empty".into(),
+                field: Some("bead_id".into()),
+                value: Some(bead_id.into()),
+                constraints: vec!["non-empty string".into()],
+            }));
+        }
+
+        let bead_repo = BeadRepository::new(root.to_str().context("Invalid root path")?);
+        let bead = bead_repo
+            .get_bead(bead_id)
+            .await
+            .context("Failed to read beads database")?;
+
+        if bead.is_none() {
+            return Err(anyhow::Error::new(zjj_core::Error::NotFound(format!(
+                "Bead '{}' not found",
+                bead_id
+            ))));
+        }
     }
 
     // Check if session already exists

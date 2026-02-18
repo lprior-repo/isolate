@@ -136,6 +136,7 @@ fn convert_spawn_error(error: &SpawnError) -> JsonError {
     let (code, exit_code) = match error {
         SpawnError::NotOnMain { .. } => (ErrorCode::SpawnNotOnMain, 1),
         SpawnError::InvalidBeadStatus { .. } => (ErrorCode::SpawnInvalidBeadStatus, 1),
+        SpawnError::InvalidBeadId { .. } => (ErrorCode::InvalidArgument, 1),
         SpawnError::BeadNotFound { .. } => (ErrorCode::SpawnBeadNotFound, 2),
         SpawnError::WorkspaceCreationFailed { .. } => (ErrorCode::SpawnWorkspaceCreationFailed, 3),
         SpawnError::AgentSpawnFailed { .. } => (ErrorCode::SpawnAgentSpawnFailed, 4),

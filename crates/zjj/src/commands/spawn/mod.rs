@@ -78,6 +78,14 @@ pub async fn run_with_options(options: &SpawnOptions) -> Result<()> {
 
 /// Core spawn logic using Railway-Oriented Programming
 pub async fn execute_spawn(options: &SpawnOptions) -> Result<SpawnOutput, SpawnError> {
+    // Phase 0: Validate bead_id is not empty
+    if options.bead_id.trim().is_empty() {
+        return Err(SpawnError::InvalidBeadId {
+            bead_id: options.bead_id.clone(),
+            reason: "Bead ID cannot be empty".to_string(),
+        });
+    }
+
     // Phase 1: Validate location (must be on main)
     let root = validate_location()
         .await

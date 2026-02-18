@@ -130,12 +130,21 @@ async fn main() {
         std::process::exit(1);
     }
 
+    // Check if --json or -j flag is present to suppress logs
+    let json_mode = std::env::args().any(|arg| arg == "--json" || arg == "-j");
+
     // Initialize tracing subscriber for logging
+    // When --json is set, use ERROR level to avoid polluting JSON output
+    // even when stderr is redirected to stdout (e.g., 2>&1 | pipe)
+    let log_level = if json_mode {
+        tracing::Level::ERROR
+    } else {
+        tracing::Level::INFO
+    };
 
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
+            tracing_subscriber::EnvFilter::from_default_env().add_directive(log_level.into()),
         )
         .with_writer(std::io::stderr)
         .init();

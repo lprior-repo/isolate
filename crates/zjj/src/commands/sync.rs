@@ -42,40 +42,31 @@ async fn detect_workspace_context() -> Result<Option<String>> {
     }
 
     let workspace_root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let workspace_path = Path::new(&workspace_root);
+    let repo_ref_path = workspace_path.join(".jj/repo");
 
-    // Try to get workspace show - this tells us if we're in a workspace
-    let show_output = Command::new("jj")
-        .args(["workspace", "show"])
-        .output()
-        .await;
+    // In a linked workspace, .jj/repo is a file that points to the main repo's .jj/repo.
+    // In the main repo, .jj/repo is a directory.
+    if tokio::fs::metadata(&repo_ref_path)
+        .await
+        .map(|m| m.is_file())
+        .unwrap_or(false)
+    {
+        let repo_target = tokio::fs::read_to_string(&repo_ref_path)
+            .await
+            .context("Failed to read .jj/repo workspace reference")?;
+        let repo_target = repo_target.trim();
+        let repo_target_path = Path::new(repo_target);
 
-    if let Ok(show_output) = show_output {
-        if show_output.status.success() {
-            let workspace_info = String::from_utf8_lossy(&show_output.stdout);
+        // repo_target points to <main-root>/.jj/repo, so parent().parent() => <main-root>
+        let main_root = repo_target_path
+            .parent()
+            .and_then(Path::parent)
+            .ok_or_else(|| anyhow::anyhow!("Invalid .jj/repo reference: {repo_target}"))?;
 
-            // Check if we're in a workspace by looking for "Working copy" in output
-            if workspace_info.contains("Working copy") {
-                // We're in a workspace - try to find main repo by checking parent directory
-                let current_path = Path::new(&workspace_root);
-
-                // Walk up the directory tree looking for a directory with .jj that's not ours
-                let mut search_path = current_path.to_path_buf();
-                while let Some(parent) = search_path.parent() {
-                    let parent_jj = parent.join(".jj");
-
-                    // Check if parent has a different .jj directory
-                    if parent_jj.exists() && parent_jj != current_path.join(".jj") {
-                        // Found main repo
-                        return Ok(parent.to_str().map(String::from));
-                    }
-
-                    search_path = parent.to_path_buf();
-                }
-            }
-        }
+        return Ok(main_root.to_str().map(String::from));
     }
 
-    // Not in a workspace - we're in the main repo
     Ok(None)
 }
 
@@ -133,7 +124,7 @@ pub struct SyncOptions {
 /// - `sync <name>` → sync named session
 /// - `sync --all` → sync all sessions
 /// - `sync` (no args, from workspace) → sync current workspace
-/// - `sync` (no args, from main) → sync all sessions (convenience)
+/// - `sync` (no args, from main) → validation error (use --all)
 pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
     match (name, options.all) {
         // Explicit name provided - sync that session
@@ -145,11 +136,11 @@ pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Resul
     }
 }
 
-/// Sync current workspace if in one, otherwise sync all sessions
+/// Sync current workspace if in one, otherwise return validation error
 ///
 /// This implements the convenience behavior for `zjj sync` with no arguments:
 /// - From within a workspace: sync only that workspace
-/// - From main repo: sync all sessions
+/// - From main repo: return validation error suggesting `--all`
 async fn sync_current_or_all_with_options(options: SyncOptions) -> Result<()> {
     // Try to detect current workspace
     match detect_current_workspace_name().await? {
@@ -157,10 +148,14 @@ async fn sync_current_or_all_with_options(options: SyncOptions) -> Result<()> {
             // We're in a workspace - sync only this one
             sync_session_with_options(&workspace_name, options).await
         }
-        None => {
-            // We're in main repo - sync all for convenience
-            sync_all_with_options(options).await
-        }
+        None => Err(anyhow::Error::new(zjj_core::Error::ValidationError {
+            message:
+                "No current workspace detected. Use 'zjj sync --all' to sync all sessions or specify a session name."
+                    .into(),
+            field: Some("name".into()),
+            value: None,
+            constraints: vec!["workspace context OR --all OR <session-name>".into()],
+        })),
     }
 }
 
@@ -168,7 +163,7 @@ async fn sync_current_or_all_with_options(options: SyncOptions) -> Result<()> {
 ///
 /// Returns `Ok(Some(name))` if in a workspace, `Ok(None)` if in main repo
 async fn detect_current_workspace_name() -> Result<Option<String>> {
-    // 1. Get workspace root from jj workspace root
+    // Use jj workspace root to get the current workspace path
     let output = Command::new("jj")
         .args(["workspace", "root"])
         .output()
@@ -176,37 +171,37 @@ async fn detect_current_workspace_name() -> Result<Option<String>> {
         .context("Failed to run 'jj workspace root'")?;
 
     if !output.status.success() {
-        // If command failed, likely not in a repo.
-        // If we return Ok(None), sync_all will run and fail with "Not in a JJ repo".
-        return Ok(None);
+        return Err(anyhow::anyhow!(
+            "Not in a JJ repository. 'zjj sync' must be run from within a JJ repository."
+        ));
     }
 
     let workspace_root = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    // Normalize path for comparison
-    let workspace_path = std::fs::canonicalize(&workspace_root)
-        .unwrap_or_else(|_| std::path::PathBuf::from(&workspace_root));
+    let workspace_path = Path::new(&workspace_root);
+    let repo_ref_path = workspace_path.join(".jj/repo");
 
-    // 2. Open DB
-    // Use helper that finds main repo DB even from workspace
-    let db = match get_session_db_with_workspace_detection().await {
-        Ok(db) => db,
-        Err(_) => return Ok(None), // DB access failed, can't resolve name
-    };
+    // If .jj/repo is a file, we're in a linked workspace.
+    // If it's a directory, we're in the main/default workspace.
+    let is_linked_workspace = tokio::fs::metadata(&repo_ref_path)
+        .await
+        .map(|m| m.is_file())
+        .unwrap_or(false);
 
-    // 3. Find session matching path
-    let sessions = db.list(None).await.unwrap_or_default();
-
-    for session in sessions {
-        let session_path = std::fs::canonicalize(&session.workspace_path)
-            .unwrap_or_else(|_| std::path::PathBuf::from(&session.workspace_path));
-
-        if session_path == workspace_path {
-            return Ok(Some(session.name));
-        }
+    if !is_linked_workspace {
+        return Ok(None);
     }
 
-    // No matching session found
-    Ok(None)
+    let workspace_name = workspace_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(String::from)
+        .ok_or_else(|| anyhow::anyhow!("Failed to determine workspace name from path"))?;
+
+    if workspace_name.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(workspace_name))
+    }
 }
 
 /// Sync a specific session's workspace

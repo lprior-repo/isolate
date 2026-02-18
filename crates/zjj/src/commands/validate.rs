@@ -60,13 +60,13 @@ pub struct ArgValidation {
 }
 
 /// Run the validate command
-pub fn run(options: &ValidateOptions) -> Result<()> {
+pub fn run(options: &ValidateOptions) -> Result<i32> {
     let result = validate_command(&options.command, &options.args);
 
     let is_valid = result.valid;
 
     if options.format.is_json() {
-        let envelope = SchemaEnvelope::new("validate-response", "single", result);
+        let envelope = SchemaEnvelope::new("validate-response", "single", &result);
         println!("{}", serde_json::to_string_pretty(&envelope)?);
     } else {
         if options.dry_run {
@@ -108,11 +108,7 @@ pub fn run(options: &ValidateOptions) -> Result<()> {
         }
     }
 
-    if is_valid {
-        Ok(())
-    } else {
-        anyhow::bail!("Validation failed")
-    }
+    Ok(if is_valid { 0 } else { 1 })
 }
 
 fn validate_command(command: &str, args: &[String]) -> ValidationResult {
