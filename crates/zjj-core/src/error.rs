@@ -333,6 +333,15 @@ pub enum Error {
         /// Actionable recovery hint
         recovery_hint: String,
     },
+    /// Deduplication key conflict when different workspaces attempt to use the same key
+    DedupeKeyConflict {
+        /// The dedupe_key that caused the conflict
+        dedupe_key: String,
+        /// Workspace that already has this dedupe_key
+        existing_workspace: String,
+        /// Workspace attempting to use this dedupe_key
+        provided_workspace: String,
+    },
     SessionLocked {
         session: String,
         holder: String,
@@ -348,6 +357,10 @@ pub enum Error {
         retries: usize,
     },
     OperationCancelled(String),
+    /// Serialization error (e.g., JSON serialization failed)
+    Serialization(String),
+    /// IO error with context
+    Io(String),
     Unknown(String),
 }
 
@@ -405,6 +418,16 @@ impl fmt::Display for Error {
                     "JJ workspace conflict: {conflict_type}\n\nWorkspace: {workspace_name}\n\n{recovery_hint}\n\nJJ error: {source}"
                 )
             }
+            Self::DedupeKeyConflict {
+                dedupe_key,
+                existing_workspace,
+                provided_workspace,
+            } => {
+                write!(
+                    f,
+                    "Dedupe key conflict: '{dedupe_key}' already used by workspace '{existing_workspace}', cannot be used by '{provided_workspace}'"
+                )
+            }
             Self::SessionLocked { session, holder } => {
                 write!(f, "Session '{session}' is locked by agent '{holder}'")
             }
@@ -425,6 +448,8 @@ impl fmt::Display for Error {
                 )
             }
             Self::OperationCancelled(msg) => write!(f, "Operation cancelled: {msg}"),
+            Self::Serialization(msg) => write!(f, "Serialization error: {msg}"),
+            Self::Io(msg) => write!(f, "IO error: {msg}"),
             Self::Unknown(msg) => write!(f, "Unknown error: {msg}"),
         }
     }
@@ -486,10 +511,13 @@ impl Error {
             Self::HookExecutionFailed { .. } => "HOOK_EXECUTION_FAILED",
             Self::JjCommandError { .. } => "JJ_COMMAND_ERROR",
             Self::JjWorkspaceConflict { .. } => "JJ_WORKSPACE_CONFLICT",
+            Self::DedupeKeyConflict { .. } => "DEDUPE_KEY_CONFLICT",
             Self::SessionLocked { .. } => "SESSION_LOCKED",
             Self::NotLockHolder { .. } => "NOT_LOCK_HOLDER",
             Self::LockTimeout { .. } => "LOCK_TIMEOUT",
             Self::OperationCancelled(_) => "OPERATION_CANCELLED",
+            Self::Serialization(_) => "SERIALIZATION_ERROR",
+            Self::Io(_) => "IO_ERROR",
             Self::Unknown(_) => "UNKNOWN",
         }
     }
@@ -566,6 +594,15 @@ impl Error {
                 "workspace_name": workspace_name,
                 "source": source,
             })),
+            Self::DedupeKeyConflict {
+                dedupe_key,
+                existing_workspace,
+                provided_workspace,
+            } => Some(serde_json::json!({
+                "dedupe_key": dedupe_key,
+                "existing_workspace": existing_workspace,
+                "provided_workspace": provided_workspace,
+            })),
             Self::SessionLocked { session, holder } => Some(serde_json::json!({
                 "session": session,
                 "holder": holder
@@ -587,6 +624,12 @@ impl Error {
                 "reason": reason
             })),
             Self::ParseError(_) | Self::Unknown(_) => None,
+            Self::Serialization(msg) => Some(serde_json::json!({
+                "message": msg
+            })),
+            Self::Io(msg) => Some(serde_json::json!({
+                "message": msg
+            })),
         }
     }
 
@@ -619,7 +662,10 @@ impl Error {
                 "Check JJ is working: 'jj status', or try 'zjj doctor' for diagnostics".to_string(),
             ),
             Self::JjWorkspaceConflict { .. } => Some(
-                "This is a JJ workspace conflict. Check the recovery hints in the error message for specific steps.".to_string()
+                "This is a JJ workspace conflict. Check recovery hints in error message for specific steps.".to_string()
+            ),
+            Self::DedupeKeyConflict { existing_workspace, .. } => Some(
+                format!("Dedupe key already used by workspace '{existing_workspace}'. Use a different dedupe_key or wait for the existing entry to complete.")
             ),
             Self::HookFailed { hook_type, .. } => Some(
                 format!("Check hook '{hook_type}' configuration: 'zjj config get hooks.{hook_type}' or use --no-hooks to skip")
@@ -667,6 +713,10 @@ impl Error {
                 "Run 'zjj doctor' to check system health and configuration".to_string(),
             ),
             Self::OperationCancelled(_) => None, // User-initiated, no suggestion needed
+            Self::Serialization(_) => Some(
+                "Data could not be serialized. Check for invalid characters or types.".to_string(),
+            ),
+            Self::Io(msg) => Some(format!("IO error: {msg}. Check file permissions and disk space.")),
         }
     }
 
@@ -681,7 +731,10 @@ impl Error {
     pub const fn exit_code(&self) -> i32 {
         match self {
             // Validation errors: exit code 1
-            Self::InvalidConfig(_) | Self::ValidationError { .. } | Self::ParseError(_) => 1,
+            Self::InvalidConfig(_)
+            | Self::ValidationError { .. }
+            | Self::ParseError(_)
+            | Self::DedupeKeyConflict { .. } => 1,
             // Not found errors: exit code 2
             Self::NotFound(_) | Self::SessionNotFound { .. } => 2,
             // System errors: exit code 3
@@ -697,6 +750,8 @@ impl Error {
             Self::SessionLocked { .. } | Self::NotLockHolder { .. } | Self::LockTimeout { .. } => 5,
             // Operation cancelled: exit code 130 (SIGINT)
             Self::OperationCancelled(_) => 130,
+            // Serialization and IO errors: exit code 3 (system errors)
+            Self::Serialization(_) | Self::Io(_) => 3,
         }
     }
 
@@ -725,6 +780,12 @@ impl Error {
                 vec![ValidationHint::new("config", "valid TOML configuration")
                     .with_example("[zjj]\nworkspace_dir = \"./workspaces\"")
                     .with_received(msg.clone())]
+            }
+            Self::DedupeKeyConflict {
+                existing_workspace, ..
+            } => {
+                vec![ValidationHint::new("dedupe_key", "unique dedupe_key")
+                    .with_received(format!("already used by '{existing_workspace}'"))]
             }
             Self::ParseError(msg) => {
                 if msg.contains("JSON") || msg.contains("json") {
@@ -765,6 +826,8 @@ impl Error {
             | Self::JjCommandError { .. }
             | Self::JjWorkspaceConflict { .. }
             | Self::OperationCancelled(_)
+            | Self::Serialization(_)
+            | Self::Io(_)
             | Self::Unknown(_) => vec![],
         }
     }
@@ -867,6 +930,14 @@ impl Error {
                 workspace_name,
                 ..
             } => Self::jj_conflict_fix_commands(conflict_type, workspace_name),
+            Self::DedupeKeyConflict {
+                existing_workspace, ..
+            } => {
+                vec![
+                    "zjj list".to_string(),
+                    format!("zjj remove {existing_workspace}"),
+                ]
+            }
             Self::SessionLocked { session, .. } => {
                 vec![
                     format!("zjj agent status {session}"),
@@ -905,6 +976,8 @@ impl Error {
             Self::Command(_) | Self::Unknown(_) => vec!["zjj doctor".to_string()],
             Self::OperationCancelled(_) => vec![],
             Self::HookExecutionFailed { .. } => vec!["zjj config list hooks".to_string()],
+            Self::Serialization(_) => vec!["zjj doctor".to_string()],
+            Self::Io(msg) => Self::io_error_fix_commands(msg),
         }
     }
 

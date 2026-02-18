@@ -36,6 +36,8 @@ fn test_session_validate_pure_only_checks_domain_invariants() {
         updated_at: chrono::Utc::now(),
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: validate_pure is called (domain-only validation)
@@ -60,6 +62,8 @@ fn test_session_validate_pure_rejects_non_absolute_path() {
         updated_at: chrono::Utc::now(),
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: validate_pure is called
@@ -86,6 +90,8 @@ fn test_session_validate_pure_rejects_invalid_timestamps() {
         updated_at: earlier, // violates domain invariant
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: validate_pure is called
@@ -113,6 +119,8 @@ fn test_validate_session_workspace_exists_checks_filesystem() {
         updated_at: chrono::Utc::now(),
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: infrastructure validation is called
@@ -136,6 +144,8 @@ fn test_validate_session_workspace_exists_allows_creating_status() {
         updated_at: chrono::Utc::now(),
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: infrastructure validation is called
@@ -159,6 +169,8 @@ fn test_validate_session_workspace_exists_passes_for_tmp() {
         updated_at: chrono::Utc::now(),
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: infrastructure validation is called
@@ -203,6 +215,8 @@ fn test_adapter_validate_session_runs_both_validations() {
         updated_at: chrono::Utc::now(),
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: adapter validation is called
@@ -226,6 +240,8 @@ fn test_adapter_validate_passes_domain_then_fails_filesystem() {
         updated_at: chrono::Utc::now(),
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: adapter validation is called
@@ -259,6 +275,8 @@ fn test_adapter_validate_passes_all_validations() {
         updated_at: chrono::Utc::now(),
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: adapter validation is called
@@ -286,6 +304,8 @@ fn test_domain_validation_has_no_filesystem_dependency() {
         updated_at: chrono::Utc::now(),
         last_synced: None,
         metadata: serde_json::Value::Null,
+        parent_session: None,
+        queue_status: None,
     };
 
     // WHEN: validate_pure is called

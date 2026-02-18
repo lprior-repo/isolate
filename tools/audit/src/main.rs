@@ -7,7 +7,6 @@
 
 use std::{fs, path::Path};
 
-use colored::Colorize;
 use regex::Regex;
 use walkdir::WalkDir;
 
@@ -105,35 +104,24 @@ fn audit_codebase(root: &Path) -> Result<AuditReport, Box<dyn std::error::Error>
 }
 
 fn print_report(report: &AuditReport) {
-    println!("\n{}", "=== ZJJ CODEBASE AUDIT REPORT ===".bold().cyan());
+    println!("\n=== ZJJ CODEBASE AUDIT REPORT ===");
     println!();
 
     // Production violations (critical)
     if report.production_violations.is_empty() {
-        println!(
-            "{} {}",
-            "✅".green(),
-            "Production Code: CLEAN (0 violations)".green().bold()
-        );
+        println!("✅ Production Code: CLEAN (0 violations)");
     } else {
         println!(
-            "{} {}",
-            "🔴".red(),
-            format!(
-                "Production Code: {} VIOLATIONS",
-                report.production_violations.len()
-            )
-            .red()
-            .bold()
+            "🔴 Production Code: {} VIOLATIONS",
+            report.production_violations.len()
         );
         for v in &report.production_violations {
             println!(
-                "  {} {}:{} {} {}",
-                "❌".red(),
-                v.file.yellow(),
-                v.line.to_string().yellow(),
-                format!("[{}]", v.pattern).red(),
-                v.context.dimmed()
+                "  ❌ {}:{} [{}] {}",
+                v.file,
+                v.line,
+                v.pattern,
+                v.context
             );
         }
     }
@@ -142,18 +130,11 @@ fn print_report(report: &AuditReport) {
 
     // Test violations (warnings)
     if report.test_violations.is_empty() {
-        println!(
-            "{} {}",
-            "✅".green(),
-            "Test Code: CLEAN (0 violations)".green().bold()
-        );
+        println!("✅ Test Code: CLEAN (0 violations)");
     } else {
         println!(
-            "{} {}",
-            "⚠️ ".yellow(),
-            format!("Test Code: {} violations", report.test_violations.len())
-                .yellow()
-                .bold()
+            "⚠️  Test Code: {} violations",
+            report.test_violations.len()
         );
 
         // Group by pattern
@@ -165,92 +146,68 @@ fn print_report(report: &AuditReport) {
 
         for (pattern, violations) in by_pattern {
             println!(
-                "  {} {} ({} occurrences)",
-                "⚠️ ".yellow(),
-                pattern.yellow(),
+                "  ⚠️  {} ({} occurrences)",
+                pattern,
                 violations.len()
             );
             // Show first 5 examples
             for v in violations.iter().take(5) {
                 println!(
-                    "    {} {}:{}",
-                    "→".dimmed(),
-                    v.file.dimmed(),
-                    v.line.to_string().dimmed()
+                    "    → {}:{}",
+                    v.file,
+                    v.line
                 );
             }
             if violations.len() > 5 {
                 println!(
-                    "    {} ... and {} more",
-                    "→".dimmed(),
-                    (violations.len() - 5).to_string().dimmed()
+                    "    → ... and {} more",
+                    violations.len() - 5
                 );
             }
         }
     }
 
     println!();
-    println!("{}", "=== SUMMARY ===".bold().cyan());
+    println!("=== SUMMARY ===");
     println!();
 
     if report.is_clean() {
-        println!(
-            "{} {}",
-            "🎯".green(),
-            "Production code passes all checks!".green().bold()
-        );
+        println!("🎯 Production code passes all checks!");
     } else {
         println!(
-            "{} {}",
-            "❌".red(),
-            format!(
-                "Production code has {} critical violations",
-                report.production_violations.len()
-            )
-            .red()
-            .bold()
+            "❌ Production code has {} critical violations",
+            report.production_violations.len()
         );
     }
 
     if report.test_violations.is_empty() {
-        println!(
-            "{} {}",
-            "✅".green(),
-            "Test code passes all checks!".green().bold()
-        );
+        println!("✅ Test code passes all checks!");
     } else {
         println!(
-            "{} {}",
-            "⚠️ ".yellow(),
-            format!(
-                "Test code has {} violations (low priority)",
-                report.test_violations.len()
-            )
-            .yellow()
+            "⚠️  Test code has {} violations (low priority)",
+            report.test_violations.len()
         );
     }
 
     println!();
     println!(
-        "{} {} {}",
-        "📊".cyan(),
-        "Total violations:".bold(),
+        "📊 Total violations: {}",
         report.total_violations()
     );
     println!();
 
     // Grade
     let grade = if report.is_clean() && report.test_violations.is_empty() {
-        "A+".green().bold()
+        "A+"
     } else if report.is_clean() {
-        "A".green()
+        "A"
     } else if report.production_violations.len() < 5 {
-        "B".yellow()
+        "B"
     } else {
-        "C".red()
+        "C"
     };
 
-    println!("{} {}", "🎓 Overall Grade:".bold(), grade);
+    println!("🎓 Overall Grade: {}", grade);
     println!();
 }
 
@@ -258,15 +215,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let crates_dir = Path::new("./crates");
 
     if !crates_dir.exists() {
-        eprintln!(
-            "{} Crates directory not found. Run from project root.",
-            "❌".red()
-        );
+        eprintln!("❌ Crates directory not found. Run from project root.");
         std::process::exit(1);
     }
 
     println!();
-    println!("{}", "🔍 Scanning codebase...".cyan().bold());
+    println!("🔍 Scanning codebase...");
     println!();
 
     let report = audit_codebase(crates_dir)?;

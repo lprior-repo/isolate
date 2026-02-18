@@ -126,7 +126,8 @@ pub async fn list_all_backups(
     root: &Path,
     config: &BackupConfig,
 ) -> Result<Vec<(String, Vec<BackupInfo>)>> {
-    let databases = vec!["state.db", "queue.db", "beads.db"];
+    // Only state.db and beads.db now - queue.db merged into state.db (bd-30s)
+    let databases = vec!["state.db", "beads.db"];
 
     let mut all_backups = Vec::new();
 

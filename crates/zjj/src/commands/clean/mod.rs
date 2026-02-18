@@ -1,6 +1,6 @@
 //! Clean stale sessions (sessions where workspace no longer exists)
 
-use std::{io::Write, time::Duration};
+use std::time::Duration;
 
 use anyhow::Result;
 use futures::{StreamExt, TryStreamExt};
@@ -40,8 +40,8 @@ pub struct CleanOutput {
 /// 1. Check if periodic mode requested
 /// 2. Load all sessions from database
 /// 3. Filter to find stale sessions (workspace missing)
-/// 4. Handle dry-run or interactive confirmation
-/// 5. Remove stale sessions if confirmed
+/// 4. Handle dry-run mode
+/// 5. Remove stale sessions immediately (non-interactive)
 pub async fn run_with_options(options: &CleanOptions) -> Result<()> {
     // Handle periodic mode
     if options.periodic {
@@ -84,13 +84,7 @@ pub async fn run_with_options(options: &CleanOptions) -> Result<()> {
         return Ok(());
     }
 
-    // 4. Prompt for confirmation unless --force
-    if !options.force && !confirm_removal(&stale_names)? {
-        output_cancelled(&stale_names, options.format);
-        return Ok(());
-    }
-
-    // 5. Remove stale sessions using functional fold for error handling
+    // 4. Remove stale sessions immediately (non-interactive, --force is no-op)
     let removed_count = futures::stream::iter(&stale_sessions)
         .map(Ok::<_, anyhow::Error>)
         .try_fold(0, |acc, session| {
@@ -102,7 +96,7 @@ pub async fn run_with_options(options: &CleanOptions) -> Result<()> {
         })
         .await?;
 
-    // 6. Output result
+    // 5. Output result
     output_result(removed_count, &stale_names, options.format);
 
     Ok(())
@@ -151,24 +145,7 @@ fn output_dry_run(stale_names: &[String], format: OutputFormat) {
             println!("  - {name}");
         }
         println!();
-        println!("Run 'zjj clean --force' to remove these sessions");
-    }
-}
-
-/// Output when cleanup is cancelled
-fn output_cancelled(stale_names: &[String], format: OutputFormat) {
-    if format.is_json() {
-        let output = CleanOutput {
-            stale_count: stale_names.len(),
-            removed_count: 0,
-            stale_sessions: stale_names.to_vec(),
-        };
-        let envelope = SchemaEnvelope::new("clean-response", "single", output);
-        if let Ok(json_str) = serde_json::to_string_pretty(&envelope) {
-            println!("{json_str}");
-        }
-    } else {
-        println!("Cleanup cancelled");
+        println!("Run 'zjj clean' to remove these sessions");
     }
 }
 
@@ -190,35 +167,6 @@ fn output_result(removed_count: usize, stale_names: &[String], format: OutputFor
             println!("  - {name}");
         }
     }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CONFIRMATION (Interactive I/O)
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Prompt user for confirmation to remove stale sessions
-///
-/// Returns Ok(true) if user confirms, Ok(false) if user cancels
-///
-/// Prompts are written to stderr to avoid mixing with JSON output on stdout.
-fn confirm_removal(stale_names: &[String]) -> Result<bool> {
-    eprintln!("Found {} stale session(s):", stale_names.len());
-    for name in stale_names {
-        eprintln!("  - {name}");
-    }
-    eprintln!();
-    eprint!("Remove these sessions? [y/N] ");
-    std::io::stderr()
-        .flush()
-        .map_err(|e| anyhow::Error::new(zjj_core::Error::IoError(e.to_string())))?;
-
-    let mut response = String::new();
-    std::io::stdin()
-        .read_line(&mut response)
-        .map_err(|e| anyhow::Error::new(zjj_core::Error::IoError(e.to_string())))?;
-
-    let response = response.trim().to_lowercase();
-    Ok(response == "y" || response == "yes")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

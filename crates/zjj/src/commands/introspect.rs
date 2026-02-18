@@ -487,8 +487,11 @@ fn create_remove_flags() -> Vec<FlagSpec> {
 /// Remove command examples showing cleanup patterns
 fn create_remove_examples() -> Vec<CommandExample> {
     vec![
-        create_example("zjj remove my-session", "Remove session with confirmation"),
-        create_example("zjj remove my-session -f", "Remove without confirmation"),
+        create_example("zjj remove my-session", "Remove session (no confirmation)"),
+        create_example(
+            "zjj remove my-session -f",
+            "Remove and skip pre_remove hooks",
+        ),
         create_example("zjj remove my-session -m", "Merge changes before removing"),
     ]
 }

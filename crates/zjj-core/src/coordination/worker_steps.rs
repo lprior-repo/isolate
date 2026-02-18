@@ -17,7 +17,10 @@ use thiserror::Error;
 use tokio::process::Command;
 
 use crate::{
-    coordination::queue::{MergeQueue, QueueEntry, QueueStatus},
+    coordination::{
+        queue::{MergeQueue, QueueEntry, QueueStatus},
+        queue_status::QueueEventType,
+    },
     worker_error::{classify_with_attempts, should_retry, ErrorClass},
 };
 
@@ -56,6 +59,19 @@ pub enum RebaseError {
     },
 }
 
+/// Metadata about a rebase operation for persistence.
+#[derive(Debug, Clone)]
+pub struct RebaseMetadata {
+    /// The new HEAD SHA after rebase.
+    pub head_sha: String,
+    /// The main branch SHA that was rebased onto.
+    pub tested_against_sha: String,
+    /// Total number of rebase attempts for this entry (including this one).
+    pub rebase_count: i32,
+    /// Timestamp of this rebase (Unix epoch seconds).
+    pub rebase_timestamp: i64,
+}
+
 /// Result of a successful rebase operation.
 #[derive(Debug, Clone)]
 pub struct RebaseSuccess {
@@ -63,6 +79,23 @@ pub struct RebaseSuccess {
     pub head_sha: String,
     /// The main branch SHA that was rebased onto.
     pub tested_against_sha: String,
+    /// Total number of rebase attempts for this entry (including this one).
+    pub rebase_count: i32,
+    /// Timestamp of this rebase (Unix epoch seconds).
+    pub rebase_timestamp: i64,
+}
+
+impl RebaseSuccess {
+    /// Convert to metadata for persistence.
+    #[must_use]
+    pub fn to_metadata(&self) -> RebaseMetadata {
+        RebaseMetadata {
+            head_sha: self.head_sha.clone(),
+            tested_against_sha: self.tested_against_sha.clone(),
+            rebase_count: self.rebase_count,
+            rebase_timestamp: self.rebase_timestamp,
+        }
+    }
 }
 
 /// Perform the rebase step on a workspace.
@@ -71,8 +104,9 @@ pub struct RebaseSuccess {
 /// 1. Transitions the queue entry to 'rebasing' status
 /// 2. Fetches the latest main branch
 /// 3. Rebases the workspace onto main
-/// 4. On success: persists `head_sha` and `tested_against_sha`, transitions to 'testing'
-/// 5. On conflict: transitions to `failed_retryable`
+/// 4. On success: persists rebase metadata (head_sha, tested_against_sha, rebase_count, timestamp)
+///    and emits an audit event, then transitions to 'testing'
+/// 5. On conflict: increments rebase_count, emits failure event, transitions to `failed_retryable`
 ///
 /// # Arguments
 /// * `queue` - The merge queue to update
@@ -81,7 +115,7 @@ pub struct RebaseSuccess {
 /// * `main_branch` - The name of the main branch (default: "main")
 ///
 /// # Returns
-/// - `Ok(RebaseSuccess)` on successful rebase
+/// - `Ok(RebaseSuccess)` on successful rebase, including metadata about the rebase
 /// - `Err(RebaseError::Conflict)` if rebase has conflicts
 /// - `Err(RebaseError::FetchFailed)` if network fetch fails
 /// - Other `Err(RebaseError)` variants for other failures
@@ -102,7 +136,11 @@ pub async fn rebase_step(
     main_branch: &str,
 ) -> std::result::Result<RebaseSuccess, RebaseError> {
     // Step 1: Validate entry is in claimed state and transition to rebasing
-    transition_to_rebasing(queue, workspace).await?;
+    let entry = transition_to_rebasing(queue, workspace).await?;
+
+    // Calculate rebase_count: increment from current entry's count
+    let rebase_count = entry.rebase_count + 1;
+    let rebase_timestamp = chrono::Utc::now().timestamp();
 
     // Step 2: Fetch latest main
     fetch_main(workspace_path, main_branch).await?;
@@ -120,17 +158,46 @@ pub async fn rebase_step(
 
             // Step 6: Update queue with rebase metadata and transition to testing
             queue
-                .update_rebase_metadata(workspace, &head_sha, &tested_against_sha)
+                .update_rebase_metadata_with_count(
+                    workspace,
+                    &head_sha,
+                    &tested_against_sha,
+                    rebase_count,
+                    rebase_timestamp,
+                )
                 .await
                 .map_err(|e| RebaseError::QueueError(e.to_string()))?;
+
+            // Step 7: Record rebase success event in audit trail
+            record_rebase_event(
+                queue,
+                entry.id,
+                &head_sha,
+                &tested_against_sha,
+                rebase_count,
+                true,
+            )
+            .await;
 
             Ok(RebaseSuccess {
                 head_sha,
                 tested_against_sha,
+                rebase_count,
+                rebase_timestamp,
             })
         }
         Err(RebaseError::Conflict(msg)) => {
-            // Conflict: transition to failed_retryable
+            // Conflict: record failure event and transition to failed_retryable
+            record_rebase_event(
+                queue,
+                entry.id,
+                "",
+                &tested_against_sha,
+                rebase_count,
+                false,
+            )
+            .await;
+
             let _ = queue
                 .transition_to_failed(workspace, &msg, true)
                 .await
@@ -141,9 +208,20 @@ pub async fn rebase_step(
             Err(RebaseError::Conflict(msg))
         }
         Err(e) => {
-            // Other error: transition to failed_retryable
+            // Other error: record failure event and transition to failed_retryable
+            let error_msg = e.to_string();
+            record_rebase_event(
+                queue,
+                entry.id,
+                "",
+                &tested_against_sha,
+                rebase_count,
+                false,
+            )
+            .await;
+
             let _ = queue
-                .transition_to_failed(workspace, &e.to_string(), true)
+                .transition_to_failed(workspace, &error_msg, true)
                 .await;
             Err(e)
         }
@@ -151,10 +229,12 @@ pub async fn rebase_step(
 }
 
 /// Transition entry to rebasing status.
+///
+/// Returns the queue entry on success so callers can access entry metadata.
 async fn transition_to_rebasing(
     queue: &MergeQueue,
     workspace: &str,
-) -> std::result::Result<(), RebaseError> {
+) -> std::result::Result<QueueEntry, RebaseError> {
     // Get current entry to validate state
     let entry = queue
         .get_by_workspace(workspace)
@@ -176,7 +256,15 @@ async fn transition_to_rebasing(
         .await
         .map_err(|e| RebaseError::QueueError(e.to_string()))?;
 
-    Ok(())
+    Ok(entry)
+}
+
+/// Get the jj binary path from environment or use default.
+fn jj_bin_path() -> String {
+    match std::env::var("ZJJ_JJ_PATH") {
+        Ok(path) => path,
+        Err(_) => "jj".to_string(),
+    }
 }
 
 /// Fetch the latest main branch from remote.
@@ -184,7 +272,7 @@ async fn fetch_main(
     workspace_path: &Path,
     main_branch: &str,
 ) -> std::result::Result<(), RebaseError> {
-    let jj_bin = std::env::var("ZJJ_JJ_PATH").unwrap_or_else(|_| "jj".to_string());
+    let jj_bin = jj_bin_path();
 
     let output = Command::new(&jj_bin)
         .args(["git", "fetch", "--branch", main_branch])
@@ -203,7 +291,7 @@ async fn fetch_main(
 
 /// Get the current HEAD SHA of the workspace.
 async fn get_head_sha(workspace_path: &Path) -> std::result::Result<String, RebaseError> {
-    let jj_bin = std::env::var("ZJJ_JJ_PATH").unwrap_or_else(|_| "jj".to_string());
+    let jj_bin = jj_bin_path();
 
     let output = Command::new(&jj_bin)
         .args(["log", "-r", "@", "-T", "commit_id", "--no-graph"])
@@ -232,7 +320,7 @@ async fn get_main_sha(
     workspace_path: &Path,
     main_branch: &str,
 ) -> std::result::Result<String, RebaseError> {
-    let jj_bin = std::env::var("ZJJ_JJ_PATH").unwrap_or_else(|_| "jj".to_string());
+    let jj_bin = jj_bin_path();
     let remote_branch = format!("remote-tracking/origin/{main_branch}");
 
     let output = Command::new(&jj_bin)
@@ -264,7 +352,7 @@ async fn perform_rebase(
     workspace_path: &Path,
     main_branch: &str,
 ) -> std::result::Result<(), RebaseError> {
-    let jj_bin = std::env::var("ZJJ_JJ_PATH").unwrap_or_else(|_| "jj".to_string());
+    let jj_bin = jj_bin_path();
 
     let output = Command::new(&jj_bin)
         .args([
@@ -298,6 +386,45 @@ fn is_conflict_error(stderr: &str) -> bool {
         || stderr_lower.contains("could not resolve")
         || stderr_lower.contains("merge conflict")
         || stderr_lower.contains("3-way merge failed")
+}
+
+/// Record a rebase event in the audit trail.
+///
+/// This is a best-effort operation that logs failures but does not propagate errors.
+/// Events are for audit trail purposes and are not critical path.
+async fn record_rebase_event(
+    queue: &MergeQueue,
+    queue_id: i64,
+    head_sha: &str,
+    tested_against_sha: &str,
+    rebase_count: i32,
+    success: bool,
+) {
+    let event_type = if success {
+        QueueEventType::Transitioned
+    } else {
+        QueueEventType::Failed
+    };
+
+    let details = if success {
+        format!(
+            r#"{{"step": "rebase", "head_sha": "{head_sha}", "tested_against_sha": "{tested_against_sha}", "rebase_count": {rebase_count}}}"#
+        )
+    } else {
+        format!(
+            r#"{{"step": "rebase", "tested_against_sha": "{tested_against_sha}", "rebase_count": {rebase_count}, "success": false}}"#
+        )
+    };
+
+    match queue
+        .append_typed_event(queue_id, event_type, Some(&details))
+        .await
+    {
+        Ok(()) => {}
+        Err(e) => {
+            tracing::warn!("Failed to record rebase event for queue entry {queue_id}: {e}");
+        }
+    }
 }
 
 /// Classify an error message and determine if it should be retried.
@@ -507,13 +634,20 @@ async fn validate_testing_state(
     Ok(())
 }
 
+/// Get the moon binary path from environment or use default.
+fn moon_bin_path() -> String {
+    match std::env::var("ZJJ_MOON_PATH") {
+        Ok(path) => path,
+        Err(_) => "moon".to_string(),
+    }
+}
+
 /// Execute the moon gate command and capture output.
 async fn execute_moon_gate(
     workspace_path: &Path,
     gate: &str,
 ) -> std::result::Result<MoonGateSuccess, MoonGateError> {
-    // Allow overriding moon binary path via environment variable for testing
-    let moon_bin = std::env::var("ZJJ_MOON_PATH").unwrap_or_else(|_| "moon".to_string());
+    let moon_bin = moon_bin_path();
 
     let output = Command::new(&moon_bin)
         .args(["run", gate])
@@ -526,7 +660,11 @@ async fn execute_moon_gate(
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let exit_code = output.status.code().unwrap_or(-1);
+    // Use pattern matching to handle None case for exit code
+    let exit_code = match output.status.code() {
+        Some(code) => code,
+        None => -1,
+    };
 
     if !output.status.success() {
         let error_msg = if stderr.is_empty() {
@@ -715,6 +853,10 @@ exit 1
         let workspace_dir = tempfile::tempdir()?;
         let jj_path = write_fake_jj_script(temp_dir.path())?;
         let _jj_guard = set_jj_path(&jj_path);
+        // Ensure conflict mode is NOT set (test isolation)
+        // Save the previous value and clear it for this test
+        let previous_conflict = std::env::var("ZJJ_TEST_REBASE_CONFLICT").ok();
+        std::env::remove_var("ZJJ_TEST_REBASE_CONFLICT");
 
         let queue = MergeQueue::open_in_memory().await?;
         queue.add("ws-rebase-step", None, 5, None).await?;
@@ -727,6 +869,15 @@ exit 1
 
         assert_eq!(result.head_sha, "HEAD_SHA_TEST");
         assert_eq!(result.tested_against_sha, "MAIN_SHA_TEST");
+        // Verify new metadata fields
+        assert!(
+            result.rebase_count >= 1,
+            "rebase_count should be at least 1"
+        );
+        assert!(
+            result.rebase_timestamp > 0,
+            "rebase_timestamp should be positive"
+        );
 
         let updated = queue
             .get_by_workspace("ws-rebase-step")
@@ -738,6 +889,21 @@ exit 1
             updated.tested_against_sha,
             Some("MAIN_SHA_TEST".to_string())
         );
+        // Verify rebase_count and last_rebase_at are persisted
+        assert!(
+            updated.rebase_count >= 1,
+            "persisted rebase_count should be at least 1"
+        );
+        assert!(
+            updated.last_rebase_at.is_some(),
+            "last_rebase_at should be set"
+        );
+
+        // Restore previous env var state
+        match previous_conflict {
+            Some(val) => std::env::set_var("ZJJ_TEST_REBASE_CONFLICT", &val),
+            None => std::env::remove_var("ZJJ_TEST_REBASE_CONFLICT"),
+        }
 
         Ok(())
     }

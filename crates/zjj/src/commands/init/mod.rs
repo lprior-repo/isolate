@@ -163,7 +163,8 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
     let root = jj_root_with_cwd(&cwd).await?;
     let zjj_dir = root.join(".zjj");
 
-    // Ensure lock parent directory exists before lock file creation.
+    // Create .zjj directory early so lock file can be created
+    // This must happen before acquiring the lock
     if !tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false) {
         tokio::fs::create_dir_all(&zjj_dir)
             .await
@@ -180,8 +181,7 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
     let db_path = zjj_dir.join("state.db");
 
     // Check if already fully initialized
-    let is_fully_initialized = tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false)
-        && tokio::fs::try_exists(&config_path).await.unwrap_or(false)
+    let is_fully_initialized = tokio::fs::try_exists(&config_path).await.unwrap_or(false)
         && tokio::fs::try_exists(&layouts_dir).await.unwrap_or(false)
         && tokio::fs::try_exists(&db_path).await.unwrap_or(false);
 

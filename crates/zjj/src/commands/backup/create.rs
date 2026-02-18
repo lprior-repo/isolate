@@ -89,7 +89,8 @@ pub async fn create_backup(database_path: &Path, config: &BackupConfig) -> Resul
 #[allow(dead_code)]
 // High-level backup orchestration function
 pub async fn backup_all_databases(root: &Path, config: &BackupConfig) -> Result<Vec<PathBuf>> {
-    let databases = vec!["state.db", "queue.db"];
+    // Only state.db now - queue.db merged into state.db (bd-30s)
+    let databases = vec!["state.db"];
 
     let zjj_dir = root.join(".zjj");
     let beads_dir = root.join(".beads");

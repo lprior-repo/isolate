@@ -720,7 +720,10 @@ async fn update_session_status(workspace_name: &str) -> Result<bool, DoneError> 
         state: Some(WorkspaceState::Merged),
         branch: None,
         last_synced: None,
+
         metadata: None,
+        parent_session: None,
+        queue_status: None,
     };
 
     db.update(workspace_name, update)

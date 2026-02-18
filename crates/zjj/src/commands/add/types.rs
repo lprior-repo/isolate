@@ -7,6 +7,8 @@ pub struct AddOptions {
     pub name: String,
     /// Optional bead/issue ID to associate with this session
     pub bead_id: Option<String>,
+    /// Parent session name for stacked sessions
+    pub parent: Option<String>,
     /// Skip executing hooks
     pub no_hooks: bool,
     /// Template name to use for layout
@@ -30,6 +32,7 @@ impl AddOptions {
         Self {
             name,
             bead_id: None,
+            parent: None,
             no_hooks: false,
             template: None,
             no_open: false,

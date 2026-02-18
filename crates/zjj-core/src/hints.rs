@@ -802,6 +802,8 @@ mod tests {
             updated_at: Utc::now(),
             last_synced: None,
             metadata: serde_json::Value::Null,
+            parent_session: None,
+            queue_status: None,
         }
     }
 

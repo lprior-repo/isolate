@@ -127,6 +127,7 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
         format: OutputFormat::Json, // We'll handle our own output
         idempotent: false,
         dry_run: false,
+        parent: None,
     };
 
     // Suppress add command output by running internally

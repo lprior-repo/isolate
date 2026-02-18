@@ -340,7 +340,10 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
     use crate::Error;
     match error {
         // Validation errors: exit code 1
-        Error::InvalidConfig(_) | Error::ValidationError { .. } | Error::ParseError(_) => 1,
+        Error::InvalidConfig(_)
+        | Error::ValidationError { .. }
+        | Error::ParseError(_)
+        | Error::DedupeKeyConflict { .. } => 1,
         // Not found errors: exit code 2
         Error::NotFound(_) | Error::SessionNotFound { .. } => 2,
         // System errors: exit code 3
@@ -354,6 +357,8 @@ const fn classify_exit_code(error: &crate::Error) -> i32 {
         | Error::Unknown(_) => 4,
         // Lock contention errors: exit code 5
         Error::SessionLocked { .. } | Error::NotLockHolder { .. } | Error::LockTimeout { .. } => 5,
+        // Serialization and IO errors: exit code 3 (system errors)
+        Error::Serialization(_) | Error::Io(_) => 3,
         // Operation cancelled: exit code 130
         Error::OperationCancelled(_) => 130,
     }
@@ -489,6 +494,27 @@ fn map_error_to_parts(err: &crate::Error) -> (ErrorCode, String, Option<String>)
             ErrorCode::Unknown,
             format!("Operation cancelled: {reason}"),
             Some("Operation was interrupted by shutdown signal".to_string()),
+        ),
+        Error::Serialization(msg) => (
+            ErrorCode::Unknown,
+            format!("Serialization error: {msg}"),
+            Some("Data could not be serialized. Check for invalid characters or types.".to_string()),
+        ),
+        Error::Io(msg) => (
+            ErrorCode::Unknown,
+            format!("IO error: {msg}"),
+            Some("An I/O operation failed. Check file permissions and disk space.".to_string()),
+        ),
+        Error::DedupeKeyConflict {
+            dedupe_key,
+            existing_workspace,
+            provided_workspace,
+        } => (
+            ErrorCode::InvalidArgument,
+            format!(
+                "Dedupe key conflict: '{dedupe_key}' already used by workspace '{existing_workspace}', cannot be used by '{provided_workspace}'"
+            ),
+            Some("Use a different dedupe_key or wait for the existing entry to complete".to_string()),
         ),
     }
 }
