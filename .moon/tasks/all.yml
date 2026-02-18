@@ -183,10 +183,10 @@ tasks:
 
   tasks-check:
     command: "mise exec -- ${MOON_WORKSPACE_ROOT}/tools/ci-tasks-check.sh"
-    description: "Validate moon tasks documentation against .moon/tasks.yml"
+    description: "Validate moon tasks documentation against .moon/tasks/all.yml"
     inputs:
       - "tools/ci-tasks-check.sh"
-      - ".moon/tasks.yml"
+      - ".moon/tasks/all.yml"
       - "docs/**/*.md"
     options:
       cache: false
