@@ -258,11 +258,21 @@ async fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Re
             emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
         }
 
+        // Calculate ready (ReadyToMerge) and blocked (Cancelled) from entries
+        let ready = entries
+            .iter()
+            .filter(|e| matches!(e.status, QueueStatus::ReadyToMerge))
+            .count();
+        let blocked = entries
+            .iter()
+            .filter(|e| matches!(e.status, QueueStatus::Cancelled))
+            .count();
+
         let queue_summary = OutputQueueSummary::new().with_counts(
             stats.total as u32,
             stats.pending as u32,
-            0,
-            0,
+            ready as u32,
+            blocked as u32,
             stats.processing as u32,
         );
         emit_stdout(&OutputLine::QueueSummary(queue_summary))?;
@@ -688,15 +698,27 @@ async fn handle_status_id(
 
     let events = queue.fetch_events(queue_id).await?;
 
-    let queue_entry = convert_to_output_queue_entry(&entry)?;
-    emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
-
-    let message = format!("Status for queue entry {}", queue_id);
-
     if options.format.is_json() {
+        // Emit queue entry in JSON mode
+        let queue_entry = convert_to_output_queue_entry(&entry)?;
+        emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
+
+        // Emit events in JSON mode
+        for event in &events {
+            let event_output = zjj_core::output::Action::new(
+                event.event_type.as_str().to_string(),
+                event.created_at.to_string(),
+                zjj_core::output::ActionStatus::Completed,
+            )
+            .with_result(event.details_json.clone().unwrap_or_default());
+            emit_stdout(&OutputLine::Action(event_output))?;
+        }
+
+        let message = format!("Status for queue entry {}", queue_id);
         let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
         emit_stdout(&OutputLine::Summary(summary))?;
     } else {
+        // Plain text output
         println!("Queue Entry:");
         println!("  ID: {}", entry.id);
         println!("  Workspace: {}", entry.workspace);
@@ -737,17 +759,24 @@ fn convert_to_output_queue_entry(
         QueueStatus::Cancelled => OutputQueueEntryStatus::Blocked,
     };
 
-    OutputQueueEntry::new(
-        entry.id.to_string(),
-        entry.workspace.clone(),
-        entry.priority as u8,
-    )
-    .map_err(|e| anyhow::anyhow!("Failed to create queue entry: {}", e))
-    .map(|e| {
-        e.with_status(status)
-            .with_bead(entry.bead_id.clone().unwrap_or_default())
-            .with_agent(entry.agent_id.clone().unwrap_or_default())
-    })
+    // Validate priority fits in u8 before narrowing
+    let priority = u8::try_from(entry.priority)
+        .map_err(|_| anyhow::anyhow!("Priority {} out of valid range (0-255)", entry.priority))?;
+
+    let mut queue_entry =
+        OutputQueueEntry::new(entry.id.to_string(), entry.workspace.clone(), priority)
+            .map_err(|e| anyhow::anyhow!("Failed to create queue entry: {}", e))?
+            .with_status(status);
+
+    // Preserve None values instead of converting to empty strings
+    if let Some(bead_id) = &entry.bead_id {
+        queue_entry = queue_entry.with_bead(bead_id.clone());
+    }
+    if let Some(agent_id) = &entry.agent_id {
+        queue_entry = queue_entry.with_agent(agent_id.clone());
+    }
+
+    Ok(queue_entry)
 }
 
 fn resolve_agent_id(agent_id: Option<&str>) -> String {

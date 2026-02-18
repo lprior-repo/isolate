@@ -4,7 +4,12 @@ use std::path::Path;
 
 use anyhow::Result;
 use serde::Serialize;
-use zjj_core::{json::SchemaEnvelope, OutputFormat};
+use zjj_core::{
+    json::SchemaEnvelope,
+    output::{emit_stdout, OutputLine, SessionOutput, Summary, SummaryType},
+    types::SessionStatus,
+    OutputFormat, WorkspaceState,
+};
 
 use crate::{commands::get_session_db, session::Session};
 
@@ -176,10 +181,8 @@ fn is_repo_bootstrap_error(err: &anyhow::Error) -> bool {
 
 fn output_no_active_sessions(format: OutputFormat) -> Result<()> {
     if format.is_json() {
-        let data = StatusResponseData { sessions: vec![] };
-        let envelope = SchemaEnvelope::new("status-response", "single", data);
-        let json = serde_json::to_string_pretty(&envelope)?;
-        println!("{json}");
+        let summary = Summary::new(SummaryType::Count, "No active sessions".to_string())?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         println!("📍 WORKFLOW STATE: No active session");
         println!();
@@ -436,14 +439,35 @@ fn output_table(items: &[SessionStatusInfo], current_location: Option<&str>) {
     }
 }
 
-/// Output sessions as JSON
+/// Output sessions as JSONL using emit_stdout
 fn output_json(items: &[SessionStatusInfo]) -> Result<()> {
-    let data = StatusResponseData {
-        sessions: items.to_vec(),
-    };
-    let envelope = SchemaEnvelope::new("status-response", "single", data);
-    let json = serde_json::to_string_pretty(&envelope)?;
-    println!("{json}");
+    for item in items {
+        let session_status = serde_json::from_str::<SessionStatus>(&format!("\"{}\"", item.status))
+            .map_err(|e| anyhow::anyhow!("Invalid session status '{}': {}", item.status, e))?;
+
+        let workspace_state =
+            serde_json::from_str::<WorkspaceState>(&format!("\"{}\"", item.session.state))
+                .map_err(|e| {
+                    anyhow::anyhow!("Invalid workspace state '{}': {}", item.session.state, e)
+                })?;
+
+        let session_output = SessionOutput::new(
+            item.name.clone(),
+            session_status,
+            workspace_state,
+            std::path::PathBuf::from(&item.workspace_path),
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create session output: {}", e))?
+        .with_branch(item.branch.clone());
+
+        emit_stdout(&OutputLine::Session(session_output))?;
+    }
+
+    let count = items.len();
+    let summary = Summary::new(SummaryType::Count, format!("{} session(s)", count))
+        .map_err(|e| anyhow::anyhow!("Failed to create summary: {}", e))?;
+    emit_stdout(&OutputLine::Summary(summary))?;
+
     Ok(())
 }
 
