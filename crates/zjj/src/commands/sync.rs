@@ -133,7 +133,7 @@ pub struct SyncOptions {
 /// - `sync <name>` → sync named session
 /// - `sync --all` → sync all sessions
 /// - `sync` (no args, from workspace) → sync current workspace
-/// - `sync` (no args, from main) → sync all sessions (convenience)
+/// - `sync` (no args, from main) → validation error (use --all)
 pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Result<()> {
     match (name, options.all) {
         // Explicit name provided - sync that session
@@ -145,11 +145,11 @@ pub async fn run_with_options(name: Option<&str>, options: SyncOptions) -> Resul
     }
 }
 
-/// Sync current workspace if in one, otherwise sync all sessions
+/// Sync current workspace if in one, otherwise return validation error
 ///
 /// This implements the convenience behavior for `zjj sync` with no arguments:
 /// - From within a workspace: sync only that workspace
-/// - From main repo: sync all sessions
+/// - From main repo: return validation error suggesting `--all`
 async fn sync_current_or_all_with_options(options: SyncOptions) -> Result<()> {
     // Try to detect current workspace
     match detect_current_workspace_name().await? {
@@ -157,10 +157,14 @@ async fn sync_current_or_all_with_options(options: SyncOptions) -> Result<()> {
             // We're in a workspace - sync only this one
             sync_session_with_options(&workspace_name, options).await
         }
-        None => {
-            // We're in main repo - sync all for convenience
-            sync_all_with_options(options).await
-        }
+        None => Err(anyhow::Error::new(zjj_core::Error::ValidationError {
+            message:
+                "No current workspace detected. Use 'zjj sync --all' to sync all sessions or specify a session name."
+                    .into(),
+            field: Some("name".into()),
+            value: None,
+            constraints: vec!["workspace context OR --all OR <session-name>".into()],
+        })),
     }
 }
 
