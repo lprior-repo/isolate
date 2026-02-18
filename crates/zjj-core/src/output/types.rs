@@ -502,7 +502,7 @@ pub struct RecoveryAction {
 
 impl Recovery {
     #[must_use]
-    pub fn new(issue_id: String, assessment: Assessment) -> Self {
+    pub const fn new(issue_id: String, assessment: Assessment) -> Self {
         Self {
             issue_id,
             assessment,

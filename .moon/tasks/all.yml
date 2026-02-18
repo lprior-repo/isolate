@@ -10,7 +10,7 @@ tasks:
   # ============================================================================
 
   fmt:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all --check"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check"
     description: "Check code formatting (rustfmt)"
     inputs:
       - "crates/**/*.rs"
@@ -21,7 +21,7 @@ tasks:
       runInCI: true
 
   fmt-fix:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all"
     description: "Auto-fix code formatting"
     inputs:
       - "crates/**/*.rs"
@@ -30,7 +30,7 @@ tasks:
       cache: false  # Never cache - always format
 
   clippy:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo clippy --workspace --all-targets --all-features -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn -A clippy::useless_conversion -W clippy::pedantic"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets --all-features -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn -A clippy::useless_conversion -W clippy::pedantic"
     description: "Lint with Clippy (strict mode for safety, allow style suggestions)"
     deps:
       - "check"
@@ -81,7 +81,7 @@ tasks:
       CARGO_BUILD_JOBS: "16"
 
   test-doc:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo test --doc"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo test --doc"
     description: "Run documentation tests"
     deps:
       - "build"
@@ -94,7 +94,7 @@ tasks:
       runInCI: true
 
   coverage:
-    command: "env RUSTUP_TOOLCHAIN=nightly CARGO_BUILD_JOBS=8 cargo tarpaulin --workspace --all-features --out Html --out Lcov --output-dir target/coverage -- --test-threads=1"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo tarpaulin --workspace --all-features --out Html --out Lcov --output-dir target/coverage -- --test-threads=1"
     description: "Generate test coverage report (HTML + LCOV)"
     deps:
       - "build"
@@ -110,7 +110,7 @@ tasks:
       runInCI: true
 
   coverage-check:
-    command: "env RUSTUP_TOOLCHAIN=nightly CARGO_BUILD_JOBS=8 cargo tarpaulin --workspace --all-features --out Lcov --output-dir target/coverage -- --test-threads=1 | grep -E '^[0-9]+\\.[0-9]+%' | awk '{ if ($1 + 0 < 80) { exit 1 } }'"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo tarpaulin --workspace --all-features --out Lcov --output-dir target/coverage -- --test-threads=1 | grep -E '^[0-9]+\\.[0-9]+%' | awk '{ if ($1 + 0 < 80) { exit 1 } }'"
     description: "Check if coverage meets minimum threshold (80%)"
     deps:
       - "build"
@@ -127,7 +127,7 @@ tasks:
   # ============================================================================
 
   audit:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo audit"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo audit"
     description: "Security audit of dependencies"
     options:
       cache: false
@@ -137,7 +137,7 @@ tasks:
   # ============================================================================
 
   build:
-    command: "env RUSTUP_TOOLCHAIN=nightly CARGO_BUILD_JOBS=24 cargo build --release --workspace"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo build --release --workspace"
     description: "Build release binaries"
     deps:
       - "check"
@@ -152,7 +152,7 @@ tasks:
       runInCI: true
 
   build-docs:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo doc --no-deps --document-private-items"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo doc --no-deps --document-private-items"
     description: "Generate Rust documentation"
     deps:
       - "build"
@@ -232,13 +232,13 @@ tasks:
   # ============================================================================
 
   quick:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all --check && env RUSTUP_TOOLCHAIN=nightly cargo clippy --workspace --all-targets -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn"
     description: "Fast lint check (format + clippy in one command)"
     options:
       cache: false
 
   ci:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo fmt --all --check && env RUSTUP_TOOLCHAIN=nightly cargo clippy --workspace --all-targets -- -D warnings && env RUSTUP_TOOLCHAIN=nightly cargo check --workspace --all-features && mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo fmt --all --check && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clippy --workspace --all-targets -- -D warnings && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo check --workspace --all-features && mise exec -- ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo nextest run --workspace --all-features --no-fail-fast"
     description: "Full CI pipeline (all tests, all warnings fail)"
     options:
       cache: false
@@ -249,7 +249,7 @@ tasks:
   # ============================================================================
 
   install:
-    command: "mkdir -p ~/.local/bin && env RUSTUP_TOOLCHAIN=nightly cargo build --release --bin zjj --package zjj && cp ${MOON_WORKSPACE_ROOT}/target/release/zjj ~/.local/bin/zjj && chmod +x ~/.local/bin/zjj && echo '✅ Installed zjj to ~/.local/bin/zjj'"
+    command: "mkdir -p ~/.local/bin && ${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo build --release --bin zjj --package zjj && cp ${MOON_WORKSPACE_ROOT}/target/release/zjj ~/.local/bin/zjj && chmod +x ~/.local/bin/zjj && echo '✅ Installed zjj to ~/.local/bin/zjj'"
     description: "Install zjj binary to ~/.local/bin (system-wide)"
     options:
       cache: false
@@ -271,13 +271,13 @@ tasks:
       cache: false
 
   clean:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo clean"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo clean"
     description: "Clean build artifacts"
     options:
       cache: false
 
   check:
-    command: "env RUSTUP_TOOLCHAIN=nightly cargo check --workspace --all-features"
+    command: "${MOON_WORKSPACE_ROOT}/tools/run-with-nightly.sh cargo check --workspace --all-features"
     description: "Fast type check without building"
     inputs:
       - "crates/**/*.rs"
