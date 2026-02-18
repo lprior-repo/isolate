@@ -187,7 +187,10 @@ fn format_condition(condition: &WaitCondition) -> String {
 /// Output the result
 fn output_result(output: &WaitOutput, format: OutputFormat) -> Result<i32> {
     if format.is_json() {
-        let envelope = SchemaEnvelope::new("wait-response", "single", output);
+        let mut envelope = SchemaEnvelope::new("wait-response", "single", output);
+        if !output.condition_met {
+            envelope.success = false;
+        }
         let json_str =
             serde_json::to_string_pretty(&envelope).context("Failed to serialize wait output")?;
         println!("{json_str}");
