@@ -1,9 +1,9 @@
 //! JSONL output module tests
 
-use super::*;
-use crate::types::SessionStatus;
-use crate::WorkspaceState;
 use std::path::PathBuf;
+
+use super::*;
+use crate::{types::SessionStatus, WorkspaceState};
 
 #[test]
 fn test_summary_new_validates_empty_message() {
@@ -92,7 +92,9 @@ fn test_plan_with_step() {
     let plan = Plan::new("My Plan".to_string(), "Description".to_string())
         .expect("valid plan")
         .with_step("Step 1".to_string(), ActionStatus::Pending)
-        .with_step("Step 2".to_string(), ActionStatus::InProgress);
+        .expect("first step")
+        .with_step("Step 2".to_string(), ActionStatus::InProgress)
+        .expect("second step");
     assert_eq!(plan.steps.len(), 2);
     assert_eq!(plan.steps[0].order, 0);
     assert_eq!(plan.steps[1].order, 1);
@@ -172,11 +174,13 @@ fn test_recovery_with_action() {
         recoverable: true,
         recommended_action: "Retry the operation".to_string(),
     };
-    let recovery = Recovery::new("ISS-1".to_string(), assessment).with_action(
-        "Run fix command".to_string(),
-        Some("fix --auto".to_string()),
-        true,
-    );
+    let recovery = Recovery::new("ISS-1".to_string(), assessment)
+        .with_action(
+            "Run fix command".to_string(),
+            Some("fix --auto".to_string()),
+            true,
+        )
+        .expect("recovery action");
     assert_eq!(recovery.actions.len(), 1);
     assert!(recovery.actions[0].automatic);
 }
@@ -210,7 +214,8 @@ fn test_stack_with_entry() {
             PathBuf::from("/ws/1"),
             StackEntryStatus::Ready,
             Some("bd-123".to_string()),
-        );
+        )
+        .expect("stack entry");
     assert_eq!(stack.entries.len(), 1);
     assert_eq!(stack.entries[0].order, 0);
 }
@@ -263,11 +268,13 @@ fn test_train_with_step() {
             TrainAction::Sync,
             TrainStepStatus::Success,
         )
+        .expect("first train step")
         .with_step(
             "session-2".to_string(),
             TrainAction::Rebase,
             TrainStepStatus::Running,
         )
+        .expect("second train step")
         .with_status(TrainStatus::Running);
     assert_eq!(train.steps.len(), 2);
     assert_eq!(train.status, TrainStatus::Running);
@@ -321,13 +328,13 @@ fn test_train_action_serialization() {
 #[test]
 fn test_jsonl_writer_emit() {
     use std::io::Cursor;
-    
+
     let mut cursor = Cursor::new(Vec::new());
     let mut writer = JsonlWriter::new(&mut cursor);
-    
+
     let summary = Summary::new(SummaryType::Info, "test".to_string()).expect("valid");
     writer.emit(&OutputLine::Summary(summary)).expect("emit");
-    
+
     let output = String::from_utf8(cursor.into_inner()).expect("utf8");
     assert!(output.contains("\"type\":\"info\""));
     assert!(output.contains("\"message\":\"test\""));
@@ -337,17 +344,17 @@ fn test_jsonl_writer_emit() {
 #[test]
 fn test_jsonl_writer_emit_all() {
     use std::io::Cursor;
-    
+
     let mut cursor = Cursor::new(Vec::new());
     let mut writer = JsonlWriter::new(&mut cursor);
-    
+
     let lines = vec![
         OutputLine::Summary(Summary::new(SummaryType::Info, "first".to_string()).expect("valid")),
         OutputLine::Summary(Summary::new(SummaryType::Info, "second".to_string()).expect("valid")),
     ];
-    
+
     writer.emit_all(&lines).expect("emit all");
-    
+
     let output = String::from_utf8(cursor.into_inner()).expect("utf8");
     assert_eq!(output.lines().count(), 2);
 }
@@ -371,14 +378,14 @@ fn test_jsonl_config_with_options() {
 #[test]
 fn test_jsonl_writer_with_config() {
     use std::io::Cursor;
-    
+
     let mut cursor = Cursor::new(Vec::new());
     let config = JsonlConfig::new().with_flush_on_emit(false);
     let mut writer = JsonlWriter::with_config(&mut cursor, config);
-    
+
     let summary = Summary::new(SummaryType::Info, "test".to_string()).expect("valid");
     writer.emit(&OutputLine::Summary(summary)).expect("emit");
-    
+
     let output = String::from_utf8(cursor.into_inner()).expect("utf8");
     assert!(output.contains("\"message\":\"test\""));
 }
@@ -386,12 +393,12 @@ fn test_jsonl_writer_with_config() {
 #[test]
 fn test_emit_function() {
     use std::io::Cursor;
-    
+
     let mut cursor = Cursor::new(Vec::new());
     let summary = Summary::new(SummaryType::Info, "test".to_string()).expect("valid");
-    
+
     emit(&mut cursor, &OutputLine::Summary(summary)).expect("emit");
-    
+
     let output = String::from_utf8(cursor.into_inner()).expect("utf8");
     assert!(output.contains("\"message\":\"test\""));
 }
@@ -401,10 +408,10 @@ fn test_summary_round_trip_serialization() {
     let original = Summary::new(SummaryType::Status, "test message".to_string())
         .expect("valid")
         .with_details("extra info".to_string());
-    
+
     let json = serde_json::to_string(&original).expect("serialize");
     let deserialized: Summary = serde_json::from_str(&json).expect("deserialize");
-    
+
     assert_eq!(original.type_field, deserialized.type_field);
     assert_eq!(original.message, deserialized.message);
     assert_eq!(original.details, deserialized.details);
@@ -420,10 +427,10 @@ fn test_session_output_round_trip() {
     )
     .expect("valid")
     .with_branch("feature/auth-implementation".to_string());
-    
+
     let json = serde_json::to_string(&original).expect("serialize");
     let deserialized: SessionOutput = serde_json::from_str(&json).expect("deserialize");
-    
+
     assert_eq!(original.name, deserialized.name);
     assert_eq!(original.status, deserialized.status);
     assert_eq!(original.state, deserialized.state);
@@ -441,10 +448,10 @@ fn test_issue_round_trip() {
     .expect("valid")
     .with_session("session-abc".to_string())
     .with_suggestion("Check input format".to_string());
-    
+
     let json = serde_json::to_string(&original).expect("serialize");
     let deserialized: Issue = serde_json::from_str(&json).expect("deserialize");
-    
+
     assert_eq!(original.id, deserialized.id);
     assert_eq!(original.title, deserialized.title);
     assert_eq!(original.kind, deserialized.kind);
@@ -461,16 +468,18 @@ fn test_stack_round_trip() {
             StackEntryStatus::Ready,
             Some("bd-123".to_string()),
         )
+        .expect("first stack entry")
         .with_entry(
             "session-2".to_string(),
             PathBuf::from("/ws/2"),
             StackEntryStatus::Pending,
             None,
-        );
-    
+        )
+        .expect("second stack entry");
+
     let json = serde_json::to_string(&original).expect("serialize");
     let deserialized: Stack = serde_json::from_str(&json).expect("deserialize");
-    
+
     assert_eq!(original.name, deserialized.name);
     assert_eq!(original.base_ref, deserialized.base_ref);
     assert_eq!(original.entries.len(), deserialized.entries.len());
@@ -480,13 +489,23 @@ fn test_stack_round_trip() {
 fn test_train_round_trip() {
     let original = Train::new("train-abc".to_string(), "merge-train".to_string())
         .expect("valid")
-        .with_step("session-1".to_string(), TrainAction::Sync, TrainStepStatus::Success)
-        .with_step("session-2".to_string(), TrainAction::Rebase, TrainStepStatus::Running)
+        .with_step(
+            "session-1".to_string(),
+            TrainAction::Sync,
+            TrainStepStatus::Success,
+        )
+        .expect("first train step")
+        .with_step(
+            "session-2".to_string(),
+            TrainAction::Rebase,
+            TrainStepStatus::Running,
+        )
+        .expect("second train step")
         .with_status(TrainStatus::Running);
-    
+
     let json = serde_json::to_string(&original).expect("serialize");
     let deserialized: Train = serde_json::from_str(&json).expect("deserialize");
-    
+
     assert_eq!(original.id, deserialized.id);
     assert_eq!(original.name, deserialized.name);
     assert_eq!(original.status, deserialized.status);
@@ -500,10 +519,10 @@ fn test_queue_entry_round_trip() {
         .with_bead("bd-789".to_string())
         .with_agent("agent-001".to_string())
         .with_status(QueueEntryStatus::InProgress);
-    
+
     let json = serde_json::to_string(&original).expect("serialize");
     let deserialized: QueueEntry = serde_json::from_str(&json).expect("deserialize");
-    
+
     assert_eq!(original.id, deserialized.id);
     assert_eq!(original.session, deserialized.session);
     assert_eq!(original.priority, deserialized.priority);
@@ -514,18 +533,42 @@ fn test_queue_entry_round_trip() {
 fn test_output_line_round_trip_all_variants() {
     let test_cases: Vec<OutputLine> = vec![
         OutputLine::Summary(Summary::new(SummaryType::Info, "test".to_string()).expect("valid")),
-        OutputLine::Session(SessionOutput::new("s".to_string(), SessionStatus::Active, WorkspaceState::Working, PathBuf::from("/tmp")).expect("valid")),
-        OutputLine::Issue(Issue::new("1".to_string(), "t".to_string(), IssueKind::Validation, IssueSeverity::Error).expect("valid")),
+        OutputLine::Session(
+            SessionOutput::new(
+                "s".to_string(),
+                SessionStatus::Active,
+                WorkspaceState::Working,
+                PathBuf::from("/tmp"),
+            )
+            .expect("valid"),
+        ),
+        OutputLine::Issue(
+            Issue::new(
+                "1".to_string(),
+                "t".to_string(),
+                IssueKind::Validation,
+                IssueSeverity::Error,
+            )
+            .expect("valid"),
+        ),
         OutputLine::Plan(Plan::new("p".to_string(), "d".to_string()).expect("valid")),
-        OutputLine::Action(Action::new("create".to_string(), "target".to_string(), ActionStatus::Completed)),
+        OutputLine::Action(Action::new(
+            "create".to_string(),
+            "target".to_string(),
+            ActionStatus::Completed,
+        )),
         OutputLine::Warning(Warning::new("W001".to_string(), "msg".to_string()).expect("valid")),
-        OutputLine::Result(ResultOutput::success(ResultKind::Command, "ok".to_string()).expect("valid")),
+        OutputLine::Result(
+            ResultOutput::success(ResultKind::Command, "ok".to_string()).expect("valid"),
+        ),
         OutputLine::Stack(Stack::new("s".to_string(), "main".to_string()).expect("valid")),
         OutputLine::QueueSummary(QueueSummary::new()),
-        OutputLine::QueueEntry(QueueEntry::new("q".to_string(), "s".to_string(), 1).expect("valid")),
+        OutputLine::QueueEntry(
+            QueueEntry::new("q".to_string(), "s".to_string(), 1).expect("valid"),
+        ),
         OutputLine::Train(Train::new("t".to_string(), "train".to_string()).expect("valid")),
     ];
-    
+
     for original in test_cases {
         let json = serde_json::to_string(&original).expect("serialize");
         let deserialized: OutputLine = serde_json::from_str(&json).expect("deserialize");
@@ -535,99 +578,258 @@ fn test_output_line_round_trip_all_variants() {
 
 #[test]
 fn test_summary_type_all_variants() {
-    assert_eq!(serde_json::to_string(&SummaryType::Status).expect("s"), "\"status\"");
-    assert_eq!(serde_json::to_string(&SummaryType::Count).expect("s"), "\"count\"");
-    assert_eq!(serde_json::to_string(&SummaryType::Info).expect("s"), "\"info\"");
+    assert_eq!(
+        serde_json::to_string(&SummaryType::Status).expect("s"),
+        "\"status\""
+    );
+    assert_eq!(
+        serde_json::to_string(&SummaryType::Count).expect("s"),
+        "\"count\""
+    );
+    assert_eq!(
+        serde_json::to_string(&SummaryType::Info).expect("s"),
+        "\"info\""
+    );
 }
 
 #[test]
 fn test_issue_kind_all_variants() {
-    assert_eq!(serde_json::to_string(&IssueKind::Validation).expect("s"), "\"validation\"");
-    assert_eq!(serde_json::to_string(&IssueKind::StateConflict).expect("s"), "\"state_conflict\"");
-    assert_eq!(serde_json::to_string(&IssueKind::ResourceNotFound).expect("s"), "\"resource_not_found\"");
-    assert_eq!(serde_json::to_string(&IssueKind::PermissionDenied).expect("s"), "\"permission_denied\"");
-    assert_eq!(serde_json::to_string(&IssueKind::Timeout).expect("s"), "\"timeout\"");
-    assert_eq!(serde_json::to_string(&IssueKind::Configuration).expect("s"), "\"configuration\"");
-    assert_eq!(serde_json::to_string(&IssueKind::External).expect("s"), "\"external\"");
+    assert_eq!(
+        serde_json::to_string(&IssueKind::Validation).expect("s"),
+        "\"validation\""
+    );
+    assert_eq!(
+        serde_json::to_string(&IssueKind::StateConflict).expect("s"),
+        "\"state_conflict\""
+    );
+    assert_eq!(
+        serde_json::to_string(&IssueKind::ResourceNotFound).expect("s"),
+        "\"resource_not_found\""
+    );
+    assert_eq!(
+        serde_json::to_string(&IssueKind::PermissionDenied).expect("s"),
+        "\"permission_denied\""
+    );
+    assert_eq!(
+        serde_json::to_string(&IssueKind::Timeout).expect("s"),
+        "\"timeout\""
+    );
+    assert_eq!(
+        serde_json::to_string(&IssueKind::Configuration).expect("s"),
+        "\"configuration\""
+    );
+    assert_eq!(
+        serde_json::to_string(&IssueKind::External).expect("s"),
+        "\"external\""
+    );
 }
 
 #[test]
 fn test_issue_severity_all_variants() {
-    assert_eq!(serde_json::to_string(&IssueSeverity::Hint).expect("s"), "\"hint\"");
-    assert_eq!(serde_json::to_string(&IssueSeverity::Warning).expect("s"), "\"warning\"");
-    assert_eq!(serde_json::to_string(&IssueSeverity::Error).expect("s"), "\"error\"");
-    assert_eq!(serde_json::to_string(&IssueSeverity::Critical).expect("s"), "\"critical\"");
+    assert_eq!(
+        serde_json::to_string(&IssueSeverity::Hint).expect("s"),
+        "\"hint\""
+    );
+    assert_eq!(
+        serde_json::to_string(&IssueSeverity::Warning).expect("s"),
+        "\"warning\""
+    );
+    assert_eq!(
+        serde_json::to_string(&IssueSeverity::Error).expect("s"),
+        "\"error\""
+    );
+    assert_eq!(
+        serde_json::to_string(&IssueSeverity::Critical).expect("s"),
+        "\"critical\""
+    );
 }
 
 #[test]
 fn test_action_status_all_variants() {
-    assert_eq!(serde_json::to_string(&ActionStatus::Pending).expect("s"), "\"pending\"");
-    assert_eq!(serde_json::to_string(&ActionStatus::InProgress).expect("s"), "\"in_progress\"");
-    assert_eq!(serde_json::to_string(&ActionStatus::Completed).expect("s"), "\"completed\"");
-    assert_eq!(serde_json::to_string(&ActionStatus::Failed).expect("s"), "\"failed\"");
-    assert_eq!(serde_json::to_string(&ActionStatus::Skipped).expect("s"), "\"skipped\"");
+    assert_eq!(
+        serde_json::to_string(&ActionStatus::Pending).expect("s"),
+        "\"pending\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ActionStatus::InProgress).expect("s"),
+        "\"in_progress\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ActionStatus::Completed).expect("s"),
+        "\"completed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ActionStatus::Failed).expect("s"),
+        "\"failed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ActionStatus::Skipped).expect("s"),
+        "\"skipped\""
+    );
 }
 
 #[test]
 fn test_result_kind_all_variants() {
-    assert_eq!(serde_json::to_string(&ResultKind::Command).expect("s"), "\"command\"");
-    assert_eq!(serde_json::to_string(&ResultKind::Operation).expect("s"), "\"operation\"");
-    assert_eq!(serde_json::to_string(&ResultKind::Assessment).expect("s"), "\"assessment\"");
-    assert_eq!(serde_json::to_string(&ResultKind::Recovery).expect("s"), "\"recovery\"");
+    assert_eq!(
+        serde_json::to_string(&ResultKind::Command).expect("s"),
+        "\"command\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ResultKind::Operation).expect("s"),
+        "\"operation\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ResultKind::Assessment).expect("s"),
+        "\"assessment\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ResultKind::Recovery).expect("s"),
+        "\"recovery\""
+    );
 }
 
 #[test]
 fn test_error_severity_all_variants() {
-    assert_eq!(serde_json::to_string(&ErrorSeverity::Low).expect("s"), "\"low\"");
-    assert_eq!(serde_json::to_string(&ErrorSeverity::Medium).expect("s"), "\"medium\"");
-    assert_eq!(serde_json::to_string(&ErrorSeverity::High).expect("s"), "\"high\"");
-    assert_eq!(serde_json::to_string(&ErrorSeverity::Critical).expect("s"), "\"critical\"");
+    assert_eq!(
+        serde_json::to_string(&ErrorSeverity::Low).expect("s"),
+        "\"low\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ErrorSeverity::Medium).expect("s"),
+        "\"medium\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ErrorSeverity::High).expect("s"),
+        "\"high\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ErrorSeverity::Critical).expect("s"),
+        "\"critical\""
+    );
 }
 
 #[test]
 fn test_stack_entry_status_all_variants() {
-    assert_eq!(serde_json::to_string(&StackEntryStatus::Pending).expect("s"), "\"pending\"");
-    assert_eq!(serde_json::to_string(&StackEntryStatus::Ready).expect("s"), "\"ready\"");
-    assert_eq!(serde_json::to_string(&StackEntryStatus::Merging).expect("s"), "\"merging\"");
-    assert_eq!(serde_json::to_string(&StackEntryStatus::Merged).expect("s"), "\"merged\"");
-    assert_eq!(serde_json::to_string(&StackEntryStatus::Failed).expect("s"), "\"failed\"");
+    assert_eq!(
+        serde_json::to_string(&StackEntryStatus::Pending).expect("s"),
+        "\"pending\""
+    );
+    assert_eq!(
+        serde_json::to_string(&StackEntryStatus::Ready).expect("s"),
+        "\"ready\""
+    );
+    assert_eq!(
+        serde_json::to_string(&StackEntryStatus::Merging).expect("s"),
+        "\"merging\""
+    );
+    assert_eq!(
+        serde_json::to_string(&StackEntryStatus::Merged).expect("s"),
+        "\"merged\""
+    );
+    assert_eq!(
+        serde_json::to_string(&StackEntryStatus::Failed).expect("s"),
+        "\"failed\""
+    );
 }
 
 #[test]
 fn test_queue_entry_status_all_variants() {
-    assert_eq!(serde_json::to_string(&QueueEntryStatus::Pending).expect("s"), "\"pending\"");
-    assert_eq!(serde_json::to_string(&QueueEntryStatus::Ready).expect("s"), "\"ready\"");
-    assert_eq!(serde_json::to_string(&QueueEntryStatus::Claimed).expect("s"), "\"claimed\"");
-    assert_eq!(serde_json::to_string(&QueueEntryStatus::InProgress).expect("s"), "\"in_progress\"");
-    assert_eq!(serde_json::to_string(&QueueEntryStatus::Completed).expect("s"), "\"completed\"");
-    assert_eq!(serde_json::to_string(&QueueEntryStatus::Failed).expect("s"), "\"failed\"");
-    assert_eq!(serde_json::to_string(&QueueEntryStatus::Blocked).expect("s"), "\"blocked\"");
+    assert_eq!(
+        serde_json::to_string(&QueueEntryStatus::Pending).expect("s"),
+        "\"pending\""
+    );
+    assert_eq!(
+        serde_json::to_string(&QueueEntryStatus::Ready).expect("s"),
+        "\"ready\""
+    );
+    assert_eq!(
+        serde_json::to_string(&QueueEntryStatus::Claimed).expect("s"),
+        "\"claimed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&QueueEntryStatus::InProgress).expect("s"),
+        "\"in_progress\""
+    );
+    assert_eq!(
+        serde_json::to_string(&QueueEntryStatus::Completed).expect("s"),
+        "\"completed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&QueueEntryStatus::Failed).expect("s"),
+        "\"failed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&QueueEntryStatus::Blocked).expect("s"),
+        "\"blocked\""
+    );
 }
 
 #[test]
 fn test_train_status_all_variants() {
-    assert_eq!(serde_json::to_string(&TrainStatus::Pending).expect("s"), "\"pending\"");
-    assert_eq!(serde_json::to_string(&TrainStatus::Running).expect("s"), "\"running\"");
-    assert_eq!(serde_json::to_string(&TrainStatus::Completed).expect("s"), "\"completed\"");
-    assert_eq!(serde_json::to_string(&TrainStatus::Failed).expect("s"), "\"failed\"");
-    assert_eq!(serde_json::to_string(&TrainStatus::Aborted).expect("s"), "\"aborted\"");
+    assert_eq!(
+        serde_json::to_string(&TrainStatus::Pending).expect("s"),
+        "\"pending\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainStatus::Running).expect("s"),
+        "\"running\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainStatus::Completed).expect("s"),
+        "\"completed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainStatus::Failed).expect("s"),
+        "\"failed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainStatus::Aborted).expect("s"),
+        "\"aborted\""
+    );
 }
 
 #[test]
 fn test_train_action_all_variants() {
-    assert_eq!(serde_json::to_string(&TrainAction::Sync).expect("s"), "\"sync\"");
-    assert_eq!(serde_json::to_string(&TrainAction::Rebase).expect("s"), "\"rebase\"");
-    assert_eq!(serde_json::to_string(&TrainAction::Merge).expect("s"), "\"merge\"");
-    assert_eq!(serde_json::to_string(&TrainAction::Push).expect("s"), "\"push\"");
+    assert_eq!(
+        serde_json::to_string(&TrainAction::Sync).expect("s"),
+        "\"sync\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainAction::Rebase).expect("s"),
+        "\"rebase\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainAction::Merge).expect("s"),
+        "\"merge\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainAction::Push).expect("s"),
+        "\"push\""
+    );
 }
 
 #[test]
 fn test_train_step_status_all_variants() {
-    assert_eq!(serde_json::to_string(&TrainStepStatus::Pending).expect("s"), "\"pending\"");
-    assert_eq!(serde_json::to_string(&TrainStepStatus::Running).expect("s"), "\"running\"");
-    assert_eq!(serde_json::to_string(&TrainStepStatus::Success).expect("s"), "\"success\"");
-    assert_eq!(serde_json::to_string(&TrainStepStatus::Failed).expect("s"), "\"failed\"");
-    assert_eq!(serde_json::to_string(&TrainStepStatus::Skipped).expect("s"), "\"skipped\"");
+    assert_eq!(
+        serde_json::to_string(&TrainStepStatus::Pending).expect("s"),
+        "\"pending\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainStepStatus::Running).expect("s"),
+        "\"running\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainStepStatus::Success).expect("s"),
+        "\"success\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainStepStatus::Failed).expect("s"),
+        "\"failed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TrainStepStatus::Skipped).expect("s"),
+        "\"skipped\""
+    );
 }
 
 #[test]
@@ -638,7 +840,12 @@ fn test_summary_with_whitespace_message() {
 
 #[test]
 fn test_issue_with_whitespace_title() {
-    let result = Issue::new("id".to_string(), "   ".to_string(), IssueKind::Validation, IssueSeverity::Error);
+    let result = Issue::new(
+        "id".to_string(),
+        "   ".to_string(),
+        IssueKind::Validation,
+        IssueSeverity::Error,
+    );
     assert!(result.is_err());
 }
 
@@ -657,22 +864,23 @@ fn test_result_output_with_whitespace_message() {
 #[test]
 fn test_jsonl_writer_produces_valid_jsonl() {
     use std::io::Cursor;
-    
+
     let mut cursor = Cursor::new(Vec::new());
     let mut writer = JsonlWriter::new(&mut cursor);
-    
+
     let lines = vec![
         OutputLine::Summary(Summary::new(SummaryType::Info, "first".to_string()).expect("valid")),
         OutputLine::Summary(Summary::new(SummaryType::Info, "second".to_string()).expect("valid")),
         OutputLine::Summary(Summary::new(SummaryType::Info, "third".to_string()).expect("valid")),
     ];
-    
+
     writer.emit_all(&lines).expect("emit all");
-    
+
     let output = String::from_utf8(cursor.into_inner()).expect("utf8");
-    
+
     for line in output.lines() {
-        let parsed: serde_json::Value = serde_json::from_str(line).expect("each line is valid JSON");
+        let parsed: serde_json::Value =
+            serde_json::from_str(line).expect("each line is valid JSON");
         assert!(parsed.is_object());
     }
 }
@@ -682,11 +890,11 @@ fn test_queue_summary_edge_cases() {
     let empty = QueueSummary::new();
     assert!(empty.is_empty());
     assert!(!empty.has_blockers());
-    
+
     let with_blockers = QueueSummary::new().with_counts(5, 0, 0, 5, 0);
     assert!(!with_blockers.is_empty());
     assert!(with_blockers.has_blockers());
-    
+
     let full = QueueSummary::new().with_counts(100, 25, 25, 25, 25);
     assert!(!full.is_empty());
     assert!(full.has_blockers());
