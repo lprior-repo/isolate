@@ -229,7 +229,11 @@ pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
         format,
         dry_run,
     };
-    validate::run(&options)
+    let exit_code = validate::run(&options)?;
+    if exit_code != 0 {
+        std::process::exit(exit_code);
+    }
+    Ok(())
 }
 
 #[allow(clippy::too_many_lines)]
