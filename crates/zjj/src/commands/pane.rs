@@ -489,7 +489,7 @@ mod tests {
 
         // command field should be omitted (null or absent)
         let command = parsed.get("command");
-        assert!(command.is_none() || command.is_some_and(serde_json::Value::is_null));
+        assert!(command.is_none_or(serde_json::Value::is_null));
         Ok(())
     }
 

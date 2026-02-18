@@ -387,8 +387,7 @@ fn format_timestamp(timestamp: i64) -> String {
 
     let now_secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_secs());
 
     let timestamp_secs = u64::try_from(timestamp.max(0)).map_or(0, |v| v);
     let ago_secs = now_secs.saturating_sub(timestamp_secs);
@@ -443,8 +442,7 @@ mod tests {
         // Test with current timestamp
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX))
-            .unwrap_or(0);
+            .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX));
 
         let formatted = format_timestamp(now);
         assert_eq!(formatted, "today");

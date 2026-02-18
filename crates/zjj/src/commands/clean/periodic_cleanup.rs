@@ -427,7 +427,7 @@ mod tests {
     async fn test_orphan_detection_missing_workspace() {
         let session = mock_session("test", 1, false);
         let now = Utc::now();
-        let threshold = Duration::from_secs(7200);
+        let threshold = Duration::from_hours(2);
 
         let result = is_orphan_candidate(&session, &threshold, &now).await;
 
@@ -442,7 +442,7 @@ mod tests {
     async fn test_orphan_detection_old_no_bead() {
         let session = mock_session("test", 3, true);
         let now = Utc::now();
-        let threshold = Duration::from_secs(7200);
+        let threshold = Duration::from_hours(2);
 
         let result = is_orphan_candidate(&session, &threshold, &now).await;
 
@@ -458,7 +458,7 @@ mod tests {
     async fn test_not_orphan_recent() {
         let session = mock_session("test", 1, true);
         let now = Utc::now();
-        let threshold = Duration::from_secs(7200);
+        let threshold = Duration::from_hours(2);
 
         let result = is_orphan_candidate(&session, &threshold, &now).await;
 
@@ -495,8 +495,8 @@ mod tests {
     fn test_config_defaults() {
         let config = PeriodicCleanupConfig::default();
 
-        assert_eq!(config.interval, Duration::from_secs(3600));
-        assert_eq!(config.age_threshold, Duration::from_secs(7200));
+        assert_eq!(config.interval, Duration::from_hours(1));
+        assert_eq!(config.age_threshold, Duration::from_hours(2));
         assert!(!config.dry_run);
     }
 
