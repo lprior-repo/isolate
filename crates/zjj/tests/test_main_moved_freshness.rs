@@ -337,11 +337,11 @@ fn test_queue_process_stale_ready_entry_returns_to_rebasing() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["queue", "--add", "stale-ready-ws", "--json"]);
 
-    let queue_db = harness.repo_path.join(".zjj").join("queue.db");
+    let state_db = harness.repo_path.join(".zjj").join("state.db");
     let rt = tokio::runtime::Runtime::new().expect("runtime should be created");
 
     rt.block_on(async {
-        let queue = zjj_core::MergeQueue::open(&queue_db)
+        let queue = zjj_core::MergeQueue::open(&state_db)
             .await
             .expect("queue should open");
 
@@ -397,7 +397,7 @@ fn test_queue_process_stale_ready_entry_returns_to_rebasing() {
     assert_eq!(persisted_status, Some("rebasing"));
 
     rt.block_on(async {
-        let queue = zjj_core::MergeQueue::open(&queue_db)
+        let queue = zjj_core::MergeQueue::open(&state_db)
             .await
             .expect("queue should reopen");
         let entry = queue
@@ -431,13 +431,13 @@ fn test_queue_process_fresh_ready_entry_merges_successfully() {
     harness.assert_success(&["init"]);
     harness.assert_success(&["queue", "--add", "fresh-ready-ws", "--json"]);
 
-    let queue_db = harness.repo_path.join(".zjj").join("queue.db");
+    let state_db = harness.repo_path.join(".zjj").join("state.db");
 
     // Set up entry in ready_to_merge with placeholder, then update immediately before processing
     let rt = tokio::runtime::Runtime::new().expect("runtime should be created");
 
     rt.block_on(async {
-        let queue = zjj_core::MergeQueue::open(&queue_db)
+        let queue = zjj_core::MergeQueue::open(&state_db)
             .await
             .expect("queue should open");
 
@@ -466,7 +466,7 @@ fn test_queue_process_fresh_ready_entry_merges_successfully() {
 
     // Update tested_against_sha immediately using raw SQL to avoid async timing issues
     rt.block_on(async {
-        let queue = zjj_core::MergeQueue::open(&queue_db)
+        let queue = zjj_core::MergeQueue::open(&state_db)
             .await
             .expect("queue should open");
 

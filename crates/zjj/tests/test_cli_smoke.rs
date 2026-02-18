@@ -263,6 +263,35 @@ async fn test_completions_smoke() {
 }
 
 #[tokio::test]
+async fn test_backup_help_uses_single_database_model() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    let result = run_zjj_async(
+        &harness.zjj_bin,
+        &harness.current_dir,
+        &["backup", "--help"],
+    )
+    .await;
+    assert!(
+        result.success,
+        "backup --help should succeed\nStdout: {}\nStderr: {}",
+        result.stdout, result.stderr
+    );
+    assert!(
+        result.stdout.contains("state.db") && result.stdout.contains("beads.db"),
+        "backup --help should mention supported databases\nStdout: {}",
+        result.stdout
+    );
+    assert!(
+        !result.stdout.contains("queue.db"),
+        "backup --help should not mention legacy queue.db\nStdout: {}",
+        result.stdout
+    );
+}
+
+#[tokio::test]
 async fn test_validate_accepts_dry_run_flag() {
     let Some(harness) = TestHarness::try_new() else {
         return;
@@ -335,4 +364,86 @@ async fn test_validate_accepts_dry_run_flag_with_json_output() {
 
     harness.assert_workspace_not_exists("add");
     harness.assert_workspace_not_exists("test-session");
+}
+
+#[test]
+fn test_queue_uses_state_db_not_queue_db() {
+    let Some(harness) = TestHarness::try_new() else {
+        return;
+    };
+
+    harness.assert_success(&["init"]);
+
+    let custom_state_db = harness.repo_path.join(".zjj").join("custom-state.db");
+    let custom_state_db_str = custom_state_db.to_string_lossy().to_string();
+    let env_vars = [("ZJJ_STATE_DB", custom_state_db_str.as_str())];
+
+    let add_result =
+        harness.zjj_with_env(&["queue", "--add", "state-db-check", "--json"], &env_vars);
+    assert!(
+        add_result.success,
+        "queue --add --json should succeed with ZJJ_STATE_DB\nStdout: {}\nStderr: {}",
+        add_result.stdout, add_result.stderr
+    );
+
+    let status_result = harness.zjj_with_env(
+        &["queue", "--status", "state-db-check", "--json"],
+        &env_vars,
+    );
+    assert!(
+        status_result.success,
+        "queue --status --json should succeed with ZJJ_STATE_DB\nStdout: {}\nStderr: {}",
+        status_result.stdout, status_result.stderr
+    );
+
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&status_result.stdout);
+    assert!(
+        parsed.is_ok(),
+        "queue --status --json should emit parseable JSON\nStdout: {}",
+        status_result.stdout
+    );
+
+    let status_json = parsed.ok();
+    assert_eq!(
+        status_json
+            .as_ref()
+            .and_then(|json| json.get("success"))
+            .and_then(serde_json::Value::as_bool),
+        Some(true),
+        "queue --status response should indicate success\nStdout: {}",
+        status_result.stdout
+    );
+    assert_eq!(
+        status_json
+            .as_ref()
+            .and_then(|json| json.get("exists"))
+            .and_then(serde_json::Value::as_bool),
+        Some(true),
+        "queue --status should report inserted workspace\nStdout: {}",
+        status_result.stdout
+    );
+    assert_eq!(
+        status_json
+            .as_ref()
+            .and_then(|json| json.get("status"))
+            .and_then(serde_json::Value::as_str),
+        Some("pending"),
+        "queue entry should start in pending status\nStdout: {}",
+        status_result.stdout
+    );
+
+    assert!(
+        custom_state_db.exists(),
+        "queue commands should honor ZJJ_STATE_DB override and write to custom state db\nRepo: {}\nDB: {}",
+        harness.repo_path.display(),
+        custom_state_db.display()
+    );
+
+    let queue_db = harness.repo_path.join(".zjj").join("queue.db");
+    assert!(
+        !queue_db.exists(),
+        "queue command should not create legacy queue.db when ZJJ_STATE_DB is set\nRepo: {}\nLegacy DB: {}",
+        harness.repo_path.display(),
+        queue_db.display()
+    );
 }

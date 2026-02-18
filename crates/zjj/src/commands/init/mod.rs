@@ -163,6 +163,13 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
     let root = jj_root_with_cwd(&cwd).await?;
     let zjj_dir = root.join(".zjj");
 
+    // Create .zjj directory before lock acquisition so lock file parent always exists.
+    if !tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false) {
+        tokio::fs::create_dir_all(&zjj_dir)
+            .await
+            .context("Failed to create .zjj directory")?;
+    }
+
     // Acquire init lock to prevent concurrent initialization
     let lock_path = zjj_dir.join(".init.lock");
     let _lock = InitLock::acquire(lock_path)?;
@@ -200,13 +207,6 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
         }
 
         return Ok(());
-    }
-
-    // Create .zjj directory if missing
-    if !tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false) {
-        tokio::fs::create_dir_all(&zjj_dir)
-            .await
-            .context("Failed to create .zjj directory")?;
     }
 
     // Create config.toml if missing
