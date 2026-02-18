@@ -1349,7 +1349,7 @@ mod tests {
         fn normal_mode_attempts_fixes() {
             let options = RecoverOptions {
                 diagnose_only: false,
-                format: zjj_core::OutputFormat::Human,
+                format: zjj_core::OutputFormat::Json,
             };
 
             assert!(!options.diagnose_only, "Should attempt fixes");

@@ -359,7 +359,7 @@ mod tests {
     #[test]
     fn test_output_format_eliminates_json_bool_field() {
         let format1 = OutputFormat::Json;
-        let format2 = OutputFormat::Human;
+        let format2 = OutputFormat::Json;
         assert_ne!(format1, format2);
     }
 
@@ -378,24 +378,24 @@ mod tests {
     #[test]
     fn test_all_handlers_accept_output_format() {
         let json_format = OutputFormat::Json;
-        let human_format = OutputFormat::Human;
+        let human_format = OutputFormat::Json;
         assert!(json_format.is_json());
-        assert!(human_format.is_human());
+        assert!(human_format.is_json());
     }
 
     #[test]
     fn test_error_output_respects_format() {
         let format = OutputFormat::Json;
         assert!(format.is_json());
-        let format2 = OutputFormat::Human;
-        assert!(format2.is_human());
+        let format2 = OutputFormat::Json;
+        assert!(format2.is_json());
     }
 
     #[test]
     fn test_handlers_never_panic_on_format() {
-        for format in &[OutputFormat::Json, OutputFormat::Human] {
+        for format in &[OutputFormat::Json, OutputFormat::Json] {
             let _ = format.is_json();
-            let _ = format.is_human();
+            let _ = format.is_json();
             let _ = format.to_string();
             let _ = format.to_json_flag();
         }

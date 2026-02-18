@@ -105,7 +105,7 @@ impl SpawnArgs {
             format: if self.format == "json" {
                 OutputFormat::Json
             } else {
-                OutputFormat::Human
+                OutputFormat::Json
             },
             dry_run: self.dry_run,
         }

@@ -782,7 +782,7 @@ mod tests {
             once: false,
             interval_secs: 10,
             worker_id: None,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
         assert_eq!(options.interval_secs, 10);
     }

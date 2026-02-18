@@ -188,7 +188,7 @@ mod tests {
         let opts = PruneInvalidOptions::default();
         assert!(!opts.yes);
         assert!(!opts.dry_run);
-        assert!(opts.format.is_human());
+        assert!(opts.format.is_json());
     }
 
     #[test]

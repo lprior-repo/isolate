@@ -201,14 +201,14 @@ pub async fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<
 
     loop {
         // Clear screen (ANSI escape code)
-        if format.is_human() {
+        if format.is_json() {
             print!("\x1B[2J\x1B[1;1H");
             let _ = std::io::stdout().flush();
         }
 
         // Run status once
         if let Err(e) = run_once(name, format).await {
-            if format.is_human() {
+            if format.is_json() {
                 eprintln!("Error: {e}");
             }
         }

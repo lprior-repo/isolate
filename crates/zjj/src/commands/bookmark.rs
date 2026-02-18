@@ -679,13 +679,13 @@ bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
             name: "feature-v1".to_string(),
             session: None,
             push: false,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
 
         assert_eq!(opts.name, "feature-v1");
         assert_eq!(opts.session, None);
         assert!(!opts.push);
-        assert_eq!(opts.format, OutputFormat::Human);
+        assert_eq!(opts.format, OutputFormat::Json);
     }
 
     #[test]
@@ -707,13 +707,13 @@ bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
             name: "feature".to_string(),
             to_revision: "abc123".to_string(),
             session: None,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
 
         assert_eq!(opts.name, "feature");
         assert_eq!(opts.to_revision, "abc123");
         assert_eq!(opts.session, None);
-        assert_eq!(opts.format, OutputFormat::Human);
+        assert_eq!(opts.format, OutputFormat::Json);
     }
 
     #[test]

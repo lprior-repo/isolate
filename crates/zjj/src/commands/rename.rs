@@ -352,14 +352,14 @@ mod tests {
             new_name: "feature-b".to_string(),
             dry_run: false,
             no_zellij: false,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
 
         assert_eq!(options.old_name, "feature-a");
         assert_eq!(options.new_name, "feature-b");
         assert!(!options.dry_run);
         assert!(!options.no_zellij);
-        assert_eq!(options.format, OutputFormat::Human);
+        assert_eq!(options.format, OutputFormat::Json);
     }
 
     #[test]
@@ -369,7 +369,7 @@ mod tests {
             new_name: "feature-b".to_string(),
             dry_run: false,
             no_zellij: true,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
 
         assert!(options.no_zellij, "Should have no_zellij flag set");

@@ -18,7 +18,7 @@ fn test_whatif_options_default() {
     let opts = WhatIfOptions::default();
     assert!(opts.command.is_empty());
     assert!(opts.args.is_empty());
-    assert!(opts.format.is_human());
+    assert!(opts.format.is_json());
 }
 
 #[test]

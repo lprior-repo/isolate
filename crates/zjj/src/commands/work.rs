@@ -124,7 +124,7 @@ pub async fn run(options: &WorkOptions) -> Result<()> {
         template: None,
         no_open: no_zellij,
         no_zellij,
-        format: OutputFormat::Human, // We'll handle our own output
+        format: OutputFormat::Json, // We'll handle our own output
         idempotent: false,
         dry_run: false,
     };
@@ -494,7 +494,7 @@ mod tests {
             no_agent: false,
             idempotent: false,
             dry_run: false,
-            format: zjj_core::OutputFormat::Human,
+            format: zjj_core::OutputFormat::Json,
         };
 
         assert!(!options.no_zellij);
@@ -728,7 +728,7 @@ mod tests {
             no_agent: false,
             idempotent: true,
             dry_run: false,
-            format: zjj_core::OutputFormat::Human,
+            format: zjj_core::OutputFormat::Json,
         };
 
         assert!(options.idempotent);
@@ -745,7 +745,7 @@ mod tests {
             no_agent: false,
             idempotent: false,
             dry_run: true,
-            format: zjj_core::OutputFormat::Human,
+            format: zjj_core::OutputFormat::Json,
         };
 
         assert!(options.dry_run);

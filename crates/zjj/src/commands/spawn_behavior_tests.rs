@@ -40,7 +40,7 @@ mod brutal_edge_cases {
             no_auto_merge: true,
             no_auto_cleanup: true,
             timeout_secs: 300,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
             dry_run: false,
         }
     }
@@ -552,7 +552,7 @@ mod brutal_edge_cases {
                 no_auto_merge: true,
                 no_auto_cleanup: true,
                 timeout_secs: 300,
-                format: OutputFormat::Human,
+                format: OutputFormat::Json,
                 dry_run: false,
             };
             execute_spawn(&options).await
@@ -573,7 +573,7 @@ mod brutal_edge_cases {
                 no_auto_merge: true,
                 no_auto_cleanup: true,
                 timeout_secs: 300,
-                format: OutputFormat::Human,
+                format: OutputFormat::Json,
                 dry_run: false,
             };
             execute_spawn(&options).await

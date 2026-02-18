@@ -855,7 +855,7 @@ mod tests {
         // the actual implementation in Phase 4 will enforce this at compile time.
 
         let _ = OutputFormat::Json;
-        let _ = OutputFormat::Human;
+        let _ = OutputFormat::Json;
         // When format field is added, initialization like this will be possible:
         // let opts = AddOptions {
         //     name: "test".to_string(),
@@ -878,7 +878,7 @@ mod tests {
         assert_eq!(opts.format, expected_format);
     }
 
-    /// RED: `AddOptions` should support `OutputFormat::Human`
+    /// RED: `AddOptions` should support `OutputFormat::Json`
     #[test]
     fn test_add_options_format_human() {
         use zjj_core::OutputFormat;
@@ -890,12 +890,12 @@ mod tests {
             template: None,
             no_open: false,
             no_zellij: false,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
             idempotent: false,
             dry_run: false,
         };
 
-        assert!(opts.format.is_human());
+        assert!(opts.format.is_json());
         assert!(!opts.format.is_json());
     }
 
@@ -917,7 +917,7 @@ mod tests {
         };
 
         assert!(opts.format.is_json());
-        assert!(!opts.format.is_human());
+        assert!(!opts.format.is_json());
     }
 
     /// RED: `AddOptions` format field should persist through conversion
@@ -967,7 +967,7 @@ mod tests {
 
         // When run_with_options is called:
         // - If format.is_json(), output JSON envelope
-        // - If format.is_human(), output human-readable text
+        // - If format.is_json(), output human-readable text
         // This test documents the contract even if not all paths are exercised
         assert_eq!(opts.format, OutputFormat::Json);
     }

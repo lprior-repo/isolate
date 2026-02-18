@@ -103,7 +103,7 @@ async fn collect_status_info() -> Result<(AiStatusOutput, OutputFormat)> {
         next_command,
     };
 
-    Ok((output, OutputFormat::Human))
+    Ok((output, OutputFormat::Json))
 }
 
 async fn detect_location() -> (String, Option<String>) {

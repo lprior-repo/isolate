@@ -1015,7 +1015,7 @@ mod tests {
             action: CheckpointAction::Create {
                 description: Some("new checkpoint".to_string()),
             },
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
         assert!(matches!(args.action, CheckpointAction::Create { .. }));
         assert!(!args.format.is_json());

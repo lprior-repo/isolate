@@ -97,7 +97,7 @@ mod tests {
     #[test]
     fn test_switch_options_default() {
         let options = SwitchOptions::default();
-        assert_eq!(options.format, OutputFormat::Human);
+        assert_eq!(options.format, OutputFormat::Json);
         assert!(!options.show_context);
         assert!(!options.no_zellij);
     }

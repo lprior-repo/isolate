@@ -19,7 +19,7 @@ async fn test_prune_invalid_options_default() {
     let opts = PruneInvalidOptions::default();
     assert!(!opts.yes);
     assert!(!opts.dry_run);
-    assert!(opts.format.is_human());
+    assert!(opts.format.is_json());
 }
 
 #[tokio::test]

@@ -724,7 +724,7 @@ mod tests {
 
         // Attempt to repair with empty workspace name
         // This should return a Result::Err, not panic
-        let result = run_repair(jj_root_path, "", false, false, OutputFormat::Human).await;
+        let result = run_repair(jj_root_path, "", false, false, OutputFormat::Json).await;
 
         // Verify we get an error, not a panic
         match result {
@@ -756,7 +756,7 @@ mod tests {
         let jj_root_path = jj_root.path();
 
         // Attempt to validate with empty workspace name
-        let result = run_validate(jj_root_path, "", OutputFormat::Human).await;
+        let result = run_validate(jj_root_path, "", OutputFormat::Json).await;
 
         // Verify we get an error, not a panic
         match result {
@@ -799,7 +799,7 @@ mod tests {
             "nonexistent-workspace",
             false,
             false,
-            OutputFormat::Human,
+            OutputFormat::Json,
         )
         .await;
 

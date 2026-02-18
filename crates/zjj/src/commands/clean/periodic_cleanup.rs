@@ -49,7 +49,7 @@ impl Default for PeriodicCleanupConfig {
             interval: Duration::from_hours(1),      // 1 hour
             age_threshold: Duration::from_hours(2), // 2 hours
             dry_run: false,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         }
     }
 }

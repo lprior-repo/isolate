@@ -1247,9 +1247,9 @@ mod tests {
     fn test_query_rejects_human_format() {
         use zjj_core::OutputFormat;
 
-        // Even though OutputFormat::Human exists, query should never use it
-        let human_format = OutputFormat::Human;
-        assert!(human_format.is_human());
+        // Even though OutputFormat::Json exists, query should never use it
+        let human_format = OutputFormat::Json;
+        assert!(human_format.is_json());
 
         // But query::run should internally convert to Json for all queries
         // This documents that query is always JSON for AI/script consumption
@@ -1266,7 +1266,7 @@ mod tests {
 
         let human_flag = false;
         let format2 = OutputFormat::from_json_flag(human_flag);
-        assert_eq!(format2, OutputFormat::Human);
+        assert_eq!(format2, OutputFormat::Json);
 
         // But query would convert both to Json internally
     }
@@ -1277,9 +1277,9 @@ mod tests {
         use zjj_core::OutputFormat;
 
         // Processing both formats should not panic
-        for format in &[OutputFormat::Json, OutputFormat::Human] {
+        for format in &[OutputFormat::Json, OutputFormat::Json] {
             let _ = format.is_json();
-            let _ = format.is_human();
+            let _ = format.is_json();
             let _ = format.to_string();
         }
     }

@@ -431,7 +431,7 @@ mod tests {
             name: "test".to_string(),
             description: Some("Test template".to_string()),
             source: TemplateSource::Builtin(LayoutTemplate::Minimal),
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
 
         assert_eq!(opts.name, "test");
@@ -503,7 +503,7 @@ mod tests {
             name: "test_binary".to_string(),
             description: None,
             source: TemplateSource::FromFile(binary_file_path.to_string_lossy().to_string()),
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
 
         let result = run_create(&opts).await;

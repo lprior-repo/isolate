@@ -355,7 +355,7 @@ mod tests {
         let args = RevertArgs {
             session_name: "session-1".to_string(),
             dry_run: false,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
         let opts = args.to_options();
         assert_eq!(opts.session_name, "session-1");

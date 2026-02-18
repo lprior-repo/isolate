@@ -167,14 +167,14 @@ mod tests {
         let args = UndoArgs {
             dry_run: false,
             list: true,
-            format: OutputFormat::Human,
+            format: OutputFormat::Json,
         };
 
         let opts = args.to_options();
 
         assert!(!opts.dry_run);
         assert!(opts.list);
-        assert!(matches!(opts.format, OutputFormat::Human));
+        assert!(matches!(opts.format, OutputFormat::Json));
     }
 
     #[test]
