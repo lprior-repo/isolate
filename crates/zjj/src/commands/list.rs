@@ -112,7 +112,7 @@ pub async fn run(
         return Ok(());
     }
 
-        let beads_count = get_beads_count().await.unwrap_or_default();
+    let beads_count = get_beads_count().await.unwrap_or_default();
     let beads_str = beads_count.to_string();
 
     // Build list items using concurrent futures stream for performance

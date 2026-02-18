@@ -154,10 +154,7 @@ fn undo_list_json_survives_concurrent_log_mutation() -> Result<(), serde_json::E
                 .and_then(|v| v.get("code"))
                 .and_then(serde_json::Value::as_str);
             assert!(
-                matches!(
-                    code,
-                    Some("MALFORMED_UNDO_LOG" | "READ_UNDO_LOG_FAILED")
-                ),
+                matches!(code, Some("MALFORMED_UNDO_LOG" | "READ_UNDO_LOG_FAILED")),
                 "unexpected error code during concurrent mutation: {code:?}"
             );
         }

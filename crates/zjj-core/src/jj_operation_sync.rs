@@ -217,43 +217,28 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
 
 /// Create a JJ workspace with operation graph synchronization
 ///
-/// This function ensures workspace creation is serialized and based on
-/// a consistent repository operation, preventing graph corruption.
+/// # Errors
 ///
-/// # Workflow
-///
-/// 1. Acquire global workspace creation lock
-/// 2. Get current repository operation ID
-/// 3. Create the workspace using `jj workspace add`
-/// 4. Verify workspace is based on the correct operation
-/// 5. Release lock
+/// Returns error if:
+/// - JJ command fails
+/// - Workspace already exists and `allow_existing` is false
+pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) -> Result<()> {
+    create_workspace_synced_ext(name, path, repo_root, false).await
+}
+
+/// Extended workspace creation with adoption support
 ///
 /// # Errors
 ///
 /// Returns error if:
-/// - JJ is not installed
-/// - Not in a JJ repository
-/// - Workspace name already exists
-/// - Unable to create workspace directory
 /// - JJ command fails
-/// - Operation verification fails
-///
-/// # Example
-///
-/// ```no_run
-/// use std::path::Path;
-///
-/// use zjj_core::jj_operation_sync::create_workspace_synced;
-///
-/// # #[tokio::main]
-/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let workspace_path = std::path::PathBuf::from("/tmp/workspace");
-/// let repo_root = Path::new("/path/to/repo");
-/// create_workspace_synced("my-workspace", &workspace_path, repo_root).await?;
-/// # Ok(())
-/// # }
-/// ```
-pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) -> Result<()> {
+/// - Workspace already exists and `allow_existing` is false
+pub async fn create_workspace_synced_ext(
+    name: &str,
+    path: &Path,
+    repo_root: &Path,
+    allow_existing: bool,
+) -> Result<()> {
     // Validate inputs
     if name.is_empty() {
         return Err(Error::InvalidConfig(
@@ -261,17 +246,22 @@ pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) 
         ));
     }
 
-    // Use provided repo_root instead of deriving from path parent
-    // This fixes CRITICAL-004: workspace creation fails when workspace_dir is sibling directory
-    // The repo_root parameter is required because the workspace path may not be a direct child
-    // of the repo root (e.g., workspace_dir = "../{repo}__workspaces")
-
     // Acquire global lock to serialize workspace creation
     let _lock = WORKSPACE_CREATION_LOCK.lock().await;
 
     // Acquire cross-process lock so independent zjj processes also serialize
     // workspace creation against the same repository.
     let _cross_process_lock = acquire_cross_process_lock(repo_root).await?;
+
+    // Check if workspace directory already exists
+    if tokio::fs::try_exists(path).await.unwrap_or(false) && !allow_existing {
+        return Err(Error::ValidationError {
+            message: format!("Workspace directory already exists at {}", path.display()),
+            field: Some("path".to_string()),
+            value: Some(path.to_string_lossy().to_string()),
+            constraints: vec!["unique workspace directory required".to_string()],
+        });
+    }
 
     // Step 1: Create parent directory if needed
     if let Some(parent) = path.parent() {
@@ -284,6 +274,8 @@ pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) 
     let _ = get_current_operation(repo_root).await?;
 
     // Step 3: Execute jj workspace add --name <name> <path>
+    // If allow_existing is true, we still run the command as 'jj workspace add'
+    // will detect if it's already a workspace or if it needs to be initialized.
     let output = get_jj_command()
         .args(["workspace", "add", "--name", name])
         .arg(path)
@@ -298,11 +290,18 @@ pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) 
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::JjCommandError {
-            operation: "create workspace".to_string(),
-            source: stderr.to_string(),
-            is_not_found: false,
-        });
+
+        // If we allowed existing, and JJ says it already exists, that's fine.
+        if allow_existing && (stderr.contains("already exists") || stderr.contains("already added"))
+        {
+            tracing::info!("Workspace '{}' already exists in JJ, adopting", name);
+        } else {
+            return Err(Error::JjCommandError {
+                operation: "create workspace".to_string(),
+                source: stderr.to_string(),
+                is_not_found: false,
+            });
+        }
     }
 
     // Step 4: Verify workspace was created and is consistent
@@ -540,14 +539,16 @@ mod tests {
         let result = create_workspace_synced("test", &workspace_path, &repo_root).await;
 
         match result {
-            Err(Error::JjCommandError { .. }) => {
-                // Expected - jj command fails when no repo exists
+            Err(Error::ValidationError { .. } | Error::JjCommandError { .. }) => {
+                // Expected - either validation catches it or jj command fails
             }
             Err(Error::InvalidConfig(msg)) => {
                 // Also acceptable - config validation catches invalid path
                 assert!(msg.contains("parent directory") || msg.contains("invalid"));
             }
-            Err(other) => panic!("Expected JjCommandError or InvalidConfig error, got: {other:?}"),
+            Err(other) => panic!(
+                "Expected ValidationError, JjCommandError or InvalidConfig error, got: {other:?}"
+            ),
             Ok(()) => panic!("Expected error when workspace path has no parent, but got Ok"),
         }
     }

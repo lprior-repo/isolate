@@ -3,12 +3,9 @@
 #![allow(clippy::too_many_lines)]
 #![allow(clippy::suspicious_open_options)]
 
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use fs4::fs_std::FileExt;
 use zjj_core::{json::SchemaEnvelope, OutputFormat};
 
@@ -35,34 +32,33 @@ struct InitLock {
 impl InitLock {
     /// Acquire exclusive lock, handling stale locks and symlink attacks
     fn acquire(lock_path: PathBuf) -> Result<Self> {
-        // Protect against symlink attacks: verify lock file is not a symlink
-        if let Ok(metadata) = std::fs::symlink_metadata(&lock_path) {
-            if metadata.is_symlink() {
-                bail!(
-                    "Security: {} is a symlink. Remove it and re-run zjj init.",
-                    lock_path.display()
-                );
-            }
+        // ADVERSARIAL FIX: Use O_NOFOLLOW on Unix to prevent symlink race (TOCTOU)
+        // This ensures the open call fails if the path is a symlink.
+        let mut options = std::fs::OpenOptions::new();
+        options.create(true).write(true);
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(libc::O_NOFOLLOW);
         }
 
-        // Check for stale lock file before attempting acquisition
-        if let Ok(metadata) = std::fs::metadata(&lock_path) {
-            if let Ok(modified) = metadata.modified() {
-                if let Ok(elapsed) = modified.elapsed() {
-                    if elapsed > Duration::from_secs(STALE_LOCK_TIMEOUT_SECS) {
-                        // Stale lock - safe to remove
-                        let _ = std::fs::remove_file(&lock_path);
+        // Open lock file
+        let file = options.open(&lock_path).with_context(|| {
+            let mut msg = format!("Failed to create lock file at {}", lock_path.display());
+            #[cfg(unix)]
+            {
+                if let Ok(meta) = std::fs::symlink_metadata(&lock_path) {
+                    if meta.is_symlink() {
+                        msg = format!(
+                            "Security: {} is a symlink. This is not allowed. Remove it and retry.",
+                            lock_path.display()
+                        );
                     }
                 }
             }
-        }
-
-        // Open lock file without truncate to avoid clobbering symlink targets
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(&lock_path)
-            .with_context(|| format!("Failed to create lock file at {}", lock_path.display()))?;
+            msg
+        })?;
 
         // Try to acquire exclusive lock (blocking)
         file.lock_exclusive().with_context(|| {
@@ -163,6 +159,13 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
     let root = jj_root_with_cwd(&cwd).await?;
     let zjj_dir = root.join(".zjj");
 
+    // Create .zjj directory if missing before acquiring lock
+    if !tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false) {
+        tokio::fs::create_dir_all(&zjj_dir)
+            .await
+            .context("Failed to create .zjj directory")?;
+    }
+
     // Acquire init lock to prevent concurrent initialization
     let lock_path = zjj_dir.join(".init.lock");
     let _lock = InitLock::acquire(lock_path)?;
@@ -200,13 +203,6 @@ pub async fn run_with_cwd_and_options(cwd: Option<&Path>, options: InitOptions) 
         }
 
         return Ok(());
-    }
-
-    // Create .zjj directory if missing
-    if !tokio::fs::try_exists(&zjj_dir).await.unwrap_or(false) {
-        tokio::fs::create_dir_all(&zjj_dir)
-            .await
-            .context("Failed to create .zjj directory")?;
     }
 
     // Create config.toml if missing

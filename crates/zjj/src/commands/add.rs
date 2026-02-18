@@ -35,8 +35,10 @@ async fn handle_post_create_hook_failure(
     db: &SessionDb,
     hook_error: anyhow::Error,
 ) -> Result<()> {
-    let rollback_result = rollback_partial_state(name, workspace_path).await;
-    let failed_status_result = db
+    // ADVERSARIAL FIX: Simplify complex nested error matching.
+    // Rollback failure is important to log but shouldn't obfuscate the primary error.
+    let rollback_res = rollback_partial_state(name, workspace_path).await;
+    let status_res = db
         .update(
             name,
             SessionUpdate {
@@ -44,20 +46,16 @@ async fn handle_post_create_hook_failure(
                 ..Default::default()
             },
         )
-        .await
-        .context("Failed to mark session as failed");
+        .await;
 
-    match (rollback_result, failed_status_result) {
-        (Ok(()), Ok(())) => Err(hook_error).context("post_create hook failed"),
-        (Err(rollback_error), Ok(())) => Err(hook_error)
-            .context(format!("post_create hook failed and rollback failed: {rollback_error}")),
-        (Ok(()), Err(status_error)) => Err(hook_error).context(format!(
-            "post_create hook failed and failed status update failed: {status_error}"
-        )),
-        (Err(rollback_error), Err(status_error)) => Err(hook_error).context(format!(
-            "post_create hook failed, rollback failed: {rollback_error}, status update failed: {status_error}"
-        )),
+    if let Err(e) = rollback_res {
+        tracing::error!("Rollback failed after hook error: {e}");
     }
+    if let Err(e) = status_res {
+        tracing::error!("Failed to mark session as failed: {e}");
+    }
+
+    Err(hook_error).context("post_create hook failed")
 }
 
 /// Run the add command
@@ -121,6 +119,7 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
         &db,
         bead_metadata,
         create_command_id.as_deref(),
+        options.idempotent,
     )
     .await?;
 
@@ -166,6 +165,7 @@ pub async fn run_with_options(options: &AddOptions) -> Result<()> {
     }
 
     // Phase 3: Handle dry run for new session
+
     if options.dry_run {
         return handle_new_session_dry_run(options, &workspace_path_str);
     }
@@ -327,6 +327,7 @@ async fn perform_creation_sequence(
         db,
         bead_metadata,
         create_command_id.as_deref(),
+        options.idempotent,
     )
     .await?;
 
