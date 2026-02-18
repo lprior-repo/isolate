@@ -42,16 +42,6 @@ pub async fn run_create(format: OutputFormat) -> Result<()> {
             });
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
-        OutputFormat::Json => {
-            if backup_paths.is_empty() {
-                println!("No databases found to backup");
-            } else {
-                println!("Created {} backup(s):", backup_paths.len());
-                for path in &backup_paths {
-                    println!("  - {}", path.display());
-                }
-            }
-        }
     }
 
     Ok(())
@@ -87,23 +77,6 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
             });
             let envelope = SchemaEnvelope::new("backup-list-response", "single", output);
             println!("{}", serde_json::to_string_pretty(&envelope)?);
-        }
-        OutputFormat::Json => {
-            if all_backups.is_empty() {
-                println!("No backups found");
-            } else {
-                for (db_name, backups) in &all_backups {
-                    println!("Database: {} ({} backup(s))", db_name, backups.len());
-                    for backup in backups {
-                        println!(
-                            "  - {} ({}, {} bytes)",
-                            backup.path.display(),
-                            backup.timestamp.format("%Y-%m-%d %H:%M:%S"),
-                            backup.size_bytes
-                        );
-                    }
-                }
-            }
         }
     }
 
@@ -147,21 +120,13 @@ pub async fn run_restore(
     // Verify checksum by default
     restore::restore_backup(&backup_path, &target_path, true).await?;
 
-    match format {
-        OutputFormat::Json => {
-            let output = serde_json::json!({
-                "success": true,
-                "database": database,
-                "restored_from": backup_path.display().to_string(),
-                "restored_to": target_path.display().to_string()
-            });
-            println!("{}", serde_json::to_string_pretty(&output)?);
-        }
-        OutputFormat::Json => {
-            println!("Restored {} from: {}", database, backup_path.display());
-            println!("To: {}", target_path.display());
-        }
-    }
+    let output = serde_json::json!({
+        "success": true,
+        "database": database,
+        "restored_from": backup_path.display().to_string(),
+        "restored_to": target_path.display().to_string()
+    });
+    println!("{}", serde_json::to_string_pretty(&output)?);
 
     Ok(())
 }
@@ -176,26 +141,12 @@ pub async fn run_retention(format: OutputFormat) -> Result<()> {
     let config = BackupConfig::default();
     let removed = retention::apply_retention_policy_all(&root_path, &config).await?;
 
-    match format {
-        OutputFormat::Json => {
-            let output = serde_json::json!({
-                "success": true,
-                "removed_count": removed.len(),
-                "removed_backups": removed
-            });
-            println!("{}", serde_json::to_string_pretty(&output)?);
-        }
-        OutputFormat::Json => {
-            if removed.is_empty() {
-                println!("No backups to remove (all within retention limit)");
-            } else {
-                println!("Removed {} old backup(s):", removed.len());
-                for path in &removed {
-                    println!("  - {path}");
-                }
-            }
-        }
-    }
+    let output = serde_json::json!({
+        "success": true,
+        "removed_count": removed.len(),
+        "removed_backups": removed
+    });
+    println!("{}", serde_json::to_string_pretty(&output)?);
 
     Ok(())
 }
@@ -210,58 +161,26 @@ pub async fn run_status(format: OutputFormat) -> Result<()> {
     let config = BackupConfig::default();
     let statuses = retention::get_retention_status(&root_path, &config).await?;
 
-    match format {
-        OutputFormat::Json => {
-            let output = serde_json::json!({
-                "success": true,
-                "retention_policy": {
-                    "max_backups_per_database": config.retention_count
-                },
-                "databases": statuses
-                    .iter()
-                    .map(|s| serde_json::json!({
-                        "database": s.database_name,
-                        "backup_count": s.backup_count,
-                        "retention_limit": s.retention_limit,
-                        "total_size_bytes": s.total_size_bytes,
-                        "would_free_bytes": s.would_free_bytes,
-                        "within_limit": s.within_limit,
-                        "total_size_human": retention::RetentionStatus::format_size(s.total_size_bytes),
-                        "would_free_human": retention::RetentionStatus::format_size(s.would_free_bytes)
-                    }))
-                    .collect::<Vec<_>>()
-            });
-            println!("{}", serde_json::to_string_pretty(&output)?);
-        }
-        OutputFormat::Json => {
-            println!(
-                "Backup Status (Retaining last {} backups per database):",
-                config.retention_count
-            );
-            println!();
-
-            for status in &statuses {
-                println!("Database: {}", status.database_name);
-                println!(
-                    "  Backups: {} / {}",
-                    status.backup_count, status.retention_limit
-                );
-                println!(
-                    "  Total size: {}",
-                    retention::RetentionStatus::format_size(status.total_size_bytes)
-                );
-
-                if !status.within_limit {
-                    println!(
-                        "  Would free: {}",
-                        retention::RetentionStatus::format_size(status.would_free_bytes)
-                    );
-                    println!("  ⚠️  Over retention limit");
-                }
-                println!();
-            }
-        }
-    }
+    let output = serde_json::json!({
+        "success": true,
+        "retention_policy": {
+            "max_backups_per_database": config.retention_count
+        },
+        "databases": statuses
+            .iter()
+            .map(|s| serde_json::json!({
+                "database": s.database_name,
+                "backup_count": s.backup_count,
+                "retention_limit": s.retention_limit,
+                "total_size_bytes": s.total_size_bytes,
+                "would_free_bytes": s.would_free_bytes,
+                "within_limit": s.within_limit,
+                "total_size_human": retention::RetentionStatus::format_size(s.total_size_bytes),
+                "would_free_human": retention::RetentionStatus::format_size(s.would_free_bytes)
+            }))
+            .collect::<Vec<_>>()
+    });
+    println!("{}", serde_json::to_string_pretty(&output)?);
 
     Ok(())
 }

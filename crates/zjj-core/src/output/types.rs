@@ -10,13 +10,13 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
+use std::path::PathBuf;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use thiserror::Error;
 
-use crate::types::SessionStatus;
-use crate::WorkspaceState;
+use crate::{types::SessionStatus, WorkspaceState};
 
 #[derive(Debug, Clone, Error)]
 pub enum OutputLineError {

@@ -896,7 +896,6 @@ mod tests {
         };
 
         assert!(opts.format.is_json());
-        assert!(!opts.format.is_json());
     }
 
     /// RED: `AddOptions` should support `OutputFormat::Json`
@@ -907,8 +906,8 @@ mod tests {
         let opts = AddOptions {
             name: "test".to_string(),
             bead_id: None,
-            no_hooks: false,
             template: None,
+            no_hooks: false,
             no_open: false,
             no_zellij: false,
             format: OutputFormat::Json,
@@ -917,7 +916,6 @@ mod tests {
         };
 
         assert!(opts.format.is_json());
-        assert!(!opts.format.is_json());
     }
 
     /// RED: `AddOptions` format field should persist through conversion
