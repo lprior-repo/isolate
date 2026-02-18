@@ -5,7 +5,7 @@
 ```jsonl
 {"rule":"NO_CLIPPY_EDITS","action":"Fix code, not lint config"}
 {"rule":"MOON_ONLY","cmds":["moon run :quick","moon run :test","moon run :build","moon run :ci","moon run :fmt-fix"],"never":["cargo fmt","cargo test","cargo clippy","cargo build"]}
-{"rule":"CODANNA_PREFERRED","cmds":["semantic_search_with_context","analyze_impact","find_symbol","get_calls","find_callers","search_symbols","semantic_search_docs","get_index_info"],"prefer":["Codanna MCP tools for exploration"],"fallback":["Grep","Glob","Read (if Codanna unavailable)"]}
+{"rule":"CODANNA_MANDATORY","cmds":["semantic_search_with_context","analyze_impact","find_symbol","get_calls","find_callers","search_symbols","semantic_search_docs","get_index_info"],"prefer":["Codanna MCP tools for ALL exploration/search/retrieval"],"fallback":["NONE - Codanna is required"]}
 {"rule":"ZERO_UNWRAP_PANIC","required":["Result<T,E>","?","map","and_then"],"banned":["unwrap()","unwrap_or()","unwrap_or_else()","unwrap_or_default()","expect()","panic!()","todo!()","unimplemented!()"]}
 {"rule":"GIT_PUSH_MANDATORY","action":"Not done until git push succeeds"}
 {"rule":"FUNCTIONAL_RUST_SKILL","action":"Load functional-rust-generator skill for ALL Rust implementation"}
