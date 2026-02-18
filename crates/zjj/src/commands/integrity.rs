@@ -133,9 +133,12 @@ async fn run_validate(
 ) -> Result<()> {
     // Validate workspace name is not empty
     if workspace.trim().is_empty() {
-        return Err(anyhow::anyhow!(
-            "Workspace name cannot be empty. Please provide a valid workspace name."
-        ));
+        return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
+            message: "Workspace name cannot be empty".into(),
+            field: Some("workspace".into()),
+            value: Some(workspace.into()),
+            constraints: vec!["non-empty string".into()],
+        }));
     }
 
     // Load config to get workspace directory
@@ -190,9 +193,12 @@ async fn run_repair(
 ) -> Result<()> {
     // Validate workspace name is not empty
     if workspace.trim().is_empty() {
-        return Err(anyhow::anyhow!(
-            "Workspace name cannot be empty. Please provide a valid workspace name to repair."
-        ));
+        return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
+            message: "Workspace name cannot be empty".into(),
+            field: Some("workspace".into()),
+            value: Some(workspace.into()),
+            constraints: vec!["non-empty string".into()],
+        }));
     }
 
     // Load config with graceful error handling for TOML parse errors

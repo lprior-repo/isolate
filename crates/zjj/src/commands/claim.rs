@@ -87,19 +87,34 @@ fn validate_resource_name(resource: &str) -> Result<()> {
 
     // Check for empty or whitespace-only
     if trimmed.is_empty() {
-        anyhow::bail!("Resource name cannot be empty or whitespace-only");
+        return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
+            message: "Resource name cannot be empty".into(),
+            field: Some("resource".into()),
+            value: Some(resource.into()),
+            constraints: vec!["non-empty string".into()],
+        }));
     }
 
     // Check for reserved keywords (case-insensitive)
     let lower = trimmed.to_lowercase();
     if RESERVED_KEYWORDS.iter().any(|&keyword| keyword == lower) {
-        anyhow::bail!("Resource name '{trimmed}' is a reserved keyword and cannot be used");
+        return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
+            message: format!("Resource name '{trimmed}' is a reserved keyword"),
+            field: Some("resource".into()),
+            value: Some(trimmed.into()),
+            constraints: vec!["not a reserved keyword".into()],
+        }));
     }
 
     // Check if name contains at least one alphanumeric character
     // (prevent names like ":", ":::", "   ", etc.)
     if !trimmed.chars().any(char::is_alphanumeric) {
-        anyhow::bail!("Resource name must contain at least one alphanumeric character");
+        return Err(anyhow::Error::new(zjj_core::Error::ValidationError {
+            message: "Resource name must contain at least one alphanumeric character".into(),
+            field: Some("resource".into()),
+            value: Some(trimmed.into()),
+            constraints: vec!["at least one alphanumeric character".into()],
+        }));
     }
 
     Ok(())
