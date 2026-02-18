@@ -211,7 +211,7 @@ pub async fn run_watch_mode(name: Option<&str>, format: OutputFormat) -> Result<
             if name.is_some() && is_not_found_error(&e) {
                 return Err(e);
             }
-            if format.is_human() {
+            if !format.is_json() {
                 eprintln!("Error: {e}");
             }
         }
