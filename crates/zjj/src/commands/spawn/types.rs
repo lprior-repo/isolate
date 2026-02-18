@@ -202,6 +202,10 @@ pub enum SpawnError {
     BeadNotFound {
         bead_id: String,
     },
+    InvalidBeadId {
+        bead_id: String,
+        reason: String,
+    },
     WorkspaceCreationFailed {
         reason: String,
     },
@@ -238,6 +242,9 @@ impl fmt::Display for SpawnError {
                 )
             }
             Self::BeadNotFound { bead_id } => write!(f, "Bead '{bead_id}' not found"),
+            Self::InvalidBeadId { bead_id, reason } => {
+                write!(f, "Invalid bead ID '{bead_id}': {reason}")
+            }
             Self::WorkspaceCreationFailed { reason } => {
                 write!(f, "Failed to create workspace: {reason}")
             }
@@ -260,9 +267,9 @@ impl SpawnError {
     pub const fn phase(&self) -> SpawnPhase {
         match self {
             Self::NotOnMain { .. } => SpawnPhase::ValidatingLocation,
-            Self::InvalidBeadStatus { .. } | Self::BeadNotFound { .. } => {
-                SpawnPhase::ValidatingBead
-            }
+            Self::InvalidBeadStatus { .. }
+            | Self::BeadNotFound { .. }
+            | Self::InvalidBeadId { .. } => SpawnPhase::ValidatingBead,
             Self::WorkspaceCreationFailed { .. } => SpawnPhase::CreatingWorkspace,
             Self::DatabaseError { .. } => SpawnPhase::UpdatingBeadStatus,
             Self::AgentSpawnFailed { .. } => SpawnPhase::SpawningAgent,
@@ -278,6 +285,7 @@ impl SpawnError {
             Self::NotOnMain { .. } => "NOT_ON_MAIN",
             Self::InvalidBeadStatus { .. } => "INVALID_BEAD_STATUS",
             Self::BeadNotFound { .. } => "BEAD_NOT_FOUND",
+            Self::InvalidBeadId { .. } => "INVALID_ARGUMENT",
             Self::WorkspaceCreationFailed { .. } => "WORKSPACE_CREATION_FAILED",
             Self::AgentSpawnFailed { .. } => "AGENT_SPAWN_FAILED",
             Self::Timeout { .. } => "TIMEOUT",

@@ -14,6 +14,7 @@ use crate::{
         remove::atomic::{cleanup_session_atomically, RemoveError},
     },
     json::RemoveOutput,
+    session::validate_session_name,
 };
 
 /// Options for the remove command
@@ -44,6 +45,9 @@ pub async fn run(name: &str) -> Result<()> {
 #[allow(clippy::too_many_lines)]
 /// Run the remove command with options
 pub async fn run_with_options(name: &str, options: &RemoveOptions) -> Result<()> {
+    // Validate session name first
+    validate_session_name(name).map_err(anyhow::Error::new)?;
+
     let db = get_session_db().await?;
 
     // Get the session; idempotent mode treats missing as success.

@@ -10,7 +10,7 @@ use zjj_core::{OutputFormat, SchemaEnvelope};
 
 use crate::{
     commands::get_session_db,
-    session::{SessionStatus, SessionUpdate},
+    session::{validate_session_name, SessionStatus, SessionUpdate},
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -38,6 +38,9 @@ pub struct PauseResult {
 
 /// Run the pause command
 pub async fn run_pause(options: &PauseOptions) -> Result<()> {
+    // Validate session name first
+    validate_session_name(&options.session).map_err(anyhow::Error::new)?;
+
     let db = get_session_db().await?;
 
     // Check session exists
@@ -125,6 +128,9 @@ pub struct ResumeResult {
 
 /// Run the resume command
 pub async fn run_resume(options: &ResumeOptions) -> Result<()> {
+    // Validate session name first
+    validate_session_name(&options.session).map_err(anyhow::Error::new)?;
+
     let db = get_session_db().await?;
 
     // Check session exists
