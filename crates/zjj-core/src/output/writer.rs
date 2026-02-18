@@ -30,7 +30,8 @@ impl<W: Write> JsonlWriter<W> {
     pub fn emit(&mut self, line: &OutputLine) -> io::Result<()> {
         let json = serde_json::to_string(line)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        writeln!(self.writer, "{json}")
+        writeln!(self.writer, "{json}")?;
+        self.writer.flush()
     }
 
     /// Emit multiple `OutputLine` variants as JSONL to the wrapped writer.
@@ -60,5 +61,6 @@ impl<W: Write> JsonlWriter<W> {
 pub fn emit<W: Write>(writer: &mut W, line: &OutputLine) -> io::Result<()> {
     let json =
         serde_json::to_string(line).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-    writeln!(writer, "{json}")
+    writeln!(writer, "{json}")?;
+    writer.flush()
 }
