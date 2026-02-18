@@ -8,12 +8,21 @@
 //! - Removing entries from the queue
 //! - Checking overall queue status and statistics
 
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
-use zjj_core::{json::SchemaEnvelope, OutputFormat, QueueStatus};
+use zjj_core::{
+    output::{
+        emit_stdout, OutputLine, QueueEntry as OutputQueueEntry,
+        QueueEntryStatus as OutputQueueEntryStatus, QueueSummary as OutputQueueSummary,
+    },
+    OutputFormat, QueueStatus,
+};
 
 use crate::commands::{get_queue_db_path, get_session_db};
 
@@ -226,16 +235,11 @@ async fn handle_add(
     );
 
     if options.format.is_json() {
-        let output = QueueAddOutput {
-            id: response.entry.id,
-            workspace: response.entry.workspace.clone(),
-            bead_id: response.entry.bead_id.clone(),
-            priority: response.entry.priority,
-            position: response.position,
-            total_pending: response.total_pending,
-            message,
-        };
-        print_queue_envelope("queue-add-response", &output)?;
+        let queue_entry = convert_to_output_queue_entry(&response.entry)?;
+        emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
+
+        let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         println!("{message}");
     }
@@ -249,31 +253,19 @@ async fn handle_list(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Re
     let stats = queue.stats().await?;
 
     if options.format.is_json() {
-        let entries: Vec<QueueEntryOutput> = entries
-            .into_iter()
-            .map(|e| QueueEntryOutput {
-                id: e.id,
-                workspace: e.workspace,
-                bead_id: e.bead_id,
-                priority: e.priority,
-                status: e.status.as_str().to_string(),
-                added_at: e.added_at,
-                started_at: e.started_at,
-                completed_at: e.completed_at,
-                error_message: e.error_message,
-                agent_id: e.agent_id,
-            })
-            .collect();
+        for entry in &entries {
+            let queue_entry = convert_to_output_queue_entry(entry)?;
+            emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
+        }
 
-        let output = QueueListOutput {
-            entries,
-            total: stats.total,
-            pending: stats.pending,
-            processing: stats.processing,
-            completed: stats.completed,
-            failed: stats.failed,
-        };
-        print_queue_envelope("queue-list-response", &output)?;
+        let queue_summary = OutputQueueSummary::new().with_counts(
+            stats.total as u32,
+            stats.pending as u32,
+            0,
+            0,
+            stats.processing as u32,
+        );
+        emit_stdout(&OutputLine::QueueSummary(queue_summary))?;
     } else {
         if entries.is_empty() {
             println!("Queue is empty");
@@ -313,30 +305,19 @@ async fn handle_next(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> Re
     let entry = queue.next().await?;
 
     if options.format.is_json() {
-        let entry_output = entry.map(|e| QueueEntryOutput {
-            id: e.id,
-            workspace: e.workspace,
-            bead_id: e.bead_id,
-            priority: e.priority,
-            status: e.status.as_str().to_string(),
-            added_at: e.added_at,
-            started_at: e.started_at,
-            completed_at: e.completed_at,
-            error_message: e.error_message,
-            agent_id: e.agent_id,
-        });
+        if let Some(ref e) = entry {
+            let queue_entry = convert_to_output_queue_entry(e)?;
+            emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
+        }
 
-        let message = if entry_output.is_some() {
+        let message = if entry.is_some() {
             "Found next pending entry".to_string()
         } else {
             "Queue is empty".to_string()
         };
 
-        let output = QueueNextOutput {
-            entry: entry_output,
-            message,
-        };
-        print_queue_envelope("queue-next-response", &output)?;
+        let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         match entry {
             Some(e) => {
@@ -376,11 +357,9 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
         };
 
         if options.format.is_json() {
-            let output = QueueNextOutput {
-                entry: None,
-                message,
-            };
-            print_queue_envelope("queue-process-response", &output)?;
+            let summary =
+                zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+            emit_stdout(&OutputLine::Summary(summary))?;
         } else {
             println!("{message}");
         }
@@ -394,11 +373,9 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
 
         let message = "Queue has no ready-to-merge entries".to_string();
         if options.format.is_json() {
-            let output = QueueNextOutput {
-                entry: None,
-                message,
-            };
-            print_queue_envelope("queue-process-response", &output)?;
+            let summary =
+                zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+            emit_stdout(&OutputLine::Summary(summary))?;
         } else {
             println!("Queue has no ready-to-merge entries");
         }
@@ -428,22 +405,12 @@ async fn handle_process(queue: &zjj_core::MergeQueue, options: &QueueOptions) ->
             entry.workspace, current_main_sha
         );
         if options.format.is_json() {
-            let output = QueueNextOutput {
-                entry: Some(QueueEntryOutput {
-                    id: entry.id,
-                    workspace: entry.workspace,
-                    bead_id: entry.bead_id,
-                    priority: entry.priority,
-                    status: QueueStatus::Rebasing.as_str().to_string(),
-                    added_at: entry.added_at,
-                    started_at: entry.started_at,
-                    completed_at: entry.completed_at,
-                    error_message: entry.error_message,
-                    agent_id: entry.agent_id,
-                }),
-                message,
-            };
-            print_queue_envelope("queue-process-response", &output)?;
+            let queue_entry = convert_to_output_queue_entry(&entry)?;
+            emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
+
+            let summary =
+                zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+            emit_stdout(&OutputLine::Summary(summary))?;
         } else {
             println!(
                 "Entry '{}' is stale and was returned to rebasing",
@@ -542,12 +509,8 @@ async fn handle_remove(
     };
 
     if options.format.is_json() {
-        let output = QueueRemoveOutput {
-            workspace: workspace.to_string(),
-            removed,
-            message,
-        };
-        print_queue_envelope("queue-remove-response", &output)?;
+        let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         println!("{message}");
     }
@@ -564,24 +527,19 @@ async fn handle_status(
     let entry = queue.get_by_workspace(workspace).await?;
 
     if options.format.is_json() {
-        let (exists, id, status) = entry.as_ref().map_or((false, None, None), |e| {
-            (true, Some(e.id), Some(e.status.as_str().to_string()))
-        });
+        if let Some(ref e) = entry {
+            let queue_entry = convert_to_output_queue_entry(e)?;
+            emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
+        }
 
-        let message = if exists {
+        let message = if entry.is_some() {
             format!("Workspace '{workspace}' is in queue")
         } else {
             format!("Workspace '{workspace}' is not in queue")
         };
 
-        let output = QueueStatusOutput {
-            workspace: workspace.to_string(),
-            exists,
-            id,
-            status,
-            message,
-        };
-        print_queue_envelope("queue-status-response", &output)?;
+        let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         match entry {
             Some(e) => {
@@ -616,14 +574,14 @@ async fn handle_stats(queue: &zjj_core::MergeQueue, options: &QueueOptions) -> R
     let stats = queue.stats().await?;
 
     if options.format.is_json() {
-        let output = QueueStatsOutput {
-            total: stats.total,
-            pending: stats.pending,
-            processing: stats.processing,
-            completed: stats.completed,
-            failed: stats.failed,
-        };
-        print_queue_envelope("queue-stats-response", &output)?;
+        let queue_summary = OutputQueueSummary::new().with_counts(
+            stats.total as u32,
+            stats.pending as u32,
+            0,
+            stats.failed as u32,
+            stats.processing as u32,
+        );
+        emit_stdout(&OutputLine::QueueSummary(queue_summary))?;
     } else {
         println!("Queue Statistics:");
         println!("  Total:      {}", stats.total);
@@ -649,23 +607,11 @@ async fn handle_retry(queue: &zjj_core::MergeQueue, id: i64, options: &QueueOpti
     );
 
     if options.format.is_json() {
-        let entry_output = QueueEntryOutput {
-            id: entry.id,
-            workspace: entry.workspace,
-            bead_id: entry.bead_id,
-            priority: entry.priority,
-            status: entry.status.as_str().to_string(),
-            added_at: entry.added_at,
-            started_at: entry.started_at,
-            completed_at: entry.completed_at,
-            error_message: entry.error_message,
-            agent_id: entry.agent_id,
-        };
-        let output = QueueRetryOutput {
-            entry: entry_output,
-            message,
-        };
-        print_queue_envelope("queue-retry-response", &output)?;
+        let queue_entry = convert_to_output_queue_entry(&entry)?;
+        emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
+
+        let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         println!("{message}");
     }
@@ -690,23 +636,11 @@ async fn handle_cancel(
     );
 
     if options.format.is_json() {
-        let entry_output = QueueEntryOutput {
-            id: entry.id,
-            workspace: entry.workspace,
-            bead_id: entry.bead_id,
-            priority: entry.priority,
-            status: entry.status.as_str().to_string(),
-            added_at: entry.added_at,
-            started_at: entry.started_at,
-            completed_at: entry.completed_at,
-            error_message: entry.error_message,
-            agent_id: entry.agent_id,
-        };
-        let output = QueueCancelOutput {
-            entry: entry_output,
-            message,
-        };
-        print_queue_envelope("queue-cancel-response", &output)?;
+        let queue_entry = convert_to_output_queue_entry(&entry)?;
+        emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
+
+        let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         println!("{message}");
     }
@@ -732,12 +666,8 @@ async fn handle_reclaim_stale(
     };
 
     if options.format.is_json() {
-        let output = QueueReclaimStaleOutput {
-            reclaimed,
-            threshold_secs,
-            message,
-        };
-        print_queue_envelope("queue-reclaim-stale-response", &output)?;
+        let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         println!("{message}");
     }
@@ -758,55 +688,28 @@ async fn handle_status_id(
 
     let events = queue.fetch_events(queue_id).await?;
 
-    let entry_output = QueueEntryOutput {
-        id: entry.id,
-        workspace: entry.workspace,
-        bead_id: entry.bead_id,
-        priority: entry.priority,
-        status: entry.status.as_str().to_string(),
-        added_at: entry.added_at,
-        started_at: entry.started_at,
-        completed_at: entry.completed_at,
-        error_message: entry.error_message,
-        agent_id: entry.agent_id,
-    };
-
-    let events_output: Vec<QueueEventOutput> = events
-        .into_iter()
-        .map(|e| QueueEventOutput {
-            event_id: e.id,
-            event_type: e.event_type.as_str().to_string(),
-            details_json: e.details_json,
-            created_at: e.created_at,
-        })
-        .collect();
+    let queue_entry = convert_to_output_queue_entry(&entry)?;
+    emit_stdout(&OutputLine::QueueEntry(queue_entry))?;
 
     let message = format!("Status for queue entry {}", queue_id);
 
     if options.format.is_json() {
-        let output = QueueStatusIdOutput {
-            entry: entry_output,
-            events: events_output,
-            message,
-        };
-        print_queue_envelope("queue-status-id-response", &output)?;
+        let summary = zjj_core::output::Summary::new(zjj_core::output::SummaryType::Info, message)?;
+        emit_stdout(&OutputLine::Summary(summary))?;
     } else {
         println!("Queue Entry:");
-        println!("  ID: {}", entry_output.id);
-        println!("  Workspace: {}", entry_output.workspace);
-        println!("  Status: {}", entry_output.status);
-        println!("  Priority: {}", entry_output.priority);
-        if let Some(bead_id) = entry_output.bead_id {
+        println!("  ID: {}", entry.id);
+        println!("  Workspace: {}", entry.workspace);
+        println!("  Status: {}", entry.status.as_str());
+        println!("  Priority: {}", entry.priority);
+        if let Some(bead_id) = entry.bead_id {
             println!("  Bead ID: {bead_id}");
         }
-        if let Some(agent_id) = entry_output.agent_id {
+        if let Some(agent_id) = entry.agent_id {
             println!("  Agent ID: {agent_id}");
         }
-        println!(
-            "\nEvents ({events_output_len} total):",
-            events_output_len = events_output.len()
-        );
-        for event in &events_output {
+        println!("\nEvents ({} total):", events.len());
+        for event in &events {
             println!(
                 "  [{}] {}: {}",
                 event.event_type,
@@ -819,12 +722,32 @@ async fn handle_status_id(
     Ok(())
 }
 
-fn print_queue_envelope<T: Serialize>(schema_name: &str, payload: &T) -> Result<()> {
-    let envelope = SchemaEnvelope::new(schema_name, "single", payload);
-    let json_str =
-        serde_json::to_string_pretty(&envelope).context("Failed to serialize queue response")?;
-    println!("{json_str}");
-    Ok(())
+fn convert_to_output_queue_entry(
+    entry: &zjj_core::coordination::queue::QueueEntry,
+) -> Result<OutputQueueEntry> {
+    let status = match entry.status {
+        QueueStatus::Pending => OutputQueueEntryStatus::Pending,
+        QueueStatus::Claimed => OutputQueueEntryStatus::Claimed,
+        QueueStatus::Rebasing | QueueStatus::ReadyToMerge => OutputQueueEntryStatus::Ready,
+        QueueStatus::Testing | QueueStatus::Merging => OutputQueueEntryStatus::InProgress,
+        QueueStatus::Merged => OutputQueueEntryStatus::Completed,
+        QueueStatus::FailedRetryable | QueueStatus::FailedTerminal => {
+            OutputQueueEntryStatus::Failed
+        }
+        QueueStatus::Cancelled => OutputQueueEntryStatus::Blocked,
+    };
+
+    OutputQueueEntry::new(
+        entry.id.to_string(),
+        entry.workspace.clone(),
+        entry.priority as u8,
+    )
+    .map_err(|e| anyhow::anyhow!("Failed to create queue entry: {}", e))
+    .map(|e| {
+        e.with_status(status)
+            .with_bead(entry.bead_id.clone().unwrap_or_default())
+            .with_agent(entry.agent_id.clone().unwrap_or_default())
+    })
 }
 
 fn resolve_agent_id(agent_id: Option<&str>) -> String {
