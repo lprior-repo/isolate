@@ -30,6 +30,14 @@ pub enum OutputLineError {
     EmptySessionName,
     #[error("at least one action is required")]
     NoActions,
+    #[error("plan step count exceeds u32::MAX")]
+    PlanStepOverflow,
+    #[error("recovery action count exceeds u32::MAX")]
+    RecoveryActionOverflow,
+    #[error("stack entry count exceeds u32::MAX")]
+    StackEntryOverflow,
+    #[error("train step count exceeds u32::MAX")]
+    TrainStepOverflow,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -265,10 +273,20 @@ impl Plan {
         })
     }
 
-    #[must_use]
-    pub fn with_step(self, description: String, status: ActionStatus) -> Self {
-        let order = u32::try_from(self.steps.len()).unwrap_or(u32::MAX);
-        Self {
+    /// Append a step to this plan.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::PlanStepOverflow` when the number of steps
+    /// cannot be represented as `u32`.
+    pub fn with_step(
+        self,
+        description: String,
+        status: ActionStatus,
+    ) -> Result<Self, OutputLineError> {
+        let order =
+            u32::try_from(self.steps.len()).map_err(|_| OutputLineError::PlanStepOverflow)?;
+        Ok(Self {
             steps: self
                 .steps
                 .into_iter()
@@ -279,7 +297,7 @@ impl Plan {
                 }))
                 .collect(),
             ..self
-        }
+        })
     }
 }
 
@@ -295,6 +313,7 @@ pub struct Action {
 }
 
 impl Action {
+    #[must_use]
     pub fn new(verb: String, target: String, status: ActionStatus) -> Self {
         Self {
             verb,
@@ -446,6 +465,7 @@ pub struct RecoveryAction {
 }
 
 impl Recovery {
+    #[must_use]
     pub fn new(issue_id: String, assessment: Assessment) -> Self {
         Self {
             issue_id,
@@ -454,15 +474,21 @@ impl Recovery {
         }
     }
 
-    #[must_use]
+    /// Append a recovery action.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::RecoveryActionOverflow` when the number of
+    /// actions cannot be represented as `u32`.
     pub fn with_action(
         self,
         description: String,
         command: Option<String>,
         automatic: bool,
-    ) -> Self {
-        let order = u32::try_from(self.actions.len()).unwrap_or(u32::MAX);
-        Self {
+    ) -> Result<Self, OutputLineError> {
+        let order = u32::try_from(self.actions.len())
+            .map_err(|_| OutputLineError::RecoveryActionOverflow)?;
+        Ok(Self {
             actions: self
                 .actions
                 .into_iter()
@@ -474,7 +500,7 @@ impl Recovery {
                 }))
                 .collect(),
             ..self
-        }
+        })
     }
 }
 
@@ -525,16 +551,22 @@ impl Stack {
         })
     }
 
-    #[must_use]
+    /// Append an entry to this stack.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::StackEntryOverflow` when the number of
+    /// entries cannot be represented as `u32`.
     pub fn with_entry(
         self,
         session: String,
         workspace: PathBuf,
         status: StackEntryStatus,
         bead: Option<String>,
-    ) -> Self {
-        let order = u32::try_from(self.entries.len()).unwrap_or(u32::MAX);
-        Self {
+    ) -> Result<Self, OutputLineError> {
+        let order =
+            u32::try_from(self.entries.len()).map_err(|_| OutputLineError::StackEntryOverflow)?;
+        Ok(Self {
             entries: self
                 .entries
                 .into_iter()
@@ -548,7 +580,7 @@ impl Stack {
                 .collect(),
             updated_at: Utc::now(),
             ..self
-        }
+        })
     }
 }
 
@@ -761,10 +793,21 @@ impl Train {
         })
     }
 
-    #[must_use]
-    pub fn with_step(self, session: String, action: TrainAction, status: TrainStepStatus) -> Self {
-        let order = u32::try_from(self.steps.len()).unwrap_or(u32::MAX);
-        Self {
+    /// Append a step to this train.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::TrainStepOverflow` when the number of steps
+    /// cannot be represented as `u32`.
+    pub fn with_step(
+        self,
+        session: String,
+        action: TrainAction,
+        status: TrainStepStatus,
+    ) -> Result<Self, OutputLineError> {
+        let order =
+            u32::try_from(self.steps.len()).map_err(|_| OutputLineError::TrainStepOverflow)?;
+        Ok(Self {
             steps: self
                 .steps
                 .into_iter()
@@ -778,7 +821,7 @@ impl Train {
                 .collect(),
             updated_at: Utc::now(),
             ..self
-        }
+        })
     }
 
     #[must_use]
