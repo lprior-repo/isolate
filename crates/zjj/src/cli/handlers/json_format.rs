@@ -66,7 +66,7 @@ mod tests {
     fn test_get_format_returns_human_by_default() {
         let matches = make_matches(false);
         let format = get_format(&matches);
-        assert!(format.is_json(), "Expected Human format by default");
+        assert!(format.is_human(), "Expected Human format by default");
     }
 
     #[test]

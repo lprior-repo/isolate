@@ -765,7 +765,7 @@ mod tests {
     #[test]
     fn test_submit_options_defaults() {
         let options = SubmitOptions {
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
             dry_run: false,
             auto_commit: false,
             message: None,
@@ -1054,7 +1054,7 @@ mod tests {
     #[test]
     fn test_submit_options_auto_commit() {
         let options_with_commit = SubmitOptions {
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
             dry_run: false,
             auto_commit: true,
             message: Some("custom message".to_string()),
@@ -1067,7 +1067,7 @@ mod tests {
         );
 
         let options_without_commit = SubmitOptions {
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
             dry_run: false,
             auto_commit: false,
             message: None,

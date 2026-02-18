@@ -10,17 +10,18 @@
 //! - No human-readable formatting - AI consumers only
 //! - Streaming-friendly: emit one line at a time
 
+#![allow(dead_code)]
+#![allow(clippy::missing_const_for_fn)]
+
 mod types;
 mod writer;
 
 pub use types::{
-    Action, ActionStatus, Assessment, Context, ErrorSeverity, Issue, IssueKind, IssueSeverity,
-    OutputLine, OutputLineError, Plan, PlanStep, QueueEntry, QueueEntryStatus, QueueSummary,
-    Recovery, RecoveryAction, ResultKind, ResultOutput, SessionOutput, Stack, StackEntry,
-    StackEntryStatus, Summary, SummaryType, Train, TrainAction, TrainStatus, TrainStep,
-    TrainStepStatus, Warning,
+    Action, ActionStatus, Assessment, Context, ErrorSeverity, Issue, IssueKind, OutputLine,
+    OutputLineError, Plan, PlanStep, Recovery, RecoveryAction, ResultKind, ResultOutput,
+    SessionOutput, Summary, Warning,
 };
-pub use writer::{emit, emit_all_stdout, emit_stdout, JsonlConfig, JsonlWriter};
+pub use writer::{emit, JsonlWriter};
 
 #[cfg(test)]
 mod tests;

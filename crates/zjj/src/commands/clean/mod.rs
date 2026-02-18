@@ -267,7 +267,7 @@ mod tests {
         let opts = CleanOptions::default();
         assert!(!opts.force);
         assert!(!opts.dry_run);
-        assert!(opts.format.is_json());
+        assert!(opts.format.is_human());
     }
 
     #[test]

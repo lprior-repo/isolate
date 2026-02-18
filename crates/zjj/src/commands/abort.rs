@@ -239,7 +239,7 @@ mod tests {
             no_bead_update: false,
             keep_workspace: false,
             dry_run: false,
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
         };
 
         assert!(options.workspace.is_none());
@@ -318,7 +318,7 @@ mod tests {
             no_bead_update: false,
             keep_workspace: false,
             dry_run: false,
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
         };
 
         assert_eq!(options.workspace, Some("specific-workspace".to_string()));
@@ -332,7 +332,7 @@ mod tests {
             no_bead_update: false,
             keep_workspace: true,
             dry_run: false,
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
         };
 
         assert!(options.keep_workspace);
@@ -346,7 +346,7 @@ mod tests {
             no_bead_update: true,
             keep_workspace: false,
             dry_run: false,
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
         };
 
         assert!(options.no_bead_update);
@@ -360,7 +360,7 @@ mod tests {
             no_bead_update: false,
             keep_workspace: false,
             dry_run: true,
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
         };
 
         assert!(options.dry_run);

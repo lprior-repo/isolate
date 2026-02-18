@@ -34,7 +34,7 @@ impl AddOptions {
             template: None,
             no_open: false,
             no_zellij: false,
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
             idempotent: false,
             dry_run: false,
         }

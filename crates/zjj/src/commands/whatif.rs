@@ -30,7 +30,7 @@ impl Default for WhatIfOptions {
         Self {
             command: String::new(),
             args: Vec::new(),
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
         }
     }
 }
@@ -836,7 +836,7 @@ mod tests {
         let opts = WhatIfOptions::default();
         assert!(opts.command.is_empty());
         assert!(opts.args.is_empty());
-        assert!(opts.format.is_json());
+        assert!(opts.format.is_human());
     }
 
     #[test]
@@ -1074,7 +1074,7 @@ mod tests {
         let opts = WhatIfOptions {
             command: "unknown".to_string(),
             args: vec!["arg1".to_string()],
-            format: OutputFormat::Json,
+            format: OutputFormat::Human,
         };
         let result = run(&opts).unwrap();
         assert_eq!(result.command, "unknown");

@@ -460,10 +460,10 @@ mod tests {
     async fn test_diff_human_output_format() {
         use zjj_core::OutputFormat;
 
-        let format = OutputFormat::Json;
-        assert!(format.is_json());
+        let format = OutputFormat::Human;
+        assert!(format.is_human());
 
-        // When diff is called with OutputFormat::Json:
+        // When diff is called with OutputFormat::Human:
         // - diff output should be human-readable text
         // - diff should be sent to pager if available
     }
@@ -478,13 +478,13 @@ mod tests {
         assert!(json_format.is_json());
 
         // For Human format: diff should be displayed to terminal/pager
-        let human_format = OutputFormat::Json;
-        assert!(human_format.is_json());
+        let human_format = OutputFormat::Human;
+        assert!(human_format.is_human());
 
         // The implementation should check format variant:
         // match format {
         //     OutputFormat::Json => output_json_diff(...),
-        //     OutputFormat::Json => display_diff_with_pager(...),
+        //     OutputFormat::Human => display_diff_with_pager(...),
         // }
     }
 
@@ -498,12 +498,12 @@ mod tests {
         assert!(json_format.is_json());
 
         // stat diff should work with Human format
-        let human_format = OutputFormat::Json;
-        assert!(human_format.is_json());
+        let human_format = OutputFormat::Human;
+        assert!(human_format.is_human());
 
         // When stat=true is passed along with format:
         // diff::run("session", true, OutputFormat::Json) should output JSON stat
-        // diff::run("session", true, OutputFormat::Json) should output text stat
+        // diff::run("session", true, OutputFormat::Human) should output text stat
     }
 
     /// RED: `OutputFormat::from_json_flag` converts correctly
@@ -517,7 +517,7 @@ mod tests {
 
         let human_flag = false;
         let format2 = OutputFormat::from_json_flag(human_flag);
-        assert_eq!(format2, OutputFormat::Json);
+        assert_eq!(format2, OutputFormat::Human);
     }
 
     /// RED: diff preserves format through conversion chain
@@ -538,9 +538,9 @@ mod tests {
         use zjj_core::OutputFormat;
 
         // Both formats should be processable without panic
-        for format in &[OutputFormat::Json, OutputFormat::Json] {
+        for format in &[OutputFormat::Json, OutputFormat::Human] {
             let _ = format.is_json();
-            let _ = format.is_json();
+            let _ = format.is_human();
             let _ = format.to_string();
         }
     }

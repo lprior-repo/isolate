@@ -68,7 +68,7 @@ pub mod kdl_validation;
 pub mod lifecycle;
 pub mod moon_gates;
 pub mod output;
-mod output_format;
+pub mod output_format;
 pub mod recovery;
 pub mod result;
 pub mod session_state;
@@ -106,6 +106,7 @@ pub use moon_gates::{
     classify_exit_code, combine_results, format_failure_message, parse_summary, GateError,
     GateResult, GatesOutcome, GatesStatus, MoonGate,
 };
+pub use output::OutputLine;
 pub use output_format::OutputFormat;
 pub use recovery::{
     log_recovery, periodic_cleanup, recover_incomplete_sessions, repair_database,

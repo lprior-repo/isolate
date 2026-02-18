@@ -442,7 +442,11 @@ async fn run_backup_list(jj_root: &std::path::Path, format: OutputFormat) -> Res
     let all_backups: Vec<BackupMetadata> = stream::iter(paths)
         .map(|name| {
             let manager = &manager;
-            async move { manager.list_backups(&name).unwrap_or_default() }
+            async move {
+                manager
+                    .list_backups(&name)
+                    .map_or(Vec::new(), |value| value)
+            }
         })
         .buffer_unordered(10)
         .flat_map(stream::iter)
@@ -451,7 +455,7 @@ async fn run_backup_list(jj_root: &std::path::Path, format: OutputFormat) -> Res
 
     // Sort by creation time (newest first)
     let mut all_backups = all_backups;
-    all_backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    all_backups.sort_by_key(|backup| std::cmp::Reverse(backup.created_at));
 
     let response = BackupListResponse {
         count: all_backups.len(),
@@ -724,7 +728,7 @@ mod tests {
 
         // Attempt to repair with empty workspace name
         // This should return a Result::Err, not panic
-        let result = run_repair(jj_root_path, "", false, false, OutputFormat::Json).await;
+        let result = run_repair(jj_root_path, "", false, false, OutputFormat::Human).await;
 
         // Verify we get an error, not a panic
         match result {
@@ -756,7 +760,7 @@ mod tests {
         let jj_root_path = jj_root.path();
 
         // Attempt to validate with empty workspace name
-        let result = run_validate(jj_root_path, "", OutputFormat::Json).await;
+        let result = run_validate(jj_root_path, "", OutputFormat::Human).await;
 
         // Verify we get an error, not a panic
         match result {
@@ -799,7 +803,7 @@ mod tests {
             "nonexistent-workspace",
             false,
             false,
-            OutputFormat::Json,
+            OutputFormat::Human,
         )
         .await;
 

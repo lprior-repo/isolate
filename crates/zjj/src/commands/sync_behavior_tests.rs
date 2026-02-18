@@ -75,7 +75,7 @@ async fn test_sync_no_args_syncs_current_workspace() -> anyhow::Result<()> {
     // We can verify the routing decision by checking that the options
     // correctly represent "no args, no flags"
     let options = SyncOptions {
-        format: OutputFormat::Json,
+        format: OutputFormat::Human,
         all: false,
         dry_run: false,
     };
@@ -202,7 +202,7 @@ async fn test_sync_all_flag_syncs_all_sessions() -> anyhow::Result<()> {
 
     // Verify options indicate --all flag
     let options = SyncOptions {
-        format: OutputFormat::Json,
+        format: OutputFormat::Human,
         all: true,
         dry_run: false,
     };
@@ -268,7 +268,7 @@ async fn test_sync_no_args_from_main_syncs_all() -> anyhow::Result<()> {
 
     // Verify options indicate "no args, no --all flag"
     let options = SyncOptions {
-        format: OutputFormat::Json,
+        format: OutputFormat::Human,
         all: false,
         dry_run: false,
     };
@@ -331,14 +331,14 @@ fn test_handler_checks_all_flag() {
 
     // Test 1: Verify SyncOptions correctly captures --all flag
     let options_with_all = SyncOptions {
-        format: OutputFormat::Json,
+        format: OutputFormat::Human,
         all: true,
         dry_run: false,
     };
     assert!(options_with_all.all, "--all flag should be true");
 
     let options_without_all = SyncOptions {
-        format: OutputFormat::Json,
+        format: OutputFormat::Human,
         all: false,
         dry_run: false,
     };
@@ -353,7 +353,7 @@ fn test_handler_checks_all_flag() {
 
     let human_format = OutputFormat::from_json_flag(false);
     assert!(
-        human_format.is_json(),
+        human_format.is_human(),
         "No JSON flag should produce Human format"
     );
 
@@ -466,7 +466,7 @@ async fn test_sync_all_with_empty_sessions() -> anyhow::Result<()> {
 
     // Verify options for sync --all
     let options = SyncOptions {
-        format: OutputFormat::Json,
+        format: OutputFormat::Human,
         all: true,
         dry_run: false,
     };
@@ -546,9 +546,9 @@ fn test_sync_options_json_format() {
     assert!(json_options.format.is_json());
 
     let human_options = SyncOptions {
-        format: OutputFormat::Json,
+        format: OutputFormat::Human,
         all: false,
         dry_run: false,
     };
-    assert!(human_options.format.is_json());
+    assert!(human_options.format.is_human());
 }

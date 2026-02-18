@@ -615,7 +615,7 @@ mod tests {
     fn test_show_config_value() -> Result<()> {
         let config = setup_test_config();
         // Just test that it doesn't panic
-        show_config_value(&config, "workspace_dir", zjj_core::OutputFormat::Json)?;
+        show_config_value(&config, "workspace_dir", zjj_core::OutputFormat::Human)?;
         Ok(())
     }
 
@@ -624,8 +624,8 @@ mod tests {
         let config = setup_test_config();
         let port = LocalConfigPort;
         // Just test that it doesn't panic
-        show_all_config(&port, &config, false, zjj_core::OutputFormat::Json)?;
-        show_all_config(&port, &config, true, zjj_core::OutputFormat::Json)?;
+        show_all_config(&port, &config, false, zjj_core::OutputFormat::Human)?;
+        show_all_config(&port, &config, true, zjj_core::OutputFormat::Human)?;
         Ok(())
     }
 

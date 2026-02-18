@@ -10,7 +10,7 @@ fn test_init_scaffolds_ai_instructions() -> Result<()> {
         return Ok(());
     };
 
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Json)?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Human)?;
 
     // Verify AGENTS.md was created
     let agents_path = temp_dir.path().join("AGENTS.md");
@@ -45,7 +45,7 @@ fn test_init_scaffolds_docs_directory() -> Result<()> {
         return Ok(());
     };
 
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Json)?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Human)?;
 
     let docs_dir = temp_dir.path().join("docs");
     assert!(docs_dir.exists(), "docs directory was not created");
@@ -85,7 +85,7 @@ fn test_init_scaffolds_moon_config() -> Result<()> {
         .and_then(|n| n.to_str())
         .unwrap_or("project");
 
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Json)?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Human)?;
 
     let moon_dir = temp_dir.path().join(".moon");
     assert!(moon_dir.exists(), ".moon directory was not created");
@@ -122,7 +122,7 @@ fn test_init_scaffold_is_idempotent() -> Result<()> {
     };
 
     // Run first time
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Json)?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Human)?;
     
     let agents_path = temp_dir.path().join("AGENTS.md");
     let initial_content = fs::read_to_string(&agents_path)?;
@@ -131,7 +131,7 @@ fn test_init_scaffold_is_idempotent() -> Result<()> {
     fs::write(&agents_path, "modified content")?;
 
     // Run second time
-    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Json)?;
+    run_with_cwd_and_format(Some(temp_dir.path()), OutputFormat::Human)?;
 
     // Verify AGENTS.md was NOT overwritten (standard init behavior)
     let final_content = fs::read_to_string(&agents_path)?;

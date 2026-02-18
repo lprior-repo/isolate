@@ -42,7 +42,7 @@ pub async fn run_create(format: OutputFormat) -> Result<()> {
             });
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
-        OutputFormat::Json => {
+        OutputFormat::Human => {
             if backup_paths.is_empty() {
                 println!("No databases found to backup");
             } else {
@@ -88,7 +88,7 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
             let envelope = SchemaEnvelope::new("backup-list-response", "single", output);
             println!("{}", serde_json::to_string_pretty(&envelope)?);
         }
-        OutputFormat::Json => {
+        OutputFormat::Human => {
             if all_backups.is_empty() {
                 println!("No backups found");
             } else {
@@ -157,7 +157,7 @@ pub async fn run_restore(
             });
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
-        OutputFormat::Json => {
+        OutputFormat::Human => {
             println!("Restored {} from: {}", database, backup_path.display());
             println!("To: {}", target_path.display());
         }
@@ -185,7 +185,7 @@ pub async fn run_retention(format: OutputFormat) -> Result<()> {
             });
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
-        OutputFormat::Json => {
+        OutputFormat::Human => {
             if removed.is_empty() {
                 println!("No backups to remove (all within retention limit)");
             } else {
@@ -233,7 +233,7 @@ pub async fn run_status(format: OutputFormat) -> Result<()> {
             });
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
-        OutputFormat::Json => {
+        OutputFormat::Human => {
             println!(
                 "Backup Status (Retaining last {} backups per database):",
                 config.retention_count

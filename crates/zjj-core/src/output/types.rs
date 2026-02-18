@@ -3,6 +3,9 @@
 //! Each output line is a self-describing JSON object with a "type" field.
 //! This enables streaming JSONL output where each line can be parsed independently.
 
+#![allow(clippy::missing_const_for_fn)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::too_many_arguments)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
@@ -10,13 +13,13 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
+use std::path::PathBuf;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use thiserror::Error;
 
-use crate::types::SessionStatus;
-use crate::WorkspaceState;
+use crate::{types::SessionStatus, workspace_state::WorkspaceState};
 
 #[derive(Debug, Clone, Error)]
 pub enum OutputLineError {
@@ -42,10 +45,6 @@ pub enum OutputLine {
     Action(Action),
     Warning(Warning),
     Result(ResultOutput),
-    Stack(Stack),
-    QueueSummary(QueueSummary),
-    QueueEntry(QueueEntry),
-    Train(Train),
 }
 
 impl OutputLine {
@@ -59,10 +58,6 @@ impl OutputLine {
             Self::Action(_) => "action",
             Self::Warning(_) => "warning",
             Self::Result(_) => "result",
-            Self::Stack(_) => "stack",
-            Self::QueueSummary(_) => "queue_summary",
-            Self::QueueEntry(_) => "queue_entry",
-            Self::Train(_) => "train",
         }
     }
 }
@@ -87,6 +82,10 @@ pub enum SummaryType {
 }
 
 impl Summary {
+    /// Create a new summary entry.
+    ///
+    /// # Errors
+    /// Returns `OutputLineError::EmptyMessage` when the message is empty.
     pub fn new(type_field: SummaryType, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -123,6 +122,10 @@ pub struct SessionOutput {
 }
 
 impl SessionOutput {
+    /// Create a new session output entry.
+    ///
+    /// # Errors
+    /// Returns `OutputLineError::EmptySessionName` when the name is empty.
     pub fn new(
         name: String,
         status: SessionStatus,
@@ -187,6 +190,10 @@ pub enum IssueSeverity {
 }
 
 impl Issue {
+    /// Create a new issue entry.
+    ///
+    /// # Errors
+    /// Returns `OutputLineError::EmptyTitle` when the title is empty.
     pub fn new(
         id: String,
         title: String,
@@ -250,6 +257,11 @@ pub enum ActionStatus {
 }
 
 impl Plan {
+    /// Create a new plan entry.
+    ///
+    /// # Errors
+    /// Returns `OutputLineError::EmptyTitle` when the title is empty, and
+    /// `OutputLineError::EmptyDescription` when the description is empty.
     pub fn new(title: String, description: String) -> Result<Self, OutputLineError> {
         if title.trim().is_empty() {
             return Err(OutputLineError::EmptyTitle);
@@ -295,6 +307,7 @@ pub struct Action {
 }
 
 impl Action {
+    #[must_use]
     pub fn new(verb: String, target: String, status: ActionStatus) -> Self {
         Self {
             verb,
@@ -333,6 +346,10 @@ pub struct Context {
 }
 
 impl Warning {
+    /// Create a new warning entry.
+    ///
+    /// # Errors
+    /// Returns `OutputLineError::EmptyMessage` when the message is empty.
     pub fn new(code: String, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -379,6 +396,10 @@ pub enum ResultKind {
 }
 
 impl ResultOutput {
+    /// Create a successful result output entry.
+    ///
+    /// # Errors
+    /// Returns `OutputLineError::EmptyMessage` when the message is empty.
     pub fn success(kind: ResultKind, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -392,6 +413,10 @@ impl ResultOutput {
         })
     }
 
+    /// Create a failed result output entry.
+    ///
+    /// # Errors
+    /// Returns `OutputLineError::EmptyMessage` when the message is empty.
     pub fn failure(kind: ResultKind, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -446,7 +471,8 @@ pub struct RecoveryAction {
 }
 
 impl Recovery {
-    pub fn new(issue_id: String, assessment: Assessment) -> Self {
+    #[must_use]
+    pub const fn new(issue_id: String, assessment: Assessment) -> Self {
         Self {
             issue_id,
             assessment,
@@ -577,7 +603,7 @@ impl QueueSummary {
     }
 
     #[must_use]
-    pub fn with_counts(
+    pub const fn with_counts(
         self,
         total: u32,
         pending: u32,
@@ -596,12 +622,12 @@ impl QueueSummary {
     }
 
     #[must_use]
-    pub fn has_blockers(&self) -> bool {
+    pub const fn has_blockers(&self) -> bool {
         self.blocked > 0
     }
 
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.total == 0
     }
 }

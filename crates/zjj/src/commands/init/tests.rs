@@ -325,8 +325,8 @@ fn test_init_run_with_cwd_accepts_format() {
     // documents the expected signature:
     // pub fn run_with_cwd(cwd: Option<&Path>, format: OutputFormat) -> Result<()>
 
-    let format = OutputFormat::Json;
-    assert!(format.is_json());
+    let format = OutputFormat::Human;
+    assert!(format.is_human());
 }
 
 // ... rest of documentative tests unchanged
