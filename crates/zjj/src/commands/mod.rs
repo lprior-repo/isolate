@@ -158,16 +158,6 @@ pub async fn get_db_path() -> Result<PathBuf> {
     resolve_state_db_path(&port, repo_root).await
 }
 
-/// Get the merge queue database path for the current repository.
-///
-/// # Errors
-///
-/// Returns an error if JJ prerequisites are not met.
-pub async fn get_queue_db_path() -> Result<PathBuf> {
-    let data_dir = zjj_data_dir().await?;
-    Ok(data_dir.join("queue.db"))
-}
-
 /// Get the session database for the current repository
 ///
 /// # Errors

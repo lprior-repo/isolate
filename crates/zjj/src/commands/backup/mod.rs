@@ -112,7 +112,7 @@ pub async fn run_restore(
 
     // Determine target path
     let target_path = match database {
-        "state.db" | "queue.db" => root_path.join(".zjj").join(database),
+        "state.db" => root_path.join(".zjj").join(database),
         "beads.db" => root_path.join(".beads").join(database),
         _ => anyhow::bail!("Unknown database: {database}"),
     };
