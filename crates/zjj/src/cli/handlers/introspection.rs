@@ -357,48 +357,38 @@ mod tests {
     use zjj_core::OutputFormat;
 
     #[test]
-    fn test_output_format_eliminates_json_bool_field() {
+    fn test_output_format_single_variant() {
         let format1 = OutputFormat::Json;
         let format2 = OutputFormat::Json;
-        assert_ne!(format1, format2);
+        assert_eq!(format1, format2);
     }
 
     #[test]
-    fn test_output_format_bidirectional_conversion() {
-        let original_bool = true;
-        let format = OutputFormat::from_json_flag(original_bool);
-        let restored_bool = format.to_json_flag();
-        assert_eq!(original_bool, restored_bool);
-        let original_bool2 = false;
-        let format2 = OutputFormat::from_json_flag(original_bool2);
-        let restored_bool2 = format2.to_json_flag();
-        assert_eq!(original_bool2, restored_bool2);
+    fn test_output_format_from_json_flag_always_json() {
+        let format_true = OutputFormat::from_json_flag(true);
+        let format_false = OutputFormat::from_json_flag(false);
+        assert_eq!(format_true, OutputFormat::Json);
+        assert_eq!(format_false, OutputFormat::Json);
+    }
+
+    #[test]
+    fn test_output_format_to_json_flag_always_true() {
+        let format = OutputFormat::Json;
+        assert!(format.to_json_flag());
     }
 
     #[test]
     fn test_all_handlers_accept_output_format() {
-        let json_format = OutputFormat::Json;
-        let human_format = OutputFormat::Json;
-        assert!(json_format.is_json());
-        assert!(human_format.is_json());
-    }
-
-    #[test]
-    fn test_error_output_respects_format() {
         let format = OutputFormat::Json;
         assert!(format.is_json());
-        let format2 = OutputFormat::Json;
-        assert!(format2.is_json());
     }
 
     #[test]
     fn test_handlers_never_panic_on_format() {
-        for format in &[OutputFormat::Json, OutputFormat::Json] {
-            let _ = format.is_json();
-            let _ = format.is_json();
-            let _ = format.to_string();
-            let _ = format.to_json_flag();
-        }
+        let format = OutputFormat::Json;
+        let _ = format.is_json();
+        let _ = format.to_string();
+        let _ = format.to_json_flag();
     }
 
     #[test]

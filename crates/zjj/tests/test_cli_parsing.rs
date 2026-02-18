@@ -357,7 +357,16 @@ fn test_list_agent_with_no_matches() {
     // Filter by non-existent agent should return empty list
     let result = harness.zjj(&["list", "--agent", "nonexistent-agent"]);
     assert!(result.success, "Should succeed with no matches");
-    // Output should be empty or show "No sessions found"
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    if let Ok(json) = parsed {
+        let is_empty_array = json
+            .get("data")
+            .and_then(|data| data.as_array())
+            .is_some_and(Vec::is_empty);
+        assert!(is_empty_array, "Expected empty data array, got: {json}");
+        return;
+    }
+    // Human output fallback
     assert!(
         result.stdout.is_empty() || result.stdout.contains("No sessions"),
         "Should show empty result when no sessions match agent filter"
@@ -445,11 +454,20 @@ fn test_list_with_bead_no_matches() {
         "Should succeed with empty results\nStdout: {}\nStderr: {}",
         result.stdout, result.stderr
     );
-    assert!(
-        result.stdout.contains("No sessions found"),
-        "Should indicate no sessions found\nStdout: {}",
-        result.stdout
-    );
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    if let Ok(json) = parsed {
+        let is_empty_array = json
+            .get("data")
+            .and_then(|data| data.as_array())
+            .is_some_and(Vec::is_empty);
+        assert!(is_empty_array, "Expected empty data array, got: {json}");
+    } else {
+        assert!(
+            result.stdout.contains("No sessions found"),
+            "Should indicate no sessions found\nStdout: {}",
+            result.stdout
+        );
+    }
 }
 
 #[test]
@@ -1289,11 +1307,24 @@ fn test_add_example_json_does_not_create_session() {
 
     // Test: Example output should not create an actual session
     let list_result = harness.zjj(&["list"]);
-    assert!(
-        list_result.stdout.is_empty() || list_result.stdout.contains("No sessions"),
-        "Should not create a session (list output: {})",
-        list_result.stdout
-    );
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&list_result.stdout);
+    if let Ok(json) = parsed {
+        let is_empty_array = json
+            .get("data")
+            .and_then(|data| data.as_array())
+            .is_some_and(Vec::is_empty);
+        assert!(
+            is_empty_array,
+            "Should not create a session (list output: {})",
+            list_result.stdout
+        );
+    } else {
+        assert!(
+            list_result.stdout.is_empty() || list_result.stdout.contains("No sessions"),
+            "Should not create a session (list output: {})",
+            list_result.stdout
+        );
+    }
 }
 
 #[test]

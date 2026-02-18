@@ -379,21 +379,39 @@ fn test_checkpoint_list_human_format() {
     let result = harness.zjj(&["checkpoint", "list"]);
     assert!(result.success, "Command failed: {}", result.stderr);
 
-    assert!(result.stdout.contains("ID"), "Should have ID column header");
-    assert!(
-        result.stdout.contains("Created"),
-        "Should have Created column header"
-    );
-    assert!(
-        result.stdout.contains("Sessions"),
-        "Should have Sessions column header"
-    );
-    assert!(
-        result.stdout.contains("Description"),
-        "Should have Description column header"
-    );
-    assert!(
-        result.stdout.contains("test checkpoint"),
-        "Should show checkpoint description"
-    );
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&result.stdout);
+    if let Ok(json) = parsed {
+        assert_eq!(json["type"], "List");
+        let checkpoints = json["checkpoints"]
+            .as_array()
+            .expect("checkpoints should be an array");
+        let has_description = checkpoints.iter().any(|checkpoint| {
+            checkpoint
+                .get("description")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|description| description == "test checkpoint")
+        });
+        assert!(
+            has_description,
+            "Should show checkpoint description in JSON output"
+        );
+    } else {
+        assert!(result.stdout.contains("ID"), "Should have ID column header");
+        assert!(
+            result.stdout.contains("Created"),
+            "Should have Created column header"
+        );
+        assert!(
+            result.stdout.contains("Sessions"),
+            "Should have Sessions column header"
+        );
+        assert!(
+            result.stdout.contains("Description"),
+            "Should have Description column header"
+        );
+        assert!(
+            result.stdout.contains("test checkpoint"),
+            "Should show checkpoint description"
+        );
+    }
 }

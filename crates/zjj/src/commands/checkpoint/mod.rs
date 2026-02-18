@@ -1018,7 +1018,7 @@ mod tests {
             format: OutputFormat::Json,
         };
         assert!(matches!(args.action, CheckpointAction::Create { .. }));
-        assert!(!args.format.is_json());
+        assert!(args.format.is_json());
     }
 
     #[test]

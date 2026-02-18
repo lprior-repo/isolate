@@ -136,7 +136,8 @@ fn given_global_and_project_values_when_reading_with_global_flag_then_global_val
         global_read.stdout, global_read.stderr
     );
     assert!(
-        global_read.stdout.contains("main_branch = trunk"),
+        global_read.stdout.contains("\"key\": \"main_branch\"")
+            && global_read.stdout.contains("\"value\": \"trunk\""),
         "Global read should return the global value\nStdout: {}",
         global_read.stdout
     );

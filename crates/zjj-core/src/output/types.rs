@@ -95,6 +95,11 @@ pub enum SummaryType {
 }
 
 impl Summary {
+    /// Create a new summary line.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::EmptyMessage` if `message` is blank.
     pub fn new(type_field: SummaryType, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -131,6 +136,11 @@ pub struct SessionOutput {
 }
 
 impl SessionOutput {
+    /// Create a new session output line.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::EmptySessionName` if `name` is blank.
     pub fn new(
         name: String,
         status: SessionStatus,
@@ -195,6 +205,11 @@ pub enum IssueSeverity {
 }
 
 impl Issue {
+    /// Create a new issue output line.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::EmptyTitle` if `title` is blank.
     pub fn new(
         id: String,
         title: String,
@@ -258,6 +273,12 @@ pub enum ActionStatus {
 }
 
 impl Plan {
+    /// Create a new plan output line.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::EmptyTitle` if `title` is blank.
+    /// Returns `OutputLineError::EmptyDescription` if `description` is blank.
     pub fn new(title: String, description: String) -> Result<Self, OutputLineError> {
         if title.trim().is_empty() {
             return Err(OutputLineError::EmptyTitle);
@@ -352,6 +373,11 @@ pub struct Context {
 }
 
 impl Warning {
+    /// Create a new warning output line.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::EmptyMessage` if `message` is blank.
     pub fn new(code: String, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -398,6 +424,11 @@ pub enum ResultKind {
 }
 
 impl ResultOutput {
+    /// Create a successful result output line.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::EmptyMessage` if `message` is blank.
     pub fn success(kind: ResultKind, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -411,6 +442,11 @@ impl ResultOutput {
         })
     }
 
+    /// Create a failed result output line.
+    ///
+    /// # Errors
+    ///
+    /// Returns `OutputLineError::EmptyMessage` if `message` is blank.
     pub fn failure(kind: ResultKind, message: String) -> Result<Self, OutputLineError> {
         if message.trim().is_empty() {
             return Err(OutputLineError::EmptyMessage);
@@ -595,6 +631,15 @@ pub struct QueueSummary {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct QueueCounts {
+    pub total: u32,
+    pub pending: u32,
+    pub ready: u32,
+    pub blocked: u32,
+    pub in_progress: u32,
+}
+
 impl QueueSummary {
     #[must_use]
     pub fn new() -> Self {
@@ -609,31 +654,24 @@ impl QueueSummary {
     }
 
     #[must_use]
-    pub fn with_counts(
-        self,
-        total: u32,
-        pending: u32,
-        ready: u32,
-        blocked: u32,
-        in_progress: u32,
-    ) -> Self {
+    pub const fn with_counts(self, counts: QueueCounts) -> Self {
         Self {
-            total,
-            pending,
-            ready,
-            blocked,
-            in_progress,
+            total: counts.total,
+            pending: counts.pending,
+            ready: counts.ready,
+            blocked: counts.blocked,
+            in_progress: counts.in_progress,
             ..self
         }
     }
 
     #[must_use]
-    pub fn has_blockers(&self) -> bool {
+    pub const fn has_blockers(&self) -> bool {
         self.blocked > 0
     }
 
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.total == 0
     }
 }

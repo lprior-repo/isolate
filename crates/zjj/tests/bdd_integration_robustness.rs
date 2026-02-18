@@ -279,8 +279,9 @@ add session2 --no-zellij",
         .current_dir(repo_path)
         .assert()
         .success()
-        .stdout(predicate::str::contains("Locked session 'lock-test'"))
-        .stdout(predicate::str::contains("Expires at"));
+        .stdout(predicate::str::contains("\"session\": \"lock-test\""))
+        .stdout(predicate::str::contains("\"locked\": true"))
+        .stdout(predicate::str::contains("\"ttl_seconds\": 60"));
     }
 
     /// Scenario: Queue with priority

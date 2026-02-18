@@ -102,11 +102,7 @@ impl SpawnArgs {
             background: self.background,
             timeout_secs: self.timeout,
             idempotent: self.idempotent,
-            format: if self.format == "json" {
-                OutputFormat::Json
-            } else {
-                OutputFormat::Json
-            },
+            format: OutputFormat::Json,
             dry_run: self.dry_run,
         }
     }

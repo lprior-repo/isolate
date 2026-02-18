@@ -89,7 +89,7 @@ pub async fn run_list(format: OutputFormat) -> Result<()> {
 pub async fn run_restore(
     database: &str,
     timestamp: Option<&str>,
-    format: OutputFormat,
+    _format: OutputFormat,
 ) -> Result<()> {
     let root = jj_root().await.context("Failed to get JJ root")?;
     let root_path = std::path::PathBuf::from(&root);
@@ -134,7 +134,7 @@ pub async fn run_restore(
 /// Apply retention policy
 #[allow(dead_code)]
 // Part of public API for backup commands
-pub async fn run_retention(format: OutputFormat) -> Result<()> {
+pub async fn run_retention(_format: OutputFormat) -> Result<()> {
     let root = jj_root().await.context("Failed to get JJ root")?;
     let root_path = std::path::PathBuf::from(&root);
 
@@ -154,7 +154,7 @@ pub async fn run_retention(format: OutputFormat) -> Result<()> {
 /// Show backup status
 #[allow(dead_code)]
 // Part of public API for backup commands
-pub async fn run_status(format: OutputFormat) -> Result<()> {
+pub async fn run_status(_format: OutputFormat) -> Result<()> {
     let root = jj_root().await.context("Failed to get JJ root")?;
     let root_path = std::path::PathBuf::from(&root);
 

@@ -3,6 +3,7 @@
 use std::{io::Write, path::Path, time::SystemTime};
 
 use anyhow::{Context, Result};
+use fs4::fs_std::FileExt;
 use futures::StreamExt;
 use tokio::process::Command;
 use zjj_core::{
@@ -188,9 +189,8 @@ async fn detect_current_workspace_name() -> Result<Option<String>> {
 
     // 2. Open DB
     // Use helper that finds main repo DB even from workspace
-    let db = match get_session_db_with_workspace_detection().await {
-        Ok(db) => db,
-        Err(_) => return Ok(None), // DB access failed, can't resolve name
+    let Ok(db) = get_session_db_with_workspace_detection().await else {
+        return Ok(None);
     };
 
     // 3. Find session matching path
@@ -424,7 +424,6 @@ async fn sync_session_internal(
             .open(&lock_path)
             .context("Failed to open sync lock file")?;
 
-        use fs4::fs_std::FileExt;
         file.lock_exclusive()
             .context("Failed to acquire sync lock")?;
         Ok(file)

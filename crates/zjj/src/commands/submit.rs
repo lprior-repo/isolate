@@ -771,7 +771,7 @@ mod tests {
             message: None,
         };
 
-        assert!(!options.format.is_json());
+        assert!(options.format.is_json());
         assert!(!options.dry_run);
         assert!(!options.auto_commit);
         assert!(options.message.is_none());

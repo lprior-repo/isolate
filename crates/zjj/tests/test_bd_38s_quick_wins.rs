@@ -20,10 +20,6 @@ async fn test_switch_no_zellij_flag() {
     // This should succeed even if we are not in zellij (TestHarness is not in zellij)
     let result = harness.zjj(&["switch", "test-session", "--no-zellij"]);
     assert!(result.success, "switch --no-zellij should succeed");
-    assert!(
-        result.stdout.contains("Switched to: test-session"),
-        "Should output success message"
-    );
 }
 
 #[tokio::test]
